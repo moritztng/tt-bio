@@ -138,15 +138,29 @@ class JobManager:
 
     # -- submission --------------------------------------------------------
     def submit(self, payload: dict[str, Any]) -> Job:
+        # Validate types up front so a malformed request is a clean 400 (and can
+        # never reach the worker as e.g. a string-where-a-dict-was-expected,
+        # which would crash the run thread).
+        if not isinstance(payload, dict):
+            raise ValueError("request body must be a JSON object")
         kind = payload.get("kind")
         if kind not in ("predict", "design"):
             raise ValueError("kind must be 'predict' or 'design'")
+        params = payload.get("params") or {}
+        if not isinstance(params, dict):
+            raise ValueError("params must be an object")
+        files = payload.get("files") or []
+        if not isinstance(files, list):
+            raise ValueError("files must be a list")
+        model = payload.get("model")
+        protocol = payload.get("protocol")
         job_id = uuid.uuid4().hex[:12]
-        name = (payload.get("name") or "").strip() or f"{kind}-{job_id[:6]}"
+        name = str(payload.get("name") or "").strip() or f"{kind}-{job_id[:6]}"
         job = Job(
             id=job_id, kind=kind, name=name, created_at=time.time(),
-            params=payload.get("params") or {},
-            model=payload.get("model"), protocol=payload.get("protocol"),
+            params=params,
+            model=str(model) if model is not None else None,
+            protocol=str(protocol) if protocol is not None else None,
         )
         inputs = self._inputs_dir(job_id)
         inputs.mkdir(parents=True, exist_ok=True)
@@ -154,14 +168,15 @@ class JobManager:
 
         # Write any uploaded helper files (custom MSA, target CIF) verbatim so
         # relative references inside the input resolve (subprocess cwd=inputs).
-        for f in payload.get("files") or []:
-            fn = Path(f["name"]).name
-            (inputs / fn).write_text(f["content"])
+        for f in files:
+            if not isinstance(f, dict) or "name" not in f or "content" not in f:
+                raise ValueError("each file needs a name and content")
+            (inputs / Path(str(f["name"])).name).write_text(str(f["content"]))
 
         if kind == "predict":
             targets = payload.get("targets") or []
-            if not targets:
-                raise ValueError("predict job needs at least one target")
+            if not isinstance(targets, list) or not targets:
+                raise ValueError("predict job needs a non-empty list of targets")
             fallback = "fasta" if payload.get("input_format") == "fasta" else "yaml"
             # Sanitise names into safe, unique file stems — tt-bio keys each
             # result row and structure file by the input file's stem, so these
@@ -171,7 +186,9 @@ class JobManager:
             # handed to the wrong parser.
             seen: set[str] = set()
             for i, t in enumerate(targets):
-                stem = _safe_stem(Path(t.get("name") or "").stem, f"target_{i + 1}")
+                if not isinstance(t, dict) or not isinstance(t.get("content"), str):
+                    raise ValueError("each target needs a string 'content' field")
+                stem = _safe_stem(Path(str(t.get("name") or "")).stem, f"target_{i + 1}")
                 base, n = stem, 2
                 while stem in seen:
                     stem, n = f"{base}_{n}", n + 1
@@ -181,8 +198,8 @@ class JobManager:
             job.total = len(targets)
         else:  # design
             spec = payload.get("spec")
-            if not spec:
-                raise ValueError("design job needs a spec")
+            if not isinstance(spec, str) or not spec.strip():
+                raise ValueError("design job needs a spec string")
             (inputs / "design.yaml").write_text(spec)
 
         with self.lock:
@@ -238,7 +255,13 @@ class JobManager:
             job = self.jobs.get(job_id)
             if job is None or job.status == CANCELED:
                 continue
-            self._run_job(job)
+            try:
+                self._run_job(job)
+            except Exception as e:  # never let one job kill the single worker
+                job.status = FAILED
+                job.error = f"Internal error: {e}"
+                job.finished_at = time.time()
+                self._save_meta(job)
 
     def _run_job(self, job: Job) -> None:
         job.status = RUNNING

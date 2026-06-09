@@ -50,8 +50,14 @@ def create_app(workspace: str | os.PathLike | None = None) -> Flask:
     @app.post("/api/jobs")
     def create_job():
         try:
-            job = manager.submit(request.get_json(force=True) or {})
-        except (ValueError, KeyError) as e:
+            body = request.get_json(force=True, silent=True)
+        except Exception:
+            body = None
+        if not isinstance(body, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        try:
+            job = manager.submit(body)
+        except (ValueError, KeyError, TypeError) as e:
             return jsonify({"error": str(e)}), 400
         return jsonify(job.to_dict()), 201
 
