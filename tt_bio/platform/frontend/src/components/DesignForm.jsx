@@ -11,16 +11,20 @@ const DEFAULT_LEN = {
   "protein-redesign": "80..120",
 };
 
+// Single-quote a value as a YAML scalar (escaping ' as '') so user-entered
+// fields with ':', '#', '[' etc. can't break or inject into the generated spec.
+const yq = (v) => `'${String(v).replace(/'/g, "''")}'`;
+
 function genSpec({ target, targetId, binderId, lengthRange }) {
   return [
     "entities:",
     "  - protein:",
-    `      id: ${binderId || "B"}`,
-    `      sequence: ${lengthRange || "80..120"}`,
+    `      id: ${yq(binderId || "B")}`,
+    `      sequence: ${yq(lengthRange || "80..120")}`,
     "  - protein:",
-    `      id: ${targetId || "A"}`,
+    `      id: ${yq(targetId || "A")}`,
     "      msa: empty",
-    `      sequence: ${(target || "").trim().replace(/\s+/g, "")}`,
+    `      sequence: ${yq((target || "").trim().replace(/\s+/g, ""))}`,
     "",
   ].join("\n");
 }

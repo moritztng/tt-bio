@@ -21,23 +21,27 @@ function inputCaps(content) {
   return caps;
 }
 
+// Single-quote a value as a YAML scalar (escaping ' as '') so user-entered
+// fields with ':', '#', '[' etc. can't break or inject into the generated YAML.
+const yq = (v) => `'${String(v).replace(/'/g, "''")}'`;
+
 function genYaml(chains, affinityBinder) {
   const lines = ["version: 1", "sequences:"];
   for (const c of chains) {
     const id = c.id.trim() || "A";
     if (c.type === "ligand") {
       lines.push("  - ligand:");
-      lines.push(`      id: ${id}`);
-      if (c.ligandMode === "ccd") lines.push(`      ccd: ${c.ccd.trim()}`);
-      else lines.push(`      smiles: '${c.smiles.trim()}'`);
+      lines.push(`      id: ${yq(id)}`);
+      if (c.ligandMode === "ccd") lines.push(`      ccd: ${yq(c.ccd.trim())}`);
+      else lines.push(`      smiles: ${yq(c.smiles.trim())}`);
     } else {
       lines.push(`  - ${c.type}:`);
-      lines.push(`      id: ${id}`);
-      lines.push(`      sequence: ${c.sequence.trim().replace(/\s+/g, "")}`);
+      lines.push(`      id: ${yq(id)}`);
+      lines.push(`      sequence: ${yq(c.sequence.trim().replace(/\s+/g, ""))}`);
     }
   }
   if (affinityBinder) {
-    lines.push("properties:", "  - affinity:", `      binder: ${affinityBinder}`);
+    lines.push("properties:", "  - affinity:", `      binder: ${yq(affinityBinder)}`);
   }
   return lines.join("\n") + "\n";
 }
