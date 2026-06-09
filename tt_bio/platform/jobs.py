@@ -438,9 +438,10 @@ class JobManager:
 
     def _design_results(self, job: Job, rd: Path) -> dict[str, Any]:
         ranked = rd / "final_ranked_designs"
-        csv_path = ranked / "final_designs_metrics_30.csv"
-        if not csv_path.exists():
-            csv_path = ranked / "all_designs_metrics.csv"
+        # The ranked CSV and structure dir are named for the budget
+        # (final_designs_metrics_<N>.csv, final_<N>_designs), not always 30.
+        metrics = sorted(ranked.glob("final_designs_metrics_*.csv"))
+        csv_path = metrics[0] if metrics else (ranked / "all_designs_metrics.csv")
         if not csv_path.exists():
             return {"ready": False}
         keep = ["final_rank", "id", "designed_sequence", "num_design",
@@ -458,13 +459,13 @@ class JobManager:
             designs.sort(key=lambda r: float(r.get("final_rank") or 1e9))
         except Exception:
             pass
-        # Map ranks to structure files.
-        struct_dir = ranked / "final_30_designs"
-        files = sorted(struct_dir.glob("rank*.cif")) if struct_dir.exists() else []
+        # Map ranks to structure files in the budget-named dir (final_<N>_designs).
+        struct_dir = next((d for d in sorted(ranked.glob("final_*_designs")) if d.is_dir()), None)
+        files = sorted(struct_dir.glob("rank*.cif")) if struct_dir else []
         rank_files = {}
         for f in files:
             try:
-                rank_files[int(f.name.split("_")[0].replace("rank", ""))] = f"final_30_designs/{f.name}"
+                rank_files[int(f.name.split("_")[0].replace("rank", ""))] = f"{struct_dir.name}/{f.name}"
             except Exception:
                 pass
         for d in designs:
