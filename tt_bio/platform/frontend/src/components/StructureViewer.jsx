@@ -77,7 +77,12 @@ export default function StructureViewer({ url, format = "cif", downloadName }) {
     const structure = structRef.current;
     if (!plugin || !structure) return;
     const globalName = THEME[scheme];
-    await plugin.builders.structure.representation.applyPreset(structure, PresetStructureRepresentations.auto, {
+    // 'polymer-and-ligand' renders the *whole* complex — polymer as cartoon plus
+    // ligands/ions as ball-and-stick, carbohydrates, lipids and water — unlike
+    // 'auto', which downgrades to a polymer-only cartoon for some structures and
+    // hides the ligand. The chosen theme colours the polymer; ligand carbons stay
+    // element-coloured so they stand out.
+    await plugin.builders.structure.representation.applyPreset(structure, PresetStructureRepresentations["polymer-and-ligand"], {
       theme: { globalName, focus: { name: globalName } },
     });
   }
