@@ -122,14 +122,19 @@ class JobManager:
             pass
 
     def _load_existing(self) -> None:
+        field_names = {f.name for f in dataclasses.fields(Job)}
         for meta in sorted(self.workspace.glob("*/meta.json")):
+            # One corrupt or partially-written meta.json (e.g. the server was
+            # killed mid-write, or an old schema) must never block startup and
+            # lose access to every other job — skip it.
             try:
                 d = json.loads(meta.read_text())
+                if not isinstance(d, dict):
+                    continue
+                d.pop("progress", None)
+                job = Job(**{k: v for k, v in d.items() if k in field_names})
             except Exception:
                 continue
-            d.pop("progress", None)
-            field_names = {f.name for f in dataclasses.fields(Job)}
-            job = Job(**{k: v for k, v in d.items() if k in field_names})
             # A job that was mid-flight when the server stopped can't be resumed.
             if job.status in (QUEUED, RUNNING):
                 job.status = FAILED
