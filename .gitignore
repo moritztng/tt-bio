@@ -30,6 +30,11 @@ mgtbind_inputs/
 mgtbind/sample.csv
 mgtbind/comparison.csv
 
+# ai& Bio platform: frontend deps (built output in tt_bio/platform/static IS tracked)
+tt_bio/platform/frontend/node_modules/
+# platform job workspace (default lives in ~/.aiand-bio, but ignore if pointed here)
+.aiand-bio/
+
 # IDE
 .vscode/
 .idea/

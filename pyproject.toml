@@ -45,6 +45,8 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest"]
+# The ai& Bio web platform (`tt-bio serve`). Lightweight; not needed for CLI use.
+platform = ["flask>=3", "flask-cors"]
 
 [project.scripts]
 tt-bio = "tt_bio.main:cli"
@@ -59,6 +61,8 @@ include = ["tt_bio*"]
 # ship the vendored third-party license texts inside the wheel (see NOTICE)
 "tt_bio._vendor.esm" = ["LICENSE"]
 "tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
+# ship the built ai& Bio frontend so `tt-bio serve` works without a Node build
+"tt_bio.platform" = ["static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

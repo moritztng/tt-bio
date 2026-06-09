@@ -1062,6 +1062,23 @@ def install_deps():
     install_system_deps()
 
 
+@cli.command("serve")
+@click.option("--host", default="0.0.0.0", show_default=True)
+@click.option("--port", default=8080, type=int, show_default=True)
+@click.option("--workspace", default=None, type=click.Path(),
+              help="Directory for job working dirs (default: ~/.aiand-bio/jobs).")
+@click.option("--debug", is_flag=True)
+def serve_cmd(host, port, workspace, debug):
+    """Serve the ai& Bio web platform (Boltz-2 / ESMFold2 / BoltzGen) over HTTP."""
+    try:
+        from tt_bio.platform import serve
+    except ImportError as e:
+        raise click.ClickException(
+            f"The platform needs Flask: pip install flask flask-cors  ({e})"
+        )
+    serve(host=host, port=port, workspace=workspace, debug=debug)
+
+
 @cli.command("worker")
 @click.option("--connect", required=True, help="Controller URL, e.g. http://HOST:8765")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
