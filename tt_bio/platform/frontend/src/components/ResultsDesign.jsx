@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { api } from "../api.js";
 import { fmt } from "../ui.jsx";
-import StructureViewer from "./StructureViewer.jsx";
+import StructureViewer from "./StructureViewerLazy.jsx";
 
 export default function ResultsDesign({ jobId, results }) {
   const designs = results.designs || [];

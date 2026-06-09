@@ -208,9 +208,13 @@ th.sortable:hover { color: var(--ink); }
 .viewer-toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); flex-wrap: wrap; }
 .viewer-toolbar select { width: auto; }
 .viewer-toolbar .spacer { flex: 1; }
-.viewer-canvas { position: relative; width: 100%; height: 440px; background: #fff; }
+.viewer-canvas { position: relative; width: 100%; height: 460px; background: #fff; }
+.molstar-host { position: absolute; inset: 0; }
+.viewer-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); pointer-events: none; }
 .viewer-legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .legend-bar { width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #d7263d, #f46d43, #fee08b, #66bd63, #1a73c4); }
+/* AlphaFold pLDDT palette: low = orange, high = blue */
+.legend-bar.plddt { background: linear-gradient(90deg, #ff7d45, #ffdb13, #65cbf3, #0053d6); }
 
 /* ---------- log ---------- */
 pre.log {

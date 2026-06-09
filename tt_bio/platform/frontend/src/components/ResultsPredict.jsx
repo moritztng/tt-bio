@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { api } from "../api.js";
 import { fmt } from "../ui.jsx";
-import StructureViewer from "./StructureViewer.jsx";
+import StructureViewer from "./StructureViewerLazy.jsx";
 
 const COLS = [
   ["confidence_score", "Confidence"],

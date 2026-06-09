@@ -1,84 +1,88 @@
 import React, { useEffect, useRef, useState } from "react";
-import * as $3Dmol from "3dmol";
+import { createPluginUI } from "molstar/lib/mol-plugin-ui";
+import { renderReact18 } from "molstar/lib/mol-plugin-ui/react18";
+import { DefaultPluginUISpec } from "molstar/lib/mol-plugin-ui/spec";
+import { PluginSpec } from "molstar/lib/mol-plugin/spec";
+import { PresetStructureRepresentations } from "molstar/lib/mol-plugin-state/builder/structure/representation-preset";
+import { MAQualityAssessment } from "molstar/lib/extensions/model-archive/quality-assessment/behavior";
+import "molstar/lib/mol-plugin-ui/skin/light.scss";
 
-const CHAIN_PALETTE = ["#147598", "#c98a00", "#2f8f4e", "#7048e8", "#c70007", "#0f5d79", "#d6336c", "#1a73c4"];
+// Mol* — the same engine RCSB PDB and the AlphaFold DB use. tt-bio writes real
+// per-residue pLDDT into the mmCIF (_ma_qa_metric_local), so the native
+// 'plddt-confidence' theme colours predictions exactly like AlphaFold DB.
+const THEME = { plddt: "plddt-confidence", chain: "chain-id", spectrum: "sequence-id" };
 
 export default function StructureViewer({ url, format = "cif", downloadName }) {
   const hostRef = useRef(null);
-  const viewerRef = useRef(null);
+  const pluginRef = useRef(null);
+  const structRef = useRef(null);
   const [scheme, setScheme] = useState("plddt");
-  const [surface, setSurface] = useState(false);
   const [spin, setSpin] = useState(false);
   const [status, setStatus] = useState("loading");
-  const brange = useRef([0, 100]);
-  const chains = useRef([]);
 
-  // Create the viewer once.
+  // Create the plugin once.
   useEffect(() => {
-    const v = $3Dmol.createViewer(hostRef.current, { backgroundColor: "white" });
-    viewerRef.current = v;
-    return () => { try { v.clear(); } catch { /* noop */ } };
+    let disposed = false;
+    (async () => {
+      const base = DefaultPluginUISpec();
+      const spec = {
+        ...base,
+        behaviors: [...base.behaviors, PluginSpec.Behavior(MAQualityAssessment)],
+        layout: { initial: { isExpanded: false, showControls: false } },
+        components: { remoteState: "none" },
+      };
+      const plugin = await createPluginUI({ target: hostRef.current, spec, render: renderReact18 });
+      if (disposed) { plugin.dispose(); return; }
+      pluginRef.current = plugin;
+      await load();
+    })();
+    return () => { disposed = true; try { pluginRef.current?.dispose(); } catch { /* noop */ } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // (Re)load the model when the URL changes.
-  useEffect(() => {
-    const v = viewerRef.current;
-    if (!v || !url) return;
-    let cancelled = false;
-    setStatus("loading");
-    fetch(url)
-      .then((r) => r.text())
-      .then((text) => {
-        if (cancelled) return;
-        v.clear();
-        v.addModel(text, format);
-        const atoms = v.getModel().selectedAtoms({});
-        const bs = atoms.map((a) => a.b).filter((b) => typeof b === "number" && !Number.isNaN(b));
-        brange.current = bs.length ? [Math.min(...bs), Math.max(...bs)] : [0, 100];
-        chains.current = [...new Set(atoms.map((a) => a.chain))].filter(Boolean);
-        applyStyle();
-        v.zoomTo();
-        v.render();
-        v.resize();
-        setStatus("ok");
-      })
-      .catch(() => !cancelled && setStatus("error"));
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, format]);
+  useEffect(() => { if (pluginRef.current) load(); /* eslint-disable-next-line */ }, [url, format]);
+  useEffect(() => { if (pluginRef.current && structRef.current) applyTheme(); /* eslint-disable-next-line */ }, [scheme]);
 
-  // Restyle on scheme / surface change.
-  useEffect(() => { if (status === "ok") applyStyle(); /* eslint-disable-next-line */ }, [scheme, surface]);
-
-  // Spin toggle.
   useEffect(() => {
-    const v = viewerRef.current;
-    if (!v || status !== "ok") return;
-    v.spin(spin ? "y" : false);
+    const p = pluginRef.current;
+    if (!p?.canvas3d) return;
+    p.canvas3d.setProps({
+      trackball: { animate: spin ? { name: "spin", params: { speed: 1 } } : { name: "off", params: {} } },
+    });
   }, [spin, status]);
 
-  function applyStyle() {
-    const v = viewerRef.current;
-    if (!v) return;
-    v.setStyle({}, {});
-    const [mn, mx] = brange.current;
-    if (scheme === "plddt") {
-      v.setStyle({}, { cartoon: { colorscheme: { prop: "b", gradient: "roygb", min: mn, max: mx } } });
-    } else if (scheme === "spectrum") {
-      v.setStyle({}, { cartoon: { color: "spectrum" } });
-    } else { // chain
-      chains.current.forEach((c, i) =>
-        v.setStyle({ chain: c }, { cartoon: { color: CHAIN_PALETTE[i % CHAIN_PALETTE.length] } }));
+  async function load() {
+    const plugin = pluginRef.current;
+    if (!plugin || !url) return;
+    setStatus("loading");
+    try {
+      await plugin.clear();
+      const text = await (await fetch(url)).text();
+      const data = await plugin.builders.data.rawData({ data: text, label: downloadName });
+      const traj = await plugin.builders.structure.parseTrajectory(data, format === "pdb" ? "pdb" : "mmcif");
+      const model = await plugin.builders.structure.createModel(traj);
+      const structure = await plugin.builders.structure.createStructure(model);
+      structRef.current = structure;
+      await applyTheme();
+      plugin.managers.camera.reset();
+      setStatus("ok");
+    } catch (e) {
+      console.error("Mol* load failed", e);
+      setStatus("error");
     }
-    // Ligands / hetero atoms as sticks.
-    v.addStyle({ hetflag: true }, { stick: { radius: 0.18 }, sphere: { scale: 0.28 } });
-    v.removeAllSurfaces();
-    if (surface) {
-      try { v.addSurface($3Dmol.SurfaceType.VDW, { opacity: 0.65, color: "#dfe7ea" }, { hetflag: false }); }
-      catch { /* surface can fail on odd inputs */ }
-    }
-    v.render();
   }
+
+  async function applyTheme() {
+    const plugin = pluginRef.current;
+    const structure = structRef.current;
+    if (!plugin || !structure) return;
+    const globalName = THEME[scheme];
+    await plugin.builders.structure.representation.applyPreset(structure, PresetStructureRepresentations.auto, {
+      theme: { globalName, focus: { name: globalName } },
+    });
+  }
+
+  const resetView = () => { pluginRef.current?.managers.camera.reset(); };
 
   return (
     <div className="viewer-wrap">
@@ -86,22 +90,20 @@ export default function StructureViewer({ url, format = "cif", downloadName }) {
         <select value={scheme} onChange={(e) => setScheme(e.target.value)} className="btn sm" style={{ padding: "5px 9px" }}>
           <option value="plddt">Color: confidence (pLDDT)</option>
           <option value="chain">Color: chain</option>
-          <option value="spectrum">Color: spectrum</option>
+          <option value="spectrum">Color: spectrum (N→C)</option>
         </select>
-        <button className={`btn sm ${surface ? "primary" : ""}`} onClick={() => setSurface((s) => !s)}>Surface</button>
         <button className={`btn sm ${spin ? "primary" : ""}`} onClick={() => setSpin((s) => !s)}>Spin</button>
-        <button className="btn sm" onClick={() => { viewerRef.current?.zoomTo(); viewerRef.current?.render(); }}>Reset view</button>
+        <button className="btn sm" onClick={resetView}>Reset view</button>
         <div className="spacer" />
         {scheme === "plddt" && (
-          <div className="viewer-legend">
-            <span>low</span><span className="legend-bar" /><span>high</span>
-          </div>
+          <div className="viewer-legend"><span>low</span><span className="legend-bar plddt" /><span>high</span></div>
         )}
         {url && <a className="btn sm" href={url} download={downloadName}>Download</a>}
       </div>
-      <div className="viewer-canvas" ref={hostRef}>
-        {status === "loading" && <div className="empty">Rendering…</div>}
-        {status === "error" && <div className="empty">Could not load structure.</div>}
+      <div className="viewer-canvas">
+        <div ref={hostRef} className="molstar-host" />
+        {status === "loading" && <div className="viewer-overlay">Rendering…</div>}
+        {status === "error" && <div className="viewer-overlay">Could not load structure.</div>}
       </div>
     </div>
   );
