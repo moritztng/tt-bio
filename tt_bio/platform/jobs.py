@@ -162,10 +162,13 @@ class JobManager:
             targets = payload.get("targets") or []
             if not targets:
                 raise ValueError("predict job needs at least one target")
-            ext = "fasta" if payload.get("input_format") == "fasta" else "yaml"
+            fallback = "fasta" if payload.get("input_format") == "fasta" else "yaml"
             # Sanitise names into safe, unique file stems — tt-bio keys each
             # result row and structure file by the input file's stem, so these
             # must be filesystem-safe and collision-free even for huge batches.
+            # The extension is chosen per target from its *content*, not a single
+            # global toggle, so a mixed batch (some YAML, some FASTA) can never be
+            # handed to the wrong parser.
             seen: set[str] = set()
             for i, t in enumerate(targets):
                 stem = _safe_stem(Path(t.get("name") or "").stem, f"target_{i + 1}")
@@ -173,6 +176,7 @@ class JobManager:
                 while stem in seen:
                     stem, n = f"{base}_{n}", n + 1
                 seen.add(stem)
+                ext = _detect_ext(t["content"], fallback)
                 (inputs / f"{stem}.{ext}").write_text(t["content"])
             job.total = len(targets)
         else:  # design
@@ -273,12 +277,29 @@ class JobManager:
         if job.status == CANCELED:
             pass
         elif rc == 0:
-            job.status = SUCCEEDED
-            job.done = job.total or job.done
+            # tt-bio exits 0 even if individual targets failed. Treat a run
+            # where *every* target failed as a failed job rather than a
+            # misleading "succeeded".
+            if job.kind == "predict" and job.total:
+                ok = self._ok_count(job)
+                job.done = job.total
+                if ok == 0:
+                    job.status = FAILED
+                    job.error = "Every target failed — see the per-target status and the log below."
+                else:
+                    job.status = SUCCEEDED
+            else:
+                job.status = SUCCEEDED
+                job.done = job.total or job.done
         else:
             job.status = FAILED
             job.error = self._tail_error(job)
         self._save_meta(job)
+
+    def _ok_count(self, job: Job) -> int:
+        rd = self._results_dir(job)
+        rows = (_read_json(rd / "results.json") if rd else None) or []
+        return sum(1 for r in rows if isinstance(r, dict) and r.get("status") in (None, "ok"))
 
     # -- progress / results parsing ---------------------------------------
     def _results_dir(self, job: Job) -> Path | None:
@@ -479,3 +500,14 @@ def _read_json(path: Path) -> Any:
 def _safe_stem(name: str, fallback: str) -> str:
     s = re.sub(r"[^A-Za-z0-9._-]+", "_", (name or "").strip()).strip("._-")
     return s[:80] or fallback
+
+
+def _detect_ext(content: str, fallback: str = "yaml") -> str:
+    """Pick the right input extension from the content itself, so YAML is never
+    handed to the FASTA parser (or vice-versa)."""
+    s = (content or "").lstrip()
+    if s.startswith(">"):
+        return "fasta"
+    if s.startswith("version:") or "sequences:" in s or "entities:" in s:
+        return "yaml"
+    return fallback

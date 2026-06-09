@@ -178,7 +178,7 @@ constraints:
         "model": "esmfold2-fast",
         "name": "Fast single-sequence fold",
         "format": "fasta",
-        "content": """>my_protein|protein
+        "content": """>A|protein
 QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISAIVKAAQKKAWKELAVTVLRFAKANGLKTNAIIVAGQLALWAVQCG
 """,
     },

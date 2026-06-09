@@ -276,7 +276,7 @@ function ComposePanel(p) {
       <div className="field">
         <label>{format === "fasta" ? "FASTA" : "Input (YAML)"}</label>
         <textarea className="code" rows={10} spellCheck={false} value={targets[active]?.content || ""}
-          placeholder={format === "fasta" ? ">my_protein|protein\nMVTPEG..." : "version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MVTPEG..."}
+          placeholder={format === "fasta" ? ">A|protein\nMVTPEG..." : "version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MVTPEG..."}
           onChange={(e) => updTarget(active, { content: e.target.value })} />
         <div className="hint">Full tt-bio input schema — chains, ligands, constraints, templates, modifications, custom MSA. Use the quick builder or write YAML directly.</div>
       </div>

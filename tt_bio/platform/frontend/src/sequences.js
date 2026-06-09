@@ -55,7 +55,9 @@ export function parseSequences(text, filename = "") {
 // Turn a record into a per-target input file for the chosen model.
 export function recordToTarget(rec, model) {
   if (model && model.startsWith("esmfold")) {
-    return { name: rec.name, content: `>${rec.name}|protein\n${rec.sequence}\n` };
+    // Chain id is always "A" — the record name becomes the file name (and thus
+    // the result id). Using a long arbitrary name as the chain id breaks tt-bio.
+    return { name: rec.name, content: `>A|protein\n${rec.sequence}\n` };
   }
   return {
     name: rec.name,
