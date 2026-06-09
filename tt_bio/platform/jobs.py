@@ -249,9 +249,18 @@ class JobManager:
         with open(log, "w") as logf:
             logf.write(f"$ {' '.join(shlex.quote(c) for c in cmd)}\n\n")
             logf.flush()
+            # Quiet third-party noise that otherwise floods the job log: the
+            # huggingface_hub "Fetching N files" progress bars and tokenizer
+            # fork warnings. (Spurious tt-bio warnings are fixed at the source.)
+            env = {
+                **os.environ,
+                "HF_HUB_DISABLE_PROGRESS_BARS": "1",
+                "HF_HUB_DISABLE_TELEMETRY": "1",
+                "TOKENIZERS_PARALLELISM": "false",
+            }
             try:
                 proc = subprocess.Popen(
-                    cmd, cwd=str(self._inputs_dir(job.id)),
+                    cmd, cwd=str(self._inputs_dir(job.id)), env=env,
                     stdout=logf, stderr=subprocess.STDOUT,
                     start_new_session=True,  # own process group, so cancel kills children
                 )
