@@ -71,7 +71,8 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const loadExample = (id) => {
     const ex = catalog.examples.find((e) => e.id === id);
     if (!ex) return;
-    onModelChange(ex.model || "boltz2");
+    // Load the input only — keep the model the user picked. (Examples used to
+    // silently switch the model card, which was confusing.)
     setFormat(ex.format || "yaml");
     setInputMode("compose");
     setTargets((ts) => {
