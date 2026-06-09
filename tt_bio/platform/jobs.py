@@ -495,8 +495,10 @@ class JobManager:
             return None
         base = (rd / "structures") if job.kind == "predict" else (rd / "final_ranked_designs")
         target = (base / relpath).resolve()
-        # Contain to the results dir.
-        if not str(target).startswith(str(rd.resolve())):
+        # Contain to the results dir. Use a real path-boundary check, not a
+        # string prefix (which would let a sibling dir sharing a name-prefix,
+        # e.g. <rd>_evil, slip through).
+        if not target.is_relative_to(rd.resolve()):
             return None
         return target if target.exists() else None
 
