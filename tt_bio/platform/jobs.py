@@ -356,9 +356,25 @@ class JobManager:
         except Exception:
             return ""
 
+    # Benign teardown chatter ttnn prints at process exit — never the real error.
+    _NOISE = ("nanobind", "leaked instance", "leaked type", "leaked function",
+              "- leaked", "skipped remainder", "reference counting issue", "refleaks")
+
     def _tail_error(self, job: Job) -> str:
-        tail = self._tail(job, 4000).strip().splitlines()
-        return "\n".join(tail[-12:]) if tail else "Job failed (see log)."
+        # Read a generous tail and drop the ttnn nanobind teardown block, which
+        # is long enough to otherwise crowd the real traceback out of the tail.
+        raw = self._tail(job, 16000).splitlines()
+        lines = [ln for ln in raw if ln.strip()
+                 and not any(n in ln for n in self._NOISE)]
+        if not lines:
+            return "Job failed (see log)."
+        # Prefer the most specific exception line (+ the line above for context).
+        markers = ("Error:", "Exception:", "RuntimeError", "ValueError", "KeyError",
+                   "TypeError", "AssertionError", "OSError", "HTTPError")
+        for i in range(len(lines) - 1, -1, -1):
+            if any(m in lines[i] for m in markers):
+                return "\n".join(lines[max(0, i - 1): i + 1])
+        return "\n".join(lines[-12:])
 
     # -- public read API ---------------------------------------------------
     def list(self) -> list[dict[str, Any]]:
