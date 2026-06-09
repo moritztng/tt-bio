@@ -32,6 +32,7 @@ def create_app(workspace: str | os.PathLike | None = None) -> Flask:
     app = Flask(__name__, static_folder=None)
     CORS(app)  # allow the Vite dev server to reach the API in development
     app.config["manager"] = manager
+    app.config["MAX_CONTENT_LENGTH"] = 512 * 1024 * 1024  # room for bulk uploads
 
     # ---- API ----------------------------------------------------------
     @app.get("/api/health")
@@ -71,6 +72,13 @@ def create_app(workspace: str | os.PathLike | None = None) -> Flask:
         if not path:
             return jsonify({"error": "not found"}), 404
         return send_file(path, as_attachment=False, download_name=path.name)
+
+    @app.get("/api/jobs/<job_id>/archive")
+    def archive_job(job_id):
+        path = manager.archive(job_id)
+        if not path:
+            return jsonify({"error": "no results yet"}), 404
+        return send_file(path, as_attachment=True, download_name=f"{job_id}-results.zip")
 
     @app.post("/api/jobs/<job_id>/cancel")
     def cancel_job(job_id):

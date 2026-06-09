@@ -185,6 +185,24 @@ table.data tr.clickable:hover td { background: var(--surface-2); }
 .metric { font-family: var(--mono); font-size: 12.5px; }
 .seqcell { font-family: var(--mono); font-size: 11.5px; word-break: break-all; max-width: 360px; color: var(--muted); }
 
+/* dropzone */
+.dropzone {
+  border: 1.5px dashed var(--border-strong); border-radius: var(--radius);
+  padding: 32px 20px; text-align: center; cursor: pointer; color: var(--muted);
+  background: var(--surface-2); transition: all 0.12s ease;
+}
+.dropzone:hover, .dropzone.drag { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.dropzone strong { color: var(--ink); }
+
+/* results toolbar */
+.results-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.results-toolbar input[type="text"] { max-width: 240px; }
+.results-toolbar .spacer { flex: 1; }
+.table-scroll { max-height: 460px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.table-scroll table.data th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--ink); }
+
 /* ---------- structure viewer ---------- */
 .viewer-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
 .viewer-toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); flex-wrap: wrap; }

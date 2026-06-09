@@ -16,6 +16,7 @@ import csv
 import dataclasses
 import json
 import os
+import re
 import shlex
 import signal
 import subprocess
@@ -23,6 +24,7 @@ import sys
 import threading
 import time
 import uuid
+import zipfile
 from pathlib import Path
 from queue import Queue
 from typing import Any
@@ -161,9 +163,17 @@ class JobManager:
             if not targets:
                 raise ValueError("predict job needs at least one target")
             ext = "fasta" if payload.get("input_format") == "fasta" else "yaml"
-            for t in targets:
-                tname = Path(t.get("name") or f"target_{uuid.uuid4().hex[:4]}").stem
-                (inputs / f"{tname}.{ext}").write_text(t["content"])
+            # Sanitise names into safe, unique file stems — tt-bio keys each
+            # result row and structure file by the input file's stem, so these
+            # must be filesystem-safe and collision-free even for huge batches.
+            seen: set[str] = set()
+            for i, t in enumerate(targets):
+                stem = _safe_stem(Path(t.get("name") or "").stem, f"target_{i + 1}")
+                base, n = stem, 2
+                while stem in seen:
+                    stem, n = f"{base}_{n}", n + 1
+                seen.add(stem)
+                (inputs / f"{stem}.{ext}").write_text(t["content"])
             job.total = len(targets)
         else:  # design
             spec = payload.get("spec")
@@ -413,6 +423,22 @@ class JobManager:
         path = self._log_path(job_id)
         return path.read_text(errors="replace") if path.exists() else ""
 
+    def archive(self, job_id: str) -> Path | None:
+        """Zip the whole results directory (structures + results.json / CSVs) for
+        bulk download. Rebuilt on demand."""
+        job = self.jobs.get(job_id)
+        if job is None:
+            return None
+        rd = self._results_dir(job)
+        if not rd or not rd.exists():
+            return None
+        zpath = self.job_dir(job_id) / "results.zip"
+        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in rd.rglob("*"):
+                if f.is_file() and f.resolve() != zpath.resolve():
+                    z.write(f, f.relative_to(rd))
+        return zpath
+
     def cancel(self, job_id: str) -> bool:
         job = self.jobs.get(job_id)
         if job is None:
@@ -448,3 +474,8 @@ def _read_json(path: Path) -> Any:
         return json.loads(path.read_text())
     except Exception:
         return None
+
+
+def _safe_stem(name: str, fallback: str) -> str:
+    s = re.sub(r"[^A-Za-z0-9._-]+", "_", (name or "").strip()).strip("._-")
+    return s[:80] or fallback
