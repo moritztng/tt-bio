@@ -6,6 +6,14 @@ import { parseSequences, recordToTarget } from "../sequences.js";
 let _tid = 1;
 const newTarget = (content = "", name = "") => ({ key: _tid++, name, content });
 
+// ESMFold-2 folds a single protein chain only — given a ligand, nucleic acid or
+// affinity request it silently drops them and folds just the protein. Detect
+// those inputs so we can steer the user to Boltz-2 instead of returning a
+// misleading "successful" protein-only result.
+function esmIncompatible(content) {
+  return /(^|\n)\s*-?\s*(ligand|dna|rna)\s*:/i.test(content) || /affinity\s*:/i.test(content);
+}
+
 function genYaml(chains, affinityBinder) {
   const lines = ["version: 1", "sequences:"];
   for (const c of chains) {
@@ -118,6 +126,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         inputFormat = format;
         payloadTargets = clean.map((t, i) => ({ name: t.name.trim() || `target_${i + 1}`, content: t.content }));
       }
+      if (model.startsWith("esmfold") && payloadTargets.some((t) => esmIncompatible(t.content))) {
+        onError("ESMFold-2 folds a single protein sequence only — it would ignore the ligand / nucleic acid / affinity in this input. Switch to Boltz-2 for those.");
+        setSubmitting(false); return;
+      }
       const job = await api.submit({
         kind: "predict", name: name.trim(), model, input_format: inputFormat,
         targets: payloadTargets, params,
@@ -132,6 +144,8 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
 
   const predictExamples = catalog.examples.filter((e) => e.kind === "predict");
   const bigBatch = inputMode === "bulk" && bulk.length > 200 && model === "boltz2" && params.use_msa_server;
+  const esmMismatch = model.startsWith("esmfold") && inputMode !== "bulk"
+    && targets.some((t) => t.content.trim() && esmIncompatible(t.content));
 
   return (
     <>
@@ -194,11 +208,19 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         </details>
       </div>
 
+      {esmMismatch && (
+        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
+          <strong style={{ color: "var(--warn)" }}>⚠ Model / input mismatch.</strong> This input has a
+          ligand, nucleic acid, or affinity request, but <strong>ESMFold-2 folds a single protein sequence only</strong> and
+          would silently ignore them. Switch to <strong>Boltz-2</strong> for ligands, complexes, nucleic acids, or binding affinity.
+        </div>
+      )}
+
       <div className="flex-between">
         <div className="field" style={{ flex: 1, marginRight: 16, marginBottom: 0 }}>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
-        <button className="btn primary" disabled={submitting} onClick={submit}>
+        <button className="btn primary" disabled={submitting || esmMismatch} onClick={submit}>
           {submitting ? "Submitting…" : inputMode === "bulk" && bulk.length ? `Run ${bulk.length} predictions →` : "Run prediction →"}
         </button>
       </div>
