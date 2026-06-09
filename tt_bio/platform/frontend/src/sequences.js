@@ -49,7 +49,17 @@ export function parseCsv(text) {
 // Decide by content/extension, then parse.
 export function parseSequences(text, filename = "") {
   const looksCsv = /\.csv$/i.test(filename) || (!text.includes(">") && text.includes(","));
-  return looksCsv ? parseCsv(text) : parseFasta(text);
+  let recs = looksCsv ? parseCsv(text) : parseFasta(text);
+  // Fallback: a bare sequence or a plain newline-separated list of sequences
+  // (no FASTA headers, no CSV). Only when nothing else matched and the input
+  // isn't FASTA/CSV, so we never mask a malformed-FASTA error.
+  if (!recs.length && !text.includes(">") && !looksCsv) {
+    recs = text.split(/\r?\n/)
+      .map((l) => l.replace(/\s+/g, ""))
+      .filter((l) => /^[A-Za-z]+$/.test(l))
+      .map((seq, i) => ({ name: `seq_${i + 1}`, sequence: seq }));
+  }
+  return recs;
 }
 
 // Turn a record into a per-target input file for the chosen model.
