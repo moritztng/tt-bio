@@ -116,8 +116,14 @@ class JobManager:
 
     # -- persistence -------------------------------------------------------
     def _save_meta(self, job: Job) -> None:
+        # Write atomically (temp file + rename) so a crash mid-write can never
+        # leave a truncated/corrupt meta.json — readers see either the old file
+        # or the complete new one.
         try:
-            self._meta_path(job.id).write_text(json.dumps(job.to_dict(), indent=2))
+            path = self._meta_path(job.id)
+            tmp = path.with_name(f"{path.name}.tmp.{uuid.uuid4().hex}")
+            tmp.write_text(json.dumps(job.to_dict(), indent=2))
+            os.replace(tmp, path)
         except Exception:
             pass
 
