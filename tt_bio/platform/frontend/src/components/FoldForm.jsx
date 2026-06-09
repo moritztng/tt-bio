@@ -6,12 +6,19 @@ import { parseSequences, recordToTarget } from "../sequences.js";
 let _tid = 1;
 const newTarget = (content = "", name = "") => ({ key: _tid++, name, content });
 
-// ESMFold-2 folds a single protein chain only — given a ligand, nucleic acid or
-// affinity request it silently drops them and folds just the protein. Detect
-// those inputs so we can steer the user to Boltz-2 instead of returning a
-// misleading "successful" protein-only result.
-function esmIncompatible(content) {
-  return /(^|\n)\s*-?\s*(ligand|dna|rna)\s*:/i.test(content) || /affinity\s*:/i.test(content);
+// Which capabilities an input actually exercises — so we can refuse it on a
+// model that lacks them (e.g. ESMFold silently drops ligands/nucleic/affinity).
+const CAP_LABEL = {
+  ligands: "ligands", nucleic: "nucleic acids (DNA/RNA)",
+  affinity: "binding affinity", constraints: "constraints",
+};
+function inputCaps(content) {
+  const caps = new Set();
+  if (/(^|\n)\s*-?\s*ligand\s*:/i.test(content)) caps.add("ligands");
+  if (/(^|\n)\s*-?\s*(dna|rna)\s*:/i.test(content)) caps.add("nucleic");
+  if (/affinity\s*:/i.test(content)) caps.add("affinity");
+  if (/(^|\n)\s*constraints\s*:/i.test(content)) caps.add("constraints");
+  return caps;
 }
 
 function genYaml(chains, affinityBinder) {
@@ -57,6 +64,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const [affinityBinder, setAffinityBinder] = useState("");
 
   const modelInfo = useMemo(() => catalog.models.find((m) => m.id === model), [catalog, model]);
+  const caps = useMemo(() => new Set(modelInfo?.caps || []), [modelInfo]);
   const setParam = (k, v) => setParams((p) => ({ ...p, [k]: v }));
   const updTarget = (i, patch) => setTargets((ts) => ts.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
 
@@ -79,6 +87,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const loadExample = (id) => {
     const ex = catalog.examples.find((e) => e.id === id);
     if (!ex) return;
+    if ((ex.requires || []).some((c) => !caps.has(c))) {
+      onError(`The "${ex.name}" example needs features ${modelInfo.name} doesn't support. Switch to Boltz-2 to use it.`);
+      return;
+    }
     // Load the input only — keep the model the user picked. (Examples used to
     // silently switch the model card, which was confusing.)
     setFormat(ex.format || "yaml");
@@ -126,8 +138,9 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         inputFormat = format;
         payloadTargets = clean.map((t, i) => ({ name: t.name.trim() || `target_${i + 1}`, content: t.content }));
       }
-      if (model.startsWith("esmfold") && payloadTargets.some((t) => esmIncompatible(t.content))) {
-        onError("ESMFold-2 folds a single protein sequence only — it would ignore the ligand / nucleic acid / affinity in this input. Switch to Boltz-2 for those.");
+      const missing = [...new Set(payloadTargets.flatMap((t) => [...inputCaps(t.content)]))].filter((c) => !caps.has(c));
+      if (missing.length) {
+        onError(`${modelInfo.name} doesn't support ${missing.map((c) => CAP_LABEL[c]).join(", ")} — it would silently ignore that. Switch to a model that does (e.g. Boltz-2).`);
         setSubmitting(false); return;
       }
       const job = await api.submit({
@@ -144,8 +157,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
 
   const predictExamples = catalog.examples.filter((e) => e.kind === "predict");
   const bigBatch = inputMode === "bulk" && bulk.length > 200 && model === "boltz2" && params.use_msa_server;
-  const esmMismatch = model.startsWith("esmfold") && inputMode !== "bulk"
-    && targets.some((t) => t.content.trim() && esmIncompatible(t.content));
+  const exampleOk = (e) => (e.requires || []).every((c) => caps.has(c));
+  const missingCaps = inputMode === "bulk" ? []
+    : [...new Set(targets.flatMap((t) => (t.content.trim() ? [...inputCaps(t.content)] : [])))].filter((c) => !caps.has(c));
+  const esmMismatch = missingCaps.length > 0;
 
   return (
     <>
@@ -176,7 +191,11 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
               </select>
               <select className="btn sm" style={{ padding: "6px 10px" }} value="" onChange={(e) => loadExample(e.target.value)}>
                 <option value="">Load example…</option>
-                {predictExamples.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                {predictExamples.map((e) => (
+                  <option key={e.id} value={e.id} disabled={!exampleOk(e)}>
+                    {e.name}{exampleOk(e) ? "" : " — needs Boltz-2"}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -193,7 +212,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
             updTarget={updTarget} format={format} newTarget={newTarget}
             showBuilder={showBuilder} setShowBuilder={setShowBuilder}
             chains={chains} addChain={addChain} updChain={updChain} rmChain={rmChain}
-            ligandChains={ligandChains} modelInfo={modelInfo} affinity={affinity} setAffinity={setAffinity}
+            ligandChains={ligandChains} modelInfo={modelInfo} caps={caps} affinity={affinity} setAffinity={setAffinity}
             affinityBinder={affinityBinder} setAffinityBinder={setAffinityBinder} applyBuilder={applyBuilder}
           />
         )}
@@ -203,16 +222,16 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         <details className="collapse">
           <summary>Advanced settings</summary>
           <div className="mt8">
-            <ParamControls params={catalog.predict_params} values={params} onChange={setParam} />
+            <ParamControls params={catalog.predict_params} values={params} onChange={setParam} caps={caps} modelName={modelInfo?.name} />
           </div>
         </details>
       </div>
 
       {esmMismatch && (
         <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
-          <strong style={{ color: "var(--warn)" }}>⚠ Model / input mismatch.</strong> This input has a
-          ligand, nucleic acid, or affinity request, but <strong>ESMFold-2 folds a single protein sequence only</strong> and
-          would silently ignore them. Switch to <strong>Boltz-2</strong> for ligands, complexes, nucleic acids, or binding affinity.
+          <strong style={{ color: "var(--warn)" }}>⚠ Model / input mismatch.</strong> This input uses{" "}
+          <strong>{missingCaps.map((c) => CAP_LABEL[c]).join(", ")}</strong>, which <strong>{modelInfo?.name}</strong> doesn't
+          support — it would silently ignore them. Switch to <strong>Boltz-2</strong> for ligands, nucleic acids, binding affinity, or constraints.
         </div>
       )}
 
@@ -337,11 +356,11 @@ function ComposePanel(p) {
           ))}
           <div className="flex">
             <button className="btn sm" onClick={() => p.addChain("protein")}>+ Protein</button>
-            <button className="btn sm" onClick={() => p.addChain("ligand")}>+ Ligand</button>
-            <button className="btn sm" onClick={() => p.addChain("dna")}>+ DNA</button>
-            <button className="btn sm" onClick={() => p.addChain("rna")}>+ RNA</button>
+            <button className="btn sm" disabled={!p.caps.has("ligands")} title={p.caps.has("ligands") ? "" : `${p.modelInfo?.name} doesn't support ligands`} onClick={() => p.addChain("ligand")}>+ Ligand</button>
+            <button className="btn sm" disabled={!p.caps.has("nucleic")} title={p.caps.has("nucleic") ? "" : `${p.modelInfo?.name} doesn't support nucleic acids`} onClick={() => p.addChain("dna")}>+ DNA</button>
+            <button className="btn sm" disabled={!p.caps.has("nucleic")} title={p.caps.has("nucleic") ? "" : `${p.modelInfo?.name} doesn't support nucleic acids`} onClick={() => p.addChain("rna")}>+ RNA</button>
           </div>
-          {p.modelInfo?.supports_affinity && p.ligandChains.length > 0 && (
+          {p.caps.has("affinity") && p.ligandChains.length > 0 && (
             <div className="checkline mt16">
               <input type="checkbox" id="aff" checked={p.affinity} onChange={(e) => p.setAffinity(e.target.checked)} />
               <div className="cl-body">

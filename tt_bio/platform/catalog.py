@@ -11,6 +11,12 @@ from __future__ import annotations
 # --- Models offered for structure / affinity prediction (the `predict` path) ---
 # Described as "improved successors of AlphaFold 3" per the launch positioning;
 # we do not host AlphaFold itself.
+# `caps` is the single source of truth for what each model can do; the frontend
+# uses it to filter examples, disable builder controls / params, and block
+# impossible inputs. Verified empirically: ESMFold folds one OR MORE protein
+# chains, but silently drops ligands / nucleic acids and computes no affinity;
+# ESMFold-2 Fast additionally has no MSA encoder.
+#   msa · ligands · nucleic · affinity · constraints · multichain · modifications · potentials · pae
 MODELS = [
     {
         "id": "boltz2",
@@ -21,22 +27,19 @@ MODELS = [
             "ligand complexes and predicts binding affinity. Uses an MSA."
         ),
         "needs_msa": True,
-        "supports_affinity": True,
-        "supports_ligands": True,
-        "supports_nucleic": True,
+        "caps": ["msa", "ligands", "nucleic", "affinity", "constraints",
+                 "multichain", "modifications", "potentials", "pae"],
     },
     {
         "id": "esmfold2",
         "name": "ESMFold-2",
-        "tagline": "Fast single-sequence protein folding (MSA optional).",
+        "tagline": "Protein folding, with or without an MSA.",
         "blurb": (
             "Language-model folding. No MSA required, but will use one if supplied "
-            "for extra accuracy. Protein-only, single chain."
+            "for extra accuracy. Protein chains only — no ligands, nucleic acids, or affinity."
         ),
         "needs_msa": False,
-        "supports_affinity": False,
-        "supports_ligands": False,
-        "supports_nucleic": False,
+        "caps": ["msa", "multichain", "modifications"],
     },
     {
         "id": "esmfold2-fast",
@@ -44,14 +47,20 @@ MODELS = [
         "tagline": "The fastest fold — block-fp8, no MSA encoder.",
         "blurb": (
             "A lightweight ESMFold-2 variant for maximum throughput. Always folds "
-            "single-sequence; accuracy is typically very close to ESMFold-2."
+            "single-sequence (no MSA); protein chains only. Accuracy typically very close to ESMFold-2."
         ),
         "needs_msa": False,
-        "supports_affinity": False,
-        "supports_ligands": False,
-        "supports_nucleic": False,
+        "caps": ["multichain", "modifications"],
     },
 ]
+
+# Input feature -> capability it requires. Used to detect impossible inputs.
+FEATURE_CAPS = {
+    "ligands": "ligands",
+    "nucleic": "nucleic",
+    "affinity": "affinity",
+    "constraints": "constraints",
+}
 
 # --- BoltzGen design protocols (the `gen run` path) ---
 PROTOCOLS = [
@@ -70,7 +79,7 @@ ACCELERATORS = ["tenstorrent", "gpu", "cpu"]
 # --- Tunable parameters, surfaced under "Advanced settings" (progressive disclosure) ---
 # Each entry: key, label, type (bool|int|float|enum|text), default, help, [choices].
 PREDICT_PARAMS = [
-    {"key": "use_msa_server", "label": "Generate MSA (ColabFold)", "type": "bool", "default": True,
+    {"key": "use_msa_server", "label": "Generate MSA (ColabFold)", "type": "bool", "default": True, "cap": "msa",
      "help": "Fetch the MSA from the ColabFold server. Required for Boltz-2 unless your input supplies its own MSA. Needs internet on the server."},
     {"key": "fast", "label": "Fast mode (block-fp8)", "type": "bool", "default": False,
      "help": "Lower precision, higher throughput. Tenstorrent only."},
@@ -79,12 +88,12 @@ PREDICT_PARAMS = [
     {"key": "diffusion_samples", "label": "Diffusion samples", "type": "int", "default": 1, "help": "Number of structures sampled per target."},
     {"key": "output_format", "label": "Output format", "type": "enum", "default": "cif", "choices": ["cif", "pdb"], "help": "Structure file format."},
     {"key": "seed", "label": "Random seed", "type": "int", "default": None, "help": "Set for reproducible results (optional)."},
-    {"key": "use_potentials", "label": "Steering potentials", "type": "bool", "default": False, "help": "Physical guidance during sampling."},
-    {"key": "max_msa_seqs", "label": "Max MSA sequences", "type": "int", "default": 8192, "help": "Cap on MSA depth."},
-    {"key": "write_pae", "label": "Write PAE matrix", "type": "bool", "default": False, "help": "Predicted Aligned Error (.npz)."},
-    {"key": "write_pde", "label": "Write PDE matrix", "type": "bool", "default": False, "help": "Predicted Distance Error (.npz)."},
-    {"key": "sampling_steps_affinity", "label": "Affinity sampling steps", "type": "int", "default": 200, "help": "Boltz-2 affinity head only."},
-    {"key": "diffusion_samples_affinity", "label": "Affinity diffusion samples", "type": "int", "default": 5, "help": "Boltz-2 affinity head only."},
+    {"key": "use_potentials", "label": "Steering potentials", "type": "bool", "default": False, "cap": "potentials", "help": "Physical guidance during sampling."},
+    {"key": "max_msa_seqs", "label": "Max MSA sequences", "type": "int", "default": 8192, "cap": "msa", "help": "Cap on MSA depth."},
+    {"key": "write_pae", "label": "Write PAE matrix", "type": "bool", "default": False, "cap": "pae", "help": "Predicted Aligned Error (.npz)."},
+    {"key": "write_pde", "label": "Write PDE matrix", "type": "bool", "default": False, "cap": "pae", "help": "Predicted Distance Error (.npz)."},
+    {"key": "sampling_steps_affinity", "label": "Affinity sampling steps", "type": "int", "default": 200, "cap": "affinity", "help": "Boltz-2 affinity head only."},
+    {"key": "diffusion_samples_affinity", "label": "Affinity diffusion samples", "type": "int", "default": 5, "cap": "affinity", "help": "Boltz-2 affinity head only."},
     {"key": "accelerator", "label": "Accelerator", "type": "enum", "default": "tenstorrent", "choices": ACCELERATORS, "help": "Hardware backend. Use tenstorrent on Galaxy; cpu/gpu fall back to the reference models."},
     {"key": "device_ids", "label": "Device IDs", "type": "text", "default": "", "help": "Comma-separated Tenstorrent device IDs, e.g. 0,2 (blank = all)."},
     {"key": "extra_args", "label": "Extra CLI arguments", "type": "text", "default": "", "help": "Power users: any extra `tt-bio predict` flags, appended verbatim."},
@@ -137,6 +146,7 @@ sequences:
         "id": "affinity",
         "kind": "predict",
         "model": "boltz2",
+        "requires": ["ligands", "affinity"],
         "name": "Protein–ligand binding affinity",
         "format": "yaml",
         "content": """version: 1
@@ -156,6 +166,7 @@ properties:
         "id": "pocket",
         "kind": "predict",
         "model": "boltz2",
+        "requires": ["ligands", "constraints"],
         "name": "Ligand with pocket constraint",
         "format": "yaml",
         "content": """version: 1

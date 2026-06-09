@@ -62,6 +62,9 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
   const submit = async () => {
     const body = spec.trim() || genSpec({ target, targetId, binderId, lengthRange });
     if (!body.trim() || (!spec.trim() && !target.trim())) return onError("Provide a target sequence or a design spec.");
+    if (needsLigandTarget && !specHasLigand) {
+      return onError("The 'Binder + affinity' protocol designs a binder against a small molecule — your spec must include a ligand target (ccd or smiles), not a protein. Edit the spec accordingly.");
+    }
     setSubmitting(true);
     try {
       const job = await api.submit({ kind: "design", name: name.trim(), protocol, spec: body, params });
@@ -74,6 +77,12 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
   };
 
   const designExamples = catalog.examples.filter((e) => e.kind === "design");
+  // 'protein-small_molecule' designs a binder against a small molecule, so its
+  // target must be a ligand; every other protocol targets a protein.
+  const needsLigandTarget = protocol === "protein-small_molecule";
+  const effectiveSpec = spec.trim() || (target.trim() ? genSpec({ target, targetId, binderId, lengthRange }) : "");
+  const specHasLigand = /(^|\n)\s*-?\s*ligand\s*:/i.test(effectiveSpec);
+  const designMismatch = needsLigandTarget && effectiveSpec && !specHasLigand;
 
   return (
     <>
@@ -142,11 +151,20 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
         <ParamControls params={catalog.design_params} values={params} onChange={setParam} />
       </div>
 
+      {designMismatch && (
+        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
+          <strong style={{ color: "var(--warn)" }}>⚠ Protocol / target mismatch.</strong> The{" "}
+          <strong>Binder + affinity</strong> protocol designs a binder against a <strong>small molecule</strong>, so the
+          target must be a ligand (ccd or smiles) — but this spec has a protein target. Edit the spec, or pick a
+          protein-target protocol (e.g. Protein binder / Nanobody).
+        </div>
+      )}
+
       <div className="flex-between">
         <div className="field" style={{ flex: 1, marginRight: 16, marginBottom: 0 }}>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
-        <button className="btn primary" disabled={submitting} onClick={submit}>
+        <button className="btn primary" disabled={submitting || designMismatch} onClick={submit}>
           {submitting ? "Submitting…" : "Run design →"}
         </button>
       </div>
