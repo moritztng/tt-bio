@@ -50,7 +50,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const [active, setActive] = useState(0);
   const [name, setName] = useState("");
   const [params, setParams] = useState(() => ({ ...defaultsFor(catalog.predict_params), use_msa_server: true }));
-  const [showBuilder, setShowBuilder] = useState(true);
+  const [composeMode, setComposeMode] = useState("form"); // form (simple, default) | yaml (advanced)
   const [submitting, setSubmitting] = useState(false);
 
   // bulk state
@@ -76,10 +76,11 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   };
 
   const ligandChains = chains.filter((c) => c.type === "ligand");
-  const applyBuilder = () => {
-    updTarget(active, { content: genYaml(chains, affinity ? (affinityBinder || ligandChains[0]?.id) : null) });
-    setFormat("yaml");
-  };
+  // In the simple "form" mode the builder *is* the input — it generates the YAML
+  // on submit, so beginners never see raw YAML.
+  const formContent = () => genYaml(chains, affinity ? (affinityBinder || ligandChains[0]?.id) : null);
+  const formEmpty = () => chains.every((c) => !((c.type === "ligand" ? (c.smiles || c.ccd) : c.sequence) || "").trim());
+  const editAsYaml = () => { updTarget(active, { content: formContent() }); setFormat("yaml"); setComposeMode("yaml"); };
   const addChain = (type) => setChains((cs) => [...cs, { type, id: String.fromCharCode(65 + cs.length), sequence: "", smiles: "", ccd: "", ligandMode: "smiles" }]);
   const updChain = (i, patch) => setChains((cs) => cs.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const rmChain = (i) => setChains((cs) => cs.filter((_, idx) => idx !== i));
@@ -92,9 +93,11 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
       return;
     }
     // Load the input only — keep the model the user picked. (Examples used to
-    // silently switch the model card, which was confusing.)
+    // silently switch the model card, which was confusing.) Examples are raw
+    // templates, so they open the YAML editor.
     setFormat(ex.format || "yaml");
     setInputMode("compose");
+    setComposeMode("yaml");
     setTargets((ts) => {
       const next = [...ts.filter((t) => t.content.trim()), newTarget(ex.content, ex.name)];
       setActive(next.length - 1);
@@ -132,6 +135,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         if (!bulk.length) { onError("Upload or paste some sequences first."); setSubmitting(false); return; }
         inputFormat = model.startsWith("esmfold") ? "fasta" : "yaml";
         payloadTargets = bulk.map((r) => recordToTarget(r, model));
+      } else if (composeMode === "form") {
+        if (formEmpty()) { onError("Enter a protein sequence."); setSubmitting(false); return; }
+        inputFormat = "yaml";
+        payloadTargets = [{ name: name.trim() || "target", content: formContent() }];
       } else {
         const clean = targets.filter((t) => t.content.trim());
         if (!clean.length) { onError("Add at least one input."); setSubmitting(false); return; }
@@ -158,8 +165,11 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const predictExamples = catalog.examples.filter((e) => e.kind === "predict");
   const bigBatch = inputMode === "bulk" && bulk.length > 200 && model === "boltz2" && params.use_msa_server;
   const exampleOk = (e) => (e.requires || []).every((c) => caps.has(c));
-  const missingCaps = inputMode === "bulk" ? []
-    : [...new Set(targets.flatMap((t) => (t.content.trim() ? [...inputCaps(t.content)] : [])))].filter((c) => !caps.has(c));
+  const composeContent = inputMode !== "bulk"
+    ? (composeMode === "form" ? [formContent()] : targets.map((t) => t.content))
+    : [];
+  const missingCaps = [...new Set(composeContent.flatMap((c) => (c && c.trim() ? [...inputCaps(c)] : [])))]
+    .filter((c) => !caps.has(c));
   const esmMismatch = missingCaps.length > 0;
 
   return (
@@ -185,10 +195,12 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
           </div>
           {inputMode === "compose" && (
             <div className="flex">
-              <select value={format} onChange={(e) => setFormat(e.target.value)} className="btn sm" style={{ padding: "6px 10px" }}>
-                <option value="yaml">YAML</option>
-                <option value="fasta">FASTA</option>
-              </select>
+              {composeMode === "yaml" && (
+                <select value={format} onChange={(e) => setFormat(e.target.value)} className="btn sm" style={{ padding: "6px 10px" }}>
+                  <option value="yaml">YAML</option>
+                  <option value="fasta">FASTA</option>
+                </select>
+              )}
               <select className="btn sm" style={{ padding: "6px 10px" }} value="" onChange={(e) => loadExample(e.target.value)}>
                 <option value="">Load example…</option>
                 {predictExamples.map((e) => (
@@ -197,6 +209,9 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
                   </option>
                 ))}
               </select>
+              <button className="btn ghost sm" onClick={() => (composeMode === "form" ? editAsYaml() : setComposeMode("form"))}>
+                {composeMode === "form" ? "Edit as YAML ⟩" : "⟨ Simple form"}
+              </button>
             </div>
           )}
         </div>
@@ -206,14 +221,17 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
             bulk={bulk} setBulk={setBulk} bulkText={bulkText} setBulkText={setBulkText}
             addPasted={addPasted} onFiles={onFiles} fileRef={fileRef} bigBatch={bigBatch} model={model}
           />
+        ) : composeMode === "form" ? (
+          <FormBuilder
+            chains={chains} addChain={addChain} updChain={updChain} rmChain={rmChain}
+            caps={caps} modelInfo={modelInfo} ligandChains={ligandChains}
+            affinity={affinity} setAffinity={setAffinity}
+            affinityBinder={affinityBinder} setAffinityBinder={setAffinityBinder}
+          />
         ) : (
-          <ComposePanel
+          <YamlEditor
             targets={targets} setTargets={setTargets} active={active} setActive={setActive}
             updTarget={updTarget} format={format} newTarget={newTarget}
-            showBuilder={showBuilder} setShowBuilder={setShowBuilder}
-            chains={chains} addChain={addChain} updChain={updChain} rmChain={rmChain}
-            ligandChains={ligandChains} modelInfo={modelInfo} caps={caps} affinity={affinity} setAffinity={setAffinity}
-            affinityBinder={affinityBinder} setAffinityBinder={setAffinityBinder} applyBuilder={applyBuilder}
           />
         )}
       </div>
@@ -294,8 +312,8 @@ function BulkPanel({ bulk, setBulk, bulkText, setBulkText, addPasted, onFiles, f
   );
 }
 
-function ComposePanel(p) {
-  const { targets, setTargets, active, setActive, updTarget, format, newTarget } = p;
+// Advanced editor: raw YAML/FASTA with multi-target batch tabs.
+function YamlEditor({ targets, setTargets, active, setActive, updTarget, format, newTarget }) {
   return (
     <>
       <div className="flex mt16" style={{ flexWrap: "wrap" }}>
@@ -317,65 +335,69 @@ function ComposePanel(p) {
 
       <div className="field">
         <label>{format === "fasta" ? "FASTA" : "Input (YAML)"}</label>
-        <textarea className="code" rows={10} spellCheck={false} value={targets[active]?.content || ""}
+        <textarea className="code" rows={12} spellCheck={false} value={targets[active]?.content || ""}
           placeholder={format === "fasta" ? ">A|protein\nMVTPEG..." : "version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MVTPEG..."}
           onChange={(e) => updTarget(active, { content: e.target.value })} />
-        <div className="hint">Full tt-bio input schema — chains, ligands, constraints, templates, modifications, custom MSA. Use the quick builder or write YAML directly.</div>
+        <div className="hint">Full tt-bio input schema — chains, ligands, constraints, templates, modifications, custom MSA.</div>
       </div>
-
-      <details className="collapse" open={p.showBuilder} onToggle={(e) => p.setShowBuilder(e.target.open)}>
-        <summary>Quick builder</summary>
-        <div className="mt8">
-          {p.chains.map((c, i) => (
-            <div className="chain" key={i}>
-              <div className="chain-head">
-                <select value={c.type} onChange={(e) => p.updChain(i, { type: e.target.value })}>
-                  <option value="protein">Protein</option>
-                  <option value="dna">DNA</option>
-                  <option value="rna">RNA</option>
-                  <option value="ligand">Ligand</option>
-                </select>
-                <input className="id" type="text" value={c.id} onChange={(e) => p.updChain(i, { id: e.target.value })} placeholder="id" />
-                <div className="spacer" />
-                {p.chains.length > 1 && <button className="btn ghost sm" onClick={() => p.rmChain(i)}>Remove</button>}
-              </div>
-              {c.type === "ligand" ? (
-                <div className="row">
-                  <select value={c.ligandMode} onChange={(e) => p.updChain(i, { ligandMode: e.target.value })} style={{ maxWidth: 110 }}>
-                    <option value="smiles">SMILES</option>
-                    <option value="ccd">CCD</option>
-                  </select>
-                  {c.ligandMode === "ccd"
-                    ? <input type="text" value={c.ccd} onChange={(e) => p.updChain(i, { ccd: e.target.value })} placeholder="e.g. ATP" />
-                    : <input type="text" value={c.smiles} onChange={(e) => p.updChain(i, { smiles: e.target.value })} placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O" />}
-                </div>
-              ) : (
-                <textarea className="code" rows={2} value={c.sequence} onChange={(e) => p.updChain(i, { sequence: e.target.value })} placeholder="sequence" spellCheck={false} />
-              )}
-            </div>
-          ))}
-          <div className="flex">
-            <button className="btn sm" onClick={() => p.addChain("protein")}>+ Protein</button>
-            <button className="btn sm" disabled={!p.caps.has("ligands")} title={p.caps.has("ligands") ? "" : `${p.modelInfo?.name} doesn't support ligands`} onClick={() => p.addChain("ligand")}>+ Ligand</button>
-            <button className="btn sm" disabled={!p.caps.has("nucleic")} title={p.caps.has("nucleic") ? "" : `${p.modelInfo?.name} doesn't support nucleic acids`} onClick={() => p.addChain("dna")}>+ DNA</button>
-            <button className="btn sm" disabled={!p.caps.has("nucleic")} title={p.caps.has("nucleic") ? "" : `${p.modelInfo?.name} doesn't support nucleic acids`} onClick={() => p.addChain("rna")}>+ RNA</button>
-          </div>
-          {p.caps.has("affinity") && p.ligandChains.length > 0 && (
-            <div className="checkline mt16">
-              <input type="checkbox" id="aff" checked={p.affinity} onChange={(e) => p.setAffinity(e.target.checked)} />
-              <div className="cl-body">
-                <label className="cl-label" htmlFor="aff">Predict binding affinity</label>
-                {p.affinity && (
-                  <select className="mt8" value={p.affinityBinder || p.ligandChains[0]?.id} onChange={(e) => p.setAffinityBinder(e.target.value)} style={{ maxWidth: 200 }}>
-                    {p.ligandChains.map((c) => <option key={c.id} value={c.id}>binder: {c.id}</option>)}
-                  </select>
-                )}
-              </div>
-            </div>
-          )}
-          <button className="btn primary sm mt16" onClick={p.applyBuilder}>Apply to input ↑</button>
-        </div>
-      </details>
     </>
+  );
+}
+
+// Simple, beginner-first builder (the default). Starts as one protein-sequence
+// box; ligands / extra chains / affinity appear only as you add them.
+function FormBuilder(p) {
+  const single = p.chains.length === 1;
+  return (
+    <div className="mt16">
+      {p.chains.map((c, i) => (
+        <div className="chain" key={i}>
+          <div className="chain-head">
+            <select value={c.type} onChange={(e) => p.updChain(i, { type: e.target.value })} disabled={single && c.type === "protein"}>
+              <option value="protein">Protein</option>
+              <option value="dna">DNA</option>
+              <option value="rna">RNA</option>
+              <option value="ligand">Ligand</option>
+            </select>
+            {!single && <input className="id" type="text" value={c.id} onChange={(e) => p.updChain(i, { id: e.target.value })} placeholder="id" />}
+            <div className="spacer" />
+            {!single && <button className="btn ghost sm" onClick={() => p.rmChain(i)}>Remove</button>}
+          </div>
+          {c.type === "ligand" ? (
+            <div className="row">
+              <select value={c.ligandMode} onChange={(e) => p.updChain(i, { ligandMode: e.target.value })} style={{ maxWidth: 110 }}>
+                <option value="smiles">SMILES</option>
+                <option value="ccd">CCD</option>
+              </select>
+              {c.ligandMode === "ccd"
+                ? <input type="text" value={c.ccd} onChange={(e) => p.updChain(i, { ccd: e.target.value })} placeholder="e.g. ATP" />
+                : <input type="text" value={c.smiles} onChange={(e) => p.updChain(i, { smiles: e.target.value })} placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O" />}
+            </div>
+          ) : (
+            <textarea className="code" rows={3} value={c.sequence} onChange={(e) => p.updChain(i, { sequence: e.target.value })}
+              placeholder={single ? "Paste a protein sequence — e.g. MKTAYIAKQR…" : "sequence"} spellCheck={false} />
+          )}
+        </div>
+      ))}
+      <div className="flex" style={{ flexWrap: "wrap" }}>
+        <button className="btn ghost sm" onClick={() => p.addChain("protein")}>+ Protein</button>
+        <button className="btn ghost sm" disabled={!p.caps.has("ligands")} title={p.caps.has("ligands") ? "" : `${p.modelInfo?.name} doesn't support ligands`} onClick={() => p.addChain("ligand")}>+ Ligand</button>
+        <button className="btn ghost sm" disabled={!p.caps.has("nucleic")} title={p.caps.has("nucleic") ? "" : `${p.modelInfo?.name} doesn't support nucleic acids`} onClick={() => p.addChain("dna")}>+ DNA</button>
+        <button className="btn ghost sm" disabled={!p.caps.has("nucleic")} title={p.caps.has("nucleic") ? "" : `${p.modelInfo?.name} doesn't support nucleic acids`} onClick={() => p.addChain("rna")}>+ RNA</button>
+      </div>
+      {p.caps.has("affinity") && p.ligandChains.length > 0 && (
+        <div className="checkline mt16">
+          <input type="checkbox" id="aff" checked={p.affinity} onChange={(e) => p.setAffinity(e.target.checked)} />
+          <div className="cl-body">
+            <label className="cl-label" htmlFor="aff">Predict binding affinity</label>
+            {p.affinity && (
+              <select className="mt8" value={p.affinityBinder || p.ligandChains[0]?.id} onChange={(e) => p.setAffinityBinder(e.target.value)} style={{ maxWidth: 200 }}>
+                {p.ligandChains.map((c) => <option key={c.id} value={c.id}>binder: {c.id}</option>)}
+              </select>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
