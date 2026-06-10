@@ -286,7 +286,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
             </button>
           ))}
           <span style={{ flex: 1 }} />
-          <button className="btn ghost sm" title="Clear the form and start blank" onClick={resetForm}>↺ Clear</button>
+          <button className="btn sm" title="Clear the form and start blank" onClick={resetForm}>↺ Clear form</button>
         </div>
       )}
 
