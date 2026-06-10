@@ -106,12 +106,15 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const [bulkText, setBulkText] = useState("");
   const fileRef = useRef(null);
 
-  // quick-builder state (compose mode)
+  // quick-builder state (compose mode). The form holds a list of *complexes*
+  // (targets); each is its own set of chains/affinity/constraints and folds as
+  // a separate prediction. Switch between them with the complex tabs.
   const blankChain = () => ({ type: "protein", id: "A", sequence: "", smiles: "", ccd: "", ligandMode: "smiles" });
-  const [chains, setChains] = useState([blankChain()]);
-  const [affinity, setAffinity] = useState(false);
-  const [affinityBinder, setAffinityBinder] = useState("");
-  const [constraints, setConstraints] = useState([]); // [{kind, binder, contacts, token1, token2, maxDistance}]
+  const blankForm = () => ({ name: "", chains: [blankChain()], affinity: false, affinityBinder: "", constraints: [] });
+  const [forms, setForms] = useState([blankForm()]);
+  const [activeForm, setActiveForm] = useState(0);
+  const cur = forms[activeForm] || forms[0];
+  const chains = cur.chains, affinity = cur.affinity, affinityBinder = cur.affinityBinder, constraints = cur.constraints;
 
   const modelInfo = useMemo(() => catalog.models.find((m) => m.id === model), [catalog, model]);
   const caps = useMemo(() => new Set(modelInfo?.caps || []), [modelInfo]);
@@ -125,12 +128,25 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
     if (m !== "boltz2") setFormat("yaml");
   };
 
+  // Mutators operate on the active complex (so FormBuilder's interface is unchanged).
+  const patchActive = (fn) => setForms((fs) => fs.map((f, i) => (i === activeForm ? fn(f) : f)));
+  const setChains = (v) => patchActive((f) => ({ ...f, chains: typeof v === "function" ? v(f.chains) : v }));
+  const setAffinity = (v) => patchActive((f) => ({ ...f, affinity: typeof v === "function" ? v(f.affinity) : v }));
+  const setAffinityBinder = (v) => patchActive((f) => ({ ...f, affinityBinder: typeof v === "function" ? v(f.affinityBinder) : v }));
+  const setConstraints = (v) => patchActive((f) => ({ ...f, constraints: typeof v === "function" ? v(f.constraints) : v }));
+
   const ligandChains = chains.filter((c) => c.type === "ligand");
-  // In the simple "form" mode the builder *is* the input — it generates the YAML
-  // on submit, so beginners never see raw YAML.
-  const formContent = () => genYaml(chains, affinity ? (affinityBinder || ligandChains[0]?.id) : null, constraints);
-  const formEmpty = () => chains.every((c) => !((c.type === "ligand" ? (c.smiles || c.ccd) : c.sequence) || "").trim());
-  const editAsYaml = () => { updTarget(active, { content: formContent() }); setFormat("yaml"); setComposeMode("yaml"); };
+  // Each complex generates its own YAML; on submit every non-empty complex
+  // becomes a separate target. Beginners never see raw YAML.
+  const formContentOf = (f) => genYaml(
+    f.chains,
+    f.affinity ? (f.affinityBinder || f.chains.find((c) => c.type === "ligand")?.id) : null,
+    f.constraints);
+  const formEmptyOf = (f) => f.chains.every((c) => !((c.type === "ligand" ? (c.smiles || c.ccd) : c.sequence) || "").trim());
+  const editAsYaml = () => {
+    setTargets(forms.map((f, i) => newTarget(formContentOf(f), (f.name || "").trim() || `complex_${i + 1}`)));
+    setActive(0); setFormat("yaml"); setComposeMode("yaml");
+  };
   const addChain = (type) => setChains((cs) => [...cs, { type, id: String.fromCharCode(65 + cs.length), sequence: "", smiles: "", ccd: "", ligandMode: "smiles" }]);
   const updChain = (i, patch) => setChains((cs) => cs.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const rmChain = (i) => setChains((cs) => cs.filter((_, idx) => idx !== i));
@@ -138,9 +154,14 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const updConstraint = (i, patch) => setConstraints((ks) => ks.map((k, idx) => (idx === i ? { ...k, ...patch } : k)));
   const rmConstraint = (i) => setConstraints((ks) => ks.filter((_, idx) => idx !== i));
 
-  // Reset the form to a blank single protein — "actually I don't want the example".
+  // Complex (target) management for the form.
+  const addForm = () => { setForms((fs) => [...fs, blankForm()]); setActiveForm(forms.length); };
+  const rmForm = (i) => { setForms((fs) => fs.filter((_, idx) => idx !== i)); setActiveForm(0); };
+  const setFormName = (v) => patchActive((f) => ({ ...f, name: v }));
+
+  // Reset the form to a single blank complex — "actually I don't want the example".
   const resetForm = () => {
-    setChains([blankChain()]); setAffinity(false); setAffinityBinder(""); setConstraints([]);
+    setForms([blankForm()]); setActiveForm(0);
     setInputMode("compose"); setComposeMode("form"); setName("");
   };
 
@@ -151,13 +172,17 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
       onError(`The "${ex.name}" example needs features ${modelInfo.name} doesn't support. Switch to Boltz-2 to use it.`);
       return;
     }
-    // Examples populate the *simple form* (not raw YAML) and keep the model the
-    // user picked.
+    // Examples populate the *simple form* as a single complex, keeping the
+    // model the user picked. (Add more complexes with "+ Add complex".)
     const b = ex.builder;
-    setChains(b.chains.map((c) => ({ ...blankChain(), ...c })));
-    setAffinity(!!b.affinity);
-    setAffinityBinder(b.affinity || "");
-    setConstraints((b.constraints || []).map((k) => ({ binder: "", contacts: "", token1: "", token2: "", maxDistance: 6, ...k })));
+    setForms([{
+      name: "",
+      chains: b.chains.map((c) => ({ ...blankChain(), ...c })),
+      affinity: !!b.affinity,
+      affinityBinder: b.affinity || "",
+      constraints: (b.constraints || []).map((k) => ({ binder: "", contacts: "", token1: "", token2: "", maxDistance: 6, ...k })),
+    }]);
+    setActiveForm(0);
     setInputMode("compose");
     setComposeMode("form");
   };
@@ -193,9 +218,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         inputFormat = model.startsWith("esmfold") ? "fasta" : "yaml";
         payloadTargets = bulk.map((r) => recordToTarget(r, model));
       } else if (composeMode === "form") {
-        if (formEmpty()) { onError("Enter a sequence (or a ligand)."); setSubmitting(false); return; }
+        const filled = forms.filter((f) => !formEmptyOf(f));
+        if (!filled.length) { onError("Enter a sequence (or a ligand)."); setSubmitting(false); return; }
         inputFormat = "yaml";
-        payloadTargets = [{ name: name.trim() || "target", content: formContent() }];
+        payloadTargets = filled.map((f, i) => ({ name: (f.name || "").trim() || `complex_${i + 1}`, content: formContentOf(f) }));
       } else {
         const clean = targets.filter((t) => t.content.trim());
         if (!clean.length) { onError("Add at least one input."); setSubmitting(false); return; }
@@ -227,7 +253,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const bigBatch = inputMode === "bulk" && bulk.length > 200 && model === "boltz2" && params.use_msa_server;
   const exampleOk = (e) => (e.requires || []).every((c) => caps.has(c));
   const composeContent = inputMode !== "bulk"
-    ? (composeMode === "form" ? [formContent()] : targets.map((t) => t.content))
+    ? (composeMode === "form" ? forms.map(formContentOf) : targets.map((t) => t.content))
     : [];
   const missingCaps = [...new Set(composeContent.flatMap((c) => (c && c.trim() ? [...inputCaps(c)] : [])))]
     .filter((c) => !caps.has(c));
@@ -292,13 +318,31 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
             addPasted={addPasted} onFiles={onFiles} fileRef={fileRef} bigBatch={bigBatch} model={model}
           />
         ) : composeMode === "form" ? (
-          <FormBuilder
-            chains={chains} addChain={addChain} updChain={updChain} rmChain={rmChain}
-            caps={caps} modelInfo={modelInfo} ligandChains={ligandChains}
-            affinity={affinity} setAffinity={setAffinity}
-            affinityBinder={affinityBinder} setAffinityBinder={setAffinityBinder}
-            constraints={constraints} addConstraint={addConstraint} updConstraint={updConstraint} rmConstraint={rmConstraint}
-          />
+          <>
+            {/* One tab per complex — each folds as a separate prediction. */}
+            <div className="flex mt16" style={{ flexWrap: "wrap" }}>
+              {forms.map((f, i) => (
+                <button key={i} className={`btn sm ${activeForm === i ? "primary" : "ghost"}`} onClick={() => setActiveForm(i)}>
+                  {(f.name || "").trim() || `Complex ${i + 1}`}
+                  {forms.length > 1 && (
+                    <span onClick={(e) => { e.stopPropagation(); rmForm(i); }} style={{ marginLeft: 4, opacity: 0.7 }}>✕</span>
+                  )}
+                </button>
+              ))}
+              <button className="btn sm ghost" onClick={addForm}>+ Add complex</button>
+            </div>
+            <div className="field mt16">
+              <label>Complex name (optional)</label>
+              <input type="text" value={cur.name} placeholder={`complex_${activeForm + 1}`} onChange={(e) => setFormName(e.target.value)} />
+            </div>
+            <FormBuilder
+              chains={chains} addChain={addChain} updChain={updChain} rmChain={rmChain}
+              caps={caps} modelInfo={modelInfo} ligandChains={ligandChains}
+              affinity={affinity} setAffinity={setAffinity}
+              affinityBinder={affinityBinder} setAffinityBinder={setAffinityBinder}
+              constraints={constraints} addConstraint={addConstraint} updConstraint={updConstraint} rmConstraint={rmConstraint}
+            />
+          </>
         ) : (
           <YamlEditor
             targets={targets} setTargets={setTargets} active={active} setActive={setActive}
@@ -336,7 +380,12 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
         <button className="btn primary" disabled={submitting || esmMismatch || ligandOnly} onClick={submit}>
-          {submitting ? "Submitting…" : inputMode === "bulk" && bulk.length ? `Run ${bulk.length} predictions →` : "Run prediction →"}
+          {(() => {
+            if (submitting) return "Submitting…";
+            if (inputMode === "bulk" && bulk.length) return `Run ${bulk.length} predictions →`;
+            const n = composeMode === "form" ? forms.filter((f) => !formEmptyOf(f)).length : 0;
+            return n > 1 ? `Run ${n} predictions →` : "Run prediction →";
+          })()}
         </button>
       </div>
     </>
