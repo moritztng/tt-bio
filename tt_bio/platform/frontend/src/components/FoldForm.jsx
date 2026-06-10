@@ -216,6 +216,19 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         {modelInfo && <div className="hint mt8">{modelInfo.blurb}</div>}
       </div>
 
+      {inputMode === "compose" && (
+        <div className="examples-row">
+          <span className="examples-label">Start from an example:</span>
+          {predictExamples.map((e) => (
+            <button key={e.id} className="chip" disabled={!exampleOk(e)}
+              title={exampleOk(e) ? "Load this example" : "Needs Boltz-2"}
+              onClick={() => loadExample(e.id)}>
+              {e.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="panel">
         <div className="flex-between">
           <div className="flex">
@@ -230,14 +243,6 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
                   <option value="fasta">FASTA</option>
                 </select>
               )}
-              <select className="btn sm" style={{ padding: "6px 10px" }} value="" onChange={(e) => loadExample(e.target.value)}>
-                <option value="">Load example…</option>
-                {predictExamples.map((e) => (
-                  <option key={e.id} value={e.id} disabled={!exampleOk(e)}>
-                    {e.name}{exampleOk(e) ? "" : " — needs Boltz-2"}
-                  </option>
-                ))}
-              </select>
               <button className="btn ghost sm" onClick={() => (composeMode === "form" ? editAsYaml() : setComposeMode("form"))}>
                 {composeMode === "form" ? "Edit as YAML ⟩" : "⟨ Simple form"}
               </button>

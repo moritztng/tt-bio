@@ -103,13 +103,16 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
         {protoInfo && <div className="hint mt8">{protoInfo.blurb}</div>}
       </div>
 
+      <div className="examples-row">
+        <span className="examples-label">Start from an example:</span>
+        {designExamples.map((e) => (
+          <button key={e.id} className="chip" title="Load this example" onClick={() => loadExample(e.id)}>{e.name}</button>
+        ))}
+      </div>
+
       <div className="panel">
         <div className="flex-between">
           <p className="section-title mb0">Design specification</p>
-          <select className="btn sm" style={{ padding: "6px 10px" }} value="" onChange={(e) => loadExample(e.target.value)}>
-            <option value="">Load example…</option>
-            {designExamples.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-          </select>
         </div>
 
         <details className="collapse" open={showBuilder} onToggle={(e) => setShowBuilder(e.target.open)}>
