@@ -357,11 +357,11 @@ function FormBuilder(p) {
       {p.chains.map((c, i) => (
         <div className="chain" key={i}>
           <div className="chain-head">
-            <select value={c.type} onChange={(e) => p.updChain(i, { type: e.target.value })} disabled={single && c.type === "protein"}>
+            <select value={c.type} onChange={(e) => p.updChain(i, { type: e.target.value })}>
               <option value="protein">Protein</option>
-              <option value="dna">DNA</option>
-              <option value="rna">RNA</option>
-              <option value="ligand">Ligand</option>
+              <option value="dna" disabled={!p.caps.has("nucleic")}>DNA</option>
+              <option value="rna" disabled={!p.caps.has("nucleic")}>RNA</option>
+              <option value="ligand" disabled={!p.caps.has("ligands")}>Ligand</option>
             </select>
             {!single && <input className="id" type="text" value={c.id} onChange={(e) => p.updChain(i, { id: e.target.value })} placeholder="id" />}
             <div className="spacer" />
