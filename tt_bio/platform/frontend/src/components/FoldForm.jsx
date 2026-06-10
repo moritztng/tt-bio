@@ -165,6 +165,14 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
     setInputMode("compose"); setComposeMode("form"); setName("");
   };
 
+  const formFromBuilder = (b) => ({
+    name: "",
+    chains: b.chains.map((c) => ({ ...blankChain(), ...c })),
+    affinity: !!b.affinity,
+    affinityBinder: b.affinity || "",
+    constraints: (b.constraints || []).map((k) => ({ binder: "", contacts: "", token1: "", token2: "", maxDistance: 6, ...k })),
+  });
+
   const loadExample = (id) => {
     const ex = catalog.examples.find((e) => e.id === id);
     if (!ex || !ex.builder) return;
@@ -172,19 +180,18 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
       onError(`The "${ex.name}" example needs features ${modelInfo.name} doesn't support. Switch to Boltz-2 to use it.`);
       return;
     }
-    // Examples populate the *simple form* as a single complex, keeping the
-    // model the user picked. (Add more complexes with "+ Add complex".)
-    const b = ex.builder;
-    setForms([{
-      name: "",
-      chains: b.chains.map((c) => ({ ...blankChain(), ...c })),
-      affinity: !!b.affinity,
-      affinityBinder: b.affinity || "",
-      constraints: (b.constraints || []).map((k) => ({ binder: "", contacts: "", token1: "", token2: "", maxDistance: 6, ...k })),
-    }]);
-    setActiveForm(0);
+    // Populate the simple form, keeping the model the user picked. Fill the
+    // current complex if it's still empty; otherwise add it as a NEW complex —
+    // so clicking several examples stacks them as separate predictions.
+    const nf = formFromBuilder(ex.builder);
     setInputMode("compose");
     setComposeMode("form");
+    if (formEmptyOf(cur)) {
+      patchActive(() => nf);
+    } else {
+      setForms((fs) => [...fs, nf]);
+      setActiveForm(forms.length);
+    }
   };
 
   // ---- bulk handlers ----
