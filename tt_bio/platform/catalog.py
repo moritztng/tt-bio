@@ -116,9 +116,10 @@ EXAMPLES = [
     {
         "id": "monomer",
         "kind": "predict",
-        "model": "boltz2",
         "name": "Single protein (monomer)",
-        "format": "yaml",
+        "builder": {"chains": [
+            {"type": "protein", "id": "A",
+             "sequence": "QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISAIVKAAQKKAWKELAVTVLRFAKANGLKTNAIIVAGQLALWAVQCG"}]},
         "content": """version: 1
 sequences:
   - protein:
@@ -129,9 +130,10 @@ sequences:
     {
         "id": "complex",
         "kind": "predict",
-        "model": "boltz2",
         "name": "Protein complex (multimer)",
-        "format": "yaml",
+        "builder": {"chains": [
+            {"type": "protein", "id": "A", "sequence": "MAHHHHHHVAVDAVSFTLLQDQLQSVLDTLSEREAGVVRLRFGLTDGQPRTLDEIGQVYGVTRERIRQIESKTMSKLRHPSRSQVLRDYLDGSSGSGTPEERLLRAIFGEKA"},
+            {"type": "protein", "id": "B", "sequence": "MRYAFAAEATTCNAFWRNVDMTVTALYEVPLGVCTQDPDRWTTTPDDEAKTLCRACPRRWLCARDAVESAGAEGLWAGVVIPESGRARAFALGQLRSLAERNGYPVRDHRVSAQSA"}]},
         "content": """version: 1
 sequences:
   - protein:
@@ -148,7 +150,10 @@ sequences:
         "model": "boltz2",
         "requires": ["ligands", "affinity"],
         "name": "Protein–ligand binding affinity",
-        "format": "yaml",
+        "builder": {"chains": [
+            {"type": "protein", "id": "A", "sequence": "MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSLVGKFMHDINVAWPAWRNLAEVVRHGARDTSGAESPNGIAQEDYESLVGGINFWAPPIVTTLSRKLRASGRSGDATASVLDVGCGTGLYSQLLLREFPRWTATGLDVERIATLANAQALRLGVEERFATRAGDFWRGGWGTGYDLVLFANIFHLQTPASAVRLMRHAAACLAPDGLVAVVDQIVDADREPKTPQDRFALLFAASMTNTGGGDAYTFQEYEEWFTAAGLQRIETLDTPMHRILLARRATEPSAVPEGQASENLYFQ"},
+            {"type": "ligand", "id": "B", "ligandMode": "smiles", "smiles": "N[C@@H](Cc1ccc(O)cc1)C(=O)O"}],
+            "affinity": "B"},
         "content": """version: 1
 sequences:
   - protein:
@@ -168,7 +173,10 @@ properties:
         "model": "boltz2",
         "requires": ["ligands", "constraints"],
         "name": "Ligand with pocket constraint",
-        "format": "yaml",
+        "builder": {"chains": [
+            {"type": "protein", "id": "A1", "sequence": "MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLD"},
+            {"type": "ligand", "id": "B1", "ligandMode": "ccd", "ccd": "SAH"}],
+            "constraints": [{"kind": "pocket", "binder": "B1", "contacts": "A1:10, A1:12", "maxDistance": 6}]},
         "content": """version: 1
 sequences:
   - protein:
@@ -181,15 +189,6 @@ constraints:
   - pocket:
       binder: B1
       contacts: [[A1, 10], [A1, 12]]
-""",
-    },
-    {
-        "id": "esmfold",
-        "kind": "predict",
-        "name": "Single sequence (FASTA)",
-        "format": "fasta",
-        "content": """>A|protein
-QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISAIVKAAQKKAWKELAVTVLRFAKANGLKTNAIIVAGQLALWAVQCG
 """,
     },
     {

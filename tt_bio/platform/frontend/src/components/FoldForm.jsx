@@ -45,7 +45,12 @@ function isLigandOnly(content) {
 // fields with ':', '#', '[' etc. can't break or inject into the generated YAML.
 const yq = (v) => `'${String(v).replace(/'/g, "''")}'`;
 
-function genYaml(chains, affinityBinder) {
+// "A:10" -> [chain, residueNumber] ; "A:10, A:12" -> list of those.
+const parseResidue = (s) => { const [c, r] = String(s).split(":"); return [(c || "").trim(), parseInt(r, 10)]; };
+const parseContacts = (s) => String(s).split(",").map((x) => x.trim()).filter(Boolean).map(parseResidue);
+const ymlPair = ([c, r]) => `[${yq(c)}, ${r}]`;
+
+function genYaml(chains, affinityBinder, constraints = []) {
   const lines = ["version: 1", "sequences:"];
   for (const c of chains) {
     const id = c.id.trim() || "A";
@@ -62,6 +67,25 @@ function genYaml(chains, affinityBinder) {
   }
   if (affinityBinder) {
     lines.push("properties:", "  - affinity:", `      binder: ${yq(affinityBinder)}`);
+  }
+  const cons = (constraints || []).filter((k) =>
+    k.kind === "pocket" ? (k.binder && parseContacts(k.contacts).length)
+                        : (k.token1 && k.token2));
+  if (cons.length) {
+    lines.push("constraints:");
+    for (const k of cons) {
+      if (k.kind === "pocket") {
+        lines.push("  - pocket:");
+        lines.push(`      binder: ${yq(k.binder)}`);
+        lines.push(`      contacts: [${parseContacts(k.contacts).map(ymlPair).join(", ")}]`);
+        if (k.maxDistance) lines.push(`      max_distance: ${k.maxDistance}`);
+      } else {
+        lines.push("  - contact:");
+        lines.push(`      token1: ${ymlPair(parseResidue(k.token1))}`);
+        lines.push(`      token2: ${ymlPair(parseResidue(k.token2))}`);
+        if (k.maxDistance) lines.push(`      max_distance: ${k.maxDistance}`);
+      }
+    }
   }
   return lines.join("\n") + "\n";
 }
@@ -83,9 +107,11 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const fileRef = useRef(null);
 
   // quick-builder state (compose mode)
-  const [chains, setChains] = useState([{ type: "protein", id: "A", sequence: "", smiles: "", ccd: "", ligandMode: "smiles" }]);
+  const blankChain = () => ({ type: "protein", id: "A", sequence: "", smiles: "", ccd: "", ligandMode: "smiles" });
+  const [chains, setChains] = useState([blankChain()]);
   const [affinity, setAffinity] = useState(false);
   const [affinityBinder, setAffinityBinder] = useState("");
+  const [constraints, setConstraints] = useState([]); // [{kind, binder, contacts, token1, token2, maxDistance}]
 
   const modelInfo = useMemo(() => catalog.models.find((m) => m.id === model), [catalog, model]);
   const caps = useMemo(() => new Set(modelInfo?.caps || []), [modelInfo]);
@@ -102,31 +128,38 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const ligandChains = chains.filter((c) => c.type === "ligand");
   // In the simple "form" mode the builder *is* the input — it generates the YAML
   // on submit, so beginners never see raw YAML.
-  const formContent = () => genYaml(chains, affinity ? (affinityBinder || ligandChains[0]?.id) : null);
+  const formContent = () => genYaml(chains, affinity ? (affinityBinder || ligandChains[0]?.id) : null, constraints);
   const formEmpty = () => chains.every((c) => !((c.type === "ligand" ? (c.smiles || c.ccd) : c.sequence) || "").trim());
   const editAsYaml = () => { updTarget(active, { content: formContent() }); setFormat("yaml"); setComposeMode("yaml"); };
   const addChain = (type) => setChains((cs) => [...cs, { type, id: String.fromCharCode(65 + cs.length), sequence: "", smiles: "", ccd: "", ligandMode: "smiles" }]);
   const updChain = (i, patch) => setChains((cs) => cs.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   const rmChain = (i) => setChains((cs) => cs.filter((_, idx) => idx !== i));
+  const addConstraint = (kind) => setConstraints((ks) => [...ks, { kind, binder: ligandChains[0]?.id || "", contacts: "", token1: "", token2: "", maxDistance: kind === "pocket" ? 6 : 8 }]);
+  const updConstraint = (i, patch) => setConstraints((ks) => ks.map((k, idx) => (idx === i ? { ...k, ...patch } : k)));
+  const rmConstraint = (i) => setConstraints((ks) => ks.filter((_, idx) => idx !== i));
+
+  // Reset the form to a blank single protein — "actually I don't want the example".
+  const resetForm = () => {
+    setChains([blankChain()]); setAffinity(false); setAffinityBinder(""); setConstraints([]);
+    setInputMode("compose"); setComposeMode("form"); setName("");
+  };
 
   const loadExample = (id) => {
     const ex = catalog.examples.find((e) => e.id === id);
-    if (!ex) return;
+    if (!ex || !ex.builder) return;
     if ((ex.requires || []).some((c) => !caps.has(c))) {
       onError(`The "${ex.name}" example needs features ${modelInfo.name} doesn't support. Switch to Boltz-2 to use it.`);
       return;
     }
-    // Load the input only — keep the model the user picked. (Examples used to
-    // silently switch the model card, which was confusing.) Examples are raw
-    // templates, so they open the YAML editor.
-    setFormat(ex.format || "yaml");
+    // Examples populate the *simple form* (not raw YAML) and keep the model the
+    // user picked.
+    const b = ex.builder;
+    setChains(b.chains.map((c) => ({ ...blankChain(), ...c })));
+    setAffinity(!!b.affinity);
+    setAffinityBinder(b.affinity || "");
+    setConstraints((b.constraints || []).map((k) => ({ binder: "", contacts: "", token1: "", token2: "", maxDistance: 6, ...k })));
     setInputMode("compose");
-    setComposeMode("yaml");
-    setTargets((ts) => {
-      const next = [...ts.filter((t) => t.content.trim()), newTarget(ex.content, ex.name)];
-      setActive(next.length - 1);
-      return next;
-    });
+    setComposeMode("form");
   };
 
   // ---- bulk handlers ----
@@ -221,11 +254,13 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
           <span className="examples-label">Start from an example:</span>
           {predictExamples.map((e) => (
             <button key={e.id} className="chip" disabled={!exampleOk(e)}
-              title={exampleOk(e) ? "Load this example" : "Needs Boltz-2"}
+              title={exampleOk(e) ? "Load this example into the form" : "Needs Boltz-2"}
               onClick={() => loadExample(e.id)}>
               {e.name}
             </button>
           ))}
+          <span style={{ flex: 1 }} />
+          <button className="btn ghost sm" title="Clear the form and start blank" onClick={resetForm}>↺ Clear</button>
         </div>
       )}
 
@@ -262,6 +297,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
             caps={caps} modelInfo={modelInfo} ligandChains={ligandChains}
             affinity={affinity} setAffinity={setAffinity}
             affinityBinder={affinityBinder} setAffinityBinder={setAffinityBinder}
+            constraints={constraints} addConstraint={addConstraint} updConstraint={updConstraint} rmConstraint={rmConstraint}
           />
         ) : (
           <YamlEditor
@@ -439,6 +475,44 @@ function FormBuilder(p) {
             )}
           </div>
         </div>
+      )}
+
+      {p.caps.has("constraints") && (
+        <details className="collapse mt16" open={p.constraints.length > 0}>
+          <summary>Binding constraints (optional)</summary>
+          <div className="mt8">
+            {p.constraints.map((k, i) => (
+              <div className="chain" key={i}>
+                <div className="chain-head">
+                  <strong style={{ fontSize: 13 }}>{k.kind === "pocket" ? "Pocket" : "Contact"}</strong>
+                  <div className="spacer" />
+                  <button className="btn ghost sm" onClick={() => p.rmConstraint(i)}>Remove</button>
+                </div>
+                {k.kind === "pocket" ? (
+                  <div className="row">
+                    <select value={k.binder} onChange={(e) => p.updConstraint(i, { binder: e.target.value })} style={{ maxWidth: 130 }}>
+                      <option value="">binder…</option>
+                      {p.ligandChains.map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}
+                    </select>
+                    <input type="text" value={k.contacts} onChange={(e) => p.updConstraint(i, { contacts: e.target.value })} placeholder="contacts, e.g. A:10, A:12" />
+                    <input type="number" value={k.maxDistance} onChange={(e) => p.updConstraint(i, { maxDistance: e.target.value })} placeholder="Å" style={{ maxWidth: 80 }} />
+                  </div>
+                ) : (
+                  <div className="row">
+                    <input type="text" value={k.token1} onChange={(e) => p.updConstraint(i, { token1: e.target.value })} placeholder="residue 1, e.g. A:5" />
+                    <input type="text" value={k.token2} onChange={(e) => p.updConstraint(i, { token2: e.target.value })} placeholder="residue 2, e.g. B:20" />
+                    <input type="number" value={k.maxDistance} onChange={(e) => p.updConstraint(i, { maxDistance: e.target.value })} placeholder="Å" style={{ maxWidth: 80 }} />
+                  </div>
+                )}
+              </div>
+            ))}
+            <div className="flex">
+              <button className="btn ghost sm" disabled={!p.ligandChains.length} title={p.ligandChains.length ? "" : "Add a ligand first"} onClick={() => p.addConstraint("pocket")}>+ Pocket</button>
+              <button className="btn ghost sm" onClick={() => p.addConstraint("contact")}>+ Contact</button>
+            </div>
+            <div className="hint mt8">Pocket: residues the ligand should bind near. Contact: two residues to keep close. Residues are <code>chainID:number</code>.</div>
+          </div>
+        </details>
       )}
     </div>
   );
