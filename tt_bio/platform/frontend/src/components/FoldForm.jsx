@@ -243,9 +243,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
                   <option value="fasta">FASTA</option>
                 </select>
               )}
-              <button className="btn ghost sm" onClick={() => (composeMode === "form" ? editAsYaml() : setComposeMode("form"))}>
-                {composeMode === "form" ? "Edit as YAML ⟩" : "⟨ Simple form"}
-              </button>
+              {/* Always-visible mode toggle so getting back to the simple form
+                  (e.g. after loading an example) is one obvious click. */}
+              <button className={`btn sm ${composeMode === "form" ? "primary" : "ghost"}`} onClick={() => setComposeMode("form")}>Simple form</button>
+              <button className={`btn sm ${composeMode === "yaml" ? "primary" : "ghost"}`} onClick={() => composeMode === "form" && editAsYaml()}>YAML</button>
             </div>
           )}
         </div>
