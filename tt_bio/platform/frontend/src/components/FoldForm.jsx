@@ -6,6 +6,18 @@ import { parseSequences, recordToTarget } from "../sequences.js";
 let _tid = 1;
 const newTarget = (content = "", name = "") => ({ key: _tid++, name, content });
 
+// Type-aware placeholder for the sequence box, so it matches the chain type
+// (protein / DNA / RNA) instead of always saying "protein".
+const SEQ_HINT = {
+  protein: { noun: "protein", ex: "MKTAYIAKQR…" },
+  dna: { noun: "DNA", ex: "ATGCATGC…" },
+  rna: { noun: "RNA", ex: "AUGCAUGC…" },
+};
+const seqPlaceholder = (type, single) => {
+  const h = SEQ_HINT[type] || { noun: "", ex: "" };
+  return single ? `Paste a ${h.noun} sequence — e.g. ${h.ex}` : `${h.noun} sequence`;
+};
+
 // Which capabilities an input actually exercises — so we can refuse it on a
 // model that lacks them (e.g. ESMFold silently drops ligands/nucleic/affinity).
 const CAP_LABEL = {
@@ -140,7 +152,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         inputFormat = model.startsWith("esmfold") ? "fasta" : "yaml";
         payloadTargets = bulk.map((r) => recordToTarget(r, model));
       } else if (composeMode === "form") {
-        if (formEmpty()) { onError("Enter a protein sequence."); setSubmitting(false); return; }
+        if (formEmpty()) { onError("Enter a sequence (or a ligand)."); setSubmitting(false); return; }
         inputFormat = "yaml";
         payloadTargets = [{ name: name.trim() || "target", content: formContent() }];
       } else {
@@ -379,7 +391,7 @@ function FormBuilder(p) {
             </div>
           ) : (
             <textarea className="code" rows={3} value={c.sequence} onChange={(e) => p.updChain(i, { sequence: e.target.value })}
-              placeholder={single ? "Paste a protein sequence — e.g. MKTAYIAKQR…" : "sequence"} spellCheck={false} />
+              placeholder={seqPlaceholder(c.type, single)} spellCheck={false} />
           )}
         </div>
       ))}
