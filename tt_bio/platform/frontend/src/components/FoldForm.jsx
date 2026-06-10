@@ -33,6 +33,14 @@ function inputCaps(content) {
   return caps;
 }
 
+// A ligand only makes sense bound to something — folding one on its own isn't a
+// structure-prediction task. Protein / DNA / RNA on their own are fine.
+function isLigandOnly(content) {
+  const hasLigand = /(^|\n)\s*-?\s*ligand\s*:/i.test(content);
+  const hasPolymer = /(^|\n)\s*-?\s*(protein|dna|rna)\s*:/i.test(content);
+  return hasLigand && !hasPolymer;
+}
+
 // Single-quote a value as a YAML scalar (escaping ' as '') so user-entered
 // fields with ':', '#', '[' etc. can't break or inject into the generated YAML.
 const yq = (v) => `'${String(v).replace(/'/g, "''")}'`;
@@ -166,6 +174,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         onError(`${modelInfo.name} doesn't support ${missing.map((c) => CAP_LABEL[c]).join(", ")} — it would silently ignore that. Switch to a model that does (e.g. Boltz-2).`);
         setSubmitting(false); return;
       }
+      if (payloadTargets.some((t) => isLigandOnly(t.content))) {
+        onError("A ligand can't be folded on its own — add a protein, DNA, or RNA chain for it to bind.");
+        setSubmitting(false); return;
+      }
       const job = await api.submit({
         kind: "predict", name: name.trim(), model, input_format: inputFormat,
         targets: payloadTargets, params,
@@ -187,6 +199,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const missingCaps = [...new Set(composeContent.flatMap((c) => (c && c.trim() ? [...inputCaps(c)] : [])))]
     .filter((c) => !caps.has(c));
   const esmMismatch = missingCaps.length > 0;
+  const ligandOnly = composeContent.some((c) => c && c.trim() && isLigandOnly(c));
 
   return (
     <>
@@ -269,11 +282,18 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         </div>
       )}
 
+      {ligandOnly && (
+        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
+          <strong style={{ color: "var(--warn)" }}>⚠ Ligand needs a target.</strong> A ligand can't be folded on its own —
+          add a <strong>protein, DNA, or RNA</strong> chain for it to bind.
+        </div>
+      )}
+
       <div className="flex-between">
         <div className="field" style={{ flex: 1, marginRight: 16, marginBottom: 0 }}>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
-        <button className="btn primary" disabled={submitting || esmMismatch} onClick={submit}>
+        <button className="btn primary" disabled={submitting || esmMismatch || ligandOnly} onClick={submit}>
           {submitting ? "Submitting…" : inputMode === "bulk" && bulk.length ? `Run ${bulk.length} predictions →` : "Run prediction →"}
         </button>
       </div>

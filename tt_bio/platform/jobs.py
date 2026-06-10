@@ -199,6 +199,11 @@ class JobManager:
             for i, t in enumerate(targets):
                 if not isinstance(t, dict) or not isinstance(t.get("content"), str):
                     raise ValueError("each target needs a string 'content' field")
+                if _is_ligand_only(t["content"]):
+                    raise ValueError(
+                        "A ligand can't be folded on its own — include a protein, "
+                        "DNA, or RNA chain for it to bind."
+                    )
                 stem = _safe_stem(Path(str(t.get("name") or "")).stem, f"target_{i + 1}")
                 base, n = stem, 2
                 while stem in seen:
@@ -562,6 +567,14 @@ def _read_json(path: Path) -> Any:
 def _safe_stem(name: str, fallback: str) -> str:
     s = re.sub(r"[^A-Za-z0-9._-]+", "_", (name or "").strip()).strip("._-")
     return s[:80] or fallback
+
+
+def _is_ligand_only(content: str) -> bool:
+    """A ligand only makes sense bound to a polymer; folding one alone isn't a
+    structure-prediction task. (protein/DNA/RNA on their own are fine.)"""
+    has_ligand = bool(re.search(r"(^|\n)\s*-?\s*ligand\s*:", content, re.I))
+    has_polymer = bool(re.search(r"(^|\n)\s*-?\s*(protein|dna|rna)\s*:", content, re.I))
+    return has_ligand and not has_polymer
 
 
 def _detect_ext(content: str, fallback: str = "yaml") -> str:
