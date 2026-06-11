@@ -25,7 +25,6 @@ import threading
 import time
 import uuid
 import zipfile
-from contextlib import nullcontext
 from pathlib import Path
 from queue import Queue
 from typing import Any
@@ -295,6 +294,11 @@ class JobManager:
         # design
         cmd = [*TTBIO, "gen", "run", "design.yaml", "--output", str(out),
                "--protocol", job.protocol or "protein-anything", "--debug", "--log"]
+        # With a shared cluster up, design fans across the fleet exactly like
+        # predict: the controller leases one shard per worker, each runs a
+        # single-device gen run, and this client merges + filters the union.
+        if controller_url:
+            cmd += ["--controller", controller_url]
         for key in ("num_designs", "budget"):
             v = self._int(p, key)
             if v is not None:
@@ -314,18 +318,15 @@ class JobManager:
             if job is None or job.status == CANCELED:
                 continue
             url = self.cluster.submit_url() if self.cluster else None
-            controller_url = url if job.kind == "predict" else None
-            # Exclusive = needs the master's local devices to itself: every
-            # design job, and any predict that has no cluster to fan out to.
-            exclusive = (job.kind == "design") or (job.kind == "predict" and not controller_url)
+            # Both predict and design submit to the shared controller when one is
+            # up — thin clients whose compute the fleet's workers do, so they run
+            # concurrently. With no cluster, a job runs locally and needs the
+            # devices to itself (exclusive).
+            controller_url = url
+            exclusive = controller_url is None
             self._admit(exclusive)
             try:
-                # A design job borrows the local devices: pause the local predict
-                # worker pool for its duration (remote galaxies keep serving).
-                slot = (self.cluster.design_slot()
-                        if (job.kind == "design" and self.cluster) else nullcontext())
-                with slot:
-                    self._run_job(job, controller_url)
+                self._run_job(job, controller_url)
             except Exception as e:  # never let one job kill its worker thread
                 job.status = FAILED
                 job.error = f"Internal error: {e}"

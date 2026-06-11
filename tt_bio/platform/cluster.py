@@ -29,7 +29,6 @@ import subprocess
 import threading
 import time
 import urllib.request
-from contextlib import contextmanager
 from pathlib import Path
 
 from tt_bio.distributed import ControllerClient
@@ -79,7 +78,6 @@ class Cluster:
         self._controller_proc: subprocess.Popen | None = None
         self._workers_proc: subprocess.Popen | None = None
         self._lock = threading.RLock()        # guards process start/stop
-        self._design_lock = threading.Lock()  # one design job borrows devices at a time
         self._started = False
 
     # -- lifecycle ---------------------------------------------------------
@@ -179,30 +177,11 @@ class Cluster:
         )
 
     def submit_url(self) -> str | None:
-        """The URL predict jobs should submit to, or None to run locally."""
+        """The URL predict and design jobs should submit to, or None to run
+        locally. Both job kinds fan across the fleet through the same
+        controller, so the master's local workers serve them interleaved — no
+        device juggling needed."""
         return self.controller_url if self.controller_alive() else None
-
-    @contextmanager
-    def design_slot(self):
-        """Exclusively borrow the master's local devices for a design job.
-
-        Stops the local predict worker pool so the chips are free for
-        ``gen run`` (remote galaxies keep serving predict from the controller),
-        then restarts the pool when the design job finishes. Serialised so two
-        design jobs never contend for the same devices.
-        """
-        if not self.controller_alive():
-            # No managed pool (cluster disabled) — nothing to free.
-            yield
-            return
-        with self._design_lock:
-            self._stop_local_workers()
-            # Give the chips a moment to be released before gen run opens them.
-            time.sleep(2.0)
-            try:
-                yield
-            finally:
-                self._start_local_workers()
 
     # -- status ------------------------------------------------------------
     def status(self) -> dict:
