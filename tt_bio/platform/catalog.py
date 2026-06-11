@@ -87,7 +87,6 @@ PREDICT_PARAMS = [
     {"key": "sampling_steps", "label": "Sampling steps", "type": "int", "default": 200, "help": "Diffusion sampling steps."},
     {"key": "diffusion_samples", "label": "Diffusion samples", "type": "int", "default": 1, "help": "Number of structures sampled per target."},
     {"key": "output_format", "label": "Output format", "type": "enum", "default": "cif", "choices": ["cif", "pdb"], "help": "Structure file format."},
-    {"key": "seed", "label": "Random seed", "type": "int", "default": None, "help": "Set for reproducible results (optional)."},
     {"key": "use_potentials", "label": "Steering potentials", "type": "bool", "default": False, "cap": "potentials", "help": "Physical guidance during sampling."},
     {"key": "max_msa_seqs", "label": "Max MSA sequences", "type": "int", "default": 8192, "cap": "msa", "help": "Cap on MSA depth."},
     {"key": "write_pae", "label": "Write PAE matrix", "type": "bool", "default": False, "cap": "pae", "help": "Predicted Aligned Error (.npz)."},
