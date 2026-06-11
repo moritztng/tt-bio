@@ -184,6 +184,10 @@ constraints:
         "protocol": "nanobody-anything",
         "name": "Nanobody against a target",
         "format": "yaml",
+        "builder": {
+            "binderId": "B", "targetId": "A", "lengthRange": "110..130",
+            "target": "MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSLVGKFMHDINVAWPAWRNLAEVVRHG",
+        },
         "content": """entities:
   - protein:
       id: B
@@ -200,6 +204,10 @@ constraints:
         "protocol": "protein-anything",
         "name": "Mini-protein binder",
         "format": "yaml",
+        "builder": {
+            "binderId": "B", "targetId": "A", "lengthRange": "80..120",
+            "target": "MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSL",
+        },
         "content": """entities:
   - protein:
       id: B

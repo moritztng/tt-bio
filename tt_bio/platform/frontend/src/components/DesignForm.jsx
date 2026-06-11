@@ -11,63 +11,124 @@ const DEFAULT_LEN = {
   "protein-redesign": "80..120",
 };
 
+// 'protein-small_molecule' designs a binder against a small molecule, so its
+// target is a ligand; every other protocol targets a protein.
+const isLigandProtocol = (p) => p === "protein-small_molecule";
+
 // Single-quote a value as a YAML scalar (escaping ' as '') so user-entered
 // fields with ':', '#', '[' etc. can't break or inject into the generated spec.
 const yq = (v) => `'${String(v).replace(/'/g, "''")}'`;
 
-function genSpec({ target, targetId, binderId, lengthRange }) {
-  return [
+// Build a BoltzGen entities spec from the simple-form fields. The binder is a
+// length range to design; the target is either a protein sequence or a ligand.
+function genSpec({ isLigand, target, ligand, ligandMode, targetId, binderId, lengthRange }) {
+  const lines = [
     "entities:",
     "  - protein:",
     `      id: ${yq(binderId || "B")}`,
     `      sequence: ${yq(lengthRange || "80..120")}`,
-    "  - protein:",
-    `      id: ${yq(targetId || "A")}`,
-    "      msa: empty",
-    `      sequence: ${yq((target || "").trim().replace(/\s+/g, ""))}`,
-    "",
-  ].join("\n");
+  ];
+  if (isLigand) {
+    lines.push("  - ligand:");
+    lines.push(`      id: ${yq(targetId || "A")}`);
+    if (ligandMode === "ccd") lines.push(`      ccd: ${yq((ligand || "").trim())}`);
+    else lines.push(`      smiles: ${yq((ligand || "").trim())}`);
+  } else {
+    lines.push("  - protein:");
+    lines.push(`      id: ${yq(targetId || "A")}`);
+    lines.push("      msa: empty");
+    lines.push(`      sequence: ${yq((target || "").trim().replace(/\s+/g, ""))}`);
+  }
+  return lines.join("\n") + "\n";
 }
+
+const specHasLigand = (s) => /(^|\n)\s*-?\s*ligand\s*:/i.test(s || "");
 
 export default function DesignForm({ catalog, onSubmitted, onError }) {
   const [protocol, setProtocol] = useState("protein-anything");
-  const [spec, setSpec] = useState("");
   const [name, setName] = useState("");
   const [params, setParams] = useState(() => defaultsFor(catalog.design_params));
   const [submitting, setSubmitting] = useState(false);
-  const [showBuilder, setShowBuilder] = useState(true);
+  // Simple form is the default; raw YAML is an optional advanced surface, just
+  // like the Fold tab. Beginners never have to see BoltzGen YAML.
+  const [specMode, setSpecMode] = useState("form"); // form (simple, default) | yaml (advanced)
+  const [spec, setSpec] = useState("");
 
   // builder state
-  const [target, setTarget] = useState("");
+  const [target, setTarget] = useState("");       // protein-target sequence
+  const [ligand, setLigand] = useState("");        // small-molecule target
+  const [ligandMode, setLigandMode] = useState("smiles");
   const [targetId, setTargetId] = useState("A");
   const [binderId, setBinderId] = useState("B");
   const [lengthRange, setLengthRange] = useState(DEFAULT_LEN["protein-anything"]);
 
   const protoInfo = useMemo(() => catalog.protocols.find((p) => p.id === protocol), [catalog, protocol]);
   const setParam = (k, v) => setParams((p) => ({ ...p, [k]: v }));
+  const isLigand = isLigandProtocol(protocol);
 
   const onProtocol = (id) => {
     setProtocol(id);
     setLengthRange(DEFAULT_LEN[id] || "80..120");
   };
 
-  const applyBuilder = () => {
-    if (!target.trim()) return onError("Paste a target protein sequence first.");
-    setSpec(genSpec({ target, targetId, binderId, lengthRange }));
+  const builderArgs = { isLigand, target, ligand, ligandMode, targetId, binderId, lengthRange };
+
+  // Turn the simple form into editable YAML and switch to the advanced view —
+  // one obvious click, mirroring the Fold tab's "YAML" toggle.
+  const editAsYaml = () => {
+    setSpec(genSpec(builderArgs));
+    setSpecMode("yaml");
   };
 
   const loadExample = (id) => {
     const ex = catalog.examples.find((e) => e.id === id);
     if (!ex) return;
     if (ex.protocol) onProtocol(ex.protocol);
-    setSpec(ex.content);
+    // Load examples into the simple form (not raw YAML), keeping everything
+    // editable without touching the spec textarea.
+    if (ex.builder) {
+      const b = ex.builder;
+      setTarget(b.target || "");
+      setLigand(b.ligand || "");
+      setLigandMode(b.ligandMode || "smiles");
+      setTargetId(b.targetId || "A");
+      setBinderId(b.binderId || "B");
+      if (b.lengthRange) setLengthRange(b.lengthRange);
+      setSpec("");
+      setSpecMode("form");
+    } else if (ex.content) {
+      setSpec(ex.content);
+      setSpecMode("yaml");
+    }
   };
 
+  // "Actually I don't want the example" — back to a blank simple form.
+  const resetForm = () => {
+    setTarget(""); setLigand(""); setLigandMode("smiles");
+    setTargetId("A"); setBinderId("B");
+    setLengthRange(DEFAULT_LEN[protocol] || "80..120");
+    setSpec(""); setSpecMode("form"); setName("");
+  };
+
+  const designExamples = catalog.examples.filter((e) => e.kind === "design");
+  // The simple form always builds the right target type for the protocol, so a
+  // mismatch is only possible if someone hand-edits the YAML into a protein
+  // target under the small-molecule protocol.
+  const effectiveSpec = specMode === "yaml" ? spec : genSpec(builderArgs);
+  const designMismatch = isLigand && specMode === "yaml" && !!effectiveSpec.trim() && !specHasLigand(effectiveSpec);
+
   const submit = async () => {
-    const body = spec.trim() || genSpec({ target, targetId, binderId, lengthRange });
-    if (!body.trim() || (!spec.trim() && !target.trim())) return onError("Provide a target sequence or a design spec.");
-    if (needsLigandTarget && !specHasLigand) {
-      return onError("The 'Binder + affinity' protocol designs a binder against a small molecule — your spec must include a ligand target (ccd or smiles), not a protein. Edit the spec accordingly.");
+    let body;
+    if (specMode === "yaml") {
+      body = spec.trim();
+      if (!body) return onError("Add a design spec, or switch to the simple form.");
+    } else {
+      if (isLigand && !ligand.trim()) return onError("Enter the target small molecule (SMILES or CCD code) first.");
+      if (!isLigand && !target.trim()) return onError("Paste a target protein sequence first.");
+      body = genSpec(builderArgs);
+    }
+    if (designMismatch) {
+      return onError("The 'Binder + affinity' protocol designs a binder against a small molecule — your spec must include a ligand target (ccd or smiles), not a protein.");
     }
     setSubmitting(true);
     try {
@@ -79,14 +140,6 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
       setSubmitting(false);
     }
   };
-
-  const designExamples = catalog.examples.filter((e) => e.kind === "design");
-  // 'protein-small_molecule' designs a binder against a small molecule, so its
-  // target must be a ligand; every other protocol targets a protein.
-  const needsLigandTarget = protocol === "protein-small_molecule";
-  const effectiveSpec = spec.trim() || (target.trim() ? genSpec({ target, targetId, binderId, lengthRange }) : "");
-  const specHasLigand = /(^|\n)\s*-?\s*ligand\s*:/i.test(effectiveSpec);
-  const designMismatch = needsLigandTarget && effectiveSpec && !specHasLigand;
 
   return (
     <>
@@ -106,25 +159,46 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
       <div className="examples-row">
         <span className="examples-label">Start from an example:</span>
         {designExamples.map((e) => (
-          <button key={e.id} className="chip" title="Load this example" onClick={() => loadExample(e.id)}>{e.name}</button>
+          <button key={e.id} className="chip" title="Load this example into the form" onClick={() => loadExample(e.id)}>{e.name}</button>
         ))}
+        <span style={{ flex: 1 }} />
+        <button className="btn sm" title="Clear the form and start blank" onClick={resetForm}>↺ Clear form</button>
       </div>
 
       <div className="panel">
         <div className="flex-between">
-          <p className="section-title mb0">Design specification</p>
+          <p className="section-title mb0">Design target</p>
+          <div className="flex">
+            <button className={`btn sm ${specMode === "form" ? "primary" : "ghost"}`} onClick={() => setSpecMode("form")}>Simple form</button>
+            <button className={`btn sm ${specMode === "yaml" ? "primary" : "ghost"}`} onClick={() => specMode === "form" && editAsYaml()}>YAML</button>
+          </div>
         </div>
 
-        <details className="collapse" open={showBuilder} onToggle={(e) => setShowBuilder(e.target.open)}>
-          <summary>Quick builder</summary>
-          <div className="mt8">
-            <div className="field">
-              <label>Target protein sequence</label>
-              <textarea className="code" rows={4} value={target} spellCheck={false}
-                onChange={(e) => setTarget(e.target.value)}
-                placeholder="Paste the amino-acid sequence of the protein you want to bind…" />
-              <div className="hint">The binder will be designed against this target. Run on sovereign compute — the target never leaves the cluster.</div>
-            </div>
+        {specMode === "form" ? (
+          <div className="mt16">
+            {isLigand ? (
+              <div className="field">
+                <label>Target small molecule</label>
+                <div className="row">
+                  <select value={ligandMode} onChange={(e) => setLigandMode(e.target.value)} style={{ maxWidth: 110 }}>
+                    <option value="smiles">SMILES</option>
+                    <option value="ccd">CCD</option>
+                  </select>
+                  {ligandMode === "ccd"
+                    ? <input type="text" value={ligand} onChange={(e) => setLigand(e.target.value)} placeholder="e.g. ATP" />
+                    : <input type="text" value={ligand} onChange={(e) => setLigand(e.target.value)} placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O" />}
+                </div>
+                <div className="hint">The binder will be designed against this small molecule. Run on sovereign compute — your target never leaves the cluster.</div>
+              </div>
+            ) : (
+              <div className="field">
+                <label>Target protein sequence</label>
+                <textarea className="code" rows={4} value={target} spellCheck={false}
+                  onChange={(e) => setTarget(e.target.value)}
+                  placeholder="Paste the amino-acid sequence of the protein you want to bind…" />
+                <div className="hint">The binder will be designed against this target. Run on sovereign compute — your target never leaves the cluster.</div>
+              </div>
+            )}
             <div className="row">
               <div className="field">
                 <label>Binder length</label>
@@ -140,17 +214,16 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
                 <input type="text" value={targetId} onChange={(e) => setTargetId(e.target.value)} />
               </div>
             </div>
-            <button className="btn primary sm" onClick={applyBuilder}>Apply to spec ↓</button>
           </div>
-        </details>
-
-        <div className="field mt16">
-          <label>Spec (YAML)</label>
-          <textarea className="code" rows={9} value={spec} spellCheck={false}
-            onChange={(e) => setSpec(e.target.value)}
-            placeholder={"entities:\n  - protein:\n      id: B\n      sequence: 80..120\n  - protein:\n      id: A\n      msa: empty\n      sequence: MVTPEG..."} />
-          <div className="hint">Full BoltzGen spec supported — bind to proteins, small molecules, DNA or RNA; fix or redesign residues; add binding-site constraints.</div>
-        </div>
+        ) : (
+          <div className="field mt16">
+            <label>Spec (YAML)</label>
+            <textarea className="code" rows={11} value={spec} spellCheck={false}
+              onChange={(e) => setSpec(e.target.value)}
+              placeholder={"entities:\n  - protein:\n      id: B\n      sequence: 80..120\n  - protein:\n      id: A\n      msa: empty\n      sequence: MVTPEG..."} />
+            <div className="hint">Full BoltzGen spec — bind to proteins, small molecules, DNA or RNA; fix or redesign residues; add binding-site constraints.</div>
+          </div>
+        )}
       </div>
 
       <div className="panel">
