@@ -78,33 +78,24 @@ ACCELERATORS = ["tenstorrent", "gpu", "cpu"]
 
 # --- Tunable parameters, surfaced under "Advanced settings" (progressive disclosure) ---
 # Each entry: key, label, type (bool|int|float|enum|text), default, help, [choices].
+# Only the controls a structural-biology user actually reaches for — no
+# low-level / hardware / raw-CLI knobs (the platform abstracts those away).
 PREDICT_PARAMS = [
-    {"key": "use_msa_server", "label": "Generate MSA (ColabFold)", "type": "bool", "default": True, "cap": "msa",
-     "help": "Fetch the MSA from the ColabFold server. Required for Boltz-2 unless your input supplies its own MSA. Needs internet on the server."},
-    {"key": "fast", "label": "Fast mode (block-fp8)", "type": "bool", "default": False,
-     "help": "Lower precision, higher throughput. Tenstorrent only."},
-    {"key": "recycling_steps", "label": "Recycling steps", "type": "int", "default": 3, "help": "More = potentially higher accuracy, slower."},
-    {"key": "sampling_steps", "label": "Sampling steps", "type": "int", "default": 200, "help": "Diffusion sampling steps."},
-    {"key": "diffusion_samples", "label": "Diffusion samples", "type": "int", "default": 1, "help": "Number of structures sampled per target."},
+    {"key": "use_msa_server", "label": "Generate MSA", "type": "bool", "default": True, "cap": "msa",
+     "help": "Build a multiple-sequence alignment for the input. Required for Boltz-2; optional for ESMFold-2."},
+    {"key": "fast", "label": "Fast mode", "type": "bool", "default": False,
+     "help": "Lower precision for higher throughput — slightly less accurate."},
+    {"key": "recycling_steps", "label": "Recycling steps", "type": "int", "default": 3, "help": "More can improve accuracy, at the cost of speed."},
+    {"key": "sampling_steps", "label": "Sampling steps", "type": "int", "default": 200, "help": "Diffusion steps per structure."},
+    {"key": "diffusion_samples", "label": "Number of predictions", "type": "int", "default": 1, "help": "How many structures to generate per target."},
     {"key": "output_format", "label": "Output format", "type": "enum", "default": "cif", "choices": ["cif", "pdb"], "help": "Structure file format."},
-    {"key": "use_potentials", "label": "Steering potentials", "type": "bool", "default": False, "cap": "potentials", "help": "Physical guidance during sampling."},
-    {"key": "max_msa_seqs", "label": "Max MSA sequences", "type": "int", "default": 8192, "cap": "msa", "help": "Cap on MSA depth."},
-    {"key": "sampling_steps_affinity", "label": "Affinity sampling steps", "type": "int", "default": 200, "cap": "affinity", "help": "Boltz-2 affinity head only."},
-    {"key": "diffusion_samples_affinity", "label": "Affinity diffusion samples", "type": "int", "default": 5, "cap": "affinity", "help": "Boltz-2 affinity head only."},
-    {"key": "device_ids", "label": "Device IDs", "type": "text", "default": "", "help": "Comma-separated Tenstorrent device IDs, e.g. 0,2 (blank = all)."},
-    {"key": "extra_args", "label": "Extra CLI arguments", "type": "text", "default": "", "help": "Power users: any extra `tt-bio predict` flags, appended verbatim."},
 ]
 
 DESIGN_PARAMS = [
     {"key": "num_designs", "label": "Designs to generate", "type": "int", "default": 100,
      "help": "Total candidates generated before filtering. Production runs use ~10,000; lower is faster for a quick look."},
     {"key": "budget", "label": "Top designs to keep", "type": "int", "default": 30, "help": "How many ranked designs to report after filtering."},
-    {"key": "fast", "label": "Fast mode (block-fp8)", "type": "bool", "default": True, "help": "Lower precision, higher throughput. Tenstorrent only."},
-    {"key": "diffusion_batch_size", "label": "Diffusion batch size", "type": "int", "default": None, "help": "Designs per trunk run (optional)."},
-    {"key": "steps", "label": "Pipeline steps", "type": "multienum", "default": DESIGN_STEPS, "choices": DESIGN_STEPS,
-     "help": "Run only a subset of the design pipeline (default: all)."},
-    {"key": "device_ids", "label": "Device IDs", "type": "text", "default": "", "help": "Comma-separated Tenstorrent device IDs (blank = all)."},
-    {"key": "extra_args", "label": "Extra CLI arguments", "type": "text", "default": "", "help": "Power users: any extra `tt-bio gen run` flags, appended verbatim."},
+    {"key": "fast", "label": "Fast mode", "type": "bool", "default": True, "help": "Lower precision for higher throughput — slightly less accurate."},
 ]
 
 # --- Curated examples (also discoverable from the examples/ dir at runtime) ---

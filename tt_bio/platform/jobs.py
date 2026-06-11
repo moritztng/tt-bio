@@ -225,43 +225,38 @@ class JobManager:
         return job
 
     # -- command construction ---------------------------------------------
+    # The platform exposes a fixed, vetted set of options — it deliberately does
+    # NOT forward arbitrary CLI args, device ids, or unknown params, so a request
+    # can never inject low-level flags into the tt-bio subprocess.
+    def _int(self, p, key):
+        v = p.get(key)
+        return v if isinstance(v, int) and not isinstance(v, bool) else None
+
     def _build_cmd(self, job: Job) -> list[str]:
         p = job.params
         out = self._out_dir(job.id)
         if job.kind == "predict":
             cmd = [*TTBIO, "predict", str(self._inputs_dir(job.id)),
                    "--out_dir", str(out), "--model", job.model or "boltz2",
-                   "--debug", "--log"]
-            cmd += ["--accelerator", str(p.get("accelerator") or "tenstorrent")]
-            cmd += ["--output_format", str(p.get("output_format") or "cif")]
-            for flag in ("use_msa_server", "fast", "use_potentials", "write_pae", "write_pde"):
+                   "--accelerator", "tenstorrent", "--debug", "--log",
+                   "--output_format", "pdb" if p.get("output_format") == "pdb" else "cif"]
+            for flag in ("use_msa_server", "fast"):
                 if p.get(flag):
                     cmd.append(f"--{flag}")
-            for key in ("recycling_steps", "sampling_steps", "diffusion_samples",
-                        "max_msa_seqs", "seed", "sampling_steps_affinity",
-                        "diffusion_samples_affinity"):
-                v = p.get(key)
-                if v not in (None, ""):
+            for key in ("recycling_steps", "sampling_steps", "diffusion_samples"):
+                v = self._int(p, key)
+                if v is not None:
                     cmd += [f"--{key}", str(v)]
-            if p.get("device_ids"):
-                cmd += ["--device_ids", str(p["device_ids"])]
-            cmd += shlex.split(str(p.get("extra_args") or ""))
             return cmd
         # design
         cmd = [*TTBIO, "gen", "run", "design.yaml", "--output", str(out),
                "--protocol", job.protocol or "protein-anything", "--debug", "--log"]
-        for key in ("num_designs", "budget", "diffusion_batch_size"):
-            v = p.get(key)
-            if v not in (None, ""):
+        for key in ("num_designs", "budget"):
+            v = self._int(p, key)
+            if v is not None:
                 cmd += [f"--{key}", str(v)]
         if p.get("fast"):
             cmd.append("--fast")
-        steps = p.get("steps")
-        if steps and set(steps) != set(_DESIGN_STAGES):
-            cmd += ["--steps", *steps]
-        if p.get("device_ids"):
-            cmd += ["--device_ids", str(p["device_ids"])]
-        cmd += shlex.split(str(p.get("extra_args") or ""))
         return cmd
 
     # -- worker loop -------------------------------------------------------
