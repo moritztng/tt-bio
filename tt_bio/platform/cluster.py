@@ -79,14 +79,26 @@ class Cluster:
         self._workers_proc: subprocess.Popen | None = None
         self._lock = threading.RLock()        # guards process start/stop
         self._started = False
+        self._adopted = False                 # using a controller another serve owns
 
     # -- lifecycle ---------------------------------------------------------
     def start(self) -> None:
         if not self.enabled or self._started:
             return
         self._started = True
-        self._start_controller()
-        if self._wait_healthy(timeout=20.0):
+        # If a healthy controller is already on the port — e.g. a previous
+        # serve left one running — adopt it instead of failing to bind (which
+        # used to leave the platform thinking it had no controller, showing 0
+        # devices and silently running jobs locally). Otherwise start our own.
+        if self._healthz_ok():
+            self._adopted = True
+        else:
+            self._start_controller()
+            self._wait_healthy(timeout=20.0)
+        # Only add this host's worker pool if the (possibly adopted) controller
+        # doesn't already have workers from this host — two worker processes on
+        # the same cards would fight for the devices.
+        if self._healthz_ok() and not self._host_has_workers():
             self._start_local_workers()
 
     def _open_log(self, name: str):
@@ -136,23 +148,40 @@ class Cluster:
                 except Exception:
                     pass
 
+    def _healthz_ok(self) -> bool:
+        """Is a controller actually responding on our port right now?"""
+        try:
+            with urllib.request.urlopen(self.controller_url + "/healthz", timeout=2.0) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
+
     def _wait_healthy(self, timeout: float) -> bool:
         deadline = time.time() + timeout
-        url = self.controller_url + "/healthz"
         while time.time() < deadline:
-            try:
-                with urllib.request.urlopen(url, timeout=2.0) as resp:
-                    if resp.status == 200:
-                        return True
-            except Exception:
-                time.sleep(0.3)
+            if self._healthz_ok():
+                return True
+            time.sleep(0.3)
         return False
+
+    def _host_has_workers(self) -> bool:
+        """Does the controller already have an online worker from this host?"""
+        try:
+            host = socket.gethostname()
+            return any(w.get("online") and w.get("host") == host
+                       for w in self.client.cluster().get("workers", []))
+        except Exception:
+            return False
 
     def shutdown(self) -> None:
         self._stop_local_workers()
         with self._lock:
             proc = self._controller_proc
             self._controller_proc = None
+        # Never tear down a controller we only adopted — it belongs to another
+        # serve and may still be in use.
+        if self._adopted:
+            return
         if proc and proc.poll() is None:
             import os
             import signal
@@ -170,11 +199,15 @@ class Cluster:
 
     # -- submission helpers ------------------------------------------------
     def controller_alive(self) -> bool:
-        return bool(
-            self.enabled
-            and self._controller_proc is not None
-            and self._controller_proc.poll() is None
-        )
+        if not self.enabled:
+            return False
+        # Our own subprocess is the fast path; otherwise check whether a
+        # controller (e.g. one we adopted) is actually responding — so the
+        # platform reports the real fleet, not "0 devices", when another serve
+        # owns the controller.
+        if self._controller_proc is not None and self._controller_proc.poll() is None:
+            return True
+        return self._healthz_ok()
 
     def submit_url(self) -> str | None:
         """The URL predict and design jobs should submit to, or None to run
