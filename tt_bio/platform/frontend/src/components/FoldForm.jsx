@@ -118,6 +118,14 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
 
   const modelInfo = useMemo(() => catalog.models.find((m) => m.id === model), [catalog, model]);
   const caps = useMemo(() => new Set(modelInfo?.caps || []), [modelInfo]);
+  // Lock "Generate MSA": required (and so forced on) for a model that needs an
+  // MSA; impossible (forced off) for one with no MSA encoder; free otherwise.
+  const msaLock = modelInfo?.needs_msa
+    ? { value: true, reason: `${modelInfo.name} requires an MSA — this can't be turned off.` }
+    : (!caps.has("msa")
+        ? { value: false, reason: `${modelInfo?.name} has no MSA encoder — it folds single-sequence, so this can't be turned on.` }
+        : null);
+  const paramLocks = msaLock ? { use_msa_server: msaLock } : {};
   const setParam = (k, v) => setParams((p) => ({ ...p, [k]: v }));
   const updTarget = (i, patch) => setTargets((ts) => ts.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
 
@@ -270,10 +278,6 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
     .filter((c) => !caps.has(c));
   const esmMismatch = missingCaps.length > 0;
   const ligandOnly = composeContent.some((c) => c && c.trim() && isLigandOnly(c));
-  // Boltz-2 requires an MSA: satisfied by "Generate MSA" or a custom msa: in the
-  // input. Off with neither is a guaranteed "Missing MSAs" failure.
-  const hasCustomMsa = composeContent.some((c) => c && /(^|\n)\s*msa\s*:/i.test(c));
-  const msaMissing = !!modelInfo?.needs_msa && !params.use_msa_server && (inputMode === "bulk" || !hasCustomMsa);
 
   return (
     <>
@@ -370,7 +374,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         <details className="collapse">
           <summary>Advanced settings</summary>
           <div className="mt8">
-            <ParamControls params={catalog.predict_params} values={params} onChange={setParam} caps={caps} modelName={modelInfo?.name} />
+            <ParamControls params={catalog.predict_params} values={params} onChange={setParam} caps={caps} modelName={modelInfo?.name} locks={paramLocks} />
           </div>
         </details>
       </div>
@@ -390,18 +394,11 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         </div>
       )}
 
-      {msaMissing && (
-        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
-          <strong style={{ color: "var(--warn)" }}>⚠ {modelInfo?.name} needs an MSA.</strong> Turn on{" "}
-          <strong>Generate MSA</strong> in Advanced settings (or include a custom <code>msa:</code> in your input).
-        </div>
-      )}
-
       <div className="flex-between">
         <div className="field" style={{ flex: 1, marginRight: 16, marginBottom: 0 }}>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
-        <button className="btn primary" disabled={submitting || esmMismatch || ligandOnly || msaMissing} onClick={submit}>
+        <button className="btn primary" disabled={submitting || esmMismatch || ligandOnly} onClick={submit}>
           {(() => {
             if (submitting) return "Submitting…";
             if (inputMode === "bulk" && bulk.length) return `Run ${bulk.length} predictions →`;

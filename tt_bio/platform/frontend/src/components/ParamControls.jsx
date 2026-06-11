@@ -5,15 +5,17 @@ import React from "react";
 // the common case stays simple; every tt-bio knob is reachable here.
 //
 // A param may declare a `cap`; if the selected model lacks that capability the
-// control is greyed out and inert (e.g. MSA options on ESMFold-2 Fast, affinity
-// options on a model with no affinity head) so it can't be set to no effect.
-export default function ParamControls({ params, values, onChange, caps, modelName }) {
-  const control = (p) => {
-    const v = values[p.key];
+// control is greyed out and inert (e.g. affinity options on a model with no
+// affinity head). `locks` pins a specific param to a forced value with a
+// reason shown on hover (e.g. "Generate MSA" is required for Boltz-2 and
+// impossible for ESMFold-2 Fast).
+export default function ParamControls({ params, values, onChange, caps, modelName, locks }) {
+  const control = (p, disabled, forced) => {
+    const v = forced !== undefined ? forced : values[p.key];
     if (p.type === "bool") {
       return (
         <div className="checkline">
-          <input type="checkbox" id={`p-${p.key}`} checked={!!v}
+          <input type="checkbox" id={`p-${p.key}`} checked={!!v} disabled={disabled}
             onChange={(e) => onChange(p.key, e.target.checked)} />
           <div className="cl-body">
             <label className="cl-label" htmlFor={`p-${p.key}`}>{p.label}</label>
@@ -26,7 +28,7 @@ export default function ParamControls({ params, values, onChange, caps, modelNam
       return (
         <div className="field">
           <label>{p.label}</label>
-          <select value={v ?? p.default ?? ""} onChange={(e) => onChange(p.key, e.target.value)}>
+          <select value={v ?? p.default ?? ""} disabled={disabled} onChange={(e) => onChange(p.key, e.target.value)}>
             {p.choices.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           {p.help && <div className="hint">{p.help}</div>}
@@ -41,7 +43,7 @@ export default function ParamControls({ params, values, onChange, caps, modelNam
           <div className="flex" style={{ flexWrap: "wrap" }}>
             {p.choices.map((c) => (
               <label key={c} className="tag" style={{ cursor: "pointer", padding: "4px 10px" }}>
-                <input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={set.has(c)}
+                <input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={set.has(c)} disabled={disabled}
                   onChange={(e) => {
                     const next = new Set(set);
                     e.target.checked ? next.add(c) : next.delete(c);
@@ -59,7 +61,7 @@ export default function ParamControls({ params, values, onChange, caps, modelNam
     return (
       <div className="field">
         <label>{p.label}</label>
-        <input type={p.type === "text" ? "text" : "number"} value={v ?? ""}
+        <input type={p.type === "text" ? "text" : "number"} value={v ?? ""} disabled={disabled}
           placeholder={p.default != null ? String(p.default) : ""}
           onChange={(e) => {
             const raw = e.target.value;
@@ -74,11 +76,15 @@ export default function ParamControls({ params, values, onChange, caps, modelNam
   return (
     <div>
       {params.map((p) => {
-        const off = !!(p.cap && caps && !caps.has(p.cap));
+        const lock = locks && locks[p.key];
+        const off = lock ? true : !!(p.cap && caps && !caps.has(p.cap));
+        const reason = lock ? lock.reason : (off ? `Not used by ${modelName || "this model"}.` : null);
+        // Dim with opacity (not pointer-events:none) so the explanatory tooltip
+        // still shows on hover; the inputs themselves are disabled.
         return (
-          <div key={p.key} style={off ? { opacity: 0.45, pointerEvents: "none" } : undefined}>
-            {control(p)}
-            {off && <div className="hint">Not used by {modelName || "this model"}.</div>}
+          <div key={p.key} style={off ? { opacity: 0.6 } : undefined} title={reason || undefined}>
+            {control(p, off, lock ? lock.value : undefined)}
+            {reason && <div className="hint">{reason}</div>}
           </div>
         );
       })}
