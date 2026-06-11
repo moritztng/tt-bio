@@ -89,11 +89,8 @@ PREDICT_PARAMS = [
     {"key": "output_format", "label": "Output format", "type": "enum", "default": "cif", "choices": ["cif", "pdb"], "help": "Structure file format."},
     {"key": "use_potentials", "label": "Steering potentials", "type": "bool", "default": False, "cap": "potentials", "help": "Physical guidance during sampling."},
     {"key": "max_msa_seqs", "label": "Max MSA sequences", "type": "int", "default": 8192, "cap": "msa", "help": "Cap on MSA depth."},
-    {"key": "write_pae", "label": "Write PAE matrix", "type": "bool", "default": False, "cap": "pae", "help": "Predicted Aligned Error (.npz)."},
-    {"key": "write_pde", "label": "Write PDE matrix", "type": "bool", "default": False, "cap": "pae", "help": "Predicted Distance Error (.npz)."},
     {"key": "sampling_steps_affinity", "label": "Affinity sampling steps", "type": "int", "default": 200, "cap": "affinity", "help": "Boltz-2 affinity head only."},
     {"key": "diffusion_samples_affinity", "label": "Affinity diffusion samples", "type": "int", "default": 5, "cap": "affinity", "help": "Boltz-2 affinity head only."},
-    {"key": "accelerator", "label": "Accelerator", "type": "enum", "default": "tenstorrent", "choices": ACCELERATORS, "help": "Hardware backend. Use tenstorrent on Galaxy; cpu/gpu fall back to the reference models."},
     {"key": "device_ids", "label": "Device IDs", "type": "text", "default": "", "help": "Comma-separated Tenstorrent device IDs, e.g. 0,2 (blank = all)."},
     {"key": "extra_args", "label": "Extra CLI arguments", "type": "text", "default": "", "help": "Power users: any extra `tt-bio predict` flags, appended verbatim."},
 ]
