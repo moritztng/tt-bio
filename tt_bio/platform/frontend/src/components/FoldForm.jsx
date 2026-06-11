@@ -244,6 +244,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         onError("A ligand can't be folded on its own — add a protein, DNA, or RNA chain for it to bind.");
         setSubmitting(false); return;
       }
+      if (modelInfo?.needs_msa && !params.use_msa_server && !payloadTargets.some((t) => /(^|\n)\s*msa\s*:/i.test(t.content))) {
+        onError(`${modelInfo.name} needs an MSA — turn on "Generate MSA" in Advanced settings, or include a custom msa: in your input.`);
+        setSubmitting(false); return;
+      }
       const job = await api.submit({
         kind: "predict", name: name.trim(), model, input_format: inputFormat,
         targets: payloadTargets, params,
@@ -266,6 +270,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
     .filter((c) => !caps.has(c));
   const esmMismatch = missingCaps.length > 0;
   const ligandOnly = composeContent.some((c) => c && c.trim() && isLigandOnly(c));
+  // Boltz-2 requires an MSA: satisfied by "Generate MSA" or a custom msa: in the
+  // input. Off with neither is a guaranteed "Missing MSAs" failure.
+  const hasCustomMsa = composeContent.some((c) => c && /(^|\n)\s*msa\s*:/i.test(c));
+  const msaMissing = !!modelInfo?.needs_msa && !params.use_msa_server && (inputMode === "bulk" || !hasCustomMsa);
 
   return (
     <>
@@ -382,11 +390,18 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         </div>
       )}
 
+      {msaMissing && (
+        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
+          <strong style={{ color: "var(--warn)" }}>⚠ {modelInfo?.name} needs an MSA.</strong> Turn on{" "}
+          <strong>Generate MSA</strong> in Advanced settings (or include a custom <code>msa:</code> in your input).
+        </div>
+      )}
+
       <div className="flex-between">
         <div className="field" style={{ flex: 1, marginRight: 16, marginBottom: 0 }}>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
-        <button className="btn primary" disabled={submitting || esmMismatch || ligandOnly} onClick={submit}>
+        <button className="btn primary" disabled={submitting || esmMismatch || ligandOnly || msaMissing} onClick={submit}>
           {(() => {
             if (submitting) return "Submitting…";
             if (inputMode === "bulk" && bulk.length) return `Run ${bulk.length} predictions →`;
