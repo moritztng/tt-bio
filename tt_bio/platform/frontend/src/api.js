@@ -11,6 +11,7 @@ async function json(r) {
 
 export const api = {
   catalog: () => fetch("/api/catalog").then(json),
+  cluster: () => fetch("/api/cluster").then(json),
   jobs: () => fetch("/api/jobs").then(json),
   job: (id) => fetch(`/api/jobs/${id}`).then(json),
   submit: (body) =>

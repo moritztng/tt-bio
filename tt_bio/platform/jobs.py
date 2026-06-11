@@ -25,6 +25,7 @@ import threading
 import time
 import uuid
 import zipfile
+from contextlib import nullcontext
 from pathlib import Path
 from queue import Queue
 from typing import Any
@@ -87,16 +88,54 @@ class Job:
 
 
 class JobManager:
-    def __init__(self, workspace: str | Path):
+    def __init__(self, workspace: str | Path, *, cluster=None, max_concurrent: int = 32):
         self.workspace = Path(workspace).expanduser().resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.jobs: dict[str, Job] = {}
         self.procs: dict[str, subprocess.Popen] = {}
         self.lock = threading.RLock()
         self.queue: "Queue[str]" = Queue()
+        # When a cluster is attached, predict jobs submit to its shared
+        # controller and use no local device directly, so many run at once.
+        # Design jobs (and predicts with no cluster) need the local devices, so
+        # they run exclusively. The scheduler below enforces that split.
+        self.cluster = cluster
+        self.max_concurrent = max(1, int(max_concurrent))
+        self._sched = threading.Condition()
+        self._running = 0          # jobs currently executing (any kind)
+        self._excl_active = False  # an exclusive (device-owning) job is running
+        self._excl_waiting = 0     # exclusive jobs waiting to start
         self._load_existing()
-        self._worker = threading.Thread(target=self._run_loop, daemon=True)
-        self._worker.start()
+        self._pool = [threading.Thread(target=self._run_loop, daemon=True)
+                      for _ in range(self.max_concurrent)]
+        for t in self._pool:
+            t.start()
+
+    # -- scheduler gating --------------------------------------------------
+    def _admit(self, exclusive: bool) -> None:
+        """Block until this job may run. Concurrent (controller-predict) jobs
+        wait only while an exclusive job is active or queued; exclusive jobs
+        (design, or predict with no cluster) wait for every running job to
+        drain, then run alone."""
+        with self._sched:
+            if exclusive:
+                self._excl_waiting += 1
+                self._sched.notify_all()  # stop admitting new concurrent jobs
+                while self._running > 0 or self._excl_active:
+                    self._sched.wait()
+                self._excl_waiting -= 1
+                self._excl_active = True
+            else:
+                while self._excl_active or self._excl_waiting > 0:
+                    self._sched.wait()
+            self._running += 1
+
+    def _retire(self, exclusive: bool) -> None:
+        with self._sched:
+            self._running = max(0, self._running - 1)
+            if exclusive:
+                self._excl_active = False
+            self._sched.notify_all()
 
     # -- directories -------------------------------------------------------
     def job_dir(self, job_id: str) -> Path:
@@ -232,7 +271,7 @@ class JobManager:
         v = p.get(key)
         return v if isinstance(v, int) and not isinstance(v, bool) else None
 
-    def _build_cmd(self, job: Job) -> list[str]:
+    def _build_cmd(self, job: Job, controller_url: str | None = None) -> list[str]:
         p = job.params
         out = self._out_dir(job.id)
         if job.kind == "predict":
@@ -240,6 +279,11 @@ class JobManager:
                    "--out_dir", str(out), "--model", job.model or "boltz2",
                    "--accelerator", "tenstorrent", "--debug", "--log",
                    "--output_format", "pdb" if p.get("output_format") == "pdb" else "cif"]
+            # When a shared cluster is up, submit to it instead of starting a
+            # local scheduler — the controller fans this run's targets across
+            # every connected galaxy, and many such clients run concurrently.
+            if controller_url:
+                cmd += ["--controller", controller_url]
             for flag in ("use_msa_server", "fast"):
                 if p.get(flag):
                     cmd.append(f"--{flag}")
@@ -261,24 +305,40 @@ class JobManager:
 
     # -- worker loop -------------------------------------------------------
     def _run_loop(self) -> None:
+        # One of a pool of identical threads. Concurrency (and the predict /
+        # design exclusivity split) is governed by _admit/_retire, not by the
+        # number of threads.
         while True:
             job_id = self.queue.get()
             job = self.jobs.get(job_id)
             if job is None or job.status == CANCELED:
                 continue
+            url = self.cluster.submit_url() if self.cluster else None
+            controller_url = url if job.kind == "predict" else None
+            # Exclusive = needs the master's local devices to itself: every
+            # design job, and any predict that has no cluster to fan out to.
+            exclusive = (job.kind == "design") or (job.kind == "predict" and not controller_url)
+            self._admit(exclusive)
             try:
-                self._run_job(job)
-            except Exception as e:  # never let one job kill the single worker
+                # A design job borrows the local devices: pause the local predict
+                # worker pool for its duration (remote galaxies keep serving).
+                slot = (self.cluster.design_slot()
+                        if (job.kind == "design" and self.cluster) else nullcontext())
+                with slot:
+                    self._run_job(job, controller_url)
+            except Exception as e:  # never let one job kill its worker thread
                 job.status = FAILED
                 job.error = f"Internal error: {e}"
                 job.finished_at = time.time()
                 self._save_meta(job)
+            finally:
+                self._retire(exclusive)
 
-    def _run_job(self, job: Job) -> None:
+    def _run_job(self, job: Job, controller_url: str | None = None) -> None:
         job.status = RUNNING
         job.started_at = time.time()
         self._save_meta(job)
-        cmd = self._build_cmd(job)
+        cmd = self._build_cmd(job, controller_url)
         log = self._log_path(job.id)
         with open(log, "w") as logf:
             logf.write(f"$ {' '.join(shlex.quote(c) for c in cmd)}\n\n")

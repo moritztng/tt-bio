@@ -1092,16 +1092,35 @@ def install_deps():
 @click.option("--port", default=8080, type=int, show_default=True)
 @click.option("--workspace", default=None, type=click.Path(),
               help="Directory for job working dirs (default: ~/.aiand-bio/jobs).")
+@click.option("--no-cluster", "no_cluster", is_flag=True,
+              help="Run predictions one-at-a-time on local devices instead of a shared fleet controller.")
+@click.option("--controller-port", "controller_port", default=8765, type=int, show_default=True,
+              help="Port for the fleet controller other galaxies connect to.")
+@click.option("--num_devices", default=0, type=int,
+              help="Local devices for the predict pool (0=all). 0 also lets a coordinator-only master rely on remote galaxies.")
+@click.option("--device_ids", default=None, type=str, help="Comma-separated local TT device IDs for the predict pool.")
+@click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent", show_default=True)
+@click.option("--max-concurrent", "max_concurrent", default=32, type=int, show_default=True,
+              help="Max prediction jobs streamed at once (the controller still schedules devices).")
 @click.option("--debug", is_flag=True)
-def serve_cmd(host, port, workspace, debug):
-    """Serve the ai& Bio web platform (Boltz-2 / ESMFold2 / BoltzGen) over HTTP."""
+def serve_cmd(host, port, workspace, no_cluster, controller_port, num_devices,
+              device_ids, accelerator, max_concurrent, debug):
+    """Serve the ai& Bio web platform (Boltz-2 / ESMFold2 / BoltzGen) over HTTP.
+
+    By default the master also runs a persistent fleet controller: other
+    galaxies join with `tt-bio worker --connect http://<master>:<controller-port>`
+    and every prediction fans across the whole fleet.
+    """
     try:
         from tt_bio.platform import serve
     except ImportError as e:
         raise click.ClickException(
             f"The platform needs Flask: pip install flask flask-cors  ({e})"
         )
-    serve(host=host, port=port, workspace=workspace, debug=debug)
+    serve(host=host, port=port, workspace=workspace, debug=debug,
+          cluster_enabled=not no_cluster, controller_port=controller_port,
+          num_devices=num_devices, device_ids=device_ids, accelerator=accelerator,
+          max_concurrent=max_concurrent)
 
 
 @cli.command("worker")

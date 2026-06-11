@@ -23,15 +23,17 @@ mimetypes.add_type("chemical/x-cif", ".cif")
 mimetypes.add_type("chemical/x-pdb", ".pdb")
 
 
-def create_app(workspace: str | os.PathLike | None = None) -> Flask:
+def create_app(workspace: str | os.PathLike | None = None, *,
+               cluster=None, max_concurrent: int = 32) -> Flask:
     workspace = workspace or os.environ.get(
         "AIAND_BIO_WORKSPACE", str(Path.home() / ".aiand-bio" / "jobs")
     )
-    manager = JobManager(workspace)
+    manager = JobManager(workspace, cluster=cluster, max_concurrent=max_concurrent)
 
     app = Flask(__name__, static_folder=None)
     CORS(app)  # allow the Vite dev server to reach the API in development
     app.config["manager"] = manager
+    app.config["cluster"] = cluster
     app.config["MAX_CONTENT_LENGTH"] = 512 * 1024 * 1024  # room for bulk uploads
 
     # ---- API ----------------------------------------------------------
@@ -42,6 +44,16 @@ def create_app(workspace: str | os.PathLike | None = None) -> Flask:
     @app.get("/api/catalog")
     def get_catalog():
         return jsonify(catalog())
+
+    @app.get("/api/cluster")
+    def get_cluster():
+        cl = app.config.get("cluster")
+        if cl is None:
+            return jsonify({
+                "enabled": False, "controller_alive": False, "hosts": [],
+                "online_workers": 0, "total_workers": 0, "runs": {}, "jobs": {},
+            })
+        return jsonify(cl.status())
 
     @app.get("/api/jobs")
     def list_jobs():
@@ -117,8 +129,29 @@ def create_app(workspace: str | os.PathLike | None = None) -> Flask:
 
 
 def serve(host: str = "0.0.0.0", port: int = 8080, workspace: str | None = None,
-          debug: bool = False) -> None:
-    app = create_app(workspace)
-    banner = f"\n  ai& Bio  →  http://{host}:{port}\n"
-    print(banner, flush=True)
-    app.run(host=host, port=port, debug=debug, threaded=True, use_reloader=False)
+          debug: bool = False, *, cluster_enabled: bool = True,
+          controller_port: int = 8765, controller_bind: str = "0.0.0.0",
+          num_devices: int = 0, device_ids: str | None = None,
+          accelerator: str = "tenstorrent", max_concurrent: int = 32) -> None:
+    workspace = workspace or os.environ.get(
+        "AIAND_BIO_WORKSPACE", str(Path.home() / ".aiand-bio" / "jobs")
+    )
+    cluster = None
+    if cluster_enabled:
+        from .cluster import Cluster
+        cluster = Cluster(
+            workspace, enabled=True, bind_host=controller_bind, port=controller_port,
+            accelerator=accelerator, num_devices=num_devices, device_ids=device_ids,
+        )
+        cluster.start()
+
+    app = create_app(workspace, cluster=cluster, max_concurrent=max_concurrent)
+    print(f"\n  ai& Bio  →  http://{host}:{port}", flush=True)
+    if cluster is not None:
+        print(f"  fleet controller → {cluster.join_url}", flush=True)
+        print(f"  add a galaxy: tt-bio worker --connect {cluster.join_url}\n", flush=True)
+    try:
+        app.run(host=host, port=port, debug=debug, threaded=True, use_reloader=False)
+    finally:
+        if cluster is not None:
+            cluster.shutdown()

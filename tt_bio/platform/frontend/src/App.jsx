@@ -9,6 +9,7 @@ export default function App() {
   const [jobs, setJobs] = useState([]);
   const [selected, setSelected] = useState(null); // job id or null (= new job)
   const [error, setError] = useState(null);
+  const [cluster, setCluster] = useState(null);
 
   useEffect(() => {
     api.catalog().then(setCatalog).catch((e) => setError(e.message));
@@ -23,6 +24,13 @@ export default function App() {
     const t = setInterval(refresh, 2500);
     return () => clearInterval(t);
   }, [refresh]);
+
+  useEffect(() => {
+    const pull = () => api.cluster().then(setCluster).catch(() => {});
+    pull();
+    const t = setInterval(pull, 4000);
+    return () => clearInterval(t);
+  }, []);
 
   const onSubmitted = (job) => {
     refresh();
@@ -80,6 +88,7 @@ export default function App() {
               </button>
             ))}
           </div>
+          <Fleet cluster={cluster} />
         </aside>
 
         <main className="content">
@@ -98,6 +107,56 @@ export default function App() {
       </div>
 
       {error && <div className="toast">{error}</div>}
+    </div>
+  );
+}
+
+// Live fleet status: how many galaxies/devices back the platform, how much is
+// running right now, and the one command to add another galaxy to the pool.
+function Fleet({ cluster }) {
+  const [showJoin, setShowJoin] = useState(false);
+  const [copied, setCopied] = useState(false);
+  if (!cluster || !cluster.enabled) return null;
+  const alive = cluster.controller_alive;
+  const online = cluster.online_workers || 0;
+  const hosts = cluster.hosts || [];
+  const running = (cluster.jobs && cluster.jobs.running) || 0;
+  const copy = () => {
+    navigator.clipboard?.writeText(cluster.join_command).then(
+      () => { setCopied(true); setTimeout(() => setCopied(false), 1500); }, () => {});
+  };
+  return (
+    <div className="fleet">
+      <div className="fleet-head">
+        <span className={`fleet-dot ${alive ? "ok" : "off"}`} />
+        <strong>Fleet</strong>
+        <span className="spacer" />
+        <span className="fleet-count">{online} device{online === 1 ? "" : "s"}</span>
+      </div>
+      <div className="fleet-sub">
+        {hosts.length || (alive ? 0 : "—")} galax{hosts.length === 1 ? "y" : "ies"}
+        {" · "}{running} running
+      </div>
+      {hosts.length > 0 && (
+        <div className="fleet-hosts">
+          {hosts.map((h) => (
+            <div key={h.host} className="fleet-host" title={(h.accelerators || []).join(", ")}>
+              <span className="fh-name">{h.host}{h.is_master ? " ★" : ""}</span>
+              <span className="fh-dev">{h.devices}×</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <button className="btn ghost sm block" onClick={() => setShowJoin((s) => !s)}>
+        {showJoin ? "Hide" : "+ Add a galaxy"}
+      </button>
+      {showJoin && (
+        <div className="fleet-join">
+          <div className="hint">Run this on another galaxy (reachable over the network) to add its devices:</div>
+          <code className="join-cmd" onClick={copy} title="Click to copy">{cluster.join_command}</code>
+          {copied && <div className="hint" style={{ color: "var(--accent)" }}>Copied ✓</div>}
+        </div>
+      )}
     </div>
   );
 }
