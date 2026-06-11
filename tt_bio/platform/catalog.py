@@ -108,8 +108,8 @@ EXAMPLES = [
     {
         "id": "monomer",
         "kind": "predict",
-        "name": "Green fluorescent protein (GFP)",
-        "blurb": "Aequorea victoria GFP (238 aa) — the iconic β-barrel. A substantial single-chain fold; works on every model.",
+        "name": "Single protein",
+        "blurb": "Fold one protein chain — here Aequorea victoria GFP (238 aa), the iconic β-barrel. Works on every model.",
         "builder": {"chains": [
             {"type": "protein", "id": "A",
              "sequence": "MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFSYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITHGMDELYK"}]},
@@ -123,8 +123,8 @@ sequences:
     {
         "id": "complex",
         "kind": "predict",
-        "name": "Barnase–barstar complex",
-        "blurb": "The textbook high-affinity enzyme–inhibitor pair — barnase (110 aa) bound by barstar (90 aa).",
+        "name": "Protein complex",
+        "blurb": "Fold a multi-chain complex — here the textbook barnase (110 aa) · barstar (90 aa) enzyme–inhibitor pair.",
         "builder": {"chains": [
             {"type": "protein", "id": "A", "sequence": "AQVINTFDGVADYLQTYHKLPDNYITKSEAQALGWVASKGNLADVAPGKSIGGDIFSNREGKLPGKSGRTWREADINYTSGFRNSDRILYSSDWLIYKTTDHYQTFTKIR"},
             {"type": "protein", "id": "B", "sequence": "MKKAVINGEQIRSISDLHQTLKKELALPEYYGENLDALWDCLTGWVEYPLVLEWRQFEQSKQLTENGAESVLQVFREAKAEGCDITIILS"}]},
@@ -143,8 +143,8 @@ sequences:
         "kind": "predict",
         "model": "boltz2",
         "requires": ["ligands", "affinity"],
-        "name": "BRD4 + JQ1 (binding affinity)",
-        "blurb": "The BRD4 bromodomain (BD1) with its inhibitor JQ1 — predicts the protein–ligand binding affinity.",
+        "name": "Protein–ligand affinity",
+        "blurb": "Predict protein–ligand binding affinity — here the BRD4 bromodomain with its inhibitor JQ1.",
         "builder": {"chains": [
             {"type": "protein", "id": "A", "sequence": "RQTNQLQYLLRVVLKTLWKHQFAWPFQQPVDAVKLNLPDYYKIIKTPMDMGTIKKRLENNYYWNAQECIQDFNTMFTNCYIYNKPGDDIVLMAEALEKLFLQKINELPTEE"},
             {"type": "ligand", "id": "B", "ligandMode": "smiles", "smiles": "CC1=C(SC2=C1C(=N[C@H](C3=NN=C(N32)C)CC(=O)OC(C)(C)C)C4=CC=C(C=C4)Cl)C"}],
@@ -167,8 +167,8 @@ properties:
         "kind": "predict",
         "model": "boltz2",
         "requires": ["ligands", "constraints"],
-        "name": "HIV-1 protease + darunavir (pocket)",
-        "blurb": "HIV-1 protease with the drug darunavir, restrained to the catalytic Asp25 — a pocket constraint.",
+        "name": "Ligand in a pocket",
+        "blurb": "Steer a ligand into a binding pocket — here the drug darunavir at HIV-1 protease's catalytic Asp25.",
         "builder": {"chains": [
             {"type": "protein", "id": "A", "sequence": "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMSLPGRWKPKMIGGIGGFIKVRQYDQILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"},
             {"type": "ligand", "id": "B", "ligandMode": "smiles", "smiles": "CC(C)CN(C[C@H]([C@H](CC1=CC=CC=C1)NC(=O)O[C@H]2CO[C@@H]3[C@H]2CCO3)O)S(=O)(=O)C4=CC=C(C=C4)N"}],
@@ -193,8 +193,8 @@ constraints:
         "kind": "predict",
         "model": "boltz2",
         "requires": ["nucleic"],
-        "name": "p53–DNA complex",
-        "blurb": "The p53 tumour-suppressor DNA-binding domain (219 aa) on its double-stranded response element — a protein–DNA complex.",
+        "name": "Protein–DNA complex",
+        "blurb": "Fold a protein bound to DNA — here the p53 tumour-suppressor DNA-binding domain on its response element.",
         "builder": {"chains": [
             {"type": "protein", "id": "A", "sequence": "SSSVPSQKTYQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNT"},
             {"type": "dna", "id": "B", "sequence": "GGGCATGCCCGGGCATGCCC"},
@@ -217,8 +217,8 @@ sequences:
         "id": "binder",
         "kind": "design",
         "protocol": "protein-anything",
-        "name": "Mini-binder vs PD-L1",
-        "blurb": "De-novo mini-protein binder against the PD-L1 IgV domain — a flagship immuno-oncology target.",
+        "name": "Protein binder",
+        "blurb": "Design a de-novo mini-protein binder — here against the PD-L1 IgV domain, a flagship immuno-oncology target.",
         "builder": {
             "binderId": "B", "targetId": "A", "lengthRange": "80..120",
             "target": "FTVTVPKDLYVVEYGSNMTIECKFPVEKQLDLAALIVYWEMEDKNIIQFVHGEEDLKVQHSSYRQRARLLKDQLSLGNAALQITDVKLQDAGVYRCMISYGGADYKRIT",
@@ -237,8 +237,8 @@ sequences:
         "id": "peptide",
         "kind": "design",
         "protocol": "peptide-anything",
-        "name": "Peptide vs MDM2",
-        "blurb": "Short peptide binder against MDM2's p53-binding cleft — a classic protein–protein-interaction inhibitor.",
+        "name": "Peptide binder",
+        "blurb": "Design a short peptide binder — here against MDM2's p53-binding cleft, a classic protein–protein-interaction inhibitor.",
         "builder": {
             "binderId": "B", "targetId": "A", "lengthRange": "12..25",
             "target": "SQIPASEQETLVRPKPLLLKLLKSVGAQKDTYTMKEVLFYLGQYIMTKRLYDEKQQHIVYCSNDLLGDLFGVPSFSVKEHRKIYTMIYRNLVVVNQQESSDSGTSVSEN",
@@ -257,8 +257,8 @@ sequences:
         "id": "nanobody",
         "kind": "design",
         "protocol": "nanobody-anything",
-        "name": "Nanobody vs lysozyme",
-        "blurb": "Single-domain antibody (VHH) against hen egg-white lysozyme — the original model nanobody antigen.",
+        "name": "Nanobody (VHH)",
+        "blurb": "Design a single-domain antibody (VHH) — here against hen egg-white lysozyme, the original model nanobody antigen.",
         "builder": {
             "binderId": "B", "targetId": "A", "lengthRange": "110..130",
             "target": "KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL",
@@ -277,8 +277,8 @@ sequences:
         "id": "sm_binder",
         "kind": "design",
         "protocol": "protein-small_molecule",
-        "name": "Binder vs caffeine",
-        "blurb": "Design a protein that binds a small molecule (caffeine) — the small-molecule-target workflow.",
+        "name": "Small-molecule binder",
+        "blurb": "Design a protein that binds a small molecule — here caffeine. The small-molecule-target workflow.",
         "builder": {
             "binderId": "B", "targetId": "A", "lengthRange": "80..120",
             "ligand": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C", "ligandMode": "smiles",

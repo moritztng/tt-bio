@@ -302,7 +302,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
           <span className="examples-label">Start from an example:</span>
           {predictExamples.map((e) => (
             <button key={e.id} className="chip" disabled={!exampleOk(e)}
-              title={exampleOk(e) ? "Load this example into the form" : "Needs Boltz-2"}
+              title={exampleOk(e) ? (e.blurb || "Load this example into the form") : "Needs Boltz-2"}
               onClick={() => loadExample(e.id)}>
               {e.name}
             </button>

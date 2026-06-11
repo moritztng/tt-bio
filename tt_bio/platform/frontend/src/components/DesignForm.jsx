@@ -159,7 +159,7 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
       <div className="examples-row">
         <span className="examples-label">Start from an example:</span>
         {designExamples.map((e) => (
-          <button key={e.id} className="chip" title="Load this example into the form" onClick={() => loadExample(e.id)}>{e.name}</button>
+          <button key={e.id} className="chip" title={e.blurb || "Load this example into the form"} onClick={() => loadExample(e.id)}>{e.name}</button>
         ))}
         <span style={{ flex: 1 }} />
         <button className="btn sm" title="Clear the form and start blank" onClick={resetForm}>↺ Clear form</button>
