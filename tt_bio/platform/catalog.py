@@ -21,10 +21,12 @@ MODELS = [
     {
         "id": "boltz2",
         "name": "Boltz-2",
-        "tagline": "Structure + binding affinity for proteins, nucleic acids and ligands.",
+        "tagline": "Most capable — structure + binding affinity.",
         "blurb": (
-            "An improved open successor to AlphaFold 3. Folds protein / DNA / RNA / "
-            "ligand complexes and predicts binding affinity. Uses an MSA."
+            "Folds protein, DNA, RNA and ligand complexes and predicts binding "
+            "affinity. Uses a multiple-sequence alignment (MSA) for best accuracy. "
+            "The most capable model — choose it when in doubt, or whenever you need "
+            "ligands, nucleic acids, affinity or constraints."
         ),
         "needs_msa": True,
         "caps": ["msa", "ligands", "nucleic", "affinity", "constraints",
@@ -33,10 +35,11 @@ MODELS = [
     {
         "id": "esmfold2",
         "name": "ESMFold-2",
-        "tagline": "Protein folding, with or without an MSA.",
+        "tagline": "Fast protein folding, MSA optional.",
         "blurb": (
-            "Language-model folding. No MSA required, but will use one if supplied "
-            "for extra accuracy. Protein chains only — no ligands, nucleic acids, or affinity."
+            "Language-model folding — no MSA required, though it will use one if "
+            "supplied for extra accuracy. Protein chains only: no ligands, nucleic "
+            "acids or affinity. A quick, lightweight choice for routine protein structures."
         ),
         "needs_msa": False,
         "caps": ["msa", "multichain", "modifications"],
@@ -44,10 +47,11 @@ MODELS = [
     {
         "id": "esmfold2-fast",
         "name": "ESMFold-2 Fast",
-        "tagline": "The fastest fold — block-fp8, no MSA encoder.",
+        "tagline": "The fastest fold — no MSA encoder.",
         "blurb": (
-            "A lightweight ESMFold-2 variant for maximum throughput. Always folds "
-            "single-sequence (no MSA); protein chains only. Accuracy typically very close to ESMFold-2."
+            "ESMFold-2 tuned for maximum throughput: always single-sequence, protein "
+            "chains only. Accuracy is typically very close to ESMFold-2 — the model to "
+            "reach for when screening thousands of sequences at once."
         ),
         "needs_msa": False,
         "caps": ["multichain", "modifications"],
@@ -100,35 +104,38 @@ DESIGN_PARAMS = [
 
 # --- Curated examples (also discoverable from the examples/ dir at runtime) ---
 EXAMPLES = [
+    # --- Fold / predict: a capability ladder, all real, all small enough to be quick ---
     {
         "id": "monomer",
         "kind": "predict",
-        "name": "Single protein (monomer)",
+        "name": "Ubiquitin (monomer)",
+        "blurb": "Human ubiquitin (76 aa) — the classic small single-domain fold. Works on every model.",
         "builder": {"chains": [
             {"type": "protein", "id": "A",
-             "sequence": "QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISAIVKAAQKKAWKELAVTVLRFAKANGLKTNAIIVAGQLALWAVQCG"}]},
+             "sequence": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"}]},
         "content": """version: 1
 sequences:
   - protein:
       id: A
-      sequence: QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISAIVKAAQKKAWKELAVTVLRFAKANGLKTNAIIVAGQLALWAVQCG
+      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
 """,
     },
     {
         "id": "complex",
         "kind": "predict",
-        "name": "Protein complex (multimer)",
+        "name": "Insulin (two-chain complex)",
+        "blurb": "Human insulin — its A (21 aa) and B (30 aa) chains fold as a small two-chain complex.",
         "builder": {"chains": [
-            {"type": "protein", "id": "A", "sequence": "MAHHHHHHVAVDAVSFTLLQDQLQSVLDTLSEREAGVVRLRFGLTDGQPRTLDEIGQVYGVTRERIRQIESKTMSKLRHPSRSQVLRDYLDGSSGSGTPEERLLRAIFGEKA"},
-            {"type": "protein", "id": "B", "sequence": "MRYAFAAEATTCNAFWRNVDMTVTALYEVPLGVCTQDPDRWTTTPDDEAKTLCRACPRRWLCARDAVESAGAEGLWAGVVIPESGRARAFALGQLRSLAERNGYPVRDHRVSAQSA"}]},
+            {"type": "protein", "id": "A", "sequence": "GIVEQCCTSICSLYQLENYCN"},
+            {"type": "protein", "id": "B", "sequence": "FVNQHLCGSHLVEALYLVCGERGFFYTPKT"}]},
         "content": """version: 1
 sequences:
   - protein:
       id: A
-      sequence: MAHHHHHHVAVDAVSFTLLQDQLQSVLDTLSEREAGVVRLRFGLTDGQPRTLDEIGQVYGVTRERIRQIESKTMSKLRHPSRSQVLRDYLDGSSGSGTPEERLLRAIFGEKA
+      sequence: GIVEQCCTSICSLYQLENYCN
   - protein:
       id: B
-      sequence: MRYAFAAEATTCNAFWRNVDMTVTALYEVPLGVCTQDPDRWTTTPDDEAKTLCRACPRRWLCARDAVESAGAEGLWAGVVIPESGRARAFALGQLRSLAERNGYPVRDHRVSAQSA
+      sequence: FVNQHLCGSHLVEALYLVCGERGFFYTPKT
 """,
     },
     {
@@ -136,19 +143,20 @@ sequences:
         "kind": "predict",
         "model": "boltz2",
         "requires": ["ligands", "affinity"],
-        "name": "Protein–ligand binding affinity",
+        "name": "BRD4 + JQ1 (binding affinity)",
+        "blurb": "The BRD4 bromodomain (BD1) with its inhibitor JQ1 — predicts the protein–ligand binding affinity.",
         "builder": {"chains": [
-            {"type": "protein", "id": "A", "sequence": "MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSLVGKFMHDINVAWPAWRNLAEVVRHGARDTSGAESPNGIAQEDYESLVGGINFWAPPIVTTLSRKLRASGRSGDATASVLDVGCGTGLYSQLLLREFPRWTATGLDVERIATLANAQALRLGVEERFATRAGDFWRGGWGTGYDLVLFANIFHLQTPASAVRLMRHAAACLAPDGLVAVVDQIVDADREPKTPQDRFALLFAASMTNTGGGDAYTFQEYEEWFTAAGLQRIETLDTPMHRILLARRATEPSAVPEGQASENLYFQ"},
-            {"type": "ligand", "id": "B", "ligandMode": "smiles", "smiles": "N[C@@H](Cc1ccc(O)cc1)C(=O)O"}],
+            {"type": "protein", "id": "A", "sequence": "RQTNQLQYLLRVVLKTLWKHQFAWPFQQPVDAVKLNLPDYYKIIKTPMDMGTIKKRLENNYYWNAQECIQDFNTMFTNCYIYNKPGDDIVLMAEALEKLFLQKINELPTEE"},
+            {"type": "ligand", "id": "B", "ligandMode": "smiles", "smiles": "CC1=C(SC2=C1C(=N[C@H](C3=NN=C(N32)C)CC(=O)OC(C)(C)C)C4=CC=C(C=C4)Cl)C"}],
             "affinity": "B"},
         "content": """version: 1
 sequences:
   - protein:
       id: A
-      sequence: MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSLVGKFMHDINVAWPAWRNLAEVVRHGARDTSGAESPNGIAQEDYESLVGGINFWAPPIVTTLSRKLRASGRSGDATASVLDVGCGTGLYSQLLLREFPRWTATGLDVERIATLANAQALRLGVEERFATRAGDFWRGGWGTGYDLVLFANIFHLQTPASAVRLMRHAAACLAPDGLVAVVDQIVDADREPKTPQDRFALLFAASMTNTGGGDAYTFQEYEEWFTAAGLQRIETLDTPMHRILLARRATEPSAVPEGQASENLYFQ
+      sequence: RQTNQLQYLLRVVLKTLWKHQFAWPFQQPVDAVKLNLPDYYKIIKTPMDMGTIKKRLENNYYWNAQECIQDFNTMFTNCYIYNKPGDDIVLMAEALEKLFLQKINELPTEE
   - ligand:
       id: B
-      smiles: 'N[C@@H](Cc1ccc(O)cc1)C(=O)O'
+      smiles: 'CC1=C(SC2=C1C(=N[C@H](C3=NN=C(N32)C)CC(=O)OC(C)(C)C)C4=CC=C(C=C4)Cl)C'
 properties:
   - affinity:
       binder: B
@@ -159,54 +167,61 @@ properties:
         "kind": "predict",
         "model": "boltz2",
         "requires": ["ligands", "constraints"],
-        "name": "Ligand with pocket constraint",
+        "name": "HIV-1 protease + darunavir (pocket)",
+        "blurb": "HIV-1 protease with the drug darunavir, restrained to the catalytic Asp25 — a pocket constraint.",
         "builder": {"chains": [
-            {"type": "protein", "id": "A1", "sequence": "MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLD"},
-            {"type": "ligand", "id": "B1", "ligandMode": "ccd", "ccd": "SAH"}],
-            "constraints": [{"kind": "pocket", "binder": "B1", "contacts": "A1:10, A1:12", "maxDistance": 6}]},
+            {"type": "protein", "id": "A", "sequence": "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMSLPGRWKPKMIGGIGGFIKVRQYDQILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"},
+            {"type": "ligand", "id": "B", "ligandMode": "smiles", "smiles": "CC(C)CN(C[C@H]([C@H](CC1=CC=CC=C1)NC(=O)O[C@H]2CO[C@@H]3[C@H]2CCO3)O)S(=O)(=O)C4=CC=C(C=C4)N"}],
+            "constraints": [{"kind": "pocket", "binder": "B", "contacts": "A:25", "maxDistance": 6}]},
         "content": """version: 1
 sequences:
   - protein:
-      id: [A1]
-      sequence: MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLD
+      id: A
+      sequence: PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMSLPGRWKPKMIGGIGGFIKVRQYDQILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF
   - ligand:
-      id: [B1]
-      ccd: SAH
+      id: B
+      smiles: 'CC(C)CN(C[C@H]([C@H](CC1=CC=CC=C1)NC(=O)O[C@H]2CO[C@@H]3[C@H]2CCO3)O)S(=O)(=O)C4=CC=C(C=C4)N'
 constraints:
   - pocket:
-      binder: B1
-      contacts: [[A1, 10], [A1, 12]]
+      binder: B
+      contacts: [[A, 25]]
+      max_distance: 6
 """,
     },
     {
-        "id": "nanobody",
-        "kind": "design",
-        "protocol": "nanobody-anything",
-        "name": "Nanobody against a target",
-        "format": "yaml",
-        "builder": {
-            "binderId": "B", "targetId": "A", "lengthRange": "110..130",
-            "target": "MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSLVGKFMHDINVAWPAWRNLAEVVRHG",
-        },
-        "content": """entities:
-  - protein:
-      id: B
-      sequence: 110..130
+        "id": "dna_complex",
+        "kind": "predict",
+        "model": "boltz2",
+        "requires": ["nucleic"],
+        "name": "Homeodomain–DNA complex",
+        "blurb": "The engrailed homeodomain bound to its double-stranded DNA site — a protein–DNA complex.",
+        "builder": {"chains": [
+            {"type": "protein", "id": "A", "sequence": "DEKRPRTAFSSEQLARLKREFNENRYLTERRRQQLSSELGLNEAQIKIWFQNKRAKIKKS"},
+            {"type": "dna", "id": "B", "sequence": "GCGGTAATTACCGC"},
+            {"type": "dna", "id": "C", "sequence": "GCGGTAATTACCGC"}]},
+        "content": """version: 1
+sequences:
   - protein:
       id: A
-      msa: empty
-      sequence: MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSLVGKFMHDINVAWPAWRNLAEVVRHG
+      sequence: DEKRPRTAFSSEQLARLKREFNENRYLTERRRQQLSSELGLNEAQIKIWFQNKRAKIKKS
+  - dna:
+      id: B
+      sequence: GCGGTAATTACCGC
+  - dna:
+      id: C
+      sequence: GCGGTAATTACCGC
 """,
     },
+    # --- Design / BoltzGen: one per major protocol, each against a real, recognizable target ---
     {
         "id": "binder",
         "kind": "design",
         "protocol": "protein-anything",
-        "name": "Mini-protein binder",
-        "format": "yaml",
+        "name": "Mini-binder vs PD-L1",
+        "blurb": "De-novo mini-protein binder against the PD-L1 IgV domain — a flagship immuno-oncology target.",
         "builder": {
             "binderId": "B", "targetId": "A", "lengthRange": "80..120",
-            "target": "MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSL",
+            "target": "FTVTVPKDLYVVEYGSNMTIECKFPVEKQLDLAALIVYWEMEDKNIIQFVHGEEDLKVQHSSYRQRARLLKDQLSLGNAALQITDVKLQDAGVYRCMISYGGADYKRIT",
         },
         "content": """entities:
   - protein:
@@ -215,7 +230,66 @@ constraints:
   - protein:
       id: A
       msa: empty
-      sequence: MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSL
+      sequence: FTVTVPKDLYVVEYGSNMTIECKFPVEKQLDLAALIVYWEMEDKNIIQFVHGEEDLKVQHSSYRQRARLLKDQLSLGNAALQITDVKLQDAGVYRCMISYGGADYKRIT
+""",
+    },
+    {
+        "id": "peptide",
+        "kind": "design",
+        "protocol": "peptide-anything",
+        "name": "Peptide vs MDM2",
+        "blurb": "Short peptide binder against MDM2's p53-binding cleft — a classic protein–protein-interaction inhibitor.",
+        "builder": {
+            "binderId": "B", "targetId": "A", "lengthRange": "12..25",
+            "target": "SQIPASEQETLVRPKPLLLKLLKSVGAQKDTYTMKEVLFYLGQYIMTKRLYDEKQQHIVYCSNDLLGDLFGVPSFSVKEHRKIYTMIYRNLVVVNQQESSDSGTSVSEN",
+        },
+        "content": """entities:
+  - protein:
+      id: B
+      sequence: 12..25
+  - protein:
+      id: A
+      msa: empty
+      sequence: SQIPASEQETLVRPKPLLLKLLKSVGAQKDTYTMKEVLFYLGQYIMTKRLYDEKQQHIVYCSNDLLGDLFGVPSFSVKEHRKIYTMIYRNLVVVNQQESSDSGTSVSEN
+""",
+    },
+    {
+        "id": "nanobody",
+        "kind": "design",
+        "protocol": "nanobody-anything",
+        "name": "Nanobody vs lysozyme",
+        "blurb": "Single-domain antibody (VHH) against hen egg-white lysozyme — the original model nanobody antigen.",
+        "builder": {
+            "binderId": "B", "targetId": "A", "lengthRange": "110..130",
+            "target": "KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL",
+        },
+        "content": """entities:
+  - protein:
+      id: B
+      sequence: 110..130
+  - protein:
+      id: A
+      msa: empty
+      sequence: KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL
+""",
+    },
+    {
+        "id": "sm_binder",
+        "kind": "design",
+        "protocol": "protein-small_molecule",
+        "name": "Binder vs caffeine",
+        "blurb": "Design a protein that binds a small molecule (caffeine) — the small-molecule-target workflow.",
+        "builder": {
+            "binderId": "B", "targetId": "A", "lengthRange": "80..120",
+            "ligand": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C", "ligandMode": "smiles",
+        },
+        "content": """entities:
+  - protein:
+      id: B
+      sequence: 80..120
+  - ligand:
+      id: A
+      smiles: 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
 """,
     },
 ]

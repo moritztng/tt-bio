@@ -283,6 +283,9 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
     <>
       <div className="panel">
         <p className="section-title">Model</p>
+        <p className="hint" style={{ marginTop: -4, marginBottom: 12 }}>
+          Open, improved successors to AlphaFold 3 — running on Tenstorrent.
+        </p>
         <div className="cardgrid">
           {catalog.models.map((m) => (
             <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`} onClick={() => onModelChange(m.id)}>
