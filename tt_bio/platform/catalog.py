@@ -108,34 +108,34 @@ EXAMPLES = [
     {
         "id": "monomer",
         "kind": "predict",
-        "name": "Ubiquitin (monomer)",
-        "blurb": "Human ubiquitin (76 aa) — the classic small single-domain fold. Works on every model.",
+        "name": "Green fluorescent protein (GFP)",
+        "blurb": "Aequorea victoria GFP (238 aa) — the iconic β-barrel. A substantial single-chain fold; works on every model.",
         "builder": {"chains": [
             {"type": "protein", "id": "A",
-             "sequence": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"}]},
+             "sequence": "MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFSYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITHGMDELYK"}]},
         "content": """version: 1
 sequences:
   - protein:
       id: A
-      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
+      sequence: MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFSYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITHGMDELYK
 """,
     },
     {
         "id": "complex",
         "kind": "predict",
-        "name": "Insulin (two-chain complex)",
-        "blurb": "Human insulin — its A (21 aa) and B (30 aa) chains fold as a small two-chain complex.",
+        "name": "Barnase–barstar complex",
+        "blurb": "The textbook high-affinity enzyme–inhibitor pair — barnase (110 aa) bound by barstar (90 aa).",
         "builder": {"chains": [
-            {"type": "protein", "id": "A", "sequence": "GIVEQCCTSICSLYQLENYCN"},
-            {"type": "protein", "id": "B", "sequence": "FVNQHLCGSHLVEALYLVCGERGFFYTPKT"}]},
+            {"type": "protein", "id": "A", "sequence": "AQVINTFDGVADYLQTYHKLPDNYITKSEAQALGWVASKGNLADVAPGKSIGGDIFSNREGKLPGKSGRTWREADINYTSGFRNSDRILYSSDWLIYKTTDHYQTFTKIR"},
+            {"type": "protein", "id": "B", "sequence": "MKKAVINGEQIRSISDLHQTLKKELALPEYYGENLDALWDCLTGWVEYPLVLEWRQFEQSKQLTENGAESVLQVFREAKAEGCDITIILS"}]},
         "content": """version: 1
 sequences:
   - protein:
       id: A
-      sequence: GIVEQCCTSICSLYQLENYCN
+      sequence: AQVINTFDGVADYLQTYHKLPDNYITKSEAQALGWVASKGNLADVAPGKSIGGDIFSNREGKLPGKSGRTWREADINYTSGFRNSDRILYSSDWLIYKTTDHYQTFTKIR
   - protein:
       id: B
-      sequence: FVNQHLCGSHLVEALYLVCGERGFFYTPKT
+      sequence: MKKAVINGEQIRSISDLHQTLKKELALPEYYGENLDALWDCLTGWVEYPLVLEWRQFEQSKQLTENGAESVLQVFREAKAEGCDITIILS
 """,
     },
     {
@@ -193,23 +193,23 @@ constraints:
         "kind": "predict",
         "model": "boltz2",
         "requires": ["nucleic"],
-        "name": "Homeodomain–DNA complex",
-        "blurb": "The engrailed homeodomain bound to its double-stranded DNA site — a protein–DNA complex.",
+        "name": "p53–DNA complex",
+        "blurb": "The p53 tumour-suppressor DNA-binding domain (219 aa) on its double-stranded response element — a protein–DNA complex.",
         "builder": {"chains": [
-            {"type": "protein", "id": "A", "sequence": "DEKRPRTAFSSEQLARLKREFNENRYLTERRRQQLSSELGLNEAQIKIWFQNKRAKIKKS"},
-            {"type": "dna", "id": "B", "sequence": "GCGGTAATTACCGC"},
-            {"type": "dna", "id": "C", "sequence": "GCGGTAATTACCGC"}]},
+            {"type": "protein", "id": "A", "sequence": "SSSVPSQKTYQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNT"},
+            {"type": "dna", "id": "B", "sequence": "GGGCATGCCCGGGCATGCCC"},
+            {"type": "dna", "id": "C", "sequence": "GGGCATGCCCGGGCATGCCC"}]},
         "content": """version: 1
 sequences:
   - protein:
       id: A
-      sequence: DEKRPRTAFSSEQLARLKREFNENRYLTERRRQQLSSELGLNEAQIKIWFQNKRAKIKKS
+      sequence: SSSVPSQKTYQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNT
   - dna:
       id: B
-      sequence: GCGGTAATTACCGC
+      sequence: GGGCATGCCCGGGCATGCCC
   - dna:
       id: C
-      sequence: GCGGTAATTACCGC
+      sequence: GGGCATGCCCGGGCATGCCC
 """,
     },
     # --- Design / BoltzGen: one per major protocol, each against a real, recognizable target ---
