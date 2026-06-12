@@ -1,5 +1,10 @@
 import React from "react";
-import { Spinner, Progress, fmt, duration } from "../ui.jsx";
+import { Spinner, fmt, duration } from "../ui.jsx";
+
+// Cap how many per-structure cells we draw, so a very large run can't flood the
+// DOM. The segmented bar + phase tally still summarise every structure, and the
+// Results table lists them all.
+const GRID_CAP = 480;
 
 // Turn the engine's low-level stage words into a clear, ordered pipeline that a
 // biologist can follow at a glance — no run-log reading required. Each mode has
@@ -127,7 +132,15 @@ function MultiTargetProgress({ job, results }) {
         {!done && <span className="mtp-count">{finished} / {total}</span>}
         <span className="muted small">{duration(job)}</span>
       </div>
-      {active && <div className="mtp-bar"><Progress value={total ? finished / total : null} /></div>}
+      {/* Proportional segmented bar — one element regardless of N, so the
+          overall make-up (done/running/queued/failed) reads at a glance whether
+          there are 3 inputs or 3000. */}
+      {active && (
+        <div className="mtp-seg" title={`${doneN} done · ${runN} running · ${queuedN} queued${failN ? ` · ${failN} failed` : ""}`}>
+          {[["done", doneN], ["failed", failN], ["running", runN], ["queued", queuedN]].map(
+            ([k, v]) => (v > 0 ? <span key={k} className={`seg ${k}`} style={{ flexGrow: v }} /> : null))}
+        </div>
+      )}
       {(runN > 0 || queuedN > 0 || failN > 0) && (
         <div className="mtp-tally">
           {doneN > 0 && <span className="t done">{doneN} done</span>}
@@ -136,8 +149,12 @@ function MultiTargetProgress({ job, results }) {
           {failN > 0 && <span className="t failed">{failN} failed</span>}
         </div>
       )}
+      {/* Per-structure detail. Chips (named + phase) stay readable up to ~30;
+          beyond that a dot heatmap. Cap the rendered cells so a huge run can't
+          flood the DOM — the bar + tally above already cover every structure,
+          and the searchable Results table gives full per-structure access. */}
       <div className={`mtp-grid ${compact ? "compact" : ""}`}>
-        {cells.map((c, i) => (
+        {cells.slice(0, GRID_CAP).map((c, i) => (
           compact
             ? <span key={c.id || `q${i}`} className={`mtp-dot ${c.state}`} title={tip(c)} />
             : <span key={c.id || `q${i}`} className={`mtp-chip ${c.state}`} title={tip(c)}>
@@ -147,6 +164,11 @@ function MultiTargetProgress({ job, results }) {
               </span>
         ))}
       </div>
+      {total > GRID_CAP && (
+        <p className="hint" style={{ marginTop: 8 }}>
+          Showing {GRID_CAP} of {total} structures above · the bar and tally cover all of them, and the Results table lists every one.
+        </p>
+      )}
     </div>
   );
 }

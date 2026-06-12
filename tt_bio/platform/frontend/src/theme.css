@@ -323,6 +323,13 @@ pre.log {
 .mtp-verb { font-size: 13px; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
 .mtp-count { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
 .mtp-bar { margin-bottom: 12px; }
+/* Proportional state bar — scales to any number of structures (one flex row). */
+.mtp-seg { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 12px; background: var(--border); gap: 1px; }
+.mtp-seg .seg { display: block; min-width: 2px; }
+.mtp-seg .seg.done { background: var(--accent); }
+.mtp-seg .seg.running { background: var(--accent); opacity: 0.6; animation: mtp-pulse 1.4s ease-in-out infinite; }
+.mtp-seg .seg.queued { background: var(--border-strong); }
+.mtp-seg .seg.failed { background: var(--err); }
 .mtp-tally { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; font-size: 12px; }
 .mtp-tally .t { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
 .mtp-tally .t::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
