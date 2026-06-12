@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
-import { Badge, Progress, Spinner, duration, timeAgo } from "../ui.jsx";
+import { Badge, Spinner, duration, timeAgo } from "../ui.jsx";
 import ResultsPredict from "./ResultsPredict.jsx";
 import ResultsDesign from "./ResultsDesign.jsx";
+import JobProgress from "./JobProgress.jsx";
 import LogPanel from "./LogPanel.jsx";
 
 export default function JobDetail({ jobId, onDeleted, onError }) {
@@ -57,23 +58,22 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
           </div>
         </div>
 
-        {active && (
-          <div className="mt16">
-            <Progress value={job.progress} />
-            <div className="flex small muted mt8">
-              <Spinner />
-              <span>
-                {job.kind === "predict" && job.total
-                  ? `${job.done} / ${job.total} targets`
-                  : job.status === "queued" ? "Queued…" : "Running…"}
-                {job.stage ? ` · ${job.stage}` : ""}
-              </span>
-            </div>
-          </div>
+        {(active || job.status === "succeeded") && (
+          <div className="mt16"><JobProgress job={job} /></div>
         )}
 
         {job.status === "failed" && job.error && (
-          <pre className="log mt16" style={{ background: "#2a1416", color: "#ffd7d7" }}>{job.error}</pre>
+          <div className="mt16">
+            <JobProgress job={job} />
+            <div className="errbox mt16">
+              <strong>This run couldn't finish.</strong>
+              <p className="mt8">{_friendlyError(job.error)}</p>
+              <details className="collapse mt8">
+                <summary>Technical detail</summary>
+                <pre className="log mt8">{job.error}</pre>
+              </details>
+            </div>
+          </div>
         )}
       </div>
 
@@ -86,16 +86,36 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
         </div>
       )}
 
-      {!results.ready && !active && job.status !== "failed" && (
-        <div className="panel"><div className="empty">No results were produced. Check the log below.</div></div>
+      {!results.ready && !active && job.status === "succeeded" && (
+        <div className="panel"><div className="empty">No results were produced.</div></div>
       )}
 
+      {/* The raw engine log is for advanced/debugging use only — collapsed by
+          default so biologists see the visual progress + results, not a wall
+          of technical output. */}
       <div className="panel">
-        <details className="collapse" open={active || job.status === "failed"}>
-          <summary>Run log</summary>
+        <details className="collapse">
+          <summary>Technical log (advanced)</summary>
           <div className="mt8"><LogPanel jobId={jobId} live={active} /></div>
         </details>
       </div>
     </div>
   );
+}
+
+// Translate the most common engine failures into one plain sentence a biologist
+// can act on; otherwise fall back to the first line of the raw error.
+function _friendlyError(err) {
+  const e = String(err || "");
+  const has = (s) => e.toLowerCase().includes(s);
+  if (has("msa") && (has("server") || has("colabfold") || has("timeout") || has("connection")))
+    return "The MSA service couldn't be reached. This is usually temporary — please try again in a minute.";
+  if (has("every target failed"))
+    return "None of the inputs could be folded — check that the sequences are valid.";
+  if (has("out of memory") || has("oom"))
+    return "The input was too large to fit in memory for this demo. Try a smaller construct.";
+  if (has("no protein") || has("no sequences") || has("invalid"))
+    return "The input couldn't be read — please check the sequence and try again.";
+  const first = e.split("\n").map((l) => l.trim()).filter(Boolean)[0] || "The run failed.";
+  return first.length > 200 ? first.slice(0, 200) + "…" : first;
 }

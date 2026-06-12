@@ -286,3 +286,44 @@ pre.log {
   text-transform: uppercase; color: #fff; background: var(--accent);
   padding: 2px 8px; border-radius: 999px; margin-top: 1px;
 }
+
+/* ---- Job progress: pipeline stepper ----------------------------------- */
+.jp-steps {
+  display: flex; list-style: none; margin: 4px 0 0; padding: 0;
+}
+.jp-step {
+  flex: 1; position: relative; display: flex; flex-direction: column;
+  align-items: center; gap: 6px; text-align: center; min-width: 0;
+}
+/* connector line from the previous step's dot */
+.jp-step::before {
+  content: ""; position: absolute; top: 13px; left: -50%; width: 100%; height: 2px;
+  background: var(--border-strong); z-index: 0;
+}
+.jp-step:first-child::before { display: none; }
+.jp-step.done::before, .jp-step.active::before { background: var(--accent); }
+.jp-dot {
+  position: relative; z-index: 1; width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; background: var(--surface);
+  border: 2px solid var(--border-strong); color: var(--muted);
+}
+.jp-step.done .jp-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.jp-step.active .jp-dot {
+  border-color: var(--accent); color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft); animation: jp-pulse 1.4s ease-in-out infinite;
+}
+@keyframes jp-pulse { 0%,100% { box-shadow: 0 0 0 3px var(--accent-soft); } 50% { box-shadow: 0 0 0 6px var(--accent-soft); } }
+.jp-label { font-size: 11.5px; color: var(--muted); line-height: 1.2; padding: 0 2px; }
+.jp-step.done .jp-label, .jp-step.active .jp-label { color: var(--ink); }
+.jp-activity {
+  display: flex; align-items: center; gap: 8px; margin-top: 16px;
+  font-size: 13px; color: var(--ink);
+}
+.jp-activity .spacer { flex: 1; }
+.jp-done { color: var(--ok); font-weight: 600; }
+.errbox {
+  border: 1px solid var(--err); border-radius: var(--radius);
+  background: rgba(199,0,7,0.05); padding: 12px 14px; font-size: 13px;
+}
+.errbox strong { color: var(--err); }
