@@ -29,6 +29,8 @@ from pathlib import Path
 from queue import Queue
 from typing import Any
 
+from . import limits
+
 # ---------------------------------------------------------------------------
 # Resolving the tt-bio entry point
 # ---------------------------------------------------------------------------
@@ -198,11 +200,17 @@ class JobManager:
         params = payload.get("params") or {}
         if not isinstance(params, dict):
             raise ValueError("params must be an object")
-        files = payload.get("files") or []
-        if not isinstance(files, list):
-            raise ValueError("files must be a list")
+        # Raw server-side file writes are disabled in the demo: every input
+        # arrives as inline target/spec text (validated below), and local-file
+        # references are blocked, so there's no need to drop arbitrary files
+        # into a job dir — and not doing so removes that whole attack surface.
+        if payload.get("files"):
+            raise ValueError("File uploads are disabled in the demo; paste sequences instead.")
         model = payload.get("model")
         protocol = payload.get("protocol")
+        # Clamp every numeric knob into its allowed range — the client is never
+        # trusted (the UI mirrors this, but this is the authority).
+        params = limits.clamp_params(params, kind)
         job_id = uuid.uuid4().hex[:12]
         name = str(payload.get("name") or "").strip() or f"{kind}-{job_id[:6]}"
         job = Job(
@@ -211,37 +219,33 @@ class JobManager:
             model=str(model) if model is not None else None,
             protocol=str(protocol) if protocol is not None else None,
         )
-        inputs = self._inputs_dir(job_id)
-        inputs.mkdir(parents=True, exist_ok=True)
-        self._out_dir(job_id).mkdir(parents=True, exist_ok=True)
-
-        # Write any uploaded helper files (custom MSA, target CIF) verbatim so
-        # relative references inside the input resolve (subprocess cwd=inputs).
-        for f in files:
-            if not isinstance(f, dict) or "name" not in f or "content" not in f:
-                raise ValueError("each file needs a name and content")
-            (inputs / Path(str(f["name"])).name).write_text(str(f["content"]))
 
         if kind == "predict":
             targets = payload.get("targets") or []
             if not isinstance(targets, list) or not targets:
                 raise ValueError("predict job needs a non-empty list of targets")
-            fallback = "fasta" if payload.get("input_format") == "fasta" else "yaml"
-            # Sanitise names into safe, unique file stems — tt-bio keys each
-            # result row and structure file by the input file's stem, so these
-            # must be filesystem-safe and collision-free even for huge batches.
-            # The extension is chosen per target from its *content*, not a single
-            # global toggle, so a mixed batch (some YAML, some FASTA) can never be
-            # handed to the wrong parser.
-            seen: set[str] = set()
-            for i, t in enumerate(targets):
+            for t in targets:
                 if not isinstance(t, dict) or not isinstance(t.get("content"), str):
                     raise ValueError("each target needs a string 'content' field")
+            # Reject ligand-only inputs (can't fold a ligand alone) and enforce
+            # the demo limits + safety rules on the actual parsed content.
+            for t in targets:
                 if _is_ligand_only(t["content"]):
                     raise ValueError(
                         "A ligand can't be folded on its own — include a protein, "
-                        "DNA, or RNA chain for it to bind."
-                    )
+                        "DNA, or RNA chain for it to bind.")
+            limits.check_targets(targets)
+            # Only now create job dirs — a rejected submission leaves no litter.
+            inputs = self._inputs_dir(job_id)
+            inputs.mkdir(parents=True, exist_ok=True)
+            self._out_dir(job_id).mkdir(parents=True, exist_ok=True)
+            fallback = "fasta" if payload.get("input_format") == "fasta" else "yaml"
+            # Sanitise names into safe, unique file stems — tt-bio keys each
+            # result row and structure file by the input file's stem, so these
+            # must be filesystem-safe and collision-free. The extension is chosen
+            # per target from its *content*, so a mixed batch can't be misparsed.
+            seen: set[str] = set()
+            for i, t in enumerate(targets):
                 stem = _safe_stem(Path(str(t.get("name") or "")).stem, f"target_{i + 1}")
                 base, n = stem, 2
                 while stem in seen:
@@ -254,6 +258,10 @@ class JobManager:
             spec = payload.get("spec")
             if not isinstance(spec, str) or not spec.strip():
                 raise ValueError("design job needs a spec string")
+            limits.check_design(spec)
+            inputs = self._inputs_dir(job_id)
+            inputs.mkdir(parents=True, exist_ok=True)
+            self._out_dir(job_id).mkdir(parents=True, exist_ok=True)
             (inputs / "design.yaml").write_text(spec)
 
         with self.lock:

@@ -34,7 +34,9 @@ def create_app(workspace: str | os.PathLike | None = None, *,
     CORS(app)  # allow the Vite dev server to reach the API in development
     app.config["manager"] = manager
     app.config["cluster"] = cluster
-    app.config["MAX_CONTENT_LENGTH"] = 512 * 1024 * 1024  # room for bulk uploads
+    # Cap request bodies: the demo limits keep real inputs tiny (≤10 small
+    # targets), so 8 MB is generous and stops oversized-payload abuse early.
+    app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 
     # ---- API ----------------------------------------------------------
     @app.get("/api/health")

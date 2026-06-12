@@ -8,6 +8,30 @@ the engine without hand-editing HTML.
 
 from __future__ import annotations
 
+# --- Free-demo limits -------------------------------------------------------
+# This platform runs as a free public demo on shared sovereign compute, so every
+# input is bounded to keep one user from blocking everyone else. The limits are
+# the single source of truth: enforced server-side on the *parsed* input (see
+# tt_bio.platform.limits) and surfaced in the UI so users understand why.
+LIMITS = {
+    "max_residues": 1024,            # total protein/nucleic residues in one structure
+    "max_chains_per_complex": 10,    # chains (incl. id-list copies) in one structure
+    "max_complexes": 10,             # structures/targets per submission (compose + bulk)
+    "max_ligands_per_complex": 10,
+    "max_constraints_per_complex": 20,
+    "max_designs": 50,               # binders to generate (design)
+    "max_budget": 50,                # ranked designs to keep
+    "max_recycling_steps": 10,
+    "max_sampling_steps": 500,
+    "max_diffusion_samples": 5,
+    "max_content_chars": 50_000,     # raw size of one target/spec (parse-independent guard)
+}
+DEMO_NOTE = (
+    "This is a free public demo on shared compute, so inputs are capped "
+    "(e.g. {max_residues} residues per structure, {max_complexes} structures per run, "
+    "{max_designs} binders per design). The full platform has no such limits."
+).format(**LIMITS)
+
 # --- Models offered for structure / affinity prediction (the `predict` path) ---
 # Described as "improved successors of AlphaFold 3" per the launch positioning;
 # we do not host AlphaFold itself.
@@ -304,4 +328,6 @@ def catalog() -> dict:
         "predict_params": PREDICT_PARAMS,
         "design_params": DESIGN_PARAMS,
         "examples": EXAMPLES,
+        "limits": LIMITS,
+        "demo_note": DEMO_NOTE,
     }
