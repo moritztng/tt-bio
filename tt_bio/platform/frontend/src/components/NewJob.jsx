@@ -31,6 +31,12 @@ export default function NewJob({ catalog, onSubmitted, onError }) {
             </button>
           ))}
         </div>
+        {catalog.demo_note && (
+          <div className="demo-banner mt16">
+            <span className="demo-badge">Free demo</span>
+            <span>{catalog.demo_note}</span>
+          </div>
+        )}
       </div>
 
       {task === "predict" ? (

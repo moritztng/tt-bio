@@ -273,3 +273,16 @@ pre.log {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
 }
 .join-cmd:hover { border-color: var(--accent); }
+
+/* ---- Free-demo banner ------------------------------------------------- */
+.demo-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px; border-radius: var(--radius);
+  background: var(--accent-soft); border: 1px solid var(--accent-soft-2);
+  color: var(--ink); font-size: 13px; line-height: 1.5;
+}
+.demo-badge {
+  flex: none; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  text-transform: uppercase; color: #fff; background: var(--accent);
+  padding: 2px 8px; border-radius: 999px; margin-top: 1px;
+}

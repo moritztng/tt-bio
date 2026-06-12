@@ -163,7 +163,11 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const rmConstraint = (i) => setConstraints((ks) => ks.filter((_, idx) => idx !== i));
 
   // Complex (target) management for the form.
-  const addForm = () => { setForms((fs) => [...fs, blankForm()]); setActiveForm(forms.length); };
+  const addForm = () => {
+    const max = (catalog.limits || {}).max_complexes || 10;
+    if (forms.length >= max) return;  // free-demo cap (button is also disabled)
+    setForms((fs) => [...fs, blankForm()]); setActiveForm(forms.length);
+  };
   const rmForm = (i) => { setForms((fs) => fs.filter((_, idx) => idx !== i)); setActiveForm(0); };
   const setFormName = (v) => patchActive((f) => ({ ...f, name: v }));
 
@@ -279,6 +283,17 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const esmMismatch = missingCaps.length > 0;
   const ligandOnly = composeContent.some((c) => c && c.trim() && isLigandOnly(c));
 
+  // Free-demo guards (the server enforces these too; here we just block early
+  // with a friendly message).
+  const lim = catalog.limits || {};
+  const residuesOf = (c) => /(^|\n)\s*-?\s*(protein|dna|rna)\s*:/i.test(c)
+    ? (c.match(/sequence:\s*([^\n]+)/gi) || [])
+        .reduce((n, m) => n + m.replace(/sequence:\s*/i, "").replace(/[^A-Za-z]/g, "").length, 0)
+    : 0;
+  const oversized = composeContent.some((c) => c && residuesOf(c) > (lim.max_residues || 1024));
+  const tooManyBulk = inputMode === "bulk" && bulk.length > (lim.max_complexes || 10);
+  const atComplexCap = forms.length >= (lim.max_complexes || 10);
+
   return (
     <>
       <div className="panel">
@@ -351,7 +366,10 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
                   )}
                 </button>
               ))}
-              <button className="btn sm ghost" onClick={addForm}>+ Add complex</button>
+              <button className="btn sm ghost" onClick={addForm} disabled={atComplexCap}
+                title={atComplexCap ? `Free demo: at most ${lim.max_complexes} structures per run` : ""}>
+                + Add complex
+              </button>
             </div>
             <div className="field mt16">
               <label>Complex name (optional)</label>
@@ -397,11 +415,25 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         </div>
       )}
 
+      {oversized && (
+        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
+          <strong style={{ color: "var(--warn)" }}>⚠ Structure too large for the free demo.</strong> Keep each structure
+          to <strong>{lim.max_residues} residues</strong> or fewer. This limit exists only because this is a free public demo.
+        </div>
+      )}
+
+      {tooManyBulk && (
+        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
+          <strong style={{ color: "var(--warn)" }}>⚠ Too many sequences for the free demo.</strong> The demo runs at most{" "}
+          <strong>{lim.max_complexes}</strong> per submission — remove some, or run them in smaller batches.
+        </div>
+      )}
+
       <div className="flex-between">
         <div className="field" style={{ flex: 1, marginRight: 16, marginBottom: 0 }}>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
-        <button className="btn primary" disabled={submitting || esmMismatch || ligandOnly} onClick={submit}>
+        <button className="btn primary" disabled={submitting || esmMismatch || ligandOnly || oversized || tooManyBulk} onClick={submit}>
           {(() => {
             if (submitting) return "Submitting…";
             if (inputMode === "bulk" && bulk.length) return `Run ${bulk.length} predictions →`;

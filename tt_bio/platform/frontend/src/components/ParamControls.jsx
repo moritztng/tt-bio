@@ -58,15 +58,24 @@ export default function ParamControls({ params, values, onChange, caps, modelNam
       );
     }
     // int / float / text
+    const isNum = p.type !== "text";
     return (
       <div className="field">
         <label>{p.label}</label>
         <input type={p.type === "text" ? "text" : "number"} value={v ?? ""} disabled={disabled}
+          min={isNum && p.min != null ? p.min : undefined}
+          max={isNum && p.max != null ? p.max : undefined}
           placeholder={p.default != null ? String(p.default) : ""}
           onChange={(e) => {
             const raw = e.target.value;
             if (raw === "") return onChange(p.key, undefined);
-            onChange(p.key, p.type === "text" ? raw : Number(raw));
+            if (p.type === "text") return onChange(p.key, raw);
+            // Clamp into the allowed range so a demo limit can't be typed past.
+            let num = Number(raw);
+            if (Number.isNaN(num)) return;
+            if (p.min != null) num = Math.max(p.min, num);
+            if (p.max != null) num = Math.min(p.max, num);
+            onChange(p.key, num);
           }} />
         {p.help && <div className="hint">{p.help}</div>}
       </div>

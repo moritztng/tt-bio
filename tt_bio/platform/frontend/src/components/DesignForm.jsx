@@ -117,6 +117,13 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
   const effectiveSpec = specMode === "yaml" ? spec : genSpec(builderArgs);
   const designMismatch = isLigand && specMode === "yaml" && !!effectiveSpec.trim() && !specHasLigand(effectiveSpec);
 
+  // Free-demo size guard: target residues + the binder length (upper bound of a
+  // range like 80..120) must fit the per-structure cap. Server enforces too.
+  const lim = catalog.limits || {};
+  const rangeMax = (s) => { const m = /(\d+)\s*\.\.\s*(\d+)/.exec(s || ""); return m ? Math.max(+m[1], +m[2]) : (parseInt(s, 10) || 0); };
+  const designResidues = (isLigand ? 0 : (target || "").replace(/[^A-Za-z]/g, "").length) + rangeMax(lengthRange);
+  const oversized = specMode === "form" && designResidues > (lim.max_residues || 1024);
+
   const submit = async () => {
     let body;
     if (specMode === "yaml") {
@@ -240,11 +247,18 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
         </div>
       )}
 
+      {oversized && (
+        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
+          <strong style={{ color: "var(--warn)" }}>⚠ Too large for the free demo.</strong> Target + binder must total{" "}
+          <strong>{lim.max_residues} residues</strong> or fewer (currently ~{designResidues}). This limit exists only because this is a free public demo.
+        </div>
+      )}
+
       <div className="flex-between">
         <div className="field" style={{ flex: 1, marginRight: 16, marginBottom: 0 }}>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
-        <button className="btn primary" disabled={submitting || designMismatch} onClick={submit}>
+        <button className="btn primary" disabled={submitting || designMismatch || oversized} onClick={submit}>
           {submitting ? "Submitting…" : "Run design →"}
         </button>
       </div>

@@ -113,16 +113,20 @@ PREDICT_PARAMS = [
      "help": "Build a multiple-sequence alignment for the input. Required for Boltz-2; optional for ESMFold-2."},
     {"key": "fast", "label": "Fast mode", "type": "bool", "default": False,
      "help": "Lower precision for higher throughput — slightly less accurate."},
-    {"key": "recycling_steps", "label": "Recycling steps", "type": "int", "default": 3, "help": "More can improve accuracy, at the cost of speed."},
-    {"key": "sampling_steps", "label": "Sampling steps", "type": "int", "default": 200, "help": "Diffusion steps per structure."},
-    {"key": "diffusion_samples", "label": "Number of predictions", "type": "int", "default": 1, "help": "How many structures to generate per target."},
+    {"key": "recycling_steps", "label": "Recycling steps", "type": "int", "default": 3, "min": 1, "max": LIMITS["max_recycling_steps"], "help": "More can improve accuracy, at the cost of speed."},
+    {"key": "sampling_steps", "label": "Sampling steps", "type": "int", "default": 200, "min": 10, "max": LIMITS["max_sampling_steps"], "help": "Diffusion steps per structure."},
+    {"key": "diffusion_samples", "label": "Number of predictions", "type": "int", "default": 1, "min": 1, "max": LIMITS["max_diffusion_samples"], "help": "How many structures to generate per target."},
     {"key": "output_format", "label": "Output format", "type": "enum", "default": "cif", "choices": ["cif", "pdb"], "help": "Structure file format."},
 ]
 
 DESIGN_PARAMS = [
-    {"key": "num_designs", "label": "Designs to generate", "type": "int", "default": 100,
-     "help": "Total candidates generated before filtering. Production runs use ~10,000; lower is faster for a quick look."},
-    {"key": "budget", "label": "Top designs to keep", "type": "int", "default": 30, "help": "How many ranked designs to report after filtering."},
+    {"key": "num_designs", "label": "Designs to generate", "type": "int", "default": 20,
+     "min": 1, "max": LIMITS["max_designs"],
+     "help": "Binders to generate before filtering. Capped at %d in this free demo; "
+             "production runs use thousands." % LIMITS["max_designs"]},
+    {"key": "budget", "label": "Top designs to keep", "type": "int", "default": 20,
+     "min": 1, "max": LIMITS["max_budget"],
+     "help": "How many ranked designs to report after filtering."},
     {"key": "fast", "label": "Fast mode", "type": "bool", "default": True, "help": "Lower precision for higher throughput — slightly less accurate."},
 ]
 
