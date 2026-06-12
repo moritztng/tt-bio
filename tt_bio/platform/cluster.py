@@ -95,11 +95,33 @@ class Cluster:
         else:
             self._start_controller()
             self._wait_healthy(timeout=20.0)
-        # Only add this host's worker pool if the (possibly adopted) controller
-        # doesn't already have workers from this host — two worker processes on
-        # the same cards would fight for the devices.
-        if self._healthz_ok() and not self._host_has_workers():
+        # Add this host's worker pool. Skipping it when the controller already
+        # shows workers from this host avoids two pools fighting for the same
+        # cards — but a just-restarted peer's workers linger in the registry for
+        # the staleness window while they shut down, which would otherwise leave
+        # this host with no pool at all. So when workers appear present, confirm
+        # in the background and start a fresh pool only if they turn out gone.
+        if not self._healthz_ok():
+            return
+        if self._host_has_workers():
+            threading.Thread(target=self._ensure_local_workers, daemon=True).start()
+        else:
             self._start_local_workers()
+
+    def _ensure_local_workers(self) -> None:
+        """Safety net for serve restarts. Workers shown at startup may belong to
+        a peer that's shutting down; they go offline within the controller's
+        staleness window. If this host then has no online workers, start a fresh
+        pool. Only ever starts workers — never kills — so genuinely-live pools
+        (e.g. another serve that's actually running) are left untouched."""
+        deadline = time.time() + 30.0
+        while time.time() < deadline:
+            time.sleep(5.0)
+            if self._workers_proc is not None and self._workers_proc.poll() is None:
+                return  # a pool is already running here
+            if not self._host_has_workers():
+                self._start_local_workers()
+                return
 
     def _open_log(self, name: str):
         return open(self._logdir / name, "a")
