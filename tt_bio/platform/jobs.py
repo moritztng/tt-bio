@@ -657,10 +657,11 @@ class JobManager:
             return None
         base = (rd / "structures") if job.kind == "predict" else (rd / "final_ranked_designs")
         target = (base / relpath).resolve()
-        # Contain to the results dir. Use a real path-boundary check, not a
-        # string prefix (which would let a sibling dir sharing a name-prefix,
-        # e.g. <rd>_evil, slip through).
-        if not target.is_relative_to(rd.resolve()):
+        # Contain strictly to the structure directory (not just the results dir),
+        # so a "../" relpath can't reach sibling files like results.json/config.
+        # Use a real path-boundary check, not a string prefix (which would let a
+        # sibling dir sharing a name-prefix, e.g. <base>_evil, slip through).
+        if not target.is_relative_to(base.resolve()):
             return None
         return target if target.exists() else None
 
