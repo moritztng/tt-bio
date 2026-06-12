@@ -17,6 +17,7 @@ import dataclasses
 import json
 import os
 import re
+import secrets
 import shlex
 import signal
 import subprocess
@@ -66,6 +67,8 @@ class Job:
     kind: str                      # "predict" | "design"
     name: str
     created_at: float
+    owner: str | None = None       # anonymous session that submitted it; access is
+                                   # denied to every other session (persisted in meta)
     params: dict[str, Any] = dataclasses.field(default_factory=dict)
     model: str | None = None       # predict
     protocol: str | None = None    # design
@@ -222,7 +225,7 @@ class JobManager:
             self.jobs[job.id] = job
 
     # -- submission --------------------------------------------------------
-    def submit(self, payload: dict[str, Any]) -> Job:
+    def submit(self, payload: dict[str, Any], owner: str | None = None) -> Job:
         # Validate types up front so a malformed request is a clean 400 (and can
         # never reach the worker as e.g. a string-where-a-dict-was-expected,
         # which would crash the run thread).
@@ -252,10 +255,13 @@ class JobManager:
         # Clamp every numeric knob into its allowed range — the client is never
         # trusted (the UI mirrors this, but this is the authority).
         params = limits.clamp_params(params, kind)
-        job_id = uuid.uuid4().hex[:12]
+        # 128-bit unguessable id: it appears in result/structure URLs, so it must
+        # not be brute-forceable even as a second line of defence behind the
+        # per-session ownership check.
+        job_id = secrets.token_hex(16)
         name = str(payload.get("name") or "").strip() or f"{kind}-{job_id[:6]}"
         job = Job(
-            id=job_id, kind=kind, name=name, created_at=time.time(),
+            id=job_id, kind=kind, name=name, created_at=time.time(), owner=owner,
             params=params,
             model=str(model) if model is not None else None,
             protocol=str(protocol) if protocol is not None else None,
@@ -573,10 +579,20 @@ class JobManager:
         return "\n".join(lines[-12:])
 
     # -- public read API ---------------------------------------------------
-    def list(self) -> list[dict[str, Any]]:
+    def list(self, owner: str | None = None) -> list[dict[str, Any]]:
+        """Jobs visible to one session. Only that session's own jobs are ever
+        returned — never another session's, and never all jobs."""
         with self.lock:
-            jobs = sorted(self.jobs.values(), key=lambda j: j.created_at, reverse=True)
+            jobs = sorted((j for j in self.jobs.values() if j.owner == owner),
+                          key=lambda j: j.created_at, reverse=True)
         return [j.to_dict() for j in jobs]
+
+    def owner_of(self, job_id: str) -> str | None:
+        """The session that owns a job, or None if it doesn't exist. Endpoints
+        compare this to the caller's session and 404 on any mismatch, so a job's
+        existence is never even confirmed to a non-owner."""
+        job = self.jobs.get(job_id)
+        return job.owner if job else None
 
     def get(self, job_id: str) -> dict[str, Any] | None:
         job = self.jobs.get(job_id)

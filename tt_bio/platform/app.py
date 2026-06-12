@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import mimetypes
 import os
+import secrets
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_file, send_from_directory
+from flask import Flask, g, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 
 from .catalog import catalog
@@ -18,6 +19,13 @@ from .jobs import CapacityError, JobManager
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"  # built React app (npm run build output)
+
+# Anonymous per-visitor session. No login: the server mints an unguessable id in
+# an HttpOnly cookie on first contact and tags every job with it; a job is only
+# ever visible/controllable by the session that created it. Set
+# AIAND_BIO_SECURE_COOKIES=1 behind HTTPS so the cookie is TLS-only.
+_SESSION_COOKIE = "aiandbio_sid"
+_SECURE_COOKIES = os.environ.get("AIAND_BIO_SECURE_COOKIES", "0").lower() not in ("0", "false", "")
 
 mimetypes.add_type("chemical/x-cif", ".cif")
 mimetypes.add_type("chemical/x-pdb", ".pdb")
@@ -37,6 +45,28 @@ def create_app(workspace: str | os.PathLike | None = None, *,
     # Cap request bodies: the demo limits keep real inputs tiny (≤10 small
     # targets), so 8 MB is generous and stops oversized-payload abuse early.
     app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
+
+    # ---- Anonymous session ------------------------------------------------
+    @app.before_request
+    def _ensure_session():
+        sid = request.cookies.get(_SESSION_COOKIE)
+        if not sid or not (16 <= len(sid) <= 128) or not sid.replace("-", "").replace("_", "").isalnum():
+            sid = secrets.token_urlsafe(24)  # 192-bit
+            g._new_sid = sid
+        g.session_id = sid
+
+    @app.after_request
+    def _persist_session(resp):
+        sid = getattr(g, "_new_sid", None)
+        if sid is not None:
+            resp.set_cookie(_SESSION_COOKIE, sid, max_age=30 * 24 * 3600,
+                            httponly=True, secure=_SECURE_COOKIES, samesite="Lax", path="/")
+        return resp
+
+    def _owns(job_id: str) -> bool:
+        """True only if the current session owns this job. Used by every per-job
+        route to 404 (never 403/200) on someone else's — or a nonexistent — job."""
+        return manager.owner_of(job_id) == g.session_id
 
     # ---- API ----------------------------------------------------------
     @app.get("/api/health")
@@ -59,7 +89,7 @@ def create_app(workspace: str | os.PathLike | None = None, *,
 
     @app.get("/api/jobs")
     def list_jobs():
-        return jsonify({"jobs": manager.list()})
+        return jsonify({"jobs": manager.list(owner=g.session_id)})
 
     @app.post("/api/jobs")
     def create_job():
@@ -70,7 +100,7 @@ def create_app(workspace: str | os.PathLike | None = None, *,
         if not isinstance(body, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
         try:
-            job = manager.submit(body)
+            job = manager.submit(body, owner=g.session_id)
         except CapacityError as e:
             return jsonify({"error": str(e)}), 429
         except (ValueError, KeyError, TypeError) as e:
@@ -79,17 +109,21 @@ def create_app(workspace: str | os.PathLike | None = None, *,
 
     @app.get("/api/jobs/<job_id>")
     def get_job(job_id):
+        if not _owns(job_id):
+            return jsonify({"error": "not found"}), 404
         d = manager.get(job_id)
         return (jsonify(d), 200) if d else (jsonify({"error": "not found"}), 404)
 
     @app.get("/api/jobs/<job_id>/log")
     def get_log(job_id):
-        if manager.jobs.get(job_id) is None:
+        if not _owns(job_id):
             return jsonify({"error": "not found"}), 404
         return app.response_class(manager.log_text(job_id), mimetype="text/plain")
 
     @app.get("/api/jobs/<job_id>/structure/<path:relpath>")
     def get_structure(job_id, relpath):
+        if not _owns(job_id):
+            return jsonify({"error": "not found"}), 404
         path = manager.structure_file(job_id, relpath)
         if not path:
             return jsonify({"error": "not found"}), 404
@@ -97,6 +131,8 @@ def create_app(workspace: str | os.PathLike | None = None, *,
 
     @app.get("/api/jobs/<job_id>/archive")
     def archive_job(job_id):
+        if not _owns(job_id):
+            return jsonify({"error": "not found"}), 404
         path = manager.archive(job_id)
         if not path:
             return jsonify({"error": "no results yet"}), 404
@@ -104,10 +140,14 @@ def create_app(workspace: str | os.PathLike | None = None, *,
 
     @app.post("/api/jobs/<job_id>/cancel")
     def cancel_job(job_id):
+        if not _owns(job_id):
+            return jsonify({"error": "not found"}), 404
         return jsonify({"canceled": manager.cancel(job_id)})
 
     @app.delete("/api/jobs/<job_id>")
     def delete_job(job_id):
+        if not _owns(job_id):
+            return jsonify({"error": "not found"}), 404
         return jsonify({"deleted": manager.delete(job_id)})
 
     # ---- Static SPA ---------------------------------------------------
