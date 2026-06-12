@@ -65,53 +65,73 @@ function chipMetric(r) {
   return null;
 }
 
+const STATE_ICON = { done: "✓", failed: "✗", running: "⟳", queued: "•" };
+
 function MultiTargetProgress({ job, results }) {
   const rows = (results && results.rows) || [];
-  const completed = rows.length;
-  const failed = rows.filter((r) => r.status && r.status !== "ok").length;
-  const ok = completed - failed;
-  const total = Math.max(job.total || 0, completed);
-  const pending = Math.max(0, total - completed);
-  const queued = job.status === "queued";
+  const byId = {};
+  rows.forEach((r) => { if (r && r.id != null) byId[r.id] = r; });
   const done = job.status === "succeeded";
   const stopped = job.status === "failed" || job.status === "canceled";
+  const waiting = job.status === "queued";
   const active = !done && !stopped;
+
+  // One cell per structure. While running, the server tells us each input's
+  // live state (done / running) plus a queued count; once finished (or with no
+  // live feed) we derive it from the result rows. Stable, and scales to many.
+  let cells;
+  if (job.targets) {
+    cells = job.targets.map((t) => ({ id: t.id, state: t.state, row: byId[t.id] }));
+    for (let i = 0; i < (job.queued || 0); i++) cells.push({ state: "queued" });
+  } else {
+    cells = rows.map((r) => ({
+      id: r.id, row: r, state: r.status && r.status !== "ok" ? "failed" : "done",
+    }));
+    for (let i = 0; i < Math.max(0, (job.total || 0) - rows.length); i++) cells.push({ state: "queued" });
+  }
+  const total = cells.length;
+  const count = (s) => cells.reduce((a, c) => a + (c.state === s), 0);
+  const doneN = count("done"), failN = count("failed"), runN = count("running"), queuedN = count("queued");
+  const finished = doneN + failN;
 
   const { phases, index } = phaseModel(job);
   const curKey = phases[Math.min(index, phases.length - 1)]?.key;
-  const verb = queued ? "Waiting for a free device on the cluster…" : (MULTI_VERB[curKey] || "Working…");
+  const verb = waiting ? "Waiting for a free device on the cluster…" : (MULTI_VERB[curKey] || "Working…");
+  const compact = total > 30; // dot grid scales to hundreds; chips stay readable below
+
+  const tip = (c) => {
+    if (!c.id) return "Queued";
+    const m = c.row ? chipMetric(c.row) : null;
+    return `${c.id}${c.state === "failed" ? " · failed" : c.state === "running" ? " · running" : m ? ` · ${m}` : ""}`;
+  };
 
   return (
     <div className="mtp">
       <div className="mtp-head">
-        {active ? (
-          <span className="mtp-verb"><Spinner /> {verb}</span>
-        ) : done ? (
-          <span className="jp-done">✓ {ok} of {total} structure{total > 1 ? "s" : ""} complete{failed ? ` · ${failed} failed` : ""}</span>
-        ) : (
-          <span className="muted">{job.status === "canceled" ? "Canceled." : "Stopped before finishing."}</span>
-        )}
+        {active ? <span className="mtp-verb"><Spinner /> {verb}</span>
+          : done ? <span className="jp-done">✓ {doneN} of {total} structure{total > 1 ? "s" : ""} complete{failN ? ` · ${failN} failed` : ""}</span>
+          : <span className="muted">{job.status === "canceled" ? "Canceled." : "Stopped before finishing."}</span>}
         <span className="spacer" />
-        {!done && <span className="mtp-count">{completed} / {total}</span>}
+        {!done && <span className="mtp-count">{finished} / {total}</span>}
         <span className="muted small">{duration(job)}</span>
       </div>
-      {active && <div className="mtp-bar"><Progress value={total ? completed / total : null} /></div>}
-      <div className="mtp-grid">
-        {rows.map((r) => {
-          const bad = r.status && r.status !== "ok";
-          const m = chipMetric(r);
-          return (
-            <span key={r.id} className={`mtp-chip ${bad ? "failed" : "done"}`}
-                  title={`${r.id}${bad ? " · failed" : m ? ` · ${m}` : ""}`}>
-              <span className="mtp-ic">{bad ? "✗" : "✓"}</span>
-              <span className="mtp-name">{r.id}</span>
-            </span>
-          );
-        })}
-        {Array.from({ length: pending }).map((_, i) => (
-          <span key={`p${i}`} className="mtp-chip pending" title={active ? "Folding…" : "Did not run"}>
-            <span className="mtp-ic">•</span>
-          </span>
+      {active && <div className="mtp-bar"><Progress value={total ? finished / total : null} /></div>}
+      {(runN > 0 || queuedN > 0 || failN > 0) && (
+        <div className="mtp-tally">
+          {doneN > 0 && <span className="t done">{doneN} done</span>}
+          {runN > 0 && <span className="t running">{runN} running</span>}
+          {queuedN > 0 && <span className="t queued">{queuedN} queued</span>}
+          {failN > 0 && <span className="t failed">{failN} failed</span>}
+        </div>
+      )}
+      <div className={`mtp-grid ${compact ? "compact" : ""}`}>
+        {cells.map((c, i) => (
+          compact
+            ? <span key={c.id || `q${i}`} className={`mtp-dot ${c.state}`} title={tip(c)} />
+            : <span key={c.id || `q${i}`} className={`mtp-chip ${c.state}`} title={tip(c)}>
+                <span className="mtp-ic">{STATE_ICON[c.state]}</span>
+                {c.id && <span className="mtp-name">{c.id}</span>}
+              </span>
         ))}
       </div>
     </div>

@@ -99,6 +99,10 @@ class JobManager:
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.jobs: dict[str, Job] = {}
         self.procs: dict[str, subprocess.Popen] = {}
+        # Per-target progress for multi-structure predict runs: a cursor into the
+        # controller's event stream + the set of targets seen to start. Lets the
+        # UI show each input's state (done / running / queued) and scale to many.
+        self._tprog: dict[str, dict] = {}
         self.lock = threading.RLock()
         self.queue: "Queue[str]" = Queue()
         # When a cluster is attached, predict jobs submit to its shared
@@ -587,7 +591,40 @@ class JobManager:
         d = job.to_dict()
         d["results"] = self.results(job)
         d["log_size"] = self._log_path(job_id).stat().st_size if self._log_path(job_id).exists() else 0
+        # For a live multi-structure predict, attach per-target state so the UI
+        # can show each input (done / running / queued) and the overall tally.
+        if job.kind == "predict" and (job.total or 0) > 1 and job.status == RUNNING:
+            self._attach_targets(d, job)
+        else:
+            self._tprog.pop(job_id, None)
         return d
+
+    def _attach_targets(self, d: dict, job: Job) -> None:
+        cl = self.cluster
+        if not (cl and cl.controller_alive()):
+            return
+        with self.lock:
+            st = self._tprog.setdefault(job.id, {"cursor": 0, "started": set()})
+            cursor = st["cursor"]
+        try:
+            snap = cl.client.events(job.id, cursor)
+        except Exception:
+            return
+        with self.lock:
+            for e in snap.get("events", []):
+                st["cursor"] = max(st["cursor"], int(e.get("seq", st["cursor"])))
+                if e.get("event") == "start" and e.get("name"):
+                    st["started"].add(str(e["name"]))
+            started = set(st["started"])
+        rows = (d.get("results") or {}).get("rows") or []
+        terminal = {r["id"]: ("failed" if (r.get("status") and r.get("status") != "ok") else "done")
+                    for r in rows if isinstance(r, dict) and "id" in r}
+        targets = [{"id": tid, "state": state} for tid, state in terminal.items()]
+        running = sorted(started - set(terminal))
+        targets += [{"id": tid, "state": "running"} for tid in running]
+        total = max(int(snap.get("total") or 0), job.total or 0, len(targets))
+        d["targets"] = targets
+        d["queued"] = max(0, total - len(targets))
 
     def results(self, job: Job) -> dict[str, Any]:
         rd = self._results_dir(job)
@@ -729,6 +766,7 @@ class JobManager:
         self.cancel(job_id)
         with self.lock:
             self.jobs.pop(job_id, None)
+            self._tprog.pop(job_id, None)
         import shutil
         shutil.rmtree(self.job_dir(job_id), ignore_errors=True)
         return True

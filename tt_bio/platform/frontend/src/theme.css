@@ -323,7 +323,16 @@ pre.log {
 .mtp-verb { font-size: 13px; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
 .mtp-count { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
 .mtp-bar { margin-bottom: 12px; }
+.mtp-tally { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; font-size: 12px; }
+.mtp-tally .t { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+.mtp-tally .t::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.mtp-tally .t.done { color: var(--accent); }
+.mtp-tally .t.running { color: var(--accent); }
+.mtp-tally .t.running::before { animation: mtp-pulse 1.4s ease-in-out infinite; }
+.mtp-tally .t.queued { color: var(--muted); }
+.mtp-tally .t.failed { color: var(--err); }
 .mtp-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.mtp-grid.compact { gap: 4px; }
 .mtp-chip {
   display: inline-flex; align-items: center; gap: 5px; max-width: 180px;
   padding: 4px 10px; border-radius: 999px; font-size: 12px; line-height: 1.3;
@@ -333,10 +342,17 @@ pre.log {
 .mtp-chip .mtp-ic { font-weight: 700; }
 .mtp-chip.done { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
 .mtp-chip.done .mtp-ic { color: var(--accent); }
+.mtp-chip.running { border-color: var(--accent); color: var(--accent); animation: mtp-pulse 1.5s ease-in-out infinite; }
 .mtp-chip.failed { border-color: var(--err); color: var(--err); }
 .mtp-chip.failed .mtp-ic { color: var(--err); }
-.mtp-chip.pending { animation: mtp-pulse 1.5s ease-in-out infinite; }
-@keyframes mtp-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+.mtp-chip.queued { animation: mtp-pulse 1.5s ease-in-out infinite; }
+/* Compact dot grid — one cell per structure, scales to hundreds of inputs. */
+.mtp-dot { width: 13px; height: 13px; border-radius: 3px; background: var(--border-strong); }
+.mtp-dot.done { background: var(--accent); }
+.mtp-dot.running { background: var(--accent); animation: mtp-pulse 1.3s ease-in-out infinite; }
+.mtp-dot.failed { background: var(--err); }
+.mtp-dot.queued { background: var(--border-strong); opacity: 0.6; }
+@keyframes mtp-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 .jp-label { font-size: 11.5px; color: var(--muted); line-height: 1.2; padding: 0 2px; }
 .jp-step.done .jp-label, .jp-step.active .jp-label { color: var(--ink); }
 .jp-step.failed .jp-label { color: var(--err); }
