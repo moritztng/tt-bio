@@ -316,8 +316,10 @@ pre.log {
   box-shadow: 0 0 0 4px var(--accent-soft); animation: jp-pulse 1.4s ease-in-out infinite;
 }
 @keyframes jp-pulse { 0%,100% { box-shadow: 0 0 0 3px var(--accent-soft); } 50% { box-shadow: 0 0 0 6px var(--accent-soft); } }
+.jp-step.failed .jp-dot { background: var(--err); border-color: var(--err); color: #fff; }
 .jp-label { font-size: 11.5px; color: var(--muted); line-height: 1.2; padding: 0 2px; }
 .jp-step.done .jp-label, .jp-step.active .jp-label { color: var(--ink); }
+.jp-step.failed .jp-label { color: var(--err); }
 .jp-activity {
   display: flex; align-items: center; gap: 8px; margin-top: 16px;
   font-size: 13px; color: var(--ink);

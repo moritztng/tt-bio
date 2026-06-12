@@ -57,10 +57,16 @@ export default function JobProgress({ job }) {
     <div className="jp">
       <ol className="jp-steps">
         {phases.map((p, i) => {
-          const state = done || i < index ? "done" : (i === index && !queued && !failed ? "active" : "pending");
+          // Mark the exact phase a failed run stopped at, so the user can see
+          // how far it got (a plain "stopped" run leaves every later step
+          // pending). Cancel is user-initiated, so we don't flag a phase for it.
+          const failedHere = job.status === "failed" && i === index;
+          const state = failedHere ? "failed"
+            : done || i < index ? "done"
+            : (i === index && !queued && !failed ? "active" : "pending");
           return (
             <li key={p.key} className={`jp-step ${state}`}>
-              <span className="jp-dot">{state === "done" ? "✓" : i + 1}</span>
+              <span className="jp-dot">{state === "done" ? "✓" : state === "failed" ? "✗" : i + 1}</span>
               <span className="jp-label">{p.label}</span>
             </li>
           );
