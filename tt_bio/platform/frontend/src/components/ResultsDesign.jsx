@@ -23,15 +23,19 @@ export default function ResultsDesign({ jobId, results }) {
       <p className="hint" style={{ marginTop: 0 }}>
         {designs.length} candidate binders, ranked by predicted interface confidence. Sequences are ready to order.
       </p>
+      <p className="hint metric-legend">
+        Higher <strong>iPTM</strong> and <strong>pTM</strong> (0–1) mean more confident binding and folding; lower{" "}
+        <strong>PAE</strong> (Å) means a more precisely predicted interface. More interface <strong>H-bonds</strong> suggest tighter contact.
+      </p>
       <table className="data">
         <thead>
           <tr>
             <th>Rank</th>
             <th>Designed sequence</th>
-            <th>iPTM (→target)</th>
-            <th>Design pTM</th>
-            <th>min PAE</th>
-            <th>H-bonds</th>
+            <th title="Predicted interface confidence between the designed binder and your target (0–1; higher is better, ≳0.6 is strong).">iPTM (→target)</th>
+            <th title="Predicted fold confidence of the designed binder on its own (0–1; higher is better).">Design pTM</th>
+            <th title="Lowest predicted aligned error across the interface, in ångström (lower is better; ≲5 Å is a tight interface).">min PAE</th>
+            <th title="Hydrogen bonds at the refolded binder–target interface (more indicates richer contact).">H-bonds</th>
             <th></th>
           </tr>
         </thead>

@@ -118,6 +118,8 @@ code, pre, .mono { font-family: var(--mono); }
 .field { margin-bottom: 14px; }
 .field > label { display: block; font-weight: 500; font-size: 13px; margin-bottom: 5px; }
 .field .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.metric-legend { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0 0 10px; }
+.metric-legend strong { color: var(--ink); font-weight: 600; }
 input[type="text"], input[type="number"], select, textarea {
   font-family: var(--sans); font-size: 14px; width: 100%;
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);

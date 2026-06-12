@@ -4,12 +4,12 @@ import { fmt } from "../ui.jsx";
 import StructureViewer from "./StructureViewerLazy.jsx";
 
 const COLS = [
-  ["confidence_score", "Confidence"],
-  ["plddt", "pLDDT"],
-  ["complex_plddt", "Complex pLDDT"],
-  ["ptm", "pTM"],
-  ["iptm", "ipTM"],
-  ["runtime_s", "Time (s)"],
+  ["confidence_score", "Confidence", "Overall model confidence in the prediction (0–1; higher is better)."],
+  ["plddt", "pLDDT", "Per-residue confidence averaged over the structure (0–100; >70 confident, >90 very high)."],
+  ["complex_plddt", "Complex pLDDT", "Confidence averaged across the whole complex (0–100; higher is better)."],
+  ["ptm", "pTM", "Predicted TM-score for the overall fold (0–1; >0.5 is a confident fold)."],
+  ["iptm", "ipTM", "Predicted interface confidence between chains (0–1; higher is better for complexes)."],
+  ["runtime_s", "Time (s)", "Wall-clock time to predict this target."],
 ];
 
 const CAP = 300; // rows rendered at once; search narrows beyond this
@@ -90,10 +90,10 @@ export default function ResultsPredict({ jobId, results }) {
             <tr>
               <th>Target</th>
               <th>Status</th>
-              {presentCols.map(([k, label]) => (
-                <th key={k} className="sortable" onClick={() => toggleSort(k)}>{label}{sortArrow(k)}</th>
+              {presentCols.map(([k, label, tip]) => (
+                <th key={k} className="sortable" title={tip} onClick={() => toggleSort(k)}>{label}{sortArrow(k)}</th>
               ))}
-              {hasAffinity && <th className="sortable" onClick={() => toggleSort("affinity_pred_value")}>Affinity (log IC₅₀){sortArrow("affinity_pred_value")}</th>}
+              {hasAffinity && <th className="sortable" title="Predicted binding affinity as log₁₀(IC₅₀ in µM); lower (more negative) is stronger binding. Binding probability in parentheses." onClick={() => toggleSort("affinity_pred_value")}>Affinity (log IC₅₀){sortArrow("affinity_pred_value")}</th>}
             </tr>
           </thead>
           <tbody>
