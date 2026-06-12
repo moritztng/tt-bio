@@ -679,10 +679,18 @@ class JobManager:
         if not rd or not rd.exists():
             return None
         zpath = self.job_dir(job_id) / "results.zip"
-        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
-            for f in rd.rglob("*"):
-                if f.is_file() and f.resolve() != zpath.resolve():
-                    z.write(f, f.relative_to(rd))
+        # Build to a temp file and atomically swap it in, so two concurrent
+        # downloads can't corrupt each other: a request streaming the old zip
+        # keeps its file handle (and inode) while a rebuild publishes a new one.
+        tmp = zpath.with_name(f".results.{uuid.uuid4().hex}.zip.tmp")
+        try:
+            with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
+                for f in rd.rglob("*"):
+                    if f.is_file() and f.resolve() != zpath.resolve():
+                        z.write(f, f.relative_to(rd))
+            os.replace(tmp, zpath)
+        finally:
+            tmp.unlink(missing_ok=True)
         return zpath
 
     def _kill(self, job_id: str) -> None:
