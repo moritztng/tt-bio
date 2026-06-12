@@ -59,12 +59,12 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
         </div>
 
         {(active || job.status === "succeeded") && (
-          <div className="mt16"><JobProgress job={job} /></div>
+          <div className="mt16"><JobProgress job={job} results={results} /></div>
         )}
 
         {job.status === "failed" && job.error && (
           <div className="mt16">
-            <JobProgress job={job} />
+            <JobProgress job={job} results={results} />
             <div className="errbox mt16">
               <strong>This run couldn't finish.</strong>
               <p className="mt8">{_friendlyError(job.error)}</p>

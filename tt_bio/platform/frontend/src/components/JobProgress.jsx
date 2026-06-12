@@ -1,5 +1,5 @@
 import React from "react";
-import { Spinner, duration } from "../ui.jsx";
+import { Spinner, Progress, fmt, duration } from "../ui.jsx";
 
 // Turn the engine's low-level stage words into a clear, ordered pipeline that a
 // biologist can follow at a glance — no run-log reading required. Each mode has
@@ -46,7 +46,84 @@ function phaseModel(job) {
   return { phases, index };
 }
 
-export default function JobProgress({ job }) {
+// For a run with many structures, a single linear stepper can't represent them
+// (each is folded on its own device, in its own stage). Show overall progress
+// plus a live per-structure grid instead.
+const MULTI_VERB = {
+  prepare: "Preparing inputs…",
+  msa: "Finding evolutionary relatives (MSA)…",
+  fold: "Folding structures…",
+  score: "Scoring confidence & binding affinity…",
+  save: "Finishing up…",
+};
+
+// The most telling single number for a finished structure, for the chip tooltip.
+function chipMetric(r) {
+  if (r.plddt != null) return `pLDDT ${fmt(r.plddt, 2)}`;
+  if (r.confidence_score != null) return `confidence ${fmt(r.confidence_score, 2)}`;
+  if (r.ptm != null) return `pTM ${fmt(r.ptm, 2)}`;
+  return null;
+}
+
+function MultiTargetProgress({ job, results }) {
+  const rows = (results && results.rows) || [];
+  const completed = rows.length;
+  const failed = rows.filter((r) => r.status && r.status !== "ok").length;
+  const ok = completed - failed;
+  const total = Math.max(job.total || 0, completed);
+  const pending = Math.max(0, total - completed);
+  const queued = job.status === "queued";
+  const done = job.status === "succeeded";
+  const stopped = job.status === "failed" || job.status === "canceled";
+  const active = !done && !stopped;
+
+  const { phases, index } = phaseModel(job);
+  const curKey = phases[Math.min(index, phases.length - 1)]?.key;
+  const verb = queued ? "Waiting for a free device on the cluster…" : (MULTI_VERB[curKey] || "Working…");
+
+  return (
+    <div className="mtp">
+      <div className="mtp-head">
+        {active ? (
+          <span className="mtp-verb"><Spinner /> {verb}</span>
+        ) : done ? (
+          <span className="jp-done">✓ {ok} of {total} structure{total > 1 ? "s" : ""} complete{failed ? ` · ${failed} failed` : ""}</span>
+        ) : (
+          <span className="muted">{job.status === "canceled" ? "Canceled." : "Stopped before finishing."}</span>
+        )}
+        <span className="spacer" />
+        {!done && <span className="mtp-count">{completed} / {total}</span>}
+        <span className="muted small">{duration(job)}</span>
+      </div>
+      {active && <div className="mtp-bar"><Progress value={total ? completed / total : null} /></div>}
+      <div className="mtp-grid">
+        {rows.map((r) => {
+          const bad = r.status && r.status !== "ok";
+          const m = chipMetric(r);
+          return (
+            <span key={r.id} className={`mtp-chip ${bad ? "failed" : "done"}`}
+                  title={`${r.id}${bad ? " · failed" : m ? ` · ${m}` : ""}`}>
+              <span className="mtp-ic">{bad ? "✗" : "✓"}</span>
+              <span className="mtp-name">{r.id}</span>
+            </span>
+          );
+        })}
+        {Array.from({ length: pending }).map((_, i) => (
+          <span key={`p${i}`} className="mtp-chip pending" title={active ? "Folding…" : "Did not run"}>
+            <span className="mtp-ic">•</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function JobProgress({ job, results }) {
+  // Many structures at once → per-structure overview; one structure (or a design
+  // run, which is a single ranked-design pipeline) → the linear stepper.
+  if (job.kind === "predict" && (job.total || 0) > 1) {
+    return <MultiTargetProgress job={job} results={results} />;
+  }
   const { phases, index } = phaseModel(job);
   const queued = job.status === "queued";
   const done = job.status === "succeeded";
