@@ -35,6 +35,11 @@ LIMITS = {
     # job that exceeds one is treated as stuck, killed, and its devices freed.
     "max_runtime_predict_s": 1500,   # 25 min
     "max_runtime_design_s": 2700,    # 45 min
+    # Stall ceiling: a healthy run streams progress to its log continuously
+    # (per-target / per-stage events). If the log stays frozen this long the
+    # run is almost certainly wedged on a stuck device — fail it fast so the
+    # slot turns over in minutes instead of waiting out the full runtime cap.
+    "max_stall_s": 600,              # 10 min with no log progress
 }
 DEMO_NOTE = (
     "This is a free public demo on shared compute, so inputs are capped "

@@ -116,6 +116,7 @@ class JobManager:
             "predict": int(limits.LIMITS.get("max_runtime_predict_s", 1500)),
             "design": int(limits.LIMITS.get("max_runtime_design_s", 2700)),
         }
+        self.max_stall = int(limits.LIMITS.get("max_stall_s", 600))
         self._sched = threading.Condition()
         self._running = 0          # jobs currently executing (any kind)
         self._excl_active = False  # an exclusive (device-owning) job is running
@@ -401,6 +402,10 @@ class JobManager:
                 "HF_HUB_DISABLE_PROGRESS_BARS": "1",
                 "HF_HUB_DISABLE_TELEMETRY": "1",
                 "TOKENIZERS_PARALLELISM": "false",
+                # Flush child stdout promptly so the run log streams live to the
+                # UI and its growth is a reliable progress signal for the stall
+                # watchdog (otherwise block-buffering can freeze the log mid-run).
+                "PYTHONUNBUFFERED": "1",
             }
             try:
                 proc = subprocess.Popen(
@@ -417,19 +422,32 @@ class JobManager:
             with self.lock:
                 self.procs[job.id] = proc
             # Poll for progress until the process exits — or until the watchdog
-            # ceiling trips, at which point we stop a stuck job to free its
-            # devices for the rest of the shared demo.
+            # trips, at which point we stop a stuck job to free its devices for
+            # the rest of the shared demo. Two ceilings back each other up: an
+            # absolute runtime cap, and a stall cap (no log growth) that catches
+            # a wedged device in minutes instead of waiting out the full cap.
             deadline = job.started_at + self.max_runtime.get(job.kind, 1800)
+            last_size, last_grew = -1, time.time()
             while proc.poll() is None:
                 self._update_progress(job)
                 self._save_meta(job)
-                if time.time() > deadline:
+                now = time.time()
+                size = self._log_size(job.id)
+                if size != last_size:
+                    last_size, last_grew = size, now
+                reason = None
+                if now > deadline:
                     mins = self.max_runtime.get(job.kind, 1800) // 60
+                    reason = (f"Stopped after {mins} minutes so it couldn't keep holding "
+                              "the shared demo's devices. This can happen with very demanding "
+                              "inputs — try a smaller structure or fewer designs, then run it again.")
+                elif now - last_grew > self.max_stall:
+                    reason = ("Stopped because it stopped making progress for "
+                              f"{self.max_stall // 60} minutes — the run looks stuck. "
+                              "Please try again; if it keeps happening, try a smaller input.")
+                if reason:
                     job.status = FAILED
-                    job.error = (
-                        f"Stopped after {mins} minutes so it couldn't keep holding "
-                        "the shared demo's devices. This can happen with very demanding "
-                        "inputs — try a smaller structure or fewer designs, then run it again.")
+                    job.error = reason
                     self._kill(job.id)
                     break
                 time.sleep(1.0)
@@ -515,6 +533,14 @@ class JobManager:
             if stage.replace("_", " ") in text or stage in text:
                 found = stage
         return found
+
+    def _log_size(self, job_id: str) -> int:
+        """Current size of the run log, or -1 if it isn't there yet. A frozen
+        size across the stall window is the wedged-device signal."""
+        try:
+            return self._log_path(job_id).stat().st_size
+        except Exception:
+            return -1
 
     def _tail(self, job: Job, nbytes: int) -> str:
         try:
