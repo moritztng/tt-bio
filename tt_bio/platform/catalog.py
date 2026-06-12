@@ -25,6 +25,10 @@ LIMITS = {
     "max_sampling_steps": 500,
     "max_diffusion_samples": 5,
     "max_content_chars": 50_000,     # raw size of one target/spec (parse-independent guard)
+    # Capacity guards (shared, unauthenticated demo): bound how much work can
+    # pile up so one visitor can't exhaust the queue (memory) or disk.
+    "max_active_jobs": 64,           # queued + running across all visitors -> 429 when full
+    "max_retained_jobs": 200,        # finished jobs kept for browsing; oldest auto-evicted
 }
 DEMO_NOTE = (
     "This is a free public demo on shared compute, so inputs are capped "

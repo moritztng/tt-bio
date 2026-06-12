@@ -44,11 +44,27 @@ def _copies(body: dict) -> int:
     return max(1, len(idv)) if isinstance(idv, list) else 1
 
 
+def _bad_range(value) -> bool:
+    """A design binder length given as a range must be 'low..high' with
+    1 <= low <= high. A plain sequence (no '..') is fine. Catches degenerate
+    inputs like '120..80', '0..0' or 'a..z' that would otherwise queue a doomed
+    design run."""
+    s = str(value or "").strip()
+    if ".." not in s:
+        return False
+    m = _RANGE.match(s)
+    if not m:
+        return True
+    lo, hi = int(m.group(1)), int(m.group(2))
+    return not (1 <= lo <= hi)
+
+
 def inspect(content: str) -> dict:
     """Best-effort structural summary of one target/spec. Never raises — returns
     counts plus a ``blocked`` reason string if a forbidden reference is found."""
     info = {"chains": 0, "residues": 0, "ligands": 0, "constraints": 0,
-            "has_polymer": False, "blocked": None}
+            "has_polymer": False, "blocked": None,
+            "ids": [], "ligand_ids": set(), "affinity_binders": [], "bad_range": False}
     text = content or ""
 
     # Security: refuse anything that could pull a file off the server, even if
@@ -80,15 +96,28 @@ def inspect(content: str) -> dict:
                     continue
                 k = str(key).lower()
                 n = _copies(body)
+                idv = body.get("id")
+                ids = [str(x) for x in idv] if isinstance(idv, list) else ([str(idv)] if idv is not None else [])
+                info["ids"].extend(ids)
                 if k in ("protein", "dna", "rna"):
                     info["chains"] += n
                     info["residues"] += _seq_residues(body.get("sequence")) * n
                     info["has_polymer"] = True
+                    if _bad_range(body.get("sequence")):
+                        info["bad_range"] = True
                 elif k == "ligand":
                     info["ligands"] += n
+                    info["ligand_ids"].update(ids)
         cons = data.get("constraints")
         if isinstance(cons, list):
             info["constraints"] = len(cons)
+        props = data.get("properties")
+        if isinstance(props, list):
+            for p in props:
+                if isinstance(p, dict) and isinstance(p.get("affinity"), dict):
+                    b = p["affinity"].get("binder")
+                    if b is not None:
+                        info["affinity_binders"].append(str(b))
     elif text.lstrip().startswith(">"):
         # FASTA: count records and residues.
         info["chains"] = text.count(">")
@@ -116,6 +145,20 @@ def _check_one(content: str, *, where: str) -> None:
     # reaches a device. (Ligand-only inputs are caught separately upstream.)
     if not info["has_polymer"] and not info["ligands"]:
         raise InputError(f"{where}: no protein, DNA, or RNA sequence found — check the input.")
+    # Degenerate binder length range (e.g. 120..80, 0..0, a..z).
+    if info["bad_range"]:
+        raise InputError(f"{where}: binder length must be a range like '80..120' "
+                         f"(low ≤ high, ≥ 1) or a sequence.")
+    # Chain/entity ids must be unique within one structure.
+    ids = [i for i in info["ids"] if i]
+    if len(ids) != len(set(ids)):
+        dup = next((i for i in ids if ids.count(i) > 1), "")
+        raise InputError(f"{where}: duplicate chain id '{dup}' — every chain needs a unique id.")
+    # An affinity 'binder' must name a ligand that's actually in the input.
+    for b in info["affinity_binders"]:
+        if b not in info["ligand_ids"]:
+            raise InputError(f"{where}: affinity binder '{b}' must be a ligand id present in the input "
+                             f"(affinity is predicted for a small-molecule ligand).")
     if info["chains"] > LIMITS["max_chains_per_complex"]:
         raise InputError(_too_many("chains in one complex", info["chains"],
                                    LIMITS["max_chains_per_complex"]))

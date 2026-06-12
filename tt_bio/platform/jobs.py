@@ -51,6 +51,11 @@ QUEUED, RUNNING, SUCCEEDED, FAILED, CANCELED = (
     "queued", "running", "succeeded", "failed", "canceled",
 )
 
+
+class CapacityError(Exception):
+    """The shared demo is at capacity — surfaced to the client as a 429 so it
+    knows to retry shortly (distinct from a 400 bad-input rejection)."""
+
 # Coarse pipeline stages we look for in BoltzGen logs, in order.
 _DESIGN_STAGES = ["design", "inverse_folding", "folding", "analysis", "filtering"]
 
@@ -102,15 +107,36 @@ class JobManager:
         # they run exclusively. The scheduler below enforces that split.
         self.cluster = cluster
         self.max_concurrent = max(1, int(max_concurrent))
+        self.max_active_jobs = int(limits.LIMITS.get("max_active_jobs", 64))
+        self.max_retained_jobs = int(limits.LIMITS.get("max_retained_jobs", 200))
         self._sched = threading.Condition()
         self._running = 0          # jobs currently executing (any kind)
         self._excl_active = False  # an exclusive (device-owning) job is running
         self._excl_waiting = 0     # exclusive jobs waiting to start
         self._load_existing()
+        self._evict_old()          # bound disk if a prior run left many jobs
         self._pool = [threading.Thread(target=self._run_loop, daemon=True)
                       for _ in range(self.max_concurrent)]
         for t in self._pool:
             t.start()
+
+    def _active_count(self) -> int:
+        with self.lock:
+            return sum(1 for j in self.jobs.values() if j.status in (QUEUED, RUNNING))
+
+    def _evict_old(self) -> None:
+        """Keep disk bounded: drop the oldest *finished* jobs once the total
+        exceeds max_retained_jobs. Active jobs are never evicted."""
+        with self.lock:
+            excess = len(self.jobs) - self.max_retained_jobs
+            if excess <= 0:
+                return
+            finished = sorted(
+                (j for j in self.jobs.values() if j.status not in (QUEUED, RUNNING)),
+                key=lambda j: j.finished_at or j.created_at)
+            victims = [j.id for j in finished[:excess]]
+        for jid in victims:
+            self.delete(jid)
 
     # -- scheduler gating --------------------------------------------------
     def _admit(self, exclusive: bool) -> None:
@@ -197,6 +223,13 @@ class JobManager:
         kind = payload.get("kind")
         if kind not in ("predict", "design"):
             raise ValueError("kind must be 'predict' or 'design'")
+        # Capacity guard for the shared, unauthenticated demo: never let the
+        # queue grow without bound. Reject (429) when too much is already in
+        # flight rather than accept work that would pile up.
+        if self._active_count() >= self.max_active_jobs:
+            raise CapacityError(
+                "The free demo is busy right now (too many jobs running). "
+                "Please try again in a minute.")
         params = payload.get("params") or {}
         if not isinstance(params, dict):
             raise ValueError("params must be an object")
@@ -268,6 +301,7 @@ class JobManager:
             self.jobs[job_id] = job
         self._save_meta(job)
         self.queue.put(job_id)
+        self._evict_old()  # bound disk: drop oldest finished jobs over the cap
         return job
 
     # -- command construction ---------------------------------------------

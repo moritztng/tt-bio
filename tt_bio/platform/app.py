@@ -14,7 +14,7 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 
 from .catalog import catalog
-from .jobs import JobManager
+from .jobs import CapacityError, JobManager
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"  # built React app (npm run build output)
@@ -71,6 +71,8 @@ def create_app(workspace: str | os.PathLike | None = None, *,
             return jsonify({"error": "request body must be a JSON object"}), 400
         try:
             job = manager.submit(body)
+        except CapacityError as e:
+            return jsonify({"error": str(e)}), 429
         except (ValueError, KeyError, TypeError) as e:
             return jsonify({"error": str(e)}), 400
         return jsonify(job.to_dict()), 201
