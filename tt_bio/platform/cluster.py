@@ -216,6 +216,12 @@ class Cluster:
         device juggling needed."""
         return self.controller_url if self.controller_alive() else None
 
+    def cancel_run(self, run_id: str) -> None:
+        """Cancel a run on the controller so workers stop its shards/targets.
+        No-op if the run was never submitted to the controller (ran locally)."""
+        if self.controller_alive():
+            self.client.cancel_run(run_id)
+
     # -- status ------------------------------------------------------------
     def status(self) -> dict:
         """Fleet snapshot for the UI: connected galaxies, devices, run/job

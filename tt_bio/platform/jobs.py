@@ -290,7 +290,7 @@ class JobManager:
             # local scheduler — the controller fans this run's targets across
             # every connected galaxy, and many such clients run concurrently.
             if controller_url:
-                cmd += ["--controller", controller_url]
+                cmd += ["--controller", controller_url, "--run-id", job.id]
             for flag in ("use_msa_server", "fast"):
                 if p.get(flag):
                     cmd.append(f"--{flag}")
@@ -306,7 +306,7 @@ class JobManager:
         # predict: the controller leases one shard per worker, each runs a
         # single-device gen run, and this client merges + filters the union.
         if controller_url:
-            cmd += ["--controller", controller_url]
+            cmd += ["--controller", controller_url, "--run-id", job.id]
         for key in ("num_designs", "budget"):
             v = self._int(p, key)
             if v is not None:
@@ -595,6 +595,14 @@ class JobManager:
         job = self.jobs.get(job_id)
         if job is None:
             return False
+        # Tell the controller to cancel the run so any shards/targets already
+        # leased to workers stop immediately (the run id is the job id) — killing
+        # only the local orchestrator below would leave them hogging devices.
+        if self.cluster is not None:
+            try:
+                self.cluster.cancel_run(job_id)
+            except Exception:
+                pass
         with self.lock:
             proc = self.procs.get(job_id)
         if job.status == QUEUED:
