@@ -339,6 +339,7 @@ pre.log {
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted);
 }
 .mtp-chip .mtp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtp-chip .mtp-sub { color: var(--muted); font-size: 11px; padding-left: 2px; }
 .mtp-chip .mtp-ic { font-weight: 700; }
 .mtp-chip.done { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
 .mtp-chip.done .mtp-ic { color: var(--accent); }

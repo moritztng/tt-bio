@@ -66,6 +66,16 @@ function chipMetric(r) {
 }
 
 const STATE_ICON = { done: "✓", failed: "✗", running: "⟳", queued: "•" };
+const STAGE_LABEL = { prepare: "preparing", msa: "finding relatives", fold: "folding", score: "scoring", save: "finishing" };
+const STAGE_ORDER = ["prepare", "msa", "fold", "score", "save"];
+
+// "3 folding · 2 scoring · 1 finding relatives" — the running inputs by phase.
+function runningSummary(cells) {
+  const by = {};
+  cells.forEach((c) => { if (c.state === "running") { const l = STAGE_LABEL[c.stage] || "running"; by[l] = (by[l] || 0) + 1; } });
+  const order = STAGE_ORDER.map((s) => STAGE_LABEL[s]).concat("running");
+  return order.filter((l) => by[l]).map((l) => `${by[l]} ${l}`).join(" · ");
+}
 
 function MultiTargetProgress({ job, results }) {
   const rows = (results && results.rows) || [];
@@ -81,8 +91,7 @@ function MultiTargetProgress({ job, results }) {
   // live feed) we derive it from the result rows. Stable, and scales to many.
   let cells;
   if (job.targets) {
-    cells = job.targets.map((t) => ({ id: t.id, state: t.state, row: byId[t.id] }));
-    for (let i = 0; i < (job.queued || 0); i++) cells.push({ state: "queued" });
+    cells = job.targets.map((t) => ({ id: t.id, state: t.state, stage: t.stage, row: byId[t.id] }));
   } else {
     cells = rows.map((r) => ({
       id: r.id, row: r, state: r.status && r.status !== "ok" ? "failed" : "done",
@@ -101,8 +110,11 @@ function MultiTargetProgress({ job, results }) {
 
   const tip = (c) => {
     if (!c.id) return "Queued";
+    if (c.state === "failed") return `${c.id} · failed`;
+    if (c.state === "running") return `${c.id} · ${STAGE_LABEL[c.stage] || "running"}`;
+    if (c.state === "queued") return `${c.id} · queued`;
     const m = c.row ? chipMetric(c.row) : null;
-    return `${c.id}${c.state === "failed" ? " · failed" : c.state === "running" ? " · running" : m ? ` · ${m}` : ""}`;
+    return `${c.id}${m ? ` · ${m}` : ""}`;
   };
 
   return (
@@ -119,7 +131,7 @@ function MultiTargetProgress({ job, results }) {
       {(runN > 0 || queuedN > 0 || failN > 0) && (
         <div className="mtp-tally">
           {doneN > 0 && <span className="t done">{doneN} done</span>}
-          {runN > 0 && <span className="t running">{runN} running</span>}
+          {runN > 0 && <span className="t running">{runningSummary(cells)}</span>}
           {queuedN > 0 && <span className="t queued">{queuedN} queued</span>}
           {failN > 0 && <span className="t failed">{failN} failed</span>}
         </div>
@@ -131,6 +143,7 @@ function MultiTargetProgress({ job, results }) {
             : <span key={c.id || `q${i}`} className={`mtp-chip ${c.state}`} title={tip(c)}>
                 <span className="mtp-ic">{STATE_ICON[c.state]}</span>
                 {c.id && <span className="mtp-name">{c.id}</span>}
+                {c.state === "running" && c.stage && <span className="mtp-sub">{STAGE_LABEL[c.stage]}</span>}
               </span>
         ))}
       </div>
