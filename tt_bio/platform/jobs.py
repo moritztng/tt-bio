@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import csv
 import dataclasses
+import hashlib
 import json
 import os
 import re
@@ -339,6 +340,8 @@ class JobManager:
             # every connected galaxy, and many such clients run concurrently.
             if controller_url:
                 cmd += ["--controller", controller_url, "--run-id", job.id]
+                if job.owner:
+                    cmd += ["--owner", _owner_key(job.owner)]
             for flag in ("use_msa_server", "fast"):
                 if p.get(flag):
                     cmd.append(f"--{flag}")
@@ -355,6 +358,8 @@ class JobManager:
         # single-device gen run, and this client merges + filters the union.
         if controller_url:
             cmd += ["--controller", controller_url, "--run-id", job.id]
+            if job.owner:
+                cmd += ["--owner", _owner_key(job.owner)]
         for key in ("num_designs", "budget"):
             v = self._int(p, key)
             if v is not None:
@@ -791,6 +796,13 @@ class JobManager:
         import shutil
         shutil.rmtree(self.job_dir(job_id), ignore_errors=True)
         return True
+
+
+def _owner_key(owner: str | None) -> str | None:
+    """Non-secret, stable fairness key for the controller — a hash of the session
+    id, so the session secret never reaches a command line or the controller DB.
+    The controller only needs to group a user's jobs, not authenticate them."""
+    return hashlib.sha256(owner.encode()).hexdigest()[:16] if owner else None
 
 
 def _read_json(path: Path) -> Any:
