@@ -112,6 +112,10 @@ def _check_one(content: str, *, where: str) -> None:
     info = inspect(content)
     if info["blocked"]:
         raise InputError(f"{where}: {info['blocked']}.")
+    # Reject empty / unreadable inputs early so a garbage submission never
+    # reaches a device. (Ligand-only inputs are caught separately upstream.)
+    if not info["has_polymer"] and not info["ligands"]:
+        raise InputError(f"{where}: no protein, DNA, or RNA sequence found — check the input.")
     if info["chains"] > LIMITS["max_chains_per_complex"]:
         raise InputError(_too_many("chains in one complex", info["chains"],
                                    LIMITS["max_chains_per_complex"]))
