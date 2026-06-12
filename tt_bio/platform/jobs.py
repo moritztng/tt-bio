@@ -589,30 +589,48 @@ class JobManager:
         d["log_size"] = self._log_path(job_id).stat().st_size if self._log_path(job_id).exists() else 0
         # For a live multi-structure predict, attach per-target state so the UI
         # can show each input (done / running / queued) and the overall tally.
-        if job.kind == "predict" and (job.total or 0) > 1 and job.status == RUNNING:
+        if job.kind == "predict" and (job.total or 0) > 1 and job.status in (QUEUED, RUNNING):
             self._attach_targets(d, job)
         return d
 
     _TARGET_STATE = {"ok": "done", "failed": "failed", "running": "running",
                      "pending": "queued", "canceled": "failed"}
 
-    def _attach_targets(self, d: dict, job: Job) -> None:
-        """Attach each input's live state + phase from the controller's per-job
-        snapshot (one cheap query, so it scales to many inputs)."""
-        cl = self.cluster
-        if not (cl and cl.controller_alive()):
-            return
+    def _expected_ids(self, job: Job) -> list[str]:
+        """The input (target) names for a predict job, from its input files —
+        the stems match the controller's job ids and the result row ids."""
         try:
-            jobs = cl.client.run_jobs(job.id)
+            return sorted(p.stem for p in self._inputs_dir(job.id).iterdir() if p.is_file())
         except Exception:
+            return []
+
+    def _attach_targets(self, d: dict, job: Job) -> None:
+        """Attach each input's live state + phase so the UI can show per-structure
+        progress and scale to many inputs. Prefer the controller's per-job
+        snapshot (authoritative, carries the live phase); until the run is
+        registered there — the brief gap right after submit — fall back to the
+        input names so named boxes appear immediately instead of blanks."""
+        cl = self.cluster
+        jobs = []
+        if cl and cl.controller_alive():
+            try:
+                jobs = cl.client.run_jobs(job.id)
+            except Exception:
+                jobs = []
+        if jobs:
+            d["targets"] = [
+                {"id": j.get("id"), "state": self._TARGET_STATE.get(j.get("status"), "queued"),
+                 "stage": j.get("stage")}
+                for j in jobs
+            ]
             return
-        if not jobs:
+        ids = self._expected_ids(job)
+        if not ids:
             return
-        d["targets"] = [
-            {"id": j.get("id"), "state": self._TARGET_STATE.get(j.get("status"), "queued"),
-             "stage": j.get("stage")}
-            for j in jobs
-        ]
+        rows = (d.get("results") or {}).get("rows") or []
+        done = {r["id"]: ("failed" if (r.get("status") and r.get("status") != "ok") else "done")
+                for r in rows if isinstance(r, dict) and "id" in r}
+        d["targets"] = [{"id": tid, "state": done.get(tid, "queued"), "stage": None} for tid in ids]
 
     def results(self, job: Job) -> dict[str, Any]:
         rd = self._results_dir(job)
