@@ -118,10 +118,19 @@ def create_app(workspace: str | os.PathLike | None = None, *,
             return jsonify({"error": "not found"}), 404
         candidate = _STATIC / path
         if path and candidate.is_file():
-            return send_from_directory(_STATIC, path)
+            resp = send_from_directory(_STATIC, path)
+            # Vite asset filenames are content-hashed, so they're safe to cache
+            # forever — a new build produces new names.
+            if path.startswith("assets/"):
+                resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            return resp
         index = _STATIC / "index.html"
         if index.exists():
-            return send_file(index)
+            resp = send_file(index)
+            # index.html names the current hashed bundle, so it must never be
+            # cached — otherwise a redeploy needs a manual hard-refresh to show.
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            return resp
         return (
             "<h1>ai& Bio</h1><p>Frontend not built. Run "
             "<code>npm install &amp;&amp; npm run build</code> in "
