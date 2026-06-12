@@ -109,6 +109,13 @@ class JobManager:
         self.max_concurrent = max(1, int(max_concurrent))
         self.max_active_jobs = int(limits.LIMITS.get("max_active_jobs", 64))
         self.max_retained_jobs = int(limits.LIMITS.get("max_retained_jobs", 200))
+        # Watchdog ceilings per kind: a job running longer than this is treated
+        # as stuck (wedged device, stalled fetch, model hang) and killed so it
+        # can't hold the shared fleet's devices indefinitely.
+        self.max_runtime = {
+            "predict": int(limits.LIMITS.get("max_runtime_predict_s", 1500)),
+            "design": int(limits.LIMITS.get("max_runtime_design_s", 2700)),
+        }
         self._sched = threading.Condition()
         self._running = 0          # jobs currently executing (any kind)
         self._excl_active = False  # an exclusive (device-owning) job is running
@@ -409,18 +416,44 @@ class JobManager:
                 return
             with self.lock:
                 self.procs[job.id] = proc
-            # Poll for progress until the process exits.
+            # Poll for progress until the process exits — or until the watchdog
+            # ceiling trips, at which point we stop a stuck job to free its
+            # devices for the rest of the shared demo.
+            deadline = job.started_at + self.max_runtime.get(job.kind, 1800)
             while proc.poll() is None:
                 self._update_progress(job)
                 self._save_meta(job)
+                if time.time() > deadline:
+                    mins = self.max_runtime.get(job.kind, 1800) // 60
+                    job.status = FAILED
+                    job.error = (
+                        f"Stopped after {mins} minutes so it couldn't keep holding "
+                        "the shared demo's devices. This can happen with very demanding "
+                        "inputs — try a smaller structure or fewer designs, then run it again.")
+                    self._kill(job.id)
+                    break
                 time.sleep(1.0)
+            # Reap the process. On the normal path it has already exited, so this
+            # returns at once; on the watchdog path we wait for the SIGTERM to
+            # land, then SIGKILL the group as a last resort so nothing lingers.
+            if proc.poll() is None:
+                try:
+                    proc.wait(timeout=30)
+                except Exception:
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                    except Exception:
+                        pass
             rc = proc.returncode
         with self.lock:
             self.procs.pop(job.id, None)
         self._update_progress(job)
         job.returncode = rc
         job.finished_at = time.time()
-        if job.status == CANCELED:
+        # A job the watchdog timed out (FAILED) or the user canceled is already
+        # classified with the right message — don't let the exit-code logic
+        # below relabel it.
+        if job.status in (CANCELED, FAILED):
             pass
         elif rc == 0:
             # tt-bio exits 0 even if individual targets failed. Treat a run
@@ -625,13 +658,12 @@ class JobManager:
                     z.write(f, f.relative_to(rd))
         return zpath
 
-    def cancel(self, job_id: str) -> bool:
-        job = self.jobs.get(job_id)
-        if job is None:
-            return False
-        # Tell the controller to cancel the run so any shards/targets already
-        # leased to workers stop immediately (the run id is the job id) — killing
-        # only the local orchestrator below would leave them hogging devices.
+    def _kill(self, job_id: str) -> None:
+        """Stop a running job's work everywhere. First tell the controller to
+        cancel the run so any shards/targets already leased to workers abort and
+        free their devices (the workers do this cleanly via SIGINT, which lets
+        ttnn close the chips — killing only the local orchestrator would leave
+        them hogging devices). Then stop the local orchestrator process."""
         if self.cluster is not None:
             try:
                 self.cluster.cancel_run(job_id)
@@ -639,20 +671,24 @@ class JobManager:
                 pass
         with self.lock:
             proc = self.procs.get(job_id)
-        if job.status == QUEUED:
-            job.status = CANCELED
-            job.finished_at = time.time()
-            self._save_meta(job)
-            return True
         if proc and proc.poll() is None:
-            job.status = CANCELED
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
             except Exception:
-                proc.terminate()
-            self._save_meta(job)
-            return True
-        return False
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+
+    def cancel(self, job_id: str) -> bool:
+        job = self.jobs.get(job_id)
+        if job is None or job.status in (SUCCEEDED, FAILED, CANCELED):
+            return False
+        job.status = CANCELED
+        self._kill(job_id)
+        job.finished_at = job.finished_at or time.time()
+        self._save_meta(job)
+        return True
 
     def delete(self, job_id: str) -> bool:
         self.cancel(job_id)

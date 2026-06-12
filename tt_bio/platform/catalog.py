@@ -29,6 +29,12 @@ LIMITS = {
     # pile up so one visitor can't exhaust the queue (memory) or disk.
     "max_active_jobs": 64,           # queued + running across all visitors -> 429 when full
     "max_retained_jobs": 200,        # finished jobs kept for browsing; oldest auto-evicted
+    # Watchdog: a job that hangs (wedged device, stalled download, model bug)
+    # would otherwise hold its devices forever and block the shared fleet. These
+    # are generous ceilings — demo-bounded inputs finish well under them — so a
+    # job that exceeds one is treated as stuck, killed, and its devices freed.
+    "max_runtime_predict_s": 1500,   # 25 min
+    "max_runtime_design_s": 2700,    # 45 min
 }
 DEMO_NOTE = (
     "This is a free public demo on shared compute, so inputs are capped "
