@@ -113,6 +113,14 @@ code, pre, .mono { font-family: var(--mono); }
 .selcard.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 .selcard .t { font-weight: 600; font-size: 14px; }
 .selcard .s { color: var(--muted); font-size: 12px; margin-top: 3px; }
+/* Capability chips — a glanceable summary of what a model folds, replacing the
+   prose blurb. More chips = more capable, readable at a glance. */
+.selcard .caps { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.selcard .capchip {
+  font-size: 10.5px; line-height: 1.5; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--border-strong); color: var(--muted); white-space: nowrap;
+}
+.selcard.active .capchip { border-color: var(--accent); color: var(--accent-ink); }
 
 /* ---------- forms ---------- */
 .field { margin-bottom: 14px; }
@@ -150,10 +158,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .collapse > summary::-webkit-details-marker { display: none; }
 .collapse > summary::before { content: "▸ "; color: var(--muted); }
 .collapse[open] > summary::before { content: "▾ "; }
-/* Picker header (model / design protocol): reads as the current choice, opens to switch. */
-.model-picker > summary { color: var(--ink); font-size: 14px; }
-.model-picker > summary strong { font-weight: 600; }
-.model-picker > summary .muted { font-weight: 400; }
 
 /* ---------- job list ---------- */
 .jobitem {

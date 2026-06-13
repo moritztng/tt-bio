@@ -151,18 +151,15 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
   return (
     <>
       <div className="panel">
-        <details className="collapse model-picker">
-          <summary>Design: <strong>{protoInfo?.name}</strong><span className="muted"> · {protoInfo?.blurb}</span></summary>
-          <div className="cardgrid mt12">
-            {catalog.protocols.map((p) => (
-              <button key={p.id} className={`selcard ${protocol === p.id ? "active" : ""}`}
-                title={p.blurb} onClick={() => onProtocol(p.id)}>
-                <div className="t">{p.name}</div>
-                <div className="s">{p.blurb}</div>
-              </button>
-            ))}
-          </div>
-        </details>
+        <p className="section-title">What to design</p>
+        <div className="cardgrid">
+          {catalog.protocols.map((p) => (
+            <button key={p.id} className={`selcard ${protocol === p.id ? "active" : ""}`} onClick={() => onProtocol(p.id)}>
+              <div className="t">{p.name}</div>
+              <div className="s">{p.blurb}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="examples-row">

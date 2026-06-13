@@ -24,6 +24,15 @@ const CAP_LABEL = {
   ligands: "ligands", nucleic: "nucleic acids (DNA/RNA)",
   affinity: "binding affinity", constraints: "constraints",
 };
+
+// What each model can fold, shown as small chips on its card — a glanceable
+// summary that's far friendlier than a prose blurb. All models do proteins.
+const MODEL_CAPS = [
+  ["multichain", "complexes"],
+  ["nucleic", "DNA / RNA"],
+  ["ligands", "ligands"],
+  ["affinity", "binding affinity"],
+];
 function inputCaps(content) {
   const caps = new Set();
   if (/(^|\n)\s*-?\s*ligand\s*:/i.test(content)) caps.add("ligands");
@@ -297,21 +306,22 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   return (
     <>
       <div className="panel">
-        {/* Collapsed by default: beginners just go with the sensible default
-            (Boltz-2). Open it to compare and switch — progressive disclosure. */}
-        <details className="collapse model-picker">
-          <summary>Model: <strong>{modelInfo?.name}</strong><span className="muted"> · {modelInfo?.tagline}</span></summary>
-          <div className="cardgrid mt12">
-            {catalog.models.map((m) => (
-              <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`}
-                title={m.blurb} onClick={() => onModelChange(m.id)}>
-                <div className="t">{m.name}</div>
-                <div className="s">{m.tagline}</div>
-              </button>
-            ))}
-          </div>
-          {modelInfo?.blurb && <div className="hint mt8">{modelInfo.blurb}</div>}
-        </details>
+        <p className="section-title">Model</p>
+        <div className="cardgrid">
+          {catalog.models.map((m) => (
+            <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`}
+              title={m.blurb} onClick={() => onModelChange(m.id)}>
+              <div className="t">{m.name}</div>
+              <div className="s">{m.tagline}</div>
+              <div className="caps">
+                <span className="capchip">proteins</span>
+                {MODEL_CAPS.filter(([c]) => (m.caps || []).includes(c)).map(([c, label]) => (
+                  <span key={c} className="capchip">{label}</span>
+                ))}
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {inputMode === "compose" && (
