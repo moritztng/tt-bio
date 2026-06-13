@@ -150,6 +150,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .collapse > summary::-webkit-details-marker { display: none; }
 .collapse > summary::before { content: "▸ "; color: var(--muted); }
 .collapse[open] > summary::before { content: "▾ "; }
+/* Picker header (model / design protocol): reads as the current choice, opens to switch. */
+.model-picker > summary { color: var(--ink); font-size: 14px; }
+.model-picker > summary strong { font-weight: 600; }
+.model-picker > summary .muted { font-weight: 400; }
 
 /* ---------- job list ---------- */
 .jobitem {

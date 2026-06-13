@@ -297,19 +297,21 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   return (
     <>
       <div className="panel">
-        <p className="section-title">Model</p>
-        <p className="hint" style={{ marginTop: -4, marginBottom: 12 }}>
-          Open, improved successors to AlphaFold 3 — running on Tenstorrent.
-        </p>
-        <div className="cardgrid">
-          {catalog.models.map((m) => (
-            <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`} onClick={() => onModelChange(m.id)}>
-              <div className="t">{m.name}</div>
-              <div className="s">{m.tagline}</div>
-            </button>
-          ))}
-        </div>
-        {modelInfo && <div className="hint mt8">{modelInfo.blurb}</div>}
+        {/* Collapsed by default: beginners just go with the sensible default
+            (Boltz-2). Open it to compare and switch — progressive disclosure. */}
+        <details className="collapse model-picker">
+          <summary>Model: <strong>{modelInfo?.name}</strong><span className="muted"> · {modelInfo?.tagline}</span></summary>
+          <div className="cardgrid mt12">
+            {catalog.models.map((m) => (
+              <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`}
+                title={m.blurb} onClick={() => onModelChange(m.id)}>
+                <div className="t">{m.name}</div>
+                <div className="s">{m.tagline}</div>
+              </button>
+            ))}
+          </div>
+          {modelInfo?.blurb && <div className="hint mt8">{modelInfo.blurb}</div>}
+        </details>
       </div>
 
       {inputMode === "compose" && (
