@@ -132,7 +132,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const onModelChange = (m) => {
     setModel(m);
     const info = catalog.models.find((x) => x.id === m);
-    setParam("use_msa_server", !!info?.needs_msa);
+    setParam("use_msa_server", !!(info?.needs_msa || info?.msa_default));
     if (m !== "boltz2") setFormat("yaml");
   };
 

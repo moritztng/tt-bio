@@ -72,19 +72,6 @@ MODELS = [
                  "multichain", "modifications", "potentials", "pae"],
     },
     {
-        "id": "protenix-v2",
-        "name": "Protenix-v2",
-        "tagline": "AlphaFold3-family folding — protein, MSA optional.",
-        "blurb": (
-            "An AlphaFold3-family model (Pairformer trunk + atom diffusion) running "
-            "fully on-device. Folds protein chains from sequence alone; a multiple-"
-            "sequence alignment is optional and can sharpen accuracy. Protein only — "
-            "for ligands, nucleic acids or binding affinity, use Boltz-2."
-        ),
-        "needs_msa": False,
-        "caps": ["msa", "multichain"],
-    },
-    {
         "id": "esmfold2",
         "name": "ESMFold-2",
         "tagline": "Fast protein folding, MSA optional.",
@@ -107,6 +94,21 @@ MODELS = [
         ),
         "needs_msa": False,
         "caps": ["multichain", "modifications"],
+    },
+    {
+        "id": "protenix-v2",
+        "name": "Protenix-v2",
+        "tagline": "AlphaFold3-family protein folding — MSA on by default.",
+        "blurb": (
+            "An AlphaFold3-family model (Pairformer trunk + atom diffusion) running "
+            "fully on-device. Folds protein structures using a multiple-sequence "
+            "alignment by default for best accuracy (you can turn it off to fold "
+            "single-sequence). Protein only — for ligands, nucleic acids or binding "
+            "affinity, use Boltz-2."
+        ),
+        "needs_msa": False,   # MSA optional (single-sequence works) ...
+        "msa_default": True,  # ... but default it ON, since it sharpens accuracy a lot
+        "caps": ["msa", "multichain"],
     },
 ]
 
