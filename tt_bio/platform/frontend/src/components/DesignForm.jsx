@@ -194,7 +194,6 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
                     ? <input type="text" value={ligand} onChange={(e) => setLigand(e.target.value)} placeholder="e.g. ATP" />
                     : <input type="text" value={ligand} onChange={(e) => setLigand(e.target.value)} placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O" />}
                 </div>
-                <div className="hint">The binder will be designed against this small molecule. Run on sovereign compute — your target never leaves the cluster.</div>
               </div>
             ) : (
               <div className="field">
@@ -202,23 +201,12 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
                 <textarea className="code" rows={4} value={target} spellCheck={false}
                   onChange={(e) => setTarget(e.target.value)}
                   placeholder="Paste the amino-acid sequence of the protein you want to bind…" />
-                <div className="hint">The binder will be designed against this target. Run on sovereign compute — your target never leaves the cluster.</div>
               </div>
             )}
-            <div className="row">
-              <div className="field">
-                <label>Binder length</label>
-                <input type="text" value={lengthRange} onChange={(e) => setLengthRange(e.target.value)} placeholder="80..120" />
-                <div className="hint">Range sampled per design.</div>
-              </div>
-              <div className="field">
-                <label>Binder chain ID</label>
-                <input type="text" value={binderId} onChange={(e) => setBinderId(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Target chain ID</label>
-                <input type="text" value={targetId} onChange={(e) => setTargetId(e.target.value)} />
-              </div>
+            <div className="field">
+              <label>Binder length</label>
+              <input type="text" value={lengthRange} onChange={(e) => setLengthRange(e.target.value)} placeholder="80..120" />
+              <div className="hint">How long the designed binder should be (a range to sample).</div>
             </div>
           </div>
         ) : (
@@ -233,8 +221,24 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
       </div>
 
       <div className="panel">
-        <p className="section-title">Design parameters</p>
-        <ParamControls params={catalog.design_params} values={params} onChange={setParam} />
+        <details className="collapse">
+          <summary>Advanced settings</summary>
+          <div className="mt8">
+            {specMode === "form" && (
+              <div className="row">
+                <div className="field">
+                  <label>Binder chain ID</label>
+                  <input type="text" value={binderId} onChange={(e) => setBinderId(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>Target chain ID</label>
+                  <input type="text" value={targetId} onChange={(e) => setTargetId(e.target.value)} />
+                </div>
+              </div>
+            )}
+            <ParamControls params={catalog.design_params} values={params} onChange={setParam} />
+          </div>
+        </details>
       </div>
 
       {designMismatch && (

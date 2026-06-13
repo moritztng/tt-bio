@@ -23,10 +23,13 @@ export default function ResultsDesign({ jobId, results }) {
       <p className="hint" style={{ marginTop: 0 }}>
         {designs.length} candidate binders, ranked by predicted interface confidence. Sequences are ready to order.
       </p>
-      <p className="hint metric-legend">
-        Higher <strong>iPTM</strong> and <strong>pTM</strong> (0–1) mean more confident binding and folding; lower{" "}
-        <strong>PAE</strong> (Å) means a more precisely predicted interface. More interface <strong>H-bonds</strong> suggest tighter contact.
-      </p>
+      <details className="collapse">
+        <summary>What do these scores mean?</summary>
+        <p className="hint metric-legend mt8">
+          Higher <strong>iPTM</strong> and <strong>pTM</strong> (0–1) mean more confident binding and folding; lower{" "}
+          <strong>PAE</strong> (Å) means a more precisely predicted interface. More interface <strong>H-bonds</strong> suggest tighter contact.
+        </p>
+      </details>
       <table className="data">
         <thead>
           <tr>
