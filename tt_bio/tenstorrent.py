@@ -655,12 +655,29 @@ class AttentionPairBias(Module):
             )
         self.o_weight = self.torch_to_tt("proj_o.weight")
 
+    def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
+        """Project the (LN'd) pair tensor z -> per-head additive attention bias
+        (1, n_heads, S, S). This is a pure function of z (no per-query dependence), so
+        for a fixed z (e.g. the diffusion trunk pair_z, constant across all sampling
+        steps) it can be computed ONCE and replayed via __call__(bias_precomputed=True),
+        instead of recomputing this NxNxc_z layer_norm+linear every call. Uses the same
+        (head_dim**0.5-scaled) z_weight as the inline path, so the result is identical."""
+        z = ttnn.layer_norm(
+            z, weight=self.z_norm_weight, bias=self.z_norm_bias, epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+        )
+        z = ttnn.linear(
+            z, self.z_weight, compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
+        )
+        return ttnn.permute(z, (0, 3, 1, 2))
+
     def __call__(
         self,
         s: ttnn.Tensor,
         z: ttnn.Tensor,
         keys_indexing: ttnn.Tensor | None = None,
         seq_mask: ttnn.Tensor | None = None,
+        bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         if not self.atom_level:
             qkv = ttnn.linear(
@@ -678,7 +695,8 @@ class AttentionPairBias(Module):
                 transpose_k_heads=False,
             )
             ttnn.deallocate(qkv)
-            if self.compute_pair_bias:
+            # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
+            if self.compute_pair_bias and not bias_precomputed:
                 z = ttnn.layer_norm(
                     z,
                     weight=self.z_norm_weight,
@@ -844,6 +862,13 @@ class Transition(Module):
 
         H, W = x.shape[1], x.shape[2]
         transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_FAST if _FAST_MODE else TRANSITION_H_CHUNK_SIZE
+        # Per-chunk swiglu L1 use ~ h_chunk * W * channel. The chunk size is tuned for the
+        # reference W=1024, c=128; scale the row-chunk so memory stays bounded for wider pair
+        # channels / longer sequences -- but only shrink when actually needed (so c=128 and
+        # Protenix-v2's c=256 at W<=512 keep the full chunk; only large W reduces it). No
+        # Boltz-2 regression (c=128, W<=1024 -> factor 1.0).
+        _ref = 1024 * 128
+        transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (W * x.shape[-1]))))
         transition_w_chunking_threshold = (
             SEQ_LEN_MORE_CHUNKING
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13

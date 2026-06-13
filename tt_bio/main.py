@@ -1367,6 +1367,66 @@ def _read_protein_chains(path):
     return chains
 
 
+def _resolve_a3m_text(msa_spec, sequence, msa_dir):
+    """Return a3m text for a chain, or None for single-sequence folding. Tries an explicit
+    a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in ``msa_dir``
+    (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors resolve_msa's
+    candidate order but returns raw a3m text for the protenix featurizer."""
+    import hashlib
+
+    candidates = []
+    if msa_spec:
+        candidates.append(Path(msa_spec).expanduser())
+    if msa_dir:
+        h = hashlib.sha256(sequence.encode()).hexdigest()[:16]
+        candidates.append(Path(msa_dir) / f"{h}.a3m")
+    for p in candidates:
+        if p.exists() and p.stat().st_size > 0 and p.suffix != ".csv":
+            return p.read_text()
+    return None
+
+
+def _write_protenix_structure(coords, feats, aatype, outpath, output_format):
+    """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
+    Reconstructs atom names/residues from tt_bio.data.const.ref_atoms (+ C-terminal OXT)."""
+    import biotite.structure as struc
+    import biotite.structure.io.pdb as _pdb
+    import biotite.structure.io.pdbx as _pdbx
+
+    from tt_bio.data import const
+    from tt_bio.protenix_data import RESTYPE_ORDER
+
+    l2r = {v: k for k, v in const.prot_token_to_letter.items()}
+    a2t = feats["atom_to_token_idx"].tolist()
+    znum = (feats["ref_element"].argmax(-1) + 1).tolist()
+    z2sym = {1: "H", 6: "C", 7: "N", 8: "O", 16: "S"}
+    n_tok = int(max(a2t)) + 1
+    names = []
+    for t in range(n_tok):
+        res = l2r[RESTYPE_ORDER[int(aatype[t])]] if int(aatype[t]) < 20 else "UNK"
+        atoms = list(const.ref_atoms[res])
+        if t == n_tok - 1:
+            atoms = atoms + ["OXT"]
+        names.extend(atoms)
+    arr = struc.AtomArray(coords.shape[0])
+    arr.coord = coords.numpy().astype("float32")
+    arr.add_annotation("occupancy", float); arr.occupancy[:] = 1.0
+    arr.add_annotation("b_factor", float); arr.b_factor[:] = 0.0
+    for i in range(coords.shape[0]):
+        t = a2t[i]
+        res = l2r[RESTYPE_ORDER[int(aatype[t])]] if int(aatype[t]) < 20 else "UNK"
+        arr.chain_id[i] = "A"
+        arr.res_id[i] = t + 1
+        arr.res_name[i] = res
+        arr.atom_name[i] = names[i]
+        arr.element[i] = z2sym.get(int(znum[i]), "C")
+    outpath = Path(outpath)
+    if output_format == "pdb":
+        pf = _pdb.PDBFile(); pf.set_structure(arr); pf.write(str(outpath))
+    else:
+        cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(outpath))
+
+
 def _write_structure(complex_obj, outpath, output_format):
     if output_format == "pdb" and hasattr(complex_obj, "to_pdb"):
         outpath.write_text(complex_obj.to_pdb())
@@ -1453,11 +1513,12 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
 @click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
-@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast"]), default="boltz2", show_default=True,
+@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2"]), default="boltz2", show_default=True,
               help="Structure model. boltz2: MSA + Pairformer. esmfold2: ESMC-6B + 48-block trunk + diffusion. "
-                   "esmfold2-fast: the lighter 24-block ESMFold2-Fast checkpoint. Both esmfold2 variants run "
-                   "on-device via the ttnn pipeline and accept an optional MSA (--use_msa_server / --msa_db_path; "
-                   "ligand / affinity options do not apply).")
+                   "esmfold2-fast: the lighter 24-block ESMFold2-Fast checkpoint. protenix-v2: AF3-family "
+                   "(Pairformer trunk + atom diffusion), single-sequence protein folding on-device, no MSA. "
+                   "All run on-device via the ttnn pipeline (esmfold2 accepts an optional MSA; "
+                   "ligand / affinity options apply to boltz2 only).")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
             seed, use_msa_server, msa_db_path, use_envdb, msa_server_url, msa_pairing_strategy,
@@ -1506,10 +1567,10 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    if model in ("esmfold2", "esmfold2-fast"):
-        # ESMFold2 rides the SAME scheduler / worker / progress path as Boltz-2
-        # (build a run config, fan jobs across devices via _local_workers +
-        # _scheduler_session, stream results). Only the per-model config differs.
+    if model in ("esmfold2", "esmfold2-fast", "protenix-v2"):
+        # ESMFold2 and Protenix-v2 ride the SAME scheduler / worker / progress path as
+        # Boltz-2: build a run config, then fan jobs across devices via _local_workers +
+        # _dispatch_run (or submit to a remote --controller). Only the per-model config differs.
         for n, on in [("--use_potentials", use_potentials),
                       ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:
             if on:
