@@ -403,10 +403,15 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                 f.write(f">{name}\n{seq}\n")
         a3m_out = tmp / "a3m"
         a3m_out.mkdir(exist_ok=True)
+        # Honor the per-worker thread cap (set by _spawn_worker_processes as
+        # OMP_NUM_THREADS = cores // workers) so many concurrent MSAs across a
+        # fleet share each host's cores instead of oversubscribing them. A
+        # plain single-run CLI leaves the env unset and gets all cores.
+        threads = int(os.environ.get("OMP_NUM_THREADS") or os.cpu_count() or 1)
         cmd_base = [
             colabfold_bin, str(fasta), db_path, str(a3m_out),
             "--use-env", "1" if use_env else "0", "--use-templates", "0",
-            "--db-load-mode", "2", "--threads", str(os.cpu_count() or 1),
+            "--db-load-mode", "2", "--threads", str(threads),
         ]
         if len(seqs) > 1:
             cmd_base += ["--pair-mode", "unpaired_paired", "--pairing_strategy", strategy_val]
@@ -1114,9 +1119,16 @@ def install_deps():
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent", show_default=True)
 @click.option("--max-concurrent", "max_concurrent", default=32, type=int, show_default=True,
               help="Max prediction jobs streamed at once (the controller still schedules devices).")
+@click.option("--msa-db-path", "msa_db_path", default="/data/colabfold_db",
+              envvar="AIAND_BIO_MSA_DB", show_default=True,
+              help="Shared ColabFold DB for offline MSA (sequences stay in-cluster).")
+@click.option("--msa-mode", "msa_mode", type=click.Choice(["auto", "offline", "server"]),
+              default="auto", show_default=True,
+              help="auto: offline once the DB is ready, else the public server (fallback); "
+                   "offline: always local (error if DB missing); server: always public API.")
 @click.option("--debug", is_flag=True)
 def serve_cmd(host, port, workspace, no_cluster, controller_port, num_devices,
-              device_ids, accelerator, max_concurrent, debug):
+              device_ids, accelerator, max_concurrent, msa_db_path, msa_mode, debug):
     """Serve the ai& Bio web platform (Boltz-2 / ESMFold2 / BoltzGen) over HTTP.
 
     By default the master also runs a persistent fleet controller: other
@@ -1132,7 +1144,7 @@ def serve_cmd(host, port, workspace, no_cluster, controller_port, num_devices,
     serve(host=host, port=port, workspace=workspace, debug=debug,
           cluster_enabled=not no_cluster, controller_port=controller_port,
           num_devices=num_devices, device_ids=device_ids, accelerator=accelerator,
-          max_concurrent=max_concurrent)
+          max_concurrent=max_concurrent, msa_db_path=msa_db_path, msa_mode=msa_mode)
 
 
 @cli.command("worker")
