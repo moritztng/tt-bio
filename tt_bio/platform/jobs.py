@@ -105,6 +105,12 @@ class JobManager:
         # to offline with no server restart.
         self.msa_db_path = msa_db_path or None
         self.msa_mode = msa_mode
+        # Persistent, shared MSA cache: a {seq_hash}.a3m computed for any job is
+        # reused by every later job (any user, any galaxy — it lives next to the
+        # shared DB on /data), so a sequence is never re-searched. Concurrency is
+        # safe via the per-seq_hash lock + atomic write in the engine.
+        self.msa_cache_dir = (str(Path(self.msa_db_path).parent / "msa_cache")
+                              if self.msa_db_path else None)
         self.workspace = Path(workspace).expanduser().resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.jobs: dict[str, Job] = {}
@@ -368,6 +374,10 @@ class JobManager:
             if p.get("use_msa_server"):
                 db = self._msa_db()
                 cmd += (["--msa_db_path", db] if db else ["--use_msa_server"])
+                # Cache MSAs in the persistent shared dir so the same sequence is
+                # never searched twice across jobs/users/galaxies.
+                if self.msa_cache_dir:
+                    cmd += ["--msa_dir", self.msa_cache_dir]
             for key in ("recycling_steps", "sampling_steps", "diffusion_samples"):
                 v = self._int(p, key)
                 if v is not None:
