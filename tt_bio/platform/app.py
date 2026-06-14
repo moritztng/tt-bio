@@ -32,11 +32,13 @@ mimetypes.add_type("chemical/x-pdb", ".pdb")
 
 
 def create_app(workspace: str | os.PathLike | None = None, *,
-               cluster=None, max_concurrent: int = 32) -> Flask:
+               cluster=None, max_concurrent: int = 32,
+               msa_db_path: str | None = "/data/colabfold_db", msa_mode: str = "auto") -> Flask:
     workspace = workspace or os.environ.get(
         "AIAND_BIO_WORKSPACE", str(Path.home() / ".aiand-bio" / "jobs")
     )
-    manager = JobManager(workspace, cluster=cluster, max_concurrent=max_concurrent)
+    manager = JobManager(workspace, cluster=cluster, max_concurrent=max_concurrent,
+                         msa_db_path=msa_db_path, msa_mode=msa_mode)
 
     app = Flask(__name__, static_folder=None)
     CORS(app)  # allow the Vite dev server to reach the API in development
@@ -185,7 +187,8 @@ def serve(host: str = "0.0.0.0", port: int = 8080, workspace: str | None = None,
           debug: bool = False, *, cluster_enabled: bool = True,
           controller_port: int = 8765, controller_bind: str = "0.0.0.0",
           num_devices: int = 0, device_ids: str | None = None,
-          accelerator: str = "tenstorrent", max_concurrent: int = 32) -> None:
+          accelerator: str = "tenstorrent", max_concurrent: int = 32,
+          msa_db_path: str | None = "/data/colabfold_db", msa_mode: str = "auto") -> None:
     workspace = workspace or os.environ.get(
         "AIAND_BIO_WORKSPACE", str(Path.home() / ".aiand-bio" / "jobs")
     )
@@ -198,7 +201,8 @@ def serve(host: str = "0.0.0.0", port: int = 8080, workspace: str | None = None,
         )
         cluster.start()
 
-    app = create_app(workspace, cluster=cluster, max_concurrent=max_concurrent)
+    app = create_app(workspace, cluster=cluster, max_concurrent=max_concurrent,
+                     msa_db_path=msa_db_path, msa_mode=msa_mode)
     print(f"\n  ai& Bio  →  http://{host}:{port}", flush=True)
     if cluster is not None:
         print(f"  fleet controller → {cluster.join_url}", flush=True)
