@@ -98,7 +98,13 @@ class Job:
 
 
 class JobManager:
-    def __init__(self, workspace: str | Path, *, cluster=None, max_concurrent: int = 32):
+    def __init__(self, workspace: str | Path, *, cluster=None, max_concurrent: int = 32,
+                 msa_db_path: str | None = "/data/colabfold_db", msa_mode: str = "auto"):
+        # Offline-MSA policy (sequences must not leave the cluster). Resolved
+        # per-job in _build_cmd so a download finishing mid-run flips new jobs
+        # to offline with no server restart.
+        self.msa_db_path = msa_db_path or None
+        self.msa_mode = msa_mode
         self.workspace = Path(workspace).expanduser().resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.jobs: dict[str, Job] = {}
@@ -327,6 +333,18 @@ class JobManager:
         v = p.get(key)
         return v if isinstance(v, int) and not isinstance(v, bool) else None
 
+    def _msa_db(self) -> str | None:
+        """Resolved offline-MSA DB path for predict, or None to use the public
+        server. ``server`` (or no configured path) → None; ``offline`` → always
+        the path (predict errors clearly if the DB is missing); ``auto`` → the
+        path once it is indexed (UNIREF30_READY), else None so the server is
+        used as a fallback until the download finishes."""
+        if self.msa_mode == "server" or not self.msa_db_path:
+            return None
+        if self.msa_mode == "offline":
+            return self.msa_db_path
+        return self.msa_db_path if (Path(self.msa_db_path) / "UNIREF30_READY").exists() else None
+
     def _build_cmd(self, job: Job, controller_url: str | None = None) -> list[str]:
         p = job.params
         out = self._out_dir(job.id)
@@ -342,9 +360,14 @@ class JobManager:
                 cmd += ["--controller", controller_url, "--run-id", job.id]
                 if job.owner:
                     cmd += ["--owner", _owner_key(job.owner)]
-            for flag in ("use_msa_server", "fast"):
-                if p.get(flag):
-                    cmd.append(f"--{flag}")
+            if p.get("fast"):
+                cmd.append("--fast")
+            # "Generate MSA" toggle. Prefer the shared offline DB so sequences
+            # stay in-cluster; fall back to the public server only when no DB
+            # is resolved (see _msa_db). The workers/controller pick this up.
+            if p.get("use_msa_server"):
+                db = self._msa_db()
+                cmd += (["--msa_db_path", db] if db else ["--use_msa_server"])
             for key in ("recycling_steps", "sampling_steps", "diffusion_samples"):
                 v = self._int(p, key)
                 if v is not None:
