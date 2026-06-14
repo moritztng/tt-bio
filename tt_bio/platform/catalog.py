@@ -101,14 +101,19 @@ MODELS = [
         "tagline": "AlphaFold3-family protein folding — MSA on by default.",
         "blurb": (
             "An AlphaFold3-family model (Pairformer trunk + atom diffusion) running "
-            "fully on-device. Folds protein structures using a multiple-sequence "
-            "alignment by default for best accuracy (you can turn it off to fold "
-            "single-sequence). Protein only — for ligands, nucleic acids or binding "
-            "affinity, use Boltz-2."
+            "fully on-device. On this platform it folds a single protein chain, using "
+            "a multiple-sequence alignment by default for best accuracy (turn it off "
+            "to fold single-sequence). For complexes, ligands, nucleic acids or "
+            "binding affinity, use Boltz-2."
         ),
         "needs_msa": False,   # MSA optional (single-sequence works) ...
         "msa_default": True,  # ... but default it ON, since it sharpens accuracy a lot
-        "caps": ["msa", "multichain"],
+        # The TT port folds ONE protein chain: its MSA module consumes a single
+        # chain's alignment, so multiple chains would be concatenated and folded as
+        # one chimeric sequence (not docked) — hence no "multichain" capability.
+        # Upstream Protenix is a full multimodal AF3 model; only single-protein
+        # folding is ported here.
+        "caps": ["msa"],
     },
 ]
 

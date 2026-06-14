@@ -282,7 +282,7 @@ class JobManager:
                     raise ValueError(
                         "A ligand can't be folded on its own — include a protein, "
                         "DNA, or RNA chain for it to bind.")
-            limits.check_targets(targets)
+            limits.check_targets(targets, model=model)
             # Only now create job dirs — a rejected submission leaves no litter.
             inputs = self._inputs_dir(job_id)
             inputs.mkdir(parents=True, exist_ok=True)

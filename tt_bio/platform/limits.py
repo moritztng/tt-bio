@@ -18,7 +18,11 @@ import re
 
 import yaml
 
-from .catalog import LIMITS
+from .catalog import LIMITS, MODELS
+
+# Model id -> the set of capabilities it supports (the catalog is the authority).
+_MODEL_CAPS = {m["id"]: set(m.get("caps", [])) for m in MODELS}
+_DEFAULT_MODEL = "boltz2"  # mirrors jobs._build_cmd's "job.model or 'boltz2'"
 
 # A BoltzGen binder length range, e.g. "80..120" (counts the upper bound).
 _RANGE = re.compile(r"^\s*(\d+)\s*\.\.\s*(\d+)\s*$")
@@ -62,7 +66,7 @@ def _bad_range(value) -> bool:
 def inspect(content: str) -> dict:
     """Best-effort structural summary of one target/spec. Never raises — returns
     counts plus a ``blocked`` reason string if a forbidden reference is found."""
-    info = {"chains": 0, "residues": 0, "ligands": 0, "constraints": 0,
+    info = {"chains": 0, "residues": 0, "ligands": 0, "nucleic": 0, "constraints": 0,
             "has_polymer": False, "blocked": None,
             "ids": [], "ligand_ids": set(), "affinity_binders": [], "bad_range": False}
     text = content or ""
@@ -103,6 +107,8 @@ def inspect(content: str) -> dict:
                     info["chains"] += n
                     info["residues"] += _seq_residues(body.get("sequence")) * n
                     info["has_polymer"] = True
+                    if k in ("dna", "rna"):
+                        info["nucleic"] += n
                     if _bad_range(body.get("sequence")):
                         info["bad_range"] = True
                 elif k == "ligand":
@@ -133,7 +139,35 @@ def _too_many(what: str, got: int, cap: int) -> str:
             f"This limit exists only because this is a free public demo.")
 
 
-def _check_one(content: str, *, where: str) -> None:
+def _check_model_caps(info: dict, model: str | None, *, where: str) -> None:
+    """Reject inputs that ask for a capability the chosen model doesn't have.
+
+    The catalog's per-model ``caps`` are the single source of truth (the UI
+    mirrors them). Without this, a protein-only model (ESMFold-2 Fast, Protenix)
+    would *silently drop* ligands / nucleic acids / extra chains and fold only
+    part of the input — returning a confidently wrong structure. We block that
+    here so the user gets a clear message instead of a misleading result.
+    """
+    caps = _MODEL_CAPS.get(model or _DEFAULT_MODEL)
+    if caps is None:  # unknown model id — let the engine reject it, don't guess
+        return
+    name = model or _DEFAULT_MODEL
+    if info["ligands"] and "ligands" not in caps:
+        raise InputError(f"{where}: {name} can't fold ligands — use Boltz-2 for "
+                         f"protein–ligand complexes (and binding affinity).")
+    if info["nucleic"] and "nucleic" not in caps:
+        raise InputError(f"{where}: {name} folds proteins only — use Boltz-2 for "
+                         f"DNA / RNA.")
+    if info["affinity_binders"] and "affinity" not in caps:
+        raise InputError(f"{where}: {name} doesn't predict binding affinity — use Boltz-2.")
+    if info["constraints"] and "constraints" not in caps:
+        raise InputError(f"{where}: {name} doesn't support binding constraints — use Boltz-2.")
+    if info["chains"] > 1 and "multichain" not in caps:
+        raise InputError(f"{where}: {name} folds a single chain — use Boltz-2 or "
+                         f"ESMFold-2 for multi-chain complexes.")
+
+
+def _check_one(content: str, *, where: str, model: str | None = None) -> None:
     if len(content) > LIMITS["max_content_chars"]:
         raise InputError(
             f"{where} is too large for the free demo "
@@ -145,6 +179,9 @@ def _check_one(content: str, *, where: str) -> None:
     # reaches a device. (Ligand-only inputs are caught separately upstream.)
     if not info["has_polymer"] and not info["ligands"]:
         raise InputError(f"{where}: no protein, DNA, or RNA sequence found — check the input.")
+    # Reject inputs that exceed the chosen model's capabilities (e.g. a ligand or
+    # a second chain sent to a protein-only model), so nothing is silently dropped.
+    _check_model_caps(info, model, where=where)
     # Degenerate binder length range (e.g. 120..80, 0..0, a..z).
     if info["bad_range"]:
         raise InputError(f"{where}: binder length must be a range like '80..120' "
@@ -174,14 +211,15 @@ def _check_one(content: str, *, where: str) -> None:
             f"{LIMITS['max_residues']} per structure. Try a smaller construct or domain.")
 
 
-def check_targets(targets: list) -> None:
-    """Validate a predict submission's list of targets against the demo limits."""
+def check_targets(targets: list, model: str | None = None) -> None:
+    """Validate a predict submission's list of targets against the demo limits
+    and the chosen model's capabilities."""
     if len(targets) > LIMITS["max_complexes"]:
         raise InputError(_too_many("structures in one run", len(targets),
                                    LIMITS["max_complexes"]))
     for i, t in enumerate(targets):
         content = t.get("content") if isinstance(t, dict) else None
-        _check_one(str(content or ""), where=f"Structure {i + 1}")
+        _check_one(str(content or ""), where=f"Structure {i + 1}", model=model)
 
 
 def check_design(spec: str) -> None:
