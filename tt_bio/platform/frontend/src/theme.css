@@ -1,20 +1,30 @@
-/* ai& Bio — visual language aligned with aiand.com:
-   lowercase wordmark, teal accent, near-white surfaces, generous whitespace,
-   DM Sans for UI, Fragment Mono for code. */
+/* ai& Bio — visual language matched to aiand.com:
+   warm off-white surfaces (#f7f3f3), warm near-black ink, the ai& red (#c70007)
+   as the signature accent, black primary buttons (their CTA style), DM Sans for
+   UI, Fragment Mono for code. */
 
 :root {
-  --bg: #fdfdfc;
+  --bg: #f7f3f3;          /* aiand warm off-white page */
   --surface: #ffffff;
-  --surface-2: #f7f7f7;
-  --border: #ececec;
-  --border-strong: #d9d9d9;
-  --ink: #0a0a0a;
-  --muted: #7a7a7a;
-  --muted-2: #a3a3a3;
-  --accent: #147598;
-  --accent-ink: #0f5d79;
-  --accent-soft: rgba(20, 117, 152, 0.08);
-  --accent-soft-2: rgba(20, 117, 152, 0.14);
+  --surface-2: #f3eded;   /* warm tint, not cool grey */
+  --border: #ece4e4;
+  --border-strong: #dccfcf;
+  --ink: #1a1513;         /* warm near-black (logo is #151517) */
+  --ink-soft: #3d3535;    /* aiand secondary text */
+  --muted: #857b79;       /* warm grey */
+  --muted-2: #b0a6a4;
+  /* Interactive accent is a calm warm charcoal (matches the black buttons), NOT
+     the brand red. Red reads as error/warning, so it's reserved for the logo
+     (--brand) and genuine errors/destructive actions (--err) only. */
+  --accent: #2a211f;      /* warm charcoal — selection, links, focus */
+  --accent-ink: #000000;  /* hover */
+  --accent-soft: rgba(42, 33, 31, 0.06);
+  --accent-soft-2: rgba(42, 33, 31, 0.11);
+  --brand: #c70007;       /* the ai& red — used only as a rare signal */
+  /* In-progress signal — a calm blue kept distinct from error red so "running"
+     never reads as "failed" in the progress views. */
+  --run: #2f6fb0;
+  --run-soft: rgba(47, 111, 176, 0.12);
   --ok: #2f8f4e;
   --warn: #c98a00;
   --err: #c70007;
@@ -22,7 +32,7 @@
   --radius-sm: 6px;
   --mono: "Fragment Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
+  --shadow: 0 1px 2px rgba(52, 8, 6, 0.04), 0 8px 24px rgba(52, 8, 6, 0.05);
 }
 
 * { box-sizing: border-box; }
@@ -52,10 +62,16 @@ code, pre, .mono { font-family: var(--mono); }
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
-.wordmark { display: flex; align-items: baseline; gap: 8px; font-weight: 600; font-size: 19px; letter-spacing: -0.01em; }
-.wordmark .amp { color: var(--accent); }
-.wordmark .sub { color: var(--muted); font-weight: 500; }
-.topbar .tagline { color: var(--muted); font-size: 13px; }
+.wordmark { display: flex; align-items: center; gap: 9px; }
+.wordmark .brand-logo { height: 21px; width: auto; display: block; }
+.wordmark .sub {
+  color: var(--ink); font-weight: 600; font-size: 18px; letter-spacing: -0.01em;
+  line-height: 1; position: relative; top: 1px;
+}
+.topbar .tagline {
+  color: var(--muted); font-size: 13px;
+  padding-left: 16px; margin-left: 4px; border-left: 1px solid var(--border);
+}
 .topbar .spacer { flex: 1; }
 .topbar .pill {
   font-size: 12px; color: var(--muted); border: 1px solid var(--border);
@@ -84,8 +100,10 @@ code, pre, .mono { font-family: var(--mono); }
 }
 .btn:hover { border-color: var(--muted-2); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+/* Primary CTA mirrors aiand.com's black buttons; the red is reserved as the
+   brand accent (selection, links, focus) so the main action stays calm. */
+.btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+.btn.primary:hover { background: #000; border-color: #000; }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 6px 10px; }
 .btn.ghost:hover { color: var(--ink); background: var(--surface-2); }
 .btn.danger:hover { border-color: var(--err); color: var(--err); }
@@ -173,7 +191,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 /* ---------- badges ---------- */
 .badge { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: capitalize; }
 .badge.queued { background: #f0f0f0; color: var(--muted); }
-.badge.running { background: var(--accent-soft-2); color: var(--accent-ink); }
+.badge.running { background: var(--run-soft); color: var(--run); }
 .badge.succeeded { background: rgba(47, 143, 78, 0.12); color: var(--ok); }
 .badge.failed { background: rgba(199, 0, 7, 0.1); color: var(--err); }
 .badge.canceled { background: #f0f0f0; color: var(--muted); }
@@ -181,7 +199,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 
 /* progress */
 .progress { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
-.progress > span { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
+.progress > span { display: block; height: 100%; background: var(--run); transition: width 0.4s ease; }
 .progress.indet > span { width: 35% !important; animation: slide 1.3s ease-in-out infinite; }
 @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
 
@@ -244,7 +262,7 @@ pre.log {
 .empty { color: var(--muted); text-align: center; padding: 60px 20px; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; font-size: 13px; }
 .kv .k { color: var(--muted); }
-.spin { width: 14px; height: 14px; border: 2px solid var(--accent-soft-2); border-top-color: var(--accent); border-radius: 50%; display: inline-block; animation: spin 0.8s linear infinite; }
+.spin { width: 14px; height: 14px; border: 2px solid var(--run-soft); border-top-color: var(--run); border-radius: 50%; display: inline-block; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--err); color: #fff; padding: 11px 18px; border-radius: var(--radius-sm); box-shadow: var(--shadow); z-index: 50; font-size: 13px; }
 .hr { height: 1px; background: var(--border); border: none; margin: 18px 0; }
@@ -311,19 +329,20 @@ pre.log {
   background: var(--border-strong); z-index: 0;
 }
 .jp-step:first-child::before { display: none; }
-.jp-step.done::before, .jp-step.active::before { background: var(--accent); }
+.jp-step.done::before { background: var(--ok); }
+.jp-step.active::before { background: var(--run); }
 .jp-dot {
   position: relative; z-index: 1; width: 28px; height: 28px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 600; background: var(--surface);
   border: 2px solid var(--border-strong); color: var(--muted);
 }
-.jp-step.done .jp-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.jp-step.done .jp-dot { background: var(--ok); border-color: var(--ok); color: #fff; }
 .jp-step.active .jp-dot {
-  border-color: var(--accent); color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft); animation: jp-pulse 1.4s ease-in-out infinite;
+  border-color: var(--run); color: var(--run);
+  box-shadow: 0 0 0 4px var(--run-soft); animation: jp-pulse 1.4s ease-in-out infinite;
 }
-@keyframes jp-pulse { 0%,100% { box-shadow: 0 0 0 3px var(--accent-soft); } 50% { box-shadow: 0 0 0 6px var(--accent-soft); } }
+@keyframes jp-pulse { 0%,100% { box-shadow: 0 0 0 3px var(--run-soft); } 50% { box-shadow: 0 0 0 6px var(--run-soft); } }
 .jp-step.failed .jp-dot { background: var(--err); border-color: var(--err); color: #fff; }
 
 /* Multi-structure progress: overall bar + per-structure chip grid */
@@ -334,15 +353,15 @@ pre.log {
 /* Proportional state bar — scales to any number of structures (one flex row). */
 .mtp-seg { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 12px; background: var(--border); gap: 1px; }
 .mtp-seg .seg { display: block; min-width: 2px; }
-.mtp-seg .seg.done { background: var(--accent); }
-.mtp-seg .seg.running { background: var(--accent); opacity: 0.6; animation: mtp-pulse 1.4s ease-in-out infinite; }
+.mtp-seg .seg.done { background: var(--ok); }
+.mtp-seg .seg.running { background: var(--run); opacity: 0.7; animation: mtp-pulse 1.4s ease-in-out infinite; }
 .mtp-seg .seg.queued { background: var(--border-strong); }
 .mtp-seg .seg.failed { background: var(--err); }
 .mtp-tally { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; font-size: 12px; }
 .mtp-tally .t { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
 .mtp-tally .t::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.mtp-tally .t.done { color: var(--accent); }
-.mtp-tally .t.running { color: var(--accent); }
+.mtp-tally .t.done { color: var(--ok); }
+.mtp-tally .t.running { color: var(--run); }
 .mtp-tally .t.running::before { animation: mtp-pulse 1.4s ease-in-out infinite; }
 .mtp-tally .t.queued { color: var(--muted); }
 .mtp-tally .t.failed { color: var(--err); }
@@ -356,16 +375,16 @@ pre.log {
 .mtp-chip .mtp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mtp-chip .mtp-sub { color: var(--muted); font-size: 11px; padding-left: 2px; }
 .mtp-chip .mtp-ic { font-weight: 700; }
-.mtp-chip.done { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
-.mtp-chip.done .mtp-ic { color: var(--accent); }
-.mtp-chip.running { border-color: var(--accent); color: var(--accent); animation: mtp-pulse 1.5s ease-in-out infinite; }
+.mtp-chip.done { border-color: var(--ok); background: rgba(47, 143, 78, 0.08); color: var(--ink); }
+.mtp-chip.done .mtp-ic { color: var(--ok); }
+.mtp-chip.running { border-color: var(--run); color: var(--run); animation: mtp-pulse 1.5s ease-in-out infinite; }
 .mtp-chip.failed { border-color: var(--err); color: var(--err); }
 .mtp-chip.failed .mtp-ic { color: var(--err); }
 .mtp-chip.queued { animation: mtp-pulse 1.5s ease-in-out infinite; }
 /* Compact dot grid — one cell per structure, scales to hundreds of inputs. */
 .mtp-dot { width: 13px; height: 13px; border-radius: 3px; background: var(--border-strong); }
-.mtp-dot.done { background: var(--accent); }
-.mtp-dot.running { background: var(--accent); animation: mtp-pulse 1.3s ease-in-out infinite; }
+.mtp-dot.done { background: var(--ok); }
+.mtp-dot.running { background: var(--run); animation: mtp-pulse 1.3s ease-in-out infinite; }
 .mtp-dot.failed { background: var(--err); }
 .mtp-dot.queued { background: var(--border-strong); opacity: 0.6; }
 @keyframes mtp-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }

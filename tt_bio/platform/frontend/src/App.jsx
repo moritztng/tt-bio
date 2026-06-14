@@ -46,7 +46,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="wordmark">
-          <span>ai<span className="amp">&amp;</span></span>
+          <img className="brand-logo" src="/aiand-logo.svg" alt="ai&amp;" />
           <span className="sub">Bio</span>
         </div>
         <span className="tagline">Drug discovery on sovereign compute</span>
