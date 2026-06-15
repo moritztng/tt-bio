@@ -198,7 +198,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .jobitem.active { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
 .jobitem .ji-top { display: flex; align-items: center; gap: 8px; }
 .jobitem .ji-name { font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jobitem .ji-meta { color: var(--muted); font-size: 12px; margin-top: 3px; display: flex; gap: 8px; }
+/* Meta row (job list + job header): flex+gap so items never run together and
+   separators always sit evenly. Used wherever .ji-meta appears. */
+.ji-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--muted); font-size: 12px; }
+.ji-meta .sep { color: var(--muted-2); }
+.jobitem .ji-meta { margin-top: 3px; }
 
 /* ---------- badges ---------- */
 .badge { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: capitalize; }

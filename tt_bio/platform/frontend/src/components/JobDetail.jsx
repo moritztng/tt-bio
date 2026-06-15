@@ -47,9 +47,10 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
             </div>
             <div className="ji-meta mt8">
               <span className="tag">{job.kind === "design" ? job.protocol : job.model}</span>
-              <span className="muted small">{job.kind === "design" ? "BoltzGen design" : "Structure prediction"}</span>
-              <span className="muted small">· submitted {timeAgo(job.created_at)}</span>
-              {job.started_at && <span className="muted small">· {duration(job)}</span>}
+              <span>{job.kind === "design" ? "BoltzGen design" : "Structure prediction"}</span>
+              <span className="sep">·</span>
+              <span>submitted {timeAgo(job.created_at)}</span>
+              {job.started_at && <><span className="sep">·</span><span>{duration(job)}</span></>}
             </div>
           </div>
           <div className="flex">
