@@ -16,8 +16,8 @@ export default function NewJob({ catalog, onSubmitted, onError }) {
       <div className="panel">
         <h2>New prediction</h2>
         <p className="desc">
-          Improved open successors to Google DeepMind&apos;s AlphaFold&nbsp;3, on sovereign
-          Tenstorrent compute in Japan — your sequences never leave the country.
+          Fold proteins, nucleic acids and ligand complexes, predict binding affinity,
+          and design de-novo binders — your sequences never leave the country.
         </p>
         <div className="cardgrid">
           {TASKS.map((x) => (

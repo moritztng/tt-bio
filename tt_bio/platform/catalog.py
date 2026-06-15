@@ -48,8 +48,8 @@ DEMO_NOTE = (
 ).format(**LIMITS)
 
 # --- Models offered for structure / affinity prediction (the `predict` path) ---
-# Described as "improved successors of AlphaFold 3" per the launch positioning;
-# we do not host AlphaFold itself.
+# Positioned as "open models beyond Google DeepMind's AlphaFold 3" per the launch
+# messaging; we do not host AlphaFold itself.
 # `caps` is the single source of truth for what each model can do; the frontend
 # uses it to filter examples, disable builder controls / params, and block
 # impossible inputs. Verified empirically: ESMFold folds one OR MORE protein
