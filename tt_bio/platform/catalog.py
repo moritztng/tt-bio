@@ -98,22 +98,22 @@ MODELS = [
     {
         "id": "protenix-v2",
         "name": "Protenix-v2",
-        "tagline": "AlphaFold3-family protein folding — MSA on by default.",
+        "tagline": "AlphaFold3-family — protein/nucleic/ligand complexes, MSA on by default.",
         "blurb": (
             "An AlphaFold3-family model (Pairformer trunk + atom diffusion) running "
-            "fully on-device. On this platform it folds a single protein chain, using "
-            "a multiple-sequence alignment by default for best accuracy (turn it off "
-            "to fold single-sequence). For complexes, ligands, nucleic acids or "
+            "fully on-device. Folds multi-chain complexes of proteins, nucleic acids "
+            "(RNA/DNA) and ligands (CCD codes or SMILES), using a multiple-sequence "
+            "alignment by default for best accuracy (turn it off to fold "
+            "single-sequence). Reports PAE/PDE and per-atom pLDDT confidence. For "
             "binding affinity, use Boltz-2."
         ),
         "needs_msa": False,   # MSA optional (single-sequence works) ...
         "msa_default": True,  # ... but default it ON, since it sharpens accuracy a lot
-        # The TT port folds ONE protein chain: its MSA module consumes a single
-        # chain's alignment, so multiple chains would be concatenated and folded as
-        # one chimeric sequence (not docked) — hence no "multichain" capability.
-        # Upstream Protenix is a full multimodal AF3 model; only single-protein
-        # folding is ported here.
-        "caps": ["msa"],
+        # Full multimodal AF3 port: real multi-chain complexes (not chimeric
+        # concatenation), RNA/DNA and ligand (CCD + SMILES) featurization with
+        # reference parity, and PAE/PDE + per-atom pLDDT output. Affinity prediction
+        # stays Boltz-2-only.
+        "caps": ["msa", "ligands", "nucleic", "multichain", "pae"],
     },
 ]
 
