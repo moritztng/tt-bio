@@ -69,8 +69,16 @@ class Predict(Task):
 
         torch.set_grad_enabled(False)
 
-        if self.debug:
-            self.data.num_workers = 0
+        # Always load in-process (no DataLoader worker subprocesses). The BoltzGen
+        # pipeline runs inside the ttnn device runtime, which spawns many host
+        # threads; a DataLoader with num_workers>0 forks workers, and forking a
+        # multithreaded process deadlocks the child whenever a thread held a lock
+        # at fork time. That surfaces intermittently under the platform's
+        # concurrency — design shards hang at the folding stage with every thread
+        # blocked (the shard subprocesses run without --debug, so the old
+        # debug-only guard didn't cover them). Data prep is cheap next to the
+        # on-device fold, so in-process loading costs effectively nothing here.
+        self.data.num_workers = 0
 
         # Build model with convert_to_tt applied; load_boltz_checkpoint filters
         # legacy hparams and applies the legacy-key remap on the state_dict.
