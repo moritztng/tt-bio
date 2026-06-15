@@ -146,7 +146,7 @@ ACCELERATORS = ["tenstorrent", "gpu", "cpu"]
 PREDICT_PARAMS = [
     {"key": "use_msa_server", "label": "Generate MSA", "type": "bool", "default": True, "cap": "msa",
      "help": "Build a multiple-sequence alignment (MSA) of related sequences for the input. Required for Boltz-2 and Protenix; optional for ESMFold-2."},
-    {"key": "fast", "label": "Fast mode", "type": "bool", "default": False,
+    {"key": "fast", "label": "Fast mode", "type": "bool", "default": True,
      "help": "Higher throughput — may be slightly less accurate."},
     {"key": "recycling_steps", "label": "Recycling steps", "type": "int", "default": 3, "min": 1, "max": LIMITS["max_recycling_steps"], "help": "More can improve accuracy, at the cost of speed."},
     {"key": "sampling_steps", "label": "Sampling steps", "type": "int", "default": 200, "min": 10, "max": LIMITS["max_sampling_steps"], "help": "Diffusion steps per structure."},
