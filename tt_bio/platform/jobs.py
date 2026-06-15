@@ -265,9 +265,18 @@ class JobManager:
             raise ValueError("File uploads are disabled in the demo; paste sequences instead.")
         model = payload.get("model")
         protocol = payload.get("protocol")
+        # Reject an unknown model id up front (clean 400) instead of letting it
+        # reach the engine — which fails opaquely and, worse, bypasses the
+        # capability guard (an unknown model has no caps to check against).
+        if kind == "predict" and model is not None and str(model) not in limits.MODEL_IDS:
+            raise ValueError(f"unknown model '{model}' — choose one of {sorted(limits.MODEL_IDS)}.")
         # Clamp every numeric knob into its allowed range — the client is never
         # trusted (the UI mirrors this, but this is the authority).
         params = limits.clamp_params(params, kind)
+        # A model that requires an MSA (Boltz-2) can't fold single-sequence: force
+        # MSA on rather than letting the run fail with 'Missing MSAs'.
+        if kind == "predict" and limits.model_needs_msa(model) and not params.get("use_msa_server"):
+            params["use_msa_server"] = True
         # 128-bit unguessable id: it appears in result/structure URLs, so it must
         # not be brute-forceable even as a second line of defence behind the
         # per-session ownership check.
@@ -529,6 +538,12 @@ class JobManager:
                     job.error = "Every target failed — see the per-target status and the log below."
                 else:
                     job.status = SUCCEEDED
+                    # Surface partial failures: a run with some failed targets is
+                    # not a clean success, so report the count instead of a
+                    # misleading "succeeded" with no indication anything failed.
+                    if ok < job.total:
+                        job.error = (f"{job.total - ok} of {job.total} structures failed — "
+                                     f"see the per-target status below.")
             else:
                 job.status = SUCCEEDED
                 job.done = job.total or job.done

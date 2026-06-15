@@ -23,10 +23,28 @@ from .catalog import LIMITS, MODELS
 # Model id -> the set of capabilities it supports (the catalog is the authority).
 _MODEL_CAPS = {m["id"]: set(m.get("caps", [])) for m in MODELS}
 _DEFAULT_MODEL = "boltz2"  # mirrors jobs._build_cmd's "job.model or 'boltz2'"
+MODEL_IDS = set(_MODEL_CAPS)                                   # valid model ids
+_MODEL_NEEDS_MSA = {m["id"]: bool(m.get("needs_msa")) for m in MODELS}
+
+
+def model_needs_msa(model: str | None) -> bool:
+    """True if the model can't fold without an MSA (e.g. Boltz-2)."""
+    return _MODEL_NEEDS_MSA.get(model or _DEFAULT_MODEL, False)
+
 
 # A BoltzGen binder length range, e.g. "80..120" (counts the upper bound).
 _RANGE = re.compile(r"^\s*(\d+)\s*\.\.\s*(\d+)\s*$")
 _NON_LETTER = re.compile(r"[^A-Za-z]")
+# Per-polymer sequence alphabets. Proteins allow any letter (the engine maps a
+# non-standard residue to UNK rather than crashing); nucleic acids are strict.
+# This rejects the real hazards — digits, punctuation, whitespace — that would
+# otherwise reach the featurizer as a "residue" and crash or corrupt the fold.
+_SEQ_ALPHABET = {
+    "protein": re.compile(r"^[A-Za-z]+$"),
+    "dna": re.compile(r"^[ACGTNacgtn]+$"),
+    "rna": re.compile(r"^[ACGUNacgun]+$"),
+}
+_ALPHABET_DESC = {"protein": "amino-acid letters", "dna": "A/C/G/T/N", "rna": "A/C/G/U/N"}
 
 
 class InputError(ValueError):
@@ -67,7 +85,7 @@ def inspect(content: str) -> dict:
     """Best-effort structural summary of one target/spec. Never raises — returns
     counts plus a ``blocked`` reason string if a forbidden reference is found."""
     info = {"chains": 0, "residues": 0, "ligands": 0, "nucleic": 0, "constraints": 0,
-            "has_polymer": False, "blocked": None,
+            "has_polymer": False, "blocked": None, "bad_seq": None,
             "ids": [], "ligand_ids": set(), "affinity_binders": [], "bad_range": False}
     text = content or ""
 
@@ -109,6 +127,20 @@ def inspect(content: str) -> dict:
                     info["has_polymer"] = True
                     if k in ("dna", "rna"):
                         info["nucleic"] += n
+                    seqval = body.get("sequence")
+                    if info["bad_seq"] is None:
+                        if not isinstance(seqval, str):
+                            info["bad_seq"] = f"the {k} chain's sequence must be text"
+                        else:
+                            s = seqval.strip()
+                            # A "low..high" range is a design binder spec (validated by
+                            # _bad_range), not a literal sequence — skip the alphabet check.
+                            if ".." not in s:
+                                if not s:
+                                    info["bad_seq"] = f"the {k} chain has an empty sequence"
+                                elif not _SEQ_ALPHABET[k].match(s):
+                                    info["bad_seq"] = (f"the {k} sequence has invalid characters "
+                                                       f"(expected {_ALPHABET_DESC[k]})")
                     if _bad_range(body.get("sequence")):
                         info["bad_range"] = True
                 elif k == "ligand":
@@ -179,6 +211,10 @@ def _check_one(content: str, *, where: str, model: str | None = None) -> None:
     # reaches a device. (Ligand-only inputs are caught separately upstream.)
     if not info["has_polymer"] and not info["ligands"]:
         raise InputError(f"{where}: no protein, DNA, or RNA sequence found — check the input.")
+    # Reject malformed sequences (non-text, empty, or non-residue characters) so
+    # garbage never reaches the featurizer (which would crash or fold nonsense).
+    if info["bad_seq"]:
+        raise InputError(f"{where}: {info['bad_seq']}.")
     # Reject inputs that exceed the chosen model's capabilities (e.g. a ligand or
     # a second chain sent to a protein-only model), so nothing is silently dropped.
     _check_model_caps(info, model, where=where)
