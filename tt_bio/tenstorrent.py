@@ -38,6 +38,14 @@ SDPA_CHUNK_MAX = 256
 SMALL_GRID_SEQ_TILE = 0
 SMALL_GRID_PAIR_TILE_AREA = 0
 
+# Small-grid chunk budgets are calibrated for a full Wormhole B0 core (~1.5 MiB
+# L1) and scaled to the device's *actual* per-core unreserved L1 — a part that
+# reserves more per core (e.g. this Galaxy's meshed-fabric infrastructure leaves
+# ~1.4 MiB/core) gets proportionally tighter chunks so the circular buffers keep
+# their margin. Calibration ceiling, so a full-L1 part is unchanged.
+_WH_FULL_L1_PER_CORE = 1572864  # 1.5 MiB
+_MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight part
+
 PAIRFORMER_PAD_MULTIPLE = 64  # Pad token dim to this multiple to avoid kernel recompilation
 MSA_PAD_MULTIPLE = 1024  # Pad MSA dim to this multiple to avoid kernel recompilation
 MAX_ATOMS_PER_TOKEN = 14  # Upper bound on atoms per residue (Trp=14); ties atom bucket to seq_len bucket
@@ -135,17 +143,26 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
     if not _IS_SMALL_GRID:
         return  # Keep Blackhole baseline values
-    SEQ_LEN_MORE_CHUNKING = 640
-    TRANSITION_BATCH_CHUNKING_THRESHOLD = 640
-    TRANSITION_W_CHUNKING_THRESHOLD = 640
-    TRIANGLE_ATT_CHUNK_SIZE_FAST = 512
-    TRANSITION_W_CHUNK_SIZE = 512
-    TRIANGLE_MULT_L1_MAX_SEQ_FAST = 320  # half of 640, snapped to TRIANGLE_MULT_CHUNK_SIZE
-    # Per-token block tile (rows); pair block tile by rows*L area budget. Both
-    # 32-tile-aligned. Sized so the wide activations fit alongside the resident 6B
-    # weights at L=1024 on Wormhole (--fast). area=65536 -> 64 rows at L=1024.
-    SMALL_GRID_SEQ_TILE = 256
-    SMALL_GRID_PAIR_TILE_AREA = 65536
+    # Scale every budget to this part's actual per-core unreserved L1, clamped to
+    # <= the full-L1 calibration (so an ample-L1 Wormhole is byte-for-byte
+    # unchanged — no perf regression — and only a tighter part, e.g. the Galaxy,
+    # tightens). Values are 32-tile-aligned; the full-L1 case reproduces the
+    # original 640/512/320/256/65536 exactly. The L=1024 --fast ESMC budgets
+    # (SEQ_TILE/PAIR_TILE_AREA) likewise track the available L1.
+    try:
+        _l1 = ttnn.get_max_worker_l1_unreserved_size()
+    except Exception:
+        _l1 = _WH_FULL_L1_PER_CORE
+    _s = min(1.0, max(_MIN_L1_SCALE, _l1 / _WH_FULL_L1_PER_CORE))
+    _snap = lambda v, q=32: max(q, int(round(v * _s / q)) * q)
+    SEQ_LEN_MORE_CHUNKING = _snap(640)
+    TRANSITION_BATCH_CHUNKING_THRESHOLD = _snap(640)
+    TRANSITION_W_CHUNKING_THRESHOLD = _snap(640)
+    TRIANGLE_ATT_CHUNK_SIZE_FAST = _snap(512)
+    TRANSITION_W_CHUNK_SIZE = _snap(512)
+    TRIANGLE_MULT_L1_MAX_SEQ_FAST = _snap(320)  # stays a multiple of TRIANGLE_MULT_CHUNK_SIZE (32)
+    SMALL_GRID_SEQ_TILE = _snap(256)
+    SMALL_GRID_PAIR_TILE_AREA = _snap(65536, 1024)  # area = rows*L; rows snapped downstream
 
 
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
