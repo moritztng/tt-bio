@@ -41,7 +41,7 @@ export default function App() {
           <img className="brand-logo" src="/aiand-logo.svg" alt="ai&amp;" />
           <span className="sub">Drug Discovery</span>
         </div>
-        <span className="tagline">Open models beyond Google DeepMind&apos;s AlphaFold&nbsp;3 · sovereign compute in Japan</span>
+        <span className="tagline">Sovereign compute in Japan</span>
         <div className="spacer" />
         <a className="powered" href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer"
            title="Powered by Tenstorrent AI Processors">

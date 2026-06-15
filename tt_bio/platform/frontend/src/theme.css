@@ -124,6 +124,7 @@ code, pre { font-family: var(--mono); }
 .field .hint, .checkline .hint, .demo-banner span:last-child { text-align: justify; }
 
 .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+.section-sub { font-size: 13px; color: var(--muted); margin: -4px 0 12px; max-width: 64ch; }
 
 /* selectable cards (models / protocols / task types) */
 .cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }

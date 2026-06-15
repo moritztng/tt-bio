@@ -304,6 +304,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
     <>
       <div className="panel">
         <p className="section-title">Model</p>
+        <p className="section-sub">Open models beyond Google DeepMind&apos;s AlphaFold&nbsp;3.</p>
         <div className="cardgrid models">
           {catalog.models.map((m) => (
             <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`}
