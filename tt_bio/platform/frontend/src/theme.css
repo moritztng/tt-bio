@@ -71,12 +71,20 @@ code, pre, .mono { font-family: var(--mono); }
 .topbar .tagline {
   color: var(--muted); font-size: 13px;
   padding-left: 16px; margin-left: 4px; border-left: 1px solid var(--border);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .topbar .spacer { flex: 1; }
 .topbar .pill {
   font-size: 12px; color: var(--muted); border: 1px solid var(--border);
   padding: 4px 10px; border-radius: 999px;
 }
+/* "Powered by [Tenstorrent] AI Processors" — brand attribution, top right */
+.topbar .powered {
+  display: flex; align-items: center; gap: 7px; flex: none;
+  font-size: 12px; color: var(--muted); text-decoration: none; white-space: nowrap;
+}
+.topbar .powered:hover { color: var(--ink-soft); }
+.topbar .powered .tt-logo { height: 13px; width: auto; display: block; }
 
 .main { display: flex; flex: 1; min-height: 0; }
 

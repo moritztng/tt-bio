@@ -13,7 +13,7 @@ const GRID_CAP = 480;
 
 const PREDICT_PHASES = [
   { key: "prepare", label: "Prepare", activity: "Preparing your input…" },
-  { key: "msa", label: "Find relatives", activity: "Searching for evolutionary relatives (MSA)…" },
+  { key: "msa", label: "Sequence search (MSA)", activity: "Searching databases for related sequences — the multiple-sequence alignment (MSA)…" },
   { key: "fold", label: "Fold", activity: "Folding the 3-D structure…" },
   { key: "score", label: "Score", activity: "Scoring confidence and binding affinity…" },
   { key: "save", label: "Finish", activity: "Writing the final structure…" },
@@ -56,7 +56,7 @@ function phaseModel(job) {
 // plus a live per-structure grid instead.
 const MULTI_VERB = {
   prepare: "Preparing inputs…",
-  msa: "Finding evolutionary relatives (MSA)…",
+  msa: "Searching for related sequences (MSA)…",
   fold: "Folding structures…",
   score: "Scoring confidence & binding affinity…",
   save: "Finishing up…",
@@ -71,10 +71,10 @@ function chipMetric(r) {
 }
 
 const STATE_ICON = { done: "✓", failed: "✗", running: "⟳", queued: "•" };
-const STAGE_LABEL = { prepare: "preparing", msa: "finding relatives", fold: "folding", score: "scoring", save: "finishing" };
+const STAGE_LABEL = { prepare: "preparing", msa: "MSA search", fold: "folding", score: "scoring", save: "finishing" };
 const STAGE_ORDER = ["prepare", "msa", "fold", "score", "save"];
 
-// "3 folding · 2 scoring · 1 finding relatives" — the running inputs by phase.
+// "3 folding · 2 scoring · 1 MSA search" — the running inputs by phase.
 function runningSummary(cells) {
   const by = {};
   cells.forEach((c) => { if (c.state === "running") { const l = STAGE_LABEL[c.stage] || "running"; by[l] = (by[l] || 0) + 1; } });
@@ -110,7 +110,7 @@ function MultiTargetProgress({ job, results }) {
 
   const { phases, index } = phaseModel(job);
   const curKey = phases[Math.min(index, phases.length - 1)]?.key;
-  const verb = waiting ? "Waiting for a free device on the cluster…" : (MULTI_VERB[curKey] || "Working…");
+  const verb = waiting ? "Waiting for a free device…" : (MULTI_VERB[curKey] || "Working…");
   const compact = total > 30; // dot grid scales to hundreds; chips stay readable below
 
   const tip = (c) => {
@@ -206,7 +206,7 @@ export default function JobProgress({ job, results }) {
       </ol>
       <div className="jp-activity">
         {queued ? (
-          <span className="muted">Waiting for a free device on the cluster…</span>
+          <span className="muted">Waiting for a free device…</span>
         ) : failed ? (
           <span className="muted">{job.status === "canceled" ? "Canceled." : "This run stopped before finishing."}</span>
         ) : done ? (

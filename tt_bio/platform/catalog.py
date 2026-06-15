@@ -145,9 +145,9 @@ ACCELERATORS = ["tenstorrent", "gpu", "cpu"]
 # low-level / hardware / raw-CLI knobs (the platform abstracts those away).
 PREDICT_PARAMS = [
     {"key": "use_msa_server", "label": "Generate MSA", "type": "bool", "default": True, "cap": "msa",
-     "help": "Build a multiple-sequence alignment for the input. Required for Boltz-2; optional for ESMFold-2."},
+     "help": "Build a multiple-sequence alignment (MSA) of related sequences for the input. Required for Boltz-2 and Protenix; optional for ESMFold-2."},
     {"key": "fast", "label": "Fast mode", "type": "bool", "default": False,
-     "help": "Lower precision for higher throughput — slightly less accurate."},
+     "help": "Higher throughput — may be slightly less accurate."},
     {"key": "recycling_steps", "label": "Recycling steps", "type": "int", "default": 3, "min": 1, "max": LIMITS["max_recycling_steps"], "help": "More can improve accuracy, at the cost of speed."},
     {"key": "sampling_steps", "label": "Sampling steps", "type": "int", "default": 200, "min": 10, "max": LIMITS["max_sampling_steps"], "help": "Diffusion steps per structure."},
     {"key": "diffusion_samples", "label": "Number of predictions", "type": "int", "default": 1, "min": 1, "max": LIMITS["max_diffusion_samples"], "help": "How many structures to generate per target."},
@@ -162,7 +162,7 @@ DESIGN_PARAMS = [
     {"key": "budget", "label": "Top designs to keep", "type": "int", "default": 20,
      "min": 1, "max": LIMITS["max_budget"],
      "help": "How many ranked designs to report after filtering."},
-    {"key": "fast", "label": "Fast mode", "type": "bool", "default": True, "help": "Lower precision for higher throughput — slightly less accurate."},
+    {"key": "fast", "label": "Fast mode", "type": "bool", "default": True, "help": "Higher throughput — may be slightly less accurate."},
 ]
 
 # --- Curated examples (also discoverable from the examples/ dir at runtime) ---
