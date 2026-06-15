@@ -329,11 +329,16 @@ class ControllerStore:
         status = row.get("status", "failed")
         now = time.time()
         with self._lock, self._connect() as conn:
-            conn.execute(
+            # Scope the completion to the worker that still holds the lease. If this
+            # worker's lease had expired and the job was re-dispatched to another
+            # worker, a late completion matches nothing and is ignored — so it can't
+            # overwrite the new worker's result, nor flip a job the run already
+            # canceled back to ok/failed.
+            changed = conn.execute(
                 """
                 UPDATE jobs
                 SET status=?, result_json=?, outputs_json=?, error=?, lease_until=NULL, updated_at=?
-                WHERE run_id=? AND job_id=?
+                WHERE run_id=? AND job_id=? AND worker_id=? AND status='running'
                 """,
                 (
                     status,
@@ -343,8 +348,11 @@ class ControllerStore:
                     now,
                     run_id,
                     row["id"],
+                    worker_id,
                 ),
-            )
+            ).rowcount
+            if not changed:
+                return {"ok": True}
             event = payload.get("event")
             if event:
                 self.add_event(conn, run_id, worker_id, event)
