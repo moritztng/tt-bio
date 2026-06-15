@@ -158,7 +158,14 @@ class JobManager:
             "predict": int(limits.LIMITS.get("max_runtime_predict_s", 1500)),
             "design": int(limits.LIMITS.get("max_runtime_design_s", 2700)),
         }
-        self.max_stall = int(limits.LIMITS.get("max_stall_s", 600))
+        # Per-kind stall window. Design's central merge/analyze/filter step runs
+        # quietly (no per-stage log lines) for minutes after the shards finish, so
+        # a flat 10-min window false-killed healthy design runs; give design more
+        # grace (its absolute runtime cap still bounds a genuinely-stuck run).
+        self.max_stall = {
+            "predict": int(limits.LIMITS.get("max_stall_s", 600)),
+            "design": int(limits.LIMITS.get("max_stall_design_s", 1200)),
+        }
         self._sched = threading.Condition()
         self._running = 0          # jobs currently executing (any kind)
         self._excl_active = False  # an exclusive (device-owning) job is running
@@ -522,9 +529,9 @@ class JobManager:
                     reason = (f"Stopped after {mins} minutes so it couldn't keep holding "
                               "the shared demo's devices. This can happen with very demanding "
                               "inputs — try a smaller structure or fewer designs, then run it again.")
-                elif now - last_grew > self.max_stall:
+                elif now - last_grew > self.max_stall.get(job.kind, 600):
                     reason = ("Stopped because it stopped making progress for "
-                              f"{self.max_stall // 60} minutes — the run looks stuck. "
+                              f"{self.max_stall.get(job.kind, 600) // 60} minutes — the run looks stuck. "
                               "Please try again; if it keeps happening, try a smaller input.")
                 if reason:
                     job.status = FAILED

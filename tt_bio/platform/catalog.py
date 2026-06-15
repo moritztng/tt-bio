@@ -39,7 +39,8 @@ LIMITS = {
     # (per-target / per-stage events). If the log stays frozen this long the
     # run is almost certainly wedged on a stuck device — fail it fast so the
     # slot turns over in minutes instead of waiting out the full runtime cap.
-    "max_stall_s": 600,              # 10 min with no log progress
+    "max_stall_s": 600,              # 10 min with no log progress (predict)
+    "max_stall_design_s": 1200,      # 20 min for design — its central filter runs quietly
 }
 DEMO_NOTE = (
     "This is a free public demo on shared compute, so inputs are capped "
