@@ -98,7 +98,7 @@ MODELS = [
     {
         "id": "protenix-v2",
         "name": "Protenix-v2",
-        "tagline": "AlphaFold 3-family, no affinity.",
+        "tagline": "Strong at antibody-antigen, no affinity.",
         "blurb": (
             "An AlphaFold3-family model (Pairformer trunk + atom diffusion) running "
             "fully on-device. Folds multi-chain complexes of proteins, nucleic acids "
