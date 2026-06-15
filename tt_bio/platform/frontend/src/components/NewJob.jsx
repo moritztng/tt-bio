@@ -3,7 +3,7 @@ import FoldForm from "./FoldForm.jsx";
 import DesignForm from "./DesignForm.jsx";
 
 const TASKS = [
-  { id: "predict", t: "Fold & Affinity", s: "Predict 3-D structure and binding affinity." },
+  { id: "predict", t: "Fold & Affinity", s: "Predict 3D structure and binding affinity." },
   { id: "design", t: "Drug Design", s: "Generate de-novo binders, nanobodies & antibodies." },
 ];
 

@@ -552,7 +552,13 @@ function FormBuilder(p) {
               <option value="rna" disabled={!p.caps.has("nucleic")}>RNA</option>
               <option value="ligand" disabled={!p.caps.has("ligands")}>Ligand</option>
             </select>
-            {!single && <input className="id" type="text" value={c.id} onChange={(e) => p.updChain(i, { id: e.target.value })} placeholder="id" />}
+            {!single && (
+              <label className="chain-id-tag" title="How constraints and affinity refer to this chain (A, B, …)">
+                Chain&nbsp;ID
+                <input className="id" type="text" value={c.id} placeholder="A"
+                  onChange={(e) => p.updChain(i, { id: e.target.value })} />
+              </label>
+            )}
             <div className="spacer" />
             {!single && <button className="btn ghost sm" onClick={() => p.rmChain(i)}>Remove</button>}
           </div>
@@ -625,7 +631,11 @@ function FormBuilder(p) {
               <button className="btn ghost sm" disabled={!p.ligandChains.length} title={p.ligandChains.length ? "" : "Add a ligand first"} onClick={() => p.addConstraint("pocket")}>+ Pocket</button>
               <button className="btn ghost sm" onClick={() => p.addConstraint("contact")}>+ Contact</button>
             </div>
-            <div className="hint mt8">Pocket: residues the ligand should bind near. Contact: two residues to keep close. Residues are <code>chainID:number</code>.</div>
+            <div className="hint mt8">
+              <strong>Pocket</strong>: keep the ligand near the residues you list.{" "}
+              <strong>Contact</strong>: keep two residues close.{" "}
+              Write each residue as <code>chainID:number</code> — e.g. <code>A:42</code>.
+            </div>
           </div>
         </details>
       )}

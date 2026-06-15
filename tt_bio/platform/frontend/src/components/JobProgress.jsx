@@ -14,7 +14,7 @@ const GRID_CAP = 480;
 const PREDICT_PHASES = [
   { key: "prepare", label: "Prepare", activity: "Preparing your input…" },
   { key: "msa", label: "Sequence search (MSA)", activity: "Searching databases for related sequences — the multiple-sequence alignment (MSA)…" },
-  { key: "fold", label: "Fold", activity: "Folding the 3-D structure…" },
+  { key: "fold", label: "Fold", activity: "Folding the 3D structure…" },
   { key: "score", label: "Score", activity: "Scoring confidence and binding affinity…" },
   { key: "save", label: "Finish", activity: "Writing the final structure…" },
 ];
