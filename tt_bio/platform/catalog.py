@@ -60,7 +60,7 @@ MODELS = [
     {
         "id": "boltz2",
         "name": "Boltz-2",
-        "tagline": "Most capable — structure + binding affinity.",
+        "tagline": "Most capable, with affinity.",
         "blurb": (
             "Folds protein, DNA, RNA and ligand complexes and predicts binding "
             "affinity. Uses a multiple-sequence alignment (MSA) for best accuracy. "
@@ -74,7 +74,7 @@ MODELS = [
     {
         "id": "esmfold2",
         "name": "ESMFold-2",
-        "tagline": "Fast protein folding, MSA optional.",
+        "tagline": "Fast, MSA optional.",
         "blurb": (
             "Language-model folding — no MSA required, though it will use one if "
             "supplied for extra accuracy. Protein chains only: no ligands, nucleic "
@@ -86,7 +86,7 @@ MODELS = [
     {
         "id": "esmfold2-fast",
         "name": "ESMFold-2 Fast",
-        "tagline": "The fastest fold — no MSA encoder.",
+        "tagline": "Fastest, no MSA.",
         "blurb": (
             "ESMFold-2 tuned for maximum throughput: always single-sequence, protein "
             "chains only. Accuracy is typically very close to ESMFold-2 — the model to "
@@ -98,7 +98,7 @@ MODELS = [
     {
         "id": "protenix-v2",
         "name": "Protenix-v2",
-        "tagline": "AlphaFold3-family — protein/nucleic/ligand complexes, MSA on by default.",
+        "tagline": "AlphaFold 3-family, no affinity.",
         "blurb": (
             "An AlphaFold3-family model (Pairformer trunk + atom diffusion) running "
             "fully on-device. Folds multi-chain complexes of proteins, nucleic acids "
