@@ -58,7 +58,7 @@ export default function App() {
               className={`btn primary block ${selected === null ? "" : ""}`}
               onClick={() => setSelected(null)}
             >
-              + New prediction
+              + New job
             </button>
           </div>
           <div className="joblist">

@@ -14,11 +14,7 @@ export default function NewJob({ catalog, onSubmitted, onError }) {
   return (
     <div>
       <div className="panel">
-        <h2>New prediction</h2>
-        <p className="desc">
-          Fold proteins, nucleic acids and ligand complexes, predict binding affinity,
-          and design de-novo binders — your sequences never leave the country.
-        </p>
+        <h2>New job</h2>
         <div className="cardgrid">
           {TASKS.map((x) => (
             <button
