@@ -270,6 +270,8 @@ class JobManager:
         # capability guard (an unknown model has no caps to check against).
         if kind == "predict" and model is not None and str(model) not in limits.MODEL_IDS:
             raise ValueError(f"unknown model '{model}' — choose one of {sorted(limits.MODEL_IDS)}.")
+        if kind == "design" and protocol is not None and str(protocol) not in limits.PROTOCOL_IDS:
+            raise ValueError(f"unknown protocol '{protocol}' — choose one of {sorted(limits.PROTOCOL_IDS)}.")
         # Clamp every numeric knob into its allowed range — the client is never
         # trusted (the UI mirrors this, but this is the authority).
         params = limits.clamp_params(params, kind)
@@ -281,7 +283,7 @@ class JobManager:
         # not be brute-forceable even as a second line of defence behind the
         # per-session ownership check.
         job_id = secrets.token_hex(16)
-        name = str(payload.get("name") or "").strip() or f"{kind}-{job_id[:6]}"
+        name = str(payload.get("name") or "").strip()[:120] or f"{kind}-{job_id[:6]}"
         job = Job(
             id=job_id, kind=kind, name=name, created_at=time.time(), owner=owner,
             params=params,

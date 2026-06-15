@@ -18,12 +18,13 @@ import re
 
 import yaml
 
-from .catalog import LIMITS, MODELS
+from .catalog import LIMITS, MODELS, PROTOCOLS
 
 # Model id -> the set of capabilities it supports (the catalog is the authority).
 _MODEL_CAPS = {m["id"]: set(m.get("caps", [])) for m in MODELS}
 _DEFAULT_MODEL = "boltz2"  # mirrors jobs._build_cmd's "job.model or 'boltz2'"
-MODEL_IDS = set(_MODEL_CAPS)                                   # valid model ids
+MODEL_IDS = set(_MODEL_CAPS)                                   # valid predict model ids
+PROTOCOL_IDS = {p["id"] for p in PROTOCOLS}                    # valid design protocol ids
 _MODEL_NEEDS_MSA = {m["id"]: bool(m.get("needs_msa")) for m in MODELS}
 
 
