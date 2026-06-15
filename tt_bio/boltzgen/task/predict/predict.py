@@ -78,7 +78,15 @@ class Predict(Task):
         # blocked (the shard subprocesses run without --debug, so the old
         # debug-only guard didn't cover them). Data prep is cheap next to the
         # on-device fold, so in-process loading costs effectively nothing here.
+        # The two data-module variants expose this differently: FromYamlDataModule
+        # (design generation) reads num_workers off the module, while
+        # FromGeneratedDataModule (the fold / inverse-fold / analysis steps — where
+        # the hang was actually seen) reads it off its cfg. Force both, so every step
+        # loads in-process regardless of which variant backs this run.
         self.data.num_workers = 0
+        _cfg = getattr(self.data, "cfg", None)
+        if _cfg is not None and hasattr(_cfg, "num_workers"):
+            _cfg.num_workers = 0
 
         # Build model with convert_to_tt applied; load_boltz_checkpoint filters
         # legacy hparams and applies the legacy-key remap on the state_dict.

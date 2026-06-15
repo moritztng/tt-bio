@@ -629,8 +629,14 @@ def _rewrite_run_argv(argv: list[str], strip: set[str], additions: list[str]) ->
     return out + additions
 
 
+def _default_diffusion_batch_size(num_designs: int) -> int:
+    """Default diffusion batch size when the user didn't pin one: small runs go
+    one-at-a-time for snappier first results, big runs batch 10 for throughput."""
+    return 1 if num_designs < 100 else 10
+
+
 def _planned_batches(num_designs: int, diffusion_batch_size: int | None) -> int:
-    dbs = diffusion_batch_size if diffusion_batch_size else (1 if num_designs < 100 else 10)
+    dbs = diffusion_batch_size if diffusion_batch_size else _default_diffusion_batch_size(num_designs)
     return math.ceil(num_designs / max(1, dbs))
 
 
@@ -1317,7 +1323,7 @@ class BinderDesignPipeline:
         print(f"Raw designs will be saved to: {output_dir}")
         diffusion_batch_size = args.diffusion_batch_size
         if diffusion_batch_size is None:
-            diffusion_batch_size = 1 if args.num_designs < 100 else 10
+            diffusion_batch_size = _default_diffusion_batch_size(args.num_designs)
         num_batches = math.ceil(args.num_designs / max(1, diffusion_batch_size))
         print(f"Using diffusion batch size: {diffusion_batch_size}")
         print(f"Number of diffusion batches: {num_batches}")
