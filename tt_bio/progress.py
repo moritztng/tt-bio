@@ -323,6 +323,7 @@ class DebugDisplay:
         self.queue = queue
         self._stop = threading.Event()
         self._thread = None
+        self._last = {}  # last line printed per worker, to collapse duplicate stage emits
 
     def start(self):
         self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -349,15 +350,23 @@ class DebugDisplay:
             who = ev.get("label") or ev.get("worker") or f"dev {dev}"
             kind = ev["event"]
             if kind == "loading":
-                print(f"[{who}] loading model…", flush=True)
+                line = f"[{who}] loading model…"
             elif kind == "start":
-                print(f"[{who}] {ev.get('name', '?')}", flush=True)
+                line = f"[{who}] {ev.get('name', '?')}"
             elif kind == "stage":
                 s, step, total = ev.get("stage", ""), ev.get("step", 0), ev.get("total", 0)
-                print(f"[{who}]   {s} {step}/{total}" if total else f"[{who}]   {s}", flush=True)
+                line = f"[{who}]   {s} {step}/{total}" if total else f"[{who}]   {s}"
+                # Some models emit the same stage twice in a row (e.g. msa); show it once.
+                if line == self._last.get(who):
+                    continue
             elif kind == "done":
                 sym = "✓" if ev.get("status") == "ok" else "✗"
-                print(f"[{who}] {sym} {ev.get('name', '?')} — {ev.get('time', 0):.1f}s", flush=True)
+                line = f"[{who}] {sym} {ev.get('name', '?')} — {ev.get('time', 0):.1f}s"
+            else:
+                continue
+            self._last[who] = line
+            # Timestamp every line — a technical log should show when each stage ran.
+            print(f"{time.strftime('%H:%M:%S')}  {line}", flush=True)
 
 
 def make_progress_fn(queue, device_id: int | str, worker_id: str | None = None, metadata: dict | None = None):

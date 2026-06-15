@@ -304,7 +304,7 @@ def _panel(title: str, rows: list[tuple[str, str]], color: str) -> None:
 
 def header(*, specs, protocol, num_designs, batches, budget, devices, output) -> None:
     if len(devices) > 1:
-        dev = f"{','.join(map(str, devices))}  ({len(devices)} cards)"
+        dev = f"{len(devices)} cards"
     elif devices:
         dev = str(devices[0])
     else:

@@ -19,7 +19,6 @@ import json
 import os
 import re
 import secrets
-import shlex
 import signal
 import subprocess
 import sys
@@ -31,7 +30,34 @@ from pathlib import Path
 from queue import Queue
 from typing import Any
 
-from . import limits
+from . import limits, catalog
+
+# Display names for the run-log header (single source of truth: the catalog).
+_MODEL_NAME = {m["id"]: m["name"] for m in catalog.MODELS}
+_PROTO_NAME = {p["id"]: p["name"] for p in catalog.PROTOCOLS}
+
+
+def _log_header(job) -> str:
+    """A clean, model-agnostic technical-log header — what's running, how big,
+    key settings, and when. Replaces dumping the raw engine command (which leaked
+    internal paths, the controller URL and the owner hash, and read inconsistently
+    across models)."""
+    when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(job.started_at or time.time()))
+    p = job.params or {}
+    if job.kind == "design":
+        bits = [_PROTO_NAME.get(job.protocol, job.protocol or "design"), "BoltzGen design"]
+        if p.get("num_designs"):
+            bits.append(f"{p['num_designs']} designs")
+    else:
+        bits = [_MODEL_NAME.get(job.model, job.model or "Boltz-2"), "structure prediction"]
+        if job.total:
+            bits.append(f"{job.total} structure" + ("s" if job.total != 1 else ""))
+    if p.get("fast"):
+        bits.append("fast mode")
+    return ("ai& Drug Discovery · run log\n"
+            + " · ".join(bits) + "\n"
+            + f"started {when} · Tenstorrent\n"
+            + "─" * 64 + "\n\n")
 
 # ---------------------------------------------------------------------------
 # Resolving the tt-bio entry point
@@ -447,7 +473,7 @@ class JobManager:
         cmd = self._build_cmd(job, controller_url)
         log = self._log_path(job.id)
         with open(log, "w") as logf:
-            logf.write(f"$ {' '.join(shlex.quote(c) for c in cmd)}\n\n")
+            logf.write(_log_header(job))
             logf.flush()
             # Quiet third-party noise that otherwise floods the job log: the
             # huggingface_hub "Fetching N files" progress bars and tokenizer
