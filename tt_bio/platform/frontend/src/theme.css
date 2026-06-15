@@ -122,7 +122,7 @@ code, pre, .mono { font-family: var(--mono); }
 .panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
 .panel .desc { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
 /* Body copy is justified; single-line labels/headings/values are unaffected (justify is a no-op on one line). */
-.panel .desc, .field .hint, .checkline .hint, .selcard .s, .demo-banner span:last-child { text-align: justify; }
+.panel .desc, .field .hint, .checkline .hint, .demo-banner span:last-child { text-align: justify; }
 
 .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
 
