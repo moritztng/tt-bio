@@ -157,8 +157,7 @@ PREDICT_PARAMS = [
 DESIGN_PARAMS = [
     {"key": "num_designs", "label": "Designs to generate", "type": "int", "default": 20,
      "min": 1, "max": LIMITS["max_designs"],
-     "help": "Binders to generate before filtering. Capped at %d in this free demo; "
-             "production runs use thousands." % LIMITS["max_designs"]},
+     "help": "Binders to generate before filtering."},
     {"key": "budget", "label": "Top designs to keep", "type": "int", "default": 20,
      "min": 1, "max": LIMITS["max_budget"],
      "help": "How many ranked designs to report after filtering."},
