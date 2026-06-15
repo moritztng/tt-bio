@@ -307,7 +307,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
     <>
       <div className="panel">
         <p className="section-title">Model</p>
-        <div className="cardgrid">
+        <div className="cardgrid models">
           {catalog.models.map((m) => (
             <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`}
               title={m.blurb} onClick={() => onModelChange(m.id)}>

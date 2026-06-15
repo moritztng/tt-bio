@@ -128,6 +128,10 @@ code, pre, .mono { font-family: var(--mono); }
 
 /* selectable cards (models / protocols / task types) */
 .cardgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+/* The model picker reads best as one aligned row of equal-width cards — names on
+   a single line — instead of the auto-fit wrap, which staggers them across rows. */
+.cardgrid.models { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+@media (max-width: 760px) { .cardgrid.models { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .selcard {
   text-align: left; border: 1px solid var(--border-strong); background: var(--surface);
   border-radius: var(--radius-sm); padding: 13px 14px; cursor: pointer;
@@ -135,7 +139,7 @@ code, pre, .mono { font-family: var(--mono); }
 }
 .selcard:hover { border-color: var(--accent); }
 .selcard.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
-.selcard .t { font-weight: 600; font-size: 14px; }
+.selcard .t { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .selcard .s { color: var(--muted); font-size: 12px; margin-top: 3px; }
 /* Capability chips — a glanceable summary of what a model folds, replacing the
    prose blurb. More chips = more capable, readable at a glance. */
