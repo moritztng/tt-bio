@@ -860,7 +860,9 @@ def _run_via_controller(args: argparse.Namespace, controller_url: str) -> None:
     # fragile (its few designs may all fail refolding). Aim for >= _MIN_PER_SHARD
     # designs per shard, capped by the number of workers. Big production runs
     # still use every worker; a small "quick look" uses just a few.
-    _MIN_PER_SHARD = 4
+    _MIN_PER_SHARD = 2  # smaller shards run on more devices in parallel (faster
+    # wall-clock); folding is reliable now, so the old min of 4 left most of the
+    # fleet idle (e.g. 20 designs used only 5 of 32 cards).
     total = args.num_designs
     n = max(1, min(online, math.ceil(total / _MIN_PER_SHARD)))
     counts = [total // n + (1 if i < total % n else 0) for i in range(n)]

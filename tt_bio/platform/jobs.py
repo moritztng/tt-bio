@@ -632,18 +632,19 @@ class JobManager:
         return {"stage": m.group(1), "step": step, "total": total}
 
     def _design_stage(self, job: Job) -> str | None:
-        # The pipeline prints an explicit "stage: <name>" marker as it enters each
-        # step. Match only that — NOT stage words that also appear in the banner or
-        # config dump (e.g. "keep top N after filtering"), which otherwise pin the
-        # bar to the last stage from the very first log line. Take the last marker.
-        found = None
+        # The pipeline prints "stage: <name>" as each shard enters a step. With
+        # several shards in flight the markers flap (design ↔ folding ↔ analysis),
+        # so taking the *last* one makes the bar jump backward. Report the FURTHEST
+        # stage reached (by pipeline order) — progress then only ever advances.
+        # (We match the "stage:" marker, never stage words in the banner/config.)
+        best = -1
         for line in self._tail(job, 8000).splitlines():
             line = line.strip().lower()
             if line.startswith("stage:"):
                 name = line.split(":", 1)[1].strip()
                 if name in _DESIGN_STAGES:
-                    found = name
-        return found
+                    best = max(best, _DESIGN_STAGES.index(name))
+        return _DESIGN_STAGES[best] if best >= 0 else None
 
     def _log_size(self, job_id: str) -> int:
         """Current size of the run log, or -1 if it isn't there yet. A frozen
