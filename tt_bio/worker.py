@@ -512,37 +512,12 @@ def run_worker_loop(
                 state.reset()
                 continue
 
-            def _reload():
-                # Recover a fragmented/wedged device: free everything (close the
-                # device → release all L1), reload the model on a fresh device,
-                # and re-attach this run's progress callback.
-                state.reset()
-                state.load_model(cfg)
-                state.bind_run(run_id, cfg)
-                state.pfn = pfn
-                if cfg.get("model", "boltz2") == "boltz2":
-                    state.model.progress_fn = pfn
-                else:
-                    from tt_bio import esmfold2 as _E
-                    _E.set_progress(pfn)
-
             for job in jobs:
-                _execute_job(state, job, cfg, run_id, client, worker_id, meta, reload=_reload)
+                _execute_job(state, job, cfg, run_id, client, worker_id, meta)
     except KeyboardInterrupt:
         pass
     finally:
         state.reset()
-
-
-def _is_device_error(exc: Exception) -> bool:
-    """A device/compiler-level failure that a fresh device clears: an L1 circular-
-    buffer clash (fragmentation builds up on a long-lived resident worker over many
-    folds), a transient mesh error, or device OOM. These are NOT input errors, so
-    resetting the device and retrying once recovers the fold."""
-    s = str(exc).lower()
-    return any(m in s for m in (
-        "tt_throw", "tt::exception", "circular buffer", "clash with l1",
-        "mesh_device", "out of memory"))
 
 
 def _execute_job(
@@ -553,7 +528,6 @@ def _execute_job(
     client: ControllerClient,
     worker_id: str,
     meta: dict[str, Any],
-    reload=None,
 ) -> None:
     job_id = job["id"]
     filename = job.get("name") or f"{job_id}.yaml"
@@ -585,19 +559,7 @@ def _execute_job(
         # Both model families start in the MSA stage and resolve/search MSAs
         # worker-side; the esmfold2 path then reports "prep" before folding.
         emit("stage", stage="msa")
-        try:
-            metrics, best, feats = state.predict_one(input_path, job_cfg)
-        except Exception as exc:
-            # A device-level failure on a long-lived worker (L1 fragmentation /
-            # circular-buffer clash, or a transient mesh error) clears on a fresh
-            # device. Reset (close + free all L1), reload, and retry once. Input
-            # errors and anything else propagate to the normal failure handler.
-            if reload is None or not _is_device_error(exc):
-                raise
-            traceback.print_exc()
-            emit("stage", stage="msa")
-            reload()
-            metrics, best, feats = state.predict_one(input_path, job_cfg)
+        metrics, best, feats = state.predict_one(input_path, job_cfg)
         emit("stage", stage="saving")
         if metrics:
             row.update(metrics)
