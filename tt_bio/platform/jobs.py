@@ -588,11 +588,17 @@ class JobManager:
         return None
 
     def _design_stage(self, job: Job) -> str | None:
-        text = self._tail(job, 8000).lower()
+        # The pipeline prints an explicit "stage: <name>" marker as it enters each
+        # step. Match only that — NOT stage words that also appear in the banner or
+        # config dump (e.g. "keep top N after filtering"), which otherwise pin the
+        # bar to the last stage from the very first log line. Take the last marker.
         found = None
-        for stage in _DESIGN_STAGES:
-            if stage.replace("_", " ") in text or stage in text:
-                found = stage
+        for line in self._tail(job, 8000).splitlines():
+            line = line.strip().lower()
+            if line.startswith("stage:"):
+                name = line.split(":", 1)[1].strip()
+                if name in _DESIGN_STAGES:
+                    found = name
         return found
 
     def _log_size(self, job_id: str) -> int:
