@@ -1,4 +1,4 @@
-/* ai& Bio — visual language matched to aiand.com:
+/* ai& Drug Discovery — visual language matched to aiand.com:
    warm off-white surfaces (#f7f3f3), warm near-black ink, the ai& red (#c70007)
    as the signature accent, black primary buttons (their CTA style), DM Sans for
    UI, Fragment Mono for code. */
@@ -74,10 +74,6 @@ code, pre, .mono { font-family: var(--mono); }
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .topbar .spacer { flex: 1; }
-.topbar .pill {
-  font-size: 12px; color: var(--muted); border: 1px solid var(--border);
-  padding: 4px 10px; border-radius: 999px;
-}
 /* "Powered by [Tenstorrent] AI Processors" — brand attribution, top right */
 .topbar .powered {
   display: flex; align-items: center; gap: 7px; flex: none;
@@ -281,36 +277,6 @@ pre.log {
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
 .mt8 { margin-top: 8px; } .mt16 { margin-top: 16px; } .mb0 { margin-bottom: 0; }
-
-/* ---- Fleet status (sidebar) ------------------------------------------- */
-.fleet {
-  margin-top: auto;                 /* pin to the bottom of the sidebar */
-  border-top: 1px solid var(--border);
-  padding: 14px 16px;
-  font-size: 13px;
-}
-.fleet-head { display: flex; align-items: center; gap: 8px; }
-.fleet-head .spacer { flex: 1; }
-.fleet-count { color: var(--muted); font-size: 12px; }
-.fleet-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.fleet-dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(47,143,78,0.15); }
-.fleet-dot.off { background: var(--muted-2); }
-.fleet-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
-.fleet-hosts { margin: 10px 0 8px; display: flex; flex-direction: column; gap: 4px; }
-.fleet-host {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 12px; padding: 4px 8px; border-radius: var(--radius-sm);
-  background: var(--surface-2);
-}
-.fleet-host .fh-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fleet-host .fh-dev { color: var(--muted); font-family: var(--mono); }
-.fleet-join { margin-top: 8px; }
-.join-cmd {
-  display: block; margin-top: 6px; padding: 8px 10px; cursor: pointer;
-  font-family: var(--mono); font-size: 11px; line-height: 1.4; word-break: break-all;
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
-}
-.join-cmd:hover { border-color: var(--accent); }
 
 /* ---- Free-demo banner ------------------------------------------------- */
 .demo-banner {

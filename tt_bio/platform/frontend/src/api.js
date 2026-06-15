@@ -1,4 +1,4 @@
-// Tiny fetch wrapper around the ai& Bio API.
+// Tiny fetch wrapper around the ai& Drug Discovery API.
 
 async function json(r) {
   if (!r.ok) {
@@ -11,7 +11,6 @@ async function json(r) {
 
 export const api = {
   catalog: () => fetch("/api/catalog").then(json),
-  cluster: () => fetch("/api/cluster").then(json),
   jobs: () => fetch("/api/jobs").then(json),
   job: (id) => fetch(`/api/jobs/${id}`).then(json),
   submit: (body) =>
