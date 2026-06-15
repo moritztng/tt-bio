@@ -118,14 +118,6 @@ MODELS = [
     },
 ]
 
-# Input feature -> capability it requires. Used to detect impossible inputs.
-FEATURE_CAPS = {
-    "ligands": "ligands",
-    "nucleic": "nucleic",
-    "affinity": "affinity",
-    "constraints": "constraints",
-}
-
 # --- BoltzGen design protocols (the `gen run` path) ---
 PROTOCOLS = [
     {"id": "protein-anything", "name": "Protein binder", "blurb": "De-novo mini-protein binder against any target."},
@@ -136,9 +128,9 @@ PROTOCOLS = [
     {"id": "protein-redesign", "name": "Redesign", "blurb": "Re-design residues of an existing binder."},
 ]
 
+# Coarse pipeline stages a BoltzGen design run moves through, in order. Single
+# source of truth — the job engine imports this for progress/stage detection.
 DESIGN_STEPS = ["design", "inverse_folding", "folding", "analysis", "filtering"]
-
-ACCELERATORS = ["tenstorrent", "gpu", "cpu"]
 
 # --- Tunable parameters, surfaced under "Advanced settings" (progressive disclosure) ---
 # Each entry: key, label, type (bool|int|float|enum|text), default, help, [choices].
@@ -363,7 +355,6 @@ def catalog() -> dict:
     return {
         "models": MODELS,
         "protocols": PROTOCOLS,
-        "design_steps": DESIGN_STEPS,
         "predict_params": PREDICT_PARAMS,
         "design_params": DESIGN_PARAMS,
         "examples": EXAMPLES,

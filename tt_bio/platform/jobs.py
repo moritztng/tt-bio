@@ -84,8 +84,9 @@ class CapacityError(Exception):
     """The shared demo is at capacity — surfaced to the client as a 429 so it
     knows to retry shortly (distinct from a 400 bad-input rejection)."""
 
-# Coarse pipeline stages we look for in BoltzGen logs, in order.
-_DESIGN_STAGES = ["design", "inverse_folding", "folding", "analysis", "filtering"]
+# Coarse pipeline stages we look for in BoltzGen logs, in order (catalog owns
+# the canonical list, so the UI catalog and the job engine can never drift).
+_DESIGN_STAGES = catalog.DESIGN_STEPS
 
 
 @dataclasses.dataclass
