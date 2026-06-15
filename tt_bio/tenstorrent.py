@@ -139,7 +139,7 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     global _IS_SMALL_GRID, SEQ_LEN_MORE_CHUNKING, TRANSITION_BATCH_CHUNKING_THRESHOLD
     global TRANSITION_W_CHUNKING_THRESHOLD, TRIANGLE_ATT_CHUNK_SIZE_FAST
     global TRANSITION_W_CHUNK_SIZE, TRIANGLE_MULT_L1_MAX_SEQ_FAST, SMALL_GRID_SEQ_TILE
-    global SMALL_GRID_PAIR_TILE_AREA
+    global SMALL_GRID_PAIR_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
     if not _IS_SMALL_GRID:
         return  # Keep Blackhole baseline values
@@ -161,6 +161,13 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     TRIANGLE_ATT_CHUNK_SIZE_FAST = _snap(512)
     TRANSITION_W_CHUNK_SIZE = _snap(512)
     TRIANGLE_MULT_L1_MAX_SEQ_FAST = _snap(320)  # stays a multiple of TRIANGLE_MULT_CHUNK_SIZE (32)
+    # Non-fast triangle-mult keeps the pair tensor in L1 up to this seq; the
+    # non-fast kernel is less L1-efficient than the fast one, so on a tight grid
+    # it must spill to DRAM at least as early. Without this, a complex padding to
+    # ~290-352 tokens (e.g. a protein+2xDNA at 259 tokens -> 320) keeps a too-big
+    # pair tensor resident and clashes, while smaller (<=256) and larger
+    # (>352 -> already DRAM) complexes fold — a non-monotonic L1 cliff.
+    TRIANGLE_MULT_L1_MAX_SEQ = min(_snap(288), TRIANGLE_MULT_L1_MAX_SEQ_FAST)
     SMALL_GRID_SEQ_TILE = _snap(256)
     SMALL_GRID_PAIR_TILE_AREA = _snap(65536, 1024)  # area = rows*L; rows snapped downstream
 
