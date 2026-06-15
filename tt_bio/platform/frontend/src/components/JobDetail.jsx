@@ -29,7 +29,7 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
   const active = job.status === "running" || job.status === "queued";
   const results = job.results || {};
 
-  const cancel = async () => { setBusy(true); try { await api.cancel(jobId); } finally { setBusy(false); } };
+  const cancel = async () => { setBusy(true); try { await api.cancel(jobId); } catch (e) { onError(e.message); } finally { setBusy(false); } };
   const remove = async () => {
     if (!confirm("Delete this job and its outputs?")) return;
     setBusy(true);

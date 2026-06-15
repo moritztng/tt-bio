@@ -1,5 +1,6 @@
 // Parse bulk sequence input (multi-record FASTA or CSV) into {name, sequence}
 // records, client-side, so thousands of proteins can be uploaded at once.
+import { yq } from "./yaml.js";
 
 export function parseFasta(text) {
   const records = [];
@@ -71,6 +72,9 @@ export function recordToTarget(rec, model) {
   }
   return {
     name: rec.name,
-    content: `version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: ${rec.sequence}\n`,
+    // Escape the uploaded sequence as a YAML scalar — a bulk record's cell is
+    // user-controlled and could otherwise break/inject into the spec (same rule
+    // the fold/design forms enforce via yq).
+    content: `version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: ${yq(rec.sequence)}\n`,
   };
 }
