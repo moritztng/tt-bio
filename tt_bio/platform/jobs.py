@@ -605,13 +605,31 @@ class JobManager:
 
     def _last_stage(self, job: Job) -> str | None:
         text = self._tail(job, 4000).lower()
-        # Best-effort: surface the most recent recognisable stage word.
-        for word in ("affinity", "diffusion", "sampling", "trunk", "pairformer",
-                     "msa", "featuriz", "loading", "writing"):
-            idx = text.rfind(word)
-            if idx != -1:
+        # Surface the furthest-along stage present, so the stepper never slides
+        # backwards. Ordered last-phase-first; covers every stage the engine emits
+        # (incl. confidence/saving, which were previously unmatched -> stuck at Fold).
+        for word in ("saving", "writing", "confidence", "affinity",
+                     "diffusion", "sampling", "trunk", "pairformer",
+                     "msa", "prep", "featuriz", "loading"):
+            if word in text:
                 return word
         return None
+
+    _STEP_RE = re.compile(r"([a-z]+)\s+(\d+)/(\d+)")
+
+    def _stage_progress(self, job: Job) -> dict[str, Any] | None:
+        """Within-stage progress {stage, step, total} from the last 'stage N/M'
+        line in the log (e.g. diffusion 150/200). The log is sequential for one
+        structure, so the last such line is the live position. None if absent."""
+        m = None
+        for m in self._STEP_RE.finditer(self._tail(job, 2000).lower()):
+            pass  # keep the last match
+        if not m:
+            return None
+        step, total = int(m.group(2)), int(m.group(3))
+        if total <= 0 or step > total:
+            return None
+        return {"stage": m.group(1), "step": step, "total": total}
 
     def _design_stage(self, job: Job) -> str | None:
         # The pipeline prints an explicit "stage: <name>" marker as it enters each
@@ -694,6 +712,10 @@ class JobManager:
         # can show each input (done / running / queued) and the overall tally.
         if job.kind == "predict" and (job.total or 0) > 1 and job.status in (QUEUED, RUNNING):
             self._attach_targets(d, job)
+        # For a single running structure, surface within-stage progress (e.g.
+        # diffusion 150/200) so the stepper can show a live sub-bar.
+        if job.kind == "predict" and (job.total or 0) <= 1 and job.status == RUNNING:
+            d["stage_progress"] = self._stage_progress(job)
         return d
 
     _TARGET_STATE = {"ok": "done", "failed": "failed", "running": "running",

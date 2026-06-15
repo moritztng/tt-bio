@@ -22,7 +22,7 @@ const PREDICT_STAGE_KEY = {
   loading: "prepare", featuriz: "prepare", prep: "prepare", start: "prepare",
   msa: "msa",
   trunk: "fold", pairformer: "fold", diffusion: "fold", sampling: "fold",
-  affinity: "score",
+  affinity: "score", confidence: "score",
   writing: "save", saving: "save",
 };
 
@@ -184,6 +184,9 @@ export default function JobProgress({ job, results }) {
   const done = job.status === "succeeded";
   const failed = job.status === "failed" || job.status === "canceled";
   const cur = phases[Math.min(index, phases.length - 1)];
+  const running = !queued && !done && !failed;
+  // Within-stage progress (e.g. diffusion 150/200), if the engine is reporting it.
+  const sp = running && job.stage_progress && job.stage_progress.total > 1 ? job.stage_progress : null;
 
   return (
     <div className="jp">
@@ -212,14 +215,16 @@ export default function JobProgress({ job, results }) {
         ) : done ? (
           <span className="jp-done">✓ Complete</span>
         ) : (
-          <span><Spinner /> {cur.activity}</span>
-        )}
-        {job.kind === "predict" && job.total > 1 && !done && !failed && (
-          <span className="muted"> · {job.done}/{job.total} structures</span>
+          <span><Spinner /> {cur.activity}{sp ? ` · ${sp.step}/${sp.total}` : ""}</span>
         )}
         <span className="spacer" />
         <span className="muted small">{duration(job)}</span>
       </div>
+      {sp && (
+        <div className="jp-subbar" title={`${sp.stage} ${sp.step}/${sp.total}`}>
+          <div className="jp-subbar-fill" style={{ width: `${Math.round(100 * sp.step / sp.total)}%` }} />
+        </div>
+      )}
     </div>
   );
 }

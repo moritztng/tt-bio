@@ -383,6 +383,9 @@ pre.log {
 }
 .jp-activity .spacer { flex: 1; }
 .jp-done { color: var(--ok); font-weight: 600; }
+/* Within-stage progress bar (e.g. diffusion 150/200) under the single-structure stepper. */
+.jp-subbar { height: 3px; margin-top: 10px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.jp-subbar-fill { height: 100%; background: var(--run); border-radius: 2px; transition: width 0.4s ease; }
 .errbox {
   border: 1px solid var(--err); border-radius: var(--radius);
   background: rgba(199,0,7,0.05); padding: 12px 14px; font-size: 13px;

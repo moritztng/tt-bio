@@ -45,7 +45,7 @@ _STAGE_MAP = {
     "loading": "prepare", "featuriz": "prepare", "prep": "prepare",
     "msa": "msa",
     "trunk": "fold", "pairformer": "fold", "diffusion": "fold", "sampling": "fold",
-    "affinity": "score",
+    "affinity": "score", "confidence": "score",
     "saving": "save", "writing": "save",
 }
 
