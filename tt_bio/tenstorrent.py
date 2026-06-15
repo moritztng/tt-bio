@@ -146,9 +146,9 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     # Scale every budget to this part's actual per-core unreserved L1, clamped to
     # <= the full-L1 calibration (so an ample-L1 Wormhole is byte-for-byte
     # unchanged — no perf regression — and only a tighter part, e.g. the Galaxy,
-    # tightens). Values are 32-tile-aligned; the full-L1 case reproduces the
-    # original 640/512/320/256/65536 exactly. The L=1024 --fast ESMC budgets
-    # (SEQ_TILE/PAIR_TILE_AREA) likewise track the available L1.
+    # tightens). Values are 32-tile-aligned; at full L1 each budget below reduces
+    # to its 32-snapped target (640/512/320/288/256/65536). The L=1024 --fast ESMC
+    # budgets (SEQ_TILE/PAIR_TILE_AREA) likewise track the available L1.
     try:
         _l1 = ttnn.get_max_worker_l1_unreserved_size()
     except Exception:
