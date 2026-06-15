@@ -11,12 +11,16 @@ const GRID_CAP = 480;
 // a fixed sequence of named phases; the current engine stage maps to one of them
 // and everything up to it is shown as complete.
 
+// The predict pipeline phases — the single source for the linear stepper
+// (label/activity) AND the multi-structure view (verb for the header, short for
+// the per-structure chips, and the phase order). MULTI_VERB / STAGE_LABEL /
+// STAGE_ORDER below all derive from this, so a phase is defined in one place.
 const PREDICT_PHASES = [
-  { key: "prepare", label: "Prepare", activity: "Preparing your input…" },
-  { key: "msa", label: "Sequence search (MSA)", activity: "Searching databases for related sequences — the multiple-sequence alignment (MSA)…" },
-  { key: "fold", label: "Fold", activity: "Folding the 3D structure…" },
-  { key: "score", label: "Score", activity: "Scoring confidence and binding affinity…" },
-  { key: "save", label: "Finish", activity: "Writing the final structure…" },
+  { key: "prepare", label: "Prepare", activity: "Preparing your input…", verb: "Preparing inputs…", short: "preparing" },
+  { key: "msa", label: "Sequence search (MSA)", activity: "Searching databases for related sequences — the multiple-sequence alignment (MSA)…", verb: "Searching for related sequences (MSA)…", short: "MSA search" },
+  { key: "fold", label: "Fold", activity: "Folding the 3D structure…", verb: "Folding structures…", short: "folding" },
+  { key: "score", label: "Score", activity: "Scoring confidence and binding affinity…", verb: "Scoring confidence & binding affinity…", short: "scoring" },
+  { key: "save", label: "Finish", activity: "Writing the final structure…", verb: "Finishing up…", short: "finishing" },
 ];
 const PREDICT_STAGE_KEY = {
   loading: "prepare", featuriz: "prepare", prep: "prepare", start: "prepare",
@@ -53,14 +57,8 @@ function phaseModel(job) {
 
 // For a run with many structures, a single linear stepper can't represent them
 // (each is folded on its own device, in its own stage). Show overall progress
-// plus a live per-structure grid instead.
-const MULTI_VERB = {
-  prepare: "Preparing inputs…",
-  msa: "Searching for related sequences (MSA)…",
-  fold: "Folding structures…",
-  score: "Scoring confidence & binding affinity…",
-  save: "Finishing up…",
-};
+// plus a live per-structure grid instead, using the present-tense phase verbs.
+const MULTI_VERB = Object.fromEntries(PREDICT_PHASES.map((p) => [p.key, p.verb]));
 
 // The most telling single number for a finished structure, for the chip tooltip.
 function chipMetric(r) {
@@ -71,8 +69,8 @@ function chipMetric(r) {
 }
 
 const STATE_ICON = { done: "✓", failed: "✗", running: "⟳", queued: "•" };
-const STAGE_LABEL = { prepare: "preparing", msa: "MSA search", fold: "folding", score: "scoring", save: "finishing" };
-const STAGE_ORDER = ["prepare", "msa", "fold", "score", "save"];
+const STAGE_LABEL = Object.fromEntries(PREDICT_PHASES.map((p) => [p.key, p.short]));
+const STAGE_ORDER = PREDICT_PHASES.map((p) => p.key);
 
 // "3 folding · 2 scoring · 1 MSA search" — the running inputs by phase.
 function runningSummary(cells) {

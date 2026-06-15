@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef } from "react";
 import { api } from "../api.js";
 import ParamControls, { defaultsFor } from "./ParamControls.jsx";
 import { parseSequences, recordToTarget } from "../sequences.js";
+import { yq } from "../yaml.js";
 
 let _tid = 1;
 const newTarget = (content = "", name = "") => ({ key: _tid++, name, content });
@@ -49,10 +50,6 @@ function isLigandOnly(content) {
   const hasPolymer = /(^|\n)\s*-?\s*(protein|dna|rna)\s*:/i.test(content);
   return hasLigand && !hasPolymer;
 }
-
-// Single-quote a value as a YAML scalar (escaping ' as '') so user-entered
-// fields with ':', '#', '[' etc. can't break or inject into the generated YAML.
-const yq = (v) => `'${String(v).replace(/'/g, "''")}'`;
 
 // "A:10" -> [chain, residueNumber] ; "A:10, A:12" -> list of those.
 const parseResidue = (s) => { const [c, r] = String(s).split(":"); return [(c || "").trim(), parseInt(r, 10)]; };

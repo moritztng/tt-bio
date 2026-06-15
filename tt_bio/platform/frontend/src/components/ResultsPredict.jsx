@@ -62,10 +62,16 @@ export default function ResultsPredict({ jobId, results }) {
   };
   const sortArrow = (k) => (sortKey === k ? (sortDir === -1 ? " ↓" : " ↑") : "");
 
+  // Quote any cell with a comma/quote/newline (target ids and names are
+  // user-controlled, so an unescaped comma would shift every later column).
+  const csvCell = (v) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
   const downloadCsv = () => {
     const cols = ["id", "status", ...presentCols.map(([k]) => k), ...(hasAffinity ? ["affinity_pred_value", "affinity_probability_binary"] : [])];
-    const lines = [cols.join(",")];
-    for (const r of filtered) lines.push(cols.map((c) => r[c] ?? "").join(","));
+    const lines = [cols.map(csvCell).join(",")];
+    for (const r of filtered) lines.push(cols.map((c) => csvCell(r[c])).join(","));
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = "results.csv"; a.click();

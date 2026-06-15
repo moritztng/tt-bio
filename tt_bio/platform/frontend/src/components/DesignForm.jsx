@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { api } from "../api.js";
 import ParamControls, { defaultsFor } from "./ParamControls.jsx";
+import { yq } from "../yaml.js";
 
 const DEFAULT_LEN = {
   "protein-anything": "80..120",
@@ -14,10 +15,6 @@ const DEFAULT_LEN = {
 // 'protein-small_molecule' designs a binder against a small molecule, so its
 // target is a ligand; every other protocol targets a protein.
 const isLigandProtocol = (p) => p === "protein-small_molecule";
-
-// Single-quote a value as a YAML scalar (escaping ' as '') so user-entered
-// fields with ':', '#', '[' etc. can't break or inject into the generated spec.
-const yq = (v) => `'${String(v).replace(/'/g, "''")}'`;
 
 // Build a BoltzGen entities spec from the simple-form fields. The binder is a
 // length range to design; the target is either a protein sequence or a ligand.

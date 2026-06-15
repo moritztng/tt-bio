@@ -51,7 +51,7 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-ink); }
 
-code, pre, .mono { font-family: var(--mono); }
+code, pre { font-family: var(--mono); }
 
 /* ---------- layout ---------- */
 .app { display: flex; flex-direction: column; height: 100%; }
@@ -120,9 +120,8 @@ code, pre, .mono { font-family: var(--mono); }
   border-radius: var(--radius); padding: 20px; margin-bottom: 18px;
 }
 .panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
-.panel .desc { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
 /* Body copy is justified; single-line labels/headings/values are unaffected (justify is a no-op on one line). */
-.panel .desc, .field .hint, .checkline .hint, .demo-banner span:last-child { text-align: justify; }
+.field .hint, .checkline .hint, .demo-banner span:last-child { text-align: justify; }
 
 .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
 
@@ -281,7 +280,6 @@ pre.log {
 .spin { width: 14px; height: 14px; border: 2px solid var(--run-soft); border-top-color: var(--run); border-radius: 50%; display: inline-block; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--err); color: #fff; padding: 11px 18px; border-radius: var(--radius-sm); box-shadow: var(--shadow); z-index: 50; font-size: 13px; }
-.hr { height: 1px; background: var(--border); border: none; margin: 18px 0; }
 .flex { display: flex; align-items: center; gap: 10px; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .muted { color: var(--muted); }
@@ -335,7 +333,6 @@ pre.log {
 .mtp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .mtp-verb { font-size: 13px; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
 .mtp-count { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
-.mtp-bar { margin-bottom: 12px; }
 /* Proportional state bar — scales to any number of structures (one flex row). */
 .mtp-seg { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 12px; background: var(--border); gap: 1px; }
 .mtp-seg .seg { display: block; min-width: 2px; }

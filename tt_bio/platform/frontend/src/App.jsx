@@ -55,7 +55,7 @@ export default function App() {
         <aside className="sidebar">
           <div className="sidebar-head">
             <button
-              className={`btn primary block ${selected === null ? "" : ""}`}
+              className="btn primary block"
               onClick={() => setSelected(null)}
             >
               + New job
