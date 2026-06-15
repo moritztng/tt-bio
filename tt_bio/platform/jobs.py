@@ -628,8 +628,8 @@ class JobManager:
                    "TypeError", "AssertionError", "OSError", "HTTPError")
         for i in range(len(lines) - 1, -1, -1):
             if any(m in lines[i] for m in markers):
-                return "\n".join(lines[max(0, i - 1): i + 1])
-        return "\n".join(lines[-12:])
+                return _friendly_error("\n".join(lines[max(0, i - 1): i + 1]))
+        return _friendly_error("\n".join(lines[-12:]))
 
     # -- public read API ---------------------------------------------------
     def list(self, owner: str | None = None) -> list[dict[str, Any]]:
@@ -712,6 +712,11 @@ class JobManager:
     def _predict_results(self, job: Job, rd: Path) -> dict[str, Any]:
         rows = _read_json(rd / "results.json") or []
         rows = [r for r in rows if isinstance(r, dict)]
+        # Sanitise per-target engine errors before they reach the client (the raw
+        # text remains in the log). Done on a copy so the on-disk results.json,
+        # used for the ok/failed tally, is untouched.
+        rows = [{**r, "error": _friendly_error(r["error"])} if r.get("error") else r
+                for r in rows]
         struct_dir = rd / "structures"
         structures: dict[str, list[str]] = {}
         if struct_dir.exists():
@@ -863,6 +868,32 @@ def _read_json(path: Path) -> Any:
 def _safe_stem(name: str, fallback: str) -> str:
     s = re.sub(r"[^A-Za-z0-9._-]+", "_", (name or "").strip()).strip("._-")
     return s[:80] or fallback
+
+
+def _friendly_error(raw: str | None) -> str:
+    """Map an internal engine/device error to a clean, user-facing message.
+
+    Public users shouldn't see C++ stack frames, ``tt::exception`` text, or
+    server build paths (``/project/...``) — both an information leak and useless
+    to them. The raw text always stays in the per-job log for real debugging.
+    A message we raised ourselves (a clean validation error) is passed through.
+    """
+    s = (raw or "").strip()
+    if not s:
+        return "Folding failed (see log)."
+    low = s.lower()
+    if "circular buffer" in low or ("l1" in low and "clash" in low):
+        return ("This structure is too large or complex to fold on the current "
+                "hardware — try a smaller construct, fewer chains, or another model.")
+    if "out of memory" in low or "oom" in low or ("dram" in low and "alloc" in low):
+        return "Ran out of device memory while folding — try a smaller input."
+    if any(m in low for m in ("tt_throw", "tt::exception", "mesh_device", "/project/")):
+        return ("An internal device error occurred while folding. Please try again; "
+                "if it persists, try a smaller input.")
+    # Never leak an absolute path from a stray traceback line.
+    if "traceback (most recent call last)" in low or "/home/" in s or "/project/" in s:
+        return "Folding failed unexpectedly (see log)."
+    return s
 
 
 def _is_ligand_only(content: str) -> bool:
