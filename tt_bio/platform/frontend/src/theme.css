@@ -76,11 +76,11 @@ code, pre { font-family: var(--mono); }
 .topbar .spacer { flex: 1; }
 /* "Powered by [Tenstorrent] AI Processors" — brand attribution, top right */
 .topbar .powered {
-  display: flex; align-items: center; gap: 7px; flex: none;
-  font-size: 12px; color: var(--muted); text-decoration: none; white-space: nowrap;
+  display: flex; align-items: center; gap: 8px; flex: none;
+  font-size: 14px; color: var(--muted); text-decoration: none; white-space: nowrap;
 }
 .topbar .powered:hover { color: var(--ink-soft); }
-.topbar .powered .tt-logo { height: 13px; width: auto; display: block; }
+.topbar .powered .tt-logo { height: 16px; width: auto; display: block; }
 
 .main { display: flex; flex: 1; min-height: 0; }
 
