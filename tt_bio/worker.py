@@ -144,6 +144,25 @@ class _WorkerState:
             except Exception:
                 pass
 
+    def free_model(self) -> None:
+        """Free the resident predict model but KEEP the device open.
+
+        Used before running an in-process design shard: the shard reuses this
+        worker's already-open chip and loads its own models, so we must drop the
+        predict weights (free memory) WITHOUT closing the device. Closing and
+        re-opening a chip per shard is exactly what deadlocked the UMD
+        device-init path (see tenstorrent._device_init_lock); reusing one
+        persistent open avoids it entirely."""
+        self.model = None
+        self.aff_model = None
+        self.prepare = None
+        self.pfn = None
+        self.run_id = None
+        self.config_hash = None
+        self.model_id = None
+        self._ccd = self._tokenizer = self._featurizer = self._mol_dir = None
+        gc.collect()
+
     def load_model(self, cfg: dict[str, Any]) -> None:
         """Load the heavy model weights onto the device. Keyed on the model
         config (see configured_for), so it runs once per model, not once per run."""
@@ -449,6 +468,16 @@ def run_worker_loop(
             pass
 
     state = _WorkerState(worker_info["accelerator"])
+    # Open this worker's chip once, now, while the fleet is quiescent (startup),
+    # and keep it open for every job — predict AND design. Every device open then
+    # happens at startup, never during active operation, which is what keeps us
+    # off the UMD concurrent-device-init deadlock (see tenstorrent._device_init_lock).
+    if state.accelerator == "tenstorrent":
+        try:
+            from tt_bio.tenstorrent import get_device as _get_device
+            _get_device()
+        except Exception:
+            traceback.print_exc()
     try:
         while True:
             # Tolerate a controller that's briefly unreachable (restart, network
@@ -471,14 +500,15 @@ def run_worker_loop(
             run_id = lease["run_id"]
             cfg = dict(lease["config"])
 
-            # Design shards ride the same scheduler as prediction, but run the
-            # BoltzGen pipeline as a single-device subprocess rather than a
-            # loaded model. Free any predict model first so the chip is the
-            # shard subprocess's to open.
+            # Design shards ride the same scheduler as prediction. They run the
+            # BoltzGen single-device pipeline IN-PROCESS on this worker's already-
+            # open chip — reusing the persistent device instead of cold-opening a
+            # fresh one per shard (which raced the UMD device-init path and
+            # deadlocked). Free the predict model first (memory) but keep the chip.
             if cfg.get("kind") == "design":
-                state.reset()
+                state.free_model()
                 for job in jobs:
-                    _execute_design_job(client, run_id, worker_id, worker_info, meta, job, cfg)
+                    _execute_design_job_inprocess(client, run_id, worker_id, worker_info, meta, job, cfg)
                 continue
 
             _ensure_local_artifacts(cfg)
@@ -598,7 +628,7 @@ def _execute_job(
         traceback.print_exc()
 
 
-def _execute_design_job(
+def _execute_design_job_inprocess(
     client: ControllerClient,
     run_id: str,
     worker_id: str,
@@ -607,10 +637,15 @@ def _execute_design_job(
     job: dict[str, Any],
     cfg: dict[str, Any],
 ) -> None:
-    """Run one design shard on this worker's single device and ship its whole
-    output directory back. A shard is just a single-device ``tt-bio gen run`` on
-    a slice of num_designs — identical to a card's shard in the local
-    multi-card path, only dispatched over the controller."""
+    """Run one design shard IN-PROCESS on this worker's persistent device.
+
+    The BoltzGen single-device pipeline runs each stage in-process on
+    get_device(), so invoking it here transparently reuses this worker's
+    already-open chip — no per-shard cold-open, hence no UMD device-init deadlock.
+    A daemon thread relays the pipeline's stage progress while the run blocks this
+    (heartbeat-covered) worker thread; cancellation is shard-granular (the run
+    finishes its shard, bounded by the platform watchdog)."""
+    import threading
     job_id = job["id"]
     t0 = time.time()
     device = str(worker_info["device_id"])
@@ -628,11 +663,21 @@ def _execute_design_job(
     row: dict[str, Any] = {"id": job_id, "status": "failed"}
     outputs: dict[str, str] = {}
     emit("start", name=job_id)
+
+    # Relay BoltzGen's per-stage progress while run_command blocks this thread
+    # (heartbeats keep flowing on the background thread set up in run_worker_loop).
+    pos = [0]
+    stop = threading.Event()
+
+    def _pump():
+        while not stop.wait(1.0):
+            pos[0] = _forward_design_progress(progress_file, pos[0], emit)
+
+    pump = threading.Thread(target=_pump, daemon=True)
+    pump.start()
     try:
         data = json.loads(base64.b64decode(job.get("input_b64", "")).decode("utf-8"))
         num_designs = int(data.get("num_designs") or 1)
-        # The spec(s) ride in the run config (shared by every shard); write them
-        # locally so the shard subprocess has real paths to read.
         spec_paths = []
         for spec in cfg.get("specs", []):
             p = workdir / Path(str(spec["name"])).name
@@ -641,91 +686,32 @@ def _execute_design_job(
         if not spec_paths:
             raise RuntimeError("design run has no spec")
 
-        env = {
-            **os.environ,
-            "TT_VISIBLE_DEVICES": device,
-            "BOLTZGEN_PROGRESS_FILE": str(progress_file),
-            "HF_HUB_DISABLE_PROGRESS_BARS": "1",
-            "HF_HUB_DISABLE_TELEMETRY": "1",
-            "TOKENIZERS_PARALLELISM": "false",
-            # Opt this shard into host-wide device-open serialization (see
-            # tenstorrent._device_init_lock). Design shards cold-open a chip each;
-            # predict workers (which don't set this) open once and must not block.
-            "TT_BIO_SERIALIZE_DEVICE_OPEN": "1",
-        }
-        mgd = worker_info.get("mesh_graph_descriptor")
-        if mgd and not env.get("TT_MESH_GRAPH_DESC_PATH"):
-            env["TT_MESH_GRAPH_DESC_PATH"] = str(mgd)
-
-        # Run the full pipeline on the shard (exactly like a local per-card
-        # shard in _run_distributed); the orchestrator then merges + filters the
-        # union. Restricting --steps here shifts the analysis step's expected
-        # folded-output path and yields zero metrics, so we don't.
-        cmd = [sys.executable, "-m", "tt_bio.boltzgen.cli.boltzgen", "run", *spec_paths,
-               "--output", str(out_dir), "--num_designs", str(num_designs),
-               "--device_ids", device,
-               "--protocol", cfg.get("protocol", "protein-anything")]
+        # execute_command reads this per-call, so set it just before running.
+        os.environ["BOLTZGEN_PROGRESS_FILE"] = str(progress_file)
+        argv = ["run", *spec_paths, "--output", str(out_dir),
+                "--num_designs", str(num_designs), "--device_ids", device,
+                "--protocol", cfg.get("protocol", "protein-anything")]
         if cfg.get("steps"):
-            cmd += ["--steps", *cfg["steps"]]
+            argv += ["--steps", *cfg["steps"]]
         if cfg.get("fast"):
-            cmd.append("--fast")
+            argv.append("--fast")
         if cfg.get("moldir"):
-            cmd += ["--moldir", str(cfg["moldir"])]
+            argv += ["--moldir", str(cfg["moldir"])]
 
-        logf = open(workdir / "run.log", "w")
-        proc = subprocess.Popen(cmd, cwd=str(workdir), env=env,
-                                stdout=logf, stderr=subprocess.STDOUT,
-                                start_new_session=True)
-        pos = 0
-        canceled = False
-        last_check = 0.0
-        while proc.poll() is None:
-            pos = _forward_design_progress(progress_file, pos, emit)
-            # If the run was canceled (user stopped the job), abort the shard so
-            # it stops hogging the device immediately instead of running to the
-            # end. Check at most every couple of seconds to stay cheap.
-            now = time.time()
-            if now - last_check > 2.0:
-                last_check = now
-                if client.run_status(run_id) == "canceled":
-                    canceled = True
-                    # SIGINT (not SIGTERM/SIGKILL): the boltzgen subprocess turns
-                    # it into KeyboardInterrupt, which lets its atexit handler
-                    # close the Tenstorrent device cleanly. SIGTERM/SIGKILL skip
-                    # atexit and leave the chip wedged for the next job.
-                    try:
-                        os.killpg(os.getpgid(proc.pid), signal.SIGINT)
-                    except Exception:
-                        proc.send_signal(signal.SIGINT)
-                    break
-            time.sleep(0.5)
-        if canceled:
-            try:
-                # Give ttnn time to release the device (its teardown is slow).
-                proc.wait(timeout=60)
-            except Exception:
-                # Last resort if it still won't exit: frees the slot but may
-                # leave the device needing a reset (rare).
-                try:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                except Exception:
-                    pass
-            logf.close()
-            row.update({"status": "canceled", "error": "canceled by user"})
-        else:
-            pos = _forward_design_progress(progress_file, pos, emit)
-            logf.close()
-            if proc.returncode == 0:
-                outputs = _read_outputs(out_dir)
-                row.update({"status": "ok", "num_designs": num_designs,
-                            "runtime_s": round(time.time() - t0, 1)})
-            else:
-                row["error"] = _tail_text(workdir / "run.log")
+        from tt_bio.boltzgen.cli.boltzgen import build_parser, run_command
+        run_command(build_parser().parse_args(argv))  # reuses get_device(); no cold-open
+        outputs = _read_outputs(out_dir)
+        row.update({"status": "ok", "num_designs": num_designs,
+                    "runtime_s": round(time.time() - t0, 1)})
     except Exception as exc:
         traceback.print_exc()
         row["error"] = str(exc)[:200]
     finally:
+        stop.set()
+        pos[0] = _forward_design_progress(progress_file, pos[0], emit)  # flush the tail
         shutil.rmtree(workdir, ignore_errors=True)
+        os.environ.pop("BOLTZGEN_PROGRESS_FILE", None)
+        gc.collect()  # drop the design models' host refs; the chip stays open
 
     try:
         client.complete(
