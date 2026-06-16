@@ -260,7 +260,15 @@ def _device_init_lock():
     is exactly what reintroduced the deadlock. The kernel drops the lock if a
     holder dies, and the platform's per-run stall watchdog bounds any pathological
     case, so this can never wedge worse than opening unserialized.
+
+    Only design-shard subprocesses opt in (they set TT_BIO_SERIALIZE_DEVICE_OPEN
+    and cold-open a chip per shard). Prediction workers open their chip once at
+    startup and reuse it, so they must NOT take this lock — otherwise a stuck
+    design open would stall an unrelated predict at "loading the model".
     """
+    if not os.environ.get("TT_BIO_SERIALIZE_DEVICE_OPEN"):
+        yield
+        return
     import fcntl
     try:
         f = open(_DEVICE_INIT_LOCK_PATH, "w")
