@@ -167,6 +167,11 @@ class JobManager:
         self._submit_log: dict[str, list[float]] = {}     # session -> recent submit times
         self._submit_log_ip: dict[str, list[float]] = {}  # client IP -> recent submit times
         self._submit_lock = threading.Lock()
+        # Structured event log: one JSON object per line, a chronological stream of
+        # everything that happens, so an operator (or an LLM) can answer "what
+        # happened?" at a glance. Lives next to the jobs dir.
+        self._evlog_path = self.workspace.parent / "events.jsonl"
+        self._evlog_lock = threading.Lock()
         self.max_retained_jobs = int(limits.LIMITS.get("max_retained_jobs", 200))
         # Watchdog ceilings per kind: a job running longer than this is treated
         # as stuck (wedged device, stalled fetch, model hang) and killed so it
@@ -193,6 +198,10 @@ class JobManager:
                       for _ in range(self.max_concurrent)]
         for t in self._pool:
             t.start()
+        self.log_event("server_started", workers=self.max_concurrent,
+                       cluster=bool(self.cluster), jobs_loaded=len(self.jobs),
+                       limits={"global": self.max_active_jobs, "per_session": self.max_active_per_owner,
+                               "per_ip": self.max_active_per_ip})
 
     def _active_count(self) -> int:
         with self.lock:
@@ -248,6 +257,33 @@ class JobManager:
             raise CapacityError(
                 "Your network already has several jobs in progress on the shared demo — "
                 "please wait for one to finish before starting another.")
+
+    @staticmethod
+    def evhash(value: str | None) -> str:
+        """Short, stable hash of a session id / IP — correlatable (spot one source
+        hammering) but not reversible, so the event log is safe to share with an LLM."""
+        return hashlib.sha256(value.encode()).hexdigest()[:8] if value else "-"
+
+    def log_event(self, event: str, **fields: Any) -> None:
+        """Append one structured event to the platform event log
+        (``<workspace>/../events.jsonl``) — a chronological JSONL stream of
+        submissions, rejections, starts, completions and kills. Best-effort and
+        size-rotated (~32 MB of history); never raises into the caller."""
+        rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "t": int(time.time()),
+               "event": event, **fields}
+        try:
+            line = json.dumps(rec, default=str)
+        except Exception:
+            return
+        with self._evlog_lock:
+            try:
+                p = self._evlog_path
+                if p.exists() and p.stat().st_size > 16 * 1024 * 1024:
+                    p.replace(p.with_name(p.name + ".1"))  # keep one rotation
+                with open(p, "a") as f:
+                    f.write(line + "\n")
+            except Exception:
+                pass
 
     def _evict_old(self) -> None:
         """Keep disk bounded: drop the oldest *finished* jobs once the total
@@ -545,11 +581,24 @@ class JobManager:
                 self._save_meta(job)
             finally:
                 self._retire(exclusive)
+            # One terminal event per run, covering every outcome above (normal
+            # finish, launch failure, watchdog kill, internal error).
+            self.log_event(
+                "job_done", job=job.id, kind=job.kind, status=job.status,
+                duration_s=(round((job.finished_at or time.time()) - job.started_at)
+                            if job.started_at else None),
+                returncode=job.returncode,
+                ok=(self._ok_count(job) if job.kind == "predict" else None),
+                total=(job.total or None),
+                error=(job.error[:200] if job.error else None),
+                session=self.evhash(job.owner))
 
     def _run_job(self, job: Job, controller_url: str | None = None) -> None:
         job.status = RUNNING
         job.started_at = time.time()
         self._save_meta(job)
+        self.log_event("job_started", job=job.id, kind=job.kind, model=job.model,
+                       protocol=job.protocol, session=self.evhash(job.owner))
         cmd = self._build_cmd(job, controller_url)
         log = self._log_path(job.id)
         with open(log, "w") as logf:
@@ -609,6 +658,10 @@ class JobManager:
                 if reason:
                     job.status = FAILED
                     job.error = reason
+                    self.log_event("job_killed", job=job.id, kind=job.kind,
+                                   cause=("runtime_cap" if now > deadline else "stall"),
+                                   runtime_s=round(now - job.started_at),
+                                   session=self.evhash(job.owner))
                     self._kill(job.id)
                     break
                 time.sleep(1.0)
@@ -977,6 +1030,7 @@ class JobManager:
         self._kill(job_id)
         job.finished_at = job.finished_at or time.time()
         self._save_meta(job)
+        self.log_event("job_canceled", job=job_id, kind=job.kind, session=self.evhash(job.owner))
         return True
 
     def delete(self, job_id: str) -> bool:

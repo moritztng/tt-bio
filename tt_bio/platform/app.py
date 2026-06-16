@@ -114,12 +114,20 @@ def create_app(workspace: str | os.PathLike | None = None, *,
             body = None
         if not isinstance(body, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
+        sid, ip = g.session_id, _client_ip()
+        sh, iph = manager.evhash(sid), manager.evhash(ip)
         try:
-            job = manager.submit(body, owner=g.session_id, client_ip=_client_ip())
+            job = manager.submit(body, owner=sid, client_ip=ip)
         except CapacityError as e:
+            manager.log_event("job_rejected", reason="capacity", detail=str(e)[:160], session=sh, ip=iph)
             return jsonify({"error": str(e)}), 429
         except (ValueError, KeyError, TypeError) as e:
+            manager.log_event("job_rejected", reason="invalid", detail=str(e)[:160], session=sh, ip=iph)
             return jsonify({"error": str(e)}), 400
+        manager.log_event("job_submitted", job=job.id, kind=job.kind, model=job.model,
+                          protocol=job.protocol, total=job.total or None,
+                          num_designs=(job.params or {}).get("num_designs"),
+                          fast=bool((job.params or {}).get("fast")), session=sh, ip=iph)
         return jsonify(job.to_dict()), 201
 
     @app.get("/api/jobs/<job_id>")
