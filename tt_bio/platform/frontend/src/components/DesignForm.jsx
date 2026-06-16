@@ -149,7 +149,6 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
     <>
       <div className="panel">
         <p className="section-title">What to design</p>
-        <p className="section-sub">BoltzGen — an open de-novo binder design model.</p>
         <div className="cardgrid">
           {catalog.protocols.map((p) => (
             <button key={p.id} className={`selcard ${protocol === p.id ? "active" : ""}`} onClick={() => onProtocol(p.id)}>
