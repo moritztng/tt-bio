@@ -648,6 +648,10 @@ def _execute_design_job(
             "HF_HUB_DISABLE_PROGRESS_BARS": "1",
             "HF_HUB_DISABLE_TELEMETRY": "1",
             "TOKENIZERS_PARALLELISM": "false",
+            # Opt this shard into host-wide device-open serialization (see
+            # tenstorrent._device_init_lock). Design shards cold-open a chip each;
+            # predict workers (which don't set this) open once and must not block.
+            "TT_BIO_SERIALIZE_DEVICE_OPEN": "1",
         }
         mgd = worker_info.get("mesh_graph_descriptor")
         if mgd and not env.get("TT_MESH_GRAPH_DESC_PATH"):
