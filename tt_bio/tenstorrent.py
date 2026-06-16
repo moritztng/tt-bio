@@ -236,6 +236,50 @@ def pair_row_tile(L: int) -> int:
 
 _device = None
 
+def _open_device_locked(device_id, kwargs):
+    """Open the TT device while holding a host-wide advisory file lock.
+
+    Opening a device performs shared host-level init (sysmem / hugepages / cluster
+    bring-up). When many single-device shard subprocesses open their chips at the
+    same instant, that concurrent init intermittently deadlocks the TT runtime —
+    every thread ends up futex-blocked before the model even loads, and the whole
+    design run stalls until the watchdog kills it. Serializing the open across all
+    processes on the host makes opens happen one-at-a-time; the lock covers only
+    the open + immediate setup (a few seconds), then releases, so folding still
+    runs fully in parallel. The lock auto-releases if a holder dies, and the wait
+    is capped so a pathological holder can never block worse than opening unserialized.
+    """
+    import fcntl, time as _t
+    lock_file, held = None, False
+    try:
+        lock_file = open("/tmp/tt-bio-device-open.lock", "w")
+        deadline = _t.time() + 180.0
+        while True:
+            try:
+                fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                held = True
+                break
+            except OSError:
+                if _t.time() >= deadline:
+                    break  # proceed best-effort rather than block indefinitely
+                _t.sleep(0.5)
+    except Exception:
+        lock_file = None  # couldn't take the lock -> don't block device bring-up
+    try:
+        dev = ttnn.open_device(device_id=device_id, **kwargs)
+        _configure_active_compute_grid(dev)
+        dev.enable_program_cache()
+        return dev
+    finally:
+        if lock_file is not None:
+            try:
+                if held:
+                    fcntl.flock(lock_file, fcntl.LOCK_UN)
+                lock_file.close()
+            except Exception:
+                pass
+
+
 def get_device():
     """Open (or return cached) TT device 0.
 
@@ -261,9 +305,7 @@ def get_device():
             {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
             if eth_dispatch else {}
         )
-        _device = ttnn.open_device(device_id=device_id, **kwargs)
-        _configure_active_compute_grid(_device)
-        _device.enable_program_cache()
+        _device = _open_device_locked(device_id, kwargs)
     return _device
 
 
