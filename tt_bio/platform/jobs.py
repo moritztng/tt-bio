@@ -151,6 +151,12 @@ class JobManager:
         self.cluster = cluster
         self.max_concurrent = max(1, int(max_concurrent))
         self.max_active_jobs = int(limits.LIMITS.get("max_active_jobs", 64))
+        # Per-visitor fairness/anti-flood caps: one session can't monopolize the
+        # shared fleet or spam it. Both surface to the client as a 429.
+        self.max_active_per_owner = int(limits.LIMITS.get("max_active_jobs_per_session", 3))
+        self.max_submits_per_min = int(limits.LIMITS.get("max_submits_per_min", 12))
+        self._submit_log: dict[str, list[float]] = {}  # owner -> recent submit times
+        self._submit_lock = threading.Lock()
         self.max_retained_jobs = int(limits.LIMITS.get("max_retained_jobs", 200))
         # Watchdog ceilings per kind: a job running longer than this is treated
         # as stuck (wedged device, stalled fetch, model hang) and killed so it
@@ -181,6 +187,34 @@ class JobManager:
     def _active_count(self) -> int:
         with self.lock:
             return sum(1 for j in self.jobs.values() if j.status in (QUEUED, RUNNING))
+
+    def _active_count_for(self, owner: str | None) -> int:
+        with self.lock:
+            return sum(1 for j in self.jobs.values()
+                       if j.owner == owner and j.status in (QUEUED, RUNNING))
+
+    def _throttle(self, owner: str | None) -> None:
+        """Per-visitor flood guards, both surfaced as a 429: a sliding-window
+        submission rate limit (anti rapid-fire), and a cap on concurrent active
+        jobs so one visitor can't monopolize the shared fleet. Keeps the demo fair
+        and responsive under a crowd, independent of the global capacity cap."""
+        now = time.time()
+        with self._submit_lock:
+            recent = [t for t in self._submit_log.get(owner, ()) if now - t < 60.0]
+            if len(recent) >= self.max_submits_per_min:
+                raise CapacityError(
+                    "You're submitting too quickly — give it a few seconds and try again.")
+            recent.append(now)
+            self._submit_log[owner] = recent
+            # Bound memory: drop sessions idle for over a minute when the map grows.
+            if len(self._submit_log) > 2048:
+                self._submit_log = {o: ts for o, ts in self._submit_log.items()
+                                    if ts and now - ts[-1] < 60.0}
+        active = self._active_count_for(owner)
+        if active >= self.max_active_per_owner:
+            raise CapacityError(
+                f"You already have {active} jobs running or queued — let one finish "
+                "before starting another, so the shared demo stays fair for everyone.")
 
     def _evict_old(self) -> None:
         """Keep disk bounded: drop the oldest *finished* jobs once the total
@@ -281,7 +315,10 @@ class JobManager:
         kind = payload.get("kind")
         if kind not in ("predict", "design"):
             raise ValueError("kind must be 'predict' or 'design'")
-        # Capacity guard for the shared, unauthenticated demo: never let the
+        # Per-visitor flood guards first (rate limit + per-session concurrent cap),
+        # so no single visitor can rapid-fire or monopolize the shared fleet.
+        self._throttle(owner)
+        # Global capacity guard for the shared, unauthenticated demo: never let the
         # queue grow without bound. Reject (429) when too much is already in
         # flight rather than accept work that would pile up.
         if self._active_count() >= self.max_active_jobs:

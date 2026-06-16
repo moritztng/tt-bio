@@ -26,8 +26,11 @@ LIMITS = {
     "max_diffusion_samples": 5,
     "max_content_chars": 50_000,     # raw size of one target/spec (parse-independent guard)
     # Capacity guards (shared, unauthenticated demo): bound how much work can
-    # pile up so one visitor can't exhaust the queue (memory) or disk.
-    "max_active_jobs": 64,           # queued + running across all visitors -> 429 when full
+    # pile up so one visitor can't exhaust the queue (memory) or disk, and so no
+    # single visitor can monopolize the shared fleet or spam it with requests.
+    "max_active_jobs": 64,           # queued + running across ALL visitors -> 429 when full
+    "max_active_jobs_per_session": 3,  # queued + running for ONE visitor -> 429 (fairness)
+    "max_submits_per_min": 12,       # submissions/min per visitor -> 429 (anti-flood burst)
     "max_retained_jobs": 200,        # finished jobs kept for browsing; oldest auto-evicted
     # Watchdog: a job that hangs (wedged device, stalled download, model bug)
     # would otherwise hold its devices forever and block the shared fleet. These
