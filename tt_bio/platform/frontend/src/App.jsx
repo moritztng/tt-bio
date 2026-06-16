@@ -9,6 +9,10 @@ export default function App() {
   const [jobs, setJobs] = useState([]);
   const [selected, setSelected] = useState(null); // job id or null (= new job)
   const [error, setError] = useState(null);
+  const [navOpen, setNavOpen] = useState(false);  // mobile: job-list drawer open
+
+  // Pick a job (or the new-job form) and close the mobile drawer behind it.
+  const choose = (id) => { setSelected(id); setNavOpen(false); };
 
   useEffect(() => {
     api.catalog().then(setCatalog).catch((e) => setError(e.message));
@@ -37,6 +41,10 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
+        <button className="nav-toggle" onClick={() => setNavOpen((o) => !o)}
+                aria-label="Toggle job list" aria-expanded={navOpen}>
+          <span /><span /><span />
+        </button>
         <div className="wordmark">
           <img className="brand-logo" src="/aiand-logo.svg" alt="ai&amp;" />
           <span className="sub">Drug Discovery</span>
@@ -52,11 +60,11 @@ export default function App() {
       </header>
 
       <div className="main">
-        <aside className="sidebar">
+        <aside className={`sidebar ${navOpen ? "open" : ""}`}>
           <div className="sidebar-head">
             <button
               className="btn primary block"
-              onClick={() => setSelected(null)}
+              onClick={() => choose(null)}
             >
               + New job
             </button>
@@ -69,7 +77,7 @@ export default function App() {
               <button
                 key={j.id}
                 className={`jobitem ${selected === j.id ? "active" : ""}`}
-                onClick={() => setSelected(j.id)}
+                onClick={() => choose(j.id)}
               >
                 <div className="ji-top">
                   <span className="ji-name">{j.name}</span>
@@ -86,6 +94,7 @@ export default function App() {
             ))}
           </div>
         </aside>
+        {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} />}
 
         <main className="content">
           <div className="content-inner">
