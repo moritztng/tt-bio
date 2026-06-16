@@ -29,8 +29,13 @@ LIMITS = {
     # pile up so one visitor can't exhaust the queue (memory) or disk, and so no
     # single visitor can monopolize the shared fleet or spam it with requests.
     "max_active_jobs": 64,           # queued + running across ALL visitors -> 429 when full
-    "max_active_jobs_per_session": 3,  # queued + running for ONE visitor -> 429 (fairness)
-    "max_submits_per_min": 12,       # submissions/min per visitor -> 429 (anti-flood burst)
+    "max_active_jobs_per_session": 3,  # queued + running for ONE cookie session -> 429 (fairness)
+    "max_submits_per_min": 12,       # submissions/min per cookie session -> 429 (anti rapid-fire)
+    # Per-IP caps: the public abuse backstop (cookie sessions reset freely; the
+    # real client IP from X-Forwarded-For does not). NAT-tolerant (offices share
+    # an IP) yet well under the global cap so no one network monopolizes the fleet.
+    "max_active_jobs_per_ip": 8,     # queued + running for ONE client IP -> 429
+    "max_submits_per_min_per_ip": 40,  # submissions/min per client IP -> 429
     "max_retained_jobs": 200,        # finished jobs kept for browsing; oldest auto-evicted
     # Watchdog: a job that hangs (wedged device, stalled download, model bug)
     # would otherwise hold its devices forever and block the shared fleet. These

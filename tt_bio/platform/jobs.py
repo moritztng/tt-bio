@@ -108,9 +108,12 @@ class Job:
     total: int = 0                 # number of targets (predict)
     done: int = 0
     stage: str | None = None
+    client_ip: str | None = None   # real client IP (for per-IP flood limits); internal —
+                                   # never serialized to the client or persisted (see to_dict)
 
     def to_dict(self) -> dict[str, Any]:
         d = dataclasses.asdict(self)
+        d.pop("client_ip", None)   # keep the visitor's IP server-side only
         d["progress"] = self.progress()
         return d
 
@@ -151,11 +154,18 @@ class JobManager:
         self.cluster = cluster
         self.max_concurrent = max(1, int(max_concurrent))
         self.max_active_jobs = int(limits.LIMITS.get("max_active_jobs", 64))
-        # Per-visitor fairness/anti-flood caps: one session can't monopolize the
-        # shared fleet or spam it. Both surface to the client as a 429.
+        # Per-visitor fairness/anti-flood caps (all surface as 429). Two layers:
+        #  - per SESSION (cookie): fairness for honest users.
+        #  - per IP (real client IP from X-Forwarded-For): the abuse backstop a
+        #    public release needs, since cookie sessions are trivially reset. IP
+        #    caps are NAT-tolerant (offices/universities share one IP) but well
+        #    under the global cap, so no single network can monopolize the fleet.
         self.max_active_per_owner = int(limits.LIMITS.get("max_active_jobs_per_session", 3))
         self.max_submits_per_min = int(limits.LIMITS.get("max_submits_per_min", 12))
-        self._submit_log: dict[str, list[float]] = {}  # owner -> recent submit times
+        self.max_active_per_ip = int(limits.LIMITS.get("max_active_jobs_per_ip", 8))
+        self.max_submits_per_min_ip = int(limits.LIMITS.get("max_submits_per_min_per_ip", 40))
+        self._submit_log: dict[str, list[float]] = {}     # session -> recent submit times
+        self._submit_log_ip: dict[str, list[float]] = {}  # client IP -> recent submit times
         self._submit_lock = threading.Lock()
         self.max_retained_jobs = int(limits.LIMITS.get("max_retained_jobs", 200))
         # Watchdog ceilings per kind: a job running longer than this is treated
@@ -193,28 +203,51 @@ class JobManager:
             return sum(1 for j in self.jobs.values()
                        if j.owner == owner and j.status in (QUEUED, RUNNING))
 
-    def _throttle(self, owner: str | None) -> None:
-        """Per-visitor flood guards, both surfaced as a 429: a sliding-window
-        submission rate limit (anti rapid-fire), and a cap on concurrent active
-        jobs so one visitor can't monopolize the shared fleet. Keeps the demo fair
-        and responsive under a crowd, independent of the global capacity cap."""
+    def _active_count_for_ip(self, client_ip: str | None) -> int:
+        if not client_ip:
+            return 0
+        with self.lock:
+            return sum(1 for j in self.jobs.values()
+                       if j.client_ip == client_ip and j.status in (QUEUED, RUNNING))
+
+    def _throttle(self, owner: str | None, client_ip: str | None) -> None:
+        """Per-visitor flood guards, all surfaced as a 429: sliding-window submit
+        rate limits and concurrent-active caps, applied both per SESSION (cookie —
+        fairness for honest users) and per client IP (the abuse backstop, since a
+        cookie session resets freely). IP caps are NAT-tolerant but stay under the
+        global cap, so no single network can monopolize the shared fleet."""
         now = time.time()
         with self._submit_lock:
-            recent = [t for t in self._submit_log.get(owner, ()) if now - t < 60.0]
-            if len(recent) >= self.max_submits_per_min:
+            sess = [t for t in self._submit_log.get(owner, ()) if now - t < 60.0]
+            if len(sess) >= self.max_submits_per_min:
                 raise CapacityError(
                     "You're submitting too quickly — give it a few seconds and try again.")
-            recent.append(now)
-            self._submit_log[owner] = recent
-            # Bound memory: drop sessions idle for over a minute when the map grows.
-            if len(self._submit_log) > 2048:
-                self._submit_log = {o: ts for o, ts in self._submit_log.items()
-                                    if ts and now - ts[-1] < 60.0}
+            ipl = ([t for t in self._submit_log_ip.get(client_ip, ()) if now - t < 60.0]
+                   if client_ip else [])
+            if client_ip and len(ipl) >= self.max_submits_per_min_ip:
+                raise CapacityError(
+                    "Too many submissions from your network right now — please slow down "
+                    "and retry shortly.")
+            sess.append(now)
+            self._submit_log[owner] = sess
+            if client_ip:
+                ipl.append(now)
+                self._submit_log_ip[client_ip] = ipl
+            # Bound memory: drop entries idle for over a minute when a map grows.
+            for log in (self._submit_log, self._submit_log_ip):
+                if len(log) > 2048:
+                    for k in [k for k, ts in log.items() if not ts or now - ts[-1] >= 60.0]:
+                        del log[k]
         active = self._active_count_for(owner)
         if active >= self.max_active_per_owner:
             raise CapacityError(
                 f"You already have {active} jobs running or queued — let one finish "
                 "before starting another, so the shared demo stays fair for everyone.")
+        ip_active = self._active_count_for_ip(client_ip)
+        if ip_active >= self.max_active_per_ip:
+            raise CapacityError(
+                "Your network already has several jobs in progress on the shared demo — "
+                "please wait for one to finish before starting another.")
 
     def _evict_old(self) -> None:
         """Keep disk bounded: drop the oldest *finished* jobs once the total
@@ -306,7 +339,8 @@ class JobManager:
             self.jobs[job.id] = job
 
     # -- submission --------------------------------------------------------
-    def submit(self, payload: dict[str, Any], owner: str | None = None) -> Job:
+    def submit(self, payload: dict[str, Any], owner: str | None = None,
+               client_ip: str | None = None) -> Job:
         # Validate types up front so a malformed request is a clean 400 (and can
         # never reach the worker as e.g. a string-where-a-dict-was-expected,
         # which would crash the run thread).
@@ -315,9 +349,9 @@ class JobManager:
         kind = payload.get("kind")
         if kind not in ("predict", "design"):
             raise ValueError("kind must be 'predict' or 'design'")
-        # Per-visitor flood guards first (rate limit + per-session concurrent cap),
-        # so no single visitor can rapid-fire or monopolize the shared fleet.
-        self._throttle(owner)
+        # Per-visitor flood guards first (rate + concurrent caps, per session AND
+        # per client IP), so no visitor or network can rapid-fire or monopolize.
+        self._throttle(owner, client_ip)
         # Global capacity guard for the shared, unauthenticated demo: never let the
         # queue grow without bound. Reject (429) when too much is already in
         # flight rather than accept work that would pile up.
@@ -357,6 +391,7 @@ class JobManager:
         name = str(payload.get("name") or "").strip()[:120] or f"{kind}-{job_id[:6]}"
         job = Job(
             id=job_id, kind=kind, name=name, created_at=time.time(), owner=owner,
+            client_ip=client_ip,
             params=params,
             model=str(model) if model is not None else None,
             protocol=str(protocol) if protocol is not None else None,

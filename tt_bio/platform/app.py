@@ -70,6 +70,19 @@ def create_app(workspace: str | os.PathLike | None = None, *,
         route to 404 (never 403/200) on someone else's — or a nonexistent — job."""
         return manager.owner_of(job_id) == g.session_id
 
+    def _client_ip() -> str:
+        """The real client IP, for per-IP flood limits. Behind a proxy (ngrok),
+        the trustworthy client IP is the RIGHTMOST X-Forwarded-For entry — the one
+        the proxy itself appends; any value a client prepends to spoof its IP sits
+        to the left of it. Falls back to the socket peer for direct access. (Assumes
+        a single trusted front proxy, i.e. ngrok; revisit if a CDN is added.)"""
+        xff = request.headers.get("X-Forwarded-For", "")
+        if xff:
+            parts = [p.strip() for p in xff.split(",") if p.strip()]
+            if parts:
+                return parts[-1]
+        return request.remote_addr or "?"
+
     # ---- API ----------------------------------------------------------
     @app.get("/api/health")
     def health():
@@ -102,7 +115,7 @@ def create_app(workspace: str | os.PathLike | None = None, *,
         if not isinstance(body, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
         try:
-            job = manager.submit(body, owner=g.session_id)
+            job = manager.submit(body, owner=g.session_id, client_ip=_client_ip())
         except CapacityError as e:
             return jsonify({"error": str(e)}), 429
         except (ValueError, KeyError, TypeError) as e:
