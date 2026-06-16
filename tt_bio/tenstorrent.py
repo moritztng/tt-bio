@@ -1,4 +1,5 @@
 import os
+import contextlib
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
@@ -236,48 +237,54 @@ def pair_row_tile(L: int) -> int:
 
 _device = None
 
-def _open_device_locked(device_id, kwargs):
-    """Open the TT device while holding a host-wide advisory file lock.
+_DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
 
-    Opening a device performs shared host-level init (sysmem / hugepages / cluster
-    bring-up). When many single-device shard subprocesses open their chips at the
-    same instant, that concurrent init intermittently deadlocks the TT runtime —
-    every thread ends up futex-blocked before the model even loads, and the whole
-    design run stalls until the watchdog kills it. Serializing the open across all
-    processes on the host makes opens happen one-at-a-time; the lock covers only
-    the open + immediate setup (a few seconds), then releases, so folding still
-    runs fully in parallel. The lock auto-releases if a holder dies, and the wait
-    is capped so a pathological holder can never block worse than opening unserialized.
+
+@contextlib.contextmanager
+def _device_init_lock():
+    """Serialize TT device bring-up/teardown across every process on the host.
+
+    Opening (or closing) a chip runs through the user-mode driver's cross-process
+    device-init path: tt::umd::LocalChip::start_device -> LockManager::acquire_mutex,
+    which coordinates via robust mutexes in /dev/shm (TT_UMD_LOCK.*). Letting
+    several processes do this at once deadlocks that path on a Galaxy — confirmed
+    from a live hang: many design-shard subprocesses (each opening its own chip)
+    all block in tt::umd::LockManager::acquire_mutex during start_device, one
+    holder stalls, and the rest pile up until the watchdog kills the run. Prediction
+    never hits this because each worker opens its chip once and reuses it; only
+    design opens a fresh device per shard, concurrently.
+
+    A single host-wide advisory lock makes every open/close strictly one-at-a-time,
+    so the UMD init path is never raced. The lock is *blocking* on purpose: an
+    earlier best-effort timeout that let opens proceed concurrently after waiting
+    is exactly what reintroduced the deadlock. The kernel drops the lock if a
+    holder dies, and the platform's per-run stall watchdog bounds any pathological
+    case, so this can never wedge worse than opening unserialized.
     """
-    import fcntl, time as _t
-    lock_file, held = None, False
+    import fcntl
     try:
-        lock_file = open("/tmp/tt-bio-device-open.lock", "w")
-        deadline = _t.time() + 180.0
-        while True:
-            try:
-                fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                held = True
-                break
-            except OSError:
-                if _t.time() >= deadline:
-                    break  # proceed best-effort rather than block indefinitely
-                _t.sleep(0.5)
+        f = open(_DEVICE_INIT_LOCK_PATH, "w")
     except Exception:
-        lock_file = None  # couldn't take the lock -> don't block device bring-up
+        yield  # can't create the lock file -> don't block bring-up
+        return
     try:
+        fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
+        yield
+    finally:
+        try:
+            fcntl.flock(f, fcntl.LOCK_UN)
+            f.close()
+        except Exception:
+            pass
+
+
+def _open_device_locked(device_id, kwargs):
+    """Open + configure the device with bring-up strictly serialized host-wide."""
+    with _device_init_lock():
         dev = ttnn.open_device(device_id=device_id, **kwargs)
         _configure_active_compute_grid(dev)
         dev.enable_program_cache()
         return dev
-    finally:
-        if lock_file is not None:
-            try:
-                if held:
-                    fcntl.flock(lock_file, fcntl.LOCK_UN)
-                lock_file.close()
-            except Exception:
-                pass
 
 
 def get_device():
@@ -317,7 +324,11 @@ def cleanup():
             ttnn.synchronize_device(_device)
         except Exception:
             pass
-        ttnn.close_device(_device)
+        # Closing also runs through the UMD device path, so serialize it with
+        # opens (see _device_init_lock): a close racing an open on another chip
+        # contends on the same cross-process init mutexes.
+        with _device_init_lock():
+            ttnn.close_device(_device)
         _device = None
 
 
