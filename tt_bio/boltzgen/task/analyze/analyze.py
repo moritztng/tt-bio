@@ -155,9 +155,15 @@ class Analyze(Task):
         self.diversity_subset = diversity_subset
         self.use_design_mask_for_target = use_design_mask_for_target
 
-        # Prevent each worker process from spawning its own multithreaded pools
+        # Prevent each worker process from spawning its own multithreaded pools.
+        # set_num_interop_threads can only be set once per process (before any
+        # parallel work); when the pipeline runs in-process on a reused worker it
+        # is already set, so a second call raises — that's benign, ignore it.
         torch.set_num_threads(1)
-        torch.set_num_interop_threads(1)
+        try:
+            torch.set_num_interop_threads(1)
+        except RuntimeError:
+            pass
 
         if design_dir is not None:
             self.init_datasets(design_dir, load_dataset=False)
