@@ -1594,6 +1594,10 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
         fetch_msa(seqs, msa_dir, msa_endpoint)
         return
     if msa_db_path:
+        # ESMFold2 / Protenix consume unpaired per-chain a3m only (block-diagonal
+        # assembly), never paired alignments — so search independently (pair=False)
+        # in one batched colabfold_search call instead of paying the paired-mode
+        # cost for every multi-chain offline run.
         compute_msa_offline(seqs, target_id, msa_dir, msa_db_path,
                             use_env=use_envdb, pairing_strategy=msa_strategy, pair=False)
         return
