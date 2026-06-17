@@ -350,25 +350,57 @@ class _WorkerState:
         def _pfn(stage, step, total):
             report_progress("diffusion" if stage == "trunk" else stage)
 
+        n_sample = int(cfg["diffusion_samples"])
         coords, conf = self.model.fold(
-            feats, n_step=cfg["sampling_steps"], n_sample=cfg["diffusion_samples"],
+            feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
             seed=cfg.get("seed") or 0, progress_fn=_pfn, return_confidence=True,
             n_cycles=cfg.get("recycling_steps"),
         )
-        out = Path(cfg["struct_dir"]) / f"{path.stem}.{cfg['output_format']}"
-        # per-atom pLDDT (0-1) -> B-factors (0-100), matching the AF/Boltz confidence convention
-        _write_protenix_structure(coords[0], feats, None, out, cfg["output_format"],
-                                  b_factors=conf["plddt_atom"] * 100.0)
-        if cfg.get("write_pae"):                       # token-token PAE matrix (Angstrom)
-            import numpy as np
-            np.savez(out.with_suffix(".pae.npz"), pae=conf["pae"].numpy(), pde=conf["pde"].numpy())
+        confs = conf if isinstance(conf, list) else [conf]
+
+        # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers,
+        # falling back to pLDDT only if neither is available. Picks the best sample
+        # and orders all_runs — mirrors Boltz-2's confidence_score ranking.
+        def _score(c):
+            ptm, iptm = c.get("ptm", 0.0), c.get("iptm", 0.0)
+            if iptm > 0.0:
+                return 0.8 * iptm + 0.2 * ptm
+            return ptm if ptm > 0.0 else c["plddt"]
+
+        order = sorted(range(len(confs)), key=lambda k: _score(confs[k]), reverse=True)
+        rank_of = {k: r for r, k in enumerate(order)}    # sample index -> rank (0 = best)
+
+        struct_dir = Path(cfg["struct_dir"])
+        stem, fmt = path.stem, cfg["output_format"]
+        # Write best as "{stem}.{fmt}" and the rest as "{stem}_model_{rank}.{fmt}",
+        # exactly like Boltz-2's write_result, so the web portal's progress count,
+        # ensemble-similarity and downloads treat both models identically.
+        for k in range(len(confs)):
+            r = rank_of[k]
+            name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
+            # per-atom pLDDT (0-1) -> B-factors (0-100), the AF/Boltz convention
+            _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
+                                      b_factors=confs[k]["plddt_atom"] * 100.0)
+
+        def _row(c):
+            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
+                    "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
+                    "confidence_score": round(_score(c), 6)}
+
+        best = confs[order[0]]
         metrics = {
-            "plddt": round(conf["plddt"], 4),
+            **_row(best),
             "n_residues": sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand"),
             "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
             "msa": any(a for _, a, _ in chain_specs),
-            "n_atoms": int(coords.shape[1]), "samples": cfg["diffusion_samples"],
+            "n_atoms": int(coords.shape[1]), "samples": n_sample,
         }
+        if len(confs) > 1:
+            metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
+        if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
+            import numpy as np
+            np.savez(struct_dir / f"{stem}_pae.npz",
+                     pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def predict_affinity(self, path: Path, pred_structure, cfg: dict[str, Any]) -> dict[str, float]:
