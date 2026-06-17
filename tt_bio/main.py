@@ -391,15 +391,26 @@ def _validate_offline_msa_db(db_path: Path, require_envdb: bool = False) -> None
 
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
-                        pairing_strategy: str = "greedy") -> None:
-    """Generate MSAs locally via colabfold_search against a local database."""
-    click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, pairing={pairing_strategy})")
+                        pairing_strategy: str = "greedy", pair: bool = True) -> None:
+    """Generate MSAs locally via colabfold_search against a local database.
+
+    With multiple sequences and ``pair=True`` (default) the search also computes
+    paired alignments, treating the set as one complex's chains. Pass
+    ``pair=False`` to search many *independent* sequences in a single batched
+    call (one unpaired ``{name}.a3m`` each, no cross-pairing) — far faster than
+    one colabfold_search per sequence for large inputs.
+    """
+    click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, "
+               f"pairing={pairing_strategy if pair else 'none'})")
     colabfold_bin = _find_colabfold_search()
     mmseqs_bin = _find_mmseqs()
     strategy_map = {"greedy": "0", "complete": "1"}
     strategy_val = strategy_map.get(pairing_strategy, pairing_strategy)
-    tmp = msa_dir / f"_offline_tmp_{os.getpid()}"
-    tmp.mkdir(exist_ok=True)
+    # Unique per process AND thread so concurrent searches in one process (e.g.
+    # the MSA server with max_concurrent > 1) don't share a scratch dir.
+    import threading
+    tmp = msa_dir / f"_offline_tmp_{os.getpid()}_{threading.get_ident()}"
+    tmp.mkdir(parents=True, exist_ok=True)
     try:
         fasta = tmp / "query.fasta"
         with open(fasta, "w") as f:
@@ -417,7 +428,7 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
             "--use-env", "1" if use_env else "0", "--use-templates", "0",
             "--db-load-mode", "2", "--threads", str(threads),
         ]
-        if len(seqs) > 1:
+        if pair and len(seqs) > 1:
             cmd_base += ["--pair-mode", "unpaired_paired", "--pairing_strategy", strategy_val]
 
         commands = []
@@ -1319,6 +1330,38 @@ def msa(db, path, install_tools):
     click.echo(f"  tt-bio predict input.yaml --msa_db_path {db_dir}")
 
 
+@cli.command("msa-server")
+@click.option("--listen", default="8765", help="PORT or HOST:PORT to bind (default 8765).")
+@click.option("--msa_db_path", default=None, type=click.Path(),
+              help="Local ColabFold DB to search (default: auto-detect ~/.boltz/msa_db).")
+@click.option("--cache", "cache_dir", default=None, type=click.Path(),
+              help="a3m cache directory (default: <cache>/msa_server_cache).")
+@click.option("--use_envdb", is_flag=True, help="Also search the environmental DB (requires envdb).")
+@click.option("--max_concurrent", default=1, type=int,
+              help="Max simultaneous colabfold_search runs (each already uses many cores).")
+@click.option("--token", default=None, help="Require this bearer token on requests.")
+def msa_server_cmd(listen, msa_db_path, cache_dir, use_envdb, max_concurrent, token):
+    """Serve offline MSA over HTTP so other machines need not host the database.
+
+    \b
+    One machine with the DB:
+        tt-bio msa-server --listen 0.0.0.0:8765
+    Every other machine / the web portal then fetches MSAs from it:
+        tt-bio predict input.yaml --model protenix-v2 --msa_endpoint http://HOST:8765
+    """
+    cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
+    db_dir = Path(msa_db_path).expanduser() if msa_db_path else cache / "msa_db"
+    _validate_offline_msa_db(db_dir, require_envdb=use_envdb)
+    cache_path = Path(cache_dir).expanduser() if cache_dir else cache / "msa_server_cache"
+
+    host, _, port = listen.rpartition(":")
+    host, port = (host or "0.0.0.0"), int(port or listen)
+
+    from tt_bio.msa_server import run_server
+    run_server(host, port, str(db_dir), cache_path,
+               use_env=use_envdb, max_concurrent=max_concurrent, token=token)
+
+
 # ---------------------------------------------------------------------------
 # ESMFold2 (--model esmfold2): single-sequence, protein-only, on-device ttnn.
 # ---------------------------------------------------------------------------
@@ -1532,17 +1575,27 @@ def _write_structure(complex_obj, outpath, output_format):
 
 
 def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
-                           msa_url, msa_strategy, msa_user, msa_pass, api_key):
-    """Write a cached ``{seq_hash}.a3m`` for each sequence (local DB or server).
+                           msa_url, msa_strategy, msa_user, msa_pass, api_key,
+                           msa_endpoint=None):
+    """Write a cached ``{seq_hash}.a3m`` for each sequence (MSA server, local DB,
+    or ColabFold API).
 
-    ``seqs`` maps seq_hash -> sequence. Local-DB search (``compute_msa_offline``)
-    already writes ``{hash}.a3m``; the ColabFold server path runs an unpaired
+    ``seqs`` maps seq_hash -> sequence. A tt-bio MSA server (``msa_endpoint``) is
+    preferred when given; otherwise local-DB search (``compute_msa_offline``)
+    already writes ``{hash}.a3m``, and the ColabFold API path runs an unpaired
     mmseqs2 search and writes its a3m text directly (the esm MSA reader wants
-    a3m, unlike the Boltz CSV path).
+    a3m, unlike the Boltz CSV path). ESMFold2/Protenix use unpaired per-chain a3m,
+    so the local search runs with pair=False (one batched call, no wasted paired
+    search).
     """
+    if msa_endpoint:
+        from tt_bio.msa_server import fetch_msa
+
+        fetch_msa(seqs, msa_dir, msa_endpoint)
+        return
     if msa_db_path:
         compute_msa_offline(seqs, target_id, msa_dir, msa_db_path,
-                            use_env=use_envdb, pairing_strategy=msa_strategy)
+                            use_env=use_envdb, pairing_strategy=msa_strategy, pair=False)
         return
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
     res = run_mmseqs2(list(seqs.values()), msa_dir / f"{target_id}_esm_tmp", use_env=use_envdb,
@@ -1572,6 +1625,7 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
               help="MSA cache directory (default: <out_dir>/msa). Point at a persistent shared "
                    "path to reuse {seq_hash}.a3m across runs and hosts (never re-search a sequence).")
 @click.option("--use_envdb", is_flag=True, help="Also search ColabFold environmental database (requires envdb)")
+@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v2.")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
 @click.option("--msa_server_username", default=None)
@@ -1611,7 +1665,7 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
                    "ligand / affinity options apply to boltz2 only).")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, msa_server_url, msa_pairing_strategy,
+            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
@@ -1703,6 +1757,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "diffusion_samples": diffusion_samples, "seed": seed or 0,
             "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
             "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
+            "msa_endpoint": msa_endpoint,
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,

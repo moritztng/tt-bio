@@ -281,7 +281,7 @@ class _WorkerState:
                     to_gen, path.stem, msa_dir, cfg.get("msa_db_path"), cfg.get("use_envdb", False),
                     cfg.get("msa_server_url"), cfg.get("msa_pairing_strategy"),
                     cfg.get("msa_server_username"), cfg.get("msa_server_password"),
-                    cfg.get("api_key_value"))
+                    cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
 
         report_progress("prep")
         chains = [(cid, seq, resolve_msa(spec, seq, msa_dir, max_sequences=max_msa) if uses_msa else None)
@@ -339,7 +339,8 @@ class _WorkerState:
                 need, path.stem, msa_dir, cfg.get("msa_db_path"),
                 cfg.get("use_envdb", False), cfg.get("msa_server_url"),
                 cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                cfg.get("msa_server_password"), cfg.get("api_key_value"))
+                cfg.get("msa_server_password"), cfg.get("api_key_value"),
+                msa_endpoint=cfg.get("msa_endpoint"))
         chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir) if mt == "protein" else None, mt)
                        for _cid, cseq, spec, mt in chains]
 
