@@ -282,5 +282,14 @@ def run_mmseqs2(  # noqa: PLR0912, D103, C901, PLR0915
                         a3m_lines[M] = []
                 a3m_lines[M].append(line)
 
-    a3m_lines = ["".join(a3m_lines[n]) for n in Ms]
-    return a3m_lines
+    # A query with no database hits may have no block in the returned a3m (the
+    # server can omit it entirely). Fall back to the query's own sequence as a
+    # singleton a3m so that sequence folds single-sequence instead of raising a
+    # KeyError that fails the whole batch.
+    out = []
+    for i, n in enumerate(Ms):
+        if n in a3m_lines:
+            out.append("".join(a3m_lines[n]))
+        else:
+            out.append(f">{n}\n{seqs[i]}\n")
+    return out
