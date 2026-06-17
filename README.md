@@ -113,6 +113,20 @@ tt-bio predict examples/prot.yaml --model boltz2 --use_envdb --override
 - `--debug`: Show all raw output from the hardware and libraries instead of the progress display
 - `--debug --log`: Same as `--debug`, but also print what each device is currently working on
 
+### Shared MSA Server (Optional)
+
+Host the database on one machine and let others fetch MSAs from it over HTTP, so each prediction machine need not keep its own ~500GB copy.
+
+```bash
+# On the machine with the database:
+tt-bio msa-server --listen 0.0.0.0:8765
+
+# On any other machine (no local database needed):
+tt-bio predict examples/prot.yaml --model protenix-v2 --msa_endpoint http://HOST:8765
+```
+
+The server runs the same offline `colabfold_search` and serves unpaired `{hash}.a3m`, with a shared cache and a search-concurrency cap (`--max_concurrent`). Add `--token` to require `Authorization: Bearer <token>`. `--msa_endpoint` applies to `--model esmfold2`/`protenix-v2`.
+
 ### Binding Affinity Prediction (Boltz-2)
 
 Predict binding affinity for protein-ligand complexes:
@@ -307,6 +321,7 @@ Options apply to every model unless tagged **(Boltz-2)**.
 | `--output_format` | `cif` | `cif` or `pdb` |
 | `--override` | `False` | Re-run from scratch |
 | `--use_msa_server` | `False` | Use online ColabFold API for MSAs (required for Boltz-2, optional for ESMFold2) |
+| `--msa_endpoint` | — | **(ESMFold2/Protenix-v2)** Fetch MSAs from a `tt-bio msa-server` at this URL instead of searching locally |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
