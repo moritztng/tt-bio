@@ -659,17 +659,47 @@ class ConfidenceHead:
             centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
             return (torch.softmax(logits, -1) * centers).sum(-1)
 
-        pae = _expected(F.linear(F.layer_norm(zf, (256,)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
-                                 self._g("linear_no_bias_pae.weight")))                     # (N,N)
+        pae_logits = F.linear(F.layer_norm(zf, (256,)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
+                              self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
+        pae = _expected(pae_logits)                                                          # (N,N)
         pde = _expected(F.linear(F.layer_norm(zf + zf.transpose(0, 1), (256,)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
                                  self._g("linear_no_bias_pde.weight")))                     # (N,N)
+        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
         a2t = feats["atom_to_token_idx"].long(); a2ta = feats["atom_to_tokatom_idx"].long()
         a = s_single[a2t]
         aln = F.layer_norm(a, (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
         logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])  # (N_atom, n_bins)
         nb = logits.shape[-1]
         plddt_atom = (torch.softmax(logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
-        return {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde}
+        return {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
+                "ptm": ptm, "iptm": iptm}
+
+    @staticmethod
+    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0):
+        """Predicted TM-score (pTM) and interface pTM (ipTM) from the PAE bin logits,
+        the standard AlphaFold formula. pTM = max over alignment frame i of the mean
+        predicted TM to all tokens j; ipTM restricts j to *other* chains (via asym_id).
+        Returns (ptm, iptm); iptm is 0.0 for single-chain inputs."""
+        import torch
+
+        N, _, nb = pae_logits.shape
+        centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
+        probs = torch.softmax(pae_logits.float(), -1)                       # (N,N,nb)
+        n = max(N, 19)
+        d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
+        tm_per_bin = 1.0 / (1.0 + (centers / d0) ** 2)                      # (nb,)
+        e_tm = (probs * tm_per_bin).sum(-1)                                 # (N,N) E[TM] per pair
+        ptm = float(e_tm.mean(dim=-1).max())
+        iptm = 0.0
+        if asym_id is not None:
+            a = asym_id.long().reshape(-1)
+            if a.numel() == N and int(a.unique().numel()) > 1:
+                cross = a[:, None] != a[None, :]                           # (N,N) different-chain
+                denom = cross.sum(dim=-1).clamp(min=1)
+                row = (e_tm * cross.float()).sum(dim=-1) / denom
+                valid = cross.any(dim=-1)
+                iptm = float(row[valid].max()) if bool(valid.any()) else 0.0
+        return round(ptm, 6), round(iptm, 6)
 
     def plddt(self, s_inputs, s_trunk, z_trunk, coords, feats):
         """Mean pLDDT in [0,1] (back-compat thin wrapper over confidence())."""
@@ -852,7 +882,8 @@ class Protenix:
         """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
         iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
         coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
-        conf is the dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N)}."""
+        conf is a dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N),
+        ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1."""
         import torch
         fi = self._atom_feat_inputs(feats)
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
@@ -903,8 +934,12 @@ class Protenix:
             coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed)[0])
         coords = torch.stack(coords, 0)
         if return_confidence:
-            conf = self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[0], feats)
-            return coords, conf
+            # Per-sample confidence so callers can rank samples (best-of-N) and
+            # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
+            # (back-compat); n_sample>1 returns a list aligned with coords.
+            confs = [self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
+                     for k in range(n_sample)]
+            return coords, (confs[0] if n_sample == 1 else confs)
         return coords
 
 
