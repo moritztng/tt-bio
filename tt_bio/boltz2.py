@@ -5139,6 +5139,25 @@ class Boltz2(nn.Module):
                 ):
                     param.requires_grad = False
 
+    def _tt_trunk_module(self):
+        """Lazily build the device-resident trunk driver (TT path only).
+
+        Reuses the inner MSA/Pairformer device modules owned by the existing
+        wrappers (created during state-dict load) plus a TrunkRecycle built from
+        the already-loaded recycle weights. Cached after first use.
+        """
+        trunk = getattr(self, "_tt_trunk", None)
+        if trunk is None:
+            recycle = tenstorrent.TrunkRecycle(
+                self.s_norm, self.z_norm, self.s_recycle, self.z_recycle,
+                self.msa_module.compute_kernel_config,
+            )
+            trunk = tenstorrent.TrunkModule(
+                recycle, self.msa_module.module, self.pairformer_module.module
+            )
+            self._tt_trunk = trunk
+        return trunk
+
     def forward(
         self,
         feats: dict[str, Tensor],
@@ -5199,7 +5218,22 @@ class Boltz2(nn.Module):
             and template_mask is not None
             and bool(template_mask.any().item())
         )
-        if self.run_trunk_and_structure:
+        # Run the whole recycling loop resident on the Tenstorrent device (no
+        # per-iteration host round-trips). Only for the no-template, uncompiled TT
+        # path; everything else uses the host loop below.
+        use_resident_trunk = (
+            self.run_trunk_and_structure
+            and self.use_tenstorrent
+            and not has_templates
+            and not self.is_msa_compiled
+            and not self.is_pairformer_compiled
+        )
+        if use_resident_trunk:
+            _trunk = self._tt_trunk_module()
+            s, z = _trunk(s_inputs, s_init, z_init, feats, recycling_steps)
+            if _pfn:
+                _pfn("trunk", step=recycling_steps, total=recycling_steps + 1)
+        elif self.run_trunk_and_structure:
             for i in range(recycling_steps + 1):
                 if _pfn:
                     _pfn("trunk", step=i, total=recycling_steps + 1)
