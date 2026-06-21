@@ -37,3 +37,54 @@ Env-gated (TT_BIO_TRACE / TT_BIO_TRACE_DIFFUSION); default off => zero behavior 
   warning is benign (transient op buffers).
 - Fold plddt/ptm differences (~0.004) are DEVICE NONDETERMINISM: two eager runs w/ identical MSA+seed
   differ 0.005 plddt / 0.031 ptm. Fold metrics are NOT a losslessness test (playbook RNG confound).
+
+## Rigorous same-code A/B (median of 3, --fast, shared MSA), L=512
+trace OFF (branch, trace disabled): e2e 35.3s  trunk 21.86s  diffusion ~10.3s
+trace ON  (branch):                 e2e 32.6s  trunk 18.73s  diffusion ~10.3s (gated off)
+=> trunk -14.3%, e2e -7.6%. Diffusion unchanged at 512 (size-gated off). LOSSLESS (PCC=1.0).
+
+## Accuracy / robustness
+- Bit-identical proof (byte-identical inputs, TT_BIO_TRACE_SELFCHECK):
+  diffusion step PCC=1.000000 maxdiff=0; pairformer stack PCC=1.000000 maxdiff=0.
+- Fold-metric variance is DEVICE NONDETERMINISM: two eager runs (same MSA+seed) differ
+  0.005 plddt / 0.031 ptm; Ca-RMSD eager-vs-eager = 2.84A, eager-vs-TRACE = 2.66A (no regression).
+- Default (non-fast) mode: trace works, plddt 0.862 sane, no OOM.
+- Sizes 256/512/686 all run --fast and default, NO OOM with 2GiB trace region.
+- Feature env-gated default-OFF => zero behavior change unless TT_BIO_TRACE set.
+- Committed: 25f1c0a on exp/perf-20260621-diffusion-resident.
+
+## Trace-ON reps (concurrent, for reference) — medians
+L=256: e2e 14.3s (trunk ~6.97, diffusion ~6.0)   L=686: e2e 53.1s (trunk ~33.4)
+(Clean non-concurrent A/B for 256/686 in the FINAL SUMMARY below.)
+
+## NOTE on measurement
+Multi-card parallel folds contend on HOST CPU (the diffusion host sampling loop),
+inflating wall time 1-3s. The L=512 A/B above used SYMMETRIC concurrency (off & on
+both running) so its delta is valid. 256/686 final numbers re-measured ALONE.
+
+## ===== FINAL SUMMARY (clean, non-concurrent, warm --fast) =====
+| Size | baseline e2e | trace e2e | e2e Δ | trunk Δ | diffusion trace |
+|------|-------------|-----------|-------|---------|-----------------|
+| L=256 | 17.5s (17.4/17.6) | 13.9s (13.7/14.1) | **-20.6%** | -23% | ON (gated, helps) |
+| L=512 | 35.3s (3-rep med) | 32.6s (3-rep med) | **-7.6%** | -14.3% | OFF (gated; compute-bound) |
+| L=686 | 61.5s | 51.6s | **-16.1%** | -22% | OFF (gated) |
+
+(L=512 = rigorous 3-rep symmetric A/B; 256/686 = clean alone runs. Concurrent runs
+contend on host CPU; all numbers above are contention-free except where noted.)
+
+ACCURACY: bit-identical (per-step PCC=1.000000 maxdiff=0 for diffusion AND pairformer
+on byte-identical inputs). Lossless by construction. End-to-end Ca-RMSD trace-vs-eager
+(2.66A) <= eager-vs-eager device-nondeterminism floor (2.84A): NO regression.
+
+ROBUSTNESS: 256/512/686 all run --fast AND default(non-fast); NO OOM (2GiB trace region).
+Default-OFF => existing behavior byte-unchanged. Untested (handled by construction):
+templated/ligand/multimer inputs.
+
+RECOMMENDATION: MERGE as opt-in (set TT_BIO_TRACE=1). Validated lossless, -7.6% to -20.6%
+e2e across sizes, no regression anywhere, zero-risk when off. Before flipping default-ON:
+validate templated/ligand/multimer folds and confirm 2GiB region safe for largest production
+proteins / multi-sample diffusion.
+
+NOTE: main (NOT this branch) intermittently HANGS at "trunk 1/4" on L=686 (livelock,
+~13min CPU, ignores SIGINT) — observed on 2 of ~6 main-baseline 686 runs; the trace branch
+runs all completed cleanly. Possibly a pre-existing main instability; worth a separate look.
