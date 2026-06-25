@@ -2704,3 +2704,332 @@ class MSAModule(TorchWrapper):
 
         z_out = z_out[:, :seq_len, :seq_len, :]
         return z_out
+
+
+class TrunkRecycle:
+    """Device-resident trunk recycle glue.
+
+    Computes, entirely on the TT device::
+
+        s = s_init + s_recycle(s_norm(s))
+        z = z_init + z_recycle(z_norm(z))
+
+    mirroring the host torch ops in ``Boltz2.forward`` (the recycling loop).
+    ``s_norm``/``z_norm`` are ``nn.LayerNorm`` (weight + bias, eps 1e-5);
+    ``s_recycle``/``z_recycle`` are ``nn.Linear(.., bias=False)``. The ttnn
+    weights are built directly from the already-loaded torch modules so this
+    needs no separate state-dict load.
+    """
+
+    def __init__(self, s_norm, z_norm, s_recycle, z_recycle, compute_kernel_config):
+        self.compute_kernel_config = compute_kernel_config
+        device = get_device()
+
+        def w(tensor, transpose=False):
+            t = tensor.detach()
+            if transpose:
+                t = t.t().contiguous()
+            return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        self.s_norm_weight = w(s_norm.weight)
+        self.s_norm_bias = w(s_norm.bias)
+        self.z_norm_weight = w(z_norm.weight)
+        self.z_norm_bias = w(z_norm.bias)
+        # nn.Linear stores weight as [out, in]; ttnn.linear wants [in, out].
+        self.s_recycle_weight = w(s_recycle.weight, transpose=True)
+        self.z_recycle_weight = w(z_recycle.weight, transpose=True)
+
+    def _branch(self, x, norm_weight, norm_bias, recycle_weight, init):
+        x_norm = ttnn.layer_norm(
+            x,
+            weight=norm_weight,
+            bias=norm_bias,
+            epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+        )
+        x_rec = ttnn.linear(
+            x_norm,
+            recycle_weight,
+            compute_kernel_config=self.compute_kernel_config,
+            core_grid=CORE_GRID_MAIN,
+        )
+        ttnn.deallocate(x_norm)
+        out = ttnn.add(init, x_rec)
+        ttnn.deallocate(x_rec)
+        return out
+
+    def __call__(self, s, z, s_init, z_init):
+        s_out = self._branch(s, self.s_norm_weight, self.s_norm_bias, self.s_recycle_weight, s_init)
+        z_out = self._branch(z, self.z_norm_weight, self.z_norm_bias, self.z_recycle_weight, z_init)
+        return s_out, z_out
+
+
+class TemplateRecycle:
+    """Device-resident template injection for the Boltz-2 trunk.
+
+    Mirrors ``TemplateV2Module.forward`` but runs the per-recycling-iteration,
+    z-dependent ops fully on the TT device, reusing the template module's inner
+    ttnn ``Pairformer``. The z-INDEPENDENT template geometry (``a_tij``) is
+    constant across iterations, so it is computed once on host (``precompute``),
+    padded to the trunk's padded seq length, and uploaded. This removes the
+    per-iteration host round-trip the torch template module would otherwise incur.
+
+    Per call:  u = u_proj(relu( sum_t v_t / num_templates ))
+      where    v_t = v_norm( w_t + pairformer(w_t) ),  w_t = z_proj(z_norm(z)) + a_tij[t]
+    """
+
+    def __init__(self, template_module, compute_kernel_config):
+        self.tmpl = template_module                          # torch module (template_features)
+        self.pairformer = template_module.pairformer.module  # inner device-resident pairformer
+        self.compute_kernel_config = compute_kernel_config
+        device = get_device()
+
+        def w(t, transpose=False):
+            t = t.detach()
+            if transpose:
+                t = t.t().contiguous()
+            return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        self.z_norm_w = w(template_module.z_norm.weight)
+        self.z_norm_b = w(template_module.z_norm.bias)
+        self.v_norm_w = w(template_module.v_norm.weight)
+        self.v_norm_b = w(template_module.v_norm.bias)
+        # nn.Linear weight is [out, in]; ttnn.linear wants [in, out].
+        self.z_proj_w = w(template_module.z_proj.weight, transpose=True)  # token_z -> template_dim
+        self.u_proj_w = w(template_module.u_proj.weight, transpose=True)  # template_dim -> token_z
+
+    def precompute(self, feats, pair_mask_unpad, seq_len, seq_pad):
+        """Host once-per-protein: a_tij (padded, uploaded per present template) plus
+        the padding-only masks the template pairformer uses (it is called mask-free)."""
+        device = get_device()
+        a_tij, template_mask, num_templates, _, _, T = self.tmpl.template_features(
+            feats, pair_mask_unpad
+        )
+        if seq_pad:
+            a_tij = torch.nn.functional.pad(a_tij, (0, 0, 0, seq_pad, 0, seq_pad))
+        present = [t for t in range(T) if bool(template_mask[0, t] > 0)]
+        a_tij_tt = [
+            ttnn.from_torch(a_tij[:, t].contiguous(), layout=ttnn.TILE_LAYOUT,
+                            device=device, dtype=ttnn.bfloat16)
+            for t in present
+        ]
+        # template pairformer is called without a mask -> padding-only masks (mirror
+        # PairformerModule.forward's no-mask branch); None when no padding.
+        if seq_pad:
+            mask_1d = a_tij.new_ones(1, seq_len + seq_pad)
+            mask_1d[:, seq_len:] = 0.0
+            mask_tt = ttnn.from_torch(mask_1d, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+            attn_tt = ttnn.from_torch((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9,
+                                      layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+        else:
+            mask_tt = attn_tt = None
+        return {"a_tij_tt": a_tij_tt, "num_templates": float(num_templates[0]),
+                "mask_tt": mask_tt, "attn_tt": attn_tt}
+
+    def __call__(self, z, tmpl):
+        """z [1,P,P,token_z] -> template delta u [1,P,P,token_z], fully on device."""
+        ckc = self.compute_kernel_config
+        z_n = ttnn.layer_norm(z, weight=self.z_norm_w, bias=self.z_norm_b,
+                              epsilon=1e-5, compute_kernel_config=ckc)
+        z_p = ttnn.linear(z_n, self.z_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(z_n)
+        mask_tt, attn_tt = tmpl["mask_tt"], tmpl["attn_tt"]
+        u_acc = None
+        for a_tij_tt in tmpl["a_tij_tt"]:
+            v = ttnn.add(z_p, a_tij_tt)
+            _, z_out = self.pairformer(None, v, mask_tt, attn_tt, attn_tt)
+            v2 = ttnn.add(v, z_out)
+            ttnn.deallocate(v)
+            ttnn.deallocate(z_out)
+            v2 = ttnn.layer_norm(v2, weight=self.v_norm_w, bias=self.v_norm_b,
+                                 epsilon=1e-5, compute_kernel_config=ckc)
+            if u_acc is None:
+                u_acc = v2
+            else:
+                new = ttnn.add(u_acc, v2)
+                ttnn.deallocate(u_acc)
+                ttnn.deallocate(v2)
+                u_acc = new
+        ttnn.deallocate(z_p)
+        u = ttnn.multiply(u_acc, 1.0 / tmpl["num_templates"])
+        ttnn.deallocate(u_acc)
+        u = ttnn.relu(u)
+        u = ttnn.linear(u, self.u_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        return u
+
+
+class TrunkModule(TorchWrapper):
+    """Device-resident Boltz2 trunk (recycling) loop.
+
+    Replaces the host-side recycling loop in ``Boltz2.forward`` for the simplest
+    case (no templates). The whole loop runs on the TT device: ``s``/``z`` are
+    uploaded once as zeros, all per-protein constants (``s_init``/``z_init``/
+    ``s_inputs``, the MSA feature tensor and every mask) are built on host once
+    and uploaded once, and only the final ``s``/``z`` come back to torch. This
+    removes the per-iteration host round-trips (4x from_torch/to_torch of the
+    full padded z) that previously defeated on-device residency.
+
+    It reuses the *inner* (already device-resident) ``MSA`` and ``Pairformer``
+    modules owned by the existing ``MSAModule`` / ``PairformerModule`` wrappers,
+    plus a ``TrunkRecycle`` for the glue. The mask / MSA-feature construction
+    below mirrors ``MSAModule.forward`` and ``PairformerModule.forward`` exactly.
+    """
+
+    def __init__(self, recycle: TrunkRecycle, msa_inner: "MSA", pairformer_inner: "Pairformer",
+                 template_recycle: "TemplateRecycle" = None):
+        super().__init__()
+        self.recycle = recycle
+        self.msa = msa_inner
+        self.pairformer = pairformer_inner
+        # Optional device-resident template injection. When set AND the input carries
+        # templates, z = z + template(z) runs fully on device each recycling iteration
+        # (no host round-trip), reusing the template's inner ttnn Pairformer; the
+        # z-independent a_tij geometry is hoisted (computed once). See TemplateRecycle.
+        self.template_recycle = template_recycle
+
+    def _build_static(self, s_inputs, s_init, z_init, feats):
+        """Build + upload (once per protein) all loop-invariant device tensors.
+
+        Returns a dict cached in ``self._runtime_cache`` and reused across the
+        recycling iterations.
+        """
+        seq_len = z_init.shape[1]
+        seq_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        padded_seq = seq_len + seq_pad
+
+        # ---- MSA feature tensor (host), mirrors MSAModule.forward ----
+        m = torch.cat(
+            [
+                torch.nn.functional.one_hot(feats["msa"], num_classes=33),
+                feats["has_deletion"].unsqueeze(-1),
+                feats["deletion_value"].unsqueeze(-1),
+                feats["msa_paired"].unsqueeze(-1),
+            ],
+            dim=-1,
+        )
+        n_msa = m.shape[1]
+        msa_pad = (-n_msa) % MSA_PAD_MULTIPLE
+
+        # ---- pad the per-protein constants ----
+        pad = torch.nn.functional.pad
+        s_init_p = pad(s_init, (0, 0, 0, seq_pad)) if seq_pad else s_init
+        z_init_p = pad(z_init, (0, 0, 0, seq_pad, 0, seq_pad)) if seq_pad else z_init
+        s_inputs_p = pad(s_inputs, (0, 0, 0, seq_pad)) if seq_pad else s_inputs
+        m_p = pad(m, (0, 0, 0, seq_pad, 0, msa_pad)) if (seq_pad or msa_pad) else m
+
+        # ---- Pairformer masks (mirror PairformerModule.forward, non-affinity) ----
+        token_mask = feats["token_pad_mask"].float()
+        pair_mask = token_mask[:, :, None] * token_mask[:, None, :]
+        pair_mask_unpad = pair_mask  # unpadded [B, seq_len, seq_len] for the template module
+        mask_1d_pf = token_mask
+        if seq_pad:
+            mask_1d_pf = pad(mask_1d_pf, (0, seq_pad))
+            pair_mask = pad(pair_mask, (0, seq_pad, 0, seq_pad))
+        pf_mask_tt = self._from_torch(pair_mask)
+        pf_attn_tt = self._from_torch((1 - mask_1d_pf).unsqueeze(1).unsqueeze(1) * -1e9)
+
+        # ---- MSA masks (mirror MSAModule.forward: derived from padding only) ----
+        if seq_pad:
+            mask_1d_msa = z_init.new_ones(1, padded_seq)
+            mask_1d_msa[:, seq_len:] = 0.0
+            msa_mask_tt = self._from_torch(mask_1d_msa.unsqueeze(-1) * mask_1d_msa.unsqueeze(1))
+            msa_attn_tt = self._from_torch((1 - mask_1d_msa).unsqueeze(1).unsqueeze(1) * -1e9)
+        else:
+            msa_mask_tt = None
+            msa_attn_tt = None
+        if msa_pad:
+            padded_msa = n_msa + msa_pad
+            msa_row = z_init.new_zeros(padded_msa, 1, 1)
+            msa_row[:n_msa] = 1.0
+            msa_rowmask_tt = self._from_torch(msa_row)
+            n_msa_arg = n_msa
+        else:
+            msa_rowmask_tt = None
+            n_msa_arg = None
+
+        # ---- templates (device-resident injection, only if input carries them) ----
+        tm = feats.get("template_mask")
+        has_templates = (
+            self.template_recycle is not None
+            and tm is not None
+            and bool(tm.any().item())
+        )
+        tmpl_static = (
+            self.template_recycle.precompute(feats, pair_mask_unpad, seq_len, seq_pad)
+            if has_templates else None
+        )
+
+        static = {
+            "seq_len": seq_len,
+            "seq_pad": seq_pad,
+            "has_templates": has_templates,
+            "tmpl_static": tmpl_static,
+            "s_init_tt": self._from_torch(s_init_p),
+            "z_init_tt": self._from_torch(z_init_p),
+            "emb_tt": self._from_torch(s_inputs_p),
+            "m_tt": self._from_torch(m_p),
+            "pf_mask_tt": pf_mask_tt,
+            "pf_attn_tt": pf_attn_tt,
+            "msa_mask_tt": msa_mask_tt,
+            "msa_attn_tt": msa_attn_tt,
+            "msa_rowmask_tt": msa_rowmask_tt,
+            "n_msa_arg": n_msa_arg,
+        }
+        for k, v in static.items():
+            self._cache_set(k, v)
+        return static
+
+    def _apply_template(self, z_rec, st):
+        """z_rec = z_rec + template(z_rec), fully on device (no host round-trip)."""
+        delta = self.template_recycle(z_rec, st["tmpl_static"])
+        z_out = ttnn.add(z_rec, delta)
+        ttnn.deallocate(z_rec)
+        ttnn.deallocate(delta)
+        return z_out
+
+    def _iteration(self, s, z, st):
+        """Run one recycling iteration fully on device; returns (s, z)."""
+        # s = s_init + s_recycle(s_norm(s)); z = z_init + z_recycle(z_norm(z))
+        s_rec, z_rec = self.recycle(s, z, st["s_init_tt"], st["z_init_tt"])
+        ttnn.deallocate(s)
+        ttnn.deallocate(z)
+
+        # templates (before MSA, mirrors host): z_rec = z_rec + template_module(z_rec)
+        if st["has_templates"]:
+            z_rec = self._apply_template(z_rec, st)
+
+        # z = z + msa(z). The inner MSA mutates its z argument in place, so clone
+        # z_rec first to preserve it for the residual add (matches the wrapper,
+        # which passes a fresh upload each call).
+        z_for_msa = ttnn.clone(z_rec)
+        z_msa = self.msa(
+            z_for_msa,
+            st["m_tt"],
+            st["emb_tt"],
+            st["msa_mask_tt"],
+            st["msa_attn_tt"],
+            st["msa_rowmask_tt"],
+            st["n_msa_arg"],
+        )
+        z = ttnn.add(z_rec, z_msa)
+        ttnn.deallocate(z_rec)
+        ttnn.deallocate(z_msa)
+
+        # s, z = pairformer(s, z) -- inner mutates s_rec / z in place and returns them.
+        s, z = self.pairformer(s_rec, z, st["pf_mask_tt"], st["pf_attn_tt"], st["pf_attn_tt"])
+        return s, z
+
+    def forward(self, s_inputs, s_init, z_init, feats, recycling_steps):
+        st = self._build_static(s_inputs, s_init, z_init, feats)
+        seq_len = st["seq_len"]
+
+        s = self._from_torch(torch.zeros(list(st["s_init_tt"].shape), dtype=s_init.dtype))
+        z = self._from_torch(torch.zeros(list(st["z_init_tt"].shape), dtype=z_init.dtype))
+        for _ in range(recycling_steps + 1):
+            s, z = self._iteration(s, z, st)
+
+        s_out = self._to_torch(s)[:, :seq_len, :]
+        z_out = self._to_torch(z)[:, :seq_len, :seq_len, :]
+        ttnn.deallocate(s)
+        ttnn.deallocate(z)
+        return s_out, z_out
