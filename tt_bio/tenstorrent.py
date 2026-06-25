@@ -252,21 +252,38 @@ def _env_truthy(name: str) -> bool:
 
 _TRACE_ENABLED_DEFAULT = _env_truthy("TT_BIO_TRACE")
 
+# Only the diffusion-step trace is per-step bit-identical to eager (PCC=1.0,
+# maxdiff=0). The Pairformer/MSA (trunk) traces are ALSO per-call bit-identical,
+# yet enabling them reproducibly REGRESSES the end-to-end fold: on hemoglobin
+# (a confident ~0.8 A target) the trunk trace lands at ~2.4 A Cα-RMSD across every
+# seed tested (1,2,3,4,48; ~12/12 runs) where eager reliably folds to ~0.8 A
+# (seeds 2,4: eager 5/5 good, trunk-trace 5/5 bad — byte-identical MSA; 2026-06-25).
+# Per-step PCC does NOT catch this: the Boltz-2 fold is chaotically sensitive
+# (eager-vs-eager spans 0.78-2.80 A at fixed seed), so the trace replay's altered
+# noise structure tips borderline folds into a worse basin. The master TT_BIO_TRACE
+# switch therefore enables ONLY the diffusion trace; the trunk traces need an
+# explicit per-module opt-in (TT_BIO_TRACE_PAIRFORMER / TT_BIO_TRACE_MSA) and must
+# not be enabled in production until root-caused.
+_TRACE_MASTER_SAFE_KINDS = ("diffusion",)
+
 
 def _trace_enabled_for(kind: str) -> bool:
-    """Per-module trace toggle. ``TT_BIO_TRACE`` enables all; an individual knob
-    like ``TT_BIO_TRACE_DIFFUSION=0`` overrides it for one module."""
+    """Per-module trace toggle. The master ``TT_BIO_TRACE`` enables only the
+    accuracy-safe diffusion trace; an explicit per-module knob (e.g.
+    ``TT_BIO_TRACE_PAIRFORMER=1`` or ``TT_BIO_TRACE_DIFFUSION=0``) overrides it."""
     raw = os.environ.get(f"TT_BIO_TRACE_{kind.upper()}")
     if raw is None:
-        return _TRACE_ENABLED_DEFAULT
+        return _TRACE_ENABLED_DEFAULT and kind in _TRACE_MASTER_SAFE_KINDS
     return raw.lower() in ("1", "true", "on", "yes")
 
 
 # Diffusion-step tracing only pays off while the per-step host op-dispatch floor
 # dominates the device compute, i.e. for small proteins. Above this token count
 # the score model is compute-bound and replay is neutral-to-slightly-negative,
-# so the diffusion trace auto-disables (the trunk Pairformer/MSA traces still win
-# at every size and are unaffected). Measured: L=256 -22%, L=512/686 ~+5% (regress).
+# so the diffusion trace auto-disables. Measured: L=256 -22% (diffusion stage),
+# L=512/686 ~neutral (auto-gated off). The diffusion trace is per-step bit-identical
+# (the only trace with that property); the trunk Pairformer/MSA traces regress the
+# fold (see _trace_enabled_for) and are off-by-default under the master switch.
 _DIFFUSION_TRACE_MAX_SEQ_LEN = int(os.environ.get("TT_BIO_TRACE_DIFFUSION_MAX_SEQ", "384"))
 
 
