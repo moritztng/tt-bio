@@ -1486,6 +1486,43 @@ def _read_bio_chains(path):
     return chains
 
 
+def _read_bio_constraints(path):
+    """Parse the `constraints:` block of a Protenix/bio input into covalent bonds.
+
+    Returns ``[((chain, res, atom), (chain, res, atom)), ...]`` for every `bond`
+    constraint (covalent inhibitor, glycan, crosslink). `pocket`/`contact` binding
+    constraints are rejected with clear guidance: Protenix-v2's checkpoint has no
+    constraint embedder, so the only constraint signal it can honour is the covalent
+    bond graph (token_bonds) — pocket/contact need Boltz-2. Silently folding without
+    them would return a confidently wrong structure, so we refuse instead."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return []
+    import yaml
+    doc = yaml.safe_load(path.read_text()) or {}
+    bonds = []
+    for c in doc.get("constraints", []) or []:
+        if not isinstance(c, dict):
+            continue
+        if "bond" in c:
+            b = c["bond"] or {}
+            a1, a2 = b.get("atom1"), b.get("atom2")
+            if not (isinstance(a1, (list, tuple)) and len(a1) == 3
+                    and isinstance(a2, (list, tuple)) and len(a2) == 3):
+                raise click.ClickException(
+                    "Bond constraint needs atom1 and atom2 as [chain, residue, atom].")
+            bonds.append(((str(a1[0]), int(a1[1]), str(a1[2])),
+                          (str(a2[0]), int(a2[1]), str(a2[2]))))
+        elif "pocket" in c or "contact" in c:
+            kind = "pocket" if "pocket" in c else "contact"
+            raise click.ClickException(
+                f"Protenix-v2 does not support '{kind}' (pocket/contact) binding "
+                "constraints — use --model boltz2 for those. Covalent 'bond' "
+                "constraints are supported.")
+        else:
+            raise click.ClickException(f"Unsupported constraint for protenix-v2: {c}")
+    return bonds
+
+
 def _resolve_a3m_text(msa_spec, sequence, msa_dir):
     """Return a3m text for a chain, or None for single-sequence folding. Tries an explicit
     a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in ``msa_dir``
