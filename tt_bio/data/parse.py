@@ -525,7 +525,7 @@ def parse_yaml(
 
 
 @dataclass(frozen=True, slots=True)
-class ParsedAtom:
+class ParsedAtomMmcif:
     """A parsed atom object."""
 
     name: str
@@ -536,7 +536,7 @@ class ParsedAtom:
 
 
 @dataclass(frozen=True, slots=True)
-class ParsedBond:
+class ParsedBondMmcif:
     """A parsed bond object."""
 
     atom_1: int
@@ -545,14 +545,14 @@ class ParsedBond:
 
 
 @dataclass(frozen=True, slots=True)
-class ParsedResidue:
+class ParsedResidueMmcif:
     """A parsed residue object."""
 
     name: str
     type: int
     idx: int
-    atoms: list[ParsedAtom]
-    bonds: list[ParsedBond]
+    atoms: list[ParsedAtomMmcif]
+    bonds: list[ParsedBondMmcif]
     orig_idx: Optional[int]
     atom_center: int
     atom_disto: int
@@ -561,13 +561,13 @@ class ParsedResidue:
 
 
 @dataclass(frozen=True, slots=True)
-class ParsedChain:
+class ParsedChainMmcif:
     """A parsed chain object."""
 
     name: str
     entity: str
     type: int
-    residues: list[ParsedResidue]
+    residues: list[ParsedResidueMmcif]
     sequence: Optional[str] = None
 
 
@@ -597,7 +597,7 @@ class ParsedStructure:
 ####################################################################################################
 
 
-def get_mol(ccd: str, mols: dict, moldir: str) -> Mol:
+def get_mol_mmcif(ccd: str, mols: dict, moldir: str) -> Mol:
     """Get mol from CCD code.
 
     Return mol with ccd from mols if it is in mols. Otherwise load it from moldir,
@@ -863,13 +863,13 @@ def compute_interfaces(atom_data: np.ndarray, chain_data: np.ndarray) -> np.ndar
 ####################################################################################################
 
 
-def parse_ccd_residue(  # noqa: PLR0915, C901
+def parse_ccd_residue_mmcif(  # noqa: PLR0915, C901
     name: str,
     ref_mol: Mol,
     res_idx: int,
     gemmi_mol: Optional[gemmi.Residue] = None,
     is_covalent: bool = False,
-) -> Optional[ParsedResidue]:
+) -> Optional[ParsedResidueMmcif]:
     """Parse an MMCIF ligand.
 
     First tries to get the SMILES string from the RCSB.
@@ -888,8 +888,8 @@ def parse_ccd_residue(  # noqa: PLR0915, C901
 
     Returns
     -------
-    ParsedResidue, optional
-       The output ParsedResidue, if successful.
+    ParsedResidueMmcif, optional
+       The output ParsedResidueMmcif, if successful.
 
     """
     # Check if we have a PDB structure for this residue,
@@ -918,14 +918,14 @@ def parse_ccd_residue(  # noqa: PLR0915, C901
             )
             bfactor = gemmi_mol[0].b_iso
         ref_atom = ref_mol.GetAtoms()[0]
-        atom = ParsedAtom(
+        atom = ParsedAtomMmcif(
             name=ref_atom.GetProp("name"),
             coords=pos,
             is_present=is_present,
             bfactor=bfactor,
         )
         unk_prot_id = const.unk_token_ids["PROTEIN"]
-        residue = ParsedResidue(
+        residue = ParsedResidueMmcif(
             name=name,
             type=unk_prot_id,
             atoms=[atom],
@@ -977,7 +977,7 @@ def parse_ccd_residue(  # noqa: PLR0915, C901
 
         # Add atom to list
         atoms.append(
-            ParsedAtom(
+            ParsedAtomMmcif(
                 name=atom_name,
                 coords=coords,
                 is_present=atom_is_present,
@@ -1004,10 +1004,10 @@ def parse_ccd_residue(  # noqa: PLR0915, C901
         end = max(idx_1, idx_2)
         bond_type = bond.GetBondType().name
         bond_type = const.bond_type_ids.get(bond_type, unk_bond)
-        bonds.append(ParsedBond(start, end, bond_type))
+        bonds.append(ParsedBondMmcif(start, end, bond_type))
 
     unk_prot_id = const.unk_token_ids["PROTEIN"]
-    return ParsedResidue(
+    return ParsedResidueMmcif(
         name=name,
         type=unk_prot_id,
         atoms=atoms,
@@ -1021,7 +1021,7 @@ def parse_ccd_residue(  # noqa: PLR0915, C901
     )
 
 
-def parse_polymer(  # noqa: C901, PLR0915, PLR0912
+def parse_polymer_mmcif(  # noqa: C901, PLR0915, PLR0912
     polymer: gemmi.ResidueSpan,
     polymer_type: gemmi.PolymerType,
     sequence: list[str],
@@ -1029,7 +1029,7 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
     entity: str,
     mols: dict[str, Mol],
     moldir: str,
-) -> Optional[ParsedChain]:
+) -> Optional[ParsedChainMmcif]:
     """Process a gemmi Polymer into a chain object.
 
     Performs alignment of the full sequence to the polymer
@@ -1053,7 +1053,7 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
 
     Returns
     -------
-    ParsedChain, optional
+    ParsedChainMmcif, optional
         The output chain, if successful.
 
     Raises
@@ -1107,9 +1107,9 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
 
         # Handle non-standard residues
         elif res_name not in ref_res:
-            modified_mol = get_mol(res_name, mols, moldir)
+            modified_mol = get_mol_mmcif(res_name, mols, moldir)
             if modified_mol is not None:
-                residue = parse_ccd_residue(
+                residue = parse_ccd_residue_mmcif(
                     name=res_name,
                     ref_mol=modified_mol,
                     res_idx=j,
@@ -1122,7 +1122,7 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
                 res_name = "UNK"
 
         # Load regular residues
-        ref_mol = get_mol(res_name, mols, moldir)
+        ref_mol = get_mol_mmcif(res_name, mols, moldir)
         ref_mol = AllChem.RemoveHs(ref_mol, sanitize=False)
 
         # Only use reference atoms set in constants
@@ -1130,7 +1130,7 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
         ref_atoms = [ref_name_to_atom[a] for a in const.ref_atoms[res_name]]
 
         # Iterate, always in the same order
-        atoms: list[ParsedAtom] = []
+        atoms: list[ParsedAtomMmcif] = []
 
         for ref_atom in ref_atoms:
             # Get atom name
@@ -1149,7 +1149,7 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
 
             # Add atom to list
             atoms.append(
-                ParsedAtom(
+                ParsedAtomMmcif(
                     name=atom_name,
                     coords=coords,
                     is_present=atom_is_present,
@@ -1186,7 +1186,7 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
         atom_center = const.res_to_center_atom_id[res_name]
         atom_disto = const.res_to_disto_atom_id[res_name]
         parsed.append(
-            ParsedResidue(
+            ParsedResidueMmcif(
                 name=res_name,
                 type=const.token_ids[res_name],
                 atoms=atoms,
@@ -1209,7 +1209,7 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
         chain_type = const.chain_type_ids["RNA"]
 
     # Return polymer object
-    return ParsedChain(
+    return ParsedChainMmcif(
         name=chain_id,
         entity=entity,
         residues=parsed,
@@ -1220,7 +1220,7 @@ def parse_polymer(  # noqa: C901, PLR0915, PLR0912
 
 def parse_connection(
     connection: gemmi.Connection,
-    chains: list[ParsedChain],
+    chains: list[ParsedChainMmcif],
     subchain_map: dict[tuple[str, int], str],
 ) -> ParsedConnection:
     """Parse (covalent) connection from a gemmi Connection.
@@ -1375,7 +1375,7 @@ def parse_mmcif(  # noqa: C901, PLR0915, PLR0912
     )
 
     # Parse chains
-    chains: list[ParsedChain] = []
+    chains: list[ParsedChainMmcif] = []
     for raw_chain in structure[0].subchains():
         # Check chain type
         subchain_id = raw_chain.subchain_id()
@@ -1393,7 +1393,7 @@ def parse_mmcif(  # noqa: C901, PLR0915, PLR0912
                 continue
 
             # Add polymer if successful
-            parsed_polymer = parse_polymer(
+            parsed_polymer = parse_polymer_mmcif(
                 polymer=raw_chain,
                 polymer_type=entity.polymer_type,
                 sequence=entity.full_sequence,
@@ -1420,9 +1420,9 @@ def parse_mmcif(  # noqa: C901, PLR0915, PLR0912
                     is_covalent = subchain_id in covalent_chain_ids
 
                 ligand: gemmi.Residue
-                ligand_mol = get_mol(ligand.name, mols, moldir)
+                ligand_mol = get_mol_mmcif(ligand.name, mols, moldir)
 
-                residue = parse_ccd_residue(
+                residue = parse_ccd_residue_mmcif(
                     name=ligand.name,
                     ref_mol=ligand_mol,
                     res_idx=lig_idx,
@@ -1433,7 +1433,7 @@ def parse_mmcif(  # noqa: C901, PLR0915, PLR0912
 
             if residues:
                 chains.append(
-                    ParsedChain(
+                    ParsedChainMmcif(
                         name=subchain_id,
                         entity=entity.name,
                         residues=residues,
@@ -1472,7 +1472,7 @@ def parse_mmcif(  # noqa: C901, PLR0915, PLR0912
                     continue
 
                 # Add polymer if successful
-                parsed_polymer = parse_polymer(
+                parsed_polymer = parse_polymer_mmcif(
                     polymer=raw_chain,
                     polymer_type=entity.polymer_type,
                     sequence=entity.full_sequence,
@@ -1499,9 +1499,9 @@ def parse_mmcif(  # noqa: C901, PLR0915, PLR0912
                         is_covalent = subchain_id in covalent_chain_ids
 
                     ligand: gemmi.Residue
-                    ligand_mol = get_mol(ligand.name, mols, moldir)
+                    ligand_mol = get_mol_mmcif(ligand.name, mols, moldir)
 
-                    residue = parse_ccd_residue(
+                    residue = parse_ccd_residue_mmcif(
                         name=ligand.name,
                         ref_mol=ligand_mol,
                         res_idx=lig_idx,
@@ -1511,7 +1511,7 @@ def parse_mmcif(  # noqa: C901, PLR0915, PLR0912
                     residues.append(residue)
 
                 if residues:
-                    parsed_non_polymer = ParsedChain(
+                    parsed_non_polymer = ParsedChainMmcif(
                         name=subchain_id,
                         entity=entity.name,
                         residues=residues,

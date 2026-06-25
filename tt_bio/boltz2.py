@@ -3761,6 +3761,69 @@ class TemplateV2Module(nn.Module):
             )
         )
 
+    def template_features(self, feats, pair_mask):
+        """z-independent template features (depend only on the template inputs, not
+        on the pairwise embedding z), so they can be computed once and reused across
+        recycling iterations. Returns
+        (a_tij, template_mask[B,T], num_templates[B], pair_mask_expanded[B*T,S,S], B, T).
+        """
+        # Load relevant features
+        res_type = feats["template_restype"]
+        frame_rot = feats["template_frame_rot"]
+        frame_t = feats["template_frame_t"]
+        frame_mask = feats["template_mask_frame"]
+        cb_coords = feats["template_cb"]
+        ca_coords = feats["template_ca"]
+        cb_mask = feats["template_mask_cb"]
+        visibility_ids = feats["visibility_ids"]
+        template_mask = feats["template_mask"].any(dim=2).float()
+        num_templates = template_mask.sum(dim=1)
+        num_templates = num_templates.clamp(min=1)
+
+        # Compute pairwise masks
+        b_cb_mask = cb_mask[:, :, :, None] * cb_mask[:, :, None, :]
+        b_frame_mask = frame_mask[:, :, :, None] * frame_mask[:, :, None, :]
+        b_cb_mask = b_cb_mask[..., None]
+        b_frame_mask = b_frame_mask[..., None]
+
+        # Compute asym mask, template features only attend within the same chain
+        B, T = res_type.shape[:2]  # noqa: N806
+        tmlp_pair_mask = (
+            visibility_ids[:, :, :, None] == visibility_ids[:, :, None, :]
+        ).float()
+
+        # Compute template features
+        with torch.autocast(device_type="cuda", enabled=False):
+            cb_dists = torch.cdist(cb_coords, cb_coords)
+            boundaries = torch.linspace(self.min_dist, self.max_dist, self.num_bins - 1)
+            boundaries = boundaries.to(cb_dists.device)
+            distogram = (cb_dists[..., None] > boundaries).sum(dim=-1).long()
+            distogram = one_hot(distogram, num_classes=self.num_bins)
+
+            frame_rot = frame_rot.unsqueeze(2).transpose(-1, -2)
+            frame_t = frame_t.unsqueeze(2).unsqueeze(-1)
+            ca_coords = ca_coords.unsqueeze(3).unsqueeze(-1)
+            vector = torch.matmul(frame_rot, (ca_coords - frame_t))
+            norm = torch.norm(vector, dim=-1, keepdim=True)
+            unit_vector = torch.where(norm > 0, vector / norm, torch.zeros_like(vector))
+            unit_vector = unit_vector.squeeze(-1)
+
+            a_tij = [distogram, b_cb_mask, unit_vector, b_frame_mask]
+            a_tij = torch.cat(a_tij, dim=-1)
+            a_tij = a_tij * tmlp_pair_mask.unsqueeze(-1)
+
+            res_type_i = res_type[:, :, :, None]
+            res_type_j = res_type[:, :, None, :]
+            res_type_i = res_type_i.expand(-1, -1, -1, res_type.size(2), -1)
+            res_type_j = res_type_j.expand(-1, -1, res_type.size(2), -1, -1)
+            a_tij = torch.cat([a_tij, res_type_i, res_type_j], dim=-1)
+            a_tij = self.a_proj(a_tij)
+
+        # Expand mask for the pairformer ([B,S,S] -> [B*T,S,S])
+        pair_mask_exp = pair_mask[:, None].expand(-1, T, -1, -1)
+        pair_mask_exp = pair_mask_exp.reshape(B * T, *pair_mask_exp.shape[2:])
+        return a_tij, template_mask, num_templates, pair_mask_exp, B, T
+
     def forward(
         self,
         z: Tensor,
@@ -3785,65 +3848,10 @@ class TemplateV2Module(nn.Module):
             The updated pairwise embeddings.
 
         """
-        # Load relevant features
-        res_type = feats["template_restype"]
-        frame_rot = feats["template_frame_rot"]
-        frame_t = feats["template_frame_t"]
-        frame_mask = feats["template_mask_frame"]
-        cb_coords = feats["template_cb"]
-        ca_coords = feats["template_ca"]
-        cb_mask = feats["template_mask_cb"]
-        visibility_ids = feats["visibility_ids"]
-        template_mask = feats["template_mask"].any(dim=2).float()
-        num_templates = template_mask.sum(dim=1)
-        num_templates = num_templates.clamp(min=1)
-
-        # Compute pairwise masks
-        b_cb_mask = cb_mask[:, :, :, None] * cb_mask[:, :, None, :]
-        b_frame_mask = frame_mask[:, :, :, None] * frame_mask[:, :, None, :]
-
-        b_cb_mask = b_cb_mask[..., None]
-        b_frame_mask = b_frame_mask[..., None]
-
-        # Compute asym mask, template features only attend within the same chain
-        B, T = res_type.shape[:2]  # noqa: N806
-        tmlp_pair_mask = (
-            visibility_ids[:, :, :, None] == visibility_ids[:, :, None, :]
-        ).float()
-
-        # Compute template features
-        with torch.autocast(device_type="cuda", enabled=False):
-            # Compute distogram
-            cb_dists = torch.cdist(cb_coords, cb_coords)
-            boundaries = torch.linspace(self.min_dist, self.max_dist, self.num_bins - 1)
-            boundaries = boundaries.to(cb_dists.device)
-            distogram = (cb_dists[..., None] > boundaries).sum(dim=-1).long()
-            distogram = one_hot(distogram, num_classes=self.num_bins)
-
-            # Compute unit vector in each frame
-            frame_rot = frame_rot.unsqueeze(2).transpose(-1, -2)
-            frame_t = frame_t.unsqueeze(2).unsqueeze(-1)
-            ca_coords = ca_coords.unsqueeze(3).unsqueeze(-1)
-            vector = torch.matmul(frame_rot, (ca_coords - frame_t))
-            norm = torch.norm(vector, dim=-1, keepdim=True)
-            unit_vector = torch.where(norm > 0, vector / norm, torch.zeros_like(vector))
-            unit_vector = unit_vector.squeeze(-1)
-
-            # Concatenate input features
-            a_tij = [distogram, b_cb_mask, unit_vector, b_frame_mask]
-            a_tij = torch.cat(a_tij, dim=-1)
-            a_tij = a_tij * tmlp_pair_mask.unsqueeze(-1)
-
-            res_type_i = res_type[:, :, :, None]
-            res_type_j = res_type[:, :, None, :]
-            res_type_i = res_type_i.expand(-1, -1, -1, res_type.size(2), -1)
-            res_type_j = res_type_j.expand(-1, -1, res_type.size(2), -1, -1)
-            a_tij = torch.cat([a_tij, res_type_i, res_type_j], dim=-1)
-            a_tij = self.a_proj(a_tij)
-
-        # Expand mask
-        pair_mask = pair_mask[:, None].expand(-1, T, -1, -1)
-        pair_mask = pair_mask.reshape(B * T, *pair_mask.shape[2:])
+        # z-independent template features (hoistable; see template_features)
+        a_tij, template_mask, num_templates, pair_mask, B, T = self.template_features(  # noqa: N806
+            feats, pair_mask
+        )
 
         # Compute input projections
         v = self.z_proj(self.z_norm(z[:, None])) + a_tij
@@ -5139,6 +5147,36 @@ class Boltz2(nn.Module):
                 ):
                     param.requires_grad = False
 
+    def _tt_trunk_module(self):
+        """Lazily build the device-resident trunk driver (TT path only).
+
+        Reuses the inner MSA/Pairformer device modules owned by the existing
+        wrappers (created during state-dict load) plus a TrunkRecycle built from
+        the already-loaded recycle weights. Cached after first use.
+        """
+        trunk = getattr(self, "_tt_trunk", None)
+        if trunk is None:
+            recycle = tenstorrent.TrunkRecycle(
+                self.s_norm, self.z_norm, self.s_recycle, self.z_recycle,
+                self.msa_module.compute_kernel_config,
+            )
+            tmpl_recycle = None
+            if getattr(self, "use_templates", False) and getattr(self, "template_module", None) is not None:
+                tmpl_mod = (
+                    self.template_module._orig_mod  # noqa: SLF001
+                    if getattr(self, "is_template_compiled", False)
+                    else self.template_module
+                )
+                tmpl_recycle = tenstorrent.TemplateRecycle(
+                    tmpl_mod, self.msa_module.compute_kernel_config
+                )
+            trunk = tenstorrent.TrunkModule(
+                recycle, self.msa_module.module, self.pairformer_module.module,
+                template_recycle=tmpl_recycle,
+            )
+            self._tt_trunk = trunk
+        return trunk
+
     def forward(
         self,
         feats: dict[str, Tensor],
@@ -5199,7 +5237,23 @@ class Boltz2(nn.Module):
             and template_mask is not None
             and bool(template_mask.any().item())
         )
-        if self.run_trunk_and_structure:
+        # Run the whole recycling loop resident on the Tenstorrent device (no
+        # per-iteration host round-trips for MSA/Pairformer). Templates are now
+        # supported (the resident loop injects the template delta via a small
+        # per-iteration host round-trip); only compiled MSA/Pairformer fall back
+        # to the host loop below.
+        use_resident_trunk = (
+            self.run_trunk_and_structure
+            and self.use_tenstorrent
+            and not self.is_msa_compiled
+            and not self.is_pairformer_compiled
+        )
+        if use_resident_trunk:
+            _trunk = self._tt_trunk_module()
+            s, z = _trunk(s_inputs, s_init, z_init, feats, recycling_steps)
+            if _pfn:
+                _pfn("trunk", step=recycling_steps, total=recycling_steps + 1)
+        elif self.run_trunk_and_structure:
             for i in range(recycling_steps + 1):
                 if _pfn:
                     _pfn("trunk", step=i, total=recycling_steps + 1)
