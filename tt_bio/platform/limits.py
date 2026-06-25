@@ -86,6 +86,7 @@ def inspect(content: str) -> dict:
     """Best-effort structural summary of one target/spec. Never raises — returns
     counts plus a ``blocked`` reason string if a forbidden reference is found."""
     info = {"chains": 0, "residues": 0, "ligands": 0, "nucleic": 0, "constraints": 0,
+            "binding_constraints": 0, "bond_constraints": 0,
             "has_polymer": False, "blocked": None, "bad_seq": None,
             "ids": [], "ligand_ids": set(), "affinity_binders": [], "bad_range": False}
     text = content or ""
@@ -150,6 +151,13 @@ def inspect(content: str) -> dict:
         cons = data.get("constraints")
         if isinstance(cons, list):
             info["constraints"] = len(cons)
+            # Constraint kinds gate differently: pocket/contact "binding constraints"
+            # need a constraint embedder (Boltz-2 only); covalent "bond" constraints
+            # only need the token-bond graph (Boltz-2 and Protenix-v2 both honour it).
+            info["binding_constraints"] = sum(
+                1 for c in cons if isinstance(c, dict) and ("pocket" in c or "contact" in c))
+            info["bond_constraints"] = sum(
+                1 for c in cons if isinstance(c, dict) and "bond" in c)
         props = data.get("properties")
         if isinstance(props, list):
             for p in props:
@@ -193,8 +201,12 @@ def _check_model_caps(info: dict, model: str | None, *, where: str) -> None:
                          f"DNA / RNA.")
     if info["affinity_binders"] and "affinity" not in caps:
         raise InputError(f"{where}: {name} doesn't predict binding affinity — use Boltz-2.")
-    if info["constraints"] and "constraints" not in caps:
-        raise InputError(f"{where}: {name} doesn't support binding constraints — use Boltz-2.")
+    if info["binding_constraints"] and "constraints" not in caps:
+        raise InputError(f"{where}: {name} doesn't support pocket/contact binding "
+                         f"constraints — use Boltz-2.")
+    if info["bond_constraints"] and "bonds" not in caps:
+        raise InputError(f"{where}: {name} doesn't support covalent bond constraints — "
+                         f"use Boltz-2 or Protenix-v2.")
     if info["chains"] > 1 and "multichain" not in caps:
         raise InputError(f"{where}: {name} folds a single chain — use Boltz-2 or "
                          f"ESMFold-2 for multi-chain complexes.")

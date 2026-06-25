@@ -56,7 +56,9 @@ DEMO_NOTE = (
 # impossible inputs. Verified empirically: ESMFold folds one OR MORE protein
 # chains, but silently drops ligands / nucleic acids and computes no affinity;
 # ESMFold-2 Fast additionally has no MSA encoder.
-#   msa · ligands · nucleic · affinity · constraints · multichain · modifications · potentials · pae
+#   msa · ligands · nucleic · affinity · constraints · bonds · multichain · modifications · potentials · pae
+# "constraints" = pocket/contact binding constraints (need a constraint embedder, Boltz-2 only);
+# "bonds" = covalent `bond` constraints (token-bond graph, Boltz-2 + Protenix-v2).
 MODELS = [
     {
         "id": "boltz2",
@@ -69,7 +71,7 @@ MODELS = [
             "ligands, nucleic acids, affinity or constraints."
         ),
         "needs_msa": True,
-        "caps": ["msa", "ligands", "nucleic", "affinity", "constraints",
+        "caps": ["msa", "ligands", "nucleic", "affinity", "constraints", "bonds",
                  "multichain", "modifications", "potentials", "pae"],
     },
     {
@@ -114,7 +116,7 @@ MODELS = [
         # concatenation), RNA/DNA and ligand (CCD + SMILES) featurization with
         # reference parity, and PAE/PDE + per-atom pLDDT output. Affinity prediction
         # stays Boltz-2-only.
-        "caps": ["msa", "ligands", "nucleic", "multichain", "pae"],
+        "caps": ["msa", "ligands", "nucleic", "bonds", "multichain", "pae"],
     },
 ]
 
