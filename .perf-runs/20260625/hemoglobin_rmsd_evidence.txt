@@ -1,0 +1,12 @@
+# Hemoglobin Cα-RMSD vs ground truth (--fast, byte-identical MSA md5 f4c3983a), seed-paired
+## OFF (eager, no trace region)
+seed2: 0.7823 0.8500 0.8729 | seed4: 0.8384 0.9339 | seed0: 0.9711 | seed7: 1.0399 | seed48: 0.787 0.833 0.867 0.982 0.998 0.99 1.04 2.51 2.80(bimodal)
+## trunk trace (TT_BIO_TRACE_PAIRFORMER=1 TT_BIO_TRACE_MSA=1)
+seed2: 2.3088 2.4544 2.40 | seed4: 2.2878 2.4460 | seed0: 2.5049 | seed7: 2.3362 | seed48: 2.318(msa) 2.530(pf)
+## diffusion trace forced active (trunk eager)
+seed2: 2.7781 2.5196 | seed4: 0.8909 0.8674 | seed48: 0.936 0.965
+## region reserved, NO trace (all eager)
+seed2: 0.9636 0.8990 | seed4: 2.5916 1.0634
+
+# Per-module in-process bit-identity (replay vs eager, SAME input):
+Pairformer: PCC=1.00000000 maxdiff=0 (s,z) | MSA: PCC=1.0 maxdiff=0 | Diffusion: PCC=1.0 maxdiff=0  (both --fast and default)

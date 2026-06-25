@@ -1,0 +1,12 @@
+===== 256_off (size=256 mode=fast env='' card=0) =====
+WARM: [STAGEHOOK] forward_total=15.41s  trunk=7.13s  diffusion=7.87s  confidence=0.40s
+===== 256_pf (size=256 mode=fast env='TT_BIO_TRACE_PF=1' card=1) =====
+WARM: [STAGEHOOK] forward_total=15.43s  trunk=7.15s  diffusion=7.82s  confidence=0.46s
+===== b_off (size=512 mode=fast env='' card=0) =====
+WARM: [STAGEHOOK] forward_total=41.41s  trunk=22.27s  diffusion=17.12s  confidence=2.02s
+===== b_pf (size=512 mode=fast env='TT_BIO_TRACE_PAIRFORMER=1' card=1) =====
+WARM: [STAGEHOOK] forward_total=38.54s  trunk=20.15s  diffusion=15.40s  confidence=2.98s
+===== b_msa (size=512 mode=fast env='TT_BIO_TRACE_MSA=1' card=2) =====
+WARM: [STAGEHOOK] forward_total=39.94s  trunk=21.81s  diffusion=16.44s  confidence=1.69s
+===== b_all (size=512 mode=fast env='TT_BIO_TRACE=1' card=3) =====
+WARM: [STAGEHOOK] forward_total=40.07s  trunk=20.04s  diffusion=17.79s  confidence=2.25s
