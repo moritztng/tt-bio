@@ -316,12 +316,14 @@ class _WorkerState:
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
-                                 _resolve_a3m_text, _write_protenix_structure)
+                                 _read_bio_constraints, _resolve_a3m_text,
+                                 _write_protenix_structure)
         from tt_bio.protenix_data import build_complex_features
 
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
+        bonds = _read_bio_constraints(path)   # covalent bonds; rejects pocket/contact
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -345,7 +347,8 @@ class _WorkerState:
                        for _cid, cseq, spec, mt in chains]
 
         report_progress("prep")
-        feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"))
+        feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
+                                       chain_ids=[cid for cid, _s, _sp, _mt in chains], bonds=bonds)
 
         def _pfn(stage, step, total):
             report_progress("diffusion" if stage == "trunk" else stage)
