@@ -41,6 +41,63 @@ from tt_bio.boltzgen.data.tokenizer import TokenData
 from dataclasses import replace
 
 ####################################################################################################
+# CONSTRAINTS (design-spec `constraints:` block)
+####################################################################################################
+
+# Constraint kinds BoltzGen understands in the design spec. `total_len` bounds the
+# sampled binder length; `bond` adds a covalent connection. Pocket/contact "binding
+# constraints" are a Boltz-2 *folding* feature with no analogue here — BoltzGen steers
+# a binder toward an epitope with the native `binding` / `binding_types` fields (or
+# `include_proximity` on a `file` include), so we reject them with that guidance
+# rather than letting them fall through to a cryptic "invalid keys" error.
+_BINDING_CONSTRAINT_KINDS = ("pocket", "contact")
+
+
+def _design_constraints(schema: Mapping) -> list:
+    """The design spec's top-level `constraints:` as a list, tolerant of shape.
+
+    A missing block yields ``[]``; a present-but-empty block (`constraints: []`)
+    also yields ``[]`` instead of crashing later on ``constraints[0]``.
+    """
+    cons = schema.get("constraints")
+    if cons is None:
+        return []
+    if not isinstance(cons, list):
+        raise ValueError("'constraints' must be a list of constraint entries.")
+    return cons
+
+
+def _total_len_spec(constraints: list) -> Optional[dict]:
+    """The `total_len` sub-spec if any constraint declares one, else ``None``.
+
+    Searches every entry (not just ``constraints[0]``) so ordering is irrelevant
+    and an empty / bond-only constraints list is handled without an IndexError.
+    """
+    for c in constraints:
+        if isinstance(c, dict) and "total_len" in c:
+            return c["total_len"]
+    return None
+
+
+def _reject_unsupported_constraints(constraints: list) -> None:
+    """Raise a clear, actionable error for Boltz-2-style binding constraints in a
+    design spec (which BoltzGen cannot honour), before the generic key validation
+    turns them into an opaque message."""
+    for c in constraints:
+        if not isinstance(c, dict):
+            continue
+        bad = next((k for k in _BINDING_CONSTRAINT_KINDS if k in c), None)
+        if bad:
+            raise ValueError(
+                f"BoltzGen design does not support '{bad}' (pocket/contact) "
+                "constraints — those are a Boltz-2 folding feature. To steer a "
+                "designed binder toward a target epitope, mark the target residues "
+                "with the native 'binding' / 'binding_types' fields (or "
+                "'include_proximity' on a 'file' include)."
+            )
+
+
+####################################################################################################
 # DATACLASSES
 ####################################################################################################
 
@@ -1336,6 +1393,10 @@ class YamlDesignParser:
             if name in str(schema):
                 raise ValueError(f"Found {name} in yaml. Did you mean 'res_index'?")
 
+        # Surface unsupported binding (pocket/contact) constraints with a helpful
+        # message before the generic key check reports them as "invalid keys".
+        _reject_unsupported_constraints(_design_constraints(schema))
+
         invalid_keys = set()
 
         def recursive_check(data):
@@ -1397,13 +1458,13 @@ class YamlDesignParser:
         protein_chains = set()
 
         covalents = []
-        constraints = schema.get("constraints", [[]])
-        if "total_len" in constraints[0]:
-            total_len = constraints[0]["total_len"]
-            if "min" in total_len:
-                min_len = total_len["min"]
-            if "max" in total_len:
-                max_len = total_len["max"]
+        constraints = _design_constraints(schema)
+        total_len_spec = _total_len_spec(constraints)
+        if total_len_spec is not None:
+            # An omitted bound is unbounded on that side (rather than a later
+            # NameError when the length-acceptance check reads min_len/max_len).
+            min_len = total_len_spec.get("min", 0)
+            max_len = total_len_spec.get("max", np.iinfo(np.int64).max)
 
         # Convert parsed chains to tables
 
@@ -1690,10 +1751,10 @@ class YamlDesignParser:
                                 chain_to_msa[chain_id] = file_msa_flag
                             else:
                                 chain_to_msa[chain_id] = -1
-            if "total_len" in constraints[0]:
+            if total_len_spec is not None:
                 if len(res_bind_type) >= min_len and len(res_bind_type) <= max_len:
                     break
-            if "total_len" not in constraints[0]:
+            else:
                 break
 
         # Parse constraints
@@ -1783,7 +1844,7 @@ class YamlDesignParser:
                         residue["atom_idx"].item() + a2
                     )  # THIS STILL NEEDS TO BE CORRECTED
                 covalents.append((c1, c2, r1, r2, a1, a2))
-            elif "total_len" in constraints:
+            elif isinstance(constraint, dict) and "total_len" in constraint:
                 continue
 
         covalents = [(*c, const.bond_type_ids["COVALENT"]) for c in covalents]
