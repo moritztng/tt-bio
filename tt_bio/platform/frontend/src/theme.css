@@ -1,38 +1,39 @@
-/* ai& Drug Discovery — visual language matched to aiand.com:
-   warm off-white surfaces (#f7f3f3), warm near-black ink, the ai& red (#c70007)
-   as the signature accent, black primary buttons (their CTA style), DM Sans for
-   UI, Fragment Mono for code. */
+/* Japanfold — sovereign protein AI, made in Japan. Visual language: a calm,
+   refined Japanese minimalism. Light "paper" surfaces, generous whitespace,
+   hairline borders, and a single confident accent — ai-indigo (藍), a quiet nod
+   to both Japan and to ai&. Professional but friendly; readable at a glance.
+   DM Sans for UI, Fragment Mono for code. */
 
 :root {
-  --bg: #f7f3f3;          /* aiand warm off-white page */
+  --bg: #f6f6f7;          /* light, neutral paper */
   --surface: #ffffff;
-  --surface-2: #f3eded;   /* warm tint, not cool grey */
-  --border: #ece4e4;
-  --border-strong: #dccfcf;
-  --ink: #1a1513;         /* warm near-black (logo is #151517) */
-  --ink-soft: #3d3535;    /* aiand secondary text */
-  --muted: #857b79;       /* warm grey */
-  --muted-2: #b0a6a4;
-  /* Interactive accent is a calm warm charcoal (matches the black buttons), NOT
-     the brand red. Red reads as error/warning, so it's reserved for the logo
-     (--brand) and genuine errors/destructive actions (--err) only. */
-  --accent: #2a211f;      /* warm charcoal — selection, links, focus */
+  --surface-2: #f0f0f2;   /* soft neutral grey tint */
+  --border: #e6e6e9;      /* hairline */
+  --border-strong: #d6d6da;
+  --ink: #1c1d21;         /* near-black, neutral (no colour cast) */
+  --ink-soft: #4a4d55;
+  --muted: #7a7d85;       /* neutral grey */
+  --muted-2: #abadb4;
+  /* The signature accent is near-black — a quiet, confident monochrome. It
+     carries links, selection, focus, and the primary CTA; no brand colour
+     shouts. Red is reserved strictly for errors/destructive actions. */
+  --accent: #1a1c20;      /* near-black — the brand accent */
   --accent-ink: #000000;  /* hover */
-  --accent-soft: rgba(42, 33, 31, 0.06);
-  --accent-soft-2: rgba(42, 33, 31, 0.11);
-  --brand: #c70007;       /* the ai& red — used only as a rare signal */
-  /* In-progress signal — a calm blue kept distinct from error red so "running"
-     never reads as "failed" in the progress views. */
-  --run: #2f6fb0;
-  --run-soft: rgba(47, 111, 176, 0.12);
-  --ok: #2f8f4e;
-  --warn: #c98a00;
-  --err: #c70007;
-  --radius: 9px;
-  --radius-sm: 6px;
+  --accent-soft: rgba(26, 28, 32, 0.06);
+  --accent-soft-2: rgba(26, 28, 32, 0.11);
+  --brand: #1a1c20;       /* brand = near-black */
+  /* In-progress signal — a calm blue, kept distinct from ink/black and from
+     error red so "running" never reads as "selected" or "failed". */
+  --run: #3576e0;
+  --run-soft: rgba(53, 118, 224, 0.13);
+  --ok: #1aa35b;
+  --warn: #d98c0a;
+  --err: #e2483d;         /* a clean, slightly muted red — errors only */
+  --radius: 8px;
+  --radius-sm: 5px;
   --mono: "Fragment Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --shadow: 0 1px 2px rgba(52, 8, 6, 0.04), 0 8px 24px rgba(52, 8, 6, 0.05);
+  --shadow: 0 1px 2px rgba(40, 50, 90, 0.04), 0 10px 28px rgba(40, 50, 90, 0.07);
 }
 
 * { box-sizing: border-box; }
@@ -62,25 +63,33 @@ code, pre { font-family: var(--mono); }
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
-.wordmark { display: flex; align-items: center; gap: 9px; }
-.wordmark .brand-logo { height: 21px; width: auto; display: block; }
-.wordmark .sub {
-  color: var(--ink); font-weight: 600; font-size: 18px; letter-spacing: -0.01em;
-  line-height: 1; position: relative; top: 1px;
+.wordmark { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.wordmark .brand-mark { height: 26px; width: auto; display: block; }
+.wordmark .brand-name {
+  color: var(--ink); font-weight: 600; font-size: 19px; letter-spacing: -0.015em;
+  line-height: 1;
 }
+.wordmark .brand-name .fold { color: var(--accent); }
 .topbar .tagline {
   color: var(--muted); font-size: 13px;
   padding-left: 16px; margin-left: 4px; border-left: 1px solid var(--border);
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .topbar .spacer { flex: 1; }
-/* "Powered by [Tenstorrent] AI Processors" — brand attribution, top right */
-.topbar .powered {
-  display: flex; align-items: center; gap: 8px; flex: none;
-  font-size: 14px; color: var(--muted); text-decoration: none; white-space: nowrap;
+/* Attribution, top right: "Powered by [ai&] · on [Tenstorrent]". Both partner
+   logos stay visible; the connecting words shrink away first on small screens. */
+.topbar .credits {
+  display: flex; align-items: center; gap: 7px; flex: none;
+  font-size: 13px; color: var(--muted); white-space: nowrap;
 }
-.topbar .powered:hover { color: var(--ink-soft); }
-.topbar .powered .tt-logo { height: 16px; width: auto; display: block; }
+.topbar .credit { display: inline-flex; align-items: center; color: var(--muted); }
+.topbar .credit:hover { color: var(--ink-soft); }
+/* Both partner logos render at the exact same height; the flex row centres every
+   item vertically, so the logos and the words all sit on one perfectly aligned line. */
+.topbar .credits img { height: 16px; width: auto; display: block; }
+/* Optical nudge: the ai& mark sits a touch low against the Tenstorrent wordmark
+   at the same box height, so lift it slightly to line them up by eye. */
+.topbar .credits .aiand-mark { position: relative; top: -1.5px; }
 
 .main { display: flex; flex: 1; min-height: 0; }
 
@@ -104,10 +113,9 @@ code, pre { font-family: var(--mono); }
 }
 .btn:hover { border-color: var(--muted-2); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-/* Primary CTA mirrors aiand.com's black buttons; the red is reserved as the
-   brand accent (selection, links, focus) so the main action stays calm. */
-.btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
-.btn.primary:hover { background: #000; border-color: #000; }
+/* Primary CTA is the ai-indigo accent — the brand colour carries the main action. */
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 6px 10px; }
 .btn.ghost:hover { color: var(--ink); background: var(--surface-2); }
 .btn.danger:hover { border-color: var(--err); color: var(--err); }
@@ -208,8 +216,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .badge { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: capitalize; }
 .badge.queued { background: #f0f0f0; color: var(--muted); }
 .badge.running { background: var(--run-soft); color: var(--run); }
-.badge.succeeded { background: rgba(47, 143, 78, 0.12); color: var(--ok); }
-.badge.failed { background: rgba(199, 0, 7, 0.1); color: var(--err); }
+.badge.succeeded { background: rgba(26, 163, 91, 0.12); color: var(--ok); }
+.badge.failed { background: rgba(226, 72, 61, 0.11); color: var(--err); }
 .badge.canceled { background: #f0f0f0; color: var(--muted); }
 .tag { font-size: 11.5px; color: var(--muted); border: 1px solid var(--border); padding: 1px 7px; border-radius: 999px; }
 
@@ -359,7 +367,7 @@ pre.log {
 .mtp-chip .mtp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mtp-chip .mtp-sub { color: var(--muted); font-size: 11px; padding-left: 2px; }
 .mtp-chip .mtp-ic { font-weight: 700; }
-.mtp-chip.done { border-color: var(--ok); background: rgba(47, 143, 78, 0.08); color: var(--ink); }
+.mtp-chip.done { border-color: var(--ok); background: rgba(26, 163, 91, 0.08); color: var(--ink); }
 .mtp-chip.done .mtp-ic { color: var(--ok); }
 .mtp-chip.running { border-color: var(--run); color: var(--run); animation: mtp-pulse 1.5s ease-in-out infinite; }
 .mtp-chip.failed { border-color: var(--err); color: var(--err); }
@@ -386,7 +394,7 @@ pre.log {
 .jp-subbar-fill { height: 100%; background: var(--run); border-radius: 2px; transition: width 0.4s ease; }
 .errbox {
   border: 1px solid var(--err); border-radius: var(--radius);
-  background: rgba(199,0,7,0.05); padding: 12px 14px; font-size: 13px;
+  background: rgba(226,72,61,0.06); padding: 12px 14px; font-size: 13px;
 }
 .errbox strong { color: var(--err); }
 
@@ -408,8 +416,8 @@ pre.log {
   }
   .nav-toggle:hover { border-color: var(--muted-2); }
   .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--ink); border-radius: 2px; }
-  .wordmark .brand-logo { height: 19px; }
-  .wordmark .sub { font-size: 16px; }
+  .wordmark .brand-mark { height: 23px; }
+  .wordmark .brand-name { font-size: 17px; }
 
   /* job-list sidebar -> slide-in drawer over the content area (not the header) */
   .main { position: relative; }
@@ -438,7 +446,7 @@ pre.log {
 }
 
 @media (max-width: 480px) {
-  .topbar .powered span { display: none; }        /* keep just the Tenstorrent mark */
-  .topbar .powered { gap: 0; }
+  .topbar .credits > span { display: none; }  /* tiny screens: keep just the two logos */
+  .topbar .credits { gap: 8px; }
   .cardgrid.models { grid-template-columns: 1fr; } /* one model card per row */
 }

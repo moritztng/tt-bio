@@ -54,9 +54,9 @@ def _log_header(job) -> str:
             bits.append(f"{job.total} structure" + ("s" if job.total != 1 else ""))
     if p.get("fast"):
         bits.append("fast mode")
-    return ("ai& Drug Discovery · run log\n"
+    return ("JapanFold · run log\n"
             + " · ".join(bits) + "\n"
-            + f"started {when} · Tenstorrent\n"
+            + f"started {when} · powered by ai& · on Tenstorrent\n"
             + "─" * 64 + "\n\n")
 
 # ---------------------------------------------------------------------------

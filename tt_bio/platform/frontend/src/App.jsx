@@ -45,18 +45,25 @@ export default function App() {
                 aria-label="Toggle job list" aria-expanded={navOpen}>
           <span /><span /><span />
         </button>
-        <div className="wordmark">
-          <img className="brand-logo" src="/aiand-logo.svg" alt="ai&amp;" />
-          <span className="sub">Drug Discovery</span>
-        </div>
+        <a className="wordmark" href="/" aria-label="Japanfold home">
+          <img className="brand-mark" src="/japanfold-mark.svg" alt="" />
+          <span className="brand-name">Japan<span className="fold">Fold</span></span>
+        </a>
         <span className="tagline">Sovereign compute in Japan</span>
         <div className="spacer" />
-        <a className="powered" href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer"
-           title="Powered by Tenstorrent AI Processors">
+        <div className="credits">
           <span>Powered by</span>
-          <img className="tt-logo" src="/tenstorrent-logo.svg" alt="Tenstorrent" />
-          <span>AI&nbsp;Processors</span>
-        </a>
+          <a className="credit" href="https://aiand.com" target="_blank" rel="noopener noreferrer"
+             title="ai&">
+            <img className="aiand-mark" src="/aiand-logo.svg" alt="ai&amp;" />
+          </a>
+          <span>on</span>
+          <a className="credit" href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer"
+             title="Tenstorrent AI processors">
+            <img src="/tenstorrent-logo.svg" alt="Tenstorrent" />
+          </a>
+          <span>AI processors</span>
+        </div>
       </header>
 
       <div className="main">

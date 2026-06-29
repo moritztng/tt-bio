@@ -1,4 +1,4 @@
-// Tiny fetch wrapper around the ai& Drug Discovery API.
+// Tiny fetch wrapper around the JapanFold API.
 
 async function json(r) {
   if (!r.ok) {
