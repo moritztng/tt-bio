@@ -246,29 +246,27 @@ def _device_init_lock():
 
     Opening (or closing) a chip runs through the user-mode driver's cross-process
     device-init path: tt::umd::LocalChip::start_device -> LockManager::acquire_mutex,
-    which coordinates via robust mutexes in /dev/shm (TT_UMD_LOCK.*). Letting
-    several processes do this at once deadlocks that path on a Galaxy — confirmed
-    from a live hang: many design-shard subprocesses (each opening its own chip)
-    all block in tt::umd::LockManager::acquire_mutex during start_device, one
-    holder stalls, and the rest pile up until the watchdog kills the run. Prediction
-    never hits this because each worker opens its chip once and reuses it; only
-    design opens a fresh device per shard, concurrently.
+    coordinating via robust mutexes in /dev/shm (TT_UMD_LOCK.*). That path is NOT
+    concurrency-safe on a Galaxy, in two ways:
+      * it deadlocks when several processes hit it at once (observed live: many
+        design-shard cold-opens all blocked in acquire_mutex during start_device);
+      * it races the per-chip fabric/MMIO bring-up, so a chip can come up
+        "remote-only" — no local dispatch core, SubDeviceManagerTracker never
+        initialized — and then throws on the FIRST program dispatch
+        ("...contains only remote devices (no local device)", mesh_device.cpp).
+    The platform opens 32 single-chip workers at startup, so WITHOUT serialization
+    that race is hit on many boots (a few workers come up bad and silently fail
+    every job routed to them). Serializing the opens is the fix.
 
     A single host-wide advisory lock makes every open/close strictly one-at-a-time,
-    so the UMD init path is never raced. The lock is *blocking* on purpose: an
-    earlier best-effort timeout that let opens proceed concurrently after waiting
-    is exactly what reintroduced the deadlock. The kernel drops the lock if a
-    holder dies, and the platform's per-run stall watchdog bounds any pathological
-    case, so this can never wedge worse than opening unserialized.
-
-    Only design-shard subprocesses opt in (they set TT_BIO_SERIALIZE_DEVICE_OPEN
-    and cold-open a chip per shard). Prediction workers open their chip once at
-    startup and reuse it, so they must NOT take this lock — otherwise a stuck
-    design open would stall an unrelated predict at "loading the model".
-    """
-    if not os.environ.get("TT_BIO_SERIALIZE_DEVICE_OPEN"):
-        yield
-        return
+    so the UMD init path is never raced. Blocking on purpose: a best-effort timeout
+    that let opens proceed concurrently after waiting is exactly what reintroduced
+    the deadlock. The kernel drops the lock if a holder dies, and the pool
+    supervisor + per-run stall watchdog bound any pathological case, so this can
+    never wedge worse than opening unserialized. Opens are one-time per worker (the
+    chip is reused for every job, predict AND design — design runs in-process on the
+    already-open chip, never cold-opening), so serialization only lengthens startup
+    slightly and never adds any runtime latency."""
     import fcntl
     try:
         f = open(_DEVICE_INIT_LOCK_PATH, "w")
@@ -293,6 +291,32 @@ def _open_device_locked(device_id, kwargs):
         _configure_active_compute_grid(dev)
         dev.enable_program_cache()
         return dev
+
+
+def _assert_local_dispatch(dev):
+    """Verify a freshly-opened chip can actually dispatch a program.
+
+    A chip that came up "remote-only" from a raced bring-up opens fine but throws on
+    the first program dispatch (SubDeviceManagerTracker not initialized / "only
+    remote devices"). Probe with one trivial op so a mis-initialized worker fails
+    HERE, at startup, and gets respawned with a serialized clean reopen — instead of
+    silently accepting jobs it will fail. Runs unlocked: it's an ordinary compute
+    dispatch on an already-open chip, not the UMD init path, so it needn't serialize
+    (the tiny kernel is cached after the first compile)."""
+    import torch
+    try:
+        t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),
+                            layout=ttnn.TILE_LAYOUT, device=dev)
+        ttnn.add(t, t)
+        ttnn.synchronize_device(dev)
+    except Exception as e:
+        with _device_init_lock():
+            try:
+                ttnn.close_device(dev)
+            except Exception:
+                pass
+        raise RuntimeError(f"device bring-up failed the local-dispatch check "
+                           f"(likely a remote-only init): {e}") from e
 
 
 def get_device():
@@ -320,7 +344,9 @@ def get_device():
             {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
             if eth_dispatch else {}
         )
-        _device = _open_device_locked(device_id, kwargs)
+        dev = _open_device_locked(device_id, kwargs)
+        _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
+        _device = dev
     return _device
 
 
