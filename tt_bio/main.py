@@ -871,17 +871,21 @@ def _local_workers(accelerator: str, num_devices: int, device_ids: str | None, m
     ]
 
 
+def _cap_worker_threads(n_workers: int) -> None:
+    """Cap each worker's host thread pools. Each worker's torch/OMP/BLAS pools
+    otherwise default to ALL cores, so N co-resident workers spawn N*cores threads
+    that thrash the CPU and collapse throughput on the host-side work
+    (featurization, output, layout conversion) -- the multi-card slowdown. Size to
+    cores/workers; an operator-set value wins. Spawned children inherit these."""
+    cap = max(1, (os.cpu_count() or 1) // max(1, n_workers))
+    for var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+        os.environ.setdefault(var, str(cap))
+
+
 def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> list:
     """Spawn one process per worker slot, each connected to the controller."""
     ctx = mp.get_context("spawn")
-    # Cap per-worker host threads. Each worker's torch/OMP/BLAS pools otherwise
-    # default to ALL cores, so N co-resident workers spawn N*cores threads that
-    # thrash the CPU and collapse throughput on the host-side work (featurization,
-    # output, layout conversion) -- the multi-card slowdown. Size to cores/workers;
-    # an operator-set value wins. Spawned children inherit these at import.
-    cap = max(1, (os.cpu_count() or 1) // max(1, len(workers)))
-    for var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
-        os.environ.setdefault(var, str(cap))
+    _cap_worker_threads(len(workers))
     procs = []
     for worker in workers:
         proc = ctx.Process(
@@ -908,6 +912,62 @@ def _stop_worker_processes(procs: list) -> None:
             if proc.is_alive():
                 proc.kill()
                 proc.join(timeout=3)
+
+
+def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
+                                *, poll: float = 3.0, max_restarts: int = 10,
+                                restart_window: float = 600.0) -> None:
+    """Spawn one process per worker slot and keep them alive.
+
+    If a worker exits unexpectedly (crash, fatal device error), respawn it — a
+    fresh process reopens its chip and rejoins the controller, so a transient
+    failure self-heals instead of silently shrinking the fleet (the 31/32 drop).
+    A per-slot budget (``max_restarts`` within ``restart_window``) drops and logs a
+    permanently-bad device rather than crash-looping it forever. Respawns happen
+    one slot at a time, so they never re-trigger the concurrent-open contention of
+    a bulk startup. Blocks until interrupted; SIGINT stops the whole fleet cleanly."""
+    ctx = mp.get_context("spawn")
+    _cap_worker_threads(len(workers))
+    procs: dict = {}
+    restarts: dict = {}
+    dropped: set = set()
+
+    def _spawn(i: int) -> None:
+        proc = ctx.Process(
+            target=run_worker_loop,
+            args=(controller_url, worker_payload(workers[i]), debug),
+        )
+        proc.start()
+        procs[i] = proc
+
+    for i in range(len(workers)):
+        _spawn(i)
+    try:
+        while True:
+            time.sleep(poll)
+            for i, proc in list(procs.items()):
+                if i in dropped or proc.is_alive():
+                    continue
+                label = getattr(workers[i], "label", f"worker {i}")
+                now = time.monotonic()
+                recent = [t for t in restarts.get(i, []) if now - t < restart_window]
+                if len(recent) >= max_restarts:
+                    dropped.add(i)
+                    click.echo(f"[supervisor] {label} exited {max_restarts}x in "
+                               f"{int(restart_window)}s — giving up (reset the chip "
+                               f"and restart the service)", err=True)
+                    continue
+                recent.append(now)
+                restarts[i] = recent
+                click.echo(f"[supervisor] {label} exited (code={proc.exitcode}); "
+                           f"respawning [{len(recent)}/{max_restarts}]", err=True)
+                _spawn(i)
+            if workers and len(dropped) == len(workers):
+                click.echo("[supervisor] all workers permanently failed — exiting", err=True)
+                break
+    except KeyboardInterrupt:
+        click.echo("\nStopping workers...")
+        _stop_worker_processes(list(procs.values()))
 
 
 def _parse_listen(listen: str | None) -> tuple[str, int]:
@@ -1159,13 +1219,7 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
     for worker in workers:
         click.echo(f"  {worker.label}")
 
-    procs = _spawn_worker_processes(connect, workers, debug)
-    try:
-        for proc in procs:
-            proc.join()
-    except KeyboardInterrupt:
-        click.echo("\nStopping workers...")
-        _stop_worker_processes(procs)
+    _supervise_worker_processes(connect, workers, debug)
 
 
 @cli.command("controller")

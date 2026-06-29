@@ -514,6 +514,12 @@ def run_worker_loop(
             _get_device()
         except Exception:
             traceback.print_exc()
+            # The chip didn't come up with working local dispatch (e.g. a raced
+            # "remote-only" bring-up). Do NOT stay online serving jobs we'd fail:
+            # exit so the pool supervisor respawns us. The respawn reopens under the
+            # host-wide device-init lock (one chip at a time), which is exactly what
+            # clears the concurrent-init race behind a bad bring-up.
+            return
     try:
         while True:
             # Tolerate a controller that's briefly unreachable (restart, network
