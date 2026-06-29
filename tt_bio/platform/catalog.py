@@ -19,8 +19,8 @@ LIMITS = {
     "max_complexes": 10,             # structures/targets per submission (compose + bulk)
     "max_ligands_per_complex": 10,
     "max_constraints_per_complex": 20,
-    "max_designs": 50,               # binders to generate (design)
-    "max_budget": 50,                # ranked designs to keep
+    "max_designs": 10,               # binders to generate (design)
+    "max_budget": 10,                # ranked designs to keep
     "max_recycling_steps": 10,
     "max_sampling_steps": 500,
     "max_diffusion_samples": 5,
@@ -156,10 +156,10 @@ PREDICT_PARAMS = [
 ]
 
 DESIGN_PARAMS = [
-    {"key": "num_designs", "label": "Designs to generate", "type": "int", "default": 20,
+    {"key": "num_designs", "label": "Designs to generate", "type": "int", "default": 10,
      "min": 1, "max": LIMITS["max_designs"],
      "help": "Binders to generate before filtering."},
-    {"key": "budget", "label": "Top designs to keep", "type": "int", "default": 20,
+    {"key": "budget", "label": "Top designs to keep", "type": "int", "default": 10,
      "min": 1, "max": LIMITS["max_budget"],
      "help": "How many ranked designs to report after filtering."},
     {"key": "fast", "label": "Fast mode", "type": "bool", "default": True, "help": "Higher throughput — may be slightly less accurate."},

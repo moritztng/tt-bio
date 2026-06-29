@@ -71,11 +71,15 @@ def create_app(workspace: str | os.PathLike | None = None, *,
         return manager.owner_of(job_id) == g.session_id
 
     def _client_ip() -> str:
-        """The real client IP, for per-IP flood limits. Behind a proxy (ngrok),
-        the trustworthy client IP is the RIGHTMOST X-Forwarded-For entry — the one
-        the proxy itself appends; any value a client prepends to spoof its IP sits
-        to the left of it. Falls back to the socket peer for direct access. (Assumes
-        a single trusted front proxy, i.e. ngrok; revisit if a CDN is added.)"""
+        """The real client IP, for per-IP flood limits and logging. Behind
+        Cloudflare (our production ingress) the trustworthy source is the
+        CF-Connecting-IP header: Cloudflare sets it to the real client and
+        overwrites any client-supplied value at the edge, so it can't be spoofed.
+        Fall back to the rightmost X-Forwarded-For entry (the one a single trusted
+        proxy appends) and finally the socket peer for direct/local access."""
+        cf = request.headers.get("CF-Connecting-IP", "").strip()
+        if cf:
+            return cf
         xff = request.headers.get("X-Forwarded-For", "")
         if xff:
             parts = [p.strip() for p in xff.split(",") if p.strip()]
@@ -229,7 +233,19 @@ def serve(host: str = "0.0.0.0", port: int = 8080, workspace: str | None = None,
         print(f"  fleet controller → {cluster.join_url}", flush=True)
         print(f"  add a galaxy: tt-bio worker --connect {cluster.join_url}\n", flush=True)
     try:
-        app.run(host=host, port=port, debug=debug, threaded=True, use_reloader=False)
+        if debug:
+            # Local development only (reloader OFF so it never double-opens devices).
+            app.run(host=host, port=port, debug=True, threaded=True, use_reloader=False)
+        else:
+            # Production: a real WSGI server. The UI polls /api/jobs and /api/cluster
+            # every ~2.5s, so many concurrent visitors means many short requests; a
+            # thread pool serves them concurrently while the heavy work runs off in
+            # the JobManager/cluster. (Flask's dev server is not for production and
+            # bottlenecks under that polling load.) waitress handles SIGTERM/SIGINT
+            # gracefully and returns, so the cluster.shutdown() below still runs.
+            from waitress import serve as _wsgi_serve
+            _wsgi_serve(app, host=host, port=port, threads=32,
+                        channel_timeout=120, ident="JapanFold")
     finally:
         if cluster is not None:
             cluster.shutdown()
