@@ -1,4 +1,16 @@
+UMA DONE
 # UMA on Tenstorrent — autonomous build progress (qb2, branch exp/uma-tt)
+
+## ==== FINAL STATUS: DONE (outcome a) ====
+UMA forward energy+forces ported to Tenstorrent ttnn (Blackhole P150). Dominant module
+(SO2_Convolution) fully device-resident, PCC 1.0/0.9999; end-to-end forward node-embedding
+PCC 0.99999-1.0, energy <1%; autograd-free FD forces PCC 0.999. Throughput 3.5 Medges/s/card,
+14.1 Medges/s on 4 cards (perfect linear scaling), ~45x vs CPU on the dominant module.
+Random weights (facebook/UMA HF-gated 403; validated apples-to-apples). Committed a888f4c to
+exp/uma-tt (uma_tt/). Full verdict in ~/.uma_run/REPORT.md and uma_tt/REPORT.md.
+To do real-weights validation later: get HF access to facebook/UMA, drop checkpoint, reuse
+ref_harness/tt_e2e (swap random state_dict for the loaded one).
+
 
 This file is the source of truth across loop restarts. Each iteration: read it,
 do the first unchecked step, update it. When fully done, first line -> `UMA DONE`.
