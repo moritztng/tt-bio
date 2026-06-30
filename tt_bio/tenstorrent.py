@@ -540,6 +540,14 @@ class TriangleMultiplication(Module):
             x_norm_in = ttnn.reallocate(x_norm_in)
         # Unsqueeze mask once before chunk loop (mask is [1,S,S] or [1,S])
         mask_u = ttnn.unsqueeze(mask, -1) if mask is not None else None
+        # On the DRAM (large-L) path, collect the per-channel output chunks and
+        # concat them ONCE at the end. The running concat below copies the
+        # accumulator on every step (O(n_pairs^2) channel-bytes moved); a single
+        # concat of all chunks copies each chunk once (O(n_pairs)). Bit-exact
+        # (same chunk order). Kept only for DRAM: at small L the chunks live in
+        # L1 and holding all of them at once would blow the L1 budget.
+        large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        x_chunks = [] if large_seq else None
         for i in range(self.n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
                 x_norm_in,
@@ -586,13 +594,20 @@ class TriangleMultiplication(Module):
             x_chunk_t = ttnn.transpose(x_chunk, 2, 3, memory_config=memory_config)
             ttnn.deallocate(x_chunk)
             x_chunk = x_chunk_t
-            if i == 0:
+            if x_chunks is not None:
+                x_chunks.append(x_chunk)
+            elif i == 0:
                 x = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                ttnn.deallocate(x_chunk)
             else:
                 x_old = x
                 x = ttnn.concat([x_old, x_chunk], dim=-1)
                 ttnn.deallocate(x_old)
-            ttnn.deallocate(x_chunk)
+                ttnn.deallocate(x_chunk)
+        if x_chunks is not None:
+            x = ttnn.concat(x_chunks, dim=-1)
+            for c in x_chunks:
+                ttnn.deallocate(c)
         x = ttnn.layer_norm(
             x,
             weight=self.out_norm_weight,
