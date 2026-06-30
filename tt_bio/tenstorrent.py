@@ -577,7 +577,15 @@ class TriangleMultiplication(Module):
             )
             ttnn.deallocate(a_chunk)
             ttnn.deallocate(b_chunk)
-            x_chunk = ttnn.permute(x_chunk, (0, 2, 3, 1), memory_config=memory_config)
+            # Move the channel chunk from the batch axis back to the last axis:
+            # permute(0,2,3,1). As a single permute this is a 3-way rotation of
+            # the last three axes (~6ms at L=1024); the equivalent pair
+            # transpose(1,2) then transpose(2,3) is ~2.6ms (the inner transpose
+            # is tile-local) and BIT-EXACT (pure index reordering).
+            x_chunk = ttnn.transpose(x_chunk, 1, 2, memory_config=memory_config)
+            x_chunk_t = ttnn.transpose(x_chunk, 2, 3, memory_config=memory_config)
+            ttnn.deallocate(x_chunk)
+            x_chunk = x_chunk_t
             if i == 0:
                 x = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             else:
