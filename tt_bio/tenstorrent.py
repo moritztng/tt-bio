@@ -503,16 +503,21 @@ class TriangleMultiplication(Module):
         # Bring the channel chunk to the batch axis for the per-channel matmul.
         # The two cases are (0,3,1,2) [no inner swap] and (0,3,2,1) [also swaps
         # the inner L,L]. The latter, done as a single ttnn.permute, is ~3x more
-        # expensive than (0,3,1,2) at large L (the inner L,L transpose spills to
-        # DRAM bandwidth). Decompose it into the cheap channel-move permute
-        # (0,3,1,2) followed by ttnn.transpose(-2,-1): the transpose is a
-        # tile-local op (~0.2ms vs ~10ms at L=1024) and the pair is BIT-EXACT
-        # with permute(0,3,2,1) (pure index reordering, no arithmetic).
+        # expensive than (0,3,1,2) on the large-L DRAM path (the inner L,L
+        # transpose is DRAM-bandwidth bound: ~10ms vs ~3ms at L=1024). There we
+        # decompose it into the cheap channel-move permute (0,3,1,2) followed by
+        # ttnn.transpose(-2,-1) (a tile-local op, ~0.2ms) — BIT-EXACT with
+        # permute(0,3,2,1) (pure index reordering). On the small-L L1 path the
+        # single permute is marginally faster (the extra op's launch overhead
+        # outweighs the cheaper transpose), so keep it there.
         inner_swap = permute_dims == (0, 3, 2, 1)
+        decompose = inner_swap and memory_config.buffer_type == ttnn.BufferType.DRAM
         ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
-        ops.append((ttnn.permute, (0, 3, 1, 2)))
-        if inner_swap:
+        if decompose:
+            ops.append((ttnn.permute, (0, 3, 1, 2)))
             ops.append((ttnn.transpose, -2, -1))
+        else:
+            ops.append((ttnn.permute, permute_dims))
         if _FAST_MODE:
             ops.append((ttnn.typecast, ttnn.bfloat8_b))
         ops.append((ttnn.reallocate,))
@@ -586,14 +591,18 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(a_chunk)
             ttnn.deallocate(b_chunk)
             # Move the channel chunk from the batch axis back to the last axis:
-            # permute(0,2,3,1). As a single permute this is a 3-way rotation of
-            # the last three axes (~6ms at L=1024); the equivalent pair
-            # transpose(1,2) then transpose(2,3) is ~2.6ms (the inner transpose
-            # is tile-local) and BIT-EXACT (pure index reordering).
-            x_chunk = ttnn.transpose(x_chunk, 1, 2, memory_config=memory_config)
-            x_chunk_t = ttnn.transpose(x_chunk, 2, 3, memory_config=memory_config)
-            ttnn.deallocate(x_chunk)
-            x_chunk = x_chunk_t
+            # permute(0,2,3,1). On the large-L DRAM path, a single permute is a
+            # 3-way rotation of the last three axes (~6ms at L=1024); the
+            # equivalent transpose(1,2) then transpose(2,3) is ~2.6ms (the inner
+            # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
+            # single permute is marginally faster, so keep it there.
+            if large_seq:
+                x_chunk = ttnn.transpose(x_chunk, 1, 2, memory_config=memory_config)
+                x_chunk_t = ttnn.transpose(x_chunk, 2, 3, memory_config=memory_config)
+                ttnn.deallocate(x_chunk)
+                x_chunk = x_chunk_t
+            else:
+                x_chunk = ttnn.permute(x_chunk, (0, 2, 3, 1), memory_config=memory_config)
             if x_chunks is not None:
                 x_chunks.append(x_chunk)
             elif i == 0:
