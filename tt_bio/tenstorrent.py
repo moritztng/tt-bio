@@ -500,18 +500,24 @@ class TriangleMultiplication(Module):
     def _transform_chunk(
         self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig
     ) -> ttnn.Tensor:
+        # Bring the channel chunk to the batch axis for the per-channel matmul.
+        # The two cases are (0,3,1,2) [no inner swap] and (0,3,2,1) [also swaps
+        # the inner L,L]. The latter, done as a single ttnn.permute, is ~3x more
+        # expensive than (0,3,1,2) at large L (the inner L,L transpose spills to
+        # DRAM bandwidth). Decompose it into the cheap channel-move permute
+        # (0,3,1,2) followed by ttnn.transpose(-2,-1): the transpose is a
+        # tile-local op (~0.2ms vs ~10ms at L=1024) and the pair is BIT-EXACT
+        # with permute(0,3,2,1) (pure index reordering, no arithmetic).
+        inner_swap = permute_dims == (0, 3, 2, 1)
+        ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
+        ops.append((ttnn.permute, (0, 3, 1, 2)))
+        if inner_swap:
+            ops.append((ttnn.transpose, -2, -1))
+        if _FAST_MODE:
+            ops.append((ttnn.typecast, ttnn.bfloat8_b))
+        ops.append((ttnn.reallocate,))
         old = chunk
-        for op, *args in (
-            [
-                (ttnn.typecast, ttnn.bfloat16),
-                (ttnn.permute, permute_dims),
-                (ttnn.typecast, ttnn.bfloat8_b),
-                (ttnn.reallocate,),
-            ] if _FAST_MODE else [
-                (ttnn.permute, permute_dims),
-                (ttnn.reallocate,),
-            ]
-        ):
+        for op, *args in ops:
             chunk = op(chunk, *args, memory_config=memory_config)
             ttnn.deallocate(old)
             old = chunk
