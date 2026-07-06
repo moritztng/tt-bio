@@ -158,12 +158,27 @@ def inspect(content: str) -> dict:
                     if b is not None:
                         info["affinity_binders"].append(str(b))
     elif text.lstrip().startswith(">"):
-        # FASTA: count records and residues.
+        # FASTA: count records + residues, and validate each record's alphabet.
+        # Same hazard the YAML path guards: invalid characters (emoji, digits,
+        # punctuation) otherwise slip through to the featurizer/MSA and fail deep
+        # in the worker with an opaque error instead of a clean 400 here. The
+        # header is ">id|type" (type after the last "|"), defaulting to protein.
         info["chains"] = text.count(">")
-        info["residues"] = sum(
-            len(_NON_LETTER.sub("", ln)) for ln in text.splitlines() if not ln.startswith(">")
-        )
         info["has_polymer"] = info["chains"] > 0
+        residues = 0
+        cur_type = "protein"
+        for ln in text.splitlines():
+            if ln.startswith(">"):
+                parts = ln[1:].rsplit("|", 1)
+                cur_type = parts[1].strip().lower() if len(parts) == 2 else "protein"
+            elif ln.strip():
+                seq = ln.strip()
+                residues += len(_NON_LETTER.sub("", seq))
+                rx = _SEQ_ALPHABET.get(cur_type)
+                if rx and info["bad_seq"] is None and not rx.match(seq.replace(" ", "")):
+                    info["bad_seq"] = (f"the {cur_type} sequence has invalid characters "
+                                       f"(expected {_ALPHABET_DESC.get(cur_type, 'valid letters')})")
+        info["residues"] = residues
     return info
 
 
