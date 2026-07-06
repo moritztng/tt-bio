@@ -19,8 +19,8 @@ metadata:
       name: JapanFold API
       provider: JapanFold
       info_url: https://japanfold.com
-# allowed-tools is used by Claude Code (grants curl/python without prompting);
-# Claude Science ignores it and runs code in its own kernel.
+# allowed-tools is a Claude Code convenience (grants curl/python without a
+# prompt); other harnesses ignore it and use their own execution/permission model.
 allowed-tools:
   - Bash(curl *)
   - Bash(python3 *)
@@ -30,31 +30,42 @@ allowed-tools:
 
 JapanFold runs Boltz-2 / ESMFold2 / Protenix (structure + affinity) and BoltzGen
 (binder design) on Tenstorrent hardware behind a **free public HTTP API**. You
-call it as an async job: **submit → poll → download**. No API key is required
-(same limits as the web app) and there's no model to install — you're just an
-HTTP client of `https://api.japanfold.com`.
+call it as an async job — **submit → poll → download** — over plain HTTPS against
+`https://api.japanfold.com`. No API key, no model to install, no local GPU.
 
-Use whatever HTTP tool your environment has — `curl`/Bash, or `httpx`/`requests`
-in a Python kernel. If your environment sandboxes network access (e.g. Claude
-Science), approve the host **`api.japanfold.com`** when prompted.
+Works from any agent/harness: use `curl` (Bash) or your language's HTTP client
+(`httpx`/`requests`, `fetch`, `net/http`, …) — whatever your environment has.
+If your environment sandboxes network egress (e.g. Claude Science), approve the
+host **`api.japanfold.com`** when prompted.
 
 ## Predict a structure
 
-Submit, then poll until the status is terminal, then read results:
+Submit → poll until `status` is terminal → read results:
 
 ```bash
 BASE=https://api.japanfold.com
-# 1. submit (input: a bare `sequence`, one `input` FASTA/YAML string, or `targets` list)
+# 1. submit — input is a bare `sequence`, one `input` FASTA/YAML string, or a `targets` list
 JOB=$(curl -s -X POST $BASE/v1/predictions -H 'Content-Type: application/json' \
   -d '{"model":"boltz2","name":"mytarget","sequence":"MKTAYIAKQRQISFVKSHFSRQLEE"}' \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
 
-# 2. poll (jobs take minutes). Tip: add header  Prefer: wait=60  to block up to 60s.
-curl -s $BASE/v1/jobs/$JOB      # -> {"status":"queued|running|succeeded|failed", ...}
+# 2. poll (a small fold is usually done in well under a minute). Tip: add header
+#    `Prefer: wait=60` to the GET to block until the job finishes (up to 60s).
+curl -s $BASE/v1/jobs/$JOB          # -> {"status":"queued|running|succeeded|failed", ...}
 
-# 3. when status=succeeded, list artifacts + scores, then download
-curl -s $BASE/v1/jobs/$JOB/results          # per-target scores + artifact URLs
-curl -sOJ $BASE/v1/jobs/$JOB/archive        # all structures + results.json (zip)
+# 3. once status=succeeded: scores + artifact URLs, then download the bundle
+curl -s   $BASE/v1/jobs/$JOB/results
+curl -sOJ $BASE/v1/jobs/$JOB/archive          # zip: structures + results.json
+```
+
+**Multi-chain complexes** (e.g. insulin's A+B chains) go in the `input` YAML —
+one `protein` entry per chain, not the bare `sequence` field:
+
+```bash
+curl -s -X POST $BASE/v1/predictions -H 'Content-Type: application/json' -d '{
+  "model":"boltz2","name":"human-insulin",
+  "input":"sequences:\n  - protein: {id: A, sequence: GIVEQCCTSICSLYQLENYCN}\n  - protein: {id: B, sequence: FVNQHLCGSHLVEALYLVCGERGFFYTPKT}\n"
+}'
 ```
 
 Python-kernel equivalent (Claude Science, notebooks):
@@ -73,10 +84,10 @@ res = httpx.get(f"{BASE}/v1/jobs/{job['id']}/results").json()
 - **Models:** `boltz2` (default; MSA + ligands + affinity), `esmfold2`,
   `esmfold2-fast` (single-sequence, fastest), `protenix-v2`.
 - For complexes / protein–ligand affinity / multiple chains, pass a **Boltz YAML**
-  string as `input` instead of `sequence` (`sequences:` with
-  `protein`/`dna`/`rna`/`ligand` chains; `properties:` for the affinity head).
-- `params` accepts `use_msa_server` (on by default for Boltz-2), `fast`,
-  `recycling_steps`, `sampling_steps`, `diffusion_samples`, `output_format`.
+  string as `input` (`sequences:` with `protein`/`dna`/`rna`/`ligand` chains;
+  `properties:` for the affinity head).
+- `params`: `use_msa_server` (on by default for Boltz-2), `fast`, `recycling_steps`,
+  `sampling_steps`, `diffusion_samples`, `output_format`.
 - `GET /v1/models` lists every model, protocol, parameter, and the current limits.
 
 ## Design binders (BoltzGen)
@@ -105,5 +116,9 @@ structure from its artifact `url`, or the whole bundle from `…/archive`.
   plus per-IP rate limits. Over a cap → `400`; at capacity → `429` (respect
   `Retry-After`). Numeric params are clamped to range.
 - Errors are RFC 9457 problem+json (`title`, `detail`).
-- No key needed. An optional `Authorization: Bearer <key>` raises the limits.
+- No key needed; an optional `Authorization: Bearer <key>` raises the limits.
 - Full machine-readable contract: `GET /v1/openapi.json`.
+- **If a request ever returns HTTP `403` with Cloudflare error `1010`**, that's
+  edge-level bot filtering of your HTTP client, not an API error — retry the same
+  request with a browser-like `User-Agent` header
+  (`Mozilla/5.0 … Chrome/124.0 Safari/537.36`).
