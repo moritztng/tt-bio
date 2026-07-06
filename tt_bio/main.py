@@ -151,13 +151,22 @@ def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, s
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences)")
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
     seqs_list = list(seqs.values())
+    # Key run_mmseqs2's working/cache dir by the exact sequence set, NOT by
+    # target_id. target_id is the input filename stem (e.g. "target_1") and
+    # repeats across inputs, so a target-keyed prefix makes one run's cached a3m
+    # get reused by another: a single-chain run caches one query, then a later
+    # multi-chain run with the same target_id reuses it while expecting N queries
+    # and dies with KeyError on the missing query index. A content hash keys the
+    # cache by what was actually searched — collision-free, still reused when the
+    # same sequence set recurs.
+    tag = hashlib.sha256("\n".join(seqs_list).encode()).hexdigest()[:16]
 
-    paired = (run_mmseqs2(seqs_list, msa_dir / f"{target_id}_paired_tmp", use_env=True,
+    paired = (run_mmseqs2(seqs_list, msa_dir / f"{tag}_paired_tmp", use_env=True,
                          use_pairing=True, host_url=url, pairing_strategy=strategy,
                          msa_server_username=username, msa_server_password=password, auth_headers=headers)
              if len(seqs) > 1 else [""] * len(seqs))
 
-    unpaired = run_mmseqs2(seqs_list, msa_dir / f"{target_id}_unpaired_tmp", use_env=True,
+    unpaired = run_mmseqs2(seqs_list, msa_dir / f"{tag}_unpaired_tmp", use_env=True,
                           use_pairing=False, host_url=url, pairing_strategy=strategy,
                           msa_server_username=username, msa_server_password=password, auth_headers=headers)
 
