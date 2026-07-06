@@ -841,7 +841,10 @@ class JobManager:
             self._update_progress(job)
         d = job.to_dict()
         d["results"] = self.results(job)
-        d["log_size"] = self._log_path(job_id).stat().st_size if self._log_path(job_id).exists() else 0
+        try:
+            d["log_size"] = self._log_path(job_id).stat().st_size
+        except OSError:
+            d["log_size"] = 0
         # For a live multi-structure predict, attach per-target state so the UI
         # can show each input (done / running / queued) and the overall tally.
         if job.kind == "predict" and (job.total or 0) > 1 and job.status in (QUEUED, RUNNING):
@@ -890,6 +893,41 @@ class JobManager:
         done = {r["id"]: ("failed" if (r.get("status") and r.get("status") != "ok") else "done")
                 for r in rows if isinstance(r, dict) and "id" in r}
         d["targets"] = [{"id": tid, "state": done.get(tid, "queued"), "stage": None} for tid in ids]
+
+    def peek_status(self, job_id: str) -> str | None:
+        """The job's lifecycle status with no disk work — for cheap liveness
+        polling (e.g. a synchronous ``Prefer: wait`` hold) that only needs to
+        know whether the job has reached a terminal state."""
+        job = self.jobs.get(job_id)
+        return job.status if job else None
+
+    def brief(self, job_id: str) -> dict[str, Any] | None:
+        """A light status view: the job fields + a cheap ``results_ready`` flag,
+        without the full :meth:`results` parse (results.json read, per-row
+        sanitising, structures glob) that :meth:`get` does. For pollers that
+        only need status/progress/ready — the authoritative artifact listing is
+        :meth:`results` via :meth:`get`."""
+        job = self.jobs.get(job_id)
+        if job is None:
+            return None
+        if job.status == RUNNING:
+            self._update_progress(job)
+        d = job.to_dict()
+        d["results_ready"] = self._results_ready(job)
+        return d
+
+    def _results_ready(self, job: Job) -> bool:
+        """Cheap existence check for "are there results yet" — no parse/glob of
+        the payload. Mirrors the ``ready`` that :meth:`results` computes."""
+        rd = self._results_dir(job)
+        if not rd or not rd.exists():
+            return False
+        if job.kind == "predict":
+            try:  # ready once results.json holds at least one row (bigger than "[]")
+                return (rd / "results.json").stat().st_size > 2
+            except OSError:
+                return False
+        return any((rd / "final_ranked_designs").glob("final_designs_metrics_*.csv"))
 
     def results(self, job: Job) -> dict[str, Any]:
         rd = self._results_dir(job)

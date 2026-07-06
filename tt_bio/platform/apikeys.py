@@ -88,31 +88,35 @@ def _load_env() -> dict[str, dict]:
     return out
 
 
-def _store(path: Path | None = None) -> dict[str, dict]:
-    """Merged {sha256: record} view, cached and invalidated on file mtime."""
-    path = path or default_store_path()
+def _file_store(path: Path) -> dict[str, dict]:
+    """The cached ``{sha256: record}`` from the key file, refreshed only when the
+    file's mtime changes. Returned by reference (hot path — no per-call copy);
+    callers must treat it as read-only."""
     with _lock:
         try:
             mtime = path.stat().st_mtime
         except OSError:
             mtime = None
-        if _cache["path"] == str(path) and _cache["mtime"] == mtime and _cache["store"] is not None:
-            merged = dict(_cache["store"])
-        else:
-            merged = _load_file(path)
-            _cache.update(path=str(path), mtime=mtime, store=dict(merged))
-    merged.update(_load_env())  # env overlay is cheap; keep it live, never cached
-    return merged
+        if not (_cache["path"] == str(path) and _cache["mtime"] == mtime and _cache["store"] is not None):
+            _cache.update(path=str(path), mtime=mtime, store=_load_file(path))
+        return _cache["store"]
 
 
 # --------------------------------------------------------------------------- #
 # Public API
 # --------------------------------------------------------------------------- #
 def verify(key: str | None, path: Path | None = None) -> str | None:
-    """Return the customer id for a key, or ``None`` if unknown/malformed."""
+    """Return the customer id for a key, or ``None`` if unknown/malformed.
+
+    Hot path (every authenticated request): one mtime stat + one dict lookup
+    against the cached file store, no copy. The env overlay is consulted only on
+    a file miss — and ``_load_env`` returns instantly when ``$JAPANFOLD_API_KEYS``
+    is unset (the production case), so env keys are never re-hashed per request.
+    """
     if not _valid_format(key or ""):
         return None
-    rec = _store(path).get(_hash(key))  # type: ignore[arg-type]
+    h = _hash(key)
+    rec = _file_store(path or default_store_path()).get(h) or _load_env().get(h)
     return rec.get("customer") if rec else None
 
 

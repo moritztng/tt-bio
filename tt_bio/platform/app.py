@@ -15,7 +15,7 @@ from flask import Flask, g, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 
 from .catalog import catalog
-from .http_common import client_ip, submit_job
+from .http_common import client_ip, serve_archive, serve_log, serve_structure, submit_job
 from .jobs import CapacityError, JobManager
 
 _HERE = Path(__file__).resolve().parent
@@ -52,6 +52,10 @@ def create_app(workspace: str | os.PathLike | None = None, *,
     # ---- Anonymous session ------------------------------------------------
     @app.before_request
     def _ensure_session():
+        # The /v1 customer API authenticates by key, not cookie — don't mint an
+        # anonymous session for those requests (nothing reads it there).
+        if request.path.startswith("/v1/"):
+            return
         sid = request.cookies.get(_SESSION_COOKIE)
         if not sid or not (16 <= len(sid) <= 128) or not sid.replace("-", "").replace("_", "").isalnum():
             sid = secrets.token_urlsafe(24)  # 192-bit
@@ -121,25 +125,19 @@ def create_app(workspace: str | os.PathLike | None = None, *,
     def get_log(job_id):
         if not _owns(job_id):
             return jsonify({"error": "not found"}), 404
-        return app.response_class(manager.log_text(job_id), mimetype="text/plain")
+        return serve_log(manager, job_id)
 
     @app.get("/api/jobs/<job_id>/structure/<path:relpath>")
     def get_structure(job_id, relpath):
         if not _owns(job_id):
             return jsonify({"error": "not found"}), 404
-        path = manager.structure_file(job_id, relpath)
-        if not path:
-            return jsonify({"error": "not found"}), 404
-        return send_file(path, as_attachment=False, download_name=path.name)
+        return serve_structure(manager, job_id, relpath) or (jsonify({"error": "not found"}), 404)
 
     @app.get("/api/jobs/<job_id>/archive")
     def archive_job(job_id):
         if not _owns(job_id):
             return jsonify({"error": "not found"}), 404
-        path = manager.archive(job_id)
-        if not path:
-            return jsonify({"error": "no results yet"}), 404
-        return send_file(path, as_attachment=True, download_name=f"{job_id}-results.zip")
+        return serve_archive(manager, job_id) or (jsonify({"error": "no results yet"}), 404)
 
     @app.post("/api/jobs/<job_id>/cancel")
     def cancel_job(job_id):

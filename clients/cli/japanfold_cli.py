@@ -41,19 +41,29 @@ TERMINAL = {"succeeded", "failed", "canceled"}
 # --------------------------------------------------------------------------- #
 # Config / auth
 # --------------------------------------------------------------------------- #
+_config_cache: dict | None = None
+
+
 def _load_config() -> dict:
-    try:
-        return json.loads(CONFIG_PATH.read_text())
-    except (OSError, ValueError):
-        return {}
+    # Read once per process: resolve_api_key + resolve_base_url both consult it
+    # for a single command. _save_config invalidates it.
+    global _config_cache
+    if _config_cache is None:
+        try:
+            _config_cache = json.loads(CONFIG_PATH.read_text())
+        except (OSError, ValueError):
+            _config_cache = {}
+    return _config_cache
 
 
 def _save_config(cfg: dict) -> None:
+    global _config_cache
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = CONFIG_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(cfg, indent=2))
     tmp.chmod(0o600)
     os.replace(tmp, CONFIG_PATH)
+    _config_cache = None  # next read reflects the write
 
 
 def resolve_api_key(args) -> str | None:
@@ -87,7 +97,10 @@ class ApiError(Exception):
     def __init__(self, status, body):
         self.status = status
         self.body = body
-        msg = body.get("title") or body.get("error") or str(body) if isinstance(body, dict) else str(body)
+        if isinstance(body, dict):
+            msg = body.get("title") or body.get("error") or str(body)
+        else:
+            msg = str(body)
         detail = body.get("detail") if isinstance(body, dict) else None
         super().__init__(f"{status}: {msg}" + (f" — {detail}" if detail else ""))
 

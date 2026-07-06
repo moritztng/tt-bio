@@ -24,15 +24,15 @@ import time
 from collections import OrderedDict
 from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, g, jsonify, request, send_file
+from flask import Blueprint, current_app, g, jsonify, request
 
 from . import apikeys
 from .catalog import catalog
-from .http_common import client_ip, submit_job
-from .jobs import CapacityError
+from .http_common import client_ip, serve_archive, serve_log, serve_structure, submit_job
+from .jobs import CANCELED, CapacityError, FAILED, SUCCEEDED
 
 API_VERSION = "1.0.0"
-TERMINAL = {"succeeded", "failed", "canceled"}
+TERMINAL = {SUCCEEDED, FAILED, CANCELED}  # canonical lifecycle vocabulary (jobs.py)
 
 # `Prefer: wait` synchronous-hold bounds (seconds). Default hold if `wait` has no
 # value; hard cap regardless of what the client asks for (protects worker threads).
@@ -91,7 +91,7 @@ def _shape(d: dict) -> dict:
         "params": d.get("params") or {}, "error": d.get("error"),
         "created_at": _iso(d.get("created_at")), "started_at": _iso(d.get("started_at")),
         "finished_at": _iso(d.get("finished_at")),
-        "results_ready": bool((d.get("results") or {}).get("ready")),
+        "results_ready": bool(d.get("results_ready") or (d.get("results") or {}).get("ready")),
         "links": {"self": base, "results": f"{base}/results",
                   "archive": f"{base}/archive", "logs": f"{base}/logs"},
     }
@@ -125,13 +125,23 @@ def _wait_seconds():
 
 
 def _await_terminal(job_id: str, seconds: int):
-    """Block up to ``seconds`` for the job to reach a terminal state (best-effort)."""
+    """Block up to ``seconds`` for the job to reach a terminal state (best-effort).
+    Polls the cheap in-memory status — no per-iteration results parse."""
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
-        d = _mgr().get(job_id)
-        if not d or d.get("status") in TERMINAL:
+        status = _mgr().peek_status(job_id)
+        if status is None or status in TERMINAL:
             return
         time.sleep(_WAIT_POLL)
+
+
+def _job_view(job_id: str):
+    """A shaped job resource, honouring ``Prefer: wait`` — hold for a terminal
+    state, then return the light status view. Shared by create and GET."""
+    wait = _wait_seconds()
+    if wait:
+        _await_terminal(job_id, wait)
+    return _shape(_mgr().brief(job_id))
 
 
 def owned(fn):
@@ -207,19 +217,16 @@ def _submit(payload: dict):
     if idem_key:
         with _idem_lock:
             _idem[idem_key] = job.id
-            while len(_idem) > _IDEMPOTENCY_MAX:
+            if len(_idem) > _IDEMPOTENCY_MAX:  # grows one per insert; never exceeds by more
                 _idem.popitem(last=False)
     return _respond(job.id, created=True)
 
 
 def _respond(job_id: str, *, created: bool):
     """Render a job, honouring ``Prefer: wait`` (block for a terminal state)."""
-    wait = _wait_seconds()
-    if wait:
-        _await_terminal(job_id, wait)
-    d = _mgr().get(job_id)
-    resp = jsonify(_shape(d))
-    terminal = d.get("status") in TERMINAL
+    shaped = _job_view(job_id)
+    resp = jsonify(shaped)
+    terminal = shaped["status"] in TERMINAL
     resp.status_code = 200 if (terminal or not created) else 202
     resp.headers["Location"] = f"/v1/jobs/{job_id}"
     return resp
@@ -298,16 +305,13 @@ def list_jobs():
     has_more = start + limit < len(jobs)
     return jsonify({"object": "list", "data": [_shape(j) for j in page],
                     "has_more": has_more,
-                    "next_cursor": page[-1]["id"] if (page and has_more) else None})
+                    "next_cursor": page[-1]["id"] if has_more else None})
 
 
 @bp.get("/jobs/<job_id>")
 @owned
 def get_job(job_id):
-    wait = _wait_seconds()
-    if wait:
-        _await_terminal(job_id, wait)
-    return jsonify(_shape(_mgr().get(job_id)))
+    return jsonify(_job_view(job_id))
 
 
 @bp.get("/jobs/<job_id>/results")
@@ -329,25 +333,19 @@ def get_results(job_id):
 @bp.get("/jobs/<job_id>/artifacts/<path:relpath>")
 @owned
 def get_artifact(job_id, relpath):
-    path = _mgr().structure_file(job_id, relpath)
-    if not path:
-        return _problem(404, "Not found", "No such artifact.")
-    return send_file(path, as_attachment=False, download_name=path.name)
+    return serve_structure(_mgr(), job_id, relpath) or _problem(404, "Not found", "No such artifact.")
 
 
 @bp.get("/jobs/<job_id>/archive")
 @owned
 def get_archive(job_id):
-    path = _mgr().archive(job_id)
-    if not path:
-        return _problem(404, "Not found", "No results yet.")
-    return send_file(path, as_attachment=True, download_name=f"{job_id}-results.zip")
+    return serve_archive(_mgr(), job_id) or _problem(404, "Not found", "No results yet.")
 
 
 @bp.get("/jobs/<job_id>/logs")
 @owned
 def get_logs(job_id):
-    return current_app.response_class(_mgr().log_text(job_id), mimetype="text/plain")
+    return serve_log(_mgr(), job_id)
 
 
 @bp.post("/jobs/<job_id>/cancel")

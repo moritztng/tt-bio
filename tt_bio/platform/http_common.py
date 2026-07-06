@@ -7,9 +7,28 @@ exactly one implementation of each, used by both surfaces.
 
 from __future__ import annotations
 
-from flask import request
+from flask import current_app, request, send_file
 
 from .jobs import CapacityError, Job, JobManager
+
+
+# --- job artifact serving (identical across /api and /v1) -------------------
+# Each returns a ready-to-return Flask response, or None when the artifact
+# doesn't exist yet — the caller renders its own not-found envelope
+# (``{"error": …}`` for /api, RFC 9457 problem+json for /v1).
+def serve_structure(manager: JobManager, job_id: str, relpath: str):
+    path = manager.structure_file(job_id, relpath)
+    return send_file(path, as_attachment=False, download_name=path.name) if path else None
+
+
+def serve_archive(manager: JobManager, job_id: str):
+    path = manager.archive(job_id)
+    return send_file(path, as_attachment=True, download_name=f"{job_id}-results.zip") if path else None
+
+
+def serve_log(manager: JobManager, job_id: str):
+    """The run log as text/plain (empty body if the job has produced none yet)."""
+    return current_app.response_class(manager.log_text(job_id), mimetype="text/plain")
 
 
 def client_ip() -> str:
