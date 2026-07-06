@@ -8,11 +8,13 @@ comes from an env var for sandboxed agents, and ``predict --wait`` / ``download`
 run as a single foreground long-running command (submit → poll → download), so
 an agent never has to background a process.
 
+No key is needed for the free public demo (same limits as the web app). An
+optional API key raises those limits once you have one.
+
 Auth resolution order:  --api-key  >  $JAPANFOLD_API_KEY  >  ~/.config/japanfold/config.json
 Base URL resolution:     --base-url >  $JAPANFOLD_BASE_URL  >  https://japanfold.com
 
-Quick start:
-    export JAPANFOLD_API_KEY=jf_live_...
+Quick start (no key required):
     japanfold predict --sequence MKTAYIAKQR... --wait --out ./out
     japanfold design spec.yaml --protocol nanobody-anything --wait --out ./out
 """
@@ -277,8 +279,9 @@ def cmd_auth(args):
         key = resolve_api_key(args)
         base = resolve_base_url(args)
         if not key:
-            print("Not logged in.")
-            return EXIT_AUTH
+            print(f"Using the free public demo at {base} (no API key). "
+                  f"Same limits as the web app.")
+            return EXIT_OK
         try:
             _request("GET", base, "/v1/jobs?limit=1", key)
             print(f"Authenticated to {base} (key {key[:12]}…).")
@@ -310,14 +313,6 @@ def cmd_models(args):
     return 0
 
 
-def _require_key(args):
-    key = resolve_api_key(args)
-    if not key:
-        _err("no API key. Run 'japanfold auth login' or set JAPANFOLD_API_KEY.")
-        raise Done(EXIT_AUTH)
-    return key
-
-
 def cmd_schema(args):
     """Print the OpenAPI 3.1 contract (agent/tool introspection)."""
     base = resolve_base_url(args)
@@ -327,7 +322,7 @@ def cmd_schema(args):
 
 
 def cmd_predict(args):
-    base, key = resolve_base_url(args), _require_key(args)
+    base, key = resolve_base_url(args), resolve_api_key(args)
     fields = _read_input(args.input_pos, args.sequence, args.input)
     if not fields:
         _err("provide an input: a FASTA/YAML file, '-', --sequence, or --input")
@@ -345,7 +340,7 @@ def cmd_predict(args):
 
 
 def cmd_design(args):
-    base, key = resolve_base_url(args), _require_key(args)
+    base, key = resolve_base_url(args), resolve_api_key(args)
     fields = _read_input(args.input_pos, None, args.spec)
     spec = fields.get("input")
     if not spec:
@@ -386,7 +381,7 @@ def _finish(base, key, job_id, args):
 
 
 def cmd_jobs(args):
-    base, key = resolve_base_url(args), _require_key(args)
+    base, key = resolve_base_url(args), resolve_api_key(args)
     if args.jobs_cmd == "list":
         path = f"/v1/jobs?limit={args.limit}" + (f"&cursor={args.cursor}" if args.cursor else "")
         _, data, _ = _request("GET", base, path, key)
@@ -415,12 +410,12 @@ def cmd_jobs(args):
 
 
 def cmd_download(args):
-    base, key = resolve_base_url(args), _require_key(args)
+    base, key = resolve_base_url(args), resolve_api_key(args)
     return _finish(base, key, args.job_id, args)
 
 
 def cmd_logs(args):
-    base, key = resolve_base_url(args), _require_key(args)
+    base, key = resolve_base_url(args), resolve_api_key(args)
     _, blob, _ = _request("GET", base, f"/v1/jobs/{args.job_id}/logs", key, raw=True)
     sys.stdout.write(blob.decode(errors="replace"))
     return 0

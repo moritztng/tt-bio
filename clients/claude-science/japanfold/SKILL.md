@@ -31,36 +31,32 @@ kernel.
 ## Reaching the API (network)
 
 JapanFold lives at a single host (production: `https://japanfold.com`; a
-self-hosted deployment has its own URL). Two supported ways to call it:
+self-hosted deployment has its own URL). **The public demo needs no API key** —
+it has the same limits as the web app (see "Limits" below). Call it as a plain
+external API from a kernel cell with `httpx`/`requests`:
 
-- **As a registered model endpoint (recommended for repeated use).** Register
-  once, then every `compute_provider` cell gets `BASE_URL` + `INFER_API_KEY`
-  preloaded and network egress scoped to JapanFold via the sandbox proxy:
+```python
+import httpx
+BASE = "https://japanfold.com"
+r = httpx.post(f"{BASE}/v1/predictions", json={"model": "boltz2", "sequence": "MKT..."})
+```
 
-  ```python
-  host.model_endpoints.register(
-      name="japanfold-service",
-      url="https://japanfold.com",          # or http://127.0.0.1:8080 for a local deployment
-      credential="NVIDIA_API_KEY",           # family credential NAME; value = your JapanFold key
-      skill="japanfold",
-      live="/v1/health",
-  )
-  ```
-  Then dispatch inference cells with `compute_provider(provider="japanfold-service", code=...)`.
+The sandbox scopes network egress, so the JapanFold host must be approved first —
+an approval card appears the first time you call it; approve `japanfold.com`
+(a self-hosted deployment must be reached on its own domain, not a generic
+`*.trycloudflare.com`/ngrok tunnel, which the sandbox blocks).
 
-- **As a plain external API.** From a kernel cell, call it with `httpx`/`requests`.
-  The sandbox scopes network egress, so the JapanFold host must be approved first
-  (an approval card appears; approve `japanfold.com`). Send the key as
-  `Authorization: Bearer <JAPANFOLD_API_KEY>`.
-
-Get an API key from https://japanfold.com/account (format `jf_live_…`).
+An **optional** API key raises the demo limits once you have one: send it as
+`Authorization: Bearer <key>` (get one from https://japanfold.com/account,
+format `jf_live_…`). It is not required to try the API.
 
 ## Predict a structure
 
 ```python
 import os, time, httpx
 BASE = os.environ.get("BASE_URL", "https://japanfold.com")
-H = {"Authorization": f"Bearer {os.environ.get('INFER_API_KEY') or JAPANFOLD_API_KEY}"}
+# Public demo needs no key. If you have one, add it: H = {"Authorization": f"Bearer {KEY}"}
+H = {}
 
 # Submit. Input can be a single `sequence`, one `input` FASTA/YAML string, or a
 # list of `targets`. Boltz-2 is the default model (MSA + ligands + affinity).
@@ -112,11 +108,21 @@ artifact `url`, or the whole bundle from `GET /v1/jobs/{id}/archive` (a zip of
 CIF/PDB structures + `results.json`). Fetch structures into the workspace and
 open the `.cif` files to inspect or visualize the fold.
 
+## Limits (public demo)
+
+The free demo caps inputs like the web app: **≤ 1024 residues per structure,
+≤ 10 chains and ≤ 10 ligands per complex, ≤ 10 structures per run, ≤ 10 designs
+per request**, and per-IP rate/concurrency limits. Numeric parameters are clamped
+to range rather than rejected. Over the cap you get a `400`; at fleet capacity a
+`429` with `Retry-After`. `GET /v1/models` returns the exact current limits in
+its `notes`/`limits`. An API key raises these; it is not needed to try the demo.
+
 ## Notes
 
 - Everything is async: submit returns a job with `status: queued`; poll
   `/v1/jobs/{id}` until terminal. `Prefer: wait[=seconds]` (≤60) collapses fast
   jobs into one call. Retries are safe with an `Idempotency-Key` header.
-- Errors are RFC 9457 problem+json (`title`, `detail`); `401` = bad/missing key,
+- Errors are RFC 9457 problem+json (`title`, `detail`); `400` = bad input / over a
+  cap, `401` = a *bad* key was sent (omit the header for the public demo),
   `429` = at capacity (respect `Retry-After`).
 - The full contract is at `GET /v1/openapi.json`.

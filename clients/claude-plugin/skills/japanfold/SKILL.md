@@ -34,16 +34,16 @@ background them with `&` or `nohup`.
 japanfold --version || curl -fsSL https://install.japanfold.com/install.sh | sh
 ```
 
-Authentication is via an API key. In a sandboxed/agent environment the key is
-provided as the `JAPANFOLD_API_KEY` environment variable — check it is set:
+No API key is needed for the free public demo — it has the same limits as the
+web app. Just run the commands below. Check reachability with:
 
 ```bash
 japanfold auth status
 ```
 
-If it is not set, ask the user for their JapanFold API key (from
-https://japanfold.com/account) and export it as `JAPANFOLD_API_KEY`. Do not hard-code
-or echo the key.
+An optional API key raises the demo limits. If the user has one, it's supplied as
+the `JAPANFOLD_API_KEY` environment variable (never hard-code or echo it); the
+CLI picks it up automatically. Do not block on a key — the demo works without one.
 
 ## 2. Predict a structure
 

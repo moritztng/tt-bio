@@ -20,14 +20,16 @@ curl -fsSL https://install.japanfold.com/install.sh | sh     # prod
 pipx install ./clients/cli      # (or: pip install ./clients/cli)
 ```
 
-Authenticate and run:
+Run it — **no key needed** for the free public demo (same limits as the web app):
 
 ```bash
-export JAPANFOLD_API_KEY=jf_live_...        # from https://japanfold.com/account
 japanfold models
 japanfold predict --sequence MKTAYIAK... --model boltz2 --name t1 --wait --out ./out
 japanfold design spec.yaml --protocol nanobody-anything --num-designs 10 --wait --out ./out
 ```
+
+An optional API key raises the demo limits: `export JAPANFOLD_API_KEY=jf_live_...`
+(from https://japanfold.com/account). The CLI picks it up automatically.
 
 - `--wait` submits, polls to completion, and downloads results in one foreground
   command (no backgrounding needed). Or submit and poll separately:

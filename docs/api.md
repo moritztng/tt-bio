@@ -14,7 +14,16 @@ an on-prem server).
 
 ## Authentication
 
-Mint keys server-side (operators):
+**None required for the public demo.** Anyone can call `/v1` with no key; requests
+run under the same input caps and per-IP rate limits as the web app (see
+[Limits](#limits--rate-limiting)), scoped to the caller's IP. This is the
+zero-onboarding path for agents (Claude Science, etc.) to try the API.
+
+An **optional** API key raises those limits. Send it as `Authorization: Bearer <key>`
+(or `X-API-Key`). A *present but invalid* key is rejected with `401` — omit the
+header entirely for the public tier.
+
+Operators mint keys server-side:
 
 ```bash
 tt-bio apikey create --customer acme --name "prod key"

@@ -65,12 +65,13 @@ def build_spec(version: str) -> dict:
             "description": (
                 "Async job API for protein/complex structure prediction (Boltz-2, "
                 "ESMFold2, Protenix) and binder design (BoltzGen). Submit a job, poll "
-                "its status, then download structures and scores. All endpoints require "
-                "an API key (`Authorization: Bearer <key>`)."
+                "its status, then download structures and scores. The public demo needs "
+                "no API key (same input caps and per-IP limits as the web app); an "
+                "optional `Authorization: Bearer <key>` raises those limits."
             ),
         },
         "servers": [{"url": "https://japanfold.com"}, {"url": "http://localhost:8080"}],
-        "security": [{"bearerAuth": []}],
+        "security": [{}, {"bearerAuth": []}],  # auth optional: {} = public, bearer = raised limits
         "tags": [{"name": "discovery"}, {"name": "predictions"}, {"name": "designs"}, {"name": "jobs"}],
         "paths": {
             "/v1/health": {"get": {"tags": ["discovery"], "operationId": "getHealth",

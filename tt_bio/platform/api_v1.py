@@ -163,13 +163,23 @@ def _authenticate():
     if request.endpoint in _PUBLIC_ENDPOINTS or request.method == "OPTIONS":
         return None
     auth = request.headers.get("Authorization", "")
-    key = auth[7:].strip() if auth[:7].lower() == "bearer " else request.headers.get("X-API-Key", "")
-    customer = apikeys.verify(key)
-    if not customer:
-        return _problem(401, "Unauthorized",
-                        "Provide a valid key as 'Authorization: Bearer <key>' or 'X-API-Key'.",
-                        type_="https://japanfold.com/errors/unauthorized")
-    g.customer = customer  # becomes the JobManager owner for every downstream call
+    key = auth[7:].strip() if auth[:7].lower() == "bearer " else request.headers.get("X-API-Key", "").strip()
+    if key:
+        # A key was offered — it must be valid (a bad key is an error, not a
+        # silent downgrade to the public tier).
+        customer = apikeys.verify(key)
+        if not customer:
+            return _problem(401, "Unauthorized", "Invalid API key.",
+                            type_="https://japanfold.com/errors/unauthorized")
+        g.customer = customer
+    else:
+        # Free public demo: no key required, same input caps + per-IP rate/
+        # concurrency limits as the web UI. Ownership (and throttling) is scoped
+        # to the client IP, so a caller sees its own jobs and can't exhaust the
+        # shared fleet. A "public:" prefix can never collide with an operator-
+        # issued customer id.
+        g.customer = "public:" + client_ip()
+    # becomes the JobManager owner for every downstream call
 
 
 # --------------------------------------------------------------------------- #
