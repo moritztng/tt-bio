@@ -72,8 +72,12 @@ npx skills add moritztng/japanfold
 - *zero install* — just ask: *"Use the JapanFold API at `api.japanfold.com` to
   fold this sequence …"* (it's public + self-describing at `/v1/openapi.json`;
   approve the network host when prompted), or
-- *install for repeat use* — **Customize → Skills**, add from
-  `github.com/moritztng/japanfold` (or paste `SKILL.md`).
+- *install for repeat use* — add via **Customize → Skills** (paste `SKILL.md` or
+  point at `github.com/moritztng/japanfold`) and **publish** it. Claude Science
+  requires only `name` + `description` in the frontmatter (both present); a
+  skill stays a *draft* — invisible to `search_skills`/`skill()` — until you
+  publish it, so don't skip that step. `allowed-tools` is a Claude Code field
+  and is simply ignored here.
 
 Then just ask in natural language — *"fold this sequence with Boltz-2 and report
 the confidence"* or *"design 10 nanobody binders against this target."*

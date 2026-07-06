@@ -11,6 +11,16 @@ when_to_use: >-
   When the user wants to fold/predict a protein or complex structure, estimate
   protein–ligand binding affinity, or design binders against a target — and a
   hosted service is fine (no local model to run).
+license: Apache-2.0
+category: biomodels
+metadata:
+  third_party:
+    - kind: service
+      name: JapanFold API
+      provider: JapanFold
+      info_url: https://japanfold.com
+# allowed-tools is used by Claude Code (grants curl/python without prompting);
+# Claude Science ignores it and runs code in its own kernel.
 allowed-tools:
   - Bash(curl *)
   - Bash(python3 *)
