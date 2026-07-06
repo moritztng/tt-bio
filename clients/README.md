@@ -56,40 +56,27 @@ and exit codes let an agent branch on the failure mode without parsing text:
 | 6 | server unreachable |
 | 130 | interrupted |
 
-## 2. Claude Science / Claude Code integration
+## 2. The agent skill (Claude Code, Claude Science, …)
 
-JapanFold plugs into agent workbenches the same way the Boltz API and NVIDIA
-BioNeMo do: a **skill** that wraps the CLI. The agent installs the CLI, reads the
-skill for how/when to use it, and shells out to `japanfold` — submitting jobs,
-polling, and downloading structures autonomously.
+One self-contained skill teaches any agent to drive the public API — no CLI, no
+key. It's published at **[github.com/moritztng/japanfold](https://github.com/moritztng/japanfold)**
+(source of truth: [`skill/SKILL.md`](skill/SKILL.md)).
 
-**Install the plugin** (bundles the `japanfold` skill):
+**Claude Code (and Cursor, Codex, +70 agents) — one command:**
 
 ```bash
-# Cross-agent (Claude Code, Codex, …):
-npx skills add japanfold/japanfold          # from the published skills repo
-# or point Claude Code at this plugin directory / a marketplace entry.
+npx skills add moritztng/japanfold
 ```
 
-Then, in Claude Science / Claude Code, just ask in natural language — e.g.
-*"fold this sequence with Boltz-2 and report the confidence"* or *"design 10
-nanobody binders against this target."* The agent will ensure the CLI is
-installed and `JAPANFOLD_API_KEY` is set, then run the prediction/design and
-read back the structures and scores.
+**Claude Science:** either
+- *zero install* — just ask: *"Use the JapanFold API at `api.japanfold.com` to
+  fold this sequence …"* (it's public + self-describing at `/v1/openapi.json`;
+  approve the network host when prompted), or
+- *install for repeat use* — **Customize → Skills**, add from
+  `github.com/moritztng/japanfold` (or paste `SKILL.md`).
 
-The skill lives at [`claude-plugin/skills/japanfold/SKILL.md`](claude-plugin/skills/japanfold/SKILL.md);
-plugin metadata at [`claude-plugin/.claude-plugin/plugin.json`](claude-plugin/.claude-plugin/plugin.json).
-
-### On-prem / behind a firewall
-
-For a self-hosted JapanFold server, agents connect over the routes that need no
-public endpoint:
-
-- **SSH host in Claude Science** — add the server as a remote compute host; the
-  agent runs the `japanfold` CLI there (`--base-url http://localhost:8080`), data
-  and compute stay on-prem.
-- **Local Claude Code** — run the agent on a machine that can reach the server on
-  the LAN; the skill drives the CLI the same way.
+Then just ask in natural language — *"fold this sequence with Boltz-2 and report
+the confidence"* or *"design 10 nanobody binders against this target."*
 
 ## 3. The API directly
 
