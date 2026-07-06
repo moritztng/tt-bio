@@ -15,6 +15,7 @@ from flask import Flask, g, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 
 from .catalog import catalog
+from .http_common import client_ip, submit_job
 from .jobs import CapacityError, JobManager
 
 _HERE = Path(__file__).resolve().parent
@@ -70,23 +71,6 @@ def create_app(workspace: str | os.PathLike | None = None, *,
         route to 404 (never 403/200) on someone else's — or a nonexistent — job."""
         return manager.owner_of(job_id) == g.session_id
 
-    def _client_ip() -> str:
-        """The real client IP, for per-IP flood limits and logging. Behind
-        Cloudflare (our production ingress) the trustworthy source is the
-        CF-Connecting-IP header: Cloudflare sets it to the real client and
-        overwrites any client-supplied value at the edge, so it can't be spoofed.
-        Fall back to the rightmost X-Forwarded-For entry (the one a single trusted
-        proxy appends) and finally the socket peer for direct/local access."""
-        cf = request.headers.get("CF-Connecting-IP", "").strip()
-        if cf:
-            return cf
-        xff = request.headers.get("X-Forwarded-For", "")
-        if xff:
-            parts = [p.strip() for p in xff.split(",") if p.strip()]
-            if parts:
-                return parts[-1]
-        return request.remote_addr or "?"
-
     # ---- API ----------------------------------------------------------
     @app.get("/api/health")
     def health():
@@ -118,20 +102,12 @@ def create_app(workspace: str | os.PathLike | None = None, *,
             body = None
         if not isinstance(body, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
-        sid, ip = g.session_id, _client_ip()
-        sh, iph = manager.evhash(sid), manager.evhash(ip)
         try:
-            job = manager.submit(body, owner=sid, client_ip=ip)
+            job = submit_job(manager, body, owner=g.session_id, ip=client_ip())
         except CapacityError as e:
-            manager.log_event("job_rejected", reason="capacity", detail=str(e)[:160], session=sh, ip=iph)
             return jsonify({"error": str(e)}), 429
         except (ValueError, KeyError, TypeError) as e:
-            manager.log_event("job_rejected", reason="invalid", detail=str(e)[:160], session=sh, ip=iph)
             return jsonify({"error": str(e)}), 400
-        manager.log_event("job_submitted", job=job.id, kind=job.kind, model=job.model,
-                          protocol=job.protocol, total=job.total or None,
-                          num_designs=(job.params or {}).get("num_designs"),
-                          fast=bool((job.params or {}).get("fast")), session=sh, ip=iph)
         return jsonify(job.to_dict()), 201
 
     @app.get("/api/jobs/<job_id>")
@@ -177,11 +153,18 @@ def create_app(workspace: str | os.PathLike | None = None, *,
             return jsonify({"error": "not found"}), 404
         return jsonify({"deleted": manager.delete(job_id)})
 
+    # ---- Customer API (/v1, API-key auth) -----------------------------
+    # A stable, documented, key-authenticated surface for programmatic and agent
+    # use (Claude Science, SDKs, CLI). Additive: it reuses the same JobManager,
+    # so the web UI above is unaffected. See api_v1.py / openapi_spec.py.
+    from . import api_v1
+    api_v1.register(app)
+
     # ---- Static SPA ---------------------------------------------------
     @app.get("/")
     @app.get("/<path:path>")
     def spa(path: str = ""):
-        if path.startswith("api/"):
+        if path.startswith("api/") or path.startswith("v1/"):
             return jsonify({"error": "not found"}), 404
         candidate = _STATIC / path
         if path and candidate.is_file():

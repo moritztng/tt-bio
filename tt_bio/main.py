@@ -151,13 +151,22 @@ def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, s
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences)")
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
     seqs_list = list(seqs.values())
+    # Key run_mmseqs2's working/cache dir by the exact sequence set, NOT by
+    # target_id. target_id is the input filename stem ("target_1") and is
+    # identical across jobs, so a target-keyed prefix makes one job's cached a3m
+    # get reused by another: a single-chain job caches one query, then a later
+    # multi-chain job (same target_id) reuses it while expecting N queries and
+    # dies with KeyError on the missing query index. A content hash keys the
+    # cache by what was actually searched — collision-free, and still reused when
+    # the same sequence set recurs.
+    tag = hashlib.sha256("\n".join(seqs_list).encode()).hexdigest()[:16]
 
-    paired = (run_mmseqs2(seqs_list, msa_dir / f"{target_id}_paired_tmp", use_env=True,
+    paired = (run_mmseqs2(seqs_list, msa_dir / f"{tag}_paired_tmp", use_env=True,
                          use_pairing=True, host_url=url, pairing_strategy=strategy,
                          msa_server_username=username, msa_server_password=password, auth_headers=headers)
              if len(seqs) > 1 else [""] * len(seqs))
 
-    unpaired = run_mmseqs2(seqs_list, msa_dir / f"{target_id}_unpaired_tmp", use_env=True,
+    unpaired = run_mmseqs2(seqs_list, msa_dir / f"{tag}_unpaired_tmp", use_env=True,
                           use_pairing=False, host_url=url, pairing_strategy=strategy,
                           msa_server_username=username, msa_server_password=password, auth_headers=headers)
 
@@ -1191,6 +1200,38 @@ def install_deps():
     from tt_bio.install_system_deps import main as install_system_deps
 
     install_system_deps()
+
+
+@cli.group("apikey")
+def apikey_group():
+    """Manage JapanFold /v1 customer API keys (server-side)."""
+
+
+@apikey_group.command("create")
+@click.option("--customer", required=True, help="Customer/org id this key belongs to.")
+@click.option("--name", default=None, help="Human label for the key.")
+def apikey_create(customer, name):
+    """Mint a key. The plaintext is shown once and only its hash is stored."""
+    from tt_bio.platform import apikeys
+
+    key, rec = apikeys.mint(customer, name)
+    click.echo(f"customer : {rec['customer']}")
+    click.echo(f"key      : {key}")
+    click.echo("\nGive this to the customer now — it is not recoverable:")
+    click.echo(f"  export JAPANFOLD_API_KEY={key}")
+
+
+@apikey_group.command("list")
+def apikey_list():
+    """List keys (customer + label + hash prefix; never the secret)."""
+    from tt_bio.platform import apikeys
+
+    rows = apikeys.list_keys()
+    if not rows:
+        click.echo("(no keys)")
+        return
+    for r in rows:
+        click.echo(f"{r['hash_prefix']}…  {r['customer']:20}  {r['name']}")
 
 
 @cli.command("serve")

@@ -1,0 +1,8 @@
+{
+  "name": "japanfold",
+  "description": "Predict biomolecular structures (Boltz-2, ESMFold2, Protenix) and design binders (BoltzGen) on JapanFold's Tenstorrent-accelerated API, from Claude Science / Claude Code.",
+  "version": "1.0.0",
+  "homepage": "https://japanfold.com",
+  "author": { "name": "JapanFold" },
+  "keywords": ["protein", "structure-prediction", "boltz", "esmfold", "binder-design"]
+}
