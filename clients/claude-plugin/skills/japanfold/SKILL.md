@@ -103,5 +103,5 @@ files for the 3D structures.
 - All commands accept `--json` for machine-readable output — prefer it when you
   need to parse status, scores, or the output directory.
 - `--base-url` (or `JAPANFOLD_BASE_URL`) points the CLI at a specific deployment
-  (e.g. an on-prem JapanFold server); it defaults to https://japanfold.com.
+  (e.g. an on-prem JapanFold server); it defaults to https://api.japanfold.com.
 - If a job fails, `japanfold logs <job_id>` prints the run log for diagnosis.

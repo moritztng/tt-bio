@@ -36,7 +36,7 @@ An optional API key raises the demo limits: `export JAPANFOLD_API_KEY=jf_live_..
   `japanfold predict … ` → `japanfold download <job_id> --out ./out` (resume-safe).
 - `--json` gives machine-readable output on every command.
 - `--base-url` (or `$JAPANFOLD_BASE_URL`) targets a specific deployment — e.g. an
-  on-prem JapanFold server — instead of `https://japanfold.com`.
+  on-prem JapanFold server — instead of `https://api.japanfold.com`.
 
 Config precedence: `--api-key` > `$JAPANFOLD_API_KEY` > `~/.config/japanfold/config.json`
 (written by `japanfold auth login`).

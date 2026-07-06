@@ -3,7 +3,7 @@
 Programmatic access to structure prediction (Boltz-2, ESMFold2, Protenix) and
 binder design (BoltzGen), running on Tenstorrent accelerators. The API is an
 **async job service**: submit a job, poll its status, then download structures
-and scores. Base URL in production is `https://japanfold.com`; every deployment
+and scores. Base URL in production is `https://api.japanfold.com`; every deployment
 also exposes the same API locally (e.g. `http://localhost:8080` on a dev box or
 an on-prem server).
 
@@ -56,7 +56,7 @@ Jobs are isolated per key: a key can only ever see its own jobs (others 404).
 ### Submit a prediction
 
 ```bash
-curl -sX POST https://japanfold.com/v1/predictions \
+curl -sX POST https://api.japanfold.com/v1/predictions \
   -H "Authorization: Bearer $JAPANFOLD_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: run-42" \
@@ -78,9 +78,9 @@ The response is a **job**:
 ### Poll → download
 
 ```bash
-curl -s https://japanfold.com/v1/jobs/$ID -H "Authorization: Bearer $KEY"      # status
-curl -s https://japanfold.com/v1/jobs/$ID/results -H "Authorization: Bearer $KEY"  # manifest
-curl -sOJ https://japanfold.com/v1/jobs/$ID/archive -H "Authorization: Bearer $KEY" # bundle
+curl -s https://api.japanfold.com/v1/jobs/$ID -H "Authorization: Bearer $KEY"      # status
+curl -s https://api.japanfold.com/v1/jobs/$ID/results -H "Authorization: Bearer $KEY"  # manifest
+curl -sOJ https://api.japanfold.com/v1/jobs/$ID/archive -H "Authorization: Bearer $KEY" # bundle
 ```
 
 `status` transitions `queued → running → succeeded | failed | canceled`

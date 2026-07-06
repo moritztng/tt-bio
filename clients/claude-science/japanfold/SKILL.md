@@ -30,19 +30,19 @@ kernel.
 
 ## Reaching the API (network)
 
-JapanFold lives at a single host (production: `https://japanfold.com`; a
+JapanFold lives at a single host (production API: `https://api.japanfold.com`; a
 self-hosted deployment has its own URL). **The public demo needs no API key** —
 it has the same limits as the web app (see "Limits" below). Call it as a plain
 external API from a kernel cell with `httpx`/`requests`:
 
 ```python
 import httpx
-BASE = "https://japanfold.com"
+BASE = "https://api.japanfold.com"
 r = httpx.post(f"{BASE}/v1/predictions", json={"model": "boltz2", "sequence": "MKT..."})
 ```
 
 The sandbox scopes network egress, so the JapanFold host must be approved first —
-an approval card appears the first time you call it; approve `japanfold.com`
+an approval card appears the first time you call it; approve `api.japanfold.com`
 (a self-hosted deployment must be reached on its own domain, not a generic
 `*.trycloudflare.com`/ngrok tunnel, which the sandbox blocks).
 
@@ -54,7 +54,7 @@ format `jf_live_…`). It is not required to try the API.
 
 ```python
 import os, time, httpx
-BASE = os.environ.get("BASE_URL", "https://japanfold.com")
+BASE = os.environ.get("BASE_URL", "https://api.japanfold.com")
 # Public demo needs no key. If you have one, add it: H = {"Authorization": f"Bearer {KEY}"}
 H = {}
 

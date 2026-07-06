@@ -12,7 +12,7 @@ No key is needed for the free public demo (same limits as the web app). An
 optional API key raises those limits once you have one.
 
 Auth resolution order:  --api-key  >  $JAPANFOLD_API_KEY  >  ~/.config/japanfold/config.json
-Base URL resolution:     --base-url >  $JAPANFOLD_BASE_URL  >  https://japanfold.com
+Base URL resolution:     --base-url >  $JAPANFOLD_BASE_URL  >  https://api.japanfold.com
 
 Quick start (no key required):
     japanfold predict --sequence MKTAYIAKQR... --wait --out ./out
@@ -34,7 +34,7 @@ from pathlib import Path
 
 __version__ = "1.0.0"
 
-DEFAULT_BASE_URL = "https://japanfold.com"
+DEFAULT_BASE_URL = "https://api.japanfold.com"
 CONFIG_PATH = Path(os.environ.get("JAPANFOLD_CONFIG",
                                   Path.home() / ".config" / "japanfold" / "config.json"))
 TERMINAL = {"succeeded", "failed", "canceled"}
@@ -115,6 +115,9 @@ def _request(method, base, path, key, *, body=None, raw=False, timeout=120, idem
     url = base + path
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
+    # A real User-Agent: urllib's default ("Python-urllib/x.y") trips edge bot
+    # filters (e.g. Cloudflare 1010) that a named client clears.
+    req.add_header("User-Agent", f"japanfold-cli/{__version__}")
     if key:
         req.add_header("Authorization", f"Bearer {key}")
     if data is not None:

@@ -70,7 +70,7 @@ def build_spec(version: str) -> dict:
                 "optional `Authorization: Bearer <key>` raises those limits."
             ),
         },
-        "servers": [{"url": "https://japanfold.com"}, {"url": "http://localhost:8080"}],
+        "servers": [{"url": "https://api.japanfold.com"}, {"url": "http://localhost:8080"}],
         "security": [{}, {"bearerAuth": []}],  # auth optional: {} = public, bearer = raised limits
         "tags": [{"name": "discovery"}, {"name": "predictions"}, {"name": "designs"}, {"name": "jobs"}],
         "paths": {
