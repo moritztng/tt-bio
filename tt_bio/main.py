@@ -1443,7 +1443,9 @@ def _read_protein_chains(path):
     if suffix in (".fa", ".fas", ".fasta"):
         cid, buf, msa = None, [], None
         def flush():
-            if cid and buf:
+            # cid is None for a skipped (non-protein) record; a blank id ("") is a real protein
+            # chain whose id we auto-assign below — gate on `is not None` so it isn't dropped.
+            if cid is not None and buf:
                 for c in cid.split(","):
                     chains.append((c.strip() or chr(65 + len(chains)), "".join(buf), msa))
         for line in path.read_text().splitlines():
@@ -1493,7 +1495,9 @@ def _read_bio_chains(path):
     if suffix in (".fa", ".fas", ".fasta"):
         cid, buf, msa, mt = None, [], None, "protein"
         def flush():
-            if cid and buf:
+            # cid is None for a skipped/unknown record; a blank id ("") is a real chain whose id
+            # we auto-assign below — gate on `is not None` so it isn't silently dropped.
+            if cid is not None and buf:
                 seq = "".join(buf)
                 seq = ("CCD_" + seq.upper()) if mt == "_ccd" else seq   # ccd code -> CCD_ spec
                 mtype = "ligand" if mt in ("_ccd", "ligand") else mt
