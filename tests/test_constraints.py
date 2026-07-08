@@ -116,7 +116,7 @@ def test_boltzgen_parse_constraint_cases(tmp_path):
     parser = YamlDesignParser(_MOL_DIR)
 
     empty = _write(tmp_path, "empty",
-                   "entities:\n  - protein: {id: A, sequence: MKKAVINGE}\nconstraints: []\n")
+                   "entities:\n  - protein: {id: A, sequence: 50..80}\nconstraints: []\n")
     parser.parse_yaml(empty, {}, _MOL_DIR)        # no IndexError
 
     total_len = _write(tmp_path, "tl",
