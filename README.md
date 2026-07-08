@@ -14,19 +14,24 @@ TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://gi
 
 ## Installation
 
-Create a Python virtual environment with Python 3.10 or 3.12, install TT-Bio, then install the matching Tenstorrent system dependencies.
+Create a Python virtual environment with Python 3.10 or 3.12, install the latest **release**, then install the matching Tenstorrent system dependencies.
 
 ```bash
 python3.10 -m venv env
 source env/bin/activate
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git"
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.2.0"
 tt-bio install-deps
 ```
 
+Use a tagged release (`@v0.2.0` above — see [Releases](https://github.com/moritztng/tt-bio/releases) for the latest), not `main`: `main` is the development branch and may contain untested work.
+
 `tt-bio install-deps` installs the SFPI compiler version that matches the installed `ttnn` wheel and clears stale TT-Metal kernel cache entries. It may ask for your sudo password.
 
-### Advanced Install (editable local clone)
+### Nightly / from source
+Track the latest development commit, or work from an editable clone:
 ```bash
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@main"   # nightly (may be untested)
+# or
 git clone https://github.com/moritztng/tt-bio.git
 cd tt-bio
 pip install -e .

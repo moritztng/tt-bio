@@ -1,7 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
-try:  # noqa: SIM105
-    __version__ = version("boltz")
-except PackageNotFoundError:
-    # package is not installed
-    pass
+try:
+    __version__ = version("tt-bio")
+except PackageNotFoundError:  # running from a source tree, not an installed dist
+    __version__ = "0+unknown"
