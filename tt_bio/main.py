@@ -7,6 +7,13 @@ if "--debug" not in _sys.argv:
     _os.environ.setdefault("LOGURU_LEVEL", "WARNING")
     _os.environ.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
 
+# torch+MKL can hit a threading-layer load race on large inputs, aborting the
+# process at import with "Intel oneMKL FATAL ERROR: Cannot load libtorch_cpu.so"
+# (observed intermittently at >=1408-residue predicts during the v0.2.0 release
+# gate). Pinning the GNU threading layer avoids it; setdefault so an explicit
+# user MKL_THREADING_LAYER always wins. Must run before torch is imported.
+_os.environ.setdefault("MKL_THREADING_LAYER", "GNU")
+
 
 def _install_nanobind_leak_stderr_filter() -> None:
     """Drop nanobind leak reports while forwarding other fd-level stderr."""
