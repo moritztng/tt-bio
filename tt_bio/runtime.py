@@ -49,6 +49,21 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
         p for p in (data.glob("*") if data.is_dir() else [data])
         if p.suffix.lower() in INPUT_SUFFIXES
     )
+    # A job is identified by its file stem (used for output filenames AND result/failure keys),
+    # so two inputs sharing a stem — e.g. target.fasta and target.yaml — would silently overwrite
+    # each other's output and merge into one result. Refuse the ambiguous case with a clear message
+    # rather than lose a prediction. Checked on the full input set (before the resume filter).
+    by_stem: dict[str, list[Path]] = {}
+    for p in files:
+        by_stem.setdefault(p.stem, []).append(p)
+    dups = {stem: ps for stem, ps in by_stem.items() if len(ps) > 1}
+    if dups:
+        detail = "; ".join(f"'{stem}' <- {', '.join(pp.name for pp in ps)}"
+                           for stem, ps in sorted(dups.items()))
+        raise ValueError(
+            "Input files share a name stem and would overwrite each other's output. "
+            f"Rename so each input has a unique stem ({detail})."
+        )
     if not override:
         files = [p for p in files if not (structure_dir / f"{p.stem}.{output_format}").exists()]
     return [PredictionJob(id=p.stem, path=p) for p in files]
