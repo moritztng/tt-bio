@@ -121,9 +121,19 @@ class AtomTransformer(_KeyedWeights, Module):
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
 
     def _adaln(self, a, s, pre):
+        # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
+        # (ttnn.from_torch) every call, which for the diffusion enc/decoder means thousands
+        # of redundant device writes per fold (2 AdaLN x 3 blocks x 200 steps). Building once
+        # and replaying is bit-identical and cuts that dispatch (and is a prerequisite for
+        # trace capture, which forbids writes). Keyed by prefix.
         from .tenstorrent import AdaLN
-        sub = {k[len(pre):]: v for k, v in self._w.items() if k.startswith(pre)}
-        return AdaLN(False, remap_adaln(sub), self.compute_kernel_config)(a, s)
+        cache = self.__dict__.setdefault("_adaln_cache", {})
+        ada = cache.get(pre)
+        if ada is None:
+            sub = {k[len(pre):]: v for k, v in self._w.items() if k.startswith(pre)}
+            ada = AdaLN(False, remap_adaln(sub), self.compute_kernel_config)
+            cache[pre] = ada
+        return ada(a, s)
 
     def _windows_q(self, x, N, NP):
         H, dh = self.N_HEADS, self.HEAD_DIM
@@ -515,6 +525,99 @@ class DiffusionModule(_KeyedWeights):
         r_update = torch.Tensor(ttnn.to_torch(self._lin(qn, DE + "linear_no_bias_out.weight"))).float().reshape(1, N, 3)[:, :N]
 
         # EDM preconditioning
+        sr = (t_hat / sd).reshape(-1, 1, 1)
+        return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
+
+    # ---------------------------------------------------------------------------
+    # ttnn TRACE of the denoise device stream (opt-in TT_PROTENIX_TRACE).
+    # Protenix diffusion warm is per-step DISPATCH-bound (~400 op launches/step,
+    # L-independent): capturing the device stream once per fold and replaying it
+    # collapses the per-step host dispatch. The two per-step-varying host inputs
+    # (fourier(t_hat) and the scaled coords) are staged into fixed device buffers;
+    # the fold-fixed conditioning (cond) stays resident. device_dit path only.
+    # ---------------------------------------------------------------------------
+    def _denoise_device(self, r_noisy_dev, fou_dev, cond):
+        """Pure on-device denoise (device_dit path). r_noisy_dev (N,3) and fou_dev
+        (1,fdim) are device tensors (the per-step host inputs, already uploaded);
+        returns r_update (1,N,3) on device (pre EDM-precond). No host round-trips."""
+        s_inputs = cond["s_inputs"]
+        N = cond["c_l"].shape[0]; NT = s_inputs.shape[0]
+        E = "atom_attention_encoder."
+        mt = cond["mask_trunked"].float()
+        c_la = cond["c_la_dev"]; p = cond["p_dev"]
+        nn_ = self._lin(self._ln(fou_dev, "diffusion_conditioning.layernorm_n.weight"),
+                        "diffusion_conditioning.linear_no_bias_n.weight")
+        ss = ttnn.reshape(ttnn.add(cond["ss_base"], nn_), (1, NT, cond["ss_base"].shape[-1]))
+        for t in self._cond_transitions:
+            ss = ttnn.add(ss, ttnn.reshape(t(ss), tuple(ss.shape)))
+        s_single = ss
+        q_l = ttnn.add(c_la, self._lin(r_noisy_dev, E + "linear_no_bias_r.weight"))
+        q_out = self.atxE(ttnn.reshape(q_l, (1, N, 128)), ttnn.reshape(c_la, (1, N, 128)), p, mt,
+                          bias_cache=cond.get("atxE_bias"))
+        a_tok = ttnn.matmul(cond["Smean_dev"], ttnn.reshape(ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight")), (N, 768)),
+                            compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        q_skip = q_out; c_skip = c_la; p_skip = p
+        a_tok = ttnn.add(a_tok, ttnn.reshape(
+            self._lin(self._ln(ttnn.reshape(s_single, (NT, s_single.shape[-1])), "layernorm_s.weight"),
+                      "linear_no_bias_s.weight"), (NT, 768)))
+        if "dit_block_biases" not in cond:
+            cond["dit_block_biases"] = self._dit_block_biases(cond["dit_z"])
+        a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single, cond["dit_block_biases"], NT)
+        a_t = self._ln(a_t, "layernorm_a.weight")
+        DE = "atom_attention_decoder."
+        q = ttnn.add(ttnn.matmul(cond["S_dev"], self._lin(ttnn.reshape(a_t, (NT, 768)), DE + "linear_no_bias_a.weight"),
+                                 compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN),
+                     ttnn.reshape(q_skip, (N, 128)))
+        qd = self.atxD(ttnn.reshape(q, (1, N, 128)), ttnn.reshape(c_skip, (1, N, 128)), p_skip, mt,
+                       bias_cache=cond.get("atxD_bias"))
+        qn = self._ln(qd, DE + "layernorm_q.weight")
+        return ttnn.reshape(self._lin(qn, DE + "linear_no_bias_out.weight"), (1, N, 3))
+
+    def _host_tt(self, x):
+        """Host-resident ttnn tensor (no device) for copy_host_to_device_tensor staging."""
+        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+
+    def _release_trace(self):
+        tr = getattr(self, "_trace", None)
+        if tr is not None:
+            try:
+                ttnn.release_trace(self.dev, tr["tid"])
+            except Exception:
+                pass
+            self._trace = None
+
+    def _capture_trace(self, fou, r_noisy, cond, N):
+        fou_dev = self._up(fou); r_dev = self._up(r_noisy)   # persistent input buffers
+        _ = self._denoise_device(r_dev, fou_dev, cond)       # warmup / compile
+        _ = self._denoise_device(r_dev, fou_dev, cond)       # 2nd warmup: populate any lazy caches
+        ttnn.synchronize_device(self.dev)
+        tid = ttnn.begin_trace_capture(self.dev, cq_id=0)
+        out = self._denoise_device(r_dev, fou_dev, cond)     # record
+        ttnn.end_trace_capture(self.dev, tid, cq_id=0)
+        self._trace = {"N": N, "tid": tid, "in_fou": fou_dev, "in_r": r_dev, "out": out}
+        return self._trace
+
+    def denoise_traced(self, x_noisy, t_hat, cond):
+        """Traced equivalent of denoise (device_dit path). Falls back to denoise when the
+        device_dit precomputed bias path is unavailable."""
+        import torch
+        self._atom_cond(cond)
+        if not (self.device_dit and cond.get("dit_z") is not None):
+            return self.denoise(x_noisy, t_hat, cond)
+        sd = self.SIGMA_DATA; N = cond["c_l"].shape[0]
+        wf = self._w["diffusion_conditioning.fourier_embedding.w"]; bf = self._w["diffusion_conditioning.fourier_embedding.b"]
+        tp = torch.log(t_hat / sd) / 4
+        fou = torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf)).contiguous()          # (1,fdim)
+        r_noisy = (x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1))[0].contiguous()  # (N,3)
+        tr = getattr(self, "_trace", None)
+        if tr is None or tr["N"] != N:
+            if tr is not None:
+                self._release_trace()
+            tr = self._capture_trace(fou, r_noisy, cond, N)
+        ttnn.copy_host_to_device_tensor(self._host_tt(fou), tr["in_fou"])
+        ttnn.copy_host_to_device_tensor(self._host_tt(r_noisy), tr["in_r"])
+        ttnn.execute_trace(self.dev, tr["tid"], cq_id=0, blocking=False)
+        r_update = torch.Tensor(ttnn.to_torch(tr["out"])).float().reshape(1, N, 3)[:, :N]
         sr = (t_hat / sd).reshape(-1, 1, 1)
         return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
 
@@ -929,9 +1032,17 @@ class Protenix:
         else:
             cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
         coords = []
+        import os as _os, time as _time
+        if _os.environ.get("TT_PROTENIX_DBG_COND"):
+            self._dbg_cond = cond
+        _prof = _os.environ.get("TT_PROTENIX_PROFILE")
         for k in range(n_sample):
             sd_seed = None if seed is None else seed + k
+            if _prof:
+                import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
             coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed)[0])
+            if _prof:
+                import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
         coords = torch.stack(coords, 0)
         if return_confidence:
             # Per-sample confidence so callers can rank samples (best-of-N) and
@@ -1085,8 +1196,9 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
     then a final sigma=0; gammas[i] = gamma0 if sigma[i] > gamma_min else 0; per step
     (sigma_tm=sigmas[k], sigma_t=sigmas[k+1], gamma=gammas[k+1]); t_hat=sigma_tm*(1+gamma).
     cond is the fixed trunk conditioning dict passed to DiffusionModule.denoise."""
-    import torch
+    import torch, os
     from .boltz2 import compute_random_augmentation
+    _denoise = diffusion_module.denoise_traced if os.environ.get("TT_PROTENIX_TRACE") else diffusion_module.denoise
     if seed is not None:
         torch.manual_seed(seed)
     inv_rho = 1.0 / rho
@@ -1105,7 +1217,7 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
         noise_var = noise_scale ** 2 * (t_hat ** 2 - sigma_tm ** 2)
         eps = (noise_var ** 0.5) * torch.randn(shape) if noise_var > 0 else torch.zeros(shape)
         x_noisy = x + eps
-        denoised = diffusion_module.denoise(x_noisy, torch.tensor([t_hat], dtype=torch.float32), cond)
+        denoised = _denoise(x_noisy, torch.tensor([t_hat], dtype=torch.float32), cond)
         d = (x_noisy - denoised) / t_hat
         x = x_noisy + step_scale * (sigma_t - t_hat) * d
     return x
