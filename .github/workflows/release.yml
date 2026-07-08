@@ -61,10 +61,12 @@ jobs:
   pypi-publish:
     needs: build
     runs-on: ubuntu-latest
-    # Publishes via PyPI Trusted Publishing (no stored token). Needs a one-time PyPI
-    # Trusted Publisher for this repo + the "pypi" environment (see RELEASING.md); set it
-    # up before the first tag. Until it exists this job fails harmlessly — the GitHub
-    # Release above still publishes.
+    # Best-effort PyPI publish via Trusted Publishing (no stored token). continue-on-error
+    # so a missing/mismatched PyPI Trusted Publisher can NEVER fail the release — the
+    # GitHub Release (independent sibling job) always ships the wheel regardless. To make
+    # this step actually publish, add a Trusted Publisher on pypi.org for project `tt-bio`:
+    # owner moritztng / repo tt-bio / workflow release.yml / environment pypi (see RELEASING.md).
+    continue-on-error: true
     environment: pypi
     permissions:
       id-token: write
