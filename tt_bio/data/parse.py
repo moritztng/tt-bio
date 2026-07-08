@@ -2925,6 +2925,12 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
             # garbage. (SMILES, which is case-sensitive, is a ligand and never
             # reaches this polymer branch.)
             raw_seq = "".join(items[0][entity_type]["sequence"].split()).upper()
+            if not raw_seq:
+                raise ValueError(
+                    f"Empty {entity_type} sequence for chain "
+                    f"{items[0][entity_type].get('id')!r}. Every polymer entity needs a "
+                    "non-empty sequence (whitespace-only sequences are treated as empty)."
+                )
             entity_to_seq[entity_id] = raw_seq
 
             # Convert sequence to tokens
