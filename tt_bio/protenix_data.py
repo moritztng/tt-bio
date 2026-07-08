@@ -365,7 +365,13 @@ _NA_PYRIMIDINES = {"C", "U", "DC", "DT"}
 
 def seq_to_restype(seq: str, mol_type: str = "protein") -> torch.Tensor:
     """One-letter sequence -> 32-class restype indices for the given modality
-    (protein 0-20, RNA 21-25, DNA 26-30); unknown letters map to the modality's UNK."""
+    (protein 0-20, RNA 21-25, DNA 26-30); unknown letters map to the modality's UNK.
+
+    Whitespace is stripped first: a sequence pasted from a formatted source carries spaces/
+    newlines, and without this each space would tokenize to UNK and silently add a residue,
+    shifting the whole chain. Matches the Boltz and ESMFold parsers, which also strip. A
+    whitespace-free sequence is unchanged, so this does not perturb the validated path."""
+    seq = "".join(seq.split())
     if mol_type == "protein":
         return aatype_from_sequence(seq)
     table, unk = (_RNA_LETTER_IDX, 25) if mol_type == "rna" else (_DNA_LETTER_IDX, 30)
