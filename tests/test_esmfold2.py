@@ -12,19 +12,25 @@ import torch
 import ttnn
 
 sys.path.insert(0, os.path.dirname(__file__))
-from esmfold2_reference import (  # noqa: E402
-    DIFFUSION_TOKEN,
-    make_diffusion_conditioning,
-    make_diffusion_module,
-    make_diffusion_transformer,
-    make_distogram_head,
-    make_folding_trunk,
-    make_inputs_embedder,
-    make_lm_shim,
-    make_msa_encoder,
-    make_relpos,
-    make_swa_atom_transformer,
-)
+try:
+    from esmfold2_reference import (  # noqa: E402
+        DIFFUSION_TOKEN,
+        make_diffusion_conditioning,
+        make_diffusion_module,
+        make_diffusion_transformer,
+        make_distogram_head,
+        make_folding_trunk,
+        make_inputs_embedder,
+        make_lm_shim,
+        make_msa_encoder,
+        make_relpos,
+        make_swa_atom_transformer,
+    )
+except (ImportError, ModuleNotFoundError, FileNotFoundError) as exc:
+    # The Biohub transformers fork (set BIOHUB_ESMFOLD2) isn't present on this
+    # box — skip cleanly rather than erroring at collection so the rest of the
+    # suite stays green.
+    pytest.skip(f"ESMFold2 Biohub reference unavailable: {exc}", allow_module_level=True)
 
 from tt_bio import esmfold2 as tt_ef2  # noqa: E402
 from tt_bio.tenstorrent import get_device  # noqa: E402
