@@ -363,7 +363,8 @@ def parse_fasta(  # noqa: C901, PLR0912
             raise ValueError(msg)
 
         header = seq_record.id.split("|")
-        assert len(header) >= 2, f"Invalid record id: {seq_record.id}"
+        if len(header) < 2:
+            raise ValueError(f"Invalid record id: {seq_record.id}")
 
         chain_id, entity_type = header[:2]
         if entity_type.lower() not in {"protein", "dna", "rna", "ccd", "smiles"}:
@@ -383,9 +384,8 @@ def parse_fasta(  # noqa: C901, PLR0912
         header = seq_record.id.split("|")
         chain_id, entity_type = header[:2]
         if len(header) == 3 and header[2] != "":
-            assert entity_type.lower() == "protein", (
-                "MSA_ID is only allowed for proteins"
-            )
+            if entity_type.lower() != "protein":
+                raise ValueError("MSA_ID is only allowed for proteins")
             msa_id = header[2]
         else:
             msa_id = None
