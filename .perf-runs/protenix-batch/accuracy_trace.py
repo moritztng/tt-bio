@@ -1,7 +1,6 @@
 import os, sys, pickle
 os.environ.setdefault('TT_LOGGER_LEVEL', 'FATAL')
 os.environ['TT_PROTENIX_DBG_COND'] = '1'
-os.environ['TT_PROTENIX_TRACE_REGION'] = str(1024 * 1024 * 1024)   # open device with trace region
 sys.path.insert(0, '/home/ttuser/tt-bio-dev')
 import torch, ttnn
 from tt_bio.tenstorrent import get_device
@@ -18,22 +17,19 @@ feats = {'ref_pos': F['ref_pos'], 'ref_charge': F['ref_charge'], 'ref_mask': F['
     'template_distogram': tfeat['template_distogram'], 'template_pseudo_beta_mask': tfeat['template_pseudo_beta_mask'],
     'template_unit_vector': tfeat['template_unit_vector'], 'template_backbone_frame_mask': tfeat['template_backbone_frame_mask'],
     'msa': tfeat['msa'], 'has_deletion': tfeat['has_deletion'], 'deletion_value': tfeat['deletion_value'], 'asym_id': tfeat['asym_id']}
-dev = get_device()
+dev = get_device(trace_region_size=1024 * 1024 * 1024)   # open device with a trace region
 ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
 model = Protenix.load_from_checkpoint('/home/ttuser/protenix_ckpt/protenix-v2.pt', compute_kernel_config=ckc, device=dev)
 model._fast = True
-os.environ['TT_PROTENIX_TRACE'] = ''
 _ = model.fold(feats, n_step=3, n_sample=1, seed=0)   # populate cond
 cond = model._dbg_cond
 N = cond['c_l'].shape[0]
 NS = 200
 # untraced
-os.environ.pop('TT_PROTENIX_TRACE', None)
-xu = edm_sample(model.diffusion, cond, N, n_step=NS, seed=0)[0].float()
+xu = edm_sample(model.diffusion, cond, N, n_step=NS, seed=0, trace=False)[0].float()
 # traced (fresh trace)
 model.diffusion._trace = None
-os.environ['TT_PROTENIX_TRACE'] = '1'
-xt = edm_sample(model.diffusion, cond, N, n_step=NS, seed=0)[0].float()
+xt = edm_sample(model.diffusion, cond, N, n_step=NS, seed=0, trace=True)[0].float()
 def kabsch(P, Q):
     Pc = P - P.mean(0); Qc = Q - Q.mean(0); H = Pc.t() @ Qc
     U, _, Vt = torch.linalg.svd(H); Dm = torch.diag(torch.tensor([1., 1., torch.sign(torch.det(Vt.t() @ U.t()))]))

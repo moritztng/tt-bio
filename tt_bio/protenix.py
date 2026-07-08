@@ -529,7 +529,7 @@ class DiffusionModule(_KeyedWeights):
         return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
 
     # ---------------------------------------------------------------------------
-    # ttnn TRACE of the denoise device stream (opt-in TT_PROTENIX_TRACE).
+    # ttnn TRACE of the denoise device stream (opt-in via fold(trace=True)).
     # Protenix diffusion warm is per-step DISPATCH-bound (~400 op launches/step,
     # L-independent): capturing the device stream once per fold and replaying it
     # collapses the per-step host dispatch. The two per-step-varying host inputs
@@ -981,13 +981,22 @@ class Protenix:
                             for b in range(nb)], 0)                            # (nb,nq,nk,16)
 
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
-             return_confidence=False, n_cycles=None):
+             return_confidence=False, n_cycles=None, trace=False):
         """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
         iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
         coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
         conf is a dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N),
-        ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1."""
+        ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
+        trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
+        dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
+        opened with a trace region: get_device(trace_region_size=1 << 30)."""
         import torch
+        if trace:
+            import tt_bio.tenstorrent as _TTd
+            if _TTd.trace_region_size() <= 0:
+                raise ValueError(
+                    "fold(trace=True) needs a device opened with a trace region; "
+                    "call get_device(trace_region_size=1 << 30) before folding.")
         fi = self._atom_feat_inputs(feats)
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
         mt = fi["mt"]; S = fi["S"]
@@ -1040,7 +1049,7 @@ class Protenix:
             sd_seed = None if seed is None else seed + k
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
-            coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed)[0])
+            coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed, trace=trace)[0])
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
         coords = torch.stack(coords, 0)
@@ -1185,7 +1194,7 @@ class Trunk(_KeyedWeights):
 
 def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None):
+               rho=7.0, seed=None, trace=False):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -1195,10 +1204,13 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
         sigma[i] = sigma_data * (s_max^(1/rho) + (i/N_step)*(s_min^(1/rho)-s_max^(1/rho)))^rho
     then a final sigma=0; gammas[i] = gamma0 if sigma[i] > gamma_min else 0; per step
     (sigma_tm=sigmas[k], sigma_t=sigmas[k+1], gamma=gammas[k+1]); t_hat=sigma_tm*(1+gamma).
-    cond is the fixed trunk conditioning dict passed to DiffusionModule.denoise."""
-    import torch, os
+    cond is the fixed trunk conditioning dict passed to DiffusionModule.denoise.
+    trace=True replays a captured ttnn trace of the denoise device stream (lossless;
+    collapses per-step dispatch on dispatch-bound diffusion). Requires the device to
+    have been opened with a trace region (get_device(trace_region_size=...))."""
+    import torch
     from .boltz2 import compute_random_augmentation
-    _denoise = diffusion_module.denoise_traced if os.environ.get("TT_PROTENIX_TRACE") else diffusion_module.denoise
+    _denoise = diffusion_module.denoise_traced if trace else diffusion_module.denoise
     if seed is not None:
         torch.manual_seed(seed)
     inv_rho = 1.0 / rho
