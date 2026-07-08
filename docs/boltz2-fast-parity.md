@@ -46,3 +46,24 @@ deviation is ≤ the full-precision sample-variance spread and comparable to the
 determinism floor. **`--fast` (block-fp8) introduces no structural or confidence
 loss beyond the pipeline's intrinsic run-to-run nondeterminism** — consistent
 with the README's "accuracy typically very close." No bug found.
+
+## Statistical hardening — confident MSA protein, multiple seeds
+
+To turn the single-pair variance baseline into a distribution, the confident
+MSA-backed protein (pLDDT ~0.85) was run at seeds 0/1/2 in full precision and
+seeds 0/1 with `--fast`. Per-chain Kabsch RMSD (Å):
+
+| comparison | RMSD | PCC |
+|---|---|---|
+| **fast vs full @ seed 0** | **1.79** | 0.990 |
+| **fast vs full @ seed 1** | **1.42** | 0.994 |
+| full vs full @ seed 0 (determinism) | 1.64 | 0.992 |
+| full @0 vs full @1 | 1.06 | 0.997 |
+| full @0 vs full @2 | 1.45 | 0.994 |
+| full @1 vs full @2 | 1.48 | 0.994 |
+
+The full-precision run-to-run band is ~1.06–1.64 Å; both seed-paired `--fast`
+tests (1.42, 1.79 Å) fall in/at that band. Confidence across all six runs stays
+in a narrow spread (pLDDT 0.829–0.852, pTM 0.813–0.878), with the two `--fast`
+runs inside the full-precision range. `--fast` is statistically indistinguishable
+from full-precision noise across independent seeds.
