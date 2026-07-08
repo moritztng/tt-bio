@@ -344,6 +344,13 @@ def get_device():
             {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
             if eth_dispatch else {}
         )
+        # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound diffusion).
+        # TT_PROTENIX_TRACE=1 reserves a default 1 GiB region; TT_PROTENIX_TRACE_REGION overrides
+        # the size. Default 0 -> binary layout unchanged when the feature is off.
+        _trs = int(os.environ.get("TT_PROTENIX_TRACE_REGION",
+                                  "1073741824" if os.environ.get("TT_PROTENIX_TRACE") else "0"))
+        if _trs > 0:
+            kwargs["trace_region_size"] = _trs
         dev = _open_device_locked(device_id, kwargs)
         _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
         _device = dev
