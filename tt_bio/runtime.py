@@ -55,10 +55,24 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
 
 
 def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_workers: int) -> list[int]:
-    """Return TT device IDs selected for this run without importing ttnn."""
+    """Return TT device IDs selected for this run without importing ttnn.
+
+    An explicit ``device_ids`` is validated against the cards actually present under
+    ``/dev/tenstorrent``: a request for a device that isn't there (a typo like ``--device_ids 7``
+    on a two-card box) raises a clear error naming the available ids, instead of passing straight
+    through and failing much later with an opaque low-level device-open error.
+    """
     all_devices = sorted(int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*"))
     if device_ids:
-        devices = [int(d.strip()) for d in device_ids.split(",") if d.strip()]
+        requested = [int(d.strip()) for d in device_ids.split(",") if d.strip()]
+        missing = [d for d in requested if d not in all_devices]
+        if missing:
+            avail = ", ".join(map(str, all_devices)) if all_devices else "none detected"
+            raise ValueError(
+                f"Requested Tenstorrent device id(s) {missing} not available "
+                f"(present: {avail}). Fix --device_ids, or leave it unset to use all cards."
+            )
+        devices = requested
     elif num_devices > 0:
         devices = all_devices[:num_devices]
     else:
