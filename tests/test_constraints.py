@@ -115,8 +115,11 @@ def test_boltzgen_parse_constraint_cases(tmp_path):
     from tt_bio.boltzgen.data.parse.schema import YamlDesignParser
     parser = YamlDesignParser(_MOL_DIR)
 
+    # empty constraints block must not IndexError; the chain must be a design
+    # target (a residue-count range) or parse_boltzgen_schema rightly rejects a
+    # fully-specified spec with nothing to design (see DesignInfo.is_valid).
     empty = _write(tmp_path, "empty",
-                   "entities:\n  - protein: {id: A, sequence: MKKAVINGE}\nconstraints: []\n")
+                   "entities:\n  - protein: {id: A, sequence: 50..80}\nconstraints: []\n")
     parser.parse_yaml(empty, {}, _MOL_DIR)        # no IndexError
 
     total_len = _write(tmp_path, "tl",
