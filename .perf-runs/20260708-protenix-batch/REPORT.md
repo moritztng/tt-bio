@@ -20,10 +20,10 @@ Two commits (b0c6450 profiling+dead-end doc; 1147a82 the win):
 1. AtomTransformer._adaln now CACHES the AdaLN module per prefix (was reconstructing it +
    re-uploading 4 weights via ttnn.from_torch every call = ~9600 redundant device writes/fold
    in the diffusion enc/decoder). Bit-identical; always on; prerequisite for trace capture.
-2. TT_PROTENIX_TRACE=1: capture the ~400-op denoise device stream once/fold, replay it,
+2. fold(trace=True): capture the ~400-op denoise device stream once/fold, replay it,
    collapsing per-step dispatch. Per-step host inputs (fourier(t_hat), scaled coords) staged
-   into fixed device buffers; fold-fixed cond stays resident. get_device auto-reserves 1 GiB
-   trace region when enabled (off => layout unchanged).
+   into fixed device buffers; fold-fixed cond stays resident. Open the device with a trace
+   region first: get_device(trace_region_size=1<<30) (default 0 => layout unchanged).
 
 ### Warm diffusion (edm_sample, 200 steps, --fast) — CLEAN no-contention, card 0 alone
 | L    | untraced (AdaLN cache) | trace  | trace speedup |
