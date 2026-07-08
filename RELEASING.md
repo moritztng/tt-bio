@@ -37,11 +37,10 @@ experimental; the tag is the promise.
 
 ## Enabling PyPI (one-time, maintainer)
 
-Until this is done, releases go to GitHub only. To also publish `pip install tt-bio`:
+Do this once, before the first tag. Until it exists, releases go to GitHub only (the
+`pypi-publish` job fails harmlessly and the GitHub Release still publishes).
 
-1. On <https://pypi.org/manage/account/publishing/> add a **pending Trusted Publisher** for
-   project `tt-bio`: owner `moritztng`, repository `tt-bio`, workflow `release.yml`,
-   environment `pypi`. (No API token is created or stored — GitHub authenticates via OIDC.)
-2. In the GitHub repo settings → *Secrets and variables → Actions → Variables*, add
-   `PYPI_ENABLED = true`. This un-gates the `pypi-publish` job.
-3. The next `v*` tag publishes to PyPI automatically.
+On <https://pypi.org/manage/account/publishing/> add a **pending Trusted Publisher** for
+project `tt-bio`: owner `moritztng`, repository `tt-bio`, workflow `release.yml`, environment
+`pypi`. (No API token is created or stored — GitHub authenticates via OIDC.) The next `v*` tag
+then publishes to PyPI automatically.

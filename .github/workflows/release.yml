@@ -61,9 +61,10 @@ jobs:
   pypi-publish:
     needs: build
     runs-on: ubuntu-latest
-    # Dormant until you enable PyPI: set repo variable PYPI_ENABLED=true and configure
-    # Trusted Publishing on PyPI (see RELEASE.md). No API token is stored.
-    if: ${{ vars.PYPI_ENABLED == 'true' }}
+    # Publishes via PyPI Trusted Publishing (no stored token). Needs a one-time PyPI
+    # Trusted Publisher for this repo + the "pypi" environment (see RELEASING.md); set it
+    # up before the first tag. Until it exists this job fails harmlessly — the GitHub
+    # Release above still publishes.
     environment: pypi
     permissions:
       id-token: write
