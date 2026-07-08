@@ -39,3 +39,21 @@ def test_num_devices_and_default(two_cards):
     assert runtime.detect_tenstorrent_devices(None, 1, max_workers=10) == [0]
     assert runtime.detect_tenstorrent_devices(None, 0, max_workers=10) == [0, 1]
     assert runtime.detect_tenstorrent_devices(None, 0, max_workers=1) == [0]  # max_workers cap honored
+
+
+def test_duplicate_stem_inputs_rejected(tmp_path):
+    (tmp_path / "target.fasta").write_text(">A|protein\nMK\n")
+    (tmp_path / "target.yaml").write_text("sequences: []\n")
+    struct = tmp_path / "structures"
+    struct.mkdir()
+    with pytest.raises(ValueError, match="share a name stem"):
+        runtime.discover_jobs(tmp_path, struct, "cif", override=True)
+
+
+def test_unique_stems_discovered(tmp_path):
+    (tmp_path / "a.fasta").write_text(">A|protein\nMK\n")
+    (tmp_path / "b.yaml").write_text("sequences: []\n")
+    struct = tmp_path / "structures"
+    struct.mkdir()
+    jobs = runtime.discover_jobs(tmp_path, struct, "cif", override=True)
+    assert sorted(j.id for j in jobs) == ["a", "b"]
