@@ -60,3 +60,14 @@ def test_msa_id_on_non_protein_rejected(tmp_path):
     p = _fasta(tmp_path, ">A|dna|somemsa\nACGT\n")
     with pytest.raises(ValueError, match="MSA_ID is only allowed for proteins"):
         parse_fasta(p, ccd={}, mol_dir=tmp_path)
+
+
+def test_chain_label_bijective_base26():
+    """Chain ids must stay unique past 26 chains (the old %26 / chr() schemes collided or ran
+    past 'Z', silently corrupting multi-chain output)."""
+    from tt_bio.main import _chain_label
+
+    assert [_chain_label(n) for n in range(26)] == [chr(65 + n) for n in range(26)]  # parity <26
+    assert _chain_label(26) == "AA" and _chain_label(27) == "AB" and _chain_label(52) == "BA"
+    labels = [_chain_label(n) for n in range(60)]
+    assert len(set(labels)) == 60  # all unique
