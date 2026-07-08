@@ -236,6 +236,7 @@ def pair_row_tile(L: int) -> int:
 
 
 _device = None
+_trace_region_size = 0
 
 _DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
 
@@ -319,13 +320,17 @@ def _assert_local_dispatch(dev):
                            f"(likely a remote-only init): {e}") from e
 
 
-def get_device():
+def get_device(trace_region_size=0):
     """Open (or return cached) TT device 0.
 
     Worker processes set TT_VISIBLE_DEVICES before importing ttnn, so the
     assigned physical chip appears as logical device 0.
+
+    trace_region_size: bytes to reserve for ttnn trace capture. Pass a nonzero
+    size (e.g. 1 << 30) to enable the Protenix denoise trace via fold(trace=True);
+    the default 0 leaves the device layout unchanged.
     """
-    global _device
+    global _device, _trace_region_size
     if _device is None:
         device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
         # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
@@ -344,21 +349,24 @@ def get_device():
             {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
             if eth_dispatch else {}
         )
-        # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound diffusion).
-        # TT_PROTENIX_TRACE=1 reserves a default 1 GiB region; TT_PROTENIX_TRACE_REGION overrides
-        # the size. Default 0 -> binary layout unchanged when the feature is off.
-        _trs = int(os.environ.get("TT_PROTENIX_TRACE_REGION",
-                                  "1073741824" if os.environ.get("TT_PROTENIX_TRACE") else "0"))
-        if _trs > 0:
-            kwargs["trace_region_size"] = _trs
+        # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound
+        # diffusion). Default 0 -> device layout unchanged when tracing is off.
+        if trace_region_size > 0:
+            kwargs["trace_region_size"] = trace_region_size
         dev = _open_device_locked(device_id, kwargs)
         _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
         _device = dev
+        _trace_region_size = trace_region_size
     return _device
 
 
+def trace_region_size():
+    """Bytes reserved for ttnn trace on the open device (0 if none / no device)."""
+    return _trace_region_size
+
+
 def cleanup():
-    global _device
+    global _device, _trace_region_size
     if _device is not None:
         try:
             # Drain queued work before closing so teardown is deterministic.
@@ -371,6 +379,7 @@ def cleanup():
         with _device_init_lock():
             ttnn.close_device(_device)
         _device = None
+        _trace_region_size = 0
 
 
 atexit.register(cleanup)
