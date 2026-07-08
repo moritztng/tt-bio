@@ -1428,6 +1428,19 @@ def msa_server_cmd(listen, msa_db_path, cache_dir, use_envdb, max_concurrent, to
 # ---------------------------------------------------------------------------
 # ESMFold2 (--model esmfold2): single-sequence, protein-only, on-device ttnn.
 # ---------------------------------------------------------------------------
+def _chain_label(n: int) -> str:
+    """Chain id for the n-th chain (0-indexed): A..Z, then AA, AB, ... (bijective base-26).
+    Identical to the old ``chr(65 + n)`` for n < 26, but never collides or runs past 'Z' for a
+    larger complex — an index-mod-26 or bare ``chr()`` scheme produced duplicate or non-alphabetic
+    chain ids there, silently corrupting the written structure."""
+    s = ""
+    n += 1
+    while n:
+        n, r = divmod(n - 1, 26)
+        s = chr(ord("A") + r) + s
+    return s
+
+
 def _read_protein_chains(path):
     """Extract [(chain_id, sequence, msa_spec)] protein entries from FASTA/YAML.
 
@@ -1447,7 +1460,7 @@ def _read_protein_chains(path):
             # chain whose id we auto-assign below — gate on `is not None` so it isn't dropped.
             if cid is not None and buf:
                 for c in cid.split(","):
-                    chains.append((c.strip() or chr(65 + len(chains)), "".join(buf), msa))
+                    chains.append((c.strip() or _chain_label(len(chains)), "".join(buf), msa))
         for line in path.read_text().splitlines():
             line = line.strip()
             if line.startswith(">"):
@@ -1502,7 +1515,7 @@ def _read_bio_chains(path):
                 seq = ("CCD_" + seq.upper()) if mt == "_ccd" else seq   # ccd code -> CCD_ spec
                 mtype = "ligand" if mt in ("_ccd", "ligand") else mt
                 for c in cid.split(","):
-                    chains.append((c.strip() or chr(65 + len(chains)), seq, msa, mtype))
+                    chains.append((c.strip() or _chain_label(len(chains)), seq, msa, mtype))
         for line in path.read_text().splitlines():
             line = line.strip()
             if line.startswith(">"):
@@ -1648,7 +1661,7 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     arr.b_factor[:] = b_factors.numpy().astype("float32") if b_factors is not None else 0.0
     for i in range(coords.shape[0]):
         t = a2t[i]
-        arr.chain_id[i] = chr(ord("A") + int(asym[t]) % 26)
+        arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
         arr.res_name[i] = "LIG" if is_lig_tok[t] else resname[t]
         arr.atom_name[i] = names[i]
