@@ -13,7 +13,12 @@ import torch
 import ttnn
 
 sys.path.insert(0, os.path.dirname(__file__))
-from esmc_reference import ESMC_300M, VOCAB_SIZE, make_esmc_300m  # noqa: E402
+try:
+    from esmc_reference import ESMC_300M, VOCAB_SIZE, make_esmc_300m  # noqa: E402
+except (ImportError, ModuleNotFoundError, FileNotFoundError) as exc:
+    # The esm clone (set ESM_ROOT) isn't present on this box — skip cleanly
+    # rather than erroring at collection so the rest of the suite stays green.
+    pytest.skip(f"esm reference unavailable: {exc}", allow_module_level=True)
 
 from tt_bio.tenstorrent import WeightScope, get_device  # noqa: E402
 from tt_bio import esmc as tt_esmc  # noqa: E402
