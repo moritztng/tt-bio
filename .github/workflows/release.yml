@@ -20,7 +20,7 @@ jobs:
       - name: Tag must match pyproject version
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          ver="$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          ver="$(grep -m1 -E '^version *=' pyproject.toml | sed -E 's/.*"([^"]+)".*/\1/')"
           if [ "$tag" != "$ver" ]; then
             echo "::error::tag v$tag != pyproject version $ver"; exit 1
           fi
