@@ -58,8 +58,8 @@ Every command names its model with `--model`:
 - **`protenix-v2`** — folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); proteins take an optional MSA (recommended for best accuracy) and it also emits a PAE/PDE matrix with `--write_pae`:
 
 ```bash
-tt-bio predict seq.fasta --model esmfold2-fast --fast
-tt-bio predict complex.fasta --model protenix-v2 --use_msa_server   # protein MSA optional; NA/ligand chains are single-sequence
+tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
+tt-bio predict examples/prot.yaml --model protenix-v2 --use_msa_server   # protein MSA optional; NA/ligand chains are single-sequence
 ```
 
 ESMFold2 is protein-only, so the affinity, potential, template, and energy options below apply to **Boltz-2 only** — as do pocket/contact binding constraints. Covalent `bond` constraints additionally work with Protenix-v2 (it honours them through its token-bond graph). Protenix-v2 folds multimodal complexes (protein / RNA / DNA / ligand chains in one input, FASTA `>id|protein|...`, `>id|rna`, `>id|dna`, `>id|ccd`, `>id|smiles`, or the YAML `protein/rna/dna/ligand` entries) and writes per-atom pLDDT into B-factors; only proteins use an MSA (`--use_msa_server`, a precomputed a3m, or `--msa_db_path`), nucleic-acid and ligand chains are single-sequence. The shared options — `--fast`, `--recycling_steps`, `--sampling_steps`, `--diffusion_samples`, `--output_format`, the MSA flags, and the multi-card / multi-machine flags — work for every model. Each model downloads its weights automatically on first use.
