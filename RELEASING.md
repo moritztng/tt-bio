@@ -31,7 +31,7 @@ experimental; the tag is the promise.
    git tag v0.2.0
    git push origin main --tags
    ```
-4. CI (`.github/workflows/release.yml`) then builds the sdist + wheel, checks the tag matches
+4. CI (`.github/workflows/release.yaml`) then builds the sdist + wheel, checks the tag matches
    the `pyproject` version, and publishes a **GitHub Release** with the changelog notes and the
    wheel attached. If PyPI is enabled (below), it also publishes there.
 
@@ -41,6 +41,6 @@ Do this once, before the first tag. Until it exists, releases go to GitHub only 
 `pypi-publish` job fails harmlessly and the GitHub Release still publishes).
 
 On <https://pypi.org/manage/account/publishing/> add a **pending Trusted Publisher** for
-project `tt-bio`: owner `moritztng`, repository `tt-bio`, workflow `release.yml`, environment
+project `tt-bio`: owner `moritztng`, repository `tt-bio`, workflow `release.yaml`, environment
 `pypi`. (No API token is created or stored — GitHub authenticates via OIDC.) The next `v*` tag
 then publishes to PyPI automatically.

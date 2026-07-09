@@ -65,7 +65,7 @@ jobs:
     # so a missing/mismatched PyPI Trusted Publisher can NEVER fail the release — the
     # GitHub Release (independent sibling job) always ships the wheel regardless. To make
     # this step actually publish, add a Trusted Publisher on pypi.org for project `tt-bio`:
-    # owner moritztng / repo tt-bio / workflow release.yml / environment pypi (see RELEASING.md).
+    # owner moritztng / repo tt-bio / workflow release.yaml / environment pypi (see RELEASING.md).
     continue-on-error: true
     environment: pypi
     permissions:
