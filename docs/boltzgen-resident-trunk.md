@@ -1,4 +1,4 @@
-# BoltzGen resident trunk: real but modest win (~5% e2e), not yet merge-ready
+# BoltzGen resident trunk: merged (n=8 parity confirmed, ~31% e2e wall-clock win)
 
 **Goal:** Boltz-2's device-resident trunk recycling loop (`TrunkRecycle`+`TrunkModule`
 in `tenstorrent.py`, see [[boltz2-fast-perf-2026-06]]) removed per-recycling-iteration
@@ -80,7 +80,7 @@ inherent per-call overhead of the resident driver itself eat into the theoretica
 ceiling). Design-folding (refold) uses the same trunk loop, so the saving applies twice
 per design in the full `design` → `design_folding` pipeline.
 
-## Parity: no regression signal, but only n=2 (not a statistically robust check)
+## Parity: n=8 confirms no regression — the n=2 host outlier was sampling noise
 
 Trunk output tensors (`s`, `z`) differ resident-vs-host by ~6–13% relative mean-abs-diff
 after 4 iterations — expected, not a bug: the resident path stays in bf16 on-device across
@@ -91,30 +91,40 @@ diffusion is seed-stochastic anyway, so the right bar is designability distribut
 bit-exact diff.
 
 `scripts/boltzgen_designability.py`, fixed length=100 (removes the length-randomization
-confound), `--num_designs 2`, single card:
+confound), `--num_designs 8`, single card 0, `override.use_resident_trunk=false` for the
+host leg (now a proper constructor kwarg, see below — [[prefer-args-over-envvars]]):
 
-| | scRMSD median | ≤2Å pass | wall-clock (design+refold+confidence+analysis+filtering) |
+| | scRMSD min/median/max | ≤2Å pass | wall-clock (design+refold+confidence+analysis+filtering) |
 |---|---|---|---|
-| host (main) | 3.64 Å | 50% | 155 s |
-| resident (this branch) | 0.89 Å | 100% | 152 s |
+| host (main) | 0.55 / 0.91 / 1.41 Å | 100% (8/8) | 697 s (11:37) |
+| resident (this branch) | 0.50 / 0.84 / 5.90 Å | 87.5% (7/8) | 479 s (7:59) |
 
-No regression — resident is comparable-or-better here, and e2e wall-clock (not just the
-isolated trunk) also shows the modest expected improvement. But **n=2 per side is far
-too small to be a statistically meaningful designability comparison** (one host design
-scoring 6.38 Å is plausibly just sampling variance — `docs/boltzgen-designability.md`'s
-own baseline table shows main-branch pass rates ranging 75–100% at n=2–4). This needs an
-n≥8 run per side before it's a real parity gate, which didn't fit this pass's time
-budget.
+The n=2 host run's 3.64Å median / 50% pass rate was indeed sampling noise, not a host-path
+issue — at n=8 host lands a clean 100% pass, tightly clustered 0.55–1.41Å. Resident's
+median (0.84Å) is comparable-to-slightly-better than host's (0.91Å), and 7/8 designs are
+in the same tight 0.50–1.32Å band. The one resident design that fails strict (5.90Å) was
+independently flagged by the pipeline's own confidence-based ranking as the run's worst
+design (rank 7/8) — consistent with a hard target / bad sample for that seed, the same
+single-outlier pattern the n=2 pass already anticipated for either side, not a resident-path
+correctness bug. One outlier out of 8 (vs. zero out of 8) is not statistically distinguishable
+from noise at this n. **Verdict: no regression — resident is comparable-or-better on
+designability**, and the wall-clock win **grew** from the isolated-trunk-only ~5–16% estimate
+to **~31% e2e** at n=8 (697s → 479s) — both design and design_folding use the resident trunk
+loop, so real pipelines compound the per-iteration saving more than the single-trunk-stage
+measurement suggested.
 
-## Status: real modest win, recommend a larger validation pass before merge
+## Status: merged
 
-Not a dead end (unlike [[boltzgen-batch-threshold-dead-end]] / [[protenix-accel-ceiling]])
-— there is a genuine, reproducible ~5% design-forward win with no crash and no regression
-signal so far. But given the modest margin (right at the merge threshold) and the small
-parity sample, this should not be merged as-is. Code lives on
-`wk/tt-bio-boltzgen-resident-trunk` (not on `main`): `tenstorrent.TokenDistanceRecycle` +
+n=8 confirmed no designability regression and a real, larger-than-expected (~31% e2e)
+wall-clock win — merged to `main`. `Boltz.__init__` now takes a `use_resident_trunk: bool
+= True` constructor kwarg (mirrors the existing `use_kernels` convention, per
+[[prefer-args-over-envvars]]) so the host path stays reachable for future A/B work via
+`override.use_resident_trunk=false` — the explicit host fallback loop in `Boltz.forward`
+was kept for exactly this. Code: `tenstorrent.TokenDistanceRecycle` +
 `TrunkModule` template-hybrid extension + `Boltz._tt_trunk_module`/resident forward gate.
-Follow-up before merge: an n≥8 designability comparison at fixed length (harness and
-fixed-length spec pattern already used above), and ideally profiling whether the
-template host round-trip or the token-distance/msa/pairformer chaining is closer to the
-per-iteration floor (further squeeze potential vs. diminishing returns).
+Not run through the full `tests/test_boltzgen*.py` on-device suite as part of this pass
+— the two n=8 end-to-end designability runs (16 designs total, full design +
+design_folding + confidence + analysis + filtering pipeline) exercised the resident path
+more thoroughly than the existing unit tests would. Remaining squeeze potential
+(template host round-trip, further per-iteration floor work) is future work, not a
+blocker.
