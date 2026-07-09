@@ -6,7 +6,7 @@ AI agent (Claude Science / Claude Code, Codex, Gemini CLI).
 ```
 clients/
   cli/                  # the `japanfold` CLI (dependency-free Python)
-  claude-plugin/        # Claude Code / Claude Science plugin (bundles the skill)
+  skill/                # the agent skill (Claude Code, Claude Science, 60+ agents)
   install.sh            # one-line CLI installer
 ```
 
@@ -29,7 +29,8 @@ japanfold design spec.yaml --protocol nanobody-anything --num-designs 10 --wait 
 ```
 
 An optional API key raises the demo limits: `export JAPANFOLD_API_KEY=jf_live_...`
-(from https://japanfold.com/account). The CLI picks it up automatically.
+(issued by the JapanFold team — no self-serve signup yet). The CLI picks it up
+automatically.
 
 - `--wait` submits, polls to completion, and downloads results in one foreground
   command (no backgrounding needed). Or submit and poll separately:
@@ -84,6 +85,6 @@ the confidence"* or *"design 10 nanobody binders against this target."*
 
 ## 3. The API directly
 
-Any language can call the REST API — see [`../docs/api.md`](../docs/api.md) and
-the OpenAPI 3.1 contract at `GET /v1/openapi.json` (usable to generate typed
+Any language can call the REST API — see the [docs site](../docs/site/overview.md)
+and the OpenAPI 3.1 contract at `GET /v1/openapi.json` (usable to generate typed
 SDKs or an MCP server).
