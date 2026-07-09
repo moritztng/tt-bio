@@ -2223,7 +2223,11 @@ def warmup(max_seq, max_msa, n_samples, cache):
               help="Sequences per device forward (300M/600M). Padded+masked per "
                    "batch so per-sequence embeddings are unchanged; larger values "
                    "amortise compile/dispatch over more sequences.")
-def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch_size):
+@click.option("--devices", default=None,
+              help="Comma-separated physical TT card ids to shard the sequences across, "
+                   "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
+                   "results are reassembled in input order. Default: this machine's single card.")
+def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch_size, devices):
     """Compute ESMC protein-language-model embeddings for protein sequences.
 
     DATA is a FASTA file or a directory of them. Runs the ESMC LM trunk alone
@@ -2264,12 +2268,22 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
     out = Path(out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
 
-    click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
-    m = esmc.load_esmc(model, fast=fast)
-    click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
+    device_list = None
+    if devices:
+        from tt_bio import runtime
+        device_list = runtime.detect_tenstorrent_devices(devices, 0, len(seqs))
 
-    results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
-                                   batch_size=batch_size)
+    if device_list and len(device_list) > 1:
+        click.echo(f"Sharding {len(seqs)} sequence(s) across cards "
+                   f"{device_list}{' (fast)' if fast else ''} → {out}")
+        results = esmc.embed(seqs, model=model, devices=device_list, fast=fast,
+                             return_logits=return_logits, pool=pool, batch_size=batch_size)
+    else:
+        click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
+        m = esmc.load_esmc(model, fast=fast)
+        click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
+        results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
+                                       batch_size=batch_size)
     if out_format == "npz":
         for emb in results:
             esmc.write_npz(emb, out / f"{emb.id}.npz")
