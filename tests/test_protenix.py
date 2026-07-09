@@ -152,6 +152,33 @@ def test_attention_pair_bias_parity():
     assert p > 0.98, f"PCC {p:.5f}"
 
 
+# Protenix AttentionPairBias (diffusion transformer, has_s=True) -> AdaLN + tt-bio
+# AttentionPairBias + output gate. Isolated from test_diffusion_transformer_block_parity
+# (which also composes the ConditionedTransitionBlock) to pin down this module alone.
+def test_attention_pair_bias_has_s_true_parity():
+    c_a, c_s, c_z, n_heads, L = 768, 384, 128, 16, 32
+    head_dim = c_a // n_heads
+    mod, sd = make_attention_pair_bias(c_a, c_z, n_heads, seed=0, has_s=True, c_s=c_s)
+    a = torch.randn(1, L, c_a); s = torch.randn(1, L, c_s); z = torch.randn(1, L, L, c_z)
+    ref = mod(a, s, z).float()
+
+    dev = get_device(); ck = _ck(dev)
+    def sub(p): return {k[len(p) + 1:]: v for k, v in sd.items() if k.startswith(p + ".")}
+    ft = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    ftt = lambda x: ttnn.from_torch(x.t(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    adaln = AdaLN(False, remap_adaptive_layernorm(sub("layernorm_a")), ck)
+    apb = AttentionPairBias(head_dim, n_heads, True, False, remap_attention_pair_bias(sd), ck)
+    lalw, lalb = ftt(sd["linear_a_last.weight"]), ft(sd["linear_a_last.bias"])
+    a_t, s_t, z_t = ft(a), ft(s), ft(z)
+    an = adaln(a_t, s_t)
+    attn = apb(an, z_t)
+    gate = ttnn.linear(s_t, lalw, bias=lalb, compute_kernel_config=ck, core_grid=CORE_GRID_MAIN)
+    out = ttnn.multiply(gate, attn, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+    ot = torch.Tensor(ttnn.to_torch(out)).float().reshape(ref.shape)
+    p = pcc(ot, ref)
+    assert p > 0.98, f"PCC {p:.5f}"
+
+
 # Full PairformerBlock: compose the 4 verified sub-modules + pre-norms/residuals.
 def test_pairformer_block_parity():
     c_z, c_s, L = 128, 384, 64
