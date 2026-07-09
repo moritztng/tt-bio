@@ -97,6 +97,11 @@ and stay resident, so jobs flow through without per-protein reloads:
 tt-bio predict proteins/ --model boltz2 --out_dir results --fast
 ```
 
+By default every detected card is used; pass `--devices 0,1,2,3` to pick or limit
+which cards a run fans across (matching `tt-bio embed`). Each job is an independent
+single-card fold pinned to its card, so results are identical to running that target
+alone — sharding only changes which chip folds which target.
+
 If you have additional machines with Tenstorrent cards, you can add them to a
 single run — see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
 

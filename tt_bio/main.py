@@ -1825,7 +1825,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--diffusion_samples_affinity", default=5, type=int)
 @click.option("--affinity_checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--num_devices", default=0, type=int, help="Number of TT devices to use (0=all available)")
-@click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use (e.g. '0,2')")
+@click.option("--devices", "--device_ids", "device_ids", default=None, type=str,
+              help="Comma-separated physical TT card ids to fan the folding jobs across, "
+                   "e.g. '0,1,2,3' (data-parallel: one pinned worker per card, each an "
+                   "untouched single-card fold). Matches `tt-bio embed`. Default: all detected cards.")
 @click.option("--fast", is_flag=True, help="Use block-fp8 for some operations (slightly lower precision, faster)")
 @click.option("--debug", is_flag=True, help="Debug mode: no Rich display, no output suppression")
 @click.option("--log", is_flag=True, help="With --debug: print per-device stage progress")
