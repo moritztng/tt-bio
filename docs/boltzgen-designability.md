@@ -68,12 +68,15 @@ target the README documents for `tt-bio gen run`.
 
 ## Observed on-device results
 
-Harvested with this script from completed on-device tt-bio BoltzGen runs of the
-canonical examples (`protein-anything` isolated-refold scRMSD; nanobody target via the
-whole-complex fallback):
+Produced with this script on Blackhole card 1 (`TT_VISIBLE_DEVICES=1`,
+`protein-anything`, production sampling — design 500 steps / refold 200 steps). The top
+row is a fresh reproduction on this branch; the rest are additional harvested runs of
+the canonical examples (isolated-refold scRMSD, except the nanobody target which uses
+the whole-complex fallback):
 
 | target (protocol) | n | scRMSD median (Å) | ≤2 Å | ≤4 Å |
 | --- | --- | --- | --- | --- |
+| `examples/binder.yaml` (protein-anything) — fresh run | 2 | 0.76 | 100% | 100% |
 | `examples/binder.yaml` (protein-anything) | 4 | 1.00 | 75% | 100% |
 | `examples/binder.yaml`, single design | 1 | 0.63 | 100% | 100% |
 | nanobody target (nanobody-anything, complex refold) | 40 | 1.44 | 82.5% | 97.5% |
@@ -81,8 +84,9 @@ whole-complex fallback):
 Designs refold to **sub-Å–1.3 Å** scRMSD on the canonical binder example, well inside
 BoltzGen's ≤2 Å designable bar. **No device-fidelity problem is evident** — the
 on-device designability distribution matches what a working BoltzGen + Boltz-2 refolder
-should produce. (These are existing completed runs of the exact pipeline/example; a
-fresh single-command reproduction is the invocation above.)
+should produce. The fresh 2-design run above (`binder` 0.90 Å, `binder_1` 0.62 Å) took
+~40 min end-to-end on one card (design step dominates), the basis for the gate
+recommendation below.
 
 ## Release-gate recommendation: standalone, not in the fast gate
 
