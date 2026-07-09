@@ -7,6 +7,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Added
 - **Multi-card fanout for `tt-bio embed`** — `--devices 0,1,2,3` (CLI) / `devices=[...]` (`tt_bio.esmc.embed`) shards a sequence set across several TT cards, one pinned worker per card, and reassembles the embeddings in input order. Data-parallel and lossless: each shard's output is bit-exact to the single-card path (verified on-hardware, Δ=0 per-residue/pooled/logits).
+- **`--single_sequence` flag** for `predict` — deliberately fold Boltz-2/Protenix-v2 without an MSA (skips both the local-DB lookup and the online fallback), for batch-screening orphan sequences.
+
+### Changed
+- **Boltz-2 and Protenix-v2 use an MSA by default** — these MSA-dependent models no longer silently fold single-sequence (the cause of the alarming "~10 Å Protenix-v2" result; see `docs/protenix-accuracy-investigation.md`). With no MSA flags, `predict` uses a local ColabFold DB (`~/.boltz/msa_db`) if present, else falls back to the online ColabFold server and prints a one-line notice naming the server the sequences are sent to (they leave the machine). Pass `--msa_db_path` for a private offline DB, or `--single_sequence` to skip the MSA. ESMFold2 / ESMFold2-Fast are unchanged (single-sequence by design). Ground-truth gate on the default path (`examples/prot.yaml`): Boltz-2 CA-RMSD 2.49 Å / TM 0.78, Protenix-v2 3.47 Å / TM 0.75.
 
 ## [0.2.1] - 2026-07-09
 

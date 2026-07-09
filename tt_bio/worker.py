@@ -216,6 +216,7 @@ class _WorkerState:
                 msa_pass=cfg["msa_server_password"], api_key=cfg["api_key_value"],
                 max_msa=cfg["max_msa_seqs"], msa_db_path=cfg.get("msa_db_path"),
                 use_envdb=cfg.get("use_envdb", False),
+                single_sequence=cfg.get("single_sequence", False),
             )
         else:
             self.prepare = None
@@ -268,7 +269,7 @@ class _WorkerState:
         # search any chain whose {seq_hash}.a3m/.csv is not already cached, into
         # the shared msa_dir. MSA is optional: with no source, fold single-seq.
         report_progress("msa")
-        if uses_msa and (cfg.get("use_msa_server") or cfg.get("msa_db_path")):
+        if uses_msa and (cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")):
             to_gen = {}
             for _cid, seq, spec in chains:
                 if spec and Path(spec).expanduser().exists():
@@ -328,7 +329,7 @@ class _WorkerState:
 
         report_progress("msa")
         # search any uncached protein chain (batched into one MSA call); NA chains are single-seq
-        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path")
+        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
         for _cid, cseq, spec, mt in chains:
             have_spec = bool(spec and Path(spec).expanduser().exists())
