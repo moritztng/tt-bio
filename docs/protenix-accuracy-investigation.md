@@ -59,9 +59,10 @@ input on CPU — two ways, cross-confirming:
   loads **strict — missing=0, unexpected=0** (architecture exact), and the data
   pipeline produces the **identical featurization as tt-bio** (N_token=117,
   **N_atom=900**), confirming the port feeds the model the same inputs. The no-MSA
-  n_step=200 forward runs end-to-end on CPU (a very slow ~30 min+ run;
-  runner in `/home/moritz/.coworker/protenix-ref-run/run_ref.py`, not committed —
-  it carries machine-absolute paths).
+  n_step=200 / 5-sample forward completed on CPU: **oracle 4.35 Å** (samples
+  4.35–6.05 Å, TM 0.54–0.66) — consistent with the refcheck venv's 5.44 Å.
+  (Runner in `/home/moritz/.coworker/protenix-ref-run/run_ref.py`, not committed —
+  machine-absolute paths.)
 - **Sibling branch `wk/tt-bio-protenix-refcheck` (the reported RMSD numbers):**
   official Protenix 2.0.0 in an isolated venv, both no-MSA and with real MSA.
 
@@ -78,11 +79,21 @@ The poor headline numbers are dominated by **MSA-off (~+2.3 Å) then undersampli
 ### The "~10 Å" reproduced and explained: it is the no-MSA default path
 tt-bio Protenix-v2 **without** `--use_msa_server` folds single-sequence (the CLI
 help even says so) and gives **~10.5 Å** best-conf / 9.7 Å oracle (pTM 0.39 — the
-model correctly reports low confidence). That is the reported number. Its
-reference counterpart (no-MSA n_step=200) is 5.44 Å; the residual no-MSA gap is
-within single-seq diffusion stochasticity on an underdetermined fold (both models
-just produce a low-confidence guess with no evolutionary signal). **The fix for a
-user is: pass an MSA** (`--use_msa_server`), which takes it to 3.87 Å.
+model correctly reports low confidence). That is the reported number. **The fix for
+a user is: pass an MSA** (`--use_msa_server`), which takes it to 3.87 Å.
+
+**Caveat — a real but off-label no-MSA gap.** Unlike the with-MSA case (where
+tt-bio 3.87/2.34 Å ≈ reference 3.13 Å, no gap), in the **no-MSA regime** tt-bio
+(9.7 Å oracle, TM 0.27 — wrong topology) is markedly worse than the reference
+(oracle 4.35 Å / mean ~5.2 Å, TM 0.54–0.66 — borderline-correct topology; both the
+pc rebuild and the refcheck venv agree at ~5 Å). Both feed a 1-row dummy MSA (the
+query), so this is a genuine ~5 Å divergence in tt-bio's single-sequence path — a
+candidate for a residual port issue in the low-/no-MSA featurization (profile /
+deletion / MSA-module handling of a 1-row MSA). **Low priority**: no-MSA is
+off-label for an MSA-dependent AF3-family model, and the production (with-MSA) path
+is faithful — but it is the regime a user hits by default today, which is exactly
+why the no-MSA default should be changed (see Recommendations). Not chased further
+here; flagged for a follow-up if the default isn't changed.
 
 ### Diffusion converges on real input (refutes a "fundamental diffusion bug")
 A parallel leg (`scripts/protenix_sampling_ablation.py`, memory
