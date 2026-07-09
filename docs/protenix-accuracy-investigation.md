@@ -82,18 +82,26 @@ help even says so) and gives **~10.5 Å** best-conf / 9.7 Å oracle (pTM 0.39 �
 model correctly reports low confidence). That is the reported number. **The fix for
 a user is: pass an MSA** (`--use_msa_server`), which takes it to 3.87 Å.
 
-**Caveat — a real but off-label no-MSA gap.** Unlike the with-MSA case (where
-tt-bio 3.87/2.34 Å ≈ reference 3.13 Å, no gap), in the **no-MSA regime** tt-bio
-(9.7 Å oracle, TM 0.27 — wrong topology) is markedly worse than the reference
-(oracle 4.35 Å / mean ~5.2 Å, TM 0.54–0.66 — borderline-correct topology; both the
-pc rebuild and the refcheck venv agree at ~5 Å). Both feed a 1-row dummy MSA (the
-query), so this is a genuine ~5 Å divergence in tt-bio's single-sequence path — a
-candidate for a residual port issue in the low-/no-MSA featurization (profile /
-deletion / MSA-module handling of a 1-row MSA). **Low priority**: no-MSA is
-off-label for an MSA-dependent AF3-family model, and the production (with-MSA) path
-is faithful — but it is the regime a user hits by default today, which is exactly
-why the no-MSA default should be changed (see Recommendations). Not chased further
-here; flagged for a follow-up if the default isn't changed.
+**Caveat — a real but off-label no-MSA gap (featurization ruled out).** Unlike the
+with-MSA case (tt-bio 3.87/2.34 Å ≈ reference 3.13 Å, no gap), in the **no-MSA
+regime** tt-bio (9.7 Å oracle, TM 0.27 — wrong topology) is markedly worse than the
+reference (oracle 4.35 Å / mean ~5.2 Å, TM 0.54–0.66 — borderline-correct; the pc
+rebuild and the refcheck venv agree at ~5 Å).
+
+I chased this: dumping the reference data-pipeline features and diffing them against
+tt-bio's `build_complex_features` for the same single-seq input shows the MSA-derived
+inputs are **bit-identical** — same shapes, `deletion_mean`/`has_deletion`/
+`deletion_value` all-zero on both sides, `profile` one-hot with identical argmax and
+class ordering, `msa` row-0 tokens identical. **So the gap is NOT a featurization
+bug.** With no evolutionary signal the single-seq fold is underdetermined and the
+diffusion landscape is flat, so implementation numerics (on-device bf16 vs fp32 CPU
+reference) + RNG land tt-bio and the reference in *different* plausible basins — the
+same off-label multimodality the golden-molecule ablation saw, not a systematic port
+defect (the with-MSA path, where the fold is constrained, is faithful). **Low
+priority / resolved as expected off-label behavior** — but it is the regime a user
+hits by default today, which is why the no-MSA default should change (see
+Recommendations). Feature-diff harness:
+`/home/moritz/.coworker/protenix-ref-run/dump_ref_feats.py` (machine-local).
 
 ### Diffusion converges on real input (refutes a "fundamental diffusion bug")
 A parallel leg (`scripts/protenix_sampling_ablation.py`, memory
