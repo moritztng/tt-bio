@@ -23,5 +23,6 @@ export const api = {
   remove: (id) => fetch(`/api/jobs/${id}`, { method: "DELETE" }).then(json),
   logUrl: (id) => `/api/jobs/${id}/log`,
   structureUrl: (id, rel) => `/api/jobs/${id}/structure/${rel}`,
+  artifactUrl: (id, rel) => `/api/jobs/${id}/artifact/${rel}`,
   archiveUrl: (id) => `/api/jobs/${id}/archive`,
 };

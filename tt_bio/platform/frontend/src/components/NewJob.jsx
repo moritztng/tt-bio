@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import FoldForm from "./FoldForm.jsx";
 import DesignForm from "./DesignForm.jsx";
+import EmbedForm from "./EmbedForm.jsx";
 
 const TASKS = [
   { id: "predict", t: "Fold & Affinity", s: "Predict 3D structure and binding affinity." },
   { id: "design", t: "Drug Design", s: "Generate de-novo binders, nanobodies & antibodies with BoltzGen." },
+  { id: "embed", t: "Protein Embeddings", s: "Compute ESMC language-model embeddings for search, clustering & ML features." },
 ];
 
 export default function NewJob({ catalog, onSubmitted, onError }) {
@@ -37,8 +39,10 @@ export default function NewJob({ catalog, onSubmitted, onError }) {
 
       {task === "predict" ? (
         <FoldForm catalog={catalog} onSubmitted={onSubmitted} onError={onError} />
-      ) : (
+      ) : task === "design" ? (
         <DesignForm catalog={catalog} onSubmitted={onSubmitted} onError={onError} />
+      ) : (
+        <EmbedForm catalog={catalog} onSubmitted={onSubmitted} onError={onError} />
       )}
     </div>
   );

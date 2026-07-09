@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { Badge, Spinner, duration, timeAgo } from "../ui.jsx";
 import ResultsPredict from "./ResultsPredict.jsx";
 import ResultsDesign from "./ResultsDesign.jsx";
+import ResultsEmbed from "./ResultsEmbed.jsx";
 import JobProgress from "./JobProgress.jsx";
 import LogPanel from "./LogPanel.jsx";
 
@@ -47,7 +48,7 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
             </div>
             <div className="ji-meta mt8">
               <span className="tag">{job.kind === "design" ? job.protocol : job.model}</span>
-              <span>{job.kind === "design" ? "BoltzGen design" : "Structure prediction"}</span>
+              <span>{_kindLabel(job.kind)}</span>
               <span className="sep">·</span>
               <span>submitted {timeAgo(job.created_at)}</span>
               {job.started_at && <><span className="sep">·</span><span>{duration(job)}</span></>}
@@ -81,8 +82,8 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
       {results.ready && (
         <div className="panel">
           <p className="section-title">Results</p>
-          {job.kind === "predict"
-            ? <ResultsPredict jobId={jobId} results={results} />
+          {job.kind === "predict" ? <ResultsPredict jobId={jobId} results={results} />
+            : job.kind === "embed" ? <ResultsEmbed jobId={jobId} results={results} />
             : <ResultsDesign jobId={jobId} results={results} />}
         </div>
       )}
@@ -103,6 +104,9 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
     </div>
   );
 }
+
+const _KIND_LABEL = { predict: "Structure prediction", design: "BoltzGen design", embed: "Protein-language-model embedding" };
+function _kindLabel(kind) { return _KIND_LABEL[kind] || kind; }
 
 // Translate the most common engine failures into one plain sentence a biologist
 // can act on; otherwise fall back to the first line of the raw error.

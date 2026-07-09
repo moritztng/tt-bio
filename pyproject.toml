@@ -14,6 +14,7 @@ dependencies = [
     "rdkit",
     "requests",
     "pandas",
+    "pyarrow",  # pandas.to_parquet engine — esmc.write_parquet (tt-bio embed --format parquet)
     "einops",
     "mashumaro",
     "modelcif",
