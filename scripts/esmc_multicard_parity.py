@@ -131,6 +131,21 @@ def main() -> int:
               f"(lens {sorted(len(s) for _, s in sh)})")
     fan = tt_esmc._reassemble(items, shard_results)
 
+    # Also exercise the production orchestrator itself (embed_multicard) end-to-end with a
+    # single device — one shard, one subprocess, no same-card collision — so the real
+    # mkdtemp/spawn/await/reassemble/cleanup path is covered, not just its primitives.
+    orch = tt_esmc.embed_multicard(seqs, model=args.model, devices=[device],
+                                   return_logits=args.logits, batch_size=1)
+    assert [e.id for e in orch] == [sid for sid, _ in items], "orchestrator order != input"
+    worst_o = 0.0
+    for e in orch:
+        r = ref[e.id]
+        worst_o = max(worst_o, max_abs(e.per_residue, r.per_residue),
+                      max_abs(e.pooled, r.pooled))
+        if args.logits:
+            worst_o = max(worst_o, max_abs(e.logits, r.logits))
+    print(f"[orchestrator] embed_multicard(devices=[{device}]) order: OK  Δmax={worst_o:g}")
+
     # 1. ids + order identical to input
     assert [e.id for e in fan] == [sid for sid, _ in items], "fanout order != input order"
     # 2. bit-exact vs single-shot reference
@@ -145,7 +160,8 @@ def main() -> int:
 
     print(f"[parity] order: OK  |  Δmax per_residue={worst_pr:g}  pooled={worst_pool:g}"
           + (f"  logits={worst_lg:g}" if args.logits else ""))
-    bit_exact = worst_pr == 0.0 and worst_pool == 0.0 and (not args.logits or worst_lg == 0.0)
+    bit_exact = (worst_pr == 0.0 and worst_pool == 0.0 and worst_o == 0.0
+                 and (not args.logits or worst_lg == 0.0))
     if not bit_exact:
         print("FAIL: fanout is NOT bit-exact vs single-shot single-card")
         return 1
