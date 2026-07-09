@@ -5,6 +5,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-09
+
+Turns MSA on by default for Boltz-2 / Protenix-v2 (the fix for the misleading no-MSA
+accuracy result) and ships the ESMC multi-card embedding fanout. No model numerics changed
+vs 0.2.1 — the MSA compute path was already hardware-gated; this only flips its default and
+adds a local-DB→online fallback with a privacy notice, plus a `--single_sequence` opt-out.
+Ground-truth gate on the default path (`examples/prot.yaml`): Boltz-2 CA-RMSD 2.49 Å / TM
+0.78, Protenix-v2 3.47 Å / TM 0.75.
+
 ### Added
 - **Multi-card fanout for `tt-bio embed`** — `--devices 0,1,2,3` (CLI) / `devices=[...]` (`tt_bio.esmc.embed`) shards a sequence set across several TT cards, one pinned worker per card, and reassembles the embeddings in input order. Data-parallel and lossless: each shard's output is bit-exact to the single-card path (verified on-hardware, Δ=0 per-residue/pooled/logits).
 - **`--single_sequence` flag** for `predict` — deliberately fold Boltz-2/Protenix-v2 without an MSA (skips both the local-DB lookup and the online fallback), for batch-screening orphan sequences.
