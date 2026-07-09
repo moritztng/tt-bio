@@ -2203,5 +2203,80 @@ def warmup(max_seq, max_msa, n_samples, cache):
     click.echo(f"\nDone — {time.time()-total:.0f}s total")
 
 
+@cli.command("embed")
+@click.argument("data", type=click.Path(exists=True))
+@click.option("--model", type=click.Choice(["esmc-300m", "esmc-600m", "esmc-6b"]),
+              default="esmc-600m", show_default=True,
+              help="ESMC protein-LM variant (sequence embeddings via the LM trunk alone).")
+@click.option("--out_dir", default="./embeddings", show_default=True)
+@click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
+              default="npz", show_default=True,
+              help="npz: one <id>.npz per sequence (per-residue + pooled [+logits]). "
+                   "parquet: a single embeddings.parquet of the pooled vectors.")
+@click.option("--pool", type=click.Choice(["mean", "max", "cls"]), default="mean",
+              show_default=True, help="Pooling for the fixed-size per-sequence vector.")
+@click.option("--logits", "return_logits", is_flag=True,
+              help="Also write per-residue sequence-head logits (esmc-300m/600m only).")
+@click.option("--fast", is_flag=True,
+              help="Use block-fp8 weights (faster, slightly lower precision).")
+def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast):
+    """Compute ESMC protein-language-model embeddings for protein sequences.
+
+    DATA is a FASTA file or a directory of them. Runs the ESMC LM trunk alone
+    (no folding head, no MSA) on this machine's TT device and writes per-residue
+    and pooled embeddings.
+
+    \b
+    Output (--out_dir, default ./embeddings):
+        <id>.npz            # per-residue [L,d] + pooled [d] (+ logits) — one per sequence
+        embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
+    """
+    from tt_bio import esmc
+
+    torch.set_grad_enabled(False)
+    data = Path(data).expanduser()
+    fastas = sorted(
+        p for p in ([data] if data.is_file() else data.iterdir())
+        if p.suffix.lower() in (".fa", ".fasta", ".fas")
+    )
+    if not fastas:
+        raise click.ClickException(f"No FASTA files found at {data}")
+
+    seqs: dict[str, str] = {}
+    for fp in fastas:
+        for sid, seq in esmc.read_fasta(fp).items():
+            key, n = sid, 2
+            while key in seqs:
+                key, n = f"{sid}_{n}", n + 1
+            seqs[key] = seq
+    if not seqs:
+        raise click.ClickException("No sequences found in input")
+
+    if return_logits and model == "esmc-6b":
+        click.secho("Note: --logits is unavailable for esmc-6b (no sequence head); ignoring.",
+                    fg="yellow")
+        return_logits = False
+
+    out = Path(out_dir).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+
+    click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
+    m = esmc.load_esmc(model, fast=fast)
+    click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
+
+    results = []
+    with click.progressbar(seqs.items(), length=len(seqs), label="embed") as items:
+        for sid, seq in items:
+            emb = esmc.embed_sequences(m, {sid: seq}, return_logits=return_logits, pool=pool)[0]
+            if out_format == "npz":
+                esmc.write_npz(emb, out / f"{sid}.npz")
+            results.append(emb)
+
+    if out_format == "parquet":
+        esmc.write_parquet(results, out / "embeddings.parquet")
+        click.echo(f"Wrote {out / 'embeddings.parquet'}")
+    click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]}")
+
+
 if __name__ == "__main__":
     cli()
