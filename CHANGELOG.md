@@ -3,6 +3,31 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [0.2.1] - 2026-07-09
+
+Adds the ESMC embeddings capability merged since 0.2.0 (already hardware-gated at merge
+time) and fixes packaging/docs metadata that was stale since 0.2.0. No model code changed
+for existing capabilities — the 0.2.0 accuracy/perf/OOM gate still holds.
+
+### Added
+- **ESMC protein-language-model embeddings** — `tt-bio embed` CLI + Python API
+  (`tt_bio.esmc.embed`): per-residue and pooled embeddings from ESMC-300M/600M/6B, no
+  folding head or MSA required. Parity vs reference ESMC: per-residue/pooled PCC
+  0.9995-0.9999 across variants (normal and `--fast`).
+- Automatic batching + length-bucketing for `tt-bio embed` on ESMC-300M/600M (~18.5x warm
+  throughput vs unbatched); exact row-independence (masked batched output bit-identical to
+  running each sequence alone), PCC 0.9996+.
+
+### Fixed
+- `pyproject.toml` `description` was still "Boltz-2 implementation..." — now lists every
+  shipped capability (Boltz-2, ESMFold2, Protenix-v2, BoltzGen, ESMC).
+- `pyproject.toml` had no `readme` field, so the PyPI project page rendered with an empty
+  long description — now points at `README.md`.
+- README: `pip install tt-bio` (PyPI) is now the primary install path (the wheel has been
+  on PyPI since 0.2.0); git/source moved to a secondary section. Intro paragraph now
+  mentions ESMC embeddings. The dense Boltz-2/ESMFold2/Protenix-v2 feature-support
+  paragraph is now a compact table.
+
 ## [0.2.0] - 2026-07-09
 
 Release gate verified on Blackhole (p150a): Protenix-v2 e2e real-weight parity (seed0-vs-reference
