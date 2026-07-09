@@ -35,26 +35,82 @@ Takeaways:
 - **The "~10 Å" was an eval artifact** (undersampling + self-consistency-only).
   With production sampling Protenix-v2 folds 7ROA with the correct topology
   (TM 0.71–0.81), not garbage. This is *not* a catastrophic release bug.
-- **But Protenix underperforms the other two tt-bio models on an easy target.**
-  Boltz-2 (1.55 Å) proves 7ROA is easy; ESMFold2 (2.28 Å) — same diffusion
-  family, same stack — confirms tt-bio's pipeline folds it well.
+- **Protenix underperforms Boltz-2/ESMFold2 here, but that is Protenix-v2's own
+  ceiling on this target, not a tt-bio deficiency.** Boltz-2 (1.55 Å) and ESMFold2
+  (2.28 Å) fold 7ROA better, but the **official reference Protenix-v2 also only
+  reaches ~3.1 Å** here (see below) — so tt-bio's 3.87 Å best-conf / 2.34 Å oracle
+  is faithful to upstream. Boltz/ESMFold simply have stronger priors (deeper MSA /
+  a protein LM) for this shallow-MSA target.
 - **Most of Protenix's delivered gap is a weak confidence head, not diffusion.**
   Its diffusion *reaches* 2.34 Å (oracle-of-5, comparable to ESMFold2's 2.28),
   but the pTM head barely discriminates (pTM 0.715–0.726 across samples) and
   *anti-ranks* — it delivers the 3.87 Å sample as "best" while 2.34 Å was
   available. With 5 near-flat scores the selection is essentially noise.
 
-## Open question (needs the reference)
+## Root cause RESOLVED: no device/port bug — 7ROA is just a hard Protenix-v2 target
 
-Whether even the 2.34 Å oracle matches what the **official upstream Protenix-v2**
-(torch) produces on this input is UNRESOLVED. A correct Protenix-v2 with a good
-MSA is typically ~1–2 Å on a monomer this easy, so a residual port-fidelity gap
-cannot be excluded. Running the reference end-to-end needs its full data pipeline
-(CCD `components.v20240608.cif` ~468 MB, biotite/rdkit/ml_collections, MSA
-featurizer) — a multi-session lift, not done here. Recommended definitive test:
-feed the reference model (real weights, `scripts/protenix_ref_build.py`) tt-bio's
-own `feats` dict + reference EDM sampler at n_step=200 and compare — isolates
-port fidelity from the data pipeline.
+The official upstream Protenix-v2 (torch, real v2 checkpoint) was run on the same
+input on CPU — two ways, cross-confirming:
+
+- **This branch (pc), independent rebuild:** built the reference from the
+  `bytedance/Protenix` main repo (v2 config, CUDA FusedLayerNorm stubbed to torch,
+  torch triangle kernels; CCD `components.v20240608.cif` + deps installed to an
+  isolated target dir, leaving the shared tt-bio env untouched). The v2 checkpoint
+  loads **strict — missing=0, unexpected=0** (architecture exact), and the data
+  pipeline produces the **identical featurization as tt-bio** (N_token=117,
+  **N_atom=900**), confirming the port feeds the model the same inputs. The no-MSA
+  n_step=200 / 5-sample forward completed on CPU: **oracle 4.35 Å** (samples
+  4.35–6.05 Å, TM 0.54–0.66) — consistent with the refcheck venv's 5.44 Å.
+  (Runner in `/home/moritz/.coworker/protenix-ref-run/run_ref.py`, not committed —
+  machine-absolute paths.)
+- **Sibling branch `wk/tt-bio-protenix-refcheck` (the reported RMSD numbers):**
+  official Protenix 2.0.0 in an isolated venv, both no-MSA and with real MSA.
+
+Reference CA-RMSD vs 7ROA (Kabsch): no-MSA n_step=10 = **7.84 Å**; no-MSA n_step=200
+= **5.44 Å**; **with real MSA, n_step=200, best-of-5 = 3.13 Å** (pLDDT 75, pTM 0.78).
+
+**Conclusion: the reference itself only reaches ~3.1 Å on 7ROA with MSA** — right in
+line with tt-bio's 3.87 Å best-conf / 2.34 Å oracle. There is **no device/port
+accuracy bug**; the "~1–2 Å expected" was too optimistic — 7ROA (a small
+all-α bacterial toxin with a shallow MSA) is a moderately hard Protenix-v2 target.
+The poor headline numbers are dominated by **MSA-off (~+2.3 Å) then undersampling
+(~+2.4 Å)** — exactly the eval-flaw diagnosis, now quantified against the reference.
+
+### The "~10 Å" reproduced and explained: it is the no-MSA default path
+tt-bio Protenix-v2 **without** `--use_msa_server` folds single-sequence (the CLI
+help even says so) and gives **~10.5 Å** best-conf / 9.7 Å oracle (pTM 0.39 — the
+model correctly reports low confidence). That is the reported number. **The fix for
+a user is: pass an MSA** (`--use_msa_server`), which takes it to 3.87 Å.
+
+**Caveat — a real but off-label no-MSA gap (featurization ruled out).** Unlike the
+with-MSA case (tt-bio 3.87/2.34 Å ≈ reference 3.13 Å, no gap), in the **no-MSA
+regime** tt-bio (9.7 Å oracle, TM 0.27 — wrong topology) is markedly worse than the
+reference (oracle 4.35 Å / mean ~5.2 Å, TM 0.54–0.66 — borderline-correct; the pc
+rebuild and the refcheck venv agree at ~5 Å).
+
+I chased this: dumping the reference data-pipeline features and diffing them against
+tt-bio's `build_complex_features` for the same single-seq input shows the MSA-derived
+inputs are **bit-identical** — same shapes, `deletion_mean`/`has_deletion`/
+`deletion_value` all-zero on both sides, `profile` one-hot with identical argmax and
+class ordering, `msa` row-0 tokens identical. **So the gap is NOT a featurization
+bug.** With no evolutionary signal the single-seq fold is underdetermined and the
+diffusion landscape is flat, so implementation numerics (on-device bf16 vs fp32 CPU
+reference) + RNG land tt-bio and the reference in *different* plausible basins — the
+same off-label multimodality the golden-molecule ablation saw, not a systematic port
+defect (the with-MSA path, where the fold is constrained, is faithful). **Low
+priority / resolved as expected off-label behavior** — but it is the regime a user
+hits by default today, which is why the no-MSA default should change (see
+Recommendations). Feature-diff harness:
+`/home/moritz/.coworker/protenix-ref-run/dump_ref_feats.py` (machine-local).
+
+### Diffusion converges on real input (refutes a "fundamental diffusion bug")
+A parallel leg (`scripts/protenix_sampling_ablation.py`, memory
+`protenix-undersampling-ablation`) reported seed-to-seed ~14 Å, bimodal,
+confidently-wrong on the **synthetic 38-token golden molecule** and concluded a
+real EDM bug. On the **real 117-res input** here, tt-bio's diffusion **converges**:
+pairwise seed-to-seed CA-RMSD mean **2.44 Å** with MSA (0.99–3.75), 3.11 Å without.
+So the ~14 Å divergence is specific to that golden-molecule harness (hand-assembled
+feats / a reference target itself captured at n_step=10), not the production path.
 
 ## Secondary finding: MSA-depth asymmetry (accuracy-affecting, fixable)
 
@@ -89,3 +145,24 @@ production folds PASS. **Self-consistency alone is no longer sufficient; a tagge
 release must clear a ground-truth floor on at least one foldable target per
 model.** Tighten thresholds per model/target as baselines are established
 (Boltz-2 clears ≤ 2 Å; Protenix-v2 currently needs the ≤ 6 Å floor).
+
+## Recommendations for Moritz
+
+1. **No patch to v0.2.0/v0.2.1 is required for a "correctness bug" — there isn't
+   one.** tt-bio Protenix-v2 is faithful to upstream (3.87 Å best-conf / 2.34 Å
+   oracle vs reference 3.13 Å on this hard target). The alarming "~10 Å" was the
+   no-MSA path + undersampling, not a device defect.
+2. **Highest-impact UX fix: the no-MSA default trap.** `--model protenix-v2`
+   without `--use_msa_server` folds single-sequence → ~10 Å, and the CLI help
+   actively describes it as "single-sequence … no MSA". Protenix-v2 is an
+   MSA-dependent AF3-family model; single-seq is off-label. This is what a user
+   hits and mistakes for a broken model. **Done on this branch:** a loud CLI
+   warning now fires when protenix-v2 runs without an MSA source (`--use_msa_server`
+   / `--msa_db_path` / `--msa_endpoint`), mirroring the existing esmfold2-fast
+   notice (UX only, not accuracy-affecting). Consider also flipping the *default*
+   to MSA-on — that is a behavior change and Moritz's call.
+3. **Ship the ground-truth gate** (this branch) as the release floor and retire the
+   self-consistency-only check. Fold gate targets with `--use_msa_server
+   --sampling_steps 200 --diffusion_samples ≥5`.
+4. Minor: default the env-DB on for the Protenix/ESMFold2 MSA path (§ MSA-depth
+   asymmetry) so it isn't handed a thinner MSA than Boltz by default.
