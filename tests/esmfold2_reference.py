@@ -20,10 +20,16 @@ ESMFold2 port is parity-tested against.
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 import types
 
-FORK_ESMFOLD2 = "/home/ttuser/biohub-transformers/src/transformers/models/esmfold2"
+# The Biohub transformers fork lives here on the dev box; BIOHUB_ESMFOLD2
+# overrides the directory so the parity harness is portable to another box.
+FORK_ESMFOLD2 = os.environ.get(
+    "BIOHUB_ESMFOLD2",
+    "/home/ttuser/biohub-transformers/src/transformers/models/esmfold2",
+)
 _MODNAME = "transformers.models.esmfold2.modeling_esmfold2_common"
 
 

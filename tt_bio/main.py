@@ -7,6 +7,13 @@ if "--debug" not in _sys.argv:
     _os.environ.setdefault("LOGURU_LEVEL", "WARNING")
     _os.environ.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
 
+# torch+MKL can hit a threading-layer load race on large inputs, aborting the
+# process at import with "Intel oneMKL FATAL ERROR: Cannot load libtorch_cpu.so"
+# (observed intermittently at >=1408-residue predicts during the v0.2.0 release
+# gate). Pinning the GNU threading layer avoids it; setdefault so an explicit
+# user MKL_THREADING_LAYER always wins. Must run before torch is imported.
+_os.environ.setdefault("MKL_THREADING_LAYER", "GNU")
+
 
 def _install_nanobind_leak_stderr_filter() -> None:
     """Drop nanobind leak reports while forwarding other fd-level stderr."""
@@ -152,13 +159,13 @@ def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, s
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
     seqs_list = list(seqs.values())
     # Key run_mmseqs2's working/cache dir by the exact sequence set, NOT by
-    # target_id. target_id is the input filename stem ("target_1") and is
-    # identical across jobs, so a target-keyed prefix makes one job's cached a3m
-    # get reused by another: a single-chain job caches one query, then a later
-    # multi-chain job (same target_id) reuses it while expecting N queries and
-    # dies with KeyError on the missing query index. A content hash keys the
-    # cache by what was actually searched — collision-free, and still reused when
-    # the same sequence set recurs.
+    # target_id. target_id is the input filename stem (e.g. "target_1") and
+    # repeats across inputs, so a target-keyed prefix makes one run's cached a3m
+    # get reused by another: a single-chain run caches one query, then a later
+    # multi-chain run with the same target_id reuses it while expecting N queries
+    # and dies with KeyError on the missing query index. A content hash keys the
+    # cache by what was actually searched — collision-free, still reused when the
+    # same sequence set recurs.
     tag = hashlib.sha256("\n".join(seqs_list).encode()).hexdigest()[:16]
 
     paired = (run_mmseqs2(seqs_list, msa_dir / f"{tag}_paired_tmp", use_env=True,
@@ -400,15 +407,26 @@ def _validate_offline_msa_db(db_path: Path, require_envdb: bool = False) -> None
 
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
-                        pairing_strategy: str = "greedy") -> None:
-    """Generate MSAs locally via colabfold_search against a local database."""
-    click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, pairing={pairing_strategy})")
+                        pairing_strategy: str = "greedy", pair: bool = True) -> None:
+    """Generate MSAs locally via colabfold_search against a local database.
+
+    With multiple sequences and ``pair=True`` (default) the search also computes
+    paired alignments, treating the set as one complex's chains. Pass
+    ``pair=False`` to search many *independent* sequences in a single batched
+    call (one unpaired ``{name}.a3m`` each, no cross-pairing) — far faster than
+    one colabfold_search per sequence for large inputs.
+    """
+    click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, "
+               f"pairing={pairing_strategy if pair else 'none'})")
     colabfold_bin = _find_colabfold_search()
     mmseqs_bin = _find_mmseqs()
     strategy_map = {"greedy": "0", "complete": "1"}
     strategy_val = strategy_map.get(pairing_strategy, pairing_strategy)
-    tmp = msa_dir / f"_offline_tmp_{os.getpid()}"
-    tmp.mkdir(exist_ok=True)
+    # Unique per process AND thread so concurrent searches in one process (e.g.
+    # the MSA server with max_concurrent > 1) don't share a scratch dir.
+    import threading
+    tmp = msa_dir / f"_offline_tmp_{os.getpid()}_{threading.get_ident()}"
+    tmp.mkdir(parents=True, exist_ok=True)
     try:
         fasta = tmp / "query.fasta"
         with open(fasta, "w") as f:
@@ -426,7 +444,7 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
             "--use-env", "1" if use_env else "0", "--use-templates", "0",
             "--db-load-mode", "2", "--threads", str(threads),
         ]
-        if len(seqs) > 1:
+        if pair and len(seqs) > 1:
             cmd_base += ["--pair-mode", "unpaired_paired", "--pairing_strategy", strategy_val]
 
         commands = []
@@ -466,7 +484,8 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
 def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
                      use_msa, msa_url, msa_strategy, msa_user, msa_pass, api_key,
                      max_msa, msa_db_path=None, use_envdb=False, method=None,
-                     affinity=False, pred_structure=None, progress=None):
+                     affinity=False, pred_structure=None, progress=None,
+                     single_sequence=False):
     """Parse, resolve MSA, tokenize, featurize — all in memory.
 
     MSA files are cached in msa_dir by sequence hash — the same
@@ -489,6 +508,11 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
     # Identify protein chains needing MSA, keyed by sequence hash for global caching
     to_gen = {}
     for chain in record.chains:
+        # --single_sequence: fold every protein chain without an MSA (self-only),
+        # skipping both cached alignments and any online/offline search.
+        if single_sequence and chain.mol_type == const.chain_type_ids["PROTEIN"]:
+            chain.msa_id = -1
+            continue
         if chain.mol_type == const.chain_type_ids["PROTEIN"] and chain.msa_id == 0:
             seq = target.sequences[chain.entity_id]
             seq_hash = hashlib.sha256(seq.encode()).hexdigest()[:16]
@@ -1457,9 +1481,54 @@ def msa(db, path, install_tools):
     click.echo(f"  tt-bio predict input.yaml --msa_db_path {db_dir}")
 
 
+@cli.command("msa-server")
+@click.option("--listen", default="8765", help="PORT or HOST:PORT to bind (default 8765).")
+@click.option("--msa_db_path", default=None, type=click.Path(),
+              help="Local ColabFold DB to search (default: auto-detect ~/.boltz/msa_db).")
+@click.option("--cache", "cache_dir", default=None, type=click.Path(),
+              help="a3m cache directory (default: <cache>/msa_server_cache).")
+@click.option("--use_envdb", is_flag=True, help="Also search the environmental DB (requires envdb).")
+@click.option("--max_concurrent", default=1, type=int,
+              help="Max simultaneous colabfold_search runs (each already uses many cores).")
+@click.option("--token", default=None, help="Require this bearer token on requests.")
+def msa_server_cmd(listen, msa_db_path, cache_dir, use_envdb, max_concurrent, token):
+    """Serve offline MSA over HTTP so other machines need not host the database.
+
+    \b
+    One machine with the DB:
+        tt-bio msa-server --listen 0.0.0.0:8765
+    Every other machine / the web portal then fetches MSAs from it:
+        tt-bio predict input.yaml --model protenix-v2 --msa_endpoint http://HOST:8765
+    """
+    cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
+    db_dir = Path(msa_db_path).expanduser() if msa_db_path else cache / "msa_db"
+    _validate_offline_msa_db(db_dir, require_envdb=use_envdb)
+    cache_path = Path(cache_dir).expanduser() if cache_dir else cache / "msa_server_cache"
+
+    host, _, port = listen.rpartition(":")
+    host, port = (host or "0.0.0.0"), int(port or listen)
+
+    from tt_bio.msa_server import run_server
+    run_server(host, port, str(db_dir), cache_path,
+               use_env=use_envdb, max_concurrent=max_concurrent, token=token)
+
+
 # ---------------------------------------------------------------------------
 # ESMFold2 (--model esmfold2): single-sequence, protein-only, on-device ttnn.
 # ---------------------------------------------------------------------------
+def _chain_label(n: int) -> str:
+    """Chain id for the n-th chain (0-indexed): A..Z, then AA, AB, ... (bijective base-26).
+    Identical to the old ``chr(65 + n)`` for n < 26, but never collides or runs past 'Z' for a
+    larger complex — an index-mod-26 or bare ``chr()`` scheme produced duplicate or non-alphabetic
+    chain ids there, silently corrupting the written structure."""
+    s = ""
+    n += 1
+    while n:
+        n, r = divmod(n - 1, 26)
+        s = chr(ord("A") + r) + s
+    return s
+
+
 def _read_protein_chains(path):
     """Extract [(chain_id, sequence, msa_spec)] protein entries from FASTA/YAML.
 
@@ -1475,9 +1544,11 @@ def _read_protein_chains(path):
     if suffix in (".fa", ".fas", ".fasta"):
         cid, buf, msa = None, [], None
         def flush():
-            if cid and buf:
+            # cid is None for a skipped (non-protein) record; a blank id ("") is a real protein
+            # chain whose id we auto-assign below — gate on `is not None` so it isn't dropped.
+            if cid is not None and buf:
                 for c in cid.split(","):
-                    chains.append((c.strip() or chr(65 + len(chains)), "".join(buf), msa))
+                    chains.append((c.strip() or _chain_label(len(chains)), "".join(buf), msa))
         for line in path.read_text().splitlines():
             line = line.strip()
             if line.startswith(">"):
@@ -1525,12 +1596,14 @@ def _read_bio_chains(path):
     if suffix in (".fa", ".fas", ".fasta"):
         cid, buf, msa, mt = None, [], None, "protein"
         def flush():
-            if cid and buf:
+            # cid is None for a skipped/unknown record; a blank id ("") is a real chain whose id
+            # we auto-assign below — gate on `is not None` so it isn't silently dropped.
+            if cid is not None and buf:
                 seq = "".join(buf)
                 seq = ("CCD_" + seq.upper()) if mt == "_ccd" else seq   # ccd code -> CCD_ spec
                 mtype = "ligand" if mt in ("_ccd", "ligand") else mt
                 for c in cid.split(","):
-                    chains.append((c.strip() or chr(65 + len(chains)), seq, msa, mtype))
+                    chains.append((c.strip() or _chain_label(len(chains)), seq, msa, mtype))
         for line in path.read_text().splitlines():
             line = line.strip()
             if line.startswith(">"):
@@ -1579,6 +1652,43 @@ def _read_bio_chains(path):
     else:
         raise click.ClickException(f"Unsupported input for protenix-v2: {path.name}")
     return chains
+
+
+def _read_bio_constraints(path):
+    """Parse the `constraints:` block of a Protenix/bio input into covalent bonds.
+
+    Returns ``[((chain, res, atom), (chain, res, atom)), ...]`` for every `bond`
+    constraint (covalent inhibitor, glycan, crosslink). `pocket`/`contact` binding
+    constraints are rejected with clear guidance: Protenix-v2's checkpoint has no
+    constraint embedder, so the only constraint signal it can honour is the covalent
+    bond graph (token_bonds) — pocket/contact need Boltz-2. Silently folding without
+    them would return a confidently wrong structure, so we refuse instead."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return []
+    import yaml
+    doc = yaml.safe_load(path.read_text()) or {}
+    bonds = []
+    for c in doc.get("constraints", []) or []:
+        if not isinstance(c, dict):
+            continue
+        if "bond" in c:
+            b = c["bond"] or {}
+            a1, a2 = b.get("atom1"), b.get("atom2")
+            if not (isinstance(a1, (list, tuple)) and len(a1) == 3
+                    and isinstance(a2, (list, tuple)) and len(a2) == 3):
+                raise click.ClickException(
+                    "Bond constraint needs atom1 and atom2 as [chain, residue, atom].")
+            bonds.append(((str(a1[0]), int(a1[1]), str(a1[2])),
+                          (str(a2[0]), int(a2[1]), str(a2[2]))))
+        elif "pocket" in c or "contact" in c:
+            kind = "pocket" if "pocket" in c else "contact"
+            raise click.ClickException(
+                f"Protenix-v2 does not support '{kind}' (pocket/contact) binding "
+                "constraints — use --model boltz2 for those. Covalent 'bond' "
+                "constraints are supported.")
+        else:
+            raise click.ClickException(f"Unsupported constraint for protenix-v2: {c}")
+    return bonds
 
 
 def _resolve_a3m_text(msa_spec, sequence, msa_dir):
@@ -1639,7 +1749,7 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     arr.b_factor[:] = b_factors.numpy().astype("float32") if b_factors is not None else 0.0
     for i in range(coords.shape[0]):
         t = a2t[i]
-        arr.chain_id[i] = chr(ord("A") + int(asym[t]) % 26)
+        arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
         arr.res_name[i] = "LIG" if is_lig_tok[t] else resname[t]
         arr.atom_name[i] = names[i]
@@ -1670,17 +1780,31 @@ def _write_structure(complex_obj, outpath, output_format):
 
 
 def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
-                           msa_url, msa_strategy, msa_user, msa_pass, api_key):
-    """Write a cached ``{seq_hash}.a3m`` for each sequence (local DB or server).
+                           msa_url, msa_strategy, msa_user, msa_pass, api_key,
+                           msa_endpoint=None):
+    """Write a cached ``{seq_hash}.a3m`` for each sequence (MSA server, local DB,
+    or ColabFold API).
 
-    ``seqs`` maps seq_hash -> sequence. Local-DB search (``compute_msa_offline``)
-    already writes ``{hash}.a3m``; the ColabFold server path runs an unpaired
+    ``seqs`` maps seq_hash -> sequence. A tt-bio MSA server (``msa_endpoint``) is
+    preferred when given; otherwise local-DB search (``compute_msa_offline``)
+    already writes ``{hash}.a3m``, and the ColabFold API path runs an unpaired
     mmseqs2 search and writes its a3m text directly (the esm MSA reader wants
-    a3m, unlike the Boltz CSV path).
+    a3m, unlike the Boltz CSV path). ESMFold2/Protenix use unpaired per-chain a3m,
+    so the local search runs with pair=False (one batched call, no wasted paired
+    search).
     """
+    if msa_endpoint:
+        from tt_bio.msa_server import fetch_msa
+
+        fetch_msa(seqs, msa_dir, msa_endpoint)
+        return
     if msa_db_path:
+        # ESMFold2 / Protenix consume unpaired per-chain a3m only (block-diagonal
+        # assembly), never paired alignments — so search independently (pair=False)
+        # in one batched colabfold_search call instead of paying the paired-mode
+        # cost for every multi-chain offline run.
         compute_msa_offline(seqs, target_id, msa_dir, msa_db_path,
-                            use_env=use_envdb, pairing_strategy=msa_strategy)
+                            use_env=use_envdb, pairing_strategy=msa_strategy, pair=False)
         return
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
     res = run_mmseqs2(list(seqs.values()), msa_dir / f"{target_id}_esm_tmp", use_env=use_envdb,
@@ -1688,6 +1812,48 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
                       msa_server_username=msa_user, msa_server_password=msa_pass, auth_headers=headers)
     for i, h in enumerate(seqs):
         (msa_dir / f"{h}.a3m").write_text(res[i])
+
+
+def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
+                         single_sequence, cache, controller, msa_server_url):
+    """Resolve the MSA source for MSA-dependent models (boltz2, protenix-v2).
+
+    These models degrade sharply folded single-sequence, so ``predict`` must
+    never do so silently. Precedence:
+      1. ``--single_sequence``: explicit opt-out — fold single-seq, no network.
+      2. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
+         ``--msa_endpoint``): use it as given.
+      3. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
+      4. Otherwise enable the online MSA server, with a one-line notice naming the
+         server the sequences are sent to (a privacy concern for e.g. pharma).
+
+    esmfold2 / esmfold2-fast are single-sequence by design and pass through
+    unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
+    """
+    if model not in ("boltz2", "protenix-v2"):
+        return use_msa_server, msa_db_path
+
+    explicit = use_msa_server or msa_db_path or msa_endpoint
+    if single_sequence:
+        if explicit:
+            raise click.BadParameter(
+                "--single_sequence cannot be combined with --use_msa_server / "
+                "--msa_db_path / --msa_endpoint")
+        return use_msa_server, msa_db_path
+    if explicit:
+        return use_msa_server, msa_db_path
+
+    # No source given. Prefer a host-local DB (skip in --controller mode, where
+    # remote workers resolve MSAs on their own hosts), else fall back online.
+    if not controller:
+        default_db = Path(cache).expanduser() / "msa_db"
+        if (default_db / "UNIREF30_READY").exists():
+            return use_msa_server, str(default_db)
+    click.secho(
+        f"MSA: no local database found; sending input sequences to the online MSA "
+        f"server ({msa_server_url}). Use --msa_db_path for an offline database, or "
+        f"--single_sequence to fold without an MSA.", fg="yellow")
+    return True, msa_db_path
 
 
 @cli.command()
@@ -1710,6 +1876,10 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
               help="MSA cache directory (default: <out_dir>/msa). Point at a persistent shared "
                    "path to reuse {seq_hash}.a3m across runs and hosts (never re-search a sequence).")
 @click.option("--use_envdb", is_flag=True, help="Also search ColabFold environmental database (requires envdb)")
+@click.option("--single_sequence", is_flag=True,
+              help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2 (no local DB, "
+                   "no online server). Explicit opt-out for batch-screening orphan sequences.")
+@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v2.")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
 @click.option("--msa_server_username", default=None)
@@ -1730,7 +1900,10 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
 @click.option("--diffusion_samples_affinity", default=5, type=int)
 @click.option("--affinity_checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--num_devices", default=0, type=int, help="Number of TT devices to use (0=all available)")
-@click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use (e.g. '0,2')")
+@click.option("--devices", "--device_ids", "device_ids", default=None, type=str,
+              help="Comma-separated physical TT card ids to fan the folding jobs across, "
+                   "e.g. '0,1,2,3' (data-parallel: one pinned worker per card, each an "
+                   "untouched single-card fold). Matches `tt-bio embed`. Default: all detected cards.")
 @click.option("--fast", is_flag=True, help="Use block-fp8 for some operations (slightly lower precision, faster)")
 @click.option("--debug", is_flag=True, help="Debug mode: no Rich display, no output suppression")
 @click.option("--log", is_flag=True, help="With --debug: print per-device stage progress")
@@ -1742,14 +1915,14 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
 @click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2"]), default="boltz2", show_default=True,
-              help="Structure model. boltz2: MSA + Pairformer. esmfold2: ESMC-6B + 48-block trunk + diffusion. "
-                   "esmfold2-fast: the lighter 24-block ESMFold2-Fast checkpoint. protenix-v2: AF3-family "
-                   "(Pairformer trunk + atom diffusion), single-sequence protein folding on-device, no MSA. "
-                   "All run on-device via the ttnn pipeline (esmfold2 accepts an optional MSA; "
-                   "ligand / affinity options apply to boltz2 only).")
+              help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
+                   "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
+                   "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
+                   "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
+                   "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, msa_server_url, msa_pairing_strategy,
+            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
@@ -1764,6 +1937,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     to local workers (pass --listen to accept remote workers). With
     --model esmfold2 it instead runs the on-device ttnn ESMFold2 pipeline
     (single-sequence, protein-only) and writes the same output layout.
+
+    \b
+    MSA: boltz2 and protenix-v2 are MSA-dependent and use an MSA by default —
+    a local ColabFold DB (~/.boltz/msa_db) if present, else the online ColabFold
+    server (input sequences leave the machine; a notice is printed). Pass
+    --msa_db_path for a private offline DB, or --single_sequence to skip the MSA.
+    esmfold2 / esmfold2-fast are single-sequence by design.
 
     \b
     Output:
@@ -1795,6 +1975,14 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
+    # MSA-dependent models (boltz2, protenix-v2) must never silently fold
+    # single-sequence: resolve a source now (explicit flag > local DB > online
+    # fallback) or honor an explicit --single_sequence opt-out. esmfold2 /
+    # esmfold2-fast are single-sequence by design and pass through untouched.
+    use_msa_server, msa_db_path = _resolve_msa_default(
+        model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
+        controller, msa_server_url)
+
     if model in ("esmfold2", "esmfold2-fast", "protenix-v2"):
         # ESMFold2 and Protenix-v2 ride the SAME scheduler / worker / progress path as
         # Boltz-2: build a run config, then fan jobs across devices via _local_workers +
@@ -1817,6 +2005,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo()
             click.secho("Note: --model esmfold2-fast has no MSA encoder; folding single-sequence "
                         "(use --model esmfold2 to use the MSA).", fg="yellow")
+        # Protenix-v2 is MSA-dependent; _resolve_msa_default guarantees a source
+        # (local DB or online) is set above unless the user passed --single_sequence,
+        # so single-sequence folding here is always an explicit choice.
         data = Path(data).expanduser()
         out_dir_path = Path(out_dir).expanduser()
         out = out_dir_path / f"boltz_results_{data.stem}"
@@ -1841,6 +2032,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "diffusion_samples": diffusion_samples, "seed": seed or 0,
             "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
             "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
+            "msa_endpoint": msa_endpoint, "single_sequence": single_sequence,
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
@@ -1877,10 +2069,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # own hosts. msa_db_path (if given) is passed through for the workers to use.
     if not controller:
         download_all(cache)
-        if not msa_db_path and not use_msa_server:
-            default_msa_db = cache / "msa_db"
-            if (default_msa_db / "UNIREF30_READY").exists():
-                msa_db_path = str(default_msa_db)
         if use_envdb and not use_msa_server and not msa_db_path:
             raise RuntimeError(
                 "--use_envdb requires offline MSA DB setup.\n"
@@ -1955,7 +2143,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
         "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
         "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
-        "fast": fast,
+        "fast": fast, "single_sequence": single_sequence,
     }
     run_payload = {
         "data": str(data),
@@ -2156,6 +2344,92 @@ def warmup(max_seq, max_msa, n_samples, cache):
         del diff; gc.collect()
 
     click.echo(f"\nDone — {time.time()-total:.0f}s total")
+
+
+@cli.command("embed")
+@click.argument("data")
+@click.option("--model", type=click.Choice(["esmc-300m", "esmc-600m", "esmc-6b"]),
+              default="esmc-600m", show_default=True,
+              help="ESMC protein-LM variant (sequence embeddings via the LM trunk alone).")
+@click.option("--out_dir", default="./embeddings", show_default=True)
+@click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
+              default="npz", show_default=True,
+              help="npz: one <id>.npz per sequence (per-residue + pooled [+logits]). "
+                   "parquet: a single embeddings.parquet of the pooled vectors.")
+@click.option("--pool", type=click.Choice(["mean", "max", "cls"]), default="mean",
+              show_default=True, help="Pooling for the fixed-size per-sequence vector.")
+@click.option("--logits", "return_logits", is_flag=True,
+              help="Also write per-residue sequence-head logits (esmc-300m/600m only).")
+@click.option("--fast", is_flag=True,
+              help="Use block-fp8 weights (faster, slightly lower precision).")
+@click.option("--batch_size", default=8, show_default=True,
+              help="Sequences per device forward (300M/600M). Padded+masked per "
+                   "batch so per-sequence embeddings are unchanged; larger values "
+                   "amortise compile/dispatch over more sequences.")
+@click.option("--devices", default=None,
+              help="Comma-separated physical TT card ids to shard the sequences across, "
+                   "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
+                   "results are reassembled in input order. Default: this machine's single card.")
+def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch_size, devices):
+    """Compute ESMC protein-language-model embeddings for protein sequences.
+
+    DATA is a FASTA file, a directory of them, a YAML file (a flat
+    ``{id: sequence}`` mapping), or a single bare protein sequence string.
+    Runs the ESMC LM trunk alone (no folding head, no MSA) on this machine's
+    TT device and writes per-residue and pooled embeddings.
+
+    \b
+    Output (--out_dir, default ./embeddings):
+        <id>.npz            # per-residue [L,d] + pooled [d] (+ logits) — one per sequence
+        embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
+        manifest.json       # model/pool/shapes/dtype + which file holds each sequence
+    """
+    from tt_bio import esmc
+
+    torch.set_grad_enabled(False)
+    try:
+        seqs = esmc.load_sequences(data)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    if return_logits and model == "esmc-6b":
+        click.secho("Note: --logits is unavailable for esmc-6b (no sequence head); ignoring.",
+                    fg="yellow")
+        return_logits = False
+
+    out = Path(out_dir).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+
+    device_list = None
+    if devices:
+        from tt_bio import runtime
+        device_list = runtime.detect_tenstorrent_devices(devices, 0, len(seqs))
+
+    try:
+        if device_list and len(device_list) > 1:
+            click.echo(f"Sharding {len(seqs)} sequence(s) across cards "
+                       f"{device_list}{' (fast)' if fast else ''} → {out}")
+            results = esmc.embed(seqs, model=model, devices=device_list, fast=fast,
+                                 return_logits=return_logits, pool=pool, batch_size=batch_size)
+        else:
+            click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
+            m = esmc.load_esmc(model, fast=fast)
+            click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
+            results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
+                                           batch_size=batch_size)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    if out_format == "npz":
+        for emb in results:
+            esmc.write_npz(emb, out / f"{emb.id}.npz")
+    if out_format == "parquet":
+        esmc.write_parquet(results, out / "embeddings.parquet")
+        click.echo(f"Wrote {out / 'embeddings.parquet'}")
+    esmc.write_manifest(results, out / "manifest.json", model=model, pool=pool, fast=fast,
+                        out_format=out_format, return_logits=return_logits)
+    click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]} "
+               f"→ {out} (see manifest.json)")
 
 
 if __name__ == "__main__":

@@ -10,23 +10,27 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), and [Protenix-v2](https://github.com/bytedance/Protenix) structure prediction and [BoltzGen](#boltzgen) binder design on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), and [Protenix-v2](https://github.com/bytedance/Protenix) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 ## Installation
 
-Create a Python virtual environment with Python 3.10 or 3.12, install TT-Bio, then install the matching Tenstorrent system dependencies.
+Create a Python virtual environment with Python 3.10 or 3.12, install, then install the matching Tenstorrent system dependencies.
 
 ```bash
 python3.10 -m venv env
 source env/bin/activate
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git"
+pip install tt-bio
 tt-bio install-deps
 ```
 
 `tt-bio install-deps` installs the SFPI compiler version that matches the installed `ttnn` wheel and clears stale TT-Metal kernel cache entries. It may ask for your sudo password.
 
-### Advanced Install (editable local clone)
+### From GitHub / source
+Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.2.1"   # pinned release — see Releases for the latest
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
+# or
 git clone https://github.com/moritztng/tt-bio.git
 cd tt-bio
 pip install -e .
@@ -48,24 +52,37 @@ tt-bio msa --help
 ### Structure Prediction
 
 ```bash
-tt-bio predict examples/prot.yaml --model boltz2 --use_msa_server --override
+tt-bio predict examples/prot.yaml --model boltz2 --override
 ```
 
 Every command names its model with `--model`:
 
-- **`boltz2`** — folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. Needs an MSA for each protein chain.
+- **`boltz2`** — folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
 - **`esmfold2`** / **`esmfold2-fast`** — fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint):
-- **`protenix-v2`** — folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); proteins take an optional MSA (recommended for best accuracy) and it also emits a PAE/PDE matrix with `--write_pae`:
+- **`protenix-v2`** — folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`:
 
 ```bash
-tt-bio predict seq.fasta --model esmfold2-fast --fast
-tt-bio predict complex.fasta --model protenix-v2 --use_msa_server   # protein MSA optional; NA/ligand chains are single-sequence
+tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
+tt-bio predict examples/prot.yaml --model protenix-v2   # MSA on by default; NA/ligand chains are single-sequence
 ```
 
-ESMFold2 is protein-only, so the affinity, potential, constraint, template, and energy options below apply to **Boltz-2 only**. Protenix-v2 folds multimodal complexes (protein / RNA / DNA / ligand chains in one input, FASTA `>id|protein|...`, `>id|rna`, `>id|dna`, `>id|ccd`, `>id|smiles`, or the YAML `protein/rna/dna/ligand` entries) and writes per-atom pLDDT into B-factors; only proteins use an MSA (`--use_msa_server`, a precomputed a3m, or `--msa_db_path`), nucleic-acid and ligand chains are single-sequence. The shared options — `--fast`, `--recycling_steps`, `--sampling_steps`, `--diffusion_samples`, `--output_format`, the MSA flags, and the multi-card / multi-machine flags — work for every model. Each model downloads its weights automatically on first use.
+| Feature | Boltz-2 | ESMFold2 | Protenix-v2 |
+|---|---|---|---|
+| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex |
+| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence |
+| Affinity / potentials / templates | yes | no | no |
+| Pocket / contact constraints | yes | no | no |
+| Covalent `bond` constraints | yes | no | yes |
+| PAE/PDE output (`--write_pae`/`--write_pde`) | no | no | yes |
 
-Boltz-2 needs an MSA (multiple sequence alignment) for each protein chain.
-`--use_msa_server` sends sequences to the ColabFold MSA API and downloads the resulting alignments (online MSA).
+Shared across every model: `--fast`, `--recycling_steps`, `--sampling_steps`, `--diffusion_samples`, `--output_format`, the MSA flags, and the multi-card / multi-machine flags. Each model downloads its weights automatically on first use.
+
+Boltz-2 and Protenix-v2 are MSA-dependent and use an MSA **by default** — a local
+ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-msa-optional)),
+otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
+leaves your machine; a one-line notice is printed when that fallback is used. Pass
+`--msa_db_path` for a private offline database, or `--single_sequence` to deliberately fold
+without an MSA (lower accuracy; for batch-screening orphan sequences). ESMFold2 is single-sequence.
 
 `--fast` makes some operations use block-fp8, a lower-precision numeric format that runs faster. Accuracy is typically very close.
 
@@ -77,11 +94,66 @@ the display (`quietbox:tt0`, `quietbox:tt1`, ...). Models load once per card
 and stay resident, so jobs flow through without per-protein reloads:
 
 ```bash
-tt-bio predict proteins/ --model boltz2 --out_dir results --use_msa_server --fast
+tt-bio predict proteins/ --model boltz2 --out_dir results --fast
 ```
+
+By default every detected card is used; pass `--devices 0,1,2,3` to pick or limit
+which cards a run fans across (matching `tt-bio embed`). Each job is an independent
+single-card fold pinned to its card, so results are identical to running that target
+alone — sharding only changes which chip folds which target.
 
 If you have additional machines with Tenstorrent cards, you can add them to a
 single run — see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
+
+### Protein Embeddings (ESMC)
+
+Turn protein sequences into ESMC language-model embeddings on-device — no
+folding, no MSA. `DATA` is a FASTA file, a directory of them, a YAML
+`{id: sequence}` mapping, or a bare sequence string:
+
+```bash
+tt-bio embed proteins.fasta --model esmc-600m --out_dir embeddings
+tt-bio embed "MQIFVKTLTGKTITLEV..." --model esmc-600m   # one-off sequence
+```
+
+`--model` selects the ESMC variant (`esmc-300m`, `esmc-600m`, `esmc-6b`). For
+each sequence you get its **per-residue** embeddings (`[length, d_model]`
+float32, one row per amino acid, row order == input order) and a **pooled**
+whole-sequence vector (`[d_model]` float32, `--pool mean`/`max`/`cls`).
+`--out_dir` (default `./embeddings`) gets:
+
+- `<id>.npz` per sequence — `per_residue`, `pooled` (+ `logits` with `--logits`); `--format npz`, default
+- `embeddings.parquet` — pooled vectors, one row per sequence; `--format parquet`
+- `manifest.json` — model/pool/shapes/dtype and which file holds each sequence
+
+Add `--logits` for the per-residue amino-acid predictions (300M/600M only),
+and `--fast` for the block-fp8 weight path. Weights download automatically on
+first use.
+
+Sequences batch automatically on 300M/600M (`--batch_size`, default 8) — a
+padded, length-bucketed device forward per batch, masked so results are
+identical to running each sequence alone.
+
+To embed a large FASTA faster, shard it across several cards with
+`--devices 0,1,2,3` — one worker per card, results reassembled in input order
+and identical to a single-card run:
+
+```bash
+tt-bio embed proteins.fasta --model esmc-600m --devices 0,1,2,3
+```
+
+The same capability is available from Python:
+
+```python
+from tt_bio import esmc
+
+emb = esmc.embed("MQIFVKTLTGKTITLEV...", model="esmc-600m")[0]
+emb.per_residue   # [L, d_model] float32
+emb.pooled        # [d_model] float32
+
+# Shard a large set across cards (data-parallel, order preserved):
+embs = esmc.embed(sequences, model="esmc-600m", devices=[0, 1, 2, 3])
+```
 
 ### Offline MSA (Optional)
 
@@ -112,6 +184,20 @@ tt-bio predict examples/prot.yaml --model boltz2 --use_envdb --override
 - `--fast`: Makes some operations use block-fp8, a lower-precision numeric format that runs faster; accuracy is typically very close
 - `--debug`: Show all raw output from the hardware and libraries instead of the progress display
 - `--debug --log`: Same as `--debug`, but also print what each device is currently working on
+
+### Shared MSA Server (Optional)
+
+Host the database on one machine and let others fetch MSAs from it over HTTP, so each prediction machine need not keep its own ~500GB copy.
+
+```bash
+# On the machine with the database:
+tt-bio msa-server --listen 0.0.0.0:8765
+
+# On any other machine (no local database needed):
+tt-bio predict examples/prot.yaml --model protenix-v2 --msa_endpoint http://HOST:8765
+```
+
+The server runs the same offline `colabfold_search` and serves unpaired `{hash}.a3m`, with a shared cache and a search-concurrency cap (`--max_concurrent`). Add `--token` to require `Authorization: Bearer <token>`. `--msa_endpoint` applies to `--model esmfold2`/`protenix-v2`.
 
 ### Binding Affinity Prediction (Boltz-2)
 
@@ -175,7 +261,7 @@ MSA results are cached in `<out_dir>/msa/` (default `./msa/`), keyed by sequence
 
 ### Confidence Scores
 
-Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`.
+Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 reports the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`.
 
 ```json
 {
@@ -256,6 +342,8 @@ For affinity targets, the same `results.json` entry also contains:
 
 #### Constraints
 
+Pocket and contact constraints are **Boltz-2 only** (they need a trained constraint embedder). Covalent `bond` constraints work with **Boltz-2 and Protenix-v2**.
+
 **Pocket Constraints** (binding site):
 ```yaml
 constraints:
@@ -274,6 +362,14 @@ constraints:
       token2: [A, 50]
       max_distance: 8.0
       force: false
+```
+
+**Bond Constraints** (covalent link — e.g. a covalent inhibitor, glycosylation, or disulfide; works with Boltz-2 and Protenix-v2):
+```yaml
+constraints:
+  - bond:
+      atom1: [A, 10, SG]     # [chain, residue, atom]
+      atom2: [B, 1, C12]     # ligand atom by name; polymer atoms by residue
 ```
 
 #### Templates
@@ -306,7 +402,9 @@ Options apply to every model unless tagged **(Boltz-2)**.
 | `--diffusion_samples` | `1` | Number of structure samples |
 | `--output_format` | `cif` | `cif` or `pdb` |
 | `--override` | `False` | Re-run from scratch |
-| `--use_msa_server` | `False` | Use online ColabFold API for MSAs (required for Boltz-2, optional for ESMFold2) |
+| `--use_msa_server` | auto | Use online ColabFold API for MSAs. Auto-enabled for Boltz-2/Protenix-v2 when no local DB is found; ignored by ESMFold2 unless opted in |
+| `--single_sequence` | `False` | **(Boltz-2/Protenix-v2)** Fold without an MSA (skips local DB and online server); lower accuracy |
+| `--msa_endpoint` | — | **(ESMFold2/Protenix-v2)** Fetch MSAs from a `tt-bio msa-server` at this URL instead of searching locally |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
@@ -324,13 +422,14 @@ Options apply to every model unless tagged **(Boltz-2)**.
 | `--sampling_steps_affinity` | `200` | Sampling steps for affinity |
 | `--diffusion_samples_affinity` | `5` | Number of affinity samples |
 
-**MSA Options** (Boltz-2; used by ESMFold2 only when you opt into an MSA):
+**MSA Options** (Boltz-2 / Protenix-v2 use an MSA by default; ESMFold2 only when you opt in):
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--msa_db_path` | auto-detect | Path to local ColabFold database |
+| `--msa_db_path` | auto-detect | Path to local ColabFold database (`~/.boltz/msa_db` if present) |
 | `--use_envdb` | `False` | Also search environmental database |
-| `--use_msa_server` | `False` | Use ColabFold API for MSA |
+| `--use_msa_server` | auto | Use ColabFold API for MSA (auto-enabled when no local DB is found) |
+| `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v2) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
 | `--max_msa_seqs` | `8192` | Maximum MSA sequences |

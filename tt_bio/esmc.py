@@ -18,6 +18,17 @@ implements: token embedding.
 
 from __future__ import annotations
 
+import os
+import pickle
+import shutil
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
 import torch
 import ttnn
 
@@ -43,14 +54,25 @@ SEQUENCE_VOCAB = [
 BOS_TOKEN, EOS_TOKEN, UNK_TOKEN, MASK_TOKEN = 0, 2, 3, 32
 PAD_TOKEN = 1  # SEQUENCE_VOCAB index of <pad>
 BUCKET = 64    # pad the LM length to a multiple of this to avoid per-length recompilation
+# Per-batch token budget (rows x bucketed length) for the batched embed path:
+# short sequences pack a full batch_size, long ones shrink the batch toward 1 so
+# a mixed FASTA never OOMs. Scaled by batch_size so raising the knob raises headroom.
+_MAX_BATCH_TOKENS_PER_SEQ = 512
 _AA_TO_ID = {a: i for i, a in enumerate(SEQUENCE_VOCAB)}
 
-# name -> (config, hf repo id, weights path within repo)
+# name -> (config, hf repo id, weights path within repo). Both ship as a single
+# esm-repo-format .pth (identical key layout, just wider/deeper), so one loader
+# covers them; the 6B is a separate sharded-safetensors path (see below).
 CONFIGS = {
     "esmc-300m": (
         dict(d_model=960, n_heads=15, n_layers=30),
         "biohub/esmc-300m-2024-12",
         "data/weights/esmc_300m_2024_12_v0.pth",
+    ),
+    "esmc-600m": (
+        dict(d_model=1152, n_heads=18, n_layers=36),
+        "biohub/esmc-600m-2024-12",
+        "data/weights/esmc_600m_2024_12_v0.pth",
     ),
 }
 
@@ -309,14 +331,15 @@ class ESMCModel(Module):
         self.norm_weight = self.torch_to_tt("transformer.norm.weight")
         self.head = RegressionHead(self.scope("sequence_head"), compute_kernel_config)
 
-    def __call__(self, tokens: ttnn.Tensor):
+    def __call__(self, tokens: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
+                 key_valid: ttnn.Tensor | None = None):
         seq_len = tokens.shape[-1]
         head_dim = self.norm_weight.shape[-1] // self.n_heads
         cos, sin = rope_tables(seq_len, head_dim, device=self.device)
 
         x = self.embed(tokens)
         for block in self.blocks:
-            x = block(x, cos, sin)
+            x = block(x, cos, sin, attn_mask, key_valid)
         emb = ttnn.layer_norm(
             x, weight=self.norm_weight, epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
@@ -355,12 +378,26 @@ class ESMC(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> ESMCModel:
         return ESMCModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
 
-    def forward(self, tokens: torch.Tensor):
+    def forward(self, tokens: torch.Tensor, attn_mask: torch.Tensor | None = None,
+                key_valid: torch.Tensor | None = None):
+        """tokens[B,L] -> (logits[B,L,64], emb[B,L,d]). Optional padding masks
+        (built by ``_batch_tokens``) let a batch of unequal-length sequences share
+        one padded, bucketed forward: ``attn_mask`` [B,L,L] additive removes padded
+        keys from the softmax denominator; ``key_valid`` [B,1,L,1] zeros padded
+        keys/values so their contribution is exactly 0."""
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        logits, emb = self.module(tokens_tt)
+        mask_tt = None if attn_mask is None else ttnn.from_torch(
+            attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
+            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
+        )
+        kv_tt = None if key_valid is None else ttnn.from_torch(
+            key_valid.to(torch.bfloat16), device=self.tt_device,
+            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
+        )
+        logits, emb = self.module(tokens_tt, mask_tt, kv_tt)
         return self._to_torch(logits), self._to_torch(emb)
 
 
@@ -569,3 +606,443 @@ def _free_ttnn_tensors(obj, seen=None):
     if d:
         for x in list(d.values()):
             _free_ttnn_tensors(x, seen)
+
+
+# ===========================================================================
+# Standalone embedding API (sequence -> per-residue + pooled embeddings)
+# ===========================================================================
+#
+# The LM trunk alone — no folding head, no MSA: a protein string in, its
+# per-residue and pooled final-layer hidden-state embeddings out (plus the
+# sequence-head logits on request). Thin wrappers over the ESMC / ESMC-6B
+# forwards above: tokenize, run, strip the <cls>/<eos> special tokens so rows
+# align 1:1 with residues, then pool.
+
+MODELS = tuple(CONFIGS) + ("esmc-6b",)
+
+_POOLERS = {
+    "mean": lambda e: e.mean(axis=0),
+    "max": lambda e: e.max(axis=0),
+    "cls": None,  # uses the <cls> summary token; handled before stripping
+}
+
+
+@dataclass
+class ESMCEmbedding:
+    """One sequence's embeddings from the ESMC language-model trunk.
+
+    ``per_residue`` has one row per amino acid — the <cls>/<eos> special tokens
+    are stripped, so ``per_residue[i]`` is residue ``sequence[i]``. ``pooled`` is
+    a single fixed-size vector (see the ``pool`` argument). ``logits`` are the
+    per-residue sequence-head logits ([L, 64]) when requested — ESMC-300M/600M
+    only, since the 6B port carries no sequence head.
+    """
+
+    id: str
+    sequence: str
+    per_residue: np.ndarray            # [L, d_model] float32
+    pooled: np.ndarray                 # [d_model] float32
+    logits: Optional[np.ndarray]       # [L, 64] float32 or None
+
+
+def read_fasta(path) -> dict[str, str]:
+    """Parse a FASTA file into an ordered {id: sequence} dict (uppercased).
+
+    Colliding record ids are disambiguated with a numeric suffix so no sequence
+    is silently dropped.
+    """
+    seqs: dict[str, str] = {}
+    sid, buf = None, []
+
+    def flush():
+        if sid is None:
+            return
+        seq = "".join(buf).upper()
+        name = sid
+        n = 2
+        while name in seqs:
+            name = f"{sid}_{n}"
+            n += 1
+        seqs[name] = seq
+
+    for line in Path(path).read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith(">"):
+            flush()
+            sid = line[1:].split()[0] if line[1:].split() else f"seq{len(seqs)}"
+            buf = []
+        else:
+            buf.append(line)
+    flush()
+    return seqs
+
+
+def read_yaml(path) -> dict[str, str]:
+    """Parse a YAML {id: sequence} mapping into an ordered dict (uppercased)."""
+    import yaml
+
+    doc = yaml.safe_load(Path(path).read_text()) or {}
+    if not isinstance(doc, dict) or not doc or not all(isinstance(v, str) for v in doc.values()):
+        raise ValueError(f"{path}: expected a YAML mapping of {{id: sequence}}, got {doc!r}")
+    return {str(k): v.upper() for k, v in doc.items()}
+
+
+def load_sequences(data) -> dict[str, str]:
+    """Load {id: sequence} from a path or a bare sequence string.
+
+    ``data`` may be: a FASTA file, a directory of FASTA files (merged, id
+    collisions disambiguated), a YAML file (a flat ``{id: sequence}`` mapping),
+    or — if it isn't an existing path — a single raw protein sequence (given
+    the id ``seq0``).
+    """
+    path = Path(data).expanduser()
+    if path.is_dir():
+        files = sorted(p for p in path.iterdir() if p.suffix.lower() in (".fa", ".fasta", ".fas"))
+        if not files:
+            raise ValueError(f"no FASTA files (.fa/.fasta/.fas) found in {path}")
+        seqs: dict[str, str] = {}
+        for fp in files:
+            for sid, seq in read_fasta(fp).items():
+                key, n = sid, 2
+                while key in seqs:
+                    key, n = f"{sid}_{n}", n + 1
+                seqs[key] = seq
+    elif path.is_file():
+        suffix = path.suffix.lower()
+        if suffix in (".fa", ".fasta", ".fas"):
+            seqs = read_fasta(path)
+        elif suffix in (".yml", ".yaml"):
+            seqs = read_yaml(path)
+        else:
+            raise ValueError(f"unsupported file type {suffix!r} for {path} "
+                             "(use .fasta/.fa/.fas or .yml/.yaml)")
+    else:
+        seq = str(data).strip()
+        if not (seq and seq.replace(" ", "").isalpha()):
+            raise ValueError(f"{data!r} is not an existing file/directory, and not a bare "
+                             "protein sequence (letters only)")
+        seqs = {"seq0": seq.upper()}
+    if not seqs:
+        raise ValueError(f"no sequences found in {data}")
+    return seqs
+
+
+def load_esmc(name: str = "esmc-300m", *, fast: bool = False):
+    """Load an ESMC model onto the TT device. ``name`` is one of ``MODELS``.
+
+    300M/600M load from a single esm-repo .pth (with a sequence head, so logits
+    are available); 6B loads from the sharded TransformerEngine safetensors
+    (embeddings only). ``fast`` selects the block-fp8 weight path and must be set
+    before the weights are materialized, hence here rather than at call time.
+    """
+    from tt_bio import tenstorrent
+
+    tenstorrent.set_fast_mode(fast)
+    if name == "esmc-6b":
+        return ESMCLanguageModel.from_pretrained(name=name)
+    if name not in CONFIGS:
+        raise ValueError(f"unknown ESMC model {name!r}; choose from {list(MODELS)}")
+    return ESMC.from_pretrained(name)
+
+
+def _trunk_forward(model, seq: str, return_logits: bool):
+    """Run the LM trunk on one sequence (used for the 6B backbone).
+
+    Returns (per_residue[L, d], cls[d], logits[L, 64] | None) as float32 numpy,
+    with the <cls>/<eos> special tokens stripped from per_residue/logits.
+    """
+    tokens = tokenize(seq)  # [1, len(seq)+2] with <cls> … <eos>
+    logits = None
+    if isinstance(model, ESMCLanguageModel):
+        emb = model(tokens)[-1, 0]          # final-norm hidden state [L+2, d]
+    else:
+        lg, em = model(tokens)              # [1, L+2, 64], [1, L+2, d]
+        emb = em[0]
+        if return_logits:
+            logits = lg[0][1:-1].numpy().astype(np.float32)
+    emb = emb.numpy().astype(np.float32)
+    return emb[1:-1], emb[0], logits
+
+
+def _batch_tokens(seqs: list[str], bucket: int = BUCKET):
+    """Pad a batch of sequences to a common bucketed length and build padding masks.
+
+    Each sequence is tokenized to ``[<cls> … <eos>]`` (length ``len(seq)+2``); the
+    batch is right-padded with ``<pad>`` to ``Lb`` = the smallest multiple of
+    ``bucket`` covering the longest row. Bucketing means nearby lengths share one
+    compiled program (the per-length JIT compile — not device exec — is the CLI
+    embed bottleneck). Returns ``(input_ids[B,Lb], lens, attn_mask[B,Lb,Lb] | None,
+    key_valid[B,1,Lb,1] | None)`` where ``lens[i]`` is row ``i``'s real token count.
+    The masks are ``None`` only when no row is padded (all equal length == Lb)."""
+    tok = [tokenize(s)[0] for s in seqs]         # list of 1D LongTensors
+    lens = [int(t.numel()) for t in tok]
+    Lb = ((max(lens) + bucket - 1) // bucket) * bucket
+    B = len(seqs)
+    input_ids = torch.full((B, Lb), PAD_TOKEN, dtype=torch.long)
+    for i, t in enumerate(tok):
+        input_ids[i, :lens[i]] = t
+    if all(li == Lb for li in lens):
+        return input_ids, lens, None, None
+    attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
+    key_valid = torch.ones(B, 1, Lb, 1, dtype=torch.float32)
+    for i, li in enumerate(lens):
+        attn_mask[i, :, li:] = float("-inf")     # no query attends to padded keys
+        key_valid[i, :, li:, :] = 0.0            # padded keys/values contribute 0
+    return input_ids, lens, attn_mask, key_valid
+
+
+def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = False,
+                    pool: str = "mean", batch_size: int = 8) -> list[ESMCEmbedding]:
+    """Embed each {id: sequence} with an already-loaded ESMC ``model``.
+
+    For the 300M/600M models, sequences are grouped (sorted by length to minimise
+    padding) into batches of up to ``batch_size`` and run through a single padded,
+    length-bucketed device forward per batch — padded positions are masked out of
+    attention so each row's embeddings are identical to running it alone. This
+    amortises the per-length kernel compile and host dispatch that dominate the
+    one-at-a-time path. The 6B backbone stays one-sequence-at-a-time (its forward
+    already buckets, and its ~13 GB of resident weights leave no room to widen the
+    batch). ``pool`` in {"mean", "max", "cls"} selects the pooled vector.
+    """
+    if pool not in _POOLERS:
+        raise ValueError(f"unknown pool {pool!r}; choose from {sorted(_POOLERS)}")
+    for sid, seq in sequences.items():
+        if not seq:
+            raise ValueError(f"sequence {sid!r} is empty")
+
+    # 6B backbone: no cross-sequence batching (already bucketed, weight-bound).
+    if isinstance(model, ESMCLanguageModel):
+        results = []
+        for sid, seq in sequences.items():
+            model.reset_static_cache()
+            per_residue, cls, logits = _trunk_forward(model, seq, return_logits)
+            pooled = cls if pool == "cls" else _POOLERS[pool](per_residue)
+            results.append(ESMCEmbedding(sid, seq, per_residue,
+                                         pooled.astype(np.float32), logits))
+        return results
+
+    items = list(sequences.items())
+    order = sorted(range(len(items)), key=lambda i: len(items[i][1]))  # short→long
+    # Sorting keeps each batch's lengths close (little padding waste). A token
+    # budget caps rows*bucketed_len so batches auto-shrink toward 1 for long
+    # sequences — full batch_size for short seqs, no OOM on a long-protein FASTA.
+    budget = batch_size * _MAX_BATCH_TOKENS_PER_SEQ
+    batches, cur, cur_max = [], [], 0
+    for i in order:
+        tok = len(items[i][1]) + 2
+        nxt_max = max(cur_max, ((tok + BUCKET - 1) // BUCKET) * BUCKET)
+        if cur and (len(cur) >= batch_size or (len(cur) + 1) * nxt_max > budget):
+            batches.append(cur); cur, cur_max = [], 0
+        cur.append(i); cur_max = max(cur_max, ((tok + BUCKET - 1) // BUCKET) * BUCKET)
+    if cur:
+        batches.append(cur)
+
+    by_id: dict[str, ESMCEmbedding] = {}
+    for idx in batches:
+        batch = [items[i] for i in idx]
+        input_ids, lens, attn_mask, key_valid = _batch_tokens([s for _, s in batch])
+        logits_b, emb_b = model(input_ids, attn_mask, key_valid)  # [B,Lb,64], [B,Lb,d]
+        for row, (sid, seq) in enumerate(batch):
+            li = lens[row]
+            emb = emb_b[row, :li].numpy().astype(np.float32)
+            per_residue, cls = emb[1:-1], emb[0]
+            logits = (logits_b[row, 1:li - 1].numpy().astype(np.float32)
+                      if return_logits else None)
+            pooled = cls if pool == "cls" else _POOLERS[pool](per_residue)
+            by_id[sid] = ESMCEmbedding(sid, seq, per_residue,
+                                       pooled.astype(np.float32), logits)
+    return [by_id[sid] for sid, _ in items]  # restore input order
+
+
+def _shard_by_length(items: list[tuple[str, str]], n: int) -> list[list[tuple[str, str]]]:
+    """Split ``(id, seq)`` pairs into ``n`` balanced shards for data-parallel embedding.
+
+    Pairs are length-sorted and striped round-robin across shards, so every shard
+    gets a similar length distribution (tight length-bucketing, little padding waste)
+    and a balanced total workload — long sequences don't all land on one card. Input
+    ordering is irrelevant here; results are reassembled by id afterwards.
+    """
+    shards: list[list[tuple[str, str]]] = [[] for _ in range(n)]
+    order = sorted(range(len(items)), key=lambda i: len(items[i][1]))
+    for rank, i in enumerate(order):
+        shards[rank % n].append(items[i])
+    return shards
+
+
+def _reassemble(items: list[tuple[str, str]],
+                shard_results: list[list[ESMCEmbedding]]) -> list[ESMCEmbedding]:
+    """Flatten per-shard embeddings and restore the original ``items`` order."""
+    by_id: dict[str, ESMCEmbedding] = {}
+    for res in shard_results:
+        for emb in res:
+            by_id[emb.id] = emb
+    return [by_id[sid] for sid, _ in items]
+
+
+def _run_embed_shard(in_path: str, out_path: str) -> None:
+    """Subprocess entry point: embed one shard on the pinned card, pickle results.
+
+    Invoked as a fresh interpreter with ``TT_VISIBLE_DEVICES`` already set in the
+    environment (so the assigned physical chip is logical device 0 and ttnn, imported
+    at module load, binds to it). Reads a pickled request
+    ``{model, sequences, fast, return_logits, pool, batch_size}`` and writes the
+    resulting ``list[ESMCEmbedding]``.
+    """
+    with open(in_path, "rb") as f:
+        req = pickle.load(f)
+    model = load_esmc(req["model"], fast=req["fast"])
+    results = embed_sequences(model, req["sequences"], return_logits=req["return_logits"],
+                              pool=req["pool"], batch_size=req["batch_size"])
+    with open(out_path, "wb") as f:
+        pickle.dump(results, f)
+
+
+def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: str, *,
+                 model: str, fast: bool, return_logits: bool, pool: str, batch_size: int):
+    """Launch a pinned subprocess embedding ``shard`` on physical card ``device``.
+
+    Returns ``(proc, out_path, device, log_path, logf)``. The child sets
+    ``TT_VISIBLE_DEVICES=<device>`` via its environment so the chip is logical device 0
+    (see ``get_device``). stdout/stderr go to a per-shard log file rather than a pipe,
+    so a chatty ttnn child never deadlocks on a full pipe buffer.
+    """
+    in_path = os.path.join(workdir, f"shard{idx}.in.pkl")
+    out_path = os.path.join(workdir, f"shard{idx}.out.pkl")
+    log_path = os.path.join(workdir, f"shard{idx}.log")
+    with open(in_path, "wb") as f:
+        pickle.dump(dict(model=model, sequences=dict(shard), fast=fast,
+                         return_logits=return_logits, pool=pool, batch_size=batch_size), f)
+    env = {**os.environ, "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
+    logf = open(log_path, "w")
+    proc = subprocess.Popen(
+        [sys.executable, "-c",
+         "import sys; from tt_bio.esmc import _run_embed_shard; "
+         "_run_embed_shard(sys.argv[1], sys.argv[2])",
+         in_path, out_path],
+        env=env, stdout=logf, stderr=subprocess.STDOUT)
+    return proc, out_path, device, log_path, logf
+
+
+def _read_log_tail(path: str, n: int) -> str:
+    try:
+        return "\n".join(Path(path).read_text(errors="replace").splitlines()[-n:])
+    except OSError:
+        return ""
+
+
+def _await_shard(proc, out_path: str, device: int, log_path: str, logf) -> list[ESMCEmbedding]:
+    """Wait for a shard subprocess and return its embeddings (raises with log tail)."""
+    proc.wait()
+    logf.close()
+    if proc.returncode != 0:
+        raise RuntimeError(f"embed shard on device {device} failed "
+                           f"(exit {proc.returncode}):\n{_read_log_tail(log_path, 25)}")
+    with open(out_path, "rb") as f:
+        return pickle.load(f)
+
+
+def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int],
+                    fast: bool = False, return_logits: bool = False, pool: str = "mean",
+                    batch_size: int = 8) -> list[ESMCEmbedding]:
+    """Data-parallel ESMC embedding across multiple physical TT cards.
+
+    Shards ``sequences`` across ``devices`` (one pinned subprocess per card), runs the
+    single-card :func:`embed_sequences` in each, then gathers and reassembles the
+    embeddings in original input order. Embarrassingly parallel: ESMC embeddings are
+    row-independent (no cross-sequence state), so a sequence's output is identical to
+    running it on one card — sharding changes only which chip computes which row.
+
+    More cards than sequences is harmless: extra cards simply get no shard.
+    """
+    items = list(sequences.items())
+    devices = list(devices)[:max(1, len(items))]
+    shards = _shard_by_length(items, len(devices))
+    workdir = tempfile.mkdtemp(prefix="tt-bio-embed-fanout-")
+    try:
+        handles = [
+            _spawn_shard(idx, dev, shard, workdir, model=model, fast=fast,
+                         return_logits=return_logits, pool=pool, batch_size=batch_size)
+            for idx, (dev, shard) in enumerate(zip(devices, shards)) if shard
+        ]
+        results = [_await_shard(*h) for h in handles]
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return _reassemble(items, results)
+
+
+def embed(sequences, model: str = "esmc-300m", *, fast: bool = False,
+          return_logits: bool = False, pool: str = "mean", batch_size: int = 8,
+          devices: list[int] | None = None) -> list[ESMCEmbedding]:
+    """One-shot embedding: load ``model`` and embed ``sequences``.
+
+    ``sequences`` may be a single string, a list of strings (auto-named seq0…),
+    or an {id: sequence} dict. Returns one ESMCEmbedding per input sequence.
+
+    ``devices`` shards the input across multiple physical TT cards (one pinned
+    subprocess each, data-parallel); with 0 or 1 device the model is loaded in-process
+    on the single card this process already sees.
+    """
+    if isinstance(sequences, str):
+        sequences = {"seq0": sequences}
+    elif isinstance(sequences, (list, tuple)):
+        sequences = {f"seq{i}": s for i, s in enumerate(sequences)}
+    if devices and len(devices) > 1:
+        return embed_multicard(sequences, model=model, devices=devices, fast=fast,
+                               return_logits=return_logits, pool=pool, batch_size=batch_size)
+    m = load_esmc(model, fast=fast)
+    return embed_sequences(m, sequences, return_logits=return_logits, pool=pool,
+                           batch_size=batch_size)
+
+
+def write_npz(emb: ESMCEmbedding, path) -> None:
+    """Write one sequence's full embeddings to a compressed .npz."""
+    arrays = dict(per_residue=emb.per_residue, pooled=emb.pooled,
+                  sequence=np.array(emb.sequence))
+    if emb.logits is not None:
+        arrays["logits"] = emb.logits
+    np.savez_compressed(path, **arrays)
+
+
+def write_parquet(embeddings: list[ESMCEmbedding], path) -> None:
+    """Write the pooled embedding matrix (one row per sequence) to Parquet.
+
+    Per-residue embeddings are ragged (per-length), so the tabular artifact
+    holds the fixed-size pooled vector; use ``write_npz`` for per-residue output.
+    """
+    import pandas as pd
+
+    df = pd.DataFrame({
+        "id": [e.id for e in embeddings],
+        "sequence": [e.sequence for e in embeddings],
+        "length": [len(e.sequence) for e in embeddings],
+        "pooled": [e.pooled.tolist() for e in embeddings],
+    })
+    df.to_parquet(path)
+
+
+def write_manifest(embeddings: list[ESMCEmbedding], path, *, model: str, pool: str,
+                   fast: bool, out_format: str, return_logits: bool) -> None:
+    """Write a manifest.json documenting a run's outputs — shapes, dtype, ordering,
+    and which file holds each sequence — so a downstream consumer never has to
+    read the code to know what it's looking at.
+    """
+    import json
+
+    d_model = int(embeddings[0].pooled.shape[0])
+    manifest = {
+        "model": model, "pool": pool, "fast": fast, "format": out_format,
+        "d_model": d_model, "dtype": "float32", "logits": bool(return_logits),
+        "shapes": {
+            "per_residue": "[length, d_model] float32, one row per residue, <cls>/<eos> stripped",
+            "pooled": "[d_model] float32",
+            "logits": "[length, 64] float32 (per-residue sequence-head logits)" if return_logits else None,
+        },
+        "sequences": [
+            {"id": e.id, "length": len(e.sequence),
+             "file": f"{e.id}.npz" if out_format == "npz" else "embeddings.parquet"}
+            for e in embeddings
+        ],
+    }
+    Path(path).write_text(json.dumps(manifest, indent=2))

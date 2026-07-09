@@ -19,10 +19,13 @@ identical weights into both and compare (the tt-bio test idiom).
 
 from __future__ import annotations
 
+import os
 import sys
 import types
 
-ESM_ROOT = "/home/ttuser/esm"
+# The esm clone lives at /home/ttuser/esm on the dev box; ESM_ROOT overrides it
+# so the parity harness is portable to any box that has the clone elsewhere.
+ESM_ROOT = os.environ.get("ESM_ROOT", "/home/ttuser/esm")
 if ESM_ROOT not in sys.path:
     sys.path.insert(0, ESM_ROOT)
 
