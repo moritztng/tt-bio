@@ -134,13 +134,17 @@ def run_reference_transition(mod, x):
 
 
 # --- AttentionPairBias (Pairformer single-attn-with-pair-bias, has_s=False) ---
-def make_attention_pair_bias(c_a=384, c_z=128, n_heads=16, seed=0):
+def make_attention_pair_bias(c_a=384, c_z=128, n_heads=16, seed=0, has_s=False, c_s=384):
+    """has_s=False: Pairformer mode (external LayerNorm, create_offset_ln_z=True).
+    has_s=True: diffusion-transformer mode (internal AdaptiveLayerNorm(a,s) +
+    sigmoid(linear_a_last(s)) output gate, create_offset_ln_z=False) — matches
+    DiffusionTransformerBlock's AttentionPairBias(has_s=True) instantiation."""
     _need_protenix()
     from protenix.model.modules.transformer import AttentionPairBias as RefAPB
 
     torch.manual_seed(seed)
-    mod = RefAPB(has_s=False, create_offset_ln_z=True, n_heads=n_heads,
-                 c_a=c_a, c_z=c_z).eval()
+    mod = RefAPB(has_s=has_s, create_offset_ln_z=not has_s, n_heads=n_heads,
+                 c_a=c_a, c_s=c_s, c_z=c_z).eval()
     for p in mod.parameters():
         p.data.normal_(0.0, 0.3)
     return mod, mod.state_dict()
