@@ -12,7 +12,7 @@ _JOB = {
     "properties": {
         "object": {"type": "string", "const": "job"},
         "id": {"type": "string"},
-        "kind": {"type": "string", "enum": ["predict", "design"]},
+        "kind": {"type": "string", "enum": ["predict", "design", "embed"]},
         "status": {"type": "string", "enum": ["queued", "running", "succeeded", "failed", "canceled"]},
         "name": {"type": "string"},
         "model": {"type": ["string", "null"]},
@@ -72,7 +72,8 @@ def build_spec(version: str) -> dict:
         },
         "servers": [{"url": "https://api.japanfold.com"}, {"url": "http://localhost:8080"}],
         "security": [{}, {"bearerAuth": []}],  # auth optional: {} = public, bearer = raised limits
-        "tags": [{"name": "discovery"}, {"name": "predictions"}, {"name": "designs"}, {"name": "jobs"}],
+        "tags": [{"name": "discovery"}, {"name": "predictions"}, {"name": "designs"},
+                 {"name": "embeddings"}, {"name": "jobs"}],
         "paths": {
             "/v1/health": {"get": {"tags": ["discovery"], "operationId": "getHealth",
                                    "summary": "Liveness + API version.", "security": [],
@@ -92,6 +93,14 @@ def build_spec(version: str) -> dict:
                 "tags": ["designs"], "operationId": "createDesign",
                 "summary": "Design binders/proteins against a target (BoltzGen).",
                 "requestBody": json_body({"$ref": "#/components/schemas/DesignRequest"}),
+                "responses": {"202": ok_job, **_problem_responses(400, 401, 429)}}},
+            "/v1/embeddings": {"post": {
+                "tags": ["embeddings"], "operationId": "createEmbedding",
+                "summary": "Compute ESMC protein-language-model embeddings for protein sequences.",
+                "description": "Provide `sequence` (single), `sequences` (a list), or `input` "
+                               "(one fasta/yaml blob). No structure, no MSA — just the LM trunk. "
+                               "Returns a job to poll.",
+                "requestBody": json_body({"$ref": "#/components/schemas/EmbedRequest"}),
                 "responses": {"202": ok_job, **_problem_responses(400, 401, 429)}}},
             "/v1/jobs": {"get": {
                 "tags": ["jobs"], "operationId": "listJobs", "summary": "List your jobs (paginated).",
@@ -116,13 +125,15 @@ def build_spec(version: str) -> dict:
                 "responses": {"200": {"description": "Results manifest"}, **_problem_responses(401, 404)}}},
             "/v1/jobs/{job_id}/artifacts/{path}": {"get": {
                 "tags": ["jobs"], "operationId": "getArtifact",
-                "summary": "Download one structure/score file (CIF/PDB).",
+                "summary": "Download one result file (structure CIF/PDB, or embedding npz/parquet/manifest).",
                 "parameters": [
                     {"name": "job_id", "in": "path", "required": True, "schema": {"type": "string"}},
                     {"name": "path", "in": "path", "required": True, "schema": {"type": "string"}},
                 ],
                 "responses": {"200": {"description": "File",
-                                      "content": {"chemical/x-cif": {}, "chemical/x-pdb": {}}},
+                                      "content": {"chemical/x-cif": {}, "chemical/x-pdb": {},
+                                                  "application/octet-stream": {},
+                                                  "application/json": {}}},
                               **_problem_responses(401, 404)}}},
             "/v1/jobs/{job_id}/archive": {"get": {
                 "tags": ["jobs"], "operationId": "getArchive",
@@ -158,6 +169,19 @@ def build_spec(version: str) -> dict:
                     "targets": {"type": "array", "items": {"$ref": "#/components/schemas/Target"}},
                     "params": {"type": "object", "description": "Model params: use_msa_server, fast, "
                                "recycling_steps, sampling_steps, diffusion_samples, output_format."},
+                }},
+                "Sequence": {"type": "object", "properties": {
+                    "sequence": {"type": "string", "description": "A protein sequence."},
+                    "id": {"type": "string"}}, "required": ["sequence"]},
+                "EmbedRequest": {"type": "object", "properties": {
+                    "model": {"type": "string", "enum": ["esmc-300m", "esmc-600m", "esmc-6b"],
+                              "default": "esmc-600m"},
+                    "name": {"type": "string"},
+                    "sequence": {"type": "string", "description": "Single protein sequence (convenience)."},
+                    "input": {"type": "string", "description": "One FASTA/YAML string (flat {id: sequence})."},
+                    "sequences": {"type": "array", "items": {"$ref": "#/components/schemas/Sequence"}},
+                    "params": {"type": "object", "description": "pool (mean|max|cls), "
+                               "format (npz|parquet), fast."},
                 }},
                 "DesignRequest": {"type": "object", "properties": {
                     "protocol": {"type": "string", "enum": ["protein-anything", "peptide-anything",

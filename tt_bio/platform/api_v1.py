@@ -7,13 +7,13 @@ that backs the web UI: a customer's API key resolves to a customer id, used as
 the job ``owner`` — so isolation, listing and per-customer throttling come for
 free.
 
-Model (async, mirroring Replicate / Boltz): ``POST /v1/predictions`` and
-``POST /v1/designs`` create a job and return ``202``; ``GET /v1/jobs/{id}``
-polls; ``GET /v1/jobs/{id}/results`` lists downloadable artifacts. A caller may
-send ``Prefer: wait[=seconds]`` to have a create/poll request block until the
-job finishes (up to a cap) and return the terminal job in one round-trip.
-Errors are RFC 9457 problem+json; the contract is published at
-``GET /v1/openapi.json``.
+Model (async, mirroring Replicate / Boltz): ``POST /v1/predictions``,
+``POST /v1/designs`` and ``POST /v1/embeddings`` create a job and return ``202``;
+``GET /v1/jobs/{id}`` polls; ``GET /v1/jobs/{id}/results`` lists downloadable
+artifacts. A caller may send ``Prefer: wait[=seconds]`` to have a create/poll
+request block until the job finishes (up to a cap) and return the terminal job
+in one round-trip. Errors are RFC 9457 problem+json; the contract is published
+at ``GET /v1/openapi.json``.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from flask import Blueprint, current_app, g, jsonify, request
 
 from . import apikeys
 from .catalog import catalog
-from .http_common import client_ip, serve_archive, serve_log, serve_structure, submit_job
+from .http_common import client_ip, serve_archive, serve_artifact, serve_log, submit_job
 from .jobs import CANCELED, CapacityError, FAILED, SUCCEEDED
 
 API_VERSION = "1.0.0"
@@ -107,6 +107,16 @@ def _artifacts(job_id: str, results: dict) -> list[dict]:
         return [{"type": "structure", "rank": d.get("final_rank"),
                  "path": d["structure"], "url": base + d["structure"]}
                 for d in (results.get("designs") or []) if d.get("structure")]
+    if results.get("kind") == "embed":
+        seen: set[str] = set()
+        out = []
+        for seq in (results.get("sequences") or []):
+            name = seq.get("file")
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            out.append({"type": "embedding", "id": seq.get("id"), "path": name, "url": base + name})
+        return out
     return []
 
 
@@ -194,7 +204,8 @@ def health():
 def models():
     c = catalog()
     return jsonify({k: c[k] for k in ("models", "protocols", "predict_params",
-                                      "design_params", "limits")} | {"notes": c.get("demo_note")})
+                                      "design_params", "embed_models", "embed_params",
+                                      "limits")} | {"notes": c.get("demo_note")})
 
 
 @bp.get("/openapi.json")
@@ -266,6 +277,31 @@ def _targets_from(body: dict) -> list[dict]:
     raise ValueError("provide 'targets', 'input', or 'sequence'")
 
 
+def _sequences_from(body: dict) -> dict:
+    """Normalize the accepted embed input shapes into what jobs.submit()
+    understands — mirrors ``_targets_from``'s targets/input/sequence duality.
+
+    - ``sequences``: list of bare sequence strings or {sequence, id?} objects
+    - ``input``:      a single FASTA/YAML blob (parsed by tt_bio.esmc.load_sequences)
+    - ``sequence``:   a single bare protein sequence
+    """
+    if body.get("sequences") is not None:
+        out = []
+        for i, s in enumerate(body["sequences"]):
+            if isinstance(s, str):
+                out.append({"sequence": s})
+            elif isinstance(s, dict) and isinstance(s.get("sequence"), str):
+                out.append({"sequence": s["sequence"], **({"id": s["id"]} if s.get("id") else {})})
+            else:
+                raise ValueError(f"sequences[{i}] must be a string or an object with a 'sequence' string")
+        return {"sequences": out}
+    if isinstance(body.get("input"), str):
+        return {"input": body["input"]}
+    if isinstance(body.get("sequence"), str):
+        return {"sequences": [{"sequence": body["sequence"]}]}
+    raise ValueError("provide 'sequences', 'input', or 'sequence'")
+
+
 def _json_body():
     body = request.get_json(force=True, silent=True)
     if not isinstance(body, dict):
@@ -296,6 +332,17 @@ def create_design():
                         type_="https://japanfold.com/errors/invalid-input")
     return _submit({"kind": "design", "protocol": body.get("protocol"),
                     "name": body.get("name"), "spec": spec, "params": body.get("params") or {}})
+
+
+@bp.post("/embeddings")
+def create_embedding():
+    try:
+        body = _json_body()
+        seq_payload = _sequences_from(body)
+    except ValueError as e:
+        return _problem(400, "Invalid request", str(e), type_="https://japanfold.com/errors/invalid-input")
+    return _submit({"kind": "embed", "model": body.get("model", "esmc-600m"),
+                    "name": body.get("name"), **seq_payload, "params": body.get("params") or {}})
 
 
 # --------------------------------------------------------------------------- #
@@ -335,6 +382,8 @@ def get_results(job_id):
            "artifacts": _artifacts(job_id, results), "archive_url": f"/v1/jobs/{job_id}/archive"}
     if results.get("kind") == "predict":
         out["rows"] = results.get("rows")
+    elif results.get("kind") == "embed":
+        out["sequences"] = results.get("sequences")
     else:
         out["designs"] = results.get("designs")
     return jsonify(out)
@@ -343,7 +392,7 @@ def get_results(job_id):
 @bp.get("/jobs/<job_id>/artifacts/<path:relpath>")
 @owned
 def get_artifact(job_id, relpath):
-    return serve_structure(_mgr(), job_id, relpath) or _problem(404, "Not found", "No such artifact.")
+    return serve_artifact(_mgr(), job_id, relpath) or _problem(404, "Not found", "No such artifact.")
 
 
 @bp.get("/jobs/<job_id>/archive")

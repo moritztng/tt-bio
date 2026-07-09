@@ -49,6 +49,12 @@ LIMITS = {
     # slot turns over in minutes instead of waiting out the full runtime cap.
     "max_stall_s": 600,              # 10 min with no log progress (predict)
     "max_stall_design_s": 1200,      # 20 min for design — its central filter runs quietly
+    # Embed (ESMC) is a language-model forward pass only — no diffusion, no MSA —
+    # so it finishes in seconds and gets much tighter watchdog ceilings.
+    "max_runtime_embed_s": 300,       # 5 min
+    "max_stall_embed_s": 120,         # 2 min with no log progress
+    "max_embed_sequences": 50,        # sequences per embed submission
+    "max_embed_sequence_residues": 2000,  # residues per sequence (LM only, no folding: higher cap than max_residues is safe)
 }
 DEMO_NOTE = (
     "This is a free public demo on shared compute, so inputs are capped "
@@ -126,6 +132,34 @@ MODELS = [
     },
 ]
 
+# --- Models offered for protein-language-model embeddings (the `embed` path) ---
+# ESMC computes per-residue and pooled embeddings from its language-model trunk
+# alone — no structure, no MSA. Useful for search, clustering, and as features
+# for downstream models.
+EMBED_MODELS = [
+    {
+        "id": "esmc-300m",
+        "name": "ESMC 300M",
+        "tagline": "Smallest, fastest.",
+        "blurb": "The smallest ESMC variant — quickest embeddings, still a strong "
+                 "general-purpose protein representation.",
+    },
+    {
+        "id": "esmc-600m",
+        "name": "ESMC 600M",
+        "tagline": "Balanced default.",
+        "blurb": "A larger ESMC trunk with a better representation than 300M, at "
+                 "modest extra cost. The default choice.",
+    },
+    {
+        "id": "esmc-6b",
+        "name": "ESMC 6B",
+        "tagline": "Largest, most accurate.",
+        "blurb": "The full-size ESMC model — the strongest embeddings, at higher "
+                 "compute cost per sequence.",
+    },
+]
+
 # --- BoltzGen design protocols (the `gen run` path) ---
 PROTOCOLS = [
     {"id": "protein-anything", "name": "Protein binder", "blurb": "De-novo mini-protein binder against any target."},
@@ -163,6 +197,17 @@ DESIGN_PARAMS = [
      "min": 1, "max": LIMITS["max_budget"],
      "help": "How many ranked designs to report after filtering."},
     {"key": "fast", "label": "Fast mode", "type": "bool", "default": True, "help": "Higher throughput — may be slightly less accurate."},
+]
+
+EMBED_PARAMS = [
+    {"key": "pool", "label": "Pooling", "type": "enum", "default": "mean",
+     "choices": ["mean", "max", "cls"],
+     "help": "How per-residue embeddings are combined into one fixed-size vector per sequence."},
+    {"key": "format", "label": "Output format", "type": "enum", "default": "npz",
+     "choices": ["npz", "parquet"],
+     "help": "npz: per-residue + pooled embeddings, one file per sequence. parquet: pooled vectors only, one table."},
+    {"key": "fast", "label": "Fast mode", "type": "bool", "default": False,
+     "help": "Higher throughput — may be slightly less accurate."},
 ]
 
 # --- Curated examples (also discoverable from the examples/ dir at runtime) ---
@@ -365,6 +410,8 @@ def catalog() -> dict:
         "protocols": PROTOCOLS,
         "predict_params": PREDICT_PARAMS,
         "design_params": DESIGN_PARAMS,
+        "embed_models": EMBED_MODELS,
+        "embed_params": EMBED_PARAMS,
         "examples": EXAMPLES,
         "limits": LIMITS,
         "demo_note": DEMO_NOTE,

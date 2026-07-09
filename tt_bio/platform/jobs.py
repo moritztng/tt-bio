@@ -30,11 +30,14 @@ from pathlib import Path
 from queue import Queue
 from typing import Any
 
+import yaml
+
 from . import limits, catalog
 
 # Display names for the run-log header (single source of truth: the catalog).
 _MODEL_NAME = {m["id"]: m["name"] for m in catalog.MODELS}
 _PROTO_NAME = {p["id"]: p["name"] for p in catalog.PROTOCOLS}
+_EMBED_MODEL_NAME = {m["id"]: m["name"] for m in catalog.EMBED_MODELS}
 
 
 def _log_header(job) -> str:
@@ -48,6 +51,10 @@ def _log_header(job) -> str:
         bits = [_PROTO_NAME.get(job.protocol, job.protocol or "design"), "BoltzGen design"]
         if p.get("num_designs"):
             bits.append(f"{p['num_designs']} designs")
+    elif job.kind == "embed":
+        bits = [_EMBED_MODEL_NAME.get(job.model, job.model or "ESMC"), "protein embedding"]
+        if job.total:
+            bits.append(f"{job.total} sequence" + ("s" if job.total != 1 else ""))
     else:
         bits = [_MODEL_NAME.get(job.model, job.model or "Boltz-2"), "structure prediction"]
         if job.total:
@@ -92,7 +99,7 @@ _DESIGN_STAGES = catalog.DESIGN_STEPS
 @dataclasses.dataclass
 class Job:
     id: str
-    kind: str                      # "predict" | "design"
+    kind: str                      # "predict" | "design" | "embed"
     name: str
     created_at: float
     owner: str | None = None       # anonymous session that submitted it; access is
@@ -179,6 +186,7 @@ class JobManager:
         self.max_runtime = {
             "predict": int(limits.LIMITS.get("max_runtime_predict_s", 1500)),
             "design": int(limits.LIMITS.get("max_runtime_design_s", 2700)),
+            "embed": int(limits.LIMITS.get("max_runtime_embed_s", 300)),
         }
         # Per-kind stall window. Design's central merge/analyze/filter step runs
         # quietly (no per-stage log lines) for minutes after the shards finish, so
@@ -187,6 +195,7 @@ class JobManager:
         self.max_stall = {
             "predict": int(limits.LIMITS.get("max_stall_s", 600)),
             "design": int(limits.LIMITS.get("max_stall_design_s", 1200)),
+            "embed": int(limits.LIMITS.get("max_stall_embed_s", 120)),
         }
         self._sched = threading.Condition()
         self._running = 0          # jobs currently executing (any kind)
@@ -383,8 +392,8 @@ class JobManager:
         if not isinstance(payload, dict):
             raise ValueError("request body must be a JSON object")
         kind = payload.get("kind")
-        if kind not in ("predict", "design"):
-            raise ValueError("kind must be 'predict' or 'design'")
+        if kind not in ("predict", "design", "embed"):
+            raise ValueError("kind must be 'predict', 'design', or 'embed'")
         # Per-visitor flood guards first (rate + concurrent caps, per session AND
         # per client IP), so no visitor or network can rapid-fire or monopolize.
         self._throttle(owner, client_ip)
@@ -413,6 +422,8 @@ class JobManager:
             raise ValueError(f"unknown model '{model}' — choose one of {sorted(limits.MODEL_IDS)}.")
         if kind == "design" and protocol is not None and str(protocol) not in limits.PROTOCOL_IDS:
             raise ValueError(f"unknown protocol '{protocol}' — choose one of {sorted(limits.PROTOCOL_IDS)}.")
+        if kind == "embed" and model is not None and str(model) not in limits.EMBED_MODEL_IDS:
+            raise ValueError(f"unknown model '{model}' — choose one of {sorted(limits.EMBED_MODEL_IDS)}.")
         # Clamp every numeric knob into its allowed range — the client is never
         # trusted (the UI mirrors this, but this is the authority).
         params = limits.clamp_params(params, kind)
@@ -467,7 +478,7 @@ class JobManager:
                 ext = _detect_ext(t["content"], fallback)
                 (inputs / f"{stem}.{ext}").write_text(t["content"])
             job.total = len(targets)
-        else:  # design
+        elif kind == "design":
             spec = payload.get("spec")
             if not isinstance(spec, str) or not spec.strip():
                 raise ValueError("design job needs a spec string")
@@ -476,6 +487,15 @@ class JobManager:
             inputs.mkdir(parents=True, exist_ok=True)
             self._out_dir(job_id).mkdir(parents=True, exist_ok=True)
             (inputs / "design.yaml").write_text(spec)
+        else:  # embed
+            records = _parse_embed_input(payload)
+            limits.check_sequences(records, model=model)
+            inputs = self._inputs_dir(job_id)
+            inputs.mkdir(parents=True, exist_ok=True)
+            self._out_dir(job_id).mkdir(parents=True, exist_ok=True)
+            (inputs / "sequences.yaml").write_text(
+                yaml.safe_dump(dict(records), sort_keys=False))
+            job.total = len(records)
 
         with self.lock:
             self.jobs[job_id] = job
@@ -507,6 +527,13 @@ class JobManager:
     def _build_cmd(self, job: Job, controller_url: str | None = None) -> list[str]:
         p = job.params
         out = self._out_dir(job.id)
+        if job.kind == "embed":
+            cmd = [*TTBIO, "embed", str(self._inputs_dir(job.id) / "sequences.yaml"),
+                   "--out_dir", str(out), "--model", job.model or "esmc-600m",
+                   "--pool", p.get("pool", "mean"), "--format", p.get("format", "npz")]
+            if p.get("fast"):
+                cmd.append("--fast")
+            return cmd
         if job.kind == "predict":
             cmd = [*TTBIO, "predict", str(self._inputs_dir(job.id)),
                    "--out_dir", str(out), "--model", job.model or "boltz2",
@@ -568,8 +595,11 @@ class JobManager:
             # Both predict and design submit to the shared controller when one is
             # up — thin clients whose compute the fleet's workers do, so they run
             # concurrently. With no cluster, a job runs locally and needs the
-            # devices to itself (exclusive).
-            controller_url = url
+            # devices to itself (exclusive). Embed has no controller/multi-host
+            # mode upstream (tt-bio embed only fans out across LOCAL cards via
+            # --devices) — it always runs exclusively on this host's own device,
+            # never delegated to the fleet controller even when one is up.
+            controller_url = None if job.kind == "embed" else url
             exclusive = controller_url is None
             self._admit(exclusive)
             try:
@@ -833,6 +863,10 @@ class JobManager:
         job = self.jobs.get(job_id)
         return job.owner if job else None
 
+    def kind_of(self, job_id: str) -> str | None:
+        job = self.jobs.get(job_id)
+        return job.kind if job else None
+
     def get(self, job_id: str) -> dict[str, Any] | None:
         job = self.jobs.get(job_id)
         if job is None:
@@ -927,6 +961,8 @@ class JobManager:
                 return (rd / "results.json").stat().st_size > 2
             except OSError:
                 return False
+        if job.kind == "embed":
+            return (rd / "manifest.json").exists()
         return any((rd / "final_ranked_designs").glob("final_designs_metrics_*.csv"))
 
     def results(self, job: Job) -> dict[str, Any]:
@@ -935,6 +971,8 @@ class JobManager:
             return {"ready": False}
         if job.kind == "predict":
             return self._predict_results(job, rd)
+        if job.kind == "embed":
+            return self._embed_results(job, rd)
         return self._design_results(job, rd)
 
     def _predict_results(self, job: Job, rd: Path) -> dict[str, Any]:
@@ -953,6 +991,14 @@ class JobManager:
                     key = f.name.split("_model_")[0].rsplit(".", 1)[0]
                     structures.setdefault(key, []).append(f.name)
         return {"ready": bool(rows), "kind": "predict", "rows": rows, "structures": structures}
+
+    def _embed_results(self, job: Job, rd: Path) -> dict[str, Any]:
+        manifest = _read_json(rd / "manifest.json")
+        if not manifest:
+            return {"ready": False}
+        return {"ready": True, "kind": "embed", "model": manifest.get("model"),
+               "pool": manifest.get("pool"), "format": manifest.get("format"),
+               "d_model": manifest.get("d_model"), "sequences": manifest.get("sequences") or []}
 
     def _design_results(self, job: Job, rd: Path) -> dict[str, Any]:
         ranked = rd / "final_ranked_designs"
@@ -1007,6 +1053,21 @@ class JobManager:
         # Use a real path-boundary check, not a string prefix (which would let a
         # sibling dir sharing a name-prefix, e.g. <base>_evil, slip through).
         if not target.is_relative_to(base.resolve()):
+            return None
+        return target if target.exists() else None
+
+    def artifact_file(self, job_id: str, relpath: str) -> Path | None:
+        """A downloadable file for jobs whose artifacts live directly in the
+        results dir (embed's manifest.json / *.npz / embeddings.parquet) — unlike
+        structure_file(), which serves predict/design's nested structures dir."""
+        job = self.jobs.get(job_id)
+        if job is None:
+            return None
+        rd = self._results_dir(job)
+        if not rd:
+            return None
+        target = (rd / relpath).resolve()
+        if not target.is_relative_to(rd.resolve()):
             return None
         return target if target.exists() else None
 
@@ -1131,6 +1192,36 @@ def _is_ligand_only(content: str) -> bool:
     has_ligand = bool(re.search(r"(^|\n)\s*-?\s*ligand\s*:", content, re.I))
     has_polymer = bool(re.search(r"(^|\n)\s*-?\s*(protein|dna|rna)\s*:", content, re.I))
     return has_ligand and not has_polymer
+
+
+def _parse_embed_input(payload: dict) -> list[tuple[str, str]]:
+    """Extract (id, sequence) pairs from an embed submission. Accepts either a
+    'sequences' list of {sequence, id?} (see api_v1._sequences_from) or a raw
+    'input' FASTA/YAML blob — mirroring predict's targets/input duality."""
+    if payload.get("sequences") is not None:
+        seqs = payload["sequences"]
+        if not isinstance(seqs, list) or not seqs:
+            raise ValueError("embed job needs a non-empty list of sequences")
+        out: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for i, item in enumerate(seqs):
+            if not isinstance(item, dict) or not isinstance(item.get("sequence"), str):
+                raise ValueError(f"sequences[{i}] needs a string 'sequence' field")
+            stem = _safe_stem(str(item.get("id") or ""), f"seq{i}")
+            base, n = stem, 2
+            while stem in seen:
+                stem, n = f"{base}_{n}", n + 1
+            seen.add(stem)
+            out.append((stem, item["sequence"].strip()))
+        return out
+    content = payload.get("input")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("embed job needs 'sequences' or 'input'")
+    if len(content) > limits.LIMITS["max_content_chars"]:
+        raise ValueError(
+            f"input is too large for the free demo (limit "
+            f"{limits.LIMITS['max_content_chars']:,} characters).")
+    return limits.parse_embed_blob(content)
 
 
 def _detect_ext(content: str, fallback: str = "yaml") -> str:

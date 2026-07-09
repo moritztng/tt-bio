@@ -18,13 +18,14 @@ import re
 
 import yaml
 
-from .catalog import LIMITS, MODELS, PROTOCOLS
+from .catalog import EMBED_MODELS, LIMITS, MODELS, PROTOCOLS
 
 # Model id -> the set of capabilities it supports (the catalog is the authority).
 _MODEL_CAPS = {m["id"]: set(m.get("caps", [])) for m in MODELS}
 _DEFAULT_MODEL = "boltz2"  # mirrors jobs._build_cmd's "job.model or 'boltz2'"
 MODEL_IDS = set(_MODEL_CAPS)                                   # valid predict model ids
 PROTOCOL_IDS = {p["id"] for p in PROTOCOLS}                    # valid design protocol ids
+EMBED_MODEL_IDS = {m["id"] for m in EMBED_MODELS}              # valid embed (ESMC) model ids
 _MODEL_NEEDS_MSA = {m["id"]: bool(m.get("needs_msa")) for m in MODELS}
 
 
@@ -279,6 +280,63 @@ def check_design(spec: str) -> None:
     _check_one(spec or "", where="Design spec")
 
 
+def parse_embed_blob(content: str) -> list[tuple[str, str]]:
+    """Parse an embed submission's raw FASTA or flat-YAML blob into (id, sequence)
+    pairs, for validation ahead of the tt-bio embed subprocess (which re-parses the
+    same content via ``tt_bio.esmc.load_sequences``).
+
+    FASTA: standard ``>id`` records. YAML: a flat ``{id: sequence}`` mapping (embed's
+    own format — distinct from predict/design's structured ``sequences:``/``entities:``
+    YAML, so it is parsed separately rather than reusing ``inspect()``).
+    """
+    text = content.strip()
+    if text.startswith(">"):
+        seqs: dict[str, str] = {}
+        cur_id, cur = None, []
+        for line in content.splitlines():
+            if line.startswith(">"):
+                if cur_id is not None:
+                    seqs[cur_id] = "".join(cur)
+                header = line[1:].strip().split()[0] if line[1:].strip() else f"seq{len(seqs)}"
+                cur_id, cur = header, []
+            elif line.strip():
+                cur.append(line.strip())
+        if cur_id is not None:
+            seqs[cur_id] = "".join(cur)
+        if not seqs:
+            raise InputError("no FASTA records found in input")
+        return list(seqs.items())
+    try:
+        data = yaml.safe_load(content)
+    except Exception as e:
+        raise InputError(f"couldn't parse YAML input: {e}")
+    if not isinstance(data, dict) or not data or not all(isinstance(v, str) for v in data.values()):
+        raise InputError("YAML input must be a flat {id: sequence} mapping")
+    return list(data.items())
+
+
+def check_sequences(records: list, model: str | None = None) -> None:
+    """Validate an embed submission's (id, sequence) pairs against the demo limits.
+
+    Embed has no structural capabilities to check (no ligands/chains/constraints —
+    it's a language-model forward pass over bare protein sequences), so this only
+    enforces count, alphabet and per-sequence length.
+    """
+    if len(records) > LIMITS["max_embed_sequences"]:
+        raise InputError(_too_many("sequences in one run", len(records),
+                                   LIMITS["max_embed_sequences"]))
+    for i, (sid, seq) in enumerate(records):
+        s = (seq or "").strip()
+        label = f"Sequence {i + 1} ('{sid}')"
+        if not s:
+            raise InputError(f"{label} is empty")
+        if not _SEQ_ALPHABET["protein"].match(s):
+            raise InputError(f"{label} has invalid characters (expected amino-acid letters)")
+        if len(s) > LIMITS["max_embed_sequence_residues"]:
+            raise InputError(f"{label} has {len(s)} residues — the free demo is limited to "
+                             f"{LIMITS['max_embed_sequence_residues']} per sequence.")
+
+
 def clamp_params(params: dict, kind: str) -> dict:
     """Clamp every numeric knob into its allowed demo range — the client is never
     trusted. Returns a sanitised copy (the allow-listed command builder already
@@ -295,7 +353,7 @@ def clamp_params(params: dict, kind: str) -> dict:
         clamp("recycling_steps", 1, LIMITS["max_recycling_steps"])
         clamp("sampling_steps", 10, LIMITS["max_sampling_steps"])
         clamp("diffusion_samples", 1, LIMITS["max_diffusion_samples"])
-    else:
+    elif kind == "design":
         clamp("num_designs", 1, LIMITS["max_designs"])
         clamp("budget", 1, LIMITS["max_budget"])
     return p

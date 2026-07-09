@@ -17,6 +17,7 @@ Base URL resolution:     --base-url >  $JAPANFOLD_BASE_URL  >  https://api.japan
 Quick start (no key required):
     japanfold predict --sequence MKTAYIAKQR... --wait --out ./out
     japanfold design spec.yaml --protocol nanobody-anything --wait --out ./out
+    japanfold embed --sequence MKTAYIAKQR... --wait --out ./out
 """
 
 from __future__ import annotations
@@ -313,6 +314,9 @@ def cmd_models(args):
     print("Design protocols:")
     for p in data["protocols"]:
         print(f"  {p['id']:24} {p.get('name', '')}")
+    print("Embedding models:")
+    for m in data.get("embed_models", []):
+        print(f"  {m['id']:16} {m.get('tagline', '')}")
     return 0
 
 
@@ -353,6 +357,20 @@ def cmd_design(args):
                              budget=args.budget, fast=(True if args.fast else None))
     body = {"protocol": args.protocol, "name": args.name, "spec": spec, "params": params}
     _, job, _ = _request("POST", base, "/v1/designs", key, body=body)
+    return _after_submit(base, key, job, args)
+
+
+def cmd_embed(args):
+    base, key = resolve_base_url(args), resolve_api_key(args)
+    fields = _read_input(args.input_pos, args.sequence, args.input)
+    if not fields:
+        _err("provide an input: a FASTA/YAML file, '-', --sequence, or --input")
+        return EXIT_INPUT
+    params = _collect_params(args.param, pool=args.pool, format=args.format,
+                             fast=(True if args.fast else None))
+    body = {"model": args.model, "name": args.name, "params": params, **fields}
+    _, job, _ = _request("POST", base, "/v1/embeddings", key, body=body,
+                         idempotency=args.idempotency_key)
     return _after_submit(base, key, job, args)
 
 
@@ -486,6 +504,20 @@ def build_parser():
     de.add_argument("--wait", action="store_true")
     de.add_argument("--out")
 
+    em = add(sub, "embed", help="Compute ESMC protein-language-model embeddings.")
+    em.add_argument("input_pos", nargs="?", metavar="INPUT", help="FASTA/YAML file, or '-' for stdin.")
+    em.add_argument("--sequence", help="A single protein sequence (convenience).")
+    em.add_argument("--input", help="Inline FASTA/YAML string.")
+    em.add_argument("--model", default="esmc-600m", choices=["esmc-300m", "esmc-600m", "esmc-6b"])
+    em.add_argument("--pool", default="mean", choices=["mean", "max", "cls"])
+    em.add_argument("--format", default="npz", choices=["npz", "parquet"], dest="format")
+    em.add_argument("--name")
+    em.add_argument("--fast", action="store_true")
+    em.add_argument("--param", action="append", help="Extra param key=value (repeatable).")
+    em.add_argument("--idempotency-key", dest="idempotency_key")
+    em.add_argument("--wait", action="store_true", help="Poll to completion and download results.")
+    em.add_argument("--out", help="Output directory for --wait (default: cwd).")
+
     j = add(sub, "jobs", help="List / inspect / cancel jobs.")
     jsub = j.add_subparsers(dest="jobs_cmd", required=True)
     jl = add(jsub, "list")
@@ -513,8 +545,8 @@ def main(argv=None):
     if not hasattr(args, "name"):
         args.name = None
     handlers = {"auth": cmd_auth, "models": cmd_models, "predict": cmd_predict,
-                "design": cmd_design, "jobs": cmd_jobs, "download": cmd_download,
-                "logs": cmd_logs, "schema": cmd_schema}
+                "design": cmd_design, "embed": cmd_embed, "jobs": cmd_jobs,
+                "download": cmd_download, "logs": cmd_logs, "schema": cmd_schema}
     try:
         return handlers[args.cmd](args) or EXIT_OK
     except Done as e:

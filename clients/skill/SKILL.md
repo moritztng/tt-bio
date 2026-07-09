@@ -2,15 +2,17 @@
 name: japanfold
 description: >-
   Predict 3D biomolecular structures and binding affinity (Boltz-2, ESMFold2,
-  Protenix) and design de-novo binders/proteins (BoltzGen) via JapanFold — a
-  free, public, Tenstorrent-accelerated HTTP API. Use to fold a protein or
-  complex, co-fold a protein with a ligand and get affinity, design
-  nanobody/antibody/peptide/miniprotein binders against a target, or turn a
-  sequence into a PDB/mmCIF structure. No API key or local GPU needed.
+  Protenix), design de-novo binders/proteins (BoltzGen), and compute ESMC
+  protein-language-model embeddings via JapanFold — a free, public,
+  Tenstorrent-accelerated HTTP API. Use to fold a protein or complex, co-fold a
+  protein with a ligand and get affinity, design nanobody/antibody/peptide/
+  miniprotein binders against a target, turn a sequence into a PDB/mmCIF
+  structure, or get a fixed-size embedding vector for search/clustering/ML
+  features. No API key or local GPU needed.
 when_to_use: >-
   When the user wants to fold/predict a protein or complex structure, estimate
-  protein–ligand binding affinity, or design binders against a target — and a
-  hosted service is fine (no local model to run).
+  protein–ligand binding affinity, design binders against a target, or compute
+  protein embeddings — and a hosted service is fine (no local model to run).
 license: Apache-2.0
 category: biomodels
 metadata:
@@ -28,8 +30,9 @@ allowed-tools:
 
 # JapanFold — hosted structure prediction & binder design
 
-JapanFold runs Boltz-2 / ESMFold2 / Protenix (structure + affinity) and BoltzGen
-(binder design) on Tenstorrent hardware behind a **free public HTTP API**. You
+JapanFold runs Boltz-2 / ESMFold2 / Protenix (structure + affinity), BoltzGen
+(binder design), and ESMC (protein-language-model embeddings) on Tenstorrent
+hardware behind a **free public HTTP API**. You
 call it as an async job — **submit → poll → download** — over plain HTTPS against
 `https://api.japanfold.com`. No API key, no model to install, no local GPU.
 
@@ -100,6 +103,41 @@ curl -s -X POST $BASE/v1/designs -H 'Content-Type: application/json' \
 Protocols: `protein-anything`, `peptide-anything`, `nanobody-anything`,
 `antibody-anything`, `protein-small_molecule`, `protein-redesign`. Poll the same
 way; `/v1/jobs/{id}/results` returns the ranked designs.
+
+## Compute protein embeddings (ESMC)
+
+Submit → poll → download, same as predict/design:
+
+```bash
+JOB=$(curl -s -X POST $BASE/v1/embeddings -H 'Content-Type: application/json' \
+  -d '{"model":"esmc-600m","sequence":"MKTAYIAKQRQISFVKSHFSRQLEE"}' \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+
+curl -s $BASE/v1/jobs/$JOB               # poll until status is terminal
+curl -s $BASE/v1/jobs/$JOB/results       # -> sequences: [{id, length, file}, ...]
+curl -sOJ $BASE/v1/jobs/$JOB/archive     # zip: manifest.json + embeddings
+```
+
+Multiple sequences go in `sequences` (a list) or `input` (a FASTA/YAML blob —
+same flexibility as predict's `input`):
+
+```bash
+curl -s -X POST $BASE/v1/embeddings -H 'Content-Type: application/json' -d '{
+  "model":"esmc-600m",
+  "sequences":[{"id":"gfp","sequence":"MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDAT"},
+               {"id":"lysozyme","sequence":"KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNF"}]
+}'
+```
+
+- **Models:** `esmc-300m`, `esmc-600m` (default), `esmc-6b` — larger trunks give
+  a stronger representation at higher compute cost per sequence.
+- `params`: `pool` (`mean` default, `max`, `cls` — how per-residue vectors combine
+  into one fixed-size vector), `format` (`npz` default: per-residue + pooled, one
+  file per sequence; `parquet`: pooled vectors only, one table), `fast`.
+- Results: `manifest.json` (model/pool/shapes/dtype) plus one `<id>.npz` per
+  sequence (or one shared `embeddings.parquet`). No structure, no MSA — just the
+  language-model trunk, so these jobs finish in seconds.
+- `GET /v1/models` lists the embedding models and params too.
 
 ## Reading results
 

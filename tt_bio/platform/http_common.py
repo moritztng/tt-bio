@@ -21,6 +21,15 @@ def serve_structure(manager: JobManager, job_id: str, relpath: str):
     return send_file(path, as_attachment=False, download_name=path.name) if path else None
 
 
+def serve_artifact(manager: JobManager, job_id: str, relpath: str):
+    """Serve a job's result file, routed by kind: predict/design artifacts live
+    in a nested structures dir (structure_file); embed's manifest.json/*.npz/
+    embeddings.parquet live directly in the results dir (artifact_file)."""
+    path = (manager.artifact_file(job_id, relpath) if manager.kind_of(job_id) == "embed"
+           else manager.structure_file(job_id, relpath))
+    return send_file(path, as_attachment=False, download_name=path.name) if path else None
+
+
 def serve_archive(manager: JobManager, job_id: str):
     path = manager.archive(job_id)
     return send_file(path, as_attachment=True, download_name=f"{job_id}-results.zip") if path else None
