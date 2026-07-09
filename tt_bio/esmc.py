@@ -679,6 +679,56 @@ def read_fasta(path) -> dict[str, str]:
     return seqs
 
 
+def read_yaml(path) -> dict[str, str]:
+    """Parse a YAML {id: sequence} mapping into an ordered dict (uppercased)."""
+    import yaml
+
+    doc = yaml.safe_load(Path(path).read_text()) or {}
+    if not isinstance(doc, dict) or not doc or not all(isinstance(v, str) for v in doc.values()):
+        raise ValueError(f"{path}: expected a YAML mapping of {{id: sequence}}, got {doc!r}")
+    return {str(k): v.upper() for k, v in doc.items()}
+
+
+def load_sequences(data) -> dict[str, str]:
+    """Load {id: sequence} from a path or a bare sequence string.
+
+    ``data`` may be: a FASTA file, a directory of FASTA files (merged, id
+    collisions disambiguated), a YAML file (a flat ``{id: sequence}`` mapping),
+    or — if it isn't an existing path — a single raw protein sequence (given
+    the id ``seq0``).
+    """
+    path = Path(data).expanduser()
+    if path.is_dir():
+        files = sorted(p for p in path.iterdir() if p.suffix.lower() in (".fa", ".fasta", ".fas"))
+        if not files:
+            raise ValueError(f"no FASTA files (.fa/.fasta/.fas) found in {path}")
+        seqs: dict[str, str] = {}
+        for fp in files:
+            for sid, seq in read_fasta(fp).items():
+                key, n = sid, 2
+                while key in seqs:
+                    key, n = f"{sid}_{n}", n + 1
+                seqs[key] = seq
+    elif path.is_file():
+        suffix = path.suffix.lower()
+        if suffix in (".fa", ".fasta", ".fas"):
+            seqs = read_fasta(path)
+        elif suffix in (".yml", ".yaml"):
+            seqs = read_yaml(path)
+        else:
+            raise ValueError(f"unsupported file type {suffix!r} for {path} "
+                             "(use .fasta/.fa/.fas or .yml/.yaml)")
+    else:
+        seq = str(data).strip()
+        if not (seq and seq.replace(" ", "").isalpha()):
+            raise ValueError(f"{data!r} is not an existing file/directory, and not a bare "
+                             "protein sequence (letters only)")
+        seqs = {"seq0": seq.upper()}
+    if not seqs:
+        raise ValueError(f"no sequences found in {data}")
+    return seqs
+
+
 def load_esmc(name: str = "esmc-300m", *, fast: bool = False):
     """Load an ESMC model onto the TT device. ``name`` is one of ``MODELS``.
 
@@ -970,3 +1020,29 @@ def write_parquet(embeddings: list[ESMCEmbedding], path) -> None:
         "pooled": [e.pooled.tolist() for e in embeddings],
     })
     df.to_parquet(path)
+
+
+def write_manifest(embeddings: list[ESMCEmbedding], path, *, model: str, pool: str,
+                   fast: bool, out_format: str, return_logits: bool) -> None:
+    """Write a manifest.json documenting a run's outputs — shapes, dtype, ordering,
+    and which file holds each sequence — so a downstream consumer never has to
+    read the code to know what it's looking at.
+    """
+    import json
+
+    d_model = int(embeddings[0].pooled.shape[0])
+    manifest = {
+        "model": model, "pool": pool, "fast": fast, "format": out_format,
+        "d_model": d_model, "dtype": "float32", "logits": bool(return_logits),
+        "shapes": {
+            "per_residue": "[length, d_model] float32, one row per residue, <cls>/<eos> stripped",
+            "pooled": "[d_model] float32",
+            "logits": "[length, 64] float32 (per-residue sequence-head logits)" if return_logits else None,
+        },
+        "sequences": [
+            {"id": e.id, "length": len(e.sequence),
+             "file": f"{e.id}.npz" if out_format == "npz" else "embeddings.parquet"}
+            for e in embeddings
+        ],
+    }
+    Path(path).write_text(json.dumps(manifest, indent=2))
