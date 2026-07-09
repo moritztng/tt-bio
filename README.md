@@ -10,27 +10,26 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), and [Protenix-v2](https://github.com/bytedance/Protenix) structure prediction and [BoltzGen](#boltzgen) binder design on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), and [Protenix-v2](https://github.com/bytedance/Protenix) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 ## Installation
 
-Create a Python virtual environment with Python 3.10 or 3.12, install the latest **release**, then install the matching Tenstorrent system dependencies.
+Create a Python virtual environment with Python 3.10 or 3.12, install, then install the matching Tenstorrent system dependencies.
 
 ```bash
 python3.10 -m venv env
 source env/bin/activate
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.2.0"
+pip install tt-bio
 tt-bio install-deps
 ```
 
-Use a tagged release (`@v0.2.0` above — see [Releases](https://github.com/moritztng/tt-bio/releases) for the latest), not `main`: `main` is the development branch and may contain untested work.
-
 `tt-bio install-deps` installs the SFPI compiler version that matches the installed `ttnn` wheel and clears stale TT-Metal kernel cache entries. It may ask for your sudo password.
 
-### Nightly / from source
-Track the latest development commit, or work from an editable clone:
+### From GitHub / source
+Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@main"   # nightly (may be untested)
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.2.1"   # pinned release — see Releases for the latest
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
 cd tt-bio
@@ -67,7 +66,16 @@ tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
 tt-bio predict examples/prot.yaml --model protenix-v2 --use_msa_server   # protein MSA optional; NA/ligand chains are single-sequence
 ```
 
-ESMFold2 is protein-only, so the affinity, potential, template, and energy options below apply to **Boltz-2 only** — as do pocket/contact binding constraints. Covalent `bond` constraints additionally work with Protenix-v2 (it honours them through its token-bond graph). Protenix-v2 folds multimodal complexes (protein / RNA / DNA / ligand chains in one input, FASTA `>id|protein|...`, `>id|rna`, `>id|dna`, `>id|ccd`, `>id|smiles`, or the YAML `protein/rna/dna/ligand` entries) and writes per-atom pLDDT into B-factors; only proteins use an MSA (`--use_msa_server`, a precomputed a3m, or `--msa_db_path`), nucleic-acid and ligand chains are single-sequence. The shared options — `--fast`, `--recycling_steps`, `--sampling_steps`, `--diffusion_samples`, `--output_format`, the MSA flags, and the multi-card / multi-machine flags — work for every model. Each model downloads its weights automatically on first use.
+| Feature | Boltz-2 | ESMFold2 | Protenix-v2 |
+|---|---|---|---|
+| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex |
+| MSA | required | optional | proteins optional, NA/ligand single-sequence |
+| Affinity / potentials / templates | yes | no | no |
+| Pocket / contact constraints | yes | no | no |
+| Covalent `bond` constraints | yes | no | yes |
+| PAE/PDE output (`--write_pae`/`--write_pde`) | no | no | yes |
+
+Shared across every model: `--fast`, `--recycling_steps`, `--sampling_steps`, `--diffusion_samples`, `--output_format`, the MSA flags, and the multi-card / multi-machine flags. Each model downloads its weights automatically on first use.
 
 Boltz-2 needs an MSA (multiple sequence alignment) for each protein chain.
 `--use_msa_server` sends sequences to the ColabFold MSA API and downloads the resulting alignments (online MSA).
