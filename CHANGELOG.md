@@ -3,7 +3,12 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [0.2.0] - 2026-07-08
+## [0.2.0] - 2026-07-09
+
+Release gate verified on Blackhole (p150a): Protenix-v2 e2e real-weight parity (seed0-vs-reference
+Kabsch RMSD 8.7 Å, within the sampler's own seed-to-seed variance band); Protenix component parity
+14/14, Boltz-2 13/13, ESMFold2 plddt/distogram parity, host suite green; no OOM across the supported
+size range.
 
 ### Added
 - **Protenix-v2 denoise ttnn trace** — opt-in `fold(trace=True)` (with
