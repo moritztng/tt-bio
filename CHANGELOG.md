@@ -5,6 +5,29 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-07-09
+
+Multi-card fanout parity for `predict`, a designability (scRMSD) verify script for `tt-bio gen`,
+and `tt-bio embed` input/UX polish. No structure-model code changed vs 0.2.2 (`tt_bio/boltz2.py`,
+`protenix.py`, `esmfold2.py`, `tenstorrent.py` are byte-identical) — only `esmc.py` and the CLI
+(`main.py`) changed, so the release gate below is a confirmation run, not a re-verification.
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.60 Å | 0.931 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 2.28 Å | 0.832 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.74 Å | 0.907 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 3.87 Å | 0.706 | ≤6.0 Å / ≥0.50 | PASS |
+
+Full test suite: 71 passed, 46 skipped (missing optional reference checkpoints/packages, same
+gap as prior releases), 0 failed. No OOM: `examples/615.yaml` and `examples/1303.yaml`
+(Boltz-2 `--fast`) completed cleanly; the full supported range up to `examples/3233.yaml`
+(4-chain multimer + ligand) was already verified OOM-free on this same unchanged model code
+(`docs/boltz2-tt-vs-nvidia.md`). No perf regression: Boltz-2 `--fast` warm e2e at L=615 is
+**43.4 s**, matching the 0.2.2-era baseline exactly (same code path since before 0.2.2).
+
 ### Added
 - **`tt-bio predict --devices`** — alias for `--device_ids` (comma-separated card ids), matching `tt-bio embed`'s flag name; `--device_ids` still works for back-compat.
 - **BoltzGen designability (scRMSD) verify script** — `scripts/boltzgen_designability.py` harvests the self-consistency RMSD `tt-bio gen` already computes and summarizes/gates on it; see `docs/boltzgen-designability.md`.
