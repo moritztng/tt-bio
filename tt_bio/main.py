@@ -2272,7 +2272,7 @@ def warmup(max_seq, max_msa, n_samples, cache):
 
 
 @cli.command("embed")
-@click.argument("data", type=click.Path(exists=True))
+@click.argument("data")
 @click.option("--model", type=click.Choice(["esmc-300m", "esmc-600m", "esmc-6b"]),
               default="esmc-600m", show_default=True,
               help="ESMC protein-LM variant (sequence embeddings via the LM trunk alone).")
@@ -2298,35 +2298,24 @@ def warmup(max_seq, max_msa, n_samples, cache):
 def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch_size, devices):
     """Compute ESMC protein-language-model embeddings for protein sequences.
 
-    DATA is a FASTA file or a directory of them. Runs the ESMC LM trunk alone
-    (no folding head, no MSA) on this machine's TT device and writes per-residue
-    and pooled embeddings.
+    DATA is a FASTA file, a directory of them, a YAML file (a flat
+    ``{id: sequence}`` mapping), or a single bare protein sequence string.
+    Runs the ESMC LM trunk alone (no folding head, no MSA) on this machine's
+    TT device and writes per-residue and pooled embeddings.
 
     \b
     Output (--out_dir, default ./embeddings):
         <id>.npz            # per-residue [L,d] + pooled [d] (+ logits) — one per sequence
         embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
+        manifest.json       # model/pool/shapes/dtype + which file holds each sequence
     """
     from tt_bio import esmc
 
     torch.set_grad_enabled(False)
-    data = Path(data).expanduser()
-    fastas = sorted(
-        p for p in ([data] if data.is_file() else data.iterdir())
-        if p.suffix.lower() in (".fa", ".fasta", ".fas")
-    )
-    if not fastas:
-        raise click.ClickException(f"No FASTA files found at {data}")
-
-    seqs: dict[str, str] = {}
-    for fp in fastas:
-        for sid, seq in esmc.read_fasta(fp).items():
-            key, n = sid, 2
-            while key in seqs:
-                key, n = f"{sid}_{n}", n + 1
-            seqs[key] = seq
-    if not seqs:
-        raise click.ClickException("No sequences found in input")
+    try:
+        seqs = esmc.load_sequences(data)
+    except ValueError as e:
+        raise click.ClickException(str(e))
 
     if return_logits and model == "esmc-6b":
         click.secho("Note: --logits is unavailable for esmc-6b (no sequence head); ignoring.",
@@ -2341,25 +2330,31 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
         from tt_bio import runtime
         device_list = runtime.detect_tenstorrent_devices(devices, 0, len(seqs))
 
-    if device_list and len(device_list) > 1:
-        click.echo(f"Sharding {len(seqs)} sequence(s) across cards "
-                   f"{device_list}{' (fast)' if fast else ''} → {out}")
-        results = esmc.embed(seqs, model=model, devices=device_list, fast=fast,
-                             return_logits=return_logits, pool=pool, batch_size=batch_size)
-    else:
-        click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
-        m = esmc.load_esmc(model, fast=fast)
-        click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
-        results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
-                                       batch_size=batch_size)
+    try:
+        if device_list and len(device_list) > 1:
+            click.echo(f"Sharding {len(seqs)} sequence(s) across cards "
+                       f"{device_list}{' (fast)' if fast else ''} → {out}")
+            results = esmc.embed(seqs, model=model, devices=device_list, fast=fast,
+                                 return_logits=return_logits, pool=pool, batch_size=batch_size)
+        else:
+            click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
+            m = esmc.load_esmc(model, fast=fast)
+            click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
+            results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
+                                           batch_size=batch_size)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
     if out_format == "npz":
         for emb in results:
             esmc.write_npz(emb, out / f"{emb.id}.npz")
-
     if out_format == "parquet":
         esmc.write_parquet(results, out / "embeddings.parquet")
         click.echo(f"Wrote {out / 'embeddings.parquet'}")
-    click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]}")
+    esmc.write_manifest(results, out / "manifest.json", model=model, pool=pool, fast=fast,
+                        out_format=out_format, return_logits=return_logits)
+    click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]} "
+               f"→ {out} (see manifest.json)")
 
 
 if __name__ == "__main__":

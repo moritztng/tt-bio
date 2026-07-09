@@ -108,19 +108,27 @@ single run — see [Optional: Multi-Machine Prediction](#optional-multi-machine-
 ### Protein Embeddings (ESMC)
 
 Turn protein sequences into ESMC language-model embeddings on-device — no
-folding, no MSA. Point `tt-bio embed` at a FASTA file (or a directory of them):
+folding, no MSA. `DATA` is a FASTA file, a directory of them, a YAML
+`{id: sequence}` mapping, or a bare sequence string:
 
 ```bash
 tt-bio embed proteins.fasta --model esmc-600m --out_dir embeddings
+tt-bio embed "MQIFVKTLTGKTITLEV..." --model esmc-600m   # one-off sequence
 ```
 
 `--model` selects the ESMC variant (`esmc-300m`, `esmc-600m`, `esmc-6b`). For
-each sequence you get its **per-residue** embeddings (one vector per amino acid)
-and a **pooled** whole-sequence vector (`--pool mean`/`max`/`cls`). Output is one
-`<id>.npz` per sequence (`--format npz`, default) or a single
-`embeddings.parquet` of the pooled vectors (`--format parquet`). Add `--logits`
-to also write the per-residue amino-acid predictions (300M/600M), and `--fast`
-for the block-fp8 weight path. Weights download automatically on first use.
+each sequence you get its **per-residue** embeddings (`[length, d_model]`
+float32, one row per amino acid, row order == input order) and a **pooled**
+whole-sequence vector (`[d_model]` float32, `--pool mean`/`max`/`cls`).
+`--out_dir` (default `./embeddings`) gets:
+
+- `<id>.npz` per sequence — `per_residue`, `pooled` (+ `logits` with `--logits`); `--format npz`, default
+- `embeddings.parquet` — pooled vectors, one row per sequence; `--format parquet`
+- `manifest.json` — model/pool/shapes/dtype and which file holds each sequence
+
+Add `--logits` for the per-residue amino-acid predictions (300M/600M only),
+and `--fast` for the block-fp8 weight path. Weights download automatically on
+first use.
 
 Sequences batch automatically on 300M/600M (`--batch_size`, default 8) — a
 padded, length-bucketed device forward per batch, masked so results are
@@ -140,8 +148,8 @@ The same capability is available from Python:
 from tt_bio import esmc
 
 emb = esmc.embed("MQIFVKTLTGKTITLEV...", model="esmc-600m")[0]
-emb.per_residue   # [L, d_model]
-emb.pooled        # [d_model]
+emb.per_residue   # [L, d_model] float32
+emb.pooled        # [d_model] float32
 
 # Shard a large set across cards (data-parallel, order preserved):
 embs = esmc.embed(sequences, model="esmc-600m", devices=[0, 1, 2, 3])

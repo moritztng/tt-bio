@@ -71,3 +71,73 @@ def test_chain_label_bijective_base26():
     assert _chain_label(26) == "AA" and _chain_label(27) == "AB" and _chain_label(52) == "BA"
     labels = [_chain_label(n) for n in range(60)]
     assert len(set(labels)) == 60  # all unique
+
+
+def test_load_sequences_accepts_fasta_yaml_dir_and_bare_string(tmp_path):
+    """``tt-bio embed``'s DATA argument accepts every documented input shape."""
+    from tt_bio.esmc import load_sequences
+
+    fa = tmp_path / "in.fasta"
+    fa.write_text(">a\nMKT\n>b\nGVS\n")
+    assert load_sequences(str(fa)) == {"a": "MKT", "b": "GVS"}
+
+    d = tmp_path / "fastas"
+    d.mkdir()
+    (d / "x.fasta").write_text(">c\nACD\n")
+    (d / "y.fa").write_text(">d\nEFG\n")
+    assert load_sequences(str(d)) == {"c": "ACD", "d": "EFG"}
+
+    yml = tmp_path / "in.yaml"
+    yml.write_text("seq1: mkt\nseq2: gvs\n")
+    assert load_sequences(str(yml)) == {"seq1": "MKT", "seq2": "GVS"}  # uppercased
+
+    assert load_sequences("mktayiakqr") == {"seq0": "MKTAYIAKQR"}
+
+
+def test_load_sequences_rejects_bad_input(tmp_path):
+    """Bad input raises ValueError with an actionable message (the CLI turns this into a
+    ClickException instead of a stack trace) rather than silently returning nothing."""
+    from tt_bio.esmc import load_sequences
+
+    with pytest.raises(ValueError, match="not an existing file/directory"):
+        load_sequences("not/a/real/path.fasta")
+
+    unsupported = tmp_path / "in.txt"
+    unsupported.write_text("MKT")
+    with pytest.raises(ValueError, match="unsupported file type"):
+        load_sequences(str(unsupported))
+
+    bad_yaml = tmp_path / "bad.yaml"
+    bad_yaml.write_text("- just\n- a\n- list\n")
+    with pytest.raises(ValueError, match="expected a YAML mapping"):
+        load_sequences(str(bad_yaml))
+
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    with pytest.raises(ValueError, match="no FASTA files"):
+        load_sequences(str(empty_dir))
+
+
+def test_write_manifest_documents_shapes_and_files(tmp_path):
+    """manifest.json is the one place a downstream consumer looks to learn each
+    output file's shape/dtype/pooling without reading the code."""
+    import json
+
+    import numpy as np
+
+    from tt_bio.esmc import ESMCEmbedding, write_manifest
+
+    embs = [
+        ESMCEmbedding("p1", "MKT", np.zeros((3, 8), np.float32), np.zeros(8, np.float32), None),
+        ESMCEmbedding("p2", "GVSE", np.zeros((4, 8), np.float32), np.zeros(8, np.float32), None),
+    ]
+    out = tmp_path / "manifest.json"
+    write_manifest(embs, out, model="esmc-300m", pool="mean", fast=False,
+                   out_format="npz", return_logits=False)
+    manifest = json.loads(out.read_text())
+    assert manifest["model"] == "esmc-300m" and manifest["pool"] == "mean"
+    assert manifest["d_model"] == 8 and manifest["dtype"] == "float32"
+    assert manifest["sequences"] == [
+        {"id": "p1", "length": 3, "file": "p1.npz"},
+        {"id": "p2", "length": 4, "file": "p2.npz"},
+    ]
