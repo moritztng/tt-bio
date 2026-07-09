@@ -763,6 +763,8 @@ class JobManager:
                 if isinstance(rows, list):
                     job.done = len([r for r in rows if isinstance(r, dict)])
             job.stage = self._last_stage(job)
+        elif job.kind == "embed":
+            job.stage = self._embed_stage(job)
         else:
             job.stage = self._design_stage(job)
 
@@ -774,6 +776,16 @@ class JobManager:
         for word in ("saving", "writing", "confidence", "affinity",
                      "diffusion", "sampling", "trunk", "pairformer",
                      "msa", "prep", "featuriz", "loading"):
+            if word in text:
+                return word
+        return None
+
+    def _embed_stage(self, job: Job) -> str | None:
+        """Same furthest-first idea as _last_stage(), for the embed CLI's much
+        simpler load -> embed -> write pipeline (see embed_cmd's click.echo
+        lines in tt_bio/main.py)."""
+        text = self._tail(job, 4000).lower()
+        for word in ("done", "wrote", "embedding", "sharding", "loading"):
             if word in text:
                 return word
         return None

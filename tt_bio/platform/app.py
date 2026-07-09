@@ -15,7 +15,7 @@ from flask import Flask, g, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 
 from .catalog import catalog
-from .http_common import client_ip, serve_archive, serve_log, serve_structure, submit_job
+from .http_common import client_ip, serve_archive, serve_artifact, serve_log, serve_structure, submit_job
 from .jobs import CapacityError, JobManager
 
 _HERE = Path(__file__).resolve().parent
@@ -132,6 +132,12 @@ def create_app(workspace: str | os.PathLike | None = None, *,
         if not _owns(job_id):
             return jsonify({"error": "not found"}), 404
         return serve_structure(manager, job_id, relpath) or (jsonify({"error": "not found"}), 404)
+
+    @app.get("/api/jobs/<job_id>/artifact/<path:relpath>")
+    def get_artifact(job_id, relpath):
+        if not _owns(job_id):
+            return jsonify({"error": "not found"}), 404
+        return serve_artifact(manager, job_id, relpath) or (jsonify({"error": "not found"}), 404)
 
     @app.get("/api/jobs/<job_id>/archive")
     def archive_job(job_id):

@@ -43,12 +43,22 @@ const DESIGN_STAGE_KEY = {
   analysis: "analysis", filtering: "filtering",
 };
 
+// Embed (ESMC) is just a language-model forward pass — load -> embed -> write,
+// no MSA/fold/diffusion steps to show (see JobManager._embed_stage).
+const EMBED_PHASES = [
+  { key: "load", label: "Load model", activity: "Loading the ESMC model…" },
+  { key: "embed", label: "Embed", activity: "Computing embeddings…" },
+  { key: "save", label: "Finish", activity: "Writing embeddings…" },
+];
+const EMBED_STAGE_KEY = { loading: "load", sharding: "load", embedding: "embed", wrote: "save", done: "save" };
+
 function phaseModel(job) {
   const isDesign = job.kind === "design";
-  let phases = isDesign ? DESIGN_PHASES : PREDICT_PHASES.slice();
+  const isEmbed = job.kind === "embed";
+  let phases = isDesign ? DESIGN_PHASES : isEmbed ? EMBED_PHASES.slice() : PREDICT_PHASES.slice();
   // ESMFold-2 Fast folds single-sequence — no MSA step to show.
-  if (!isDesign && job.model === "esmfold2-fast") phases = phases.filter((p) => p.key !== "msa");
-  const keyMap = isDesign ? DESIGN_STAGE_KEY : PREDICT_STAGE_KEY;
+  if (!isDesign && !isEmbed && job.model === "esmfold2-fast") phases = phases.filter((p) => p.key !== "msa");
+  const keyMap = isDesign ? DESIGN_STAGE_KEY : isEmbed ? EMBED_STAGE_KEY : PREDICT_STAGE_KEY;
   const curKey = job.stage != null ? keyMap[job.stage] : null;
   let index = curKey ? Math.max(0, phases.findIndex((p) => p.key === curKey)) : 0;
   if (job.status === "succeeded") index = phases.length; // everything done
