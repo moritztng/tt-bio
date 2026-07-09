@@ -88,6 +88,33 @@ tt-bio predict proteins/ --model boltz2 --out_dir results --use_msa_server --fas
 If you have additional machines with Tenstorrent cards, you can add them to a
 single run — see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
 
+### Protein Embeddings (ESMC)
+
+Turn protein sequences into ESMC language-model embeddings on-device — no
+folding, no MSA. Point `tt-bio embed` at a FASTA file (or a directory of them):
+
+```bash
+tt-bio embed proteins.fasta --model esmc-600m --out_dir embeddings
+```
+
+`--model` selects the ESMC variant (`esmc-300m`, `esmc-600m`, `esmc-6b`). For
+each sequence you get its **per-residue** embeddings (one vector per amino acid)
+and a **pooled** whole-sequence vector (`--pool mean`/`max`/`cls`). Output is one
+`<id>.npz` per sequence (`--format npz`, default) or a single
+`embeddings.parquet` of the pooled vectors (`--format parquet`). Add `--logits`
+to also write the per-residue amino-acid predictions (300M/600M), and `--fast`
+for the block-fp8 weight path. Weights download automatically on first use.
+
+The same capability is available from Python:
+
+```python
+from tt_bio import esmc
+
+emb = esmc.embed("MQIFVKTLTGKTITLEV...", model="esmc-600m")[0]
+emb.per_residue   # [L, d_model]
+emb.pooled        # [d_model]
+```
+
 ### Offline MSA (Optional)
 
 Use this if you have enough disk and RAM and want local MSA.

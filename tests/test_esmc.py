@@ -206,13 +206,51 @@ def test_esmc_real_weights():
 
     seq = "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"
     tokens = tt_esmc.tokenize(seq)
-    ref_logits, _ = ref(tokens)
-    logits, _ = mod(tokens)
+    ref_logits, ref_emb = ref(tokens)
+    logits, emb = mod(tokens)
 
     # On trained weights the model is confident, so top-1 should match torch exactly.
     assert pcc(logits, ref_logits) > 0.999
     agree = (logits.argmax(-1) == ref_logits.argmax(-1)).float().mean().item()
     assert agree == 1.0, f"argmax agreement {agree:.3f} < 1.0"
+    # Per-residue embedding parity is the metric that gates the embedding API.
+    pe = pcc(emb, ref_emb)
+    assert pe > 0.999, f"real-weight embedding PCC {pe:.5f} too low"
+
+
+def test_read_fasta(tmp_path):
+    """read_fasta yields an ordered {id: uppercased-seq} dict and disambiguates
+    colliding record ids instead of dropping sequences."""
+    fa = tmp_path / "in.fasta"
+    fa.write_text(">a desc\nMKT\nAYI\n>b\nggg\n>a\nCCC\n")
+    seqs = tt_esmc.read_fasta(fa)
+    assert list(seqs) == ["a", "b", "a_2"]
+    assert seqs["a"] == "MKTAYI"   # multi-line joined, uppercased
+    assert seqs["b"] == "GGG"
+    assert seqs["a_2"] == "CCC"    # collision disambiguated, not dropped
+
+
+def test_embed_api_shapes_and_pooling():
+    """embed_sequences returns per-residue rows aligned 1:1 with residues
+    (<cls>/<eos> stripped), a pooled vector, and logits on request."""
+    ref = make_esmc_300m()
+    mod = tt_esmc.ESMC(**ESMC_300M)
+    mod.load_state_dict(ref.state_dict(), strict=False)
+
+    seqs = {"p1": "MKTAYIAKQR", "p2": "GVSERTIDPKQ"}
+    out = tt_esmc.embed_sequences(mod, seqs, return_logits=True, pool="mean")
+    assert [e.id for e in out] == ["p1", "p2"]
+    for e, (sid, seq) in zip(out, seqs.items()):
+        assert e.per_residue.shape == (len(seq), D_MODEL)     # cls/eos stripped
+        assert e.pooled.shape == (D_MODEL,)
+        assert e.logits.shape == (len(seq), tt_esmc.VOCAB_SIZE)
+        # mean pooling equals the row-mean of the per-residue embeddings.
+        assert pcc(e.pooled, e.per_residue.mean(axis=0)) > 0.9999
+
+    # cls pooling uses the summary token, distinct from the residue mean.
+    cls_out = tt_esmc.embed_sequences(mod, {"p1": seqs["p1"]}, pool="cls")[0]
+    assert cls_out.pooled.shape == (D_MODEL,)
+    assert cls_out.logits is None
 
 
 @pytest.mark.parametrize("seq_len", [16, 64])
