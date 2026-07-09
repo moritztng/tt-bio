@@ -484,7 +484,8 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
 def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
                      use_msa, msa_url, msa_strategy, msa_user, msa_pass, api_key,
                      max_msa, msa_db_path=None, use_envdb=False, method=None,
-                     affinity=False, pred_structure=None, progress=None):
+                     affinity=False, pred_structure=None, progress=None,
+                     single_sequence=False):
     """Parse, resolve MSA, tokenize, featurize — all in memory.
 
     MSA files are cached in msa_dir by sequence hash — the same
@@ -507,6 +508,11 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
     # Identify protein chains needing MSA, keyed by sequence hash for global caching
     to_gen = {}
     for chain in record.chains:
+        # --single_sequence: fold every protein chain without an MSA (self-only),
+        # skipping both cached alignments and any online/offline search.
+        if single_sequence and chain.mol_type == const.chain_type_ids["PROTEIN"]:
+            chain.msa_id = -1
+            continue
         if chain.mol_type == const.chain_type_ids["PROTEIN"] and chain.msa_id == 0:
             seq = target.sequences[chain.entity_id]
             seq_hash = hashlib.sha256(seq.encode()).hexdigest()[:16]
@@ -1733,6 +1739,48 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
         (msa_dir / f"{h}.a3m").write_text(res[i])
 
 
+def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
+                         single_sequence, cache, controller):
+    """Resolve the MSA source for MSA-dependent models (boltz2, protenix-v2).
+
+    These models degrade sharply folded single-sequence, so ``predict`` must
+    never do so silently. Precedence:
+      1. ``--single_sequence``: explicit opt-out — fold single-seq, no network.
+      2. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
+         ``--msa_endpoint``): use it as given.
+      3. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
+      4. Otherwise enable the online ColabFold server, with a one-line notice that
+         the input sequences leave the machine (a privacy concern for e.g. pharma).
+
+    esmfold2 / esmfold2-fast are single-sequence by design and pass through
+    unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
+    """
+    if model not in ("boltz2", "protenix-v2"):
+        return use_msa_server, msa_db_path
+
+    explicit = use_msa_server or msa_db_path or msa_endpoint
+    if single_sequence:
+        if explicit:
+            raise click.BadParameter(
+                "--single_sequence cannot be combined with --use_msa_server / "
+                "--msa_db_path / --msa_endpoint")
+        return use_msa_server, msa_db_path
+    if explicit:
+        return use_msa_server, msa_db_path
+
+    # No source given. Prefer a host-local DB (skip in --controller mode, where
+    # remote workers resolve MSAs on their own hosts), else fall back online.
+    if not controller:
+        default_db = Path(cache).expanduser() / "msa_db"
+        if (default_db / "UNIREF30_READY").exists():
+            return use_msa_server, str(default_db)
+    click.secho(
+        "MSA: no local database found; sending input sequences to the public "
+        "ColabFold server (api.colabfold.com). Use --msa_db_path for an offline "
+        "database, or --single_sequence to fold without an MSA.", fg="yellow")
+    return True, msa_db_path
+
+
 @cli.command()
 @click.argument("data", type=click.Path(exists=True))
 @click.option("--out_dir", default="./")
@@ -1753,6 +1801,9 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
               help="MSA cache directory (default: <out_dir>/msa). Point at a persistent shared "
                    "path to reuse {seq_hash}.a3m across runs and hosts (never re-search a sequence).")
 @click.option("--use_envdb", is_flag=True, help="Also search ColabFold environmental database (requires envdb)")
+@click.option("--single_sequence", is_flag=True,
+              help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2 (no local DB, "
+                   "no online server). Explicit opt-out for batch-screening orphan sequences.")
 @click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v2.")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
@@ -1786,14 +1837,14 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
 @click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2"]), default="boltz2", show_default=True,
-              help="Structure model. boltz2: MSA + Pairformer. esmfold2: ESMC-6B + 48-block trunk + diffusion. "
-                   "esmfold2-fast: the lighter 24-block ESMFold2-Fast checkpoint. protenix-v2: AF3-family "
-                   "(Pairformer trunk + atom diffusion), single-sequence protein folding on-device, no MSA. "
-                   "All run on-device via the ttnn pipeline (esmfold2 accepts an optional MSA; "
-                   "ligand / affinity options apply to boltz2 only).")
+              help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
+                   "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
+                   "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
+                   "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
+                   "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
@@ -1808,6 +1859,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     to local workers (pass --listen to accept remote workers). With
     --model esmfold2 it instead runs the on-device ttnn ESMFold2 pipeline
     (single-sequence, protein-only) and writes the same output layout.
+
+    \b
+    MSA: boltz2 and protenix-v2 are MSA-dependent and use an MSA by default —
+    a local ColabFold DB (~/.boltz/msa_db) if present, else the online ColabFold
+    server (input sequences leave the machine; a notice is printed). Pass
+    --msa_db_path for a private offline DB, or --single_sequence to skip the MSA.
+    esmfold2 / esmfold2-fast are single-sequence by design.
 
     \b
     Output:
@@ -1839,6 +1897,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
+    # MSA-dependent models (boltz2, protenix-v2) must never silently fold
+    # single-sequence: resolve a source now (explicit flag > local DB > online
+    # fallback) or honor an explicit --single_sequence opt-out. esmfold2 /
+    # esmfold2-fast are single-sequence by design and pass through untouched.
+    use_msa_server, msa_db_path = _resolve_msa_default(
+        model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache, controller)
+
     if model in ("esmfold2", "esmfold2-fast", "protenix-v2"):
         # ESMFold2 and Protenix-v2 ride the SAME scheduler / worker / progress path as
         # Boltz-2: build a run config, then fan jobs across devices via _local_workers +
@@ -1861,15 +1926,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo()
             click.secho("Note: --model esmfold2-fast has no MSA encoder; folding single-sequence "
                         "(use --model esmfold2 to use the MSA).", fg="yellow")
-        # Protenix-v2 is an MSA-dependent AF3-family model: without an MSA it folds
-        # single-sequence and accuracy degrades sharply (correct topology is often lost).
-        # This is the single biggest accuracy footgun for this model, so warn loudly.
-        if model == "protenix-v2" and not (use_msa_server or msa_db_path or msa_endpoint):
-            click.echo()
-            click.secho("Warning: --model protenix-v2 without an MSA folds single-sequence, which is "
-                        "far less accurate (Protenix-v2 is an MSA-dependent model). Pass "
-                        "--use_msa_server (or --msa_db_path / --msa_endpoint), or supply a per-chain "
-                        "MSA in the input, for a reliable fold.", fg="yellow")
+        # Protenix-v2 is MSA-dependent; _resolve_msa_default guarantees a source
+        # (local DB or online) is set above unless the user passed --single_sequence,
+        # so single-sequence folding here is always an explicit choice.
         data = Path(data).expanduser()
         out_dir_path = Path(out_dir).expanduser()
         out = out_dir_path / f"boltz_results_{data.stem}"
@@ -1894,7 +1953,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "diffusion_samples": diffusion_samples, "seed": seed or 0,
             "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
             "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
-            "msa_endpoint": msa_endpoint,
+            "msa_endpoint": msa_endpoint, "single_sequence": single_sequence,
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
@@ -1931,10 +1990,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # own hosts. msa_db_path (if given) is passed through for the workers to use.
     if not controller:
         download_all(cache)
-        if not msa_db_path and not use_msa_server:
-            default_msa_db = cache / "msa_db"
-            if (default_msa_db / "UNIREF30_READY").exists():
-                msa_db_path = str(default_msa_db)
         if use_envdb and not use_msa_server and not msa_db_path:
             raise RuntimeError(
                 "--use_envdb requires offline MSA DB setup.\n"
@@ -2009,7 +2064,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
         "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
         "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
-        "fast": fast,
+        "fast": fast, "single_sequence": single_sequence,
     }
     run_payload = {
         "data": str(data),
