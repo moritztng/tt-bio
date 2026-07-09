@@ -1740,7 +1740,7 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
-                         single_sequence, cache, controller):
+                         single_sequence, cache, controller, msa_server_url):
     """Resolve the MSA source for MSA-dependent models (boltz2, protenix-v2).
 
     These models degrade sharply folded single-sequence, so ``predict`` must
@@ -1749,8 +1749,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
       2. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
          ``--msa_endpoint``): use it as given.
       3. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
-      4. Otherwise enable the online ColabFold server, with a one-line notice that
-         the input sequences leave the machine (a privacy concern for e.g. pharma).
+      4. Otherwise enable the online MSA server, with a one-line notice naming the
+         server the sequences are sent to (a privacy concern for e.g. pharma).
 
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
@@ -1775,9 +1775,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
         if (default_db / "UNIREF30_READY").exists():
             return use_msa_server, str(default_db)
     click.secho(
-        "MSA: no local database found; sending input sequences to the public "
-        "ColabFold server (api.colabfold.com). Use --msa_db_path for an offline "
-        "database, or --single_sequence to fold without an MSA.", fg="yellow")
+        f"MSA: no local database found; sending input sequences to the online MSA "
+        f"server ({msa_server_url}). Use --msa_db_path for an offline database, or "
+        f"--single_sequence to fold without an MSA.", fg="yellow")
     return True, msa_db_path
 
 
@@ -1902,7 +1902,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # fallback) or honor an explicit --single_sequence opt-out. esmfold2 /
     # esmfold2-fast are single-sequence by design and pass through untouched.
     use_msa_server, msa_db_path = _resolve_msa_default(
-        model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache, controller)
+        model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
+        controller, msa_server_url)
 
     if model in ("esmfold2", "esmfold2-fast", "protenix-v2"):
         # ESMFold2 and Protenix-v2 ride the SAME scheduler / worker / progress path as
