@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tt-bio"
-version = "0.2.1"
+version = "0.2.2"
 description = "Boltz-2, ESMFold2, and Protenix-v2 structure prediction, BoltzGen binder design, and ESMC protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
 readme = "README.md"
 requires-python = ">=3.10,<3.13,!=3.11.*"
