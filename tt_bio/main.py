@@ -1861,6 +1861,15 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo()
             click.secho("Note: --model esmfold2-fast has no MSA encoder; folding single-sequence "
                         "(use --model esmfold2 to use the MSA).", fg="yellow")
+        # Protenix-v2 is an MSA-dependent AF3-family model: without an MSA it folds
+        # single-sequence and accuracy degrades sharply (correct topology is often lost).
+        # This is the single biggest accuracy footgun for this model, so warn loudly.
+        if model == "protenix-v2" and not (use_msa_server or msa_db_path or msa_endpoint):
+            click.echo()
+            click.secho("Warning: --model protenix-v2 without an MSA folds single-sequence, which is "
+                        "far less accurate (Protenix-v2 is an MSA-dependent model). Pass "
+                        "--use_msa_server (or --msa_db_path / --msa_endpoint), or supply a per-chain "
+                        "MSA in the input, for a reliable fold.", fg="yellow")
         data = Path(data).expanduser()
         out_dir_path = Path(out_dir).expanduser()
         out = out_dir_path / f"boltz_results_{data.stem}"

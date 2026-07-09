@@ -155,9 +155,12 @@ model.** Tighten thresholds per model/target as baselines are established
 2. **Highest-impact UX fix: the no-MSA default trap.** `--model protenix-v2`
    without `--use_msa_server` folds single-sequence → ~10 Å, and the CLI help
    actively describes it as "single-sequence … no MSA". Protenix-v2 is an
-   MSA-dependent AF3-family model; single-seq is off-label. Either default MSA on
-   for protenix-v2, or emit a loud warning when it runs single-seq. This is what a
-   user hits and mistakes for a broken model.
+   MSA-dependent AF3-family model; single-seq is off-label. This is what a user
+   hits and mistakes for a broken model. **Done on this branch:** a loud CLI
+   warning now fires when protenix-v2 runs without an MSA source (`--use_msa_server`
+   / `--msa_db_path` / `--msa_endpoint`), mirroring the existing esmfold2-fast
+   notice (UX only, not accuracy-affecting). Consider also flipping the *default*
+   to MSA-on — that is a behavior change and Moritz's call.
 3. **Ship the ground-truth gate** (this branch) as the release floor and retire the
    self-consistency-only check. Fold gate targets with `--use_msa_server
    --sampling_steps 200 --diffusion_samples ≥5`.
