@@ -30,7 +30,7 @@ D_MODEL = ESMC_300M["d_model"]
 
 
 def pcc(a: torch.Tensor, b: torch.Tensor) -> float:
-    a, b = a.flatten().float(), b.flatten().float()
+    a, b = torch.as_tensor(a).flatten().float(), torch.as_tensor(b).flatten().float()
     return torch.corrcoef(torch.stack([a, b]))[0, 1].item()
 
 
