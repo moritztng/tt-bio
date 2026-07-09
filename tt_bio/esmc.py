@@ -18,6 +18,11 @@ implements: token embedding.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+import numpy as np
 import torch
 import ttnn
 
@@ -45,12 +50,19 @@ PAD_TOKEN = 1  # SEQUENCE_VOCAB index of <pad>
 BUCKET = 64    # pad the LM length to a multiple of this to avoid per-length recompilation
 _AA_TO_ID = {a: i for i, a in enumerate(SEQUENCE_VOCAB)}
 
-# name -> (config, hf repo id, weights path within repo)
+# name -> (config, hf repo id, weights path within repo). Both ship as a single
+# esm-repo-format .pth (identical key layout, just wider/deeper), so one loader
+# covers them; the 6B is a separate sharded-safetensors path (see below).
 CONFIGS = {
     "esmc-300m": (
         dict(d_model=960, n_heads=15, n_layers=30),
         "biohub/esmc-300m-2024-12",
         "data/weights/esmc_300m_2024_12_v0.pth",
+    ),
+    "esmc-600m": (
+        dict(d_model=1152, n_heads=18, n_layers=36),
+        "biohub/esmc-600m-2024-12",
+        "data/weights/esmc_600m_2024_12_v0.pth",
     ),
 }
 
@@ -569,3 +581,174 @@ def _free_ttnn_tensors(obj, seen=None):
     if d:
         for x in list(d.values()):
             _free_ttnn_tensors(x, seen)
+
+
+# ===========================================================================
+# Standalone embedding API (sequence -> per-residue + pooled embeddings)
+# ===========================================================================
+#
+# The LM trunk alone — no folding head, no MSA: a protein string in, its
+# per-residue and pooled final-layer hidden-state embeddings out (plus the
+# sequence-head logits on request). Thin wrappers over the ESMC / ESMC-6B
+# forwards above: tokenize, run, strip the <cls>/<eos> special tokens so rows
+# align 1:1 with residues, then pool.
+
+MODELS = tuple(CONFIGS) + ("esmc-6b",)
+
+_POOLERS = {
+    "mean": lambda e: e.mean(axis=0),
+    "max": lambda e: e.max(axis=0),
+    "cls": None,  # uses the <cls> summary token; handled before stripping
+}
+
+
+@dataclass
+class ESMCEmbedding:
+    """One sequence's embeddings from the ESMC language-model trunk.
+
+    ``per_residue`` has one row per amino acid — the <cls>/<eos> special tokens
+    are stripped, so ``per_residue[i]`` is residue ``sequence[i]``. ``pooled`` is
+    a single fixed-size vector (see the ``pool`` argument). ``logits`` are the
+    per-residue sequence-head logits ([L, 64]) when requested — ESMC-300M/600M
+    only, since the 6B port carries no sequence head.
+    """
+
+    id: str
+    sequence: str
+    per_residue: np.ndarray            # [L, d_model] float32
+    pooled: np.ndarray                 # [d_model] float32
+    logits: Optional[np.ndarray]       # [L, 64] float32 or None
+
+
+def read_fasta(path) -> dict[str, str]:
+    """Parse a FASTA file into an ordered {id: sequence} dict (uppercased).
+
+    Colliding record ids are disambiguated with a numeric suffix so no sequence
+    is silently dropped.
+    """
+    seqs: dict[str, str] = {}
+    sid, buf = None, []
+
+    def flush():
+        if sid is None:
+            return
+        seq = "".join(buf).upper()
+        name = sid
+        n = 2
+        while name in seqs:
+            name = f"{sid}_{n}"
+            n += 1
+        seqs[name] = seq
+
+    for line in Path(path).read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith(">"):
+            flush()
+            sid = line[1:].split()[0] if line[1:].split() else f"seq{len(seqs)}"
+            buf = []
+        else:
+            buf.append(line)
+    flush()
+    return seqs
+
+
+def load_esmc(name: str = "esmc-300m", *, fast: bool = False):
+    """Load an ESMC model onto the TT device. ``name`` is one of ``MODELS``.
+
+    300M/600M load from a single esm-repo .pth (with a sequence head, so logits
+    are available); 6B loads from the sharded TransformerEngine safetensors
+    (embeddings only). ``fast`` selects the block-fp8 weight path and must be set
+    before the weights are materialized, hence here rather than at call time.
+    """
+    from tt_bio import tenstorrent
+
+    tenstorrent.set_fast_mode(fast)
+    if name == "esmc-6b":
+        return ESMCLanguageModel.from_pretrained(name=name)
+    if name not in CONFIGS:
+        raise ValueError(f"unknown ESMC model {name!r}; choose from {list(MODELS)}")
+    return ESMC.from_pretrained(name)
+
+
+def _trunk_forward(model, seq: str, return_logits: bool):
+    """Run the LM trunk on one sequence.
+
+    Returns (per_residue[L, d], cls[d], logits[L, 64] | None) as float32 numpy,
+    with the <cls>/<eos> special tokens stripped from per_residue/logits.
+    """
+    tokens = tokenize(seq)  # [1, len(seq)+2] with <cls> … <eos>
+    logits = None
+    if isinstance(model, ESMCLanguageModel):
+        emb = model(tokens)[-1, 0]          # final-norm hidden state [L+2, d]
+    else:
+        lg, em = model(tokens)              # [1, L+2, 64], [1, L+2, d]
+        emb = em[0]
+        if return_logits:
+            logits = lg[0][1:-1].numpy().astype(np.float32)
+    emb = emb.numpy().astype(np.float32)
+    return emb[1:-1], emb[0], logits
+
+
+def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = False,
+                    pool: str = "mean") -> list[ESMCEmbedding]:
+    """Embed each {id: sequence} with an already-loaded ESMC ``model``.
+
+    One forward per sequence (distinct lengths recompile kernels; there is no
+    lossy cross-sequence batching). ``pool`` in {"mean", "max", "cls"} selects
+    the pooled vector; per-residue embeddings are always returned.
+    """
+    if pool not in _POOLERS:
+        raise ValueError(f"unknown pool {pool!r}; choose from {sorted(_POOLERS)}")
+    results = []
+    for sid, seq in sequences.items():
+        if not seq:
+            raise ValueError(f"sequence {sid!r} is empty")
+        model.reset_static_cache()  # length varies between sequences
+        per_residue, cls, logits = _trunk_forward(model, seq, return_logits)
+        pooled = cls if pool == "cls" else _POOLERS[pool](per_residue)
+        results.append(ESMCEmbedding(sid, seq, per_residue,
+                                     pooled.astype(np.float32), logits))
+    return results
+
+
+def embed(sequences, model: str = "esmc-300m", *, fast: bool = False,
+          return_logits: bool = False, pool: str = "mean") -> list[ESMCEmbedding]:
+    """One-shot embedding: load ``model`` and embed ``sequences``.
+
+    ``sequences`` may be a single string, a list of strings (auto-named seq0…),
+    or an {id: sequence} dict. Returns one ESMCEmbedding per input sequence.
+    """
+    if isinstance(sequences, str):
+        sequences = {"seq0": sequences}
+    elif isinstance(sequences, (list, tuple)):
+        sequences = {f"seq{i}": s for i, s in enumerate(sequences)}
+    m = load_esmc(model, fast=fast)
+    return embed_sequences(m, sequences, return_logits=return_logits, pool=pool)
+
+
+def write_npz(emb: ESMCEmbedding, path) -> None:
+    """Write one sequence's full embeddings to a compressed .npz."""
+    arrays = dict(per_residue=emb.per_residue, pooled=emb.pooled,
+                  sequence=np.array(emb.sequence))
+    if emb.logits is not None:
+        arrays["logits"] = emb.logits
+    np.savez_compressed(path, **arrays)
+
+
+def write_parquet(embeddings: list[ESMCEmbedding], path) -> None:
+    """Write the pooled embedding matrix (one row per sequence) to Parquet.
+
+    Per-residue embeddings are ragged (per-length), so the tabular artifact
+    holds the fixed-size pooled vector; use ``write_npz`` for per-residue output.
+    """
+    import pandas as pd
+
+    df = pd.DataFrame({
+        "id": [e.id for e in embeddings],
+        "sequence": [e.sequence for e in embeddings],
+        "length": [len(e.sequence) for e in embeddings],
+        "pooled": [e.pooled.tolist() for e in embeddings],
+    })
+    df.to_parquet(path)
