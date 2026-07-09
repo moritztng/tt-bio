@@ -5,6 +5,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+- **`tt-bio predict --devices`** — alias for `--device_ids` (comma-separated card ids), matching `tt-bio embed`'s flag name; `--device_ids` still works for back-compat.
+- **BoltzGen designability (scRMSD) verify script** — `scripts/boltzgen_designability.py` harvests the self-consistency RMSD `tt-bio gen` already computes and summarizes/gates on it; see `docs/boltzgen-designability.md`.
+
+### Changed
+- **`tt-bio embed` input handling** — `DATA` now also accepts a YAML `{id: sequence}` mapping or a bare sequence string (previously FASTA file/directory only), writes a `manifest.json` (model/pool/shapes/dtype + which output file holds each sequence) alongside the embeddings, and reports bad input as a one-line error instead of a raw traceback.
+
 ## [0.2.2] - 2026-07-09
 
 Turns MSA on by default for Boltz-2 / Protenix-v2 (the fix for the misleading no-MSA
