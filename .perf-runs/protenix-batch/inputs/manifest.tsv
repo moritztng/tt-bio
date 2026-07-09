@@ -1,3 +1,0 @@
-name	length	msa_path	yaml_path
-rand_len_0256	256	.perf-runs/protenix-batch/inputs/msa/rand_len_0256.a3m	.perf-runs/protenix-batch/inputs/inputs/rand_len_0256.yaml
-rand_len_0512	512	.perf-runs/protenix-batch/inputs/msa/rand_len_0512.a3m	.perf-runs/protenix-batch/inputs/inputs/rand_len_0512.yaml

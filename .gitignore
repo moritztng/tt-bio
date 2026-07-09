@@ -42,3 +42,5 @@ test_16/
 *.log
 memory_inputs/
 oom_inputs/
+
+.perf-runs/
