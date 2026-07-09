@@ -110,6 +110,7 @@ class Boltz(nn.Module):
         inverse_fold_args: Optional[Dict[str, Any]] = None,
         inference_logging: bool = False,
         use_kernels: bool = False,
+        use_resident_trunk: bool = True,
     ) -> None:
         super().__init__()
         """
@@ -122,6 +123,7 @@ class Boltz(nn.Module):
         self.inverse_fold = inverse_fold
         self.inference_logging = inference_logging
         self.use_kernels = use_kernels
+        self.use_resident_trunk = use_resident_trunk
         self.ignore_ckpt_shape_mismatch = ignore_ckpt_shape_mismatch
 
         # Inference-relevant args
@@ -511,8 +513,7 @@ class Boltz(nn.Module):
                 # tenstorrent.TrunkModule and _tt_trunk_module above). The
                 # template stage is the one exception (one host round-trip/
                 # iteration); host loop kept as an explicit fallback.
-                use_resident_trunk = True
-                if use_resident_trunk:
+                if self.use_resident_trunk:
                     _trunk = self._tt_trunk_module()
                     s, z = _trunk(
                         s_inputs, s_init, z_init, feats, recycling_steps,
