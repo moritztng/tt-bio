@@ -3,6 +3,11 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Added
+- **Multi-card fanout for `tt-bio embed`** — `--devices 0,1,2,3` (CLI) / `devices=[...]` (`tt_bio.esmc.embed`) shards a sequence set across several TT cards, one pinned worker per card, and reassembles the embeddings in input order. Data-parallel and lossless: each shard's output is bit-exact to the single-card path (verified on-hardware, Δ=0 per-residue/pooled/logits).
+
 ## [0.2.1] - 2026-07-09
 
 Adds the ESMC embeddings capability merged since 0.2.0 (already hardware-gated at merge

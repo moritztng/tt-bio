@@ -117,6 +117,14 @@ Sequences batch automatically on 300M/600M (`--batch_size`, default 8) — a
 padded, length-bucketed device forward per batch, masked so results are
 identical to running each sequence alone.
 
+To embed a large FASTA faster, shard it across several cards with
+`--devices 0,1,2,3` — one worker per card, results reassembled in input order
+and identical to a single-card run:
+
+```bash
+tt-bio embed proteins.fasta --model esmc-600m --devices 0,1,2,3
+```
+
 The same capability is available from Python:
 
 ```python
@@ -125,6 +133,9 @@ from tt_bio import esmc
 emb = esmc.embed("MQIFVKTLTGKTITLEV...", model="esmc-600m")[0]
 emb.per_residue   # [L, d_model]
 emb.pooled        # [d_model]
+
+# Shard a large set across cards (data-parallel, order preserved):
+embs = esmc.embed(sequences, model="esmc-600m", devices=[0, 1, 2, 3])
 ```
 
 ### Offline MSA (Optional)
