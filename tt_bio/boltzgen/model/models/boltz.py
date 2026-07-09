@@ -21,6 +21,7 @@ import numpy as np
 import torch
 from torch import Tensor, nn
 
+from tt_bio import tenstorrent
 from tt_bio.tenstorrent import (
     MiniformerModule as TTMiniformerModule,
     MSAModule as TTMSAModule,
@@ -413,6 +414,47 @@ class Boltz(nn.Module):
         self.load_state_dict(state, strict=False)
         print(f"Loaded weights from {checkpoint_path}")
 
+    def _tt_trunk_module(self):
+        """Build the device-resident trunk driver (see ``Boltz2Model``'s driver
+        of the same name in ``tt_bio/boltz2.py`` for the pattern this mirrors).
+        Reuses the inner MSA/Pairformer device modules owned by the existing
+        wrappers (created during state-dict load), a ``TrunkRecycle`` built
+        from the recycle weights, and (BoltzGen-specific) a
+        ``TokenDistanceRecycle`` for the token-distance injection. The
+        template module is not ported to run resident -- its feature pipeline
+        (frame rotation/translation, visibility, CB/CA distances) is computed
+        inline rather than through a factored helper like Boltz2's, and it is
+        called unconditionally every iteration (no ``has_templates`` gate) --
+        so it runs via one host round-trip per iteration instead (still
+        collapsing 4 host<->device crossings/iteration to 2).
+
+        Unlike Boltz2Model (single checkpoint for the whole run), BoltzGen's
+        design pipeline hot-swaps weights mid-run (``load_checkpoint_weights``,
+        the multi-ckpt schedule) -- so this is rebuilt fresh every call rather
+        than cached on ``self``: caching would (a) silently re-run stale
+        weights after a swap, and (b) get auto-registered as an ``nn.Module``
+        submodule (plain attribute assignment of an ``nn.Module``), which the
+        next ``load_state_dict`` call then tries to load into and crashes
+        (``TrunkModule`` has no state-dict, it borrows already-loaded weights).
+        The construction cost (wrapping already-loaded torch weights as ttnn
+        tensors) is small next to the 4-iteration trunk compute it drives.
+        """
+        recycle = tenstorrent.TrunkRecycle(
+            self.s_norm, self.z_norm, self.s_recycle, self.z_recycle,
+            self.msa_module.compute_kernel_config,
+        )
+        token_distance_recycle = None
+        if self.use_token_distances:
+            token_distance_recycle = tenstorrent.TokenDistanceRecycle(
+                self.token_distance_module, self.msa_module.compute_kernel_config,
+            )
+        return tenstorrent.TrunkModule(
+            recycle, self.msa_module.module, self.pairformer_module.module,
+            token_distance_recycle=token_distance_recycle,
+            template_module_torch=(self.template_module if self.use_templates else None),
+            use_kernels=self.use_kernels,
+        )
+
     def forward(
         self,
         feats: Dict[str, Tensor],
@@ -463,37 +505,52 @@ class Boltz(nn.Module):
                 pair_mask = mask[:, :, None] * mask[:, None, :]
 
             if not self.inverse_fold:
-                for i in range(recycling_steps + 1):
-                    _emit_progress("trunk", i + 1, recycling_steps + 1)
-                    with torch.no_grad():
-                        # Apply recycling
-                        s = s_init + self.s_recycle(self.s_norm(s))
-                        z = z_init + self.z_recycle(self.z_norm(z))
+                # Run the whole recycling loop resident on the Tenstorrent device
+                # (no per-iteration host round-trips for the recycle glue,
+                # token-distance, MSA, or pairformer stages -- see
+                # tenstorrent.TrunkModule and _tt_trunk_module above). The
+                # template stage is the one exception (one host round-trip/
+                # iteration); host loop kept as an explicit fallback.
+                use_resident_trunk = True
+                if use_resident_trunk:
+                    _trunk = self._tt_trunk_module()
+                    s, z = _trunk(
+                        s_inputs, s_init, z_init, feats, recycling_steps,
+                        relative_position_encoding,
+                    )
+                    _emit_progress("trunk", recycling_steps + 1, recycling_steps + 1)
+                else:
+                    for i in range(recycling_steps + 1):
+                        _emit_progress("trunk", i + 1, recycling_steps + 1)
+                        with torch.no_grad():
+                            # Apply recycling
+                            s = s_init + self.s_recycle(self.s_norm(s))
+                            z = z_init + self.z_recycle(self.z_norm(z))
 
-                        # Compute pairwise stack
-                        if self.use_token_distances:
-                            z = z + self.token_distance_module(
-                                z, feats, pair_mask, relative_position_encoding
+                            # Compute pairwise stack
+                            if self.use_token_distances:
+                                z = z + self.token_distance_module(
+                                    z, feats, pair_mask, relative_position_encoding
+                                )
+
+                            # Compute pairwise stack
+                            if self.use_templates:
+                                z = z + self.template_module(
+                                    z, feats, pair_mask, use_kernels=self.use_kernels
+                                )
+
+                            if not self.inverse_fold:
+                                z = z + self.msa_module(
+                                    z, s_inputs, feats, use_kernels=self.use_kernels
+                                )
+
+                            s, z = self.pairformer_module(
+                                s,
+                                z,
+                                mask=mask,
+                                pair_mask=pair_mask,
+                                use_kernels=self.use_kernels,
                             )
-
-                        # Compute pairwise stack
-                        if self.use_templates:
-                            z = z + self.template_module(
-                                z, feats, pair_mask, use_kernels=self.use_kernels
-                            )
-
-                        if not self.inverse_fold:
-                            z = z + self.msa_module(
-                                z, s_inputs, feats, use_kernels=self.use_kernels
-                            )
-
-                        s, z = self.pairformer_module(
-                            s,
-                            z,
-                            mask=mask,
-                            pair_mask=pair_mask,
-                            use_kernels=self.use_kernels,
-                        )
 
             if not self.inverse_fold:
                 pdistogram = self.distogram_module(z)
