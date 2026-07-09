@@ -48,6 +48,10 @@ SEQUENCE_VOCAB = [
 BOS_TOKEN, EOS_TOKEN, UNK_TOKEN, MASK_TOKEN = 0, 2, 3, 32
 PAD_TOKEN = 1  # SEQUENCE_VOCAB index of <pad>
 BUCKET = 64    # pad the LM length to a multiple of this to avoid per-length recompilation
+# Per-batch token budget (rows x bucketed length) for the batched embed path:
+# short sequences pack a full batch_size, long ones shrink the batch toward 1 so
+# a mixed FASTA never OOMs. Scaled by batch_size so raising the knob raises headroom.
+_MAX_BATCH_TOKENS_PER_SEQ = 512
 _AA_TO_ID = {a: i for i, a in enumerate(SEQUENCE_VOCAB)}
 
 # name -> (config, hf repo id, weights path within repo). Both ship as a single
@@ -321,14 +325,15 @@ class ESMCModel(Module):
         self.norm_weight = self.torch_to_tt("transformer.norm.weight")
         self.head = RegressionHead(self.scope("sequence_head"), compute_kernel_config)
 
-    def __call__(self, tokens: ttnn.Tensor):
+    def __call__(self, tokens: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
+                 key_valid: ttnn.Tensor | None = None):
         seq_len = tokens.shape[-1]
         head_dim = self.norm_weight.shape[-1] // self.n_heads
         cos, sin = rope_tables(seq_len, head_dim, device=self.device)
 
         x = self.embed(tokens)
         for block in self.blocks:
-            x = block(x, cos, sin)
+            x = block(x, cos, sin, attn_mask, key_valid)
         emb = ttnn.layer_norm(
             x, weight=self.norm_weight, epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
@@ -367,12 +372,26 @@ class ESMC(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> ESMCModel:
         return ESMCModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
 
-    def forward(self, tokens: torch.Tensor):
+    def forward(self, tokens: torch.Tensor, attn_mask: torch.Tensor | None = None,
+                key_valid: torch.Tensor | None = None):
+        """tokens[B,L] -> (logits[B,L,64], emb[B,L,d]). Optional padding masks
+        (built by ``_batch_tokens``) let a batch of unequal-length sequences share
+        one padded, bucketed forward: ``attn_mask`` [B,L,L] additive removes padded
+        keys from the softmax denominator; ``key_valid`` [B,1,L,1] zeros padded
+        keys/values so their contribution is exactly 0."""
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        logits, emb = self.module(tokens_tt)
+        mask_tt = None if attn_mask is None else ttnn.from_torch(
+            attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
+            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
+        )
+        kv_tt = None if key_valid is None else ttnn.from_torch(
+            key_valid.to(torch.bfloat16), device=self.tt_device,
+            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
+        )
+        logits, emb = self.module(tokens_tt, mask_tt, kv_tt)
         return self._to_torch(logits), self._to_torch(emb)
 
 
@@ -673,7 +692,7 @@ def load_esmc(name: str = "esmc-300m", *, fast: bool = False):
 
 
 def _trunk_forward(model, seq: str, return_logits: bool):
-    """Run the LM trunk on one sequence.
+    """Run the LM trunk on one sequence (used for the 6B backbone).
 
     Returns (per_residue[L, d], cls[d], logits[L, 64] | None) as float32 numpy,
     with the <cls>/<eos> special tokens stripped from per_residue/logits.
@@ -691,30 +710,99 @@ def _trunk_forward(model, seq: str, return_logits: bool):
     return emb[1:-1], emb[0], logits
 
 
+def _batch_tokens(seqs: list[str], bucket: int = BUCKET):
+    """Pad a batch of sequences to a common bucketed length and build padding masks.
+
+    Each sequence is tokenized to ``[<cls> … <eos>]`` (length ``len(seq)+2``); the
+    batch is right-padded with ``<pad>`` to ``Lb`` = the smallest multiple of
+    ``bucket`` covering the longest row. Bucketing means nearby lengths share one
+    compiled program (the per-length JIT compile — not device exec — is the CLI
+    embed bottleneck). Returns ``(input_ids[B,Lb], lens, attn_mask[B,Lb,Lb] | None,
+    key_valid[B,1,Lb,1] | None)`` where ``lens[i]`` is row ``i``'s real token count.
+    The masks are ``None`` only when no row is padded (all equal length == Lb)."""
+    tok = [tokenize(s)[0] for s in seqs]         # list of 1D LongTensors
+    lens = [int(t.numel()) for t in tok]
+    Lb = ((max(lens) + bucket - 1) // bucket) * bucket
+    B = len(seqs)
+    input_ids = torch.full((B, Lb), PAD_TOKEN, dtype=torch.long)
+    for i, t in enumerate(tok):
+        input_ids[i, :lens[i]] = t
+    if all(li == Lb for li in lens):
+        return input_ids, lens, None, None
+    attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
+    key_valid = torch.ones(B, 1, Lb, 1, dtype=torch.float32)
+    for i, li in enumerate(lens):
+        attn_mask[i, :, li:] = float("-inf")     # no query attends to padded keys
+        key_valid[i, :, li:, :] = 0.0            # padded keys/values contribute 0
+    return input_ids, lens, attn_mask, key_valid
+
+
 def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = False,
-                    pool: str = "mean") -> list[ESMCEmbedding]:
+                    pool: str = "mean", batch_size: int = 8) -> list[ESMCEmbedding]:
     """Embed each {id: sequence} with an already-loaded ESMC ``model``.
 
-    One forward per sequence (distinct lengths recompile kernels; there is no
-    lossy cross-sequence batching). ``pool`` in {"mean", "max", "cls"} selects
-    the pooled vector; per-residue embeddings are always returned.
+    For the 300M/600M models, sequences are grouped (sorted by length to minimise
+    padding) into batches of up to ``batch_size`` and run through a single padded,
+    length-bucketed device forward per batch — padded positions are masked out of
+    attention so each row's embeddings are identical to running it alone. This
+    amortises the per-length kernel compile and host dispatch that dominate the
+    one-at-a-time path. The 6B backbone stays one-sequence-at-a-time (its forward
+    already buckets, and its ~13 GB of resident weights leave no room to widen the
+    batch). ``pool`` in {"mean", "max", "cls"} selects the pooled vector.
     """
     if pool not in _POOLERS:
         raise ValueError(f"unknown pool {pool!r}; choose from {sorted(_POOLERS)}")
-    results = []
     for sid, seq in sequences.items():
         if not seq:
             raise ValueError(f"sequence {sid!r} is empty")
-        model.reset_static_cache()  # length varies between sequences
-        per_residue, cls, logits = _trunk_forward(model, seq, return_logits)
-        pooled = cls if pool == "cls" else _POOLERS[pool](per_residue)
-        results.append(ESMCEmbedding(sid, seq, per_residue,
-                                     pooled.astype(np.float32), logits))
-    return results
+
+    # 6B backbone: no cross-sequence batching (already bucketed, weight-bound).
+    if isinstance(model, ESMCLanguageModel):
+        results = []
+        for sid, seq in sequences.items():
+            model.reset_static_cache()
+            per_residue, cls, logits = _trunk_forward(model, seq, return_logits)
+            pooled = cls if pool == "cls" else _POOLERS[pool](per_residue)
+            results.append(ESMCEmbedding(sid, seq, per_residue,
+                                         pooled.astype(np.float32), logits))
+        return results
+
+    items = list(sequences.items())
+    order = sorted(range(len(items)), key=lambda i: len(items[i][1]))  # short→long
+    # Sorting keeps each batch's lengths close (little padding waste). A token
+    # budget caps rows*bucketed_len so batches auto-shrink toward 1 for long
+    # sequences — full batch_size for short seqs, no OOM on a long-protein FASTA.
+    budget = batch_size * _MAX_BATCH_TOKENS_PER_SEQ
+    batches, cur, cur_max = [], [], 0
+    for i in order:
+        tok = len(items[i][1]) + 2
+        nxt_max = max(cur_max, ((tok + BUCKET - 1) // BUCKET) * BUCKET)
+        if cur and (len(cur) >= batch_size or (len(cur) + 1) * nxt_max > budget):
+            batches.append(cur); cur, cur_max = [], 0
+        cur.append(i); cur_max = max(cur_max, ((tok + BUCKET - 1) // BUCKET) * BUCKET)
+    if cur:
+        batches.append(cur)
+
+    by_id: dict[str, ESMCEmbedding] = {}
+    for idx in batches:
+        batch = [items[i] for i in idx]
+        input_ids, lens, attn_mask, key_valid = _batch_tokens([s for _, s in batch])
+        logits_b, emb_b = model(input_ids, attn_mask, key_valid)  # [B,Lb,64], [B,Lb,d]
+        for row, (sid, seq) in enumerate(batch):
+            li = lens[row]
+            emb = emb_b[row, :li].numpy().astype(np.float32)
+            per_residue, cls = emb[1:-1], emb[0]
+            logits = (logits_b[row, 1:li - 1].numpy().astype(np.float32)
+                      if return_logits else None)
+            pooled = cls if pool == "cls" else _POOLERS[pool](per_residue)
+            by_id[sid] = ESMCEmbedding(sid, seq, per_residue,
+                                       pooled.astype(np.float32), logits)
+    return [by_id[sid] for sid, _ in items]  # restore input order
 
 
 def embed(sequences, model: str = "esmc-300m", *, fast: bool = False,
-          return_logits: bool = False, pool: str = "mean") -> list[ESMCEmbedding]:
+          return_logits: bool = False, pool: str = "mean",
+          batch_size: int = 8) -> list[ESMCEmbedding]:
     """One-shot embedding: load ``model`` and embed ``sequences``.
 
     ``sequences`` may be a single string, a list of strings (auto-named seq0…),
@@ -725,7 +813,8 @@ def embed(sequences, model: str = "esmc-300m", *, fast: bool = False,
     elif isinstance(sequences, (list, tuple)):
         sequences = {f"seq{i}": s for i, s in enumerate(sequences)}
     m = load_esmc(model, fast=fast)
-    return embed_sequences(m, sequences, return_logits=return_logits, pool=pool)
+    return embed_sequences(m, sequences, return_logits=return_logits, pool=pool,
+                           batch_size=batch_size)
 
 
 def write_npz(emb: ESMCEmbedding, path) -> None:
