@@ -105,6 +105,10 @@ and a **pooled** whole-sequence vector (`--pool mean`/`max`/`cls`). Output is on
 to also write the per-residue amino-acid predictions (300M/600M), and `--fast`
 for the block-fp8 weight path. Weights download automatically on first use.
 
+Sequences batch automatically on 300M/600M (`--batch_size`, default 8) — a
+padded, length-bucketed device forward per batch, masked so results are
+identical to running each sequence alone.
+
 The same capability is available from Python:
 
 ```python
