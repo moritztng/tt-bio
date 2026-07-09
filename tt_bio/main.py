@@ -2219,7 +2219,11 @@ def warmup(max_seq, max_msa, n_samples, cache):
               help="Also write per-residue sequence-head logits (esmc-300m/600m only).")
 @click.option("--fast", is_flag=True,
               help="Use block-fp8 weights (faster, slightly lower precision).")
-def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast):
+@click.option("--batch_size", default=8, show_default=True,
+              help="Sequences per device forward (300M/600M). Padded+masked per "
+                   "batch so per-sequence embeddings are unchanged; larger values "
+                   "amortise compile/dispatch over more sequences.")
+def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch_size):
     """Compute ESMC protein-language-model embeddings for protein sequences.
 
     DATA is a FASTA file or a directory of them. Runs the ESMC LM trunk alone
@@ -2264,13 +2268,11 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast):
     m = esmc.load_esmc(model, fast=fast)
     click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
 
-    results = []
-    with click.progressbar(seqs.items(), length=len(seqs), label="embed") as items:
-        for sid, seq in items:
-            emb = esmc.embed_sequences(m, {sid: seq}, return_logits=return_logits, pool=pool)[0]
-            if out_format == "npz":
-                esmc.write_npz(emb, out / f"{sid}.npz")
-            results.append(emb)
+    results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
+                                   batch_size=batch_size)
+    if out_format == "npz":
+        for emb in results:
+            esmc.write_npz(emb, out / f"{emb.id}.npz")
 
     if out_format == "parquet":
         esmc.write_parquet(results, out / "embeddings.parquet")
