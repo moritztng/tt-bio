@@ -5,6 +5,38 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-07-10
+
+Device-resident trunk for `tt-bio gen` (BoltzGen) — no structure-model code changed for
+Boltz-2/ESMFold2/Protenix-v2 (the new `TokenDistanceRecycle`/`TrunkModule` params default to
+off/`None`, purely additive).
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.43 Å | 0.944 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 2.76 Å | 0.798 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.74 Å | 0.907 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 3.87 Å | 0.706 | ≤6.0 Å / ≥0.50 | PASS |
+
+No regression vs 0.2.3 (within TT diffusion's seed-to-seed variance band).
+
+**BoltzGen designability** — n=8 fixed-length-100 designs, `examples/binder.yaml`: scRMSD
+median 0.84 Å (resident) vs 0.91 Å (host), 7/8 designs ≤2 Å strict pass (comparable to host's
+8/8) — no regression. Wall-clock (design + refold + confidence + analysis + filtering) **697 s
+→ 479 s, ~31% faster**. See `docs/boltzgen-resident-trunk.md`.
+
+### Added
+- **BoltzGen device-resident trunk** — `TokenDistanceRecycle` (mirrors `TemplateRecycle`) keeps
+  the per-iteration token-distance injection fully on-device, collapsing 4 host↔device
+  crossings/iteration to 2 (only the template sub-module still round-trips). `Boltz.__init__`
+  takes `use_resident_trunk: bool = True`; set `false` to fall back to the original host path.
+
+### Changed
+- Promoted Protenix-v2's diffusion denoiser-unit and `AttentionPairBias(has_s=True)` ad-hoc
+  checks to proper pytest cases (test-coverage only, no functional change).
+
 ## [0.2.3] - 2026-07-09
 
 Multi-card fanout parity for `predict`, a designability (scRMSD) verify script for `tt-bio gen`,
