@@ -260,3 +260,103 @@ it once. `--devices` (per-call subprocess) is unchanged and still appropriate fo
 single ad-hoc invocation with no standing controller; `--controller` is the better
 choice for repeated/production embed workloads, especially with `esmc-6b`.
 
+---
+
+# esmc-300m/esmc-600m re-measured post thread-cap fix (2026-07-10, qb2)
+
+Follow-up to Fix 2's own caveat: the 4-card CPU-thrash signature it diagnosed for
+`esmc-6b` was also visible in the *original* table above for `esmc-600m/N=256`
+(anomalous 3-card 0.62x point), but that row was never re-measured with the fix
+applied. This closes that gap — same method as the original table (fixed
+`make_seqs`-generated input set, `--batch_size 8`, one measurement per point, warm
+compile cache), same host (qb2, 16 cores) as Fix 1/Fix 2, now covering both smaller
+ESMC variants across all three N values Fix 2 flagged as unmeasured (48/256/4096).
+
+**Method note — two deviations from the original table, neither expected to affect
+timing:** (1) `--format npz` instead of `--format parquet` — this qb2 env doesn't have
+`pyarrow`/`fastparquet` installed (not a declared dependency), and output writing is a
+small fraction of wall-clock either way. (2) **Newly hit and worked around**: on qb2
+`tt-bio embed --devices` with >1 device TT_FATALs at device-open
+(`is_custom_fabric_mesh_graph_desc_path_specified`) unless `TT_MESH_GRAPH_DESC_PATH`
+points at `p150_mesh_graph_descriptor.textproto` — this is the same qb2 P300-board-
+misdetection quirk already documented for `predict`/TT-Atom, but `embed`'s fanout path
+never had it wired in (predict's `_build_worker_device_assignments` sets it per
+worker; `esmc._spawn_shard` doesn't). Worked around here by exporting the env var only
+for the >1-device runs (the single-device path opens the chip directly, outside a
+mesh, and TT_FATALs *if* the descriptor is set). **This means `tt-bio embed --devices`
+is currently broken out-of-the-box on qb2 for >1 card** — a real gap, not something
+this task's scope includes fixing; tracked as a follow-up below.
+
+## Results
+
+| model | N | 1 card | 2 cards | 3 cards | 4 cards |
+|---|---|---|---|---|---|
+| esmc-300m | 48   | 7.9s (1.00x)   | 7.9s (1.00x)   | 8.5s (0.94x)   | 9.0s (0.88x)   |
+| esmc-300m | 256  | 15.7s (1.00x)  | 13.9s (1.13x)  | 19.3s (0.81x)  | 14.8s (1.06x)  |
+| esmc-300m | 4096 | 133.0s (1.00x) | 121.6s (1.09x) | 119.7s (1.11x) | 119.6s (1.11x) |
+| esmc-600m | 48   | 9.1s (1.00x)   | 9.4s (0.96x)   | 9.9s (0.92x)   | 16.1s (0.57x)  |
+| esmc-600m | 256  | 18.6s (1.00x)  | 16.4s (1.14x)  | 21.4s (0.87x)  | 17.5s (1.06x)  |
+| esmc-600m | 4096 | 163.3s (1.00x) | 147.7s (1.11x) | 144.8s (1.13x) | 143.6s (1.14x) |
+
+(esmc-600m/48/1-card was measured twice: a cold-cache 97.3s first pass — the first
+`esmc-600m` compile on this host during this sweep — and a 9.1s warm re-run once the
+compile cache was warm, exactly the compile-dominated/disk-cached pattern
+`esmc-embed-batching` already found. The warm number is what's tabulated, matching
+the "warm wall-clock" method every other point in this doc uses.)
+
+## 1. Is the 600m/N=256 3-card anomaly gone?
+
+**Yes, the severe version is gone.** The original table's 3-card point was 23.2s vs
+14.5s(1card)/14.7s(2card) — a 0.62x cliff, roughly 1.6x *slower* than its neighbors.
+Re-measured here: 21.4s vs 18.6s(1card)/16.4s(2card) — 0.87x, a mild dip fully inside
+the noise band this doc's own caveats already flagged ("600M/256 numbers... bounce
+around (14.5/14.7/23.2/15.5s) enough that individual points have real noise"). No
+point in either model at any N showed a repeat of a >1.5x cliff at 3 cards. Given
+single-run methodology (no repeats, same limitation as the original table), it isn't
+possible to fully separate "Fix 2 helped" from "the original 0.62x was itself just an
+unlucky noisy sample" — but the *qualitative* regression signature the fix targeted
+(severe, isolated 3-card cliff) did not reproduce.
+
+## 2. Regression check for previously-documented configurations
+
+**No regression.** `esmc-300m` was never in the original wall-clock table (only used
+as the `esmc_multicard_parity.py` default model), so there's nothing prior to compare
+it against — these are new baseline numbers, not a re-check. For `esmc-600m/256` and
+`esmc-600m/4096`, the only rows that were previously measured (on **qb1**, not qb2 —
+the original table's header says so explicitly), the qb2 numbers are real but far more
+modest than qb1's: `600m/4096` scales only to 1.11-1.14x here vs qb1's ~2x, and
+`600m/256` shows small (~1.1x) wins/dips instead of qb1's noisy-but-roughly-flat
+shape. This is **not** a regression caused by the thread-cap fix — Fix 2 only changes
+host env vars in the shard subprocess, it cannot make things slower, and no config
+here is worse than its own 1-card baseline by more than the noise band already
+documented. The gap vs qb1's numbers is a cross-host difference, most plausibly the
+newly-found mesh-descriptor gap above: every >1-device shard subprocess on qb2 pays a
+P300-workaround control-plane/mesh init cost that qb1 (real P150a boards, no
+misdetection) never pays. That cost is negligible next to `esmc-6b`'s 10-16s weight
+load (hence 6b fanout still scales cleanly on qb2, per Fix 2 above) but is
+comparable to `esmc-300m`/`esmc-600m`'s much smaller per-shard load/init time — capping
+their multi-card win on this host specifically. Not root-caused further here (would
+need per-shard phase timing, `TT_BIO_TIMING`, to confirm); flagged as a follow-up.
+
+One new small-N anomaly, same known cause as the rest of this doc: `esmc-600m/N=48`
+at 4 cards is 0.57x (16.1s vs 9.1s@1card) — 12 seq/shard is too little compute to
+amortize the per-shard fixed cost (now inflated further by the mesh-descriptor
+overhead above), the same "fanout doesn't pay off below some N" pattern already
+documented for small batches elsewhere in this doc. Not a fanout-fix regression.
+
+## 3. Parity — SACRED, re-verified
+
+`scripts/esmc_multicard_parity.py --n 24 --shards 4` (with `TT_MESH_GRAPH_DESC_PATH`
+set, see method note): **PASS, bit-exact** (`Δmax per_residue=0 pooled=0`) for both
+`esmc-300m` and `esmc-600m`. Thread-pool sizing and the mesh-descriptor env var are
+both host/env-only changes — device numerics are unaffected, as expected.
+
+## Follow-up (not done here, out of scope for this pass)
+
+`tt-bio embed --devices` with >1 device is currently broken out-of-the-box on qb2
+(TT_FATAL at device-open) because `esmc._spawn_shard` doesn't set
+`TT_MESH_GRAPH_DESC_PATH` the way `predict`'s worker-assignment path does for
+detected P300 boards. Low-risk, mechanical fix (mirror
+`main._build_worker_device_assignments`'s P300 detection into `_spawn_shard`'s env);
+tracked here since this pass needed the manual workaround to run at all.
+

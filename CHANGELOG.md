@@ -36,6 +36,20 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
     (`scripts/esmc6b_shared_cache_parity.py`, `scripts/esmc_multicard_parity.py`,
     max|Δ|=0); all other models and the single-card path are unchanged.
 
+### Measured
+- Re-measured `esmc-300m`/`esmc-600m` `--devices` wall-clock scaling on qb2 post
+  thread-cap fix (N=48/256/4096, see `docs/esmc-multicard-scaling.md`): the original
+  table's `esmc-600m/N=256` 3-card 0.62x cliff does not reproduce (now a 0.87x dip,
+  within run-to-run noise) — no regression for either model at any previously-fine
+  config. New finding: both models scale far more modestly on qb2 (~1.1x@4cards for
+  N=4096) than the original table's qb1 numbers (~2x), most likely because `embed
+  --devices` pays an extra per-shard mesh-topology setup cost on qb2 that `esmc-6b`'s
+  large weight load absorbs but these smaller models don't — also surfaced that
+  `embed --devices` with >1 device currently TT_FATALs out-of-the-box on qb2 unless
+  `TT_MESH_GRAPH_DESC_PATH` is set manually (the `predict` path already handles this
+  P300-board-misdetection quirk automatically; `embed`'s fanout path doesn't yet).
+  Parity re-verified bit-exact for both models.
+
 ## [0.2.4] - 2026-07-10
 
 Device-resident trunk for `tt-bio gen` (BoltzGen) — no structure-model code changed for
