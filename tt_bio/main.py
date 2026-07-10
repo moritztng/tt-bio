@@ -1787,7 +1787,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
 @click.option("--checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
-@click.option("--recycling_steps", default=3, type=int)
+@click.option("--recycling_steps", default=None, type=int,
+              help="Trunk recycling iterations. Default: protenix-v2 uses its spec of 10; boltz2/esmfold2 use 3.")
 @click.option("--sampling_steps", default=200, type=int)
 @click.option("--diffusion_samples", default=1, type=int)
 @click.option("--max_parallel_samples", default=5, type=int)
@@ -1886,6 +1887,14 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         raise click.BadParameter("--diffusion_samples_affinity must be at least 1")
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
+
+    # Per-model recycling default: protenix-v2's spec is 10 trunk-recycling cycles
+    # (protenix.Trunk.N_CYCLES); the shared flag's historical 3 is the Boltz-2/AF3
+    # convention. Running protenix-v2 at 3 under-recycles the trunk, leaving a bimodal
+    # ensemble whose confidence head then mis-ranks the samples
+    # (docs/protenix-confidence-head-rootcause.md). An explicit --recycling_steps overrides.
+    if recycling_steps is None:
+        recycling_steps = 10 if model == "protenix-v2" else 3
 
     use_tt = accelerator == "tenstorrent"
     if fast and not use_tt:
