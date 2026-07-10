@@ -1745,7 +1745,7 @@ def _resolve_recycling_steps(recycling_steps, model):
     protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); boltz2/esmfold2 use the
     Boltz-2/AF3 convention of 3. An explicit --recycling_steps is honored verbatim for every
     model. Running protenix-v2 at 3 under-recycles the trunk, leaving a bimodal ensemble whose
-    confidence head then mis-ranks the samples (docs/protenix-confidence-head-rootcause.md).
+    confidence head then mis-ranks the samples (docs/protenix-recycling-revisit.md).
     """
     if recycling_steps is not None:
         return recycling_steps
