@@ -88,15 +88,15 @@ should produce. The fresh 2-design run above (`binder` 0.90 Å, `binder_1` 0.62 
 ~40 min end-to-end on one card (design step dominates), the basis for the gate
 recommendation below.
 
-## Release-gate recommendation: standalone, not in the fast gate
+## Release-gate status: wired into `scripts/release_gate.py`
 
-A meaningful designability read needs several designs at **production sampling** (design
-at 500 steps dominates wall time — ~10 min/design on Blackhole per the regression test),
-so a full gen run is tens of minutes. `scripts/release_gate.py` folds four models in a
-couple of minutes each; a full gen run would dominate it. A single design at reduced
-sampling is not a reliable gate (one bad seed → false fail; low steps distort geometry).
-
-**Recommendation:** keep this as a standalone pre-release / periodic verify, run on a
-dedicated card. Do *not* add a full gen run to the fast release gate. The metric is
-gate-*ready* (`--min-pass-rate` returns a non-zero exit) if a slow accuracy gate is ever
-split out from the fast one.
+The ~40 min/2-design estimate above (this doc's original recommendation) predicted a full
+n=4 gen run would run tens of minutes and dominate the fast fold-model gate, so it was kept
+standalone. A fresh n=4 reproduction of this exact target/protocol on 2026-07-10 (main HEAD,
+after the device-resident-trunk merge, `docs/boltzgen-resident-trunk.md`) measured **271 s
+(4.5 min) end-to-end** (design + inverse-fold + refold + analysis + filtering) — 0.85 Å
+median scRMSD, 4/4 designs ≤2 Å. That is comparable to a single fold model's leg, so the
+original "keep it out of the fast gate" call no longer holds at this n: BoltzGen is now the
+fifth leg of `scripts/release_gate.py` (`--model boltzgen`, on by default), gating the same
+`designfolding-bb_rmsd` column via this script's `_run_gen`/`score` (not re-derived) against
+a ≤2 Å / ≥50%-of-4 floor.
