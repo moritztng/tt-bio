@@ -149,6 +149,15 @@ batches, and for `esmc-6b` beyond 2 cards even at N=256 (concurrent multi-GB wei
 loads contend on the host). See `docs/esmc-multicard-scaling.md` for numbers before
 reaching for `--devices` on a small job or the 6B model.
 
+For repeated/production embedding, submit to a persistent pool instead — a worker
+loads its model once and keeps it resident across every call, so the reload cost
+above is paid once per worker, not once per invocation:
+
+```bash
+tt-bio controller --listen 8765          # starts + keeps a worker per local card
+tt-bio embed proteins.fasta --model esmc-6b --controller http://localhost:8765
+```
+
 The same capability is available from Python:
 
 ```python
