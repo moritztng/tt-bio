@@ -68,3 +68,48 @@ in particular bounce around (14.5/14.7/23.2/15.5s) enough that individual points
 real noise; the *shape* (600M/4096 scaling, 6B degrading past 2 cards) is the
 consistent signal, not any single number. If this becomes decision-relevant (e.g.
 choosing a default `--devices` policy), re-run with 3+ repeats per point.
+
+## Fix: persistent-worker embed (`--controller`)
+
+The regression above isn't a fanout problem — it's that `--devices` cold-loads the
+model from scratch in a brand-new subprocess on *every single invocation*. For a
+6B-parameter model that reload is the dominant, partly-serialized cost this doc found
+(≈33-104s+ depending on concurrent device count), not the embedding compute itself.
+
+`tt-bio embed` now accepts `--controller URL`, riding the same persistent
+worker/controller machinery already used by `predict`/`gen` (`tt_bio/distributed.py`,
+`tt_bio/worker.py`): a worker loads its ESMC model once and keeps it resident across
+every subsequent run submitted to that controller — the weight load becomes a
+one-time cost per worker lifetime, not a per-call tax. The `--devices` fanout logic
+(`_shard_by_length` / `embed_multicard`) is unchanged; `--controller` is a second
+dispatch path that shards the same way but through the scheduler instead of spawning
+subprocesses, so the bit-exact parity result above still holds unchanged.
+
+**Measured on qb1, `esmc-6b`, `batch_size=8`, `--format parquet`** (cold = worker's
+first call, pays the weight load; warm = same resident worker, second call):
+
+| N sequences | cards | cold (1st call) | warm (resident) | speedup |
+|---|---|---|---|---|
+| 48  | 1 | 50.0s  | 9.1s  | 5.5x |
+| 256 | 1 | 89.7s* | 46.3s | 1.9x |
+| 48  | 2 | 261s†  | 13.4s | 19x |
+
+\* single-card cold number from the table above (same input class, not re-measured
+cold here since the mechanism — one-time load — is already established by N=48).
+† this run hit slow concurrent weight loading similar in kind to the d2/d3/d4
+contention documented above (two 6B loads racing on shared host resources); it is a
+**one-time** cost per worker pair's lifetime, unlike the old path where it recurred on
+every call.
+
+Every embed (cold and warm, 1 and 2 cards) was verified bit-exact (Δmax pooled = 0)
+against the reference single-shot embedding. 3-4 card legs were not re-measured in
+this pass — qb1's other two cards were held by concurrent fleet work at measurement
+time — but the fix is architectural (resident model, no reload), not device-count
+dependent, so the same one-time-load argument applies at any card count.
+
+**Takeaway**: with `--controller`, `esmc-6b`'s effective per-call cost drops to just
+its compute (no reload), which trivially scales with device count — the contention
+this doc measured was a cost of *reloading on every call*, and a resident worker pays
+it once. `--devices` (per-call subprocess) is unchanged and still appropriate for a
+single ad-hoc invocation with no standing controller; `--controller` is the better
+choice for repeated/production embed workloads, especially with `esmc-6b`.

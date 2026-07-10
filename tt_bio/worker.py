@@ -77,6 +77,10 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
         return
+    # ESMC embedding: weights come straight from the HF cache (load_esmc), no
+    # Boltz-2 checkpoints/molecule library/MSA dir needed.
+    if _is_esmc_model(cfg.get("model", "boltz2")):
+        return
     from tt_bio.main import download_all
 
     download_all(cache)
@@ -97,6 +101,17 @@ def _resolve_msa_dir(requested: str | None, cache: Path) -> str:
     fallback = cache / "msa"
     fallback.mkdir(parents=True, exist_ok=True)
     return str(fallback)
+
+
+def _is_esmc_model(model_id: str) -> bool:
+    """True for any ESMC embedding model name (esmc-300m/600m/6b).
+
+    Lazily imports tt_bio.esmc (which imports ttnn at module scope) so a
+    worker that never handles embed jobs never pays that import cost.
+    """
+    from tt_bio.esmc import MODELS
+
+    return model_id in MODELS
 
 
 class _WorkerState:
@@ -182,6 +197,10 @@ class _WorkerState:
             from tt_bio.protenix import Protenix
 
             self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
+        elif _is_esmc_model(model_id):
+            from tt_bio.esmc import load_esmc
+
+            self.model = load_esmc(model_id, fast=cfg.get("fast", False))
         else:
             from tt_bio.boltz2 import Boltz2
             from tt_bio.data.featurizer import Boltz2Featurizer
@@ -226,6 +245,8 @@ class _WorkerState:
             return self._predict_protenix_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
             return self._predict_esmfold2_one(path, cfg)
+        if _is_esmc_model(cfg.get("model", "boltz2")):
+            return self._predict_embed_one(path, cfg)
 
         from tt_bio.main import to_batch, write_result
 
@@ -405,6 +426,38 @@ class _WorkerState:
             import numpy as np
             np.savez(struct_dir / f"{stem}_pae.npz",
                      pae=best["pae"].numpy(), pde=best["pde"].numpy())
+        return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
+
+    def _predict_embed_one(self, path: Path, cfg: dict[str, Any]):
+        """Embed one job's shard of sequences with the resident ESMC model.
+
+        ``path`` is a YAML ``{id: sequence}`` mapping (one shard of a larger
+        --controller embed run). Writes per-sequence ``.npz`` (or one shard
+        parquet, named by job id to avoid colliding with other shards' output
+        once every job's outputs land in the same directory) into struct_dir —
+        the same output-shipping path predict/design jobs already use.
+        """
+        import types
+
+        from tt_bio.esmc import embed_sequences, load_sequences, write_npz, write_parquet
+
+        sequences = load_sequences(path)
+        results = embed_sequences(
+            self.model, sequences, return_logits=cfg.get("return_logits", False),
+            pool=cfg.get("pool", "mean"), batch_size=cfg.get("batch_size", 8),
+        )
+        struct_dir = Path(cfg["struct_dir"])
+        if cfg.get("output_format") == "parquet":
+            write_parquet(results, struct_dir / f"{cfg['job_id']}.parquet")
+        else:
+            for emb in results:
+                write_npz(emb, struct_dir / f"{emb.id}.npz")
+        metrics = {
+            "n_sequences": len(results),
+            "d_model": int(results[0].pooled.shape[0]) if results else 0,
+            "ids": [e.id for e in results],
+            "lengths": [len(e.sequence) for e in results],
+        }
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def predict_affinity(self, path: Path, pred_structure, cfg: dict[str, Any]) -> dict[str, float]:
@@ -620,6 +673,7 @@ def _execute_job(
 
     job_cfg = dict(cfg)
     job_cfg["struct_dir"] = str(output_dir)
+    job_cfg["job_id"] = job_id
 
     outputs: dict[str, str] = {}
     emit("start", name=job_id)

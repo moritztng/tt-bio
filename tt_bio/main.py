@@ -2271,6 +2271,71 @@ def warmup(max_seq, max_msa, n_samples, cache):
     click.echo(f"\nDone — {time.time()-total:.0f}s total")
 
 
+def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model: str,
+                                  out: Path, out_format: str, pool: str, return_logits: bool,
+                                  fast: bool, batch_size: int, owner: str | None) -> None:
+    """Shard ``sequences`` across whatever workers are already connected to
+    ``controller_url`` and reassemble their embeddings under ``out``.
+
+    Rides the exact same run/lease/stream machinery as predict/design
+    (``_dispatch_to_controller``) — a worker keeps its ESMC model resident
+    across leases (see ``worker._WorkerState``), so a warm fleet serves this
+    call with no weight reload, unlike the per-call subprocess ``--devices``
+    fanout (``esmc.embed_multicard``).
+    """
+    import yaml
+
+    from tt_bio import esmc
+
+    client = ControllerClient(controller_url)
+    try:
+        online = int(client.cluster().get("online_workers") or 0)
+    except Exception as exc:
+        raise click.ClickException(f"Cannot reach controller at {controller_url}: {exc}")
+    if online < 1:
+        raise click.ClickException(
+            f"No workers connected to {controller_url}. Start a pool with `tt-bio controller` "
+            f"or join one with `tt-bio worker --connect {controller_url}`.")
+
+    items = list(sequences.items())
+    shards = esmc._shard_by_length(items, max(1, min(online, len(items))))
+    jobs = [
+        {"id": f"shard_{i}", "name": f"shard_{i}.yaml",
+         "input_b64": base64.b64encode(yaml.safe_dump(dict(shard)).encode()).decode()}
+        for i, shard in enumerate(shards) if shard
+    ]
+    worker_cfg = {"model": model, "fast": fast, "pool": pool,
+                  "return_logits": return_logits, "batch_size": batch_size,
+                  "output_format": out_format}
+    results_path = out / "results.json"
+    run_payload = {"data": f"{len(items)} sequence(s)", "out_dir": str(out), "result_dir": str(out),
+                  "jobs": jobs, "config": worker_cfg, "owner": owner}
+    click.echo(f"Dispatching {len(jobs)} shard(s) covering {len(items)} sequence(s) "
+              f"{'(fast) ' if fast else ''}to {online} worker(s) at {controller_url}")
+    _dispatch_to_controller(controller_url, run_payload, total=len(jobs), results_path=results_path,
+                            struct_dir=out, model=model, debug=False, log=False)
+
+    rows = [r for r in _load_results_resilient(results_path) if r.get("status") == "ok"]
+    if not rows:
+        raise click.ClickException("Every embed shard failed — see the errors above.")
+
+    if out_format == "parquet":
+        import pandas as pd
+
+        frames = [pd.read_parquet(out / f"{r['id']}.parquet") for r in rows]
+        pd.concat(frames, ignore_index=True).to_parquet(out / "embeddings.parquet")
+        for r in rows:
+            (out / f"{r['id']}.parquet").unlink(missing_ok=True)
+        click.echo(f"Wrote {out / 'embeddings.parquet'}")
+
+    id_lengths = [pair for r in rows for pair in zip(r["ids"], r["lengths"])]
+    d_model = next((r["d_model"] for r in rows if r.get("d_model")), 0)
+    esmc.write_manifest_for(id_lengths, d_model, out / "manifest.json", model=model, pool=pool,
+                           fast=fast, out_format=out_format, return_logits=return_logits)
+    click.echo(f"Done — {sum(r['n_sequences'] for r in rows)} sequence(s), d_model={d_model} "
+               f"→ {out} (see manifest.json)")
+
+
 @cli.command("embed")
 @click.argument("data")
 @click.option("--model", type=click.Choice(["esmc-300m", "esmc-600m", "esmc-6b"]),
@@ -2294,8 +2359,19 @@ def warmup(max_seq, max_msa, n_samples, cache):
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
-                   "results are reassembled in input order. Default: this machine's single card.")
-def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch_size, devices):
+                   "results are reassembled in input order. Default: this machine's single card. "
+                   "Ignored with --controller.")
+@click.option("--controller", default=None,
+              help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
+                   "worker --connect`) instead of spawning local subprocess shards. Workers keep "
+                   "the ESMC model resident across calls, so repeated embed runs against the same "
+                   "controller skip the weight reload that otherwise dominates wall-clock for "
+                   "large models (see docs/esmc-multicard-scaling.md).")
+@click.option("--owner", default=None,
+              help="Opaque fairness key the controller uses to fair-share workers across users. "
+                   "Requires --controller.")
+def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch_size, devices,
+              controller, owner):
     """Compute ESMC protein-language-model embeddings for protein sequences.
 
     DATA is a FASTA file, a directory of them, a YAML file (a flat
@@ -2324,6 +2400,15 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
 
     out = Path(out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
+
+    if controller:
+        if devices:
+            click.secho("Note: --devices is ignored with --controller (device topology comes "
+                        "from connected workers).", fg="yellow")
+        _dispatch_embed_to_controller(controller, seqs, model=model, out=out, out_format=out_format,
+                                      pool=pool, return_logits=return_logits, fast=fast,
+                                      batch_size=batch_size, owner=owner)
+        return
 
     device_list = None
     if devices:

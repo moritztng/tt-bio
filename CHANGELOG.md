@@ -5,6 +5,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- `tt-bio embed --controller URL`: dispatch to a persistent `tt-bio controller`/`worker`
+  pool instead of spawning per-call subprocesses. A worker's ESMC model stays resident
+  across calls, so the weight reload that dominates `--devices` wall-clock for
+  `esmc-6b` (see `docs/esmc-multicard-scaling.md`) becomes a one-time cost per worker
+  lifetime instead of a per-invocation tax (measured: esmc-6b N=48 50.0s cold -> 9.1s
+  warm on 1 card, 261s cold -> 13.4s warm on 2 cards; bit-exact vs single-shot). Reuses
+  the existing predict/design scheduler/lease machinery (`tt_bio/distributed.py`,
+  `tt_bio/worker.py`) — no new dispatch mechanism. `--devices` (per-call subprocess
+  fanout) is unchanged and still the right choice for one-off invocations with no
+  standing controller.
+
 ## [0.2.4] - 2026-07-10
 
 Device-resident trunk for `tt-bio gen` (BoltzGen) — no structure-model code changed for

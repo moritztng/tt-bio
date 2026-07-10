@@ -1028,9 +1028,22 @@ def write_manifest(embeddings: list[ESMCEmbedding], path, *, model: str, pool: s
     and which file holds each sequence — so a downstream consumer never has to
     read the code to know what it's looking at.
     """
+    id_lengths = [(e.id, len(e.sequence)) for e in embeddings]
+    d_model = int(embeddings[0].pooled.shape[0])
+    write_manifest_for(id_lengths, d_model, path, model=model, pool=pool, fast=fast,
+                       out_format=out_format, return_logits=return_logits)
+
+
+def write_manifest_for(id_lengths: list[tuple[str, int]], d_model: int, path, *, model: str,
+                       pool: str, fast: bool, out_format: str, return_logits: bool) -> None:
+    """Core of :func:`write_manifest`, taking ``(id, length)`` pairs directly.
+
+    Lets a caller that only has per-sequence id/length (e.g. reassembled from
+    several --controller shard results, never materialized as ESMCEmbedding
+    objects) still emit the same manifest shape.
+    """
     import json
 
-    d_model = int(embeddings[0].pooled.shape[0])
     manifest = {
         "model": model, "pool": pool, "fast": fast, "format": out_format,
         "d_model": d_model, "dtype": "float32", "logits": bool(return_logits),
@@ -1040,9 +1053,9 @@ def write_manifest(embeddings: list[ESMCEmbedding], path, *, model: str, pool: s
             "logits": "[length, 64] float32 (per-residue sequence-head logits)" if return_logits else None,
         },
         "sequences": [
-            {"id": e.id, "length": len(e.sequence),
-             "file": f"{e.id}.npz" if out_format == "npz" else "embeddings.parquet"}
-            for e in embeddings
+            {"id": sid, "length": length,
+             "file": f"{sid}.npz" if out_format == "npz" else "embeddings.parquet"}
+            for sid, length in id_lengths
         ],
     }
     Path(path).write_text(json.dumps(manifest, indent=2))
