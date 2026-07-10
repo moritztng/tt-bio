@@ -1739,6 +1739,19 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
         (msa_dir / f"{h}.a3m").write_text(res[i])
 
 
+def _resolve_recycling_steps(recycling_steps, model):
+    """Per-model default trunk-recycling count when --recycling_steps is unset (None).
+
+    protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); boltz2/esmfold2 use the
+    Boltz-2/AF3 convention of 3. An explicit --recycling_steps is honored verbatim for every
+    model. Running protenix-v2 at 3 under-recycles the trunk, leaving a bimodal ensemble whose
+    confidence head then mis-ranks the samples (docs/protenix-confidence-head-rootcause.md).
+    """
+    if recycling_steps is not None:
+        return recycling_steps
+    return 10 if model == "protenix-v2" else 3
+
+
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                          single_sequence, cache, controller, msa_server_url):
     """Resolve the MSA source for MSA-dependent models (boltz2, protenix-v2).
@@ -1888,13 +1901,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
 
-    # Per-model recycling default: protenix-v2's spec is 10 trunk-recycling cycles
-    # (protenix.Trunk.N_CYCLES); the shared flag's historical 3 is the Boltz-2/AF3
-    # convention. Running protenix-v2 at 3 under-recycles the trunk, leaving a bimodal
-    # ensemble whose confidence head then mis-ranks the samples
-    # (docs/protenix-confidence-head-rootcause.md). An explicit --recycling_steps overrides.
-    if recycling_steps is None:
-        recycling_steps = 10 if model == "protenix-v2" else 3
+    # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2 -> its
+    # spec 10, boltz2/esmfold2 -> 3; an explicit --recycling_steps overrides either.
+    recycling_steps = _resolve_recycling_steps(recycling_steps, model)
 
     use_tt = accelerator == "tenstorrent"
     if fast and not use_tt:
