@@ -422,6 +422,31 @@ class WeightScope:
 
 Weights = Mapping[str, torch.Tensor] | WeightScope
 
+# Process-global shared tiled-weight cache. None disables it (default: every model
+# tiles+uploads its own weights via from_torch). Set via weight_cache() around a
+# module construction to route torch_to_tt through a /dev/shm tile cache shared by
+# data-parallel fanout workers (see torch_to_tt and esmc.load_esmc6b_shared).
+_weight_cache = None
+
+
+@contextlib.contextmanager
+def weight_cache(cache_dir: str, mode: str):
+    """Route torch_to_tt through a shared tiled-weight cache in ``cache_dir``.
+
+    mode="dump": tile on host and publish each weight to the cache (then upload).
+    mode="load": load each pre-tiled weight from the cache and upload (no host tiling,
+    no checkpoint read). The call-index ordering must match between dump and load,
+    which holds because both construct the identical module.
+    """
+    global _weight_cache
+    prev = _weight_cache
+    _weight_cache = {"dir": cache_dir, "mode": mode, "counter": 0}
+    try:
+        yield
+    finally:
+        _weight_cache = prev
+
+
 class Module:
     def __init__(
         self,
@@ -441,12 +466,31 @@ class Module:
         transform: Callable[[torch.Tensor], torch.Tensor] = lambda x: x.t(),
         dtype=ttnn.bfloat16,
     ) -> ttnn.Tensor:
-        return ttnn.from_torch(
-            transform(self.weights[key]),
-            layout=ttnn.TILE_LAYOUT,
-            device=self.device,
-            dtype=dtype,
-        )
+        wc = _weight_cache
+        if wc is None:
+            return ttnn.from_torch(
+                transform(self.weights[key]),
+                layout=ttnn.TILE_LAYOUT,
+                device=self.device,
+                dtype=dtype,
+            )
+        # Shared tiled-weight cache (data-parallel fanout): every worker constructs
+        # the identical module in the identical order, so the running call index is a
+        # stable key. The builder tiles fp32->device-dtype on host once and dumps the
+        # tile to /dev/shm; peers load_tensor it (RAM, no disk read, no re-tiling) and
+        # only pay the per-card DMA. Bit-exact: the dumped tile is what from_torch
+        # would have produced.
+        i = wc["counter"]
+        wc["counter"] = i + 1
+        path = os.path.join(wc["dir"], f"{i}.tensorbin")
+        if wc["mode"] == "load":
+            host = ttnn.load_tensor(path)
+        else:
+            host = ttnn.from_torch(transform(self.weights[key]), layout=ttnn.TILE_LAYOUT, dtype=dtype)
+            tmp = f"{path}.{os.getpid()}.tmp.tensorbin"  # dump_tensor requires a .tensorbin name
+            ttnn.dump_tensor(tmp, host)
+            os.replace(tmp, path)  # atomic publish
+        return ttnn.to_device(host, self.device)
 
     def _lin(self, x, w, bias=None, dtype=ttnn.bfloat16, **kw):
         """Shared linear projection: ttnn.linear on this module's kernel config +

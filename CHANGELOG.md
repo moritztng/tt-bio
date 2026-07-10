@@ -18,6 +18,24 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   fanout) is unchanged and still the right choice for one-off invocations with no
   standing controller.
 
+### Fixed
+- ESMC-6B `--devices` fanout regression past 2 cards, root-caused to two independent
+  host-side bottlenecks (both fixed, verified bit-exact, end-to-end scaling now
+  monotonic to 4 cards — see `docs/esmc-multicard-scaling.md`):
+  - **Redundant weight loading**: the N data-parallel workers now share one host-tiled
+    copy of the 24 GB checkpoint via a `/dev/shm` cache (`esmc.load_esmc6b_shared` +
+    `tenstorrent.weight_cache`) instead of each independently reading+tiling it.
+    Per-worker load drops from ~10–16 s (∝N, bandwidth-contended) to ~2.2 s.
+  - **Host CPU thread-pool oversubscription**: each shard subprocess's torch/OMP/BLAS
+    pools defaulted to *all* host cores, so N co-resident shards oversubscribed the
+    host (~21 loadavg on a 16-core host at N=4). `esmc._thread_cap_env` caps them to
+    `cores // n_workers`, mirroring the existing `main._cap_worker_threads` fix for
+    the fleet worker pool.
+  - Net: esmc-6b/N=256 on qb2 goes from 0.66x@4-cards (regression) to **1.49x@4-cards**
+    (monotonic 1.00x → 1.33x → 1.43x → 1.49x). Bit-exact vs single-card
+    (`scripts/esmc6b_shared_cache_parity.py`, `scripts/esmc_multicard_parity.py`,
+    max|Δ|=0); all other models and the single-card path are unchanged.
+
 ## [0.2.4] - 2026-07-10
 
 Device-resident trunk for `tt-bio gen` (BoltzGen) — no structure-model code changed for
