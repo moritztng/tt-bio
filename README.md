@@ -144,10 +144,11 @@ tt-bio embed proteins.fasta --model esmc-600m --devices 0,1,2,3
 
 **Measured, not assumed:** fanout only pays off when there's enough work per shard
 to amortize each worker's own model-load/device-init cost — real (~2x @ 4 cards) for
-`esmc-600m` on large batches (N≈4096), but flat or *worse* than one card for small
-batches, and for `esmc-6b` beyond 2 cards even at N=256 (concurrent multi-GB weight
-loads contend on the host). See `docs/esmc-multicard-scaling.md` for numbers before
-reaching for `--devices` on a small job or the 6B model.
+`esmc-600m` on large batches (N≈4096), but flat or *worse* than one card for very
+small batches. `esmc-6b` scales monotonically to 4 cards (~1.5x @ N=256) since the
+weight-load and host-CPU contention that used to regress it past 2 cards are both
+fixed. See `docs/esmc-multicard-scaling.md` for numbers before reaching for
+`--devices` on a small job.
 
 The same capability is available from Python:
 

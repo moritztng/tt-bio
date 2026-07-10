@@ -965,9 +965,26 @@ def _run_embed_shard(in_path: str, out_path: str) -> None:
         pickle.dump(results, f)
 
 
+def _thread_cap_env(n_workers: int) -> dict:
+    """Cap each shard's torch/OMP/BLAS host thread pools to cores/n_workers.
+
+    Each subprocess's numpy/torch pools otherwise default to ALL host cores, so N
+    co-resident shards spawn N*cores threads that thrash the host CPU -- confirmed
+    via `ps -eLo pcpu` during a 4-card esmc-6b run (each shard bursts to 200-380%
+    CPU, host loadavg > 2x core count) as the residual fanout regression left after
+    fixing the weight-load contention (see docs/esmc-multicard-scaling.md). Mirrors
+    the identical fix already applied to the fleet worker pool in
+    ``main._cap_worker_threads``; an operator-set value wins.
+    """
+    cap = max(1, (os.cpu_count() or 1) // max(1, n_workers))
+    return {var: str(cap) for var in
+            ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
+            if var not in os.environ}
+
+
 def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: str, *,
                  model: str, fast: bool, return_logits: bool, pool: str, batch_size: int,
-                 cache_dir: str | None = None):
+                 cache_dir: str | None = None, thread_cap_env: dict | None = None):
     """Launch a pinned subprocess embedding ``shard`` on physical card ``device``.
 
     Returns ``(proc, out_path, device, log_path, logf)``. The child sets
@@ -982,7 +999,8 @@ def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: s
         pickle.dump(dict(model=model, sequences=dict(shard), fast=fast,
                          return_logits=return_logits, pool=pool, batch_size=batch_size,
                          cache_dir=cache_dir), f)
-    env = {**os.environ, "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
+    env = {**os.environ, **(thread_cap_env or {}),
+           "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
     logf = open(log_path, "w")
     proc = subprocess.Popen(
         [sys.executable, "-c",
@@ -1038,11 +1056,12 @@ def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int]
     # re-reading+re-tiling the checkpoint (which regressed past 2 cards).
     cache_dir = (tempfile.mkdtemp(prefix="esmc6b-tiles-", dir=_shm_dir())
                  if model == "esmc-6b" else None)
+    thread_cap_env = _thread_cap_env(len(devices))
     try:
         handles = [
             _spawn_shard(idx, dev, shard, workdir, model=model, fast=fast,
                          return_logits=return_logits, pool=pool, batch_size=batch_size,
-                         cache_dir=cache_dir)
+                         cache_dir=cache_dir, thread_cap_env=thread_cap_env)
             for idx, (dev, shard) in enumerate(zip(devices, shards)) if shard
         ]
         results = [_await_shard(*h) for h in handles]
