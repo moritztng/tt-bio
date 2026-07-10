@@ -5,6 +5,17 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- ESMC-6B `--devices` fanout no longer does O(N) redundant weight loading. The N
+  data-parallel workers now share one host-tiled copy of the 24 GB checkpoint via a
+  `/dev/shm` cache (`esmc.load_esmc6b_shared` + `tenstorrent.weight_cache`): one worker
+  tiles+publishes each weight once, peers `ttnn.load_tensor` it straight to their card.
+  Per-worker load drops from ~10–16 s (∝N, bandwidth-contended) to ~2.2 s. Bit-exact vs
+  the single-card path (`scripts/esmc6b_shared_cache_parity.py`, max|Δ|=0); all other
+  models and the single-card path are unchanged (`_weight_cache is None`). End-to-end
+  1/2/4-card wall-clock re-measurement on qb2 is pending free cards — see
+  `docs/esmc-multicard-scaling.md`.
+
 ## [0.2.4] - 2026-07-10
 
 Device-resident trunk for `tt-bio gen` (BoltzGen) — no structure-model code changed for
