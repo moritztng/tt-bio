@@ -143,12 +143,14 @@ tt-bio embed proteins.fasta --model esmc-600m --devices 0,1,2,3
 ```
 
 **Measured, not assumed:** fanout only pays off when there's enough work per shard
-to amortize each worker's own model-load/device-init cost — real (~2x @ 4 cards) for
-`esmc-600m` on large batches (N≈4096), but flat or *worse* than one card for very
-small batches. `esmc-6b` scales monotonically to 4 cards (~1.5x @ N=256) since the
-weight-load and host-CPU contention that used to regress it past 2 cards are both
-fixed. See `docs/esmc-multicard-scaling.md` for numbers before reaching for
-`--devices` on a small job.
+to amortize each worker's own model-load/device-init cost, and the win is
+host-dependent — `esmc-600m`/`esmc-300m` on large batches (N≈4096) saw ~2x @ 4 cards
+on one host (qb1) but only ~1.1x on another (qb2, extra per-shard mesh-topology
+overhead — see `docs/esmc-multicard-scaling.md`), and both are flat or *worse* than
+one card for very small batches. `esmc-6b` scales monotonically to 4 cards (~1.5x @
+N=256) since the weight-load and host-CPU contention that used to regress it past 2
+cards are both fixed. See `docs/esmc-multicard-scaling.md` for numbers before
+reaching for `--devices` on a small job.
 
 For repeated/production embedding, submit to a persistent pool instead — a worker
 loads its model once and keeps it resident across every call, so the reload cost
