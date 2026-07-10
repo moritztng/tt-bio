@@ -17,6 +17,12 @@ relp = d['relp'].float()
 token_bonds = d['token_bonds'].float()
 feat = d['feat_small']
 N = d['N_token']
+# feat_small deliberately omitted template_* (it was captured to reproduce tt-bio's pre-fix
+# nt=0 bug). The CPU reference that produced `cycles` ran upstream's real, always-on
+# template embedder (protenix-v2 config: template_embedder.n_blocks=2) -- add the same
+# dummy max_templates=4 padding it saw, via tt_bio.protenix_data.dummy_template_features.
+from tt_bio.protenix_data import dummy_template_features
+feat = {**feat, **dummy_template_features(N)}
 print('N_token=%d  #cycles captured=%d'%(N, len(cycles)), flush=True)
 
 dev = get_device()
