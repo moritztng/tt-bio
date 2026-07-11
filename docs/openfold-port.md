@@ -39,17 +39,31 @@ TriangleMultiplication ×2, TriangleAttention ×2, pair transition) → **Struct
 (8× Invariant Point Attention + backbone frame update + sidechain torsions) →
 AuxiliaryHeads (pLDDT, pTM/PAE, distogram). Recycling ×3-4.
 
-## Reuse map (shared tt-bio primitives — do NOT duplicate)
+## Reuse map (verified on device, not assumed)
 
-Reusable as-is (`tt_bio/tenstorrent.py`): `TriangleMultiplication`,
-`TriangleAttention`, `OuterProductMean`, `PairWeightedAveraging`, MSA `MSALayer`/`MSA`,
-`Transition`, `AttentionPairBias`, recycling embedders. Torch-side refs/Linear/LayerNorm
-in `tt_bio/boltz2.py` + `tt_bio/reference.py`. Weight remaps: `tt_bio/protenix_weights.py`
-(its `remap_triangle_multiplication` already targets **OpenFold** key names).
+**Pair-track heavy ops reuse directly** (`tt_bio/tenstorrent.py`, via
+`protenix_weights` remaps) — these are the O(L²·c)/O(L³) hotspot:
+`TriangleMultiplication`, `TriangleAttention`, `OuterProductMean`. All PCC-verified
+(below). `remap_triangle_multiplication`/`remap_outer_product_mean` already target
+OpenFold key names.
 
-**Net-new (nothing in tt-bio has it):** the AF2 **Invariant Point Attention (IPA)**
-structure module and frame/quaternion updates (`utils/rigid_utils.py`). This is the
-main new device code.
+**NOT directly reusable (AF2 ≠ AF3 shape) — corrected after inspecting the code:**
+- **Transitions.** AF2 `PairTransition`/`MSATransition` are plain **ReLU MLPs**
+  (`LayerNorm → Linear(c→n·c) → ReLU → Linear(n·c→c)`); tt-bio `Transition` is a
+  gated **SwiGLU** (AF3). Needs a small AF2 ReLU-MLP transition (net-new, tiny).
+- **MSA track.** AF2 `MSARowAttentionWithPairBias` + `MSAColumnAttention` are **gated
+  softmax attention** (reusing the `Attention` primitive + a pair-bias projection);
+  tt-bio's `MSALayer`/`MSA` is the AF3 pair-weighted-averaging formulation — different
+  op. AF2 MSA attention is net-new (can reuse sdpa + gating patterns from the
+  verified `TriangleAttention`).
+
+**Net-new (nothing in tt-bio has it):** AF2 **Invariant Point Attention (IPA)**
+structure module + frame/quaternion updates (`utils/rigid_utils.py`). NOTE: the
+Evoformer trunk dominates compute (ESMFold2 lesson: trunk ~67%, structure module
+small), so IPA may stay a host reference with only heavy ops on device — decide by
+profiling, per the playbook ("swap only the heavy ops").
+
+Torch-side Linear/LayerNorm refs in `tt_bio/boltz2.py` + `tt_bio/reference.py`.
 
 ## Vendoring
 
@@ -67,7 +81,9 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | Reference harness imports (vendored, CPU) | ✅ | — | lazy CUDA-kernel stub works |
 | **TriangleMultiplication** (Outgoing+Incoming) | ✅ | **0.99999** | reuses shared ttnn block via `remap_triangle_multiplication`; AF2 biased linears **and** AF3 bias-free path both 0.99999 (`tests/test_openfold_triangle.py`) |
 | **TriangleAttention** (Starting+Ending) | ✅ core | **0.99997** | reuses shared block; remap = strip `mha.` prefix (`tests/test_openfold_triangle_attn.py`). q/k/v bias-free; o/g gated bias = mechanical follow-up (same as tri-mul) for real weights |
-| OuterProductMean / MSA attn / transitions | ⬜ next | — | shared blocks |
+| **OuterProductMean** | ✅ | **0.99999** | reuses shared block via `remap_outer_product_mean` (`tests/test_openfold_opm.py`). Note: parity needs normal-magnitude weights — `*0.1` underflows bf16 through the outer product (0.74), not a bug |
+| PairTransition / MSATransition (ReLU MLP) | ⬜ net-new | — | AF2 ReLU MLP ≠ tt-bio SwiGLU `Transition`; small new block |
+| MSA row/col gated attention + pair bias | ⬜ net-new | — | AF2-specific; reuse sdpa+gating pattern |
 | Evoformer block (assembled) | ⬜ | — | |
 | **IPA structure module** | ⬜ | — | **net-new device code** |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
@@ -93,7 +109,7 @@ bias — audit as each is verified.
 
 ## Next steps (resume here)
 
-1. PCC-verify OuterProductMean, MSA row/col attn, transitions (shared blocks + remaps). Add gated o/g bias to TriangleAttention + the shared Attention primitive (same pattern as tri-mul) for AF2 real weights.
+1. Build + verify the small AF2 ReLU-MLP transition (net-new, tiny) and AF2 MSA row/col gated attention (net-new; reuse sdpa+gating). Add gated o/g bias to TriangleAttention (same pattern as tri-mul) for AF2 real weights.
 2. Assemble + verify one full Evoformer block.
 3. Build IPA structure module (net-new) + PCC-verify.
 4. Vendor `openfold/data/` MSA pipeline; wire real weights (`openfold_weights.py`, protenix_weights style).
