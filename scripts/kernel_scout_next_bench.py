@@ -46,6 +46,7 @@ def main() -> None:
     parser.add_argument("--checkpoint", default="biohub/ESMFold2")
     parser.add_argument("--swiglu-ab", action="store_true")
     parser.add_argument("--precision-diag", action="store_true")
+    parser.add_argument("--fc2-profile", action="store_true")
     args = parser.parse_args()
     torch.set_grad_enabled(False)
     torch.manual_seed(20260711)
@@ -227,6 +228,58 @@ def main() -> None:
             for block, attr, original in originals:
                 setattr(block, attr, original)
 
+    def execute_fc2_profile(z: torch.Tensor):
+        """Synchronously time FC2 and its following residual add in every block."""
+        totals = defaultdict(float)
+        calls = defaultdict(int)
+        fc2_weights = {id(block.transition.fc2_weight) for block in trunk.module.blocks}
+        original_linear = ttnn.linear
+        residuals = []
+
+        def timed(label, operation, *op_args, **op_kwargs):
+            ttnn.synchronize_device(trunk.tt_device)
+            started = time.perf_counter()
+            result = operation(*op_args, **op_kwargs)
+            ttnn.synchronize_device(trunk.tt_device)
+            totals[label] += time.perf_counter() - started
+            calls[label] += 1
+            return result
+
+        def wrapped_linear(*linear_args, **linear_kwargs):
+            weight = linear_args[1] if len(linear_args) > 1 else linear_kwargs.get("input_tensor_b")
+            if id(weight) in fc2_weights:
+                return timed("fc2", original_linear, *linear_args, **linear_kwargs)
+            return original_linear(*linear_args, **linear_kwargs)
+
+        ttnn.linear = wrapped_linear
+        for block in trunk.module.blocks:
+            original_residual = block._residual
+            residuals.append((block, original_residual))
+            call_index = {"value": 0}
+
+            def wrapped_residual(z_in, update, _original=original_residual, _index=call_index):
+                index = _index["value"]
+                _index["value"] += 1
+                if index == 2:
+                    return timed("fc2_residual", _original, z_in, update)
+                return _original(z_in, update)
+
+            block._residual = wrapped_residual
+        try:
+            z_tt = trunk._from_torch(z)
+            ttnn.synchronize_device(trunk.tt_device)
+            started = time.perf_counter()
+            out_tt = trunk.module(z_tt, None)
+            ttnn.synchronize_device(trunk.tt_device)
+            elapsed = time.perf_counter() - started
+            out = trunk._to_torch(out_tt)
+            ttnn.deallocate(out_tt)
+            return elapsed, out, dict(totals), dict(calls)
+        finally:
+            ttnn.linear = original_linear
+            for block, original_residual in residuals:
+                block._residual = original_residual
+
     for size in args.sizes:
         if args.swiglu_ab and len(args.sizes) != 1:
             raise ValueError("--swiglu-ab accepts exactly one size per process")
@@ -239,6 +292,18 @@ def main() -> None:
         base_s, base, _, _ = execute(z)
         host_s, host, host_parts, calls = execute(z, "host")
         sync_s, sync, sync_parts, _ = execute(z, "sync")
+        fc2_record = {}
+        fc2_profile = None
+        if args.fc2_profile:
+            fc2_profile_s, fc2_profile, fc2_parts, fc2_calls = execute_fc2_profile(z)
+            residual_s = fc2_parts["fc2_residual"]
+            fc2_record = {
+                "fc2_profile_trunk_s": fc2_profile_s,
+                "fc2_sync_component_s": fc2_parts,
+                "fc2_calls": fc2_calls,
+                "fc2_profile_parity": _compare(base, fc2_profile),
+                "residual_free_trunk_ceiling": base_s / (base_s - residual_s),
+            }
         fused_record = {}
         fused = None
         if args.swiglu_ab:
@@ -263,12 +328,15 @@ def main() -> None:
             "calls": calls,
             "host_parity": _compare(base, host),
             "sync_parity": _compare(base, sync),
+            **fc2_record,
             **fused_record,
         }
         print(json.dumps(record, sort_keys=True), flush=True)
         del z, base, host, sync
         if fused is not None:
             del fused
+        if fc2_profile is not None:
+            del fc2_profile
         gc.collect()
 
 
