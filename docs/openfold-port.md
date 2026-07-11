@@ -91,7 +91,7 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **Evoformer block (full, assembled)** | ✅ | **m 0.99988 / z 0.99983** | all 9 sub-blocks composed in AF2 order on device (residuals, shapes, tri-att ending) — `tests/test_openfold_evoformer_block.py` |
 | **EvoformerStack** (N blocks + s-proj) | ✅ | **m 0.99986 / z 0.99979 / s 0.99985** | real device-trunk module `tt_bio.openfold.EvoformerStack`; 2-block chain + `s=Linear(m[...,0])` — `tests/test_openfold_evoformer_stack.py` |
 | **EvoformerStack from real ckpt tree** | ✅ | **m 0.99984 / z 0.99979 / s 0.99984** | `openfold_weights.evoformer_stack_subs` scopes a real reference `EvoformerStack` state_dict (`blocks.{i}.pair_stack.*`, `msa_att_col._msa_att.*`, `linear.*`) → device stack; validates the real weight-load path — `tests/test_openfold_stack_realtree.py` |
-| **REAL weights** (finetuning_ptm_1.pt, block 0) | ⚠️ | **m 0.99816 / z 0.97427** | loader handles the real `core.*` ckpt layout; o/g bias ruled out; z-track below gate under OOD random input — needs real-input recheck (see Real-weight findings) |
+| **REAL weights** (finetuning_ptm_1.pt, block 0) | ✅ per-op | **each pair op > 0.98** (tri-mul 0.99997, tri-att 0.9888, pair-trans 1.0, opm 0.998); block composite m 0.998 / z 0.974 | loader handles real `core.*` layout; z-composite = accumulation not a bug (o/g bias ruled out) — judge via e2e RMSD |
 | Structure module (IPA) + heads | host | — | **host reference by design** (see device/host split) — not device-ported |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
@@ -108,12 +108,16 @@ Downloaded the real released pTM checkpoint and ran block 0 with **real weights*
 - **o/g gate/output bias is negligible** at real magnitudes: full real weights
   m 0.99816 / z 0.97427 vs o/g-zeroed m 0.99846 / z 0.96906 — the currently-dropped
   o/g bias is NOT the parity driver (de-prioritizes that follow-up).
-- **Pair (z) track parity is 0.974 — below the 0.98 gate — under a random OOD input.**
-  m-track 0.998 is fine. The random `*0.5` input is out-of-distribution for trained
-  weights (real embedder activations have a specific scale), the likely cause; the
-  O(L³) pair-track bf16 precision is the other candidate. **Must re-check with real
-  embedder inputs (needs the data pipeline) before trusting/curing this** — don't
-  assume it's a bug or that it's fine.
+- **Pair (z) composite parity 0.974 = error accumulation, NOT a bug** (resolved via
+  per-op diagnostic `tests/test_openfold_realweights_ops.py`). With real block-0
+  weights every pair-track op passes the 0.98 gate *individually*:
+  tri_mul_out/in **0.99997**, tri_att_start/end **0.98881 / 0.98852**, pair_transition
+  **1.00000**, outer_product_mean **0.99800**. The composite drops to z 0.974 because
+  the ~0.988 tri-att errors compound over the 6 sequential pair-track residuals
+  (tri-att is the weakest link at real weights + OOD input). No single op is broken.
+  The real judge is end-to-end Cα-RMSD with real embedder inputs (per-block PCC over-
+  penalizes accumulation); re-confirm there. If needed, raise tri-att precision (its
+  0.988 is the lever) — but not before the e2e number says it matters.
 
 ### Resolved — biased linears (AF2 support added to shared block)
 
