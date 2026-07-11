@@ -5,20 +5,45 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
-### Added
+## [0.2.5] - 2026-07-11
 
-- `tt-bio embed --controller URL`: dispatch to a persistent `tt-bio controller`/`worker`
-  pool instead of spawning per-call subprocesses. A worker's ESMC model stays resident
-  across calls, so the weight reload that dominates `--devices` wall-clock for
-  `esmc-6b` (see `docs/esmc-multicard-scaling.md`) becomes a one-time cost per worker
-  lifetime instead of a per-invocation tax (measured: esmc-6b N=48 50.0s cold -> 9.1s
-  warm on 1 card, 261s cold -> 13.4s warm on 2 cards; bit-exact vs single-shot). Reuses
-  the existing predict/design scheduler/lease machinery (`tt_bio/distributed.py`,
-  `tt_bio/worker.py`) — no new dispatch mechanism. `--devices` (per-call subprocess
-  fanout) is unchanged and still the right choice for one-off invocations with no
-  standing controller.
+Protenix-v2 accuracy fixes — the template embedder never ran in any real `predict` call
+(`nt` always 0), and the trunk ran at 3 recycles instead of its spec 10; fixing both closes
+a real delivered-RMSD gap that every PyPI install of 0.2.4 and earlier ships with. Also
+includes the `embed --controller` persistent-worker dispatch and ESMC-6B multicard fanout
+fix below (already hardware-gated at merge time, re-confirmed on this combined HEAD).
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.77 Å | 0.917 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 2.73 Å | 0.797 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.72 Å | 0.909 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 1.42 Å | 0.935 | ≤6.0 Å / ≥0.50 | PASS |
+
+**Protenix-v2: 3.87 Å → 1.42 Å** — the template-embedder + recycling fixes below close the
+gap to the other models; it's no longer the accuracy outlier. Boltz-2/ESMFold2/ESMFold2-fast
+unchanged within seed-to-seed noise vs 0.2.4.
+
+**BoltzGen designability** — n=4, `examples/binder.yaml`: scRMSD median 0.67 Å, 4/4 designs
+(100%) ≤2 Å — no regression vs 0.2.4's n=8 measurement (0.84 Å median, 7/8 ≤2 Å).
+
+No OOM: `examples/615.yaml` and `examples/1303.yaml` (Boltz-2 `--fast`) completed cleanly;
+the full supported range to `examples/3233.yaml` (4-chain multimer + ligand) was already
+verified OOM-free on this unchanged Boltz-2 code (`docs/boltz2-tt-vs-nvidia.md`). No perf
+regression: Boltz-2 `--fast` warm e2e at L=615 is **46.5 s**, vs the 43.4 s 0.2.4-era
+baseline — within run-to-run/environment noise on the same unchanged code path.
 
 ### Fixed
+- **Protenix-v2: template embedder never ran** — `nt` (template count) was always 0 in
+  every real `predict` call, so the template-embedder pass was silently skipped
+  regardless of input. See `docs/protenix-template-embedder-fix.md`.
+- **Protenix-v2: `recycling_steps` default 3 → 10** — the trunk now runs at its spec
+  recycle count (previously reused Boltz-2/ESMFold2's default of 3); the correct
+  default once the template-embedder fix above made recycling actually informative.
+  See `docs/protenix-recycling-revisit.md`. This makes Protenix-v2 slower per-fold than
+  0.2.4 (more recycles) — expected, not a regression; see the gate wall-clock above.
 - ESMC-6B `--devices` fanout regression past 2 cards, root-caused to two independent
   host-side bottlenecks (both fixed, verified bit-exact, end-to-end scaling now
   monotonic to 4 cards — see `docs/esmc-multicard-scaling.md`):
@@ -35,6 +60,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
     (monotonic 1.00x → 1.33x → 1.43x → 1.49x). Bit-exact vs single-card
     (`scripts/esmc6b_shared_cache_parity.py`, `scripts/esmc_multicard_parity.py`,
     max|Δ|=0); all other models and the single-card path are unchanged.
+
+### Added
+
+- `tt-bio embed --controller URL`: dispatch to a persistent `tt-bio controller`/`worker`
+  pool instead of spawning per-call subprocesses. A worker's ESMC model stays resident
+  across calls, so the weight reload that dominates `--devices` wall-clock for
+  `esmc-6b` (see `docs/esmc-multicard-scaling.md`) becomes a one-time cost per worker
+  lifetime instead of a per-invocation tax (measured: esmc-6b N=48 50.0s cold -> 9.1s
+  warm on 1 card, 261s cold -> 13.4s warm on 2 cards; bit-exact vs single-shot). Reuses
+  the existing predict/design scheduler/lease machinery (`tt_bio/distributed.py`,
+  `tt_bio/worker.py`) — no new dispatch mechanism. `--devices` (per-call subprocess
+  fanout) is unchanged and still the right choice for one-off invocations with no
+  standing controller.
 
 ### Measured
 - Re-measured `esmc-300m`/`esmc-600m` `--devices` wall-clock scaling on qb2 post
