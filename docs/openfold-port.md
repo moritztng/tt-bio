@@ -92,6 +92,7 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **EvoformerStack** (N blocks + s-proj) | ✅ | **m 0.99986 / z 0.99979 / s 0.99985** | real device-trunk module `tt_bio.openfold.EvoformerStack`; 2-block chain + `s=Linear(m[...,0])` — `tests/test_openfold_evoformer_stack.py` |
 | **EvoformerStack from real ckpt tree** | ✅ | **m 0.99984 / z 0.99979 / s 0.99984** | `openfold_weights.evoformer_stack_subs` scopes a real reference `EvoformerStack` state_dict (`blocks.{i}.pair_stack.*`, `msa_att_col._msa_att.*`, `linear.*`) → device stack; validates the real weight-load path — `tests/test_openfold_stack_realtree.py` |
 | **REAL weights** (finetuning_ptm_1.pt, block 0) | ✅ per-op | **each pair op > 0.98** (tri-mul 0.99997, tri-att 0.9888, pair-trans 1.0, opm 0.998); block composite m 0.998 / z 0.974 | loader handles real `core.*` layout; z-composite = accumulation not a bug (o/g bias ruled out) — judge via e2e RMSD |
+| **Full-model real-weight load** (host) | ✅ | **5046/5046 params, 0 missing / 0 unexpected** | vendored `AlphaFold` (model_1_ptm) loads the real ckpt via `convert_deprecated_v1_keys` (released ckpt = deprecated-v1 `core.` layout) — every module maps; `tests/test_openfold_fullmodel_load.py` |
 | Structure module (IPA) + heads | host | — | **host reference by design** (see device/host split) — not device-ported |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
@@ -140,14 +141,16 @@ bias — audit as each is verified.
 ## Next steps (resume here)
 
 1. Integration (ESMFold2 `_SPEC`/adapter style): in the vendored `AlphaFold.forward`, replace the reference `EvoformerStack` with the device `tt_bio.openfold.EvoformerStack` (weights via `openfold_weights.evoformer_stack_subs`, now validated against the real ckpt tree); keep embedders/structure-module/heads on host. Add gated o/g bias to TriangleAttention + the MSA `_MSAGatedAttention` core for AF2 real weights.
-2. Download real AF2 weights — **no `aws` on qb2; use anonymous HTTPS** (verified reachable):
-   `curl -O https://openfold.s3.amazonaws.com/openfold_params/finetuning_ptm_1.pt` (~375 MB,
-   the canonical pTM monomer checkpoint). Then vendor `openfold/data/` + get MSA for 7ROA
-   (precomputed alignments or the ColabFold server tt-bio already uses); run reference e2e on
-   CPU for the accuracy baseline, then device-trunk e2e. Weights are small/fast — the real
-   remaining effort is the data/MSA pipeline, not the download.
-3. Wire CLI/worker (3 dispatch points: `main.py` `--model` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
-4. End-to-end on device (device trunk + host structure module); Cα-RMSD vs ground truth; release_gate; unify README; confirm the device/host split by profiling.
+2. **DONE:** real AF2 weights downloaded (qb2 `~/openfold_ckpt/finetuning_ptm_1.pt`); the
+   vendored `AlphaFold` loads them cleanly (0/0 mismatch via `convert_deprecated_v1_keys`).
+   `ml_collections` + `dm-tree` added to deps; `data_transforms*` + a minimal inference-only
+   `loss.py` (pLDDT/PAE/pTM) vendored; `structure_module.py` CUDA-kernel import made lazy.
+3. **Features + run (remaining e2e blocker):** build the input feature dict for a target
+   (`openfold.data.feature_pipeline`/`data_pipeline.make_sequence_features` + a single-row or
+   ColabFold MSA). Then run the reference `AlphaFold.forward` on CPU for the RMSD baseline,
+   and swap `model.evoformer` → device `tt_bio.openfold.EvoformerStack` for device-trunk e2e.
+4. Wire CLI/worker (3 dispatch points: `main.py` `--model` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
+5. End-to-end on device (device trunk + host structure module); Cα-RMSD vs ground truth; release_gate; unify README; confirm the device/host split by profiling.
 
 ## Run recipe (qb2, card 1)
 

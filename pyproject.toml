@@ -24,6 +24,8 @@ dependencies = [
     "biotite",
     "matplotlib",
     "scipy",
+    "ml_collections",  # OpenFold config (model_config)
+    "dm-tree",          # OpenFold residue_constants / featurization
     "numba",
     "gemmi",
     "scikit-learn",

@@ -44,7 +44,10 @@ from tt_bio._vendor.openfold.utils.tensor_utils import (
     flatten_final_dims,
 )
 
-attn_core_inplace_cuda = importlib.import_module("attn_core_inplace_cuda")
+try:
+    attn_core_inplace_cuda = importlib.import_module("attn_core_inplace_cuda")
+except ImportError:  # pure-PyTorch inference path (tt-bio); custom CUDA kernel not built
+    attn_core_inplace_cuda = None
 
 
 class AngleResnetBlock(nn.Module):
