@@ -405,6 +405,9 @@ class WeightScope:
     def __getitem__(self, key: str) -> torch.Tensor:
         return self._data[key]
 
+    def __contains__(self, key: str) -> bool:
+        return key in self._data
+
     def child(self, scope: str, strip_prefix: str = "") -> "WeightScope":
         if not scope:
             return self
@@ -556,6 +559,32 @@ class TriangleMultiplication(Module):
         ]
         self.g_out_weight = self.torch_to_tt("g_out.weight")
         self.out_p_weight = self.torch_to_tt("p_out.weight")
+        # Optional projection/gate/output biases. Present for classic AF2/OpenFold
+        # checkpoints (biased linears, gating bias=1); absent for the AF3-family
+        # (Protenix-v2, Boltz-2). Gated on key presence so bias-free checkpoints
+        # take the exact same path as before (bit-identical).
+        self.gp_in_bias_chunks = None
+        if "g_in.bias" in self.weights and "p_in.bias" in self.weights:
+            g_in_b, p_in_b = self.weights["g_in.bias"], self.weights["p_in.bias"]
+            self.gp_in_bias_chunks = [
+                ttnn.from_torch(
+                    torch.cat(
+                        [
+                            g_in_b[i * C : (i + 1) * C],
+                            g_in_b[(i + self.n_pairs) * C : (i + self.n_pairs + 1) * C],
+                            p_in_b[i * C : (i + 1) * C],
+                            p_in_b[(i + self.n_pairs) * C : (i + self.n_pairs + 1) * C],
+                        ]
+                    ).reshape(1, 1, 1, 4 * C),
+                    layout=ttnn.TILE_LAYOUT,
+                    device=self.device,
+                    dtype=ttnn.bfloat16,
+                )
+                for i in range(self.n_pairs)
+            ]
+        r = lambda x: x.reshape(1, -1)
+        self.g_out_bias = self.torch_to_tt("g_out.bias", r) if "g_out.bias" in self.weights else None
+        self.out_p_bias = self.torch_to_tt("p_out.bias", r) if "p_out.bias" in self.weights else None
 
     def _transform_chunk(
         self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig
@@ -621,6 +650,10 @@ class TriangleMultiplication(Module):
                 dtype=_dtype(),
                 compute_kernel_config=self.compute_kernel_config,
             )
+            if self.gp_in_bias_chunks is not None:
+                biased = ttnn.add(gp_in_fused, self.gp_in_bias_chunks[i], memory_config=memory_config)
+                ttnn.deallocate(gp_in_fused)
+                gp_in_fused = biased
             g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
             ttnn.deallocate(gp_in_fused)
             a_chunk = ttnn.multiply_(
@@ -691,6 +724,7 @@ class TriangleMultiplication(Module):
         p_out = ttnn.linear(
             x,
             self.out_p_weight,
+            bias=self.out_p_bias,
             memory_config=ttnn.DRAM_MEMORY_CONFIG,
             dtype=_dtype(),
             compute_kernel_config=self.compute_kernel_config,
@@ -700,6 +734,7 @@ class TriangleMultiplication(Module):
         g_out = ttnn.linear(
             x_norm_in,
             self.g_out_weight,
+            bias=self.g_out_bias,
             memory_config=ttnn.DRAM_MEMORY_CONFIG,
             dtype=_dtype(),
             compute_kernel_config=self.compute_kernel_config,

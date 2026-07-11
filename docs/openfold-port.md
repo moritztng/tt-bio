@@ -65,7 +65,7 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | Component | Status | PCC | Note |
 |---|---|---|---|
 | Reference harness imports (vendored, CPU) | ✅ | — | lazy CUDA-kernel stub works |
-| **TriangleMultiplication** (Outgoing+Incoming) | ✅ | **0.99999** | reuses shared ttnn block via existing `remap_triangle_multiplication`, zero new device code (`tests/test_openfold_triangle.py`) |
+| **TriangleMultiplication** (Outgoing+Incoming) | ✅ | **0.99999** | reuses shared ttnn block via `remap_triangle_multiplication`; AF2 biased linears **and** AF3 bias-free path both 0.99999 (`tests/test_openfold_triangle.py`) |
 | TriangleAttention | ⬜ next | — | shared block; expect direct reuse |
 | OuterProductMean / MSA attn / transitions | ⬜ | — | shared blocks |
 | Evoformer block (assembled) | ⬜ | — | |
@@ -73,26 +73,32 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
 
-### Open finding — biased linears (blocks real-weight parity)
+### Resolved — biased linears (AF2 support added to shared block)
 
-The shared fused `TriangleMultiplication` **drops** the input-projection, gate, and
-output-linear biases (fine for protenix-v2: AF3 triangle linears are bias-free).
-Classic AF2/OpenFold uses **biased** linears with gating bias=1.0. Measured on device:
-core (biases zeroed) PCC **0.99999**, but full biased PCC only **0.670**. → before
-real-weight parity, the fused block must add optional bias (present-in-state_dict
-gated, so protenix/boltz2 stay bit-identical). Same audit needed for every reused
-block (TriangleAttention, OPM, MSA, transitions). This is the first real integration
-task, not a blocker to the reuse approach.
+Classic AF2/OpenFold uses **biased** triangle linears (gating bias=1.0); the fused
+shared block was written for the AF3-family (bias-free) and dropped them → full-bias
+PCC was 0.670. Fixed by adding **state_dict-gated optional bias** to the shared block
+(landed, small + additive):
+- `WeightScope.__contains__` (tenstorrent.py) — was missing; `x in scope` silently
+  broke via integer-index fallback.
+- `TriangleMultiplication` — optional fused g_in/p_in bias + g_out/p_out linear bias,
+  applied only when the bias keys are present.
+- `remap_triangle_multiplication` — emits bias keys only when the source has them.
+
+Result (on device): AF2 biased **0.99999**, AF3 bias-free path **0.99999** (byte-for-
+byte the same gated-off code → protenix-v2 / Boltz-2 unaffected; recommend the
+orchestrator re-run their release gate at merge as belt-and-suspenders). The other
+reused blocks (TriangleAttention, OPM, MSA, transitions) likely need the same gated
+bias — audit as each is verified.
 
 ## Next steps (resume here)
 
-1. Extend shared blocks with optional bias (state_dict-gated) + re-verify protenix/boltz2 unaffected; re-run triangle full-bias PCC → expect >0.98.
-2. PCC-verify TriangleAttention, OuterProductMean, MSA row/col attn, transitions (all shared blocks + remaps).
-3. Assemble + verify one full Evoformer block.
-4. Build IPA structure module (net-new) + PCC-verify.
-5. Vendor `openfold/data/` MSA pipeline; wire real weights (`openfold_weights.py`, protenix_weights style).
-6. Wire CLI/worker (3 dispatch points: `main.py` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
-7. End-to-end on device; Cα-RMSD vs ground truth; release_gate; unify README.
+1. PCC-verify TriangleAttention, OuterProductMean, MSA row/col attn, transitions (shared blocks + remaps; add gated bias where AF2 needs it, same pattern).
+2. Assemble + verify one full Evoformer block.
+3. Build IPA structure module (net-new) + PCC-verify.
+4. Vendor `openfold/data/` MSA pipeline; wire real weights (`openfold_weights.py`, protenix_weights style).
+5. Wire CLI/worker (3 dispatch points: `main.py` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
+6. End-to-end on device; Cα-RMSD vs ground truth; release_gate; unify README.
 
 ## Run recipe (qb2, card 1)
 

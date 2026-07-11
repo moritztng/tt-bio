@@ -16,8 +16,10 @@ import torch
 
 def remap_triangle_multiplication(ref_sd: dict) -> dict:
     """OpenFold TriangleMultiplication{Outgoing,Incoming} -> tt-bio fused layout
-    (g_in/p_in rows = [a-side ; b-side])."""
-    return {
+    (g_in/p_in rows = [a-side ; b-side]). Linear biases are emitted only when the
+    source has them (classic AF2/OpenFold): AF3-family checkpoints (Protenix-v2,
+    Boltz-2) are bias-free, so this stays a pure rename for them."""
+    out = {
         "norm_in.weight": ref_sd["layer_norm_in.weight"],
         "norm_in.bias": ref_sd["layer_norm_in.bias"],
         "norm_out.weight": ref_sd["layer_norm_out.weight"],
@@ -27,6 +29,12 @@ def remap_triangle_multiplication(ref_sd: dict) -> dict:
         "g_out.weight": ref_sd["linear_g.weight"],
         "p_out.weight": ref_sd["linear_z.weight"],
     }
+    if "linear_a_g.bias" in ref_sd:
+        out["g_in.bias"] = torch.cat([ref_sd["linear_a_g.bias"], ref_sd["linear_b_g.bias"]], dim=0)
+        out["p_in.bias"] = torch.cat([ref_sd["linear_a_p.bias"], ref_sd["linear_b_p.bias"]], dim=0)
+        out["g_out.bias"] = ref_sd["linear_g.bias"]
+        out["p_out.bias"] = ref_sd["linear_z.bias"]
+    return out
 
 
 def remap_adaln(ref_sd: dict) -> dict:
