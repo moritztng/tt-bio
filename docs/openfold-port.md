@@ -82,7 +82,7 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **TriangleMultiplication** (Outgoing+Incoming) | ✅ | **0.99999** | reuses shared ttnn block via `remap_triangle_multiplication`; AF2 biased linears **and** AF3 bias-free path both 0.99999 (`tests/test_openfold_triangle.py`) |
 | **TriangleAttention** (Starting+Ending) | ✅ core | **0.99997** | reuses shared block; remap = strip `mha.` prefix (`tests/test_openfold_triangle_attn.py`). q/k/v bias-free; o/g gated bias = mechanical follow-up (same as tri-mul) for real weights |
 | **OuterProductMean** | ✅ | **0.99999** | reuses shared block via `remap_outer_product_mean` (`tests/test_openfold_opm.py`). Note: parity needs normal-magnitude weights — `*0.1` underflows bf16 through the outer product (0.74), not a bug |
-| PairTransition / MSATransition (ReLU MLP) | ⬜ net-new | — | AF2 ReLU MLP ≠ tt-bio SwiGLU `Transition`; small new block |
+| **PairTransition / MSATransition** (ReLU MLP) | ✅ | **0.99999** | net-new `tt_bio.openfold.ReluTransition` (`tests/test_openfold_transition.py`); keys match reference directly, no remap |
 | MSA row/col gated attention + pair bias | ⬜ net-new | — | AF2-specific; reuse sdpa+gating pattern |
 | Evoformer block (assembled) | ⬜ | — | |
 | **IPA structure module** | ⬜ | — | **net-new device code** |
@@ -109,8 +109,8 @@ bias — audit as each is verified.
 
 ## Next steps (resume here)
 
-1. Build + verify the small AF2 ReLU-MLP transition (net-new, tiny) and AF2 MSA row/col gated attention (net-new; reuse sdpa+gating). Add gated o/g bias to TriangleAttention (same pattern as tri-mul) for AF2 real weights.
-2. Assemble + verify one full Evoformer block.
+1. Build + verify AF2 MSA row/col gated attention (net-new; reuse sdpa+gating from the verified TriangleAttention path). Add gated o/g bias to TriangleAttention (same pattern as tri-mul) for AF2 real weights.
+2. Assemble + verify one full Evoformer block (reused triangle mul/attn + OPM + `ReluTransition` + MSA attention).
 3. Build IPA structure module (net-new) + PCC-verify.
 4. Vendor `openfold/data/` MSA pipeline; wire real weights (`openfold_weights.py`, protenix_weights style).
 5. Wire CLI/worker (3 dispatch points: `main.py` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
