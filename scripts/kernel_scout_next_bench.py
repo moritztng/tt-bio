@@ -45,6 +45,7 @@ def main() -> None:
     parser.add_argument("--sizes", type=int, nargs="+", default=[512, 1024])
     parser.add_argument("--checkpoint", default="biohub/ESMFold2")
     parser.add_argument("--swiglu-ab", action="store_true")
+    parser.add_argument("--precision-diag", action="store_true")
     args = parser.parse_args()
     torch.set_grad_enabled(False)
     torch.manual_seed(20260711)
@@ -68,6 +69,81 @@ def main() -> None:
     del trunk_state
     gc.collect()
     assert n_layers == 48
+
+    if args.precision_diag:
+        if len(args.sizes) != 1:
+            raise ValueError("--precision-diag accepts exactly one size")
+        size = args.sizes[0]
+        transition = trunk.module.blocks[0].transition
+        generator = torch.Generator().manual_seed(20260711 + size)
+        z = torch.randn((1, size, size, E.C_Z), generator=generator)
+        z_tt = trunk._from_torch(z)
+        x_norm = ttnn.layer_norm(
+            z_tt,
+            weight=transition.norm_weight,
+            bias=transition.norm_bias,
+            epsilon=1e-5,
+            compute_kernel_config=transition.compute_kernel_config,
+        )
+
+        h_linear = transition._lin(x_norm, transition.fc1_weight)
+        h_minimal = ttnn.experimental.minimal_matmul(
+            input_tensor=x_norm,
+            weight_tensor=transition.fc1_weight,
+            compute_kernel_config=transition.compute_kernel_config,
+            dtype=transition.fc1_weight.dtype,
+        )
+
+        weight = transition.weights["1.weight"]
+        packed = weight.t()
+        rows, two_n = packed.shape
+        packed = packed.reshape(rows, 2, -1, 32).permute(0, 2, 1, 3).reshape(rows, two_n)
+        packed_weight = ttnn.from_torch(
+            packed,
+            layout=ttnn.TILE_LAYOUT,
+            device=transition.device,
+            dtype=transition.fc1_weight.dtype,
+        )
+        gated_fused = ttnn.experimental.minimal_matmul(
+            input_tensor=x_norm,
+            weight_tensor=packed_weight,
+            compute_kernel_config=transition.compute_kernel_config,
+            dtype=transition.fc1_weight.dtype,
+            fuse_swiglu=True,
+        )
+        ttnn.deallocate(x_norm)
+        ttnn.deallocate(z_tt)
+
+        linear_1, linear_2 = ttnn.chunk(h_linear, 2, dim=-1)
+        minimal_1, minimal_2 = ttnn.chunk(h_minimal, 2, dim=-1)
+        gated_linear = ttnn.multiply(ttnn.silu(linear_1), linear_2)
+        gated_minimal = ttnn.multiply(ttnn.silu(minimal_1), minimal_2)
+        out_linear = transition._lin(gated_linear, transition.fc2_weight)
+        out_minimal = transition._lin(gated_minimal, transition.fc2_weight)
+        out_fused = transition._lin(gated_fused, transition.fc2_weight)
+        ttnn.synchronize_device(trunk.tt_device)
+
+        host = {
+            "h_linear": trunk._to_torch(h_linear),
+            "h_minimal": trunk._to_torch(h_minimal),
+            "gated_linear": trunk._to_torch(gated_linear),
+            "gated_minimal": trunk._to_torch(gated_minimal),
+            "gated_fused": trunk._to_torch(gated_fused),
+            "out_linear": trunk._to_torch(out_linear),
+            "out_minimal": trunk._to_torch(out_minimal),
+            "out_fused": trunk._to_torch(out_fused),
+        }
+        record = {
+            "N": size,
+            "matmul_schedule": _compare(host["h_linear"], host["h_minimal"]),
+            "schedule_after_swiglu": _compare(host["gated_linear"], host["gated_minimal"]),
+            "fused_epilogue": _compare(host["gated_minimal"], host["gated_fused"]),
+            "schedule_after_fc2": _compare(host["out_linear"], host["out_minimal"]),
+            "fused_after_fc2": _compare(host["out_minimal"], host["out_fused"]),
+            "total_after_fc2": _compare(host["out_linear"], host["out_fused"]),
+        }
+        print(json.dumps(record, sort_keys=True), flush=True)
+        return
 
     def enable_fused_swiglu() -> None:
         """Use tt-metal main's FC1 matmul+SwiGLU epilogue fusion."""
