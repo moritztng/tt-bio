@@ -10,7 +10,10 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from tt_bio.tenstorrent import Module, get_device, CORE_GRID_MAIN
+from tt_bio.tenstorrent import (
+    Module, get_device, CORE_GRID_MAIN,
+    TriangleMultiplication, TriangleAttention, OuterProductMean,
+)
 
 
 class ReluTransition(Module):
@@ -145,3 +148,63 @@ class MSAColumnAttention(_MSAGatedAttention):
         m = ttnn.permute(m, (1, 0, 2))                 # [N_res, N_seq, C_m] (attend over N_seq)
         out = self._attend(m, None)
         return ttnn.permute(out, (1, 0, 2))            # back to [N_seq, N_res, C_m]
+
+
+class EvoformerBlock:
+    """One AF2 Evoformer block on device: the verified sub-blocks composed in the
+    reference EvoformerBlock.forward residual order (inference, opm_first=False, no
+    dropout/mask). Sub-block state_dicts are supplied pre-remapped by the caller
+    (`row`, `col`, `msa_transition`, `opm`, `tri_mul_out`, `tri_mul_in`,
+    `tri_att_start`, `tri_att_end`, `pair_transition`)."""
+
+    def __init__(self, sub, hd_pair, h_pair, hd_msa, h_msa, cfg):
+        self.row = MSARowAttentionWithPairBias(hd_msa, h_msa, sub["row"], cfg)
+        self.col = MSAColumnAttention(hd_msa, h_msa, sub["col"], cfg)
+        self.msa_tr = ReluTransition(sub["msa_transition"], cfg)
+        self.opm = OuterProductMean(sub["opm"], cfg)
+        self.tmo = TriangleMultiplication(False, sub["tri_mul_out"], cfg)
+        self.tmi = TriangleMultiplication(True, sub["tri_mul_in"], cfg)
+        self.tas = TriangleAttention(hd_pair, h_pair, False, sub["tri_att_start"], cfg)
+        self.tae = TriangleAttention(hd_pair, h_pair, True, sub["tri_att_end"], cfg)
+        self.pair_tr = ReluTransition(sub["pair_transition"], cfg)
+
+    def __call__(self, m, z):
+        _, S, I, cm = m.shape
+        cz = z.shape[-1]
+        ms, zs = (1, S, I, cm), (1, I, I, cz)
+        add = lambda base, out, shp: ttnn.add(base, ttnn.reshape(out, shp))
+        m = add(m, self.row(m, z), ms)
+        m = add(m, self.col(m), ms)
+        m = add(m, self.msa_tr(m), ms)
+        z = add(z, self.opm(m, msa_mask=None, n_msa=S), zs)
+        z = add(z, self.tmo(z), zs)
+        z = add(z, self.tmi(z), zs)
+        z = add(z, self.tas(z), zs)
+        z = add(z, self.tae(z), zs)
+        z = add(z, self.pair_tr(z), zs)
+        return m, z
+
+
+class EvoformerStack:
+    """AF2 Evoformer trunk on device: N EvoformerBlocks then the single-rep projection
+    s = Linear(c_m -> c_s)(m[..., 0, :, :]). Returns (m, z, s). This is the only heavy
+    (O(L^3)) part placed on device; embedders / structure module / heads run as the
+    vendored host reference (trunk dominates compute — ESMFold2/Protenix precedent)."""
+
+    def __init__(self, block_subs, s_linear_sd, hd_pair, h_pair, hd_msa, h_msa, cfg):
+        self.cfg = cfg
+        self.blocks = [EvoformerBlock(sub, hd_pair, h_pair, hd_msa, h_msa, cfg)
+                       for sub in block_subs]
+        dev = get_device()
+        ft = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        self.s_w = ft(s_linear_sd["weight"].t())
+        self.s_b = ft(s_linear_sd["bias"].reshape(1, -1))
+
+    def __call__(self, m, z):
+        for blk in self.blocks:
+            m, z = blk(m, z)
+        _, S, I, cm = m.shape
+        first = ttnn.reshape(ttnn.slice(m, [0, 0, 0, 0], [1, 1, I, cm]), (1, I, cm))
+        s = ttnn.linear(first, self.s_w, bias=self.s_b, compute_kernel_config=self.cfg,
+                        core_grid=CORE_GRID_MAIN, dtype=ttnn.bfloat16)
+        return m, z, s

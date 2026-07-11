@@ -57,11 +57,14 @@ OpenFold key names.
   op. AF2 MSA attention is net-new (can reuse sdpa + gating patterns from the
   verified `TriangleAttention`).
 
-**Net-new (nothing in tt-bio has it):** AF2 **Invariant Point Attention (IPA)**
-structure module + frame/quaternion updates (`utils/rigid_utils.py`). NOTE: the
-Evoformer trunk dominates compute (ESMFold2 lesson: trunk ~67%, structure module
-small), so IPA may stay a host reference with only heavy ops on device — decide by
-profiling, per the playbook ("swap only the heavy ops").
+**Device/host split (design decision).** Only the O(L³) **Evoformer trunk** goes on
+device (`EvoformerStack`, verified). The **input/recycling embedders, the IPA structure
+module, and the heads stay as the vendored host reference** — the trunk dominates
+compute (ESMFold2: trunk ~67% vs head ~2%; Protenix built a full ttnn confidence head
+that never paid off and was deleted), and the playbook says swap only the heavy ops.
+This avoids reimplementing AF2's **Invariant Point Attention** (frame/quaternion point
+attention, `utils/rigid_utils.py`) in ttnn — large, low-value. To be re-confirmed by
+an e2e profile (measured, not assumed) before final sign-off.
 
 Torch-side Linear/LayerNorm refs in `tt_bio/boltz2.py` + `tt_bio/reference.py`.
 
@@ -86,7 +89,8 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **MSA row attention + pair bias** | ✅ | **0.99998** | net-new `tt_bio.openfold.MSARowAttentionWithPairBias` (shared `_MSAGatedAttention` core) |
 | **MSA column attention** | ✅ | **0.99997** | net-new `tt_bio.openfold.MSAColumnAttention` (same core, transposed, no bias) — `tests/test_openfold_msa.py` |
 | **Evoformer block (full, assembled)** | ✅ | **m 0.99988 / z 0.99983** | all 9 sub-blocks composed in AF2 order on device (residuals, shapes, tri-att ending) — `tests/test_openfold_evoformer_block.py` |
-| **IPA structure module** | ⬜ next | — | **net-new device code** (or host reference — trunk dominates compute) |
+| **EvoformerStack** (N blocks + s-proj) | ✅ | **m 0.99986 / z 0.99979 / s 0.99985** | real device-trunk module `tt_bio.openfold.EvoformerStack`; 2-block chain + `s=Linear(m[...,0])` — `tests/test_openfold_evoformer_stack.py` |
+| Structure module (IPA) + heads | host | — | **host reference by design** (see device/host split) — not device-ported |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
 
@@ -110,10 +114,10 @@ bias — audit as each is verified.
 
 ## Next steps (resume here)
 
-1. Build IPA structure module (net-new) + PCC-verify (or keep as host reference — the Evoformer trunk dominates compute). Add gated o/g bias to TriangleAttention + the MSA `_MSAGatedAttention` core (same pattern as tri-mul) for AF2 real weights.
-4. Vendor `openfold/data/` MSA pipeline; wire real weights (`openfold_weights.py`, protenix_weights style).
-5. Wire CLI/worker (3 dispatch points: `main.py` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
-6. End-to-end on device; Cα-RMSD vs ground truth; release_gate; unify README.
+1. Integration (ESMFold2 `_SPEC`/adapter style): replace the reference `EvoformerStack` in the vendored `AlphaFold.forward` with the device `tt_bio.openfold.EvoformerStack`; keep embedders/structure-module/heads on host. Add gated o/g bias to TriangleAttention + the MSA `_MSAGatedAttention` core for AF2 real weights. Full-block real-weight remap loader (`openfold_weights.py`): scope a real EvoformerBlock ckpt → the per-sub-block dicts `EvoformerBlock` expects.
+2. Vendor `openfold/data/` MSA pipeline + download real AF2 weights (`scripts/download_openfold_params.sh`); run reference e2e on CPU for the accuracy baseline.
+3. Wire CLI/worker (3 dispatch points: `main.py` `--model` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
+4. End-to-end on device (device trunk + host structure module); Cα-RMSD vs ground truth; release_gate; unify README; confirm the device/host split by profiling.
 
 ## Run recipe (qb2, card 1)
 
