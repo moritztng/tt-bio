@@ -120,6 +120,8 @@ def _operation_paths() -> list[tuple[object, str]]:
         (ttnn, "transpose"),
         (ttnn, "to_layout"),
         (ttnn, "matmul"),
+        (ttnn, "softmax"),
+        (ttnn, "multiply"),
         (ttnn, "multiply_"),
         (ttnn, "add"),
         (ttnn, "unsqueeze"),
@@ -131,11 +133,11 @@ def _operation_paths() -> list[tuple[object, str]]:
     ]
 
 
-def _device_setup():
+def _device_setup(trace=False):
     from tt_bio import tenstorrent as T
 
     T.set_fast_mode(False)
-    device = T.get_device()
+    device = T.get_device(1 << 30 if trace else 0)
     config = ttnn.init_device_compute_kernel_config(
         device.arch(),
         math_fidelity=ttnn.MathFidelity.HiFi4,
@@ -320,6 +322,7 @@ def _real_trunk(args, state, T, device, config):
         calls = defaultdict(int)
         originals = []
         msa_originals = []
+        msa_method_original = None
 
         def wrap(label, operation):
             def timed(*op_args, **op_kwargs):
@@ -336,6 +339,8 @@ def _real_trunk(args, state, T, device, config):
             return timed
 
         if timing:
+            msa_method_original = trunk._msa
+            trunk._msa = wrap("msa", msa_method_original)
             for block in trunk.PF.blocks:
                 for label, attr in component_attrs.items():
                     original = getattr(block, attr)
@@ -343,7 +348,12 @@ def _real_trunk(args, state, T, device, config):
                     setattr(block, attr, wrap(label, original))
             for index, (opm, pwa, transition, pair_layer) in enumerate(trunk.MSA):
                 msa_originals.append((index, trunk.MSA[index]))
-                trunk.MSA[index] = (wrap("opm", opm), pwa, transition, pair_layer)
+                trunk.MSA[index] = (
+                    wrap("opm", opm),
+                    wrap("pwa", pwa) if pwa is not None else None,
+                    transition,
+                    pair_layer,
+                )
         try:
             ttnn.synchronize_device(device)
             started = time.perf_counter()
@@ -370,6 +380,8 @@ def _real_trunk(args, state, T, device, config):
                 setattr(block, attr, original)
             for index, original in msa_originals:
                 trunk.MSA[index] = original
+            if msa_method_original is not None:
+                trunk._msa = msa_method_original
 
     examples = Path(args.examples)
     for size in args.sizes:
@@ -530,6 +542,167 @@ def _triatt_projection(args, state, T, device, config):
         gc.collect()
 
 
+def _build_pwa(state, config):
+    from tt_bio.protenix_weights import remap_pair_weighted_averaging
+    from tt_bio.tenstorrent import PairWeightedAveraging
+
+    modules = []
+    for index in range(4):
+        prefix = (
+            f"msa_module.blocks.{index}."
+            "msa_stack.msa_pair_weighted_averaging."
+        )
+        weights = {
+            key[len(prefix) :]: value
+            for key, value in state.items()
+            if key.startswith(prefix)
+        }
+        if not weights:
+            continue
+        remapped = remap_pair_weighted_averaging(weights)
+        n_heads = int(remapped["proj_z.weight"].shape[0])
+        head_dim = int(remapped["proj_m.weight"].shape[0]) // n_heads
+        modules.append(PairWeightedAveraging(head_dim, n_heads, remapped, config))
+    return modules
+
+
+def _pwa(args, state, T, device, config):
+    modules = _build_pwa(state, config)
+    if not modules:
+        raise RuntimeError("checkpoint has no PairWeightedAveraging modules")
+    c_m = int(modules[0].weights["proj_m.weight"].shape[1])
+    c_z = int(modules[0].weights["proj_z.weight"].shape[1])
+
+    def execute(m, z, profile=None, capture=False):
+        paths = _operation_paths() if profile is not None else []
+        synchronize = profile == "sync"
+        saved = {}
+        with _profile_operations(device, paths, synchronize=synchronize) as (times, calls):
+            ttnn.synchronize_device(device)
+            started = time.perf_counter()
+            for index, module in enumerate(modules):
+                out = module(m, z)
+                if capture and index in (0, len(modules) - 1):
+                    ttnn.synchronize_device(device)
+                    saved[index] = torch.Tensor(ttnn.to_torch(out)).float()
+                ttnn.deallocate(out)
+            issue_elapsed = time.perf_counter() - started
+            ttnn.synchronize_device(device)
+            elapsed = time.perf_counter() - started
+        return elapsed, issue_elapsed, dict(times), dict(calls), saved
+
+    def trace_floor(m, z):
+        trace_id = None
+        outputs = []
+        try:
+            ttnn.synchronize_device(device)
+            trace_id = ttnn.begin_trace_capture(device, cq_id=0)
+            outputs = [module(m, z) for module in modules]
+            ttnn.end_trace_capture(device, trace_id, cq_id=0)
+            ttnn.synchronize_device(device)
+            samples = []
+            for _ in range(args.repeats):
+                started = time.perf_counter()
+                ttnn.execute_trace(device, trace_id, cq_id=0, blocking=False)
+                ttnn.synchronize_device(device)
+                samples.append(time.perf_counter() - started)
+            saved = {
+                index: torch.Tensor(ttnn.to_torch(outputs[index])).float()
+                for index in (0, len(outputs) - 1)
+            }
+            return statistics.median(samples), samples, saved, None
+        except Exception as error:
+            return None, [], {}, f"{type(error).__name__}: {error}"
+        finally:
+            if trace_id is not None:
+                try:
+                    ttnn.release_trace(device, trace_id)
+                except Exception:
+                    pass
+            for output in outputs:
+                try:
+                    ttnn.deallocate(output)
+                except Exception:
+                    pass
+
+    for size in args.sizes:
+        generator = torch.Generator().manual_seed(20260712 + size)
+        m_host = torch.randn(
+            (1, args.msa_depth, size, c_m),
+            generator=generator,
+            dtype=torch.bfloat16,
+        )
+        z_host = torch.randn(
+            (1, size, size, c_z),
+            generator=generator,
+            dtype=torch.bfloat16,
+        )
+        m = ttnn.from_torch(
+            m_host, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16
+        )
+        z = ttnn.from_torch(
+            z_host, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16
+        )
+        print(
+            f"warming {len(modules)} real PWA blocks N={size}, MSA={args.msa_depth}",
+            flush=True,
+        )
+        execute(m, z)
+        baseline_runs = [execute(m, z) for _ in range(args.repeats)]
+        baseline_samples = [run[0] for run in baseline_runs]
+        issue_samples = [run[1] for run in baseline_runs]
+        _, _, _, _, baseline = execute(m, z, capture=True)
+        host_s, _, host_times, host_calls, host = execute(
+            m, z, profile="host", capture=True
+        )
+        sync_s, _, sync_times, sync_calls, sync = execute(
+            m, z, profile="sync", capture=True
+        )
+        trace_s, trace_samples, traced, trace_error = trace_floor(m, z)
+        baseline_s = statistics.median(baseline_samples)
+        issue_s = statistics.median(issue_samples)
+        record = {
+            "component": "pair_weighted_averaging",
+            "N": size,
+            "msa_depth": args.msa_depth,
+            "blocks": len(modules),
+            "heads": modules[0].n_heads,
+            "head_dim": modules[0].head_dim,
+            "baseline_s": baseline_s,
+            "baseline_samples_s": baseline_samples,
+            "issue_s": issue_s,
+            "issue_samples_s": issue_samples,
+            "issue_share": issue_s / baseline_s,
+            "trace_floor_s": trace_s,
+            "trace_floor_samples_s": trace_samples,
+            "trace_speedup": baseline_s / trace_s if trace_s is not None else None,
+            "trace_error": trace_error,
+            "host_profile_s": host_s,
+            "host_enqueue_s": host_times,
+            "host_calls": host_calls,
+            "sync_profile_s": sync_s,
+            "op_sync_s": sync_times,
+            "sync_calls": sync_calls,
+            "host_profile_parity": {
+                str(index): _compare(baseline[index], host[index])
+                for index in baseline
+            },
+            "sync_profile_parity": {
+                str(index): _compare(baseline[index], sync[index])
+                for index in baseline
+            },
+            "trace_parity": {
+                str(index): _compare(baseline[index], traced[index])
+                for index in baseline
+            } if trace_s is not None else {},
+        }
+        print(json.dumps(record, sort_keys=True), flush=True)
+        ttnn.deallocate(m)
+        ttnn.deallocate(z)
+        del m_host, z_host, baseline, host, sync
+        gc.collect()
+
+
 def _opm(args, state, T, device, config):
     modules = _build_opm(state, config)
 
@@ -602,7 +775,8 @@ def _opm(args, state, T, device, config):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "component", choices=("pairformer", "real-trunk", "triatt-projection", "opm")
+        "component",
+        choices=("pairformer", "real-trunk", "triatt-projection", "opm", "pwa"),
     )
     parser.add_argument("--sizes", type=int, nargs="+", default=[512, 1024])
     parser.add_argument("--msa-depth", type=int, default=2048)
@@ -614,13 +788,15 @@ def main():
     torch.manual_seed(20260712)
 
     state = _load_checkpoint(args.checkpoint)
-    T, device, config = _device_setup()
+    T, device, config = _device_setup(trace=args.component == "pwa")
     if args.component == "pairformer":
         _pairformer(args, state, T, device, config)
     elif args.component == "real-trunk":
         _real_trunk(args, state, T, device, config)
     elif args.component == "triatt-projection":
         _triatt_projection(args, state, T, device, config)
+    elif args.component == "pwa":
+        _pwa(args, state, T, device, config)
     else:
         _opm(args, state, T, device, config)
 
