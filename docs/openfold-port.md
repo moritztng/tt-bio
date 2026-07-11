@@ -85,8 +85,8 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **PairTransition / MSATransition** (ReLU MLP) | ✅ | **0.99999** | net-new `tt_bio.openfold.ReluTransition` (`tests/test_openfold_transition.py`); keys match reference directly, no remap |
 | **MSA row attention + pair bias** | ✅ | **0.99998** | net-new `tt_bio.openfold.MSARowAttentionWithPairBias` (shared `_MSAGatedAttention` core) |
 | **MSA column attention** | ✅ | **0.99997** | net-new `tt_bio.openfold.MSAColumnAttention` (same core, transposed, no bias) — `tests/test_openfold_msa.py` |
-| Evoformer block (assembled) | ⬜ next | — | all block primitives above verified — compose + verify |
-| **IPA structure module** | ⬜ | — | **net-new device code** |
+| **Evoformer block (full, assembled)** | ✅ | **m 0.99988 / z 0.99983** | all 9 sub-blocks composed in AF2 order on device (residuals, shapes, tri-att ending) — `tests/test_openfold_evoformer_block.py` |
+| **IPA structure module** | ⬜ next | — | **net-new device code** (or host reference — trunk dominates compute) |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
 
@@ -110,8 +110,7 @@ bias — audit as each is verified.
 
 ## Next steps (resume here)
 
-1. Assemble + verify one full Evoformer block (reused triangle mul/attn + OPM + `ReluTransition` + MSA row/col attention). Add gated o/g bias to TriangleAttention + the MSA `_MSAGatedAttention` core (same pattern as tri-mul) for AF2 real weights.
-2. Build IPA structure module (net-new) + PCC-verify.
+1. Build IPA structure module (net-new) + PCC-verify (or keep as host reference — the Evoformer trunk dominates compute). Add gated o/g bias to TriangleAttention + the MSA `_MSAGatedAttention` core (same pattern as tri-mul) for AF2 real weights.
 4. Vendor `openfold/data/` MSA pipeline; wire real weights (`openfold_weights.py`, protenix_weights style).
 5. Wire CLI/worker (3 dispatch points: `main.py` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
 6. End-to-end on device; Cα-RMSD vs ground truth; release_gate; unify README.
