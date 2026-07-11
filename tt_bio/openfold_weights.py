@@ -11,8 +11,16 @@ from __future__ import annotations
 from tt_bio.protenix_weights import remap_triangle_multiplication, remap_outer_product_mean
 
 
-def _scope(sd: dict, prefix: str) -> dict:
-    return {k[len(prefix):]: v for k, v in sd.items() if k.startswith(prefix)}
+def _scope(sd: dict, *prefixes: str) -> dict:
+    """Scope by the first prefix that matches any key. The pair-track / transition /
+    OPM ops live under `core.` in the released OpenFold checkpoints (finetuning_*.pt)
+    but under `pair_stack.` / directly on the block in the current vendored reference —
+    accept both so one loader handles either layout."""
+    for p in prefixes:
+        out = {k[len(p):]: v for k, v in sd.items() if k.startswith(p)}
+        if out:
+            return out
+    return {}
 
 
 def _strip_mha(sd: dict) -> dict:
@@ -20,17 +28,19 @@ def _strip_mha(sd: dict) -> dict:
 
 
 def evoformer_block_subs(block_sd: dict) -> dict:
-    """One reference EvoformerBlock state_dict -> the sub-block dicts EvoformerBlock wants."""
+    """One reference/checkpoint EvoformerBlock state_dict -> the sub-block dicts
+    EvoformerBlock wants. Layout-robust (`core.` released-ckpt vs `pair_stack.`/direct
+    vendored)."""
     return {
         "row": _scope(block_sd, "msa_att_row."),
         "col": _scope(block_sd, "msa_att_col."),           # keeps _msa_att.; block strips it
-        "msa_transition": _scope(block_sd, "msa_transition."),
-        "opm": remap_outer_product_mean(_scope(block_sd, "outer_product_mean.")),
-        "tri_mul_out": remap_triangle_multiplication(_scope(block_sd, "pair_stack.tri_mul_out.")),
-        "tri_mul_in": remap_triangle_multiplication(_scope(block_sd, "pair_stack.tri_mul_in.")),
-        "tri_att_start": _strip_mha(_scope(block_sd, "pair_stack.tri_att_start.")),
-        "tri_att_end": _strip_mha(_scope(block_sd, "pair_stack.tri_att_end.")),
-        "pair_transition": _scope(block_sd, "pair_stack.pair_transition."),
+        "msa_transition": _scope(block_sd, "core.msa_transition.", "msa_transition."),
+        "opm": remap_outer_product_mean(_scope(block_sd, "core.outer_product_mean.", "outer_product_mean.")),
+        "tri_mul_out": remap_triangle_multiplication(_scope(block_sd, "core.tri_mul_out.", "pair_stack.tri_mul_out.")),
+        "tri_mul_in": remap_triangle_multiplication(_scope(block_sd, "core.tri_mul_in.", "pair_stack.tri_mul_in.")),
+        "tri_att_start": _strip_mha(_scope(block_sd, "core.tri_att_start.", "pair_stack.tri_att_start.")),
+        "tri_att_end": _strip_mha(_scope(block_sd, "core.tri_att_end.", "pair_stack.tri_att_end.")),
+        "pair_transition": _scope(block_sd, "core.pair_transition.", "pair_stack.pair_transition."),
     }
 
 

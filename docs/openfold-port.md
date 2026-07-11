@@ -91,9 +91,29 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **Evoformer block (full, assembled)** | ✅ | **m 0.99988 / z 0.99983** | all 9 sub-blocks composed in AF2 order on device (residuals, shapes, tri-att ending) — `tests/test_openfold_evoformer_block.py` |
 | **EvoformerStack** (N blocks + s-proj) | ✅ | **m 0.99986 / z 0.99979 / s 0.99985** | real device-trunk module `tt_bio.openfold.EvoformerStack`; 2-block chain + `s=Linear(m[...,0])` — `tests/test_openfold_evoformer_stack.py` |
 | **EvoformerStack from real ckpt tree** | ✅ | **m 0.99984 / z 0.99979 / s 0.99984** | `openfold_weights.evoformer_stack_subs` scopes a real reference `EvoformerStack` state_dict (`blocks.{i}.pair_stack.*`, `msa_att_col._msa_att.*`, `linear.*`) → device stack; validates the real weight-load path — `tests/test_openfold_stack_realtree.py` |
+| **REAL weights** (finetuning_ptm_1.pt, block 0) | ⚠️ | **m 0.99816 / z 0.97427** | loader handles the real `core.*` ckpt layout; o/g bias ruled out; z-track below gate under OOD random input — needs real-input recheck (see Real-weight findings) |
 | Structure module (IPA) + heads | host | — | **host reference by design** (see device/host split) — not device-ported |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
+
+### Real-weight findings (finetuning_ptm_1.pt, block 0 on device)
+
+Downloaded the real released pTM checkpoint and ran block 0 with **real weights**
+(`tests/test_openfold_realweights_block.py`). Findings:
+- **Checkpoint layout differs from the vendored reference.** Released `finetuning_*.pt`
+  put the pair-track/OPM/transition ops under `evoformer.blocks.{i}.core.*` (older
+  `EvoformerBlockCore`); current vendored main uses `pair_stack.*` + direct. The loader
+  (`openfold_weights`) now accepts **both** layouts. Triangle layout is non-fused
+  (matches the remap). So real AF2 weights load into the device trunk.
+- **o/g gate/output bias is negligible** at real magnitudes: full real weights
+  m 0.99816 / z 0.97427 vs o/g-zeroed m 0.99846 / z 0.96906 — the currently-dropped
+  o/g bias is NOT the parity driver (de-prioritizes that follow-up).
+- **Pair (z) track parity is 0.974 — below the 0.98 gate — under a random OOD input.**
+  m-track 0.998 is fine. The random `*0.5` input is out-of-distribution for trained
+  weights (real embedder activations have a specific scale), the likely cause; the
+  O(L³) pair-track bf16 precision is the other candidate. **Must re-check with real
+  embedder inputs (needs the data pipeline) before trusting/curing this** — don't
+  assume it's a bug or that it's fine.
 
 ### Resolved — biased linears (AF2 support added to shared block)
 
