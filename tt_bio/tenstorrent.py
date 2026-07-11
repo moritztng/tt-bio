@@ -19,6 +19,8 @@ TRANSITION_W_CHUNKING_THRESHOLD = 1024
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 _FAST_MODE = False
+# Benchmark-only escape hatch: compare the pre-decomposition channel moves.
+_TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -571,7 +573,11 @@ class TriangleMultiplication(Module):
         # single permute is marginally faster (the extra op's launch overhead
         # outweighs the cheaper transpose), so keep it there.
         inner_swap = permute_dims == (0, 3, 2, 1)
-        decompose = inner_swap and memory_config.buffer_type == ttnn.BufferType.DRAM
+        decompose = (
+            inner_swap
+            and memory_config.buffer_type == ttnn.BufferType.DRAM
+            and not _TRIMUL_RAW_CHANNEL_MOVES
+        )
         ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
         if decompose:
             ops.append((ttnn.permute, (0, 3, 1, 2)))
@@ -656,7 +662,7 @@ class TriangleMultiplication(Module):
             # equivalent transpose(1,2) then transpose(2,3) is ~2.6ms (the inner
             # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
             # single permute is marginally faster, so keep it there.
-            if large_seq:
+            if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:
                 x_chunk = ttnn.transpose(x_chunk, 1, 2, memory_config=memory_config)
                 x_chunk_t = ttnn.transpose(x_chunk, 2, 3, memory_config=memory_config)
                 ttnn.deallocate(x_chunk)
