@@ -66,8 +66,8 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 |---|---|---|---|
 | Reference harness imports (vendored, CPU) | ✅ | — | lazy CUDA-kernel stub works |
 | **TriangleMultiplication** (Outgoing+Incoming) | ✅ | **0.99999** | reuses shared ttnn block via `remap_triangle_multiplication`; AF2 biased linears **and** AF3 bias-free path both 0.99999 (`tests/test_openfold_triangle.py`) |
-| TriangleAttention | ⬜ next | — | shared block; expect direct reuse |
-| OuterProductMean / MSA attn / transitions | ⬜ | — | shared blocks |
+| **TriangleAttention** (Starting+Ending) | ✅ core | **0.99997** | reuses shared block; remap = strip `mha.` prefix (`tests/test_openfold_triangle_attn.py`). q/k/v bias-free; o/g gated bias = mechanical follow-up (same as tri-mul) for real weights |
+| OuterProductMean / MSA attn / transitions | ⬜ next | — | shared blocks |
 | Evoformer block (assembled) | ⬜ | — | |
 | **IPA structure module** | ⬜ | — | **net-new device code** |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
@@ -93,7 +93,7 @@ bias — audit as each is verified.
 
 ## Next steps (resume here)
 
-1. PCC-verify TriangleAttention, OuterProductMean, MSA row/col attn, transitions (shared blocks + remaps; add gated bias where AF2 needs it, same pattern).
+1. PCC-verify OuterProductMean, MSA row/col attn, transitions (shared blocks + remaps). Add gated o/g bias to TriangleAttention + the shared Attention primitive (same pattern as tri-mul) for AF2 real weights.
 2. Assemble + verify one full Evoformer block.
 3. Build IPA structure module (net-new) + PCC-verify.
 4. Vendor `openfold/data/` MSA pipeline; wire real weights (`openfold_weights.py`, protenix_weights style).
