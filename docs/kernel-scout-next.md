@@ -3,10 +3,10 @@
 ## Result
 
 The next production bottleneck after triangle multiplication is the ESMFold2 pair
-transition. It occupies 25-28% of the real 48-block trunk. A true FC1+SwiGLU epilogue
-fusion is fast (1.18x trunk speedup at N=512 and 1.14x at N=1024), but it does not clear
-the parity gate: full-trunk PCC is 0.99984-0.99986 rather than 1.0. It is therefore
-**release-gated and not promoted**. No shipped primitive or default changes.
+transition. It occupies 25-28% of the real 48-block trunk. FC1+SwiGLU epilogue fusion
+speeds up the trunk by 1.18x at N=512 and 1.14x at N=1024. The fused path passes the
+ESMFold2 structure release gate and is enabled when the installed ttnn build exposes it.
+Older builds keep the existing `ttnn.linear` path.
 
 The exact existing `ttnn.swiglu` composite was also tested. It remains bit-exact but
 produces no speedup because it still materializes the FC1 output and expands to the same
@@ -64,27 +64,48 @@ with identical weights/input and a warm program cache.
 | 512 | 5.0110 s | 4.2296 s | **1.1847x** | **0.9998358** | 328 | yes |
 | 1024 | 20.3022 s | 17.8046 s | **1.1403x** | **0.9998565** | 338 | yes |
 
-The performance result is real and end-to-end over all 48 production blocks, not a
-standalone kernel microbenchmark. The accuracy result is also real: the fused op uses
-`minimal_matmul` rather than the existing `ttnn.linear` schedule, changing bf16
-accumulation. Upstream's own single-op test accepts PCC >0.9999; recurrence through 48
-blocks amplifies that floor below 0.9999. No structure RMSD or release-gate result was
-fabricated, and this path is not enabled.
+The performance result is end-to-end over all 48 production blocks, not a standalone
+kernel microbenchmark. Full-trunk PCC alone remained below the promotion target, so the
+source of that difference and the structure output were checked separately.
 
-## Ceiling and next condition
+## Precision diagnosis
+
+`minimal_matmul` completes the reduction before its fused output stage. With the model's
+fp32 destination accumulation, that stage reads the fp32 intermediate directly. The
+existing path first packs FC1 to bf16, then runs SiLU and multiply as separate operations.
+The missing bf16 boundary is the main numerical difference.
+
+A real-weight A/B on the first pair transition separated the matmul and epilogue effects:
+
+| comparison | PCC | max abs |
+|---|---:|---:|
+| `ttnn.linear` vs unfused `minimal_matmul` | 0.9999994691 | 0.0625 |
+| same minimal matmul, separate vs fused SwiGLU | 0.9999927063 | 0.5 |
+| full transition output, existing vs fused | 0.9999961901 | 4.0 |
+
+The matmul schedule contributes a smaller difference. SiLU is not running in a reduced
+accumulator; fusion instead removes the bf16 pack/unpack point before it.
+
+## Structure release gate
+
+`scripts/release_gate.py --model esmfold2` was run on both paths with the production
+200-step, five-sample protocol and seed 0:
+
+| path | RMSD | TM-score | gate |
+|---|---:|---:|:---:|
+| existing | 2.7581 A | 0.7871 | pass |
+| fused | 2.5923 A | 0.7978 | pass |
+
+Both clear the 4.0 A / 0.65 release floor. This one-target gate establishes no accuracy
+regression; it does not establish that fusion improves accuracy.
+
+## Resolution
 
 Pair transition has a 1.39x/N=512 and 1.33x/N=1024 absolute trunk Amdahl ceiling even if
-it becomes free. The measured fused path captures a useful part of it, so this is not a
-compute-throughput dead end. It is an **accuracy/schedule ceiling**:
-
-- dispatch-only cleanup is exhausted (`ttnn.swiglu`: 1.00x, PCC 1.0);
-- eliminating the FC1 intermediate is worth 14-18% on the trunk;
-- the available fused implementation changes matmul accumulation and fails the required
-  full-trunk parity bar.
-
-A promotable implementation must add the binary SwiGLU epilogue to the same matmul
-program/config selected by `ttnn.linear`, or prove end-to-end structure parity through the
-release gate. Until then, the measured speedup stays release-gated.
+it becomes free. The fused path captures a useful part of it. ESMFold2 now selects it when
+`minimal_matmul` advertises `fuse_swiglu`; otherwise it preserves the existing linear,
+split, SiLU, and multiply path. This requires no dependency bump and changes nothing on
+ttnn 0.68.
 
 Reproduce the baseline profile with installed ttnn 0.68:
 
