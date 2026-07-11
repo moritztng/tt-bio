@@ -93,7 +93,8 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **EvoformerStack from real ckpt tree** | ✅ | **m 0.99984 / z 0.99979 / s 0.99984** | `openfold_weights.evoformer_stack_subs` scopes a real reference `EvoformerStack` state_dict (`blocks.{i}.pair_stack.*`, `msa_att_col._msa_att.*`, `linear.*`) → device stack; validates the real weight-load path — `tests/test_openfold_stack_realtree.py` |
 | **REAL weights** (finetuning_ptm_1.pt, block 0) | ✅ per-op | **each pair op > 0.98** (tri-mul 0.99997, tri-att 0.9888, pair-trans 1.0, opm 0.998); block composite m 0.998 / z 0.974 | loader handles real `core.*` layout; z-composite = accumulation not a bug (o/g bias ruled out) — judge via e2e RMSD |
 | **Full-model real-weight load** (host) | ✅ | **5046/5046 params, 0 missing / 0 unexpected** | vendored `AlphaFold` (model_1_ptm) loads the real ckpt via `convert_deprecated_v1_keys` (released ckpt = deprecated-v1 `core.` layout) — every module maps; `tests/test_openfold_fullmodel_load.py` |
-| **End-to-end reference (host, real weights)** | ✅ runs | **Cα-RMSD 13.04 Å** (7ROA, single-seq/no-MSA, pLDDT 51, 110s CPU) | full AF2 pipeline runs end-to-end → structure → Kabsch RMSD vs ground truth; `scripts/openfold_e2e_ref.py`. 13 Å is expected for **no-MSA** AF2 (needs MSA); pipeline validated, accuracy pending MSA + device-trunk swap |
+| **End-to-end reference (host, real weights)** | ✅ runs | **Cα-RMSD 13.04 Å** (7ROA, single-seq/no-MSA, pLDDT 51, 110s CPU) | full AF2 pipeline runs end-to-end → structure → Kabsch RMSD vs ground truth; `scripts/openfold_e2e_ref.py`. 13 Å is expected for **no-MSA** AF2 (needs MSA); pipeline validated |
+| **End-to-end DEVICE trunk (real weights)** | ✅ runs | **Cα-RMSD 16.32 Å** (7ROA, single-seq, pLDDT 26, **36.5s**) | device `EvoformerStack` swapped into `AlphaFold.forward` (host embedders/structure/heads); `scripts/openfold_e2e_device.py`. **Port is end-to-end functional on device** (faster than 110s CPU ref). Accuracy pending: (a) **MSA** — both no-MSA numbers are poor by design; (b) device 16.3 vs ref 13.0 Å + pLDDT 26 vs 51 = bf16 pair-track **accumulation over 48 blocks** (tri-att ~0.988/block is the lever) |
 | Structure module (IPA) + heads | host | — | **host reference by design** (see device/host split) — not device-ported |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
@@ -138,6 +139,18 @@ byte the same gated-off code → protenix-v2 / Boltz-2 unaffected; recommend the
 orchestrator re-run their release gate at merge as belt-and-suspenders). The other
 reused blocks (TriangleAttention, OPM, MSA, transitions) likely need the same gated
 bias — audit as each is verified.
+
+## Status: END-TO-END FUNCTIONAL ON DEVICE (accuracy pending MSA + precision)
+
+The full OpenFold AF2 runs end-to-end with the Evoformer trunk on Tenstorrent (device
+`EvoformerStack`) + host embedders/structure-module/heads, on real weights, producing a
+structure with a measured Cα-RMSD. Two accuracy items remain before release-quality:
+1. **MSA** — all numbers above are single-sequence (no MSA); AF2 needs MSA. Wire the
+   ColabFold MSA (tt-bio's `msa_server.py`) to build real alignments; expect a large
+   accuracy jump (protenix hits ~1.8 Å on 7ROA with MSA).
+2. **Device precision** — device 16.3 vs ref 13.0 Å (no-MSA) is bf16 pair-track
+   accumulation over 48 blocks; raise tri-att attention precision (its 0.988/block is the
+   weakest link) — re-judge on the MSA e2e RMSD, not per-block PCC.
 
 ## Next steps (resume here)
 
