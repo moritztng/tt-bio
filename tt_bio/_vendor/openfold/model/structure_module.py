@@ -440,11 +440,14 @@ class InvariantPointAttention(nn.Module):
             del pt_att
             a += square_mask.unsqueeze(-3)
             # in-place softmax
-            attn_core_inplace_cuda.forward_(
-                a,
-                reduce(mul, a.shape[:-1]),
-                a.shape[-1],
-            )
+            if attn_core_inplace_cuda is not None:
+                attn_core_inplace_cuda.forward_(
+                    a,
+                    reduce(mul, a.shape[:-1]),
+                    a.shape[-1],
+                )
+            else:  # tt-bio pure-PyTorch inference fallback (in-place softmax over last dim)
+                a[:] = torch.softmax(a, dim=-1)
         else:
             a = a + pt_att
             a = a + square_mask.unsqueeze(-3)

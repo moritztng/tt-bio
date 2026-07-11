@@ -103,4 +103,14 @@ class AttentionCoreFunction(torch.autograd.Function):
 
         return grad_q, grad_k, grad_v, grad_bias_1, grad_bias_2
 
-attention_core = AttentionCoreFunction.apply
+def attention_core(q, k, v, bias_1=None, bias_2=None):
+    # tt-bio: pure-PyTorch inference fallback when the custom CUDA kernel is unavailable.
+    # Mirrors the kernel exactly: softmax(q k^T + bias_1 + bias_2) @ v (q already scaled).
+    if attn_core_inplace_cuda is not None:
+        return AttentionCoreFunction.apply(q, k, v, bias_1, bias_2)
+    logits = torch.matmul(q, k.transpose(-1, -2))
+    if bias_1 is not None:
+        logits = logits + bias_1
+    if bias_2 is not None:
+        logits = logits + bias_2
+    return torch.matmul(torch.softmax(logits, dim=-1), v)
