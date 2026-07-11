@@ -90,6 +90,7 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **MSA column attention** | ✅ | **0.99997** | net-new `tt_bio.openfold.MSAColumnAttention` (same core, transposed, no bias) — `tests/test_openfold_msa.py` |
 | **Evoformer block (full, assembled)** | ✅ | **m 0.99988 / z 0.99983** | all 9 sub-blocks composed in AF2 order on device (residuals, shapes, tri-att ending) — `tests/test_openfold_evoformer_block.py` |
 | **EvoformerStack** (N blocks + s-proj) | ✅ | **m 0.99986 / z 0.99979 / s 0.99985** | real device-trunk module `tt_bio.openfold.EvoformerStack`; 2-block chain + `s=Linear(m[...,0])` — `tests/test_openfold_evoformer_stack.py` |
+| **EvoformerStack from real ckpt tree** | ✅ | **m 0.99984 / z 0.99979 / s 0.99984** | `openfold_weights.evoformer_stack_subs` scopes a real reference `EvoformerStack` state_dict (`blocks.{i}.pair_stack.*`, `msa_att_col._msa_att.*`, `linear.*`) → device stack; validates the real weight-load path — `tests/test_openfold_stack_realtree.py` |
 | Structure module (IPA) + heads | host | — | **host reference by design** (see device/host split) — not device-ported |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
@@ -114,8 +115,8 @@ bias — audit as each is verified.
 
 ## Next steps (resume here)
 
-1. Integration (ESMFold2 `_SPEC`/adapter style): replace the reference `EvoformerStack` in the vendored `AlphaFold.forward` with the device `tt_bio.openfold.EvoformerStack`; keep embedders/structure-module/heads on host. Add gated o/g bias to TriangleAttention + the MSA `_MSAGatedAttention` core for AF2 real weights. Full-block real-weight remap loader (`openfold_weights.py`): scope a real EvoformerBlock ckpt → the per-sub-block dicts `EvoformerBlock` expects.
-2. Vendor `openfold/data/` MSA pipeline + download real AF2 weights (`scripts/download_openfold_params.sh`); run reference e2e on CPU for the accuracy baseline.
+1. Integration (ESMFold2 `_SPEC`/adapter style): in the vendored `AlphaFold.forward`, replace the reference `EvoformerStack` with the device `tt_bio.openfold.EvoformerStack` (weights via `openfold_weights.evoformer_stack_subs`, now validated against the real ckpt tree); keep embedders/structure-module/heads on host. Add gated o/g bias to TriangleAttention + the MSA `_MSAGatedAttention` core for AF2 real weights.
+2. Download real AF2 weights (`aws s3 --no-sign-request s3://openfold/openfold_params/`), vendor `openfold/data/` + MSA (precomputed alignments or ColabFold server); run reference e2e on CPU for the accuracy baseline, then device-trunk e2e.
 3. Wire CLI/worker (3 dispatch points: `main.py` `--model` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
 4. End-to-end on device (device trunk + host structure module); Cα-RMSD vs ground truth; release_gate; unify README; confirm the device/host split by profiling.
 
