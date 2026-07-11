@@ -83,8 +83,9 @@ phase. TODO before merge: license headers/NOTICE, `pyproject` deps, package-data
 | **TriangleAttention** (Starting+Ending) | ✅ core | **0.99997** | reuses shared block; remap = strip `mha.` prefix (`tests/test_openfold_triangle_attn.py`). q/k/v bias-free; o/g gated bias = mechanical follow-up (same as tri-mul) for real weights |
 | **OuterProductMean** | ✅ | **0.99999** | reuses shared block via `remap_outer_product_mean` (`tests/test_openfold_opm.py`). Note: parity needs normal-magnitude weights — `*0.1` underflows bf16 through the outer product (0.74), not a bug |
 | **PairTransition / MSATransition** (ReLU MLP) | ✅ | **0.99999** | net-new `tt_bio.openfold.ReluTransition` (`tests/test_openfold_transition.py`); keys match reference directly, no remap |
-| MSA row/col gated attention + pair bias | ⬜ net-new | — | AF2-specific; reuse sdpa+gating pattern |
-| Evoformer block (assembled) | ⬜ | — | |
+| **MSA row attention + pair bias** | ✅ | **0.99998** | net-new `tt_bio.openfold.MSARowAttentionWithPairBias` (shared `_MSAGatedAttention` core) |
+| **MSA column attention** | ✅ | **0.99997** | net-new `tt_bio.openfold.MSAColumnAttention` (same core, transposed, no bias) — `tests/test_openfold_msa.py` |
+| Evoformer block (assembled) | ⬜ next | — | all block primitives above verified — compose + verify |
 | **IPA structure module** | ⬜ | — | **net-new device code** |
 | Heads (pLDDT/pTM/distogram) | ⬜ | — | keep on host (cheap), per playbook |
 | End-to-end Cα-**RMSD** vs ground truth | ⬜ | — | release-gate: `examples/prot.yaml` (7ROA), Kabsch vs `examples/ground_truth_structures/prot.cif` |
@@ -109,9 +110,8 @@ bias — audit as each is verified.
 
 ## Next steps (resume here)
 
-1. Build + verify AF2 MSA row/col gated attention (net-new; reuse sdpa+gating from the verified TriangleAttention path). Add gated o/g bias to TriangleAttention (same pattern as tri-mul) for AF2 real weights.
-2. Assemble + verify one full Evoformer block (reused triangle mul/attn + OPM + `ReluTransition` + MSA attention).
-3. Build IPA structure module (net-new) + PCC-verify.
+1. Assemble + verify one full Evoformer block (reused triangle mul/attn + OPM + `ReluTransition` + MSA row/col attention). Add gated o/g bias to TriangleAttention + the MSA `_MSAGatedAttention` core (same pattern as tri-mul) for AF2 real weights.
+2. Build IPA structure module (net-new) + PCC-verify.
 4. Vendor `openfold/data/` MSA pipeline; wire real weights (`openfold_weights.py`, protenix_weights style).
 5. Wire CLI/worker (3 dispatch points: `main.py` Choice, `worker.py` load_model + predict_one; `release_gate.py` floor) + `--fast` + `--device_ids`.
 6. End-to-end on device; Cα-RMSD vs ground truth; release_gate; unify README.
