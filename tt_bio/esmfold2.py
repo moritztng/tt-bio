@@ -139,7 +139,9 @@ class PairUpdateBlock(Module):
         self.tri_in = TriangleMultiplication(
             True, _remap_trimul(sd, "tri_mul_in._engine"), compute_kernel_config
         )
-        self.transition = SwiGLUFFN(_remap_transition(sd), compute_kernel_config)
+        self.transition = SwiGLUFFN(
+            _remap_transition(sd), compute_kernel_config, fuse_swiglu=True
+        )
 
     def _residual(self, z: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
         out = ttnn.add(z, update)

@@ -226,19 +226,32 @@ class Attention(Module):
         return out
 
 
+def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
+    packed = weight.t()
+    rows, two_n = packed.shape
+    return packed.reshape(rows, 2, -1, 32).permute(0, 2, 1, 3).reshape(rows, two_n)
+
+
 class SwiGLUFFN(Module):
     """SwiGLU feed-forward (mirrors esm.layers.blocks.swiglu_ln_ffn, bias=False):
       h = Linear(LayerNorm(x)); x1,x2 = chunk(h,2); Linear(silu(x1) * x2).
     """
 
-    def __init__(self, state_dict: Weights, compute_kernel_config):
+    def __init__(self, state_dict: Weights, compute_kernel_config, fuse_swiglu: bool = False):
         super().__init__(state_dict, compute_kernel_config)
         self.norm_weight = self.torch_to_tt("0.weight")
         self.norm_bias = self.torch_to_tt("0.bias")
+        minimal_matmul = getattr(ttnn.experimental, "minimal_matmul", None)
+        self.fuse_swiglu = bool(
+            fuse_swiglu
+            and minimal_matmul is not None
+            and "fuse_swiglu" in (minimal_matmul.__doc__ or "")
+        )
         # fc1/fc2 are the FFN's big matmuls (and the bulk of the ESMC-6B FLOPs);
         # block-fp8 in fast mode, bf16 otherwise. Shared with the folding trunk's
         # pair-transition, so fast mode bf8's that too.
-        self.fc1_weight = self.torch_to_tt("1.weight", dtype=_dtype())
+        transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
+        self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
         self.fc2_weight = self.torch_to_tt("3.weight", dtype=_dtype())
 
     def _ffn(self, x: ttnn.Tensor) -> ttnn.Tensor:
@@ -247,12 +260,22 @@ class SwiGLUFFN(Module):
             x, weight=self.norm_weight, bias=self.norm_bias,
             epsilon=1e-5, compute_kernel_config=ck,
         )
-        h = self._lin(x_norm, self.fc1_weight)
-        ttnn.deallocate(x_norm)
-        x1, x2 = ttnn.chunk(h, 2, dim=-1)
-        ttnn.deallocate(h)
-        gated = ttnn.multiply(ttnn.silu(x1), x2)
-        ttnn.deallocate(x1); ttnn.deallocate(x2)
+        if self.fuse_swiglu:
+            gated = ttnn.experimental.minimal_matmul(
+                input_tensor=x_norm,
+                weight_tensor=self.fc1_weight,
+                compute_kernel_config=ck,
+                dtype=self.fc1_weight.dtype,
+                fuse_swiglu=True,
+            )
+            ttnn.deallocate(x_norm)
+        else:
+            h = self._lin(x_norm, self.fc1_weight)
+            ttnn.deallocate(x_norm)
+            x1, x2 = ttnn.chunk(h, 2, dim=-1)
+            ttnn.deallocate(h)
+            gated = ttnn.multiply(ttnn.silu(x1), x2)
+            ttnn.deallocate(x1); ttnn.deallocate(x2)
         out = self._lin(gated, self.fc2_weight)
         ttnn.deallocate(gated)
         return out
