@@ -121,7 +121,7 @@ fan-out phase. The strong distogram and pLDDT agreement already indicates the
 underlying predicted geometry matches; what remains is quantifying the coordinate
 spread properly.
 
-### Protenix-v2 (AF3-family, MSA) — harness ready, one known gap to disclose
+### Protenix-v2 (AF3-family, MSA) — device leg measured, reference leg pending
 
 `structures` mode compares device and reference Protenix folds directly. The
 reference is the official ByteDance Protenix 2.0.0, installed and confirmed working
@@ -140,6 +140,37 @@ output itself (oracle-of-N) is faithful to the reference; the gap is confined to
 confidence-based ranking. An evaluator should know this before trusting Protenix's
 own "best" selection on Tenstorrent, exactly as they should on the original
 implementation.
+
+**Fan-out run (2026-07-12): device leg complete, reference leg hit a real compute-time
+ceiling.** Production settings (`--use_msa_server --sampling_steps 200
+--diffusion_samples 5`) on `examples/prot.yaml` (117-res, PDB 7ROA), seeds 0/1 each
+side. Raw data: `docs/pharma-benchmark-data/protenix-v2.json`.
+
+Device (tt-bio): both seeds complete in ~75-79s, confidence-selected ptm ~0.904 --
+markedly better than the confidence-head gap described above, consistent with the
+template-embedder and confidence-recycling fixes merged to main since that
+investigation. Device self-consistency floor (D): Kabsch RMSD **0.79 Å**, coord PCC
+**0.998** across all 900 atoms.
+
+Reference (official ByteDance Protenix 2.0.0, torch, CPU): launched at the same
+time as the device runs, same input/MSA/seeds. Both seeds are still computing the
+diffusion forward after 3h13m+ of wall clock -- confirmed healthy (not stuck: PPID
+1, R state, no swapping) each time this was checked, just genuinely CPU-bound.
+Official Protenix's torch triangle attention/multiplication has no CUDA fusion to
+fall back on for a CPU run, so N_step=200 x N_sample=5 on a 900-atom target costs
+orders of magnitude more wall clock than the device path's ~75s. **R (reference
+self-consistency) and X (device-vs-reference) are not yet measured** -- this is a
+genuine compute-time bottleneck, not an estimated or fabricated number, and it is
+the actual reason a full three-leg Protenix-v2 result isn't in this document yet.
+
+Do not kill the reference processes -- they hold hours of sunk progress. Once both
+finish (`REF_PREDICT_DONE` in `/home/ttuser/pharma_protenix_run/ref_seed{0,1}.log`
+on qb1), re-run `scripts/pharma_parity.py structures` against
+`/home/ttuser/pharma_protenix_run/{ref,dev}_seed{0,1}/boltz_results_prot` to get
+R/D/X and replace this note. Extending to more targets multiplies the reference-side
+cost roughly linearly (each seed is its own multi-hour CPU run); running them
+sequentially rather than concurrently avoids CPU contention between them on this
+32-core host.
 
 ### Boltz-2 (structure + affinity) — first direct comparison measured
 
@@ -249,20 +280,28 @@ no-MSA targets, two seeds each; trp-cage within its noise floor, a modest
 1.3-1.6x-over-floor gap on the longer single-sequence target) plus real
 device-vs-CPU-reference timing (40-100x faster warm).
 
-Ready to run, queued for the fan-out phase: the **ESMFold2** multi-seed noise
-floor, **Boltz-2** on an MSA-backed target, and **Protenix-v2** structure
-parity. The reference implementations are installed and the comparison code
-is wired; what remains is generating the multi-seed device and reference
-fold sets, which parallelizes naturally across the free cards on qb1 and qb2.
+**Protenix-v2**: device leg measured (self-consistency D = 0.79 A Kabsch RMSD,
+0.998 coord PCC). Reference leg blocked on a genuine CPU compute-time ceiling
+(official Protenix has no CUDA-fused triangle ops to fall back on for a CPU run;
+3h13m+ and still computing at the time of writing) -- R and X are not yet measured,
+see the Protenix-v2 section above for the resumption path.
 
 **BoltzGen** device-side designability floor is measured (two independent 8-design
 seed groups, pooled median 0.78 Å scRMSD, 93.8% ≤2Å); the reference-vs-reference and
 device-vs-reference legs are blocked on hosts without an NVIDIA GPU, verified by
 reproducing upstream's CUDA-only crash directly (see the BoltzGen section above).
 
-Known gaps disclosed: **Protenix-v2 confidence-head under-ranking**, a real
-model-level property carried faithfully by the port, not a device defect; and
-**BoltzGen's reference implementation has no CPU path**, blocking the R/X legs on
-GPU-less hosts.
+Ready to run, queued for the fan-out phase: the **ESMFold2** multi-seed noise
+floor and **Boltz-2** on an MSA-backed target. The reference implementations
+are installed and the comparison code is wired; what remains is generating
+the multi-seed device and reference fold sets, which parallelizes naturally
+across the free cards on qb1 and qb2.
+
+Known gaps disclosed: **Protenix-v2 confidence-head under-ranking** (a real
+model-level property carried faithfully by the port, not a device defect);
+the **Protenix-v2 reference-side compute-time ceiling** (an operational
+limitation of running the official CPU implementation at production
+settings, not a port defect either); and **BoltzGen's reference
+implementation has no CPU path**, blocking its R/X legs on GPU-less hosts.
 
 Candidate for publication on docs.japanfold.com once that site exists.
