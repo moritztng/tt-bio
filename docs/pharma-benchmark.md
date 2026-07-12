@@ -141,17 +141,36 @@ confidence-based ranking. An evaluator should know this before trusting Protenix
 own "best" selection on Tenstorrent, exactly as they should on the original
 implementation.
 
-**Fan-out run status (2026-07-12, in progress):** production-settings device-vs-
-reference run launched on `examples/prot.yaml` (117-res, PDB 7ROA), seeds 0/1 each
-side, `--use_msa_server --sampling_steps 200 --diffusion_samples 5`. Device runs
-complete (both ~75s, confidence-selected ptm ~0.904 -- markedly better than the
-gap described above, consistent with the template-embedder + confidence-recycling
-fixes merged to main since that investigation). Device self-consistency floor (D):
-Kabsch RMSD 0.79 Å, coord PCC 0.998 between the two device seeds' selected
-structures. The reference-side runs (official ByteDance Protenix 2.0.0, CPU, same
-input) are still computing the diffusion forward as of this note -- CPU inference
-at N_step=200/N_sample=5 is far slower than the device path. R and X legs, and the
-full noise-floor verdict, will replace this note once both reference runs finish.
+**Fan-out run (2026-07-12): device leg complete, reference leg hit a real compute-time
+ceiling.** Production settings (`--use_msa_server --sampling_steps 200
+--diffusion_samples 5`) on `examples/prot.yaml` (117-res, PDB 7ROA), seeds 0/1 each
+side. Raw data: `docs/pharma-benchmark-data/protenix-v2.json`.
+
+Device (tt-bio): both seeds complete in ~75-79s, confidence-selected ptm ~0.904 --
+markedly better than the confidence-head gap described above, consistent with the
+template-embedder and confidence-recycling fixes merged to main since that
+investigation. Device self-consistency floor (D): Kabsch RMSD **0.79 Å**, coord PCC
+**0.998** across all 900 atoms.
+
+Reference (official ByteDance Protenix 2.0.0, torch, CPU): launched at the same
+time as the device runs, same input/MSA/seeds. Both seeds are still computing the
+diffusion forward after 3h13m+ of wall clock -- confirmed healthy (not stuck: PPID
+1, R state, no swapping) each time this was checked, just genuinely CPU-bound.
+Official Protenix's torch triangle attention/multiplication has no CUDA fusion to
+fall back on for a CPU run, so N_step=200 x N_sample=5 on a 900-atom target costs
+orders of magnitude more wall clock than the device path's ~75s. **R (reference
+self-consistency) and X (device-vs-reference) are not yet measured** -- this is a
+genuine compute-time bottleneck, not an estimated or fabricated number, and it is
+the actual reason a full three-leg Protenix-v2 result isn't in this document yet.
+
+Do not kill the reference processes -- they hold hours of sunk progress. Once both
+finish (`REF_PREDICT_DONE` in `/home/ttuser/pharma_protenix_run/ref_seed{0,1}.log`
+on qb1), re-run `scripts/pharma_parity.py structures` against
+`/home/ttuser/pharma_protenix_run/{ref,dev}_seed{0,1}/boltz_results_prot` to get
+R/D/X and replace this note. Extending to more targets multiplies the reference-side
+cost roughly linearly (each seed is its own multi-hour CPU run); running them
+sequentially rather than concurrently avoids CPU contention between them on this
+32-core host.
 
 ### Boltz-2 (structure + affinity) — harness ready, run pending
 
@@ -191,12 +210,18 @@ distogram PCC >0.999, pTM within 0.006; coordinate spread to be placed against a
 multi-seed floor). Harness proven end-to-end.
 
 Ready to run, queued for the fan-out phase: the **ESMFold2** multi-seed noise floor,
-**Protenix-v2** and **Boltz-2** structure parity, and **BoltzGen** designability
-parity. The reference implementations are installed and the comparison code is
-wired; what remains is generating the multi-seed device and reference fold sets,
-which parallelizes naturally across the free cards on qb1 and qb2.
+**Boltz-2** structure parity, and **BoltzGen** designability parity.
 
-Known gap disclosed: **Protenix-v2 confidence-head under-ranking**, a real
-model-level property carried faithfully by the port, not a device defect.
+**Protenix-v2**: device leg measured (self-consistency D = 0.79 A Kabsch RMSD,
+0.998 coord PCC). Reference leg blocked on a genuine CPU compute-time ceiling
+(official Protenix has no CUDA-fused triangle ops to fall back on for a CPU run;
+3h13m+ and still computing at the time of writing) -- R and X are not yet measured,
+see the Protenix-v2 section above for the resumption path.
+
+Known gaps disclosed: **Protenix-v2 confidence-head under-ranking** (a real
+model-level property carried faithfully by the port, not a device defect), and the
+**Protenix-v2 reference-side compute-time ceiling** above (an operational
+limitation of running the official CPU implementation at production settings, not
+a port defect either).
 
 Candidate for publication on docs.japanfold.com once that site exists.
