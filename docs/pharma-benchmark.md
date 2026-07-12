@@ -141,6 +141,18 @@ confidence-based ranking. An evaluator should know this before trusting Protenix
 own "best" selection on Tenstorrent, exactly as they should on the original
 implementation.
 
+**Fan-out run status (2026-07-12, in progress):** production-settings device-vs-
+reference run launched on `examples/prot.yaml` (117-res, PDB 7ROA), seeds 0/1 each
+side, `--use_msa_server --sampling_steps 200 --diffusion_samples 5`. Device runs
+complete (both ~75s, confidence-selected ptm ~0.904 -- markedly better than the
+gap described above, consistent with the template-embedder + confidence-recycling
+fixes merged to main since that investigation). Device self-consistency floor (D):
+Kabsch RMSD 0.79 Å, coord PCC 0.998 between the two device seeds' selected
+structures. The reference-side runs (official ByteDance Protenix 2.0.0, CPU, same
+input) are still computing the diffusion forward as of this note -- CPU inference
+at N_step=200/N_sample=5 is far slower than the device path. R and X legs, and the
+full noise-floor verdict, will replace this note once both reference runs finish.
+
 ### Boltz-2 (structure + affinity) — harness ready, run pending
 
 `structures` mode plus the existing `scripts/boltz2_fast_parity.py` comparison
