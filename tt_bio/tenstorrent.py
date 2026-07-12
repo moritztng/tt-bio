@@ -1218,6 +1218,7 @@ class PairformerLayer(Module):
     def __call__(
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
+        extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
         z_update = self.triangle_multiplication_start(z, mask)
         z = ttnn.add_(z, z_update)
@@ -1249,7 +1250,7 @@ class PairformerLayer(Module):
             s_update = self.attention_pair_bias(
                 s_norm,
                 z,
-                seq_mask=attn_mask_start,  # same as end for non-affinity
+                seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
             )
             ttnn.deallocate(s_norm)
             s = ttnn.add_(s, s_update)
@@ -1292,9 +1293,10 @@ class Pairformer(Module):
     def __call__(
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
+        extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
         for block in self.blocks:
-            s, z = block(s, z, mask, attn_mask_start, attn_mask_end)
+            s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
         return s, z
 
 

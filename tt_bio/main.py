@@ -1773,7 +1773,7 @@ def _resolve_recycling_steps(recycling_steps, model):
     """
     if recycling_steps is not None:
         return recycling_steps
-    return 10 if model == "protenix-v2" else 3
+    return 10 if model in ("protenix-v2", "opendde", "opendde-abag") else 3
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
@@ -1877,11 +1877,13 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
-@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2"]), default="boltz2", show_default=True,
+@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"]), default="boltz2", show_default=True,
               help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
                    "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
                    "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
                    "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
+                   "opendde / opendde-abag: AF3-family co-folding (Protenix-v2 stack + structural-token expander); "
+                   "opendde-abag selects the antibody-antigen checkpoint. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
@@ -1950,9 +1952,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url)
 
-    if model in ("esmfold2", "esmfold2-fast", "protenix-v2"):
-        # ESMFold2 and Protenix-v2 ride the SAME scheduler / worker / progress path as
-        # Boltz-2: build a run config, then fan jobs across devices via _local_workers +
+    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"):
+        # ESMFold2, Protenix-v2 and OpenDDE ride the SAME scheduler / worker / progress path
+        # as Boltz-2: build a run config, then fan jobs across devices via _local_workers +
         # _dispatch_run (or submit to a remote --controller). Only the per-model config differs.
         for n, on in [("--use_potentials", use_potentials),
                       ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:
