@@ -294,7 +294,8 @@ class OpenDDE:
         # Shared Protenix-v2-family stack (input embedder, trunk, diffusion, confidence),
         # built at OpenDDE's c_z=384 (Trunk.__init__(c_z=...), docs/opendde-port.md item 2).
         # Reused verbatim -- no duplicated orchestration class.
-        self._protenix = Protenix(self._shared, compute_kernel_config, self.dev, c_z=C["c_z"])
+        self._protenix = Protenix(
+            self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
@@ -314,7 +315,8 @@ class OpenDDE:
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
         return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev)
 
-    def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *, extra_attn_bias=True):
+    def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,
+                          extra_attn_bias=True, return_attn_bias=False):
         """The novel seam (opendde/model/opendde.py forward): residue-trunk (s_inputs, s, z)
         -> structural-token (s_inputs, s, z). The expander produces the structural-token
         tensors + the additive pair attention bias; the 4-block refiner then refines (s, z),
@@ -330,8 +332,11 @@ class OpenDDE:
         bias = None
         if extra_attn_bias:
             bias = ttnn.reshape(attn_bias, (1, 1, Ns, Ns))
-        s_ref, z_ref = self.refiner(s3, z4, attn_mask_start=bias, attn_mask_end=bias)
-        return s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref
+        s_ref, z_ref = self.refiner(s3, z4, extra_attn_bias=bias)
+        result = (s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref)
+        if return_attn_bias:
+            return (*result, attn_bias)
+        return result
 
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1, return_confidence=False):
         """First end-to-end residue->structure co-fold. feats: a tt_bio.protenix_data-style
@@ -393,9 +398,11 @@ class OpenDDE:
         z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z))
 
         # 2) the novel seam: residue -> structural-token axis
-        s_inputs_st, s_st, z_st = self.expand_and_refine(ifd, s_inputs, s_trunk, z_trunk)
+        s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
+            ifd, s_inputs, s_trunk, z_trunk, return_attn_bias=True)
         s_inputs_struct = P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs))
         s_struct = P._to_host(s_st, (Ns, self.expander.c_s))
+        structural_attn_bias = P._to_host(structural_attn_bias, (Ns, Ns))
 
         # 3) diffusion pair conditioning + EDM sampler, structural-token axis
         parent = ifd["parent_residue_idx"]
@@ -412,7 +419,8 @@ class OpenDDE:
         p_lm = p_lm + P._plm_z_term(pair_z, a2s, nb, nq, nk)
 
         cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "pair_z": pair_z, "c_l": c_l,
-                "p_lm": p_lm, "S": S_struct, "mask_trunked": mt.float()}
+                "p_lm": p_lm, "S": S_struct, "mask_trunked": mt.float(),
+                "structural_pair_attn_bias": structural_attn_bias}
         if P.diffusion.device_dit:
             cond["dit_z"] = P.diffusion._dit_z_device(pair_z)
         else:
