@@ -58,6 +58,21 @@ upstream Boltz-2.
 
 ## Results
 
+All five models tt-bio ships, in one place. R and D are the two noise-floor legs
+described above; X is the device-vs-reference parity question. "Pending" means no
+run has completed and no number is reported — never an estimate. Per-model detail,
+including the honest caveats, follows in the subsections below.
+
+| model | target | metric | ref floor (R) | device floor (D) | device-vs-ref (X) | verdict |
+|---|---|---|---|---|---|---|
+| ESMC-300m | 4 proteins (L20-129) | embedding PCC | 1.00000 (no sampler) | 1.00000 | 0.9988 – 0.9996 | PASS |
+| ESMC-600m | 4 proteins (L20-129) | embedding PCC | 1.00000 (no sampler) | 1.00000 | 0.9994 – 0.9996 | PASS |
+| ESMFold2 | trp-cage (L20) | CA-RMSD (Å) | 2.08 ± 0.08 | 0.21 ± 0.04 | 2.45 ± 0.31 | PASS (borderline, noise-floor-limited) |
+| ESMFold2 | GB1 (L56) | CA-RMSD (Å) | 1.49 ± 0.21 | 0.53 ± 0.22 | 2.95 ± 0.23 | disclosed gap above floor |
+| Protenix-v2 | 7ROA (L117) | CA-RMSD (Å) | pending (ref still computing) | 0.79 | pending | PENDING |
+| Boltz-2 | trp-cage + 7ROA | CA-RMSD (Å) + affinity | pending | pending | pending | PENDING (run in progress) |
+| BoltzGen | — | designability pass-rate | pending | pending | pending | PENDING (not started) |
+
 ### ESMC (protein language-model embeddings) — complete
 
 Device vs the reference `esm` ESMC, per-residue embedding PCC over four real
@@ -164,6 +179,37 @@ confidence-based ranking. An evaluator should know this before trusting Protenix
 own "best" selection on Tenstorrent, exactly as they should on the original
 implementation.
 
+**Fan-out run (2026-07-12): device leg complete, reference leg hit a real compute-time
+ceiling.** Production settings (`--use_msa_server --sampling_steps 200
+--diffusion_samples 5`) on `examples/prot.yaml` (117-res, PDB 7ROA), seeds 0/1 each
+side. Raw data: `docs/pharma-benchmark-data/protenix-v2.json`.
+
+Device (tt-bio): both seeds complete in ~75-79s, confidence-selected ptm ~0.904 --
+markedly better than the confidence-head gap described above, consistent with the
+template-embedder and confidence-recycling fixes merged to main since that
+investigation. Device self-consistency floor (D): Kabsch RMSD **0.79 Å**, coord PCC
+**0.998** across all 900 atoms.
+
+Reference (official ByteDance Protenix 2.0.0, torch, CPU): launched at the same
+time as the device runs, same input/MSA/seeds. Both seeds are still computing the
+diffusion forward after 3h13m+ of wall clock -- confirmed healthy (not stuck: PPID
+1, R state, no swapping) each time this was checked, just genuinely CPU-bound.
+Official Protenix's torch triangle attention/multiplication has no CUDA fusion to
+fall back on for a CPU run, so N_step=200 x N_sample=5 on a 900-atom target costs
+orders of magnitude more wall clock than the device path's ~75s. **R (reference
+self-consistency) and X (device-vs-reference) are not yet measured** -- this is a
+genuine compute-time bottleneck, not an estimated or fabricated number, and it is
+the actual reason a full three-leg Protenix-v2 result isn't in this document yet.
+
+Do not kill the reference processes -- they hold hours of sunk progress. Once both
+finish (`REF_PREDICT_DONE` in `/home/ttuser/pharma_protenix_run/ref_seed{0,1}.log`
+on qb1), re-run `scripts/pharma_parity.py structures` against
+`/home/ttuser/pharma_protenix_run/{ref,dev}_seed{0,1}/boltz_results_prot` to get
+R/D/X and replace this note. Extending to more targets multiplies the reference-side
+cost roughly linearly (each seed is its own multi-hour CPU run); running them
+sequentially rather than concurrently avoids CPU contention between them on this
+32-core host.
+
 ### Boltz-2 (structure + affinity) — harness ready, run pending
 
 `structures` mode plus the existing `scripts/boltz2_fast_parity.py` comparison
@@ -202,14 +248,27 @@ proteins (pLDDT and distogram PCC >0.999, pTM within 0.006; trp-cage's coordinat
 gap is noise-floor-limited, GB1's is a disclosed reproducible gap above the floor).
 Harness proven end-to-end.
 
-Ready to run, queued for the fan-out phase: a third, longer **ESMFold2** target
-(cut this round for host CPU contention, see above), **Protenix-v2** and **Boltz-2**
-structure parity, and **BoltzGen** designability parity. The reference
-implementations are installed and the comparison code is wired; what remains is
-generating the multi-seed device and reference fold sets, which parallelizes
-naturally across the free cards on qb1 and qb2.
+In progress, not yet committed with final numbers:
 
-Known gap disclosed: **Protenix-v2 confidence-head under-ranking**, a real
-model-level property carried faithfully by the port, not a device defect.
+- **ESMFold2**: a third, longer target (ubiquitin, cut this round for host CPU
+  contention, see above) is still queued to extend the noise floor.
+- **Protenix-v2**: device leg measured (self-consistency D = 0.79 Å Kabsch RMSD,
+  0.998 coord PCC). Reference leg blocked on a genuine CPU compute-time ceiling
+  (official Protenix has no CUDA-fused triangle ops to fall back on for a CPU run;
+  3h13m+ and still computing at the time of writing) — R and X are not yet
+  measured, see the Protenix-v2 section above for the resumption path.
+- **Boltz-2**: harness wired (`scripts/boltz2_ref_layout.py` reshapes upstream
+  `boltz predict` output into the shared `structures` comparison format); a
+  device-vs-reference run is actively in flight on qb1 (trp-cage and a 7ROA
+  target, reference computing on CPU) but not yet complete or committed.
+- **BoltzGen**: designability harness (`scripts/boltzgen_designability.py`)
+  exists and runs inside `tt-bio gen`; the device-vs-reference designability
+  comparison itself has not been started yet.
+
+Known gaps disclosed: **Protenix-v2 confidence-head under-ranking** (a real
+model-level property carried faithfully by the port, not a device defect), and the
+**Protenix-v2 reference-side compute-time ceiling** above (an operational
+limitation of running the official CPU implementation at production settings, not
+a port defect either).
 
 Candidate for publication on docs.japanfold.com once that site exists.
