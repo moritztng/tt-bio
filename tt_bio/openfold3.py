@@ -83,3 +83,69 @@ class InputEmbedderGlue(Module):
         ttnn.deallocate(relpos_emb)
         ttnn.deallocate(tb_emb)
         return s, z
+
+
+class RefAtomFeatureEmbedder(Module):
+    """OF3 ``RefAtomFeatureEmbedder``: reference-conformer atom featurization.
+
+    Single leg (-> ``cl``): five weight-only linears over per-atom reference features
+    (``ref_pos`` 3->c, ``ref_charge`` arcsinh 1->c, ``ref_mask`` 1->c, ``ref_element``
+    E->c, ``ref_atom_name_chars`` flattened 4*64->c) summed into the per-atom
+    conditioning ``cl`` [N_atom, c_atom].
+
+    Pair leg (-> ``plm``): three weight-only linears over the precomputed block inputs
+    ``dlm`` (per-block q-k offsets [N_blk, N_q, N_k, 3]), ``vlm`` (same-residue+valid
+    mask [N_blk, N_q, N_k, 1]) and ``inv_sq_dists`` ([N_blk, N_q, N_k, 1]):
+
+        plm = linear_ref_offset(dlm)*vlm + linear_inv_sq_dists(inv_sq_dists)*vlm
+              + linear_valid_mask(vlm)*vlm
+
+    The block construction (``convert_single_rep_to_blocks`` + ``get_block_indices``) is
+    mask-derived gather captured in the golden (``dlm``/``vlm``/``inv_sq_dists``), so this
+    module isolates the device linear precision from the blocking logic -- the same
+    discipline as the glue's golden relpos. All eight linears are bias-free in the OF3
+    checkpoint.
+
+    Inputs (device bf16):
+        ref_pos, ref_charge, ref_mask, ref_element, ref_atom_chars: per-atom features
+            with the shapes above (ref_charge/ref_mask unsqueezed to [N,1]; ref_atom_chars
+            pre-flattened to [N, 256]; ref_charge passed through arcsinh on host).
+        dlm:          [1, N_blk, N_q, N_k, 3]
+        vlm:          [1, N_blk, N_q, N_k, 1]
+        inv_sq_dists: [1, N_blk, N_q, N_k, 1]
+
+    Outputs (device bf16):
+        cl:  [1, N_atom, c_atom]
+        plm: [1, N_blk, N_q, N_k, c_atom_pair]
+    """
+
+    def __init__(self, state_dict, compute_kernel_config):
+        super().__init__(state_dict, compute_kernel_config)
+        self.w_ref_pos = self.torch_to_tt("linear_ref_pos.weight")
+        self.w_ref_charge = self.torch_to_tt("linear_ref_charge.weight")
+        self.w_ref_mask = self.torch_to_tt("linear_ref_mask.weight")
+        self.w_ref_element = self.torch_to_tt("linear_ref_element.weight")
+        self.w_ref_chars = self.torch_to_tt("linear_ref_atom_chars.weight")
+        self.w_ref_offset = self.torch_to_tt("linear_ref_offset.weight")
+        self.w_inv_sq = self.torch_to_tt("linear_inv_sq_dists.weight")
+        self.w_valid = self.torch_to_tt("linear_valid_mask.weight")
+
+    def __call__(self, ref_pos, ref_charge, ref_mask, ref_element, ref_atom_chars,
+                 dlm, vlm, inv_sq_dists):
+        lin = self._lin
+        # Single leg -> cl [1, N_atom, c_atom]
+        cl = lin(ref_pos, self.w_ref_pos)
+        cl = ttnn.add(cl, lin(ref_charge, self.w_ref_charge))
+        cl = ttnn.add(cl, lin(ref_mask, self.w_ref_mask))
+        cl = ttnn.add(cl, lin(ref_element, self.w_ref_element))
+        cl = ttnn.add(cl, lin(ref_atom_chars, self.w_ref_chars))
+
+        # Pair leg -> plm [1, N_blk, N_q, N_k, c_atom_pair]
+        off = ttnn.multiply(lin(dlm, self.w_ref_offset), vlm)
+        isd = ttnn.multiply(lin(inv_sq_dists, self.w_inv_sq), vlm)
+        vm = ttnn.multiply(lin(vlm, self.w_valid), vlm)
+        plm = ttnn.add(ttnn.add(off, isd), vm)
+        ttnn.deallocate(off)
+        ttnn.deallocate(isd)
+        ttnn.deallocate(vm)
+        return cl, plm
