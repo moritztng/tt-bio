@@ -351,12 +351,68 @@ set, see method note): **PASS, bit-exact** (`Δmax per_residue=0 pooled=0`) for 
 `esmc-300m` and `esmc-600m`. Thread-pool sizing and the mesh-descriptor env var are
 both host/env-only changes — device numerics are unaffected, as expected.
 
-## Follow-up (not done here, out of scope for this pass)
+---
 
-`tt-bio embed --devices` with >1 device is currently broken out-of-the-box on qb2
-(TT_FATAL at device-open) because `esmc._spawn_shard` doesn't set
-`TT_MESH_GRAPH_DESC_PATH` the way `predict`'s worker-assignment path does for
-detected P300 boards. Low-risk, mechanical fix (mirror
-`main._build_worker_device_assignments`'s P300 detection into `_spawn_shard`'s env);
-tracked here since this pass needed the manual workaround to run at all.
+# Fix 3 (2026-07-12, qb2): `embed` opens its own P300 mesh-graph descriptor
+
+The follow-up flagged above is now fixed: `esmc._spawn_shard` detects a P300-
+misdetected board and sets `TT_MESH_GRAPH_DESC_PATH` for its subprocess itself
+(same `main._detect_p300_devices` / `_find_ttnn_mesh_graph_descriptor` predict
+and `boltzgen gen` already use — no second detection method). `tt-bio embed
+--devices` with 2/3/4 cards now runs clean on qb2 with no manual env var.
+
+**A wider gap than originally scoped**: the single-card, no-`--devices` path
+(`embed_cmd`'s in-process branch, `tt_bio/main.py`) turned out to be broken the
+same way — it opens the device directly without ever going through predict's
+worker-assignment code, so it never set the descriptor either. Confirmed by
+direct reproduction: `TT_VISIBLE_DEVICES=<any card>` alone TT_FATALs on this
+host with the exact same "Custom fabric mesh graph descriptor path must be
+specified" error, on device 0, 1, and 3 — this is a host-wide firmware quirk
+(all 4 qb2 cards misreport as P300), not specific to any one card or to
+multi-card fanout. Fixed the same way in `embed_cmd`. So `tt-bio embed`, single
+or multi-card, now works out of the box on qb2 with no env var at all.
+
+(A previous doc note above claimed the single-card path "TT_FATALs *if* the
+descriptor is set" — that does not reproduce now; setting it unconditionally
+for a single-chip open on this host succeeds cleanly. Superseded.)
+
+## Parity, re-verified after the real fix (no manual workaround)
+
+`scripts/esmc_multicard_parity.py`, `TT_MESH_GRAPH_DESC_PATH` unset (relying
+purely on the code fix): **PASS, bit-exact** for both `esmc-300m` (`--n 24
+--shards 4`) and `esmc-600m` (`--n 16 --shards 4`), `Δmax per_residue=0
+pooled=0`. Same result as the workaround-assisted run above, as expected — the
+fix only changes *when* the env var gets set, not any compute path.
+
+## Does fixing the gap close qb2's scaling shortfall vs qb1? No — re-measured, real gap remains
+
+Re-ran the wall-clock curve with the fix in place and zero manual workaround
+(warm cache, `batch_size=8`, `--format npz`, one run per point — same
+single-run-per-point caveat as the rest of this doc):
+
+| model | N | 1 card | 2 cards | 3 cards | 4 cards |
+|---|---|---|---|---|---|
+| esmc-300m | 256  | 13.9s (1.00x) | 14.8s (0.94x) | 15.2s (0.91x) | 16.1s (0.86x) |
+| esmc-600m | 256  | 17.3s (1.00x) | 17.7s (0.98x) | 18.2s (0.95x) | 19.0s (0.91x) |
+| esmc-600m | 4096 | 190.6s (1.00x)| 181.2s (1.05x)| 178.7s (1.07x)| 177.3s (1.07x)|
+
+`esmc-600m/4096` is the config this doc's earlier remeasurement flagged as
+possibly capped by the mesh-descriptor overhead (qb2 1.11-1.14x vs qb1's
+~2x). With the fix applied — and now paying the descriptor-init cost
+*consistently* at every card count, including 1 card, instead of only at
+&gt;1 card as the manual-workaround measurement above did — the scaling
+barely moves (1.05-1.07x). **The hypothesis was wrong: removing the gap did
+not recover qb1-like scaling.** The qb2-vs-qb1 shortfall is a real,
+still-unexplained host difference (plausibly core count / PCIe topology /
+per-shard host overhead — not root-caused further here), not an artifact of
+the missing mesh descriptor. `esmc-300m`/`esmc-600m` at N=256 show no
+material multi-card win on qb2 either way, consistent with this doc's
+original finding that fixed per-shard overhead dominates below some N.
+
+**Practical takeaway**: the correctness gap (crash without a manual env var)
+is fully closed. The performance gap (qb2 fanout scaling well below qb1's) is
+not related to it and remains open — `--devices` fanout on qb2 is a much
+smaller win than on qb1 for these two smaller ESMC variants; `esmc-6b`
+(Fix 1/Fix 2 above) is unaffected by any of this and still scales to 1.49x
+@ 4 cards.
 
