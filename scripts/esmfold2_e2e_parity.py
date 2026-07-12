@@ -9,28 +9,35 @@ heads -- from the separately-validated ESMC-6B port (tests/test_esmc.py) and fro
 featurization. The torch reference is ``ESMFold2Model`` left unpatched; the test
 path is the same model after ``patch_esmfold2`` (every learnable submodule -> ttnn).
 
-Reported per protein:
-  * plddt_pcc / plddt_mae  -- per-residue confidence, the metric ESMFold ranks on
-  * distogram_pcc          -- pairwise distance-bin logits
-  * coord_dm_pcc           -- PCC of the atom-atom distance matrix (alignment-free)
-  * kabsch_rmsd            -- RMSD after weighted rigid alignment (Angstrom)
-  * ptm_tt / ptm_ref       -- predicted TM-score
+Diffusion noise is not bit-identical across the torch and ttnn samplers (independent
+RNG streams per backend), so a single seed pair cannot separate genuine port drift
+from sampling variance. Instead each protein is folded at several sampler seeds on
+*both* backends, giving three coordinate-metric distributions -- reference-vs-
+reference (R), device-vs-device (D) and device-vs-reference (X) -- summarized with
+the same statistical core (`pharma_parity.summarize` / `noise_floor_verdict`) the
+rest of the parity benchmark uses. Parity holds when X sits within max(R, D).
 
-Diffusion noise is not bit-identical across the torch and ttnn samplers, so coords
-are compared alignment-free (distance matrix) + after Kabsch, not element-wise.
+Reported per protein:
+  * plddt_pcc / plddt_mae   -- per-residue confidence, the metric ESMFold ranks on
+  * distogram_pcc, ptm      -- sampler-independent (computed once, first seed)
+  * kabsch_rmsd, coord_dm_pcc R/D/X distributions across the sampler seeds
 
 Usage:
   PYTHONPATH=<worktree> TT_VISIBLE_DEVICES=1 \
     /home/ttuser/tt-bio-dev/env/bin/python scripts/esmfold2_e2e_parity.py \
-      [--fast] [--proteins trpcage,gb1] [--steps 20] [--loops 3] [--out /tmp/x.json]
+      [--fast] [--proteins trpcage,gb1] [--steps 20] [--loops 3] \
+      [--seeds 0,1,2] [--out /tmp/x.json]
 """
 
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 
 import torch
+
+from pharma_parity import noise_floor_verdict, summarize
 
 # Representative single-domain proteins (no MSA): short, medium, medium-long.
 PROTEINS = {
@@ -82,27 +89,30 @@ def kabsch_rmsd(a_coords, b_coords, atom_mask):
     return (aligned - b).pow(2).sum(-1).mean().sqrt().item()
 
 
-def compare(ref, tt, ref_b, feats):
-    atom_mask = feats["atom_attention_mask"].float()
-    if atom_mask.dim() == 1:
-        atom_mask = atom_mask.unsqueeze(0)
-    rc = ref["sample_atom_coords"][0].float()    # [n_atoms, 3]
-    tc = tt["sample_atom_coords"][0].float()
-    rbc = ref_b["sample_atom_coords"][0].float()  # reference, different sampler seed
-    return dict(
-        plddt_pcc=pcc(tt["plddt"], ref["plddt"]),
-        plddt_mae=(tt["plddt"].float() - ref["plddt"].float()).abs().mean().item(),
-        plddt_mean_tt=tt["plddt"].float().mean().item(),
-        plddt_mean_ref=ref["plddt"].float().mean().item(),
-        distogram_pcc=pcc(tt["distogram_logits"], ref["distogram_logits"]),
-        coord_dm_pcc=pcc(dist_matrix(tc), dist_matrix(rc)),
-        # tt-vs-ref coord RMSD, compared against the reference's OWN sample-to-sample
-        # variance (two torch seeds): if the two are close, the tt-vs-ref spread is
-        # intrinsic diffusion stochasticity (independent RNG streams), not port error.
-        kabsch_rmsd=kabsch_rmsd(tc, rc, atom_mask),
-        ref_selfvar_rmsd=kabsch_rmsd(rbc, rc, atom_mask),
-        ptm_tt=float(tt["ptm"].mean()), ptm_ref=float(ref["ptm"].mean()),
-    )
+def pair_metrics(a, b, atom_mask):
+    ac = a["sample_atom_coords"][0].float()
+    bc = b["sample_atom_coords"][0].float()
+    return kabsch_rmsd(ac, bc, atom_mask), pcc(dist_matrix(ac), dist_matrix(bc))
+
+
+def compare_multiseed(ref_runs: dict, tt_runs: dict, atom_mask, seeds):
+    """R (ref-vs-ref), D (tt-vs-tt), X (tt-vs-ref) distributions over sampler seeds."""
+    r_rmsd, r_pcc = [], []
+    for s1, s2 in itertools.combinations(seeds, 2):
+        rmsd, p = pair_metrics(ref_runs[s1], ref_runs[s2], atom_mask)
+        r_rmsd.append(rmsd); r_pcc.append(1 - p)
+    d_rmsd, d_pcc = [], []
+    for s1, s2 in itertools.combinations(seeds, 2):
+        rmsd, p = pair_metrics(tt_runs[s1], tt_runs[s2], atom_mask)
+        d_rmsd.append(rmsd); d_pcc.append(1 - p)
+    x_rmsd, x_pcc = [], []
+    for s1, s2 in itertools.product(seeds, seeds):
+        rmsd, p = pair_metrics(tt_runs[s1], ref_runs[s2], atom_mask)
+        x_rmsd.append(rmsd); x_pcc.append(1 - p)
+    return {
+        "kabsch_rmsd": noise_floor_verdict(x_rmsd, r_rmsd, d_rmsd, "kabsch_rmsd"),
+        "coord_dm_1mpcc": noise_floor_verdict(x_pcc, r_pcc, d_pcc, "1-coord_dm_pcc"),
+    }
 
 
 def main():
@@ -111,7 +121,8 @@ def main():
     ap.add_argument("--proteins", default="trpcage,gb1,ubiquitin")
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--loops", type=int, default=3)
-    ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--seeds", default="0,1,2", help="comma-separated sampler seeds, run on both backends")
+    ap.add_argument("--feature_seed", type=int, default=7, help="seed for featurization (not the sampler)")
     ap.add_argument("--esmfold2_repo", default="biohub/ESMFold2")
     ap.add_argument("--esmc_repo", default="biohub/ESMC-6B")
     ap.add_argument("--out", default="/tmp/ef2_parity/summary.json")
@@ -124,6 +135,7 @@ def main():
     from tt_bio.esmfold2_runtime import _ESMCAdapter, patch_esmfold2
 
     names = [n.strip() for n in args.proteins.split(",") if n.strip()]
+    seeds = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
 
     # Shared ttnn ESMC-6B (loaded once): produces the LM hidden states fed to BOTH paths.
     esmc = _ESMCAdapter(args.esmc_repo, persistent=True)
@@ -144,15 +156,32 @@ def main():
     results = []
     for name in names:
         seq = PROTEINS[name]
-        print(f"\n=== {name} (L={len(seq)}) ===", flush=True)
-        feats = build_features(seq, args.seed, ref_model.device)
+        print(f"\n=== {name} (L={len(seq)}), seeds={seeds} ===", flush=True)
+        feats = build_features(seq, args.feature_seed, ref_model.device)
         lm_hs = compute_lm_hidden_states(
             esmc, feats["input_ids"], feats["asym_id"], feats["residue_index"],
             feats["mol_type"], feats["token_attention_mask"])
-        ref = run_forward(ref_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=0)
-        ref_b = run_forward(ref_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=1)
-        tt = run_forward(tt_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=0)
-        m = dict(protein=name, L=len(seq), **compare(ref, tt, ref_b, feats))
+        atom_mask = feats["atom_attention_mask"].float()
+        if atom_mask.dim() == 1:
+            atom_mask = atom_mask.unsqueeze(0)
+
+        ref_runs, tt_runs = {}, {}
+        for s in seeds:
+            print(f"  ref seed={s} ...", flush=True)
+            ref_runs[s] = run_forward(ref_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
+            print(f"  device seed={s} ...", flush=True)
+            tt_runs[s] = run_forward(tt_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
+
+        base_ref, base_tt = ref_runs[seeds[0]], tt_runs[seeds[0]]
+        verdicts = compare_multiseed(ref_runs, tt_runs, atom_mask, seeds)
+        m = dict(
+            protein=name, L=len(seq), n_seeds=len(seeds),
+            plddt_pcc=pcc(base_tt["plddt"], base_ref["plddt"]),
+            plddt_mae=(base_tt["plddt"].float() - base_ref["plddt"].float()).abs().mean().item(),
+            distogram_pcc=pcc(base_tt["distogram_logits"], base_ref["distogram_logits"]),
+            ptm_tt=float(base_tt["ptm"].mean()), ptm_ref=float(base_ref["ptm"].mean()),
+            **verdicts,
+        )
         results.append(m)
         print(json.dumps(m, indent=2), flush=True)
 
