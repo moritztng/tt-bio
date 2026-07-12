@@ -2440,6 +2440,13 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             results = esmc.embed(seqs, model=model, devices=device_list, fast=fast,
                                  return_logits=return_logits, pool=pool, batch_size=batch_size)
         else:
+            # This process opens its TT device in-process (no fanout subprocess),
+            # so it needs the same P300-board-misdetection workaround the fanout
+            # path applies per-shard (see esmc._spawn_shard).
+            if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+                mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+                if mgd:
+                    os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
             click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
             m = esmc.load_esmc(model, fast=fast)
             click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
