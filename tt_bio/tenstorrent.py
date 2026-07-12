@@ -527,16 +527,9 @@ class TriangleMultiplication(Module):
         ending: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
-        weight_dtype: ttnn.DataType = ttnn.bfloat16,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.ending = ending
-        # Storage dtype of the three big matmul weights. Defaults to bf16 (the
-        # historical shared-class behaviour, so Boltz-2/Protenix-v2 PairformerLayer
-        # callers are unchanged). ESMFold2's trunk passes _dtype() to drop these to
-        # block-fp8 under --fast, mirroring SwiGLUFFN/Attention and halving the
-        # weight-read bandwidth; the matmul output dtype already follows _dtype().
-        self._weight_dtype = weight_dtype
         self.in_norm_weight = self.torch_to_tt("norm_in.weight")
         self.in_norm_bias = self.torch_to_tt("norm_in.bias")
         self.out_norm_weight = self.torch_to_tt("norm_out.weight")
@@ -559,12 +552,12 @@ class TriangleMultiplication(Module):
                 ),
                 layout=ttnn.TILE_LAYOUT,
                 device=self.device,
-                dtype=self._weight_dtype,
+                dtype=ttnn.bfloat16,
             )
             for i in range(self.n_pairs)
         ]
-        self.g_out_weight = self.torch_to_tt("g_out.weight", dtype=self._weight_dtype)
-        self.out_p_weight = self.torch_to_tt("p_out.weight", dtype=self._weight_dtype)
+        self.g_out_weight = self.torch_to_tt("g_out.weight")
+        self.out_p_weight = self.torch_to_tt("p_out.weight")
 
     def _transform_chunk(
         self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig

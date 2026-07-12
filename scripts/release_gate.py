@@ -64,6 +64,10 @@ NAME = DATA.stem  # "prot" -> results land in boltz_results_prot/
 SAMPLING_STEPS = 200
 DIFFUSION_SAMPLES = 5
 SEED = 0
+# When set (via --fast), fold with tt-bio --fast so the gate exercises the
+# block-fp8 trunk path (bf8 weights + bf8 matmul output) that ships under --fast.
+# Defaults off: the standing floors below were calibrated for full precision.
+FAST = False
 
 # Per-model ground-truth floors on 7ROA, of the confidence-selected structure.
 # Anchored to the measured on-hardware baselines (docs/protenix-accuracy-investigation.md)
@@ -147,7 +151,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
         "--seed", str(SEED),
         "--use_msa_server",
         "--out_dir", str(REPO_ROOT),
-    ]
+    ] + (["--fast"] if FAST else [])
     print(f"\n{'='*70}\n[{model}] folding {DATA.name} "
           f"({SAMPLING_STEPS} steps, {DIFFUSION_SAMPLES} samples)\n{'='*70}", flush=True)
 
@@ -234,7 +238,12 @@ def main() -> int:
                     help="Gate only this model (repeatable). Default: all five "
                          "(the four fold models + boltzgen).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
+    ap.add_argument("--fast", action="store_true",
+                    help="Fold with --fast so the gate exercises the block-fp8 trunk path "
+                         "(bf8 weights + bf8 matmul output). Defaults off (full precision).")
     args = ap.parse_args()
+    global FAST
+    FAST = args.fast
 
     models = args.model or list(MODELS) + ["boltzgen"]
     fold_models = [m for m in models if m in MODELS]
