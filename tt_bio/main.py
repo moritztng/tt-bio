@@ -1792,7 +1792,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
     """
-    if model not in ("boltz2", "protenix-v2"):
+    if model not in ("boltz2", "protenix-v2", "opendde", "opendde-abag"):
         return use_msa_server, msa_db_path
 
     explicit = use_msa_server or msa_db_path or msa_endpoint
