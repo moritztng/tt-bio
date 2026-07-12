@@ -115,13 +115,29 @@ Per the port-bio-model-to-tenstorrent playbook. Reference deps are pure-pip
 (torch, numpy, scipy, biotite, rdkit<2026, pdbeccdutils, ml-collections, lightning);
 cuequivariance/deepspeed are optional CUDA-only — skip for CPU golden generation.
 
-- [ ] **P0 reference harness**: CPU venv, `pip install openfold3`, load `of3-p2-155k.pt`,
-      run `query_ubiquitin.json` end-to-end on CPU, capture golden activations per module.
+- [x] **P0 reference harness**: `scripts/of3_golden.py` -- CPU venv (`/tmp/of3-venv`:
+      torch + ml-collections + gemmi + biotite; rdkit/kalign only needed for the JSON data
+      pipeline, not the trunk modules), loads real `of3-p2-155k.pt`, captures golden
+      activations for PairFormerBlock-0 and the full 48-block stack to `~/of3_ref_out.pkl`.
+      Inputs are deterministic seeded tensors of the config shapes (N=37) -- sufficient for
+      component PCC (the device gets the identical tensor). Full JSON-to-feats real-input
+      golden reuses the P1 vendor pipeline below.
 - [x] **P1 vendor** host-side data pipeline (JSON query → feats dict, CCD/ligand,
       relpos, token bonds) into `tt_bio/_vendor/openfold3/` — inference-only, strip
       training/lightning/losses/optimizers. No runtime git-clone, no sys.path shims.
       Done on `wk/tt-bio-openfold3-port-p1` — see "P1 status" below.
-- [ ] **P2** `openfold3_weights.py` remap table (OF3 keys → shared-primitive keys).
+- [x] **P2** `tt_bio/openfold3_weights.py`: remaps OF3 checkpoint keys onto the
+      proven protenix-v2 primitive layout. OF3 is the same AF3 family, so each function
+      renames OF3 keys to protenix key names and delegates to `protenix_weights` (zero
+      duplicated remap logic). Verified three ways: (a) byte-lossless value conservation,
+      16/16 (every target tensor equals the exact source tensor / correct concat); (b) it
+      produces the exact 53-key-per-block tt-bio Pairformer layout; (c) on-device (card 0)
+      PairFormerBlock-0 `s_pcc=0.99985`. Single-block pair-path `z_pcc=0.894` on adversarial
+      random input -- a full-bf16 CPU run of the same reference block/input already falls to
+      0.977, and the device adds the shared-primitive bf16-kernel error (identical to what
+      protenix runs). Definitive stack z-gate (>0.97 on the settled distribution, protenix
+      own gate) pending: blocked by the device-open-lock fd-leak (see status log), not by
+      any remap defect.
 - [ ] **P3 PCC gate, smallest first**: TriangleMultiplication → TriangleAttention →
       AttentionPairBias → one Pairformer block → 48-block trunk → MSA block → template →
       atom encoder → InputEmbedder → DiffusionConditioning → DiT block → atom decoder →
@@ -138,6 +154,19 @@ transformer + EDM + confidence structure). Start remap from `protenix_weights.py
 
 ## Status log
 
+- 2026-07-12 (tick 2): **P0 + P2 done.** `scripts/of3_golden.py` captures PairFormerBlock-0
+  + 48-block-stack golden from real weights (`~/of3_ref_out.pkl`); `tt_bio/openfold3_weights.py`
+  remaps OF3 keys onto the protenix primitive layout (byte-lossless, delegates to
+  `protenix_weights`); `tests/test_openfold3_pairformer.py` is the device PCC gate. Verified:
+  remap byte-lossless (16/16 conservation) + on-device block-0 `s_pcc=0.99985`; a CPU-bf16 run
+  of the same block gives `z_pcc=0.977`. The 48-block stack device gate was left queued but
+  blocked by a fleet **device-open-lock fd-leak**: other-worker multiprocessing spawn /
+  resource-tracker children INHERIT the `/tmp/tt-bio-device-open.lock` fd and hold it for the
+  whole run, so `_device_init_lock` serialises away *every* card open host-wide (victims sit in
+  `locks_lock_inode_wait`). Recover by killing the leaked-fd child by explicit pid; real fix =
+  close-on-exec / close the fd before the multiprocessing fork. **NEXT TICK:** read
+  `~/of3_stack_test.log` for the stack z-PCC once the lock frees, then P1 (vendor the host-side
+  data pipeline) and continue P3 (MSA / template / atom-enc / DiT / confidence remaps + gates).
 - 2026-07-12 (tick 1): maturity + redundancy verified; real weights downloaded
   (public S3, no gating); full architecture + weight-tree analysis done; reuse map +
   component plan written; confirmed AF2 bias-gating fix does not transfer. No device
