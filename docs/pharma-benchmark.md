@@ -141,14 +141,33 @@ confidence-based ranking. An evaluator should know this before trusting Protenix
 own "best" selection on Tenstorrent, exactly as they should on the original
 implementation.
 
-### Boltz-2 (structure + affinity) — harness ready, run pending
+### Boltz-2 (structure + affinity) — first direct comparison measured
 
-`structures` mode plus the existing `scripts/boltz2_fast_parity.py` comparison
-engine (Kabsch RMSD, coordinate PCC, and the full confidence/affinity metric set)
-drive the device-vs-upstream comparison. Boltz-2's on-device folding is separately
-ground-truth-gated (`scripts/release_gate.py`: CA-RMSD and TM floor on 7ROA). The
-three-leg device-vs-reference run over a diverse target set is queued for the run
-phase.
+`structures` mode against the official upstream Boltz-2 CLI (`boltz predict`,
+CPU, installed in a separate reference venv), two no-MSA single-sequence
+protein targets, two seeds each side:
+
+| target | length | CA-RMSD dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |
+|---|---|---|---|---|---|---|
+| trp-cage | 20 | 0.60 ± 0.24 Å | 0.79 Å | 0.37 Å | 0.76 | yes |
+| prot | 117 | 5.51 ± 0.70 Å | 3.37 Å | 4.35 Å | 1.27 | NO |
+
+Confidence-metric deltas (device mean − reference mean) are small for both
+targets regardless of the coordinate gap: confidence_score within 0.01, pTM
++0.02 to +0.04, complex_pLDDT within 0.01. Both implementations agree on how
+good or bad the fold is even where the coordinates disagree.
+
+trp-cage's device-vs-reference gap sits inside the run-to-run noise on both
+sides — indistinguishable from resampling the same model twice. prot's gap
+(1.27x the floor on RMSD, 1.6x on PCC) is real but modest, the same order as
+the one already-disclosed non-floor case for ESMFold2 (GB1, 2.4x above its
+floor). Both targets here are single-sequence (no MSA), the hardest case for
+an MSA-trained model — an MSA-backed target is the natural next data point to
+see whether the gap narrows with the input Boltz-2 actually expects. The
+existing `--fast` (block-fp8) accuracy comparison is a separate, already-closed
+question: see `docs/boltz2-fast-parity.md`.
+
+Raw data: `docs/pharma-benchmark-data/boltz2.json`.
 
 ### BoltzGen (de-novo binder design) — designability-space parity
 
@@ -162,13 +181,26 @@ for a generative model.
 
 ## Speed and cost
 
-The pitch is "equivalent output, and cheaper to run". The harness records wall-clock
-per run so the run phase populates a per-model latency and cost table alongside the
-parity numbers. That table is not filled in here because a throughput number is only
-credible when measured on the same warm-state configuration it claims, and this turn
-was spent establishing correctness first. The one timing observed directly: a full
-esmc-300m parity cycle (weight load, two device passes, and the CPU reference build
-and forward) completed in about one minute on a single card.
+The pitch is "equivalent output, and cheaper to run". The one timing observed
+directly for ESMC: a full esmc-300m parity cycle (weight load, two device passes,
+and the CPU reference build and forward) completed in about one minute on a
+single card.
+
+For Boltz-2, the same runs that produced the parity numbers above also timed
+both sides on the same host (one Tenstorrent card vs. the CPU reference on all
+32 host cores, `user` time ~7 cores busy on average):
+
+| target | device, cold (first compile) | device, warm | CPU reference (mean of 2 seeds) | speedup, warm | speedup, cold |
+|---|---|---|---|---|---|
+| trp-cage (20 aa) | 240 s | 43 s | 31 min (1859 s) | 43x | 7.7x |
+| prot (117 aa) | 235 s | 45 s | 77 min (4606 s) | 103x | 20x |
+
+One Tenstorrent card matches a 32-core CPU node's wall-clock on the very first
+(never-compiled) run and is 40-100x faster once the kernel cache is warm, which
+is the steady state for a card serving repeated requests. The CPU-side spread
+across identical seeds (61 vs. 93 minutes for `prot`) is itself larger than any
+device-side variance observed, a data point for "cheaper" beyond raw speed: the
+reference's own cost is less predictable.
 
 ## Status
 
@@ -178,11 +210,17 @@ floor), and a first direct **ESMFold2** device-vs-reference comparison (pLDDT an
 distogram PCC >0.999, pTM within 0.006; coordinate spread to be placed against a
 multi-seed floor). Harness proven end-to-end.
 
-Ready to run, queued for the fan-out phase: the **ESMFold2** multi-seed noise floor,
-**Protenix-v2** and **Boltz-2** structure parity, and **BoltzGen** designability
-parity. The reference implementations are installed and the comparison code is
-wired; what remains is generating the multi-seed device and reference fold sets,
-which parallelizes naturally across the free cards on qb1 and qb2.
+Also complete: a first **Boltz-2** device-vs-reference measurement (two
+no-MSA targets, two seeds each; trp-cage within its noise floor, a modest
+1.3-1.6x-over-floor gap on the longer single-sequence target) plus real
+device-vs-CPU-reference timing (40-100x faster warm).
+
+Ready to run, queued for the fan-out phase: the **ESMFold2** multi-seed noise
+floor, **Boltz-2** on an MSA-backed target, **Protenix-v2** structure parity,
+and **BoltzGen** designability parity. The reference implementations are
+installed and the comparison code is wired; what remains is generating the
+multi-seed device and reference fold sets, which parallelizes naturally
+across the free cards on qb1 and qb2.
 
 Known gap disclosed: **Protenix-v2 confidence-head under-ranking**, a real
 model-level property carried faithfully by the port, not a device defect.
