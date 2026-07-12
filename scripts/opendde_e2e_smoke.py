@@ -7,6 +7,10 @@ diffusion path runs to completion and produces a finite, structurally plausible 
 This is NOT a production accuracy read (release_gate.py's is 10 cycles / 200 steps / 5
 samples) -- it is the first real coordinate output from the wired pipeline.
 
+OPENDDE_NCYCLES / OPENDDE_NSTEP / OPENDDE_SEED env vars override the defaults (2 cycles,
+20 steps, seed 0) for a production-setting or multi-seed run; output goes to
+/tmp/opendde_e2e_coords_seed<SEED>.pt so multiple seeds don't clobber each other.
+
 Run: TT_VISIBLE_DEVICES=0 TT_MESH_GRAPH_DESC_PATH=<...> PYTHONPATH=<worktree> \
     /home/ttuser/tt-bio-dev/env/bin/python3 scripts/opendde_e2e_smoke.py
 """
@@ -31,6 +35,7 @@ SEQ = ("QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISA
 
 def main():
     t0 = time.time()
+    seed = int(os.environ.get("OPENDDE_SEED", "0"))
     dev = get_device()
     ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
                                                   fp32_dest_acc_en=True, packer_l1_acc=True)
@@ -43,11 +48,14 @@ def main():
           f"N_res={feats['restype'].shape[0]}", flush=True)
 
     coords = model.fold(feats, n_step=int(os.environ.get("OPENDDE_NSTEP", "20")),
-                         n_cycles=int(os.environ.get("OPENDDE_NCYCLES", "2")), seed=0)
+                         n_cycles=int(os.environ.get("OPENDDE_NCYCLES", "2")), seed=seed)
     print(f"[{time.time()-t0:.1f}s] fold() returned {tuple(coords.shape)} "
           f"finite={torch.isfinite(coords).all().item()}", flush=True)
     print("coords mean/std:", coords.mean().item(), coords.std().item())
-    torch.save(coords, "/tmp/opendde_e2e_coords.pt")
+    out = f"/tmp/opendde_e2e_coords_seed{seed}.pt"
+    torch.save(coords, out)
+    torch.save(coords, "/tmp/opendde_e2e_coords.pt")  # back-compat: last-run convenience copy
+    print(f"saved {out}")
     print("RESULT: PASS (finite coords produced)" if torch.isfinite(coords).all() else "RESULT: FAIL (non-finite)")
 
 
