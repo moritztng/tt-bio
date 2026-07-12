@@ -1024,6 +1024,15 @@ def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: s
                          cache_dir=cache_dir), f)
     env = {**os.environ, **(thread_cap_env or {}),
            "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
+    # P300 boards are a custom topology; like the `predict` and `boltzgen gen`
+    # fanout paths, a single-chip worker needs the 1x1 Blackhole mesh-graph
+    # descriptor or ttnn.open_device aborts with "Custom fabric mesh graph
+    # descriptor path must be specified".
+    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    if device in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            env["TT_MESH_GRAPH_DESC_PATH"] = mgd
     logf = open(log_path, "w")
     proc = subprocess.Popen(
         [sys.executable, "-c",
