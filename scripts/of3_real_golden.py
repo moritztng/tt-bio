@@ -9,6 +9,9 @@ trunk explode.
 
 Adds these keys to the golden pkl:
   - "input_embedder_real": {"in": batch feat dict, "out": (s_input, s, z)}
+  - "input_embedder_atom_enc_real": {"in": batch, "out": (ai, ql, cl, plm)} -- the
+    InputEmbedder's atom-encoder sub-outputs (per-token ai BEFORE the s_inputs concat),
+    for sub-component-granularity device PCC gating.
   - "pairformer_stack_real": {"in": (s, z), "out": stack(s, z)} -- the new stack gate input
   - "msa_block0_real": {"in": (m, z), "out": (m, z)} -- one MSAModuleBlock (has both the
     OPM and the PWA/transition MSA update; opm_first=True)
@@ -76,6 +79,15 @@ def main():
     print("input_embedder: s_input", s_input.shape, "s", s_init.shape, "z", z_init.shape,
           "s std", float(s_init.std()), "z std", float(z_init.std()))
 
+    # Atom-encoder sub-outputs (ai, ql, cl, plm) -- lets the device InputEmbedder leg be
+    # PCC-gated at sub-component granularity (atom encoder vs glue linears) rather than only
+    # at the combined s_input/s/z. ai is the per-token (N_token, c_token=384) aggregation
+    # BEFORE the cat([ai, restype, profile, deletion_mean]) -> s_inputs.
+    with torch.no_grad():
+        ai, ql, cl, plm = ie.atom_attn_enc(batch=batch)
+    print("input_embedder atom_attn_enc: ai", ai.shape, "ql", ql.shape, "cl", cl.shape,
+          "plm", plm.shape, "ai std", float(ai.std()))
+
     me = MSAModuleEmbedder(**C.architecture.msa.msa_module_embedder).eval()
     me.load_state_dict(sub(sd, "msa_module_embedder"), strict=True)
     with torch.no_grad():
@@ -87,6 +99,10 @@ def main():
         "in": {k: v[0].clone() for k, v in batch.items()},
         "out": (s_input[0].clone(), s_init[0].clone(), z_init[0].clone()),
         "msa_out": (m[0].clone(), msa_mask[0].clone()),
+    }
+    inter["input_embedder_atom_enc_real"] = {
+        "in": {k: v[0].clone() for k, v in batch.items()},
+        "out": (ai[0].clone(), ql[0].clone(), cl[0].clone(), plm[0].clone()),
     }
 
     PF = dict(C.architecture.pairformer)
