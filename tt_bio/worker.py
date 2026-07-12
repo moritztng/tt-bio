@@ -72,6 +72,12 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
             hf_artifact(PROTENIX_REPO, "protenix-v2.pt", cache))
         cfg["mol_dir"] = str(download_mols(cache))     # CCD templates for nucleic acids / ligands
         return
+    # OpenDDE loads its weights from HF (aurekaresearch/OpenDDE) on the first fold via
+    # load_opendde_checkpoint; single-sequence only (no MSA dir needed -- see
+    # docs/opendde-port.md).
+    if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
+        cfg["opendde_ckpt"] = os.environ.get("OPENDDE_CKPT")
+        return
     # ESMFold2 loads its weights from HF on the first fold and needs no Boltz-2
     # checkpoints / molecule library — only a writable MSA dir.
     if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
@@ -197,6 +203,11 @@ class _WorkerState:
             from tt_bio.protenix import Protenix
 
             self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
+        elif model_id in ("opendde", "opendde-abag"):
+            from tt_bio.opendde import OpenDDE
+
+            self.model = OpenDDE.load_from_checkpoint(
+                cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))
         elif _is_esmc_model(model_id):
             from tt_bio.esmc import load_esmc
 
@@ -241,6 +252,8 @@ class _WorkerState:
             self.prepare = None
 
     def predict_one(self, path: Path, cfg: dict[str, Any]):
+        if cfg.get("model") in ("opendde", "opendde-abag"):
+            return self._predict_opendde_one(path, cfg)
         if cfg.get("model") == "protenix-v2":
             return self._predict_protenix_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
@@ -326,6 +339,76 @@ class _WorkerState:
         # _execute_job inspects feats["record"].affinity; ESMFold2 has no affinity.
         feats = {"record": types.SimpleNamespace(affinity=False)}
         return metrics, None, feats
+
+    def _predict_opendde_one(self, path: Path, cfg: dict[str, Any]):
+        """OpenDDE protein co-fold: sequence(s) -> on-device structural-token fold ->
+        structure. Single-sequence only (no MSA encoder wired -- see docs/opendde-port.md);
+        protein-only (nucleic-acid/ligand structural tokens not ported yet). Confidence-based
+        best-of-N ranking and CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold
+        rides the same ConfidenceHead / build_complex_features / _write_protenix_structure)."""
+        import types
+
+        from tt_bio.esmfold2 import report_progress
+        from tt_bio.main import _read_bio_chains, _read_bio_constraints, _write_protenix_structure
+        from tt_bio.protenix_data import build_complex_features
+
+        chains = _read_bio_chains(path)
+        if not chains:
+            raise RuntimeError("no protein sequences")
+        non_protein = [cid for cid, _s, _sp, mt in chains if mt != "protein"]
+        if non_protein:
+            raise RuntimeError(
+                f"--model opendde is protein-only for now (chain(s) {non_protein} are not "
+                "protein); see docs/opendde-port.md's Remaining section.")
+        bonds = _read_bio_constraints(path)
+
+        report_progress("prep")
+        chain_specs = [(cseq, None, "protein") for _cid, cseq, _spec, _mt in chains]
+        feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt in chains],
+                                       bonds=bonds)
+
+        report_progress("diffusion")
+        n_sample = int(cfg["diffusion_samples"])
+        coords, conf = self.model.fold(
+            feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
+            seed=cfg.get("seed") or 0, n_cycles=cfg.get("recycling_steps"),
+            return_confidence=True)
+        confs = conf if isinstance(conf, list) else [conf]
+
+        # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers, falling
+        # back to pLDDT only if neither is available -- identical to Protenix-v2's ranking.
+        def _score(c):
+            ptm, iptm = c.get("ptm", 0.0), c.get("iptm", 0.0)
+            if iptm > 0.0:
+                return 0.8 * iptm + 0.2 * ptm
+            return ptm if ptm > 0.0 else c["plddt"]
+
+        order = sorted(range(len(confs)), key=lambda k: _score(confs[k]), reverse=True)
+        rank_of = {k: r for r, k in enumerate(order)}
+
+        struct_dir = Path(cfg["struct_dir"])
+        stem, fmt = path.stem, cfg["output_format"]
+        for k in range(len(confs)):
+            r = rank_of[k]
+            name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
+            _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
+                                      b_factors=confs[k]["plddt_atom"] * 100.0)
+
+        def _row(c):
+            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
+                    "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
+                    "confidence_score": round(_score(c), 6)}
+
+        best = confs[order[0]]
+        metrics = {
+            **_row(best),
+            "n_residues": sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand"),
+            "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
+            "msa": False, "n_atoms": int(coords.shape[1]), "samples": n_sample,
+        }
+        if len(confs) > 1:
+            metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
+        return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_protenix_one(self, path: Path, cfg: dict[str, Any]):
         """Protenix-v2 protein fold: sequence(s) -> (optional per-chain MSA) -> on-device fold
