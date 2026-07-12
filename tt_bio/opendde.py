@@ -198,3 +198,146 @@ class StructuralTokenExpander(_KeyedWeights):
         z_struct = z_chunks[0] if len(z_chunks) == 1 else ttnn.concat(z_chunks, dim=-3)
         attn_bias = ab_chunks[0] if len(ab_chunks) == 1 else ttnn.concat(ab_chunks, dim=0)
         return s_inputs_struct, s_struct, z_struct, attn_bias
+
+
+# ---------------------------------------------------------------------------
+# Pipeline assembly + real-weight load (docs/opendde-port.md steps 2-3).
+#
+# OpenDDE's compute graph = Protenix-v2's trunk/MSA/template/diffusion/confidence
+# (byte-identical checkpoint key names, verified 2026-07-12 against protenix-v2.pt:
+# 0 keys missing) + this module's novel StructuralTokenExpander + a 4-block
+# structural-token refiner (a reused PairformerStack). So the real-weight "remap"
+# is mostly a routing split; the shared subtree feeds the existing Protenix stack
+# unchanged, the expander keys match 1:1 under a prefix strip, and the refiner
+# reuses the Protenix pairformer-block remap.
+# ---------------------------------------------------------------------------
+
+OPENDDE_REPO = "aurekaresearch/OpenDDE"
+
+# Measured from opendde.pt (opendde_v1, 656M; config/model_base.py + weight shapes,
+# 2026-07-12). NOTE these correct the earlier "dims match Protenix-v2 exactly" note:
+# OpenDDE's pair channel is c_z=384 (not the tt-bio Protenix-v2 checkpoint's 256) and
+# its triangle attention has 12 heads (not 8). c_s/c_s_inputs/MSA-depth do match.
+OPENDDE_CONFIG = dict(
+    c_s=384, c_z=384, c_s_inputs=449, n_roles=7, pair_chunk_size=128,
+    pairformer_blocks=48, pairformer_tri_heads=12, pairformer_att_heads=16,
+    msa_blocks=4,
+    refiner_blocks=4, refiner_tri_heads=12, refiner_att_heads=8,
+)
+
+
+def load_opendde_checkpoint(path=None, *, abag=False):
+    """Load an OpenDDE checkpoint to a flat ``{name: tensor}`` state_dict (``module.``
+    prefix stripped, untrusted weights read with ``weights_only=True``). ``path=None``
+    fetches from HF ``aurekaresearch/OpenDDE`` (``opendde.pt`` general, or
+    ``opendde_abag.pt`` for the antibody-antigen checkpoint when ``abag=True``)."""
+    import torch
+    if path is None:
+        from huggingface_hub import hf_hub_download
+        path = hf_hub_download(OPENDDE_REPO, "opendde_abag.pt" if abag else "opendde.pt")
+    ck = torch.load(path, map_location="cpu", weights_only=True)
+    ck = ck.get("model", ck)
+    return {k[len("module."):] if k.startswith("module.") else k: v for k, v in ck.items()}
+
+
+def route_opendde_weights(state_dict):
+    """Split an OpenDDE state_dict into the three subtrees the tt-bio assembly consumes,
+    asserting full coverage (every checkpoint key is routed exactly once, no leftovers):
+
+      - ``expander`` : ``structural_token_expander.*`` -> identity under the prefix strip
+        (the names match ``StructuralTokenExpander``'s consumed keys 1:1).
+      - ``refiner``  : ``structural_token_refiner.*`` -> N x ``remap_pairformer_block``
+        (the reused Protenix-v2 pairformer-block remap; the refiner IS a PairformerStack).
+      - ``shared``   : everything else -> the Protenix-v2-family graph, keys byte-identical
+        to protenix-v2.pt, so it feeds the existing ``protenix.Protenix`` stack unchanged.
+
+    Returns ``dict(expander=..., refiner=..., refiner_blocks=int, shared=...)``.
+    """
+    import re
+    import tt_bio.protenix_weights as PW
+    EP, RP = "structural_token_expander.", "structural_token_refiner."
+    exp = {k[len(EP):]: v for k, v in state_dict.items() if k.startswith(EP)}
+    ref_raw = {k: v for k, v in state_dict.items() if k.startswith(RP)}
+    shared = {k: v for k, v in state_dict.items()
+              if not k.startswith(EP) and not k.startswith(RP)}
+    assert len(exp) + len(ref_raw) + len(shared) == len(state_dict), "routing dropped keys"
+
+    nb = 1 + max(int(re.search(r"blocks\.(\d+)\.", k).group(1)) for k in ref_raw if "blocks." in k)
+    refiner = {}
+    for i in range(nb):
+        pfx = f"{RP}blocks.{i}."
+        blk = {k[len(pfx):]: v for k, v in ref_raw.items() if k.startswith(pfx)}
+        for k, v in PW.remap_pairformer_block(blk).items():
+            refiner[f"layers.{i}.{k}"] = v
+    return dict(expander=exp, refiner=refiner, refiner_blocks=nb, shared=shared)
+
+
+class OpenDDE:
+    """OpenDDE co-folding on Tenstorrent: the Protenix-v2 trunk/diffusion/confidence stack
+    (reused verbatim, ``tt_bio.protenix``) + the novel :class:`StructuralTokenExpander` +
+    a 4-block structural-token refiner (a reused ``Pairformer``), on the structural-token
+    axis. Ships co-folding only (no design/affinity) -- see docs/opendde-port.md.
+
+    Assembly status (2026-07-12): real-weight routing and the novel expander->refiner seam
+    are wired and run finite on-device with the REAL checkpoint
+    (``scripts/opendde_assembly_verify.py``). The full residue->structure fold is gated on
+    three still-pending prerequisites -- see :meth:`fold`."""
+
+    def __init__(self, state_dict, compute_kernel_config, device=None):
+        from .tenstorrent import get_device, Pairformer
+        self.dev = device or get_device()
+        self.compute_kernel_config = compute_kernel_config
+        C = OPENDDE_CONFIG
+        routed = route_opendde_weights(state_dict)
+        self._shared = routed["shared"]         # Protenix-v2-family graph (for step-2 trunk/diffusion)
+        self.expander = StructuralTokenExpander(
+            routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
+            c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
+        self.refiner = Pairformer(
+            routed["refiner_blocks"], C["c_z"] // C["refiner_tri_heads"], C["refiner_tri_heads"],
+            C["c_s"] // C["refiner_att_heads"], C["refiner_att_heads"], True,
+            routed["refiner"], compute_kernel_config)
+
+    @classmethod
+    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None):
+        """Fetch/load ``opendde.pt`` (or ``opendde_abag.pt`` when ``abag=True``) and build
+        the model on ``device`` (card 0 by default)."""
+        import ttnn
+        from .tenstorrent import get_device
+        dev = device or get_device()
+        ckc = compute_kernel_config or ttnn.init_device_compute_kernel_config(
+            dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
+        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev)
+
+    def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *, extra_attn_bias=True):
+        """The novel seam (opendde/model/opendde.py forward): residue-trunk (s_inputs, s, z)
+        -> structural-token (s_inputs, s, z). The expander produces the structural-token
+        tensors + the additive pair attention bias; the 4-block refiner then refines (s, z),
+        with that bias fed to the pair/triangle attention (matching OpenDDE's
+        ``extra_attn_bias``). Returns ``(s_inputs_struct, s_struct, z_struct)`` as resident
+        ttnn tensors. All inputs are host tensors / the integer feature dict, as for
+        :meth:`StructuralTokenExpander.__call__`."""
+        import ttnn
+        s_inputs_st, s_st, z_st, attn_bias = self.expander(ifd, s_inputs_res, s_res, z_res)
+        Ns = s_st.shape[0]
+        z4 = ttnn.reshape(z_st, (1, Ns, Ns, self.expander.c_z))
+        s3 = ttnn.reshape(s_st, (1, Ns, self.expander.c_s))
+        bias = None
+        if extra_attn_bias:
+            bias = ttnn.reshape(attn_bias, (1, 1, Ns, Ns))
+        s_ref, z_ref = self.refiner(s3, z4, attn_mask_start=bias, attn_mask_end=bias)
+        return s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref
+
+    def fold(self, *args, **kwargs):
+        raise NotImplementedError(
+            "OpenDDE end-to-end co-folding is not yet enabled. Done + on-device verified: "
+            "the real-weight remap (route_opendde_weights) and the novel expander->refiner "
+            "seam (expand_and_refine; scripts/opendde_assembly_verify.py). Three prerequisites "
+            "remain before a full residue->structure fold (docs/opendde-port.md 'Remaining'): "
+            "(1) port OpenDDE's structural-token tokenizer/featurizer (opendde/data/tokenizer.py) "
+            "that emits the atom<->structural-token maps, subtoken roles, parent/adjacency and "
+            "structural frames the expander + structural-axis diffusion consume; (2) make the "
+            "shared Protenix Trunk c_z-parametric (OpenDDE c_z=384 / 12 triangle heads vs the "
+            "tt-bio Protenix-v2 checkpoint's 256 / 8); (3) add the diffusion-conditioning "
+            "z_trunk branch (the diffusion_module.diffusion_conditioning.*_z_trunk keys OpenDDE "
+            "adds over Protenix-v2).")

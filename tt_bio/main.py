@@ -1853,11 +1853,13 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
-@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2"]), default="boltz2", show_default=True,
+@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"]), default="boltz2", show_default=True,
               help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
                    "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
                    "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
                    "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
+                   "opendde / opendde-abag: AF3-family co-folding (Protenix-v2 stack + structural-token expander); "
+                   "opendde-abag selects the antibody-antigen checkpoint. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
@@ -1894,6 +1896,19 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # These are counts of things to generate; <1 crashes deep in the model
     # (e.g. "reshape tensor of 0 elements" / "Dimension size must be
     # non-negative"). Reject up front with a clear message.
+    if model in ("opendde", "opendde-abag"):
+        # Recognized entry points: the real checkpoints (opendde.pt / opendde_abag.pt)
+        # load, the weight remap and the novel structural-token expander->refiner seam are
+        # on-device verified (scripts/opendde_assembly_verify.py). End-to-end co-folding is
+        # not yet enabled -- it needs OpenDDE's structural-token tokenizer/featurizer ported
+        # (see docs/opendde-port.md 'Remaining'). Surface that honestly instead of failing
+        # deep in the scheduler.
+        raise click.ClickException(
+            f"--model {model}: OpenDDE co-folding is not yet enabled end-to-end. "
+            "Checkpoint load + weight remap + the on-device structural-token expander->refiner "
+            "seam are done and verified; the residue->structure fold is pending the "
+            "structural-token tokenizer port. See docs/opendde-port.md.")
+
     if diffusion_samples < 1:
         raise click.BadParameter("--diffusion_samples must be at least 1")
     if diffusion_samples_affinity < 1:
