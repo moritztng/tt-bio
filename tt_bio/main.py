@@ -15,6 +15,30 @@ if "--debug" not in _sys.argv:
 _os.environ.setdefault("MKL_THREADING_LAYER", "GNU")
 
 
+def _ttnn_version() -> str:
+    """Installed ttnn version, without importing the (heavy) package itself."""
+    import importlib.metadata
+    try:
+        return importlib.metadata.version("ttnn")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
+# tt-metal JIT-compiles every kernel binary on first use; the compiled ELF is
+# cached on disk (default ~/.cache/tt-metal-cache) and reused by ANY later
+# process on this host, so a cold `predict`/`embed` CLI call or a restarted
+# serve worker skips recompiling shapes a prior process already built (measured
+# ~2-3x wall-clock, ~9x compute-stage win for a from-empty vs warm cache; see
+# docs/cold-start.md). Namespace by installed ttnn version so a version bump
+# can never silently reuse a differently-built cache (belt-and-suspenders on
+# top of tt-metal's own internal build-hash directory) -- setdefault so an
+# operator-set TT_METAL_CACHE always wins. Must run before ttnn is imported.
+_os.environ.setdefault(
+    "TT_METAL_CACHE",
+    _os.path.expanduser(f"~/.cache/tt-metal-cache-tt-bio/ttnn-{_ttnn_version()}"),
+)
+
+
 def _install_nanobind_leak_stderr_filter() -> None:
     """Drop nanobind leak reports while forwarding other fd-level stderr."""
     try:
