@@ -1,128 +1,138 @@
 # OpenDDE port
 
-Resume anchor for porting OpenDDE onto Tenstorrent inside tt-bio, following the
-same playbook as the Protenix-v2 / OpenFold3 ports (skill
-`port-bio-model-to-tenstorrent`). Status is a **plan + identity/redundancy
-analysis**; on-device implementation and parity numbers are **blocked on
-hardware** (see [Status](#status)).
+Resume anchor for porting OpenDDE onto Tenstorrent inside tt-bio. OpenDDE's
+compute graph is Protenix-v2's (already fully ported in `tt_bio/tenstorrent.py` +
+`tt_bio/protenix.py`) plus exactly one novel module, so the port reuses that
+entire ttnn stack and adds the one block. Status: identity + architecture +
+redundancy **measured** (not assumed); the novel block's torch reference **runs
+on qb2** with a golden output captured; ttnn port of that block is the next step.
 
 ## Identity (re-verified 2026-07-12)
 
-- **What:** OpenDDE = "Open Drug Discovery Engine", Aureka AI Research. Apache-2.0.
-  Repo `github.com/aurekaresearch/OpenDDE`, weights
-  `huggingface.co/aurekaresearch/OpenDDE`, paper arXiv:2607.03787 ("Folding,
-  Reasoning, and Scaling with Open-source Drug Discovery Engine", v1 4 Jul 2026).
-- **Scale:** 655M trainable params (paper Fig. 4 footnote:
-  `2.04e10 tokens x 655M ≈ 1.33e19` training-cost estimate).
-- **Family:** all-atom AF3-lineage, explicitly "building on recent open co-folding
-  systems such as Protenix-v1 and OpenFold3"; benchmarked against AlphaFold3,
-  Chai-1, Boltz-1, OpenFold3, Protenix-v1/v2, ESMFold2. Models proteins, nucleic
-  acids, ligands, ions and modified residues in one all-atom system.
-- **Release scope — important:** the released **preview is co-folding
-  (structure-prediction) only**. Key Contribution #2 states the unified
-  architecture "currently focuses on structure prediction, but is designed to
-  support *future* de novo molecular design, affinity prediction, and other
-  structure-conditioned modules." So the masked fold/design duality is a *roadmap*
-  property of the architecture, not something the shipped checkpoints do. This
-  corrects the task brief's premise that the release does both fold and design.
-- **Checkpoints:** `opendde.pt` (general) and `opendde_abag.pt` (antibody-antigen
-  tuned). CLI verbs: `opendde pred | json | msa | mt | prep | doctor`; model id
-  `opendde_v1`. Preview caveat on the repo: "predictions are not guaranteed to be
-  reproducible across releases" — relevant to the parity metric (see below).
-- **Headline result:** best open-model antibody-antigen co-folding. Rank-based
-  DockQ success: PXMeter-AB 51.0%, FoldBench-AB 70.0%, 2026ARK-AB 66.4%; oracle
-  65.9 / 81.9 / 80.1. Claims "IsoDDE-level" (Isomorphic's closed engine) accuracy.
-- **Novel block:** "atomic latent reasoning" — a latent refinement over
-  biomolecular tokens *before* all-atom structure generation, on top of an
-  otherwise AF3/Protenix-style trunk + atom-diffusion stack. `Fold-CP` is
-  training/inference context-parallelism (a data-parallel concern, not a compute
-  block to port).
+Live re-check this date: GitHub `aurekaresearch/OpenDDE` (main HEAD `a0d5134`,
+the pin used below), HF `aurekaresearch/OpenDDE`, arXiv:2607.03787 all resolve.
+No point-release past the 2026-07-06 preview (main is still `a0d5134`; PRs #3/#4
+open, unmerged). Apache-2.0.
 
-## Redundancy verdict: complementary, with honest overlap
+- **What:** OpenDDE = "Open Drug Discovery Engine", Aureka AI Research. All-atom
+  AF3-lineage co-folding model; `pyproject.toml` keywords list `alphafold3`, and
+  the code ships the same OpenFold/Protenix CUDA `FusedLayerNorm` kernel.
+- **Scale:** `opendde_v1`, 656M params (`config/model_registry.py`).
+- **Release scope:** the shipped preview is **co-folding (structure prediction)
+  only**. Design / affinity are roadmap, not in the checkpoints. (Corrects the
+  task brief's fold+design premise.)
+- **Headline result:** best *open* antibody-antigen co-folding (rank DockQ
+  PXMeter-AB 51.0 / FoldBench-AB 70.0 / 2026ARK-AB 66.4). Ships a dedicated
+  `opendde_abag.pt` alongside the general `opendde.pt`.
 
-tt-bio already has `boltz2` (co-folding + affinity) and `boltzgen` (design). Read
-against the actual release:
+## Redundancy: measured, not assumed
 
-- **Overlaps** Boltz-2 / Protenix-v2 for *general* co-folding — same AF3 family,
-  same task. It does **not** add a second design stack: design is roadmap, not in
-  the preview, so there is no overlap with (or replacement of) `boltzgen`.
-- **Genuinely additive** on one axis that matters: **antibody-antigen accuracy**.
-  OpenDDE leads every open model on the AB benchmarks above and ships a dedicated
-  `opendde_abag.pt`. Boltz-2 and Protenix-v2 are materially weaker there (Fig. 2).
-  Ab-Ag is the single most requested therapeutic co-folding regime, so a
-  best-in-class open AB checkpoint on-device is a real capability gain, not a
-  duplicate.
-- All-atom nucleic-acid coverage is **not** unique here (Protenix-v2 already
-  covers NA), so that is not the differentiator — the AB strength is.
+The trunk/diffusion/confidence classes in OpenDDE are the AF3/Protenix set, and
+**every one already has a ttnn implementation in tt-bio** (`grep '^class'`, both
+sides, 2026-07-12):
 
-**Conclusion:** worth porting, scoped as a co-folding model specialised for
-antibody-antigen (`tt-bio predict --model opendde`), not as a fold+design engine.
-Revisit the design/affinity modules only if/when Aureka ships them.
+| OpenDDE class | Already ported in tt-bio |
+|---|---|
+| `InputFeatureEmbedder`, `RelativePositionEncoding`, `FourierEmbedding` | `protenix.py` `TrunkInput` / `AtomFeaturization` |
+| `AtomAttentionEncoder`/`Decoder`, `AtomTransformer` | `protenix.py` `AtomAttentionEncoder`, `AtomTransformer` (+ decoder in `DiffusionModule`) |
+| `MSAModule`, `OuterProductMean`, `MSAPairWeightedAveraging` | `tenstorrent.py` `MSAModule` / `MSA` / `OuterProductMean` / `PairWeightedAveraging` |
+| `PairformerStack`/`Block`, `TriangleMultiplication*`, `TriangleAttention`, `AttentionPairBias`, `Transition` | `tenstorrent.py` `Pairformer` / `PairformerLayer` / `TriangleMultiplication` / `TriangleAttention` / `AttentionPairBias` / `Transition` |
+| `DiffusionModule`, `DiffusionTransformer(Block)`, `DiffusionConditioning`, `ConditionedTransitionBlock`, `AdaptiveLayerNorm` | `tenstorrent.py` `DiffusionModule` / `DiffusionTransformer(Layer)` / `Diffusion` / `ConditionedTransitionBlock` / `AdaLN` |
+| `TemplateEmbedder` | `tenstorrent.py` `TemplateRecycle` |
+| `ConfidenceHead`, `DistogramHead` | `protenix.py` `ConfidenceHead` (+ distogram) |
+| **`StructuralTokenExpander`** | **nothing — the only novel compute** |
 
-## Architecture → tt-bio primitive mapping
+Dims match Protenix-v2 exactly (`c_s=c_z=384`, `c_s_inputs=449`, Pairformer 48
+blocks / 16 heads, MSA 4, template 2, DiT 24 / 16 heads, atom tx 3 / 4). The
+`structural_token_refiner` is itself a 4-block `PairformerStack` (reused, not new).
 
-OpenDDE is AF3-family, so it maps onto the primitives already validated for
-Protenix-v2 in `tt_bio/tenstorrent.py` — reuse, do not duplicate:
+**Verdict — additive via one block + a checkpoint, not a redundant second
+engine.** The compute is ~100% Protenix-v2's already-ported graph; what is new
+is (1) `StructuralTokenExpander` and (2) the antibody-antigen checkpoint
+`opendde_abag.pt`, which delivers the best open Ab-Ag accuracy (Boltz-2 /
+Protenix-v2 are materially weaker there). Ab-Ag is the most-requested therapeutic
+co-folding regime, so the capability is a real gain riding on already-ported
+compute. Nucleic-acid coverage is *not* the differentiator (Protenix-v2 has it).
+It does **not** add a design stack (design is roadmap), so no overlap with
+`boltzgen`.
 
-| OpenDDE block | Reuse from tt-bio | Notes |
-|---|---|---|
-| Input / atom featurization | `protenix.py` AtomFeaturization + AtomAttentionEncoder | AF3 atom encoder; re-verify feature spec vs OpenDDE config |
-| MSA module | `tenstorrent.MSA` / `MSALayer` / `OuterProductMean` / `PairWeightedAveraging` | MSA-dependent like boltz2/protenix-v2 |
-| Trunk (Pairformer) | `tenstorrent.Pairformer` / `PairformerLayer` / `TriangleMultiplication` / `TriangleAttention` / `AttentionPairBias` / `Transition` | block count/dims per OpenDDE config |
-| **Atomic latent reasoning** | **new** (small, likely a Miniformer/`Miniformer`-shaped latent refiner) | the one genuinely-new module; port + PCC-gate first |
-| Diffusion structure module | `tenstorrent.DiffusionTransformer` + `protenix.py` diffusion atom encoder/decoder, AdaLN, ConditionedTransitionBlock | EDM-style sampler as in protenix |
-| Confidence head | `protenix.py` ConfidenceHead | pae/pde/plddt/resolved |
+## The one novel block: `StructuralTokenExpander`
 
-Weight loading uses the shared `Module` / `WeightScope` / `weight_cache`
-machinery; remap OpenDDE `opendde.pt` names via the ttnn weight-remap approach
-(skill `ttnn-weight-remap`), as Protenix-v2 does.
+Expands the residue-level trunk (`s_inputs`, `s`, `z`) onto the structural-token
+axis before diffusion, adding role conditioning and same-residue pair structure.
+The rest of the pipeline (diffusion, confidence) then runs unchanged on the
+structural-token axis — ttnn ops are axis-agnostic, so no primitive changes are
+needed, only feeding them the expanded tensors.
 
-## Port plan (phases, playbook order)
+Forward (`opendde/model/modules/structural_tokens.py`, `opendde_v1` config):
 
-0. Vendor inference-only deps under `tt_bio/_vendor/opendde/`; pin the checkpoint
-   source (HF `aurekaresearch/OpenDDE`), mirror to the tt-bio artifact bucket if
-   license permits (Apache-2.0 → yes).
-1. Random-weight reference harness (skill `ttnn-port-parity-methodology`):
-   per-module PCC > 0.98 vs the vendored torch reference, component by component,
-   in the table order above. Gate the **atomic-latent-reasoning** block first
-   since it is the only novel compute.
-2. Assemble the full pipeline (atom encoder → trunk → latent reasoning →
-   diffusion → confidence), reusing `protenix.py`'s assembly as the template.
-3. Real-weight load + on-device fold to PDB/mmCIF; `--fast` mode and multi-card
-   `--devices` fanout via the existing predict scheduler (memory
-   `predict-multicard-already-exists` — predict already fans out; just wire the
-   model in, do not add a new fanout path).
-4. CLI: extend `tt-bio predict --model` choices with `opendde` (and optionally an
-   `opendde-abag` alias selecting `opendde_abag.pt`), matching the protenix-v2
-   wiring in `tt_bio/main.py`. Co-folding → `predict` (not `gen`), because the
-   release has no design mode.
-5. One unified README section (memory `readme-audience-bio`): user-facing only,
-   no kernel/L1/tile detail; link here for internals.
+- **single:** `s_inputs_struct = gather(s_inputs_res, parent) + role_emb(role)`;
+  `s_struct = s_parent + split_MLP(s_parent) + role_emb(role)` where
+  `split_MLP = LayerNorm -> LinearNoBias(c_s->2c_s) -> SiLU -> LinearNoBias(->c_s)`.
+  All host-gather + reused ttnn LN/Linear/SiLU.
+- **pair (the hard part):** `pair_projection_mode="full"` = `n_roles*n_roles = 49`
+  separate `LinearNoBias(c_z->c_z)` selected per (row_role, col_role), assembled
+  in `pair_chunk_size=128` chunks (`_make_structural_pair_activations_chunked`),
+  plus additive role/adjacency pair-init biases and a scalar attention bias.
+  `pair_output_space="residue"`. This is the genuinely new ttnn work.
+
+The index gathers (parent, prev/next-parent adjacency, role-pair-type maps) are
+integer-only and precomputable host-side; only the projections/MLP/bias adds run
+on device.
+
+## Reference harness (Phase 0 — done, runs on qb2)
+
+`scripts/opendde_structtoken_ref.py` builds `StructuralTokenExpander` at the real
+`opendde_v1` config (full projection, chunked, `init_mode="scratch"`), randomizes
+all weights (fixed seed), runs a deterministic forward on synthetic residue-trunk
+inputs (`N_RES=32`, `N_STRUCT=64`), and saves inputs + golden outputs for the PCC
+gate. FoldCP (context-parallel) and `optree` are stubbed; no data pipeline, no
+CUDA, no checkpoints (per-module parity methodology). Set `OPENDDE_SRC` to a
+checkout pinned at `a0d5134`. Verified output (2026-07-12): `s_struct (64,384)`,
+`z_struct (64,64,384)`, `structural_pair_attn_bias (64,64)`.
+
+Reference-build precedent: follows Protenix (`scripts/protenix_ref_build.py`
+builds from an external `PROTENIX_SRC` checkout, stubbing `FusedLayerNorm`)
+rather than copying model code into `_vendor/`; OpenDDE is the same AF3-family
+situation.
+
+## Port plan (remaining)
+
+1. **ttnn `StructuralTokenExpander`** in `tt_bio/opendde.py`, reusing tt-bio LN /
+   Linear / SiLU. PCC > 0.98 vs the golden above, single pathway first (`s`/
+   `s_inputs`), then the full-projection chunked pair pathway. **Next step.**
+2. Assemble the pipeline reusing `protenix.py`'s trunk/diffusion/confidence
+   verbatim, inserting the expander + the 4-block refiner (a reused
+   `PairformerStack`) between trunk and diffusion, on the structural-token axis.
+3. Real-weight load: remap `opendde.pt` / `opendde_abag.pt` names onto the tt-bio
+   modules (skill `ttnn-weight-remap`; most names should map 1:1 to the
+   Protenix-v2 remap, plus the expander/refiner block).
+4. `--fast` + multi-card `--devices` via the existing predict scheduler (memory
+   `predict-multicard-already-exists` — do not add a new fanout path).
+5. CLI: `tt-bio predict --model opendde` (+ `opendde-abag` alias selecting the
+   Ab-Ag checkpoint), matching the Protenix-v2 wiring in `tt_bio/main.py`.
+   Co-folding -> `predict`, not `gen` (no design mode in the release).
+6. One unified README section (memory `readme-audience-bio`): user-facing only,
+   internals linked here.
 
 ## Accuracy gate
 
-- **Metric:** Ca-RMSD vs ground truth for the fold/co-folding path
-  (`scripts/release_gate.py` method), plus **DockQ on antibody-antigen**
-  complexes, since AB interface quality is the whole reason to add this model and
-  is exactly what the paper reports (PXMeter-AB / FoldBench-AB / 2026ARK-AB).
-- **No designability gate.** `scripts/boltzgen_designability.py` /
-  `docs/boltzgen-designability.md` is for the design path, which OpenDDE's release
-  does not have. Using it here would be measuring a mode that does not exist.
-- **Stochasticity:** diffusion sampler is seed-stochastic and the repo warns
-  outputs are not reproducible across releases, so parity is per-target
-  Ca-RMSD/DockQ within sample variance (as for Boltz-2/Protenix-v2), not bit-exact.
+- **Metric:** Ca-RMSD vs ground truth (`scripts/release_gate.py` method) for
+  co-folding, plus **DockQ on antibody-antigen** complexes (the whole reason to
+  add the model, and what the paper reports). No designability gate — that path
+  does not exist in the release.
+- **Stochasticity:** diffusion is seed-stochastic and the repo warns outputs are
+  not reproducible across releases, so parity is per-target Ca-RMSD/DockQ within
+  sample variance (as for Boltz-2 / Protenix-v2), not bit-exact.
 
 ## Status
 
-- Identity, redundancy, architecture mapping, and gate choice: **done** (this doc).
-- Implementation, per-module PCC, and end-to-end accuracy: **blocked, no numbers
-  yet.** The assigned host qb2 (tt-quietbox2) — which holds this task's worktree
-  and card — was powered off and un-wakeable on 2026-07-12 (WiFi desktop, WoL from
-  poweroff needs ethernet physically connected; two automated wake attempts plus
-  one manual attempt all failed while qb1 stayed reachable). On-device work cannot
-  start until qb2 is physically powered on. Do **not** relocate the port to qb1
-  (workspace isolation; qb1 saturated). No PCC/accuracy numbers are reported
-  because none have been measured — nothing here is estimated or fabricated.
+- Identity, measured redundancy, architecture mapping, gate choice: **done.**
+- Novel-block torch reference isolated and **running on qb2** with golden output
+  captured (`scripts/opendde_structtoken_ref.py`).
+- ttnn port + per-module PCC + end-to-end accuracy: **in progress, no accuracy
+  numbers yet** — nothing here is estimated or fabricated.
+- Prior blocker (qb2 powered off) is **cleared**; qb2 is back online.
 
-**Next action when qb2 is back:** phase 0 (vendor + checkpoint) then phase 1
-starting with the atomic-latent-reasoning PCC gate.
+**Next action:** ttnn `StructuralTokenExpander` in `tt_bio/opendde.py`, single
+pathway first, PCC-gated against the golden.
