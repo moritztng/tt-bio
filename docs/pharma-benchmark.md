@@ -257,10 +257,9 @@ In progress, not yet committed with final numbers:
   (official Protenix has no CUDA-fused triangle ops to fall back on for a CPU run;
   3h13m+ and still computing at the time of writing) — R and X are not yet
   measured, see the Protenix-v2 section above for the resumption path.
-- **Boltz-2**: harness wired (`scripts/boltz2_ref_layout.py` reshapes upstream
-  `boltz predict` output into the shared `structures` comparison format); a
-  device-vs-reference run is actively in flight on qb1 (trp-cage and a 7ROA
-  target, reference computing on CPU) but not yet complete or committed.
+- **Boltz-2**: a device-vs-reference run is actively in flight on qb1 (trp-cage
+  and a 7ROA target, reference computing on CPU) on a separate branch not yet
+  merged here; harness and numbers land once that finishes.
 - **BoltzGen**: designability harness (`scripts/boltzgen_designability.py`)
   exists and runs inside `tt-bio gen`; the device-vs-reference designability
   comparison itself has not been started yet.
