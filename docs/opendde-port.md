@@ -379,17 +379,71 @@ outputs remain at PCC 0.99849 or better. The bisect also found that the port dro
 `structural_pair_attn_bias` from the diffusion transformer. That branch is now routed
 like the reference, although restoring it alone did not materially change RMSD.
 
-No DockQ read is possible from current repository assets. `examples/` contains three
-ground-truth CIFs, all single-protein targets, and no antibody-antigen input/structure
-pair.
+A DockQ read is now possible and done -- see "DockQ / antibody-antigen read (P6)" below.
+`examples/9dsg_abag.yaml` + `examples/ground_truth_structures/9dsg.cif` add the first
+antibody-antigen input/ground-truth pair.
+
+## DockQ / antibody-antigen read (P6, 2026-07-12)
+
+Sourced the first antibody-antigen input + public ground truth from the OpenDDE
+benchmark set itself: **PDB 9dsg** (SARS-CoV-2 spike RBD antigen + a neutralizing
+Fab), one of the targets in `benchmarks/2026ARK_AB/common_targets.txt` in the OpenDDE
+repo. Input `examples/9dsg_abag.yaml` carries the three resolved protein chains --
+antigen A (196), Fab heavy H (248), Fab light L (212) -- sequenced from the 9dsg
+structure, so predicted and native chains align 1:1; the ground truth is
+`examples/ground_truth_structures/9dsg.cif` (the released 9dsg mmCIF). The OpenDDE CLI
+path has no MSA stage yet, so the input is single-sequence.
+
+A multi-chain Ab-Ag input first crashed the structural-token featurizer with a 2-atom
+mismatch (4969 vs 4967): `opendde_data.build_structural_token_features` decided the
+C-terminal OXT carrier from the *global* last residue, but `protenix_data.
+protein_atom_features` is called once per chain and appends OXT to each chain's
+C-terminus. For 3 chains that is N_chain-1 = 2 OXT atoms off, breaking
+`atom_to_structural_token_idx` alignment. Fixed by deriving `is_c_terminal` per
+`asym_id`; single-chain behavior is unchanged (the structural-token parity gate still
+passes).
+
+Fold: `tt-bio predict examples/9dsg_abag.yaml --model opendde-abag --recycling_steps 10
+--sampling_steps 200 --diffusion_samples 1` on qb2 card 0, real `opendde_abag.pt`
+weights, ~245 s. Confidence: pLDDT 0.839, pTM 0.608, ipTM 0.549.
+
+DockQ via the reference tool (`DockQ==2.1.3`, the Wallner-lab implementation that
+defines the metric; installed into the run venv as an eval-time requirement, not a
+project runtime dependency) -- `scripts/opendde_dockq.py`. DockQ maps model chains to
+native by sequence (model A,B,C -> native A,H,L) and scores every native interface:
+
+| native interface | meaning | DockQ | Fnat | Fnonnat | clashes |
+|---|---|---:|---:|---:|---:|
+| A-H | antigen - Fab heavy (the paratope-epitope) | **0.011** | 0.00 | 1.00 | 2 |
+| H-L | Fab heavy - light (internal) | 0.377 | 0.72 | 0.33 | 1 |
+
+9dsg has no A-L native interface (the light chain does not contact the antigen), so
+A-H is the complete antibody-antigen interface. GlobalDockQ (mean over native
+interfaces) = 0.194.
+
+**Honest verdict -- a genuine negative result for this regime.** The Fab assembles
+correctly (H-L DockQ 0.377, Fnat 0.72) and the fold is confident (ipTM 0.549), but the
+antigen is not placed in the paratope: antibody-antigen DockQ is 0.011 with zero native
+contacts reproduced. This is single-sequence, one sample, no MSA -- the paper's
+headline Ab-Ag DockQ (PXMeter-AB 51.0 / FoldBench-AB 70.0 / 2026ARK-AB 66.4, rank
+DockQ) uses MSA for the antigen and best-of-N confidence ranking, neither of which the
+OpenDDE CLI path wires yet. P5 already showed OpenDDE single-sequence underperforms its
+with-MSA number on a simpler target; for Ab-Ag the gap is larger because correct
+paratope-epitope placement is the whole task. Best-of-N was not attempted this pass
+(the single-seed distribution was tight for 7ROA in P5, and the antigen here is
+fundamentally misplaced rather than narrowly off). The path to close it is the MSA CLI
+stage (the antigen has many homologs) plus best-of-N, tracked in "Remaining".
 
 ## Remaining
 
-- **DockQ / antibody-antigen read**: source an antibody-antigen input + ground-truth
-  complex (none exists in `examples/` today) to measure `opendde_abag.pt`'s actual
-  differentiator -- the whole reason to ship the model.
+- **DockQ / antibody-antigen read: done (P6), honest negative.** Single-sequence (no
+  MSA stage in the CLI path yet), 1 sample on PDB 9dsg gives antibody-antigen DockQ
+  0.011 (antigen not placed in the paratope; the Fab itself assembles, H-L DockQ 0.377).
+  The paper's headline Ab-Ag DockQ uses MSA + best-of-N, so this is a lower bound.
 - **MSA wiring for the OpenDDE CLI path**: `_predict_opendde_one` remains
-  single-sequence-only. Add the same MSA search stage used by `_predict_protenix_one`.
+  single-sequence-only. Add the same MSA search stage used by `_predict_protenix_one`
+  -- the most likely lever for the Ab-Ag DockQ gap above (the antigen has many
+  homologs; the paper feeds MSA and runs best-of-N).
 - **Nucleic-acid / ligand structural tokens**: `opendde_data.py` is protein-only; extending
   to DNA/RNA backbone/base splitting and ligand atom-tokens follows the identical pattern
   once a mixed-modality co-folding target is on the critical path.
@@ -403,7 +457,10 @@ pair.
 - **Metric:** Ca-RMSD vs ground truth (`scripts/release_gate.py` method) for
   co-folding, plus **DockQ on antibody-antigen** complexes (the whole reason to
   add the model, and what the paper reports). No designability gate -- that path
-  does not exist in the release.
+  does not exist in the release. DockQ is computed with the reference `DockQ==2.1.3`
+  tool (eval-only, installed into the run venv; not a project runtime dependency) via
+  `scripts/opendde_dockq.py`; measured on PDB 9dsg at **0.011** (single-sequence,
+  1 sample -- see P6).
 - **Stochasticity:** diffusion is seed-stochastic and the repo warns outputs are
   not reproducible across releases, so parity is per-target Ca-RMSD/DockQ within
   sample variance (as for Boltz-2 / Protenix-v2), not bit-exact.
@@ -428,6 +485,12 @@ pair.
   `scripts/opendde_confidence_verify.py` sane pTM/pLDDT, working selection).
 - **CLI/predict integration: done and verified end-to-end** (`tt-bio predict --model
   opendde`/`opendde-abag`, real weights, real device, valid CIF + results.json).
-- **Not yet**: DockQ / antibody-antigen read (no ground-truth example available), MSA
-  search in the OpenDDE CLI path, nucleic-acid/ligand structural tokens, and explicit
-  `--fast`/multi-card verification.
+- **DockQ / antibody-antigen read: done (P6), honest negative.** On PDB 9dsg (Fab +
+  SARS-CoV-2 RBD, from the OpenDDE 2026ARK_AB benchmark set), single-sequence 1-sample
+  at production settings: antibody-antigen DockQ 0.011 (fnat 0, antigen mis-docked),
+  internal Fab DockQ 0.377, GlobalDockQ 0.194. Multi-chain input needed a per-chain
+  C-terminal OXT fix in `opendde_data.py` (single-chain parity unchanged).
+- **Not yet**: MSA search in the OpenDDE CLI path (the likely DockQ lever), best-of-N
+  for the Ab-Ag DockQ read, nucleic-acid/ligand structural tokens, and explicit
+  `--fast`/multi-card verification. OpenDDE is deliberately not in the README `--model`
+  table yet -- its Ab-Ag differentiator is measured but not at parity.

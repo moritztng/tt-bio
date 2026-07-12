@@ -68,12 +68,19 @@ def build_structural_token_features(feats):
     aatype = feats["restype"].argmax(-1)
     n_res = aatype.shape[0]
 
+    # C-terminal per CHAIN: each asym_id's last residue carries OXT, matching
+    # protenix_data.protein_atom_features (called once per chain). A per-chain vs
+    # global mismatch is N_chain-1 OXT atoms off and breaks atom_to_structural_token
+    # alignment for multi-chain input (the 4969-vs-4967 failure on the 9dsg Fab+RBD).
+    asym = asym_id.tolist()
+    is_c_term = [r == n_res - 1 or asym[r] != asym[r + 1] for r in range(n_res)]
+
     parent, role, twin = [], [], []
     atom_tok, atom_tokatom = [], []
     for r in range(n_res):
         aa = int(aatype[r])
         res = _LETTER_TO_RES[RESTYPE_ORDER[aa]] if aa < len(RESTYPE_ORDER) else "UNK"
-        names = _residue_atom_names(res, is_c_terminal=(r == n_res - 1))
+        names = _residue_atom_names(res, is_c_terminal=is_c_term[r])
         is_bb = [nm in PROTEIN_BACKBONE_ATOMS for nm in names]
         has_sidechain = not all(is_bb)
 
