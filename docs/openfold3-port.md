@@ -212,6 +212,55 @@ transformer + EDM + confidence structure). Start remap from `protenix_weights.py
   device sub-op bisect of the MSA pair_stack (which of tri_mul/tri_att/transition loses
   precision at the 18->270 magnitude jump), using `~/of3_msa_bisect.pkl`'s sub-op goldens.
 
+- 2026-07-12 (tick 7 = P6 cont.): **Component-port reusability matrix scoped + input-embedder
+  atom-encoder sub-outputs captured for the device PCC gate. No device component landed this
+  tick -- writing + PCC-debugging a full OF3 device component in one bounded turn risks
+  shipping unverified code (violates the PCC-gate-each-piece rule); the verified increment
+  this tick is the golden extension + the reusability matrix that makes the device ports
+  fast + safe next tick.**
+  1. **Reusability matrix (verified against the OF3 config + checkpoint + protenix.py):**
+     - **Reusable for OF3 with key remap (dims match exactly):** `protenix.DiffusionModule`
+       (24 DiT blocks, 16 heads, head_dim=48, sigma_data=16, NQ=32/NK=128/PAD_LEFT=48 -- all
+       identical to OF3's `diffusion_transformer`/`atom_attn_enc` config), its `AtomTransformer`
+       (3 blocks, 4 heads, head_dim=32, c_atom=128, c_atom_pair=16), and the DiT
+       `AdaLN`/`AttentionPairBias`/`ConditionedTransition` primitives. OF3 c_token=768 for the
+       DiT (protenix same). Only the key *names* differ (OF3 `diffusion_module.atom_attn_enc`
+       vs protenix `diffusion_module.atom_attention_encoder`; OF3 `conditioned_transition`
+       vs protenix `conditioned_transition_block`); a `remap_for_protenix_diffusion` handles it.
+     - **NOT reusable, needs OF3-specific device code:** (i) the **InputEmbedder atom
+       featurization** -- OF3 `RefAtomFeatureEmbedder` uses separate per-feature linears
+       (linear_ref_mask/element(119)/atom_chars(256)) + a p_lm path with linear_ref_offset/
+       inv_sq_dists/valid_mask terms, vs protenix's `AtomFeaturization` combined W_f(cat) +
+       W_d/W_invd/W_v (different feature dims: element 119 vs 128, different p_lm terms); the
+       math is NOT equivalent. (ii) the **trunk** -- OF3 c_z=128/no_heads_pair=4 vs protenix
+       C_Z=256/no_heads_pair=8 (already handled by the existing OF3 pairformer/MSA tests
+       composing `tenstorrent.Pairformer` directly). (iii) the **confidence heads** -- OF3
+       `aux_heads.{pairformer_embedding,pae,pde,plddt(1150,384),distogram,
+       experimentally_resolved}` vs protenix `confidence_head.*` (different head layout).
+     - Net: the DiffusionModule + atom-transformer/DiT are the biggest reusable chunk
+       (~the heaviest compute); the InputEmbedder featurization, trunk glue, and confidence
+       heads need OF3-specific code reusing the shared `tenstorrent` primitives
+       (`AdaLN`, `AttentionPairBias`, `Transition`, `PairformerLayer`).
+  2. **Golden extended** (`scripts/of3_real_golden.py`): now also captures
+     `input_embedder_atom_enc_real` = the InputEmbedder's atom-encoder sub-outputs (ai
+     (76,384) pre-s_inputs-concat, ql (601,128), cl (601,128), plm (19,32,128,16); N_atom=601,
+     N_token=76) on real ubiquitin. This lets the device InputEmbedder leg be PCC-gated at
+     sub-component granularity (atom encoder vs the linear_s/z_i/z_j/relpos/token_bonds glue)
+     rather than only at the combined s_input/s/z -- the same incremental-gate discipline the
+     pairformer/MSA ports used.
+  **NEXT (P7, precise):** build `tt_bio/openfold3.py` in this order, PCC-gating each vs the
+  golden: (1) InputEmbedder device leg (OF3-specific featurization + `AtomTransformer`-style
+  3-block windowed attention reusing `tenstorrent.AdaLN`/`AttentionPairBias`, glue linears) --
+  gate ai then s_inputs then s/z vs `input_embedder_atom_enc_real`/`input_embedder_real`;
+  (2) Trunk assembly (reuse the existing `remap_pairformer_stack`/`remap_msa_module` +
+  `tenstorrent.Pairformer`/MSA primitives, OF3 dims, + template embedder via
+  `remap_msa_pair_stack` + `PairformerLayer`, + the linear_z/linear_s cycle glue) -- gate
+  vs `pairformer_stack_prefix47`/`pairformer_stack_real`; (3) DiffusionModule (reuse
+  `protenix.DiffusionModule` via `remap_for_protenix_diffusion`, OF3 c_z=128 pair-z) --
+  capture a single-denoise-step golden in the venv, gate vs it; (4) ConfidenceHead
+  (OF3-specific `aux_heads`) -- gate vs an `aux_heads` golden; (5) `OpenFold3.fold()` +
+  EDM sampler + `examples/prot.yaml`/ubiquitin end-to-end -> Kabsch Ca-RMSD (the merge gate).
+
 - 2026-07-12 (tick 5 = P5): **Bisected the 48-block stack. The z_pcc gap is NOT uniform
   and NOT a device-precision mystery: it is a single-block catastrophic cancellation in
   the FINAL block, and no bf16 implementation (device OR CPU) can clear a >0.97 raw-z gate
