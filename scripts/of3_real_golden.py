@@ -94,13 +94,37 @@ def main():
     stack.load_state_dict(sub(sd, "pairformer_stack"), strict=True)
     single_mask = batch["token_mask"]
     pair_mask = single_mask[..., None] * single_mask[..., None, :]
+    # Run block-by-block (via the stack's own _prep_blocks, so this IS the reference
+    # forward) to capture the 47-block PREFIX as well as the full 48-block output. P5
+    # bisect localized the entire device z_pcc collapse to the LAST block, whose z-update
+    # nearly cancels the accumulated ~std-134 residual down to ~std-30 (catastrophic
+    # cancellation, ~10x rounding amplification -- CPU-bf16 hits the same 0.90 wall). The
+    # 47-block prefix is the honest correctness gate (device tracks it to z_pcc>=0.97);
+    # the full 48 stays xfail as a documented bf16-conditioning limit, not a port bug.
     with torch.no_grad():
-        ss, zs = stack(s_init.clone(), z_init.clone(), single_mask, pair_mask)
+        blocks = stack._prep_blocks(
+            s=s_init.clone(), z=z_init.clone(), single_mask=single_mask, pair_mask=pair_mask,
+            chunk_size=None, use_deepspeed_evo_attention=False, use_cueq_triangle_kernels=False,
+            use_triton_triangle_kernels=False, use_lma=False, inplace_safe=False, _mask_trans=True,
+        )
+        s_cur, z_cur = s_init.clone(), z_init.clone()
+        s_pre = z_pre = None
+        nb = len(blocks)
+        for bi, b in enumerate(blocks):
+            s_cur, z_cur = b(s_cur, z_cur)
+            if bi == nb - 2:  # after block 46 = 47-block prefix
+                s_pre, z_pre = s_cur.clone(), z_cur.clone()
+        ss, zs = s_cur, z_cur
     print("pairformer_stack_real:", ss.shape, zs.shape,
-          "s_out std", float(ss.std()), "z_out std", float(zs.std()))
+          "s_out std", float(ss.std()), "z_out std", float(zs.std()),
+          "| prefix47 z_out std", float(z_pre.std()))
     inter["pairformer_stack_real"] = {
         "in": (s_init[0].clone(), z_init[0].clone()),
         "out": (ss[0].clone(), zs[0].clone()),
+    }
+    inter["pairformer_stack_prefix47"] = {
+        "in": (s_init[0].clone(), z_init[0].clone()),
+        "out": (s_pre[0].clone(), z_pre[0].clone()),
     }
 
     msa_mask_b = msa_mask.to(z_init.dtype)
