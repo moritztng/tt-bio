@@ -160,6 +160,71 @@ transformer + EDM + confidence structure). Start remap from `protenix_weights.py
 
 ## Status log
 
+- 2026-07-12 (tick 5 = P5): **Bisected the 48-block stack. The z_pcc gap is NOT uniform
+  and NOT a device-precision mystery: it is a single-block catastrophic cancellation in
+  the FINAL block, and no bf16 implementation (device OR CPU) can clear a >0.97 raw-z gate
+  against it. Tick 4's "device compounds a real gap beyond bf16" framing was half right;
+  the missing piece is WHERE (last block) and WHY (cancellation), which reframes it from
+  "open device bug" to "wrong metric for a cancelling final block."**
+  1. **Captured the full per-block reference trajectory** (`scripts/of3_bisect_cpu.py`,
+     scratch; drives the real featurized ubiquitin through the reference `InputEmbedder`
+     then runs `PairFormerStack` block-by-block via its own `_prep_blocks`). Two things
+     fell out immediately:
+     - The z-track is **well-conditioned**: `z_init` std 17.6, final std **29.8**. The
+       "~1.8e4 residual" tick 4 blamed for the z gap is the **S-track** magnitude (s_out
+       std 18497) -- a red herring for z. The z stream never blows up.
+     - z std **climbs 30→~226 over blocks 0-42, then the final block collapses it back to
+       ~30** with a near-total cancelling update (`||dz||/||z_prev|| = 0.97`, vs ~0.03-0.07
+       for interior blocks). That is a difference-of-large-numbers: two ~std-134 quantities
+       subtract to a ~std-30 result, amplifying any rounding error ~5-10x (100x on the
+       fully-cancelled components).
+  2. **CPU bf16 controls (per block)**: a full-bf16 stack holds z_pcc ≥ 0.998 through
+     block 39 and **only drops at the very end -- 0.9947 (block 46) → 0.9035 (block 47)**.
+     A storage-only control (fp32 compute, z/s rounded to bf16 between blocks) barely moves
+     (0.9941 at block 47) -- so it is bf16 *compute* in the cancelling block, not
+     inter-block storage. **CPU-bf16 itself cannot pass >0.97**; this is not a device-only
+     problem.
+  3. **On-device bisect** (`scripts/of3_bisect_device.py`; tt-bio `Pairformer(48)`
+     run block-by-block from the same real `z_init`): cumulative z_pcc **holds ≥ 0.975
+     through block 46, then drops to 0.658 at block 47**; s_pcc stays 0.9965 throughout.
+     An **isolated block-47 run fed a PERFECT fp32 reference input** still only reaches
+     **z_pcc=0.922** (device) / 0.903 (CPU-bf16) -- the block's own bf16 compute in the
+     cancellation regime is the floor. A **per-position LayerNorm** of the final z (how z
+     is actually consumed downstream) does **not** recover it (0.667 device, from 0.658) --
+     the cancellation destroys signal LN cannot restore, so "just gate the normalized z"
+     is not a fix. Trying to run the stack fully fp32 on device is blocked anyway: the
+     SDPA path in triangle/pair attention hard-requires bf16/bf8 inputs.
+  4. **Fixability verdict: not fixable within the bf16 regime the port runs in, and it is
+     not a bug.** The remap is byte-correct (block-0 s_pcc=0.99985) and the device tracks
+     the reference to z_pcc ≥ 0.975 through 47 of 48 blocks -- the port is correct. The
+     failure is an intrinsic bf16-conditioning limit of THIS checkpoint's cancelling final
+     block; even a perfect trunk feeding a perfect fp32 input caps at 0.90-0.92 in bf16.
+     The only thing that clears >0.97 is fp32 matmul *inputs* for the tail block, which the
+     Tensix bf16-input matmul can't provide and SDPA forbids -- a large perf/precision
+     change for a quantity that is renormalized downstream anyway.
+  5. **Right acceptance gate going forward.** Added
+     **`test_of3_pairformer_stack_prefix47_on_device`** (gates the 47-block prefix,
+     s_pcc>0.98 ∧ z_pcc>0.97 -- **passes**, s_pcc=0.99637/z_pcc=0.97616) as the honest
+     stack-correctness signal; the full-48 test stays `xfail` with the precise
+     cancellation root cause (device z_pcc=0.66241). `scripts/of3_real_golden.py` now also
+     captures `pairformer_stack_prefix47`. Suite: **2 passed, 1 xfailed** on card 1.
+     The definitive full-model gate is end-to-end structure RMSD -- exactly how Protenix-v2
+     and Boltz-2 (which reuse this same `tenstorrent.Pairformer` primitive) are validated,
+     none of them gate raw stack-z. That is a P6 item, unblocked once InputEmbedder /
+     diffusion / confidence are ported and `OpenFold3.fold()` can run.
+  6. **MSA-block z gap is a DIFFERENT mechanism, not the same signature** (tick 4 asked).
+     Pairformer *block 0* on real input tracks to z_pcc=0.998; the MSA *block 0* only gets
+     0.708 -- so the MSA gap is not the pairformer's final-block cancellation reappearing.
+     It is a single-block issue: the MSA block's `OuterProductMean` + pair_stack take z
+     from std ~18 to ~270 (a ~15x single-block amplification) and the device loses
+     precision in that amplification. Distinct root cause; owns its own P6 bisect (start
+     at OPM output scale). Not resolved this tick -- flagged, not hand-waved.
+  **NEXT (P6):** (a) port the remaining components (InputEmbedder device leg, template
+  embedder, atom enc/dec, DiffusionModule, confidence heads) so `fold()` runs and the
+  real end-to-end structure gate replaces raw stack-z; (b) separately bisect the MSA
+  block-0 z amplification (OPM scale). Do NOT keep chasing the pairformer raw-z >0.97 gate
+  -- it is provably unreachable in bf16 and is the wrong metric.
+
 - 2026-07-12 (tick 4): **Real-distribution golden captured; stack gate re-run (honest
   result: still fails, for a DIFFERENT and more interesting reason than tick 3 thought);
   MSA-block remap landed + gated (also honest-fails).**
