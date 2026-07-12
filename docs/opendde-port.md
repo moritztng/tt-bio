@@ -5,9 +5,12 @@ compute graph is Protenix-v2's (already fully ported in `tt_bio/tenstorrent.py` 
 `tt_bio/protenix.py`) plus exactly one novel module, so the port reuses that
 entire ttnn stack and adds the one block. Status: identity + architecture +
 redundancy **measured** (not assumed); the novel block (`StructuralTokenExpander`)
-is now **ported to ttnn and on-device parity-verified** (PCC ≥ 0.99999 vs the
-Phase-0 golden, qb2 card 0); assembling it into the Protenix-v2 pipeline + real
-`opendde.pt`/`opendde_abag.pt` weight remap is next.
+is **ported to ttnn and on-device parity-verified** (PCC ≥ 0.99999 vs the Phase-0
+golden, qb2 card 0); the real `opendde.pt`/`opendde_abag.pt` checkpoints are **pulled**,
+the **weight remap + expander→refiner pipeline assembly are done and on-device verified
+with real weights**, and the `--model opendde`/`opendde-abag` CLI entry points are wired.
+End-to-end co-folding remains blocked on the structural-token tokenizer port (+ two small
+shared-stack deltas) — see "Remaining".
 
 ## Identity (re-verified 2026-07-12)
 
@@ -44,9 +47,17 @@ sides, 2026-07-12):
 | `ConfidenceHead`, `DistogramHead` | `protenix.py` `ConfidenceHead` (+ distogram) |
 | **`StructuralTokenExpander`** | **nothing — the only novel compute** |
 
-Dims match Protenix-v2 exactly (`c_s=c_z=384`, `c_s_inputs=449`, Pairformer 48
-blocks / 16 heads, MSA 4, template 2, DiT 24 / 16 heads, atom tx 3 / 4). The
-`structural_token_refiner` is itself a 4-block `PairformerStack` (reused, not new).
+Dims (measured 2026-07-12 from `opendde.pt` shapes + `config/model_base.py`, not
+assumed): `c_s=c_s_inputs=449`/`c_s=384`, Pairformer 48 blocks / single-attn 16 heads,
+MSA 4, template 2, DiT 24 / 16 heads, atom tx 3 / 4. **Correction to an earlier note:**
+the pair channel is `c_z=384` and triangle attention has **12 heads**, *not* the tt-bio
+Protenix-v2 checkpoint's `c_z=256` / 8 heads — same architecture, wider pair. The shared
+subtree's key *names* are still byte-identical to `protenix-v2.pt` (0 keys missing, both
+directions), so it routes straight into the Protenix stack; the tt-bio `Trunk` just has to
+be made `c_z`-parametric (it currently hardcodes 256) to accept the wider weights. OpenDDE
+also adds a diffusion-conditioning `z_trunk` branch (`diffusion_module.diffusion_conditioning.*_z_trunk`)
+absent in Protenix-v2. The `structural_token_refiner` is a 4-block `PairformerStack`
+(reused, not new; single-attn 8 heads, 12 triangle heads).
 
 **Verdict — additive via one block + a checkpoint, not a redundant second
 engine.** The compute is ~100% Protenix-v2's already-ported graph; what is new
@@ -130,24 +141,60 @@ ttnn's `p150_mesh_graph_descriptor.textproto` (the P300-misdetection quirk; see
 memory `ttatom-qb2-multicard-fanout`); the predict/worker path sets it
 automatically, standalone scripts must export it.
 
-## Port plan (remaining)
+## Pipeline assembly + real-weight load (P2 — done, on-device verified)
 
-1. **ttnn `StructuralTokenExpander`** in `tt_bio/opendde.py` — **DONE** (PCC
-   ≥ 0.99999, both single + full-projection chunked pair pathways; see above).
-2. Assemble the pipeline reusing `protenix.py`'s trunk/diffusion/confidence
-   verbatim, inserting the expander + the 4-block refiner (a reused
-   `PairformerStack`) between trunk and diffusion, on the structural-token axis.
-   **Next step.**
-3. Real-weight load: remap `opendde.pt` / `opendde_abag.pt` names onto the tt-bio
-   modules (skill `ttnn-weight-remap`; most names should map 1:1 to the
-   Protenix-v2 remap, plus the expander/refiner block).
-4. `--fast` + multi-card `--devices` via the existing predict scheduler (memory
-   `predict-multicard-already-exists` — do not add a new fanout path).
-5. CLI: `tt-bio predict --model opendde` (+ `opendde-abag` alias selecting the
-   Ab-Ag checkpoint), matching the Protenix-v2 wiring in `tt_bio/main.py`.
-   Co-folding -> `predict`, not `gen` (no design mode in the release).
-6. One unified README section (memory `readme-audience-bio`): user-facing only,
-   internals linked here.
+`tt_bio/opendde.py` now has the assembly + real-weight path:
+
+- `load_opendde_checkpoint(path=None, abag=False)` — fetch (HF `aurekaresearch/OpenDDE`)
+  + load `opendde.pt` / `opendde_abag.pt` to a flat state_dict.
+- `route_opendde_weights(sd)` — **the "remap"**: splits all 4482 keys into
+  `expander` (identity under prefix strip), `refiner` (4× the reused
+  `protenix_weights.remap_pairformer_block`), and `shared` (Protenix-v2-family, keys
+  byte-identical to `protenix-v2.pt`). Asserts full coverage — no dropped keys.
+- `class OpenDDE` — builds the expander + 4-block refiner from real weights and holds
+  the shared subtree for the Protenix stack. `expand_and_refine(...)` is the fully-wired
+  novel seam (expander → refiner, with `structural_pair_attn_bias` fed to the refiner's
+  pair/triangle attention).
+
+Gate `scripts/opendde_assembly_verify.py` (qb2 card 0, **real `opendde.pt` weights**),
+measured 2026-07-12:
+
+| check | result |
+|---|---|
+| weight routing coverage | 4482 keys → 65 expander + 228 refiner + 4189 shared, 0 dropped |
+| shared subtree vs `protenix-v2.pt` | 0 of 4174 protenix keys missing (names identical) |
+| `opendde_abag.pt` routing | identical split (4482 → 65 + 228 + 4189) |
+| expander→refiner seam on device | finite; `s_inputs (64,449)`, `s (64,384)`, `z (1,64,64,384)` |
+
+This is a **wiring + finiteness** result with real weights, *not* an accuracy claim: there
+is no real-weight golden without an upstream (CUDA) OpenDDE forward, so no PCC/RMSD is
+reported for the shared path. The expander block alone stays parity-verified (PCC
+≥ 0.99999) against the Phase-0 random-weight golden (`opendde_structtoken_parity.py`).
+
+## Remaining (before a full residue→structure fold)
+
+`OpenDDE.fold()` raises with this list until each lands:
+
+1. **Structural-token tokenizer/featurizer** (`opendde/data/tokenizer.py` + `featurizer.py`,
+   not ported): emits `structural_token_index`, `atom_to_structural_token_idx`,
+   `atom_to_structural_tokatom_idx`, subtoken roles, parent/prev/next adjacency, and the
+   structural frames + rep-atom masks that both the expander and the structural-axis
+   diffusion/confidence consume. This is the one real data-pipeline chunk; the compute is
+   already ported.
+2. **`c_z`-parametric shared `Trunk`** — `protenix.Trunk` hardcodes `C_Z=256`; OpenDDE is
+   `c_z=384` / 12 triangle heads. Parametrize (the primitives already read channel dims
+   from weights; only the reshapes + head counts are hardcoded).
+3. **Diffusion-conditioning `z_trunk` branch** — add the
+   `diffusion_module.diffusion_conditioning.*_z_trunk` term OpenDDE has over Protenix-v2.
+
+Then: `--fast` + multi-card `--devices` ride the existing predict scheduler (memory
+`predict-multicard-already-exists` — no new fanout path), and one unified README section
+(user-facing only; internals linked here).
+
+CLI: `tt-bio predict --model opendde` / `--model opendde-abag` are **wired** as recognized
+entry points (`tt_bio/main.py`); until (1)-(3) land they raise a clear "co-folding pending
+the structural-token tokenizer" message rather than folding. Co-folding → `predict`, not
+`gen` (no design mode in the release).
 
 ## Accuracy gate
 
@@ -162,21 +209,21 @@ automatically, standalone scripts must export it.
 ## Status
 
 - Identity, measured redundancy, architecture mapping, gate choice: **done.**
-- Novel-block torch reference isolated and **running on qb2** with golden output
-  captured (`scripts/opendde_structtoken_ref.py`).
+- Novel-block torch reference + golden captured (`scripts/opendde_structtoken_ref.py`).
 - **ttnn `StructuralTokenExpander` ported and on-device parity-verified**
-  (`tt_bio/opendde.py`, gate `scripts/opendde_structtoken_parity.py`, PCC
-  ≥ 0.99999). Real measured numbers, not estimates.
-- Pipeline assembly + real-weight remap + end-to-end accuracy: **not started.**
-- Real `opendde.pt` / `opendde_abag.pt` checkpoints are **not yet on qb2** — the
-  remap (step 3) needs them pulled from HF `aurekaresearch/OpenDDE` first. Most
-  keys should map 1:1 to the Protenix-v2 remap (`tt_bio/protenix_weights.py`); the
-  expander's own keys already match `tt_bio/opendde.py`'s (the golden's
-  `state_dict()` names are what the port consumes), so its sub-remap is identity
-  under a `structural_token_expander.` prefix strip.
-- Prior blocker (qb2 powered off) is **cleared**; qb2 is back online.
+  (`opendde_structtoken_parity.py`, PCC ≥ 0.99999).
+- **Real checkpoints pulled** — `opendde.pt` + `opendde_abag.pt` (2.6 GB each) on qb2 in
+  the HF cache.
+- **Weight remap + pipeline assembly done and on-device verified with real weights**
+  (`route_opendde_weights`, `OpenDDE`, `scripts/opendde_assembly_verify.py`): full routing
+  coverage, shared subtree Protenix-v2-key-identical, expander→refiner seam runs finite on
+  card 0. Real measured results, not estimates.
+- **CLI entry points wired** (`--model opendde` / `opendde-abag`), guarded pending the
+  tokenizer.
+- End-to-end co-folding + Ca-RMSD/DockQ: **not yet** — blocked on the three prerequisites
+  above (chiefly the structural-token tokenizer port). No reference (CUDA) OpenDDE run is
+  available here, so accuracy numbers are deferred, not fabricated.
 
-**Next action:** assemble the pipeline (step 2) — reuse `protenix.py`'s trunk/
-diffusion/confidence, insert the expander + 4-block refiner between trunk and
-diffusion on the structural-token axis; then pull the checkpoints and do the
-weight remap (step 3).
+**Next action:** port OpenDDE's structural-token tokenizer/featurizer (remaining item 1),
+then make `Trunk` `c_z`-parametric (item 2) + add the diffusion `z_trunk` branch (item 3);
+`OpenDDE.fold()` names exactly these three in its error.
