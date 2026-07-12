@@ -1897,17 +1897,18 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # (e.g. "reshape tensor of 0 elements" / "Dimension size must be
     # non-negative"). Reject up front with a clear message.
     if model in ("opendde", "opendde-abag"):
-        # Recognized entry points: the real checkpoints (opendde.pt / opendde_abag.pt)
-        # load, the weight remap and the novel structural-token expander->refiner seam are
-        # on-device verified (scripts/opendde_assembly_verify.py). End-to-end co-folding is
-        # not yet enabled -- it needs OpenDDE's structural-token tokenizer/featurizer ported
-        # (see docs/opendde-port.md 'Remaining'). Surface that honestly instead of failing
-        # deep in the scheduler.
+        # Recognized entry points: tt_bio.opendde.OpenDDE.fold() runs end-to-end (trunk ->
+        # structural expand/refine -> structural-axis diffusion) and is on-device verified
+        # finite on real weights (scripts/opendde_e2e_smoke.py). What is NOT yet wired is
+        # this CLI/predict integration: feature-dict construction from --input, CIF writing,
+        # confidence-based sample selection/ranking, and multi-sample fanout -- the predict
+        # scheduler's plumbing, not the model. Surface that honestly instead of failing deep
+        # in the scheduler.
         raise click.ClickException(
-            f"--model {model}: OpenDDE co-folding is not yet enabled end-to-end. "
-            "Checkpoint load + weight remap + the on-device structural-token expander->refiner "
-            "seam are done and verified; the residue->structure fold is pending the "
-            "structural-token tokenizer port. See docs/opendde-port.md.")
+            f"--model {model}: OpenDDE's fold() runs end-to-end and is verified finite on "
+            "real weights (see docs/opendde-port.md), but this CLI's predict integration "
+            "(feature-dict construction, CIF writing, confidence selection) is not yet wired. "
+            "See docs/opendde-port.md.")
 
     if diffusion_samples < 1:
         raise click.BadParameter("--diffusion_samples must be at least 1")
