@@ -762,10 +762,10 @@ class ConfidenceHead:
             centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
             return (torch.softmax(logits, -1) * centers).sum(-1)
 
-        pae_logits = F.linear(F.layer_norm(zf, (256,)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
+        pae_logits = F.linear(F.layer_norm(zf, (zf.shape[-1],)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
                               self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
         pae = _expected(pae_logits)                                                          # (N,N)
-        pde = _expected(F.linear(F.layer_norm(zf + zf.transpose(0, 1), (256,)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
+        pde = _expected(F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
                                  self._g("linear_no_bias_pde.weight")))                     # (N,N)
         ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
         a2t = feats["atom_to_token_idx"].long(); a2ta = feats["atom_to_tokatom_idx"].long()

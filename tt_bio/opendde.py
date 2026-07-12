@@ -333,7 +333,7 @@ class OpenDDE:
         s_ref, z_ref = self.refiner(s3, z4, attn_mask_start=bias, attn_mask_end=bias)
         return s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref
 
-    def fold(self, feats, *, n_step=20, n_cycles=2, seed=None):
+    def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1, return_confidence=False):
         """First end-to-end residue->structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -346,9 +346,20 @@ class OpenDDE:
           3. diffusion pair conditioning + EDM sampler at the STRUCTURAL axis (atom broadcast
              via atom_to_structural_token_idx, not the residue atom_to_token_idx).
 
-        Confidence output, --fast, n_sample>1 and multi-card fanout are not wired yet (they
-        ride the existing Protenix-v2 machinery unchanged once this coordinate path is
-        release-gated; see docs/opendde-port.md). Returns coords (1, N_atom, 3) host tensor.
+        Confidence + best-of-N selection reuses Protenix-v2's ConfidenceHead verbatim
+        (self._protenix.confidence_head), called with the RESIDUE-axis s_inputs/s_trunk/
+        z_trunk from step 1 and the ORIGINAL residue-level feats -- matching OpenDDE's own
+        select_pair_output_branch(pair_output_space="residue"), which for the shipped config
+        returns the pre-expansion residue tensors unchanged rather than pooling the
+        structural-token pair back down (verified by reading opendde/model/opendde.py, not
+        assumed). Confidence is independent of the structural-token diffusion axis, so no
+        structural-token distogram-rep-atom machinery is needed here.
+
+        --fast and multi-card fanout are not wired yet (they ride the existing Protenix-v2
+        machinery unchanged once this coordinate path is release-gated; see
+        docs/opendde-port.md). Returns coords (n_sample, N_atom, 3) host tensor; if
+        return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
+        list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
         """
         import torch
         from .opendde_data import build_structural_token_features
@@ -406,5 +417,16 @@ class OpenDDE:
             cond["dit_z"] = P.diffusion._dit_z_device(pair_z)
         else:
             cond["dit_biases"] = P.diffusion._dit_pair_biases(pair_z)
-        coords = edm_sample(P.diffusion, cond, N, n_step=n_step, seed=seed)
+        coords = []
+        for k in range(n_sample):
+            sd_seed = None if seed is None else seed + k
+            coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed)[0])
+        coords = torch.stack(coords, 0)
+        if return_confidence:
+            # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
+            # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the
+            # original residue-level dict -- identical call shape to Protenix.fold's.
+            confs = [P.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
+                     for k in range(n_sample)]
+            return coords, (confs[0] if n_sample == 1 else confs)
         return coords

@@ -1749,7 +1749,7 @@ def _resolve_recycling_steps(recycling_steps, model):
     """
     if recycling_steps is not None:
         return recycling_steps
-    return 10 if model == "protenix-v2" else 3
+    return 10 if model in ("protenix-v2", "opendde", "opendde-abag") else 3
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
@@ -1896,20 +1896,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # These are counts of things to generate; <1 crashes deep in the model
     # (e.g. "reshape tensor of 0 elements" / "Dimension size must be
     # non-negative"). Reject up front with a clear message.
-    if model in ("opendde", "opendde-abag"):
-        # Recognized entry points: tt_bio.opendde.OpenDDE.fold() runs end-to-end (trunk ->
-        # structural expand/refine -> structural-axis diffusion) and is on-device verified
-        # finite on real weights (scripts/opendde_e2e_smoke.py). What is NOT yet wired is
-        # this CLI/predict integration: feature-dict construction from --input, CIF writing,
-        # confidence-based sample selection/ranking, and multi-sample fanout -- the predict
-        # scheduler's plumbing, not the model. Surface that honestly instead of failing deep
-        # in the scheduler.
-        raise click.ClickException(
-            f"--model {model}: OpenDDE's fold() runs end-to-end and is verified finite on "
-            "real weights (see docs/opendde-port.md), but this CLI's predict integration "
-            "(feature-dict construction, CIF writing, confidence selection) is not yet wired. "
-            "See docs/opendde-port.md.")
-
     if diffusion_samples < 1:
         raise click.BadParameter("--diffusion_samples must be at least 1")
     if diffusion_samples_affinity < 1:
@@ -1942,9 +1928,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url)
 
-    if model in ("esmfold2", "esmfold2-fast", "protenix-v2"):
-        # ESMFold2 and Protenix-v2 ride the SAME scheduler / worker / progress path as
-        # Boltz-2: build a run config, then fan jobs across devices via _local_workers +
+    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"):
+        # ESMFold2, Protenix-v2 and OpenDDE ride the SAME scheduler / worker / progress path
+        # as Boltz-2: build a run config, then fan jobs across devices via _local_workers +
         # _dispatch_run (or submit to a remote --controller). Only the per-model config differs.
         for n, on in [("--use_potentials", use_potentials),
                       ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:

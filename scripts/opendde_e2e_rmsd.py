@@ -48,7 +48,8 @@ def predicted_ca_coords(coords, seq):
 
 
 def main():
-    coords = torch.load("/tmp/opendde_e2e_coords.pt").numpy()[0]  # (N_atom,3)
+    coords_path = sys.argv[1] if len(sys.argv) > 1 else "/tmp/opendde_e2e_coords.pt"
+    coords = torch.load(coords_path).numpy()[0]  # (N_atom,3)
     pred_ca = predicted_ca_coords(coords, SEQ)
 
     truth_chains = ts.get_ca_atoms(str(REPO_ROOT / "examples" / "ground_truth_structures" / "prot.cif"))
@@ -61,11 +62,11 @@ def main():
     dev = ts._kabsch_deviations(pred_ca, truth_ca)
     rmsd = float(np.sqrt((dev ** 2).mean()))
     tm = ts._tm_score(dev, n)
-    print(f"OpenDDE e2e smoke fold (reduced: 2 cycles / 10 steps, 1 sample, no confidence selection)")
+    print(f"OpenDDE e2e smoke fold ({coords_path}, 1 sample, no confidence selection)")
     print(f"  Ca-RMSD vs ground truth (7ROA, {n} residues): {rmsd:.3f} A")
     print(f"  TM-score: {tm:.3f}")
     print("(Compare Protenix-v2's production gate floor: max_rmsd=6.0 A, min_tm=0.50 -- "
-          "NOT an apples-to-apples comparison: this run is undersampled and unselected.)")
+          "NOT an apples-to-apples comparison: this run is unselected -- no confidence-based best-of-N.)")
 
 
 if __name__ == "__main__":

@@ -10,9 +10,15 @@ golden, qb2 card 0); the real `opendde.pt`/`opendde_abag.pt` checkpoints are **p
 the **weight remap + expander→refiner pipeline assembly are done and on-device verified
 with real weights**; the structural-token tokenizer/featurizer is **ported and done**
 (bit-exact vs the real upstream tokenizer); the shared `Trunk` is **c_z-parametric** and
-the diffusion `z_trunk` conditioning branch is **wired**; and a first **end-to-end
-co-fold ran and is verified finite** on real weights (P3, 2026-07-12) — see "Remaining"
-for what is still reduced-setting / not yet production-gated.
+the diffusion `z_trunk` conditioning branch is **wired**; a first **end-to-end co-fold
+ran and is verified finite** on real weights (P3); and (P4, 2026-07-12) a **real
+production-setting accuracy number was measured** (honest, and not yet matching
+Protenix-v2's own no-MSA floor on the same target — see "Production-setting accuracy"),
+**confidence-head best-of-N selection is wired** (c_z-parametrized, residue-axis, reusing
+Protenix-v2's `ConfidenceHead` verbatim), and **CLI/predict integration is done and
+verified end-to-end** (`tt-bio predict --model opendde` runs the same scheduler/worker
+path as every other model, real weights, real device) — see "Remaining" for what's
+still open.
 
 ## Identity (re-verified 2026-07-12)
 
@@ -249,32 +255,124 @@ weights, reduced settings (2 trunk recycles, 10 diffusion steps, 1 sample -- not
 production's 10/200/5): **ran to completion, finite `(1,900,3)` coords, no crash.**
 `scripts/opendde_e2e_rmsd.py` then computed Ca-RMSD directly against
 `examples/ground_truth_structures/prot.cif` (reusing `tests/test_structure.py`'s
-Kabsch/TM harness, not re-derived): **15.58 A RMSD, TM 0.123** -- i.e. NOT a folded
-structure at these reduced settings. This is expected, not a port bug: the repo's own
-docs warn 10 diffusion steps undersamples and fails even a correct model (the exact
-finding `docs/protenix-accuracy-investigation.md` already made for Protenix-v2), and 2
-recycles vs the spec's 10 leaves the trunk representation far from converged. **No
-production-setting (10 cycles / 200 steps / 5-sample, confidence-selected) run has been
-made** -- that is the honest next step before any accuracy claim, not a fabricated number
-in its place.
+Kabsch/TM harness, not re-derived): **15.58 A RMSD, TM 0.123** at these reduced settings
+(P3). See below (P4) for the production-setting number.
 
-## Remaining
+## Production-setting accuracy (P4, 2026-07-12)
 
-- **Production-setting accuracy run**: 10 trunk cycles / 200 diffusion steps / 5 samples
-  on 7ROA (and ideally an antibody-antigen target with `opendde_abag.pt` for a DockQ
-  read -- the model's actual differentiator). Confidence-head output (pLDDT/PAE/ipTM
-  ranking) is not wired -- needed for best-of-N sample selection, and itself needs the
-  same `c_z`-parametrization treatment (`ConfidenceHead`'s hardcoded 256s in
-  `protenix.py`'s `confidence()`/`_dit_pair_biases`) since it is not on the critical path
-  for raw coordinates.
-- **CLI/predict integration**: `tt_bio/main.py`'s `--model opendde` still raises (updated
-  message -- the model itself runs, the CLI plumbing around it -- feature-dict
-  construction from `--input`, CIF writing, confidence selection -- does not exist yet).
+Ran `scripts/opendde_e2e_smoke.py` at production settings (`OPENDDE_NCYCLES=10
+OPENDDE_NSTEP=200`) across 5 seeds on 7ROA, single-sample (no MSA, no confidence
+selection yet at the time of this specific sweep):
+
+| seed | Ca-RMSD (A) | TM |
+|---|---|---|
+| 0 | 14.219 | 0.137 |
+| 1 | 13.631 | 0.177 |
+| 2 | 14.273 | 0.137 |
+| 3 | 13.249 | 0.197 |
+| 4 | 12.785 | 0.158 |
+
+Mean 13.6 A, range 12.8-14.3 A -- tight (low seed-to-seed variance), essentially
+**unchanged from the P3 reduced-setting run (15.58 A at 2 cycles/10 steps)**. Going from
+2->10 cycles and 10->200 diffusion steps bought about 2 A, not the large jump a genuine
+undersampling fix would predict. This is an **honest, real number, not a fabricated one**
+-- and it does not yet match expectations: `docs/protenix-accuracy-investigation.md`
+measured Protenix-v2's own no-MSA floor on this *exact* target at 5.44-7.84 A (n_step=200,
+single-sample) and 3.13 A with a real MSA, best-of-5. OpenDDE's ~13.6 A is roughly 2x
+Protenix-v2's no-MSA number on the same input.
+
+Two candidate explanations, **neither confirmed this tick**:
+1. **No MSA fed** (`build_complex_features([(SEQ, None, "protein")])` -- a3m is `None`),
+   the same handicap Protenix-v2 carries on this target; `examples/msa/seq2.a3m` looks
+   like the right alignment (same organism/length range) but its row-0 query does not
+   character-match `SEQ` exactly (a leading residue difference), so `_parse_a3m_to_msa`'s
+   exact-length match silently returns `None` -- feeding it needs either a re-aligned a3m
+   or a fresh search against `SEQ` itself. Not attempted this tick.
+2. A real, OpenDDE-specific gap: the structural-token expand/refine seam sits between
+   trunk and diffusion for OpenDDE (absent in Protenix-v2), so exact parity with
+   Protenix-v2 numbers isn't guaranteed even controlling for MSA -- this needs the
+   with-MSA number (1) before it can be distinguished from "OpenDDE is just a harder
+   model on this target."
+
+**Best-of-N does not rescue this** (see next section): confidence-selected best-of-5 on
+the same no-MSA input landed at 13.63 A, inside the single-sample seed range above --
+the underlying per-seed distribution is tight, so there's no lucky outlier for
+confidence to find. No DockQ / antibody-antigen read was attempted this tick: no
+antibody-antigen ground-truth example exists in `examples/` today (only single-protein
+targets), so measuring `opendde_abag.pt`'s headline differentiator needs sourcing one
+first.
+
+## Confidence-head best-of-N selection (P4, 2026-07-12)
+
+`ConfidenceHead.confidence()` (`tt_bio/protenix.py`) had two LayerNorms hardcoded to
+Protenix-v2's `c_z=256` (`pae_ln`/`pde_ln`, operating directly on the z-pair tensor) --
+a real bug that would crash at OpenDDE's `c_z=384` (LayerNorm's `normalized_shape` must
+match the tensor's last dim). Fixed by deriving the shape from `zf.shape[-1]` instead of
+the literal `256`; Protenix-v2 is unaffected (its own `zf.shape[-1]` is still 256, so
+behavior there is byte-identical).
+
+Read `opendde/model/opendde.py`'s `select_pair_output_branch` (not assumed) to find the
+right call shape: OpenDDE's shipped config has `pair_output_space="residue"`, so
+confidence is computed on the **pre-expansion residue-axis** `s_inputs`/`s_trunk`/
+`z_trunk` from fold() step 1 -- not the structural-token axis, and not any pooled
+version of it. So `OpenDDE.fold()` calls
+`self._protenix.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)`
+with the exact same tensors/`feats` shape `Protenix.fold()` already uses -- no new
+structural-token distogram-rep-atom-mask machinery needed (that path only matters for
+the *other*, unconfigured `pair_output_space="structural"` branch).
+
+`OpenDDE.fold()` now takes `n_sample=`/`return_confidence=`, mirroring
+`Protenix.fold()`'s signature and per-sample-seed-offset loop exactly.
+`scripts/opendde_confidence_verify.py` ran this at production settings (5 samples):
+pLDDT 0.496-0.504, pTM 0.352-0.375 (sane range, discriminating between samples), best-of-5
+picked sample 1 (pTM 0.375) -- Ca-RMSD of the picked sample was 13.63 A, consistent with
+the single-sample distribution (see above): confidence selection works mechanically but
+the input distribution is too tight for it to matter at these settings/no-MSA.
+
+## CLI/predict integration (P4, 2026-07-12)
+
+`--model opendde` / `opendde-abag` now ride the exact same scheduler/worker path as every
+other model (`_local_workers` + `_dispatch_run`, or `--controller`): `tt_bio/worker.py`
+gained `_predict_opendde_one` (mirrors `_predict_protenix_one` -- same
+`build_complex_features` + `_write_protenix_structure` -- minus the MSA stage, since
+OpenDDE is single-sequence only for now) plus `load_model`/`_prepare_run_cache` branches
+(`OpenDDE.load_from_checkpoint`, auto-fetches from HF exactly like `Protenix.
+load_from_checkpoint`). `tt_bio/main.py`'s former `raise click.ClickException` for
+`--model opendde` is gone; `_resolve_recycling_steps` now defaults opendde to the trunk's
+spec of 10 (was falling through to 3).
+
+Verified end-to-end on real weights, real device (qb2 card 0), both checkpoints:
+```
+tt-bio predict examples/prot.yaml --model opendde --devices 0 \
+    --recycling_steps 2 --sampling_steps 10 --diffusion_samples 2
+tt-bio predict examples/prot.yaml --model opendde-abag --devices 0 \
+    --recycling_steps 1 --sampling_steps 2 --diffusion_samples 1
+```
+Both ran to `Done: 1 ok, 0 failed`, wrote a valid `structures/prot.cif` (+
+`prot_model_1.cif` for the second sample) and a `results.json` with per-sample
+pLDDT/pTM/confidence_score and an `all_runs` ranking -- the identical output shape
+Protenix-v2/Boltz-2 produce. Non-protein input chains raise a clear error (OpenDDE is
+protein-only for now) instead of failing deep in the data pipeline.
+
+## Remaining (P5)
+
+- **Root-cause the no-MSA accuracy gap**: run OpenDDE with a real MSA on 7ROA (fix
+  `examples/msa/seq2.a3m`'s query-sequence mismatch against `SEQ`, or search a fresh a3m)
+  and compare against Protenix-v2's with-MSA 3.13 A on the same target -- this is what
+  distinguishes "OpenDDE needs an MSA like every AF3-family model" from "there's a real
+  port bug" (see "Production-setting accuracy" above).
+- **DockQ / antibody-antigen read**: source an antibody-antigen input + ground-truth
+  complex (none exists in `examples/` today) to measure `opendde_abag.pt`'s actual
+  differentiator -- the whole reason to ship the model.
+- **MSA wiring for OpenDDE's CLI path**: `_predict_opendde_one` is single-sequence only;
+  once (1) shows MSA matters, wire the same MSA search stage `_predict_protenix_one` has.
 - **Nucleic-acid / ligand structural tokens**: `opendde_data.py` is protein-only; extending
   to DNA/RNA backbone/base splitting and ligand atom-tokens follows the identical pattern
   once a mixed-modality co-folding target is on the critical path.
 - `--fast` + multi-card `--devices` ride the existing predict scheduler (memory
-  `predict-multicard-already-exists` -- no new fanout path) once CLI integration lands.
+  `predict-multicard-already-exists` -- no new fanout path) now that CLI integration has
+  landed, but this specific combination (`--model opendde --fast` / `--devices 0,1,2,3`)
+  has not been explicitly exercised yet.
 
 ## Accuracy gate
 
@@ -295,21 +393,26 @@ in its place.
 - **Real checkpoints pulled** -- `opendde.pt` + `opendde_abag.pt` (2.6 GB each) on qb2 in
   the HF cache.
 - **Weight remap + pipeline assembly done and on-device verified with real weights**
-  (`route_opendde_weights`, `OpenDDE`, `scripts/opendde_assembly_verify.py`): full routing
-  coverage, shared subtree Protenix-v2-key-identical, expander->refiner seam runs finite on
-  card 0. Real measured results, not estimates.
+  (`route_opendde_weights`, `OpenDDE`, `scripts/opendde_assembly_verify.py`).
 - **Structural-token tokenizer/featurizer: done**, bit-exact vs the real upstream
   tokenizer (`opendde_structtoken_featurizer_parity.py`).
-- **`Trunk` c_z-parametric: done**, verified both variants finite on real weights.
-- **Diffusion `z_trunk` conditioning branch: done**, verified both variants finite on
-  real weights.
-- **End-to-end co-fold: verified finite** on real weights at reduced settings
-  (`opendde_e2e_smoke.py`); a raw Ca-RMSD was measured (15.58 A, reduced-setting, not a
-  production accuracy claim -- see "End-to-end co-fold" above).
-- **Not yet**: production-setting accuracy run, confidence head / best-of-N selection,
-  CLI/predict integration, nucleic-acid/ligand structural tokens.
+- **`Trunk` c_z-parametric: done**; **diffusion `z_trunk` conditioning branch: done**.
+- **End-to-end co-fold: verified finite** on real weights, both reduced (P3) and
+  **production settings (P4)**: real Ca-RMSD measured at production settings, 5 seeds,
+  mean 13.6 A / range 12.8-14.3 A on 7ROA -- honest number, not yet matching
+  Protenix-v2's own no-MSA floor on the same target (5.44-7.84 A); root cause
+  (no-MSA vs a real port gap) not yet distinguished.
+- **Confidence-head best-of-N selection: done** (`ConfidenceHead` c_z-parametrized,
+  residue-axis call verified against the reference's `select_pair_output_branch`;
+  `scripts/opendde_confidence_verify.py` sane pTM/pLDDT, working selection).
+- **CLI/predict integration: done and verified end-to-end** (`tt-bio predict --model
+  opendde`/`opendde-abag`, real weights, real device, valid CIF + results.json).
+- **Not yet**: MSA-on comparison run (the top accuracy lever), DockQ / antibody-antigen
+  read (no ground-truth example available), nucleic-acid/ligand structural tokens,
+  explicit `--fast`/multi-card verification for opendde.
 
-**Next action:** run `scripts/opendde_e2e_smoke.py` at production settings
-(`OPENDDE_NCYCLES=10 OPENDDE_NSTEP=200`, ideally 5 seeds) for a real accuracy read, then
-wire confidence-head `c_z`-parametrization for best-of-N selection, then CLI/predict
-integration.
+**Next action (P5):** get an MSA onto 7ROA for OpenDDE (fix or regenerate the a3m) and
+re-run the production-setting accuracy comparison against Protenix-v2's with-MSA 3.13 A
+-- this is the single highest-value next step, since it decides whether the current ~13.6
+A is expected (no-MSA AF3-family models fold badly) or a real bug to chase. In parallel,
+source an antibody-antigen example for the DockQ read `opendde_abag.pt` exists to deliver.
