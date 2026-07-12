@@ -160,6 +160,58 @@ transformer + EDM + confidence structure). Start remap from `protenix_weights.py
 
 ## Status log
 
+- 2026-07-12 (tick 6 = P6, branch `wk/tt-bio-openfold3-port-p6` off main @519a2e4): **Assets
+  rebuilt on qb2 (qb1 down) + MSA block-0 mechanism bisected (thread 3). No new components
+  ported this tick -- the component-port thread (1) needs assembly work that can't be
+  PCC-gated in one bounded turn; flagged precisely for P7 below.**
+  1. **Assets were on qb1, which is down.** Rebuilt on qb2 from public sources: real ckpt
+     `~/of3-weights/of3-p2-155k.pt` (curl from `s3://openfold3-data/...`, 2.29GB), ref clone
+     `/tmp/of3-ref` (shallow `github.com/aqlaboratory/openfold-3`), CPU ref venv `/tmp/of3-venv`
+     (`pip install openfold3==0.4.3` + torch 2.13). Regenerated `~/of3_ref_out.pkl` via
+     `scripts/of3_real_golden.py` (reproduces the P5 numbers: input_embedder z_init std 17.64,
+     pairformer_stack_real z_out std 29.17 / prefix47 std 139.5, msa_block0_real z_out std
+     270.24). The existing pairformer + MSA device tests are unblocked again on qb2.
+  2. **Key architectural finding for the port strategy:** OF3 is NOT a pure weight-remap onto
+     `protenix.Trunk`. Protenix-v2 instantiates `Pairformer(48, 32, 8, 24, 16, ...)` with
+     `Trunk.C_Z=256` and `no_heads_pair=8`; OF3 uses `c_z=128`, `no_heads_pair=4`
+     (`tests/test_openfold3_pairformer.py` `_DIMS=(32,4,24,16)`). Same AF3 family, different
+     hyperparameters. So the OF3 assembly must compose the shared `tenstorrent` primitives
+     with OF3-specific dims (as the existing pairformer/MSA tests already do), reusing only
+     the per-primitive `protenix_weights` remaps + `protenix.py`'s component *structure* as a
+     reference -- NOT `protenix.Trunk`/`DiffusionModule`/`ConfidenceHead` instances verbatim.
+     This is the "vendored-model + built-in flag" style (like `boltz2.py`), not a remap-onto-
+     Protenix shortcut.
+  3. **Thread 3 -- MSA block-0 z gap bisected (DECISIVE).** `scripts/of3_msa_bisect_cpu.py`
+     runs the reference `MSAModuleStack` block-by-block AND block-0 sub-op-by-sub-op
+     (opm_first=True order: z+=OPM; m+=PWA; m+=transition; z=pair_stack) on real ubiquitin,
+     with bf16 controls. Result:
+     - z std: init 17.64 -> OPM 18.17 -> PWA 18.17 -> transition 18.17 -> **pair_stack
+       270.13**. The ENTIRE ~15x single-block amplification is in the pair_stack
+       (tri_mul_in/out + tri_att_start/end + pair_transition). OPM/PWA/transition leave z
+       at ~18. P5's "OPM ~15x amplification" hypothesis was close in magnitude but wrong on
+       the sub-op: it is the pair_stack, not OPM, that amplifies.
+     - CPU bf16 controls: full-bf16 stack z_pcc = **0.9998** every block; storage-only =
+       1.0; block-0 pair_stack sub-op bf16-vs-fp32 z_pcc = 0.9998 (others 1.0). So CPU-bf16
+       tracks this block essentially perfectly -- the device z_pcc=0.708 loss
+       (tests/test_openfold3_msa.py) is a DEVICE-pair_stack-compute precision issue at large
+       activation magnitude (z std 18->270 within one pair_stack call), NOT a bf16-only
+       artifact and NOT the pairformer's final-block cancellation. Distinct mechanism, now
+       localized to the device's pair_stack compute path -- confirms P5's "different root
+       cause" call. Result + sub-op goldens saved to `~/of3_msa_bisect.pkl` for the device
+       sub-op bisect (P7).
+  **NEXT (P7):** (a) port the remaining components so `OpenFold3.fold()` runs -- build
+  `tt_bio/openfold3.py` composing the shared `tenstorrent` primitives with OF3 dims
+  (InputEmbedder device leg via the shared atom encoder, template embedder, atom enc/dec,
+  DiffusionModule, confidence heads), PCC-gating each vs the regenerated real golden; the
+  OF3 key subtrees are mapped (input_embedder.atom_attn_enc.atom_transformer 3-block AdaLN,
+  template_embedder.template_pair_stack 2 pair-only blocks reuse `remap_msa_pair_stack`,
+  diffusion_module.{diffusion_conditioning, atom_attn_enc, diffusion_transformer 24-block
+  DiT, atom_attn_dec}, aux_heads.{pairformer_embedding, pae, pde, plddt, distogram,
+  experimentally_resolved}); (b) `examples/prot.yaml`/ubiquitin end-to-end -> parsed
+  structure -> vs-ground-truth Kabsch Cα-RMSD (the merge gate, replacing raw stack-z); (c)
+  device sub-op bisect of the MSA pair_stack (which of tri_mul/tri_att/transition loses
+  precision at the 18->270 magnitude jump), using `~/of3_msa_bisect.pkl`'s sub-op goldens.
+
 - 2026-07-12 (tick 5 = P5): **Bisected the 48-block stack. The z_pcc gap is NOT uniform
   and NOT a device-precision mystery: it is a single-block catastrophic cancellation in
   the FINAL block, and no bf16 implementation (device OR CPU) can clear a >0.97 raw-z gate
