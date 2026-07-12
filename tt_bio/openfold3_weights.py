@@ -94,3 +94,64 @@ def remap_pairformer_stack(sd: dict, prefix: str = "pairformer_stack") -> dict:
         for k, v in remap_pairformer_block(block_sd).items():
             combined[f"layers.{i}.{k}"] = v
     return combined
+
+
+def _rename_pair_weighted_averaging(sd: dict) -> dict:
+    """OF3 MSAPairWeightedAveraging -> Protenix MSAPairWeightedAveraging key names."""
+    return {
+        "layernorm_m.weight": sd["layer_norm_m.weight"],
+        "layernorm_m.bias": sd["layer_norm_m.bias"],
+        "layernorm_z.weight": sd["layer_norm_z.weight"],
+        "layernorm_z.bias": sd["layer_norm_z.bias"],
+        "linear_no_bias_mv.weight": sd["linear_v.weight"],
+        "linear_no_bias_mg.weight": sd["linear_g.weight"],
+        "linear_no_bias_z.weight": sd["linear_z.weight"],
+        "linear_no_bias_out.weight": sd["linear_o.weight"],
+    }
+
+
+def remap_msa_block(block_sd: dict) -> dict:
+    """OF3 MSAModuleBlock state_dict -> raw-primitive state dicts, one per tt-bio
+    primitive (OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer
+    pair-only), NOT a single combined dict.
+
+    `block_sd` keys are stripped of the `msa_module.blocks.{i}.` prefix.
+
+    OF3 (like Protenix-v2) runs opm_first=True: OuterProductMean happens BEFORE the
+    MSA update, the reverse of tt_bio.tenstorrent.MSALayer's hardcoded order (which
+    matches Boltz-2's opm_first=False convention). So callers must compose these
+    primitives directly in OF3's order (mirrors tests/test_protenix_trunk_msa.py) --
+    MSALayer would silently apply the wrong order. See docs/openfold3-port.md.
+
+    The last block (`last_block=True` in the reference, `opm_first=True` ->
+    `skip_msa_update=True`) has no `msa_att_row`/`msa_transition` keys; the returned
+    dict then omits "pair_weighted_averaging"/"msa_transition" accordingly.
+    """
+    out = {"outer_product_mean": pw.remap_outer_product_mean(_sub(block_sd, "outer_product_mean"))}
+
+    pair_stack_sd: dict = {}
+    for name in ("tri_mul_out", "tri_mul_in"):
+        for k, v in _sub(block_sd, f"pair_stack.{name}").items():
+            pair_stack_sd[f"{name}.{k}"] = v
+    for name in ("tri_att_start", "tri_att_end"):
+        for k, v in _rename_tri_att(_sub(block_sd, f"pair_stack.{name}")).items():
+            pair_stack_sd[f"{name}.{k}"] = v
+    for k, v in _rename_transition(_sub(block_sd, "pair_stack.pair_transition")).items():
+        pair_stack_sd[f"pair_transition.{k}"] = v
+    out["pair_stack"] = pw.remap_msa_pair_stack(pair_stack_sd)
+
+    if any(k.startswith("msa_att_row.") for k in block_sd):
+        out["pair_weighted_averaging"] = pw.remap_pair_weighted_averaging(
+            _rename_pair_weighted_averaging(_sub(block_sd, "msa_att_row")))
+        out["msa_transition"] = pw.remap_transition(_rename_transition(_sub(block_sd, "msa_transition")))
+    return out
+
+
+def remap_msa_module(sd: dict, prefix: str = "msa_module") -> dict:
+    """Full OF3 msa_module -> list of per-block remapped primitive dicts (see
+    `remap_msa_block`), in block order. Block count and the last block's
+    skip_msa_update are inferred from which keys are present."""
+    import re
+    pat = re.compile(rf"^{re.escape(prefix)}\.blocks\.(\d+)\.")
+    nb = 1 + max(int(pat.match(k).group(1)) for k in sd if pat.match(k))
+    return [remap_msa_block(_sub(sd, f"{prefix}.blocks.{i}")) for i in range(nb)]
