@@ -1,0 +1,66 @@
+{
+  "target": "examples/binder.yaml (protein-anything, de-novo binder vs chain A of 7ROA)",
+  "metric": "designfolding-bb_rmsd (scRMSD, isolated refold, Kabsch CA-RMSD in Angstrom)",
+  "device_batches": [
+    {
+      "batch": "device_batch_a",
+      "seed_group": "a",
+      "wallclock_s": 449,
+      "designs": [
+        {"id": "binder",   "len": 85,  "scrmsd": 1.109},
+        {"id": "binder_1", "len": 113, "scrmsd": 3.348},
+        {"id": "binder_2", "len": 114, "scrmsd": 0.628},
+        {"id": "binder_3", "len": 97,  "scrmsd": 0.736},
+        {"id": "binder_4", "len": 82,  "scrmsd": 0.879},
+        {"id": "binder_5", "len": 107, "scrmsd": 0.594},
+        {"id": "binder_6", "len": 117, "scrmsd": 0.687},
+        {"id": "binder_7", "len": 80,  "scrmsd": 0.762}
+      ],
+      "median": 0.749,
+      "mean": 1.093,
+      "stdev": 0.926,
+      "pass_le_2A": 0.875,
+      "pass_le_4A": 1.0
+    },
+    {
+      "batch": "device_batch_b",
+      "seed_group": "b",
+      "wallclock_s": 421,
+      "designs": [
+        {"id": "binder",   "len": 111, "scrmsd": 0.705},
+        {"id": "binder_1", "len": 104, "scrmsd": 1.181},
+        {"id": "binder_2", "len": 94,  "scrmsd": 0.840},
+        {"id": "binder_3", "len": 94,  "scrmsd": 0.763},
+        {"id": "binder_4", "len": 92,  "scrmsd": 0.574},
+        {"id": "binder_5", "len": 91,  "scrmsd": 1.288},
+        {"id": "binder_6", "len": 92,  "scrmsd": 0.994},
+        {"id": "binder_7", "len": 85,  "scrmsd": 0.806}
+      ],
+      "median": 0.823,
+      "mean": 0.894,
+      "stdev": 0.243,
+      "pass_le_2A": 1.0,
+      "pass_le_4A": 1.0
+    }
+  ],
+  "device_pooled": {
+    "n": 16,
+    "median": 0.7845,
+    "mean": 0.993,
+    "stdev": 0.662,
+    "pass_le_2A": 0.9375,
+    "pass_le_4A": 1.0,
+    "batch_median_gap": 0.074
+  },
+  "reference_run": null,
+  "reference_blocker": {
+    "repo": "https://github.com/HannesStark/boltzgen",
+    "commit": "a3149cf18eeb58648d1abbb27539bd73f746cdda",
+    "version": "0.3.2",
+    "verified_on_host": "pc (no NVIDIA GPU: AMD Phoenix APU only, lspci-confirmed)",
+    "crash": "AssertionError: Torch not compiled with CUDA enabled",
+    "crash_site": "src/boltzgen/cli/boltzgen.py:921, PipelineBuilder.__init__: device_capability = torch.cuda.get_device_capability() -- called unconditionally before any CLI arg (--use_kernels, --devices) is consulted",
+    "additional_gpu_deps": ["cuequivariance_ops_cu12", "cuequivariance_ops_torch_cu12", "cuequivariance_torch"],
+    "reproduction": "pip install torch (CPU wheel) in a scratch venv; torch.cuda.get_device_capability() raises the exact assertion above, confirming no CLI flag or config override can route around it without patching upstream source"
+  }
+}
