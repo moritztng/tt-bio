@@ -411,9 +411,12 @@ pair.
 ## Status
 
 - Identity, measured redundancy, architecture mapping, gate choice: **done.**
-- Novel-block torch reference + golden captured (`scripts/opendde_structtoken_ref.py`).
+- **Novel-block torch reference + golden captured (`scripts/opendde_structtoken_ref.py`).
 - **ttnn `StructuralTokenExpander` ported and on-device parity-verified**
   (`opendde_structtoken_parity.py`, PCC >= 0.99999).
+- **Novel-block kernel scout: closed.** StructuralTokenExpander is 2.21% of a production
+  fold, host/upload-bound (device matmul 0.6% of the block), no fusion lever, Amdahl ceiling
+  1.023x. See `docs/opendde-kernel-scout.md`.
 - **Real checkpoints pulled** -- `opendde.pt` + `opendde_abag.pt` (2.6 GB each) on qb2 in
   the HF cache.
 - **Weight remap + pipeline assembly done and on-device verified with real weights**
