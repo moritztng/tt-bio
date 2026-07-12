@@ -150,15 +150,49 @@ ground-truth-gated (`scripts/release_gate.py`: CA-RMSD and TM floor on 7ROA). Th
 three-leg device-vs-reference run over a diverse target set is queued for the run
 phase.
 
-### BoltzGen (de-novo binder design) — designability-space parity
+### BoltzGen (de-novo binder design) — device floor measured, reference leg blocked
 
 BoltzGen designs new sequences, so there is no paired output to align. The right
 equivalence check is designability (self-consistency RMSD): re-fold each designed
 sequence in isolation and measure how well it reproduces the shape it was designed
 for. This already runs inside `tt-bio gen`; `scripts/boltzgen_designability.py`
-reports the strict (<2 A) and permissive (<4 A) pass rates. Comparing device and
-reference designability distributions on the same targets is the parity statement
-for a generative model.
+reports the strict (<2 A) and permissive (<4 A) pass rates. The parity statement
+for a generative model is comparing device and reference designability
+*distributions* on the same target, across several seeds each — not a single
+number, for the same reason the fold-model legs above aren't a single RMSD.
+
+**The device (D) floor is measured.** BoltzGen has no `--seed` flag, so each
+process invocation is an independent draw; two full `tt-bio gen run` batches
+(n=8 each, `examples/binder.yaml`, protein-anything, production sampling) give
+two independent seed groups:
+
+| seed group | n | scRMSD median (Å) | mean | stdev | ≤2 Å | ≤4 Å | wall-clock |
+|---|---|---|---|---|---|---|---|
+| a | 8 | 0.75 | 1.09 | 0.93 | 87.5% | 100% | 7:29 |
+| b | 8 | 0.82 | 0.89 | 0.24 | 100% | 100% | 7:01 |
+| pooled | 16 | 0.78 | 0.99 | 0.66 | 93.8% | 100% | — |
+
+Batch-to-batch median gap is 0.07 Å — the device's own run-to-run spread is
+small. One design in batch a (`binder_1`, 3.35 Å) is the sole outlier keeping
+pooled ≤2Å below 100%; every other design across both batches is well inside
+the strict bar. Raw per-design values: `docs/pharma-benchmark-data/boltzgen.json`.
+
+**The reference (R) and cross (X) legs are blocked on this host, verified, not
+just assumed.** The official BoltzGen CLI (`github.com/HannesStark/boltzgen`,
+tagged 0.3.2) calls `torch.cuda.get_device_capability()` unconditionally in
+`PipelineBuilder.__init__` (`src/boltzgen/cli/boltzgen.py:921`) before any CLI
+flag — including `--use_kernels false` — is even read, and separately pins
+`cuequivariance_ops_cu12` / `cuequivariance_torch` as hard CUDA dependencies.
+This host (pc) has no NVIDIA GPU (AMD Phoenix APU only, confirmed via `lspci`).
+Reproduced directly: a CPU-only `torch` install raises exactly
+`AssertionError: Torch not compiled with CUDA enabled` at that call site — no
+config override reaches it. Unlike the Boltz-2 / Protenix / ESMFold2 reference
+implementations used elsewhere in this doc, upstream BoltzGen has no CPU
+inference path at all, so the reference-vs-reference floor and the
+device-vs-reference cross term cannot be produced on this host. The real fix is
+a host with an NVIDIA GPU; that is a provisioning decision, not something this
+leg can route around by patching upstream's device check (untested, and even if
+patched, no CPU runtime estimate exists for a diffusion model this size).
 
 ## Speed and cost
 
@@ -179,12 +213,19 @@ distogram PCC >0.999, pTM within 0.006; coordinate spread to be placed against a
 multi-seed floor). Harness proven end-to-end.
 
 Ready to run, queued for the fan-out phase: the **ESMFold2** multi-seed noise floor,
-**Protenix-v2** and **Boltz-2** structure parity, and **BoltzGen** designability
-parity. The reference implementations are installed and the comparison code is
-wired; what remains is generating the multi-seed device and reference fold sets,
-which parallelizes naturally across the free cards on qb1 and qb2.
+and **Protenix-v2** and **Boltz-2** structure parity. The reference implementations
+are installed and the comparison code is wired; what remains is generating the
+multi-seed device and reference fold sets, which parallelizes naturally across the
+free cards on qb1 and qb2.
 
-Known gap disclosed: **Protenix-v2 confidence-head under-ranking**, a real
-model-level property carried faithfully by the port, not a device defect.
+**BoltzGen** device-side designability floor is measured (two independent 8-design
+seed groups, pooled median 0.78 Å scRMSD, 93.8% ≤2Å); the reference-vs-reference and
+device-vs-reference legs are blocked on hosts without an NVIDIA GPU, verified by
+reproducing upstream's CUDA-only crash directly (see the BoltzGen section above).
+
+Known gaps disclosed: **Protenix-v2 confidence-head under-ranking**, a real
+model-level property carried faithfully by the port, not a device defect; and
+**BoltzGen's reference implementation has no CPU path**, blocking the R/X legs on
+GPU-less hosts.
 
 Candidate for publication on docs.japanfold.com once that site exists.
