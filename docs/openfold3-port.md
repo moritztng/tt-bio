@@ -117,9 +117,10 @@ cuequivariance/deepspeed are optional CUDA-only — skip for CPU golden generati
 
 - [ ] **P0 reference harness**: CPU venv, `pip install openfold3`, load `of3-p2-155k.pt`,
       run `query_ubiquitin.json` end-to-end on CPU, capture golden activations per module.
-- [ ] **P1 vendor** host-side data pipeline (JSON query → feats dict, CCD/ligand,
+- [x] **P1 vendor** host-side data pipeline (JSON query → feats dict, CCD/ligand,
       relpos, token bonds) into `tt_bio/_vendor/openfold3/` — inference-only, strip
       training/lightning/losses/optimizers. No runtime git-clone, no sys.path shims.
+      Done on `wk/tt-bio-openfold3-port-p1` — see "P1 status" below.
 - [ ] **P2** `openfold3_weights.py` remap table (OF3 keys → shared-primitive keys).
 - [ ] **P3 PCC gate, smallest first**: TriangleMultiplication → TriangleAttention →
       AttentionPairBias → one Pairformer block → 48-block trunk → MSA block → template →
@@ -141,3 +142,51 @@ transformer + EDM + confidence structure). Start remap from `protenix_weights.py
   (public S3, no gating); full architecture + weight-tree analysis done; reuse map +
   component plan written; confirmed AF2 bias-gating fix does not transfer. No device
   code yet — next tick starts P0 reference harness + P2 remap table.
+
+## P1 status (branch `wk/tt-bio-openfold3-port-p1`)
+
+Done, verified end-to-end against the real `pip install openfold3` (v0.4.3) reference.
+
+**What's vendored** — `tt_bio/_vendor/openfold3/` (75 files, see NOTICE #5): the
+query → feature-dict path only — `Query`/`InferenceQuerySet` schema, CCD/ligand
+lookup (`BiotiteCCDWrapper`, rdkit/pdbeccdutils), tokenization, structure + reference
+-conformer + MSA + template featurization. Dropped everything not on that path: the
+Lightning `Dataset`/`DataModule`/dataset-registry framework (`register_dataset`,
+`abstract_single`, `data_module.py`, `stochastic_sampler_dataset.py` — training-only,
+pulls in `pytorch_lightning`), the LMDB-backed training dataset-cache formats
+(`lmdb`, `boto3`/S3), and the PDB/S3 template-cache *build* pipeline
+(`func_timeout`-wrapped fetch/precache/multiprocessing in
+`pipelines/preprocessing/template.py` — trimmed to just its `TemplatePreprocessorSettings`
+config class, which `InferenceDataset` actually reads). Two files got a matching
+trim for the same reason: `primitives/caches/format.py` (kept only the
+`DatasetChainData`/`DatasetReferenceMoleculeData` type-hint dataclasses, dropped the
+LMDB dataset-cache classes) and `primitives/quality_control/logging_utils.py` (the
+`memory_profiler` import was made lazy — it's an off-by-default profiling decorator,
+never on the inference path). New pip deps (pure-Python, no CUDA): `pydantic`,
+`pdbeccdutils`, `func_timeout`, `networkx` (the last for CCD bond-graph connected
+components, a genuine runtime need, not training cruft).
+
+**Driver**: `tt_bio/openfold3_data.py::build_openfold3_features(query)` — replicates
+`InferenceDataset.create_all_features` as a plain function (no Dataset/DataModule
+needed to featurize one query).
+
+**Verification method**: pip-installed real `openfold3==0.4.3` into a scratch venv,
+called the *unmodified* upstream `InferenceDataset` directly (bypassing the
+Lightning/checkpoint-download CLI, which needs a model for a data-only question) on
+`examples/example_inference_inputs/query_ubiquitin.json`, and diffed every tensor
+against `tt_bio.openfold3_data`'s output. All 34 feature-dict keys match in shape,
+dtype, and value (`torch.equal`/`allclose`) — **except** `ref_pos` (RDKit reference-
+conformer 3D coordinates), which differs `run-to-run` even for two calls into the
+*same* unmodified upstream code (confirmed: reran the real reference pipeline twice,
+`ref_pos` differed between those two runs by as much as the diff against tt-bio's
+output, while every other key was identical across the two reference runs). Bond
+lengths in `ref_pos` are chemically valid in all three runs, confirming this is
+upstream RDKit ETKDG conformer-embedding stochasticity (no fixed seed), not a
+vendoring bug — every deterministic feature is bit-exact.
+
+**Resume anchor for P2/P3**: nothing here blocks the weight-remap leg. When wiring
+`OpenFold3.fold()`, import features via `tt_bio.openfold3_data.build_openfold3_features`
+— it returns the exact same dict shape as protenix_data.py's featurizer, so the model
+assembly step can treat it as a drop-in `input_feature_dict`. `pyproject.toml` needs
+the 4 new deps installed (`pip install -e .` after merge) before the shared dev env
+picks them up.
