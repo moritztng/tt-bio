@@ -285,11 +285,16 @@ class OpenDDE:
 
     def __init__(self, state_dict, compute_kernel_config, device=None):
         from .tenstorrent import get_device, Pairformer
+        from .protenix import Protenix
         self.dev = device or get_device()
         self.compute_kernel_config = compute_kernel_config
         C = OPENDDE_CONFIG
         routed = route_opendde_weights(state_dict)
         self._shared = routed["shared"]         # Protenix-v2-family graph (for step-2 trunk/diffusion)
+        # Shared Protenix-v2-family stack (input embedder, trunk, diffusion, confidence),
+        # built at OpenDDE's c_z=384 (Trunk.__init__(c_z=...), docs/opendde-port.md item 2).
+        # Reused verbatim -- no duplicated orchestration class.
+        self._protenix = Protenix(self._shared, compute_kernel_config, self.dev, c_z=C["c_z"])
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
@@ -328,16 +333,78 @@ class OpenDDE:
         s_ref, z_ref = self.refiner(s3, z4, attn_mask_start=bias, attn_mask_end=bias)
         return s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref
 
-    def fold(self, *args, **kwargs):
-        raise NotImplementedError(
-            "OpenDDE end-to-end co-folding is not yet enabled. Done + on-device verified: "
-            "the real-weight remap (route_opendde_weights) and the novel expander->refiner "
-            "seam (expand_and_refine; scripts/opendde_assembly_verify.py). Three prerequisites "
-            "remain before a full residue->structure fold (docs/opendde-port.md 'Remaining'): "
-            "(1) port OpenDDE's structural-token tokenizer/featurizer (opendde/data/tokenizer.py) "
-            "that emits the atom<->structural-token maps, subtoken roles, parent/adjacency and "
-            "structural frames the expander + structural-axis diffusion consume; (2) make the "
-            "shared Protenix Trunk c_z-parametric (OpenDDE c_z=384 / 12 triangle heads vs the "
-            "tt-bio Protenix-v2 checkpoint's 256 / 8); (3) add the diffusion-conditioning "
-            "z_trunk branch (the diffusion_module.diffusion_conditioning.*_z_trunk keys OpenDDE "
-            "adds over Protenix-v2).")
+    def fold(self, feats, *, n_step=20, n_cycles=2, seed=None):
+        """First end-to-end residue->structure co-fold. feats: a tt_bio.protenix_data-style
+        residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
+        tt_bio.protenix_data.build_complex_features for a single protein chain).
+
+        Pipeline (opendde/model/opendde.py get_pairformer_output -> expand_to_structural_tokens
+        -> EDM diffusion, reusing the Protenix-v2 stack throughout):
+          1. input embedder + trunk at the RESIDUE axis (self._protenix, c_z=384) -> s_inputs,
+             s_trunk, z_trunk.
+          2. expand_and_refine (the novel seam) -> structural-axis (s_inputs, s, z).
+          3. diffusion pair conditioning + EDM sampler at the STRUCTURAL axis (atom broadcast
+             via atom_to_structural_token_idx, not the residue atom_to_token_idx).
+
+        Confidence output, --fast, n_sample>1 and multi-card fanout are not wired yet (they
+        ride the existing Protenix-v2 machinery unchanged once this coordinate path is
+        release-gated; see docs/opendde-port.md). Returns coords (1, N_atom, 3) host tensor.
+        """
+        import torch
+        from .opendde_data import build_structural_token_features
+        from .tenstorrent import get_device
+        from .protenix import edm_sample
+
+        P = self._protenix
+        tt = P._tt
+        ifd = build_structural_token_features(feats)
+        Ns = ifd["parent_residue_idx"].shape[0]
+
+        fi = P._atom_feat_inputs(feats)
+        N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
+        mt, S = fi["mt"], fi["S"]
+        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
+        dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
+
+        # 1) input embedder + trunk, residue axis (identical to Protenix.fold steps 1-3)
+        s_inputs_tt = P.input_aae(
+            tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]), tt(feats["ref_mask"].reshape(N, 1)),
+            tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt, tt(Mmat),
+            tt(feats["restype"]), tt(feats["profile"]), tt(dm))
+        s_inputs = P._to_host(s_inputs_tt)[:NT]
+        mt_dev = tt(mt.reshape(-1, 1).float())
+        c_l = P._to_host(P.diff_feat.c_l(tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]),
+                                         tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
+        p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
+        relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
+        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"], n_cycles=n_cycles)
+        s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
+        z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z))
+
+        # 2) the novel seam: residue -> structural-token axis
+        s_inputs_st, s_st, z_st = self.expand_and_refine(ifd, s_inputs, s_trunk, z_trunk)
+        s_inputs_struct = P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs))
+        s_struct = P._to_host(s_st, (Ns, self.expander.c_s))
+
+        # 3) diffusion pair conditioning + EDM sampler, structural-token axis
+        parent = ifd["parent_residue_idx"]
+        relp_struct = P._generate_relp({
+            "asym_id": feats["asym_id"].index_select(0, parent),
+            "residue_index": feats["residue_index"].index_select(0, parent),
+            "entity_id": feats["entity_id"].index_select(0, parent),
+            "sym_id": feats["sym_id"].index_select(0, parent),
+            "token_index": ifd["structural_token_index"],
+        })
+        pair_z = P._diffusion_pair_cond(z_st, relp_struct).reshape(Ns, Ns, -1)
+        a2s = ifd["atom_to_structural_token_idx"]
+        S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
+        p_lm = p_lm + P._plm_z_term(pair_z, a2s, nb, nq, nk)
+
+        cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "pair_z": pair_z, "c_l": c_l,
+                "p_lm": p_lm, "S": S_struct, "mask_trunked": mt.float()}
+        if P.diffusion.device_dit:
+            cond["dit_z"] = P.diffusion._dit_z_device(pair_z)
+        else:
+            cond["dit_biases"] = P.diffusion._dit_pair_biases(pair_z)
+        coords = edm_sample(P.diffusion, cond, N, n_step=n_step, seed=seed)
+        return coords

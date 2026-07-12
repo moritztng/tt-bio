@@ -823,12 +823,13 @@ class Protenix:
     validated end-to-end (sampler draws structures within the reference's sample
     variance). feats is a dict of model-ready tensors (from the v2 data pipeline)."""
 
-    def __init__(self, model_state_dict, compute_kernel_config, device=None):
+    def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None):
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
+        self._c_z = c_z
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         # --fast for Protenix = bf8 TRUNK + bf16 DIFFUSION. The trunk tolerates bf8
@@ -841,7 +842,7 @@ class Protenix:
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."), compute_kernel_config)
         _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
-        self.trunk = Trunk(model_state_dict, compute_kernel_config)
+        self.trunk = Trunk(model_state_dict, compute_kernel_config, c_z=self._c_z)
         _TT.set_fast_mode(False)   # diffusion + confidence: always bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev, compute_kernel_config)
@@ -942,12 +943,23 @@ class Protenix:
         """DiffusionConditioning pair branch (computed once; t-independent):
         zc = LN(concat[z_trunk, relpe(relp)]); pz = linear_z(zc); pz += transition_z1 +
         transition_z2. Reference diffusion_module.diffusion_conditioning. Validated
-        PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host."""
+        PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host.
+
+        When c_z_pair_diffusion < c_z (OpenDDE: pair-diffusion channel compressed to 128 vs
+        the shared Trunk's c_z=384; Protenix-v2 keeps them equal, 256==256, no compression),
+        the reference (DiffusionConditioning.prepare_cache / compress_pair_z) first LN+projects
+        z_trunk down to c_z_pair_diffusion via layernorm_z_trunk/linear_no_bias_z_trunk, BEFORE
+        concatenating with relpe -- gated on those keys' presence so Protenix-v2 is unchanged."""
         from .tenstorrent import Transition
         C = "diffusion_module.diffusion_conditioning."
         relpe = ttnn.linear(self._tt(relp), self._tt(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
                             compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
+        if C + "linear_no_bias_z_trunk.weight" in self._w:
+            zt = ttnn.layer_norm(z_trunk_tt, weight=self._tt(self._w[C + "layernorm_z_trunk.weight"]),
+                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+            z_trunk_tt = ttnn.linear(zt, self._tt(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
+                                     compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
         zc = ttnn.layer_norm(zc, weight=self._tt(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
@@ -1075,16 +1087,22 @@ class Trunk(_KeyedWeights):
     protenix/model/protenix.py get_pairformer_output."""
 
     N_CYCLES = 10
-    C_Z = 256
+    C_Z = 256          # Protenix-v2 default; instances override via __init__(c_z=...)
+    TRI_HEAD_DIM = 32  # constant across c_z variants (Protenix-v2 256/8 heads, OpenDDE 384/12)
 
-    def __init__(self, model_state_dict, compute_kernel_config):
-        """model_state_dict: full v2 model dict with the 'module.' prefix STRIPPED."""
+    def __init__(self, model_state_dict, compute_kernel_config, c_z=None):
+        """model_state_dict: full v2-family model dict with the 'module.' prefix STRIPPED.
+        c_z: pair channel width (default 256, Protenix-v2's; OpenDDE's shared Trunk subtree
+        is c_z=384 -- same architecture, wider pair, head_dim fixed at 32 so n_tri_heads
+        scales as c_z // 32)."""
         import re
         from .tenstorrent import (get_device, Pairformer, PairformerLayer,
                                    OuterProductMean, PairWeightedAveraging, Transition)
         self._w = model_state_dict
         self.compute_kernel_config = compute_kernel_config
         self.dev = get_device()
+        self.C_Z = c_z or self.C_Z
+        n_tri_heads = self.C_Z // self.TRI_HEAD_DIM
         self._wc = {}  # cached device weights (upload once; reused every recycle cycle)
         ti_keys = ("linear_no_bias_sinit", "linear_no_bias_zinit1", "linear_no_bias_zinit2",
                    "linear_no_bias_token_bond", "relative_position_encoding")
@@ -1099,7 +1117,7 @@ class Trunk(_KeyedWeights):
                    if k.startswith(f"pairformer_stack.blocks.{i}.")}
             for k, v in PW.remap_pairformer_block(blk).items():
                 comb[f"layers.{i}.{k}"] = v
-        self.PF = Pairformer(nb_pf, 32, 8, 384 // 16, 16, True, comb, compute_kernel_config)
+        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb, compute_kernel_config)
         # template embedder: 2 pair-only PairformerLayers
         tpl = {k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v for b in range(2)
                for k, v in self._w.items()
@@ -1116,7 +1134,7 @@ class Trunk(_KeyedWeights):
             P = f"msa_module.blocks.{i}."
             sub = lambda pp: {k[len(pp):]: v for k, v in self._w.items() if k.startswith(pp)}
             opm = OuterProductMean(PW.remap_outer_product_mean(sub(P + "outer_product_mean_msa.")), compute_kernel_config)
-            pl = PairformerLayer(32, 8, None, None, False, PW.remap_msa_pair_stack(sub(P + "pair_stack.")), compute_kernel_config)
+            pl = PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None, False, PW.remap_msa_pair_stack(sub(P + "pair_stack.")), compute_kernel_config)
             has = any(k.startswith(P + "msa_stack.") for k in self._w)
             pwa = tm = None
             if has:
