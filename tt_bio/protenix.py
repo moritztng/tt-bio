@@ -503,14 +503,16 @@ class DiffusionModule(_KeyedWeights):
         # per-block pair bias depends only on pair_z (fixed across steps) -> precomputed once
         if self.device_dit and cond.get("dit_z") is not None:
             if "dit_block_biases" not in cond:   # precompute per-block pair biases ONCE per fold
-                cond["dit_block_biases"] = self._dit_block_biases(cond["dit_z"])
+                cond["dit_block_biases"] = self._dit_block_biases(
+                    cond["dit_z"], cond.get("structural_pair_attn_bias"))
             a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single,
                                          cond["dit_block_biases"], NT)
             a_t = self._ln(a_t, "layernorm_a.weight")
         else:  # host fp32 fallback (max fidelity / no precomputed device bias)
             a_h = torch.Tensor(ttnn.to_torch(ttnn.reshape(a_tok, (1, NT, 768)))).float().reshape(NT, 768)
             s_h = torch.Tensor(ttnn.to_torch(s_single)).float().reshape(NT, s_single.shape[-1])
-            biases = cond.get("dit_biases") or self._dit_pair_biases(cond["pair_z"].float())
+            biases = cond.get("dit_biases") or self._dit_pair_biases(
+                cond["pair_z"].float(), cond.get("structural_pair_attn_bias"))
             a_h = self._token_dit(a_h, s_h, biases, NT)
             a_t = self._ln(T(a_h.reshape(1, NT, 768)), "layernorm_a.weight")
 
@@ -561,7 +563,8 @@ class DiffusionModule(_KeyedWeights):
             self._lin(self._ln(ttnn.reshape(s_single, (NT, s_single.shape[-1])), "layernorm_s.weight"),
                       "linear_no_bias_s.weight"), (NT, 768)))
         if "dit_block_biases" not in cond:
-            cond["dit_block_biases"] = self._dit_block_biases(cond["dit_z"])
+            cond["dit_block_biases"] = self._dit_block_biases(
+                cond["dit_z"], cond.get("structural_pair_attn_bias"))
         a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single, cond["dit_block_biases"], NT)
         a_t = self._ln(a_t, "layernorm_a.weight")
         DE = "atom_attention_decoder."
@@ -628,7 +631,7 @@ class DiffusionModule(_KeyedWeights):
     def _winkv(self, x, N, NP):
         return _window_kv(x, N, NP, self.NQ, self.NK, self.PAD_LEFT)
 
-    def _dit_pair_biases(self, pair_z):
+    def _dit_pair_biases(self, pair_z, extra_attn_bias=None):
         """Per-block DiT attention pair bias linear_z(LN(LN(pair_z))). Depends only on the
         trunk pair_z (fixed across all sampling steps), so it is computed ONCE per fold and
         reused every diffusion step -- the dominant host cost otherwise. Returns 24 tensors
@@ -639,8 +642,11 @@ class DiffusionModule(_KeyedWeights):
         biases = []
         for b in range(self.DIT_BLOCKS):
             A = f"blocks.{b}.attention_pair_bias."
-            zb = F.layer_norm(z_h, (256,)) * gP(A + "layernorm_z.weight")
-            biases.append(F.linear(zb, gP(A + "linear_nobias_z.weight")).permute(2, 0, 1))
+            zb = F.layer_norm(z_h, (z_h.shape[-1],)) * gP(A + "layernorm_z.weight")
+            bias = F.linear(zb, gP(A + "linear_nobias_z.weight")).permute(2, 0, 1)
+            if extra_attn_bias is not None:
+                bias = bias + extra_attn_bias.float().unsqueeze(0)
+            biases.append(bias)
         return biases
 
     def _token_dit(self, a_h, s_h, biases, NT):
@@ -672,13 +678,21 @@ class DiffusionModule(_KeyedWeights):
         z_h = F.layer_norm(pair_z, (pair_z.shape[-1],)).unsqueeze(0).contiguous()
         return ttnn.from_torch(z_h, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
 
-    def _dit_block_biases(self, z_dev):
+    def _dit_block_biases(self, z_dev, extra_attn_bias=None):
         """Per-block DiT attention pair biases, computed ONCE per fold from z_dev=LN(pair_z).
         Each block's bias is a pure function of pair_z (fixed across all sampling steps), so
         recomputing the NxNxc_z layer_norm+linear every step (24 blocks x n_step) was the
         dominant diffusion cost. Precompute here; replay via AttentionPairBias(bias_precomputed
         =True). Mirrors the host _dit_pair_biases / the _atom_cond hoist."""
-        return [apb.compute_bias(z_dev) for (_, apb, _, _, _) in self._dit]
+        extra = None
+        if extra_attn_bias is not None:
+            # AttentionPairBias scales projected masks by sqrt(head_dim) to
+            # compensate ttnn SDPA's mask scaling. Match it for this direct bias.
+            extra = self._up(extra_attn_bias.float().reshape(
+                1, 1, extra_attn_bias.shape[-2], extra_attn_bias.shape[-1])
+                * self.DIT_HEAD_DIM ** 0.5)
+        return [ttnn.add(apb.compute_bias(z_dev), extra) if extra is not None
+                else apb.compute_bias(z_dev) for (_, apb, _, _, _) in self._dit]
 
     def _token_dit_device(self, a_t, s_t, biases, NT):
         """On-device 24-block token DiT (ttnn). a_t (1,NT,768), s_t (1,NT,384); biases = list
@@ -823,7 +837,8 @@ class Protenix:
     validated end-to-end (sampler draws structures within the reference's sample
     variance). feats is a dict of model-ready tensors (from the v2 data pipeline)."""
 
-    def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None):
+    def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None,
+                 msa_update_first=False):
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
@@ -842,7 +857,8 @@ class Protenix:
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."), compute_kernel_config)
         _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
-        self.trunk = Trunk(model_state_dict, compute_kernel_config, c_z=self._c_z)
+        self.trunk = Trunk(model_state_dict, compute_kernel_config, c_z=self._c_z,
+                           msa_update_first=msa_update_first)
         _TT.set_fast_mode(False)   # diffusion + confidence: always bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev, compute_kernel_config)
@@ -1090,7 +1106,8 @@ class Trunk(_KeyedWeights):
     C_Z = 256          # Protenix-v2 default; instances override via __init__(c_z=...)
     TRI_HEAD_DIM = 32  # constant across c_z variants (Protenix-v2 256/8 heads, OpenDDE 384/12)
 
-    def __init__(self, model_state_dict, compute_kernel_config, c_z=None):
+    def __init__(self, model_state_dict, compute_kernel_config, c_z=None,
+                 msa_update_first=False):
         """model_state_dict: full v2-family model dict with the 'module.' prefix STRIPPED.
         c_z: pair channel width (default 256, Protenix-v2's; OpenDDE's shared Trunk subtree
         is c_z=384 -- same architecture, wider pair, head_dim fixed at 32 so n_tri_heads
@@ -1102,6 +1119,7 @@ class Trunk(_KeyedWeights):
         self.compute_kernel_config = compute_kernel_config
         self.dev = get_device()
         self.C_Z = c_z or self.C_Z
+        self._msa_update_first = msa_update_first
         n_tri_heads = self.C_Z // self.TRI_HEAD_DIM
         self._wc = {}  # cached device weights (upload once; reused every recycle cycle)
         ti_keys = ("linear_no_bias_sinit", "linear_no_bias_zinit1", "linear_no_bias_zinit2",
@@ -1156,11 +1174,22 @@ class Trunk(_KeyedWeights):
         return self._lin(ttnn.relu(u), "template_embedder.linear_no_bias_u.weight")
 
     def _msa(self, z3, m_feat):
+        def update_msa(m, z, pwa, transition):
+            if pwa is None:
+                return m
+            m = ttnn.add(m, ttnn.reshape(
+                pwa(m, ttnn.clone(z)), tuple(m.shape)))
+            return ttnn.add(
+                m, ttnn.reshape(transition(m), tuple(m.shape)))
+
         for (opm, pwa, tm, pl) in self.MSA:
+            # OpenDDE refreshes the MSA before OPM. Protenix-v2 retains the
+            # ordering its checkpoint was trained with.
+            if self._msa_update_first:
+                m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = ttnn.add(z3, opm(m_feat, None, None))
-            if pwa is not None:
-                m_feat = ttnn.add(m_feat, ttnn.reshape(pwa(m_feat, ttnn.clone(z3)), tuple(m_feat.shape)))
-                m_feat = ttnn.add(m_feat, ttnn.reshape(tm(m_feat), tuple(m_feat.shape)))
+            if not self._msa_update_first:
+                m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = pl(None, z3)[1]
         return z3
 
