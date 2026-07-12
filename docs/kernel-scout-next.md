@@ -116,3 +116,34 @@ PYTHONPATH=. TT_VISIBLE_DEVICES=0 python3 scripts/kernel_scout_next_bench.py --s
 For `--swiglu-ab`, put the isolated tt-metal main package/build first in `PYTHONPATH` and
 `LD_LIBRARY_PATH`, then run one size per process. The harness reports stable two-pass PCC,
 max-abs, finiteness, synchronized component times, and full-trunk speedup.
+
+## TriangleAttention and OuterProductMean
+
+The ESMFold2 trunk above does not contain these two ops, so they were profiled
+through the Protenix-v2 trunk that does: a 48-block Pairformer (96
+TriangleAttention calls per cycle) plus a four-block MSA module (four OPM
+calls). Real checkpoint weights, actual-input recycling cycle, `pc` card 0,
+warm, device-synchronized. The full report and harness are in
+[`docs/boltz2-protenix-kernel-scout.md`](boltz2-protenix-kernel-scout.md)
+(`scripts/boltz2_protenix_kernel_scout.py`); this section records the
+conclusion so the next scout pass does not re-derive it.
+
+TriangleAttention is a real cost — 26.5% (N=512) / 29.6% (N=1024) of the
+actual-input trunk cycle, 32.3% / 37.6% of the 48-block Pairformer — but it is
+not dominated by one avoidable move. The live `ending` permute lead flagged in
+`TriangleAttention.__call__` ("THIS CAUSES CACHE -> RESHAPE PROBLEM") was
+tested as permute→transpose: bit-exact (PCC 1.0, max-abs 0.0) and **no speedup**
+(1.0002x / 1.0001x). Bias-rotation-to-two-transposes regressed (0.97x / 0.91x),
+and packing QKV+gate into one projection regressed hard (0.61x / 0.58x) because
+recovering QKV and gate from the wider result costs more than the saved launch.
+No small adjacent-op fusion comparable to FC1+SwiGLU exists here; a real win
+would require a single kernel absorbing head creation, SDPA, gating, and output
+projection, which is out of scope for a ttnn-only pass.
+
+OuterProductMean's transpose decomposition is 1.073x / 1.034x on the four
+isolated calls, but diluted to ≤1.0016x / 1.0007x of the full trunk, and the
+N=1024 fourth block is not bit-exact (PCC 0.9999999973, max-abs 64.125, above
+the unmodified repeat floor). Not promoted.
+
+Verdict: documented ceiling, no lever a ttnn-only change can capture. The
+runtime code is unchanged; no release gate was needed.
