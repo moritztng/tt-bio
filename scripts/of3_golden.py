@@ -11,6 +11,14 @@ featurization. That is sufficient and standard for component parity: the device 
 is fed the identical captured input, so the PCC compares the SAME math. Full-pipeline
 real-input golden (data pipeline vendor) is P1, a later tick.
 
+CAVEAT (tick 3): the N(0,1) seeded input is valid ONLY for single-component s-track
+parity (block 0 s_pcc=0.99985). It is OFF the learned manifold, so the reference
+trunk explodes over 48 blocks (out s std ~3.7e4 vs a real fold's ~1.8e2); at that
+magnitude bf16 collapses the z-track with no device involved (pure-CPU fp32-vs-bf16
+z_pcc=0.72). So the deep-stack gate is NOT meaningful here -- it needs real
+input-embedder output (the P3 InputEmbedder port), exactly as Protenix's stack
+gate uses real captured trunk I/O. See docs/openfold3-port.md status log.
+
 Run with the CPU reference venv, NOT the tt-bio device env:
     /tmp/of3-venv/bin/python scripts/of3_golden.py
 """
