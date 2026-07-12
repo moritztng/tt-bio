@@ -4,18 +4,20 @@ Golden: ~/of3_ref_out.pkl from scripts/of3_golden.py (real of3-p2-155k.pt weight
 deterministic seeded trunk inputs). Remap: tt_bio.openfold3_weights (pure dict rename +
 delegate to the proven protenix remap). Mirrors test_protenix_trunk_pairformer.py.
 
-GOLDEN-INPUT CAVEAT (see docs/openfold3-port.md status log, tick 3). The current golden
-feeds the trunk *synthetic* N(0,1) tensors, not real featurized inputs. That is fine for
-a single-block s-track correctness check (block 0 s_pcc=0.99985 -> remap is byte-correct),
-but it is NOT a valid gate for the deep 48-block stack: N(0,1) is off the learned manifold,
-so the reference trunk *explodes* (output s std ~3.7e4 vs a real fold's ~1.8e2). At that
-magnitude the fp32->bf16 gap alone collapses the z-track *with no device and no remap*
-(measured pure-CPU control: fp32-vs-bf16 z_pcc=0.72), and the device compounds it over 48
-blocks (z_pcc=0.16, s_pcc=0.91). This is a numerical property of the pathological input, not
-a port defect. Protenix's passing stack gate (test_protenix_trunk_pairformer.py) uses REAL
-captured trunk I/O for exactly this reason. The definitive OF3 stack gate is therefore
-DEFERRED (xfail below) until the golden captures real input-embedder output -- the P3
-InputEmbedder port. The block-0 s-gate is the live per-block correctness gate meanwhile.
+STACK-GATE HISTORY (see docs/openfold3-port.md status log, tick 3 vs tick 4). Tick 3
+gated the stack on a *synthetic* N(0,1) golden and got s_pcc=0.906/z_pcc=0.164, blamed on
+the input being off-manifold (reference trunk output std ~3.7e4 vs an assumed-normal
+~1.8e2, allegedly triggering a bf16 collapse). Tick 4 re-ran the reference trunk on REAL
+input-embedder output instead of N(0,1) (scripts/of3_real_golden.py, real ubiquitin
+example via tt_bio.openfold3_data.build_openfold3_features) and found the SAME
+order-of-magnitude blowup in pure fp32, no device, no remap: s_out std ~1.3e4-1.8e4 for
+BOTH real and synthetic input. That falsifies the tick-3 "off-manifold input" theory --
+the 48-block PairFormerStack genuinely produces an unnormalized, large-magnitude residual
+stream on this checkpoint regardless of input distribution (plausible for a pre-LN stack
+with no final norm: nothing downstream needs s/z to be O(1), every consumer LayerNorms
+before use). That magnitude is a real property of the reference model, not a
+golden-harness bug. The stack gate below now runs against the REAL golden; the honest
+question is whether bf16 can track a residual stream at that scale over 48 blocks.
 """
 import os, pickle, pytest, torch, ttnn
 
@@ -65,16 +67,26 @@ def test_of3_pairformer_block0_on_device():
     assert s_pcc > 0.98
 
 
-@pytest.mark.xfail(reason="synthetic-N(0,1) golden is off-manifold: reference trunk explodes "
-                          "(out std ~3.7e4) and bf16 collapses z even on pure CPU (z_pcc=0.72, no "
-                          "device). Valid stack gate needs a real-input-embedder golden (P3). "
-                          "See module docstring + docs/openfold3-port.md.", strict=False)
+@pytest.mark.xfail(reason="OPEN real defect, not a golden-harness artifact (see module "
+                          "docstring): on REAL-distribution input, device gives "
+                          "s_pcc=0.996/z_pcc=0.649. A pure-CPU fp32-vs-bf16 control on the "
+                          "SAME real input (no device) already only gets z_pcc=0.903 -- bf16 "
+                          "alone can't track this checkpoint's large (~1.8e4 std) residual "
+                          "stream to gate precision, and the device compounds a further "
+                          "0.90->0.65 drop on top of that (fp32_dest_acc_en is already on in "
+                          "_cfg() -- the extra device-vs-bf16-CPU gap needs its own "
+                          "investigation). Needs real device-precision work, not scoped this "
+                          "tick.", strict=False)
 def test_of3_pairformer_stack_on_device():
+    """Stack gate on REAL-distribution (s, z) (scripts/of3_real_golden.py), superseding
+    the tick-3 synthetic-N(0,1) golden. See module docstring: real input hits the same
+    large-residual-magnitude regime as synthetic, so this is the honest bf16-vs-fp32
+    stack gate, not a golden-harness artifact check."""
     from tt_bio.tenstorrent import get_device
     from tt_bio.openfold3_weights import remap_pairformer_stack
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     combined = remap_pairformer_stack(sd)
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["pairformer_stack"]
+    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["pairformer_stack_real"]
     s_pcc, z_pcc = _run(combined, gold, get_device())
-    print(f"\nOF3 48-block pairformer_stack: s_pcc={s_pcc:.5f} z_pcc={z_pcc:.5f}")
+    print(f"\nOF3 48-block pairformer_stack (real input): s_pcc={s_pcc:.5f} z_pcc={z_pcc:.5f}")
     assert s_pcc > 0.98 and z_pcc > 0.97
