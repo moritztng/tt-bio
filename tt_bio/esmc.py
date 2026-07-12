@@ -42,6 +42,21 @@ from tt_bio.tenstorrent import (
     get_device,
 )
 
+import time as _time
+
+_TIMING = os.environ.get("TT_BIO_TIMING")
+
+def _tlog(msg):
+    if not _TIMING:
+        return
+    line = f"[timing pid={os.getpid()} t={_time.perf_counter():.2f}] {msg}"
+    if "/" in _TIMING:
+        with open(_TIMING, "a") as _f:
+            _f.write(line + "\n")
+    else:
+        print(line, file=sys.stderr, flush=True)
+
+
 VOCAB_SIZE = 64
 ROPE_BASE = 10000.0
 
@@ -211,19 +226,32 @@ class Attention(Module):
         return out
 
 
+def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
+    packed = weight.t()
+    rows, two_n = packed.shape
+    return packed.reshape(rows, 2, -1, 32).permute(0, 2, 1, 3).reshape(rows, two_n)
+
+
 class SwiGLUFFN(Module):
     """SwiGLU feed-forward (mirrors esm.layers.blocks.swiglu_ln_ffn, bias=False):
       h = Linear(LayerNorm(x)); x1,x2 = chunk(h,2); Linear(silu(x1) * x2).
     """
 
-    def __init__(self, state_dict: Weights, compute_kernel_config):
+    def __init__(self, state_dict: Weights, compute_kernel_config, fuse_swiglu: bool = False):
         super().__init__(state_dict, compute_kernel_config)
         self.norm_weight = self.torch_to_tt("0.weight")
         self.norm_bias = self.torch_to_tt("0.bias")
+        minimal_matmul = getattr(ttnn.experimental, "minimal_matmul", None)
+        self.fuse_swiglu = bool(
+            fuse_swiglu
+            and minimal_matmul is not None
+            and "fuse_swiglu" in (minimal_matmul.__doc__ or "")
+        )
         # fc1/fc2 are the FFN's big matmuls (and the bulk of the ESMC-6B FLOPs);
         # block-fp8 in fast mode, bf16 otherwise. Shared with the folding trunk's
         # pair-transition, so fast mode bf8's that too.
-        self.fc1_weight = self.torch_to_tt("1.weight", dtype=_dtype())
+        transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
+        self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
         self.fc2_weight = self.torch_to_tt("3.weight", dtype=_dtype())
 
     def _ffn(self, x: ttnn.Tensor) -> ttnn.Tensor:
@@ -232,12 +260,22 @@ class SwiGLUFFN(Module):
             x, weight=self.norm_weight, bias=self.norm_bias,
             epsilon=1e-5, compute_kernel_config=ck,
         )
-        h = self._lin(x_norm, self.fc1_weight)
-        ttnn.deallocate(x_norm)
-        x1, x2 = ttnn.chunk(h, 2, dim=-1)
-        ttnn.deallocate(h)
-        gated = ttnn.multiply(ttnn.silu(x1), x2)
-        ttnn.deallocate(x1); ttnn.deallocate(x2)
+        if self.fuse_swiglu:
+            gated = ttnn.experimental.minimal_matmul(
+                input_tensor=x_norm,
+                weight_tensor=self.fc1_weight,
+                compute_kernel_config=ck,
+                dtype=self.fc1_weight.dtype,
+                fuse_swiglu=True,
+            )
+            ttnn.deallocate(x_norm)
+        else:
+            h = self._lin(x_norm, self.fc1_weight)
+            ttnn.deallocate(x_norm)
+            x1, x2 = ttnn.chunk(h, 2, dim=-1)
+            ttnn.deallocate(h)
+            gated = ttnn.multiply(ttnn.silu(x1), x2)
+            ttnn.deallocate(x1); ttnn.deallocate(x2)
         out = self._lin(gated, self.fc2_weight)
         ttnn.deallocate(gated)
         return out
@@ -462,6 +500,52 @@ def load_esmc6b_state_dict(snapshot_dir: str) -> dict:
                 sd[nk] = f.get_tensor(k).to(load_dtype)
     _ = glob  # (kept for symmetry with other loaders)
     return sd
+
+
+def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = False):
+    """Load ESMC-6B for data-parallel fanout via a shared /dev/shm tile cache.
+
+    Data-parallel fanout ran O(N) redundant work: every one of the N card-workers
+    independently read the 24 GB checkpoint, converted it, and tiled it on host --
+    all bandwidth-bound, so per-worker load grew ~linearly with N and 6B fanout
+    regressed past 2 cards. Here the first worker to arrive (the builder) does that
+    work exactly once, publishing each tiled weight to ``cache_dir``; peers block on
+    the build lock, then load the pre-tiled weights straight to their own card (no
+    checkpoint read, no re-tiling) and pay only the per-card DMA -- which runs in
+    parallel across the independent PCIe links. Bit-exact vs the single-card path:
+    a loaded tile is exactly what from_torch would have produced.
+    """
+    import fcntl
+
+    from huggingface_hub import snapshot_download
+
+    import tt_bio.tenstorrent as _tt
+
+    _tt.set_fast_mode(fast)
+    snap = snapshot_download("biohub/ESMC-6B")
+    os.makedirs(cache_dir, exist_ok=True)
+    done = os.path.join(cache_dir, ".done")
+    lockf = open(os.path.join(cache_dir, ".lock"), "w")
+    fcntl.flock(lockf, fcntl.LOCK_EX)  # one builder; peers wait here until .done
+    try:
+        if not os.path.exists(done):
+            sd = load_esmc6b_state_dict(snap)
+            _t = _time.perf_counter()
+            with _tt.weight_cache(cache_dir, "dump"):
+                model = ESMCLanguageModel(name=name)
+                model.load_state_dict(sd, strict=False)
+            open(done, "w").close()
+            _tlog(f"cache_build {_time.perf_counter()-_t:.2f}s")
+            return model
+    finally:
+        fcntl.flock(lockf, fcntl.LOCK_UN)
+        lockf.close()
+    _t = _time.perf_counter()
+    with _tt.weight_cache(cache_dir, "load"):
+        model = ESMCLanguageModel(name=name)
+        model.load_state_dict({}, strict=False)  # weights come from the tile cache
+    _tlog(f"cache_load {_time.perf_counter()-_t:.2f}s")
+    return model
 
 
 class ESMCHiddenStatesModel(Module):
@@ -892,15 +976,38 @@ def _run_embed_shard(in_path: str, out_path: str) -> None:
     """
     with open(in_path, "rb") as f:
         req = pickle.load(f)
-    model = load_esmc(req["model"], fast=req["fast"])
+    _t = _time.perf_counter()
+    if req.get("cache_dir"):
+        model = load_esmc6b_shared(req["cache_dir"], name=req["model"], fast=req["fast"])
+    else:
+        model = load_esmc(req["model"], fast=req["fast"])
+    _tlog(f"load_total {_time.perf_counter()-_t:.2f}s")
     results = embed_sequences(model, req["sequences"], return_logits=req["return_logits"],
                               pool=req["pool"], batch_size=req["batch_size"])
     with open(out_path, "wb") as f:
         pickle.dump(results, f)
 
 
+def _thread_cap_env(n_workers: int) -> dict:
+    """Cap each shard's torch/OMP/BLAS host thread pools to cores/n_workers.
+
+    Each subprocess's numpy/torch pools otherwise default to ALL host cores, so N
+    co-resident shards spawn N*cores threads that thrash the host CPU -- confirmed
+    via `ps -eLo pcpu` during a 4-card esmc-6b run (each shard bursts to 200-380%
+    CPU, host loadavg > 2x core count) as the residual fanout regression left after
+    fixing the weight-load contention (see docs/esmc-multicard-scaling.md). Mirrors
+    the identical fix already applied to the fleet worker pool in
+    ``main._cap_worker_threads``; an operator-set value wins.
+    """
+    cap = max(1, (os.cpu_count() or 1) // max(1, n_workers))
+    return {var: str(cap) for var in
+            ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
+            if var not in os.environ}
+
+
 def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: str, *,
-                 model: str, fast: bool, return_logits: bool, pool: str, batch_size: int):
+                 model: str, fast: bool, return_logits: bool, pool: str, batch_size: int,
+                 cache_dir: str | None = None, thread_cap_env: dict | None = None):
     """Launch a pinned subprocess embedding ``shard`` on physical card ``device``.
 
     Returns ``(proc, out_path, device, log_path, logf)``. The child sets
@@ -913,8 +1020,10 @@ def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: s
     log_path = os.path.join(workdir, f"shard{idx}.log")
     with open(in_path, "wb") as f:
         pickle.dump(dict(model=model, sequences=dict(shard), fast=fast,
-                         return_logits=return_logits, pool=pool, batch_size=batch_size), f)
-    env = {**os.environ, "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
+                         return_logits=return_logits, pool=pool, batch_size=batch_size,
+                         cache_dir=cache_dir), f)
+    env = {**os.environ, **(thread_cap_env or {}),
+           "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
     logf = open(log_path, "w")
     proc = subprocess.Popen(
         [sys.executable, "-c",
@@ -943,6 +1052,11 @@ def _await_shard(proc, out_path: str, device: int, log_path: str, logf) -> list[
         return pickle.load(f)
 
 
+def _shm_dir() -> str:
+    """RAM-backed scratch dir for the shared tile cache; falls back to \$TMPDIR."""
+    return "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
+
+
 def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int],
                     fast: bool = False, return_logits: bool = False, pool: str = "mean",
                     batch_size: int = 8) -> list[ESMCEmbedding]:
@@ -960,15 +1074,24 @@ def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int]
     devices = list(devices)[:max(1, len(items))]
     shards = _shard_by_length(items, len(devices))
     workdir = tempfile.mkdtemp(prefix="tt-bio-embed-fanout-")
+    # ESMC-6B weights (~24 GB) dominate fanout wall-clock and are identical across
+    # workers, so share one host-tiled copy via /dev/shm instead of each worker
+    # re-reading+re-tiling the checkpoint (which regressed past 2 cards).
+    cache_dir = (tempfile.mkdtemp(prefix="esmc6b-tiles-", dir=_shm_dir())
+                 if model == "esmc-6b" else None)
+    thread_cap_env = _thread_cap_env(len(devices))
     try:
         handles = [
             _spawn_shard(idx, dev, shard, workdir, model=model, fast=fast,
-                         return_logits=return_logits, pool=pool, batch_size=batch_size)
+                         return_logits=return_logits, pool=pool, batch_size=batch_size,
+                         cache_dir=cache_dir, thread_cap_env=thread_cap_env)
             for idx, (dev, shard) in enumerate(zip(devices, shards)) if shard
         ]
         results = [_await_shard(*h) for h in handles]
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+        if cache_dir:
+            shutil.rmtree(cache_dir, ignore_errors=True)
     return _reassemble(items, results)
 
 
@@ -1028,9 +1151,22 @@ def write_manifest(embeddings: list[ESMCEmbedding], path, *, model: str, pool: s
     and which file holds each sequence — so a downstream consumer never has to
     read the code to know what it's looking at.
     """
+    id_lengths = [(e.id, len(e.sequence)) for e in embeddings]
+    d_model = int(embeddings[0].pooled.shape[0])
+    write_manifest_for(id_lengths, d_model, path, model=model, pool=pool, fast=fast,
+                       out_format=out_format, return_logits=return_logits)
+
+
+def write_manifest_for(id_lengths: list[tuple[str, int]], d_model: int, path, *, model: str,
+                       pool: str, fast: bool, out_format: str, return_logits: bool) -> None:
+    """Core of :func:`write_manifest`, taking ``(id, length)`` pairs directly.
+
+    Lets a caller that only has per-sequence id/length (e.g. reassembled from
+    several --controller shard results, never materialized as ESMCEmbedding
+    objects) still emit the same manifest shape.
+    """
     import json
 
-    d_model = int(embeddings[0].pooled.shape[0])
     manifest = {
         "model": model, "pool": pool, "fast": fast, "format": out_format,
         "d_model": d_model, "dtype": "float32", "logits": bool(return_logits),
@@ -1040,9 +1176,9 @@ def write_manifest(embeddings: list[ESMCEmbedding], path, *, model: str, pool: s
             "logits": "[length, 64] float32 (per-residue sequence-head logits)" if return_logits else None,
         },
         "sequences": [
-            {"id": e.id, "length": len(e.sequence),
-             "file": f"{e.id}.npz" if out_format == "npz" else "embeddings.parquet"}
-            for e in embeddings
+            {"id": sid, "length": length,
+             "file": f"{sid}.npz" if out_format == "npz" else "embeddings.parquet"}
+            for sid, length in id_lengths
         ],
     }
     Path(path).write_text(json.dumps(manifest, indent=2))

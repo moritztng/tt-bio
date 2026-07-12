@@ -19,6 +19,8 @@ TRANSITION_W_CHUNKING_THRESHOLD = 1024
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 _FAST_MODE = False
+# Benchmark-only escape hatch: compare the pre-decomposition channel moves.
+_TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -422,6 +424,31 @@ class WeightScope:
 
 Weights = Mapping[str, torch.Tensor] | WeightScope
 
+# Process-global shared tiled-weight cache. None disables it (default: every model
+# tiles+uploads its own weights via from_torch). Set via weight_cache() around a
+# module construction to route torch_to_tt through a /dev/shm tile cache shared by
+# data-parallel fanout workers (see torch_to_tt and esmc.load_esmc6b_shared).
+_weight_cache = None
+
+
+@contextlib.contextmanager
+def weight_cache(cache_dir: str, mode: str):
+    """Route torch_to_tt through a shared tiled-weight cache in ``cache_dir``.
+
+    mode="dump": tile on host and publish each weight to the cache (then upload).
+    mode="load": load each pre-tiled weight from the cache and upload (no host tiling,
+    no checkpoint read). The call-index ordering must match between dump and load,
+    which holds because both construct the identical module.
+    """
+    global _weight_cache
+    prev = _weight_cache
+    _weight_cache = {"dir": cache_dir, "mode": mode, "counter": 0}
+    try:
+        yield
+    finally:
+        _weight_cache = prev
+
+
 class Module:
     def __init__(
         self,
@@ -441,12 +468,31 @@ class Module:
         transform: Callable[[torch.Tensor], torch.Tensor] = lambda x: x.t(),
         dtype=ttnn.bfloat16,
     ) -> ttnn.Tensor:
-        return ttnn.from_torch(
-            transform(self.weights[key]),
-            layout=ttnn.TILE_LAYOUT,
-            device=self.device,
-            dtype=dtype,
-        )
+        wc = _weight_cache
+        if wc is None:
+            return ttnn.from_torch(
+                transform(self.weights[key]),
+                layout=ttnn.TILE_LAYOUT,
+                device=self.device,
+                dtype=dtype,
+            )
+        # Shared tiled-weight cache (data-parallel fanout): every worker constructs
+        # the identical module in the identical order, so the running call index is a
+        # stable key. The builder tiles fp32->device-dtype on host once and dumps the
+        # tile to /dev/shm; peers load_tensor it (RAM, no disk read, no re-tiling) and
+        # only pay the per-card DMA. Bit-exact: the dumped tile is what from_torch
+        # would have produced.
+        i = wc["counter"]
+        wc["counter"] = i + 1
+        path = os.path.join(wc["dir"], f"{i}.tensorbin")
+        if wc["mode"] == "load":
+            host = ttnn.load_tensor(path)
+        else:
+            host = ttnn.from_torch(transform(self.weights[key]), layout=ttnn.TILE_LAYOUT, dtype=dtype)
+            tmp = f"{path}.{os.getpid()}.tmp.tensorbin"  # dump_tensor requires a .tensorbin name
+            ttnn.dump_tensor(tmp, host)
+            os.replace(tmp, path)  # atomic publish
+        return ttnn.to_device(host, self.device)
 
     def _lin(self, x, w, bias=None, dtype=ttnn.bfloat16, **kw):
         """Shared linear projection: ttnn.linear on this module's kernel config +
@@ -527,7 +573,11 @@ class TriangleMultiplication(Module):
         # single permute is marginally faster (the extra op's launch overhead
         # outweighs the cheaper transpose), so keep it there.
         inner_swap = permute_dims == (0, 3, 2, 1)
-        decompose = inner_swap and memory_config.buffer_type == ttnn.BufferType.DRAM
+        decompose = (
+            inner_swap
+            and memory_config.buffer_type == ttnn.BufferType.DRAM
+            and not _TRIMUL_RAW_CHANNEL_MOVES
+        )
         ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
         if decompose:
             ops.append((ttnn.permute, (0, 3, 1, 2)))
@@ -612,7 +662,7 @@ class TriangleMultiplication(Module):
             # equivalent transpose(1,2) then transpose(2,3) is ~2.6ms (the inner
             # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
             # single permute is marginally faster, so keep it there.
-            if large_seq:
+            if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:
                 x_chunk = ttnn.transpose(x_chunk, 1, 2, memory_config=memory_config)
                 x_chunk_t = ttnn.transpose(x_chunk, 2, 3, memory_config=memory_config)
                 ttnn.deallocate(x_chunk)
@@ -2938,6 +2988,94 @@ class TemplateRecycle:
         return u
 
 
+class TokenDistanceRecycle:
+    """Device-resident token-distance injection for BoltzGen's trunk.
+
+    Mirrors ``TokenDistanceModule.forward`` (``tt_bio/boltzgen/model/modules/trunk.py``).
+    ``a_ij`` (the distogram + relative-position distance features, projected by
+    ``a_proj``) depends only on static per-protein geometry (``center_coords``,
+    ``relative_position_encoding``), not the recycled ``z`` -- exactly like
+    ``TemplateRecycle``'s ``a_tij``. It is computed once on host (``precompute``)
+    and the per-iteration z-dependent path (``z_proj``/pairformer/``v_norm``/
+    ``u_proj``) runs fully on device, reusing the module's inner ttnn Pairformer.
+
+    Per call:  u = u_proj(relu( v_norm( v + pairformer(v) ) )),  v = z_proj(z_norm(z)) + a_ij
+    """
+
+    def __init__(self, token_distance_module, compute_kernel_config):
+        self.mod = token_distance_module
+        self.pairformer = token_distance_module.pairformer.module
+        self.compute_kernel_config = compute_kernel_config
+        device = get_device()
+
+        def w(t, transpose=False):
+            t = t.detach()
+            if transpose:
+                t = t.t().contiguous()
+            return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        self.z_norm_w = w(token_distance_module.z_norm.weight)
+        self.z_norm_b = w(token_distance_module.z_norm.bias)
+        self.v_norm_w = w(token_distance_module.v_norm.weight)
+        self.v_norm_b = w(token_distance_module.v_norm.bias)
+        self.z_proj_w = w(token_distance_module.z_proj.weight, transpose=True)
+        self.u_proj_w = w(token_distance_module.u_proj.weight, transpose=True)
+
+    def precompute(self, feats, relative_position_encoding, seq_len, seq_pad):
+        """Host once-per-protein: a_ij = a_proj(distance features), padded + uploaded,
+        plus the padding-only mask/attn-bias its inner pairformer uses (mirrors
+        TemplateRecycle.precompute: called with mask=None, so only the tile-padding
+        is masked, not the real per-token mask)."""
+        device = get_device()
+        mod = self.mod
+        token_distance_mask = feats["token_distance_mask"]
+        token_coords = feats["center_coords"]
+        with torch.autocast(device_type="cuda", enabled=False):
+            dists = torch.cdist(token_coords, token_coords)
+            boundaries = torch.linspace(mod.min_dist, mod.max_dist, mod.num_bins - 1).to(dists.device)
+            distogram = (dists[..., None] > boundaries).sum(dim=-1).long()
+            distogram = torch.nn.functional.one_hot(distogram, num_classes=mod.num_bins)
+            if mod.use_token_distance_feats:
+                dist_features = mod.token_distance_encoder(relative_position_encoding, feats)
+                a_ij = torch.cat([distogram, dist_features], dim=-1)
+            else:
+                a_ij = distogram
+            a_ij = a_ij * token_distance_mask.unsqueeze(-1)
+            a_ij = mod.a_proj(a_ij.float())
+        if seq_pad:
+            a_ij = torch.nn.functional.pad(a_ij, (0, 0, 0, seq_pad, 0, seq_pad))
+        a_ij_tt = ttnn.from_torch(a_ij, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+        if seq_pad:
+            mask_1d = a_ij.new_ones(1, seq_len + seq_pad)
+            mask_1d[:, seq_len:] = 0.0
+            mask_tt = ttnn.from_torch(mask_1d, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+            attn_tt = ttnn.from_torch((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9,
+                                      layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+        else:
+            mask_tt = attn_tt = None
+        return {"a_ij_tt": a_ij_tt, "mask_tt": mask_tt, "attn_tt": attn_tt}
+
+    def __call__(self, z, td):
+        """z [1,P,P,token_z] -> token-distance delta u [1,P,P,token_z], fully on device."""
+        ckc = self.compute_kernel_config
+        z_n = ttnn.layer_norm(z, weight=self.z_norm_w, bias=self.z_norm_b,
+                              epsilon=1e-5, compute_kernel_config=ckc)
+        z_p = ttnn.linear(z_n, self.z_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(z_n)
+        v = ttnn.add(z_p, td["a_ij_tt"])
+        ttnn.deallocate(z_p)
+        _, v_pf = self.pairformer(None, v, td["mask_tt"], td["attn_tt"], td["attn_tt"])
+        v2 = ttnn.add(v, v_pf)
+        ttnn.deallocate(v)
+        ttnn.deallocate(v_pf)
+        v2 = ttnn.layer_norm(v2, weight=self.v_norm_w, bias=self.v_norm_b,
+                             epsilon=1e-5, compute_kernel_config=ckc)
+        u = ttnn.relu(v2)
+        ttnn.deallocate(v2)
+        u = ttnn.linear(u, self.u_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        return u
+
+
 class TrunkModule(TorchWrapper):
     """Device-resident Boltz2 trunk (recycling) loop.
 
@@ -2956,7 +3094,9 @@ class TrunkModule(TorchWrapper):
     """
 
     def __init__(self, recycle: TrunkRecycle, msa_inner: "MSA", pairformer_inner: "Pairformer",
-                 template_recycle: "TemplateRecycle" = None):
+                 template_recycle: "TemplateRecycle" = None,
+                 token_distance_recycle: "TokenDistanceRecycle" = None,
+                 template_module_torch=None, use_kernels: bool = False):
         super().__init__()
         self.recycle = recycle
         self.msa = msa_inner
@@ -2966,8 +3106,24 @@ class TrunkModule(TorchWrapper):
         # (no host round-trip), reusing the template's inner ttnn Pairformer; the
         # z-independent a_tij geometry is hoisted (computed once). See TemplateRecycle.
         self.template_recycle = template_recycle
+        # Optional device-resident token-distance injection (BoltzGen only): when
+        # set, z = z + token_distance(z) runs fully on device each recycling
+        # iteration, reusing the module's inner ttnn Pairformer; the z-independent
+        # a_ij geometry is hoisted (computed once). See TokenDistanceRecycle.
+        self.token_distance_recycle = token_distance_recycle
+        # BoltzGen's TemplateModule computes its per-template geometry (frame
+        # rotation/translation, visibility, CB/CA distances) inline rather than
+        # through a factored template_features() helper like Boltz2's
+        # TemplateV2Module, and is called unconditionally every iteration
+        # (no has_templates gate) -- porting it to a device-resident recycle is
+        # out of scope for this pass. When set, it is called as-is (unchanged,
+        # torch/ttnn hybrid module) via one host round-trip per iteration,
+        # bracketed by the fully-resident recycle/token-distance/msa/pairformer
+        # path. This still collapses 4 host<->device crossings/iteration to 2.
+        self.template_module_torch = template_module_torch
+        self.use_kernels = use_kernels
 
-    def _build_static(self, s_inputs, s_init, z_init, feats):
+    def _build_static(self, s_inputs, s_init, z_init, feats, relative_position_encoding=None):
         """Build + upload (once per protein) all loop-invariant device tensors.
 
         Returns a dict cached in ``self._runtime_cache`` and reused across the
@@ -3039,11 +3195,24 @@ class TrunkModule(TorchWrapper):
             if has_templates else None
         )
 
+        # ---- token distances (BoltzGen only, device-resident injection) ----
+        has_token_distance = self.token_distance_recycle is not None
+        token_distance_static = (
+            self.token_distance_recycle.precompute(
+                feats, relative_position_encoding, seq_len, seq_pad
+            )
+            if has_token_distance else None
+        )
+
         static = {
             "seq_len": seq_len,
             "seq_pad": seq_pad,
             "has_templates": has_templates,
             "tmpl_static": tmpl_static,
+            "has_token_distance": has_token_distance,
+            "token_distance_static": token_distance_static,
+            "feats": feats,
+            "pair_mask_unpad": pair_mask_unpad,
             "s_init_tt": self._from_torch(s_init_p),
             "z_init_tt": self._from_torch(z_init_p),
             "emb_tt": self._from_torch(s_inputs_p),
@@ -3067,6 +3236,35 @@ class TrunkModule(TorchWrapper):
         ttnn.deallocate(delta)
         return z_out
 
+    def _apply_token_distance(self, z_rec, st):
+        """z_rec = z_rec + token_distance(z_rec), fully on device (no host round-trip)."""
+        delta = self.token_distance_recycle(z_rec, st["token_distance_static"])
+        z_out = ttnn.add(z_rec, delta)
+        ttnn.deallocate(z_rec)
+        ttnn.deallocate(delta)
+        return z_out
+
+    def _apply_template_host(self, z_rec, st):
+        """z_rec = z_rec + template_module(z_rec) via one host round-trip.
+
+        Calls BoltzGen's original torch/ttnn-hybrid TemplateModule unchanged
+        (see class docstring) -- unlike the other trunk sub-modules this one
+        is not resident, but it still collapses what would otherwise be a
+        separate round-trip into a single down/up pair.
+        """
+        seq_len, seq_pad = st["seq_len"], st["seq_pad"]
+        z_torch = self._to_torch(z_rec)[:, :seq_len, :seq_len, :]
+        with torch.no_grad():
+            delta = self.template_module_torch(
+                z_torch, st["feats"], st["pair_mask_unpad"], use_kernels=self.use_kernels
+            )
+        z_new = z_torch + delta
+        if seq_pad:
+            z_new = torch.nn.functional.pad(z_new, (0, 0, 0, seq_pad, 0, seq_pad))
+        z_out = self._from_torch(z_new)
+        ttnn.deallocate(z_rec)
+        return z_out
+
     def _iteration(self, s, z, st):
         """Run one recycling iteration fully on device; returns (s, z)."""
         # s = s_init + s_recycle(s_norm(s)); z = z_init + z_recycle(z_norm(z))
@@ -3074,9 +3272,16 @@ class TrunkModule(TorchWrapper):
         ttnn.deallocate(s)
         ttnn.deallocate(z)
 
+        # token distances (BoltzGen only, before templates, mirrors host):
+        # z_rec = z_rec + token_distance_module(z_rec)
+        if st["has_token_distance"]:
+            z_rec = self._apply_token_distance(z_rec, st)
+
         # templates (before MSA, mirrors host): z_rec = z_rec + template_module(z_rec)
         if st["has_templates"]:
             z_rec = self._apply_template(z_rec, st)
+        elif self.template_module_torch is not None:
+            z_rec = self._apply_template_host(z_rec, st)
 
         # z = z + msa(z). The inner MSA mutates its z argument in place, so clone
         # z_rec first to preserve it for the residual add (matches the wrapper,
@@ -3099,8 +3304,9 @@ class TrunkModule(TorchWrapper):
         s, z = self.pairformer(s_rec, z, st["pf_mask_tt"], st["pf_attn_tt"], st["pf_attn_tt"])
         return s, z
 
-    def forward(self, s_inputs, s_init, z_init, feats, recycling_steps):
-        st = self._build_static(s_inputs, s_init, z_init, feats)
+    def forward(self, s_inputs, s_init, z_init, feats, recycling_steps,
+                relative_position_encoding=None):
+        st = self._build_static(s_inputs, s_init, z_init, feats, relative_position_encoding)
         seq_len = st["seq_len"]
 
         s = self._from_torch(torch.zeros(list(st["s_init_tt"].shape), dtype=s_init.dtype))

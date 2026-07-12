@@ -11,10 +11,20 @@ base features:
   atom-level (CCD residue templates; see protein_atom_features):
     ref_pos, ref_space_uid, ref_charge, ref_element, ref_atom_name_chars, ref_mask,
     atom_to_token_idx
+  template-level (dummy_template_features -- always emitted, see below):
+    template_aatype, template_distogram, template_pseudo_beta_mask, template_unit_vector,
+    template_backbone_frame_mask
 
-Offline = single protein chain, no external MSA/template (msa = the query row; profile =
-restype; deletions = 0; templates empty), matching the reference's use_msa/use_template=False
-inference path. restype uses the standard AF order (A R N D C Q E G H I L K M F P S T W Y V).
+Offline = single protein chain, no external MSA (msa = the query row; profile = restype;
+deletions = 0), matching the reference's use_msa=False inference path. restype uses the
+standard AF order (A R N D C Q E G H I L K M F P S T W Y V).
+
+Templates are NOT conditional on --use_template: upstream's model config runs the template
+embedder unconditionally (protenix-v2 sets template_embedder.n_blocks=2), so even the
+use_template=False path pads to max_templates=4 dummy slots whose aatype one-hot (gap for
+slot 0, ALA for the zero-padded slots 1-3) is real trunk input every recycling cycle --
+see dummy_template_features for the exact reproduction of TemplateFeatureAssemblyLine's
+always-on padding.
 """
 
 from __future__ import annotations
@@ -71,6 +81,35 @@ def load_ref_conformers() -> dict:
 
 
 MSA_GAP_IDX = RESTYPE_DIM - 1  # protenix MSA vocab: gap '-' is the last class (31)
+
+
+def dummy_template_features(n_token: int, max_templates: int = 4) -> dict:
+    """Reproduce upstream's TemplateFeatureAssemblyLine(max_templates=4) output for the
+    use_template=False path (zero real templates found for every chain).
+
+    protenix-v2's config sets template_embedder.n_blocks=2 unconditionally
+    (configs/configs_model_type.py), so the reference's template embedder always runs, even
+    with no real templates -- TemplateFeatures.empty_template_features fills slot 0's aatype
+    with the gap token (STD_RESIDUES_WITH_GAP["-"] == MSA_GAP_IDX == 31) over zero atom
+    positions/mask; the assembly line's np.pad (default fill 0) then zero-pads the remaining
+    max_templates-1 slots' aatype to index 0 (ALA). All-zero atom mask makes every
+    position-derived feature (distogram, pseudo-beta mask, unit vector, backbone-frame mask)
+    exactly zero for every slot, regardless of the aatype fill -- verified against protenix's
+    TemplateFeatures.dgram_from_positions / compute_template_unit_vector: the unit-vector
+    division-by-(norm+epsilon) path degenerates cleanly to 0 for all-zero positions (no NaN).
+    So template_aatype's one-hot (gap vs ALA) is the entire template-embedder signal under
+    use_template=False, and is independent of chain boundaries (concatenating per-chain
+    empty/padded features is elementwise identical to filling directly over n_token).
+    """
+    aatype = torch.zeros(max_templates, n_token, dtype=torch.long)
+    aatype[0] = MSA_GAP_IDX
+    return {
+        "template_aatype": aatype,
+        "template_distogram": torch.zeros(max_templates, n_token, n_token, 39),
+        "template_pseudo_beta_mask": torch.zeros(max_templates, n_token, n_token),
+        "template_unit_vector": torch.zeros(max_templates, n_token, n_token, 3),
+        "template_backbone_frame_mask": torch.zeros(max_templates, n_token, n_token),
+    }
 
 
 def _msa_token(c: str) -> int:
@@ -289,6 +328,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # concat atom features across chains (atom_to_token_idx / ref_space_uid already offset)
     for k in atom_feats[0]:
         feats[k] = torch.cat([af[k] for af in atom_feats], 0)
+    feats.update(dummy_template_features(N_tot))
     return feats
 
 

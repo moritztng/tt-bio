@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Standing accuracy release gate — the on-hardware accuracy leg of RELEASING.md.
 
-For every shipped structure model (Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2)
-this folds one easy, foldable target end-to-end on the real device with production
+For every shipped fold model (Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2) this
+folds one easy, foldable target end-to-end on the real device with production
 sampling and then applies two independent gates to the result:
 
   1. PARSE   — the written mmCIF must load under a strict ``Bio.PDB.MMCIFParser``.
@@ -18,14 +18,27 @@ Self-consistency (seed-vs-reference RMSD) is NOT sufficient — it passes even w
 fold is wrong (see docs/protenix-accuracy-investigation.md). A tag must clear a real
 ground-truth floor for every model.
 
-    # gate all four models on card 1
+BoltzGen is a *design* model, not a fold model — there is no ground truth to fold
+against, so it is gated separately from the four above. Its correctness bar is
+designability (self-consistency RMSD, scRMSD): refold each design's sequence in
+isolation with Boltz-2 and check the shape reproduces. This is the exact
+``scripts/boltzgen_designability.py`` method already validated on this hardware
+(docs/boltzgen-designability.md, docs/boltzgen-resident-trunk.md's n=8 parity pass)
+— reused here, not re-derived. At n=4 (production 500-step sampling) a full
+design+refold+analysis run measured ~4.5 min on Blackhole, comparable to a fold
+model's leg, so it runs by default alongside the other four rather than standalone
+(supersedes docs/boltzgen-designability.md's earlier "keep it out of the fast gate"
+call, which assumed a much slower per-design cost).
+
+    # gate everything (four fold models + BoltzGen designability) on card 1
     TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> \
         python scripts/release_gate.py
-    # one model
+    # one leg
     python scripts/release_gate.py --model protenix-v2
+    python scripts/release_gate.py --model boltzgen
 
-Exit code 0 iff every requested model PASSES both gates; 1 otherwise. Runs on the
-device serially (one card context per predict); no CPU shortcut for the fold.
+Exit code 0 iff every requested model PASSES its gate; 1 otherwise. Runs on the
+device serially (one card context per run); no CPU shortcut for the fold/design.
 """
 
 import argparse
@@ -65,6 +78,20 @@ MODELS = {
     "protenix-v2":   {"max_rmsd": 6.0, "min_tm": 0.50},
 }
 
+# BoltzGen designability leg — see module docstring. Small n and the target the
+# README already documents for `tt-bio gen run`; kept fast enough for a release gate
+# while still statistically meaningful (docs/boltzgen-designability.md's n=4 run on
+# this exact target/protocol measured 1.00 A median / 75% <=2A; a fresh n=4
+# reproduction on 2026-07-10 main HEAD measured 0.85 A median / 100% <=2A in 271s).
+# Strict 2 A bar (BoltzGen's own designable threshold) with a generous 50% pass-rate
+# floor — same "catch a gross failure, not a tight target" philosophy as the MODELS
+# floors above: one bad seed out of four should not fail the gate, all four should.
+BOLTZGEN_SPEC = REPO_ROOT / "examples" / "binder.yaml"
+BOLTZGEN_PROTOCOL = "protein-anything"
+BOLTZGEN_NUM_DESIGNS = 4
+BOLTZGEN_SC_THRESHOLD = 2.0
+BOLTZGEN_MIN_PASS_RATE = 0.5
+
 
 def _load_structure_harness():
     """Import tests/test_structure.py by path (tests/ is not an installed package)."""
@@ -75,12 +102,22 @@ def _load_structure_harness():
     return mod
 
 
+def _load_designability_harness():
+    """Import scripts/boltzgen_designability.py by path — reuse its _run_gen/score,
+    do not re-derive the design-pipeline invocation or the scRMSD harvest."""
+    path = REPO_ROOT / "scripts" / "boltzgen_designability.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_boltzgen_designability", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _results_cifs() -> list[Path]:
     d = REPO_ROOT / f"boltz_results_{NAME}" / "structures"
     return sorted(d.glob(f"{NAME}*.cif")) if d.exists() else []
 
 
-def _parse_gate(cifs: list[Path]) -> None:
+def _parse_gate(cifs: list[Path], name: str = NAME) -> None:
     """Strict Bio.PDB.MMCIFParser parse of every written sample. Raises on a bad file."""
     from Bio.PDB import MMCIFParser
     from Bio.PDB.PDBExceptions import PDBConstructionWarning
@@ -90,7 +127,7 @@ def _parse_gate(cifs: list[Path]) -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error", PDBConstructionWarning)  # promote writer sloppiness to a failure
         for cif in cifs:
-            structure = MMCIFParser(QUIET=True).get_structure(NAME, str(cif))
+            structure = MMCIFParser(QUIET=True).get_structure(name, str(cif))
             n_atoms = sum(1 for _ in structure.get_atoms())
             if n_atoms == 0:
                 raise ValueError(f"{cif.name}: parsed but contains 0 atoms")
@@ -148,38 +185,105 @@ def run_model(model: str, harness, keep: bool) -> dict:
     return row
 
 
+def run_boltzgen(bg, keep: bool) -> dict:
+    """Design, parse, and designability-score BoltzGen. Returns a result row."""
+    out = REPO_ROOT / "boltzgen_gate_binder"
+    if out.exists():
+        shutil.rmtree(out)  # never score a stale run if this gen crashes
+
+    print(f"\n{'='*70}\n[boltzgen] designing {BOLTZGEN_SPEC.name} "
+          f"({BOLTZGEN_NUM_DESIGNS} designs, {BOLTZGEN_PROTOCOL})\n{'='*70}", flush=True)
+
+    row = {"model": "boltzgen", "seconds": None, "scrmsd_median": None,
+           "pass_rate": None, "parse": False, "gate": False, "error": None}
+    t0 = time.monotonic()
+    try:
+        bg._run_gen(BOLTZGEN_SPEC, out, BOLTZGEN_NUM_DESIGNS, BOLTZGEN_PROTOCOL,
+                    devices=1, budget=BOLTZGEN_NUM_DESIGNS, reuse=False)
+    except SystemExit as e:
+        row["error"] = str(e)
+        return row
+    row["seconds"] = time.monotonic() - t0
+
+    cifs = sorted(out.rglob("*.cif"))
+    try:
+        _parse_gate(cifs, name="boltzgen")
+        row["parse"] = True
+    except Exception as e:
+        row["error"] = f"CIF parse failed: {e}"
+        return row
+
+    # scRMSD self-consistency (harness reads out/aggregate_metrics_*.csv, the
+    # isolated-refold column the shipping design_folding step already wrote).
+    try:
+        res = bg.score(out, sc_threshold=BOLTZGEN_SC_THRESHOLD)
+    except SystemExit as e:
+        row["error"] = f"designability scoring failed: {e}"
+        return row
+    row["scrmsd_median"], row["pass_rate"] = res["median"], res["pass_threshold"]
+    row["gate"] = res["pass_threshold"] >= BOLTZGEN_MIN_PASS_RATE
+
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+    return row
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", choices=list(MODELS), action="append",
-                    help="Gate only this model (repeatable). Default: all four.")
-    ap.add_argument("--keep", action="store_true", help="Keep boltz_results_ output dirs for inspection.")
+    ap.add_argument("--model", choices=list(MODELS) + ["boltzgen"], action="append",
+                    help="Gate only this model (repeatable). Default: all five "
+                         "(the four fold models + boltzgen).")
+    ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     args = ap.parse_args()
 
-    if not DATA.exists():
-        sys.exit(f"missing gate target {DATA}")
-    if not GROUND_TRUTH.exists():
-        sys.exit(f"missing ground truth {GROUND_TRUTH}")
-    harness = _load_structure_harness()
+    models = args.model or list(MODELS) + ["boltzgen"]
+    fold_models = [m for m in models if m in MODELS]
+    want_boltzgen = "boltzgen" in models
 
-    models = args.model or list(MODELS)
-    rows = [run_model(m, harness, args.keep) for m in models]
+    rows = []
+    if fold_models:
+        if not DATA.exists():
+            sys.exit(f"missing gate target {DATA}")
+        if not GROUND_TRUTH.exists():
+            sys.exit(f"missing ground truth {GROUND_TRUTH}")
+        harness = _load_structure_harness()
+        rows = [run_model(m, harness, args.keep) for m in fold_models]
 
-    print(f"\n{'#'*78}\nRELEASE GATE — {DATA.name} ({NAME}), "
-          f"{SAMPLING_STEPS} steps / {DIFFUSION_SAMPLES} samples, seed {SEED}\n{'#'*78}")
-    print(f"{'model':<15}{'RMSD (A)':>10}{'TM':>8}{'floor':>16}{'wall':>9}  result")
     all_pass = True
-    for r in rows:
-        th = MODELS[r["model"]]
-        floor = f"<={th['max_rmsd']}/>={th['min_tm']}"
-        rmsd = f"{r['rmsd']:.3f}" if r["rmsd"] is not None else "  -  "
-        tm = f"{r['tm']:.3f}" if r["tm"] is not None else "  -  "
-        wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-        verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
-        all_pass &= r["gate"]
-        print(f"{r['model']:<15}{rmsd:>10}{tm:>8}{floor:>16}{wall:>9}  {verdict}")
-    print(f"{'#'*78}")
-    print("GATE PASS — all models cleared parse + ground-truth floor" if all_pass
-          else "GATE FAIL — a model missed parse or the ground-truth floor (see above)")
+    if rows:
+        print(f"\n{'#'*78}\nRELEASE GATE — {DATA.name} ({NAME}), "
+              f"{SAMPLING_STEPS} steps / {DIFFUSION_SAMPLES} samples, seed {SEED}\n{'#'*78}")
+        print(f"{'model':<15}{'RMSD (A)':>10}{'TM':>8}{'floor':>16}{'wall':>9}  result")
+        for r in rows:
+            th = MODELS[r["model"]]
+            floor = f"<={th['max_rmsd']}/>={th['min_tm']}"
+            rmsd = f"{r['rmsd']:.3f}" if r["rmsd"] is not None else "  -  "
+            tm = f"{r['tm']:.3f}" if r["tm"] is not None else "  -  "
+            wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            all_pass &= r["gate"]
+            print(f"{r['model']:<15}{rmsd:>10}{tm:>8}{floor:>16}{wall:>9}  {verdict}")
+        print(f"{'#'*78}")
+        print("GATE PASS — all models cleared parse + ground-truth floor" if all_pass
+              else "GATE FAIL — a model missed parse or the ground-truth floor (see above)")
+
+    if want_boltzgen:
+        bg = _load_designability_harness()
+        br = run_boltzgen(bg, args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {BOLTZGEN_SPEC.name} (boltzgen), "
+              f"{BOLTZGEN_NUM_DESIGNS} designs, {BOLTZGEN_PROTOCOL}\n{'#'*78}")
+        print(f"{'model':<15}{'scRMSD (A)':>12}{'pass rate':>12}{'floor':>18}{'wall':>9}  result")
+        floor = f"<={BOLTZGEN_SC_THRESHOLD}A>={BOLTZGEN_MIN_PASS_RATE*100:.0f}%"
+        scrmsd = f"{br['scrmsd_median']:.3f}" if br["scrmsd_median"] is not None else "  -  "
+        pr = f"{br['pass_rate']*100:.0f}%" if br["pass_rate"] is not None else "  -  "
+        wall = f"{br['seconds']:.0f}s" if br["seconds"] is not None else "-"
+        verdict = "PASS" if br["gate"] else f"FAIL ({br['error']})" if br["error"] else "FAIL"
+        all_pass &= br["gate"]
+        print(f"{br['model']:<15}{scrmsd:>12}{pr:>12}{floor:>18}{wall:>9}  {verdict}")
+        print(f"{'#'*78}")
+        print("GATE PASS — boltzgen designs cleared parse + designability floor" if br["gate"]
+              else "GATE FAIL — boltzgen missed parse or the designability floor (see above)")
+
     return 0 if all_pass else 1
 
 

@@ -13,20 +13,27 @@ on-device, on the exact commit to be tagged — a release is a promise to custom
    paper numbers within tolerance (PCC/RMSD) for every model (Boltz-2, ESMFold2, Protenix-v2,
    BoltzGen). **No accuracy regression** vs the previous release.
 
-   **REQUIRED — ground-truth fold gate** (`scripts/release_gate.py`): folds one easy target
-   end-to-end on the card with production sampling (200 steps / 5 samples) for **all four**
-   structure models, verifies the written mmCIF parses under a strict `Bio.PDB.MMCIFParser`
+   **REQUIRED — ground-truth fold + designability gate** (`scripts/release_gate.py`): folds one
+   easy target end-to-end on the card with production sampling (200 steps / 5 samples) for the
+   four fold models, verifies the written mmCIF parses under a strict `Bio.PDB.MMCIFParser`
    (catches writer/format regressions), and gates the confidence-selected structure against a
-   per-model ground-truth CA-RMSD / TM-score floor. **No tag ships unless it exits 0.**
+   per-model ground-truth CA-RMSD / TM-score floor. For **BoltzGen** (a design, not fold, model —
+   no ground truth to compare to) it instead runs `tt-bio gen` on `examples/binder.yaml` (n=4,
+   production 500-step sampling), parses every written mmCIF the same way, and gates on
+   designability: self-consistency RMSD (scRMSD) of each design refolded in isolation with
+   Boltz-2, reusing `scripts/boltzgen_designability.py` (see `docs/boltzgen-designability.md`).
+   **No tag ships unless it exits 0.**
    ```bash
-   TT_VISIBLE_DEVICES=<card> python scripts/release_gate.py   # all 4 models; exit 0 == all PASS
+   TT_VISIBLE_DEVICES=<card> python scripts/release_gate.py   # all 5; exit 0 == all PASS
    ```
-   Self-consistency (seed-vs-reference RMSD) is **not** sufficient — it passes even when the fold
-   is wrong. Reference floors on 7ROA (`examples/prot.yaml`), best-of-N by confidence, at the tag:
-   Boltz-2 ~1.6 Å, ESMFold2 ~2.2 Å, ESMFold2-fast ~1.7 Å (single-sequence), Protenix-v2 ~3.5 Å
-   (weak confidence head — correct topology, see `docs/protenix-accuracy-investigation.md`). The
-   floors are deliberately generous to absorb TT diffusion's seed-to-seed variance; tighten per
-   model as baselines firm up, never below what a correct fold hits.
+   Self-consistency (seed-vs-reference RMSD) is **not** sufficient for the four fold models — it
+   passes even when the fold is wrong. Reference floors on 7ROA (`examples/prot.yaml`), best-of-N
+   by confidence, at the tag: Boltz-2 ~1.6 Å, ESMFold2 ~2.2 Å, ESMFold2-fast ~1.7 Å
+   (single-sequence), Protenix-v2 ~3.5 Å (weak confidence head — correct topology, see
+   `docs/protenix-accuracy-investigation.md`). The floors are deliberately generous to absorb TT
+   diffusion's seed-to-seed variance; tighten per model as baselines firm up, never below what a
+   correct fold hits. BoltzGen's designability floor is scRMSD ≤ 2 Å (BoltzGen's own designable
+   bar) on ≥ 50% of the 4 designs — same "catch a gross failure, not a tight target" philosophy.
 2. **No OOM** — run the full supported sequence/complex-size range on the target card(s),
    single- and multi-card, to completion. No out-of-memory. Document any hard size limit in the
    release notes rather than letting a customer hit it.

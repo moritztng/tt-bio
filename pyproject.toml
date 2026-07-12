@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tt-bio"
-version = "0.2.2"
+version = "0.2.5"
 description = "Boltz-2, ESMFold2, and Protenix-v2 structure prediction, BoltzGen binder design, and ESMC protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
 readme = "README.md"
 requires-python = ">=3.10,<3.13,!=3.11.*"
@@ -46,6 +46,12 @@ dependencies = [
     # pure torch/ttnn (canonical-CCD conformers bundled as JSON, no rdkit/gemmi at runtime),
     # and weights come from the Hugging Face mirror via huggingface_hub (no clone).
     "ttnn==0.68.0",
+    # OpenFold3 host-side data pipeline is vendored under tt_bio/_vendor (see NOTICE);
+    # these are the stock PyPI runtime deps it needs for query-JSON featurization.
+    "pydantic",         # Query/settings schema (inference_query_format, dataset_config_components)
+    "pdbeccdutils",      # CCD (Chemical Component Dictionary) residue/ligand lookup
+    "func_timeout",      # bounds RDKit reference-conformer generation
+    "networkx",          # connected-components on CCD bond graphs (structure/cleanup.py)
 ]
 
 [project.optional-dependencies]
@@ -66,6 +72,7 @@ include = ["tt_bio*"]
 # ship the vendored third-party license texts inside the wheel (see NOTICE)
 "tt_bio._vendor.esm" = ["LICENSE"]
 "tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
+"tt_bio._vendor.openfold3" = ["LICENSE"]
 # ship the built ai& Bio frontend so `tt-bio serve` works without a Node build
 "tt_bio.platform" = ["static/**/*"]
 

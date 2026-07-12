@@ -5,6 +5,152 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-07-11
+
+Protenix-v2 accuracy fixes — the template embedder never ran in any real `predict` call
+(`nt` always 0), and the trunk ran at 3 recycles instead of its spec 10; fixing both closes
+a real delivered-RMSD gap that every PyPI install of 0.2.4 and earlier ships with. Also
+includes the `embed --controller` persistent-worker dispatch and ESMC-6B multicard fanout
+fix below (already hardware-gated at merge time, re-confirmed on this combined HEAD).
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.77 Å | 0.917 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 2.73 Å | 0.797 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.72 Å | 0.909 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 1.42 Å | 0.935 | ≤6.0 Å / ≥0.50 | PASS |
+
+**Protenix-v2: 3.87 Å → 1.42 Å** — the template-embedder + recycling fixes below close the
+gap to the other models; it's no longer the accuracy outlier. Boltz-2/ESMFold2/ESMFold2-fast
+unchanged within seed-to-seed noise vs 0.2.4.
+
+**BoltzGen designability** — n=4, `examples/binder.yaml`: scRMSD median 0.67 Å, 4/4 designs
+(100%) ≤2 Å — no regression vs 0.2.4's n=8 measurement (0.84 Å median, 7/8 ≤2 Å).
+
+No OOM: `examples/615.yaml` and `examples/1303.yaml` (Boltz-2 `--fast`) completed cleanly;
+the full supported range to `examples/3233.yaml` (4-chain multimer + ligand) was already
+verified OOM-free on this unchanged Boltz-2 code (`docs/boltz2-tt-vs-nvidia.md`). No perf
+regression: Boltz-2 `--fast` warm e2e at L=615 is **46.5 s**, vs the 43.4 s 0.2.4-era
+baseline — within run-to-run/environment noise on the same unchanged code path.
+
+### Fixed
+- **Protenix-v2: template embedder never ran** — `nt` (template count) was always 0 in
+  every real `predict` call, so the template-embedder pass was silently skipped
+  regardless of input. See `docs/protenix-template-embedder-fix.md`.
+- **Protenix-v2: `recycling_steps` default 3 → 10** — the trunk now runs at its spec
+  recycle count (previously reused Boltz-2/ESMFold2's default of 3); the correct
+  default once the template-embedder fix above made recycling actually informative.
+  See `docs/protenix-recycling-revisit.md`. This makes Protenix-v2 slower per-fold than
+  0.2.4 (more recycles) — expected, not a regression; see the gate wall-clock above.
+- ESMC-6B `--devices` fanout regression past 2 cards, root-caused to two independent
+  host-side bottlenecks (both fixed, verified bit-exact, end-to-end scaling now
+  monotonic to 4 cards — see `docs/esmc-multicard-scaling.md`):
+  - **Redundant weight loading**: the N data-parallel workers now share one host-tiled
+    copy of the 24 GB checkpoint via a `/dev/shm` cache (`esmc.load_esmc6b_shared` +
+    `tenstorrent.weight_cache`) instead of each independently reading+tiling it.
+    Per-worker load drops from ~10–16 s (∝N, bandwidth-contended) to ~2.2 s.
+  - **Host CPU thread-pool oversubscription**: each shard subprocess's torch/OMP/BLAS
+    pools defaulted to *all* host cores, so N co-resident shards oversubscribed the
+    host (~21 loadavg on a 16-core host at N=4). `esmc._thread_cap_env` caps them to
+    `cores // n_workers`, mirroring the existing `main._cap_worker_threads` fix for
+    the fleet worker pool.
+  - Net: esmc-6b/N=256 on qb2 goes from 0.66x@4-cards (regression) to **1.49x@4-cards**
+    (monotonic 1.00x → 1.33x → 1.43x → 1.49x). Bit-exact vs single-card
+    (`scripts/esmc6b_shared_cache_parity.py`, `scripts/esmc_multicard_parity.py`,
+    max|Δ|=0); all other models and the single-card path are unchanged.
+
+### Added
+
+- `tt-bio embed --controller URL`: dispatch to a persistent `tt-bio controller`/`worker`
+  pool instead of spawning per-call subprocesses. A worker's ESMC model stays resident
+  across calls, so the weight reload that dominates `--devices` wall-clock for
+  `esmc-6b` (see `docs/esmc-multicard-scaling.md`) becomes a one-time cost per worker
+  lifetime instead of a per-invocation tax (measured: esmc-6b N=48 50.0s cold -> 9.1s
+  warm on 1 card, 261s cold -> 13.4s warm on 2 cards; bit-exact vs single-shot). Reuses
+  the existing predict/design scheduler/lease machinery (`tt_bio/distributed.py`,
+  `tt_bio/worker.py`) — no new dispatch mechanism. `--devices` (per-call subprocess
+  fanout) is unchanged and still the right choice for one-off invocations with no
+  standing controller.
+
+### Measured
+- Re-measured `esmc-300m`/`esmc-600m` `--devices` wall-clock scaling on qb2 post
+  thread-cap fix (N=48/256/4096, see `docs/esmc-multicard-scaling.md`): the original
+  table's `esmc-600m/N=256` 3-card 0.62x cliff does not reproduce (now a 0.87x dip,
+  within run-to-run noise) — no regression for either model at any previously-fine
+  config. New finding: both models scale far more modestly on qb2 (~1.1x@4cards for
+  N=4096) than the original table's qb1 numbers (~2x), most likely because `embed
+  --devices` pays an extra per-shard mesh-topology setup cost on qb2 that `esmc-6b`'s
+  large weight load absorbs but these smaller models don't — also surfaced that
+  `embed --devices` with >1 device currently TT_FATALs out-of-the-box on qb2 unless
+  `TT_MESH_GRAPH_DESC_PATH` is set manually (the `predict` path already handles this
+  P300-board-misdetection quirk automatically; `embed`'s fanout path doesn't yet).
+  Parity re-verified bit-exact for both models.
+
+## [0.2.4] - 2026-07-10
+
+Device-resident trunk for `tt-bio gen` (BoltzGen) — no structure-model code changed for
+Boltz-2/ESMFold2/Protenix-v2 (the new `TokenDistanceRecycle`/`TrunkModule` params default to
+off/`None`, purely additive).
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.43 Å | 0.944 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 2.76 Å | 0.798 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.74 Å | 0.907 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 3.87 Å | 0.706 | ≤6.0 Å / ≥0.50 | PASS |
+
+No regression vs 0.2.3 (within TT diffusion's seed-to-seed variance band).
+
+**BoltzGen designability** — n=8 fixed-length-100 designs, `examples/binder.yaml`: scRMSD
+median 0.84 Å (resident) vs 0.91 Å (host), 7/8 designs ≤2 Å strict pass (comparable to host's
+8/8) — no regression. Wall-clock (design + refold + confidence + analysis + filtering) **697 s
+→ 479 s, ~31% faster**. See `docs/boltzgen-resident-trunk.md`.
+
+### Added
+- **BoltzGen device-resident trunk** — `TokenDistanceRecycle` (mirrors `TemplateRecycle`) keeps
+  the per-iteration token-distance injection fully on-device, collapsing 4 host↔device
+  crossings/iteration to 2 (only the template sub-module still round-trips). `Boltz.__init__`
+  takes `use_resident_trunk: bool = True`; set `false` to fall back to the original host path.
+
+### Changed
+- Promoted Protenix-v2's diffusion denoiser-unit and `AttentionPairBias(has_s=True)` ad-hoc
+  checks to proper pytest cases (test-coverage only, no functional change).
+
+## [0.2.3] - 2026-07-09
+
+Multi-card fanout parity for `predict`, a designability (scRMSD) verify script for `tt-bio gen`,
+and `tt-bio embed` input/UX polish. No structure-model code changed vs 0.2.2 (`tt_bio/boltz2.py`,
+`protenix.py`, `esmfold2.py`, `tenstorrent.py` are byte-identical) — only `esmc.py` and the CLI
+(`main.py`) changed, so the release gate below is a confirmation run, not a re-verification.
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.60 Å | 0.931 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 2.28 Å | 0.832 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.74 Å | 0.907 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 3.87 Å | 0.706 | ≤6.0 Å / ≥0.50 | PASS |
+
+Full test suite: 71 passed, 46 skipped (missing optional reference checkpoints/packages, same
+gap as prior releases), 0 failed. No OOM: `examples/615.yaml` and `examples/1303.yaml`
+(Boltz-2 `--fast`) completed cleanly; the full supported range up to `examples/3233.yaml`
+(4-chain multimer + ligand) was already verified OOM-free on this same unchanged model code
+(`docs/boltz2-tt-vs-nvidia.md`). No perf regression: Boltz-2 `--fast` warm e2e at L=615 is
+**43.4 s**, matching the 0.2.2-era baseline exactly (same code path since before 0.2.2).
+
+### Added
+- **`tt-bio predict --devices`** — alias for `--device_ids` (comma-separated card ids), matching `tt-bio embed`'s flag name; `--device_ids` still works for back-compat.
+- **BoltzGen designability (scRMSD) verify script** — `scripts/boltzgen_designability.py` harvests the self-consistency RMSD `tt-bio gen` already computes and summarizes/gates on it; see `docs/boltzgen-designability.md`.
+- **`tt-bio embed --devices` wall-clock scaling measured** (`docs/esmc-multicard-scaling.md`) — real ~2x @ 4 cards for `esmc-600m` on large batches, but flat/worse for small batches and for `esmc-6b` beyond 2 cards (concurrent weight-load contention); README softened to match. Performance-only finding, no change to the (already bit-exact) sharding correctness.
+
+### Changed
+- **`tt-bio embed` input handling** — `DATA` now also accepts a YAML `{id: sequence}` mapping or a bare sequence string (previously FASTA file/directory only), writes a `manifest.json` (model/pool/shapes/dtype + which output file holds each sequence) alongside the embeddings, and reports bad input as a one-line error instead of a raw traceback.
+
 ## [0.2.2] - 2026-07-09
 
 Turns MSA on by default for Boltz-2 / Protenix-v2 (the fix for the misleading no-MSA

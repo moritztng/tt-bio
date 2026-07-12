@@ -37,3 +37,15 @@ MIT-licensed and credited in the top-level LICENSE.
    redistributed in this repo) are from ByteDance's Protenix.
    Source:        github.com/bytedance/Protenix
    License:       Apache-2.0 — Copyright ByteDance (code and model parameters).
+
+5. tt_bio/_vendor/openfold3/ — OpenFold3 host-side data pipeline: query-JSON
+   parsing, CCD/ligand lookup, tokenization, MSA/template featurization (no
+   neural compute; the model itself is ported separately for Tenstorrent).
+   Source:        github.com/aqlaboratory/openfold-3 @ 5520bc9 (v0.4.3)
+   License:       Apache-2.0 — Copyright 2026 AlQuraishi Laboratory
+                  (tt_bio/_vendor/openfold3/LICENSE)
+   Modifications: only the query->feature-dict path is included (training,
+                  the Lightning DataModule/Dataset registry, and the PDB/S3
+                  template-cache *build* pipeline are dropped — see the
+                  tt-bio note at the top of each trimmed file); absolute
+                  `openfold3.` imports rewritten to `tt_bio._vendor.openfold3.`.
