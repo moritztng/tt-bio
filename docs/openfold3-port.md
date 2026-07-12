@@ -534,3 +534,32 @@ misreads as a dual-chip P300, blocking `ttnn.open_device` with "Custom fabric me
 descriptor path must be specified for CUSTOM cluster type"). Set in the parent process
 before importing ttnn. Device tests run as:
 `TT_VISIBLE_DEVICES=0 TT_BIO_LOGICAL_DEVICE_ID=0 TT_MESH_GRAPH_DESC_PATH=<p150.textproto> PYTHONPATH=<worktree> <env>/python -m pytest tests/test_openfold3_*.py -x -s`
+
+## P6 tick 9 -- InputEmbedder atom-featurization leg PCC-gated on device (cl/plm = 1.00000/0.99999)
+
+Landed the second device component of the `OpenFold3.fold()` assembly: the
+`RefAtomFeatureEmbedder` (reference-conformer atom featurization) in `tt_bio/openfold3.py`,
+reusing the shared `tenstorrent.Module`/`_lin`. Two legs:
+
+- **Single leg -> `cl`** [N_atom, c_atom=128]: five weight-only linears over per-atom
+  reference features (`linear_ref_pos` 3->128, `linear_ref_charge` arcsinh 1->128,
+  `linear_ref_mask` 1->128, `linear_ref_element` 119->128, `linear_ref_atom_chars`
+  256->128) summed on device.
+- **Pair leg -> `plm`** [N_blk, N_q, N_k, c_atom_pair=16]: three weight-only linears over
+  the precomputed block inputs (`linear_ref_offset` 3->16, `linear_inv_sq_dists` 1->16,
+  `linear_valid_mask` 1->16), each gated by `vlm`: `plm = off*vlm + isd*vlm + vm*vlm`.
+
+The block construction (`convert_single_rep_to_blocks` + `get_block_indices`) is
+mask-derived gather that is non-trivial to replicate on device, so the golden now carries
+the precomputed `dlm`/`vlm`/`inv_sq_dists` (`input_embedder_ref_atom_feat_real`) and the
+device pair linears consume them directly -- isolating the device linear precision from
+the blocking logic, the same discipline as the glue's golden relpos. All eight linears are
+bias-free in the OF3 checkpoint.
+
+Gate: `tests/test_openfold3_ref_atom_feat.py` feeds golden per-atom features + block inputs
+-> device embedder -> compares `cl`, `plm` to golden. Result on qb2 card 0 (HiFi4 + fp32
+dest acc): **cl_pcc=1.00000, plm_pcc=0.99999** -- both >0.98. The atom featurization is
+byte-correct on device. The `AtomTransformer` (3-block windowed DiT, -> `ql`) and the
+atom->token aggregation (`linear_q` + mean, -> `ai`) are the next increment; gated together
+they close the InputEmbedder atom-encoder leg (`s_input = cat([ai, restype, profile,
+deletion_mean])`).

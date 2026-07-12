@@ -88,6 +88,30 @@ def main():
     print("input_embedder atom_attn_enc: ai", ai.shape, "ql", ql.shape, "cl", cl.shape,
           "plm", plm.shape, "ai std", float(ai.std()))
 
+    # RefAtomFeatureEmbedder internals -- the device atom-featurization leg is PCC-gated at
+    # sub-component granularity: the single leg (5 linears -> cl) on device, and the pair leg
+    # (3 linears on pre-computed block inputs -> plm) on device. The block conversion
+    # (convert_single_rep_to_blocks + get_block_indices) is mask-derived gather that is
+    # non-trivial to replicate on device, so we capture its outputs (dlm, vlm, inv_sq_dists)
+    # here and feed them to the device pair linears, isolating the device linear precision
+    # from the blocking logic (same discipline as the glue's golden relpos).
+    from openfold3.core.utils.atom_attention_block_utils import convert_single_rep_to_blocks
+    rafe = ie.atom_attn_enc.ref_atom_feature_embedder
+    nq, nk = ie.atom_attn_enc.n_query, ie.atom_attn_enc.n_key
+    with torch.no_grad():
+        d_l, d_m, atom_mask_b = convert_single_rep_to_blocks(
+            ql=batch["ref_pos"], n_query=nq, n_key=nk, atom_mask=batch["atom_mask"])
+        v_l, v_m, _ = convert_single_rep_to_blocks(
+            ql=batch["ref_space_uid"].unsqueeze(-1), n_query=nq, n_key=nk,
+            atom_mask=batch["atom_mask"])
+        dlm = (d_l.unsqueeze(-2) - d_m.unsqueeze(-3)) * atom_mask_b.unsqueeze(-1)
+        vlm = ((v_l.unsqueeze(-2) == v_m.unsqueeze(-3)).to(dtype=dlm.dtype)
+               * atom_mask_b.unsqueeze(-1))
+        inv_sq_dists = 1.0 / (1.0 + torch.sum(dlm ** 2, dim=-1, keepdim=True))
+        cl_ref, plm_ref = rafe(batch=batch, n_query=nq, n_key=nk)
+    print("ref_atom_feat: cl", cl_ref.shape, "plm", plm_ref.shape,
+          "dlm", dlm.shape, "vlm", vlm.shape, "inv_sq_dists", inv_sq_dists.shape)
+
     # Reference relpos (relpos_complex) -- the exact 139-dim relative-position feature the
     # glue linear_relpos consumes. Captured so the device InputEmbedder glue can be PCC-gated
     # vs the exact reference (not a re-computation). Verified identical to Protenix._generate_relp
@@ -113,6 +137,13 @@ def main():
     inter["input_embedder_atom_enc_real"] = {
         "in": {k: v[0].clone() for k, v in batch.items()},
         "out": (ai[0].clone(), ql[0].clone(), cl[0].clone(), plm[0].clone()),
+    }
+    inter["input_embedder_ref_atom_feat_real"] = {
+        "in": {k: v[0].clone() for k, v in batch.items()
+               if k in ("ref_pos", "ref_mask", "ref_element", "ref_charge",
+                        "ref_atom_name_chars", "atom_mask")},
+        "out": (cl_ref[0].clone(), plm_ref[0].clone()),
+        "dlm": dlm[0].clone(), "vlm": vlm[0].clone(), "inv_sq_dists": inv_sq_dists[0].clone(),
     }
 
     PF = dict(C.architecture.pairformer)
