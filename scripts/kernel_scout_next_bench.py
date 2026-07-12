@@ -47,9 +47,18 @@ def main() -> None:
     parser.add_argument("--swiglu-ab", action="store_true")
     parser.add_argument("--precision-diag", action="store_true")
     parser.add_argument("--fc2-profile", action="store_true")
+    parser.add_argument("--fast", action="store_true",
+                        help="Enable tt-bio --fast (block-fp8 trunk) before building the "
+                             "trunk, so weight loads and matmul output follow _dtype().")
+    parser.add_argument("--skip-sync-profile", action="store_true",
+                        help="Skip the per-component synchronize_device profile (expensive "
+                             "at large N); baseline_s (host-enqueue trunk wall-clock) still measured.")
     args = parser.parse_args()
     torch.set_grad_enabled(False)
     torch.manual_seed(20260711)
+
+    from tt_bio import tenstorrent as _TT
+    _TT.set_fast_mode(args.fast)
 
     from tt_bio import esmfold2 as E
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
@@ -291,7 +300,9 @@ def main() -> None:
         gc.collect()
         base_s, base, _, _ = execute(z)
         host_s, host, host_parts, calls = execute(z, "host")
-        sync_s, sync, sync_parts, _ = execute(z, "sync")
+        sync_s, sync, sync_parts, _ = (None, None, {}, None)
+        if not args.skip_sync_profile:
+            sync_s, sync, sync_parts, _ = execute(z, "sync")
         fc2_record = {}
         fc2_profile = None
         if args.fc2_profile:
@@ -327,12 +338,14 @@ def main() -> None:
             "sync_component_s": sync_parts,
             "calls": calls,
             "host_parity": _compare(base, host),
-            "sync_parity": _compare(base, sync),
+            "sync_parity": _compare(base, sync) if sync is not None else None,
             **fc2_record,
             **fused_record,
         }
         print(json.dumps(record, sort_keys=True), flush=True)
-        del z, base, host, sync
+        del z, base, host
+        if sync is not None:
+            del sync
         if fused is not None:
             del fused
         if fc2_profile is not None:

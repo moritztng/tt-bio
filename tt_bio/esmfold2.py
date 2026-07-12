@@ -31,6 +31,7 @@ from tt_bio.tenstorrent import (
     TriangleMultiplication,
     Weights,
     WeightScope,
+    _dtype,
     _sdpa_program_config_for_lengths,
 )
 
@@ -133,11 +134,17 @@ class PairUpdateBlock(Module):
         super().__init__(state_dict, compute_kernel_config)
         sd = self.weights.as_dict()
         # tri_mul_out = outgoing (ending=False); tri_mul_in = incoming (ending=True).
+        # weight_dtype=_dtype() drops the tri_mul matmul weights to block-fp8 under
+        # --fast (bf16 otherwise), matching the pair-transition SwiGLUFFN and the
+        # Boltz-2/Protenix attention/FFN precedent — a weight-storage change only;
+        # activations and matmul accumulation stay exactly as today.
         self.tri_out = TriangleMultiplication(
-            False, _remap_trimul(sd, "tri_mul_out._engine"), compute_kernel_config
+            False, _remap_trimul(sd, "tri_mul_out._engine"), compute_kernel_config,
+            weight_dtype=_dtype(),
         )
         self.tri_in = TriangleMultiplication(
-            True, _remap_trimul(sd, "tri_mul_in._engine"), compute_kernel_config
+            True, _remap_trimul(sd, "tri_mul_in._engine"), compute_kernel_config,
+            weight_dtype=_dtype(),
         )
         self.transition = SwiGLUFFN(
             _remap_transition(sd), compute_kernel_config, fuse_swiglu=True
