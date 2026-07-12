@@ -481,3 +481,56 @@ vendoring bug — every deterministic feature is bit-exact.
 assembly step can treat it as a drop-in `input_feature_dict`. `pyproject.toml` needs
 the 4 new deps installed (`pip install -e .` after merge) before the shared dev env
 picks them up.
+
+## P6 tick 8 -- InputEmbedder glue leg PCC-gated on device (s/z = 1.00000)
+
+Landed the first device component of the OpenFold3.fold() assembly: the
+InputEmbedderAllAtom *glue* leg (s_input -> s, z) in tt_bio/openfold3.py as
+InputEmbedderGlue, reusing the shared tenstorrent.Module base + _lin. The five
+weight-only linears (linear_s 449->384, linear_z_i/linear_z_j 449->128,
+linear_relpos 139->128, linear_token_bonds 1->128) plus the outer-sum
+z[i,j] = z_i[i] + z_j[j] + relpos_emb + token_bonds_emb. The outer sum runs on device
+via two single-dim broadcast adds (zero-seeded, same path as protenix's pair-bias add).
+
+Golden: extended scripts/of3_real_golden.py to capture the reference relpos
+(OF3 relpos_complex, 139-dim) into input_embedder_real so the device glue is gated
+against the *exact* reference relpos, not a re-computation. (OF3 relpos_complex is
+verified identical to Protenix._generate_relp -- same 139-dim logic, r_max=32, s_max=2.)
+
+Gate: tests/test_openfold3_input_embedder.py feeds golden s_input + relpos +
+token_bonds -> device glue -> compares s, z to golden. Result on qb2 card 0
+(HiFi4 + fp32 dest acc): **s_pcc=1.00000, z_pcc=1.00000** -- both >0.98. The glue linears +
+outer-sum z are byte-correct on device. The atom-encoder -> s_input leg (gated vs
+input_embedder_atom_enc_real) is the next increment.
+
+qb2 device note: opening a single P150 chip requires TT_MESH_GRAPH_DESC_PATH to point
+at ttnn's p150_mesh_graph_descriptor.textproto (known qb2 firmware quirk -- the board
+misreads as a dual-chip P300, blocking ttnn.open_device with Custom fabric mesh graph
+
+## P6 tick 8 -- InputEmbedder glue leg PCC-gated on device (s/z = 1.00000)
+
+Landed the first device component of the `OpenFold3.fold()` assembly: the
+`InputEmbedderAllAtom` *glue* leg (`s_input -> s, z`) in `tt_bio/openfold3.py` as
+`InputEmbedderGlue`, reusing the shared `tenstorrent.Module` base + `_lin`. The five
+weight-only linears (`linear_s` 449->384, `linear_z_i`/`linear_z_j` 449->128,
+`linear_relpos` 139->128, `linear_token_bonds` 1->128) plus the outer-sum
+`z[i,j] = z_i[i] + z_j[j] + relpos_emb + token_bonds_emb`. The outer sum runs on device
+via two single-dim broadcast adds (zero-seeded, same path as protenix's pair-bias add).
+
+Golden: extended `scripts/of3_real_golden.py` to capture the reference `relpos`
+(OF3 `relpos_complex`, 139-dim) into `input_embedder_real` so the device glue is gated
+against the *exact* reference relpos, not a re-computation. (OF3 `relpos_complex` is
+verified identical to `Protenix._generate_relp` -- same 139-dim logic, r_max=32, s_max=2.)
+
+Gate: `tests/test_openfold3_input_embedder.py` feeds golden `s_input` + `relpos` +
+`token_bonds` -> device glue -> compares `s`, `z` to golden. Result on qb2 card 0
+(HiFi4 + fp32 dest acc): **s_pcc=1.00000, z_pcc=1.00000** -- both >0.98. The glue linears +
+outer-sum z are byte-correct on device. The atom-encoder -> `s_input` leg (gated vs
+`input_embedder_atom_enc_real`) is the next increment.
+
+qb2 device note: opening a single P150 chip requires `TT_MESH_GRAPH_DESC_PATH` to point
+at ttnn's `p150_mesh_graph_descriptor.textproto` (known qb2 firmware quirk -- the board
+misreads as a dual-chip P300, blocking `ttnn.open_device` with "Custom fabric mesh graph
+descriptor path must be specified for CUSTOM cluster type"). Set in the parent process
+before importing ttnn. Device tests run as:
+`TT_VISIBLE_DEVICES=0 TT_BIO_LOGICAL_DEVICE_ID=0 TT_MESH_GRAPH_DESC_PATH=<p150.textproto> PYTHONPATH=<worktree> <env>/python -m pytest tests/test_openfold3_*.py -x -s`

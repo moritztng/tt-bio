@@ -88,6 +88,15 @@ def main():
     print("input_embedder atom_attn_enc: ai", ai.shape, "ql", ql.shape, "cl", cl.shape,
           "plm", plm.shape, "ai std", float(ai.std()))
 
+    # Reference relpos (relpos_complex) -- the exact 139-dim relative-position feature the
+    # glue linear_relpos consumes. Captured so the device InputEmbedder glue can be PCC-gated
+    # vs the exact reference (not a re-computation). Verified identical to Protenix._generate_relp
+    # (same 139-dim logic, r_max=32, s_max=2).
+    from openfold3.core.utils.relpos import relpos_complex
+    relpos = relpos_complex(batch=batch, max_relative_idx=ie.max_relative_idx,
+                            max_relative_chain=ie.max_relative_chain)
+    print("relpos:", relpos.shape, "std", float(relpos.std()))
+
     me = MSAModuleEmbedder(**C.architecture.msa.msa_module_embedder).eval()
     me.load_state_dict(sub(sd, "msa_module_embedder"), strict=True)
     with torch.no_grad():
@@ -99,6 +108,7 @@ def main():
         "in": {k: v[0].clone() for k, v in batch.items()},
         "out": (s_input[0].clone(), s_init[0].clone(), z_init[0].clone()),
         "msa_out": (m[0].clone(), msa_mask[0].clone()),
+        "relpos": relpos[0].clone(),
     }
     inter["input_embedder_atom_enc_real"] = {
         "in": {k: v[0].clone() for k, v in batch.items()},
