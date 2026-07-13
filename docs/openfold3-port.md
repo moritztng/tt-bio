@@ -1054,7 +1054,6 @@ and PCC-gate ``xl_out`` vs a full-module golden; (b) ``SampleDiffusion``/EDM sam
 ``OpenFold3.fold()`` end-to-end, then run ``examples/prot.yaml`` for a real
 vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate for the whole port.
 
-
 ## P9 tick 17 -- Full ``DiffusionModule.forward`` -> ``xl_out`` PCC-gated on device (xl_out = 0.99746)
 
 Assembled the full post-conditioning ``DiffusionModule`` (AF3 Algorithm 20) on device
@@ -1215,3 +1214,80 @@ scope above. The reduced-rollout sampler gate is the natural sub-leg proof that 
 composes on device; the trunk assembly (the hard part, blocked by the Pairformer z-track
 device-precision gap whose acceptance is the end-to-end RMSD) and the full
 no_full_rollout_steps=200 rollout remain.
+
+## P8 tick 17 -- OF3 MSA pair_stack device-precision gap root-caused (bf16 ill-conditioning, NOT the softmax lever)
+
+Investigated the still-open OF3 MSA device-precision gap (``test_of3_msa_block0_on_device``
+z_pcc=0.708 vs the CPU fp32-vs-bf16 control's 0.9998) and ruled out the leading
+hypothesis. The P8 tick 14 DiffusionTransformer fix found fused-SDPA bf16 softmax as the
+compounding lever there; the natural question was whether the same mechanism explains
+this gap, since the MSA pair_stack reuses the shared ``TriangleAttention``. It does not.
+The gap is ill-conditioning of the OF3 pair_stack at this checkpoint's activation
+magnitude, not a fixable bug in the shared primitive. The shared ``TriangleAttention``
+fused-SDPA path is kept as-is (it is the best available bf16 attention here); the test
+stays ``xfail(strict=False)`` with the root cause on record in its docstring.
+
+**Bisect discipline** (scripts below, all on the real of3-p2-155k.pt ubiquitin block-0):
+isolate each primitive's OWN error by feeding it the CPU fp32 golden input and measuring
+the UPDATE PCC (not the residual-added output -- ``z = z + update`` with a large common
+``z`` inflates ``pcc(z_dev, z_fp32)`` to ~0.9994 even for a wrong update, so the update
+itself must be compared).
+
+  - **Per-sub-op update PCC (device, clean fp32 input):** tri_mul_out 0.99997,
+    tri_mul_in 0.99998, tri_att_start 0.99056, tri_att_end 0.99476, pair_transition
+    0.99999. So tri_mul and pair_transition are essentially perfect; the seed error is in
+    tri_att (~0.99). pair_transition is NOT the lever -- its 13x magnitude jump
+    (z std 21 -> 270 in one call) only AMPLIFIES upstream tri_att error.
+  - **OPM is perfect:** device OPM z pcc = 1.00000 vs fp32 (std 18.179 vs 18.173).
+  - **The lever is NOT the softmax precision.** A manual fp32-softmax TriangleAttention
+    (matmul QK^T + scale + bias, fp32 numeric-stable softmax, matmul attn@V -- the exact
+    P8 tick 14 recipe) is strictly WORSE than the fused SDPA: tri_att_start update PCC
+    0.84342 manual vs 0.99056 fused, tri_att_end 0.76428 manual vs 0.99476 fused. The
+    fused SDPA's fused score computation is more precise than the decomposed matmul, and
+    the reference's own softmax is already bf16 (``softmax_no_cast`` -- no fp32 upcast),
+    so bf16 softmax is not the device-specific lever. (Also ruled out: a triangle-bias
+    over-weighting bug -- the device pre-scales ``linear_z`` by ``sqrt(head_dim)`` and
+    ttnn SDPA adds the additive mask before scaling, so the effective bias is the correct
+    unscaled one; the over-weighted variant scores 0.844, the device scores 0.991.)
+  - **The dominant effect is ill-conditioning, not the 0.99 seed.** The OF3 pair_stack
+    runs an extremely peaky softmax (attention scores std ~23 at this checkpoint's
+    magnitude) followed by the 13x pair_transition amplifier, so the block's z output is
+    hypersensitive to the bf16 rounding PATTERN of the OPM z_in. Tracing z std + PCC
+    after each pair_stack sub-op for two z_in sources:
+    - device-OPM z_in (pcc=1.00000 to fp32, std 18.179): tri_mul 18.22/0.9999, tri_mul_in
+      18.06/0.9999, tri_att_start **23.22/0.8739** (std +23%, the divergence starts here),
+      tri_att_end 24.19/0.7437, pair_transition **610.84/0.7082**.
+    - fp32-OPM z cast to bf16 (std 18.173, the SAME device pair_stack): tri_att_start
+      18.78/0.9793, pair_transition 295.59/0.9201.
+    A pcc-1.0 input perturbation swings the output std 296 vs 611 (2x) and the final
+    z_pcc 0.921 vs 0.708. The tri_att start update is 2.6x over-amplified (std 14.6 vs
+    fp32 5.6) under the device-OPM z_in because the peaky softmax's argmax shifts under a
+    rounding-pattern perturbation of the scores.
+  - **Full fp32 attention does NOT fix it** (the decisive negative): fp32 qkv + fp32
+    scores + fp32 softmax + fp32 attn@V on device-OPM z_in scores tri_att_start update
+    PCC 0.71995 (WORSE than bf16 fused 0.874 -- the more-precise attention faithfully
+    amplifies the tipped softmax peak rather than damping it), while the same fp32
+    attention on the clean fp32-cast-bf16 z_in scores 0.99990. So attention precision is
+    not the lever; the z_in rounding pattern is. The only thing that stabilizes the
+    block is fp32 compute through the z-path (OPM so the z_in matches the
+    fp32-then-round pattern, plus tri_att to close the residual 0.921-vs-0.9998 gap), a
+    perf-regressing, release-gated change.
+
+**Verdict:** same intrinsic-bf16-ill-conditioning limit class as the pairformer stack
+(P8 tick 11) -- not a fixable bug in the shared ``TriangleAttention``/``PairformerLayer``
+primitives, which remain on the fused-SDPA path (best available bf16 attention, and the
+path every other consumer is gated on). No shared-primitive change landed. The bisect
+scripts + this writeup are the deliverable so the next pass picks up from the
+root cause instead of re-deriving it; the candidate fp32-z-path fix is identified but
+not landed (release-gated perf regression).
+
+Scripts: ``scripts/of3_msa_pair_stack_subop_golden.py`` (CPU fp32+bf16 per-sub-op
+goldens within the pair_stack), ``of3_msa_pair_stack_subop_device.py`` (device
+cumulative per-sub-op PCC), ``of3_msa_pair_stack_subop_update.py`` (clean update-PCC
+isolation -- the metric that exposed tri_att as the seed and pair_transition as a clean
+amplifier), ``of3_msa_pair_stack_trajectory.py`` (device-OPM vs clean z_in trajectory --
+localizes the ill-conditioning to tri_att start), ``of3_msa_block_full_device.py``
+(replicates the xfail test, splits OPM-vs-pair_stack), ``of3_triatt_bias_scale_test.py``
+(rules out the bias-over-weighting bug), ``of3_triatt_fp32_attention_test.py`` (the
+decisive negative on the softmax/attention-precision lever). Goldens:
+``~/of3_msa_pair_stack_subops.pkl``.
