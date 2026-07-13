@@ -747,7 +747,7 @@ reference masks, isolating the device linear precision from the mask logic (same
 discipline as the RefAtomFeatureEmbedder ``dlm``/``vlm``/``inv_sq_dists`` and the
 InputEmbedder glue's ``relpos``).
 
-**Leg 2 (xfail): TemplatePairStack.** Two AF2 PairBlocks (tri_mul_out/in +
+**Leg 2: TemplatePairStack.** Two AF2 PairBlocks (tri_mul_out/in +
 tri_att_start/end + swiglu ``pair_transition``, ``tri_mul_first=True``) + a final affine
 stack ``layer_norm``. Structurally identical to the MSA module's ``pair_stack`` subtree,
 so it reuses ``PairformerLayer(transform_s=False)`` via a new
@@ -755,8 +755,8 @@ so it reuses ``PairformerLayer(transform_s=False)`` via a new
 returns the per-block primitive dicts plus the stack final-LN weights). Templates do not
 interact, so the stack runs per-template (the reference's per-template loop is
 mathematically identical to a batched pass, but the device ``TriangleAttention`` reshape
-assumes a singleton batch dim, so the loop is kept). Two compounding device limitations
-make this leg documented-xfail:
+assumes a singleton batch dim, so the loop is kept). Originally documented-xfail on two
+compounding device limitations; both are now resolved/clarified in tick 13:
 
   1. The same primitive set is already documented-xfail for the MSA pair_stack at c=128
      (``tests/test_openfold3_msa.py``: z_pcc~0.75 on a pure device run vs 0.9998 for a
@@ -775,8 +775,8 @@ make this leg documented-xfail:
      head_dim=32 -- out of scope for this leg and a release-gated risk to the already-
      validated ports. Flagged for a dedicated device-numerics/kernel pass.
 
-**Leg 3 (xfail): full TemplateEmbedderAllAtom.** ``linear_t(relu(mean_t(t_stack)))``
-[1, N, N, c_z=128]. Inherits leg 2's pair-stack limitation; documented-xfail.
+**Leg 3: full TemplateEmbedderAllAtom.** ``linear_t(relu(mean_t(t_stack)))``
+[1, N, N, c_z=128]. Inherits leg 2's behavior; gated (see tick 13).
 
 **Golden:** ``scripts/of3_template_embedder_golden.py`` extends ``~/of3_ref_out.pkl``
 with ``template_embedder_real`` -- the cycle-0 trunk z (the embedder input; reproduced
@@ -795,7 +795,10 @@ gated, passing); B (pair stack) and C (full embedder) documented-xfail on the de
 limitation above. Session: ``1 passed, 2 xfailed``. The feature-processing leg of the
 template embedder is byte-correct on device; the 2-block pair-stack leg is blocked by a
 device kernel limitation (sub-tile head_dim=16) on top of the known OF3 pair-stack
-precision gap, and is the next item for a device-numerics pass.
+precision gap, and is the next item for a device-numerics pass. (Resolved in tick 13:
+legs B/C now pass -- t_stack_pcc = 0.99927, z_template_pcc = 0.99995 -- after the
+shared ``TriangleAttention`` sub-tile head_dim fix; the c_t=64 template regime does not
+hit the MSA c=128 precision gap.)
 
 **Reuse note (corrects the P8 scoping hint):** the task hint suggested reusing
 "pairformer-stack blocks" for the template pair stack, but OF3's ``TemplatePairStack`` is
@@ -812,3 +815,58 @@ Pairformer + 4-block MSA + template, xN cycles -> s_trunk, z_trunk) and PCC-gate
 port (OF3 DiT block + diffusion conditioning + atom enc/dec + EDM sampler); (d) wire
 ``OpenFold3.fold()`` + EDM sampler end-to-end and run ``examples/prot.yaml`` for a real
 vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate.
+
+## P8 tick 13 -- TriangleAttention sub-tile head_dim=16 path; TemplatePairStack / TemplateEmbedderAllAtom PCC-gated on device (t_stack = 0.99927, z_template = 0.99995)
+
+Resolved the sub-tile ``head_dim=16`` shape bug in the shared ``TriangleAttention``
+primitive (``tt_bio/tenstorrent.py``) that blocked OF3's ``TemplatePairStack`` (tick 12,
+Leg 2). ``nlp_concat_heads`` pads each head's channel dim up to a 32-tile boundary, so at
+``head_dim=16`` it produces ``n_heads*32`` channels while the gate ``g`` carries
+``n_heads*head_dim`` -- the ``[76,76,128]`` vs ``[76,76,64]`` mismatch that threw
+``Invalid subtile broadcast type`` in ``gate_and_project``'s ``multiply_``. The fix
+activates only when ``head_dim % 32 != 0``: pad the qkv weight's head_dim up to 32 (zeros,
+so the real head_dim channels are unchanged), then slice the SDPA output back to
+``head_dim`` and manual head-concat (head-major, same order as ``nlp_concat_heads``) to
+yield ``[1, S, n_heads*head_dim]``. Mirrors the already-validated ``AttentionPairBias``
+sub-tile handling. The tile-aligned ``head_dim=32`` path is untouched: same qkv weight
+construction (no pad) and the original ``nlp_concat_heads`` branch, so behavior is
+byte-identical for every other consumer (MSA / Boltz-2 / Protenix).
+
+**Gate:** ``tests/test_openfold3_template.py`` -- all three sub-legs now pass on qb2 card 3
+(HiFi4 + fp32 dest acc), un-xfailed: **A t_embed_pcc = 1.00000**, **B t_stack_pcc =
+0.99927**, **C z_template_pcc = 0.99995** (each >0.98). The OF3 template regime (c_t=64,
+smaller pair magnitudes than the MSA c=128 stack) does not hit the MSA pair_stack's
+device-precision gap, so legs B/C clear the gate cleanly once the shape bug is fixed --
+the tick-12 "a fortiori" pessimism was wrong for this regime. The template pair-stack leg
+is no longer xfail.
+
+**Cross-model head_dim=32 regression (release-gated):** the change is gated on
+``head_dim % 32 != 0``, so the ``head_dim=32`` path is byte-identical by construction.
+Verified on qb2 card 3 against the existing gated tests:
+  * Boltz-2 pairformer (``tests/test_tenstorrent.py``: ``test_pairformer``,
+    ``test_template_pairformer``, ``test_affinity_pairformer``, seq_len 100 + 500): 6/6
+    passed (rel-error median <0.1, unchanged).
+  * OF3 MSA pair_stack (``tests/test_openfold3_msa.py::test_of3_msa_block0_on_device``):
+    m_pcc = 0.99999, z_pcc = 0.70847 -- identical to the pre-fix baseline to 5+ decimals
+    (the known OPEN c=128 device-precision gap is unchanged, as expected).
+  * Protenix-v2 pairformer (``tests/test_protenix_trunk_pairformer.py``): SKIPPED on qb2
+    -- the v2 reference golden ``~/protenix_ref_out.pkl`` is not present (the reference
+    leg was restarted after the qb1 outage, commit c999f22, and had not completed the
+    golden dump). The shared primitive is the same ``PairformerLayer``/
+    ``TriangleAttention`` at ``head_dim=32`` (subtile branch not taken), covered by the
+    Boltz-2 + MSA evidence above by construction. Re-running the Protenix pairformer gate
+    is a follow-up once its reference golden is rebuilt on qb2.
+
+**Release-gate flag:** this changes the shared ``TriangleAttention`` primitive used by
+every shipped model. Landed on ``wk/tt-bio-openfold3-accel-triangleattn-subtile`` for the
+orchestrator to review the Boltz-2 + MSA regression evidence above before merge (Protenix
+gate pending its reference golden). Not merged by this worker.
+
+**NEXT (P8 cont):** (a) rebuild the Protenix-v2 reference golden on qb2 and re-run
+``test_protenix_trunk_pairformer`` for the last cross-model sign-off; (b) assemble the
+full trunk forward (InputEmbedder -> 48-block Pairformer + 4-block MSA + template, xN
+cycles -> s_trunk, z_trunk) and PCC-gate vs ``pairformer_stack_real`` / a new full-trunk
+golden; (c) the DiffusionModule multi-leg port (OF3 DiT block + diffusion conditioning +
+atom enc/dec + EDM sampler); (d) wire ``OpenFold3.fold()`` + EDM sampler end-to-end and
+run ``examples/prot.yaml`` for a real vs-ground-truth Kabsch Ca-RMSD -- the actual merge
+gate.
