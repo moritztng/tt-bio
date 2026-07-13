@@ -1,0 +1,14 @@
+{
+  "seed": 0,
+  "target_id": "trpcage",
+  "harvested_from": "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s0",
+  "selected_record": {
+    "id": "trpcage",
+    "status": "ok",
+    "confidence_score": 0.09108822792768478,
+    "ptm": 0.4554411470890045,
+    "iptm": 0.0,
+    "complex_plddt": 0.9349655151367188
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

@@ -110,10 +110,22 @@ Fixtures currently committed (each verified to reproduce the R floor recorded in
 this doc, bit-for-bit, against the live device legs): Protenix-v2 `prot`
 (MSA-server, 200/5/10, bf16, seeds 0-1), OpenDDE `prot` production (no-MSA,
 10c/200s/1sample, fp32, seeds 0-2) and reduced (4c/20s, seeds 0-2), Boltz-2
-`prot` (ColabFold MSA, 200/1/3, bf16, seeds 0-1). The fixture carries the exact
+`prot` (ColabFold MSA, 200/1/3, bf16, seeds 0-1), Boltz-2 `trpcage` and `prot`
+no-MSA (3 recycle / 200 sampling-step / 1 sample, bf16, seeds 0-1), and OpenDDE
+`trpcage` no-MSA (4c/20s/1sample, fp32, seeds 0-2). The fixture carries the exact
 MSA (`msa.a3m`) for the MSA-using legs. ESMFold2 and ESMC references are cheap
-and run live each pass (no fixture needed yet); Boltz-2 no-MSA and OpenDDE
-`trpcage` fixtures are queued for harvest.
+and run live each pass (no fixture needed yet). The no-MSA fixtures above were
+harvested from fresh reference runs (not copied from prior raw outputs) so their
+provenance is trustworthy; the fresh R floors reproduce the published values
+within noise for two of the three legs — OpenDDE `trpcage` R=0.31 (matches) and
+Boltz-2 `trpcage` R=0.81 (vs 0.79). The Boltz-2 `prot` no-MSA leg is an honest
+discrepancy: a fresh 3/200/1 run on the pinned boltz 2.2.1 is bit-exact
+deterministic and gives R=6.94, not the previously-published 3.37; the prior
+3.37's source run is not on disk and is not reproducible from the documented
+settings (the only on-disk prot no-MSA reference runs used 2 recycle / 20 steps
+and give R=2.60). See the Boltz-2 section for the full finding; the
+device-vs-reference cross X against this fresh `prot` fixture is not re-measured
+here and is flagged for re-verification.
 
 ## Results
 
@@ -289,6 +301,22 @@ an MSA-trained model — an MSA-backed target is the natural next data point to
 see whether the gap narrows with the input Boltz-2 actually expects. The
 existing `--fast` (block-fp8) accuracy comparison is a separate, already-closed
 question: see `docs/boltz2-fast-parity.md`.
+
+**Reference-fixture re-run (2026-07-13).** The no-MSA `trpcage` and `prot`
+reference legs were re-run fresh on the pinned boltz 2.2.1 to harvest committed
+fixtures with trustworthy provenance (see the reference-fixture cache section
+above). Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 `prot` run gave
+RMSD 0.000 and identical confidence), so the fresh R floors are reproducible
+realizations, not noise. The fresh `trpcage` R=0.81 reproduces the published 0.79
+within noise. The fresh `prot` no-MSA R=6.94 does **not** reproduce the
+previously-published 3.37: the prior 3.37's source run is not on disk and is not
+reproducible from the documented 3 recycle / 200 sampling-step / 1 sample
+settings (the only on-disk `prot` no-MSA reference runs used 2 recycle / 20
+steps and give R=2.60). The committed `prot` no-MSA fixture therefore carries
+R=6.94; the device-vs-reference cross X against it is not re-measured here (the
+device side was not re-run) and the 3.37/4.35/5.51 row above should be read as
+the pre-fixture measurement, flagged for re-verification against the fresh
+fixture.
 
 The documented next data point, an MSA-backed target, is now measured. The same
 prot folded with `--use_msa_server` (ColabFold, a 93-sequence MSA; device and
