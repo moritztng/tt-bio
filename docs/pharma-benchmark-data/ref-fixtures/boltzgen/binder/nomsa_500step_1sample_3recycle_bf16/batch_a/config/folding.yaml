@@ -1,0 +1,61 @@
+_target_: boltzgen.task.predict.predict.Predict
+debug: false
+data:
+  _target_: boltzgen.task.predict.data_from_generated.FromGeneratedDataModule
+  cfg:
+    _target_: boltzgen.task.predict.data_from_generated.DataConfig
+    tokenizer:
+      _target_: boltzgen.data.tokenize.tokenizer.Tokenizer
+      atomize_modified_residues: false
+    featurizer:
+      _target_: boltzgen.data.feature.featurizer.Featurizer
+    suffix: .cif
+    suffix_metadata: .npz
+    suffix_native: _native.cif
+    samples_per_target: 1000000000000000
+    num_targets: 10000000000000
+    moldir: /root/.cache/huggingface/hub/datasets--boltzgen--inference-data/snapshots/c3d36fd276e9caf098c75d4113c6d5eb320b1a4c/mols.zip
+    batch_size: 1
+    num_workers: 1
+    pin_memory: true
+    disulfide_prob: 1.0
+    disulfide_on: true
+  design_dir: /root/work/ref_batch_a/intermediate_designs_inverse_folded
+  target_templates: true
+  return_native: false
+  fail_if_no_designs: true
+  output_dir: null
+  skip_existing: true
+  skip_existing_kind: folded
+keys_dict_out:
+- min_interaction_pae
+- min_design_to_target_pae
+- interaction_pae
+- ligand_iptm
+- protein_iptm
+- iptm
+- design_iptm
+- design_iiptm
+- design_to_target_iptm
+- design_residue_iptm
+- design_ptm
+- target_ptm
+- ptm
+writer:
+  _target_: boltzgen.task.predict.writer.FoldingWriter
+  design_dir: ${data.design_dir}
+trainer:
+  accelerator: gpu
+  logger: false
+  devices: 1
+  precision: bf16-mixed
+name: null
+output: /root/work/ref_batch_a/intermediate_designs_inverse_folded
+checkpoint: /root/.cache/huggingface/hub/models--boltzgen--boltzgen-1/snapshots/c1be29e1f82ffcc72264f64b993c43fb4e0d17f0/boltz2_conf_final.ckpt
+matmul_precision: null
+recycling_steps: 3
+sampling_steps: 200
+diffusion_samples: 5
+override:
+  validators: null
+  use_kernels: true
