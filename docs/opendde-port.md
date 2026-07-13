@@ -658,6 +658,34 @@ mismatch in the Ab-Ag-specific `opendde_abag.pt` routing) and are tracked in "Re
 so the shared trunk/MSA featurization is byte-identical there; the gate confirms no
 regression on the real device.
 
+## Speed vs Boltz-2 on a single protein (2026-07-13)
+
+OpenDDE is ~2.4x slower than Boltz-2 end-to-end on `examples/prot.yaml` (117-residue
+single protein, default `recycling_steps`/`sampling_steps`, warm MSA, qb2 card 2):
+**13.2 s vs 5.6 s** worker-side (22.9 s vs 14.9 s wall-clock incl. checkpoint load).
+This is correct-by-design, not a bug, and breaks down as follows (all measured on the
+real device, idle):
+
+| stage | OpenDDE (r10) | Boltz-2 (r3) |
+|---|---|---|
+| trunk (Pairformer) | 7.98 s | 1.79 s |
+| expand_and_refine (OpenDDE-only seam) | 0.47 s | — |
+| diffusion (200 steps) | 3.69 s | 3.55 s |
+| confidence | 0.11 s | 0.16 s |
+
+The 7.6 s gap is ~71% the **recycling-step default** (OpenDDE 10 vs Boltz-2 3, per
+`_resolve_recycling_steps` -> +5.43 s; running OpenDDE at 3 under-recycles the trunk
+and mis-ranks the confidence ensemble, see `docs/protenix-recycling-revisit.md`), ~10%
+the **wider Pairformer** (c_z=384 vs 128, measured 1.91x per recycle, not the paper's
+theoretical ~9x pair-compute multiple — OpenDDE's ttnn Pairformer kernel is slightly
+more efficient per pair-FLOP here and trunk cost isn't purely pair-compute), ~6% the
+OpenDDE-only structural-token seam, and the rest diffusion+overhead (diffusion is
+effectively equal between the two models, so it dilutes the e2e ratio). No fixable
+inefficiency was found — no duplicate compute, no fusion missing on OpenDDE, no wrong
+default. Numbers are only stable on an idle device (a contended card inflates Boltz-2
+disproportionately; one boltz2@3 run hit 54.3 s vs the stable 5.6 s). Full attribution:
+`~/.coworker/state/opendde-vs-boltz2-speed.md`.
+
 ## Remaining
 
 - **MSA search in the OpenDDE CLI path: done (P7).** `_predict_opendde_one` reuses the
