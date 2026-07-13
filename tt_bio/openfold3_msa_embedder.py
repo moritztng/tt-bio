@@ -19,7 +19,10 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module
+from .tenstorrent import (
+    Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
+)
+from .openfold3_weights import remap_msa_module
 
 
 class MSAModuleEmbedder(Module):
@@ -38,3 +41,75 @@ class MSAModuleEmbedder(Module):
         m = ttnn.add(m, s)
         ttnn.deallocate(s)
         return m
+
+
+# OF3 msa_module dims (config.model_config): c_hidden_msa_att=8, no_heads_msa=8;
+# c_hidden_pair_att=32, no_heads_pair=4. The pair_stack runs pair-only (transform_s=False).
+_MSA_AVG_DIMS = (8, 8)
+_MSA_TRI_DIMS = (32, 4)
+
+
+class MSAModuleBlock:
+    """One OF3 ``MSAModuleBlock`` (AF3 Algorithm 10), ``opm_first=True`` ordering
+    (OuterProductMean runs BEFORE the msa update -- the reverse of
+    ``tt_bio.tenstorrent.MSALayer``'s Boltz-2 ``opm_first=False`` order, so the block
+    is composed from the raw primitives directly, not via ``MSALayer``).
+
+    m, z -> m, z per block:
+
+        z = z + outer_product_mean(m)
+        if not skip_msa_update:                  # all blocks except the last
+            m = m + pair_weighted_averaging(m, z)
+            m = m + msa_transition(m)
+        z = pair_stack(z)                        # tri_mul + tri_att + pair_transition
+
+    The last block (``skip_msa_update=True``) has no PWA/transition; ``has_msa_update``
+    is inferred from which keys ``remap_msa_block`` returned. Composes the same
+    primitives, in the same order, as ``tests/test_openfold3_msa.py::_run_block`` -- the
+    single source of truth for the OF3 block ordering.
+    """
+
+    def __init__(self, block_remap, compute_kernel_config):
+        ckc = compute_kernel_config
+        self.opm = OuterProductMean(block_remap["outer_product_mean"], ckc)
+        self.has_msa_update = "pair_weighted_averaging" in block_remap
+        if self.has_msa_update:
+            self.pwa = PairWeightedAveraging(
+                *_MSA_AVG_DIMS, block_remap["pair_weighted_averaging"], ckc)
+            self.msa_transition = Transition(block_remap["msa_transition"], ckc)
+        self.pair_stack = PairformerLayer(
+            *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc)
+
+    def __call__(self, m, z):
+        z = ttnn.add(z, self.opm(m, None, None))
+        if self.has_msa_update:
+            m = ttnn.add(m, ttnn.reshape(self.pwa(m, ttnn.clone(z)), tuple(m.shape)))
+            m = ttnn.add(m, ttnn.reshape(self.msa_transition(m), tuple(m.shape)))
+        z = self.pair_stack(None, z)[1]
+        return m, z
+
+
+class MSAModule:
+    """OF3 ``MSAModuleStack`` (4-block, ``opm_first=True``) device port. ``m, z -> z``
+    (the reference discards ``m`` after the last block; the device path returns both so
+    the trunk can reuse the constant ``m`` across cycles without re-running the
+    embedder).
+
+    Device-precision note (see docs/openfold3-port.md P8 tick 17 / tests/test_openfold3_msa.py,
+    both xfail): the z-track is an intrinsic bf16 ill-conditioning limit at OF3's
+    activation magnitude (z_pcc ~0.75 over 4 blocks), NOT a kernel bug and NOT the
+    softmax lever; the fp32-z-path fix is release-gated. The trunk accepts this
+    degradation as a known, quantified real number and measures its propagation into
+    s_trunk/z_trunk rather than chasing it further.
+    """
+
+    def __init__(self, state_dict, compute_kernel_config):
+        self.blocks = [
+            MSAModuleBlock(b, compute_kernel_config)
+            for b in remap_msa_module(state_dict, prefix="msa_module")
+        ]
+
+    def __call__(self, m, z):
+        for block in self.blocks:
+            m, z = block(m, z)
+        return m, z
