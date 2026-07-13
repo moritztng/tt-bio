@@ -1,57 +1,52 @@
-"""OF3 trunk assembly device port (P8).
+"""OF3 trunk assembly device port (P8 -> P10 fully-device).
 
-Assembles the OpenFold3 ``run_trunk`` (AF3 Algorithm 1 lines 1-14) from the
-already-gated OF3 device components plus the genuinely-new top-level cycle glue:
+Assembles the OpenFold3 ``run_trunk`` (AF3 Algorithm 1 lines 1-14) end-to-end on device:
 
+    m = msa_module_embedder(msa_feat, s_input)           # constant across cycles
     for cycle in range(num_cycles):                       # num_cycles = num_recycles+1 = 4
-        z = z_init + linear_z(layer_norm_z(z))            # top-level z glue  (NEW device code)
-        z = z + template_embedder(batch, z, pair_mask)    # template embedder
-        m, msa_mask = msa_module_embedder(batch, s_input)
-        z = msa_module(m, z, msa_mask, pair_mask)         # MSA module
-        s = s_init + linear_s(layer_norm_s(s))            # top-level s glue  (NEW device code)
-        s, z = pairformer_stack(s, z, ...)                # 48-block Pairformer
-    return s_input, s, z                                   # s_trunk, z_trunk
+        z = z_init + linear_z(layer_norm_z(z))            # top-level z glue  (device code)
+        z = z + template_embedder(template_feat, z)       # template embedder  (device)
+        z = msa_module(m, z)                              # 4-block MSA module  (device)
+        s = s_init + linear_s(layer_norm_s(s))            # top-level s glue  (device code)
+        s, z = pairformer_stack(s, z, ...)                # 48-block Pairformer (device)
+    return s, z                                           # s_trunk, z_trunk
 
 s/z start at zeros; ``s_input``, ``s_init``, ``z_init`` come from the InputEmbedder
 (already PCC-gated end-to-end in P7). The top-level ``linear_z``/``layer_norm_z``/
 ``linear_s``/``layer_norm_s`` are SEPARATE trunk weights (not the InputEmbedder's
 linears): affine LayerNorms (eps=1e-5) + bias-free ``init="final"`` Linears
-(128->128 and 384->384). ``OF3TrunkGlue`` is the new device code this leg lands and
-PCC-gates in isolation.
+(128->128 and 384->384). ``OF3TrunkGlue`` is the device code landed in P8 tick 13 and
+PCC-gated in isolation (PCC=1.00000 across all 4 cycles).
 
-Gating scope (honest -- see docs/openfold3-port.md P8 tick 13):
-  - Top-level cycle glue (OF3TrunkGlue): GATED in isolation
-    (tests/test_openfold3_trunk.py::test_of3_trunk_glue_on_device), byte-correct
-    (PCC=1.00000) across all 4 cycles on REAL per-cycle z_prev/s_prev.
-  - Assembled trunk (cycle glue + 48-block Pairformer, s AND z tracks): GATED
-    (test_of3_trunk_assembly_on_device) on the real settled trunk distribution,
-    s_trunk_pcc=0.99981, z_trunk_pcc=0.99936 -- WITH the template + MSA pair_stack
-    z substituted from the reference golden so the Pairformer receives the correct
-    z each cycle. This is NOT a fully-device-gated trunk: the template + MSA
-    pair_stacks are device-xfail / throwing (see below) and are substituted here.
-  - Notable finding: the device Pairformer z-track gates cleanly on the real
-    cycle-3 trunk z, unlike the cycle-0 (s_init, z_init) single-pass case where the
-    P5 final-block catastrophic cancellation caps z_pcc at ~0.66. The cancellation
-    is a cycle-0-input-specific artifact; the actual trunk's final-cycle Pairformer
-    z does not trigger it.
-  - Template embedder + MSA module pair_stacks: device-xfail / throwing (P8 tick 12:
-    template pair_stack hits a sub-tile head_dim=16 ttnn kernel bug; MSA pair_stack
-    z_pcc~0.75). Substituted from the golden in the assembled run. Their gated
-    sub-legs (template feature embedder t_embed=1.0, MSA embedder m=1.0) are
-    validated in their own tests; the trunk does not re-gate them.
-
-So a fully-device-gated trunk PCC number is NOT claimed: the z the Pairformer
-receives each cycle is the golden z (the template + MSA pair_stacks that produce it
-are device-xfail). The gated deliverable is the cycle glue + the assembled
-Pairformer path (s_trunk, z_trunk) on the real trunk distribution; the remaining
-blocker is the template + MSA pair_stack device kernel gap, not the Pairformer.
+Fully-device scope (P10 -- see docs/openfold3-port.md P8 tick 13 / P10):
+  - Top-level cycle glue (OF3TrunkGlue): GATED in isolation (PCC=1.00000) -- unchanged
+    from P8 tick 13.
+  - Template embedder: REAL device path (``TemplateEmbedder``, un-xfailed since the
+    sub-tile head_dim=16 TriangleAttention fix landed, P8 tick 13 cont.: z_template
+    PCC=0.99995). ``template_feat`` is host-precomputed mask products (constant across
+    cycles, captured in the golden); the device part is the feature linears + pair_stack.
+  - MSA module: REAL device path (``MSAModuleEmbedder`` -> ``MSAModule``, 4-block
+    ``opm_first`` stack). The MSA pair_stack z-track is an INTRINSIC bf16
+    ill-conditioning limit at OF3's activation magnitude (z_pcc ~0.75 over 4 blocks,
+    root-caused P8 tick 17 -- NOT a kernel bug, NOT the softmax lever; the fp32-z-path
+    fix is release-gated). The trunk accepts this degradation as a known, quantified
+    real number and measures its propagation into s_trunk/z_trunk; it is NOT chased
+    further here.
+  - Assembled trunk (cycle glue + template + MSA + 48-block Pairformer, s AND z tracks,
+    NO golden substitution): GATED on the real settled trunk distribution -- see
+    tests/test_openfold3_trunk.py::test_of3_trunk_assembly_on_device for the actual
+    s_trunk_pcc / z_trunk_pcc numbers (z_trunk drops from the P8 0.99936
+    golden-substituted figure once the real, degraded MSA pair_stack feeds the
+    Pairformer; the real number is reported by the test, not assumed).
 """
 from __future__ import annotations
 
 import ttnn
 
 from .tenstorrent import Module, Pairformer
-from .openfold3_weights import remap_pairformer_stack
+from .openfold3_weights import remap_pairformer_stack, _sub
+from .openfold3_template import TemplateEmbedder
+from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
 
 
 # OF3 pairformer_stack dims (config.model_config): c_hidden_pair_att=32, no_heads_pair=4,
@@ -107,19 +102,18 @@ class OF3TrunkGlue(Module):
 
 
 class OF3Trunk(Module):
-    """Assembled OF3 trunk forward (device-runnable path).
+    """Assembled OF3 trunk forward -- fully device-real end-to-end (P10).
 
-    Composes ``OF3TrunkGlue`` + the 48-block OF3-dims ``Pairformer``. The template
-    embedder and MSA module pair_stacks are device-xfail / throwing (see module
-    docstring), so the assembled forward takes the reference z-after-MSA per cycle
-    (``z_after_msa_per_cycle``) as a golden substitution at the Pairformer input --
-    this isolates the device-runnable path (cycle glue + Pairformer) for PCC gating
-    of ``s_trunk``. The full device trunk (device template + device MSA) is blocked
-    by the template pair_stack sub-tile kernel bug and is not run here; it is
-    documented-xfail in tests/test_openfold3_template.py.
+    Composes ``OF3TrunkGlue`` + ``TemplateEmbedder`` + ``MSAModuleEmbedder`` +
+    ``MSAModule`` + the 48-block OF3-dims ``Pairformer``. No golden substitution: the
+    template pair_stack and the MSA pair_stack both run on device. The template path is
+    un-xfailed (sub-tile head_dim=16 TriangleAttention fix, P8 tick 13 cont.); the MSA
+    pair_stack runs at its known intrinsic bf16 ill-conditioning limit (z_pcc ~0.75,
+    P8 tick 17), accepted as a quantified degradation.
 
     Args:
-        state_dict: the full OF3 checkpoint (top-level glue keys + ``pairformer_stack``).
+        state_dict: the full OF3 checkpoint (top-level glue keys + ``pairformer_stack``
+            + ``template_embedder`` + ``msa_module`` + ``msa_module_embedder``).
         compute_kernel_config: HiFi4 + fp32 dest acc.
         num_cycles: recycle cycles (OF3 default = num_recycles+1 = 4).
     """
@@ -131,6 +125,11 @@ class OF3Trunk(Module):
         pf_sd = remap_pairformer_stack(state_dict, prefix="pairformer_stack")
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config)
+        self.template = TemplateEmbedder(
+            _sub(state_dict, "template_embedder"), compute_kernel_config)
+        self.msa_embedder = MSAModuleEmbedder(
+            _sub(state_dict, "msa_module_embedder"), compute_kernel_config)
+        self.msa_module = MSAModule(state_dict, compute_kernel_config)
 
     def _zeros_like(self, t):
         # TILE_LAYOUT so the cycle-0 zeros are tile-padded (96, not 76) -- a ROW_MAJOR
@@ -140,24 +139,29 @@ class OF3Trunk(Module):
         return ttnn.zeros(shape, device=self.device, dtype=ttnn.bfloat16,
                           layout=ttnn.TILE_LAYOUT)
 
-    def __call__(self, s_init, z_init, z_after_msa_per_cycle):
-        """Hybrid assembled trunk forward (device-runnable path only).
+    def __call__(self, s_init, z_init, template_feat, msa_feat, s_input):
+        """Fully-device assembled trunk forward.
 
         s_init, z_init: device bf16 [1,N,384] / [1,N,N,128] (InputEmbedder constants).
-        z_after_msa_per_cycle: list of ``num_cycles`` device bf16 [1,N,N,128] tensors --
-            the reference z after the template+MSA step each cycle (golden substitution
-            for the device-xfail/throwing pair_stacks, so the Pairformer gets the correct
-            z each cycle).
+        template_feat: dict of device bf16 per-template feature tensors [N_templ,N,N,c]
+            (host-precomputed mask products, constant across cycles -- see
+            TemplatePairFeatureEmbedder).
+        msa_feat: device bf16 [1,N_seq,N,34] (host post-subsample, constant across
+            cycles -- ``m`` is identical every cycle in the reference).
+        s_input: device bf16 [1,N,449] (InputEmbedder single input, constant).
 
-        Returns (s_trunk, z_trunk): s_trunk is device-computed through the gateable path
-        (s-glue + Pairformer s-track); z_trunk is the device Pairformer's final-block z
-        (xfail, not a device gate).
+        Returns (s_trunk, z_trunk): device bf16 [1,N,384] / [1,N,N,128].
         """
         s = self._zeros_like(s_init)
         z = self._zeros_like(z_init)
-        for c in range(self.num_cycles):
-            z = self.glue.glue_z(z, z_init)               # device z-glue (overwritten below)
-            z = z_after_msa_per_cycle[c]                   # substitute template+MSA (device-xfail)
-            s = self.glue.glue_s(s, s_init)               # device s-glue
-            s, z = self.pairformer(s, z)                  # device 48-block Pairformer (s gated, z xfail)
+        # m is identical across cycles (verified in the reference golden); compute once.
+        m = self.msa_embedder(msa_feat, s_input)
+        for _ in range(self.num_cycles):
+            z = self.glue.glue_z(z, z_init)              # device z-glue
+            z_tmpl = self.template(template_feat, z)     # device TemplateEmbedderAllAtom
+            z = ttnn.add(z, z_tmpl)
+            ttnn.deallocate(z_tmpl)
+            z = self.msa_module(m, z)[1]               # device 4-block MSA module (degraded z); m reused next cycle
+            s = self.glue.glue_s(s, s_init)              # device s-glue
+            s, z = self.pairformer(s, z)                 # device 48-block Pairformer
         return s, z
