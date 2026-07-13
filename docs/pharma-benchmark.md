@@ -136,7 +136,7 @@ including the honest caveats, follows in the subsections below.
 
 | model | target | metric | ref floor (R) | device floor (D) | device-vs-ref (X) | verdict |
 |---|---|---|---|---|---|---|
-| ESMC-300m | 4 proteins (L20-129) | embedding PCC | 1.00000 (no sampler) | 1.00000 | 0.9988 – 0.9996 | PASS |
+| ESMC-300m | 4 proteins (L20-129) | embedding PCC | 1.00000 (no sampler) | 1.00000 | 0.9987 – 0.9996 | PASS |
 | ESMC-600m | 4 proteins (L20-129) | embedding PCC | 1.00000 (no sampler) | 1.00000 | 0.9994 – 0.9996 | PASS |
 | ESMFold2 | trp-cage (L20) | CA-RMSD (Å) | 0.51 ± 0.11 | 0.16 ± 0.03 | 0.61 ± 0.10 | PASS (within floor) |
 | ESMFold2 | GB1 (L56) | CA-RMSD (Å) | 0.29 ± 0.02 | 0.18 ± 0.04 | 0.33 ± 0.05 | PASS (within floor) |
@@ -174,7 +174,7 @@ proteins spanning 20 to 129 residues. Measured on one Blackhole card.
 
 The device embedding path has no sampler, so its self-consistency PCC of exactly
 1.00000 is the noise floor: two device runs of the same sequence are bit-identical.
-The device-vs-reference residual (PCC 0.9988 to 0.9996) is therefore entirely bf16
+The device-vs-reference residual (PCC 0.9987 to 0.9996) is therefore entirely bf16
 rounding, not an algorithmic difference. The port reproduces the reference
 embeddings to better than four nines of correlation.
 
