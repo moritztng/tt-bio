@@ -130,3 +130,8 @@ Genuine, large win on the embed hot path, held on the branch. `esmc._rope` uses
 the fused kernel for tile-aligned L (the entire bucketed + 6B path) and the exact
 `apply_rotary` fallback otherwise. Merge after the standard parity gate confirms
 no accuracy regression on the shipped embed path.
+
+**Update (2026-07-13):** the on-hardware parity gate has now been run and passes
+(300m/600m per-residue PCC 0.99961/0.99964 vs reference esm, floor 0.99); see
+`docs/esmc-rope-fusion-release-gate.md` for the evidence and the re-measured
+speedup on current main.
