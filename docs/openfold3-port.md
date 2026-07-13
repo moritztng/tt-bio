@@ -853,6 +853,56 @@ fresh device work left for a full ``DiffusionModule.forward`` ``xl_out`` gate is
 ``pair_mlp``), and the small glues (``ai += linear_s(LN_s(si))``, ``layer_norm_a``, EDM
 output scaling) -- then assemble and PCC-gate ``xl_out`` vs a full-module golden.
 
+### P8 tick 15 -- NoisyPositionEmbedder (Algorithm 5 L8-12) PCC-gated on device
+
+The entry leg of the ``DiffusionModule`` atom encoder: fuses the trunk single/pair
+representations into the reference-conformer atom conditioning and seeds the atom
+single rep ``ql`` from the noisy coordinates. Reference topology
+(``openfold3.core.model.layers.sequence_local_atom_attention.NoisyPositionEmbedder``):
+
+    cl  = cl0 + broadcast_to_atoms(linear_s(LN_s(si_trunk)))   # single broadcast
+    plm = plm0 + to_blocks(linear_z(LN_z(zij)))                # pair broadcast (blocked)
+    ql  = cl + linear_r(rl_noisy)                              # noisy-coordinate projection
+
+``cl0``/``plm0`` are the ``RefAtomFeatureEmbedder`` outputs (gated P7); ``zij`` is the
+*conditioned* pair (diffusion-conditioning output, gated P8). All five linears are
+bias-free; both LNs are weight-only (``create_offset=False``, eps=1e-5). The fresh
+device work in ``tt_bio/openfold3_diffusion_module.py`` (``OF3NoisyPositionEmbedder``)
+is the two weight-only LNs + three linears + the two mask-derived broadcasts, replayed
+on device via ``ttnn.embedding`` (same isolation discipline as the P7 atom-transformer
+key gather):
+
+  * single: ``atom_to_token_index`` [NP] gathers ``linear_s(LN_s(si_trunk))`` [N_tok, c]
+    to [NP, c] (padded atoms -> 0, zeroed by ``atom_mask_col``);
+  * pair: ``zij_flat_idx`` [nb*nq*nk] (= ``q_token*N_tok_pad + k_token`` per (b,q,k))
+    gathers ``linear_z(LN_z(zij))`` [N_tok*N_tok, c] (flattened with stride = the
+    tile-padded token width) to [nb, nq, nk, c], masked by ``zij_mask``
+    (``(1-invalid_key) * atom_pair_mask``).
+
+A stride footgun: the device ``zij`` is tile-padded to ``N_tok_pad`` (76 -> 96), so the
+flattened pair tensor has stride ``N_tok_pad``, not ``N_tok``; the golden therefore saves
+the stride-agnostic ``q_indices``/``k_indices`` and the test computes the flat index with
+the device stride. Padded atom positions are zeroed via ``atom_mask_col`` (single) /
+``zij_mask`` (pair) so neither additive broadcast leaks into real atoms.
+
+Golden: ``scripts/of3_diffusion_module_xlout_golden.py`` runs the full reference
+``DiffusionModule`` forward (real of3-p2-155k.pt, real ubiquitin, real noisy sample at
+``s_max``) and forward-hooks ``atom_attn_enc.noisy_position_embedder`` to capture
+``cl0``/``plm0`` (RefAtomFeatureEmbedder outs) + ``si_trunk``/``zij``/``rl`` in and
+``cl``/``plm``/``ql`` out, adding them (plus ``rl_noisy``, ``xl_out``, ``sigma_data``,
+the ``q``/``k`` gather indices, ``zij_mask``) to ``diffusion_module_xlout_real`` in
+``~/of3_ref_out.pkl`` -- the same record serves the eventual full-module ``xl_out`` gate.
+
+Gate: ``tests/test_openfold3_noisy_position_embedder.py`` feeds golden
+``cl0``/``plm0``/``si_trunk``/``zij``/``rl`` + the host aux -> device
+``OF3NoisyPositionEmbedder`` -> compares ``cl``/``plm``/``ql`` to golden. Result on qb2
+(HiFi4 + fp32 dest acc): **cl_pcc = 1.00000, plm_pcc = 0.99999, ql_pcc = 1.00000** (all
+> 0.98). The encoder entry leg is byte-correct on device; the only fresh device work
+left for the full ``xl_out`` gate is the encoder pair update (``linear_l``/``linear_m`` +
+``pair_mlp``), the small glues (``ai += linear_s(LN_s(si))``, ``layer_norm_a``, EDM
+output scaling), and the assembly -- for which the ``xl_out`` / ``a_in`` / ``a_stack`` /
+``rl_update`` goldens are already in place as bisect checkpoints.
+
 **NEXT (P8, DiffusionModule remainder):** (a) wire ``DiffusionModule.forward``
 (conditioning -> atom enc -> DiT -> atom dec -> EDM output scaling) reusing the
 already-gated P7 ``OF3AtomTransformer`` for the atom enc/dec (same topology, ``a != s``)
