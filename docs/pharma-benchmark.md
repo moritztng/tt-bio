@@ -53,12 +53,12 @@ BoltzGen has no 1:1 output correspondence (it designs new sequences), so its par
 is measured in designability space instead: `scripts/boltzgen_designability.py`.
 
 The per-model reference implementations are the genuine upstream code:
-`esm` (ESMC), the vendored torch ESMFold2, official ByteDance Protenix 2.0.0, and
-upstream Boltz-2.
+`esm` (ESMC), the vendored torch ESMFold2, official ByteDance Protenix 2.0.0,
+upstream Boltz-2, and the official OpenDDE CLI (`aurekaresearch/OpenDDE`).
 
 ## Results
 
-All five models tt-bio ships, in one place. R and D are the two noise-floor legs
+All six models tt-bio ships, in one place. R and D are the two noise-floor legs
 described above; X is the device-vs-reference parity question. "Pending" means no
 run has completed and no number is reported — never an estimate. Per-model detail,
 including the honest caveats, follows in the subsections below.
@@ -72,6 +72,8 @@ including the honest caveats, follows in the subsections below.
 | Protenix-v2 | 7ROA (L117) | CA-RMSD (Å) | pending (ref still computing) | 0.79 | pending | PENDING (ref leg) |
 | Boltz-2 | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.79 | 0.37 | 0.60 ± 0.24 | PASS (within floor) |
 | Boltz-2 | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 3.37 | 4.35 | 5.51 ± 0.70 | disclosed gap above floor (1.27x) |
+| OpenDDE | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.31 | 0.24 | 0.39 ± 0.11 | PASS (within floor) |
+| OpenDDE | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 1.96 | 2.68 | 7.65 ± 0.21 | disclosed gap above floor (2.85x, reduced settings) |
 | BoltzGen | binder vs 7ROA chain A | scRMSD pass-rate (≤2 Å) | n/a (ref blocked, no CPU path) | 93.8% (pooled n=16) | n/a (ref blocked) | PENDING (ref leg blocked, no NVIDIA GPU on host) |
 
 ### ESMC (protein language-model embeddings) — complete
@@ -239,6 +241,55 @@ question: see `docs/boltz2-fast-parity.md`.
 
 Raw data: `docs/pharma-benchmark-data/boltz2.json`.
 
+### OpenDDE (AF3-family co-folding, structural tokens) — first direct comparison measured
+
+`structures` mode against the official OpenDDE CLI (`opendde pred` from
+`aurekaresearch/OpenDDE`, main `a0d5134`, the same pin the port used). qb2 has no
+NVIDIA GPU, so the reference runs on CPU (OpenDDE's runner falls back to CPU
+automatically); the device side is `tt-bio predict --model opendde`. Both sides
+folded the same single-sequence protein targets at matched settings, three seeds
+each. The reference CLI writes its own per-seed/per-sample layout, so
+`scripts/opendde_ref_to_harness.py` repackages it into the harness's
+`results.json` + `structures/<id>.cif` shape before `pharma_parity.py` runs.
+
+| target | length | CA-RMSD dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |
+|---|---|---|---|---|---|---|
+| trp-cage | 20 | 0.39 ± 0.11 Å | 0.31 Å | 0.24 Å | 1.24 | yes |
+| prot | 117 | 7.65 ± 0.21 Å | 1.96 Å | 2.68 Å | 2.85 | NO |
+
+Both targets are single-sequence (no MSA; the OpenDDE CLI path has no MSA stage
+yet), 4 recycling cycles / 20 diffusion steps / 1 sample per seed. trp-cage folds
+cleanly at these settings (reference pLDDT ~0.93), so this is a converged parity
+read: the device reproduces the reference fold to 0.39 Å, inside the reference's
+own 0.31 Å run-to-run spread. prot does not fully converge at 4c/20s, but the
+reference is already self-consistent across seeds at 1.96 Å while the device sits
+7.65 Å away from it (itself self-consistent at 2.68 Å). That is a real,
+reproducible device-vs-reference gap on the longer target, not run-to-run noise.
+At still lower settings (2c/10s) both sides are unconverged and the read
+collapses into noise (X/floor ~1.0, uninformative); 4c/20s is the more informative
+reduced-setting point. Whether the prot gap closes at production settings (10
+cycles / 200 steps, where the port is documented to reach ~3.8 Å no-MSA and 2.7 Å
+with-MSA on this same target) is not settled by this run. A converged reference
+leg needs a CPU production fold, which hits the same AF3-family compute ceiling
+already documented for Protenix-v2 (no fused triangle ops on CPU, hours per
+seed). That is an operational limit of the CPU reference, not a port defect.
+
+pTM agrees across backends on trp-cage (device 0.445 vs reference 0.455, a ~0.01
+gap). On prot the pTM and pLDDT heads read lower on the device than the reference
+(pTM ~0.15 lower, pLDDT ~0.12 lower). The harness's `confidence_score` column is
+not a like-for-like comparison here: the device reports pTM as its confidence
+score, the reference reports its own `ranking_score` (a lower composite), so that
+delta is definitional rather than a parity gap. The coordinate R/D/X above is the
+parity verdict and is computed from the cif alone.
+
+This is a parity result, kept separate from the accuracy question. OpenDDE's own
+antibody-antigen DockQ on PDB 9dsg (single-sequence, 1 sample) is a genuine 0.011
+(see `docs/opendde-port.md`): that says the model mis-places the antigen. It does
+not bear on whether the port reproduces the reference, which is what the numbers
+above measure.
+
+Raw data: `docs/pharma-benchmark-data/opendde.json`.
+
 ### BoltzGen (de-novo binder design) — device floor measured, reference leg blocked
 
 BoltzGen designs new sequences, so there is no paired output to align. The right
@@ -318,9 +369,12 @@ Harness proven end-to-end.
 Also complete: a first **Boltz-2** device-vs-reference measurement (two
 no-MSA targets, two seeds each; trp-cage within its noise floor, a modest
 1.3-1.6x-over-floor gap on the longer single-sequence target) plus real
-device-vs-CPU-reference timing (40-100x faster warm), and **BoltzGen**
-device-side designability floor (two independent 8-design seed groups,
-pooled median 0.78 Å scRMSD, 93.8% ≤2Å).
+device-vs-CPU-reference timing (40-100x faster warm), **OpenDDE**
+device-vs-reference on two single-sequence targets, three seeds each (trp-cage
+within its noise floor at 0.39 Å, a 2.85x-over-floor gap on prot at reduced
+settings, production-reference leg CPU-blocked), and **BoltzGen** device-side
+designability floor (two independent 8-design seed groups, pooled median 0.78 Å
+scRMSD, 93.8% ≤2Å).
 
 In progress, not yet committed with final numbers:
 
