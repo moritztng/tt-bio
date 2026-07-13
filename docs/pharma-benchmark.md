@@ -526,10 +526,11 @@ reference's own cost is less predictable.
 
 Complete with real measured numbers: **ESMC-300m and ESMC-600m** (device
 reproduces the reference embeddings to >0.999 PCC, with a bit-exact device noise
-floor), and **ESMFold2** device-vs-reference with a real 3-seed noise floor on two
-proteins (pLDDT and distogram PCC >0.999, pTM within 0.006; trp-cage's coordinate
-gap is noise-floor-limited, GB1's is a disclosed reproducible gap above the floor).
-Harness proven end-to-end.
+floor), and **ESMFold2** device-vs-reference with a real 3-seed noise floor on
+three proteins spanning 20 to 76 residues (pLDDT and distogram PCC >0.999, pTM
+within 0.006; trp-cage, GB1 and ubiquitin all sit within the sampler noise floor
+on both an alignment-based and an alignment-free coordinate metric). Harness
+proven end-to-end.
 
 Also complete: a first **Boltz-2** device-vs-reference measurement (two
 no-MSA targets, two seeds each; trp-cage within its noise floor, a modest
@@ -546,8 +547,6 @@ scRMSD, 93.8% ≤2Å).
 
 In progress, not yet committed with final numbers:
 
-- **ESMFold2**: a third, longer target (ubiquitin, cut this round for host CPU
-  contention, see above) is still queued to extend the noise floor.
 - **Protenix-v2**: R/D/X now measured (see the Protenix-v2 section above). X = 2.63 ± 0.42 Å within the floor (max(R,D) = R = 2.94 Å, X/floor = 0.89). The floor is confidence-selection-limited (the under-ranking shows up on the reference side too); the diffusion geometry is faithful.
 - **Boltz-2**: MSA-backed target now measured (prot, 93-seq MSA; device-vs-ref
   0.94 Å within the 0.98 Å device floor, closing the no-MSA 1.27x-over-floor gap).
@@ -555,13 +554,6 @@ In progress, not yet committed with final numbers:
 **BoltzGen**'s reference-vs-reference and device-vs-reference legs are blocked
 on hosts without an NVIDIA GPU, verified by reproducing upstream's CUDA-only
 crash directly (see the BoltzGen section above) — not started, not estimated.
-
-Ready to run, queued for the fan-out phase: the **ESMFold2** third-target
-noise floor (the Boltz-2 MSA-backed target that was queued here is now
-measured, see the Boltz-2 section above). The reference implementations are
-installed and the comparison code is wired; what remains is generating the
-multi-seed device and reference fold sets, which parallelizes naturally
-across the free cards on qb1 and qb2.
 
 Known gaps disclosed: **Protenix-v2 confidence-head under-ranking** (a real
 model-level property carried faithfully by the port, not a device defect; it
