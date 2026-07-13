@@ -384,6 +384,8 @@ def get_results(job_id):
         out["rows"] = results.get("rows")
     elif results.get("kind") == "embed":
         out["sequences"] = results.get("sequences")
+        for key in ("model", "pool", "format", "d_model"):
+            out[key] = results.get(key)
     else:
         out["designs"] = results.get("designs")
     return jsonify(out)

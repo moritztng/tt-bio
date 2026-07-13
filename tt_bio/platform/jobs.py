@@ -531,6 +531,10 @@ class JobManager:
             cmd = [*TTBIO, "embed", str(self._inputs_dir(job.id) / "sequences.yaml"),
                    "--out_dir", str(out), "--model", job.model or "esmc-600m",
                    "--pool", p.get("pool", "mean"), "--format", p.get("format", "npz")]
+            if controller_url:
+                cmd += ["--controller", controller_url]
+                if job.owner:
+                    cmd += ["--owner", _owner_key(job.owner)]
             if p.get("fast"):
                 cmd.append("--fast")
             return cmd
@@ -592,14 +596,10 @@ class JobManager:
             if job is None or job.status == CANCELED:
                 continue
             url = self.cluster.submit_url() if self.cluster else None
-            # Both predict and design submit to the shared controller when one is
-            # up — thin clients whose compute the fleet's workers do, so they run
-            # concurrently. With no cluster, a job runs locally and needs the
-            # devices to itself (exclusive). Embed has no controller/multi-host
-            # mode upstream (tt-bio embed only fans out across LOCAL cards via
-            # --devices) — it always runs exclusively on this host's own device,
-            # never delegated to the fleet controller even when one is up.
-            controller_url = None if job.kind == "embed" else url
+            # Every job kind uses the shared controller when one is up. This is
+            # required for embeds: the persistent workers already own the local
+            # devices, so a second local process cannot open them independently.
+            controller_url = url
             exclusive = controller_url is None
             self._admit(exclusive)
             try:
