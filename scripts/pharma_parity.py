@@ -77,6 +77,62 @@ def noise_floor_verdict(cross, ref_floor, dev_floor, metric: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# committed reference fixtures
+# ---------------------------------------------------------------------------
+FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "docs" / "pharma-benchmark-data" / "ref-fixtures"
+
+
+def resolve_ref_fixtures(spec: str, seeds=None) -> list:
+    """Resolve committed reference-fixture seed dirs for "<model>/<target>/<tag>".
+
+    The fixture tree lives at docs/pharma-benchmark-data/ref-fixtures/<model>/<target>/<tag>/
+    seed<N>/ (results.json + structures/<id>.cif), produced once by a real reference run and
+    committed so the expensive reference legs do NOT re-run on every release-gate pass. Each
+    fixture dir carries a meta.json pinning the reference implementation + version + settings;
+    regenerate a fixture only when that pinned version/settings changes (see meta.json
+    `invalidation_rule` and `command`).
+
+    Returns the list of seed dirs (sorted by seed), verifying each is complete. Raises with a
+    precise regenerate instruction if a fixture is missing or its settings-tag does not match
+    -- the release gate then re-runs just that one reference leg (the device side always
+    re-runs live).
+    """
+    parts = spec.split("/")
+    if len(parts) != 3:
+        raise SystemExit(f"--ref-fixtures expects <model>/<target>/<settings-tag>, got {spec!r}")
+    model, target, tag = parts
+    base = FIXTURE_ROOT / model / target / tag
+    if not base.is_dir():
+        raise SystemExit(
+            f"reference fixture not committed: {base}\n"
+            f"regenerate it with the command recorded in a sibling fixture's meta.json, then "
+            f"run scripts/pharma_harvest_ref_fixtures.py to commit it. The device side re-runs "
+            f"live regardless.")
+    meta_path = base / "meta.json"
+    if meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        if meta.get("settings_tag") != tag:
+            raise SystemExit(
+                f"reference fixture settings-tag mismatch at {base}: meta.json says "
+                f"{meta.get('settings_tag')!r}, requested {tag!r}. Regenerate the fixture.")
+    available = sorted(p for p in base.glob("seed*") if p.is_dir())
+    if seeds is not None:
+        want = {f"seed{s}" for s in seeds}
+        available = [p for p in available if p.name in want]
+        missing = want - {p.name for p in available}
+        if missing:
+            raise SystemExit(f"missing fixture seeds for {spec}: {sorted(missing)}")
+    if not available:
+        raise SystemExit(f"no seed<N>/ fixture dirs found under {base}")
+    out = []
+    for p in available:
+        if not (p / "results.json").exists() or not (p / "structures").exists():
+            raise SystemExit(f"incomplete fixture {p}: missing results.json or structures/")
+        out.append(p)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # structures mode
 # ---------------------------------------------------------------------------
 def _cif(d: Path, tid: str) -> Path:
@@ -91,7 +147,15 @@ def _pair_rmsd_pcc(dA: Path, dB: Path, tid: str):
 
 
 def structures(args) -> int:
-    ref_dirs = [Path(d) for d in args.ref_dirs]
+    if args.ref_fixtures:
+        ref_dirs = resolve_ref_fixtures(args.ref_fixtures, args.ref_seeds)
+        print(f"# reference: committed fixtures {args.ref_fixtures} "
+              f"({len(ref_dirs)} seeds, no reference compute)\n")
+    elif args.ref_dirs:
+        ref_dirs = [Path(d) for d in args.ref_dirs]
+    else:
+        print("structures mode requires either --ref-dirs or --ref-fixtures", file=sys.stderr)
+        return 2
     dev_dirs = [Path(d) for d in args.dev_dirs]
     # targets present in every run
     ids = None
@@ -234,8 +298,12 @@ def main() -> int:
     sub = ap.add_subparsers(dest="mode", required=True)
 
     s = sub.add_parser("structures", help="fold models: device vs reference cif dirs")
-    s.add_argument("--ref-dirs", nargs="+", required=True, help="reference run dirs, one per seed")
-    s.add_argument("--dev-dirs", nargs="+", required=True, help="device run dirs, one per seed")
+    s.add_argument("--ref-dirs", nargs="+", help="reference run dirs, one per seed (live reference output)")
+    s.add_argument("--ref-fixtures", default="", help="committed fixture spec <model>/<target>/<tag> "
+                   "to read the reference side from docs/pharma-benchmark-data/ref-fixtures instead of "
+                   "re-running the reference; the fixture is reused as-is (no reference compute)")
+    s.add_argument("--ref-seeds", type=int, nargs="*", default=None, help="subset of fixture seeds to use")
+    s.add_argument("--dev-dirs", nargs="+", required=True, help="device run dirs, one per seed (live)")
     s.add_argument("--label", default="")
     s.add_argument("--out", default="")
     s.set_defaults(func=structures)

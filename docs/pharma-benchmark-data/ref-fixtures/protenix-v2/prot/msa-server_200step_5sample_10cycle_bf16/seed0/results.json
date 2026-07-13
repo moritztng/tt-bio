@@ -1,0 +1,15 @@
+[
+  {
+    "id": "prot",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.9174795746803284,
+    "iptm": 0.0,
+    "plddt": 90.24132537841797,
+    "ranking_score": 0.1834959238767624,
+    "selected_sample_idx": 0
+  }
+]
