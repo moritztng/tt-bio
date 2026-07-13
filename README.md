@@ -60,18 +60,18 @@ Every command names its model with `--model`:
 - **`boltz2`** — folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
 - **`esmfold2`** / **`esmfold2-fast`** — fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint):
 - **`protenix-v2`** — folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`:
-- **`opendde`** / **`opendde-abag`** — antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only and single-sequence for now (no MSA stage wired yet):
+- **`opendde`** / **`opendde-abag`** — antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2):
 
 ```bash
 tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
 tt-bio predict examples/prot.yaml --model protenix-v2   # MSA on by default; NA/ligand chains are single-sequence
-tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen co-fold, single-sequence
+tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen co-fold, MSA on by default
 ```
 
 | Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenDDE |
 |---|---|---|---|---|
 | Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein complex (antibody-antigen) |
-| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | single-sequence (MSA stage not wired yet) |
+| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) |
 | Affinity / potentials / templates | yes | no | no | no |
 | Pocket / contact constraints | yes | no | no | no |
 | Covalent `bond` constraints | yes | no | yes | no |
@@ -79,7 +79,7 @@ tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen
 
 Shared across every model: `--fast`, `--recycling_steps`, `--sampling_steps`, `--diffusion_samples`, `--output_format`, the MSA flags, and the multi-card / multi-machine flags. Each model downloads its weights automatically on first use.
 
-Boltz-2 and Protenix-v2 are MSA-dependent and use an MSA **by default** — a local
+Boltz-2, Protenix-v2, and OpenDDE are MSA-dependent and use an MSA **by default** — a local
 ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-msa-optional)),
 otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
 leaves your machine; a one-line notice is printed when that fallback is used. Pass
@@ -88,7 +88,7 @@ without an MSA (lower accuracy; for batch-screening orphan sequences). ESMFold2 
 
 `--fast` makes some operations use block-fp8, a lower-precision numeric format that runs faster. Accuracy is typically very close.
 
-OpenDDE's antibody-antigen accuracy is measured and is a negative result so far. On PDB 9dsg (SARS-CoV-2 RBD + Fab, from OpenDDE's own benchmark set), single-sequence and one sample, the antibody-antigen DockQ is 0.011: the Fab assembles but the antigen is not placed in the paratope. The CLI path does not wire MSA or best-of-N yet, which is what the paper's headline Ab-Ag numbers use, so this is a lower bound. See [`docs/opendde-port.md`](docs/opendde-port.md) for the full investigation.
+OpenDDE's antibody-antigen accuracy is measured and is a negative result so far. On PDB 9dsg (SARS-CoV-2 RBD + Fab, from OpenDDE's own benchmark set), antibody-antigen DockQ is 0.011: the Fab assembles but the antigen is not placed in the paratope. Wiring MSA (the paper's standard input) plus best-of-5 sampling (the paper's default `N_sample=5`) does not close it — MSA is consumed (whole-complex confidence and the Fab internal dock both rise), but the antigen is still mis-docked relative to the Fab across all samples, so the remaining gap is a port issue distinct from missing MSA. See [`docs/opendde-port.md`](docs/opendde-port.md) for the full investigation.
 
 `predict` accepts either a single YAML/FASTA file or a directory containing many input files.
 
@@ -416,7 +416,7 @@ Options apply to every model unless tagged **(Boltz-2)**.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), or `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only, single-sequence for now) |
+| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), or `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now) |
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | **(Boltz-2)** model cache directory; ESMFold2 uses the Hugging Face cache |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; ESMFold2 always runs on Tenstorrent |
