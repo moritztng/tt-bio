@@ -69,7 +69,7 @@ including the honest caveats, follows in the subsections below.
 | ESMC-600m | 4 proteins (L20-129) | embedding PCC | 1.00000 (no sampler) | 1.00000 | 0.9994 – 0.9996 | PASS |
 | ESMFold2 | trp-cage (L20) | CA-RMSD (Å) | 2.08 ± 0.08 | 0.21 ± 0.04 | 2.45 ± 0.31 | PASS (borderline, noise-floor-limited) |
 | ESMFold2 | GB1 (L56) | CA-RMSD (Å) | 1.49 ± 0.21 | 0.53 ± 0.22 | 2.95 ± 0.23 | disclosed gap above floor |
-| Protenix-v2 | 7ROA (L117) | CA-RMSD (Å) | pending (ref still computing) | 0.79 | pending | PENDING (ref leg) |
+| Protenix-v2 | 7ROA (L117) | CA-RMSD (Å) | pending (ref relaunched on qb2) | 0.79 | pending | PENDING (ref leg) |
 | Boltz-2 | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.79 | 0.37 | 0.60 ± 0.24 | PASS (within floor) |
 | Boltz-2 | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 3.37 | 4.35 | 5.51 ± 0.70 | disclosed gap above floor (1.27x) |
 | OpenDDE | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.31 | 0.24 | 0.39 ± 0.11 | PASS (within floor) |
@@ -182,36 +182,47 @@ confidence-based ranking. An evaluator should know this before trusting Protenix
 own "best" selection on Tenstorrent, exactly as they should on the original
 implementation.
 
-**Fan-out run (2026-07-12): device leg complete, reference leg hit a real compute-time
-ceiling.** Production settings (`--use_msa_server --sampling_steps 200
---diffusion_samples 5`) on `examples/prot.yaml` (117-res, PDB 7ROA), seeds 0/1 each
-side. Raw data: `docs/pharma-benchmark-data/protenix-v2.json`.
+**Fan-out run (2026-07-12, restarted 2026-07-13): device leg complete, reference
+leg lost with qb1 and relaunched on qb2.** Production settings (`--use_msa_server
+--sampling_steps 200 --diffusion_samples 5`) on `examples/prot.yaml` (117-res, PDB
+7ROA), seeds 0/1 each side. Raw data: `docs/pharma-benchmark-data/protenix-v2.json`.
 
-Device (tt-bio): both seeds complete in ~75-79s, confidence-selected ptm ~0.904 --
-markedly better than the confidence-head gap described above, consistent with the
-template-embedder and confidence-recycling fixes merged to main since that
-investigation. Device self-consistency floor (D): Kabsch RMSD **0.79 Å**, coord PCC
-**0.998** across all 900 atoms.
+Device (tt-bio): both seeds complete in ~75-79s, confidence-selected ptm ~0.904,
+consistent with the template-embedder and confidence-recycling fixes merged to main
+since the investigation above. Device self-consistency floor (D): Kabsch RMSD
+**0.79 Å**, coord PCC **0.998** across all 900 atoms. The device cif files for this
+run lived on qb1 and were lost with it; D is preserved in the json, but the X leg
+needs the device cif regenerated (a ~75s/seed re-run on a free card).
 
-Reference (official ByteDance Protenix 2.0.0, torch, CPU): launched at the same
-time as the device runs, same input/MSA/seeds. Both seeds are still computing the
-diffusion forward after 3h13m+ of wall clock -- confirmed healthy (not stuck: PPID
-1, R state, no swapping) each time this was checked, just genuinely CPU-bound.
-Official Protenix's torch triangle attention/multiplication has no CUDA fusion to
-fall back on for a CPU run, so N_step=200 x N_sample=5 on a 900-atom target costs
-orders of magnitude more wall clock than the device path's ~75s. **R (reference
-self-consistency) and X (device-vs-reference) are not yet measured** -- this is a
-genuine compute-time bottleneck, not an estimated or fabricated number, and it is
-the actual reason a full three-leg Protenix-v2 result isn't in this document yet.
+Reference (official ByteDance Protenix 2.0.0, torch, CPU): the original 2026-07-12
+run lived on qb1 and was still computing after 3h13m+ when last documented. qb1
+went unreachable over SSH on 2026-07-12 ~18:40 and stayed down, so that multi-hour
+CPU run is lost (a dead host holds no live process), along with qb1's protenix 2.0.0
+env. A fresh reference run was relaunched on qb2 (up) at the identical
+target/settings/seeds so the result stays comparable to the device leg. The qb2
+reference env is protenix 2.0.0 (editable install of `bytedance/Protenix` main) on
+Python 3.12 + torch 2.7.1+cpu, with the CUDA `FusedLayerNorm` stubbed by a torch
+LayerNorm and the triangle kernels forced to `torch` (no cuequivariance/deepspeed
+CUDA extensions), the v2 checkpoint at `~/.boltz/protenix-v2.pt`, and the CCD under
+`~/common/`. Official Protenix's torch triangle ops have no CUDA fusion to fall back
+on for a CPU run, so N_step=200 x N_sample=5 on a 900-atom target costs orders of
+magnitude more wall clock than the device path's ~75s; the qb2 run takes several
+hours per seed. **R (reference self-consistency) and X (device-vs-reference) are not
+yet measured** -- a genuine compute-time bottleneck, not an estimated or fabricated
+number, and the actual reason a full three-leg Protenix-v2 result isn't in this
+document yet.
 
-Do not kill the reference processes -- they hold hours of sunk progress. Once both
-finish (`REF_PREDICT_DONE` in `/home/ttuser/pharma_protenix_run/ref_seed{0,1}.log`
-on qb1), re-run `scripts/pharma_parity.py structures` against
-`/home/ttuser/pharma_protenix_run/{ref,dev}_seed{0,1}/boltz_results_prot` to get
-R/D/X and replace this note. Extending to more targets multiplies the reference-side
-cost roughly linearly (each seed is its own multi-hour CPU run); running them
-sequentially rather than concurrently avoids CPU contention between them on this
-32-core host.
+Resume path: the qb2 run writes per-seed logs to
+`/home/ttuser/pharma_protenix_run/ref_seed{0,1}.log` and a `REF_PREDICT_DONE`
+marker to `ref_seed{0,1}/REF_PREDICT_DONE` (seeds run sequentially to avoid CPU
+contention on this 32-core host). The launcher is `scripts/protenix_ref_predict.py`;
+repackaging its Protenix dump tree to the harness `structures/prot.cif` +
+`results.json` shape is `scripts/protenix_ref_to_harness.py`. Once both seeds
+finish, regenerate the device cif for seeds 0/1 on a free card
+(`tt-bio predict --model protenix-v2` on `examples/prot.yaml`, ~75s/seed), then run
+`scripts/pharma_parity.py structures` against the repackaged ref and dev seed dirs
+to get R/D/X and replace this note. Extending to more targets multiplies the
+reference-side cost roughly linearly (each seed is its own multi-hour CPU run).
 
 ### Boltz-2 (structure + affinity) — first direct comparison measured
 
@@ -381,9 +392,7 @@ In progress, not yet committed with final numbers:
 - **ESMFold2**: a third, longer target (ubiquitin, cut this round for host CPU
   contention, see above) is still queued to extend the noise floor.
 - **Protenix-v2**: device leg measured (self-consistency D = 0.79 Å Kabsch RMSD,
-  0.998 coord PCC). Reference leg blocked on a genuine CPU compute-time ceiling
-  (official Protenix has no CUDA-fused triangle ops to fall back on for a CPU run;
-  3h13m+ and still computing at the time of writing) — R and X are not yet
+  0.998 coord PCC). The reference leg's original qb1 run (3h13m+ and still computing when last documented) was lost when qb1 went down 2026-07-12, along with qb1's protenix env; a fresh reference run was relaunched on qb2 at the same target/settings/seeds (several hours per seed, CPU-only) — R and X are not yet
   measured, see the Protenix-v2 section above for the resumption path.
 - **Boltz-2**: an MSA-backed target is the natural next data point (the
   measured pair above is single-sequence only, the hardest case for an
