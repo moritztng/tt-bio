@@ -54,6 +54,10 @@ its fused kernel is identical to 300m/600m (head_dim 64), so their parity covers
 
 Exit code 0 iff every requested model PASSES its gate; 1 otherwise. Runs on the
 device serially (one card context per run); no CPU shortcut for the fold/design.
+
+This is the *accuracy* leg of the release gate. The *UX* leg lives in
+``scripts/ux_regression.py`` (live-progress phases, output parsing, CLI shape) —
+see RELEASING.md. The two are independent; both must exit 0 before a tag.
 """
 
 import argparse

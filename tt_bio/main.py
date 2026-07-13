@@ -1058,6 +1058,13 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         else DebugDisplay(pq) if log else NullDisplay(pq)
     )
     display.start()
+    # Optional headless event capture (TT_BIO_PROGRESS_CAPTURE=<path>): tee every
+    # streamed event to a JSONL file so the UX-regression guard can assert the
+    # live progress view advances through every real phase without scraping a
+    # TTY. Same event stream the display reads above, so it observes real
+    # behaviour. Off by default; no effect on a normal predict run.
+    cap_path = os.environ.get("TT_BIO_PROGRESS_CAPTURE")
+    cap_fh = open(cap_path, "a") if cap_path else None
     after = 0
     failed = 0
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
@@ -1088,12 +1095,23 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         if struct_dir is not None and row.get("status") == "ok":
                             _write_job_outputs(client, run_id, row["id"], struct_dir)
                 pq.put(ev)
+                if cap_fh is not None:
+                    try:
+                        cap_fh.write(json.dumps(ev, default=str) + "\n")
+                        cap_fh.flush()
+                    except Exception:
+                        pass
             if snapshot.get("status") in ("ok", "failed", "canceled"):
                 failed = int(snapshot.get("failed") or 0)
                 break
             time.sleep(0.5)
     finally:
         display.stop()
+        if cap_fh is not None:
+            try:
+                cap_fh.close()
+            except Exception:
+                pass
     if failures:
         # The rolling log only had room for a one-line clip per job; print the
         # full message here so any actionable guidance (e.g. how to supply
