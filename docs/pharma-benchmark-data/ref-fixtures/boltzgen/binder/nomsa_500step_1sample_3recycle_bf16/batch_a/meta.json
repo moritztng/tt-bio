@@ -1,0 +1,18 @@
+{
+  "batch": "batch_a",
+  "target_id": "binder",
+  "n": 8,
+  "wallclock_s": 956,
+  "wallclock_breakdown": "design 390.9s + inverse_folding 11.9s + design_folding 322.8s + folding 401.1s + analysis 161.9s (folding+analysis re-run with --reuse after the design/inverse_folding/design_folding outputs were already on disk; the sum is the full-pipeline equivalent)",
+  "scrmsd": {
+    "min": 0.53165,
+    "median": 0.97365,
+    "mean": 1.81811,
+    "stdev": 1.91722,
+    "pass_le_2A": 0.75,
+    "pass_le_4A": 0.875
+  },
+  "outliers": "binder_0 at 6.48 A (strict fail) and binder_7 at 3.07 A (permissive only) drive the gap; the other 6/8 designs are <=1.13 A.",
+  "harvested_from": "/root/work/ref_batch_a/intermediate_designs_inverse_folded/aggregate_metrics_analyze.csv on vast instance 44721818",
+  "note": "real reference output copied verbatim from the GPU run; not regenerated or edited"
+}
