@@ -771,23 +771,197 @@ class ConfidenceHead:
         s_single = torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384)
         zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
 
-        def _expected(logits, max_a=32.0):     # softmax over distance bins -> expected value (A)
-            nb = logits.shape[-1]
-            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-            return (torch.softmax(logits, -1) * centers).sum(-1)
-
         pae_logits = F.linear(F.layer_norm(zf, (zf.shape[-1],)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
                               self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
-        pae = _expected(pae_logits)                                                          # (N,N)
-        pde = _expected(F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
-                                 self._g("linear_no_bias_pde.weight")))                     # (N,N)
-        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
+        pde_logits = F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
+                              self._g("linear_no_bias_pde.weight"))                          # (N,N,n_bins)
         a2t = feats["atom_to_token_idx"].long(); a2ta = feats["atom_to_tokatom_idx"].long()
         a = s_single[a2t]
         aln = F.layer_norm(a, (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
-        logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])  # (N_atom, n_bins)
-        nb = logits.shape[-1]
-        plddt_atom = (torch.softmax(logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
+        plddt_logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])        # (N_atom, n_bins)
+        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats)
+
+    # ---------------------------------------------------------------------------
+    # Device-resident confidence path (opt-in). The host path (confidence())
+    # builds z on host, UPLOADS (1,N,N,256) to the device Pairformer, then
+    # DOWNLOADS (s_single, zf) and runs the pae/pde/plddt heads on host -- a
+    # full (N,N,256) device<->host round-trip every sample. On large N the host
+    # side dominates confidence (measured 53% of 355 ms @N=256 on BH 'pc'; the
+    # device Pairformer is only 116 ms). This path keeps z_base resident: the
+    # sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] + s2(s_inputs)
+    # [None,:] is computed ONCE on device, and per-sample only the (N,3) coords
+    # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
+    # run on device, and only the small final logits (pae/pde (N,N,64), plddt
+    # (N_atom,50)) are downloaded. Feature-detected + gated behind
+    # TT_PROTENIX_CONF_DEVICE=1; off by default until PCC is verified (plddt is
+    # precision-sensitive: the host path is already PCC ~0.93 vs the reference,
+    # and moving the einsum to bf16 can regress it -- see the parity harness).
+    # ---------------------------------------------------------------------------
+    @staticmethod
+    def device_confidence_enabled():
+        """True only if the user opted in (TT_PROTENIX_CONF_DEVICE=1) AND the
+        installed ttnn exposes every op the device path needs. Off otherwise
+        (the host-heads path in confidence() is the default)."""
+        import os
+        if os.environ.get("TT_PROTENIX_CONF_DEVICE", "0") not in ("1", "true", "True"):
+            return False
+        import ttnn
+        need = ("clamp", "ge", "lt", "sqrt", "embedding", "layer_norm", "linear",
+                "matmul", "softmax", "permute")
+        return all(hasattr(ttnn, k) for k in need)
+
+    def _wtt(self, key, transpose=True):
+        """Upload a confidence weight once (TILE/bf16), cached on the instance."""
+        cache = self.__dict__.setdefault("_wtt_cache", {})
+        v = cache.get(key)
+        if v is None:
+            import ttnn
+            w = self._w[key]
+            v = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+            cache[key] = v
+        return v
+
+    def _dev_lin(self, x, wkey, bias=False):
+        import ttnn
+        b = None
+        if bias:
+            b = self._wtt(wkey.replace(".weight", ".bias"), False) if (wkey.replace(".weight", ".bias") in self._w) else None
+        return ttnn.linear(x, self._wtt(wkey), bias=b,
+                           compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+
+    def _device_resident(self, s_inputs, s_trunk, z_base_dev, feats):
+        """Build the sample-invariant device tensors ONCE per fold: s_t, the
+        coords gather index (which atoms pass distogram_rep_atom_mask), and the
+        plddt per-atom-type weight table. z_base itself (z_trunk + s1 + s2) is
+        passed in already-uploaded as a RESIDENT bf16 device tensor (computed
+        fp32 on host once via z_base_device -- bf16-accumulating it on device
+        regresses the pairformer input at small N; see the parity harness).
+        Idempotent via a cached tag on z_base_dev."""
+        import torch, torch.nn.functional as F, ttnn
+        cache = self.__dict__.setdefault("_dev_res", {})
+        tag = id(z_base_dev)
+        if cache.get("tag") == tag:
+            return cache
+        T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        N = s_trunk.shape[0]
+        s_t_h = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
+        s_t = T(s_t_h.unsqueeze(0))                                       # (1,N,384)
+        # coords gather: which atoms pass distogram_rep_atom_mask (== N tokens)
+        mask = feats["distogram_rep_atom_mask"].bool()
+        idx = torch.nonzero(mask, as_tuple=False).reshape(-1).to(torch.int32)   # (N,)
+        idx_dev = ttnn.from_torch(idx.reshape(1, N), layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        # plddt per-atom-type weight table (24, 384, 50) -> flat (24, 384*50) for embedding gather
+        pw = self._g("plddt_weight")                                       # (n_tokatom, 384, 50)
+        n_ta, c, nb = pw.shape
+        pw_dev = ttnn.from_torch(pw.reshape(n_ta, c * nb).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                 device=self.dev, dtype=ttnn.bfloat16)
+        a2ta = feats["atom_to_tokatom_idx"].long().to(torch.int32).reshape(-1, 1)  # (N_atom,1)
+        a2ta_dev = ttnn.from_torch(a2ta, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        a2t = feats["atom_to_token_idx"].long().to(torch.int32).reshape(-1, 1)     # (N_atom,1) -> s_single gather
+        a2t_dev = ttnn.from_torch(a2t, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, idx_dev=idx_dev, N=N,
+                     pw_dev=pw_dev, a2ta_dev=a2ta_dev, a2t_dev=a2t_dev,
+                     pw_shape=(n_ta, c, nb))
+        return cache
+
+    def z_base_device(self, s_inputs, s_trunk, z_trunk):
+        """Build the sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] +
+        s2(s_inputs)[None,:] in fp32 on host (precision-safe -- bf16-accumulating
+        it on device regresses the pairformer input at small N), then upload as
+        bf16 ONCE. Returned as a resident (1,N,N,256) device tensor; reuse across
+        samples so the (N,N,256) upload is paid once per fold, not per sample."""
+        import torch, torch.nn.functional as F, ttnn
+        z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
+                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0)).unsqueeze(0).contiguous()
+        return ttnn.from_torch(z_base.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+
+    def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
+        """Device-resident confidence forward. z_base_dev is the RESIDENT bf16
+        device tensor from z_base_device() (z_trunk + s1 + s2, fp32-computed once
+        and uploaded once per fold). coords is a host (N_atom,3) tensor
+        (per-sample). Returns the same dict as confidence(). Mirrors confidence()
+        exactly except the per-sample distance-embed + Pairformer + pae/pde/
+        plddt heads run on device (bf16) and only the final logits are
+        downloaded -- the (N,N,256) z never round-trips per sample."""
+        import torch, ttnn
+        rc = self._device_resident(s_inputs, s_trunk, z_base_dev, feats)
+        N = rc["N"]
+        # ---- per-sample distance-embed on device ----
+        coords_tbl = ttnn.from_torch(coords.float().reshape(coords.shape[0], 3), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                     device=self.dev, dtype=ttnn.bfloat16)        # (N_atom,3) gather table
+        xr = ttnn.embedding(rc["idx_dev"], coords_tbl, layout=ttnn.ROW_MAJOR_LAYOUT,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG)               # (1,N,3)
+        xr = ttnn.to_layout(ttnn.reshape(xr, (1, N, 3)), ttnn.TILE_LAYOUT)
+        # squared dist = |xr|^2 + |xr|^2 - 2 xr.xr^T ; d = sqrt(clamp(d2, 0))
+        sq = ttnn.pow(xr, 2.0)
+        srow = ttnn.sum(sq, dim=-1)                                          # (1,N)
+        d2 = ttnn.add(ttnn.add(srow, ttnn.reshape(srow, (1, 1, N))),
+                      ttnn.multiply(ttnn.matmul(xr, ttnn.permute(xr, (0, 2, 1)),
+                                                compute_kernel_config=self.compute_kernel_config,
+                                                core_grid=CORE_GRID_MAIN), -2.0))
+        d2 = ttnn.clamp(d2, 0.0, None)
+        d = ttnn.sqrt(d2)                                                    # (1,N,N)
+        d3 = ttnn.unsqueeze(d, -1)                                           # (1,N,N,1)
+        lb = self._wtt("lower_bins", False); ub = self._wtt("upper_bins", False)
+        lb4 = ttnn.reshape(lb, (1, 1, 1, lb.shape[-1])); ub4 = ttnn.reshape(ub, (1, 1, 1, ub.shape[-1]))
+        ge = ttnn.ge(d3, lb4)                                                # (1,N,N,39) bool->bf16
+        lt = ttnn.lt(d3, ub4)
+        oh = ttnn.multiply(ge, lt)                                           # AND
+        oh = ttnn.to_layout(oh, ttnn.TILE_LAYOUT) if oh.layout != ttnn.TILE_LAYOUT else oh
+        z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
+        z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
+        # ---- confidence Pairformer (device, z stays resident) ----
+        so, zo = self.pf(rc["s_t"], z)                                       # (1,N,384),(1,N,N,256)
+        # ---- heads on device ----
+        zof = ttnn.reshape(zo, (1, N, N, 256))
+        pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
+                                 bias=(self._wtt("pae_ln.bias", False) if "pae_ln.bias" in self._w else None),
+                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        pae_logits = self._dev_lin(pae_ln, "linear_no_bias_pae.weight")      # (1,N,N,64)
+        zot = ttnn.permute(zof, (0, 2, 1, 3))                                # transpose token axes
+        zsym = ttnn.add(zof, zot)
+        pde_ln = ttnn.layer_norm(zsym, weight=self._wtt("pde_ln.weight", False),
+                                 bias=(self._wtt("pde_ln.bias", False) if "pde_ln.bias" in self._w else None),
+                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        pde_logits = self._dev_lin(pde_ln, "linear_no_bias_pde.weight")      # (1,N,N,64)
+        # plddt: a = s_single[a2t]; aln = LN(a)*w+b; logits = einsum('nc,ncb->nb', aln, pw[a2ta])
+        s_single = ttnn.reshape(so, (N, 384))
+        a = ttnn.embedding(rc["a2t_dev"], ttnn.to_layout(s_single, ttnn.ROW_MAJOR_LAYOUT),
+                           layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # (N_atom,1,384)
+        a = ttnn.to_layout(ttnn.reshape(a, (a.shape[0], 384)), ttnn.TILE_LAYOUT)
+        aln = ttnn.layer_norm(a, weight=self._wtt("plddt_ln.weight", False),
+                              bias=(self._wtt("plddt_ln.bias", False) if "plddt_ln.bias" in self._w else None),
+                              epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        n_ta, c, nb = rc["pw_shape"]
+        pw_g = ttnn.embedding(rc["a2ta_dev"], rc["pw_dev"], layout=ttnn.ROW_MAJOR_LAYOUT,
+                              memory_config=ttnn.DRAM_MEMORY_CONFIG)          # (N_atom,1, c*nb)
+        pw_g = ttnn.reshape(pw_g, (a.shape[0], c, nb))                       # (N_atom, 384, 50)
+        pw_g = ttnn.to_layout(pw_g, ttnn.TILE_LAYOUT)
+        # einsum nc,ncb->nb  ==  batched (N_atom,1,384) @ (N_atom,384,50) -> (N_atom,1,50)
+        aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
+        plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
+        # ---- download the small finals; post-process on host (small, exact) ----
+        pae_h = torch.Tensor(ttnn.to_torch(pae_logits)).float().reshape(N, N, -1)
+        pde_h = torch.Tensor(ttnn.to_torch(pde_logits)).float().reshape(N, N, -1)
+        plddt_h = torch.Tensor(ttnn.to_torch(plddt_logits)).float().reshape(a.shape[0], -1)  # (N_atom,50)
+        return self._postprocess(pae_h, pde_h, plddt_h, feats)
+
+    def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats):
+        """Shared host-side post-processing: softmax over bins -> expected
+        distance (pae/pde) and expected plddt; pTM/ipTM from the pae logits.
+        Identical to the tail of confidence() so device/host paths share it."""
+        import torch
+
+        def _expected(logits, max_a=32.0):
+            nb = logits.shape[-1]
+            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
+            return (torch.softmax(logits, -1) * centers).sum(-1)
+        pae = _expected(pae_logits)
+        pde = _expected(pde_logits)
+        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
+        nb = plddt_logits.shape[-1]
+        plddt_atom = (torch.softmax(plddt_logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
         return {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                 "ptm": ptm, "iptm": iptm}
 
@@ -1086,8 +1260,27 @@ class Protenix:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
-            confs = [self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
-                     for k in range(n_sample)]
+            # Device-resident path (opt-in, TT_PROTENIX_CONF_DEVICE=1): keep z_base
+            # on device across samples -- pass the raw trunk z device tensor
+            # straight in, skipping the (N,N,256) host round-trip the host-heads
+            # path takes. Falls back to the host-heads path otherwise.
+            if self.confidence_head.device_confidence_enabled() and NT >= 128:
+                # z_base (z_trunk + s1 + s2) is sample-invariant: build it ONCE in
+                # fp32 on host and upload as a resident bf16 device tensor, then
+                # run the per-sample distance-embed + Pairformer + heads on device
+                # -- the (N,N,256) z never round-trips per sample. Restricted to
+                # NT>=128: at small N the per-sample bf16 dist-embed rounding
+                # diverges from the host path's fp32-then-round (amplified by the
+                # Pairformer into the precision-sensitive plddt head), so the host
+                # path is kept there (it is only ~23 ms at NT=38 anyway). See
+                # docs/protenix-confidence-device-port.md for the PCC evidence.
+                z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
+                confs = [self.confidence_head.confidence_device(
+                            s_inputs, s_trunk, z_base_dev, coords[k], feats)
+                         for k in range(n_sample)]
+            else:
+                confs = [self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
+                         for k in range(n_sample)]
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
 
