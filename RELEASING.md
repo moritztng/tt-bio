@@ -34,13 +34,28 @@ on-device, on the exact commit to be tagged — a release is a promise to custom
    diffusion's seed-to-seed variance; tighten per model as baselines firm up, never below what a
    correct fold hits. BoltzGen's designability floor is scRMSD ≤ 2 Å (BoltzGen's own designable
    bar) on ≥ 50% of the 4 designs — same "catch a gross failure, not a tight target" philosophy.
-2. **No OOM** — run the full supported sequence/complex-size range on the target card(s),
+2. **No UX regression** — the user-facing plumbing every release ships with must keep
+   working: the `tt-bio predict` live progress view advances through every real phase
+   (load → trunk recycling → diffusion → output) with no phase skipped for every model,
+   the emitted CIF/npz parse under a strict standard parser, and `tt-bio predict`/
+   `embed --help` + the results/manifest shape hold. This is the guard against the
+   "0 → diffusion" / "loading → diffusion" progress-jump class and the malformed-output
+   class (e.g. the missing `_atom_site.occupancy` bug). **No tag ships unless it exits 0.**
+   ```bash
+   TT_VISIBLE_DEVICES=<card> /path/to/env/bin/python scripts/ux_regression.py   # all surfaces; exit 0 == all PASS
+   /path/to/env/bin/python scripts/ux_regression.py --cli-only                   # no card; GitHub CI smoke
+   ```
+   It folds `examples/trpcage.yaml` with minimal steps (UX plumbing, not accuracy), so it
+   runs in ~2 min on a card and complements (does not duplicate) the accuracy + perf gates.
+   A UX regression blocks a tag on the same standing as an accuracy one. Whenever a new
+   user-facing surface ships, extend this guard to cover it.
+3. **No OOM** — run the full supported sequence/complex-size range on the target card(s),
    single- and multi-card, to completion. No out-of-memory. Document any hard size limit in the
    release notes rather than letting a customer hit it.
-3. **No perf regression** — benchmark the release commit against the previous release; latency
+4. **No perf regression** — benchmark the release commit against the previous release; latency
    and throughput must not regress beyond noise. Record the numbers in the release notes.
 
-If any of the three fails, it does not ship — fix it or hold the release. `main` may be
+If any of the four fails, it does not ship — fix it or hold the release. `main` may be
 experimental; the tag is the promise.
 
 ## Cut a release
