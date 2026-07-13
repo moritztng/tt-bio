@@ -799,6 +799,60 @@ additive-mask + fused-SDPA device port:
      at block 0, 0.99984 at block 23). ``scripts/of3_diffusion_transformer_bisect.py``
      is the per-block trajectory bisect that localized both issues.
 
+### P8 tick 14 -- AtomAttentionDecoder (Algorithm 6) PCC-gated on device
+
+The exit leg of ``DiffusionModule.forward``: maps the token-level DiT output ``ai``
+(post ``layer_norm_a``) back to a per-atom coordinate update ``rl_update`` [N_atom, 3],
+which EDM output scaling then turns into ``xl_out``. Reference topology
+(``openfold3.core.model.layers.sequence_local_atom_attention.AtomAttentionDecoder``):
+
+    ql'  = ql + broadcast_to_atoms(linear_q_in(ai))   # token -> atom broadcast (Alg 6 L5)
+    ql'' = AtomTransformer(ql', cl, plm, atom_mask)    # 3-block windowed cross-attn (Alg 5 L15)
+    rl_update = linear_q_out(layer_norm(ql''))         # weight-only LN (c_atom, eps=1e-5) + c_atom->3
+
+The 3-block cross-attention is the *same* ``DiffusionTransformer`` (windowed, non-cross)
+topology as the encoder's, so the already-gated P7 ``OF3AtomTransformer`` is reused
+verbatim with the decoder's own weights
+(``diffusion_module.atom_attn_dec.atom_transformer.*``; identical config: 3 blocks,
+``N_HEADS=4``, ``HEAD_DIM=32``, ``N_QUERY=32``, ``N_KEY=128``, ``c_atom=128``,
+``c_atom_pair=16``). The fresh device work in ``tt_bio/openfold3_diffusion_decoder.py``
+is therefore only:
+
+  * ``linear_q_in`` (``c_token=768`` -> ``c_atom=128``, bias-free) + the token->atom
+    broadcast. The broadcast is a mask-derived gather (each atom picks its token's
+    feature via ``atom_to_token_index``); following the P7 atom-transformer discipline
+    the gather index is precomputed on host in the golden and replayed on device with
+    ``ttnn.embedding`` (no device-side index math).
+  * a weight-only ``layer_norm`` (``c_atom=128``, ``create_offset=False``, ``eps=1e-5``);
+  * ``linear_q_out`` (``c_atom=128`` -> 3, bias-free).
+
+Padded atom positions (``n_atom`` -> ``NP = nb*N_QUERY``) are zeroed via
+``atom_mask_col`` so the additive broadcast and the per-row layer-norm do not leak into
+real atoms (same pad-and-mask discipline as the DiT stack). The weight-only LN is
+per-row, so padding ``ql''`` to ``NP`` for tiling and slicing back to ``n_atom`` is
+exact (padded zero rows LN to zero and are stripped at readout).
+
+Golden: ``scripts/of3_diffusion_decoder_golden.py`` runs the full reference
+``DiffusionModule`` forward (real of3-p2-155k.pt weights, real ubiquitin batch, real
+noisy sample at ``s_max``) and forward-hooks ``diffusion_module.atom_attn_dec`` to
+capture its exact ``(ai, ql, cl, plm)`` input and ``rl_update`` output, plus the
+mask-derived atom windowing (``key_block_idxs`` / ``invalid_mask`` / ``mask_trunked``,
+identical to the encoder's) and the ``atom_to_token_index`` broadcast index, adding
+``diffusion_decoder_real`` to ``~/of3_ref_out.pkl``. Captured shapes (ubiquitin):
+``n_atom=601``, ``n_token=76``, ``nb=19``, ``NP=608``, ``ai [76,768]``, ``ql/cl
+[601,128]``, ``plm [19,32,128,16]``, ``rl_update [601,3]`` (std 0.247).
+
+Gate: ``tests/test_openfold3_diffusion_decoder.py`` feeds golden
+``(ai, ql, cl, plm)`` + the host aux -> device ``OF3AtomAttentionDecoder`` -> compares
+``rl_update`` to golden. Result on qb2 (HiFi4 + fp32 dest acc):
+**rl_update_pcc = 0.99968** (> 0.98). The decoder exit leg is byte-correct on device;
+combined with the gated conditioning, DiT, and P7 ``OF3AtomTransformer``, the only
+fresh device work left for a full ``DiffusionModule.forward`` ``xl_out`` gate is the
+*encoder* noisy-position path (``NoisyPositionEmbedder``: trunk single/pair broadcast +
+``linear_r(rl_noisy)``), the encoder pair update (``linear_l``/``linear_m`` +
+``pair_mlp``), and the small glues (``ai += linear_s(LN_s(si))``, ``layer_norm_a``, EDM
+output scaling) -- then assemble and PCC-gate ``xl_out`` vs a full-module golden.
+
 **NEXT (P8, DiffusionModule remainder):** (a) wire ``DiffusionModule.forward``
 (conditioning -> atom enc -> DiT -> atom dec -> EDM output scaling) reusing the
 already-gated P7 ``OF3AtomTransformer`` for the atom enc/dec (same topology, ``a != s``)
