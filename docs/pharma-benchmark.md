@@ -581,7 +581,7 @@ reference's own cost is less predictable.
 ## Status
 
 Complete with real measured numbers: **ESMC-300m and ESMC-600m** (device
-reproduces the reference embeddings to >0.999 PCC, with a bit-exact device noise
+reproduces the reference embeddings to 0.9987–0.9996 PCC, with a bit-exact device noise
 floor), and **ESMFold2** device-vs-reference with a real 3-seed noise floor on
 three proteins spanning 20 to 76 residues (pLDDT and distogram PCC >0.999, pTM
 within 0.006; trp-cage, GB1 and ubiquitin all sit within the sampler noise floor
@@ -595,8 +595,8 @@ prot target now extends it, closing that gap to 0.94 Å within the floor) plus r
 device-vs-CPU-reference timing (40-100x faster warm), **OpenDDE**
 device-vs-reference on two single-sequence targets, three seeds each (trp-cage
 within its noise floor at 0.39 Å, a 2.85x-over-floor gap on prot at reduced
-settings, resolved at production settings (10c/200s): X = 1.90 Å sits inside
-the noise floor (R = 5.68 ± 3.98 Å, D = 8.06 Å) — the reduced-settings gap was
+settings, resolved at production settings (10c/200s): X = 5.68 ± 3.98 Å sits inside
+the noise floor (R = 1.90 Å, D = 8.06 Å) — the reduced-settings gap was
 a tight-floor artifact, not a device defect), and **BoltzGen** device-vs-reference
 designability parity (device 93.8% ≤2Å over two n=8 seed groups; reference
 68.75% ≤2Å over two n=8 groups of the official CLI run on a rented vast.ai
