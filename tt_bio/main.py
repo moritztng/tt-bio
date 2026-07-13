@@ -1763,6 +1763,35 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
         (msa_dir / f"{h}.a3m").write_text(res[i])
 
 
+def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
+                                 msa_pairing_strategy, msa_server_username,
+                                 msa_server_password, api_key_value):
+    """Run a species-pairing MSA search for a multi-chain protein complex and return
+    per-seq-hash paired a3m text (one per chain, rows species-aligned across chains).
+
+    Uses the ColabFold pair endpoint (``ticket/pair``) -- the same paired-MSA utility
+    Boltz-2 uses and the standard AF3/Protenix docking input -- so the species pairing
+    is done server-side, matching what the reference ``MSAPairingEngine.
+    pair_chains_by_species`` produces from per-chain MSAs carrying UniProt/UniRef
+    species IDs. Each returned a3m has the chain's own query as row 0 followed by the
+    paired homologs; row j across chains corresponds to the same genome. Best-effort:
+    callers should catch exceptions and fall back to unpaired-only (no cross-chain
+    signal) rather than failing the whole fold.
+
+    Returns ``{seq_hash: a3m_text}`` parallel to the input ``seqs`` dict.
+    """
+    from tt_bio.data.msa import run_mmseqs2
+
+    headers = {"Content-Type": "application/json", "X-API-Key": api_key_value} if api_key_value else None
+    keys = list(seqs)
+    res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{target_id}_paired_tmp",
+                      use_env=True, use_pairing=True, host_url=msa_server_url,
+                      pairing_strategy=msa_pairing_strategy,
+                      msa_server_username=msa_server_username,
+                      msa_server_password=msa_server_password, auth_headers=headers)
+    return {k: res[i] for i, k in enumerate(keys)}
+
+
 def _resolve_recycling_steps(recycling_steps, model):
     """Per-model default trunk-recycling count when --recycling_steps is unset (None).
 

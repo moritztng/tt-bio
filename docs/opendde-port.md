@@ -27,9 +27,16 @@ multi-chain MSA assembly bug is fixed** (`build_complex_features` now merges per
 the reference way and computes `profile`/`deletion_mean` per chain; single-chain
 bit-exact, Protenix-v2 gate still passes) — it improves the Fab internal dock (H-L fnat
 0.72 -> 0.82) but **the Ab-Ag DockQ stays 0.011 / fnat 0 across all 5 samples**, so the
-Ab-Ag gap is not the multi-chain encoding; the most likely remaining cause is the missing
-real complex templates / paired MSA — see "Multi-chain MSA assembly fix + Ab-Ag
-re-measure (P8)".
+Ab-Ag gap is not the multi-chain encoding. (P9, 2026-07-13) **paired MSA is wired and
+ruled out**: the reference `MSAPairingEngine` species-pairing path is wired via ColabFold's
+pair endpoint and `build_complex_features` stacks the paired block on top of the unpaired
+block; on 9dsg 1008 species-paired heavy-light rows are consumed (Fab internal DockQ
+0.48 -> 0.56) but the antigen has zero paired rows with the antibody (no genomic
+co-occurrence), so Ab-Ag DockQ stays 0.011 / fnat 0 across all 5 samples. Paired MSA
+cannot close Ab-Ag for any Ab-Ag complex (antibodies do not co-evolve genomically with
+antigens); the gap is a model/inference gap in the structural-docking prior, not an
+MSA-side input gap. Protenix-v2 7ROA gate re-run PASS (1.428 A / TM 0.947). See "P9 —
+paired MSA wired + Ab-Ag re-measure".
 
 ## Identity (re-verified 2026-07-12)
 
@@ -456,7 +463,7 @@ worker path ranks samples by the same AF-style `0.8*ipTM+0.2*pTM` score, so
 
 Re-ran the P6 benchmark with MSA now wired (PDB 9dsg, `opendde_abag.pt`, 10 recycles /
 200 diffusion steps, real MSAs searched via the ColabFold API for all three chains:
-antigen 12651 rows, Fab heavy 117, Fab light 10950). Two configs:
+antigen 117 rows, Fab heavy 12651, Fab light 10950 (the heavy/light immunoglobulin MSAs are the deep ones; the viral RBD has few unique homologs after dedup)). Two configs:
 
 | config | samples | A-H DockQ (Ab-Ag) | A-H fnat | H-L DockQ (Fab) | GlobalDockQ | ipTM |
 |---|---:|---:|---:|---:|---:|---:|
@@ -562,6 +569,95 @@ confident on 9dsg), not the cross-chain orientation. Paired-MSA wiring is the la
 (see "Remaining"). Lever (3) more seeds is confirmed unhelpful while the 5-sample
 distribution is degenerate at fnat=0.
 
+## P9 — paired MSA wired + Ab-Ag re-measure (2026-07-13, clean negative)
+
+P8 named paired MSA (the reference `MSAPairingEngine` species-pairing path) as the most
+likely remaining Ab-Ag lever. P9 wires it in and measures it.
+
+**Reference behavior (confirmed from `opendde/data/msa/msa_utils.py`).** `MSAPairingEngine.
+pair_chains_by_species` aligns per-chain MSA rows by UniProt/UniRef species ID
+(`_UNIPROT_REGEX`/`_UNIREF_REGEX` on description lines) and produces `msa_all_seq` per
+chain, column-concatenated across chains so row j of every chain corresponds to the same
+species/genome. `FeatureAssemblyLine.assemble` step 6 then stacks this on top of the
+unpaired block: `merged[msa] = concat([msa_all_seq, msa], axis=0)`. `profile`/`deletion_mean`
+are computed per chain over the UNPAIRED block before pairing; `cleanup_unpaired_features`
+dedups the query out of the unpaired block. The model's `MSAModule` consumes the combined
+rows as ordinary MSA rows, there is no separate pair-mask, the cross-chain co-evolution
+signal is intrinsic to the paired rows (each paired row carries all chains' residues for
+one genome).
+
+**Wiring (data pipeline, no new kernels).** Reuses the repo's existing paired-MSA utility,
+ColabFold's `ticket/pair` endpoint (`run_mmseqs2(use_pairing=True)` in `tt_bio/data/msa.py`,
+already used by Boltz-2), which does the species pairing server-side and returns one
+species-aligned a3m per chain, the same artifact `MSAPairingEngine` produces client-side.
+No reimplementation of the pairing algorithm.
+
+- `tt_bio/main.py:_generate_opendde_paired_a3m` runs the paired search and returns
+  `{seq_hash: paired_a3m_text}`.
+- `tt_bio/protenix_data.py` adds `_parse_paired_a3m_to_msa` (a non-dedup, order-preserving
+  parser, dedup would break cross-chain row alignment, e.g. the antigen's all-GAP paired
+  rows would collapse) and a `paired_a3ms` arg to `build_complex_features`. The paired
+  rows are column-concatenated into one `(max_pd, N_tot)` block, truncated to the min
+  per-chain row count (alignment guard), query (row 0) dropped (already in the unpaired
+  block, the reference's `cleanup_unpaired_features` equivalent), and stacked ON TOP of
+  the unpaired block. `profile`/`deletion_mean` stay per-chain over the unpaired block,
+  byte-identical to the unpaired-only path. Single-chain / all-None / every-paired-a3m-
+  query-only callers get `max_pd == 0` and byte-identical output to before.
+- `tt_bio/worker.py:_predict_opendde_one` runs the paired search for multi-chain protein
+  complexes (best-effort: a failed search falls back to unpaired-only) and passes the
+  paired a3ms through. Protenix-v2 / single-chain paths are untouched.
+
+**Unit-verified (no device).** Single-chain with a query-only paired a3m is byte-identical
+to unpaired-only; multi-chain stacks the paired block at the right depth; a 9dsg-style case
+(one chain's paired block all-GAP, two chains real) preserves row alignment without dedup
+collapse; `profile`/`deletion_mean` are byte-identical with vs without the paired block.
+
+**9dsg re-measure (`opendde_abag.pt`, 10 recycles / 200 steps / 5 samples, real MSAs via
+the ColabFold API, qb2 card 2).** The paired search returns 1009 rows per chain (query +
+1008), all chains row-aligned by genome. Per-chain real (non-GAP) paired rows after parse:
+antigen 0, Fab heavy 1008, Fab light 1008. The antigen has NO paired homolog with either
+antibody chain (no genome encodes both a coronavirus spike and an immunoglobulin), its
+paired block is all-GAP; the Fab heavy and light share 1008 UniRef100 species-paired rows
+(immunoglobulins co-occur across vertebrate genomes). Featurization confirmed: unpaired
+MSA depth 12636 -> 13644 with the paired block (+1008 rows stacked on top), `profile`/
+`deletion_mean` byte-identical.
+
+| config | samples | A-H DockQ (Ab-Ag) | A-H fnat | H-L DockQ (Fab) | H-L fnat | GlobalDockQ | ipTM |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| P8, MSA + best-of-5 (no paired MSA) | 5 (conf. rank 0) | 0.011 | 0 | 0.473-0.497 | 0.81-0.825 | 0.244-0.254 | 0.706 |
+| P9, MSA + paired MSA + best-of-5 | 5 (conf. rank 0) | 0.011 | 0 | 0.492-0.562 | 0.817-0.825 | 0.251-0.295 | 0.702 |
+
+DockQ across all 5 samples (oracle view): A-H 0.0113-0.0285, **fnat 0 in every sample**;
+H-L 0.492-0.562, fnat 0.817-0.825. Confidence-selected rank 0: A-H DockQ 0.0113 / fnat 0
+(essentially unchanged from P8's 0.011).
+
+**Honest verdict, a clean negative.** Paired MSA is wired and confirmed consumed: 1008
+species-paired heavy-light rows are stacked on top of the unpaired block, the Fab internal
+dock firms up slightly (H-L DockQ 0.48 -> 0.56), and whole-complex confidence is unchanged
+(ipTM 0.706 -> 0.702). But the antibody-antigen interface stays at DockQ 0.011 / fnat 0
+across all five samples, the same degenerate distribution as P7/P8. The root cause is
+biological, not a port bug: paired MSA carries cross-chain co-evolution only between chains
+that co-occur in the same genome. The Fab heavy and light chains do (immunoglobulins across
+vertebrate genomes, 1008 paired rows), so the H-L signal is fed and helps the Fab internal
+dock. The antigen and the antibody do not, no genome encodes both a coronavirus spike and
+an immunoglobulin, so the antigen's paired block is empty and there is NO co-evolution
+signal telling the model where the antigen meets the paratope. This is true of every
+antibody-antigen complex (antibodies do not co-evolve genomically with their antigens), so
+paired MSA cannot be the Ab-Ag lever for this target class, in this port or in the
+reference. The reference OpenDDE's headline Ab-Ag accuracy must therefore rest on the
+model's trained structural prior for paratope-epitope geometry (plus correct Fab assembly
+and antigen fold), not on MSA co-evolution. The 0.011 gap in this port is a model/inference
+gap in that structural-docking prior, not a missing-paired-MSA gap. This rules out the last
+MSA-side lever; the remaining candidates are model-side (the structural-token refiner's
+cross-chain conditioning, the diffusion sampler's docking-mode settings, or a weight/checkpoint
+mismatch in the Ab-Ag-specific `opendde_abag.pt` routing) and are tracked in "Remaining".
+
+**Protenix-v2 release gate (shared data path), re-run on card 2.** `scripts/release_gate.py
+--model protenix-v2` on 7ROA: RMSD 1.428 A, TM 0.947, **PASS** (floor <=6.0/>=0.5). The
+`build_complex_features` change is gated on `paired_a3ms` (None for Protenix-v2 / single-chain),
+so the shared trunk/MSA featurization is byte-identical there; the gate confirms no
+regression on the real device.
+
 ## Remaining
 
 - **MSA search in the OpenDDE CLI path: done (P7).** `_predict_opendde_one` reuses the
@@ -575,24 +671,33 @@ distribution is degenerate at fnat=0.
 - **Best-of-N for the Ab-Ag DockQ read: done (P7).** `--diffusion_samples N` flows
   through `OpenDDE.fold(n_sample=N)` and the worker's confidence ranking; measured at
   N=5 (paper default). Does not rescue the Ab-Ag interface (degenerate at fnat=0).
-- **Antibody-antigen DockQ still 0.011 with MSA + best-of-5 + the P8 MSA fix -- the
-  gap is not the multi-chain encoding.** P8 cleared lever (2): `relp` (residue and
-  structural-token axis), `sym_id`/`entity_id`/`asym_id`/`residue_index`, and the MSA
-  assembly were checked against the reference; the one real bug (multi-chain MSA
-  profile/row-structure) is fixed but does not move A-H. The antigen folds confidently
-  and the Fab assembles (H-L fnat ~0.82), yet the antigen is mis-docked relative to the
-  Fab across all 5 samples. The most likely remaining cause is the cross-chain co-evolution
-  input the paper's standard pipeline uses and this port lacks -- **paired MSA** (the
-  `MSAPairingEngine` species-pairing path is not wired into tt-bio's predict path; only
-  unpaired MSA is, which carries no cross-chain signal). Real **complex templates** are
+- **Paired MSA: wired and ruled out as the Ab-Ag lever (P9).** The reference
+  `MSAPairingEngine` species-pairing path is now wired into the predict path via
+  ColabFold's pair endpoint (the repo's existing paired-MSA utility); `build_complex_features`
+  stacks the paired block on top of the unpaired block. On 9dsg the paired search returns
+  1008 species-paired heavy-light rows (consumed, Fab internal DockQ 0.48 -> 0.56) but zero
+  antigen-antibody paired rows (no genomic co-occurrence), so Ab-Ag DockQ stays 0.011 / fnat 0
+  across all 5 samples. Paired MSA cannot close Ab-Ag for any Ab-Ag complex (antibodies do
+  not co-evolve genomically with antigens); the gap is a model/inference gap in the
+  structural-docking prior, not a missing-input gap. See P9 above.
+- **Antibody-antigen DockQ still 0.011 with MSA + paired MSA + best-of-5 -- the gap is
+  not an MSA-side input gap.** P8 cleared the multi-chain encoding (relp on both axes,
+  `sym_id`/`entity_id`/`asym_id`/`residue_index`, and the MSA row/profile assembly) and
+  P9 cleared paired MSA (the last MSA-side lever): the `MSAPairingEngine` species-pairing
+  path is wired and consumed, but the antigen has no paired rows with the antibody (no
+  genomic co-occurrence), so there is no Ag-Ab co-evolution signal for any Ab-Ag complex
+  and A-H stays fnat 0. The antigen folds confidently and the Fab assembles (H-L fnat
+  ~0.82), yet the antigen is mis-docked relative to the Fab across all 5 samples. The
+  remaining candidates are model-side: the structural-token refiner's cross-chain
+  conditioning, the diffusion sampler's docking-mode settings, or a weight/checkpoint
+  mismatch in the Ab-Ag-specific `opendde_abag.pt` routing. Real **complex templates** are
   **not** the lever and are de-prioritized: the reference `TemplateEmbedder` masks every
   template pair feature to the same-chain block (`multichain_mask = asym_id[:,None] ==
   asym_id[None,:]`), exactly as this port does, so templates carry only intra-chain geometry
   (reinforce a chain's own fold, already confident on 9dsg), not the cross-chain
   orientation. Real template *search* is also a separate multi-day data-pipeline port
   (tt-bio has no template-search stage; OpenDDE's is a 509-line `search.py` + ~1900 lines
-  of template parser/featurizer + a PDB template DB). Paired-MSA wiring is the release-gated
-  lever worth the next pass.
+  of template parser/featurizer + a PDB template DB).
 - **Nucleic-acid / ligand structural tokens**: `opendde_data.py` is protein-only; extending
   to DNA/RNA backbone/base splitting and ligand atom-tokens follows the identical pattern
   once a mixed-modality co-folding target is on the critical path.
@@ -665,9 +770,10 @@ distribution is degenerate at fnat=0.
   GAP). Single-chain bit-exact; Protenix-v2 release gate still passes (1.417 A / TM 0.936
   on 7ROA). On 9dsg the Fab internal dock improves (H-L fnat 0.72 -> 0.81-0.825 across all
   5 samples) but the Ab-Ag interface stays DockQ 0.011 / fnat 0 (degenerate, unchanged) --
-  the Ab-Ag gap is not the multi-chain encoding; most likely the missing **paired MSA**
-  (the cross-chain co-evolution signal; templates are not the lever -- the reference masks
-  template pair features to same-chain, so they encode intra-chain geometry only).
+  the Ab-Ag gap is not the multi-chain encoding. Paired MSA was the suspected next lever
+  and is now wired and ruled out (P9, next bullet) -- no Ag-Ab genomic co-occurrence, so
+  paired MSA cannot close Ab-Ag for any Ab-Ag complex. Templates are not the lever (the
+  reference masks template pair features to same-chain, intra-chain geometry only).
 - **--fast + multi-card verification: done (2026-07-13, qb2, 4x Blackhole p300c).**
   `tt-bio predict examples/9dsg_abag.yaml --model opendde-abag --fast` runs end-to-end on
   one card and writes a valid CIF + results.json; confidence/DockQ match the non-fast
@@ -684,10 +790,13 @@ distribution is degenerate at fnat=0.
   `predict-multicard-already-exists`). No --fast codepath or device-mesh gap (cf. the
   `esmc-embed-p300-mesh-gap` precedent): the predict scheduler sets the P300 mesh-graph
   descriptor per worker for OpenDDE too.
-- **Not yet**: **paired MSA** (the `MSAPairingEngine` species-pairing path is not wired into
-  the predict path; only unpaired MSA is, which carries no cross-chain signal -- this is the
-  most likely remaining cause of the 0.011 Ab-Ag DockQ now that the multi-chain MSA assembly
-  is fixed (P8), and the release-gated lever worth the next pass). Real template **search**
+- **Paired MSA: done and ruled out (P9).** The `MSAPairingEngine` species-pairing path is
+  wired into the predict path (ColabFold pair endpoint + `build_complex_features` paired
+  block); it is consumed but does NOT close the 0.011 Ab-Ag DockQ (no antigen-antibody
+  genomic co-occurrence, so no Ag-Ab co-evolution signal exists for any Ab-Ag complex).
+  The remaining Ab-Ag candidates are model-side: the structural-token refiner's cross-chain
+  conditioning, the diffusion sampler's docking-mode settings, or a weight/checkpoint
+  mismatch in the Ab-Ag-specific `opendde_abag.pt` routing. Real template **search**
   is a separate, de-prioritized lift: the dummy-template embedder already runs at `nt=4`,
   and real templates are not the Ab-Ag lever (reference masks template pair features to
   same-chain), though porting OpenDDE's HMMER/Kalign search pipeline + a PDB template DB is
