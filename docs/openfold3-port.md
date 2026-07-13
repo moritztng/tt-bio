@@ -1279,43 +1279,23 @@ Leg 1 (full ``DiffusionModule`` -> ``xl_out``, PCC 0.99746) is landed and pushed
 done this tick -- it is a multi-tick effort, scoped here so the next relaunch resumes
 cleanly. Concretely what remains:
 
-  1. **Trunk inference assembly** (P4, still unchecked): wire ``InputEmbedderAllAtom``
-     (atom encoder -> ``s_input`` + the gated ``InputEmbedderGlue`` outer-sum -> ``s``/``z``)
-     -> MSA module (gated, m-track correct / z-track xfail) -> 48-block ``Pairformer``
-     (s-track 0.996 correct, z-track xfail on the cancelling final block -- the docs'
-     established acceptance is the end-to-end RMSD gate, not raw stack-z) -> template
-     embedder (gated) -> trunk ``(si_trunk, zij_trunk)``. None of these are assembled into
-     a single device ``forward`` yet; each is gated in isolation only.
-  2. **``SampleDiffusion`` EDM sampler** (AF3 Algorithm 18): a host orchestration loop
-     around the gated ``OF3DiffusionModule``. Per step ``tau``: host-compute the noise
-     embedding ``n = fourier_emb(0.25 * log(t / sigma_data))`` (``fourier_emb.w``/``b`` are
-     in the checkpoint under ``diffusion_conditioning.fourier_emb``; replicate on host),
-     run ``OF3DiffusionConditioning`` -> ``(si, zij)`` (the noise embedding is the only
-     per-step conditioning input; relpos/si_input/si_trunk/zij_trunk are fixed), run
-     ``OF3DiffusionModule(si_trunk, si, zij, cl0, plm0, rl_noisy, xl_noisy, ...)`` ->
-     ``xl_denoised``, then the EDM step ``xl = xl_noisy + step_scale * (c_tau - t) *
-     (xl_noisy - xl_denoised) / t``. ``centre_random_augmentation`` (random rotation +
-     translation, AF3 Algorithm 19) is applied to ``xl`` before each step's noise add.
-     Full rollout is ``no_full_rollout_steps=200`` x ``no_full_rollout_samples=5`` = 1000
-     ``DiffusionModule`` forwards -- a real perf item; a reduced-step rollout gate (e.g.
-     4 steps, 1 sample) is the natural first sub-leg to prove the loop composes on device
-     (replay the per-step noise / rotation / translation from a reference golden, same
-     isolation discipline as the component gates), but it is NOT the merge gate.
+  1. **Trunk inference assembly** -- DONE, P10 (see "P10 -- Trunk assembly made fully
+     device-real" above): ``InputEmbedderAllAtom`` -> MSA module -> 48-block
+     ``Pairformer`` -> template embedder assembled into a single device ``forward``,
+     both pair_stacks real (no golden substitution), s_trunk=0.99910,
+     z_trunk=0.97097, glue=1.00000.
+  2. **``SampleDiffusion`` EDM sampler** (AF3 Algorithm 18) -- DONE (P9 leg 2, see below):
+     reduced-rollout gate 0.99343, full ``xl_out`` 0.99746.
   3. **Confidence heads** (PAE/PDE/pLDDT/distogram/resolved) + the ``aux_heads`` confidence
-     pairformer -- ported P10 (see "P10 -- confidence heads" below): all five heads
+     pairformer -- DONE, P10 (see "P10 -- confidence heads" below): all five heads
      PCC-gated on device (hybrid confidence Pairformer: device z-path + host-fp32 s-path,
-     since the trunk's raw ~196k ``si_trunk`` needs fp32 for the s-track). Needed for a
-     complete ``fold()`` output but not for the structure RMSD.
-  4. **``OpenFold3.fold()`` + data pipeline + Kabsch Ca-RMSD**: assemble the full
-     ``fold()`` (data pipeline is the gated P1 vendor; trunk -> ``SampleDiffusion`` ->
-      coordinates), run ``examples/prot.yaml`` (or the ubiquitin/7ROA fixture), parse Ca
-      positions, Kabsch-align vs ground truth, report the RMSD. THIS number is the merge
-     gate -- do not claim it without a real RMSD.
-
-The gated ``OF3DiffusionModule`` (this tick) is the inner loop of (2); the next tick
-should do the reduced-rollout sampler gate (sub-leg) then the trunk assembly (the hard
-part, blocked by the Pairformer z-track device-precision gap that the end-to-end RMSD is
-the acceptance for).
+     since the trunk's raw ~196k ``si_trunk`` needs fp32 for the s-track).
+  4. **``OpenFold3.fold()`` + data pipeline + Kabsch Ca-RMSD** -- the only item left,
+     now unblocked (1-3 above all landed): assemble the full ``fold()`` (data pipeline
+     is the gated P1 vendor; trunk -> ``SampleDiffusion`` -> coordinates), run
+     ``examples/prot.yaml`` (or the ubiquitin/7ROA fixture), parse Ca positions,
+     Kabsch-align vs ground truth, report the RMSD. THIS number is the merge gate --
+     do not claim it without a real RMSD.
 
 ## P9 leg 2 -- tick 18: SampleDiffusion reduced-rollout sampler gate (sub-leg)
 
