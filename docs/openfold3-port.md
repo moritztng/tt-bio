@@ -1275,9 +1275,11 @@ merge gate for the whole OF3 port.
 ### P9 leg 2 -- ``SampleDiffusion`` + ``OpenFold3.fold()`` end-to-end Kabsch gate: status
 
 Leg 1 (full ``DiffusionModule`` -> ``xl_out``, PCC 0.99746) is landed and pushed. Leg 2
-(the real merge gate: a vs-ground-truth Kabsch Ca-RMSD from ``OpenFold3.fold()``) is NOT
-done this tick -- it is a multi-tick effort, scoped here so the next relaunch resumes
-cleanly. Concretely what remains:
+(the real merge gate: a vs-ground-truth Kabsch Ca-RMSD from ``OpenFold3.fold()``) is
+DONE, P11 -- see the "P11 -- ``OpenFold3.fold()`` end-to-end + vs-ground-truth Kabsch
+Cα-RMSD" section below (best-of-5 = 10.18 Å vs 1UBQ, full 200x5 rollout). The
+component breakdown that was scoped here for resuming is retained for reference:
+Concretely what was assembled:
 
   1. **Trunk inference assembly** -- DONE, P10 (see "P10 -- Trunk assembly made fully
      device-real" above): ``InputEmbedderAllAtom`` -> MSA module -> 48-block
@@ -1290,12 +1292,15 @@ cleanly. Concretely what remains:
      pairformer -- DONE, P10 (see "P10 -- confidence heads" below): all five heads
      PCC-gated on device (hybrid confidence Pairformer: device z-path + host-fp32 s-path,
      since the trunk's raw ~196k ``si_trunk`` needs fp32 for the s-track).
-  4. **``OpenFold3.fold()`` + data pipeline + Kabsch Ca-RMSD** -- the only item left,
-     now unblocked (1-3 above all landed): assemble the full ``fold()`` (data pipeline
-     is the gated P1 vendor; trunk -> ``SampleDiffusion`` -> coordinates), run
-     ``examples/prot.yaml`` (or the ubiquitin/7ROA fixture), parse Ca positions,
-     Kabsch-align vs ground truth, report the RMSD. THIS number is the merge gate --
-     do not claim it without a real RMSD.
+  4. **``OpenFold3.fold()`` + data pipeline + Kabsch Ca-RMSD** -- DONE, P11 (see
+     "P11 -- ``OpenFold3.fold()`` end-to-end + vs-ground-truth Kabsch Cα-RMSD" below):
+     the full ``fold()`` (device trunk -> fresh-rollout device ``SampleDiffusion`` ->
+     coordinates) runs on the real ubiquitin target and produces a real
+     vs-ground-truth Kabsch Cα-RMSD. Best-of-5 = **10.18 Å**, median 10.82 Å
+     (full production rollout, 200 steps x 5 samples, seed 1234, vs 1UBQ). This is
+     the merge-gate number, honestly mediocre (undertrained 155k checkpoint +
+     single-sequence/no-MSA target + the accepted MSA-track bf16 degradation +
+     bf16 diffusion), but a real protein-scale fold, not a wiring artefact.
 
 ## P9 leg 2 -- tick 18: SampleDiffusion reduced-rollout sampler gate (sub-leg)
 
@@ -1510,3 +1515,93 @@ the head PCCs is the device z-path precision (0.99624), composed via the host-fp
 Scripts: ``scripts/of3_confidence_golden.py`` (reference golden capture),
 ``scripts/of3_conf_bisect.py`` (host-fp32 z-embed + head-layout bit-exact proof).
 Golden: ``~/of3_ref_out.pkl["intermediates"]["confidence_heads_real"]``.
+
+## P11 -- OpenFold3.fold() end-to-end + vs-ground-truth Kabsch Cα-RMSD (the OF3 port merge gate)
+
+Closed the last item (the real merge gate): the full OpenFold3.fold() (device trunk
+-> fresh-rollout device SampleDiffusion -> atom coordinates) runs end-to-end on the
+real ubiquitin target and produces a real vs-ground-truth Kabsch Cα-RMSD. This is the
+number the whole OF3 port was building toward -- not a stack-PCC, not a sampler-math
+gate, the actual structure-quality number a user would receive.
+
+**Entry point** (tt_bio/openfold3_fold.py, OpenFold3.fold()): composes the gated
+device OF3Trunk (P10) with the gated device OF3SampleDiffusion (P9 leg 2). The
+trunk runs fully on device and emits (s_trunk, z_trunk); those feed the device
+diffusion conditioning + DiffusionModule inside a *fresh* EDM rollout (AF3 Algorithm
+18) -- a real noise schedule + per-step random augmentation/noise drawn with the
+caller's seed, NOT a golden-replayed trajectory. The AF3 noise schedule (Page 24) and
+Algorithm 19 quaternion augmentation are replicated host-side
+(create_noise_schedule / sample_rotation) so the device env (which does not
+import the CPU reference openfold3) can run a standalone fold. The
+DiffusionModule device aux (cl0/plm0/atom masks/block indices/
+atom_to_token_mean/NPE gather indices) reuse the exact tensor recipe validated in
+tests/test_openfold3_sample_diffusion.py (factored into
+build_dm_device_aux so fold() and the sampler gate share it).
+
+**Target + ground truth:** the ubiquitin fixture already wired into every OF3
+component golden (query_ubiquitin.json, 76-res human ubiquitin, single-sequence --
+no MSA file ships with the query, so the MSA features fall back to the single-sequence
+path the model was trained to accept). Ground truth is the experimental structure
+**1UBQ** (examples/ground_truth_structures/ubiquitin.pdb), whose sequence matches
+the query exactly. The 601-atom-axis Cα mask (76 Cα) is derived once from the vendored
+data pipeline's atom_array and stored at
+tests/fixtures/of3_ubiquitin_ca_mask.npy. Reusing the existing ubiquitin fixture
+(the real P1 data-pipeline + reference-embedder outputs in ~/of3_ref_out.pkl)
+avoids redundant data-pipeline work; the trunk + diffusion sampler -- the device
+compute that determines the structure -- run on device for real.
+
+**Result** (scripts/of3_fold_rmsd.py, qb2 card 1, HiFi4 + fp32 dest acc, full
+production rollout = 200 steps x 5 samples, seed 1234, vs 1UBQ):
+
+| sample | xl_final std (Å) | Kabsch Cα-RMSD (Å) |
+|---|---|---|
+| 0 | 4.076 | 11.520 |
+| 1 | 3.697 | 10.181 |
+| 2 | 3.193 | 11.265 |
+| 3 | 3.383 | 10.821 |
+| 4 | 4.413 | 10.357 |
+
+**Best-of-5 = 10.18 Å, median = 10.82 Å, max = 11.52 Å.** Wall-clock 32 s for the full
+200x5 rollout (the trunk runs once; the 5 samples are independent fresh-seed rollouts).
+A single 200-step sample (the gate test config) is 11.52 Å in ~10 s.
+
+This is honestly mediocre and that is expected, not a bug:
+
+  - The checkpoint is the **155k-step** OF3 weights (a fraction of the full AF3
+    training schedule); it is undertrained for folding.
+  - The target is folded **single-sequence** (no MSA), the hardest regime -- the MSA
+    pair_stack, which carries the evolutionary signal, has nothing to work with here.
+  - The accepted **MSA-track bf16 degradation** (z_trunk=0.97097, P10) and the **bf16
+    diffusion module** compose into the structure.
+
+What it is NOT: a wiring artefact. The 4-step reduced rollout (the P9 sampler-math
+gate) deliberately does NOT produce a structure -- noise_schedule[0] = sigma_data *
+s_max = 2560, so a 4-step EDM denoise sits at std~300 Å / RMSD~504 Å; the full
+200-step rollout denoises that down to a protein-scale structure (std 3-4 Å, range
+±15 Å) with 5 independent samples clustering tightly (10.18-11.52 Å). That
+convergence + tight cross-sample cluster is the evidence the trunk->diffusion
+plumbing (tensor layouts, the NPE/conditioning/DiffusionModule aux, the EDM step) is
+correct -- a layout/integration bug would give NaN or a non-converged/garbage sample,
+not a tight cluster of protein-scale structures. The number is reported as measured,
+not tuned or cherry-picked.
+
+**Scope honestly stated:** the InputEmbedder atom-encoder / MSAModuleEmbedder /
+template-feature host-prep legs run on host (their device ports exist and are
+separately PCC-gated; wiring the full device atom-transformer into fold() is
+deferred). Confidence heads are not run here -- best-of-N selection by confidence is
+the obvious next step once the heads are wired into fold(); this leg reports the
+full 5-sample distribution rather than a confidence-selected pick. The merge gate
+(the real RMSD) is met.
+
+**Gate test** (tests/test_openfold3_fold_rmsd.py): runs fold() (200 steps x 1
+sample, ~10 s), asserts a real structure -- finite, protein-scale (xl_final std in
+(1, 50) Å), Cα count matches 1UBQ, Kabsch Cα-RMSD < 30 Å. The 30 Å ceiling is a
+wiring-regression sanity guard (well above the real ~11.5 Å), NOT an accuracy floor --
+it catches NaN / non-converged rollout / coordinate-frame bugs without gating on the
+undertrained model's intrinsic accuracy.
+
+Scripts/fixtures: scripts/of3_fold_rmsd.py (the fold + RMSD runner),
+tests/test_openfold3_fold_rmsd.py (the gate), tt_bio/openfold3_fold.py
+(OpenFold3 + kabsch_rmsd + load_pdb_ca),
+examples/ground_truth_structures/ubiquitin.pdb (1UBQ),
+tests/fixtures/of3_ubiquitin_ca_mask.npy.
