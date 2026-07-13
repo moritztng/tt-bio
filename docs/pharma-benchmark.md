@@ -528,6 +528,32 @@ reference) is consistent across both batch pairs, and a device that designs
 failure by any reasonable bar. This closes the BoltzGen reference leg that was
 previously blocked on GPU-less hosts.
 
+## Reference hardware-invariance (CPU ≈ GPU)
+
+The reference fixtures above were generated on CPU (the fleet has no NVIDIA
+GPU). A fair objection is "you compared the device against a CPU reference, but
+we run on GPU". To close it, the same official Boltz-2 2.2.1 was run on a rented
+vast.ai on-demand RTX 3090 (instance torn down after) for the trp-cage target,
+identical version, settings, and seeds (0, 1) as the committed CPU fixture, and
+the GPU structure compared to the CPU structure with the same R/D/X harness:
+
+| leg | what | CA-RMSD (Å) |
+|---|---|---|
+| R | CPU reference vs CPU reference (2 seeds) | 0.81 |
+| D | GPU reference vs GPU reference (2 seeds) | 0.47 |
+| X | GPU reference vs CPU reference (4 pairs) | 0.68 ± 0.18 |
+
+X (0.68 Å) sits inside max(R, D) = 0.81 Å (X/floor 0.84), so the GPU reference
+agrees with the CPU reference to within the reference's own run-to-run noise
+floor — the same "practically identical without bit-exactness" bar the device
+legs use. The alignment-free metric agrees (1−PCC X 0.005 vs R 0.007). Confidence
+deltas (GPU − CPU) are all under 0.06: confidence_score +0.015, ptm +0.059,
+complex_plddt +0.004, complex_pde −0.017. The reference is hardware-invariant,
+so the CPU-generated reference fixtures are representative of the GPU a pharma
+evaluator actually runs. GPU structures committed under
+`docs/pharma-benchmark-data/ref-fixtures/boltz2/trpcage/nomsa_200step_1sample_3recycle_bf16_gpu/`;
+raw comparison: `docs/pharma-benchmark-data/boltz2-cpu-vs-gpu-ref.json`.
+
 ## Speed and cost
 
 The pitch is "equivalent output, and cheaper to run". The one timing observed
@@ -589,6 +615,13 @@ rented vast.ai on-demand RTX 3090 (instance torn down after the run), producing
 the reference designability floor the device leg is compared against. The
 GPU-rental cost was a few dollars, well inside the $13 credit, and the
 reference outputs are committed as fixtures so the leg does not re-run.
+
+Also complete on the same rented GPU: a **reference hardware-invariance**
+check — official Boltz-2 2.2.1 run on GPU vs the committed CPU reference
+fixtures for trp-cage, same version/settings/seeds. GPU-vs-CPU CA-RMSD
+0.68 Å sits inside the CPU-vs-CPU floor (0.81 Å), so the reference is
+hardware-invariant (CPU ≈ GPU) and the CPU fixtures are representative of the
+GPU a pharma evaluator runs. See the "Reference hardware-invariance" section.
 
 Ready to run, queued for the fan-out phase: the **ESMFold2** third-target
 noise floor (the Boltz-2 MSA-backed target that was queued here is now
