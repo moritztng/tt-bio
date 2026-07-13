@@ -6,31 +6,15 @@ scripts/of3_confidence_golden.py -- the reference ``AuxiliaryHeadsAllAtom`` forw
 the real trunk (si_input/si_trunk/zij_trunk) and the real diffusion-sampler coords
 (xl_final), use_zij_trunk_embedding=True (the reference eval-mode value).
 
-The device ``OF3ConfidenceHead`` isolates the 4-block confidence Pairformer as the only
-bf16 stage (the z-embedding and the five output heads are host-fp32, mirroring
-Protenix-v2's ConfidenceHead).
-
-GATED on device (PCC > 0.98) -- the pair-channel heads + the confidence Pairformer
-z-track: PAE, PDE, distogram, zij_conf. The pair channel (c_z=128, std~130) is
-well-represented in bf16, so the 4-block confidence Pairformer z-track and the three
-heads that read it (PAE/PDE) or the trunk pair (distogram) all gate.
-
-DEVICE-XFAIL (documented precision gap) -- the single-channel heads + the confidence
-Pairformer s-track: si_conf, plddt, exp_resolved. The confidence Pairformer receives
-the trunk's raw final single ``si_trunk`` at ~196k magnitude (the reference passes it
-with NO glue/LayerNorm, unlike the trunk's own Pairformer which starts each cycle at
-s~187 via the s-glue ``linear_s(LN(s_prev))``). At 196k, bf16 (resolution ~1024)
-corrupts the small per-block s-updates, and the attention amplifies the error across
-the 4 blocks (block 0 si_pcc=1.0 in isolation, but compounding drops the chained s-track
-to ~0.94 even with golden z substituted each block). The plddt / experimentally_resolved
-heads apply a LayerNorm to ``si_conf``, which strips the dominant 196k residual and
-exposes the corrupted per-channel updates -> plddt/exp_resolved PCC well below 0.98.
-This is the same family of bf16-magnitude gap as the MSA pair_stack (docs/openfold3-
-port.md P8), not a code bug: the host-fp32 z-embed and all five head layouts are
-bit-exact vs the reference (scripts/of3_conf_bisect.py). Protenix-v2's plddt 0.93 does
-not transfer because Protenix applies an ``input_struck_ln`` (normalizing s_trunk
-before the confidence Pairformer) that OF3's architecture does not have. Closing this
-needs a manual fp32-softmax attention + fp32 s-residual path (future leg).
+The device ``OF3ConfidenceHead`` runs a hybrid confidence Pairformer: the z-path
+(TriangleMultiplication / TriangleAttention / Transition on [N, N, 128], the heavy pair
+compute) on device bf16 (HiFi4 + fp32 dest acc), and the s-path (LN + AttentionPairBias
++ Transition on [N, 384]) on host fp32 -- precision-motivated, because the confidence
+Pairformer receives the trunk's raw ``si_trunk`` at ~196k magnitude (no glue/LayerNorm,
+unlike the trunk Pairformer which starts each cycle at s~187 via the s-glue), where bf16
+corrupts the small per-block s-updates (attention-amplified) and the plddt/resolved
+LayerNorm exposes them. The z-embedding and the five output heads are host-fp32
+(mirroring Protenix-v2's ConfidenceHead). All five heads PCC-gate vs the real golden.
 """
 import os, pickle, pytest, torch, ttnn
 
@@ -74,40 +58,23 @@ def _run():
     return g, out
 
 
-# Pair-channel heads + confidence Pairformer z-track: GATED on device.
-_GATED = ["pae_logits", "pde_logits", "distogram_logits"]
-# Single-channel heads + confidence Pairformer s-track: documented device-xfail.
-_XFAIL = ["plddt_logits", "experimentally_resolved_logits"]
+_HEADS = ["plddt_logits", "experimentally_resolved_logits", "pae_logits",
+          "pde_logits", "distogram_logits"]
 
 
-def test_of3_confidence_pair_heads_on_device():
-    """Gate the pair-channel confidence heads (PAE/PDE/distogram) + the confidence
-    Pairformer z-track (zij_conf) vs the real OF3 reference golden. PCC > 0.98."""
+def test_of3_confidence_heads_on_device():
+    """Gate all five confidence heads + the confidence Pairformer (si_conf, zij_conf) vs
+    the real OF3 reference golden. PCC > 0.98 per head."""
     g, out = _run()
-    pccs = {h: _pcc(out[h].float(), g[h].float()) for h in _GATED}
-    zij_pcc = _pcc(out["zij_conf"].float(), g["zij_conf"].float())
-    print("\nOF3 confidence -- GATED (pair channel, device bf16 confidence Pairformer):")
-    for h in _GATED:
-        print(f"  {h:18s} PCC={pccs[h]:.5f}  shape={tuple(out[h].shape)}")
-    print(f"  zij_conf          PCC={zij_pcc:.5f}")
-    for h, p in pccs.items():
-        assert p > 0.98, f"{h} PCC {p:.5f} below 0.98"
-    assert zij_pcc > 0.98, f"zij_conf PCC {zij_pcc:.5f} below 0.98"
-
-
-@pytest.mark.xfail(reason="bf16 s-track at si_trunk's ~196k magnitude corrupts the small "
-                          "per-block s-updates (attention-amplified); plddt/exp_resolved "
-                          "LayerNorm exposes them. Needs fp32 attention + s-residual "
-                          "(future leg). See module/test docstring.")
-def test_of3_confidence_single_heads_device_xfail():
-    """Document the single-channel heads (plddt/exp_resolved) + s-track (si_conf)
-    device-precision gap. XFAIL: not gated, root-caused (see docstring)."""
-    g, out = _run()
-    pccs = {h: _pcc(out[h].float(), g[h].float()) for h in _XFAIL}
+    pccs = {h: _pcc(out[h].float(), g[h].float()) for h in _HEADS}
     si_pcc = _pcc(out["si_conf"].float(), g["si_conf"].float())
-    print("\nOF3 confidence -- DEVICE-XFAIL (single channel, si_trunk ~196k magnitude):")
-    for h in _XFAIL:
+    zij_pcc = _pcc(out["zij_conf"].float(), g["zij_conf"].float())
+    print("\nOF3 confidence heads (device z-path bf16 + host-fp32 s-path + host-fp32 heads):")
+    for h in _HEADS:
         print(f"  {h:32s} PCC={pccs[h]:.5f}  shape={tuple(out[h].shape)}")
     print(f"  si_conf (conf Pairformer s)        PCC={si_pcc:.5f}")
+    print(f"  zij_conf (conf Pairformer z, dev)  PCC={zij_pcc:.5f}")
     for h, p in pccs.items():
-        assert p > 0.98, f"{h} PCC {p:.5f}"   # expected to fail
+        assert p > 0.98, f"{h} PCC {p:.5f} below 0.98"
+    assert si_pcc > 0.98, f"si_conf PCC {si_pcc:.5f} below 0.98"
+    assert zij_pcc > 0.98, f"zij_conf PCC {zij_pcc:.5f} below 0.98"
