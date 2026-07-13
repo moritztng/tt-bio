@@ -72,6 +72,7 @@ including the honest caveats, follows in the subsections below.
 | Protenix-v2 | 7ROA (L117) | CA-RMSD (Å) | pending (ref relaunched on qb2) | 0.79 | pending | PENDING (ref leg) |
 | Boltz-2 | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.79 | 0.37 | 0.60 ± 0.24 | PASS (within floor) |
 | Boltz-2 | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 3.37 | 4.35 | 5.51 ± 0.70 | disclosed gap above floor (1.27x) |
+| Boltz-2 | prot/7ROA (L117, MSA) | CA-RMSD (Å) | 0.81 | 0.98 | 0.94 ± 0.14 | PASS (within floor) |
 | OpenDDE | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.31 | 0.24 | 0.39 ± 0.11 | PASS (within floor) |
 | OpenDDE | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 1.96 | 2.68 | 7.65 ± 0.21 | disclosed gap above floor (2.85x, reduced settings) |
 | BoltzGen | binder vs 7ROA chain A | scRMSD pass-rate (≤2 Å) | n/a (ref blocked, no CPU path) | 93.8% (pooled n=16) | n/a (ref blocked) | PENDING (ref leg blocked, no NVIDIA GPU on host) |
@@ -227,13 +228,16 @@ reference-side cost roughly linearly (each seed is its own multi-hour CPU run).
 ### Boltz-2 (structure + affinity) — first direct comparison measured
 
 `structures` mode against the official upstream Boltz-2 CLI (`boltz predict`,
-CPU, installed in a separate reference venv), two no-MSA single-sequence
-protein targets, two seeds each side:
+CPU, installed in a separate reference venv). Two no-MSA single-sequence
+protein targets first, then the same prot folded MSA-backed; two seeds each
+side, matched production defaults (3 recycling / 200 sampling steps / 1
+sample).
 
 | target | length | CA-RMSD dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |
 |---|---|---|---|---|---|---|
 | trp-cage | 20 | 0.60 ± 0.24 Å | 0.79 Å | 0.37 Å | 0.76 | yes |
 | prot | 117 | 5.51 ± 0.70 Å | 3.37 Å | 4.35 Å | 1.27 | NO |
+| prot (MSA) | 117 | 0.94 ± 0.14 Å | 0.81 Å | 0.98 Å | 0.96 | yes |
 
 Confidence-metric deltas (device mean − reference mean) are small for both
 targets regardless of the coordinate gap: confidence_score within 0.01, pTM
@@ -249,6 +253,26 @@ an MSA-trained model — an MSA-backed target is the natural next data point to
 see whether the gap narrows with the input Boltz-2 actually expects. The
 existing `--fast` (block-fp8) accuracy comparison is a separate, already-closed
 question: see `docs/boltz2-fast-parity.md`.
+
+The documented next data point, an MSA-backed target, is now measured. The same
+prot folded with `--use_msa_server` (ColabFold, a 93-sequence MSA; device and
+reference folded the identical MSA, verified by header-set equality against the
+reference's recorded `bfd`/`uniref` files). At matched production defaults (3
+recycling / 200 sampling steps / 1 sample) the device-vs-reference gap closes to
+0.94 Å, inside the noise floor (0.96x) where the single-sequence fold sat 1.27x
+above it. MSA moves the fold as well: reference confidence 0.65 → 0.89, device
+0.64 → 0.87; confidence-metric deltas stay small (confidence_score −0.02, pTM
++0.03, complex_pLDDT −0.04). With the input Boltz-2 is trained for, the port
+reproduces the reference fold to within the reference's own run-to-run spread.
+
+Timing (card 2 vs the CPU reference, both at the default settings above): device
+fold 55 s/seed, CPU reference 7:16/seed (mean of 2; the reference wall-clock is
+host-load-sensitive, the no-MSA prot spread was 61–93 min under load and these
+MSA runs hit an idle host). The cold-compile cost is shared with the no-MSA prot
+row (same trunk kernels; MSA only changes input depth, already in the warm
+number) and is not re-measured. A parallel branch with the optimized TT trunk
+engaged folds the same target in ~8 s; landing that on main is a perf
+follow-up, not a parity one.
 
 Raw data: `docs/pharma-benchmark-data/boltz2.json`.
 
@@ -360,6 +384,7 @@ both sides on the same host (one Tenstorrent card vs. the CPU reference on all
 |---|---|---|---|---|---|
 | trp-cage (20 aa) | 240 s | 43 s | 31 min (1859 s) | 43x | 7.7x |
 | prot (117 aa) | 235 s | 45 s | 77 min (4606 s) | 103x | 20x |
+| prot (117 aa, MSA) | — (shared w/ no-MSA) | 55 s | 7:16 (436 s) | 7.9x | — |
 
 One Tenstorrent card matches a 32-core CPU node's wall-clock on the very first
 (never-compiled) run and is 40-100x faster once the kernel cache is warm, which
@@ -379,7 +404,8 @@ Harness proven end-to-end.
 
 Also complete: a first **Boltz-2** device-vs-reference measurement (two
 no-MSA targets, two seeds each; trp-cage within its noise floor, a modest
-1.3-1.6x-over-floor gap on the longer single-sequence target) plus real
+1.3-1.6x-over-floor gap on the longer single-sequence target; an MSA-backed
+prot target now extends it, closing that gap to 0.94 Å within the floor) plus real
 device-vs-CPU-reference timing (40-100x faster warm), **OpenDDE**
 device-vs-reference on two single-sequence targets, three seeds each (trp-cage
 within its noise floor at 0.39 Å, a 2.85x-over-floor gap on prot at reduced
@@ -394,19 +420,19 @@ In progress, not yet committed with final numbers:
 - **Protenix-v2**: device leg measured (self-consistency D = 0.79 Å Kabsch RMSD,
   0.998 coord PCC). The reference leg's original qb1 run (3h13m+ and still computing when last documented) was lost when qb1 went down 2026-07-12, along with qb1's protenix env; a fresh reference run was relaunched on qb2 at the same target/settings/seeds (several hours per seed, CPU-only) — R and X are not yet
   measured, see the Protenix-v2 section above for the resumption path.
-- **Boltz-2**: an MSA-backed target is the natural next data point (the
-  measured pair above is single-sequence only, the hardest case for an
-  MSA-trained model).
+- **Boltz-2**: MSA-backed target now measured (prot, 93-seq MSA; device-vs-ref
+  0.94 Å within the 0.98 Å device floor, closing the no-MSA 1.27x-over-floor gap).
 
 **BoltzGen**'s reference-vs-reference and device-vs-reference legs are blocked
 on hosts without an NVIDIA GPU, verified by reproducing upstream's CUDA-only
 crash directly (see the BoltzGen section above) — not started, not estimated.
 
 Ready to run, queued for the fan-out phase: the **ESMFold2** third-target
-noise floor and **Boltz-2** on an MSA-backed target. The reference
-implementations are installed and the comparison code is wired; what remains
-is generating the multi-seed device and reference fold sets, which
-parallelizes naturally across the free cards on qb1 and qb2.
+noise floor (the Boltz-2 MSA-backed target that was queued here is now
+measured, see the Boltz-2 section above). The reference implementations are
+installed and the comparison code is wired; what remains is generating the
+multi-seed device and reference fold sets, which parallelizes naturally
+across the free cards on qb1 and qb2.
 
 Known gaps disclosed: **Protenix-v2 confidence-head under-ranking** (a real
 model-level property carried faithfully by the port, not a device defect);
