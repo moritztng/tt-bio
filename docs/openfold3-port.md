@@ -1158,3 +1158,61 @@ The gated ``OF3DiffusionModule`` (this tick) is the inner loop of (2); the next 
 should do the reduced-rollout sampler gate (sub-leg) then the trunk assembly (the hard
 part, blocked by the Pairformer z-track device-precision gap that the end-to-end RMSD is
 the acceptance for).
+
+## P9 leg 2 -- tick 18: SampleDiffusion reduced-rollout sampler gate (sub-leg)
+
+Landed: the EDM sampler loop (AF3 Algorithm 18) around the gated
+OF3DiffusionModule + OF3DiffusionConditioning, PCC-gated on device against a real
+reference rollout golden. This is sub-leg (2) from the leg-2 scope above -- it proves the
+EDM loop + per-step conditioning compose on device; it is NOT the fold() Kabsch merge
+gate.
+
+**Golden** (scripts/of3_sample_diffusion_golden.py -> pkl key
+sample_diffusion_rollout_real): the reference SampleDiffusion loop body is
+replicated verbatim (same math, same RNG call order) with no_rollout_steps=4 (5
+schedule entries, 4 rollout steps), no_rollout_samples=1, seed 1234, on the real
+ubiquitin batch -- but with the sample dim squeezed (xl is [1, N_atom, 3] not
+[1, 1, N_atom, 3]). The reference SampleDiffusion.forward with
+no_rollout_samples=1 hits a shape bug in aggregate_atom_feat_to_tokens (the
+spurious sample dim breaks its scatter-add); the RNG draw *count* is identical for
+[1,N,3] and [1,1,N,3] (torch RNG is shape-agnostic), so squeezing the sample dim
+reproduces the reference trajectory exactly while matching the [1, N_atom, 3] shape the
+device OF3DiffusionModule consumes. The heavy reference part -- the per-step
+DiffusionModule.forward (real of3-p2-155k.pt weights) -- is run unmodified, so each
+step's xl_denoised is the real reference output; only the light loop math (augmentation,
+noise add, EDM step) is replicated from the reference source. Every per-step random/host
+artefact (centre_random_augmentation rots/trans, the additive noise,
+xl_noisy, xl_denoised, xl_post_step, t, c_tau) and the noise schedule +
+xl_init/xl_final are captured for bit-exact device replay.
+
+**Device** (tt_bio/openfold3_sample_diffusion.py): OF3SampleDiffusion holds the
+gated OF3DiffusionConditioning + OF3DiffusionModule. Per step it replays the golden
+rots/trans/noise on host (centre_random_augmentation + noise add are small
+3x3 / [N,3] host ops), computes the per-step Fourier noise embedding
+n = fourier_emb(0.25 * log(t / sigma_data)) on host (fourier_emb.w/b from the
+checkpoint; the host computation is bit-exact vs the reference -- verified, maxdiff 0.0),
+runs the device conditioning -> (si, zij) (padded to n_tok_pad), runs the device
+OF3DiffusionModule -> xl_denoised, then applies the EDM step on host. This isolates
+the device conditioning+DiffusionModule precision composed across the loop from the random
+augmentation/noise host math -- the same discipline as the component gates.
+
+**Test** (tests/test_openfold3_sample_diffusion.py): 4-step device rollout -> xl_final
+vs the reference golden.
+
+| output | PCC | std (dev / ref) |
+|---|---|---|
+| xl_final (4-step rollout) | **0.99343** | 309.1 / 296.4 |
+
+Gate: xl_final PCC > 0.98. PASS. (xl_final is the denoised atom-position sample after
+the EDM loop; the ~4% magnitude drift is bf16 accumulation across 4 conditioning +
+DiffusionModule forwards, consistent with the per-component gates.) The per-step golden
+trajectory (xl_denoised std 7.5 / 8.3 / 31.7 / 303.6; xl_post_step std 1591.8 /
+709.7 / 318.6 / 296.4) shows the expected monotone denoising.
+
+**What this is NOT**: the full fold() Kabsch Ca-RMSD merge gate. The production rollout
+is 200 steps x 5 samples = 1000 DiffusionModule forwards; fold() additionally needs
+the trunk (1), confidence heads (3), and the data pipeline + Kabsch RMSD (4) from the leg-2
+scope above. The reduced-rollout sampler gate is the natural sub-leg proof that the EDM loop
+composes on device; the trunk assembly (the hard part, blocked by the Pairformer z-track
+device-precision gap whose acceptance is the end-to-end RMSD) and the full
+no_full_rollout_steps=200 rollout remain.
