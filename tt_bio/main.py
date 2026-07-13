@@ -1792,7 +1792,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
     """
-    if model not in ("boltz2", "protenix-v2"):
+    if model not in ("boltz2", "protenix-v2", "opendde", "opendde-abag"):
         return use_msa_server, msa_db_path
 
     explicit = use_msa_server or msa_db_path or msa_endpoint
@@ -1944,9 +1944,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    # MSA-dependent models (boltz2, protenix-v2) must never silently fold
-    # single-sequence: resolve a source now (explicit flag > local DB > online
-    # fallback) or honor an explicit --single_sequence opt-out. esmfold2 /
+    # MSA-dependent models (boltz2, protenix-v2, opendde, opendde-abag) must never
+    # silently fold single-sequence: resolve a source now (explicit flag > local DB >
+    # online fallback) or honor an explicit --single_sequence opt-out. esmfold2 /
     # esmfold2-fast are single-sequence by design and pass through untouched.
     use_msa_server, msa_db_path = _resolve_msa_default(
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
@@ -1974,9 +1974,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo()
             click.secho("Note: --model esmfold2-fast has no MSA encoder; folding single-sequence "
                         "(use --model esmfold2 to use the MSA).", fg="yellow")
-        # Protenix-v2 is MSA-dependent; _resolve_msa_default guarantees a source
-        # (local DB or online) is set above unless the user passed --single_sequence,
-        # so single-sequence folding here is always an explicit choice.
+        # Protenix-v2 and OpenDDE are MSA-dependent; _resolve_msa_default guarantees a
+        # source (local DB or online) is set above unless the user passed
+        # --single_sequence, so single-sequence folding here is always an explicit choice.
         data = Path(data).expanduser()
         out_dir_path = Path(out_dir).expanduser()
         out = out_dir_path / f"boltz_results_{data.stem}"
