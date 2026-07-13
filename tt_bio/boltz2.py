@@ -3892,9 +3892,19 @@ class AtomDiffusion(Module):
         alignment_reverse_diff: bool = False,
         synchronize_sigmas: bool = False,
         use_tenstorrent: bool = False,
+        diffusion_trace: bool = False,
     ):
         super().__init__()
         self.use_tenstorrent = use_tenstorrent
+        # Opt-in ttnn trace replay of the per-step DiT device stream. Boltz-2's
+        # diffusion loop is shape-stable across all sampling steps (only the
+        # scalar ``times`` and the ``r`` coords change; schedule phases are
+        # host-side scalars), so the captured device graph replays every step
+        # and collapses the per-step host dispatch. Lossless by construction
+        # (bit-identical to the untraced path). See the shared
+        # ``DiffusionModule.forward_traced`` in tt_bio/tenstorrent.py and
+        # docs/boltz2-trace-replay.md.
+        self._diffusion_trace = bool(diffusion_trace) and use_tenstorrent
         DiffusionModule_, _, _, _ = _get_pytorch_modules()
         self.score_model = (
             tenstorrent.DiffusionModule()
@@ -3964,8 +3974,16 @@ class AtomDiffusion(Module):
         r_noisy = self.c_in(padded_sigma) * noised_atom_coords
         times = self.c_noise(sigma)
 
-        r_update = (
-            self.score_model(
+        if self.use_tenstorrent:
+            # forward_traced replays a captured ttnn trace of the per-step DiT
+            # device stream (lossless; collapses per-step host dispatch) when
+            # diffusion_trace is opted in; otherwise the untraced forward.
+            _fn = (
+                self.score_model.forward_traced
+                if self._diffusion_trace
+                else self.score_model
+            )
+            r_update = _fn(
                 r=r_noisy,
                 times=times,
                 s_inputs=network_condition_kwargs["s_inputs"],
@@ -3989,13 +4007,12 @@ class AtomDiffusion(Module):
                     "atom_to_token"
                 ],
             )
-            if self.use_tenstorrent
-            else self.score_model(
+        else:
+            r_update = self.score_model(
                 r_noisy=r_noisy,
                 times=times,
                 **network_condition_kwargs,
             )
-        )
 
         denoised_coords = (
             self.c_skip(padded_sigma) * noised_atom_coords
@@ -4848,8 +4865,16 @@ class Boltz2(nn.Module):
         use_kernels: bool = False,
         use_tenstorrent: bool = False,
         trace: bool = False,
+        diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
+        # Reserve a ttnn trace region BEFORE any module opens the device: the
+        # per-step DiT trace (AtomDiffusion -> DiffusionModule.forward_traced)
+        # needs it. Mirrors Protenix/BoltzGen's get_device(trace_region_size=1<<30).
+        # The first get_device() opens, so this must precede module construction.
+        if diffusion_trace:
+            from tt_bio.tenstorrent import get_device
+            get_device(trace_region_size=1 << 30)
         
         # Store all hyperparameters for checkpoint loading
         self.hparams = {
@@ -4916,6 +4941,7 @@ class Boltz2(nn.Module):
             "use_kernels": use_kernels,
             "use_tenstorrent": use_tenstorrent,
             "trace": trace,
+            "diffusion_trace": diffusion_trace,
         }
         self.trace = trace
         self.progress_fn = None  # optional callback: fn(stage, step=0, total=0)
@@ -5067,6 +5093,7 @@ class Boltz2(nn.Module):
             },
             compile_score=compile_structure,
             use_tenstorrent=use_tenstorrent,
+            diffusion_trace=diffusion_trace,
             **diffusion_process_args,
         )
         self.distogram_module = DistogramModule(
