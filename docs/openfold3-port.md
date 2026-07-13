@@ -563,3 +563,63 @@ byte-correct on device. The `AtomTransformer` (3-block windowed DiT, -> `ql`) an
 atom->token aggregation (`linear_q` + mean, -> `ai`) are the next increment; gated together
 they close the InputEmbedder atom-encoder leg (`s_input = cat([ai, restype, profile,
 deletion_mean])`).
+
+
+## P7 tick 10 -- InputEmbedder AtomTransformer + atom->token aggregation PCC-gated on device (ql/ai = 1.00000/1.00000)
+
+Landed the final device component of the InputEmbedder atom-encoder leg: the
+`AtomTransformer` (OF3 `DiffusionTransformer(cross_attention_mode=True)`, 3-block
+windowed sequence-local atom attention, n_query=32 / n_key=128 / 4 heads / head_dim=32)
+plus the atom->token aggregation (`relu(linear_q) + mean -> ai`), in
+`tt_bio/openfold3_atom_transformer.py`. This closes `InputEmbedder -> s_input` together
+with the already-gated glue (`s_input -> s, z`) and RefAtomFeatureEmbedder (`-> cl, plm`)
+legs.
+
+The OF3 `atom_transformer` block topology is NOT a key-remap onto `protenix.AtomTransformer`
+(whose block layout differs): OF3 uses `attention_pair_bias.layer_norm_a_q`/`layer_norm_a_k`
+(double AdaLN conditioning), `linear_ada_out` (a `sigmoid(W(s))` output gate),
+`mha.linear_g` (a query gate), and a `conditioned_transition` of
+`SwiGLU(linear_a, linear_b) -> linear_out` with a `sigmoid(linear_g(s))` zero gate. So this
+is a fresh device port, not a reuse. The shared `AdaLN` math is identical, so the nine
+conditioning submodules (q/kv/transition x 3 blocks) reuse `tenstorrent.AdaLN` via a new
+`remap_of3_adaln` (OF3 `layer_norm_s`/`linear_g`/`linear_s` -> tenstorrent
+`s_norm`/`s_scale`/`s_bias`); the top-level `layer_norm_z` (pair LN, applied once to `plm`)
+is shared across blocks.
+
+The mask-derived block gather (OF3 `convert_single_rep_to_blocks`: centered key windows
+with underflow/overflow shift) is precomputed on host (`key_block_idxs`, `invalid_mask`,
+`mask_trunked`) and replayed on device via `ttnn.embedding` with the fixed gather indices.
+The device re-blocks the evolving single `a` every block (the conditioning `s = cl` is
+fixed, so `s_q`/`s_k` are built once), so the port is reusable as-is for the diffusion atom
+encoder/decoder, which use the same class with `a != s` (noisy-position `ql` vs `cl`).
+
+Golden: `scripts/of3_atom_transformer_golden.py` extends `~/of3_ref_out.pkl` with
+`input_embedder_atom_transformer_real` -- the host-precomputed block-gather artifacts, the
+`atom_to_token_mean` aggregation matrix, and the reference `ql`/`ai` -- so the device
+AtomTransformer is gated against the exact reference block structure (the gather is
+captured, not re-derived; same discipline as the RefAtomFeatureEmbedder `dlm`/`vlm`/
+`inv_sq_dists`).
+
+Gate: `tests/test_openfold3_atom_transformer.py` feeds golden `cl` (as both `a_init` and
+`s`) + `plm` + the host block artifacts -> device AtomTransformer -> `ql`; then
+`relu(linear_q(ql))` mean-aggregated to tokens -> `ai`. Result on qb2 card 0 (HiFi4 + fp32
+dest acc): **ql_pcc = 1.00000, ai_pcc = 1.00000** -- both > 0.98. The atom-encoder leg is
+byte-correct on device end-to-end (`cl + plm -> ql -> ai`), and `ai` concatenates with
+`[restype, profile, deletion_mean]` to form `s_input` (the glue leg, already gated, consumes
+it). The InputEmbedder -> `s_input` path is now fully device-validated.
+
+Golden-pkl fix (incidental): re-dumping `~/of3_ref_out.pkl` had made it require
+`ml_collections` (the `config` field carried a nested `ConfigDict` at
+`config.linear_init_params`; `ConfigDict` is neither a `dict` nor `collections.abc.Mapping`
+subclass, so a naive `dict()` strip missed it). The device env has no `ml_collections`, so
+both this test and the existing `test_openfold3_ref_atom_feat.py` failed to unpickle. Fixed
+by stripping ConfigDicts via a `.items()` duck-type and re-dumping; the new golden script
+does the same strip defensively on every run. The `config` field is plain metadata (no test
+reads it), so the strip is behavior-neutral.
+
+**NEXT (P8):** (a) Trunk assembly -- OF3-dims Pairformer (c_z=128, no_heads_pair=4) + MSA
+module + template embedder + cycle glue, composing the already-gated
+`pairformer_stack`/`msa` bisect results; (b) DiffusionModule + confidence heads via key
+remap (dims confirmed identical to protenix-v2's, the cheapest remaining leg); (c) wire
+`OpenFold3.fold()` + EDM sampler end-to-end and run `examples/prot.yaml` (the canonical
+ubiquitin target) for a real vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate.
