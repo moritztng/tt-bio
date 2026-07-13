@@ -22,7 +22,14 @@ wired into the OpenDDE CLI path** (reuses the Protenix-v2 MSA stage) and **re-me
 PDB 9dsg with MSA + best-of-5** — antibody-antigen DockQ stays 0.011 (a genuine port/model
 issue, not the missing-input gap; the Fab assembles and confidence rises, but the antigen
 is mis-docked relative to the Fab across all samples) — see "MSA + best-of-N wired into
-the CLI path" — see "Remaining" for what's still open.
+the CLI path" — see "Remaining" for what's still open. (P8, 2026-07-13) **a real
+multi-chain MSA assembly bug is fixed** (`build_complex_features` now merges per-chain MSAs
+the reference way and computes `profile`/`deletion_mean` per chain; single-chain
+bit-exact, Protenix-v2 gate still passes) — it improves the Fab internal dock (H-L fnat
+0.72 -> 0.82) but **the Ab-Ag DockQ stays 0.011 / fnat 0 across all 5 samples**, so the
+Ab-Ag gap is not the multi-chain encoding; the most likely remaining cause is the missing
+real complex templates / paired MSA — see "Multi-chain MSA assembly fix + Ab-Ag
+re-measure (P8)".
 
 ## Identity (re-verified 2026-07-12)
 
@@ -481,26 +488,101 @@ features (Section 3's standard input list), and far more seeds under oracle sele
 so more seeds of the same distribution are unlikely to help without a distribution
 change). Tracked in "Remaining".
 
+## P8 — multi-chain MSA assembly fix + Ab-Ag re-measure (2026-07-13)
+
+P7 ranked the remaining Ab-Ag levers (1) template features, (2) a multi-chain
+relative-pose/asymmetry bug, (3) more seeds. P8 pursued them in that order.
+
+**(1) Templates — already wired (dummy), and not the Ab-Ag lever.** The Trunk template
+embedder runs every OpenDDE predict call: `build_complex_features` emits
+`dummy_template_features` (4 slots: gap + 3 zero-geometry ALA, the reference's
+`use_template=False` padding, merged in v0.2.5), so `Trunk.__call__` takes `nt=4`, not 0
+— correcting P7's stale "runs with `nt=0`" line. Real template **search** is a separate,
+larger lift: tt-bio has no template-search stage anywhere (Protenix-v2 / Boltz-2 / OF3 all
+consume *provided* templates, never search), and OpenDDE's own pipeline is a 509-line
+`data/tools/search.py` (HMMER/Kalign binary wrappers) + ~1900 lines of
+`data/template/{parser,featurizer,utils}.py` + a PDB template database
+(`scripts/download_opendde_data.sh`) — a multi-day data-pipeline port, not a wire-up.
+It is also not the Ab-Ag lever: the trunk masks every template feature to the same-`asym`
+block (`template_distogram * mc`, `protenix.py` trunk), so templates carry only
+**intra-chain** structural hints. They reinforce a chain's own fold (already confident on
+9dsg) and do not encode the cross-chain docking orientation, which is the failure mode.
+Flagged as the next real lift in "Remaining"; not attempted this tick.
+
+**(2) Multi-chain encoding — found and fixed a real MSA bug; it is not the Ab-Ag cause.**
+`build_complex_features` assembled the multi-chain MSA wrong versus both the OpenDDE and
+Protenix-v2 references (`data/msa/msa_featurizer.py` + `MSAPairingEngine.merge_chain_features`):
+
+- **Row structure** was "tall": one full-width row per chain per alignment row
+  (sum-of-depths rows). The reference pads each chain's MSA to the max chain depth with GAP
+  and concatenates **column-wise** into one `(max_d, N_tot)` tensor (one horizontal slice
+  per alignment index).
+- **`profile` and `deletion_mean`** were computed over the whole merged MSA, so every
+  column was diluted by the other chains' GAP rows. On 9dsg (antigen 12651 / heavy 117 /
+  light 10950 rows, ~23719 total) the Fab-heavy profile collapsed to ~99.5% GAP and the
+  antigen's to ~47% GAP. The reference computes both **per chain** (over that chain's rows
+  only, query included) and concatenates.
+
+`relp` itself (residue- and structural-token axis) was checked against the reference and is
+correct; `sym_id`/`entity_id`/`asym_id`/`residue_index` assignment is correct for 9dsg
+(three distinct entities, residue_index restarts per entity). The MSA assembly was the only
+multi-chain bug. Fix in `tt_bio/protenix_data.py`: per-chain `profile`/`deletion_mean`,
+max_d-padded column-concatenated `msa`/`deletion_matrix`. Single-chain is bit-exact
+(`max_d == m`, per-chain == whole) — verified directly, and the Protenix-v2 release gate
+on 7ROA still PASSES (1.417 A, TM 0.936, floor <=6.0/>=0.5), so the shared trunk/MSA
+machinery is not regressed.
+
+Re-measured 9dsg with the fix (`opendde_abag.pt`, 10 recycles / 200 steps, the same
+per-chain MSAs as P7, real device):
+
+| config | samples | A-H DockQ (Ab-Ag) | A-H fnat | H-L DockQ (Fab) | H-L fnat | GlobalDockQ | ipTM |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| P7, MSA + best-of-5 (old assembly) | 5 | 0.011 | 0 | 0.497 | 0.72 | 0.254 | 0.715 |
+| P8, MSA + best-of-5 (fixed assembly) | 5 (conf. rank 0) | 0.011 | 0 | 0.497 | 0.825 | 0.254 | 0.706 |
+
+DockQ across all 5 samples (oracle view): A-H 0.0110-0.0113, **fnat 0 in every sample**;
+H-L 0.473-0.497, fnat 0.81-0.825.
+
+**Honest verdict.** The fix is a real correctness gain: the Fab internal dock rises
+(H-L fnat 0.72 -> 0.81-0.825 across all 5 samples, consistent) and the antigen's MSA
+profile is no longer half-GAP. But the antibody-antigen interface is unchanged at DockQ
+0.011 / fnat 0 across all 5 samples — the same degenerate distribution as P7. A stronger
+antigen MSA (now full-depth, no GAP dilution) did not move A-H, which is consistent with
+unpaired MSA carrying no cross-chain co-evolution signal: it cannot tell the model where
+the antigen meets the paratope. The Ab-Ag mis-docking is therefore **not** a multi-chain
+encoding bug; the most likely remaining cause is the input the paper's standard pipeline
+uses and this port lacks: real **complex templates** (which DO encode relative orientation,
+intra-chain-masked dummy ones do not) and/or **paired MSA** (the OpenDDE/Protenix
+`MSAPairingEngine` is not wired into tt-bio's predict path). Both are larger lifts (see
+"Remaining"). Lever (3) more seeds is confirmed unhelpful while the 5-sample distribution
+is degenerate at fnat=0.
+
 ## Remaining
 
 - **MSA search in the OpenDDE CLI path: done (P7).** `_predict_opendde_one` reuses the
   Protenix-v2 MSA stage; `--use_msa_server` / `--msa_db_path` / `--msa_endpoint` all
   work; `opendde` / `opendde-abag` resolve a source via `_resolve_msa_default`.
+- **Multi-chain MSA assembly: fixed (P8).** `build_complex_features` now builds the
+  block-diagonal MSA the way the reference merges per-chain MSAs (max_d-padded,
+  column-concatenated) and computes `profile`/`deletion_mean` per chain. Single-chain is
+  bit-exact; Protenix-v2 release gate still passes. Improves the Fab internal dock
+  (H-L fnat 0.72 -> 0.81-0.825) but does not close the Ab-Ag interface.
 - **Best-of-N for the Ab-Ag DockQ read: done (P7).** `--diffusion_samples N` flows
   through `OpenDDE.fold(n_sample=N)` and the worker's confidence ranking; measured at
   N=5 (paper default). Does not rescue the Ab-Ag interface (degenerate at fnat=0).
-- **Antibody-antigen DockQ still 0.011 with MSA + best-of-5 -- a genuine port/model
-  issue, not a missing-input gap.** The antigen is confidently folded but mis-docked
-  relative to the Fab across all samples. Likely next levers, in priority order:
-  (1) wire template features (Section 3 standard input, not yet ported -- the `Trunk`
-  template embedder exists and runs with `nt=0`; OpenDDE's template pipeline is not);
-  (2) inspect the multi-chain relative-position / asymmetry encoding at the
-  structural-token axis (the expand-and-refine seam is residue-axis, but diffusion
-  conditioning + the atom<->structural-token broadcast on a multi-chain complex is the
-  part OpenDDE adds over Protenix-v2 and the most plausible place for a multi-chain
-  docking regression);
-  (3) only then more seeds / oracle selection (Figure 5) -- unlikely to help while the
-  distribution is degenerate at fnat=0.
+- **Antibody-antigen DockQ still 0.011 with MSA + best-of-5 + the P8 MSA fix -- the
+  gap is not the multi-chain encoding.** P8 cleared lever (2): `relp` (residue and
+  structural-token axis), `sym_id`/`entity_id`/`asym_id`/`residue_index`, and the MSA
+  assembly were checked against the reference; the one real bug (multi-chain MSA
+  profile/row-structure) is fixed but does not move A-H. The antigen folds confidently
+  and the Fab assembles (H-L fnat ~0.82), yet the antigen is mis-docked relative to the
+  Fab across all 5 samples. The most likely remaining cause is the input the paper's
+  standard pipeline uses and this port lacks -- real **complex templates** (encode
+  relative orientation; the dummy-template embedder already runs at `nt=4`, but real
+  template *search* is not ported: tt-bio has no template-search stage, and OpenDDE's is
+  a 509-line `search.py` + ~1900 lines of template parser/featurizer + a PDB template DB,
+  a multi-day data-pipeline port) and/or **paired MSA** (the `MSAPairingEngine` is not
+  wired into tt-bio's predict path). Both are release-gated larger lifts.
 - **Nucleic-acid / ligand structural tokens**: `opendde_data.py` is protein-only; extending
   to DNA/RNA backbone/base splitting and ligand atom-tokens follows the identical pattern
   once a mixed-modality co-folding target is on the critical path.
@@ -518,7 +600,9 @@ change). Tracked in "Remaining".
   tool (eval-only, installed into a throwaway `--target` lib for the eval, not a
   project runtime dependency) via `scripts/opendde_dockq.py`; measured on PDB 9dsg at
   **0.011 antibody-antigen DockQ** both single-sequence 1-sample (P6) and with MSA +
-  best-of-5 (P7) -- the gap is not closed by wiring the paper's standard MSA input.
+  best-of-5 (P7) -- the gap is not closed by wiring the paper's standard MSA input, nor by
+  the P8 multi-chain MSA assembly fix (Ab-Ag fnat stays 0 across all 5 samples; the fix
+  does improve the Fab internal dock, H-L fnat 0.72 -> 0.82).
 - **Stochasticity:** diffusion is seed-stochastic and the repo warns outputs are
   not reproducible across releases, so parity is per-target Ca-RMSD/DockQ within
   sample variance (as for Boltz-2 / Protenix-v2), not bit-exact.
@@ -562,8 +646,21 @@ change). Tracked in "Remaining".
   samples (degenerate distribution; confidence-selected rank 0 == oracle best on A-H).
   MSA is consumed (ipTM 0.549 -> 0.712, Fab H-L 0.377 -> 0.497) but does not place the
   antigen in the paratope -- a genuine port/model issue, not the missing-input gap.
-- **Not yet**: template features (Section 3 standard input, not ported), the
-  multi-chain structural-token docking axis investigation (the most plausible place for
-  an Ab-Ag-specific regression), nucleic-acid/ligand structural tokens, and explicit
-  `--fast`/multi-card verification. OpenDDE is deliberately not in the README `--model`
+- **Multi-chain MSA assembly: fixed (P8).** `build_complex_features` now merges per-chain
+  MSAs the way the reference does (max_d-padded, column-concatenated) and computes
+  `profile`/`deletion_mean` per chain (was: whole-merged-MSA, diluting every chain's
+  columns with the other chains' GAP rows -- on 9dsg the Fab-heavy profile was ~99.5%
+  GAP). Single-chain bit-exact; Protenix-v2 release gate still passes (1.417 A / TM 0.936
+  on 7ROA). On 9dsg the Fab internal dock improves (H-L fnat 0.72 -> 0.81-0.825 across all
+  5 samples) but the Ab-Ag interface stays DockQ 0.011 / fnat 0 (degenerate, unchanged) --
+  the Ab-Ag gap is not the multi-chain encoding; most likely the missing real complex
+  templates / paired MSA.
+- **Not yet**: real template **search** (the dummy-template embedder already runs at
+  `nt=4`; real templates need porting OpenDDE's HMMER/Kalign search pipeline + a PDB
+  template DB, a multi-day data-pipeline lift with no reusable search stage in tt-bio)
+  and **paired MSA** (the `MSAPairingEngine` is not wired into the predict path) -- the
+  two inputs the paper's standard pipeline uses for Ab-Ag and the most likely remaining
+  cause of the 0.011 Ab-Ag DockQ now that the multi-chain MSA assembly is fixed (P8);
+  nucleic-acid/ligand structural tokens; and explicit `--fast`/multi-card verification.
+  OpenDDE is deliberately not in the README `--model`
   table yet -- its Ab-Ag differentiator is measured but not at parity.

@@ -227,9 +227,12 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     UNK, intra-ligand bonds in token_bonds). residue_index restarts per chain (so the
     relative-position encoding sees chain breaks; ligand atoms share residue_index 1);
     ref_space_uid is a global per-residue counter; token_index is global. The MSA is assembled
-    BLOCK-DIAGONALLY (each chain's alignment over its own columns, gap elsewhere) on a shared
-    query row -- the standard unpaired multi-chain assembly; NA/ligand chains contribute only
-    the query row. The model regenerates relp / d_lm / v_lm / mask_trunked from these.
+    BLOCK-DIAGONALLY the way the reference merges per-chain MSAs: each chain's alignment (query
+    as row 0) is padded to the max chain depth with GAP and the per-chain arrays are concatenated
+    column-wise into one (max_d, N_tot) tensor; profile and deletion_mean are computed per chain
+    (over that chain's rows only) so a chain's column statistics are not diluted by other chains'
+    GAP padding. NA/ligand chains contribute only the query row. The model regenerates relp /
+    d_lm / v_lm / mask_trunked from these.
 
     chain_ids: per-chain id parallel to `chains`, needed only to resolve `bonds`.
     bonds: covalent `bond` constraints as ((chain, res, atom), (chain, res, atom)) pairs;
@@ -286,20 +289,43 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         res_off += n_res
     N_tot = tok_off
 
-    # block-diagonal MSA assembled from RAW counts (shared query row 0; each chain's extra rows
-    # over its own columns, gap elsewhere), then transformed once via _msa_to_features.
+    # Block-diagonal MSA, assembled the way the reference merges per-chain MSAs
+    # (protenix/opendde data/msa/msa_featurizer.py + MSAPairingEngine.merge_chain_features):
+    # each chain's own MSA (query as row 0) is padded to the max chain depth with GAP and the
+    # per-chain arrays are concatenated COLUMN-WISE into one (max_d, N_tot) tensor -- one
+    # horizontal slice per alignment index, not one full-width row per chain. profile and
+    # deletion_mean are computed PER CHAIN (over that chain's rows only) and concatenated, so
+    # a chain's column statistics are not diluted by the other chains' GAP padding. The prior
+    # whole-MSA aggregate was a multi-chain bug: on 9dsg it diluted the Fab-heavy profile
+    # (117 rows) to ~99.5% GAP and the antigen (12651 rows) to ~47% GAP. Single-chain behavior
+    # is unchanged (max_d == m, per-chain == whole).
     GAP = MSA_GAP_IDX
-    query = torch.cat([a for _, _, _, a in per_chain_msa])  # query restypes (row 0), 0..30
-    msa_rows, del_rows = [query], [torch.zeros(N_tot)]
-    for start, n, raw, aatype in per_chain_msa:
+    chain_msa, chain_del, prof_parts, delmean_parts = [], [], [], []
+    for _start, n, raw, aatype in per_chain_msa:
         if raw is None:
-            continue
-        M, DM = raw
-        for r in range(1, M.shape[0]):                        # skip the chain's own query (row 0)
-            row = torch.full((N_tot,), GAP, dtype=torch.long); row[start:start + n] = M[r]
-            drow = torch.zeros(N_tot); drow[start:start + n] = DM[r]
-            msa_rows.append(row); del_rows.append(drow)
-    msa_feats = _msa_to_features(torch.stack(msa_rows, 0), torch.stack(del_rows, 0))
+            m = aatype.unsqueeze(0).clone()                 # no MSA -> query only (1 row)
+            dm = torch.zeros((1, n))
+        else:
+            m, dm = raw                                     # (m, n) incl. query row 0
+        chain_msa.append(m); chain_del.append(dm)
+        prof_parts.append(torch.stack([(m == k).float().mean(0) for k in range(RESTYPE_DIM)], dim=-1))
+        delmean_parts.append(dm.mean(0))
+    max_d = max(m.shape[0] for m in chain_msa)
+    msa_full = torch.full((max_d, N_tot), GAP, dtype=torch.long)
+    del_full = torch.zeros((max_d, N_tot))
+    off = 0
+    for m, dm in zip(chain_msa, chain_del):
+        r = m.shape[0]; w = m.shape[1]
+        msa_full[:r, off:off + w] = m
+        del_full[:r, off:off + w] = dm
+        off += w
+    msa_feats = {
+        "msa": msa_full,
+        "has_deletion": del_full.clamp(0.0, 1.0),
+        "deletion_value": torch.atan(del_full / 3.0) * (2.0 / math.pi),
+        "profile": torch.cat(prof_parts, 0),
+        "deletion_mean": torch.cat(delmean_parts, 0),
+    }
 
     token_bonds = torch.zeros(N_tot, N_tot)
     for off, lb in lig_bonds:                                 # intra-ligand bonds, block-placed
