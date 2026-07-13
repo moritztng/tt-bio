@@ -155,3 +155,37 @@ def remap_msa_module(sd: dict, prefix: str = "msa_module") -> dict:
     pat = re.compile(rf"^{re.escape(prefix)}\.blocks\.(\d+)\.")
     nb = 1 + max(int(pat.match(k).group(1)) for k in sd if pat.match(k))
     return [remap_msa_block(_sub(sd, f"{prefix}.blocks.{i}")) for i in range(nb)]
+
+
+def remap_template_pair_stack(sd: dict, prefix: str = "template_embedder.template_pair_stack") -> dict:
+    """OF3 TemplatePairStack -> tt-bio pair-stack remap.
+
+    The TemplatePairStack is the AF2 PairBlock (tri_mul_out/in + tri_att_start/end +
+    swiglu pair_transition, tri_mul_first=True) -- structurally identical to the MSA
+    block's ``pair_stack`` subtree, so each block reuses ``pw.remap_msa_pair_stack``.
+    The block keys live directly under ``template_pair_stack.blocks.{i}.`` (no
+    ``pair_stack.`` sub-prefix, unlike the MSA block), and the stack carries a final
+    affine ``layer_norm`` applied once after all blocks (returned alongside the
+    per-block primitive dicts).
+
+    Returns ``{"blocks": [<PairformerLayer state_dict> per block],
+               "layer_norm": {"weight": ..., "bias": ...}}``.
+    """
+    import re
+    pat = re.compile(rf"^{re.escape(prefix)}\.blocks\.(\d+)\.")
+    nb = 1 + max(int(pat.match(k).group(1)) for k in sd if pat.match(k))
+    blocks: list[dict] = []
+    for i in range(nb):
+        block_sd = _sub(sd, f"{prefix}.blocks.{i}")
+        pair_sd: dict = {}
+        for name in ("tri_mul_out", "tri_mul_in"):
+            for k, v in _sub(block_sd, name).items():
+                pair_sd[f"{name}.{k}"] = v
+        for name in ("tri_att_start", "tri_att_end"):
+            for k, v in _rename_tri_att(_sub(block_sd, name)).items():
+                pair_sd[f"{name}.{k}"] = v
+        for k, v in _rename_transition(_sub(block_sd, "pair_transition")).items():
+            pair_sd[f"pair_transition.{k}"] = v
+        blocks.append(pw.remap_msa_pair_stack(pair_sd))
+    ln = _sub(sd, f"{prefix}.layer_norm")
+    return {"blocks": blocks, "layer_norm": {"weight": ln["weight"], "bias": ln["bias"]}}
