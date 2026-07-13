@@ -69,7 +69,7 @@ including the honest caveats, follows in the subsections below.
 | ESMC-600m | 4 proteins (L20-129) | embedding PCC | 1.00000 (no sampler) | 1.00000 | 0.9994 – 0.9996 | PASS |
 | ESMFold2 | trp-cage (L20) | CA-RMSD (Å) | 2.08 ± 0.08 | 0.21 ± 0.04 | 2.45 ± 0.31 | PASS (borderline, noise-floor-limited) |
 | ESMFold2 | GB1 (L56) | CA-RMSD (Å) | 1.49 ± 0.21 | 0.53 ± 0.22 | 2.95 ± 0.23 | disclosed gap above floor |
-| Protenix-v2 | 7ROA (L117) | CA-RMSD (Å) | pending (ref relaunched on qb2) | 0.79 | pending | PENDING (ref leg) |
+| Protenix-v2 | 7ROA (L117) | CA-RMSD (Å) | 2.94 | 1.47 | 2.63 ± 0.42 | PASS (within floor, confidence-selection-limited) |
 | Boltz-2 | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.79 | 0.37 | 0.60 ± 0.24 | PASS (within floor) |
 | Boltz-2 | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 3.37 | 4.35 | 5.51 ± 0.70 | disclosed gap above floor (1.27x) |
 | Boltz-2 | prot/7ROA (L117, MSA) | CA-RMSD (Å) | 0.81 | 0.98 | 0.94 ± 0.14 | PASS (within floor) |
@@ -163,67 +163,55 @@ reference forward pass (CPU-only, no device acceleration) did not finish in
 reasonable time under that contention. Re-run when the host is free to extend the
 distribution to a third, longer target.
 
-### Protenix-v2 (AF3-family, MSA) — device leg measured, reference leg pending
+### Protenix-v2 (AF3-family, MSA) — R/D/X measured, within floor
 
-`structures` mode compares device and reference Protenix folds directly. The
-reference is the official ByteDance Protenix 2.0.0, installed and confirmed working
-on this host.
+`structures` mode compares device and reference Protenix folds directly on
+`examples/prot.yaml` (117-res, PDB 7ROA), seeds 0/1 each side, production settings
+(`--use_msa_server --sampling_steps 200 --diffusion_samples 5`). The reference is
+the official ByteDance Protenix 2.0.0 (torch, CPU).
 
-**A real implementation-level gap exists and we disclose it plainly.** Protenix-v2's
-confidence head under-ranks: its diffusion samples reach good structures, but the
-pTM/pLDDT head barely discriminates between them and sometimes hands back a worse
-sample as "best". This is a property of the model as ported, and it shows up as a
-device-vs-reference difference in the *selected* structure larger than the diffusion
-noise floor. It is not fixable at the selection layer (medoid and consensus
-selection were both tried and did not recover it); the only remaining lever is
-retraining the confidence head, which is out of scope for a port. Details:
-`docs/protenix-accuracy-investigation.md`. The structural agreement of the diffusion
-output itself (oracle-of-N) is faithful to the reference; the gap is confined to
-confidence-based ranking. An evaluator should know this before trusting Protenix's
-own "best" selection on Tenstorrent, exactly as they should on the original
-implementation.
+| target | metric | dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |
+|---|---|---|---|---|---|---|
+| prot | CA-RMSD (Å) | 2.63 ± 0.42 | 2.94 | 1.47 | 0.89 | yes |
+| prot | 1-PCC | 0.021 ± 0.007 | 0.026 | 0.006 | 0.81 | yes |
 
-**Fan-out run (2026-07-12, restarted 2026-07-13): device leg complete, reference
-leg lost with qb1 and relaunched on qb2.** Production settings (`--use_msa_server
---sampling_steps 200 --diffusion_samples 5`) on `examples/prot.yaml` (117-res, PDB
-7ROA), seeds 0/1 each side. Raw data: `docs/pharma-benchmark-data/protenix-v2.json`.
+X = 2.63 ± 0.42 Å Kabsch CA-RMSD (coord PCC 0.979) across the 2×2 device-vs-
+reference pairs, sitting below the floor (max(R,D) = R = 2.94 Å; X/floor = 0.89).
+The port reproduces the reference no worse than the reference already reproduces
+itself across seeds.
 
-Device (tt-bio): both seeds complete in ~75-79s, confidence-selected ptm ~0.904,
-consistent with the template-embedder and confidence-recycling fixes merged to main
-since the investigation above. Device self-consistency floor (D): Kabsch RMSD
-**0.79 Å**, coord PCC **0.998** across all 900 atoms. The device cif files for this
-run lived on qb1 and were lost with it; D is preserved in the json, but the X leg
-needs the device cif regenerated (a ~75s/seed re-run on a free card).
+**The floor is confidence-selection-limited, not diffusion-limited.** Protenix-v2's
+confidence head under-ranks on both sides: the reference's two seeds landed on a
+0.917-pTM "best" (seed 0) and a 0.822-pTM "best" (seed 1), so R = 2.94 Å, larger
+than the device's own D = 1.47 Å. The device confidence head also barely
+discriminates (pTM 0.826-0.829 across its five samples) and picks a low-pTM "best".
+The "best"-selected structure is therefore noisy on both implementations and the
+floor reflects that selection noise, not the diffusion geometry, which is faithful
+(oracle-of-N analysis in `docs/protenix-accuracy-investigation.md`). The device
+mean pTM is 0.041 below the reference mean, the same under-ranking the port carries
+from upstream. This is a model-level property, not a port defect; an evaluator
+should treat Protenix-v2's own "best" selection on Tenstorrent with the same caution
+as on the original implementation.
 
-Reference (official ByteDance Protenix 2.0.0, torch, CPU): the original 2026-07-12
-run lived on qb1 and was still computing after 3h13m+ when last documented. qb1
-went unreachable over SSH on 2026-07-12 ~18:40 and stayed down, so that multi-hour
-CPU run is lost (a dead host holds no live process), along with qb1's protenix 2.0.0
-env. A fresh reference run was relaunched on qb2 (up) at the identical
-target/settings/seeds so the result stays comparable to the device leg. The qb2
-reference env is protenix 2.0.0 (editable install of `bytedance/Protenix` main) on
-Python 3.12 + torch 2.7.1+cpu, with the CUDA `FusedLayerNorm` stubbed by a torch
-LayerNorm and the triangle kernels forced to `torch` (no cuequivariance/deepspeed
-CUDA extensions), the v2 checkpoint at `~/.boltz/protenix-v2.pt`, and the CCD under
-`~/common/`. Official Protenix's torch triangle ops have no CUDA fusion to fall back
-on for a CPU run, so N_step=200 x N_sample=5 on a 900-atom target costs orders of
-magnitude more wall clock than the device path's ~75s; the qb2 run takes several
-hours per seed. **R (reference self-consistency) and X (device-vs-reference) are not
-yet measured** -- a genuine compute-time bottleneck, not an estimated or fabricated
-number, and the actual reason a full three-leg Protenix-v2 result isn't in this
-document yet.
+**Methodology.** Both sides fold the identical MSA: the reference's
+protenix-server.com MSA (dumped at `ref_seed{0,1}/raw/prot/msa/0.a3m`) was fed to
+the device via the `msa_dir` sequence-hash cache, so X measures pure port fidelity
+with the input MSA held equal. The device's default ColabFold MSA server was
+unreachable this session, and using the reference MSA is the cleaner parity test
+regardless. The device leg was regenerated on qb2 card 2 (~60s + ~22s for seeds
+0/1); the reference leg is the qb2 CPU run that finished 2026-07-13 05:30 (seed 0)
+/ 05:54 (seed 1), repackaged by `scripts/protenix_ref_to_harness.py` (picks the max
+`ranking_score` sample, matching the device's confidence-selected best-of-5).
 
-Resume path: the qb2 run writes per-seed logs to
-`/home/ttuser/pharma_protenix_run/ref_seed{0,1}.log` and a `REF_PREDICT_DONE`
-marker to `ref_seed{0,1}/REF_PREDICT_DONE` (seeds run sequentially to avoid CPU
-contention on this 32-core host). The launcher is `scripts/protenix_ref_predict.py`;
-repackaging its Protenix dump tree to the harness `structures/prot.cif` +
-`results.json` shape is `scripts/protenix_ref_to_harness.py`. Once both seeds
-finish, regenerate the device cif for seeds 0/1 on a free card
-(`tt-bio predict --model protenix-v2` on `examples/prot.yaml`, ~75s/seed), then run
-`scripts/pharma_parity.py structures` against the repackaged ref and dev seed dirs
-to get R/D/X and replace this note. Extending to more targets multiplies the
-reference-side cost roughly linearly (each seed is its own multi-hour CPU run).
+A prior device self-consistency floor of D = 0.79 Å (PCC 0.998) was measured on the
+original qb1 device run, which used a ColabFold MSA (device pTM ~0.904). That cif
+was lost with qb1 and is not the floor paired with this X (different MSA); it is
+retained in `docs/pharma-benchmark-data/protenix-v2.json` for provenance. The
+same-MSA D = 1.47 Å above is the floor this X is judged against.
+
+Raw data and the exact R/D/X distribution: `docs/pharma-benchmark-data/protenix-v2.json`.
+Extending to more targets multiplies the reference-side cost roughly linearly (each
+seed is its own multi-hour CPU run on the official implementation).
 
 ### Boltz-2 (structure + affinity) — first direct comparison measured
 
@@ -484,9 +472,7 @@ In progress, not yet committed with final numbers:
 
 - **ESMFold2**: a third, longer target (ubiquitin, cut this round for host CPU
   contention, see above) is still queued to extend the noise floor.
-- **Protenix-v2**: device leg measured (self-consistency D = 0.79 Å Kabsch RMSD,
-  0.998 coord PCC). The reference leg's original qb1 run (3h13m+ and still computing when last documented) was lost when qb1 went down 2026-07-12, along with qb1's protenix env; a fresh reference run was relaunched on qb2 at the same target/settings/seeds (several hours per seed, CPU-only) — R and X are not yet
-  measured, see the Protenix-v2 section above for the resumption path.
+- **Protenix-v2**: R/D/X now measured (see the Protenix-v2 section above). X = 2.63 ± 0.42 Å within the floor (max(R,D) = R = 2.94 Å, X/floor = 0.89). The floor is confidence-selection-limited (the under-ranking shows up on the reference side too); the diffusion geometry is faithful.
 - **Boltz-2**: MSA-backed target now measured (prot, 93-seq MSA; device-vs-ref
   0.94 Å within the 0.98 Å device floor, closing the no-MSA 1.27x-over-floor gap).
 
@@ -502,10 +488,13 @@ multi-seed device and reference fold sets, which parallelizes naturally
 across the free cards on qb1 and qb2.
 
 Known gaps disclosed: **Protenix-v2 confidence-head under-ranking** (a real
-model-level property carried faithfully by the port, not a device defect);
-the **Protenix-v2 reference-side compute-time ceiling** (an operational
-limitation of running the official CPU implementation at production
-settings, not a port defect either); and **BoltzGen's reference
-implementation has no CPU path**, blocking its R/X legs on GPU-less hosts.
+model-level property carried faithfully by the port, not a device defect; it
+bounds the Protenix-v2 noise floor from above and shows up on the reference
+side too); the **Protenix-v2 reference-side compute-time ceiling** (an
+operational limitation of running the official CPU implementation at
+production settings, not a port defect — the 7ROA reference leg is done, but
+each additional target/seed is its own multi-hour CPU run); and **BoltzGen's
+reference implementation has no CPU path**, blocking its R/X legs on
+GPU-less hosts.
 
 Candidate for publication on docs.japanfold.com once that site exists.
