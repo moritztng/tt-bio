@@ -113,54 +113,42 @@ language-model hidden states so the folding port itself is what is under test. I
 reports the sampler-independent quantities (pLDDT, distogram and pTM, which do not
 depend on the diffusion RNG) once, plus the coordinate quantities (Kabsch RMSD and
 distance-matrix PCC) as full R/D/X distributions across several sampler seeds run
-on both backends, exactly like the rest of this benchmark.
+on both backends, exactly like the rest of this benchmark. Coordinate metrics are
+reduced over the real (masked) atoms only; see the note below.
 
-Measured on two proteins at 3 sampler seeds each (0, 1, 2), 20 diffusion steps, 3
-recycles, one card. R and D are the mean of all same-backend seed pairs (3 pairs
-each); X is the mean of all 9 cross-backend seed pairs:
+Measured on three proteins spanning 20 to 76 residues at 3 sampler seeds each
+(0, 1, 2), 20 diffusion steps, 3 recycles, one card. R and D are the mean of all
+same-backend seed pairs (3 pairs each); X is the mean of all 9 cross-backend pairs:
 
 | protein | length | metric | dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |
 |---|---|---|---|---|---|---|---|
-| trp-cage | 20 | CA-RMSD (Å) | 2.45 ± 0.31 | 2.08 ± 0.08 | 0.21 ± 0.04 | 1.18 | borderline |
-| trp-cage | 20 | 1 − coord-PCC | 0.102 ± 0.030 | 0.088 ± 0.017 | 0.001 ± 0.000 | 1.17 | yes |
-| GB1 | 56 | CA-RMSD (Å) | 2.95 ± 0.23 | 1.49 ± 0.21 | 0.53 ± 0.22 | 1.98 | no |
-| GB1 | 56 | 1 − coord-PCC | 0.068 ± 0.012 | 0.019 ± 0.004 | 0.002 ± 0.001 | 3.60 | no |
+| trp-cage | 20 | CA-RMSD (Å) | 0.61 ± 0.10 | 0.51 ± 0.11 | 0.16 ± 0.03 | 1.20 | yes |
+| trp-cage | 20 | 1 − coord-PCC | 0.0073 | 0.0066 | 0.0006 | 1.11 | yes |
+| GB1 | 56 | CA-RMSD (Å) | 0.33 ± 0.05 | 0.29 ± 0.02 | 0.18 ± 0.04 | 1.13 | yes |
+| GB1 | 56 | 1 − coord-PCC | 0.0008 | 0.0006 | 0.0003 | 1.27 | ~floor |
+| ubiquitin | 76 | CA-RMSD (Å) | 0.75 ± 0.10 | 0.92 ± 0.19 | 0.23 ± 0.03 | 0.82 | yes |
+| ubiquitin | 76 | 1 − coord-PCC | 0.0034 | 0.0047 | 0.0004 | 0.73 | yes |
 
 pLDDT/distogram/pTM (sampler-independent, one seed pair): trp-cage pLDDT PCC 0.9979,
 distogram PCC 0.9996, pTM 0.248 device / 0.247 reference. GB1 pLDDT PCC 0.9980,
-distogram PCC 0.9993, pTM 0.775 device / 0.780 reference. Both carry over faithfully
-as before; a real 3-seed distribution changes nothing about that part.
+distogram PCC 0.9993, pTM 0.775 / 0.780. Ubiquitin pLDDT PCC 0.9993, distogram PCC
+0.9992, pTM 0.753 / 0.741.
 
-**The multi-seed run changes the coordinate-noise-floor read.** With a single seed
-pair (the earlier measurement), trp-cage looked like it cleared the floor and GB1
-looked like it might not — but neither claim was trustworthy off one draw. With 9
-cross-seed pairs against a 3-pair same-backend floor:
+**All three targets sit at the sampler noise floor on both an alignment-based
+(Kabsch RMSD) and an alignment-free (distance-matrix PCC) metric.** The device
+reproduces the reference coordinates no further from it than the reference's own
+run-to-run spread, and the port is markedly more self-consistent than the reference
+(D ≪ R everywhere). Parity if anything improves with length (X/floor 1.20 → 1.13 →
+0.82 from 20 to 76 residues); ubiquitin's device output is closer to the reference
+than the reference is to itself.
 
-- Trp-cage sits right at the edge (X/floor ≈ 1.18): the device-vs-reference gap and
-  the reference's own run-to-run spread are close enough that the strict
-  mean+std criterion doesn't clear it, but the distance-matrix-PCC reading does.
-  Practically, this one is noise-floor-limited, not port-limited.
-- GB1 does **not** resolve into noise with more seeds. The cross term (X ≈ 2.95 Å,
-  ~3.60× the floor on 1−PCC) is a consistent, reproducible gap across all 9
-  cross-backend pairs, not an artifact of the earlier single unlucky draw.
-
-The mechanism visible in the data: the **device is far more self-consistent across
-seeds than the reference is** (D ≪ R on both proteins — e.g. GB1 device self-var
-0.53 Å vs reference self-var 1.49 Å). The ttnn sampler's seed-to-seed spread is
-tight; the torch reference's own seed-to-seed spread is what's actually wide. The
-X/floor ratio is driven as much by an unusually low, easy-to-clear reference floor
-as by any device-side drift — worth knowing when reading "X exceeds floor" as a
-port defect. This is a real, disclosed, reproducible signal on GB1 at 56 residues,
-not resolved by more seeds; the sampler-independent metrics (pLDDT, distogram, pTM)
-that ESMFold2 actually ranks on remain unaffected.
-
-Cut for this round: a third target (ubiquitin, 76 residues) was queued at the same 3
-seeds but not completed — the host was running three other CPU-bound reference
-workloads concurrently (two Protenix reference predicts, one Boltz-2 reference
-predict), pushing load average to ~64 on a 32-core box, and the ubiquitin torch
-reference forward pass (CPU-only, no device acceleration) did not finish in
-reasonable time under that contention. Re-run when the host is free to extend the
-distribution to a third, longer target.
+Note on the metric: coordinate metrics are computed over the real atoms only.
+`sample_atom_coords` carries padding atom slots the model emits at arbitrary,
+run-varying positions; scoring them (they are not part of the structure) inflates
+the cross-backend term and manufactures a spurious gap. An earlier revision of this
+section, scoring those atoms, reported a "reproducible GB1 gap above the floor"
+(X/floor ≈ 2.0–3.6). That was the artifact, root-caused and corrected here:
+`docs/pharma-benchmark-data/esmfold2-gb1-investigation.md`.
 
 ### Protenix-v2 (AF3-family, MSA) — device leg measured, reference leg pending
 
@@ -361,10 +349,10 @@ reference's own cost is less predictable.
 
 Complete with real measured numbers: **ESMC-300m and ESMC-600m** (device
 reproduces the reference embeddings to >0.999 PCC, with a bit-exact device noise
-floor), and **ESMFold2** device-vs-reference with a real 3-seed noise floor on two
-proteins (pLDDT and distogram PCC >0.999, pTM within 0.006; trp-cage's coordinate
-gap is noise-floor-limited, GB1's is a disclosed reproducible gap above the floor).
-Harness proven end-to-end.
+floor), and **ESMFold2** device-vs-reference with a real 3-seed noise floor on three
+proteins spanning 20–76 residues (pLDDT and distogram PCC >0.999, pTM within 0.012;
+all three targets' coordinate gaps sit at the sampler noise floor). Harness proven
+end-to-end.
 
 Also complete: a first **Boltz-2** device-vs-reference measurement (two
 no-MSA targets, two seeds each; trp-cage within its noise floor, a modest
