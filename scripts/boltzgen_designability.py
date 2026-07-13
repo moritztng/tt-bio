@@ -73,7 +73,8 @@ SC_COLUMNS = [
 
 
 def _run_gen(spec: Path, out: Path, num_designs: int, protocol: str,
-             devices: int, budget: int, reuse: bool) -> None:
+             devices: int, budget: int, reuse: bool,
+             diffusion_trace: bool = False) -> None:
     """Drive `tt-bio gen run` for one target. Reuses the shipping pipeline."""
     cmd = [
         sys.executable, "-m", "tt_bio.main", "gen", "run", str(spec),
@@ -85,6 +86,8 @@ def _run_gen(spec: Path, out: Path, num_designs: int, protocol: str,
     ]
     if reuse:
         cmd.append("--reuse")
+    if diffusion_trace:
+        cmd.append("--diffusion_trace")
     print(f"[designability] {' '.join(cmd)}", flush=True)
     t0 = time.monotonic()
     proc = subprocess.run(cmd, cwd=REPO_ROOT)
@@ -185,6 +188,9 @@ def main() -> int:
                     help="Designs kept after filtering (scoring reads the full set).")
     ap.add_argument("--reuse", action="store_true",
                     help="Resume/keep an existing partial run instead of restarting.")
+    ap.add_argument("--diffusion_trace", action="store_true",
+                    help="Pass --diffusion_trace to gen run (ttnn trace replay of the "
+                    "diffusion DiT; lossless). See docs/boltzgen-trace-replay.md.")
     ap.add_argument("--sc-threshold", type=float, default=STRICT_A,
                     help=f"scRMSD pass bar in A (default {STRICT_A}).")
     ap.add_argument("--min-pass-rate", type=float, default=None, metavar="FRAC",
@@ -201,7 +207,8 @@ def main() -> int:
             sys.exit(f"missing spec {args.spec}")
         out = args.output or (REPO_ROOT / f"boltzgen_designability_{args.spec.stem}")
         _run_gen(args.spec, out, args.num_designs, args.protocol,
-                 args.devices, args.budget, args.reuse)
+                 args.devices, args.budget, args.reuse,
+                 getattr(args, "diffusion_trace", False))
 
     res = score(out, args.sc_threshold)
     report(res)
