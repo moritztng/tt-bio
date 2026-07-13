@@ -47,7 +47,9 @@ floor, and the parity claim is a direct high-precision correlation.
 - `structures` — fold models: Kabsch CA-RMSD, coordinate PCC and confidence-metric
   deltas between output structures. Model-agnostic: point it at result directories
   produced by `tt-bio predict` (device) and by the reference CLI, one directory per
-  seed, and it computes all three legs and the verdict.
+  seed, and it computes all three legs and the verdict. The reference side can be
+  read from the committed fixture cache (below) with `--ref-fixtures
+  <model>/<target>/<tag>` so the expensive reference legs do not re-run every pass.
 
 BoltzGen has no 1:1 output correspondence (it designs new sequences), so its parity
 is measured in designability space instead: `scripts/boltzgen_designability.py`.
@@ -55,6 +57,63 @@ is measured in designability space instead: `scripts/boltzgen_designability.py`.
 The per-model reference implementations are the genuine upstream code:
 `esm` (ESMC), the vendored torch ESMFold2, official ByteDance Protenix 2.0.0,
 upstream Boltz-2, and the official OpenDDE CLI (`aurekaresearch/OpenDDE`).
+
+## Reference-fixture cache (why the gate is cheap to re-run)
+
+The expensive part of this benchmark is the reference side: the official CPU
+folds take minutes-to-hours per seed (Protenix-v2 ~10 min/seed, OpenDDE
+production ~4 min/seed warm plus a one-time ~19 min warmup, Boltz-2 ~7 min/seed).
+The device side is seconds. Re-running every reference leg before each release
+tag would cost hours and, in practice, would not get done — which would defeat
+the gate.
+
+So the reference legs are run **once** and their output is committed as a durable
+golden fixture. For a fixed (reference implementation + version, target, seed,
+settings) the CPU torch reference is deterministic, so a fixture is valid until
+the pinned reference version or its settings change. The fixtures live at:
+
+```
+docs/pharma-benchmark-data/ref-fixtures/<model>/<target>/<settings-tag>/
+    meta.json          reference impl + version + commit, exact command, settings, date
+    msa.a3m            the exact MSA fed to the reference (only where the model uses one)
+    seed<N>/
+        results.json
+        structures/<id>.cif
+        meta.json      seed, source path, selected sample, confidence values
+```
+
+Each `meta.json` records the exact command that produced the fixture and an
+`invalidation_rule`: **regenerate a fixture only when the pinned reference
+commit/version or its settings change.** For any other change — device seeds,
+device code, a new release tag — the fixture is reused as-is and only the device
+side re-runs. Adding a new target or setting is a one-time reference run that
+then gets committed as a fixture and is free thereafter.
+
+The fixtures are in the same harness format `pharma_parity.py` already consumes,
+so the release gate reads them directly:
+
+```
+scripts/pharma_parity.py structures \
+  --ref-fixtures protenix-v2/prot/msa-server_200step_5sample_10cycle_bf16 \
+  --dev-dirs <fresh device seed dirs>
+```
+
+`--ref-fixtures <model>/<target>/<tag>` resolves the committed `seed<N>/` dirs
+and verifies each is complete and its `settings_tag` matches; if a fixture is
+missing or mismatched it errors with the regenerate instruction (the command is
+in `meta.json`), so the gate re-runs just that one reference leg and
+`scripts/pharma_harvest_ref_fixtures.py` commits the new fixture. `--ref-seeds`
+selects a subset (e.g. to tighten a D floor by adding device seeds, which is
+free on the reference side).
+
+Fixtures currently committed (each verified to reproduce the R floor recorded in
+this doc, bit-for-bit, against the live device legs): Protenix-v2 `prot`
+(MSA-server, 200/5/10, bf16, seeds 0-1), OpenDDE `prot` production (no-MSA,
+10c/200s/1sample, fp32, seeds 0-2) and reduced (4c/20s, seeds 0-2), Boltz-2
+`prot` (ColabFold MSA, 200/1/3, bf16, seeds 0-1). The fixture carries the exact
+MSA (`msa.a3m`) for the MSA-using legs. ESMFold2 and ESMC references are cheap
+and run live each pass (no fixture needed yet); Boltz-2 no-MSA and OpenDDE
+`trpcage` fixtures are queued for harvest.
 
 ## Results
 
