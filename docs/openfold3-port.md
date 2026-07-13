@@ -666,3 +666,90 @@ z_trunk) and PCC-gate vs ``pairformer_stack_real`` / a new full-trunk golden; (c
 DiffusionModule multi-leg port above; (d) wire ``OpenFold3.fold()`` + EDM sampler
 end-to-end and run ``examples/prot.yaml`` for a real vs-ground-truth Kabsch Ca-RMSD -- the
 actual merge gate.
+
+## P8 tick 12 -- TemplatePairFeatureEmbedder PCC-gated on device (t_embed = 1.00000); pair-stack leg device-xfail
+
+Landed the device port of the OF3 ``TemplateEmbedderAllAtom`` feature-processing leg
+(``TemplatePairEmbedderAllAtom``) in ``tt_bio/openfold3_template.py``, PCC-gated on
+device. The 2-block AF2 ``TemplatePairStack`` and the full embedder are wired and gated
+as documented-xfail on a device limitation (below), the same way the MSA pair_stack is
+handled.
+
+**Leg 1 (gated): TemplatePairFeatureEmbedder.** Eight bias-free linears summed into
+``a`` [N_templ, N, N, c_t=64] (``dgram_linear`` 39->64, ``pseudo_beta_mask_linear``
+1->64, ``aatype_linear_1``/``_2`` 32->64, ``x``/``y``/``z_linear`` 1->64 over the unit
+vector components, ``backbone_mask_linear`` 1->64), plus the shared
+``z_bias = linear_z(layer_norm_z(z))`` [1, N, N, 64], and ``t_embed = z_bias + a``
+broadcast over the template dim. All eight feature linears and ``linear_z`` are
+bias-free in the OF3 checkpoint; ``layer_norm_z`` is affine (128). The mask-derived
+feature products (multichain / pseudo-beta / backbone-frame pair masks) are precomputed
+on host and captured in the golden, so the device linears are gated against the exact
+reference masks, isolating the device linear precision from the mask logic (same
+discipline as the RefAtomFeatureEmbedder ``dlm``/``vlm``/``inv_sq_dists`` and the
+InputEmbedder glue's ``relpos``).
+
+**Leg 2 (xfail): TemplatePairStack.** Two AF2 PairBlocks (tri_mul_out/in +
+tri_att_start/end + swiglu ``pair_transition``, ``tri_mul_first=True``) + a final affine
+stack ``layer_norm``. Structurally identical to the MSA module's ``pair_stack`` subtree,
+so it reuses ``PairformerLayer(transform_s=False)`` via a new
+``remap_template_pair_stack`` (delegates each block to ``pw.remap_msa_pair_stack``;
+returns the per-block primitive dicts plus the stack final-LN weights). Templates do not
+interact, so the stack runs per-template (the reference's per-template loop is
+mathematically identical to a batched pass, but the device ``TriangleAttention`` reshape
+assumes a singleton batch dim, so the loop is kept). Two compounding device limitations
+make this leg documented-xfail:
+
+  1. The same primitive set is already documented-xfail for the MSA pair_stack at c=128
+     (``tests/test_openfold3_msa.py``: z_pcc~0.75 on a pure device run vs 0.9998 for a
+     pure-CPU fp32-vs-bf16 control -- an OPEN device-precision gap on OF3's
+     large-magnitude pair activations, not a remap bug). The template pair_stack runs at
+     c_t=64 on the same OF3-magnitude regime, so the gap applies a fortiori.
+  2. The template pair_stack additionally runs at ``c_hidden_tri_att=16`` /
+     ``no_heads=4`` (head_dim=16, sub-tile), where the shared ``TriangleAttention`` path
+     hits a ttnn ``Invalid subtile broadcast type`` in ``gate_and_project``'s
+     ``multiply_``: ``nlp_create_qkv_heads``/``nlp_concat_heads`` at head_dim=16 yield an
+     ``o_in`` of [76,76,128] vs ``g_in`` [76,76,64] (the MSA path at head_dim=32 is
+     tile-aligned and runs clean). Localized via a multiply_ shape trace
+     (``scripts/of3_template_embedder_golden.py``-style diagnostic): the last multiply
+     before the throw is ``(76,76,128) x (76,76,64)``. Fixing it means rewiring the
+     shared ``TriangleAttention`` primitive, which all of MSA/Boltz-2/Protenix reuse at
+     head_dim=32 -- out of scope for this leg and a release-gated risk to the already-
+     validated ports. Flagged for a dedicated device-numerics/kernel pass.
+
+**Leg 3 (xfail): full TemplateEmbedderAllAtom.** ``linear_t(relu(mean_t(t_stack)))``
+[1, N, N, c_z=128]. Inherits leg 2's pair-stack limitation; documented-xfail.
+
+**Golden:** ``scripts/of3_template_embedder_golden.py`` extends ``~/of3_ref_out.pkl``
+with ``template_embedder_real`` -- the cycle-0 trunk z (the embedder input; reproduced
+exactly from the trunk's top-level ``layer_norm_z``/``linear_z`` weights as
+``z_init + linear_z(layer_norm_z(zeros))``, a constant shift of ``z_init`` -- NOT
+``z_init`` itself, since ``layer_norm(zeros)`` returns the affine bias, not zeros), the
+per-template feature tensors (mask products precomputed on host), and the reference
+``t_embed`` / ``t_stack`` / ``z_template`` captured via forward hooks on
+``template_pair_embedder`` / ``template_pair_stack`` / ``template_embedder``. Verified
+the per-template feature reconstruction is bit-exact against the reference ``t_embed``
+(max abs 0.0) before building the device port.
+
+**Gate:** ``tests/test_openfold3_template.py`` -- three sub-leg tests. Result on qb2
+card 0 (HiFi4 + fp32 dest acc): **A (feature embedder) t_embed_pcc = 1.00000** (>0.98,
+gated, passing); B (pair stack) and C (full embedder) documented-xfail on the device
+limitation above. Session: ``1 passed, 2 xfailed``. The feature-processing leg of the
+template embedder is byte-correct on device; the 2-block pair-stack leg is blocked by a
+device kernel limitation (sub-tile head_dim=16) on top of the known OF3 pair-stack
+precision gap, and is the next item for a device-numerics pass.
+
+**Reuse note (corrects the P8 scoping hint):** the task hint suggested reusing
+"pairformer-stack blocks" for the template pair stack, but OF3's ``TemplatePairStack`` is
+the AF2 ``PairBlock`` (tri_mul + tri_att + pair_transition), NOT the Pairformer/
+AttentionPairBias block. The correct reuse is the MSA pair_stack's primitive set
+(``TriangleMultiplication``/``TriangleAttention``/``Transition`` via
+``PairformerLayer(transform_s=False)``), which ``remap_template_pair_stack`` wires up.
+
+**NEXT (P8 cont):** (a) device-numerics/kernel pass to unblock the template + MSA
+pair_stack at OF3 pair magnitudes / sub-tile head_dim (shared ``TriangleAttention``
+rewire -- release-gated); (b) assemble the full trunk forward (InputEmbedder -> 48-block
+Pairformer + 4-block MSA + template, xN cycles -> s_trunk, z_trunk) and PCC-gate vs
+``pairformer_stack_real`` / a new full-trunk golden; (c) the DiffusionModule multi-leg
+port (OF3 DiT block + diffusion conditioning + atom enc/dec + EDM sampler); (d) wire
+``OpenFold3.fold()`` + EDM sampler end-to-end and run ``examples/prot.yaml`` for a real
+vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate.
