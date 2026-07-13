@@ -1054,3 +1054,64 @@ already-gated P7 ``OF3AtomTransformer`` for the atom enc/dec (same topology, ``a
 and PCC-gate ``xl_out`` vs a full-module golden; (b) ``SampleDiffusion``/EDM sampler +
 ``OpenFold3.fold()`` end-to-end, then run ``examples/prot.yaml`` for a real
 vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate for the whole port.
+
+
+## P9 tick 17 -- Full ``DiffusionModule.forward`` -> ``xl_out`` PCC-gated on device (xl_out = 0.99746)
+
+Assembled the full post-conditioning ``DiffusionModule`` (AF3 Algorithm 20) on device
+in ``tt_bio/openfold3_diffusion_module.OF3DiffusionModule``, wiring the already-gated
+sub-legs (``OF3NoisyPositionEmbedder``, encoder + decoder ``OF3AtomTransformer``,
+``OF3DiffusionTransformer``) with the fresh post-conditioning work:
+
+  * **encoder pair update** (``AtomAttentionEncoder.get_atom_reps`` L13-16):
+    ``cl_lm = (linear_l(relu(cl_l)) + linear_m(relu(cl_m))) * atom_pair_mask`` (the
+    ``cl`` single rep re-blocked into query/key blocks via the host
+    ``key_block_idxs`` gather, replayed on device with ``ttnn.embedding``), then
+    ``plm += cl_lm; plm += pair_mlp(plm); plm *= atom_pair_mask``. ``pair_mlp`` is the
+    OF3 ``Sequential(ReLU, Linear, ReLU, Linear, ReLU, Linear)`` -- ReLU *before* each
+    linear (no trailing ReLU).
+  * **``linear_q`` atom->token aggregation**: ``ai = atom_to_token_mean @ relu(linear_q(ql))``
+    (``linear_q = Sequential(Linear(128,768), ReLU)`` -- ReLU *after* the linear here),
+    using the host mean matrix from the P7 atom-transformer golden.
+  * **glues**: ``ai += linear_s(LN_s(si))`` (top-level ``linear_s`` 384->768 + weight-only
+    ``layer_norm_s``) and ``ai = layer_norm_a(ai)`` (weight-only, 768) before the decoder.
+  * **EDM output scaling**: ``xl_out = c_skip * xl_noisy + c_out * rl_update`` then
+    ``* atom_mask``, with ``c_skip = sigma_data^2 / (sigma_data^2 + t^2)`` and
+    ``c_out = sigma_data * t / sqrt(sigma_data^2 + t^2)`` computed on host.
+
+The conditioned ``(si, zij)`` come from ``OF3DiffusionConditioning`` (gated
+1.00000/0.99999) and ``(cl0, plm0)`` from ``RefAtomFeatureEmbedder`` (gated P7), both fed
+from their goldens -- the same bisect discipline the NPE / decoder gates use -- so this
+gate isolates the post-conditioning assembly. The encoder ``atom_transformer`` reuses the
+gated ``OF3AtomTransformer`` topology with the encoder's own weights.
+
+Two correctness footguns, both invisible in the sub-leg gates and fatal at the assembly
+level (the assembly dropped to ``xl_out`` PCC -0.13 until both were fixed):
+
+  1. **ReLU placement.** ``linear_l``/``linear_m`` and ``pair_mlp`` apply ReLU to the
+     *input* of each linear (OF3 ``linear_l(self.relu(cl_l...))``, ``pair_mlp =
+     Sequential(ReLU, Linear, ...)``); ``linear_q`` applies ReLU to the *output*
+     (``Sequential(Linear, ReLU)``). Using ``ttnn.linear(..., activation="relu")``
+     (post-activation) for the pair update put ReLU on the wrong side of all four
+     linears and collapsed ``plm`` to PCC 0.45 -- the encoder ``atom_transformer`` then
+     blew ``ql`` up 8x. Explicit ``ttnn.relu(x)`` before the linear for the pair update,
+     post-activation for ``linear_q``.
+  2. **raw ``si_trunk`` vs conditioned ``si``.** The reference
+     ``DiffusionModule.forward`` passes the *raw* trunk single ``si_trunk`` (not the
+     conditioned ``si``) into the atom encoder's ``NoisyPositionEmbedder``; the
+     conditioned ``si`` drives only the DiT and the ``linear_s(LN_s(si))`` glue. Feeding
+     the conditioned ``si`` to the NPE collapsed ``xl_out`` to PCC -0.12; the module takes
+     both ``si_trunk`` and ``si`` as distinct inputs.
+
+Gate: ``tests/test_openfold3_diffusion_module_xlout.py`` feeds the golden conditioned
+``si``/``zij`` + ``cl0``/``plm0`` + ``rl_noisy`` + aux -> device ``OF3DiffusionModule`` ->
+compares ``xl_out`` to the full-module golden, with bisect checkpoints at every sub-leg
+boundary. Result on qb2 card 0 (HiFi4 + fp32 dest acc): **plm_postpairupdate = 0.99999,
+ql_enc = 0.99998, a_in (post-glue) = 0.99999, a_stack (post-DiT) = 0.99982,
+rl_update = 0.99773, xl_out = 0.99746** (all > 0.98). The full ``DiffusionModule`` forward
+is byte-correct on device.
+
+**NEXT (P9, merge gate):** wire ``SampleDiffusion`` (the EDM sampler loop around
+``DiffusionModule``) and ``OpenFold3.fold()`` end-to-end, then run ``examples/prot.yaml``
+(or the ubiquitin/7ROA fixture) for a real vs-ground-truth Kabsch Ca-RMSD -- the actual
+merge gate for the whole OF3 port.
