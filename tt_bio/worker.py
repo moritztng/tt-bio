@@ -426,7 +426,7 @@ class _WorkerState:
         coords, conf = self.model.fold(
             feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
             seed=cfg.get("seed") or 0, progress_fn=report_progress,
-            n_cycles=cfg.get("recycling_steps"),
+            n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
             return_confidence=True)
         confs = conf if isinstance(conf, list) else [conf]
 

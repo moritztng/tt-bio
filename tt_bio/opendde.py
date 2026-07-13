@@ -339,7 +339,7 @@ class OpenDDE:
         return result
 
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
-             return_confidence=False, progress_fn=None):
+             return_confidence=False, progress_fn=None, trace=False):
         """First end-to-end residue->structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -363,8 +363,11 @@ class OpenDDE:
 
         --fast and multi-card fanout ride the existing Protenix-v2 machinery (the trunk
         reads the global fast flag; the predict scheduler fans targets across --devices),
-        both verified for OpenDDE -- see docs/opendde-port.md. Returns coords (n_sample,
-        N_atom, 3) host tensor; if
+        both verified for OpenDDE -- see docs/opendde-port.md. trace=True replays a
+        captured ttnn trace of the shared denoise stream (lossless; faster on
+        dispatch-bound diffusion, mirroring Protenix-v2.fold(trace=)); needs a device
+        opened with a trace region (get_device(trace_region_size=1 << 30)). Returns
+        coords (n_sample, N_atom, 3) host tensor; if
         return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
         list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
         """
@@ -373,6 +376,12 @@ class OpenDDE:
         from .tenstorrent import get_device
         from .protenix import edm_sample
 
+        if trace:
+            import tt_bio.tenstorrent as _TTd
+            if _TTd.trace_region_size() <= 0:
+                raise ValueError(
+                    "fold(trace=True) needs a device opened with a trace region; "
+                    "call get_device(trace_region_size=1 << 30) before folding.")
         P = self._protenix
         tt = P._tt
         ifd = build_structural_token_features(feats)
@@ -432,7 +441,7 @@ class OpenDDE:
         for k in range(n_sample):
             sd_seed = None if seed is None else seed + k
             coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                     progress_fn=progress_fn)[0])
+                                     trace=trace, progress_fn=progress_fn)[0])
         coords = torch.stack(coords, 0)
         if return_confidence:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
