@@ -849,21 +849,20 @@ Verified on qb2 card 3 against the existing gated tests:
   * OF3 MSA pair_stack (``tests/test_openfold3_msa.py::test_of3_msa_block0_on_device``):
     m_pcc = 0.99999, z_pcc = 0.70847 -- identical to the pre-fix baseline to 5+ decimals
     (the known OPEN c=128 device-precision gap is unchanged, as expected).
-  * Protenix-v2 pairformer (``tests/test_protenix_trunk_pairformer.py``): SKIPPED on qb2
-    -- the v2 reference golden ``~/protenix_ref_out.pkl`` is not present (the reference
-    leg was restarted after the qb1 outage, commit c999f22, and had not completed the
-    golden dump). The shared primitive is the same ``PairformerLayer``/
-    ``TriangleAttention`` at ``head_dim=32`` (subtile branch not taken), covered by the
-    Boltz-2 + MSA evidence above by construction. Re-running the Protenix pairformer gate
-    is a follow-up once its reference golden is rebuilt on qb2.
+  * Protenix-v2 pairformer (``tests/test_protenix_trunk_pairformer.py``): PASS on qb2.
+    Rebuilt the v2 reference golden ``~/protenix_ref_out.pkl`` on qb2
+    (``scripts/protenix_ref_forward.py`` with ``DUMP_INTERMEDIATES=1``, refenv312, 38-res
+    tiny input, N_step=10), capturing the ``pairformer_stack`` in/out. The 48-block device
+    stack vs that golden: s_pcc = 0.99191, z_pcc = 0.97964 (above the 0.98/0.97 gate). The
+    shared ``TriangleAttention`` runs at ``head_dim=32`` here, so the subtile branch is
+    not taken and the output is unchanged vs pre-fix -- the last cross-model sign-off.
 
 **Release-gate flag:** this changes the shared ``TriangleAttention`` primitive used by
 every shipped model. Landed on ``wk/tt-bio-openfold3-accel-triangleattn-subtile`` for the
-orchestrator to review the Boltz-2 + MSA regression evidence above before merge (Protenix
-gate pending its reference golden). Not merged by this worker.
+orchestrator to review the Boltz-2 + MSA regression evidence above before merge. Protenix cross-gate closed above (s_pcc=0.99191, z_pcc=0.97964); the subtile fix is merged to main.
 
-**NEXT (P8 cont):** (a) rebuild the Protenix-v2 reference golden on qb2 and re-run
-``test_protenix_trunk_pairformer`` for the last cross-model sign-off; (b) assemble the
+**NEXT (P8 cont):** (a) DONE -- Protenix-v2 reference golden rebuilt on qb2 and
+``test_protenix_trunk_pairformer`` re-run (s_pcc=0.99191, z_pcc=0.97964); (b) assemble the
 full trunk forward (InputEmbedder -> 48-block Pairformer + 4-block MSA + template, xN
 cycles -> s_trunk, z_trunk) and PCC-gate vs ``pairformer_stack_real`` / a new full-trunk
 golden; (c) the DiffusionModule multi-leg port (OF3 DiT block + diffusion conditioning +
