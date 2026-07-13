@@ -82,17 +82,28 @@ def run_forward(model, feats, lm_hs, *, loops, steps, samples, seed=0):
 
 
 def kabsch_rmsd(a_coords, b_coords, atom_mask):
-    """RMSD (Angstrom) of a_coords onto b_coords after weighted rigid alignment."""
+    """RMSD (Angstrom) of a_coords onto b_coords after weighted rigid alignment.
+
+    Reduced over REAL atoms only (atom_mask). sample_atom_coords carries padding
+    atom slots the model emits at arbitrary, run-varying positions ~10 A out; they
+    are not part of the structure. Averaging squared deviation over them swamps the
+    real-atom RMSD and manufactures a spurious device-vs-reference gap (it inflates
+    the cross-backend term more than the same-backend floor). See
+    docs/pharma-benchmark-data/esmfold2-gb1-investigation.md.
+    """
     import tt_bio.esmfold2 as E
     a = a_coords.float(); b = b_coords.float()
     aligned = E._weighted_rigid_align(a.unsqueeze(0), b.unsqueeze(0), atom_mask, atom_mask)[0]
-    return (aligned - b).pow(2).sum(-1).mean().sqrt().item()
+    m = atom_mask[0] > 0.5
+    return (aligned[m] - b[m]).pow(2).sum(-1).mean().sqrt().item()
 
 
 def pair_metrics(a, b, atom_mask):
     ac = a["sample_atom_coords"][0].float()
     bc = b["sample_atom_coords"][0].float()
-    return kabsch_rmsd(ac, bc, atom_mask), pcc(dist_matrix(ac), dist_matrix(bc))
+    m = atom_mask[0] > 0.5  # score real atoms only (see kabsch_rmsd docstring)
+    return (kabsch_rmsd(ac, bc, atom_mask),
+            pcc(dist_matrix(ac[m]), dist_matrix(bc[m])))
 
 
 def compare_multiseed(ref_runs: dict, tt_runs: dict, atom_mask, seeds):
