@@ -1,0 +1,26 @@
+{
+  "seed": 0,
+  "target_id": "trpcage_no_msa",
+  "harvested_from": "/home/ttuser/pharma_ref_fixture_run/boltz_harness_trpcage_s0",
+  "selected_record": {
+    "confidence_score": 0.8544106483459473,
+    "ptm": 0.44539135694503784,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.9566655158996582,
+    "complex_iplddt": 0.9566655158996582,
+    "complex_pde": 0.3124379813671112,
+    "complex_ipde": 0.0,
+    "chains_ptm": {
+      "0": 0.44539135694503784
+    },
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.44539135694503784
+      }
+    },
+    "id": "trpcage_no_msa"
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

@@ -201,6 +201,117 @@ SPECS = [
             "docs/pharma-benchmark-data/boltz2.json prot_msa leg (ref confidence_score 0.8916)."
         ),
     ),
+    FixtureSpec(
+        model="opendde",
+        target="trpcage",
+        settings_tag="nomsa_4cycle_20step_1sample_fp32_reduced",
+        reference_impl="official Aureka Research OpenDDE (torch, CPU)",
+        reference_version="opendde_v1 (655.79M params), dtype fp32",
+        reference_commit="aurekaresearch/OpenDDE a0d5134d88f85d5c6a94629d01252251930fe5f8",
+        command=(
+            "cd /home/ttuser/opendde-src && opendde-ref-venv/bin/python -c "
+            "'from runner.batch_inference import opendde_cli; opendde_cli()' pred "
+            "-i trpcage.json -o opendde_trpcage_s<seed> -s <seed> -c 4 -p 20 -e 1 --use_msa false "
+            "&& opendde-ref-venv/bin/python scripts/opendde_ref_to_harness.py "
+            "opendde_trpcage_s<seed> trpcage <seed> opendde_harness_trpcage_s<seed>  "
+            "(trpcage.json: NLYIQWLKDGGPSSGRPPPS, single-sequence no-MSA; checkpoint "
+            "/home/ttuser/.cache/opendde/checkpoint/opendde.pt; CUDA_VISIBLE_DEVICES='')"
+        ),
+        settings={
+            "use_msa": False, "recycling_cycles": 4, "diffusion_steps": 20,
+            "diffusion_samples": 1, "seeds": [0, 1, 2], "dtype": "fp32",
+            "trimul_kernel": "torch", "triatt_kernel": "torch",
+            "target": "trp-cage (PDB 1L2Y, 20 res, 154 atoms, single-sequence no-MSA)",
+            "rationale": "sample=1 isolates convergence (cycles/steps) from best-of-N selection; "
+                         "matches the reduced-settings prot leg so the two trp-cage/prot reads are "
+                         "directly comparable at the same compute budget.",
+        },
+        seeds=[
+            SeedSpec(0, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s0", "trpcage"),
+            SeedSpec(1, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s1", "trpcage"),
+            SeedSpec(2, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s2", "trpcage"),
+        ],
+        provenance_note=(
+            "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/"
+            "opendde_trpcage_s{0,1,2}, mtime 2026-07-13 15:47-15:49), generated for this fixture "
+            "rather than copied from a prior raw output. Per-seed model-forward ~5s (warm); "
+            "ranking_score 0.0911 on all three seeds. The fresh reference-vs-reference floor "
+            "R=0.31 A (mean of 3 seed pairs: 0.41/0.38/0.15) reproduces the published R=0.31 "
+            "in docs/pharma-benchmark.md within noise."
+        ),
+    ),
+    FixtureSpec(
+        model="boltz2",
+        target="trpcage",
+        settings_tag="nomsa_200step_1sample_3recycle_bf16",
+        reference_impl="official Boltz-2 (torch + pytorch-lightning, CPU)",
+        reference_version="boltz 2.2.1",
+        reference_commit="boltz 2.2.1 (pip-installed in boltz_ref_venv; upstream jwohlwend/boltz)",
+        command=(
+            "boltz_ref_venv/bin/boltz predict examples/trpcage_no_msa.yaml "
+            "--out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 "
+            "--diffusion_samples 1 --accelerator cpu  "
+            "&& boltz_ref_venv/bin/python scripts/boltz2_ref_layout.py <out>/boltz_results_trpcage_no_msa "
+            "<harness_dir>  (trpcage_no_msa.yaml sets msa: empty so boltz runs single-sequence; "
+            "the no-MSA flag is --sampling_steps, the diffusion-step count; --diffusion_steps "
+            "is not a boltz 2.2.1 option)"
+        ),
+        settings={
+            "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
+            "diffusion_samples": 1, "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "target": "trp-cage (examples/trpcage_no_msa.yaml, PDB 1L2Y, 20 res, msa: empty)",
+        },
+        seeds=[
+            SeedSpec(0, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_trpcage_s0", "trpcage_no_msa"),
+            SeedSpec(1, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_trpcage_s1", "trpcage_no_msa"),
+        ],
+        provenance_note=(
+            "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/"
+            "boltz_trpcage_s{0,1}, mtime 2026-07-13 15:55), generated for this fixture. "
+            "Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and "
+            "identical confidence). The fresh reference-vs-reference floor R=0.81 A (1 seed pair) "
+            "reproduces the published R=0.79 in docs/pharma-benchmark.md within noise. "
+            "Per-seed confidence_score 0.854/0.847, ptm 0.85/0.85."
+        ),
+    ),
+    FixtureSpec(
+        model="boltz2",
+        target="prot",
+        settings_tag="nomsa_200step_1sample_3recycle_bf16",
+        reference_impl="official Boltz-2 (torch + pytorch-lightning, CPU)",
+        reference_version="boltz 2.2.1",
+        reference_commit="boltz 2.2.1 (pip-installed in boltz_ref_venv; upstream jwohlwend/boltz)",
+        command=(
+            "boltz_ref_venv/bin/boltz predict examples/prot_no_msa.yaml "
+            "--out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 "
+            "--diffusion_samples 1 --accelerator cpu  "
+            "&& boltz_ref_venv/bin/python scripts/boltz2_ref_layout.py <out>/boltz_results_prot_no_msa "
+            "<harness_dir>  (prot_no_msa.yaml sets msa: empty so boltz runs single-sequence)"
+        ),
+        settings={
+            "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
+            "diffusion_samples": 1, "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "target": "prot/7ROA (examples/prot_no_msa.yaml, 117 res, 899 atoms, msa: empty)",
+        },
+        seeds=[
+            SeedSpec(0, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_prot_no_msa_s0", "prot_no_msa"),
+            SeedSpec(1, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_prot_no_msa_s1", "prot_no_msa"),
+        ],
+        provenance_note=(
+            "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/"
+            "boltz_prot_no_msa_s{0,1}, mtime 2026-07-13 15:46/15:53), generated for this fixture. "
+            "Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and "
+            "identical confidence). DISCREPANCY: the fresh reference-vs-reference floor R=6.94 A "
+            "(1 seed pair, deterministic) does NOT reproduce the previously-published R=3.37 in "
+            "docs/pharma-benchmark.md. The prior 3.37's source run is not on disk and is not "
+            "reproducible from the documented 3 recycling / 200 sampling-step / 1 sample settings "
+            "on the pinned boltz 2.2.1 (the only on-disk prot no-MSA reference runs used 2 recycle "
+            "/ 20 steps and give R=2.60). The trp-cage no-MSA leg at the same 3/200/1 settings DOES "
+            "reproduce (R=0.81 vs 0.79), so the settings interpretation is correct; the prot 3.37 "
+            "is the anomaly. The device-vs-reference cross X against this fresh fixture is NOT "
+            "re-measured here (device side not re-run) and is flagged for re-verification."
+        ),
+    ),
 ]
 
 

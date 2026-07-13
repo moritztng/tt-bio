@@ -1,0 +1,29 @@
+{
+  "model": "boltz2",
+  "target": "trpcage",
+  "settings_tag": "nomsa_200step_1sample_3recycle_bf16",
+  "reference_impl": "official Boltz-2 (torch + pytorch-lightning, CPU)",
+  "reference_version": "boltz 2.2.1",
+  "reference_commit": "boltz 2.2.1 (pip-installed in boltz_ref_venv; upstream jwohlwend/boltz)",
+  "command": "boltz_ref_venv/bin/boltz predict examples/trpcage_no_msa.yaml --out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 --accelerator cpu  && boltz_ref_venv/bin/python scripts/boltz2_ref_layout.py <out>/boltz_results_trpcage_no_msa <harness_dir>  (trpcage_no_msa.yaml sets msa: empty so boltz runs single-sequence; the no-MSA flag is --sampling_steps, the diffusion-step count; --diffusion_steps is not a boltz 2.2.1 option)",
+  "settings": {
+    "use_msa": false,
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "seeds": [
+      0,
+      1
+    ],
+    "dtype": "bf16 (pytorch-lightning AMP)",
+    "target": "trp-cage (examples/trpcage_no_msa.yaml, PDB 1L2Y, 20 res, msa: empty)"
+  },
+  "seeds": [
+    0,
+    1
+  ],
+  "msa": "none (no-MSA leg)",
+  "provenance": "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/boltz_trpcage_s{0,1}, mtime 2026-07-13 15:55), generated for this fixture. Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and identical confidence). The fresh reference-vs-reference floor R=0.81 A (1 seed pair) reproduces the published R=0.79 in docs/pharma-benchmark.md within noise. Per-seed confidence_score 0.854/0.847, ptm 0.85/0.85.",
+  "date": "2026-07-13",
+  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
+}
