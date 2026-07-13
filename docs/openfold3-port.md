@@ -1605,3 +1605,45 @@ tests/test_openfold3_fold_rmsd.py (the gate), tt_bio/openfold3_fold.py
 (OpenFold3 + kabsch_rmsd + load_pdb_ca),
 examples/ground_truth_structures/ubiquitin.pdb (1UBQ),
 tests/fixtures/of3_ubiquitin_ca_mask.npy.
+
+## P12: searched MSA and confidence-ranked sample selection
+
+The two follow-up accuracy levers are now wired into ``OpenFold3.fold()``. OF3 reuses
+the same sequence-hash MSA cache and search stage as Protenix-v2 and OpenDDE, samples
+up to 1,024 alignment rows, and runs the model input glue on the resulting profile and
+deletion features. ``fold()`` runs all five confidence heads for every diffusion sample
+and selects the model output using the OF3 ranking score:
+``0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 clash``.
+
+The required 1UBQ benchmark used the same seed and production rollout as P11: 200
+steps, five samples, seed 1234. The cached ubiquitin search produced 2,734 featurized
+MSA rows, of which 1,024 were sampled.
+
+| sample | Kabsch Cα-RMSD (Å) | ranking score | pTM | mean pLDDT |
+|---|---:|---:|---:|---:|
+| 0 | 8.4753 | 0.067266 | 0.336332 | 0.534233 |
+| 1 | 7.8162 | 0.057226 | 0.286132 | 0.525639 |
+| 2 | 9.4931 | 0.064250 | 0.321251 | 0.534545 |
+| 3 | **7.2938** | 0.065600 | 0.328002 | 0.549711 |
+| 4, selected | **9.4501** | **0.067475** | **0.337374** | **0.560070** |
+
+The MSA materially improves the ensemble. Oracle best-of-five improves from 10.181 Å
+to **7.2938 Å** (2.887 Å), median improves from 10.821 Å to **8.4753 Å** (2.346 Å),
+and every MSA sample is better than the prior single-sequence best. Confidence
+selection does not recover the best sample on this target: it selects 9.4501 Å, 2.156 Å
+worse than the 7.2938 Å oracle. The gate therefore records both numbers and does not
+present confidence ranking as an accuracy win.
+
+This still does **not** meet the accuracy bar of the other tt-bio structure models.
+Protenix-v2 is roughly 1.4-1.8 Å on its gate targets and ESMFold2 is below 1 Å, while
+OF3 is 9.4501 Å as delivered after ranking and 7.2938 Å at oracle best-of-five. The MSA
+removes the single-sequence limitation identified in P11. The remaining gap is
+consistent with the 155k-step preview checkpoint ceiling, compounded by the already
+measured MSA-track and diffusion bf16 degradation. Confidence ranking adds a separate
+2.156 Å selection gap on 1UBQ, but fixing selection alone cannot close the raw
+best-of-five gap to the other models.
+
+``tests/test_openfold3_fold_rmsd.py`` now exercises the searched-MSA, five-sample,
+confidence-ranked path. It guards oracle best below 10 Å and selected RMSD below 12 Å;
+these are regression ceilings around the measured result, not a claim that OF3 has
+reached the release accuracy bar.

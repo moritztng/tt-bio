@@ -10,6 +10,11 @@ featurizing one query at a time.
 
 from __future__ import annotations
 
+import hashlib
+import os
+import shutil
+from pathlib import Path
+
 import torch
 from biotite.structure.io.pdbx import CIFFile
 
@@ -56,6 +61,80 @@ from tt_bio._vendor.openfold3.projects.of3_all_atom.config.dataset_config_compon
 from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
     Query,
 )
+
+
+def resolve_openfold3_msas(
+    query: Query,
+    msa_dir: str | Path,
+    *,
+    target_id: str,
+    msa_db_path: str | None = None,
+    use_envdb: bool = False,
+    msa_server_url: str = "https://api.colabfold.com",
+    msa_pairing_strategy: str = "greedy",
+    msa_server_username: str | None = None,
+    msa_server_password: str | None = None,
+    api_key: str | None = None,
+    msa_endpoint: str | None = None,
+) -> Query:
+    """Attach cached or freshly searched unpaired MSAs to an OF3 query.
+
+    This is the same sequence-hash cache and search stage used by Protenix-v2,
+    OpenDDE, and ESMFold2. Existing ``main_msa_file_paths`` are preserved.
+    """
+    from tt_bio.main import _generate_esmfold2_a3m
+
+    msa_dir = Path(msa_dir).expanduser()
+    msa_dir.mkdir(parents=True, exist_ok=True)
+    needed: dict[str, str] = {}
+    paths: dict[int, Path] = {}
+    for i, chain in enumerate(query.chains):
+        if chain.molecule_type.name != "PROTEIN" or chain.main_msa_file_paths:
+            continue
+        seq = chain.sequence or ""
+        seq_hash = hashlib.sha256(seq.encode()).hexdigest()[:16]
+        path = msa_dir / f"{seq_hash}.a3m"
+        paths[i] = path
+        if not path.exists():
+            needed[seq_hash] = seq
+    if needed:
+        _generate_esmfold2_a3m(
+            needed, target_id, msa_dir, msa_db_path, use_envdb,
+            msa_server_url, msa_pairing_strategy, msa_server_username,
+            msa_server_password, api_key, msa_endpoint=msa_endpoint,
+        )
+    for i, path in paths.items():
+        # OF3 filters direct MSA files by canonical source basename. Keep the shared
+        # hash cache unchanged and expose the same bytes under its ColabFold source name.
+        of3_path = msa_dir / "of3" / path.stem / "colabfold_main.a3m"
+        of3_path.parent.mkdir(parents=True, exist_ok=True)
+        if not of3_path.exists():
+            try:
+                os.link(path, of3_path)
+            except OSError:
+                shutil.copyfile(path, of3_path)
+        query.chains[i].main_msa_file_paths = [of3_path]
+    return query
+
+
+def make_openfold3_msa_features(
+    features: dict[str, torch.Tensor], *, max_sequences: int = 1024, seed: int = 0
+) -> torch.Tensor:
+    """Build the 34-channel OF3 MSA input with deterministic sampling."""
+    msa_feat = torch.cat(
+        [
+            features["msa"],
+            features["has_deletion"].unsqueeze(-1),
+            features["deletion_value"].unsqueeze(-1),
+        ],
+        dim=-1,
+    )
+    msa_mask = features["msa_mask"]
+    valid = torch.nonzero(msa_mask.sum(dim=-1) > 0, as_tuple=False).flatten()
+    if valid.numel() > max_sequences:
+        generator = torch.Generator(device=valid.device).manual_seed(seed)
+        valid = valid[torch.randperm(valid.numel(), generator=generator)[:max_sequences]]
+    return msa_feat.index_select(0, valid)
 
 
 def _get_structure_with_ref_mols(query: Query):

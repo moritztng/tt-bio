@@ -1,56 +1,56 @@
-"""OpenFold3 end-to-end ``fold()`` -> vs-ground-truth Kabsch Cα-RMSD merge gate
-(docs/openfold3-port.md "Concretely what remains" item 4 -- the actual merge gate
-for the whole OF3 port).
+"""OpenFold3 searched-MSA + confidence-ranked 1UBQ accuracy gate."""
+import hashlib
+import os
+import pickle
 
-Runs the real device ``OpenFold3.fold()`` on the ubiquitin fixture (the target wired
-into every OF3 component golden), Kabsch-aligns the predicted Cα positions vs the
-experimental structure (1UBQ), and asserts the result is a real structure (finite,
-protein-scale, sub-garbage RMSD) -- NOT a tight accuracy gate. The OF3 155k checkpoint
-is undertrained and ubiquitin is folded single-sequence (no MSA), so the honest number
-is mediocre; this test guards against wiring regressions (NaN / non-converged
-rollout / coordinate-frame bug), not against the model's intrinsic accuracy.
-
-Full production rollout (200 steps x 1 sample; ~10 s on one BH card). The 4-step
-reduced rollout deliberately does NOT pass this gate -- it is a sampler-math PCC gate
-(``test_openfold3_sample_diffusion``), not a structure: noise_schedule[0]=2560 needs
-the full 200-step EDM denoise to converge to a protein-scale structure.
-
-Golden / features: ~/of3_ref_out.pkl (real ubiquitin features from the P1 data
-pipeline + reference embedder outputs, reused to avoid redundant data-pipeline work).
-Ground truth: examples/ground_truth_structures/ubiquitin.pdb (1UBQ). Cα atom indices:
-tests/fixtures/of3_ubiquitin_ca_mask.npy.
-"""
-import os, pickle, pytest, torch
+import numpy as np
+import pytest
+import torch
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_QUERY = os.path.join(_REPO, "tests/fixtures/of3_ubiquitin_query.json")
 _GT_PDB = os.path.join(_REPO, "examples/ground_truth_structures/ubiquitin.pdb")
 _CA_MASK = os.path.join(_REPO, "tests/fixtures/of3_ubiquitin_ca_mask.npy")
+_SEQ = "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"
+_MSA_DIR = os.path.expanduser(os.environ.get("OF3_MSA_DIR", "~/.boltz/msa"))
+_MSA = os.path.join(_MSA_DIR, hashlib.sha256(_SEQ.encode()).hexdigest()[:16] + ".a3m")
 pytestmark = pytest.mark.skipif(
-    not (os.path.exists(_CKPT) and os.path.exists(_GOLD) and os.path.exists(_GT_PDB)
-         and os.path.exists(_CA_MASK)),
-    reason="of3 ckpt / golden / 1UBQ ground truth / Cα mask missing")
+    not all(os.path.exists(p) for p in (_CKPT, _GOLD, _QUERY, _GT_PDB, _CA_MASK, _MSA)),
+    reason="OF3 checkpoint, golden, 1UBQ, or cached ubiquitin MSA missing")
 
 
-def test_of3_fold_kabsch_rmsd():
-    """Real end-to-end fold(): device trunk -> 200-step device SampleDiffusion ->
-    Cα -> Kabsch vs 1UBQ. Asserts a real structure (finite, protein-scale,
-    sub-garbage RMSD), not a tight accuracy floor."""
-    import numpy as np
+def test_of3_msa_confidence_selected_fold_rmsd():
     import ttnn
     from tt_bio.tenstorrent import get_device
+    from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import InferenceQuerySet
+    from tt_bio.openfold3_data import (
+        build_openfold3_features, make_openfold3_msa_features, resolve_openfold3_msas,
+    )
     from tt_bio.openfold3_fold import OpenFold3, kabsch_rmsd, load_pdb_ca
 
+    torch.manual_seed(0)
+    np.random.seed(0)
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     I = pickle.load(open(_GOLD, "rb"))["intermediates"]
-    tr = I["trunk_real"]
+    ie = I["input_embedder_real"]
     te = I["template_embedder_real"]["feat"]
-    me = I["msa_module_embedder_real"]["msa_feat"]
-    cond = I["diffusion_conditioning_real"]
     xl = I["diffusion_module_xlout_real"]
     dec = I["diffusion_decoder_real"]
-    at = I["input_embedder_atom_transformer_real"]
+    atom_transformer = I["input_embedder_atom_transformer_real"]
+    atom_encoder = I["input_embedder_atom_enc_real"]
+    conf_g = I["confidence_heads_real"]
+    tr = I["trunk_real"]
+
+    query = next(iter(InferenceQuerySet.from_json(_QUERY).queries.values()))
+    resolve_openfold3_msas(query, _MSA_DIR, target_id="ubiquitin")
+    features = build_openfold3_features(query)
+    msa_feat = make_openfold3_msa_features(features, max_sequences=1024, seed=0)
+    s_input = torch.cat([
+        atom_encoder["out"][0].float(), features["restype"], features["profile"],
+        features["deletion_mean"].unsqueeze(-1)], dim=-1)
+
     n_atom, n_token, nb, NP = xl["n_atom"], xl["n_token"], xl["nb"], xl["NP"]
     dm_aux = dict(
         cl0=xl["cl0"], plm0=xl["plm0"], atom_mask=dec["atom_mask"],
@@ -58,36 +58,36 @@ def test_of3_fold_kabsch_rmsd():
         npe_q_indices=xl["npe_q_indices"], npe_k_indices=xl["npe_k_indices"],
         zij_mask=xl["zij_mask"], key_block_idxs=dec["key_block_idxs"],
         invalid_mask=dec["invalid_mask"], mask_trunked=dec["mask_trunked"],
-        atom_to_token_mean=at["atom_to_token_mean"], nb=nb, NP=NP)
+        atom_to_token_mean=atom_transformer["atom_to_token_mean"], nb=nb, NP=NP)
+    ca_mask = np.load(_CA_MASK).astype(bool)
+    a2t = dec["atom_to_token_index"].long()
+    polymer_token = (features["is_protein"] | features["is_rna"] | features["is_dna"]).bool()
+    confidence_aux = dict(
+        representative_atom_indices=torch.from_numpy(np.flatnonzero(ca_mask)).long(),
+        max_atom_per_token_mask=conf_g["max_atom_per_token_mask"],
+        atom_array=features["atom_array"], asym_id=features["asym_id"],
+        atom_to_token_index=a2t, atom_mask=features["atom_mask"].bool(),
+        polymer_mask=polymer_token[a2t])
 
     dev = get_device()
     ckc = ttnn.init_device_compute_kernel_config(
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True,
         packer_l1_acc=True)
-    model = OpenFold3(sd, ckc, num_cycles=tr["num_cycles"])
+    result = OpenFold3(sd, ckc, num_cycles=tr["num_cycles"]).fold(
+        template_feat=te, msa_feat=msa_feat, s_input=s_input, relpos=ie["relpos"],
+        token_bonds=features["token_bonds"], token_mask=features["token_mask"],
+        dm_aux_host=dm_aux, n_atom=n_atom, n_token=n_token,
+        no_rollout_steps=200, seed=1234, no_samples=5,
+        confidence_aux_host=confidence_aux)
 
-    (xl_final,) = model.fold(
-        s_init=tr["s_init"], z_init=tr["z_init"], template_feat=te, msa_feat=me,
-        s_input=tr["s_input"], si_input=cond["si_input"], relpos=cond["relpos"],
-        token_mask=cond["token_mask"], dm_aux_host=dm_aux,
-        n_atom=n_atom, n_token=n_token, no_rollout_steps=200, seed=1234, no_samples=1)
-
-    assert torch.isfinite(xl_final).all(), "fold() produced non-finite coordinates"
-    std = float(xl_final.std())
-    # Protein-scale structure (Å): the 200-step rollout denoises noise_schedule[0]=2560
-    # down to a structure. A non-converged rollout (e.g. 4 steps) sits at std~300.
-    assert 1.0 < std < 50.0, f"fold() xl_final std {std:.2f} outside protein-scale (1,50) Å"
-
-    ca_mask = np.load(_CA_MASK).astype(bool)
-    assert len(ca_mask) == n_atom
+    assert msa_feat.shape[0] == 1024
+    assert all(torch.isfinite(sample).all() for sample in result.samples)
+    assert result.best_index == max(
+        range(5), key=lambda i: result.confidence[i]["ranking_score"])
     gt_ca = load_pdb_ca(_GT_PDB)
-    pred_ca = xl_final[ca_mask].double()
-    assert pred_ca.shape[0] == gt_ca.shape[0], \
-        f"Cα count mismatch pred={pred_ca.shape[0]} gt={gt_ca.shape[0]}"
-    rmsd = kabsch_rmsd(pred_ca, gt_ca)
-    print(f"\nOF3 fold() end-to-end: 200-step rollout, 1 sample, seed 1234, "
-          f"target ubiquitin(1UBQ): xl_final std={std:.3f} Å, "
-          f"Kabsch Cα-RMSD = {rmsd:.3f} Å")
-    # Sanity ceiling (well above the real ~11.5 Å): catches garbage/NaN/wiring
-    # regressions without gating on the undertrained model's intrinsic accuracy.
-    assert rmsd < 30.0, f"fold() Cα-RMSD {rmsd:.2f} Å above sanity ceiling 30 Å"
+    rmsds = [kabsch_rmsd(sample[ca_mask].double(), gt_ca) for sample in result.samples]
+    selected = rmsds[result.best_index]
+    print(f"OF3 MSA+confidence: selected={selected:.3f} A best={min(rmsds):.3f} A "
+          f"median={sorted(rmsds)[2]:.3f} A index={result.best_index}")
+    assert min(rmsds) < 10.0, f"MSA ensemble best RMSD {min(rmsds):.2f} A regressed"
+    assert selected < 12.0, f"confidence-selected RMSD {selected:.2f} A regressed"
