@@ -7,7 +7,11 @@ to an arbitrary `main` commit. `main` is the development branch (may contain unt
 ## Release gate — MUST pass on real Tenstorrent hardware before tagging
 
 GitHub CI only builds and imports the package (no card). Everything that matters is verified
-on-device, on the exact commit to be tagged — a release is a promise to customers that it works:
+on-device, on the exact commit to be tagged — a release is a promise to customers that it works.
+
+Run `ux_regression.py` and `perf_regression.py` on a **quiet card** (nothing else contending for
+it) — a first predict on a card with other jobs mid-run can cold-start/time out and read as a
+false gate failure. Re-run on an idle card before treating a failure there as real.
 
 1. **Accuracy / correctness** — full test suite green **and** numerical parity vs the reference /
    paper numbers within tolerance (PCC/RMSD) for every model (Boltz-2, ESMFold2, Protenix-v2,
