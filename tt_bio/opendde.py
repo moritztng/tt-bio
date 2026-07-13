@@ -338,7 +338,8 @@ class OpenDDE:
             return (*result, attn_bias)
         return result
 
-    def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1, return_confidence=False):
+    def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
+             return_confidence=False, progress_fn=None):
         """First end-to-end residue->structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -394,7 +395,8 @@ class OpenDDE:
                                          tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
         p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
         relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
-        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"], n_cycles=n_cycles)
+        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
+                                  n_cycles=n_cycles, progress_fn=progress_fn)
         s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z))
 
@@ -429,7 +431,8 @@ class OpenDDE:
         coords = []
         for k in range(n_sample):
             sd_seed = None if seed is None else seed + k
-            coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed)[0])
+            coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
+                                     progress_fn=progress_fn)[0])
         coords = torch.stack(coords, 0)
         if return_confidence:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):

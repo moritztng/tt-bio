@@ -5250,9 +5250,8 @@ class Boltz2(nn.Module):
         )
         if use_resident_trunk:
             _trunk = self._tt_trunk_module()
-            s, z = _trunk(s_inputs, s_init, z_init, feats, recycling_steps)
-            if _pfn:
-                _pfn("trunk", step=recycling_steps, total=recycling_steps + 1)
+            s, z = _trunk(s_inputs, s_init, z_init, feats, recycling_steps,
+                          progress_fn=_pfn)
         elif self.run_trunk_and_structure:
             for i in range(recycling_steps + 1):
                 if _pfn:

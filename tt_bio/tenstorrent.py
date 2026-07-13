@@ -3338,13 +3338,19 @@ class TrunkModule(TorchWrapper):
         return s, z
 
     def forward(self, s_inputs, s_init, z_init, feats, recycling_steps,
-                relative_position_encoding=None):
+                relative_position_encoding=None, progress_fn=None):
         st = self._build_static(s_inputs, s_init, z_init, feats, relative_position_encoding)
         seq_len = st["seq_len"]
 
         s = self._from_torch(torch.zeros(list(st["s_init_tt"].shape), dtype=s_init.dtype))
         z = self._from_torch(torch.zeros(list(st["z_init_tt"].shape), dtype=z_init.dtype))
-        for _ in range(recycling_steps + 1):
+        # Tick the live view once per recycling iteration, mirroring the host
+        # fallback loop in Boltz2.forward — the resident loop runs entirely on
+        # device, so without this the bar sits at "Trunk 0/N" then jumps to the
+        # final iteration when the loop returns.
+        for _cyc in range(recycling_steps + 1):
+            if progress_fn:
+                progress_fn("trunk", step=_cyc, total=recycling_steps + 1)
             s, z = self._iteration(s, z, st)
 
         s_out = self._to_torch(s)[:, :seq_len, :]
