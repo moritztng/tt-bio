@@ -341,15 +341,21 @@ class _WorkerState:
         return metrics, None, feats
 
     def _predict_opendde_one(self, path: Path, cfg: dict[str, Any]):
-        """OpenDDE protein co-fold: sequence(s) -> on-device structural-token fold ->
-        structure. Single-sequence only (no MSA encoder wired -- see docs/opendde-port.md);
-        protein-only (nucleic-acid/ligand structural tokens not ported yet). Confidence-based
-        best-of-N ranking and CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold
-        rides the same ConfidenceHead / build_complex_features / _write_protenix_structure)."""
+        """OpenDDE protein co-fold: sequence(s) -> (optional per-chain MSA) -> on-device
+        structural-token fold -> structure. Rides the SAME MSA stage as Protenix-v2 /
+        ESMFold2 / Boltz-2: each protein chain whose {seq_hash}.a3m is not cached is
+        searched into the shared msa_dir, resolved, and featurized via
+        build_complex_features' block-diagonal MSA. Protein-only (nucleic-acid/ligand
+        structural tokens not ported yet). Confidence-based best-of-N ranking and CIF
+        writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
+        ConfidenceHead / build_complex_features / _write_protenix_structure)."""
+        import hashlib
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import _read_bio_chains, _read_bio_constraints, _write_protenix_structure
+        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
+                                 _read_bio_constraints, _resolve_a3m_text,
+                                 _write_protenix_structure)
         from tt_bio.protenix_data import build_complex_features
 
         chains = _read_bio_chains(path)
@@ -361,9 +367,30 @@ class _WorkerState:
                 f"--model opendde is protein-only for now (chain(s) {non_protein} are not "
                 "protein); see docs/opendde-port.md's Remaining section.")
         bonds = _read_bio_constraints(path)
+        msa_dir = Path(cfg["msa_dir"])
+
+        report_progress("msa")
+        # search any uncached protein chain (batched into one MSA call), reusing the
+        # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path.
+        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
+        need = {}
+        for _cid, cseq, spec, mt in chains:
+            have_spec = bool(spec and Path(spec).expanduser().exists())
+            if mt == "protein" and want_msa and not have_spec:
+                h = hashlib.sha256(cseq.encode()).hexdigest()[:16]
+                if not (msa_dir / f"{h}.a3m").exists():
+                    need[h] = cseq
+        if need:
+            _generate_esmfold2_a3m(
+                need, path.stem, msa_dir, cfg.get("msa_db_path"),
+                cfg.get("use_envdb", False), cfg.get("msa_server_url"),
+                cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
+                cfg.get("msa_server_password"), cfg.get("api_key_value"),
+                msa_endpoint=cfg.get("msa_endpoint"))
+        chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
+                       for _cid, cseq, spec, mt in chains]
 
         report_progress("prep")
-        chain_specs = [(cseq, None, "protein") for _cid, cseq, _spec, _mt in chains]
         feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt in chains],
                                        bonds=bonds)
 
@@ -404,7 +431,8 @@ class _WorkerState:
             **_row(best),
             "n_residues": sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand"),
             "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
-            "msa": False, "n_atoms": int(coords.shape[1]), "samples": n_sample,
+            "msa": any(a for _, a, _ in chain_specs), "n_atoms": int(coords.shape[1]),
+            "samples": n_sample,
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
