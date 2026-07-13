@@ -322,6 +322,18 @@ def main() -> int:
     FAST = args.fast
     DIFFUSION_TRACE = args.diffusion_trace
 
+    # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open
+    # it without a 1x1 mesh-graph descriptor. The predict/embed CLIs set this
+    # per worker / in-process, but the gen subprocess and this process's
+    # in-process ESMC embed leg (esmc.embed_sequences, bypassing the embed
+    # CLI) do not -- set it once here so every leg inherits it. Mirrors
+    # scripts/perf_regression.py and tt_bio/main.py's embed command.
+    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
     models = args.model or list(MODELS) + ["boltzgen"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
