@@ -360,9 +360,10 @@ class OpenDDE:
         assumed). Confidence is independent of the structural-token diffusion axis, so no
         structural-token distogram-rep-atom machinery is needed here.
 
-        --fast and multi-card fanout are not wired yet (they ride the existing Protenix-v2
-        machinery unchanged once this coordinate path is release-gated; see
-        docs/opendde-port.md). Returns coords (n_sample, N_atom, 3) host tensor; if
+        --fast and multi-card fanout ride the existing Protenix-v2 machinery (the trunk
+        reads the global fast flag; the predict scheduler fans targets across --devices),
+        both verified for OpenDDE -- see docs/opendde-port.md. Returns coords (n_sample,
+        N_atom, 3) host tensor; if
         return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
         list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
         """
