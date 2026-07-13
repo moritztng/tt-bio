@@ -601,13 +601,10 @@ a tight-floor artifact, not a device defect), and **BoltzGen** device-vs-referen
 designability parity (device 93.8% ≤2Å over two n=8 seed groups; reference
 68.75% ≤2Å over two n=8 groups of the official CLI run on a rented vast.ai
 RTX 3090 — the port meets-or-exceeds the reference's designability, see the
-BoltzGen section).
-
-In progress, not yet committed with final numbers:
-
-- **Protenix-v2**: R/D/X now measured (see the Protenix-v2 section above). X = 2.63 ± 0.42 Å within the floor (max(R,D) = R = 2.94 Å, X/floor = 0.89). The floor is confidence-selection-limited (the under-ranking shows up on the reference side too); the diffusion geometry is faithful.
-- **Boltz-2**: MSA-backed target now measured (prot, 93-seq MSA; device-vs-ref
-  0.94 Å within the 0.98 Å device floor, closing the no-MSA 1.27x-over-floor gap).
+BoltzGen section). Also complete: **Protenix-v2** R/D/X (X = 2.63 ± 0.42 Å
+within the floor, max(R,D) = R = 2.94 Å, X/floor = 0.89 — the floor is
+confidence-selection-limited, a real model property carried faithfully by the
+port, not a device defect; the diffusion geometry is faithful).
 
 **BoltzGen**'s reference leg is now complete: the official CLI was run on a
 rented vast.ai on-demand RTX 3090 (instance torn down after the run), producing
