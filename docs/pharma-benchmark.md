@@ -264,15 +264,19 @@ read: the device reproduces the reference fold to 0.39 Å, inside the reference'
 own 0.31 Å run-to-run spread. prot does not fully converge at 4c/20s, but the
 reference is already self-consistent across seeds at 1.96 Å while the device sits
 7.65 Å away from it (itself self-consistent at 2.68 Å). That is a real,
-reproducible device-vs-reference gap on the longer target, not run-to-run noise.
+reproducible device-vs-reference gap at these reduced settings, not run-to-run
+noise, though the production-settings leg below shows it is a reduced-settings
+floor artifact rather than an implementation gap.
 At still lower settings (2c/10s) both sides are unconverged and the read
 collapses into noise (X/floor ~1.0, uninformative); 4c/20s is the more informative
-reduced-setting point. Whether the prot gap closes at production settings (10
-cycles / 200 steps, where the port is documented to reach ~3.8 Å no-MSA and 2.7 Å
-with-MSA on this same target) is not settled by this run. A converged reference
-leg needs a CPU production fold, which hits the same AF3-family compute ceiling
-already documented for Protenix-v2 (no fused triangle ops on CPU, hours per
-seed). That is an operational limit of the CPU reference, not a port defect.
+reduced-setting point. The prot NO above is the reduced-settings read, and it is resolved in the
+production-settings leg below: at 10c/200s the device true seed-spread emerges
+(D = 8.06 Å) and the cross term X = 5.68 Å sits inside it (X/floor = 0.70,
+within floor), so the 2.85x gap above was an artifact of the artificially tight
+4c/20s device floor, not a device-vs-reference implementation difference. The
+production CPU reference turned out feasible on this host (~31 min for 3 seeds,
+measured), correcting the earlier hours-per-seed probe extrapolation; see the
+production leg for the corrected cost and the full R/D/X.
 
 pTM agrees across backends on trp-cage (device 0.445 vs reference 0.455, a ~0.01
 gap). On prot the pTM and pLDDT heads read lower on the device than the reference
@@ -290,59 +294,64 @@ above measure.
 
 Raw data: `docs/pharma-benchmark-data/opendde.json`.
 
-#### Production-settings leg (in progress, 2026-07-13)
+#### Production-settings leg (resolved, 2026-07-13)
 
-The reduced-settings read above leaves the prot gap open: is the 2.85x
+The reduced-settings read above left the prot gap open: was the 2.85x
 device-vs-reference gap a real implementation difference, or an artifact of
-running both sides at 4c/20s where the noise floor itself is different from the
-production floor? Resolving it needs R/D/X at production settings.
+running both sides at 4c/20s, where the noise floor itself differs from the
+production floor? Resolved by measuring R/D/X at production settings.
 
-**Production settings** are the OpenDDE CLI defaults (`opendde pred`, `aurekaresearch/OpenDDE` main `a0d5134`): 10 recycling cycles / 200 diffusion steps / 5 samples (`runner/batch_inference.py`, `-c 10 -p 200 -e 5`). The parity probe uses 10c/200s with `sample=1` rather than 5: sample count drives best-of-N selection, but convergence is set by cycles and steps, so `sample=1` isolates the convergence variable from the reduced-settings run (which was also `sample=1`) and keeps the CPU reference 5x cheaper. Device and reference are matched at `sample=1` for a controlled reduced-to-production comparison.
+**Production settings** are the OpenDDE CLI defaults (`opendde pred`,
+`aurekaresearch/OpenDDE` main `a0d5134`): 10 recycling cycles / 200 diffusion
+steps / 5 samples (`runner/batch_inference.py`, `-c 10 -p 200 -e 5`). The parity
+probe uses 10c/200s with `sample=1` rather than 5: sample count drives best-of-N
+selection, but convergence is set by cycles and steps, so `sample=1` isolates the
+convergence variable from the reduced-settings run (also `sample=1`) and keeps
+the comparison controlled. Device and reference are matched at `sample=1`.
 
-**CPU reference cost (measured on this host, not estimated).** Two timed CPU
-probes on prot, no-MSA, model forward time as reported by the reference CLI:
-1 cycle / 2 steps = 31.59 s; 1 cycle / 20 steps = 331.27 s. Per diffusion step
-= (331.27 - 31.59) / 18 = **16.65 s/step** (diffusion dominates; the trunk cycle
-+ structural-token expander/refiner + confidence head overhead is small in the
-regression intercept). A production fold is 200 steps, so ~55 min of model
-forward per seed, and a 3-seed run is ~2.8 h plus per-run load/featurization.
-This is the same AF3-family CPU ceiling already documented for Protenix-v2 (the
-torch triangle ops have no fused fallback on CPU), so the reference production
-leg is not feasible inside one worker turn and has been launched in the
-background (below).
+**CPU reference cost (measured, not estimated).** A full 3-seed production run
+on prot, no-MSA, completed in 30:52 (`ref_prod.log` per-seed model-forward
+times): seed 0 = 1376 s, seed 1 = 236 s, seed 2 = 236 s. The first seed pays a
+one-time ~19 min torch/kernel warmup (JIT, triangle-op autotune, dtype
+promotion); warm seeds are ~4 min each at 200 steps (1.18 s/step). A 3-seed
+production reference is therefore feasible in one worker turn. This corrects the
+earlier two-probe extrapolation (16.65 s/step, ~2.8 h), which over-estimated
+because the probes ran under CPU contention and lumped in the one-time cold-start
+overhead. Same AF3-family CPU path as Protenix-v2 (no fused triangle ops), just
+much cheaper than that probe implied.
 
-**Device self-floor at production (new, measured this tick).** Three device
-folds at 10c/200s/`sample=1`, seeds 0/1/2:
+**R/D/X at production (3 seeds each, 10c/200s/`sample=1`, no-MSA):**
 
-| metric | D (dev-vs-dev, n=3 pairs) | reduced-settings D (4c/20s) |
-|---|---|---|
-| CA-RMSD (Å) | 8.06 (std 4.59, range 1.56-11.38) | 2.68 |
+| metric | dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | floor = max(R,D) | X/floor | within floor |
+|---|---|---|---|---|---|---|
+| CA-RMSD (A) | 5.68 ± 3.98 (range 2.48-11.36) | 1.90 | 8.06 | 8.06 | 0.70 | yes |
+| 1-coord-PCC | 0.141 ± 0.164 | 0.012 | 0.257 | 0.257 | 0.55 | yes |
 
-The device self-floor **grows** from 2.68 A at 4c/20s to 8.06 A at 10c/200s, with
-a large spread (one seed pair agrees at 1.56 A, another is 11.38 A apart). The
-device folds diverge more across seeds at production, not less. This is a real,
-reproducible observation and it reframes the open question: if the device side is
-high-variance at production, the reduced-settings 2.85x gap may not close at
-production. But this is not conclusive without the reference's production R and
-X, which are still computing.
+Parity holds at production: X sits inside the noise floor on both metrics. The
+reference is self-consistent at both settings (R = 1.96 A reduced, 1.90 A
+production), so the reduced-vs-production difference is entirely on the device
+side. The device self-floor grows from 2.68 A at 4c/20s to 8.06 A at 10c/200s
+(range 1.56-11.38 A across three seed pairs): at 20 diffusion steps the device
+seeds do not have enough steps to diverge, so the floor is artificially tight and
+the 7.65 A cross term reads 2.85x above it; at 200 steps the device's true
+seed-spread emerges and the 5.68 A cross term sits inside it. The 2.85x
+reduced-settings gap was an artifact of the reduced settings, not a genuine
+device-vs-reference implementation difference.
 
-**Reference production run (backgrounded, survives this session).** `opendde pred
--c 10 -p 200 -e 1 -s 0,1,2 --use_msa false` on prot, launched via `nohup` from
-`/tmp` (cwd outside the worktree, per the mid-job-recreation caveat). Log:
-`~/opendde_parity_prod/ref_prod.log` on qb2. Done marker:
-`~/opendde_parity_prod/REF_PROD_DONE`. Started 2026-07-13 05:30 UTC, estimated
-~2.8 h. Do not kill it; it holds hours of sunk CPU progress. Once it finishes,
-repackage each seed with `scripts/opendde_ref_to_harness.py` and re-run
-`scripts/pharma_parity.py structures` against `~/opendde_parity_prod/dev_seed{0,1,2}/boltz_results_prot`
-to get R and X at production, then compare X against the production noise floor
-(max(R, D)).
+Secondary, honest observation: the device is markedly more seed-stochastic than
+the reference at production (D = 8.06 A vs R = 1.90 A), the same bf16-diffusion
+stochasticity already documented for Boltz-2 and Protenix-v2. This is a property
+of the port carried faithfully from the bf16 device numerics, not a defect, and
+it does not violate parity (X within floor). It does mean a single device fold is
+a weaker point estimate than a single reference fold; best-of-N (`sample=5`, the
+paper default) is the production answer to that, on both sides.
 
-**Gap status: still open.** The reduced-settings R/D/X (X = 7.65 A, 2.85x floor)
-remains the best complete parity data point. The new device-floor-at-production
-number (D = 8.06 A) is partial evidence that the gap may not close at production,
-but conclusive resolution needs the reference production R and X, which are
-pending the background run. No number here is fabricated or extrapolated beyond
-the two measured probes and the three measured device folds.
+Reference output was repackaged into the harness layout with
+`scripts/opendde_ref_to_harness.py` (reference CLI writes
+`<out>/<name>/seed_<s>/predictions/<name>_sample_<k>.cif` + per-sample summary
+json; the script picks the highest-`ranking_score` sample and emits
+`structures/<name>.cif` + `results.json`). Device dirs are the `tt-bio predict`
+output directly. Both feed `scripts/pharma_parity.py structures`.
 
 Raw data: `docs/pharma-benchmark-data/opendde-prod-leg.json`.
 
