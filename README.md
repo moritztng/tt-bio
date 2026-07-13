@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), and [Protenix-v2](https://github.com/bytedance/Protenix) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 ## Installation
 
@@ -23,12 +23,12 @@ pip install tt-bio
 tt-bio install-deps
 ```
 
-`tt-bio install-deps` installs the SFPI compiler version that matches the installed `ttnn` wheel and clears stale TT-Metal kernel cache entries. It may ask for your sudo password.
+`tt-bio install-deps` installs the Tenstorrent system dependencies that match this release. It may ask for your sudo password.
 
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.2.5"   # pinned release — see Releases for the latest
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.2.5"   # pinned release, see Releases for the latest
 pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -57,10 +57,10 @@ tt-bio predict examples/prot.yaml --model boltz2 --override
 
 Every command names its model with `--model`:
 
-- **`boltz2`** — folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
-- **`esmfold2`** / **`esmfold2-fast`** — fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint):
-- **`protenix-v2`** — folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`:
-- **`opendde`** / **`opendde-abag`** — antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2):
+- **`boltz2`**: folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
+- **`esmfold2`** / **`esmfold2-fast`**: fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint).
+- **`protenix-v2`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`.
+- **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
 
 ```bash
 tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
@@ -79,16 +79,16 @@ tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen
 
 Shared across every model: `--fast`, `--recycling_steps`, `--sampling_steps`, `--diffusion_samples`, `--output_format`, the MSA flags, and the multi-card / multi-machine flags. Each model downloads its weights automatically on first use.
 
-Boltz-2, Protenix-v2, and OpenDDE are MSA-dependent and use an MSA **by default** — a local
+Boltz-2, Protenix-v2, and OpenDDE are MSA-dependent and use an MSA **by default**, a local
 ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-msa-optional)),
 otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
 leaves your machine; a one-line notice is printed when that fallback is used. Pass
 `--msa_db_path` for a private offline database, or `--single_sequence` to deliberately fold
 without an MSA (lower accuracy; for batch-screening orphan sequences). ESMFold2 is single-sequence.
 
-`--fast` makes some operations use block-fp8, a lower-precision numeric format that runs faster. Accuracy is typically very close.
+`--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close.
 
-OpenDDE's antibody-antigen accuracy is currently weak (the antigen doesn't land in the paratope; a known, actively investigated gap that MSA pairing alone doesn't fix — see [`docs/opendde-port.md`](docs/opendde-port.md)).
+OpenDDE's antibody-antigen accuracy is currently weak (a known gap under investigation; see [`docs/opendde-port.md`](docs/opendde-port.md) for details).
 
 `predict` accepts either a single YAML/FASTA file or a directory containing many input files.
 
@@ -104,15 +104,15 @@ tt-bio predict proteins/ --model boltz2 --out_dir results --fast
 By default every detected card is used; pass `--devices 0,1,2,3` to pick or limit
 which cards a run fans across (matching `tt-bio embed`). Each job is an independent
 single-card fold pinned to its card, so results are identical to running that target
-alone — sharding only changes which chip folds which target.
+alone; sharding only changes which chip folds which target.
 
 If you have additional machines with Tenstorrent cards, you can add them to a
-single run — see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
+single run; see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
 
 ### Protein Embeddings (ESMC)
 
-Turn protein sequences into ESMC language-model embeddings on-device — no
-folding, no MSA. `DATA` is a FASTA file, a directory of them, a YAML
+Turn protein sequences into ESMC language-model embeddings on-device (no
+folding, no MSA). `DATA` is a FASTA file, a directory of them, a YAML
 `{id: sequence}` mapping, or a bare sequence string:
 
 ```bash
@@ -126,37 +126,29 @@ float32, one row per amino acid, row order == input order) and a **pooled**
 whole-sequence vector (`[d_model]` float32, `--pool mean`/`max`/`cls`).
 `--out_dir` (default `./embeddings`) gets:
 
-- `<id>.npz` per sequence — `per_residue`, `pooled` (+ `logits` with `--logits`); `--format npz`, default
-- `embeddings.parquet` — pooled vectors, one row per sequence; `--format parquet`
-- `manifest.json` — model/pool/shapes/dtype and which file holds each sequence
+- `<id>.npz` per sequence: `per_residue`, `pooled` (+ `logits` with `--logits`); `--format npz`, default
+- `embeddings.parquet`: pooled vectors, one row per sequence; `--format parquet`
+- `manifest.json`: model/pool/shapes/dtype and which file holds each sequence
 
 Add `--logits` for the per-residue amino-acid predictions (300M/600M only),
-and `--fast` for the block-fp8 weight path. Weights download automatically on
+and `--fast` for the lower-precision weight path. Weights download automatically on
 first use.
 
-Sequences batch automatically on 300M/600M (`--batch_size`, default 8) — a
+Sequences batch automatically on 300M/600M (`--batch_size`, default 8): a
 padded, length-bucketed device forward per batch, masked so results are
 identical to running each sequence alone.
 
 To embed a large batch faster, shard it across several cards with
-`--devices 0,1,2,3` — one worker per card, results reassembled in input order
+`--devices 0,1,2,3`: one worker per card, results reassembled in input order
 and identical to a single-card run:
 
 ```bash
 tt-bio embed proteins.fasta --model esmc-600m --devices 0,1,2,3
 ```
 
-**Measured, not assumed:** fanout only pays off when there's enough work per shard
-to amortize each worker's own model-load/device-init cost, and the win is
-host-dependent — `esmc-600m`/`esmc-300m` on large batches (N≈4096) saw ~2x @ 4 cards
-on one host (qb1) but only ~1.1x on another (qb2, extra per-shard mesh-topology
-overhead — see `docs/esmc-multicard-scaling.md`), and both are flat or *worse* than
-one card for very small batches. `esmc-6b` scales monotonically to 4 cards (~1.5x @
-N=256) since the weight-load and host-CPU contention that used to regress it past 2
-cards are both fixed. See `docs/esmc-multicard-scaling.md` for numbers before
-reaching for `--devices` on a small job.
+**Measured, not assumed:** fanout only pays off when there's enough work per shard to amortize each worker's model-load and device-init cost. On small batches it can be flat or worse than a single card. `esmc-6b` scales to 4 cards on suitably large batches. See [`docs/esmc-multicard-scaling.md`](docs/esmc-multicard-scaling.md) for the numbers before reaching for `--devices` on a small job.
 
-For repeated/production embedding, submit to a persistent pool instead — a worker
+For repeated/production embedding, submit to a persistent pool instead: a worker
 loads its model once and keeps it resident across every call, so the reload cost
 above is paid once per worker, not once per invocation:
 
@@ -204,7 +196,7 @@ tt-bio predict examples/prot.yaml --model boltz2 --use_envdb --override
 - `--msa_db_path`: Use a local database at a custom path (e.g. `--msa_db_path /data/colabfold_db`)
 - `--use_envdb`: Include EnvDB in offline MSA (`tt-bio msa --db all`)
 - `--accelerator=tenstorrent`: Use Tenstorrent hardware (default, or use `cpu`/`gpu`)
-- `--fast`: Makes some operations use block-fp8, a lower-precision numeric format that runs faster; accuracy is typically very close
+- `--fast`: Makes some operations use a lower-precision numeric format that runs faster; accuracy is typically very close
 - `--debug`: Show all raw output from the hardware and libraries instead of the progress display
 - `--debug --log`: Same as `--debug`, but also print what each device is currently working on
 
@@ -234,7 +226,7 @@ The `--affinity_mw_correction` flag applies molecular weight correction for more
 
 ### Input Format
 
-ESMFold2 takes a plain protein FASTA or a YAML with one or more `protein` chains. The richer inputs below — ligands, affinity, DNA/RNA, constraints, and templates — are Boltz-2 features.
+ESMFold2 takes a plain protein FASTA or a YAML with one or more `protein` chains. The richer inputs below (ligands, affinity, DNA/RNA, constraints, and templates) are Boltz-2 features.
 
 Create a YAML file describing your complex:
 
@@ -253,8 +245,8 @@ properties:
 ```
 
 **Entity Types:**
-- **Polymers**: `protein`, `dna`, `rna` — provide `sequence`
-- **Ligands**: `ligand` — provide `smiles` or `ccd` code
+- **Polymers** (`protein`, `dna`, `rna`): provide `sequence`
+- **Ligands** (`ligand`): provide `smiles` or `ccd` code
 
 **Multiple Identical Chains:**
 ```yaml
@@ -387,7 +379,7 @@ constraints:
       force: false
 ```
 
-**Bond Constraints** (covalent link — e.g. a covalent inhibitor, glycosylation, or disulfide; works with Boltz-2 and Protenix-v2):
+**Bond Constraints** (covalent link, e.g. a covalent inhibitor, glycosylation, or disulfide; works with Boltz-2 and Protenix-v2):
 ```yaml
 constraints:
   - bond:
@@ -432,7 +424,7 @@ Options apply to every model unless tagged **(Boltz-2)**.
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
 | `--device_ids` | — | Comma-separated TT device IDs (e.g. `0,2`) |
-| `--fast` | `False` | Makes some operations use block-fp8, a lower-precision numeric format that runs faster; accuracy is typically very close |
+| `--fast` | `False` | Makes some operations use a lower-precision numeric format that runs faster; accuracy is typically very close |
 | `--listen` | — | Accept worker connections from other machines; see [Multi-Machine Prediction](#optional-multi-machine-prediction) |
 | `--report-energy` | `False` | **(Boltz-2)** Enables optional energy profiling for one TT device (requires `tt-mgmt` add-on); writes `power_profile.csv` and `power_profile.png` |
 | `--energy-metric` | `both` | **(Boltz-2)** Choose power channel(s): `tdp`, `input`, or `both` |
@@ -486,8 +478,8 @@ tt-bio predict ... --model boltz2 --use_msa_server
 
 ## Optional: Multi-Machine Prediction
 
-Combine the cards across any mix of Tenstorrent machines — a workstation, one
-or more QuietBoxes, one or more Galaxy servers — into a single run.
+Combine the cards across any mix of Tenstorrent machines (a workstation, one
+or more QuietBoxes, one or more Galaxy servers) into a single run.
 
 On the machine driving the run:
 
@@ -584,7 +576,7 @@ tt-bio gen run examples/binder.yaml --output existing/ --steps analysis filterin
 | `--steps` | (all) | Run only specific stages |
 | `--config STEP key=val` | — | Override per-stage config (e.g. `--config design sampling_steps=200`) |
 | `--device_ids` | all cards | Restrict to specific cards (e.g. `0,2`) |
-| `--fast` | `False` | Use block-fp8 for some ops (slightly lower precision, faster) |
+| `--fast` | `False` | Use a lower-precision path for some ops (slightly lower precision, faster) |
 | `--cache` | `~/.boltz/boltzgen` | Cache for downloaded weights |
 | `--debug` | `False` | Disable live display; show raw stage output |
 | `--debug --log` | `False` | Add per-stage progress markers |
@@ -647,4 +639,4 @@ In addition if you use the automatic MSA generation, please cite:
 
 ## License
 
-tt-bio is released under the MIT License (see [`LICENSE`](LICENSE)) and is built on the MIT-licensed Boltz-2 / Boltz-1 code. It bundles third-party code, each under its upstream license: the ESMFold2 host-side reference under `tt_bio/_vendor/` (the `esm` pipeline, MIT, © Chan Zuckerberg Biohub; and the HuggingFace ESMFold2 model definition, Apache-2.0) and the BoltzGen binder-design source under `tt_bio/boltzgen/` (MIT, © Hannes Stärk). Protenix-v2 is an independent ttnn reimplementation — no upstream code is vendored — and its weights download from ByteDance's Hugging Face mirror under Apache-2.0. See [`NOTICE`](NOTICE) for sources, versions, and modifications.
+tt-bio is released under the MIT License (see [`LICENSE`](LICENSE)) and is built on the MIT-licensed Boltz-2 / Boltz-1 code. It bundles third-party code, each under its upstream license: the ESMFold2 host-side reference under `tt_bio/_vendor/` (the `esm` pipeline, MIT, © Chan Zuckerberg Biohub; and the HuggingFace ESMFold2 model definition, Apache-2.0) and the BoltzGen binder-design source under `tt_bio/boltzgen/` (MIT, © Hannes Stärk). Protenix-v2 is an independent ttnn reimplementation (no upstream code is vendored) and its weights download from ByteDance's Hugging Face mirror under Apache-2.0. See [`NOTICE`](NOTICE) for sources, versions, and modifications.
