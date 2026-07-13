@@ -597,9 +597,11 @@ distribution is degenerate at fnat=0.
   to DNA/RNA backbone/base splitting and ligand atom-tokens follows the identical pattern
   once a mixed-modality co-folding target is on the critical path.
 - `--fast` + multi-card `--devices` ride the existing predict scheduler (memory
-  `predict-multicard-already-exists` -- no new fanout path) now that CLI integration has
-  landed, but this specific combination (`--model opendde --fast` / `--devices 0,1,2,3`)
-  has not been explicitly exercised yet.
+  `predict-multicard-already-exists` -- no new fanout path) and are now verified for
+  OpenDDE (see the Status section). `--fast` only bf8s the trunk, which is not the
+  bottleneck for OpenDDE (the structural-token diffusion stays bf16), so it is
+  correctness-neutral but perf-neutral on this model; multi-card fanout is lossless and
+  bit-identical to single-card at fixed seed.
 
 ## Accuracy gate
 
@@ -666,6 +668,22 @@ distribution is degenerate at fnat=0.
   the Ab-Ag gap is not the multi-chain encoding; most likely the missing **paired MSA**
   (the cross-chain co-evolution signal; templates are not the lever -- the reference masks
   template pair features to same-chain, so they encode intra-chain geometry only).
+- **--fast + multi-card verification: done (2026-07-13, qb2, 4x Blackhole p300c).**
+  `tt-bio predict examples/9dsg_abag.yaml --model opendde-abag --fast` runs end-to-end on
+  one card and writes a valid CIF + results.json; confidence/DockQ match the non-fast
+  baseline within single-sample variance (single-sequence, recycling 4 / sampling 40, seed
+  0, card 3: ipTM 0.408 vs 0.334, pLDDT 0.791 vs 0.782, global DockQ 0.289 vs 0.264, Ab-Ag
+  DockQ 0.103 vs 0.071, internal Fab DockQ 0.476 vs 0.457). `--fast` gives no wall-clock win
+  here (109.8s vs 109.6s): it only bf8s the trunk, while OpenDDE's structural-token
+  diffusion (always bf16) dominates the fold. Multi-card `--devices 0,1,2,3` fans 8
+  protein targets (4x prot-117 + 4x trpcage-20, --fast, single-sequence, recycling 3 /
+  sampling 80, seed 0) across 4 cards with per-target CIF + confidence bit-identical (md5
+  match) to a single-card run, 24.8s vs 35.0s wall (1.41x; the fixed per-worker device-open
+  cost, serialized by the host-wide open-lock, caps the win for this small a target set --
+  it climbs toward the card-count ceiling as fold compute grows, per memory
+  `predict-multicard-already-exists`). No --fast codepath or device-mesh gap (cf. the
+  `esmc-embed-p300-mesh-gap` precedent): the predict scheduler sets the P300 mesh-graph
+  descriptor per worker for OpenDDE too.
 - **Not yet**: **paired MSA** (the `MSAPairingEngine` species-pairing path is not wired into
   the predict path; only unpaired MSA is, which carries no cross-chain signal -- this is the
   most likely remaining cause of the 0.011 Ab-Ag DockQ now that the multi-chain MSA assembly
@@ -674,6 +692,7 @@ distribution is degenerate at fnat=0.
   and real templates are not the Ab-Ag lever (reference masks template pair features to
   same-chain), though porting OpenDDE's HMMER/Kalign search pipeline + a PDB template DB is
   still a multi-day data-pipeline lift with no reusable search stage in tt-bio. Also not
-  yet: nucleic-acid/ligand structural tokens; and explicit `--fast`/multi-card verification.
+  yet: nucleic-acid/ligand structural tokens. (--fast/multi-card verification is done; see
+  the Status section.)
   OpenDDE is deliberately not in the README `--model`
   table yet -- its Ab-Ag differentiator is measured but not at parity.
