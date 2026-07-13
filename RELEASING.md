@@ -37,8 +37,21 @@ on-device, on the exact commit to be tagged — a release is a promise to custom
 2. **No OOM** — run the full supported sequence/complex-size range on the target card(s),
    single- and multi-card, to completion. No out-of-memory. Document any hard size limit in the
    release notes rather than letting a customer hit it.
-3. **No perf regression** — benchmark the release commit against the previous release; latency
-   and throughput must not regress beyond noise. Record the numbers in the release notes.
+3. **No perf regression** — run the standing perf gate against the committed baselines and
+   paste its table into the release notes:
+   ```bash
+   TT_VISIBLE_DEVICES=<card> PYTHONPATH=<worktree> python3 scripts/perf_regression.py   # exit 0 == no model regressed beyond ±15%
+   ```
+   `scripts/perf_regression.py` measures WARM steady-state throughput (structures/s for the
+   fold models, seq/s for the ESMC embed) for every shipped model on a fixed small input
+   (trpcage, 1 recycle / 10 steps / 1 sample; model load + first-compile excluded), compares
+   to the per-model baselines in `docs/perf_baselines.json`, and FAILS any model beyond the
+   noise threshold (`--threshold`, default 15%). An **intentional** perf change (a landed
+   optimization, or a deliberate accuracy/perf tradeoff) updates the baseline explicitly:
+   `python3 scripts/perf_regression.py --update-baseline --note "<why>"` and commit the
+   baseline diff alongside the change that justifies it — never silently. A regression the
+   author didn't intend fails the gate. Add a spec + baseline entry for each new model as it
+   ships.
 
 If any of the three fails, it does not ship — fix it or hold the release. `main` may be
 experimental; the tag is the promise.
