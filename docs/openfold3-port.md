@@ -725,3 +725,83 @@ topology, already gated, with ``a != s`` -- noisy-position ``ql`` vs ``cl``); (c
 scaling) and PCC-gate ``xl_out`` vs a full-module golden; (d) ``SampleDiffusion``/EDM
 sampler + ``OpenFold3.fold()`` end-to-end, then run ``examples/prot.yaml`` for a real
 vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate for the whole port.
+
+## P8 tick 13 -- OF3 token-level DiffusionTransformer (Algorithm 23, non-cross path) PCC-gated on device (block=0.99999, stack=0.99984)
+
+Landed the second device sub-leg of the OF3 ``DiffusionModule``: the token-level DiT
+(``DiffusionTransformer``, AF3 Algorithm 23, non-cross-attention path) in
+``tt_bio/openfold3_diffusion_transformer.py`` as ``OF3DiffusionTransformer``. A 24-block
+stack of ``DiffusionTransformerBlock``, each block = ``AttentionPairBias`` (with
+``use_ada_layer_norm=True``) + ``ConditionedTransitionBlock``:
+
+  - ``a_ln = AdaLN(a, s)`` (c_a=768, c_s=384; reuses ``tenstorrent.AdaLN`` via
+    ``remap_of3_adaln`` from the P7 AtomTransformer -- the AdaLN math is identical);
+  - per-block weight-only ``LN_z`` + ``linear_z`` pair bias ``[1,16,N,N]`` (the
+    non-cross variant applies its OWN per-block ``LN_z``; the cross-attention
+    ``AtomTransformer`` instead shares one top-level ``LN_z`` across blocks);
+  - MHA: fused padded qkv (head_dim 48 -> 64 for tiling) + ``nlp_create_qkv_heads``,
+    query gate ``sigmoid(linear_g(a_ln))`` (flat == per-head: ``g.view(N,H,d) * o(H,N,d)``
+    is the flat multiply), ``linear_o``, then the APB output gate
+    ``sigmoid(linear_ada_out(s))``;
+  - ``ConditionedTransitionBlock``: ``AdaLN`` -> SwiGLU (``silu(linear_a)*linear_b`` ->
+    ``linear_out``) -> zero gate ``sigmoid(linear_g(s))`` -> token-mask, the same SwiGLU
+    math the trunk transition and the P7 AtomTransformer conditioned transition use.
+
+This is a fresh OF3 port, NOT a key-remap onto ``protenix.DiffusionTransformer``: OF3's
+mha has separate q/k/v linears (q bias only) and a query gate on ``a_ln`` (protenix's
+gates the input ``s``), and the non-cross ``AttentionPairBias`` carries its own per-block
+``LN_z``. The shared ``AdaLN``/SwiGLU primitives are reused where the math matches; the
+attention itself is reimplemented (see below).
+
+Golden: ``scripts/of3_diffusion_transformer_golden.py`` instantiates the full
+``DiffusionModule`` (so the atom encoder runs and produces a real on-manifold DiT input
+``a = ai + linear_s(LN_s(si))``), forward-hooks ``diffusion_transformer`` to capture its
+exact ``(a, s=si, z=zij, mask=token_mask)`` input and ``a`` output, plus the per-block
+trajectory, and adds ``diffusion_transformer_real`` to ``~/of3_ref_out.pkl``. ``t`` is
+the real initial sampling sigma (``s_max=160``), ``xl_noisy = randn * t`` is a real noisy
+sample at that sigma (the first sampling step), and the conditioning inputs reuse the
+already-captured real trunk tensors. The device port is gated against the exact
+reference artifacts, isolating the device block precision from the
+atom-encoder/conditioning host math (same discipline as the other OF3 golden legs).
+
+Gate: ``tests/test_openfold3_diffusion_transformer.py`` feeds golden ``(a, s, z, mask)``
+-> device DiT -> compares ``a`` to golden. Result on qb2 card 1 (HiFi4 + fp32 dest acc):
+**block0 a_pcc = 0.99999, 24-block stack a_pcc = 0.99984** -- both > 0.98. The DiT block
+topology and the full 24-block stack are byte-correct on device.
+
+Two correctness details were invisible at the block level and fatal at the stack level;
+both are documented in the module docstring and are the general lesson for any
+additive-mask + fused-SDPA device port:
+
+  1. **Additive mask must cover tile-padded keys.** ``from_torch`` pads *storage* with 0,
+     which for an *additive* attention mask means "unmasked". A logical-N mask therefore
+     leaves the tile-padded key positions (N -> ceil(N/32)*32) unmasked, and the SDPA
+     computes over the tiled width, so valid queries attend to padded keys (K,V=0 the
+     first block, then nonzero garbage as the padded-query residual feeds back) -- the
+     leak compounds across the 24 blocks and collapses the stack PCC to **0.297**. Fix:
+     the stack pads ``a``/``s``/``z`` to the tile-aligned logical width and marks padded
+     keys ``-1e9`` in the additive mask; valid positions are unaffected (padded queries'
+     outputs are stripped at readout, padded keys are masked out of every valid query's
+     softmax). After the fix the stack tracked the reference at >=0.998 at every block
+     but still drifted to 0.967 over 24 blocks -- leading to (2).
+
+  2. **Softmax precision is the compounding lever.** The fused
+     ``scaled_dot_product_attention`` does its softmax in bf16; its per-block error
+     (~0.998) compounds multiplicatively (``0.998^24 ~= 0.953``) to a **0.967** stack
+     PCC, even with the mask fixed. A CPU bf16 control with an fp32 softmax
+     (``scripts/of3_diffusion_transformer_cpu_bf16.py``) holds **0.99996** over the same
+     stack -- isolating the softmax precision as the lever (the matmul rounding alone is
+     benign). The OF3 reference runs the attention with ``use_high_precision_attention``
+     semantics (fp32 softmax); the fused SDPA cannot do an fp32 softmax, so the device
+     port computes attention manually (matmul QK^T + scale + mask, fp32
+     numerically-stable softmax via ``typecast`` up/down, matmul attn@V). This closes the
+     gap: the device stack tracks the reference at **>=0.9998 at every block** (0.99999
+     at block 0, 0.99984 at block 23). ``scripts/of3_diffusion_transformer_bisect.py``
+     is the per-block trajectory bisect that localized both issues.
+
+**NEXT (P8, DiffusionModule remainder):** (a) wire ``DiffusionModule.forward``
+(conditioning -> atom enc -> DiT -> atom dec -> EDM output scaling) reusing the
+already-gated P7 ``OF3AtomTransformer`` for the atom enc/dec (same topology, ``a != s``)
+and PCC-gate ``xl_out`` vs a full-module golden; (b) ``SampleDiffusion``/EDM sampler +
+``OpenFold3.fold()`` end-to-end, then run ``examples/prot.yaml`` for a real
+vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate for the whole port.
