@@ -734,19 +734,39 @@ class TriangleAttention(Module):
         self.ending = ending
         self.affinity = affinity
         self.scale = self.head_dim**0.5
+        # nlp_concat_heads pads each head's channel dim up to a 32-tile boundary, so at
+        # a sub-tile head_dim (e.g. OF3 template pair_stack c_hidden_tri_att=16) it
+        # yields n_heads*32 channels while the gate g carries n_heads*head_dim -- a
+        # shape mismatch that throws "Invalid subtile broadcast type" in gate_and_
+        # project's multiply_. The tile-aligned head_dim=32 path (MSA / Boltz-2 /
+        # Protenix) is unaffected and stays on the original nlp_concat_heads path. The
+        # sub-tile path pads the qkv head_dim up to 32 (zeros, so the real head_dim
+        # channels are unchanged) and slices + manual-concats the SDPA output back to
+        # n_heads*head_dim -- mirrors the already-validated AttentionPairBias sub-tile
+        # handling. See docs/openfold3-port.md P8 tick 12 / Leg 2.
+        head_dim_padding = -head_dim % 32
+        self.padded_head_dim = head_dim + head_dim_padding
+        self.subtile = head_dim_padding != 0
         self.layer_norm_weight = self.torch_to_tt("layer_norm.weight")
         self.layer_norm_bias = self.torch_to_tt("layer_norm.bias")
         self.o_weight = self.torch_to_tt("linear_o.weight")
         self.bias_weight = ttnn.multiply_(self.torch_to_tt("linear.weight"), self.scale)
+        qkv_weight = torch.cat(
+            [
+                self.weights["linear_q.weight"],
+                self.weights["linear_k.weight"],
+                self.weights["linear_v.weight"],
+            ],
+            dim=0,
+        )
+        if self.subtile:
+            qkv_weight = qkv_weight.reshape(3 * self.n_heads, head_dim, -1)
+            qkv_weight = torch.nn.functional.pad(
+                qkv_weight, (0, 0, 0, head_dim_padding), mode="constant", value=0
+            )
+            qkv_weight = qkv_weight.reshape(3 * self.n_heads * self.padded_head_dim, -1)
         self.qkv_weight = ttnn.from_torch(
-            torch.cat(
-                [
-                    self.weights["linear_q.weight"],
-                    self.weights["linear_k.weight"],
-                    self.weights["linear_v.weight"],
-                ],
-                dim=0,
-            ).t(),
+            qkv_weight.t(),
             layout=ttnn.TILE_LAYOUT,
             device=self.device,
             dtype=_dtype(),
@@ -788,9 +808,20 @@ class TriangleAttention(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
-            o_heads = ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-            ttnn.deallocate(o)
-            return ttnn.squeeze(o_heads, 1)
+            if self.subtile:
+                # Slice off the zero-padded head channels, then manual head-concat
+                # (head-major) to produce [1, S, n_heads*head_dim] -- nlp_concat_heads
+                # would re-pad to n_heads*32 here. Same concat order as the tile-aligned
+                # path, so numerically identical for the real head_dim channels.
+                o = o[:, :, :, : self.head_dim]
+                o = ttnn.permute(o, (0, 1, 3, 2))
+                o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
+                o = ttnn.permute(o, (0, 2, 1))
+            else:
+                o_heads = ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                ttnn.deallocate(o)
+                o = ttnn.squeeze(o_heads, 1)
+            return o
 
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
