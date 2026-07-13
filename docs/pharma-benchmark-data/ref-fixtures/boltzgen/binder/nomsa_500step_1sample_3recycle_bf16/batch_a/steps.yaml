@@ -1,0 +1,5 @@
+steps:
+- name: folding
+  config_file: config/folding.yaml
+- name: analysis
+  config_file: config/analysis.yaml
