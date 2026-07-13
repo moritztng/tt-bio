@@ -17,8 +17,12 @@ Protenix-v2's own no-MSA floor on the same target — see "Production-setting ac
 **confidence-head best-of-N selection is wired** (c_z-parametrized, residue-axis, reusing
 Protenix-v2's `ConfidenceHead` verbatim), and **CLI/predict integration is done and
 verified end-to-end** (`tt-bio predict --model opendde` runs the same scheduler/worker
-path as every other model, real weights, real device) — see "Remaining" for what's
-still open.
+path as every other model, real weights, real device); (P7, 2026-07-13) **MSA search is
+wired into the OpenDDE CLI path** (reuses the Protenix-v2 MSA stage) and **re-measured on
+PDB 9dsg with MSA + best-of-5** — antibody-antigen DockQ stays 0.011 (a genuine port/model
+issue, not the missing-input gap; the Fab assembles and confidence rises, but the antigen
+is mis-docked relative to the Fab across all samples) — see "MSA + best-of-N wired into
+the CLI path" — see "Remaining" for what's still open.
 
 ## Identity (re-verified 2026-07-12)
 
@@ -334,8 +338,8 @@ the input distribution is too tight for it to matter at these settings/no-MSA.
 `--model opendde` / `opendde-abag` now ride the exact same scheduler/worker path as every
 other model (`_local_workers` + `_dispatch_run`, or `--controller`): `tt_bio/worker.py`
 gained `_predict_opendde_one` (mirrors `_predict_protenix_one` -- same
-`build_complex_features` + `_write_protenix_structure` -- minus the MSA stage, since
-OpenDDE is single-sequence only for now) plus `load_model`/`_prepare_run_cache` branches
+`build_complex_features` + `_write_protenix_structure` + the same MSA search stage as
+Protenix-v2 / ESMFold2, wired in P7) plus `load_model`/`_prepare_run_cache` branches
 (`OpenDDE.load_from_checkpoint`, auto-fetches from HF exactly like `Protenix.
 load_from_checkpoint`). `tt_bio/main.py`'s former `raise click.ClickException` for
 `--model opendde` is gone; `_resolve_recycling_steps` now defaults opendde to the trunk's
@@ -427,23 +431,76 @@ antigen is not placed in the paratope: antibody-antigen DockQ is 0.011 with zero
 contacts reproduced. This is single-sequence, one sample, no MSA -- the paper's
 headline Ab-Ag DockQ (PXMeter-AB 51.0 / FoldBench-AB 70.0 / 2026ARK-AB 66.4, rank
 DockQ) uses MSA for the antigen and best-of-N confidence ranking, neither of which the
-OpenDDE CLI path wires yet. P5 already showed OpenDDE single-sequence underperforms its
-with-MSA number on a simpler target; for Ab-Ag the gap is larger because correct
-paratope-epitope placement is the whole task. Best-of-N was not attempted this pass
-(the single-seed distribution was tight for 7ROA in P5, and the antigen here is
-fundamentally misplaced rather than narrowly off). The path to close it is the MSA CLI
-stage (the antigen has many homologs) plus best-of-N, tracked in "Remaining".
+OpenDDE CLI path wires at P6. P5 already showed OpenDDE single-sequence underperforms
+its with-MSA number on a simpler target; for Ab-Ag the gap is larger because correct
+paratope-epitope placement is the whole task. The follow-on is the MSA CLI stage (the
+antigen has many homologs) plus best-of-N -- done in P7 below.
+
+## MSA + best-of-N wired into the CLI path (P7, 2026-07-13)
+
+`_predict_opendde_one` now reuses the Protenix-v2 / ESMFold2 MSA stage verbatim
+(`_generate_esmfold2_a3m` + `_resolve_a3m_text` + `build_complex_features`'
+block-diagonal MSA) instead of folding single-sequence, and `opendde` / `opendde-abag`
+are added to `_resolve_msa_default` so a source is resolved (local DB > online) rather
+than silently single-sequence, matching protenix-v2 / boltz2. Best-of-N needs no extra
+wiring: `OpenDDE.fold` already takes `n_sample` / `return_confidence` (P4) and the
+worker path ranks samples by the same AF-style `0.8*ipTM+0.2*pTM` score, so
+`--diffusion_samples 5` is the paper's default `N_sample=5` end-to-end.
+
+Re-ran the P6 benchmark with MSA now wired (PDB 9dsg, `opendde_abag.pt`, 10 recycles /
+200 diffusion steps, real MSAs searched via the ColabFold API for all three chains:
+antigen 12651 rows, Fab heavy 117, Fab light 10950). Two configs:
+
+| config | samples | A-H DockQ (Ab-Ag) | A-H fnat | H-L DockQ (Fab) | GlobalDockQ | ipTM |
+|---|---:|---:|---:|---:|---:|---:|
+| P6, no MSA | 1 | 0.011 | 0.00 | 0.377 | 0.194 | 0.549 |
+| P7, MSA | 1 | 0.011 | 0 | 0.494 | 0.253 | 0.712 |
+| P7, MSA + best-of-5 | 5 (conf. rank 0) | 0.011 | 0 | 0.497 | 0.254 | 0.715 |
+
+DockQ across all 5 samples (oracle view, since the paper's Figure 5 separates
+ranking- vs oracle-based selection): A-H 0.0109-0.0113, **fnat 0 in every sample**;
+H-L 0.477-0.497; GlobalDockQ 0.244-0.254. Confidence-selected best (rank 0, ipTM 0.7147)
+== the oracle best on A-H (0.0113, tied with sample 4) -- the 5-sample distribution is
+degenerate at fnat=0, so neither ranking- nor oracle-based selection can find a
+paratope-placement that none of the samples produced.
+
+**Honest verdict -- MSA is wired and consumed, but the Ab-Ag DockQ gap is NOT the
+missing-input gap.** MSA clearly feeds the model (whole-complex ipTM 0.549 -> 0.712,
+Fab H-L DockQ 0.377 -> 0.494, pLDDT 0.839 -> 0.892), matching the P5 7ROA pattern where
+MSA lifted RMSD from 3.83 A to 2.71 A. But the antibody-antigen interface is unchanged
+at DockQ 0.011 / fnat 0 across one and five samples: the antigen folds confidently and
+the Fab assembles, yet the two are docked in the wrong relative orientation (zero native
+paratope-epitope contacts). This is a genuine port/model issue distinct from missing
+MSA, not a lower bound the MSA stage was expected to close on its own. Frame vs the
+paper's Figure 2 headline (PXMeter-AB 51.0 / FoldBench-AB 70.0 / 2026ARK-AB 66.4 success
+rates): a single-target DockQ is not comparable to a benchmark-wide success rate, so
+this is one honest data point, not a reproduction of Figure 2/3. Remaining levers that
+the paper's standard pipeline also includes but this port does not wire yet: template
+features (Section 3's standard input list), and far more seeds under oracle selection
+(Figure 5 scales 1 -> 500 -- but here the 5-seed distribution is degenerate at fnat=0,
+so more seeds of the same distribution are unlikely to help without a distribution
+change). Tracked in "Remaining".
 
 ## Remaining
 
-- **DockQ / antibody-antigen read: done (P6), honest negative.** Single-sequence (no
-  MSA stage in the CLI path yet), 1 sample on PDB 9dsg gives antibody-antigen DockQ
-  0.011 (antigen not placed in the paratope; the Fab itself assembles, H-L DockQ 0.377).
-  The paper's headline Ab-Ag DockQ uses MSA + best-of-N, so this is a lower bound.
-- **MSA wiring for the OpenDDE CLI path**: `_predict_opendde_one` remains
-  single-sequence-only. Add the same MSA search stage used by `_predict_protenix_one`
-  -- the most likely lever for the Ab-Ag DockQ gap above (the antigen has many
-  homologs; the paper feeds MSA and runs best-of-N).
+- **MSA search in the OpenDDE CLI path: done (P7).** `_predict_opendde_one` reuses the
+  Protenix-v2 MSA stage; `--use_msa_server` / `--msa_db_path` / `--msa_endpoint` all
+  work; `opendde` / `opendde-abag` resolve a source via `_resolve_msa_default`.
+- **Best-of-N for the Ab-Ag DockQ read: done (P7).** `--diffusion_samples N` flows
+  through `OpenDDE.fold(n_sample=N)` and the worker's confidence ranking; measured at
+  N=5 (paper default). Does not rescue the Ab-Ag interface (degenerate at fnat=0).
+- **Antibody-antigen DockQ still 0.011 with MSA + best-of-5 -- a genuine port/model
+  issue, not a missing-input gap.** The antigen is confidently folded but mis-docked
+  relative to the Fab across all samples. Likely next levers, in priority order:
+  (1) wire template features (Section 3 standard input, not yet ported -- the `Trunk`
+  template embedder exists and runs with `nt=0`; OpenDDE's template pipeline is not);
+  (2) inspect the multi-chain relative-position / asymmetry encoding at the
+  structural-token axis (the expand-and-refine seam is residue-axis, but diffusion
+  conditioning + the atom<->structural-token broadcast on a multi-chain complex is the
+  part OpenDDE adds over Protenix-v2 and the most plausible place for a multi-chain
+  docking regression);
+  (3) only then more seeds / oracle selection (Figure 5) -- unlikely to help while the
+  distribution is degenerate at fnat=0.
 - **Nucleic-acid / ligand structural tokens**: `opendde_data.py` is protein-only; extending
   to DNA/RNA backbone/base splitting and ligand atom-tokens follows the identical pattern
   once a mixed-modality co-folding target is on the critical path.
@@ -458,9 +515,10 @@ stage (the antigen has many homologs) plus best-of-N, tracked in "Remaining".
   co-folding, plus **DockQ on antibody-antigen** complexes (the whole reason to
   add the model, and what the paper reports). No designability gate -- that path
   does not exist in the release. DockQ is computed with the reference `DockQ==2.1.3`
-  tool (eval-only, installed into the run venv; not a project runtime dependency) via
-  `scripts/opendde_dockq.py`; measured on PDB 9dsg at **0.011** (single-sequence,
-  1 sample -- see P6).
+  tool (eval-only, installed into a throwaway `--target` lib for the eval, not a
+  project runtime dependency) via `scripts/opendde_dockq.py`; measured on PDB 9dsg at
+  **0.011 antibody-antigen DockQ** both single-sequence 1-sample (P6) and with MSA +
+  best-of-5 (P7) -- the gap is not closed by wiring the paper's standard MSA input.
 - **Stochasticity:** diffusion is seed-stochastic and the repo warns outputs are
   not reproducible across releases, so parity is per-target Ca-RMSD/DockQ within
   sample variance (as for Boltz-2 / Protenix-v2), not bit-exact.
@@ -493,7 +551,19 @@ stage (the antigen has many homologs) plus best-of-N, tracked in "Remaining".
   at production settings: antibody-antigen DockQ 0.011 (fnat 0, antigen mis-docked),
   internal Fab DockQ 0.377, GlobalDockQ 0.194. Multi-chain input needed a per-chain
   C-terminal OXT fix in `opendde_data.py` (single-chain parity unchanged).
-- **Not yet**: MSA search in the OpenDDE CLI path (the likely DockQ lever), best-of-N
-  for the Ab-Ag DockQ read, nucleic-acid/ligand structural tokens, and explicit
+- **MSA search in the OpenDDE CLI path: done (P7).** `_predict_opendde_one` reuses the
+  Protenix-v2 MSA stage (`_generate_esmfold2_a3m` + `_resolve_a3m_text` +
+  `build_complex_features`); `opendde` / `opendde-abag` resolve a source via
+  `_resolve_msa_default` (local DB > online). Verified end-to-end on 9dsg with real
+  per-chain MSAs (antigen 12651 rows, heavy 117, light 10950).
+- **Best-of-N for the Ab-Ag DockQ read: done (P7).** `--diffusion_samples N` flows
+  through `OpenDDE.fold(n_sample=N)` and the worker's confidence ranking; measured at
+  N=5 (the paper's `N_sample=5` default). Ab-Ag DockQ stays 0.011 / fnat 0 across all 5
+  samples (degenerate distribution; confidence-selected rank 0 == oracle best on A-H).
+  MSA is consumed (ipTM 0.549 -> 0.712, Fab H-L 0.377 -> 0.497) but does not place the
+  antigen in the paratope -- a genuine port/model issue, not the missing-input gap.
+- **Not yet**: template features (Section 3 standard input, not ported), the
+  multi-chain structural-token docking axis investigation (the most plausible place for
+  an Ab-Ag-specific regression), nucleic-acid/ligand structural tokens, and explicit
   `--fast`/multi-card verification. OpenDDE is deliberately not in the README `--model`
   table yet -- its Ab-Ag differentiator is measured but not at parity.
