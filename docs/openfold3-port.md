@@ -1302,8 +1302,10 @@ cleanly. Concretely what remains:
      (replay the per-step noise / rotation / translation from a reference golden, same
      isolation discipline as the component gates), but it is NOT the merge gate.
   3. **Confidence heads** (PAE/PDE/pLDDT/distogram/resolved) + the ``aux_heads`` confidence
-     pairformer -- not yet ported (P3 listed them as not-started). Needed for a complete
-     ``fold()`` output but not for the structure RMSD itself.
+     pairformer -- ported P10 (see "P10 -- confidence heads" below): all five heads
+     PCC-gated on device (hybrid confidence Pairformer: device z-path + host-fp32 s-path,
+     since the trunk's raw ~196k ``si_trunk`` needs fp32 for the s-track). Needed for a
+     complete ``fold()`` output but not for the structure RMSD.
   4. **``OpenFold3.fold()`` + data pipeline + Kabsch Ca-RMSD**: assemble the full
      ``fold()`` (data pipeline is the gated P1 vendor; trunk -> ``SampleDiffusion`` ->
       coordinates), run ``examples/prot.yaml`` (or the ubiquitin/7ROA fixture), parse Ca
@@ -1449,3 +1451,82 @@ localizes the ill-conditioning to tri_att start), ``of3_msa_block_full_device.py
 (rules out the bias-over-weighting bug), ``of3_triatt_fp32_attention_test.py`` (the
 decisive negative on the softmax/attention-precision lever). Goldens:
 ``~/of3_msa_pair_stack_subops.pkl``.
+
+## P10 -- confidence heads (all five heads PCC-gated on device)
+
+Landed the OF3 ``aux_heads`` (AF3 Algorithm 31) port in
+``tt_bio/openfold3_confidence.py`` (``OF3ConfidenceHead``). This is leg-2 item (3),
+structurally independent of the trunk-assembly / sampler streams (does not touch
+``openfold3_diffusion_module.py`` / ``openfold3_sample_diffusion.py`` / the trunk-assembly
+files).
+
+The OF3 confidence Pairformer block layout is bit-identical to the trunk's
+``pairformer_stack`` block (c_z=128, 4 tri-att heads, 16 attn-pair-bias heads,
+c_hidden_pair_bias=24, c_s=384), so ``remap_pairformer_stack`` + ``Pairformer`` build it
+with no new primitive code. The output heads differ from Protenix's layout (OF3 pLDDT /
+resolved are a flat ``[N_tok, 23 * c_out]`` linear -> ``masked_select`` to atoms; PDE /
+distogram symmetrise as ``L(z) + L(z).T``; distogram reads the trunk pair, not the
+confidence-Pairformer output), so they are ported here rather than reused.
+
+**Hybrid confidence Pairformer** (precision-motivated split):
+
+  * **z-path on device (bf16, HiFi4 + fp32 dest acc)** -- TriangleMultiplication /
+    TriangleAttention / Transition on [N, N, 128], the heavy pair compute.
+  * **s-path on host (fp32)** -- LN + AttentionPairBias + Transition on [N, 384].
+
+Why the s-path is host-fp32: the confidence Pairformer receives the trunk's raw final
+single ``si_trunk`` at ~196k magnitude (absmax 196683, std 16869) -- the reference
+``PairformerEmbedding`` passes ``si`` with NO glue/LayerNorm, unlike the trunk's own
+Pairformer which starts each cycle at s~187 via the s-glue ``linear_s(LN(s_prev))``
+(verified: ``s_after_sglue`` absmax ~187 every cycle). At 196k, bf16 (resolution ~1024)
+corrupts the small per-block s-updates and the attention amplifies the error across the 4
+blocks: each device block in isolation gates si_pcc ~1.0, but the chained bf16 s-track
+degrades to ~0.94 even with golden z substituted each block (block-by-block bisect), and
+the plddt / experimentally_resolved LayerNorm strips the dominant 196k residual and
+exposes the corruption (plddt 0.42, exp_resolved 0.63 in the pure-device variant). Running
+the s-path in fp32 on host (fed the per-block device z for the pair bias) recovers it; the
+s-track is light ([N, 384] attention) and the device keeps the heavy pair compute. The
+host AttentionPairBias uses the reference formula (q scaled by 1/sqrt(c_hidden), pair
+bias = ``linear_z(LN_z(z))`` with no further scaling), matching the fp32 golden.
+
+The z-embedding (``linear_i`` / ``linear_j`` outer-sum + ``linear_distance`` on binned
+squared representative-atom distances) and the five output heads run in fp32 on host
+(mirroring Protenix-v2's ConfidenceHead). Protenix-v2's plddt 0.93 does not transfer
+directly because Protenix applies an ``input_strunk_ln`` (normalising s_trunk before the
+confidence Pairformer) that OF3's architecture does not have -- the host-fp32 s-path is
+the faithful OF3 fix.
+
+**Golden** (``scripts/of3_confidence_golden.py`` -> pkl key
+``confidence_heads_real``): the reference ``AuxiliaryHeadsAllAtom`` forward on the real
+ubiquitin batch with real ``of3-p2-155k.pt`` weights, fed the real trunk
+(``si_input``/``si_trunk``/``zij_trunk`` from ``trunk_real``) and the real
+diffusion-sampler coords (``xl_final`` from ``sample_diffusion_rollout_real`` as
+``atom_positions_predicted``), ``use_zij_trunk_embedding=True`` (the reference eval-mode
+value). The reference runs the whole head in fp32 (the model wraps the call in
+``torch.amp.autocast(cuda, fp32)`` at eval), so the golden head logits are fp32. The
+reference bookkeeping (representative-atom selection, max-atoms-per-token mask) is
+precomputed with the reference helpers and stored, so the device module consumes ready
+host tensors. Also forward-hooked: the confidence Pairformer output
+(``si_conf``/``zij_conf``) and the 4-block per-block (si, zij) trajectory, for
+block-by-block device bisect.
+
+**Gated on device** (``tests/test_openfold3_confidence.py``, HiFi4 + fp32 dest acc, card 1):
+
+| output | PCC | shape |
+|---|---|---|
+| ``distogram_logits`` | 1.00000 | (76, 76, 64) |
+| ``pde_logits``       | 0.99422 | (76, 76, 64) |
+| ``pae_logits``       | 0.98883 | (76, 76, 64) |
+| ``plddt_logits``     | 0.99624 | (601, 50) |
+| ``experimentally_resolved_logits`` | 0.99929 | (601, 2) |
+| ``si_conf`` (conf Pairformer s, host-fp32)   | 0.99998 | (76, 384) |
+| ``zij_conf`` (conf Pairformer z, device bf16) | 0.99624 | (76, 76, 128) |
+
+All > 0.98. ``scripts/of3_conf_bisect.py`` proves the host-fp32 z-embed is bit-exact vs
+the reference Pairformer input (maxdiff 0.0) and all five head layouts are bit-exact when
+fed the golden ``si_conf``/``zij_conf`` (head PCC 1.0), so the only device contribution to
+the head PCCs is the device z-path precision (0.99624), composed via the host-fp32 s-path.
+
+Scripts: ``scripts/of3_confidence_golden.py`` (reference golden capture),
+``scripts/of3_conf_bisect.py`` (host-fp32 z-embed + head-layout bit-exact proof).
+Golden: ``~/of3_ref_out.pkl["intermediates"]["confidence_heads_real"]``.
