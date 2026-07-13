@@ -18,6 +18,7 @@ satisfy rather than spinning a device.
 
 import multiprocessing
 import os
+import queue as _queue
 import sys
 
 import pytest
@@ -51,7 +52,10 @@ def test_make_progress_fn_emits_trunk_per_iteration():
     per-iteration advance depends on this."""
     from tt_bio.progress import make_progress_fn
 
-    q = multiprocessing.Queue()
+    # Use a synchronous queue.Queue (not multiprocessing.Queue): the latter has a
+    # background feeder thread, so an immediate drain after put_nowait can race
+    # and see fewer events than were enqueued. queue.Queue is deterministic.
+    q = _queue.Queue()
     pfn = make_progress_fn(q, device_id=0, worker_id="w0")
 
     _trunk_events(n_cycles=10, pfn=pfn)
