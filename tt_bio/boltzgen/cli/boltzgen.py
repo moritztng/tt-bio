@@ -271,6 +271,13 @@ def add_configure_arguments(
         help="Fixed noise scale to use (e.g. 0.98). Default is to use a schedule",
         default=None,
     )
+    p.add_argument(
+        "--diffusion_trace",
+        action="store_true",
+        help="Replay a captured ttnn trace of the per-step diffusion DiT device "
+        "stream (lossless; collapses per-step host dispatch). Opt-in — reserves a "
+        "1 GiB trace region on the device. See docs/boltzgen-trace-replay.md.",
+    )
 
     # Inverse folding configuration options
     p = parser.add_argument_group("inverse folding")
@@ -1362,6 +1369,10 @@ class BinderDesignPipeline:
             )
             design_step_and_noise_scale_args.append(
                 f"override.noise_scale_schedule=null"
+            )
+        if getattr(args, "diffusion_trace", False):
+            design_step_and_noise_scale_args.append(
+                f"override.diffusion_trace=true"
             )
 
         if args.only_inverse_fold:
