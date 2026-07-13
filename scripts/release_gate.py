@@ -30,12 +30,27 @@ model's leg, so it runs by default alongside the other four rather than standalo
 (supersedes docs/boltzgen-designability.md's earlier "keep it out of the fast gate"
 call, which assumed a much slower per-design cost).
 
-    # gate everything (four fold models + BoltzGen designability) on card 1
-    TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> \
+ESMC is an *embedding* model, not a fold model — it has no structure to score
+against ground truth, so the RMSD/TM mechanism above does not apply. Its
+correctness bar is embedding-space agreement with the reference esm ESMC: the
+shipped embed path (``tt_bio.esmc.load_esmc`` + ``embed_sequences``) must match
+the reference's per-residue embeddings at PCC >= 0.99 on a real protein. This is
+the gate that the fused-RoPE numerics change (``esmc._rope`` →
+``ttnn.experimental.rotary_embedding``) was held on — the bucketed embed path
+always takes the fused kernel (``BUCKET=64`` pads L tile-aligned), so this leg
+exercises it directly. Reuses ``scripts/esmc_embed_parity.py``'s
+``run_esmc_parity`` (and the ``tests/esmc_reference.py`` golden) — not re-derived
+here. 300m/600m (the embed workhorses) run by default; esmc-6b is opt-in
+(``--model esmc-6b``) since its ~13 GB load is too slow for the fast gate, and
+its fused kernel is identical to 300m/600m (head_dim 64), so their parity covers it.
+
+    # gate everything (four fold models + BoltzGen designability + ESMC embed parity) on card 1
+    TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> ESM_ROOT=/path/to/esm \
         python scripts/release_gate.py
     # one leg
     python scripts/release_gate.py --model protenix-v2
     python scripts/release_gate.py --model boltzgen
+    python scripts/release_gate.py --model esmc-300m
 
 Exit code 0 iff every requested model PASSES its gate; 1 otherwise. Runs on the
 device serially (one card context per run); no CPU shortcut for the fold/design.
@@ -43,6 +58,7 @@ device serially (one card context per run); no CPU shortcut for the fold/design.
 
 import argparse
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -96,6 +112,15 @@ BOLTZGEN_NUM_DESIGNS = 4
 BOLTZGEN_SC_THRESHOLD = 2.0
 BOLTZGEN_MIN_PASS_RATE = 0.5
 
+# ESMC embedding-parity leg — see module docstring. Per-residue embedding PCC
+# floor vs the reference esm ESMC on a real protein. Generous (the shipped fused
+# path measures ~0.9996-0.9998): catches a gross numerics regression, not a tight
+# target, same philosophy as the fold floors. 300m/600m are the embed workhorses
+# (`tt-bio embed`, JapanFold embeddings) and run by default; 6b is opt-in.
+ESMC_MIN_PCC = 0.99
+ESMC_DEFAULT = ["esmc-300m", "esmc-600m"]
+ESMC_OPT_IN = ["esmc-6b"]
+
 
 def _load_structure_harness():
     """Import tests/test_structure.py by path (tests/ is not an installed package)."""
@@ -111,6 +136,16 @@ def _load_designability_harness():
     do not re-derive the design-pipeline invocation or the scRMSD harvest."""
     path = REPO_ROOT / "scripts" / "boltzgen_designability.py"
     spec = importlib.util.spec_from_file_location("tt_bio_boltzgen_designability", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _load_esmc_parity_harness():
+    """Import scripts/esmc_embed_parity.py by path — reuse its run_esmc_parity +
+    tests/esmc_reference.py golden; do not re-derive the ESMC parity harness."""
+    path = REPO_ROOT / "scripts" / "esmc_embed_parity.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_esmc_embed_parity", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -232,11 +267,40 @@ def run_boltzgen(bg, keep: bool) -> dict:
     return row
 
 
+def run_esmc(model: str, parity, keep: bool) -> dict:
+    """Run the shipped ESMC embed path vs reference esm and gate on per-residue PCC.
+
+    ``keep`` is accepted for API symmetry with the fold/BoltzGen legs; the embed
+    path writes no on-disk artifacts to clean up. Returns a result row.
+    """
+    print(f"\n{'='*70}\n[{model}] ESMC embedding parity vs reference esm "
+          f"(fused-RoPE shipped path, PCC floor {ESMC_MIN_PCC})\n{'='*70}", flush=True)
+    row = {"model": model, "seconds": None, "per_res_pcc": None,
+           "pooled_pcc": None, "logits_pcc": None, "argmax": None,
+           "gate": False, "error": None}
+    t0 = time.monotonic()
+    try:
+        res = parity.run_esmc_parity(model, fast=FAST, pcc_threshold=ESMC_MIN_PCC)
+    except Exception as e:
+        row["error"] = f"{type(e).__name__}: {e}"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    row["per_res_pcc"] = res["per_res_pcc"]
+    row["pooled_pcc"] = res["pooled_pcc"]
+    row["logits_pcc"] = res["logits_pcc"]
+    row["argmax"] = res["argmax_agree"]
+    row["gate"] = res["ok"]
+    return row
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", choices=list(MODELS) + ["boltzgen"], action="append",
-                    help="Gate only this model (repeatable). Default: all five "
-                         "(the four fold models + boltzgen).")
+    ap.add_argument("--model",
+                    choices=list(MODELS) + ["boltzgen"] + ESMC_DEFAULT + ESMC_OPT_IN,
+                    action="append",
+                    help="Gate only this model (repeatable). Default: the four fold "
+                         "models + boltzgen + ESMC 300m/600m embed parity. esmc-6b is "
+                         "opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--fast", action="store_true",
                     help="Fold with --fast so the gate exercises the block-fp8 trunk path "
@@ -245,9 +309,10 @@ def main() -> int:
     global FAST
     FAST = args.fast
 
-    models = args.model or list(MODELS) + ["boltzgen"]
+    models = args.model or list(MODELS) + ["boltzgen"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
+    esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
 
     rows = []
     if fold_models:
@@ -292,6 +357,27 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — boltzgen designs cleared parse + designability floor" if br["gate"]
               else "GATE FAIL — boltzgen missed parse or the designability floor (see above)")
+
+    if esmc_models:
+        if "ESM_ROOT" not in os.environ:
+            sys.exit("ESMC parity leg needs ESM_ROOT (path to the esm clone for tests/esmc_reference.py)")
+        parity = _load_esmc_parity_harness()
+        erows = [run_esmc(m, parity, args.keep) for m in esmc_models]
+        print(f"\n{'#'*78}\nRELEASE GATE — ESMC embedding parity (fused-RoPE shipped path), "
+              f"PCC floor {ESMC_MIN_PCC}\n{'#'*78}")
+        print(f"{'model':<12}{'per-res PCC':>13}{'pooled':>9}{'logits':>9}{'argmax':>9}{'wall':>9}  result")
+        for r in erows:
+            pr = f"{r['per_res_pcc']:.5f}" if r["per_res_pcc"] is not None else "  -  "
+            po = f"{r['pooled_pcc']:.5f}" if r["pooled_pcc"] is not None else "  -  "
+            lo = f"{r['logits_pcc']:.5f}" if r["logits_pcc"] is not None else "  -  "
+            am = f"{r['argmax']:.4f}" if r["argmax"] is not None else "  -  "
+            wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            all_pass &= r["gate"]
+            print(f"{r['model']:<12}{pr:>13}{po:>9}{lo:>9}{am:>9}{wall:>9}  {verdict}")
+        print(f"{'#'*78}")
+        print("GATE PASS — ESMC embed path cleared the per-residue PCC floor" if all_pass
+              else "GATE FAIL — an ESMC model missed the per-residue PCC floor (see above)")
 
     return 0 if all_pass else 1
 
