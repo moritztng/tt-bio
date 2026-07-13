@@ -47,6 +47,19 @@ def _cfg(dev):
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
 
 
+def _gold_key(intermediates, key, superseded_by=None):
+    """~/of3_ref_out.pkl is host-specific/untracked -- different hosts have run different
+    subsets of scripts/of3_golden.py / of3_real_golden.py, so a key present on one machine
+    can be missing on another (see docs/openfold3-port.md). Skip cleanly instead of
+    KeyError-crashing when that happens."""
+    if key not in intermediates:
+        msg = f"'{key}' missing from local ~/of3_ref_out.pkl; re-run its golden script to restore this gate."
+        if superseded_by:
+            msg += f" Superseded anyway by {superseded_by}."
+        pytest.skip(msg)
+    return intermediates[key]
+
+
 def _run(combined, gold, dev):
     from tt_bio.tenstorrent import Pairformer
     nb = 1 + max(int(k.split(".")[1]) for k in combined)
@@ -68,7 +81,9 @@ def test_of3_pairformer_block0_on_device():
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     block_sd = _sub(sd, "pairformer_stack.blocks.0")
     combined = {f"layers.0.{k}": v for k, v in remap_pairformer_block(block_sd).items()}
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["pairformer_block0"]
+    intermediates = pickle.load(open(_GOLD, "rb"))["intermediates"]
+    gold = _gold_key(intermediates, "pairformer_block0",
+                      "test_of3_pairformer_stack_prefix47_on_device (real input, 47/48 blocks)")
     s_pcc, z_pcc = _run(combined, gold, get_device())
     print(f"\nOF3 PairFormerBlock0: s_pcc={s_pcc:.5f} z_pcc={z_pcc:.5f} (z on N(0,1) is a bf16 artifact)")
     assert s_pcc > 0.98
@@ -84,7 +99,8 @@ def test_of3_pairformer_stack_prefix47_on_device():
     from tt_bio.openfold3_weights import remap_pairformer_stack
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     combined = {k: v for k, v in remap_pairformer_stack(sd).items() if int(k.split(".")[1]) < 47}
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["pairformer_stack_prefix47"]
+    intermediates = pickle.load(open(_GOLD, "rb"))["intermediates"]
+    gold = _gold_key(intermediates, "pairformer_stack_prefix47")
     s_pcc, z_pcc = _run(combined, gold, get_device())
     print(f"\nOF3 47-block pairformer prefix (real input): s_pcc={s_pcc:.5f} z_pcc={z_pcc:.5f}")
     assert s_pcc > 0.98 and z_pcc > 0.97
@@ -108,7 +124,8 @@ def test_of3_pairformer_stack_on_device():
     from tt_bio.openfold3_weights import remap_pairformer_stack
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     combined = remap_pairformer_stack(sd)
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["pairformer_stack_real"]
+    intermediates = pickle.load(open(_GOLD, "rb"))["intermediates"]
+    gold = _gold_key(intermediates, "pairformer_stack_real")
     s_pcc, z_pcc = _run(combined, gold, get_device())
     print(f"\nOF3 48-block pairformer_stack (real input): s_pcc={s_pcc:.5f} z_pcc={z_pcc:.5f}")
     assert s_pcc > 0.98 and z_pcc > 0.97
