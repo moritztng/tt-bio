@@ -595,9 +595,9 @@ prot target now extends it, closing that gap to 0.94 Å within the floor) plus r
 device-vs-CPU-reference timing (40-100x faster warm), **OpenDDE**
 device-vs-reference on two single-sequence targets, three seeds each (trp-cage
 within its noise floor at 0.39 Å, a 2.85x-over-floor gap on prot at reduced
-settings; production leg in progress -- device self-floor at 10c/200s measured at
-8.06 Å vs 2.68 Å reduced, and the CPU reference production run backgrounded,
-~2.8 h, pending R/X), and **BoltzGen** device-vs-reference
+settings, resolved at production settings (10c/200s): X = 1.90 Å sits inside
+the noise floor (R = 5.68 ± 3.98 Å, D = 8.06 Å) — the reduced-settings gap was
+a tight-floor artifact, not a device defect), and **BoltzGen** device-vs-reference
 designability parity (device 93.8% ≤2Å over two n=8 seed groups; reference
 68.75% ≤2Å over two n=8 groups of the official CLI run on a rented vast.ai
 RTX 3090 — the port meets-or-exceeds the reference's designability, see the
