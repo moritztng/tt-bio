@@ -73,7 +73,7 @@ including the honest caveats, follows in the subsections below.
 | Boltz-2 | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.79 | 0.37 | 0.60 ± 0.24 | PASS (within floor) |
 | Boltz-2 | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 3.37 | 4.35 | 5.51 ± 0.70 | disclosed gap above floor (1.27x) |
 | OpenDDE | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.31 | 0.24 | 0.39 ± 0.11 | PASS (within floor) |
-| OpenDDE | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 1.96 | 2.68 | 7.65 ± 0.21 | disclosed gap above floor (2.85x, reduced settings) |
+| OpenDDE | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 1.96 | 2.68 | 7.65 ± 0.21 | disclosed gap above floor (2.85x, reduced settings); production leg in progress (see OpenDDE section) |
 | BoltzGen | binder vs 7ROA chain A | scRMSD pass-rate (≤2 Å) | n/a (ref blocked, no CPU path) | 93.8% (pooled n=16) | n/a (ref blocked) | PENDING (ref leg blocked, no NVIDIA GPU on host) |
 
 ### ESMC (protein language-model embeddings) — complete
@@ -290,6 +290,62 @@ above measure.
 
 Raw data: `docs/pharma-benchmark-data/opendde.json`.
 
+#### Production-settings leg (in progress, 2026-07-13)
+
+The reduced-settings read above leaves the prot gap open: is the 2.85x
+device-vs-reference gap a real implementation difference, or an artifact of
+running both sides at 4c/20s where the noise floor itself is different from the
+production floor? Resolving it needs R/D/X at production settings.
+
+**Production settings** are the OpenDDE CLI defaults (`opendde pred`, `aurekaresearch/OpenDDE` main `a0d5134`): 10 recycling cycles / 200 diffusion steps / 5 samples (`runner/batch_inference.py`, `-c 10 -p 200 -e 5`). The parity probe uses 10c/200s with `sample=1` rather than 5: sample count drives best-of-N selection, but convergence is set by cycles and steps, so `sample=1` isolates the convergence variable from the reduced-settings run (which was also `sample=1`) and keeps the CPU reference 5x cheaper. Device and reference are matched at `sample=1` for a controlled reduced-to-production comparison.
+
+**CPU reference cost (measured on this host, not estimated).** Two timed CPU
+probes on prot, no-MSA, model forward time as reported by the reference CLI:
+1 cycle / 2 steps = 31.59 s; 1 cycle / 20 steps = 331.27 s. Per diffusion step
+= (331.27 - 31.59) / 18 = **16.65 s/step** (diffusion dominates; the trunk cycle
++ structural-token expander/refiner + confidence head overhead is small in the
+regression intercept). A production fold is 200 steps, so ~55 min of model
+forward per seed, and a 3-seed run is ~2.8 h plus per-run load/featurization.
+This is the same AF3-family CPU ceiling already documented for Protenix-v2 (the
+torch triangle ops have no fused fallback on CPU), so the reference production
+leg is not feasible inside one worker turn and has been launched in the
+background (below).
+
+**Device self-floor at production (new, measured this tick).** Three device
+folds at 10c/200s/`sample=1`, seeds 0/1/2:
+
+| metric | D (dev-vs-dev, n=3 pairs) | reduced-settings D (4c/20s) |
+|---|---|---|
+| CA-RMSD (Å) | 8.06 (std 4.59, range 1.56-11.38) | 2.68 |
+
+The device self-floor **grows** from 2.68 A at 4c/20s to 8.06 A at 10c/200s, with
+a large spread (one seed pair agrees at 1.56 A, another is 11.38 A apart). The
+device folds diverge more across seeds at production, not less. This is a real,
+reproducible observation and it reframes the open question: if the device side is
+high-variance at production, the reduced-settings 2.85x gap may not close at
+production. But this is not conclusive without the reference's production R and
+X, which are still computing.
+
+**Reference production run (backgrounded, survives this session).** `opendde pred
+-c 10 -p 200 -e 1 -s 0,1,2 --use_msa false` on prot, launched via `nohup` from
+`/tmp` (cwd outside the worktree, per the mid-job-recreation caveat). Log:
+`~/opendde_parity_prod/ref_prod.log` on qb2. Done marker:
+`~/opendde_parity_prod/REF_PROD_DONE`. Started 2026-07-13 05:30 UTC, estimated
+~2.8 h. Do not kill it; it holds hours of sunk CPU progress. Once it finishes,
+repackage each seed with `scripts/opendde_ref_to_harness.py` and re-run
+`scripts/pharma_parity.py structures` against `~/opendde_parity_prod/dev_seed{0,1,2}/boltz_results_prot`
+to get R and X at production, then compare X against the production noise floor
+(max(R, D)).
+
+**Gap status: still open.** The reduced-settings R/D/X (X = 7.65 A, 2.85x floor)
+remains the best complete parity data point. The new device-floor-at-production
+number (D = 8.06 A) is partial evidence that the gap may not close at production,
+but conclusive resolution needs the reference production R and X, which are
+pending the background run. No number here is fabricated or extrapolated beyond
+the two measured probes and the three measured device folds.
+
+Raw data: `docs/pharma-benchmark-data/opendde-prod-leg.json`.
+
 ### BoltzGen (de-novo binder design) — device floor measured, reference leg blocked
 
 BoltzGen designs new sequences, so there is no paired output to align. The right
@@ -372,7 +428,9 @@ no-MSA targets, two seeds each; trp-cage within its noise floor, a modest
 device-vs-CPU-reference timing (40-100x faster warm), **OpenDDE**
 device-vs-reference on two single-sequence targets, three seeds each (trp-cage
 within its noise floor at 0.39 Å, a 2.85x-over-floor gap on prot at reduced
-settings, production-reference leg CPU-blocked), and **BoltzGen** device-side
+settings; production leg in progress -- device self-floor at 10c/200s measured at
+8.06 Å vs 2.68 Å reduced, and the CPU reference production run backgrounded,
+~2.8 h, pending R/X), and **BoltzGen** device-side
 designability floor (two independent 8-design seed groups, pooled median 0.78 Å
 scRMSD, 93.8% ≤2Å).
 

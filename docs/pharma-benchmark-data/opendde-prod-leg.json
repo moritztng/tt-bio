@@ -1,0 +1,42 @@
+{
+  "leg": "opendde production-settings parity (tt-bio-pharma-parity-opendde-p2)",
+  "host": "qb2 (tt-quietbox2)",
+  "date": "2026-07-13",
+  "target": "prot (PDB 7ROA, L117, N_atom=900, single-sequence no-MSA)",
+  "production_settings": {
+    "paper_default": {"recycling_cycles": 10, "diffusion_steps": 200, "diffusion_samples": 5},
+    "source": "opendde CLI `opendde pred` defaults (-c 10 -p 200 -e 5), aurekaresearch/OpenDDE main a0d5134, runner/batch_inference.py",
+    "parity_probe": {"recycling_cycles": 10, "diffusion_steps": 200, "diffusion_samples": 1, "seeds": [0, 1, 2],
+      "rationale": "sample=1 isolates the convergence variable (cycles/steps) from best-of-N selection; matches the reduced-settings run's sample=1 so the reduced->production comparison is controlled. 5x cheaper on CPU than the paper default."}
+  },
+  "cpu_reference_cost_estimate": {
+    "method": "two timed CPU probes on this host, same input, no-MSA, model forward time reported by the reference CLI",
+    "probe_1c_2s": {"cycles": 1, "steps": 2, "sample": 1, "model_forward_s": 31.59},
+    "probe_1c_20s": {"cycles": 1, "steps": 20, "sample": 1, "model_forward_s": 331.27},
+    "per_diffusion_step_s": 16.65,
+    "per_step_derivation": "(331.27 - 31.59) / (20 - 2) = 16.65 s/step; the trunk cycle + structural-token expander/refiner + confidence head overhead is small relative to diffusion (regression intercept ~0), so diffusion steps dominate total forward time",
+    "production_forward_per_seed_s": 3330,
+    "production_forward_per_seed_minutes": 55.5,
+    "three_seed_run_estimate_hours": 2.8,
+    "note": "torch CPU build has no fused triangle-ops fallback (same AF3-family ceiling already documented for Protenix-v2); multi-hour per 3-seed run, not feasible inside one worker turn -> backgrounded"
+  },
+  "device_self_floor_production": {
+    "metric": "kabsch_rmsd over CAs, device-vs-device across 3 seeds (C(3,2)=3 pairs)",
+    "recycling_cycles": 10, "diffusion_steps": 200, "diffusion_samples": 1, "seeds": [0, 1, 2],
+    "rmsd": {"n": 3, "mean": 8.0606, "std": 4.5945, "min": 1.5634, "max": 11.3770},
+    "coord_pcc_1minus": {"n": 3, "mean": 0.2572, "std": 0.1766, "min": 0.00749, "max": 0.38529},
+    "comparison_to_reduced": "reduced-settings device floor D = 2.68 A (4c/20s/sample=1, 3 seeds, from opendde.json); production D = 8.06 A. The device folds DIVERGE more across seeds at production, not less.",
+    "device_dirs": ["~/opendde_parity_prod/dev_seed{0,1,2}/boltz_results_prot"]
+  },
+  "reference_production_run": {
+    "status": "launched in background (nohup, cwd=/tmp outside worktree); survives this session",
+    "settings": {"recycling_cycles": 10, "diffusion_steps": 200, "diffusion_samples": 1, "seeds": [0, 1, 2], "use_msa": false},
+    "log": "~/opendde_parity_prod/ref_prod.log",
+    "done_marker": "~/opendde_parity_prod/REF_PROD_DONE",
+    "started": "2026-07-13T05:30:18Z",
+    "pid_on_qb2": 444451,
+    "pending": "R (reference self-floor) and X (device-vs-reference) at production; compute by repackaging ref_prod output via scripts/opendde_ref_to_harness.py and re-running scripts/pharma_parity.py structures against dev_seed{0,1,2}",
+    "do_not_kill": "holds hours of sunk CPU progress"
+  },
+  "gap_status": "STILL OPEN. Reduced-settings X=7.65 A / floor=2.68 A (2.85x) remains the best COMPLETE R/D/X data point. New partial evidence: the device self-floor grows from 2.68 A (reduced) to 8.06 A (production), so the device side does not converge at production and the gap may not close -- but conclusive resolution requires the reference production R and X, which are pending the background run. No fabricated numbers."
+}
