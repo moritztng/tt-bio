@@ -666,3 +666,62 @@ z_trunk) and PCC-gate vs ``pairformer_stack_real`` / a new full-trunk golden; (c
 DiffusionModule multi-leg port above; (d) wire ``OpenFold3.fold()`` + EDM sampler
 end-to-end and run ``examples/prot.yaml`` for a real vs-ground-truth Kabsch Ca-RMSD -- the
 actual merge gate.
+
+## P8 tick 12 -- DiffusionConditioning (Algorithm 21) PCC-gated on device (si/zij = 1.00000/0.99999)
+
+Landed the first device sub-leg of the OF3 ``DiffusionModule``: ``DiffusionConditioning``
+(AF3 Algorithm 21) in ``tt_bio/openfold3_diffusion.py`` as ``OF3DiffusionConditioning``,
+reusing the shared ``tenstorrent.Module``/``_lin``. It produces the conditioned single
+``si`` [N, c_s=384] and pair ``zij`` [N, N, c_z=128] that drive the diffusion transformer,
+from the trunk outputs plus a noise level ``t``:
+
+  - pair leg: ``cat([zij_trunk, relpos])`` (267) -> weight-only ``LN_z`` -> ``linear_z``
+    (267->128) -> 2x ``SwiGLUTransition`` (masked by the pair token mask);
+  - single leg: ``cat([si_trunk, si_input])`` (833) -> weight-only ``LN_s`` -> ``linear_s``
+    (833->384), plus the Fourier noise embedding ``n = fourier_emb(0.25*log(t/sigma_data))``
+    -> weight-only ``LN_n`` -> ``linear_n`` (256->384), broadcast-added over the token dim,
+    then 2x ``SwiGLUTransition`` (masked by the token mask).
+
+The three top LNs are weight-only (``create_offset=False``); the four transition LNs carry
+weight+bias; every linear is bias-free in the OF3 checkpoint. The ``SwiGLUTransition``
+(``LN -> silu(linear_a)*linear_b -> linear_out``, masked) is a fresh small device class in
+the same module -- the same SwiGLU math the trunk transition and the P7 AtomTransformer
+conditioned transition use.
+
+This is a fresh OF3 port, NOT a key-remap onto ``protenix.DiffusionConditioning``: OF3's
+diffusion conditioning carries its own relpos bin concat (139-dim ``relpos_complex``) and
+weight-only top LNs, and feeds the OF3 DiffusionTransformer (token-level DiT, ported next).
+The dims (c_s=384, c_z=128, c_fourier_emb=256, relpos=139, sigma_data=16) match OF3's
+config; the conditioning's ``max_relative_idx=32``/``max_relative_chain=2`` produce the same
+139-dim relpos as the trunk InputEmbedder.
+
+Golden: ``scripts/of3_diffusion_conditioning_golden.py`` reuses the already-captured
+real-distribution trunk tensors from ``~/of3_ref_out.pkl`` as the conditioning inputs
+(``si_input`` from ``input_embedder_real/out``; ``si_trunk``/``zij_trunk`` from
+``pairformer_stack_real/out``, the 48-block Pairformer output -- a real trunk-scale
+single/pair representation, exactly what the conditioning consumes in one recycle). ``t``
+is a real noise level (``s_max=160`` from the AF3 noise schedule, the initial sampling
+sigma), so the Fourier noise embedding is on-manifold. The reference relpos and the
+post-Fourier ``n`` (256-dim) are captured via forward hooks (on ``layer_norm_z`` input and
+``fourier_emb`` output), so the device port is gated against the exact reference artifacts
+-- isolating the device linear/LN/SwiGLU precision from the relpos/Fourier host math, the
+same discipline as the other OF3 golden legs. Adds key ``diffusion_conditioning_real``.
+
+Gate: ``tests/test_openfold3_diffusion_conditioning.py`` feeds golden ``zij_trunk`` +
+``relpos`` + ``si_trunk`` + ``si_input`` + ``n_emb`` + masks -> device conditioning ->
+compares ``si``, ``zij`` to golden. Result on qb2 card 3 (HiFi4 + fp32 dest acc):
+**si_pcc = 1.00000, zij_pcc = 0.99999** -- both > 0.98. The conditioning leg is
+byte-correct on device.
+
+**NEXT (P8, DiffusionModule remainder):** (a) the OF3 token-level DiT block
+(``DiffusionTransformer`` / Algorithm 23, non-cross-attention path: ``AttentionPairBias``
+with ``use_ada_layer_norm=True`` -- ``AdaLN`` + ``linear_ada_out`` output gate + per-block
+``layer_norm_z``/``linear_z`` pair bias + ``mha`` query gate, then a
+``ConditionedTransitionBlock`` SwiGLU zero-gated transition), a fresh port reusing the P7
+``AdaLN``/SwiGLU primitives where the math matches -- PCC-gate vs a real DiT golden; (b) the
+atom enc/dec inside ``DiffusionModule`` reuse the P7 ``OF3AtomTransformer`` directly (same
+topology, already gated, with ``a != s`` -- noisy-position ``ql`` vs ``cl``); (c) wire
+``DiffusionModule.forward`` (conditioning -> atom enc -> DiT -> atom dec -> EDM output
+scaling) and PCC-gate ``xl_out`` vs a full-module golden; (d) ``SampleDiffusion``/EDM
+sampler + ``OpenFold3.fold()`` end-to-end, then run ``examples/prot.yaml`` for a real
+vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate for the whole port.
