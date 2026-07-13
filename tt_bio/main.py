@@ -1256,6 +1256,16 @@ def gen(args):
 
     from tt_bio.boltzgen.cli.boltzgen import main as _bg_main
 
+    # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open
+    # it without a 1x1 mesh-graph descriptor. The predict path sets this per
+    # worker and the embed command sets it in-process; the gen path opens the
+    # device in-process for a single device (no fanout shard to inherit it),
+    # so set it here the same way. See the embed command + perf_regression.py.
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
     sys.argv = ["tt-bio gen", *args]
     _bg_main()
 
