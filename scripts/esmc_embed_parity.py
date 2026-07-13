@@ -45,6 +45,77 @@ def load_reference(name: str, sd: dict):
     return ref
 
 
+def run_esmc_parity(
+    name: str,
+    seq: str = DEFAULT_SEQ,
+    *,
+    fast: bool = False,
+    pcc_threshold: float = 0.99,
+    verbose: bool = True,
+) -> dict:
+    """Run the shipped ESMC embedding path vs the reference esm ESMC on `seq`.
+
+    This is the on-hardware accuracy check that gates the ESMC embedding
+    capability — including the fused-RoPE numerics change in ``esmc._rope``,
+    which the bucketed embed path always takes (``BUCKET=64`` pads L to a
+    tile-aligned length, so ``_rope`` selects ``ttnn.experimental.rotary_embedding``).
+
+    Returns a metrics dict; ``ok`` is True iff per-residue PCC >= ``pcc_threshold``.
+    Reused by ``scripts/release_gate.py``'s ESMC leg — do not re-derive here.
+    """
+    torch.set_grad_enabled(False)
+
+    # --- real trained weights (downloads on first use) ---
+    from huggingface_hub import hf_hub_download
+
+    _cfg, repo_id, wpath = tt_esmc.CONFIGS[name]
+    if verbose:
+        print(f"Fetching {name} weights from {repo_id} …", flush=True)
+    path = hf_hub_download(repo_id, wpath)
+    sd = torch.load(path, map_location="cpu", weights_only=False)
+    sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
+
+    # --- reference (CPU torch) ---
+    if verbose:
+        print("Building reference esm ESMC …", flush=True)
+    ref = load_reference(name, sd)
+    tokens = tt_esmc.tokenize(seq)
+    ref_logits, ref_emb = ref(tokens)             # [1,L+2,64], [1,L+2,d]
+    ref_per_res = ref_emb[0][1:-1].numpy()        # strip <cls>/<eos>
+    ref_pooled = ref_per_res.mean(axis=0)
+    ref_logits_res = ref_logits[0][1:-1].numpy()
+
+    # --- shipped tt embedding API (load_esmc downloads + loads the same .pth) ---
+    if verbose:
+        print(f"Loading tt ESMC on device{' (fast)' if fast else ''} …", flush=True)
+    model = tt_esmc.load_esmc(name, fast=fast)
+    emb = tt_esmc.embed_sequences(model, {"ubq": seq},
+                                  return_logits=True, pool="mean")[0]
+
+    per_res_pcc = pcc(emb.per_residue, ref_per_res)
+    pooled_pcc = pcc(emb.pooled, ref_pooled)
+    logits_pcc = pcc(emb.logits, ref_logits_res)
+    argmax_agree = float((emb.logits.argmax(-1) == ref_logits_res.argmax(-1)).mean())
+    ok = per_res_pcc >= pcc_threshold
+
+    res = {"model": name, "seq_len": len(seq), "fast": fast,
+           "per_res_pcc": per_res_pcc, "pooled_pcc": pooled_pcc,
+           "logits_pcc": logits_pcc, "argmax_agree": argmax_agree,
+           "threshold": pcc_threshold, "ok": ok}
+
+    if verbose:
+        print("\n=== ESMC embedding parity (tt vs reference esm) ===")
+        print(f"model            : {name}  (fast={fast})")
+        print(f"sequence length  : {len(seq)} residues")
+        print(f"per-residue PCC  : {per_res_pcc:.5f}")
+        print(f"pooled(mean) PCC : {pooled_pcc:.5f}")
+        print(f"logits PCC       : {logits_pcc:.5f}")
+        print(f"argmax agreement : {argmax_agree:.4f}")
+        print(f"\n{'PASS' if ok else 'FAIL'}: per-residue PCC "
+              f"{per_res_pcc:.5f} vs threshold {pcc_threshold}")
+    return res
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="esmc-300m", choices=list(tt_esmc.CONFIGS))
@@ -52,51 +123,9 @@ def main() -> int:
     ap.add_argument("--pcc-threshold", type=float, default=0.99)
     ap.add_argument("--fast", action="store_true")
     args = ap.parse_args()
-
-    torch.set_grad_enabled(False)
-
-    # --- real trained weights (downloads on first use) ---
-    from huggingface_hub import hf_hub_download
-
-    _cfg, repo_id, wpath = tt_esmc.CONFIGS[args.model]
-    print(f"Fetching {args.model} weights from {repo_id} …", flush=True)
-    path = hf_hub_download(repo_id, wpath)
-    sd = torch.load(path, map_location="cpu", weights_only=False)
-    sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
-
-    # --- reference (CPU torch) ---
-    print("Building reference esm ESMC …", flush=True)
-    ref = load_reference(args.model, sd)
-    tokens = tt_esmc.tokenize(args.seq)
-    ref_logits, ref_emb = ref(tokens)             # [1,L+2,64], [1,L+2,d]
-    ref_per_res = ref_emb[0][1:-1].numpy()        # strip <cls>/<eos>
-    ref_pooled = ref_per_res.mean(axis=0)
-    ref_logits_res = ref_logits[0][1:-1].numpy()
-
-    # --- shipped tt embedding API (load_esmc downloads + loads the same .pth) ---
-    print(f"Loading tt ESMC on device{' (fast)' if args.fast else ''} …", flush=True)
-    model = tt_esmc.load_esmc(args.model, fast=args.fast)
-    emb = tt_esmc.embed_sequences(model, {"ubq": args.seq},
-                                  return_logits=True, pool="mean")[0]
-
-    # --- metrics ---
-    per_res_pcc = pcc(emb.per_residue, ref_per_res)
-    pooled_pcc = pcc(emb.pooled, ref_pooled)
-    logits_pcc = pcc(emb.logits, ref_logits_res)
-    argmax_agree = float((emb.logits.argmax(-1) == ref_logits_res.argmax(-1)).mean())
-
-    print("\n=== ESMC embedding parity (tt vs reference esm) ===")
-    print(f"model            : {args.model}  (fast={args.fast})")
-    print(f"sequence length  : {len(args.seq)} residues")
-    print(f"per-residue PCC  : {per_res_pcc:.5f}")
-    print(f"pooled(mean) PCC : {pooled_pcc:.5f}")
-    print(f"logits PCC       : {logits_pcc:.5f}")
-    print(f"argmax agreement : {argmax_agree:.4f}")
-
-    ok = per_res_pcc >= args.pcc_threshold
-    print(f"\n{'PASS' if ok else 'FAIL'}: per-residue PCC "
-          f"{per_res_pcc:.5f} vs threshold {args.pcc_threshold}")
-    return 0 if ok else 1
+    res = run_esmc_parity(args.model, args.seq,
+                          fast=args.fast, pcc_threshold=args.pcc_threshold)
+    return 0 if res["ok"] else 1
 
 
 if __name__ == "__main__":
