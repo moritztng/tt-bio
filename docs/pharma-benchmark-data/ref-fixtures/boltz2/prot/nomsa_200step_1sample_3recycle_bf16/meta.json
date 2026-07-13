@@ -1,0 +1,29 @@
+{
+  "model": "boltz2",
+  "target": "prot",
+  "settings_tag": "nomsa_200step_1sample_3recycle_bf16",
+  "reference_impl": "official Boltz-2 (torch + pytorch-lightning, CPU)",
+  "reference_version": "boltz 2.2.1",
+  "reference_commit": "boltz 2.2.1 (pip-installed in boltz_ref_venv; upstream jwohlwend/boltz)",
+  "command": "boltz_ref_venv/bin/boltz predict examples/prot_no_msa.yaml --out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 --accelerator cpu  && boltz_ref_venv/bin/python scripts/boltz2_ref_layout.py <out>/boltz_results_prot_no_msa <harness_dir>  (prot_no_msa.yaml sets msa: empty so boltz runs single-sequence)",
+  "settings": {
+    "use_msa": false,
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "seeds": [
+      0,
+      1
+    ],
+    "dtype": "bf16 (pytorch-lightning AMP)",
+    "target": "prot/7ROA (examples/prot_no_msa.yaml, 117 res, 899 atoms, msa: empty)"
+  },
+  "seeds": [
+    0,
+    1
+  ],
+  "msa": "none (no-MSA leg)",
+  "provenance": "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/boltz_prot_no_msa_s{0,1}, mtime 2026-07-13 15:46/15:53), generated for this fixture. Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and identical confidence). DISCREPANCY: the fresh reference-vs-reference floor R=6.94 A (1 seed pair, deterministic) does NOT reproduce the previously-published R=3.37 in docs/pharma-benchmark.md. The prior 3.37's source run is not on disk and is not reproducible from the documented 3 recycling / 200 sampling-step / 1 sample settings on the pinned boltz 2.2.1 (the only on-disk prot no-MSA reference runs used 2 recycle / 20 steps and give R=2.60). The trp-cage no-MSA leg at the same 3/200/1 settings DOES reproduce (R=0.81 vs 0.79), so the settings interpretation is correct; the prot 3.37 is the anomaly. The device-vs-reference cross X against this fresh fixture is NOT re-measured here (device side not re-run) and is flagged for re-verification.",
+  "date": "2026-07-13",
+  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
+}
