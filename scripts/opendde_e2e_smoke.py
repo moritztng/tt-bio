@@ -47,8 +47,12 @@ def main():
     print(f"[{time.time()-t0:.1f}s] features built: N_atom={feats['ref_pos'].shape[0]} "
           f"N_res={feats['restype'].shape[0]}", flush=True)
 
+    # OPENDDE_TRACE=1 threads fold(trace=True) -- replays a captured ttnn trace
+    # of the shared denoise stream (lossless; see perf/opendde_trace_step_parity/).
+    trace = os.environ.get("OPENDDE_TRACE", "0") in ("1", "true", "True")
     coords = model.fold(feats, n_step=int(os.environ.get("OPENDDE_NSTEP", "20")),
-                         n_cycles=int(os.environ.get("OPENDDE_NCYCLES", "2")), seed=seed)
+                         n_cycles=int(os.environ.get("OPENDDE_NCYCLES", "2")), seed=seed,
+                         trace=trace)
     print(f"[{time.time()-t0:.1f}s] fold() returned {tuple(coords.shape)} "
           f"finite={torch.isfinite(coords).all().item()}", flush=True)
     print("coords mean/std:", coords.mean().item(), coords.std().item())

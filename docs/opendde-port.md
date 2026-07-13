@@ -36,7 +36,13 @@ co-occurrence), so Ab-Ag DockQ stays 0.011 / fnat 0 across all 5 samples. Paired
 cannot close Ab-Ag for any Ab-Ag complex (antibodies do not co-evolve genomically with
 antigens); the gap is a model/inference gap in the structural-docking prior, not an
 MSA-side input gap. Protenix-v2 7ROA gate re-run PASS (1.428 A / TM 0.947). See "P9 —
-paired MSA wired + Ab-Ag re-measure".
+paired MSA wired + Ab-Ag re-measure". (P10, 2026-07-13) **diffusion trace
+replay is wired** (`tt-bio predict --model opendde --trace` -> `OpenDDE.fold(trace=)`
+-> the shared `edm_sample`/`denoise_traced`): provably lossless (per-step device
+parity maxdiff=0.0, and end-to-end coords bit-identical OFF vs ON), accuracy gate
+unchanged (3.096 A / TM 0.720), but only ~1% total / ~2% diffusion wall-clock on
+Blackhole (compute-bound at this scale, not dispatch-bound like Protenix @L256) —
+see `docs/opendde-trace-replay.md`.
 
 ## Identity (re-verified 2026-07-12)
 

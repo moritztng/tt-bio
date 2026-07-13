@@ -2024,10 +2024,16 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
         # shared msa_dir cache, and folds. MSA is optional here (single-sequence
         # folding when no source is given), so unlike Boltz-2 it never errors out.
+        # --trace: reserve a ttnn trace region on each worker before its first
+        # get_device() open (workers inherit the parent env). Protenix-v2/OpenDDE
+        # fold(trace=True) read it back via trace_region_size(); the device must be
+        # opened with the region up front (a later reopen is unstable on TT).
+        if trace:
+            os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
-            "diffusion_samples": diffusion_samples, "seed": seed or 0,
+            "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
             "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
             "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
             "msa_endpoint": msa_endpoint, "single_sequence": single_sequence,
