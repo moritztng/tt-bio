@@ -148,7 +148,10 @@ cuequivariance/deepspeed are optional CUDA-only — skip for CPU golden generati
       encoder, InputEmbedder itself (only used as a golden source so far, not ported to
       device), DiffusionConditioning, DiT block, atom decoder, confidence heads. Threshold
       PCC > 0.98 per module vs real-weight golden.
-- [ ] **P4 assemble** `OpenFold3` class (`load_from_checkpoint` + `fold`), EDM sampler.
+- [~] **P4 assemble** `OpenFold3` class (`load_from_checkpoint` + `fold`), EDM sampler.
+      Trunk forward (`run_trunk`) assembled + PCC-gated this tick (P8 tick 13); the
+      `OpenFold3` class shell, `fold()`, and the EDM sampler are still TODO (DiffusionModule
+      internals ported by the parallel `tt-bio-openfold3-port-p8-dit` stream).
 - [ ] **P5 integrate**: `--model openfold3` in CLI/worker/scheduler, `--fast` block-fp8,
       `--devices` fanout — consistent with predict precedent. ONE unified README --model
       table row (no parallel prose block; bio audience, no ttnn/driver detail).
@@ -816,7 +819,104 @@ port (OF3 DiT block + diffusion conditioning + atom enc/dec + EDM sampler); (d) 
 ``OpenFold3.fold()`` + EDM sampler end-to-end and run ``examples/prot.yaml`` for a real
 vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate.
 
-## P8 tick 13 -- TriangleAttention sub-tile head_dim=16 path; TemplatePairStack / TemplateEmbedderAllAtom PCC-gated on device (t_stack = 0.99927, z_template = 0.99995)
+## P8 tick 13 -- Trunk assembly PCC-gated on device (cycle glue + assembled Pairformer path; template/MSA pair_stacks substituted)
+
+Assembled the OF3 ``run_trunk`` (AF3 Algorithm 1 lines 1-14) on device in
+``tt_bio/openfold3_trunk.py``, PCC-gated against a real golden of the reference trunk
+forward. This wires InputEmbedder -> N-cycle(48-block Pairformer + 4-block MSA module +
+template embedder) -> s_trunk, z_trunk from the already-gated components plus the
+genuinely-new top-level cycle glue.
+
+**The new device code: ``OF3TrunkGlue``** -- the top-level trunk cycle glue that the
+reference ``run_trunk`` applies each cycle, separate trunk weights (NOT the
+InputEmbedder's linears): affine ``layer_norm_z``/``layer_norm_s`` (eps=1e-5) + bias-free
+``init="final"`` ``linear_z`` (128->128) / ``linear_s`` (384->384):
+
+  z = z_init + linear_z(layer_norm_z(z_prev))
+  s = s_init + linear_s(layer_norm_s(s_prev))
+
+s/z start at zeros; ``s_init``/``z_init`` are the InputEmbedder constants (P7-gated
+end-to-end). ``OF3Trunk`` composes ``OF3TrunkGlue`` + the 48-block OF3-dims ``Pairformer``
+(c_z=128, no_heads_pair=4) via the existing ``remap_pairformer_stack``.
+
+**Reference golden (``scripts/of3_trunk_golden.py``):** runs the real OF3
+``run_trunk`` on featurized ubiquitin for ``num_cycles = num_recycles+1 = 4`` (the config
+default), replicating the reference cycle body (z-glue -> template embedder -> MSA module
+-> s-glue -> 48-block Pairformer) with the real top-level glue weights and per-cycle
+MSA subsampling (``torch.manual_seed(0)``; each cycle's ``m`` is a fresh draw, cycle-0
+``m`` matches the one stored under ``input_embedder_real["msa_out"]``). Captures per-cycle
+``z_prev``/``z_after_zglue``/``z_after_template``/``m``/``z_after_msa``/``s_prev``/
+``s_after_sglue`` and the final ``s_trunk``/``z_trunk`` into ``~/of3_ref_out.pkl`` key
+``trunk_real``. z_trunk std 130.19 (well-conditioned); s_trunk std 16869 (the S-track
+magnitude, a red herring for z -- P5).
+
+**Two gates (``tests/test_openfold3_trunk.py``):**
+
+1. ``test_of3_trunk_glue_on_device`` -- GATES the new cycle glue in isolation across all
+   4 cycles: feed the golden per-cycle ``z_prev``/``s_prev`` -> device glue -> compare to
+   the golden ``z_after_zglue``/``s_after_sglue``. Result on qb2 card 0 (HiFi4 + fp32 dest
+   acc): **z_pcc = 1.00000, s_pcc = 1.00000** every cycle (min over cycles = 1.00000 /
+   1.00000). The new glue code is byte-correct on device, gated tight (>0.98), with REAL
+   non-zero inputs (cycle 0 is the zeros->constant shift; cycles 1-3 feed the real
+   pairformer z/s at std ~113/~16000).
+
+2. ``test_of3_trunk_assembly_on_device`` -- GATES the assembled trunk forward (cycle glue
+   + 48-block Pairformer, s AND z tracks) on the real settled trunk distribution, WITH
+   the template + MSA pair_stack z substituted from the golden (``z_after_msa`` per cycle)
+   so the Pairformer receives the correct z each cycle. Result on qb2 card 0:
+   **s_trunk_pcc = 0.99981, z_trunk_pcc = 0.99936** -- both > 0.98.
+
+**Honest gated scope (NOT a fully-device-gated trunk):** the template pair_stack throws
+on device (sub-tile head_dim=16 ttnn kernel bug, P8 tick 12) and the MSA pair_stack is
+z-xfail (~0.75, P8 tick 4/6); both are substituted from the reference golden in the
+assembled run, and both are documented-xfail in their own tests
+(``tests/test_openfold3_template.py``, ``tests/test_openfold3_msa.py``). What IS gated
+here is the device-runnable assembly path: the new cycle glue + the 48-block Pairformer
+(s and z tracks) run end-to-end across all 4 cycles. The per-cycle z the Pairformer
+receives is the golden z (the template+MSA pair_stacks that produce it are
+device-xfail), so no fully-device-gated trunk PCC number is claimed. The remaining
+blocker for a fully-device trunk is the template + MSA pair_stack device kernel gap, not
+the Pairformer or the glue.
+
+**Notable finding (refines P5):** the device Pairformer z-track gates cleanly on the
+real cycle-3 trunk z (z_trunk_pcc=0.99936), unlike the cycle-0 (s_init, z_init)
+single-pass case where the P5 final-block catastrophic cancellation caps z_pcc at
+~0.66 (``test_of3_pairformer_stack_on_device`` xfail). The cancellation is a
+cycle-0-input-specific artifact of the (s_init, z_init) distribution; the actual trunk's
+final-cycle Pairformer z does not trigger it. So the real trunk z_trunk is
+device-achievable on the Pairformer side, pending the template+MSA pair_stack kernel fix
+-- the P5 "no bf16 impl can clear >0.97 raw-stack-z" verdict was specific to the
+cycle-0 input, not a fundamental blocker for the settled trunk output.
+
+**Device note (qb2):** the cycle-0 ``s``/``z`` are seeded as ``ttnn.zeros(...,
+layout=TILE_LAYOUT)`` -- a ROW_MAJOR 4D zeros passed straight into ``ttnn.linear`` hits
+the tile-size check (flattened M = 76*76 not %32); TILE_LAYOUT pads to 96, and the
+N-dim padding does not affect per-channel LayerNorm. A transient card-0 NOC/sysmem
+wedge during one run cleared with ``tt-smi -r 0`` (a pharma worker was concurrently on
+card 2, untouched).
+
+**NEXT (P8 cont), as of this tick:** (a) device-numerics/kernel pass to unblock the
+template + MSA pair_stack at OF3 pair magnitudes / sub-tile head_dim (shared
+``TriangleAttention`` rewire -- release-gated; the separate
+``tt-bio-openfold3-accel-triangleattn-subtile`` stream is scouting the head_dim=16 fix);
+once that lands, drop the golden substitution in ``OF3Trunk.__call__`` and gate the fully-
+device trunk; (b) the DiffusionModule multi-leg port (OF3 DiT block + diffusion
+conditioning [already gated] + atom enc/dec [P7 AtomTransformer reuse] + EDM sampler) --
+parallel stream ``tt-bio-openfold3-port-p8-dit`` owns the DiT block, do not duplicate;
+(c) wire ``OpenFold3.fold()`` + EDM sampler end-to-end and run ``examples/prot.yaml`` for
+a real vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate for the whole port (no
+``fold()`` claim without it).
+
+**UPDATE (merged later same tick, out of chronological order -- see below): the
+sub-tile head_dim=16 TriangleAttention fix in item (a) above LANDED in the very next
+tick** (``tt-bio-openfold3-accel-triangleattn-subtile``, t_stack=0.99927,
+z_template=0.99995) -- so the template-pair_stack half of this trunk's golden
+substitution is now stale; a fully-device trunk (template real, MSA still substituted --
+the MSA pair_stack precision gap was separately root-caused as an intrinsic bf16
+ill-conditioning limit, not a kernel bug, see the P8 tick 17 MSA section below) is the
+next concrete leg, not a full re-port.
+
+## P8 tick 13 (cont.) -- TriangleAttention sub-tile head_dim=16 path; TemplatePairStack / TemplateEmbedderAllAtom PCC-gated on device (t_stack = 0.99927, z_template = 0.99995)
 
 Resolved the sub-tile ``head_dim=16`` shape bug in the shared ``TriangleAttention``
 primitive (``tt_bio/tenstorrent.py``) that blocked OF3's ``TemplatePairStack`` (tick 12,
