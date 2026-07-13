@@ -1,0 +1,575 @@
+#!/usr/bin/env python3
+"""UX-regression release gate — the user-experience leg of RELEASING.md.
+
+Complements ``scripts/release_gate.py`` (accuracy) and the perf gate. This leg
+does NOT measure accuracy or speed — it asserts the user-facing *plumbing* every
+release ships with still works, headlessly and fast, on a tiny input:
+
+  1. LIVE PROGRESS VIEW — for every fold model the streamed progress events
+     advance through every real phase (load → trunk recycling iterations →
+     diffusion steps → done) with no phase skipped. This is exactly the guard
+     against the "0 → diffusion" / "loading → diffusion" jump class of bugs
+     fixed by the predict-progress-fix work. It drives a headless JSONL event
+     capture (``TT_BIO_PROGRESS_CAPTURE=<path>``) teed off the *same* event
+     stream the live Rich view reads in ``_stream_run``, so it observes real
+     predict behaviour — not a scraped TTY, not a synthetic replay.
+  2. OUTPUT FILES PARSE — the emitted CIF (fold models) / npz (esmc embed)
+     load under a strict standard parser (``Bio.PDB.MMCIFParser`` /
+     ``numpy.load``), catching the malformed-output class (e.g. the historical
+     missing ``_atom_site.occupancy`` fixed in 17aeab9e).
+  3. CLI behaves — ``tt-bio predict --help`` / ``tt-bio embed --help`` exit 0
+     and list the core flags, and each surface's results/manifest file has the
+     shape the downstream reader expects.
+
+Coverage: the five fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
+opendde) for legs 1–3, plus esmc-600m embed for legs 2–3 (embed has no fold
+phases; its user-facing progress is the load → embed → done stdout lines).
+
+Fast + deterministic: folds ``examples/trpcage.yaml`` (20 residues) with
+``recycling_steps=2``, ``sampling_steps=4``, ``diffusion_samples=1``,
+``--single_sequence`` for the MSA-dependent models. This checks UX plumbing,
+not accuracy — it does not need full folds. Exit 0 iff every requested leg
+PASSES; 1 otherwise. Runs on the device serially (one card context per predict).
+
+    # gate every surface on card 0 (run with the project venv, like release_gate)
+    TT_VISIBLE_DEVICES=0 /path/to/env/bin/python scripts/ux_regression.py
+    # one model
+    /path/to/env/bin/python scripts/ux_regression.py --model boltz2
+    /path/to/env/bin/python scripts/ux_regression.py --model esmc-600m
+    # CLI-behaviour leg only (no card needed — usable in GitHub CI)
+    /path/to/env/bin/python scripts/ux_regression.py --cli-only
+"""
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import warnings
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+# trpcage (20 residues) is the canonical tiny fold target — small enough that
+# even the ESMC-6B ESMFold2 load dominates wall-clock, so the gate stays fast.
+DATA = REPO_ROOT / "examples" / "trpcage.yaml"
+NAME = DATA.stem  # "trpcage" -> predict writes boltz_results_trpcage/
+
+# Minimal step counts: enough to prove the trunk and diffusion phases each tick
+# (≥1 event with total>0), not enough to matter for accuracy. UX plumbing only.
+RECYCLING_STEPS = 2
+SAMPLING_STEPS = 4
+DIFFUSION_SAMPLES = 1
+SEED = 0
+# Per-model wall-clock budget. Load dominates; trpcage is tiny, but ESMFold2
+# (ESMC-6B ~12.8 GB) and Protenix-v2 (~1.9 GB ckpt) take a few minutes to load.
+PER_MODEL_TIMEOUT_S = 900
+
+FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde"]
+# MSA-dependent models get --single_sequence so the gate is offline + deterministic
+# (no ColabFold server round-trip). esmfold2 / esmfold2-fast are single-seq by design.
+MSA_DEPENDENT = {"boltz2", "protenix-v2", "opendde"}
+EMBED_MODEL = "esmc-600m"
+
+# esmc embed input: trpcage's 20-mer as a one-sequence FASTA, written into the
+# per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
+EMBED_SEQ = "NLYIQWLKDGGPSSGRPPPS"
+
+
+def _subprocess_env(extra: dict | None = None) -> dict:
+    """Environment for invoking ``tt_bio.main`` so it resolves to THIS worktree's
+    tt_bio (PYTHONPATH=REPO_ROOT) regardless of any editable install pointing at
+    another checkout. Matches the release_gate invocation convention."""
+    env = dict(os.environ)
+    pp = str(REPO_ROOT)
+    existing = env.get("PYTHONPATH")
+    if existing:
+        pp = pp + os.pathsep + existing
+    env["PYTHONPATH"] = pp
+    if extra:
+        env.update(extra)
+    return env
+
+
+def _run(cmd: list[str], *, env: dict | None = None, timeout: int | None = None,
+         cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess:
+    """Run a command, capturing stdout+stderr. Raises TimeoutExpired on timeout."""
+    return subprocess.run(cmd, cwd=str(cwd), env=env, timeout=timeout,
+                          capture_output=True, text=True)
+
+
+def _cli_predict(model: str, out_dir: Path, cap_path: Path) -> list[str]:
+    """Build the predict command for one fold model."""
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "predict", str(DATA),
+        "--model", model,
+        "--recycling_steps", str(RECYCLING_STEPS),
+        "--sampling_steps", str(SAMPLING_STEPS),
+        "--diffusion_samples", str(DIFFUSION_SAMPLES),
+        "--seed", str(SEED),
+        "--out_dir", str(out_dir),
+        "--debug",  # NullDisplay: clean headless, no Rich TTY animation
+    ]
+    if model in MSA_DEPENDENT:
+        cmd.append("--single_sequence")
+    return cmd
+
+
+# ── leg 1: live progress view ──────────────────────────────────────────────
+
+def _load_events(cap_path: Path) -> list[dict]:
+    events = []
+    for line in cap_path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return events
+
+
+def _check_progress(events: list[dict], model: str) -> list[str]:
+    """Assert the event stream advances through trunk → diffusion → done with
+    no phase skipped. Returns a list of problem strings (empty == pass)."""
+    problems = []
+    stages = [(e.get("stage"), e.get("step"), e.get("total"))
+              for e in events if e.get("event") == "stage"]
+    stage_names = [s[0] for s in stages]
+    dones = [e for e in events if e.get("event") == "done"]
+
+    if not events:
+        return ["no progress events captured (TT_BIO_PROGRESS_CAPTURE not wired?)"]
+    if not dones:
+        problems.append("no 'done' event — predict did not report completion")
+    elif not any(d.get("status") == "ok" for d in dones):
+        problems.append(
+            f"no 'done' event with status=ok (statuses: {[d.get('status') for d in dones]})")
+
+    trunk = [s for s in stages if s[0] == "trunk"]
+    diffusion = [s for s in stages if s[0] == "diffusion"]
+
+    # The headline bug class: the trunk recycling phase is skipped, so the live
+    # view jumps straight from loading/0 to diffusion.
+    if not trunk:
+        problems.append("trunk phase MISSING — the 0→diffusion / loading→diffusion "
+                        "jump class of regression (no 'trunk' stage event at all)")
+    elif not any((t[2] or 0) > 0 for t in trunk):
+        problems.append(f"trunk phase present but total=0 on every tick — the "
+                        f"'0 trunk iterations' bug: {trunk}")
+
+    if not diffusion:
+        problems.append("diffusion phase MISSING — no 'diffusion' stage event")
+
+    if trunk and diffusion:
+        ti = stage_names.index("trunk")
+        di = stage_names.index("diffusion")
+        if not ti < di:
+            problems.append(f"trunk not before diffusion (trunk@{ti}, diffusion@{di}) "
+                            f"— trunk phase is emitted after diffusion, so the live "
+                            f"view would still jump past it")
+
+    if stage_names and stage_names[0] == "diffusion":
+        problems.append(f"first stage event is 'diffusion' — the loading→diffusion "
+                        f"jump (first 4 stages: {stage_names[:4]})")
+
+    # The per-phase ticks must advance monotonically — a regression that emits a
+    # single end-of-phase event (no per-iteration / per-step ticking) would leave
+    # steps flat or out of order.
+    for name, evs in (("trunk", trunk), ("diffusion", diffusion)):
+        steps = [e[1] for e in evs if e[1] is not None]
+        if len(steps) >= 2 and steps != sorted(steps):
+            problems.append(f"{name} steps not monotonic non-decreasing: {steps}")
+
+    return problems
+
+
+# ── leg 2: output files parse ──────────────────────────────────────────────
+
+def _check_cif(cif: Path) -> list[str]:
+    """Strict Bio.PDB.MMCIFParser parse — catches writer/format regressions."""
+    try:
+        from Bio.PDB import MMCIFParser
+        from Bio.PDB.PDBExceptions import PDBConstructionWarning
+    except ImportError:
+        return ["biopython not installed (Bio.PDB.MMCIFParser unavailable)"]
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", PDBConstructionWarning)
+            structure = MMCIFParser(QUIET=True).get_structure(NAME, str(cif))
+        n_atoms = sum(1 for _ in structure.get_atoms())
+        if n_atoms == 0:
+            return [f"{cif.name}: parsed but contains 0 atoms"]
+    except Exception as e:
+        return [f"{cif.name}: CIF parse failed: {type(e).__name__}: {e}"]
+    return []
+
+
+def _check_npz(npz: Path, seq_id: str, seq: str) -> list[str]:
+    try:
+        import numpy as np
+    except ImportError:
+        return ["numpy not installed"]
+    try:
+        z = np.load(npz, allow_pickle=False)
+    except Exception as e:
+        return [f"{npz.name}: npz load failed: {type(e).__name__}: {e}"]
+    missing = [k for k in ("per_residue", "pooled", "sequence") if k not in z.files]
+    if missing:
+        return [f"{npz.name}: missing arrays {missing} (have {list(z.files)})"]
+    try:
+        pr = z["per_residue"]
+        pooled = z["pooled"]
+        loaded_seq = str(z["sequence"])
+    except Exception as e:
+        return [f"{npz.name}: array read failed: {e}"]
+    if pr.ndim != 2:
+        return [f"{npz.name}: per_residue ndim={pr.ndim}, expected 2"]
+    if pooled.ndim != 1:
+        return [f"{npz.name}: pooled ndim={pooled.ndim}, expected 1"]
+    if loaded_seq != seq:
+        return [f"{npz.name}: sequence mismatch (got len {len(loaded_seq)}, "
+                f"expected {len(seq)})"]
+    if pr.shape[0] != len(seq):
+        return [f"{npz.name}: per_residue L={pr.shape[0]} != sequence len {len(seq)}"]
+    return []
+
+
+def _check_results_json(path: Path) -> list[str]:
+    try:
+        rows = json.loads(path.read_text())
+    except Exception as e:
+        return [f"results.json load failed: {type(e).__name__}: {e}"]
+    if not isinstance(rows, list) or not rows:
+        return [f"results.json is not a non-empty list (got {type(rows).__name__})"]
+    ok = [r for r in rows if isinstance(r, dict) and r.get("status") == "ok"]
+    if not ok:
+        statuses = [r.get("status") for r in rows if isinstance(r, dict)]
+        return [f"results.json has no ok row (statuses: {statuses})"]
+    r = ok[0]
+    missing = [k for k in ("id", "status") if k not in r]
+    if missing:
+        return [f"results.json ok row missing keys {missing}: {r}"]
+    # Every fold surface writes a per-structure confidence metric the UI/CLI
+    # summary reads — its absence is a real shape regression. boltz2 writes
+    # complex_plddt / confidence_score; protenix-v2 / esmfold2 write plddt; all
+    # write iptm/ptm. Accept any one — the point is a confidence number exists.
+    confidence_keys = ("plddt", "complex_plddt", "complex_iplddt", "iptm",
+                        "ptm", "confidence_score")
+    if not any(k in r for k in confidence_keys):
+        return [f"results.json ok row has no confidence metric (none of "
+                f"{confidence_keys} present): {sorted(r)}"]
+    return []
+
+
+def _check_manifest(path: Path, seq_id: str, seq: str) -> list[str]:
+    try:
+        m = json.loads(path.read_text())
+    except Exception as e:
+        return [f"manifest.json load failed: {type(e).__name__}: {e}"]
+    missing = [k for k in ("model", "pool", "format", "d_model", "dtype", "sequences")
+               if k not in m]
+    if missing:
+        return [f"manifest.json missing keys {missing}: {sorted(m)}"]
+    seqs = m["sequences"]
+    if not any(s.get("id") == seq_id and s.get("length") == len(seq) for s in seqs):
+        return [f"manifest.json sequences don't include {seq_id} L={len(seq)}: {seqs}"]
+    return []
+
+
+# ── leg 3: CLI behaves ─────────────────────────────────────────────────────
+
+def _check_cli() -> list[str]:
+    problems = []
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "predict", "--help"],
+                 env=_subprocess_env(), timeout=60)
+    except Exception as e:
+        return [f"predict --help failed to run: {e}"]
+    if r.returncode != 0:
+        problems.append(f"predict --help exited {r.returncode}")
+    else:
+        for flag in ("--model", "--sampling_steps", "--diffusion_samples",
+                     "--recycling_steps", "--single_sequence", "--out_dir", "--seed"):
+            if flag not in r.stdout:
+                problems.append(f"predict --help missing flag {flag}")
+
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "embed", "--help"],
+                 env=_subprocess_env(), timeout=60)
+    except Exception as e:
+        problems.append(f"embed --help failed to run: {e}")
+    else:
+        if r.returncode != 0:
+            problems.append(f"embed --help exited {r.returncode}")
+        else:
+            for flag in ("--model", "--format", "--out_dir", "--pool"):
+                if flag not in r.stdout:
+                    problems.append(f"embed --help missing flag {flag}")
+
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "--help"],
+                 env=_subprocess_env(), timeout=60)
+        if r.returncode != 0:
+            problems.append(f"tt-bio --help exited {r.returncode}")
+    except Exception as e:
+        problems.append(f"tt-bio --help failed to run: {e}")
+    return problems
+
+
+# ── per-model runners ──────────────────────────────────────────────────────
+
+def run_fold(model: str, keep: bool, base: Path) -> dict:
+    """Fold one model on trpcage, capture its progress stream, and gate the
+    three UX legs. Returns a result row."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cap_path = base / f"events_{model}.jsonl"
+    cap_path.unlink(missing_ok=True)
+    results_path = out_dir / f"boltz_results_{NAME}" / "results.json"
+    struct_dir = out_dir / f"boltz_results_{NAME}" / "structures"
+
+    env = _subprocess_env({"TT_BIO_PROGRESS_CAPTURE": str(cap_path)})
+
+    cmd = _cli_predict(model, out_dir, cap_path)
+    print(f"\n{'='*70}\n[{model}] predict trpcage (recyc={RECYCLING_STEPS}, "
+          f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES})\n{'='*70}", flush=True)
+
+    row = {"model": model, "seconds": None, "progress": False, "parse": False,
+           "results": False, "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=env, timeout=PER_MODEL_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"predict timed out after {PER_MODEL_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = (f"predict exited {proc.returncode}: "
+                        f"{tail[-1] if tail else ''}")
+        return row
+
+    # Leg 1: live progress view
+    events = _load_events(cap_path) if cap_path.exists() else []
+    prog_problems = _check_progress(events, model)
+    row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
+    if prog_problems:
+        row["checks"].extend(f"  • {p}" for p in prog_problems)
+        if not row["error"]:
+            row["error"] = "progress: " + "; ".join(prog_problems)
+
+    # Leg 2: output CIF parses
+    cifs = sorted(struct_dir.glob(f"{NAME}*.cif")) if struct_dir.exists() else []
+    if not cifs:
+        parse_problems = [f"predict wrote no CIF under {struct_dir}"]
+    else:
+        parse_problems = []
+        for cif in cifs:
+            parse_problems += _check_cif(cif)
+    row["checks"].append(f"parse: {'OK' if not parse_problems else 'FAIL'}")
+    if parse_problems:
+        row["checks"].extend(f"  • {p}" for p in parse_problems)
+        if not row["error"]:
+            row["error"] = "parse: " + "; ".join(parse_problems)
+
+    # Leg 3: results.json shape
+    res_problems = _check_results_json(results_path) if results_path.exists() else [
+        f"predict wrote no results.json at {results_path}"]
+
+    row["progress"] = not prog_problems
+    row["parse"] = not parse_problems
+    row["results"] = not res_problems
+    row["gate"] = row["progress"] and row["parse"] and row["results"]
+    if res_problems:
+        row["checks"].append(f"results.json: {'OK' if not res_problems else 'FAIL'}")
+        row["checks"].extend(f"  • {p}" for p in res_problems)
+        if not row["error"]:
+            row["error"] = "results.json: " + "; ".join(res_problems)
+    else:
+        row["checks"].append("results.json: OK")
+    return row
+
+
+def run_embed(model: str, keep: bool, base: Path) -> dict:
+    """Run esmc embed on a tiny sequence and gate the UX legs (embed has no fold
+    phases — its user-facing progress is the load → embed → done stdout lines)."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    seq_id = "tiny"
+    fasta = out_dir / "tiny.fasta"
+    fasta.write_text(f">{seq_id}\n{EMBED_SEQ}\n")
+
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "embed", str(fasta),
+        "--model", model, "--out_dir", str(out_dir), "--format", "npz",
+    ]
+    print(f"\n{'='*70}\n[{model}] embed {seq_id} (L={len(EMBED_SEQ)})\n{'='*70}",
+          flush=True)
+
+    row = {"model": model, "seconds": None, "progress": False, "parse": False,
+           "manifest": False, "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=_subprocess_env(), timeout=PER_MODEL_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"embed timed out after {PER_MODEL_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = (f"embed exited {proc.returncode}: "
+                        f"{tail[-1] if tail else ''}")
+        return row
+
+    # Leg 1 (embed): the user-facing load → embed → done stdout lines, in order.
+    lines = [l for l in (proc.stdout or "").splitlines() if l.strip()]
+    lower = [l.lower() for l in lines]
+    prog_problems = []
+    li = next((i for i, l in enumerate(lower) if "loading" in l), None)
+    ei = next((i for i, l in enumerate(lower) if "embedding" in l), None)
+    di = next((i for i, l in enumerate(lower) if l.startswith("done") or " — " in l and "done" in l), None)
+    if li is None or ei is None or di is None:
+        prog_problems.append(f"missing load→embed→done stdout lines "
+                             f"(loading@{li}, embedding@{ei}, done@{di})")
+    elif not (li < ei < di):
+        prog_problems.append(f"stdout phases out of order: loading@{li}, "
+                             f"embedding@{ei}, done@{di}")
+    row["checks"].append(f"progress(stdout): {'OK' if not prog_problems else 'FAIL'}")
+    if prog_problems:
+        row["checks"].extend(f"  • {p}" for p in prog_problems)
+
+    # Leg 2: npz parses with the expected shape.
+    npz = out_dir / f"{seq_id}.npz"
+    parse_problems = _check_npz(npz, seq_id, EMBED_SEQ) if npz.exists() else [
+        f"embed wrote no npz at {npz}"]
+    row["checks"].append(f"parse(npz): {'OK' if not parse_problems else 'FAIL'}")
+    if parse_problems:
+        row["checks"].extend(f"  • {p}" for p in parse_problems)
+
+    # Leg 3: manifest.json shape.
+    manifest = out_dir / "manifest.json"
+    man_problems = _check_manifest(manifest, seq_id, EMBED_SEQ) if manifest.exists() else [
+        f"embed wrote no manifest.json at {manifest}"]
+    row["checks"].append(f"manifest: {'OK' if not man_problems else 'FAIL'}")
+    if man_problems:
+        row["checks"].extend(f"  • {p}" for p in man_problems)
+
+    row["progress"] = not prog_problems
+    row["parse"] = not parse_problems
+    row["manifest"] = not man_problems
+    row["gate"] = row["progress"] and row["parse"] and row["manifest"]
+    if not row["error"]:
+        for p in (prog_problems + parse_problems + man_problems):
+            row["error"] = (row["error"] + "; " if row["error"] else "") + p
+    return row
+
+
+# ── driver ─────────────────────────────────────────────────────────────────
+
+def _print_fold_row(r: dict) -> None:
+    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'results':>9}"
+          f"{wall:>9}  {verdict}")
+    print(f"  prog={r['progress']} parse={r['parse']} results={r['results']}")
+    for c in r["checks"]:
+        print(f"  {c}")
+
+
+def _print_embed_row(r: dict) -> None:
+    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'manifest':>9}"
+          f"{wall:>9}  {verdict}")
+    for c in r["checks"]:
+        print(f"  {c}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--model", action="append",
+                    choices=FOLD_MODELS + [EMBED_MODEL],
+                    help="Gate only this model (repeatable). Default: all five fold "
+                         "models + esmc-600m embed.")
+    ap.add_argument("--keep", action="store_true",
+                    help="Keep the per-run output dirs under the tmp dir for inspection.")
+    ap.add_argument("--cli-only", action="store_true",
+                    help="Run ONLY the CLI-behaviour leg (predict/embed --help). No card "
+                         "needed — usable in GitHub CI. Skips the on-device legs.")
+    args = ap.parse_args()
+
+    # The guard drives the real `tt_bio.main` CLI via sys.executable, so it must
+    # be launched with a Python that has tt-bio's deps installed (numpy / ttnn /
+    # biopython) — i.e. the project venv, exactly like scripts/release_gate.py:
+    #     /path/to/env/bin/python scripts/ux_regression.py
+    # PYTHONPATH=REPO_ROOT (set by _subprocess_env) makes tt_bio resolve to this
+    # worktree, so an editable install pointing at another checkout can't shadow it.
+    probe = _run([sys.executable, "-c", "import tt_bio"],
+                 env=_subprocess_env(), timeout=60)
+    if probe.returncode != 0:
+        sys.exit(
+            f"this Python ({sys.executable}) cannot import tt_bio with "
+            f"PYTHONPATH={REPO_ROOT}:\n{(probe.stderr or probe.stdout).strip()}\n"
+            f"Run the guard with the project venv, e.g. "
+            f"/home/ttuser/tt-bio-dev/env/bin/python scripts/ux_regression.py")
+
+    # Leg 3 (CLI behaves) runs always — it needs no card.
+    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed --help)\n{'#'*78}")
+    cli_problems = _check_cli()
+    all_pass = not cli_problems
+    if cli_problems:
+        for p in cli_problems:
+            print(f"  ✗ {p}")
+    else:
+        print("  ✓ predict --help, embed --help, tt-bio --help all OK and list core flags")
+    print(f"{'#'*78}")
+
+    if args.cli_only:
+        return 0 if all_pass else 1
+
+    models = args.model or (FOLD_MODELS + [EMBED_MODEL])
+    fold_models = [m for m in models if m in FOLD_MODELS]
+    embed_models = [m for m in models if m == EMBED_MODEL]
+
+    if not DATA.exists():
+        sys.exit(f"missing gate target {DATA}")
+    if not fold_models and not embed_models:
+        return 0 if all_pass else 1
+
+    base = Path(tempfile.mkdtemp(prefix="ux_gate_", dir=str(REPO_ROOT)))
+    try:
+        rows = []
+        for m in fold_models:
+            r = run_fold(m, args.keep, base)
+            rows.append(("fold", r))
+            all_pass &= r["gate"]
+        for m in embed_models:
+            r = run_embed(m, args.keep, base)
+            rows.append(("embed", r))
+            all_pass &= r["gate"]
+
+        print(f"\n{'#'*78}\nUX GATE — summary ({DATA.name}, recyc={RECYCLING_STEPS}, "
+              f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
+        for kind, r in rows:
+            if kind == "fold":
+                _print_fold_row(r)
+            else:
+                _print_embed_row(r)
+        print(f"{'#'*78}")
+        print("GATE PASS — every surface cleared progress + parse + results/manifest "
+              "shape, and the CLI behaves" if all_pass
+              else "GATE FAIL — a surface missed a UX leg (see above). A UX regression "
+                   "blocks a tag, same standing as an accuracy regression.")
+    finally:
+        if not args.keep:
+            shutil.rmtree(base, ignore_errors=True)
+    return 0 if all_pass else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
