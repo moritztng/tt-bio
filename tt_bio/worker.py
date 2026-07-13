@@ -418,11 +418,15 @@ class _WorkerState:
         feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt in chains],
                                        bonds=bonds, paired_a3ms=paired_a3ms)
 
-        report_progress("diffusion")
+        # OpenDDE.fold rides the Protenix-v2 trunk + EDM sampler, so the same
+        # progress_fn path reports trunk iterations and diffusion steps — no
+        # separate OpenDDE progress wiring, and no premature "diffusion" emit
+        # that would skip the trunk phase on the live view.
         n_sample = int(cfg["diffusion_samples"])
         coords, conf = self.model.fold(
             feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-            seed=cfg.get("seed") or 0, n_cycles=cfg.get("recycling_steps"),
+            seed=cfg.get("seed") or 0, progress_fn=report_progress,
+            n_cycles=cfg.get("recycling_steps"),
             return_confidence=True)
         confs = conf if isinstance(conf, list) else [conf]
 
@@ -507,14 +511,15 @@ class _WorkerState:
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
                                        chain_ids=[cid for cid, _s, _sp, _mt in chains], bonds=bonds)
 
-        def _pfn(stage, step, total):
-            report_progress("diffusion" if stage == "trunk" else stage)
-
+        # One shared progress path: report_progress has exactly the progress_fn
+        # signature, so hand it straight to the model — trunk iterations report
+        # as "trunk", diffusion steps as "diffusion" (no remapping that would
+        # hide the trunk phase).
         n_sample = int(cfg["diffusion_samples"])
         coords, conf = self.model.fold(
             feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-            seed=cfg.get("seed") or 0, progress_fn=_pfn, return_confidence=True,
-            n_cycles=cfg.get("recycling_steps"),
+            seed=cfg.get("seed") or 0, progress_fn=report_progress,
+            return_confidence=True, n_cycles=cfg.get("recycling_steps"),
         )
         confs = conf if isinstance(conf, list) else [conf]
 
