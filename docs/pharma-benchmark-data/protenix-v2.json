@@ -1,7 +1,7 @@
 {
   "mode": "structures",
   "model": "protenix-v2",
-  "status": "partial: device leg complete, reference leg blocked on CPU compute time",
+  "status": "partial: device leg complete (D=0.79A, PCC 0.998); reference leg lost with qb1 (down 2026-07-12 ~18:40, unreachable, no live CPU process) and relaunched on qb2 at identical target/settings/seeds; R/X pending the multi-hour CPU run",
   "target": {
     "id": "prot",
     "source": "examples/prot.yaml",
@@ -20,8 +20,16 @@
     "selection": "confidence-selected (best-of-5 by ranking_score/ptm)"
   },
   "device": {
-    "seed0": {"runtime_s": 74.6, "ptm": 0.903876, "plddt": 0.921182},
-    "seed1": {"runtime_s": 78.5, "ptm": 0.903698, "plddt": 0.92129},
+    "seed0": {
+      "runtime_s": 74.6,
+      "ptm": 0.903876,
+      "plddt": 0.921182
+    },
+    "seed1": {
+      "runtime_s": 78.5,
+      "ptm": 0.903698,
+      "plddt": 0.92129
+    },
     "self_consistency_D": {
       "kabsch_rmsd_A": 0.7889609336295829,
       "coord_pcc": 0.998227850226914,
@@ -31,12 +39,43 @@
   },
   "reference": {
     "implementation": "official ByteDance Protenix 2.0.0, torch, CPU",
-    "seed0": {"pid": 33343, "started": "2026-07-12T08:47:27Z", "status": "running (diffusion forward, not yet complete)"},
-    "seed1": {"pid": 35832, "started": "2026-07-12T08:49:05Z", "status": "running (diffusion forward, not yet complete)"},
-    "note": "Both launched from /home/ttuser/pharma_protenix_run/protenix_ref_predict.py, same input/MSA/seeds as the device runs. Still computing after 3h13m+ of wall clock (checked repeatedly, healthy: PPID 1, R state, no swapping, load average ~48 on a 32-core host). CPU inference of Protenix-v2's torch triangle attention/multiplication at N_step=200, N_sample=5 on a 900-atom target is far slower than the device path (~75s) or than GPU reference runs. R (reference-vs-reference) and X (device-vs-reference) legs are NOT YET MEASURED -- this is the genuine bottleneck of this leg, not a fabricated or estimated number."
+    "qb1_run": {
+      "status": "LOST -- qb1 went unreachable over SSH 2026-07-12 ~18:40 and stayed down; the 3h13m+ CPU run (PIDs 33343/35832) and qb1's protenix 2.0.0 env are gone (a dead host holds no live process). qb1 was checked from qb2: ssh timeout.",
+      "original_pids": [
+        33343,
+        35832
+      ],
+      "original_log": "/home/ttuser/pharma_protenix_run/ref_seed{0,1}.log (on qb1, lost)"
+    },
+    "qb2_relaunch": {
+      "status": "launched 2026-07-13 ~05:15 UTC+2, background (nohup, cwd outside worktree), seeds run sequentially (0 then 1)",
+      "env": "protenix 2.0.0 (editable install of bytedance/Protenix main, commit c3bfc36) on Python 3.12 + torch 2.7.1+cpu; CUDA FusedLayerNorm stubbed by torch LayerNorm; triangle kernels forced to torch (no cuequivariance/deepspeed CUDA exts)",
+      "checkpoint": "/home/ttuser/.boltz/protenix-v2.pt (symlinked into protenix-src/release_data/checkpoint/)",
+      "ccd": "~/common/ (components.cif + components.cif.rdkit_mol.pkl + clusters-by-entity-40.txt, auto-downloaded by the runner)",
+      "msa_server": "https://protenix-server.com/api/msa (reachable, 200)",
+      "settings": {
+        "use_msa": true,
+        "N_step": 200,
+        "N_sample": 5,
+        "N_cycle": 10,
+        "dtype": "bf16",
+        "trimul_kernel": "torch",
+        "triatt_kernel": "torch"
+      },
+      "target": "examples/prot.yaml (117-res, PDB 7ROA), input json /home/ttuser/pharma_protenix_run/prot_7roa.json",
+      "seeds": [
+        0,
+        1
+      ],
+      "smoke_build_verified": "v2 model builds (464.4M params) + ckpt loads missing=0/unexpected=0 on torch 2.7.1+cpu with the stub (smoke_build.py)",
+      "expected_wall_clock": "several hours per seed (CPU torch triangle ops, no CUDA fusion)"
+    },
+    "note": "R (reference-vs-reference) and X (device-vs-reference) are NOT YET MEASURED. The qb2 run is genuinely computing (verified past imports + model build + CCD fetch), not estimated. Harvest via the resume path below once REF_PREDICT_DONE appears."
   },
   "resume": {
-    "how": "Do not kill PIDs 33343/35832 -- they hold hours of sunk CPU progress. Poll for 'REF_PREDICT_DONE' in /home/ttuser/pharma_protenix_run/ref_seed{0,1}.log. Once both finish, run: PYTHONPATH=/home/ttuser/aiand-bio/env/lib/python3.10/site-packages:<worktree> /usr/bin/python3.10 scripts/pharma_parity.py structures --ref-dirs /home/ttuser/pharma_protenix_run/ref_seed0/boltz_results_prot /home/ttuser/pharma_protenix_run/ref_seed1/boltz_results_prot --dev-dirs /home/ttuser/pharma_protenix_run/dev_seed0/boltz_results_prot /home/ttuser/pharma_protenix_run/dev_seed1/boltz_results_prot --label protenix-v2 --out docs/pharma-benchmark-data/protenix-v2.json",
-    "additional_targets": "The brief asked for 'a few varied real targets' -- only one (7ROA/prot) was in flight when this leg picked up. Given each reference-side seed costs 3h+ of CPU wall clock, adding more targets multiplies this cost; recommend running additional targets sequentially (not concurrently -- the two already-running seeds are CPU-contending on this 32-core host) once this target's R/X close out."
+    "how": "Poll for REF_PREDICT_DONE in /home/ttuser/pharma_protenix_run/ref_seed{0,1}/REF_PREDICT_DONE (also echoed in ref_seed{0,1}.log). Per-seed logs: /home/ttuser/pharma_protenix_run/ref_seed{0,1}.log. Once both seeds finish, repackage each: refenv312/bin/python scripts/protenix_ref_to_harness.py /home/ttuser/pharma_protenix_run/ref_seed{N} prot -> writes structures/prot.cif + results.json. The device cif for this run was also on qb1 and is lost, so regenerate the device leg on a free card (TT_VISIBLE_DEVICES=<free> tt-bio predict --model protenix-v2 -i examples/prot.yaml --seeds 0,1 ...) into dev_seed{0,1}/, then run: scripts/pharma_parity.py structures --ref-dirs ref_seed0 ref_seed1 --dev-dirs dev_seed0 dev_seed1 --label protenix-v2 --out docs/pharma-benchmark-data/protenix-v2.json",
+    "env_activate": "/home/ttuser/pharma_protenix_run/refenv312/bin/python (py3.12 + torch 2.7.1+cpu + protenix 2.0.0 editable)",
+    "launcher": "scripts/protenix_ref_predict.py (committed); run dir /home/ttuser/pharma_protenix_run/",
+    "additional_targets": "Each reference-side seed costs several hours of CPU wall clock; run additional targets sequentially (not concurrently) to avoid CPU contention on this 32-core host."
   }
 }
