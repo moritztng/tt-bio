@@ -84,6 +84,10 @@ SEED = 0
 # block-fp8 trunk path (bf8 weights + bf8 matmul output) that ships under --fast.
 # Defaults off: the standing floors below were calibrated for full precision.
 FAST = False
+# When set (via --diffusion_trace), fold boltz2 with the per-step DiT trace
+# replay on (lossless; reserves a 1 GiB trace region). boltz2 only — other fold
+# models do not wire diffusion_trace through. Defaults off.
+DIFFUSION_TRACE = False
 
 # Per-model ground-truth floors on 7ROA, of the confidence-selected structure.
 # Anchored to the measured on-hardware baselines (docs/protenix-accuracy-investigation.md)
@@ -186,7 +190,8 @@ def run_model(model: str, harness, keep: bool) -> dict:
         "--seed", str(SEED),
         "--use_msa_server",
         "--out_dir", str(REPO_ROOT),
-    ] + (["--fast"] if FAST else [])
+    ] + ((["--fast"] if FAST else [])
+          + (["--diffusion_trace"] if (DIFFUSION_TRACE and model == "boltz2") else []))
     print(f"\n{'='*70}\n[{model}] folding {DATA.name} "
           f"({SAMPLING_STEPS} steps, {DIFFUSION_SAMPLES} samples)\n{'='*70}", flush=True)
 
@@ -305,9 +310,13 @@ def main() -> int:
     ap.add_argument("--fast", action="store_true",
                     help="Fold with --fast so the gate exercises the block-fp8 trunk path "
                          "(bf8 weights + bf8 matmul output). Defaults off (full precision).")
+    ap.add_argument("--diffusion_trace", action="store_true",
+                    help="Fold boltz2 with per-step DiT ttnn trace replay on (lossless). "
+                         "boltz2 only; other fold models ignore it. Defaults off.")
     args = ap.parse_args()
-    global FAST
+    global FAST, DIFFUSION_TRACE
     FAST = args.fast
+    DIFFUSION_TRACE = args.diffusion_trace
 
     models = args.model or list(MODELS) + ["boltzgen"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]

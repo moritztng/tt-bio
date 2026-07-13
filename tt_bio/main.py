@@ -1884,6 +1884,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--num_subsampled_msa", default=1024, type=int)
 @click.option("--no_kernels", is_flag=True)
 @click.option("--trace", is_flag=True)
+@click.option("--diffusion_trace", is_flag=True,
+              help="Replay a captured ttnn trace of the per-step diffusion DiT device "
+                   "stream (lossless; collapses per-step host dispatch). boltz2 only. "
+                   "Opt-in — reserves a 1 GiB trace region on the device. See "
+                   "docs/boltz2-trace-replay.md.")
 @click.option("--write_pae", is_flag=True, help="Write PAE matrix per target")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
@@ -1918,7 +1923,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
             seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
-            method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace,
+            method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, fast, debug, log,
@@ -2117,6 +2122,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                        "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
         use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=trace,
+        diffusion_trace=diffusion_trace,
     )
     aff_kwargs = dict(
         predict_args={"recycling_steps": 5, "sampling_steps": sampling_steps_affinity,
@@ -2126,6 +2132,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                        "contact_guidance_update": False, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
         affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=trace,
+        diffusion_trace=diffusion_trace,
     )
 
     results_path = out / "results.json"
