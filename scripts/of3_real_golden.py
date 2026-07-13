@@ -9,6 +9,9 @@ trunk explode.
 
 Adds these keys to the golden pkl:
   - "input_embedder_real": {"in": batch feat dict, "out": (s_input, s, z)}
+  - "input_embedder_atom_enc_real": {"in": batch, "out": (ai, ql, cl, plm)} -- the
+    InputEmbedder's atom-encoder sub-outputs (per-token ai BEFORE the s_inputs concat),
+    for sub-component-granularity device PCC gating.
   - "pairformer_stack_real": {"in": (s, z), "out": stack(s, z)} -- the new stack gate input
   - "msa_block0_real": {"in": (m, z), "out": (m, z)} -- one MSAModuleBlock (has both the
     OPM and the PWA/transition MSA update; opm_first=True)
@@ -76,6 +79,48 @@ def main():
     print("input_embedder: s_input", s_input.shape, "s", s_init.shape, "z", z_init.shape,
           "s std", float(s_init.std()), "z std", float(z_init.std()))
 
+    # Atom-encoder sub-outputs (ai, ql, cl, plm) -- lets the device InputEmbedder leg be
+    # PCC-gated at sub-component granularity (atom encoder vs glue linears) rather than only
+    # at the combined s_input/s/z. ai is the per-token (N_token, c_token=384) aggregation
+    # BEFORE the cat([ai, restype, profile, deletion_mean]) -> s_inputs.
+    with torch.no_grad():
+        ai, ql, cl, plm = ie.atom_attn_enc(batch=batch)
+    print("input_embedder atom_attn_enc: ai", ai.shape, "ql", ql.shape, "cl", cl.shape,
+          "plm", plm.shape, "ai std", float(ai.std()))
+
+    # RefAtomFeatureEmbedder internals -- the device atom-featurization leg is PCC-gated at
+    # sub-component granularity: the single leg (5 linears -> cl) on device, and the pair leg
+    # (3 linears on pre-computed block inputs -> plm) on device. The block conversion
+    # (convert_single_rep_to_blocks + get_block_indices) is mask-derived gather that is
+    # non-trivial to replicate on device, so we capture its outputs (dlm, vlm, inv_sq_dists)
+    # here and feed them to the device pair linears, isolating the device linear precision
+    # from the blocking logic (same discipline as the glue's golden relpos).
+    from openfold3.core.utils.atom_attention_block_utils import convert_single_rep_to_blocks
+    rafe = ie.atom_attn_enc.ref_atom_feature_embedder
+    nq, nk = ie.atom_attn_enc.n_query, ie.atom_attn_enc.n_key
+    with torch.no_grad():
+        d_l, d_m, atom_mask_b = convert_single_rep_to_blocks(
+            ql=batch["ref_pos"], n_query=nq, n_key=nk, atom_mask=batch["atom_mask"])
+        v_l, v_m, _ = convert_single_rep_to_blocks(
+            ql=batch["ref_space_uid"].unsqueeze(-1), n_query=nq, n_key=nk,
+            atom_mask=batch["atom_mask"])
+        dlm = (d_l.unsqueeze(-2) - d_m.unsqueeze(-3)) * atom_mask_b.unsqueeze(-1)
+        vlm = ((v_l.unsqueeze(-2) == v_m.unsqueeze(-3)).to(dtype=dlm.dtype)
+               * atom_mask_b.unsqueeze(-1))
+        inv_sq_dists = 1.0 / (1.0 + torch.sum(dlm ** 2, dim=-1, keepdim=True))
+        cl_ref, plm_ref = rafe(batch=batch, n_query=nq, n_key=nk)
+    print("ref_atom_feat: cl", cl_ref.shape, "plm", plm_ref.shape,
+          "dlm", dlm.shape, "vlm", vlm.shape, "inv_sq_dists", inv_sq_dists.shape)
+
+    # Reference relpos (relpos_complex) -- the exact 139-dim relative-position feature the
+    # glue linear_relpos consumes. Captured so the device InputEmbedder glue can be PCC-gated
+    # vs the exact reference (not a re-computation). Verified identical to Protenix._generate_relp
+    # (same 139-dim logic, r_max=32, s_max=2).
+    from openfold3.core.utils.relpos import relpos_complex
+    relpos = relpos_complex(batch=batch, max_relative_idx=ie.max_relative_idx,
+                            max_relative_chain=ie.max_relative_chain)
+    print("relpos:", relpos.shape, "std", float(relpos.std()))
+
     me = MSAModuleEmbedder(**C.architecture.msa.msa_module_embedder).eval()
     me.load_state_dict(sub(sd, "msa_module_embedder"), strict=True)
     with torch.no_grad():
@@ -87,6 +132,18 @@ def main():
         "in": {k: v[0].clone() for k, v in batch.items()},
         "out": (s_input[0].clone(), s_init[0].clone(), z_init[0].clone()),
         "msa_out": (m[0].clone(), msa_mask[0].clone()),
+        "relpos": relpos[0].clone(),
+    }
+    inter["input_embedder_atom_enc_real"] = {
+        "in": {k: v[0].clone() for k, v in batch.items()},
+        "out": (ai[0].clone(), ql[0].clone(), cl[0].clone(), plm[0].clone()),
+    }
+    inter["input_embedder_ref_atom_feat_real"] = {
+        "in": {k: v[0].clone() for k, v in batch.items()
+               if k in ("ref_pos", "ref_mask", "ref_element", "ref_charge",
+                        "ref_atom_name_chars", "atom_mask")},
+        "out": (cl_ref[0].clone(), plm_ref[0].clone()),
+        "dlm": dlm[0].clone(), "vlm": vlm[0].clone(), "inv_sq_dists": inv_sq_dists[0].clone(),
     }
 
     PF = dict(C.architecture.pairformer)
