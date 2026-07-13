@@ -353,7 +353,8 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
+        from tt_bio.main import (_generate_esmfold2_a3m,
+                                 _generate_opendde_paired_a3m, _read_bio_chains,
                                  _read_bio_constraints, _resolve_a3m_text,
                                  _write_protenix_structure)
         from tt_bio.protenix_data import build_complex_features
@@ -372,6 +373,8 @@ class _WorkerState:
         report_progress("msa")
         # search any uncached protein chain (batched into one MSA call), reusing the
         # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path.
+        # A second, paired (species-pairing) search is run below for multi-chain
+        # complexes to inject the cross-chain co-evolution signal.
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
         for _cid, cseq, spec, mt in chains:
@@ -390,9 +393,30 @@ class _WorkerState:
         chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
                        for _cid, cseq, spec, mt in chains]
 
+        # Paired (species-pairing) MSA for multi-chain complexes -- the cross-chain
+        # co-evolution signal the reference OpenDDE pipeline injects via
+        # MSAPairingEngine.pair_chains_by_species and this port otherwise lacks
+        # (unpaired block-diagonal MSA carries no cross-chain signal). Best-effort:
+        # a failed paired search falls back to unpaired-only so the fold still runs.
+        paired_a3ms = None
+        n_prot = sum(1 for _c, _s, _sp, mt in chains if mt == "protein")
+        if n_prot > 1 and want_msa:
+            paired_seqs = {hashlib.sha256(cseq.encode()).hexdigest()[:16]: cseq
+                           for _cid, cseq, _spec, mt in chains if mt == "protein"}
+            try:
+                paired = _generate_opendde_paired_a3m(
+                    paired_seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
+                    cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
+                    cfg.get("msa_server_password"), cfg.get("api_key_value"))
+                paired_a3ms = [paired.get(hashlib.sha256(cseq.encode()).hexdigest()[:16])
+                               for _cid, cseq, _spec, mt in chains if mt == "protein"]
+            except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
+                print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
+                paired_a3ms = None
+
         report_progress("prep")
         feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt in chains],
-                                       bonds=bonds)
+                                       bonds=bonds, paired_a3ms=paired_a3ms)
 
         report_progress("diffusion")
         n_sample = int(cfg["diffusion_samples"])

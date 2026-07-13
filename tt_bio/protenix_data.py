@@ -167,6 +167,42 @@ def _parse_a3m_to_msa(a3m: str, query: str):
     return torch.tensor(msa, dtype=torch.long), torch.tensor(delmat, dtype=torch.float32)
 
 
+def _parse_paired_a3m_to_msa(a3m: str, query: str):
+    """Species-paired a3m -> (msa (M,n) long, deletion (M,n) float), NO dedup, rows kept in
+    input order so cross-chain row j aligns by species/genome (ColabFold's pair endpoint and
+    the reference MSAPairingEngine.pair_chains_by_species both produce row-aligned per-chain
+    blocks). Dedup would break that alignment -- e.g. a chain with no paired homolog for a
+    genome (the antigen in an Ab-Ag complex) carries an all-GAP row that is identical across
+    genomes and must NOT be collapsed. Rows whose match-column count != len(query) become
+    all-GAP rows to preserve row alignment. Returns None if the a3m query is unaligned."""
+    n_tok = len(query)
+    rows = _parse_a3m(a3m)
+    if not rows:
+        return None
+
+    def featurize(seq: str):
+        toks, dels, d = [], [], 0
+        for ch in seq:
+            if ch.islower():
+                d += 1
+            else:
+                toks.append(_msa_token(ch)); dels.append(d); d = 0
+        return toks, dels
+
+    if len(featurize(rows[0])[0]) != n_tok:
+        return None                       # paired a3m query not aligned to this sequence
+    gap_row = [MSA_GAP_IDX] * n_tok
+    zero_row = [0] * n_tok
+    msa, delmat = [], []
+    for seq in rows:
+        toks, dels = featurize(seq)
+        if len(toks) != n_tok:
+            msa.append(gap_row); delmat.append(zero_row)     # preserve cross-chain alignment
+        else:
+            msa.append(toks); delmat.append(dels)
+    return torch.tensor(msa, dtype=torch.long), torch.tensor(delmat, dtype=torch.float32)
+
+
 def _msa_to_features(M: torch.Tensor, DM: torch.Tensor) -> dict:
     """MSA tokens (M,N) + RAW deletion counts (M,N) -> protenix MSA features. Per protenix
     (data/msa/msa_featurizer.py): profile = per-column token frequency over 32 classes (incl.
@@ -216,7 +252,8 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
 
 
 def build_complex_features(chains: list, mol_dir: str | None = None,
-                           chain_ids: list | None = None, bonds: list | None = None) -> dict:
+                           chain_ids: list | None = None, bonds: list | None = None,
+                           paired_a3ms: list | None = None) -> dict:
     """Multi-chain biomolecular complex -> model-ready input_feature_dict.
 
     chains: list of (sequence, a3m_or_None[, mol_type]); mol_type is "protein" (default),
@@ -233,6 +270,15 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     (over that chain's rows only) so a chain's column statistics are not diluted by other chains'
     GAP padding. NA/ligand chains contribute only the query row. The model regenerates relp /
     d_lm / v_lm / mask_trunked from these.
+
+    paired_a3ms: optional list parallel to ``chains`` carrying a species-paired
+    a3m per chain (rows aligned across chains by species/genome, e.g. ColabFold's
+    pair endpoint or the reference ``MSAPairingEngine.pair_chains_by_species``).
+    When supplied for a multi-chain complex the paired rows are column-concatenated
+    into one block and stacked ON TOP of the unpaired block (the cross-chain
+    co-evolution signal; matches the reference's ``merged[msa] = concat([msa_all_seq,
+    msa], axis=0)``). Single-chain / all-None callers get byte-identical output to
+    the unpaired-only path.
 
     chain_ids: per-chain id parallel to `chains`, needed only to resolve `bonds`.
     bonds: covalent `bond` constraints as ((chain, res, atom), (chain, res, atom)) pairs;
@@ -281,7 +327,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         af["ref_space_uid"] = af["ref_space_uid"] + res_off
         atom_feats.append(af)
         raw = _parse_a3m_to_msa(a3m, seq) if (mt == "protein" and a3m) else None
-        per_chain_msa.append((tok_off, n, raw, rt_idx))
+        per_chain_msa.append((tok_off, n, raw, rt_idx, seq))
         if chain_ids is not None:
             name_to_local = {nm: i for i, nm in enumerate(lig_names)} if lig_names is not None else None
             placement[str(chain_ids[ci])] = (tok_off, mt, n, name_to_local)
@@ -301,7 +347,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # is unchanged (max_d == m, per-chain == whole).
     GAP = MSA_GAP_IDX
     chain_msa, chain_del, prof_parts, delmean_parts = [], [], [], []
-    for _start, n, raw, aatype in per_chain_msa:
+    for _start, n, raw, aatype, _seq in per_chain_msa:
         if raw is None:
             m = aatype.unsqueeze(0).clone()                 # no MSA -> query only (1 row)
             dm = torch.zeros((1, n))
@@ -319,6 +365,51 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         msa_full[:r, off:off + w] = m
         del_full[:r, off:off + w] = dm
         off += w
+    # Paired MSA block (cross-chain co-evolution signal). Per-chain paired a3ms --
+    # species-aligned across chains, e.g. ColabFold's pair endpoint or the reference
+    # MSAPairingEngine.pair_chains_by_species -- are column-concatenated into one
+    # (max_pd, N_tot) tensor and stacked ON TOP of the unpaired block, matching the
+    # reference's merged[msa] = concat([msa_all_seq, msa], axis=0) (opendde
+    # data/msa/msa_featurizer.py step 6). The query (row 0 of each paired a3m) is
+    # dropped here -- it is already row 0 of the unpaired block -- so the query is
+    # not double-counted (the reference does the equivalent via
+    # cleanup_unpaired_features). profile/deletion_mean stay per-chain over the
+    # UNPAIRED block (the reference computes them before pairing). Single-chain or
+    # no-paired-a3m callers (paired_a3ms is None / all-None, or every paired a3m is
+    # query-only) get max_pd == 0 and byte-identical output to the unpaired-only path.
+    paired_chain_msa = []
+    pa_iter = iter(paired_a3ms) if paired_a3ms else None
+    for _start, n, _raw, aatype, seq in per_chain_msa:
+        pa3m = next(pa_iter) if pa_iter is not None else None
+        praw = _parse_paired_a3m_to_msa(pa3m, seq) if pa3m else None
+        if praw is not None and praw[0].shape[0] > 1:
+            pm, pdm = praw                            # keep all rows (incl. query) for alignment
+        else:
+            pm = torch.empty((0, n), dtype=torch.long); pdm = torch.empty((0, n))
+        paired_chain_msa.append((pm, pdm))
+    # Truncate every chain's paired block to the MIN row count, then drop the query (row 0).
+    # ColabFold's pair endpoint returns equal row counts per chain (row-aligned by genome);
+    # the min-truncate is a robustness guard in case a chain's paired a3m is shorter. Dropping
+    # the query avoids double-counting it (it is already row 0 of the unpaired block); the
+    # reference does the equivalent via cleanup_unpaired_features.
+    if paired_chain_msa and all(pm.shape[0] > 0 for pm, _ in paired_chain_msa):
+        min_pd = min(pm.shape[0] for pm, _ in paired_chain_msa)
+        paired_chain_msa = [(pm[1:min_pd], pdm[1:min_pd]) for pm, pdm in paired_chain_msa]
+        max_pd = min_pd - 1
+    else:
+        max_pd = 0
+    if max_pd > 0:
+        paired_full = torch.full((max_pd, N_tot), GAP, dtype=torch.long)
+        paired_del = torch.zeros((max_pd, N_tot))
+        off = 0
+        for pm, pdm in paired_chain_msa:
+            r, w = pm.shape
+            if r:
+                paired_full[:r, off:off + w] = pm
+                paired_del[:r, off:off + w] = pdm
+            off += w
+        msa_full = torch.cat([paired_full, msa_full], dim=0)
+        del_full = torch.cat([paired_del, del_full], dim=0)
     msa_feats = {
         "msa": msa_full,
         "has_deletion": del_full.clamp(0.0, 1.0),
