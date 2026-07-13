@@ -1077,7 +1077,8 @@ class Protenix:
             sd_seed = None if seed is None else seed + k
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
-            coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed, trace=trace)[0])
+            coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
+                                     trace=trace, progress_fn=progress_fn)[0])
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
         coords = torch.stack(coords, 0)
@@ -1241,7 +1242,7 @@ class Trunk(_KeyedWeights):
 
 def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False):
+               rho=7.0, seed=None, trace=False, progress_fn=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -1268,6 +1269,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
     shape = (1, n_atoms, 3)
     x = sigmas[0] * torch.randn(shape)
     for k in range(n_step):
+        if progress_fn:
+            progress_fn("diffusion", step=k, total=n_step)
         sigma_tm, sigma_t, gamma = sigmas[k].item(), sigmas[k + 1].item(), gammas[k + 1].item()
         R, tr = compute_random_augmentation(1, device=x.device, dtype=x.dtype)
         x = x - x.mean(dim=-2, keepdim=True)
