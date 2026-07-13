@@ -623,3 +623,46 @@ module + template embedder + cycle glue, composing the already-gated
 remap (dims confirmed identical to protenix-v2's, the cheapest remaining leg); (c) wire
 `OpenFold3.fold()` + EDM sampler end-to-end and run `examples/prot.yaml` (the canonical
 ubiquitin target) for a real vs-ground-truth Kabsch Ca-RMSD -- the actual merge gate.
+
+
+## P7 tick 11 -- MSAModuleEmbedder (s_input -> m) PCC-gated on device (m_pcc = 1.00000)
+
+Landed the next trunk sub-component: the OF3 ``MSAModuleEmbedder`` (AF3 Algorithm 8
+lines 1-4) in ``tt_bio/openfold3_msa_embedder.py``. It is two bias-free linears
+(``linear_m`` 34->c_m=64 over ``cat([msa, has_deletion, deletion_value])``;
+``linear_s_input`` c_s_input=449->c_m=64) and a broadcast add over the MSA-sequence dim:
+``m = linear_m(msa_feat) + linear_s_input(s_input).unsqueeze(-3)``.
+
+The MSA subsampling (stochastic, AF3 SI 2.2) is host-side. The original golden set
+``torch.manual_seed(0)`` before the InputEmbedder (which consumes no random state), so
+the MSA embedder's ``torch.randint`` is the first draw after seed 0; re-setting seed 0 in
+the new golden reproduces the exact same subsample (verified, repro max_abs = 0.0).
+``scripts/of3_msa_embedder_golden.py`` captures the post-subsample ``msa_feat`` via a
+``linear_m`` ``register_forward_pre_hook`` and adds ``msa_module_embedder_real`` to
+``~/of3_ref_out.pkl`` -- so the device embedder is gated against the exact reference
+subsample, isolating the device linear precision from the subsample logic (same discipline
+as the other OF3 golden legs).
+
+Gate: ``tests/test_openfold3_msa_embedder.py`` feeds golden post-subsample ``msa_feat`` +
+``s_input`` -> device embedder -> compares ``m`` to golden. Result on qb2 card 0 (HiFi4 +
+fp32 dest acc): **m_pcc = 1.00000** -- > 0.98. This extends the trunk validation past the
+InputEmbedder (``s_input -> m``), complementing the already-gated MSA stack
+(``m, z -> z`` in ``tests/test_openfold3_msa.py``). The MSA module (embedder + stack) is
+now device-validated at the sub-component level.
+
+**Reusability-matrix correction (item 3 / DiffusionModule):** the matrix's "reuse
+protenix.DiffusionModule via key remap" does NOT hold. OF3's diffusion atom enc/dec use
+the OF3 ``AtomTransformer`` topology ported in tick 10 (``linear_ada_out`` output gate,
+``mha.linear_g`` query gate, ``swiglu.linear_a/b``+``linear_out`` transition), not
+protenix's ``AtomTransformer``; and the token-DiT ``conditioned_transition`` also differs
+from protenix's. So the DiffusionModule is a multi-leg port (OF3 DiT block + diffusion
+conditioning / NoisyPositionEmbedder + atom enc/dec wiring + EDM sampler + trunk
+conditioning golden), not a mechanical key remap. Flagged for P8 scoping.
+
+**NEXT (P8):** (a) template embedder (OF3 ``TemplatePairStack`` 2-block pair stack +
+embedder linears -> ``z_template`` added to ``z``); (b) assemble the full trunk forward
+(InputEmbedder -> 48-block Pairformer + 4-block MSA + template, xN cycles -> s_trunk,
+z_trunk) and PCC-gate vs ``pairformer_stack_real`` / a new full-trunk golden; (c) the
+DiffusionModule multi-leg port above; (d) wire ``OpenFold3.fold()`` + EDM sampler
+end-to-end and run ``examples/prot.yaml`` for a real vs-ground-truth Kabsch Ca-RMSD -- the
+actual merge gate.
