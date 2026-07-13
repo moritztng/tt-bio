@@ -506,8 +506,7 @@ consume *provided* templates, never search), and OpenDDE's own pipeline is a 509
 It is also not the Ab-Ag lever: the trunk masks every template feature to the same-`asym`
 block (`template_distogram * mc`, `protenix.py` trunk), so templates carry only
 **intra-chain** structural hints. They reinforce a chain's own fold (already confident on
-9dsg) and do not encode the cross-chain docking orientation, which is the failure mode.
-Flagged as the next real lift in "Remaining"; not attempted this tick.
+9dsg) and do not encode the cross-chain docking orientation, which is the failure mode. De-prioritized as the Ab-Ag lever in "Remaining"; not attempted this tick.
 
 **(2) Multi-chain encoding — found and fixed a real MSA bug; it is not the Ab-Ag cause.**
 `build_complex_features` assembled the multi-chain MSA wrong versus both the OpenDDE and
@@ -550,12 +549,18 @@ profile is no longer half-GAP. But the antibody-antigen interface is unchanged a
 antigen MSA (now full-depth, no GAP dilution) did not move A-H, which is consistent with
 unpaired MSA carrying no cross-chain co-evolution signal: it cannot tell the model where
 the antigen meets the paratope. The Ab-Ag mis-docking is therefore **not** a multi-chain
-encoding bug; the most likely remaining cause is the input the paper's standard pipeline
-uses and this port lacks: real **complex templates** (which DO encode relative orientation,
-intra-chain-masked dummy ones do not) and/or **paired MSA** (the OpenDDE/Protenix
-`MSAPairingEngine` is not wired into tt-bio's predict path). Both are larger lifts (see
-"Remaining"). Lever (3) more seeds is confirmed unhelpful while the 5-sample distribution
-is degenerate at fnat=0.
+encoding bug; the most likely remaining cause is the cross-chain co-evolution input the
+paper's standard pipeline uses and this port lacks: **paired MSA** (the OpenDDE/Protenix
+`MSAPairingEngine` species-pairing path, which produces a `pairing.a3m` per chain and is
+the standard AF3/Protenix docking mechanism for multi-chain complexes; tt-bio wires only
+unpaired MSA, which carries no cross-chain signal). Real **complex templates** are **not**
+the lever: the reference `TemplateEmbedder` masks every template pair feature (distogram,
+unit vector, backbone) to the same-chain block (`multichain_mask = asym_id[:,None] ==
+asym_id[None,:]`, `pairformer.py`), exactly as this port does (`template_distogram * mc`),
+so templates carry only intra-chain geometry and reinforce a chain's own fold (already
+confident on 9dsg), not the cross-chain orientation. Paired-MSA wiring is the larger lift
+(see "Remaining"). Lever (3) more seeds is confirmed unhelpful while the 5-sample
+distribution is degenerate at fnat=0.
 
 ## Remaining
 
@@ -576,13 +581,18 @@ is degenerate at fnat=0.
   assembly were checked against the reference; the one real bug (multi-chain MSA
   profile/row-structure) is fixed but does not move A-H. The antigen folds confidently
   and the Fab assembles (H-L fnat ~0.82), yet the antigen is mis-docked relative to the
-  Fab across all 5 samples. The most likely remaining cause is the input the paper's
-  standard pipeline uses and this port lacks -- real **complex templates** (encode
-  relative orientation; the dummy-template embedder already runs at `nt=4`, but real
-  template *search* is not ported: tt-bio has no template-search stage, and OpenDDE's is
-  a 509-line `search.py` + ~1900 lines of template parser/featurizer + a PDB template DB,
-  a multi-day data-pipeline port) and/or **paired MSA** (the `MSAPairingEngine` is not
-  wired into tt-bio's predict path). Both are release-gated larger lifts.
+  Fab across all 5 samples. The most likely remaining cause is the cross-chain co-evolution
+  input the paper's standard pipeline uses and this port lacks -- **paired MSA** (the
+  `MSAPairingEngine` species-pairing path is not wired into tt-bio's predict path; only
+  unpaired MSA is, which carries no cross-chain signal). Real **complex templates** are
+  **not** the lever and are de-prioritized: the reference `TemplateEmbedder` masks every
+  template pair feature to the same-chain block (`multichain_mask = asym_id[:,None] ==
+  asym_id[None,:]`), exactly as this port does, so templates carry only intra-chain geometry
+  (reinforce a chain's own fold, already confident on 9dsg), not the cross-chain
+  orientation. Real template *search* is also a separate multi-day data-pipeline port
+  (tt-bio has no template-search stage; OpenDDE's is a 509-line `search.py` + ~1900 lines
+  of template parser/featurizer + a PDB template DB). Paired-MSA wiring is the release-gated
+  lever worth the next pass.
 - **Nucleic-acid / ligand structural tokens**: `opendde_data.py` is protein-only; extending
   to DNA/RNA backbone/base splitting and ligand atom-tokens follows the identical pattern
   once a mixed-modality co-folding target is on the critical path.
@@ -653,14 +663,17 @@ is degenerate at fnat=0.
   GAP). Single-chain bit-exact; Protenix-v2 release gate still passes (1.417 A / TM 0.936
   on 7ROA). On 9dsg the Fab internal dock improves (H-L fnat 0.72 -> 0.81-0.825 across all
   5 samples) but the Ab-Ag interface stays DockQ 0.011 / fnat 0 (degenerate, unchanged) --
-  the Ab-Ag gap is not the multi-chain encoding; most likely the missing real complex
-  templates / paired MSA.
-- **Not yet**: real template **search** (the dummy-template embedder already runs at
-  `nt=4`; real templates need porting OpenDDE's HMMER/Kalign search pipeline + a PDB
-  template DB, a multi-day data-pipeline lift with no reusable search stage in tt-bio)
-  and **paired MSA** (the `MSAPairingEngine` is not wired into the predict path) -- the
-  two inputs the paper's standard pipeline uses for Ab-Ag and the most likely remaining
-  cause of the 0.011 Ab-Ag DockQ now that the multi-chain MSA assembly is fixed (P8);
-  nucleic-acid/ligand structural tokens; and explicit `--fast`/multi-card verification.
+  the Ab-Ag gap is not the multi-chain encoding; most likely the missing **paired MSA**
+  (the cross-chain co-evolution signal; templates are not the lever -- the reference masks
+  template pair features to same-chain, so they encode intra-chain geometry only).
+- **Not yet**: **paired MSA** (the `MSAPairingEngine` species-pairing path is not wired into
+  the predict path; only unpaired MSA is, which carries no cross-chain signal -- this is the
+  most likely remaining cause of the 0.011 Ab-Ag DockQ now that the multi-chain MSA assembly
+  is fixed (P8), and the release-gated lever worth the next pass). Real template **search**
+  is a separate, de-prioritized lift: the dummy-template embedder already runs at `nt=4`,
+  and real templates are not the Ab-Ag lever (reference masks template pair features to
+  same-chain), though porting OpenDDE's HMMER/Kalign search pipeline + a PDB template DB is
+  still a multi-day data-pipeline lift with no reusable search stage in tt-bio. Also not
+  yet: nucleic-acid/ligand structural tokens; and explicit `--fast`/multi-card verification.
   OpenDDE is deliberately not in the README `--model`
   table yet -- its Ab-Ag differentiator is measured but not at parity.
