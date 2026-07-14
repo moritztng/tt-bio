@@ -123,9 +123,8 @@ discrepancy: a fresh 3/200/1 run on the pinned boltz 2.2.1 is bit-exact
 deterministic and gives R=6.94, not the previously-published 3.37; the prior
 3.37's source run is not on disk and is not reproducible from the documented
 settings (the only on-disk prot no-MSA reference runs used 2 recycle / 20 steps
-and give R=2.60). See the Boltz-2 section for the full finding; the
-device-vs-reference cross X against this fresh `prot` fixture is not re-measured
-here and is flagged for re-verification.
+and give R=2.60). See the Boltz-2 section for the full finding and the
+re-measured device-vs-reference cross X against this fresh `prot` fixture.
 
 ## Results
 
@@ -143,7 +142,7 @@ including the honest caveats, follows in the subsections below.
 | ESMFold2 | ubiquitin (L76) | CA-RMSD (Å) | 0.92 ± 0.19 | 0.23 ± 0.03 | 0.75 ± 0.10 | PASS (within floor) |
 | Protenix-v2 | 7ROA (L117) | CA-RMSD (Å) | 2.94 | 1.47 | 2.63 ± 0.42 | PASS (within floor, confidence-selection-limited) |
 | Boltz-2 | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.79 | 0.37 | 0.60 ± 0.24 | PASS (within floor) |
-| Boltz-2 | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 3.37 | 4.35 | 5.51 ± 0.70 | disclosed gap above floor (1.27x) |
+| Boltz-2 | prot/7ROA (L117, no-MSA) | CA-RMSD (Å) | 6.94 | 2.04 | 4.92 ± 2.13 | PASS (within floor) |
 | Boltz-2 | prot/7ROA (L117, MSA) | CA-RMSD (Å) | 0.81 | 0.98 | 0.94 ± 0.14 | PASS (within floor) |
 | OpenDDE | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.31 | 0.24 | 0.39 ± 0.11 | PASS (within floor) |
 | OpenDDE | prot/7ROA (L117, no-MSA, production 10c/200s) | CA-RMSD (Å) | 1.90 | 8.06 | 5.68 ± 3.98 | PASS (within floor; the reduced-settings 2.85x gap was a tight-floor artifact, see OpenDDE section) |
@@ -284,23 +283,30 @@ sample).
 | target | length | CA-RMSD dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |
 |---|---|---|---|---|---|---|
 | trp-cage | 20 | 0.60 ± 0.24 Å | 0.79 Å | 0.37 Å | 0.76 | yes |
-| prot | 117 | 5.51 ± 0.70 Å | 3.37 Å | 4.35 Å | 1.27 | NO |
+| prot | 117 | 4.92 ± 2.13 Å | 6.94 Å | 2.04 Å | 0.71 | yes |
 | prot (MSA) | 117 | 0.94 ± 0.14 Å | 0.81 Å | 0.98 Å | 0.96 | yes |
 
-Confidence-metric deltas (device mean − reference mean) are small for both
-targets regardless of the coordinate gap: confidence_score within 0.01, pTM
-+0.02 to +0.04, complex_pLDDT within 0.01. Both implementations agree on how
-good or bad the fold is even where the coordinates disagree.
+Confidence-metric deltas (device mean − reference mean) stay small: trp-cage
+within 0.01 on confidence_score and complex_pLDDT, pTM +0.02 to +0.04. For the
+no-MSA `prot` leg the device reads modestly higher than the fresh reference —
+confidence_score +0.05, pTM +0.08, complex_pLDDT +0.05 (complex_pde −0.32) — the
+same direction as the MSA leg below. Both implementations agree on how good or
+bad the fold is even where the coordinates disagree.
 
 trp-cage's device-vs-reference gap sits inside the run-to-run noise on both
-sides — indistinguishable from resampling the same model twice. prot's gap
-(1.27x the floor on RMSD, 1.6x on PCC) is real but modest, the same order as
-the one already-disclosed non-floor case for ESMFold2 (GB1, 2.4x above its
-floor). Both targets here are single-sequence (no MSA), the hardest case for
-an MSA-trained model — an MSA-backed target is the natural next data point to
-see whether the gap narrows with the input Boltz-2 actually expects. The
-existing `--fast` (block-fp8) accuracy comparison is a separate, already-closed
-question: see `docs/boltz2-fast-parity.md`.
+sides — indistinguishable from resampling the same model twice. The no-MSA
+`prot` device-vs-reference gap (4.92 Å) now also sits inside the reference's own
+run-to-run floor: against the corrected, reproducible R=6.94 fixture the cross
+term is 0.71x the floor (0.58x on PCC), within floor on both metrics. The
+previously-published 1.27x-over-floor read was measured against an
+unreproducible R=3.37 reference whose source run is not on disk (see the
+re-run note below); with the reference floor corrected to the reproducible
+6.94, the no-MSA `prot` leg is within floor, not a disclosed gap. Both targets
+here are single-sequence (no MSA), the hardest case for an MSA-trained model —
+an MSA-backed target is the natural next data point to see whether the gap
+narrows with the input Boltz-2 actually expects. The existing `--fast`
+(block-fp8) accuracy comparison is a separate, already-closed question: see
+`docs/boltz2-fast-parity.md`.
 
 **Reference-fixture re-run (2026-07-13).** The no-MSA `trpcage` and `prot`
 reference legs were re-run fresh on the pinned boltz 2.2.1 to harvest committed
@@ -313,18 +319,21 @@ previously-published 3.37: the prior 3.37's source run is not on disk and is not
 reproducible from the documented 3 recycle / 200 sampling-step / 1 sample
 settings (the only on-disk `prot` no-MSA reference runs used 2 recycle / 20
 steps and give R=2.60). The committed `prot` no-MSA fixture therefore carries
-R=6.94; the device-vs-reference cross X against it is not re-measured here (the
-device side was not re-run) and the 3.37/4.35/5.51 row above should be read as
-the pre-fixture measurement, flagged for re-verification against the fresh
-fixture.
+R=6.94. The device-vs-reference cross X against it is now re-measured
+(2026-07-14): the device side was re-run fresh (2 seeds, 3 recycle / 200
+sampling-step / 1 sample, no MSA, ~9 s/seed warm on pc card 0) and X = 4.92 ±
+2.13 Å sits inside the R=6.94 floor (X/floor 0.71, within floor on both RMSD and
+PCC; D = 2.04 Å). The 3.37/4.35/5.51 figures that previously appeared above were
+the pre-fixture measurement against the unreproducible 3.37 reference and are
+superseded by the row above.
 
 The documented next data point, an MSA-backed target, is now measured. The same
 prot folded with `--use_msa_server` (ColabFold, a 93-sequence MSA; device and
 reference folded the identical MSA, verified by header-set equality against the
 reference's recorded `bfd`/`uniref` files). At matched production defaults (3
 recycling / 200 sampling steps / 1 sample) the device-vs-reference gap closes to
-0.94 Å, inside the noise floor (0.96x) where the single-sequence fold sat 1.27x
-above it. MSA moves the fold as well: reference confidence 0.65 → 0.89, device
+0.94 Å, inside the noise floor (0.96x); the single-sequence fold sits 0.71x
+within its own (larger) R=6.94 floor. MSA moves the fold as well: reference confidence 0.65 → 0.89, device
 0.64 → 0.87; confidence-metric deltas stay small (confidence_score −0.02, pTM
 +0.03, complex_pLDDT −0.04). With the input Boltz-2 is trained for, the port
 reproduces the reference fold to within the reference's own run-to-run spread.
@@ -643,9 +652,11 @@ on both an alignment-based and an alignment-free coordinate metric). Harness
 proven end-to-end.
 
 Also complete: a first **Boltz-2** device-vs-reference measurement (two
-no-MSA targets, two seeds each; trp-cage within its noise floor, a modest
-1.3-1.6x-over-floor gap on the longer single-sequence target; an MSA-backed
-prot target now extends it, closing that gap to 0.94 Å within the floor) plus real
+no-MSA targets, two seeds each; trp-cage within its noise floor, and the no-MSA
+prot target within its noise floor once re-measured against the corrected
+reproducible R=6.94 reference fixture — X = 4.92 ± 2.13 Å, 0.71x the floor; the
+prior 1.27x-over-floor read was against an unreproducible R=3.37 reference; an
+MSA-backed prot target extends it, closing that gap to 0.94 Å within the floor) plus real
 device-vs-CPU-reference timing (40-100x faster warm), **OpenDDE**
 device-vs-reference on two single-sequence targets, three seeds each (trp-cage
 within its noise floor at 0.39 Å, a 2.85x-over-floor gap on prot at reduced
