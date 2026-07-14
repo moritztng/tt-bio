@@ -1,0 +1,239 @@
+{
+  "mode": "structures",
+  "targets": {
+    "prot": {
+      "rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 4,
+          "mean": 5.506483951606337,
+          "std": 0.7017327634229467,
+          "min": 4.452932817800348,
+          "max": 6.418344470715105
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 3.3691128494905276,
+          "std": 0.0,
+          "min": 3.3691128494905276,
+          "max": 3.3691128494905276
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 4.352374069823206,
+          "std": 0.0,
+          "min": 4.352374069823206,
+          "max": 4.352374069823206
+        },
+        "floor_mean": 4.352374069823206,
+        "cross_over_floor": 1.2651678976274232,
+        "within_noise_floor": false
+      },
+      "pcc": {
+        "metric": "1-coord_pcc",
+        "cross": {
+          "n": 4,
+          "mean": 0.09053949609317785,
+          "std": 0.021422251378441937,
+          "min": 0.059538309188441385,
+          "max": 0.1184237662413592
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.03162942896434906,
+          "std": 0.0,
+          "min": 0.03162942896434906,
+          "max": 0.03162942896434906
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.056369863034723355,
+          "std": 0.0,
+          "min": 0.056369863034723355,
+          "max": 0.056369863034723355
+        },
+        "floor_mean": 0.056369863034723355,
+        "cross_over_floor": 1.6061684598631416,
+        "within_noise_floor": false
+      }
+    },
+    "trpcage": {
+      "rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 4,
+          "mean": 0.601816290071475,
+          "std": 0.23990372621147146,
+          "min": 0.35643339925688095,
+          "max": 0.8685502107630169
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.7946294681540192,
+          "std": 0.0,
+          "min": 0.7946294681540192,
+          "max": 0.7946294681540192
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.3720776512134338,
+          "std": 0.0,
+          "min": 0.3720776512134338,
+          "max": 0.3720776512134338
+        },
+        "floor_mean": 0.7946294681540192,
+        "cross_over_floor": 0.7573546088965678,
+        "within_noise_floor": true
+      },
+      "pcc": {
+        "metric": "1-coord_pcc",
+        "cross": {
+          "n": 4,
+          "mean": 0.004117054528680553,
+          "std": 0.0029982329077013646,
+          "min": 0.0011116276610397824,
+          "max": 0.007606310161479168
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.006743938763936752,
+          "std": 0.0,
+          "min": 0.006743938763936752,
+          "max": 0.006743938763936752
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.0014113894919277614,
+          "std": 0.0,
+          "min": 0.0014113894919277614,
+          "max": 0.0014113894919277614
+        },
+        "floor_mean": 0.006743938763936752,
+        "cross_over_floor": 0.6104821933877163,
+        "within_noise_floor": true
+      }
+    },
+    "prot_msa": {
+      "rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 4,
+          "mean": 0.9401184811717074,
+          "std": 0.14196500285887328,
+          "min": 0.758755385151771,
+          "max": 1.1537319766533534
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.8065570583853289,
+          "std": 0.0,
+          "min": 0.8065570583853289,
+          "max": 0.8065570583853289
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.9791723138315466,
+          "std": 0.0,
+          "min": 0.9791723138315466,
+          "max": 0.9791723138315466
+        },
+        "floor_mean": 0.9791723138315466,
+        "cross_over_floor": 0.960115464757148,
+        "within_noise_floor": true,
+        "target_meta": {
+          "target": "prot",
+          "length": 117,
+          "msa": "colabfold server, 93 sequences (bfd+uniref, dedup); identical on device and reference (header-set diff = 0)",
+          "settings": "recycling_steps=3, sampling_steps=200, diffusion_samples=1 (--use_msa_server, production defaults, matched both sides)",
+          "seeds": {
+            "reference": [
+              0,
+              1
+            ],
+            "device": [
+              0,
+              1
+            ]
+          },
+          "timing_s": {
+            "device_fold_mean": 54.95,
+            "device_wall_mean_incl_import": 83.95,
+            "reference_predict_mean": 436.5,
+            "note": "device = tt-bio predict --model boltz2 on card 2 (this branch, main-based); reference = official boltz predict CPU (boltz_ref_venv). reference predict stage is the dominant wall-clock component."
+          },
+          "confidence_delta_device_minus_reference": {
+            "confidence_score": -0.0223,
+            "ptm": 0.0284,
+            "complex_plddt": -0.035,
+            "complex_pde": -0.1028
+          },
+          "contrast_no_msa": {
+            "confidence_score_no_msa_reference": 0.6533,
+            "confidence_score_msa_reference": 0.8916,
+            "note": "MSA raises reference confidence 0.65 -> 0.89 and closes the disclosed no-MSA prot gap (X=5.51 A, 1.27x floor) to X=0.94 A within floor."
+          }
+        }
+      },
+      "pcc": {
+        "metric": "1-coord_pcc",
+        "cross": {
+          "n": 4,
+          "mean": 0.0027161809789320313,
+          "std": 0.0008292660341180815,
+          "min": 0.0017254385982550247,
+          "max": 0.004010037794496157
+        },
+        "ref_floor": {
+          "n": 1,
+          "mean": 0.0019500520844804026,
+          "std": 0.0,
+          "min": 0.0019500520844804026,
+          "max": 0.0019500520844804026
+        },
+        "dev_floor": {
+          "n": 1,
+          "mean": 0.0028785469688641374,
+          "std": 0.0,
+          "min": 0.0028785469688641374,
+          "max": 0.0028785469688641374
+        },
+        "floor_mean": 0.0028785469688641374,
+        "cross_over_floor": 0.9435944621754165,
+        "within_noise_floor": true,
+        "target_meta": {
+          "target": "prot",
+          "length": 117,
+          "msa": "colabfold server, 93 sequences (bfd+uniref, dedup); identical on device and reference (header-set diff = 0)",
+          "settings": "recycling_steps=3, sampling_steps=200, diffusion_samples=1 (--use_msa_server, production defaults, matched both sides)",
+          "seeds": {
+            "reference": [
+              0,
+              1
+            ],
+            "device": [
+              0,
+              1
+            ]
+          },
+          "timing_s": {
+            "device_fold_mean": 54.95,
+            "device_wall_mean_incl_import": 83.95,
+            "reference_predict_mean": 436.5,
+            "note": "device = tt-bio predict --model boltz2 on card 2 (this branch, main-based); reference = official boltz predict CPU (boltz_ref_venv). reference predict stage is the dominant wall-clock component."
+          },
+          "confidence_delta_device_minus_reference": {
+            "confidence_score": -0.0223,
+            "ptm": 0.0284,
+            "complex_plddt": -0.035,
+            "complex_pde": -0.1028
+          },
+          "contrast_no_msa": {
+            "confidence_score_no_msa_reference": 0.6533,
+            "confidence_score_msa_reference": 0.8916,
+            "note": "MSA raises reference confidence 0.65 -> 0.89 and closes the disclosed no-MSA prot gap (X=5.51 A, 1.27x floor) to X=0.94 A within floor."
+          }
+        }
+      }
+    }
+  }
+}

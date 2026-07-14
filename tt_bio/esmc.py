@@ -140,6 +140,24 @@ def apply_rotary(x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor) -> ttnn.Ten
     return out
 
 
+def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
+    """RoPE for per-head q, k [B, H, L, head_dim].
+
+    When L is tile-aligned (the bucketed LM path — ``BUCKET`` is 64, and the 6B
+    backbone always pads to it) the fused ``ttnn.experimental.rotary_embedding``
+    kernel replaces ``apply_rotary``'s six-op rotate-half pile with one dispatch
+    per tensor. This is the largest single share of ESMC attention (a dispatch-
+    bound elementwise stack, not a matmul), so collapsing it is a real per-layer
+    win, largest on the smaller models. Matches the reference within bf16 noise;
+    the ragged fallback keeps arbitrary single-sequence lengths exact. See
+    docs/esmc-attention-kernel-scout.md.
+    """
+    if q.shape[2] % 32 == 0:
+        return (ttnn.experimental.rotary_embedding(q, cos, sin),
+                ttnn.experimental.rotary_embedding(k, cos, sin))
+    return apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
+
+
 class Embedding(Module):
     """Token embedding lookup (mirrors nn.Embedding(64, d_model)).
 
@@ -207,8 +225,7 @@ class Attention(Module):
         qkv = ttnn.concat([q, k, v], dim=-1)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         q, k, v = self._split_heads(qkv, self.n_heads)
-        q = apply_rotary(q, cos, sin)
-        k = apply_rotary(k, cos, sin)
+        q, k = _rope(q, k, cos, sin)
         if key_valid is not None:
             # Zero padded keys/values so their attention contribution is exactly
             # 0 (weight x 0) — exact masking, not reliant on bf16 exp(-inf).
@@ -1024,6 +1041,15 @@ def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: s
                          cache_dir=cache_dir), f)
     env = {**os.environ, **(thread_cap_env or {}),
            "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
+    # P300 boards are a custom topology; like the `predict` and `boltzgen gen`
+    # fanout paths, a single-chip worker needs the 1x1 Blackhole mesh-graph
+    # descriptor or ttnn.open_device aborts with "Custom fabric mesh graph
+    # descriptor path must be specified".
+    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    if device in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            env["TT_MESH_GRAPH_DESC_PATH"] = mgd
     logf = open(log_path, "w")
     proc = subprocess.Popen(
         [sys.executable, "-c",

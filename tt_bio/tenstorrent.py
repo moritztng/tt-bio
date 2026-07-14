@@ -329,11 +329,19 @@ def get_device(trace_region_size=0):
     assigned physical chip appears as logical device 0.
 
     trace_region_size: bytes to reserve for ttnn trace capture. Pass a nonzero
-    size (e.g. 1 << 30) to enable the Protenix denoise trace via fold(trace=True);
-    the default 0 leaves the device layout unchanged.
+    size (e.g. 1 << 30) to enable the Protenix denoise trace via fold(trace=True)
+    or BoltzGen's diffusion trace (Boltz.__init__(diffusion_trace=True)); the
+    default 0 leaves the device layout unchanged. If the arg is 0,
+    ``TT_BIO_TRACE_REGION_SIZE`` is consulted as a dev-only escape hatch (used by
+    the parity harness in perf/boltzgen_trace_step_parity/) so a single-BH open
+    can reserve a trace region without the caller threading the kwarg.
     """
     global _device, _trace_region_size
     if _device is None:
+        if trace_region_size == 0:
+            env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
+            if env_sz:
+                trace_region_size = int(env_sz)
         device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
         # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
         # (rather than 8x7 after worker-dispatch reservation) is available.
@@ -734,19 +742,39 @@ class TriangleAttention(Module):
         self.ending = ending
         self.affinity = affinity
         self.scale = self.head_dim**0.5
+        # nlp_concat_heads pads each head's channel dim up to a 32-tile boundary, so at
+        # a sub-tile head_dim (e.g. OF3 template pair_stack c_hidden_tri_att=16) it
+        # yields n_heads*32 channels while the gate g carries n_heads*head_dim -- a
+        # shape mismatch that throws "Invalid subtile broadcast type" in gate_and_
+        # project's multiply_. The tile-aligned head_dim=32 path (MSA / Boltz-2 /
+        # Protenix) is unaffected and stays on the original nlp_concat_heads path. The
+        # sub-tile path pads the qkv head_dim up to 32 (zeros, so the real head_dim
+        # channels are unchanged) and slices + manual-concats the SDPA output back to
+        # n_heads*head_dim -- mirrors the already-validated AttentionPairBias sub-tile
+        # handling. See docs/openfold3-port.md P8 tick 12 / Leg 2.
+        head_dim_padding = -head_dim % 32
+        self.padded_head_dim = head_dim + head_dim_padding
+        self.subtile = head_dim_padding != 0
         self.layer_norm_weight = self.torch_to_tt("layer_norm.weight")
         self.layer_norm_bias = self.torch_to_tt("layer_norm.bias")
         self.o_weight = self.torch_to_tt("linear_o.weight")
         self.bias_weight = ttnn.multiply_(self.torch_to_tt("linear.weight"), self.scale)
+        qkv_weight = torch.cat(
+            [
+                self.weights["linear_q.weight"],
+                self.weights["linear_k.weight"],
+                self.weights["linear_v.weight"],
+            ],
+            dim=0,
+        )
+        if self.subtile:
+            qkv_weight = qkv_weight.reshape(3 * self.n_heads, head_dim, -1)
+            qkv_weight = torch.nn.functional.pad(
+                qkv_weight, (0, 0, 0, head_dim_padding), mode="constant", value=0
+            )
+            qkv_weight = qkv_weight.reshape(3 * self.n_heads * self.padded_head_dim, -1)
         self.qkv_weight = ttnn.from_torch(
-            torch.cat(
-                [
-                    self.weights["linear_q.weight"],
-                    self.weights["linear_k.weight"],
-                    self.weights["linear_v.weight"],
-                ],
-                dim=0,
-            ).t(),
+            qkv_weight.t(),
             layout=ttnn.TILE_LAYOUT,
             device=self.device,
             dtype=_dtype(),
@@ -788,9 +816,20 @@ class TriangleAttention(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
-            o_heads = ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-            ttnn.deallocate(o)
-            return ttnn.squeeze(o_heads, 1)
+            if self.subtile:
+                # Slice off the zero-padded head channels, then manual head-concat
+                # (head-major) to produce [1, S, n_heads*head_dim] -- nlp_concat_heads
+                # would re-pad to n_heads*32 here. Same concat order as the tile-aligned
+                # path, so numerically identical for the real head_dim channels.
+                o = o[:, :, :, : self.head_dim]
+                o = ttnn.permute(o, (0, 1, 3, 2))
+                o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
+                o = ttnn.permute(o, (0, 2, 1))
+            else:
+                o_heads = ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                ttnn.deallocate(o)
+                o = ttnn.squeeze(o_heads, 1)
+            return o
 
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -1218,6 +1257,7 @@ class PairformerLayer(Module):
     def __call__(
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
+        extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
         z_update = self.triangle_multiplication_start(z, mask)
         z = ttnn.add_(z, z_update)
@@ -1249,7 +1289,7 @@ class PairformerLayer(Module):
             s_update = self.attention_pair_bias(
                 s_norm,
                 z,
-                seq_mask=attn_mask_start,  # same as end for non-affinity
+                seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
             )
             ttnn.deallocate(s_norm)
             s = ttnn.add_(s, s_update)
@@ -1292,9 +1332,10 @@ class Pairformer(Module):
     def __call__(
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
+        extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
         for block in self.blocks:
-            s, z = block(s, z, mask, attn_mask_start, attn_mask_end)
+            s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
         return s, z
 
 
@@ -2579,10 +2620,9 @@ class DiffusionModule(TorchWrapper):
     def _create_module(self, weights: WeightScope):
         return Diffusion(weights, self.compute_kernel_config)
 
-    def forward(
+    def _populate_diffusion_cache(
         self,
-        r: torch.Tensor,
-        times: torch.Tensor,
+        r_batch: int,
         s_inputs: torch.Tensor,
         s_trunk: torch.Tensor,
         q: torch.Tensor,
@@ -2593,7 +2633,14 @@ class DiffusionModule(TorchWrapper):
         keys_indexing: torch.Tensor,
         mask: torch.Tensor,
         atom_to_token: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> tuple[int, int, int]:
+        """Hoist the per-step-INVARIANT diffusion conditioning onto the device once.
+
+        Everything except ``r`` and ``times`` is constant across all sampling
+        steps, so it is uploaded / reshaped / masked once and read from the
+        runtime cache every step. Idempotent. Returns ``(seq_len, N, N_padded)``
+        so callers can slice the output and pick the chunked kernel path.
+        """
         B, N, _ = q.shape
         NW = N // ATOM_WINDOW
 
@@ -2631,8 +2678,8 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("s_inputs", self._from_torch(s_inputs))
             self._cache_set("s_trunk", self._from_torch(s_trunk))
 
-            q_pt = q if r.shape[0] == q.shape[0] else torch.repeat_interleave(q, r.shape[0], dim=0)
-            c_pt = c if r.shape[0] == c.shape[0] else torch.repeat_interleave(c, r.shape[0], dim=0)
+            q_pt = q if r_batch == q.shape[0] else torch.repeat_interleave(q, r_batch, dim=0)
+            c_pt = c if r_batch == c.shape[0] else torch.repeat_interleave(c, r_batch, dim=0)
             if atom_pad:
                 q_pt = torch.nn.functional.pad(q_pt, (0, 0, 0, atom_pad))
                 c_pt = torch.nn.functional.pad(c_pt, (0, 0, 0, atom_pad))
@@ -2703,33 +2750,149 @@ class DiffusionModule(TorchWrapper):
 
             self._cache_set("atom_pad", atom_pad)
             self._first_forward_pass = False
+        return seq_len, N, N_padded
 
+    def _run_diffusion_device(
+        self, r_dev: ttnn.Tensor, times_dev: ttnn.Tensor, large_seq_len: bool
+    ) -> ttnn.Tensor:
+        """Pure on-device DiT step over the cached conditioning. ``r_dev`` and
+        ``times_dev`` are the only per-step-varying inputs; everything else is
+        read from the runtime cache populated by ``_populate_diffusion_cache``.
+        Returns the ``r_update`` device tensor (not sliced)."""
+        return self.module(
+            r_dev,
+            times_dev,
+            self._cache_get("s_inputs"),
+            self._cache_get("s_trunk"),
+            self._cache_get("q"),
+            self._cache_get("c"),
+            self._cache_get("bias_encoder"),
+            self._cache_get("bias_token"),
+            self._cache_get("bias_decoder"),
+            self._cache_get("keys_indexing"),
+            self._cache_get("atom_to_token"),
+            self._cache_get("atom_to_token_normed"),
+            large_seq_len=large_seq_len,
+        )
+
+    def forward(
+        self,
+        r: torch.Tensor,
+        times: torch.Tensor,
+        s_inputs: torch.Tensor,
+        s_trunk: torch.Tensor,
+        q: torch.Tensor,
+        c: torch.Tensor,
+        bias_encoder: torch.Tensor,
+        bias_token: torch.Tensor,
+        bias_decoder: torch.Tensor,
+        keys_indexing: torch.Tensor,
+        mask: torch.Tensor,
+        atom_to_token: torch.Tensor,
+    ) -> torch.Tensor:
+        seq_len, N, _ = self._populate_diffusion_cache(
+            r.shape[0], s_inputs, s_trunk, q, c,
+            bias_encoder, bias_token, bias_decoder,
+            keys_indexing, mask, atom_to_token)
         atom_pad_cached = self._cache_get("atom_pad", 0)
         if atom_pad_cached:
             r = torch.nn.functional.pad(r, (0, 0, 0, atom_pad_cached))
+        out = self._run_diffusion_device(
+            self._from_torch(r), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING)
+        return self._to_torch(out)[:, :N, :]
 
-        result = self._to_torch(
-            self.module(
-                self._from_torch(r),
-                self._from_torch(times),
-                self._cache_get("s_inputs"),
-                self._cache_get("s_trunk"),
-                self._cache_get("q"),
-                self._cache_get("c"),
-                self._cache_get("bias_encoder"),
-                self._cache_get("bias_token"),
-                self._cache_get("bias_decoder"),
-                self._cache_get("keys_indexing"),
-                self._cache_get("atom_to_token"),
-                self._cache_get("atom_to_token_normed"),
-                large_seq_len=seq_len > SEQ_LEN_MORE_CHUNKING,
-            )
-        )
-        result = result[:, :N, :]
-        return result
+    # ---------------------------------------------------------------------------
+    # ttnn TRACE of the per-step DiT device stream (opt-in via
+    # Boltz.__init__(diffusion_trace=True) / TTScoreModelAdapter.forward(trace=True)). The BoltzGen diffusion loop is
+    # shape-stable across all sampling steps (only the scalar ``times`` and the
+    # ``r`` coords change; the schedule phases are host-side scalars), so the
+    # device graph captured once per design replays every step — collapsing the
+    # per-step host dispatch. Mirrors Protenix's DiffusionModule._capture_trace /
+    # denoise_traced (tt_bio/protenix.py): stage the two varying inputs into
+    # persistent device buffers, warm the lazy caches, begin/end capture, then
+    # copy + execute_trace each step. Lossless by construction — the replayed
+    # graph is the exact captured program with new input buffer contents, so the
+    # output is bit-identical to the untraced ``forward`` (unlike the proven-lossy
+    # distinct-structure batching, see the boltzgen-batch-threshold-dead-end memo).
+    # ---------------------------------------------------------------------------
+    def _host_tt(self, x: torch.Tensor) -> ttnn.Tensor:
+        """Host-resident tiled bfloat16 tensor for copy_host_to_device_tensor staging."""
+        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+
+    def _release_trace(self):
+        tr = getattr(self, "_diff_trace", None)
+        if tr is not None:
+            try:
+                ttnn.release_trace(self.tt_device, tr["tid"])
+            except Exception:
+                pass
+            self._diff_trace = None
+
+    def _capture_diff_trace(
+        self, r_padded: torch.Tensor, times: torch.Tensor,
+        large_seq_len: bool, B: int, N_padded: int,
+    ) -> dict:
+        in_r = self._from_torch(r_padded)        # persistent input buffer
+        in_times = self._from_torch(times)
+        _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # warmup / compile
+        _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # 2nd warmup: populate lazy _s_conditioned/_c_reshaped + per-layer s_o
+        ttnn.synchronize_device(self.tt_device)
+        tid = ttnn.begin_trace_capture(self.tt_device, cq_id=0)
+        out = self._run_diffusion_device(in_r, in_times, large_seq_len)  # record
+        ttnn.end_trace_capture(self.tt_device, tid, cq_id=0)
+        self._diff_trace = {"tid": tid, "in_r": in_r, "in_times": in_times,
+                            "out": out, "B": B, "N_padded": N_padded}
+        return self._diff_trace
+
+    def forward_traced(
+        self,
+        r: torch.Tensor,
+        times: torch.Tensor,
+        s_inputs: torch.Tensor,
+        s_trunk: torch.Tensor,
+        q: torch.Tensor,
+        c: torch.Tensor,
+        bias_encoder: torch.Tensor,
+        bias_token: torch.Tensor,
+        bias_decoder: torch.Tensor,
+        keys_indexing: torch.Tensor,
+        mask: torch.Tensor,
+        atom_to_token: torch.Tensor,
+    ) -> torch.Tensor:
+        """Traced equivalent of ``forward``. Captures the per-step DiT device
+        graph once per (B, N_padded) and replays it each step with the new
+        ``r`` / ``times`` staged into the captured input buffers. Requires a
+        device opened with a trace region (get_device(trace_region_size=1<<30)
+        or TT_BIO_TRACE_REGION_SIZE)."""
+        import tt_bio.tenstorrent as _TTd
+        if _TTd.trace_region_size() <= 0:
+            raise ValueError(
+                "forward_traced needs a device opened with a trace region; "
+                "call get_device(trace_region_size=1 << 30) (or set "
+                "TT_BIO_TRACE_REGION_SIZE) before tracing.")
+        seq_len, N, N_padded = self._populate_diffusion_cache(
+            r.shape[0], s_inputs, s_trunk, q, c,
+            bias_encoder, bias_token, bias_decoder,
+            keys_indexing, mask, atom_to_token)
+        atom_pad_cached = self._cache_get("atom_pad", 0)
+        if atom_pad_cached:
+            r = torch.nn.functional.pad(r, (0, 0, 0, atom_pad_cached))
+        large = seq_len > SEQ_LEN_MORE_CHUNKING
+        B = r.shape[0]
+        tr = getattr(self, "_diff_trace", None)
+        if tr is None or tr["B"] != B or tr["N_padded"] != N_padded:
+            if tr is not None:
+                self._release_trace()
+            tr = self._capture_diff_trace(r, times, large, B, N_padded)
+        ttnn.copy_host_to_device_tensor(self._host_tt(r), tr["in_r"])
+        ttnn.copy_host_to_device_tensor(self._host_tt(times), tr["in_times"])
+        ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
+        result = torch.Tensor(ttnn.to_torch(tr["out"])).to(torch.float32)
+        return result[:, :N, :]
 
     def reset_static_cache(self):
         super().reset_static_cache()
+        self._release_trace()
         if self.module is not None:
             self._clear_cached_attrs(self.module, ("_s_conditioned", "_c_reshaped"))
             for layer in self.module.encoder.layers + self.module.decoder.layers:
@@ -3305,13 +3468,19 @@ class TrunkModule(TorchWrapper):
         return s, z
 
     def forward(self, s_inputs, s_init, z_init, feats, recycling_steps,
-                relative_position_encoding=None):
+                relative_position_encoding=None, progress_fn=None):
         st = self._build_static(s_inputs, s_init, z_init, feats, relative_position_encoding)
         seq_len = st["seq_len"]
 
         s = self._from_torch(torch.zeros(list(st["s_init_tt"].shape), dtype=s_init.dtype))
         z = self._from_torch(torch.zeros(list(st["z_init_tt"].shape), dtype=z_init.dtype))
-        for _ in range(recycling_steps + 1):
+        # Tick the live view once per recycling iteration, mirroring the host
+        # fallback loop in Boltz2.forward — the resident loop runs entirely on
+        # device, so without this the bar sits at "Trunk 0/N" then jumps to the
+        # final iteration when the loop returns.
+        for _cyc in range(recycling_steps + 1):
+            if progress_fn:
+                progress_fn("trunk", step=_cyc, total=recycling_steps + 1)
             s, z = self._iteration(s, z, st)
 
         s_out = self._to_torch(s)[:, :seq_len, :]

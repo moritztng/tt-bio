@@ -34,13 +34,41 @@ on-device, on the exact commit to be tagged — a release is a promise to custom
    diffusion's seed-to-seed variance; tighten per model as baselines firm up, never below what a
    correct fold hits. BoltzGen's designability floor is scRMSD ≤ 2 Å (BoltzGen's own designable
    bar) on ≥ 50% of the 4 designs — same "catch a gross failure, not a tight target" philosophy.
-2. **No OOM** — run the full supported sequence/complex-size range on the target card(s),
+2. **No UX regression** — the user-facing plumbing every release ships with must keep
+   working: the `tt-bio predict` live progress view advances through every real phase
+   (load → trunk recycling → diffusion → output) with no phase skipped for every model,
+   the emitted CIF/npz parse under a strict standard parser, and `tt-bio predict`/
+   `embed --help` + the results/manifest shape hold. This is the guard against the
+   "0 → diffusion" / "loading → diffusion" progress-jump class and the malformed-output
+   class (e.g. the missing `_atom_site.occupancy` bug). **No tag ships unless it exits 0.**
+   ```bash
+   TT_VISIBLE_DEVICES=<card> /path/to/env/bin/python scripts/ux_regression.py   # all surfaces; exit 0 == all PASS
+   /path/to/env/bin/python scripts/ux_regression.py --cli-only                   # no card; GitHub CI smoke
+   ```
+   It folds `examples/trpcage.yaml` with minimal steps (UX plumbing, not accuracy), so it
+   runs in ~2 min on a card and complements (does not duplicate) the accuracy + perf gates.
+   A UX regression blocks a tag on the same standing as an accuracy one. Whenever a new
+   user-facing surface ships, extend this guard to cover it.
+3. **No OOM** — run the full supported sequence/complex-size range on the target card(s),
    single- and multi-card, to completion. No out-of-memory. Document any hard size limit in the
    release notes rather than letting a customer hit it.
-3. **No perf regression** — benchmark the release commit against the previous release; latency
-   and throughput must not regress beyond noise. Record the numbers in the release notes.
+4. **No perf regression** — run the standing perf gate against the committed baselines and
+   paste its table into the release notes:
+   ```bash
+   TT_VISIBLE_DEVICES=<card> PYTHONPATH=<worktree> python3 scripts/perf_regression.py   # exit 0 == no model regressed beyond ±15%
+   ```
+   `scripts/perf_regression.py` measures WARM steady-state throughput (structures/s for the
+   fold models, seq/s for the ESMC embed) for every shipped model on a fixed small input
+   (trpcage, 1 recycle / 10 steps / 1 sample; model load + first-compile excluded), compares
+   to the per-model baselines in `docs/perf_baselines.json`, and FAILS any model beyond the
+   noise threshold (`--threshold`, default 15%). An **intentional** perf change (a landed
+   optimization, or a deliberate accuracy/perf tradeoff) updates the baseline explicitly:
+   `python3 scripts/perf_regression.py --update-baseline --note "<why>"` and commit the
+   baseline diff alongside the change that justifies it — never silently. A regression the
+   author didn't intend fails the gate. Add a spec + baseline entry for each new model as it
+   ships.
 
-If any of the three fails, it does not ship — fix it or hold the release. `main` may be
+If any of these fails, it does not ship — fix it or hold the release. `main` may be
 experimental; the tag is the promise.
 
 ## Cut a release
