@@ -473,12 +473,13 @@ def build_parser():
     add(sub, "models", help="List available models, protocols and limits.")
     add(sub, "schema", help="Print the OpenAPI 3.1 contract (for tooling/agents).")
 
-    pr = add(sub, "predict", help="Predict a structure (Boltz-2/ESMFold2/Protenix).")
+    pr = add(sub, "predict", help="Predict a structure (Boltz-2/ESMFold2/Protenix/OpenDDE).")
     pr.add_argument("input_pos", nargs="?", metavar="INPUT", help="FASTA/YAML file, or '-' for stdin.")
     pr.add_argument("--sequence", help="A single protein sequence (convenience).")
     pr.add_argument("--input", help="Inline FASTA/YAML string.")
     pr.add_argument("--model", default="boltz2",
-                    choices=["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2"])
+                    choices=["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2",
+                             "opendde", "opendde-abag"])
     pr.add_argument("--name")
     pr.add_argument("--fast", action="store_true")
     pr.add_argument("--use-msa-server", action="store_true", dest="use_msa_server")

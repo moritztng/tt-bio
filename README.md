@@ -88,7 +88,7 @@ without an MSA (lower accuracy; for batch-screening orphan sequences). ESMFold2 
 
 `--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close.
 
-OpenDDE's antibody-antigen accuracy is currently weak (a known gap under investigation; see [`docs/opendde-port.md`](docs/opendde-port.md) for details).
+OpenDDE's antibody-antigen docking on hard or novel epitopes can be inaccurate. This is a known model/checkpoint limitation shared with the reference implementation (the on-device port matches it), not a port bug; general protein-complex docking is reliable. See [`docs/opendde-port.md`](docs/opendde-port.md) for details.
 
 `predict` accepts either a single YAML/FASTA file or a directory containing many input files.
 

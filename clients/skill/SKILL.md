@@ -2,7 +2,7 @@
 name: japanfold
 description: >-
   Predict 3D biomolecular structures and binding affinity (Boltz-2, ESMFold2,
-  Protenix), design de-novo binders/proteins (BoltzGen), and compute ESMC
+  Protenix, OpenDDE), design de-novo binders/proteins (BoltzGen), and compute ESMC
   protein-language-model embeddings via JapanFold — a free, public,
   Tenstorrent-accelerated HTTP API. Use to fold a protein or complex, co-fold a
   protein with a ligand and get affinity, design nanobody/antibody/peptide/
@@ -30,7 +30,8 @@ allowed-tools:
 
 # JapanFold — hosted structure prediction & binder design
 
-JapanFold runs Boltz-2 / ESMFold2 / Protenix (structure + affinity), BoltzGen
+JapanFold runs Boltz-2 / ESMFold2 / Protenix / OpenDDE (structure + affinity for
+the first three; OpenDDE is protein-complex / antibody-antigen docking), BoltzGen
 (binder design), and ESMC (protein-language-model embeddings) on Tenstorrent
 hardware behind a **free public HTTP API**. You
 call it as an async job — **submit → poll → download** — over plain HTTPS against
@@ -85,7 +86,11 @@ res = httpx.get(f"{BASE}/v1/jobs/{job['id']}/results").json()
 ```
 
 - **Models:** `boltz2` (default; MSA + ligands + affinity), `esmfold2`,
-  `esmfold2-fast` (single-sequence, fastest), `protenix-v2`.
+  `esmfold2-fast` (single-sequence, fastest), `protenix-v2`, and `opendde` /
+  `opendde-abag` (protein-complex / antibody-antigen docking on the Protenix-v2
+  stack; protein-only, no affinity). OpenDDE's antibody-antigen docking on hard
+  or novel epitopes can be inaccurate — a known model limitation, not a port bug;
+  for general protein-complex docking it is reliable.
 - For complexes / protein–ligand affinity / multiple chains, pass a **Boltz YAML**
   string as `input` (`sequences:` with `protein`/`dna`/`rna`/`ligand` chains;
   `properties:` for the affinity head).

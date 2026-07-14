@@ -130,6 +130,37 @@ MODELS = [
         # stays Boltz-2-only.
         "caps": ["msa", "ligands", "nucleic", "multichain", "pae"],
     },
+    {
+        "id": "opendde",
+        "name": "OpenDDE",
+        "tagline": "General complex docking.",
+        "blurb": (
+            "Antibody/antigen and general protein-complex co-folding built on the "
+            "Protenix-v2 stack plus a structural-token expander. Folds multi-chain "
+            "protein complexes using an MSA by default. Protein-only (no ligands, "
+            "nucleic acids or affinity). For binding affinity, use Boltz-2; for "
+            "ligands or DNA/RNA, use Protenix-v2 or Boltz-2."
+        ),
+        "needs_msa": False,
+        "msa_default": True,
+        "caps": ["msa", "multichain"],
+    },
+    {
+        "id": "opendde-abag",
+        "name": "OpenDDE Ab-Ag",
+        "tagline": "Antibody-antigen checkpoint.",
+        "blurb": (
+            "OpenDDE with the antibody-antigen checkpoint selected. Co-folds an "
+            "antibody (Fab heavy/light) with its antigen using an MSA by default. "
+            "Honest accuracy note: general protein-complex docking is reliable, but "
+            "antibody-antigen docking on hard or novel epitopes can be inaccurate — "
+            "a known model/checkpoint limitation shared with the reference "
+            "implementation, not a port bug. See the OpenDDE docs for details."
+        ),
+        "needs_msa": False,
+        "msa_default": True,
+        "caps": ["msa", "multichain"],
+    },
 ]
 
 # --- Models offered for protein-language-model embeddings (the `embed` path) ---

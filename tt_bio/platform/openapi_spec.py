@@ -64,10 +64,11 @@ def build_spec(version: str) -> dict:
             "summary": "Biomolecular structure prediction and binder design on Tenstorrent.",
             "description": (
                 "Async job API for protein/complex structure prediction (Boltz-2, "
-                "ESMFold2, Protenix) and binder design (BoltzGen). Submit a job, poll "
-                "its status, then download structures and scores. The public demo needs "
-                "no API key (same input caps and per-IP limits as the web app); an "
-                "optional `Authorization: Bearer <key>` raises those limits."
+                "ESMFold2, Protenix, OpenDDE), binder design (BoltzGen) and protein "
+                "embeddings (ESMC). Submit a job, poll its status, then download "
+                "structures, scores and vectors. The public demo needs no API key "
+                "(same input caps and per-IP limits as the web app); an optional "
+                "`Authorization: Bearer <key>` raises those limits."
             ),
         },
         "servers": [{"url": "https://api.japanfold.com"}, {"url": "http://localhost:8080"}],
@@ -161,7 +162,8 @@ def build_spec(version: str) -> dict:
                     "content": {"type": "string", "description": "FASTA or YAML input."},
                     "name": {"type": "string"}}, "required": ["content"]},
                 "PredictRequest": {"type": "object", "properties": {
-                    "model": {"type": "string", "enum": ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2"],
+                    "model": {"type": "string", "enum": ["boltz2", "esmfold2", "esmfold2-fast",
+                              "protenix-v2", "opendde", "opendde-abag"],
                               "default": "boltz2"},
                     "name": {"type": "string"},
                     "sequence": {"type": "string", "description": "Single protein chain (convenience)."},
