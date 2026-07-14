@@ -22,7 +22,11 @@ wired into the OpenDDE CLI path** (reuses the Protenix-v2 MSA stage) and **re-me
 PDB 9dsg with MSA + best-of-5** — antibody-antigen DockQ stays 0.011 (a genuine port/model
 issue, not the missing-input gap; the Fab assembles and confidence rises, but the antigen
 is mis-docked relative to the Fab across all samples) — see "MSA + best-of-N wired into
-the CLI path" — see "Remaining" for what's still open. (P8, 2026-07-13) **a real
+the CLI path" — see "Remaining" for what's still open. **(P11, 2026-07-14) this is
+confirmed NOT a port bug:** the reference OpenDDE (CUDA) reproduces 0.011 / fnat 0 on 9dsg
+identically, and scores 0.86 on the standard Ab-Ag complex 1ahw — the opendde_abag
+checkpoint works on standard targets and 9dsg is just hard for it. See "P11 —
+reference-vs-device Ab-Ag parity (decisive)". (P8, 2026-07-13) **a real
 multi-chain MSA assembly bug is fixed** (`build_complex_features` now merges per-chain MSAs
 the reference way and computes `profile`/`deletion_mean` per chain; single-chain
 bit-exact, Protenix-v2 gate still passes) — it improves the Fab internal dock (H-L fnat
@@ -42,7 +46,14 @@ replay is wired** (`tt-bio predict --model opendde --trace` -> `OpenDDE.fold(tra
 parity maxdiff=0.0, and end-to-end coords bit-identical OFF vs ON), accuracy gate
 unchanged (3.096 A / TM 0.720), but only ~1% total / ~2% diffusion wall-clock on
 Blackhole (compute-bound at this scale, not dispatch-bound like Protenix @L256) —
-see `docs/opendde-trace-replay.md`.
+see `docs/opendde-trace-replay.md`. (P11, 2026-07-14) **the Ab-Ag 0.011 is NOT a port
+bug — settled by running the reference OpenDDE (CUDA) on the same 9dsg input + settings.**
+The reference itself scores A-H DockQ 0.011 / fnat 0 on 9dsg (best-of-5, opendde_abag.pt,
+MSA on, 10 recycles / 200 steps) — identical to the device — while scoring global DockQ
+0.83-0.86 on the standard Ab-Ag complex 1ahw, so the opendde_abag checkpoint's Ab-Ag prior
+works in general and 9dsg is simply a hard target for it. The earlier "genuine port/model
+gap (unknown which)" framing is resolved to model/checkpoint/target reality, not a port
+defect. See "P11 — reference-vs-device Ab-Ag parity (decisive)".
 
 ## Identity (re-verified 2026-07-12)
 
@@ -714,24 +725,29 @@ disproportionately; one boltz2@3 run hit 54.3 s vs the stable 5.6 s). Full attri
   across all 5 samples. Paired MSA cannot close Ab-Ag for any Ab-Ag complex (antibodies do
   not co-evolve genomically with antigens); the gap is a model/inference gap in the
   structural-docking prior, not a missing-input gap. See P9 above.
-- **Antibody-antigen DockQ still 0.011 with MSA + paired MSA + best-of-5 -- the gap is
-  not an MSA-side input gap.** P8 cleared the multi-chain encoding (relp on both axes,
-  `sym_id`/`entity_id`/`asym_id`/`residue_index`, and the MSA row/profile assembly) and
-  P9 cleared paired MSA (the last MSA-side lever): the `MSAPairingEngine` species-pairing
-  path is wired and consumed, but the antigen has no paired rows with the antibody (no
-  genomic co-occurrence), so there is no Ag-Ab co-evolution signal for any Ab-Ag complex
-  and A-H stays fnat 0. The antigen folds confidently and the Fab assembles (H-L fnat
-  ~0.82), yet the antigen is mis-docked relative to the Fab across all 5 samples. The
-  remaining candidates are model-side: the structural-token refiner's cross-chain
-  conditioning, the diffusion sampler's docking-mode settings, or a weight/checkpoint
-  mismatch in the Ab-Ag-specific `opendde_abag.pt` routing. Real **complex templates** are
-  **not** the lever and are de-prioritized: the reference `TemplateEmbedder` masks every
-  template pair feature to the same-chain block (`multichain_mask = asym_id[:,None] ==
-  asym_id[None,:]`), exactly as this port does, so templates carry only intra-chain geometry
-  (reinforce a chain's own fold, already confident on 9dsg), not the cross-chain
-  orientation. Real template *search* is also a separate multi-day data-pipeline port
-  (tt-bio has no template-search stage; OpenDDE's is a 509-line `search.py` + ~1900 lines
-  of template parser/featurizer + a PDB template DB).
+- **Antibody-antigen DockQ still 0.011 with MSA + paired MSA + best-of-5 -- and the
+  reference reproduces it, so this is NOT a port bug (P11, decisive).** P8 cleared the
+  multi-chain encoding (relp on both axes, `sym_id`/`entity_id`/`asym_id`/`residue_index`,
+  and the MSA row/profile assembly) and P9 cleared paired MSA (the last MSA-side lever):
+  the `MSAPairingEngine` species-pairing path is wired and consumed, but the antigen has no
+  paired rows with the antibody (no genomic co-occurrence), so there is no Ag-Ab
+  co-evolution signal for any Ab-Ag complex and A-H stays fnat 0. The antigen folds
+  confidently and the Fab assembles (H-L fnat ~0.82), yet the antigen is mis-docked
+  relative to the Fab across all 5 samples. P11 then ran the reference OpenDDE (CUDA) on
+  the same 9dsg input + regime: the reference ALSO scores A-H 0.011 / fnat 0 (best-of-5),
+  identical to the device, and scores global DockQ 0.83-0.86 on the standard Ab-Ag complex
+  1ahw — so the opendde_abag checkpoint's Ab-Ag prior works on standard targets and 9dsg is
+  specifically hard for it. The model-side candidates (structural-token refiner cross-chain
+  conditioning, diffusion docking-mode/sampler settings, opendde_abag.pt routing/loading)
+  are all exonerated for 9dsg: the reference, which has none of the port's wiring, fails
+  identically, and the abag checkpoint is verified loaded (strict, 655.79M) and works on
+  1ahw. Real **complex templates** are **not** the lever and are de-prioritized: the
+  reference `TemplateEmbedder` masks every template pair feature to the same-chain block
+  (`multichain_mask = asym_id[:,None] == asym_id[None,:]`), exactly as this port does, so
+  templates carry only intra-chain geometry (reinforce a chain's own fold, already confident
+  on 9dsg), not the cross-chain orientation. Real template *search* is also a separate
+  multi-day data-pipeline port (tt-bio has no template-search stage; OpenDDE's is a
+  509-line `search.py` + ~1900 lines of template parser/featurizer + a PDB template DB).
 - **Nucleic-acid / ligand structural tokens**: `opendde_data.py` is protein-only; extending
   to DNA/RNA backbone/base splitting and ligand atom-tokens follows the identical pattern
   once a mixed-modality co-folding target is on the critical path.
@@ -754,6 +770,12 @@ disproportionately; one boltz2@3 run hit 54.3 s vs the stable 5.6 s). Full attri
   best-of-5 (P7) -- the gap is not closed by wiring the paper's standard MSA input, nor by
   the P8 multi-chain MSA assembly fix (Ab-Ag fnat stays 0 across all 5 samples; the fix
   does improve the Fab internal dock, H-L fnat 0.72 -> 0.82).
+- **Reference parity (P11, decisive):** the 0.011 is NOT a port bug. The reference OpenDDE
+  (CUDA) run on the same 9dsg input + regime scores A-H DockQ 0.011 / fnat 0 (best-of-5,
+  range 0.0107-0.0116) — identical to the device — and scores global DockQ 0.83-0.86 /
+  fnat 0.87-1.0 on the standard Ab-Ag complex 1ahw (best-of-3), so the opendde_abag
+  checkpoint's Ab-Ag prior works on standard targets and 9dsg is specifically hard for it.
+  See "P11 — reference-vs-device Ab-Ag parity (decisive)".
 - **Stochasticity:** diffusion is seed-stochastic and the repo warns outputs are
   not reproducible across releases, so parity is per-target Ca-RMSD/DockQ within
   sample variance (as for Boltz-2 / Protenix-v2), not bit-exact.
@@ -796,7 +818,9 @@ disproportionately; one boltz2@3 run hit 54.3 s vs the stable 5.6 s). Full attri
   N=5 (the paper's `N_sample=5` default). Ab-Ag DockQ stays 0.011 / fnat 0 across all 5
   samples (degenerate distribution; confidence-selected rank 0 == oracle best on A-H).
   MSA is consumed (ipTM 0.549 -> 0.712, Fab H-L 0.377 -> 0.497) but does not place the
-  antigen in the paratope -- a genuine port/model issue, not the missing-input gap.
+  antigen in the paratope. P11 (2026-07-14) settled this: the reference OpenDDE reproduces
+  the 0.011 / fnat 0 on 9dsg identically, so it is checkpoint/target reality for 9dsg, not
+  a port defect — see "P11 — reference-vs-device Ab-Ag parity (decisive)".
 - **Multi-chain MSA assembly: fixed (P8).** `build_complex_features` now merges per-chain
   MSAs the way the reference does (max_d-padded, column-concatenated) and computes
   `profile`/`deletion_mean` per chain (was: whole-merged-MSA, diluting every chain's
@@ -828,9 +852,11 @@ disproportionately; one boltz2@3 run hit 54.3 s vs the stable 5.6 s). Full attri
   wired into the predict path (ColabFold pair endpoint + `build_complex_features` paired
   block); it is consumed but does NOT close the 0.011 Ab-Ag DockQ (no antigen-antibody
   genomic co-occurrence, so no Ag-Ab co-evolution signal exists for any Ab-Ag complex).
-  The remaining Ab-Ag candidates are model-side: the structural-token refiner's cross-chain
+  The remaining Ab-Ag candidates were model-side (the structural-token refiner's cross-chain
   conditioning, the diffusion sampler's docking-mode settings, or a weight/checkpoint
-  mismatch in the Ab-Ag-specific `opendde_abag.pt` routing. Real template **search**
+  mismatch in the Ab-Ag-specific `opendde_abag.pt` routing); P11 (2026-07-14) exonerated all
+  of them for 9dsg by reproducing the failure in the reference — see "P11 — reference-vs-
+  device Ab-Ag parity (decisive)". Real template **search**
   is a separate, de-prioritized lift: the dummy-template embedder already runs at `nt=4`,
   and real templates are not the Ab-Ag lever (reference masks template pair features to
   same-chain), though porting OpenDDE's HMMER/Kalign search pipeline + a PDB template DB is
@@ -838,4 +864,58 @@ disproportionately; one boltz2@3 run hit 54.3 s vs the stable 5.6 s). Full attri
   yet: nucleic-acid/ligand structural tokens. (--fast/multi-card verification is done; see
   the Status section.)
   OpenDDE is deliberately not in the README `--model`
-  table yet -- its Ab-Ag differentiator is measured but not at parity.
+  table yet: the port reproduces the reference (9dsg 0.011 == 0.011, P11), but the
+  opendde_abag checkpoint does not solve the 9dsg Ab-Ag target, so the Ab-Ag differentiator
+  is measured and reference-parity-verified but not a 9dsg win.
+
+## P11 — reference-vs-device Ab-Ag parity (decisive, 2026-07-14)
+
+The one hole in the parity story was that the device's 9dsg Ab-Ag DockQ 0.011 / fnat 0 was
+measured against the crystal structure, never against the reference OpenDDE's own 9dsg
+output — so "port bug" and "9dsg is just hard for this preview checkpoint" could not be
+told apart. P11 closes it by running the REFERENCE OpenDDE (CUDA) on the exact same input
+and settings and computing its DockQ against the same ground truth, with the same tool.
+
+**Reference run.** OpenDDE @ `a0d5134` (the port pin commit) on a rented vast.ai RTX 4090,
+`opendde_abag.pt` (verified loaded: "Loading from .../opendde_abag.pt, strict: True",
+655.79M params), the same 9dsg input as `examples/9dsg_abag.yaml` (antigen A 196 / Fab
+heavy H 248 / Fab light L 212), MSA via the reference's own `opendde msa` stage (ColabFold
+MMseqs2 API, unpaired+paired A3M, N_msa 14553), templates off (the reference masks template
+pair features to same-chain regardless, so templates carry no cross-chain signal), 10
+recycles / 200 diffusion steps, best-of-5, seed 101, bf16. (bf16 after fp32 OOM'd at 200
+steps on 24 GB; the Ab-Ag outcome is fnat 0 at both precisions in the reference, so the
+memory concession does not affect the verdict.) DockQ via `scripts/opendde_dockq.py`
+(DockQ==2.1.3) vs `examples/ground_truth_structures/9dsg.cif` — the SAME tool and ground
+truth the device leg used.
+
+**9dsg — reference vs device (A-H = the paratope-epitope interface):**
+
+| leg | best-of | A-H DockQ (range) | A-H fnat | H-L DockQ | H-L fnat |
+|---|---:|---|---:|---:|---:|
+| device (this port) | 5 | 0.011 (0.0110-0.0113) | 0 | 0.497 | 0.825 |
+| reference (CUDA) | 5 | 0.011 (0.0107-0.0116) | 0 | 0.41-0.49 | 0.79-0.83 |
+
+Indistinguishable. The reference places the antigen at random relative to the Fab paratope
+(fnat 0 in all 5 samples) exactly as the device does, and assembles the Fab internally
+(H-L ~0.48, fnat ~0.82) exactly as the device does.
+
+**Confirmatory second target — 1ahw (a standard SAbDab/PDB Ab-Ag complex), reference only:**
+because the reference also failed 9dsg, the protocol calls for one standard Ab-Ag target
+the paper's regime should handle, to confirm the checkpoint is not globally broken. The
+reference scores global DockQ 0.83-0.86 / fnat 0.87-1.0 across all three native interfaces
+(best-of-3, same regime) — in the paper's good-Ab-Ag regime and above it. So the
+opendde_abag checkpoint's Ab-Ag structural prior works on standard targets; 9dsg is
+specifically hard for it.
+
+**Verdict.** NOT a port bug. The device faithfully reproduces the reference on 9dsg (both
+0.011 / fnat 0); the opendde_abag preview checkpoint does not solve 9dsg but does solve
+standard Ab-Ag complexes (1ahw 0.86). The model-side suspects (structural-token refiner
+cross-chain conditioning, diffusion docking-mode/sampler settings, opendde_abag.pt
+routing/loading) are exonerated for 9dsg: the reference, with none of the port's wiring,
+fails identically. The device 1ahw leg (the symmetric cross-check on the second target) was
+not run here — it needs a Tenstorrent card and this was a vast.ai/CPU task with no card
+lease; it is the recommended follow-up, but the reference failing 9dsg identically already
+settles port-bug-vs-checkpoint. Pharma framing: we do NOT reproduce OpenDDE's Ab-Ag
+accuracy on 9dsg-class targets; we DO match the reference on 9dsg. Full numbers + GPU $
+in `~/.coworker/state/opendde-9dsg-reference-dockq.md`.
+
