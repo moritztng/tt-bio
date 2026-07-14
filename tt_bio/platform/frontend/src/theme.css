@@ -158,6 +158,10 @@ code, pre { font-family: var(--mono); }
   border: 1px solid var(--border-strong); color: var(--muted); white-space: nowrap;
 }
 .selcard.active .capchip { border-color: var(--accent); color: var(--accent-ink); }
+/* Checkpoint picker inside a family card (e.g. OpenDDE general vs antibody-antigen). */
+.selcard .checkpoints { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.selcard .checkpoints .chip { font-size: 12px; padding: 3px 11px; }
+.selcard .checkpoints .chip.active { background: var(--accent); color: #fff; }
 
 /* ---------- forms ---------- */
 .field { margin-bottom: 14px; }

@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, g, jsonify, request
 
 from . import apikeys
-from .catalog import catalog
+from . import catalog
 from .http_common import client_ip, serve_archive, serve_artifact, serve_log, submit_job
 from .jobs import CANCELED, CapacityError, FAILED, SUCCEEDED
 
@@ -202,10 +202,15 @@ def health():
 
 @bp.get("/models")
 def models():
-    c = catalog()
-    return jsonify({k: c[k] for k in ("models", "protocols", "predict_params",
-                                      "design_params", "embed_models", "embed_params",
-                                      "limits")} | {"notes": c.get("demo_note")})
+    # The API/CLI discovery surface lists the flat, dispatchable model ids
+    # verbatim (both OpenDDE checkpoints stay top-level here) — the web UI's
+    # collapsed "main model selection" lives at /api/catalog, a separate surface.
+    c = catalog.catalog()
+    return jsonify({**{k: c[k] for k in ("protocols", "predict_params",
+                                         "design_params", "embed_models", "embed_params",
+                                         "limits")},
+                    "models": catalog.MODELS,
+                    "notes": c.get("demo_note")})
 
 
 @bp.get("/openapi.json")

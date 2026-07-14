@@ -96,6 +96,26 @@ function genYaml(chains, affinityBinder, constraints = []) {
   return lines.join("\n") + "\n";
 }
 
+// A model card may carry a nested `checkpoints` list (e.g. OpenDDE's general vs
+// antibody-antigen checkpoint). The engine dispatches each checkpoint as its own
+// model id, so for any logic keyed on the concrete dispatch id (caps, MSA flags,
+// submit) we expand the card into one virtual model per checkpoint — inheriting
+// the family's caps/needs_msa/msa_default — while the *card grid* still renders
+// one visual entry with a picker inside (see the model grid below).
+function expandModels(models) {
+  const out = [];
+  for (const m of models || []) {
+    if (m.checkpoints) {
+      for (const cp of m.checkpoints) {
+        out.push({ ...m, id: cp.id, name: cp.name, tagline: cp.tagline, blurb: cp.blurb, checkpoints: undefined });
+      }
+    } else {
+      out.push(m);
+    }
+  }
+  return out;
+}
+
 export default function FoldForm({ catalog, onSubmitted, onError }) {
   const [model, setModel] = useState("boltz2");
   const [inputMode, setInputMode] = useState("compose"); // compose | bulk
@@ -122,7 +142,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
   const cur = forms[activeForm] || forms[0];
   const chains = cur.chains, affinity = cur.affinity, affinityBinder = cur.affinityBinder, constraints = cur.constraints;
 
-  const modelInfo = useMemo(() => catalog.models.find((m) => m.id === model), [catalog, model]);
+  const modelInfo = useMemo(() => expandModels(catalog.models).find((m) => m.id === model), [catalog, model]);
   const caps = useMemo(() => new Set(modelInfo?.caps || []), [modelInfo]);
   // Lock "Generate MSA": required (and so forced on) for a model that needs an
   // MSA; impossible (forced off) for one with no MSA encoder; free otherwise.
@@ -137,7 +157,7 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
 
   const onModelChange = (m) => {
     setModel(m);
-    const info = catalog.models.find((x) => x.id === m);
+    const info = expandModels(catalog.models).find((x) => x.id === m);
     setParam("use_msa_server", !!(info?.needs_msa || info?.msa_default));
     if (m !== "boltz2") setFormat("yaml");
   };
@@ -306,19 +326,52 @@ export default function FoldForm({ catalog, onSubmitted, onError }) {
         <p className="section-title">Model</p>
         <p className="section-sub">Open models beyond Google DeepMind&apos;s AlphaFold&nbsp;3.</p>
         <div className="cardgrid models">
-          {catalog.models.map((m) => (
-            <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`}
-              title={m.blurb} onClick={() => onModelChange(m.id)}>
-              <div className="t">{m.name}</div>
-              <div className="s">{m.tagline}</div>
+          {catalog.models.map((m) => {
+            const caps = m.caps || [];
+            const capChips = (
               <div className="caps">
                 <span className="capchip">proteins</span>
-                {MODEL_CAPS.filter(([c]) => (m.caps || []).includes(c)).map(([c, label]) => (
+                {MODEL_CAPS.filter(([c]) => caps.includes(c)).map(([c, label]) => (
                   <span key={c} className="capchip">{label}</span>
                 ))}
               </div>
-            </button>
-          ))}
+            );
+            // A family card with a checkpoint picker: one visual entry, but each
+            // checkpoint submits its own concrete model id (no engine reload).
+            if (m.checkpoints) {
+              const cpIds = m.checkpoints.map((c) => c.id);
+              const active = cpIds.includes(model);
+              const activeCp = m.checkpoints.find((c) => c.id === model) || m.checkpoints[0];
+              return (
+                <div key={m.id} className={`selcard ${active ? "active" : ""}`}
+                  role="button" tabIndex={0} title={activeCp.blurb}
+                  onClick={() => onModelChange(active ? model : cpIds[0])}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onModelChange(active ? model : cpIds[0]); } }}>
+                  <div className="t">{m.name}</div>
+                  <div className="s">{m.tagline}</div>
+                  <div className="checkpoints">
+                    {m.checkpoints.map((c) => (
+                      <button key={c.id} type="button"
+                        className={`chip ${model === c.id ? "active" : ""}`}
+                        title={c.blurb}
+                        onClick={(e) => { e.stopPropagation(); onModelChange(c.id); }}>
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                  {capChips}
+                </div>
+              );
+            }
+            return (
+              <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`}
+                title={m.blurb} onClick={() => onModelChange(m.id)}>
+                <div className="t">{m.name}</div>
+                <div className="s">{m.tagline}</div>
+                {capChips}
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -443,10 +443,84 @@ sequences:
 ]
 
 
+# --- Presentation shape for the web UI's main model selection ---------------
+# The flat :data:`MODELS` above is the single source of truth for what's
+# dispatchable: limits/jobs validate against it (so both OpenDDE checkpoint ids
+# stay directly submittable to /v1/predictions), and /v1/models lists it verbatim
+# for API/CLI users. The web UI's *main model selection* is a different surface —
+# a human picks a model card — and there OpenDDE should appear ONCE, with its two
+# checkpoints reachable via a picker on that single card. This collapses entries
+# that share a ``family`` (e.g. the two OpenDDE checkpoints) into one card with a
+# nested ``checkpoints`` list, leaving every other model as-is. It is purely
+# visual: the concrete dispatch id a card submits is one of the original flat
+# ids, so no model_id is ever asked to switch checkpoints per-request (that would
+# force an engine resident-model reload — see memory
+# japanfold-catalog-collapse-checkpoint-variant-trap).
+def _checkpoint_label(name: str) -> str:
+    # "OpenDDE — General" -> "General" (split on any dash kind, take the last part).
+    for sep in ("—", "–", "-", "—"):
+        if sep in name:
+            tail = name.rsplit(sep, 1)[-1].strip()
+            if tail:
+                return tail
+    return name
+
+
+def _presentation_models() -> list[dict]:
+    """MODELS with same-``family`` entries collapsed into one card with a
+    ``checkpoints`` picker. Other entries pass through unchanged."""
+    out: list[dict] = []
+    families: dict[str, list[dict]] = {}
+    for m in MODELS:
+        fam = m.get("family")
+        if not fam:
+            out.append(m)
+            continue
+        families.setdefault(fam, []).append(m)
+    for fam, group in families.items():
+        # The family card inherits the shared dispatch metadata (caps, needs_msa,
+        # msa_default, family) from the first member; the two OpenDDE checkpoints
+        # agree on all of these. The card-level name/tagline/blurb describe the
+        # family; each checkpoint keeps its own verbatim blurb (incl. the accuracy
+        # notes) so nothing is reworded.
+        base = group[0]
+        # "OpenDDE — General" -> "OpenDDE": the family name is the shared prefix
+        # before the checkpoint suffix.
+        card_name = base["name"].split("—", 1)[0].rstrip(" –-").strip() or base["name"]
+        card = {
+            "id": base["id"],
+            "family": fam,
+            "name": card_name,
+            "tagline": "Protein-complex docking — pick a checkpoint.",
+            "blurb": (
+                "OpenDDE co-folds multi-chain protein complexes on the Protenix-v2 "
+                "stack plus a structural-token expander, using an MSA by default. "
+                "Protein-only (no ligands, nucleic acids or affinity). Pick the "
+                "checkpoint that matches your input below — for binding affinity, "
+                "use Boltz-2; for ligands or DNA/RNA, use Protenix-v2 or Boltz-2."
+            ),
+            "needs_msa": base.get("needs_msa", False),
+            "msa_default": base.get("msa_default", False),
+            "caps": list(base.get("caps", [])),
+            "checkpoints": [
+                {
+                    "id": m["id"],
+                    "label": _checkpoint_label(m["name"]),
+                    "name": m["name"],
+                    "tagline": m.get("tagline", ""),
+                    "blurb": m.get("blurb", ""),
+                }
+                for m in group
+            ],
+        }
+        out.append(card)
+    return out
+
+
 def catalog() -> dict:
     """The full catalog payload served to the frontend."""
     return {
-        "models": MODELS,
+        "models": _presentation_models(),
         "protocols": PROTOCOLS,
         "predict_params": PREDICT_PARAMS,
         "design_params": DESIGN_PARAMS,
