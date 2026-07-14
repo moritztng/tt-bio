@@ -65,12 +65,22 @@ false gate failure. Re-run on an idle card before treating a failure there as re
    fold models, seq/s for the ESMC embed) for every shipped model on a fixed small input
    (trpcage, 1 recycle / 10 steps / 1 sample; model load + first-compile excluded), compares
    to the per-model baselines in `docs/perf_baselines.json`, and FAILS any model beyond the
-   noise threshold (`--threshold`, default 15%). An **intentional** perf change (a landed
-   optimization, or a deliberate accuracy/perf tradeoff) updates the baseline explicitly:
-   `python3 scripts/perf_regression.py --update-baseline --note "<why>"` and commit the
-   baseline diff alongside the change that justifies it — never silently. A regression the
-   author didn't intend fails the gate. Add a spec + baseline entry for each new model as it
-   ships.
+   noise threshold (`--threshold`, default 15%). **Baselines are per card type** — the file
+   nests one `models` block per card type (`p150a`, `p300c`, ...) under a `cards` key, and the
+   gate detects the card it is running on at runtime (tt-smi / kernel sysfs, mirroring
+   `tt_bio/main.py::_detect_p300_devices`) and compares only against that card's baseline. A
+   P300c baseline must never be judged against a P150a run — the P150 is a smaller chip and
+   would read as a false 20-34% regression that is just the card, not the code. If the detected
+   card type has no recorded baseline yet, the gate FAILS loudly (every model `NO BASELINE`)
+   rather than silently skipping or matching the wrong card's numbers. So a release can be cut
+   from any machine in the fleet (P150a on pc/qb1, P300c on qb2): the gate picks the right
+   baseline automatically. An **intentional** perf change (a landed optimization, or a
+   deliberate accuracy/perf tradeoff) updates the baseline explicitly:
+   `python3 scripts/perf_regression.py --update-baseline --note "<why>"` (run on a card of that
+   type — it writes only that card's entry, preserving the others) and commit the baseline diff
+   alongside the change that justifies it — never silently. A regression the author didn't
+   intend fails the gate. To seed a **new card type**, run the gate with `--update-baseline` on
+   that card. Add a spec + baseline entry for each new model as it ships.
 
 If any of these fails, it does not ship — fix it or hold the release. `main` may be
 experimental; the tag is the promise.
