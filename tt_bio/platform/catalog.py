@@ -130,16 +130,41 @@ MODELS = [
         # stays Boltz-2-only.
         "caps": ["msa", "ligands", "nucleic", "multichain", "pae"],
     },
+    # OpenDDE is one model family with two checkpoints: a general protein-complex
+    # checkpoint and an antibody-antigen checkpoint. They share the `family` label
+    # so the catalog (and /v1/models) presents them as one product line with two
+    # variants, not two unrelated models. Both are protein-only (no ligands,
+    # nucleic acids or affinity) and use an MSA by default.
     {
         "id": "opendde",
-        "name": "OpenDDE",
+        "family": "opendde",
+        "name": "OpenDDE — General",
         "tagline": "General complex docking.",
         "blurb": (
-            "General protein-complex co-folding built on the Protenix-v2 stack plus "
-            "a structural-token expander. Folds multi-chain protein complexes using "
-            "an MSA by default. Protein-only (no ligands, nucleic acids or "
-            "affinity). For binding affinity, use Boltz-2; for ligands or DNA/RNA, "
-            "use Protenix-v2 or Boltz-2."
+            "OpenDDE with its general protein-complex checkpoint. Co-folds "
+            "multi-chain protein complexes on the Protenix-v2 stack plus a "
+            "structural-token expander, using an MSA by default. Protein-only (no "
+            "ligands, nucleic acids or affinity). For binding affinity, use "
+            "Boltz-2; for ligands or DNA/RNA, use Protenix-v2 or Boltz-2."
+        ),
+        "needs_msa": False,
+        "msa_default": True,
+        "caps": ["msa", "multichain"],
+    },
+    {
+        "id": "opendde-abag",
+        "family": "opendde",
+        "name": "OpenDDE — Antibody-Antigen",
+        "tagline": "Antibody-antigen checkpoint.",
+        "blurb": (
+            "OpenDDE with its antibody-antigen checkpoint selected. Co-folds an "
+            "antibody (Fab heavy/light) with its antigen on the Protenix-v2 stack, "
+            "using an MSA by default. Protein-only, no affinity. Accuracy is "
+            "verified to match the reference OpenDDE implementation: strong on "
+            "standard antibody-antigen complexes, and it shares the reference's "
+            "own limitation on some hard targets (a checkpoint characteristic, not "
+            "a port defect) — so don't expect uniformly high accuracy on every "
+            "antibody-antigen input."
         ),
         "needs_msa": False,
         "msa_default": True,

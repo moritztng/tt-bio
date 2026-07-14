@@ -163,7 +163,7 @@ def build_spec(version: str) -> dict:
                     "name": {"type": "string"}}, "required": ["content"]},
                 "PredictRequest": {"type": "object", "properties": {
                     "model": {"type": "string", "enum": ["boltz2", "esmfold2", "esmfold2-fast",
-                              "protenix-v2", "opendde"],
+                              "protenix-v2", "opendde", "opendde-abag"],
                               "default": "boltz2"},
                     "name": {"type": "string"},
                     "sequence": {"type": "string", "description": "Single protein chain (convenience)."},
