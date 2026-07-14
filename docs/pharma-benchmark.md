@@ -389,7 +389,9 @@ This is a parity result, kept separate from the accuracy question. OpenDDE's own
 antibody-antigen DockQ on PDB 9dsg (single-sequence, 1 sample) is a genuine 0.011
 (see `docs/opendde-port.md`): that says the model mis-places the antigen. It does
 not bear on whether the port reproduces the reference, which is what the numbers
-above measure.
+above measure. The Ab-Ag accuracy question itself — port bug or hard target — is
+settled in the Ab-Ag reference leg below (P11): the reference reproduces the 0.011,
+so it is checkpoint/target reality for 9dsg, not a port defect.
 
 Raw data: `docs/pharma-benchmark-data/opendde.json`.
 
@@ -453,6 +455,54 @@ json; the script picks the highest-`ranking_score` sample and emits
 output directly. Both feed `scripts/pharma_parity.py structures`.
 
 Raw data: `docs/pharma-benchmark-data/opendde-prod-leg.json`.
+
+#### Ab-Ag reference leg (opendde_abag DockQ, device-vs-reference, 2026-07-14)
+
+The production leg above measures co-folding coordinate parity (R/D/X) but never compared
+the device and reference on the Ab-Ag DockQ metric that is OpenDDE's whole differentiator.
+That left a hole: the device's 9dsg Ab-Ag DockQ 0.011 / fnat 0 was measured vs the crystal
+only, so "port bug" and "9dsg is just hard for this preview checkpoint" could not be told
+apart. This leg closes it by running the REFERENCE OpenDDE (CUDA) on the same 9dsg input
+and settings and computing its DockQ with the same tool against the same ground truth.
+
+**Reference run.** OpenDDE @ `a0d5134` on a rented vast.ai RTX 4090, `opendde_abag.pt`
+(strict load verified, 655.79M params), the 9dsg input from `examples/9dsg_abag.yaml`
+(antigen A 196 / Fab heavy H 248 / Fab light L 212), MSA via the reference's own
+`opendde msa` stage, templates off, 10 recycles / 200 steps, best-of-5, seed 101, bf16.
+DockQ via `scripts/opendde_dockq.py` (DockQ==2.1.3) vs
+`examples/ground_truth_structures/9dsg.cif` — same tool, same ground truth as the device
+leg. A-H is the paratope-epitope interface (9dsg has no A-L native interface).
+
+| leg | best-of | A-H DockQ (range) | A-H fnat | H-L DockQ | H-L fnat |
+|---|---:|---|---:|---:|---:|
+| device (this port) | 5 | 0.011 (0.0110-0.0113) | 0 | 0.497 | 0.825 |
+| reference (CUDA) | 5 | 0.011 (0.0107-0.0116) | 0 | 0.41-0.49 | 0.79-0.83 |
+
+Indistinguishable: the reference places the antigen at random relative to the Fab paratope
+(fnat 0 in all 5 samples) exactly as the device does, and assembles the Fab internally the
+same way.
+
+**Confirmatory second target — 1ahw (standard Ab-Ag complex), reference only:** because
+the reference also failed 9dsg, the protocol adds one standard SAbDab/PDB Ab-Ag target to
+confirm the checkpoint is not globally broken. The reference scores global DockQ 0.83-0.86
+/ fnat 0.87-1.0 across all three native interfaces (best-of-3, same regime) — in the
+paper's good-Ab-Ag regime. So the opendde_abag checkpoint's Ab-Ag prior works on standard
+targets; 9dsg is specifically hard for it.
+
+**Verdict: NOT a port bug.** The device reproduces the reference on 9dsg (both 0.011 /
+fnat 0); the opendde_abag preview checkpoint does not solve 9dsg but does solve standard
+Ab-Ag complexes (1ahw 0.86). The model-side suspects (structural-token refiner cross-chain
+conditioning, diffusion docking-mode/sampler settings, opendde_abag.pt routing/loading)
+are exonerated for 9dsg — the reference, with none of the port's wiring, fails identically.
+The device 1ahw leg (symmetric cross-check) needs a Tenstorrent card and is the recommended
+follow-up; the reference failing 9dsg identically already settles port-bug-vs-checkpoint.
+
+Pharma framing: we match the reference on 9dsg; we do NOT reproduce OpenDDE's Ab-Ag
+accuracy on 9dsg-class targets. The paper's headline 51/70/66 DockQ numbers are
+benchmark-wide success rates on different sets, not a 9dsg number, and are not
+contradicted by this single hard-target result. Full numbers + GPU $ in
+`~/.coworker/state/opendde-9dsg-reference-dockq.md`; analysis in `docs/opendde-port.md`
+P11.
 
 ### BoltzGen (de-novo binder design) — device-vs-reference designability parity measured
 
@@ -597,7 +647,10 @@ device-vs-reference on two single-sequence targets, three seeds each (trp-cage
 within its noise floor at 0.39 Å, a 2.85x-over-floor gap on prot at reduced
 settings, resolved at production settings (10c/200s): X = 5.68 ± 3.98 Å sits inside
 the noise floor (R = 1.90 Å, D = 8.06 Å) — the reduced-settings gap was
-a tight-floor artifact, not a device defect), and **BoltzGen** device-vs-reference
+a tight-floor artifact, not a device defect), the **OpenDDE Ab-Ag reference
+leg** (the opendde_abag DockQ parity that was missing: reference 9dsg A-H
+0.011 / fnat 0 == device, and reference 1ahw 0.86, so the 9dsg 0.011 is
+checkpoint/target reality not a port bug — see the Ab-Ag reference leg), and **BoltzGen** device-vs-reference
 designability parity (device 93.8% ≤2Å over two n=8 seed groups; reference
 68.75% ≤2Å over two n=8 groups of the official CLI run on a rented vast.ai
 RTX 3090 — the port meets-or-exceeds the reference's designability, see the
@@ -625,9 +678,16 @@ bounds the Protenix-v2 noise floor from above and shows up on the reference
 side too); the **Protenix-v2 reference-side compute-time ceiling** (an
 operational limitation of running the official CPU implementation at
 production settings, not a port defect — the 7ROA reference leg is done, but
-each additional target/seed is its own multi-hour CPU run); and **BoltzGen's
+each additional target/seed is its own multi-hour CPU run); **BoltzGen's
 reference implementation is GPU-only** (it calls
 `torch.cuda.get_device_capability()` unconditionally), so its reference leg
-runs on a rented GPU rather than a fleet host — now done, not a blocker.
+runs on a rented GPU rather than a fleet host — now done, not a blocker; and
+**OpenDDE Ab-Ag on 9dsg** — the opendde_abag preview checkpoint does not solve
+9dsg (A-H DockQ 0.011 / fnat 0), and this is confirmed NOT a port defect: the
+reference OpenDDE reproduces 0.011 identically while scoring 0.86 on the
+standard Ab-Ag complex 1ahw, so 9dsg is a hard target for the checkpoint, not
+a port bug (see the Ab-Ag reference leg above and `docs/opendde-port.md` P11).
+We therefore match the reference on 9dsg but do not reproduce OpenDDE's Ab-Ag
+accuracy on 9dsg-class targets.
 
 Candidate for publication on docs.japanfold.com once that site exists.
