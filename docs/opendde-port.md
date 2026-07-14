@@ -24,8 +24,10 @@ issue, not the missing-input gap; the Fab assembles and confidence rises, but th
 is mis-docked relative to the Fab across all samples) — see "MSA + best-of-N wired into
 the CLI path" — see "Remaining" for what's still open. **(P11, 2026-07-14) this is
 confirmed NOT a port bug:** the reference OpenDDE (CUDA) reproduces 0.011 / fnat 0 on 9dsg
-identically, and scores 0.86 on the standard Ab-Ag complex 1ahw — the opendde_abag
-checkpoint works on standard targets and 9dsg is just hard for it. See "P11 —
+identically, and both device and reference score ~0.86 on the standard Ab-Ag complex 1ahw
+(device 0.863 best-conf / 0.882 oracle, fnat 0.90-1.0; reference 0.83-0.86, fnat 0.87-1.0) — the
+opendde_abag checkpoint works on standard targets on-device as well as on the reference, and 9dsg
+is just hard for it. See "P11 —
 reference-vs-device Ab-Ag parity (decisive)". (P8, 2026-07-13) **a real
 multi-chain MSA assembly bug is fixed** (`build_complex_features` now merges per-chain MSAs
 the reference way and computes `profile`/`deletion_mean` per chain; single-chain
@@ -49,9 +51,11 @@ Blackhole (compute-bound at this scale, not dispatch-bound like Protenix @L256) 
 see `docs/opendde-trace-replay.md`. (P11, 2026-07-14) **the Ab-Ag 0.011 is NOT a port
 bug — settled by running the reference OpenDDE (CUDA) on the same 9dsg input + settings.**
 The reference itself scores A-H DockQ 0.011 / fnat 0 on 9dsg (best-of-5, opendde_abag.pt,
-MSA on, 10 recycles / 200 steps) — identical to the device — while scoring global DockQ
-0.83-0.86 on the standard Ab-Ag complex 1ahw, so the opendde_abag checkpoint's Ab-Ag prior
-works in general and 9dsg is simply a hard target for it. The earlier "genuine port/model
+MSA on, 10 recycles / 200 steps) — identical to the device — while both reference and device
+score global DockQ ~0.86 on the standard Ab-Ag complex 1ahw (reference 0.83-0.86 best-of-3;
+device 0.863 best-conf / 0.882 oracle best-of-5, fnat 0.90-1.0), so the opendde_abag checkpoint's
+Ab-Ag prior works on standard targets on-device as well as on the reference, and 9dsg is simply a
+hard target for it. The earlier "genuine port/model
 gap (unknown which)" framing is resolved to model/checkpoint/target reality, not a port
 defect. See "P11 — reference-vs-device Ab-Ag parity (decisive)".
 
@@ -737,7 +741,11 @@ disproportionately; one boltz2@3 run hit 54.3 s vs the stable 5.6 s). Full attri
   the same 9dsg input + regime: the reference ALSO scores A-H 0.011 / fnat 0 (best-of-5),
   identical to the device, and scores global DockQ 0.83-0.86 on the standard Ab-Ag complex
   1ahw — so the opendde_abag checkpoint's Ab-Ag prior works on standard targets and 9dsg is
-  specifically hard for it. The model-side candidates (structural-token refiner cross-chain
+  specifically hard for it. The device 1ahw leg (the symmetric cross-check) is now run too:
+  device global DockQ 0.863 best-confidence / 0.882 oracle, fnat 0.90-1.0 (best-of-5, same
+  regime, on a local Blackhole card), matching the reference's 0.83-0.86 — so the checkpoint
+  solves standard Ab-Ag complexes on-device as well as on the reference, and the 9dsg
+  comparison is symmetric on BOTH targets. The model-side candidates (structural-token refiner cross-chain
   conditioning, diffusion docking-mode/sampler settings, opendde_abag.pt routing/loading)
   are all exonerated for 9dsg: the reference, which has none of the port's wiring, fails
   identically, and the abag checkpoint is verified loaded (strict, 655.79M) and works on
@@ -775,6 +783,11 @@ disproportionately; one boltz2@3 run hit 54.3 s vs the stable 5.6 s). Full attri
   range 0.0107-0.0116) — identical to the device — and scores global DockQ 0.83-0.86 /
   fnat 0.87-1.0 on the standard Ab-Ag complex 1ahw (best-of-3), so the opendde_abag
   checkpoint's Ab-Ag prior works on standard targets and 9dsg is specifically hard for it.
+  The device 1ahw leg (symmetric cross-check) confirms it on-device: device global DockQ
+  0.863 best-confidence / 0.882 oracle, fnat 0.90-1.0 (best-of-5, same regime, local
+  Blackhole card), matching the reference's 0.83-0.86 — so the checkpoint solves standard
+  Ab-Ag complexes on-device as well as on the reference, and the 9dsg comparison is
+  symmetric on BOTH targets (9dsg: both 0.011 / fnat 0; 1ahw: both ~0.86).
   See "P11 — reference-vs-device Ab-Ag parity (decisive)".
 - **Stochasticity:** diffusion is seed-stochastic and the repo warns outputs are
   not reproducible across releases, so parity is per-target Ca-RMSD/DockQ within
@@ -899,23 +912,26 @@ Indistinguishable. The reference places the antigen at random relative to the Fa
 (fnat 0 in all 5 samples) exactly as the device does, and assembles the Fab internally
 (H-L ~0.48, fnat ~0.82) exactly as the device does.
 
-**Confirmatory second target — 1ahw (a standard SAbDab/PDB Ab-Ag complex), reference only:**
+**Confirmatory second target — 1ahw (a standard SAbDab/PDB Ab-Ag complex), reference AND device:**
 because the reference also failed 9dsg, the protocol calls for one standard Ab-Ag target
 the paper's regime should handle, to confirm the checkpoint is not globally broken. The
 reference scores global DockQ 0.83-0.86 / fnat 0.87-1.0 across all three native interfaces
-(best-of-3, same regime) — in the paper's good-Ab-Ag regime and above it. So the
-opendde_abag checkpoint's Ab-Ag structural prior works on standard targets; 9dsg is
-specifically hard for it.
+(best-of-3, same regime) — in the paper's good-Ab-Ag regime and above it. The device leg
+(run as the symmetric cross-check on a local Blackhole card, best-of-5, same regime) scores
+global DockQ 0.863 best-confidence / 0.882 oracle, fnat 0.90-1.0 — matching the reference.
+So the opendde_abag checkpoint's Ab-Ag structural prior works on standard targets on-device
+as well as on the reference; 9dsg is specifically hard for it. The comparison is now
+symmetric on BOTH targets (9dsg: both fail identically; 1ahw: both solve identically).
 
 **Verdict.** NOT a port bug. The device faithfully reproduces the reference on 9dsg (both
-0.011 / fnat 0); the opendde_abag preview checkpoint does not solve 9dsg but does solve
-standard Ab-Ag complexes (1ahw 0.86). The model-side suspects (structural-token refiner
-cross-chain conditioning, diffusion docking-mode/sampler settings, opendde_abag.pt
-routing/loading) are exonerated for 9dsg: the reference, with none of the port's wiring,
-fails identically. The device 1ahw leg (the symmetric cross-check on the second target) was
-not run here — it needs a Tenstorrent card and this was a vast.ai/CPU task with no card
-lease; it is the recommended follow-up, but the reference failing 9dsg identically already
-settles port-bug-vs-checkpoint. Pharma framing: we do NOT reproduce OpenDDE's Ab-Ag
-accuracy on 9dsg-class targets; we DO match the reference on 9dsg. Full numbers + GPU $
-in `~/.coworker/state/opendde-9dsg-reference-dockq.md`.
+0.011 / fnat 0) AND on 1ahw (device 0.863-0.882 / fnat 0.90-1.0 vs reference 0.83-0.86 /
+fnat 0.87-1.0); the opendde_abag preview checkpoint does not solve 9dsg but does solve
+standard Ab-Ag complexes on-device as well as on the reference. The model-side suspects
+(structural-token refiner cross-chain conditioning, diffusion docking-mode/sampler settings,
+opendde_abag.pt routing/loading) are exonerated for 9dsg: the reference, with none of the
+port's wiring, fails 9dsg identically, and the same wiring solves 1ahw on-device at
+reference parity. Pharma framing: we do NOT reproduce OpenDDE's Ab-Ag accuracy on
+9dsg-class targets; we DO match the reference on 9dsg, and we DO solve standard Ab-Ag
+complexes (1ahw) on-device at reference parity. Full numbers + GPU $ + the device 1ahw
+cross-check in `~/.coworker/state/opendde-9dsg-reference-dockq.md`.
 
