@@ -19,16 +19,24 @@ What it measures, per model:
   * esmc-600m embed — seq/s on a fixed batch of 8 ubiquitin-length sequences
     (batch_size 8). Same warmup-then-time protocol.
 
-Baselines live in ``docs/perf_baselines.json`` and are EXPLICIT: an intentional
-perf change (landed optimization, deliberate accuracy/perf tradeoff) updates the
+Baselines live in ``docs/perf_baselines.json`` and are EXPLICIT and PER-CARD-TYPE:
+the file nests one ``models`` block per card type (``p150a``, ``p300c``, ...) under
+a ``cards`` key, and the gate compares only against the baseline matching the
+card it is actually running on (detected at runtime via tt-smi / kernel sysfs,
+mirroring ``tt_bio/main.py::_detect_p300_devices``). A P300c baseline must never
+be judged against a P150a run — the P150 is a smaller chip and would read as a
+false 20-34% regression that is just the card, not the code. If the detected card
+type has no recorded baseline yet, the gate FAILS loudly (every model NO BASELINE)
+rather than silently skipping or matching the wrong card. An intentional perf
+change (landed optimization, deliberate accuracy/perf tradeoff) updates the
 baseline via ``--update-baseline --note "<why>"`` — never silently. A regression
-the author didn't intend fails the gate. Cover new models as they ship by adding
-a spec here + a baseline entry.
+the author didn't intend fails the gate. Cover new models / new card types as they
+ship by adding a spec here + a baseline entry (seeded on that card type).
 
 Usage::
 
     # run the whole gate on the card (one device context per model subprocess)
-    TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> python3 scripts/perf_regression.py
+    TT_VISIBLE_DEVICES=0 PYTHONPATH=<worktree> python3 scripts/perf_regression.py
 
     # one model / a subset
     python3 scripts/perf_regression.py --model boltz2 --model esmfold2
@@ -65,6 +73,17 @@ TRPCAGE = REPO_ROOT / "examples" / "trpcage.yaml"
 UBIQUITIN = ("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTL"
              "LHLVLRLRGG")  # 76 aa — tests/test_esmc.py / scripts/esmc_embed_parity.py golden
 
+# ── card-type detection ────────────────────────────────────────────────────
+# The gate is card-type aware: a P300c baseline must NOT be compared against a
+# P150a run — the P150 is a smaller chip, so the same code reads as a 20-34%
+# "regression" that is just the card, not the code (found 2026-07-14 by the
+# hardware-limit recheck). The per-card baseline key is the canonical board_type
+# tt-smi reports (p150a / p300c / ...). Detection mirrors
+# tt_bio/main.py::_detect_p300_devices (kernel sysfs, no device open) so it is
+# cheap and runs in the parent before any model loads; tt-smi names boards sysfs
+# can't and is the canonical source when available.
+_P300_SUBSYSTEMS = {"0x0044", "0x0045", "0x0046"}  # Blackhole P300 (lone-chip custom topology)
+
 # Per-model measurement spec. ``kind`` is "fold" or "embed". ``unit`` + ``direction``
 # define the gated metric (throughput, higher is better). Every fold model uses the
 # same light protocol (1 recycle / 10 steps / 1 sample) so numbers are comparable
@@ -95,13 +114,72 @@ DEFAULT_THRESHOLD = 15.0   # % regression allowed before the gate fails
 
 def load_baselines() -> dict:
     if not BASELINE_FILE.exists():
-        return {"models": {}}
+        return {"cards": {}}
     return json.loads(BASELINE_FILE.read_text())
 
 
 def save_baselines(data: dict) -> None:
     BASELINE_FILE.parent.mkdir(parents=True, exist_ok=True)
     BASELINE_FILE.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def _sysfs_subsystem_device(device_id: str) -> str | None:
+    """Read the PCI subsystem_device for one tenstorrent device from kernel sysfs.
+    Same source as tt_bio/main.py::_detect_p300_devices — no device open, no tt-smi."""
+    for entry in Path("/sys/class/tenstorrent").glob("tenstorrent!*"):
+        try:
+            did = entry.name.rsplit("!", 1)[1]
+        except Exception:
+            continue
+        if did != device_id:
+            continue
+        try:
+            return (entry / "device" / "subsystem_device").read_text().strip().lower()
+        except Exception:
+            return None
+    return None
+
+
+def detect_card_type() -> str:
+    """Canonical board-type key for the card this gate will run on ('p150a',
+    'p300c', ...). This is the per-card baseline key in docs/perf_baselines.json.
+    No device is opened; safe to call in the parent before any model loads."""
+    visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
+    # Primary: tt-smi -s reports the canonical board_type — matches the baseline
+    # key exactly and names boards the sysfs subsystem map can't.
+    try:
+        out = subprocess.run(["tt-smi", "-s"], capture_output=True, text=True,
+                             timeout=20, check=False)
+        info = json.loads(out.stdout).get("device_info", [])
+        if info:
+            idx = min(int(visible), len(info) - 1) if visible.isdigit() else 0
+            bt = info[idx].get("board_info", {}).get("board_type")
+            if bt:
+                return str(bt).lower()
+    except Exception:
+        pass
+    # Fallback: sysfs subsystem_device -> known Blackhole board types. An
+    # unrecognized subsystem returns a recognizable 'unknown:<sub>' key so the
+    # gate fails loudly against a missing baseline instead of silently matching
+    # the wrong one.
+    sub = _sysfs_subsystem_device(visible)
+    if sub in _P300_SUBSYSTEMS:
+        return "p300c"
+    if sub:
+        return f"unknown:{sub}"
+    return "unknown"
+
+
+def card_baselines(data: dict, card_type: str) -> dict | None:
+    """The per-card model-baseline map for ``card_type``, or None if this card
+    type has no recorded baseline yet (the gate must fail loudly on that)."""
+    cards = data.get("cards")
+    if not cards and data.get("models"):
+        # Legacy single-card file (pre per-card split) — treat it as one card so
+        # an un-updated checkout still gates instead of crashing.
+        return data["models"]
+    entry = cards.get(card_type) if cards else None
+    return entry.get("models", {}) if entry else None
 
 
 def _version() -> str:
@@ -222,6 +300,7 @@ def measure(model: str, out_path: Path) -> dict:
 
     get_device()  # open the chip once for this process
     hw = arch_name()
+    card = detect_card_type()
 
     work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
     struct_dir = work / "out"
@@ -285,6 +364,7 @@ def measure(model: str, out_path: Path) -> dict:
         unit=spec["unit"],
         direction=spec["direction"],
         hardware=hw,
+        card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
         median_s=round(median, 4),
@@ -354,11 +434,19 @@ def _passes(baseline: float, current: float, direction: str, threshold: float) -
     return pct >= -threshold
 
 
-def _print_table(rows: list[dict], baselines: dict, threshold: float) -> bool:
-    """Print the per-model comparison table. Returns True iff every row passes."""
+def _print_table(rows: list[dict], baselines: dict, card_type: str, threshold: float) -> bool:
+    """Print the per-model comparison table. Returns True iff every row passes.
+
+    Compares each model against the baseline recorded for ``card_type`` only — a
+    P300c baseline must never be judged against a P150a run (the P150 is a smaller
+    chip and would read as a false 20-34% regression). If no baseline exists yet
+    for the detected card type, the gate FAILS loudly (every model NO BASELINE)
+    rather than silently skipping or matching the wrong card's numbers."""
     all_pass = True
-    bm = baselines.get("models", {})
-    title = (f"PERF REGRESSION GATE — {', '.join(r['model'] for r in rows)}  "
+    bm = card_baselines(baselines, card_type)
+    have_card = bm is not None
+    title = (f"PERF REGRESSION GATE — card {card_type} — "
+             f"{', '.join(r['model'] for r in rows)}  "
              f"| threshold ±{threshold:.0f}%  | warm ({WARMUP} warmup + {REPEAT} timed)")
     print(f"\n{'#' * 78}\n{title}\n{'#' * 78}")
     hdr = (f"{'model':<16}{'metric':<16}{'baseline':>11}{'current':>11}"
@@ -366,11 +454,20 @@ def _print_table(rows: list[dict], baselines: dict, threshold: float) -> bool:
     print(hdr)
     print("-" * len(hdr))
     for r in rows:
-        b = bm.get(r["model"])
         unit = r["unit"]
-        if b is None:
-            cur = f"{r['throughput']:.4g}"
+        if not have_card:
+            cur = f"{r['throughput']:.4g}" if not r.get("failed") else "FAILED"
             print(f"{r['model']:<16}{unit:<16}{'(none)':>11}{cur:>11}{'n/a':>10}{'NO BASELINE':>10}")
+            all_pass = False
+            continue
+        b = bm.get(r["model"])
+        if b is None:
+            cur = f"{r['throughput']:.4g}" if not r.get("failed") else "FAILED"
+            print(f"{r['model']:<16}{unit:<16}{'(none)':>11}{cur:>11}{'n/a':>10}{'NO BASELINE':>10}")
+            all_pass = False
+            continue
+        if r.get("failed"):
+            print(f"{r['model']:<16}{unit:<16}{float(b['value']):>11.4g}{'FAILED':>11}{'n/a':>10}{'FAIL':>10}")
             all_pass = False
             continue
         base = float(b["value"])
@@ -381,11 +478,17 @@ def _print_table(rows: list[dict], baselines: dict, threshold: float) -> bool:
         print(f"{r['model']:<16}{unit:<16}{base:>11.4g}{r['throughput']:>11.4g}"
               f"{delta:>10}{verdict:>10}")
     print("-" * len(hdr))
-    print(f"  hardware: {rows[0]['hardware']}  |  tt-bio {rows[0]['tt_bio_version']}  "
-          f"|  input: {rows[0]['input']}")
-    print(f"{'#' * 78}")
-    print("GATE PASS — no model regressed beyond ±{:.0f}%".format(threshold) if all_pass
-          else "GATE FAIL — a model regressed beyond ±{:.0f}% (see above)".format(threshold))
+    print(f"  card: {card_type}  |  hardware: {rows[0].get('hardware', '?')}  "
+          f"|  tt-bio {rows[0].get('tt_bio_version', '?')}  |  input: {rows[0].get('input', '?')}")
+    if not have_card:
+        msg = (f"GATE FAIL — no baseline recorded for card type '{card_type}' in "
+               f"{BASELINE_FILE.relative_to(REPO_ROOT)}. Seed it on a {card_type} "
+               f"card with: python3 scripts/perf_regression.py --update-baseline "
+               f"--note \"seed {card_type} baseline\"")
+    else:
+        msg = ("GATE PASS — no model regressed beyond ±{:.0f}%".format(threshold) if all_pass
+               else "GATE FAIL — a model regressed beyond ±{:.0f}% (see above)".format(threshold))
+    print(f"{'#' * 78}\n{msg}")
     return all_pass
 
 
@@ -409,7 +512,8 @@ def cmd_gate(args) -> int:
         return _update_baselines(rows, args)
 
     baselines = load_baselines()
-    ok = _print_table(rows, baselines, args.threshold)
+    card_type = detect_card_type()
+    ok = _print_table(rows, baselines, card_type, args.threshold)
     return 0 if ok else 1
 
 
@@ -417,29 +521,37 @@ def _update_baselines(rows: list[dict], args) -> int:
     if not args.note:
         sys.exit("--update-baseline requires --note \"<why this perf change is intended>\"")
     data = load_baselines()
-    data.setdefault("models", {})
-    hw = None
+    cards = data.setdefault("cards", {})
+    card_type = detect_card_type()
+    entry = cards.setdefault(card_type, {})
+    models = entry.setdefault("models", {})
+    any_ok = False
     for r in rows:
         if r.get("failed"):
             print(f"[{r['model']}] FAILED — not updating its baseline", file=sys.stderr)
             continue
-        hw = r["hardware"]
-        data["models"][r["model"]] = dict(
+        any_ok = True
+        models[r["model"]] = dict(
             unit=r["unit"], direction=r["direction"], value=r["throughput"],
             latency_ms=r["latency_ms"], input=r["input"],
             sampling_steps=r["sampling_steps"], diffusion_samples=r["diffusion_samples"],
             recycling_steps=r["recycling_steps"], warmup=r["warmup"], repeat=r["repeat"],
-            hardware=r["hardware"], tt_bio_version=r["tt_bio_version"],
-            date=r["date"], note=args.note,
+            hardware=r["hardware"], card_type=r.get("card_type", card_type),
+            tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
         )
-    data["hardware"] = hw or data.get("hardware", "blackhole")
+        entry["date"] = r["date"]
+        entry["tt_bio_version"] = r["tt_bio_version"]
+        entry["note"] = args.note
+    # Drop a legacy top-level "models" so the file is unambiguously per-card.
+    data.pop("models", None)
+    data["hardware"] = data.get("hardware", "blackhole")
     data["threshold_pct"] = args.threshold
-    data["date"] = date.today().isoformat()
     save_baselines(data)
-    print(f"\nWrote {BASELINE_FILE.relative_to(REPO_ROOT)}  ({len(data['models'])} models)")
+    print(f"\nWrote {BASELINE_FILE.relative_to(REPO_ROOT)}  "
+          f"(card {card_type}: {len(models)} models; "
+          f"{len(cards)} card type(s) recorded: {', '.join(sorted(cards))})")
     print("Review the diff, then commit it with the change that justifies the new numbers.")
-    ok = all(not r.get("failed") for r in rows)
-    return 0 if ok else 1
+    return 0 if any_ok else 1
 
 
 def main() -> int:
