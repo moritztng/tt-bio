@@ -419,6 +419,11 @@ class JobManager:
         # reach the engine — which fails opaquely and, worse, bypasses the
         # capability guard (an unknown model has no caps to check against).
         if kind == "predict" and model is not None and str(model) not in limits.MODEL_IDS:
+            if str(model) == "opendde-abag":
+                raise ValueError(
+                    "model 'opendde-abag' has been folded into 'opendde' — "
+                    "send model 'opendde' instead. (OpenDDE is now one model using "
+                    "its general protein-complex checkpoint.)")
             raise ValueError(f"unknown model '{model}' — choose one of {sorted(limits.MODEL_IDS)}.")
         if kind == "design" and protocol is not None and str(protocol) not in limits.PROTOCOL_IDS:
             raise ValueError(f"unknown protocol '{protocol}' — choose one of {sorted(limits.PROTOCOL_IDS)}.")

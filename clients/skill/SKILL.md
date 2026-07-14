@@ -86,11 +86,10 @@ res = httpx.get(f"{BASE}/v1/jobs/{job['id']}/results").json()
 ```
 
 - **Models:** `boltz2` (default; MSA + ligands + affinity), `esmfold2`,
-  `esmfold2-fast` (single-sequence, fastest), `protenix-v2`, and `opendde` /
-  `opendde-abag` (protein-complex / antibody-antigen docking on the Protenix-v2
-  stack; protein-only, no affinity). OpenDDE's antibody-antigen docking on hard
-  or novel epitopes can be inaccurate — a known model limitation, not a port bug;
-  for general protein-complex docking it is reliable.
+  `esmfold2-fast` (single-sequence, fastest), `protenix-v2`, and `opendde`
+  (general protein-complex docking on the Protenix-v2 stack; protein-only, no
+  affinity, MSA on by default). For ligands, DNA/RNA, or binding affinity use
+  `boltz2` or `protenix-v2`.
 - For complexes / protein–ligand affinity / multiple chains, pass a **Boltz YAML**
   string as `input` (`sequences:` with `protein`/`dna`/`rna`/`ligand` chains;
   `properties:` for the affinity head).

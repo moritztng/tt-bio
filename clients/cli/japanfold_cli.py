@@ -479,7 +479,7 @@ def build_parser():
     pr.add_argument("--input", help="Inline FASTA/YAML string.")
     pr.add_argument("--model", default="boltz2",
                     choices=["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2",
-                             "opendde", "opendde-abag"])
+                             "opendde"])
     pr.add_argument("--name")
     pr.add_argument("--fast", action="store_true")
     pr.add_argument("--use-msa-server", action="store_true", dest="use_msa_server")
