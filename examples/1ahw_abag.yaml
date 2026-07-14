@@ -1,0 +1,20 @@
+version: 1
+# Antibody-antigen complex from PDB 1ahw (a standard SAbDab/PDB Ab-Ag target):
+# Tissue Factor extracellular domain antigen (native chain C, residues 4-211) +
+# inhibitory Fab 5G9 heavy (native chain B) / light (native chain A).
+# Sequences are the resolved residues from the 1ahw structure (ground truth in
+# examples/ground_truth_structures/1ahw.cif), so predicted and native chains align
+# 1:1 for DockQ. Proteins are MSA-dependent (MSA on by default, like protenix-v2).
+# Chain ids here (A=antigen, H=Fab heavy, L=Fab light) follow the 9dsg_abag.yaml
+# convention; DockQ maps model->native chains by sequence identity, so the labels
+# need not match the native A/B/C.
+sequences:
+  - protein:
+      id: A
+      sequence: TNTVAAYNLTWKSTNFKTILEWEPKPVNQVYTVQISTKSGDWKSKCFYTTDTECDLTDEIVKDVKQTYLARVFSYPAGNEPLYENSPEFTPYLETNLGQPTIQSFEQVGTKVNVTVEDERTLVRRNNTFLSLRDVFGKDLIYTLYYWKSSSSGKKTAKTNTNEFLIDVDKGENYCFSVQAVIPSRTVNRKSTDSPVECMG
+  - protein:
+      id: H
+      sequence: EIQLQQSGAELVRPGALVKLSCKASGFNIKDYYMHWVKQRPEQGLEWIGLIDPENGNTIYDPKFQGKASITADTSSNTAYLQLSSLTSEDTAVYYCARDNSYYFDYWGQGTTLTVSSAKTTPPSVYPLAPGSAAQTNSMVTLGCLVKGYFPEPVTVTWNSGSLSSGVHTFPAVLQSDLYTLSSSVTVPSSTWPSETVTCNVAHPASSTKVDKKI
+  - protein:
+      id: L
+      sequence: DIKMTQSPSSMYASLGERVTITCKASQDIRKYLNWYQQKPWKSPKTLIYYATSLADGVPSRFSGSGSGQDYSLTISSLESDDTATYYCLQHGESPYTFGGGTKLEINRADAAPTVSIFPPSSEQLTSGGASVVCFLNNFYPKDINVKWKIDGSERQNGVLNSWTDQDSKDSTYSMSSTLTLTKDEYERHNSYTCEATHKTSTSPIVKSFNRNEC
