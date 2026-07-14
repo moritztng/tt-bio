@@ -111,6 +111,7 @@ class Boltz(nn.Module):
         inference_logging: bool = False,
         use_kernels: bool = False,
         use_resident_trunk: bool = True,
+        diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
         """
@@ -120,6 +121,13 @@ class Boltz(nn.Module):
         3. Inverse folding
         4. Affinity prediction
         """
+        # Reserve a ttnn trace region BEFORE any module opens the device: the
+        # per-step DiT trace (AtomDiffusion -> TTScoreModelAdapter.forward_traced)
+        # needs it. Mirrors Protenix's get_device(trace_region_size=1<<30). The
+        # first get_device() call opens, so this must precede module construction.
+        if diffusion_trace:
+            from tt_bio.tenstorrent import get_device
+            get_device(trace_region_size=1 << 30)
         self.inverse_fold = inverse_fold
         self.inference_logging = inference_logging
         self.use_kernels = use_kernels
@@ -285,6 +293,7 @@ class Boltz(nn.Module):
                     "predict_res_type": predict_res_type,
                     **score_model_args,
                 },
+                diffusion_trace=diffusion_trace,
                 **diffusion_process_args,
             )
             self.distogram_module = DistogramModule(token_z, num_bins)

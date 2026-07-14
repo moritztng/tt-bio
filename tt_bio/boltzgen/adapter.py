@@ -129,13 +129,18 @@ class TTScoreModelAdapter(TTDiffusionModule):
         feats,
         diffusion_conditioning,
         multiplicity: int = 1,
+        trace: bool = False,
         **_unused,
     ):
         dc = diffusion_conditioning
         # ``to_keys`` is always ``partial(single_to_keys, indexing_matrix=K, W=32, H=128)``
         # built in encoders.py — unwrap the raw matrix.
         keys_indexing = dc["to_keys"].keywords["indexing_matrix"]
-        r_update = super().forward(
+        # trace=True replays a captured ttnn trace of the per-step DiT device
+        # stream (lossless; faster on dispatch-bound diffusion). See
+        # TTDiffusionModule.forward_traced / Boltz.__init__(diffusion_trace=).
+        fn = self.forward_traced if trace else super().forward
+        r_update = fn(
             r_noisy, times, s_inputs, s_trunk,
             dc["q"], dc["c"],
             dc["atom_enc_bias"], dc["token_trans_bias"], dc["atom_dec_bias"],

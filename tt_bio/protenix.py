@@ -503,14 +503,16 @@ class DiffusionModule(_KeyedWeights):
         # per-block pair bias depends only on pair_z (fixed across steps) -> precomputed once
         if self.device_dit and cond.get("dit_z") is not None:
             if "dit_block_biases" not in cond:   # precompute per-block pair biases ONCE per fold
-                cond["dit_block_biases"] = self._dit_block_biases(cond["dit_z"])
+                cond["dit_block_biases"] = self._dit_block_biases(
+                    cond["dit_z"], cond.get("structural_pair_attn_bias"))
             a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single,
                                          cond["dit_block_biases"], NT)
             a_t = self._ln(a_t, "layernorm_a.weight")
         else:  # host fp32 fallback (max fidelity / no precomputed device bias)
             a_h = torch.Tensor(ttnn.to_torch(ttnn.reshape(a_tok, (1, NT, 768)))).float().reshape(NT, 768)
             s_h = torch.Tensor(ttnn.to_torch(s_single)).float().reshape(NT, s_single.shape[-1])
-            biases = cond.get("dit_biases") or self._dit_pair_biases(cond["pair_z"].float())
+            biases = cond.get("dit_biases") or self._dit_pair_biases(
+                cond["pair_z"].float(), cond.get("structural_pair_attn_bias"))
             a_h = self._token_dit(a_h, s_h, biases, NT)
             a_t = self._ln(T(a_h.reshape(1, NT, 768)), "layernorm_a.weight")
 
@@ -561,7 +563,8 @@ class DiffusionModule(_KeyedWeights):
             self._lin(self._ln(ttnn.reshape(s_single, (NT, s_single.shape[-1])), "layernorm_s.weight"),
                       "linear_no_bias_s.weight"), (NT, 768)))
         if "dit_block_biases" not in cond:
-            cond["dit_block_biases"] = self._dit_block_biases(cond["dit_z"])
+            cond["dit_block_biases"] = self._dit_block_biases(
+                cond["dit_z"], cond.get("structural_pair_attn_bias"))
         a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single, cond["dit_block_biases"], NT)
         a_t = self._ln(a_t, "layernorm_a.weight")
         DE = "atom_attention_decoder."
@@ -628,7 +631,7 @@ class DiffusionModule(_KeyedWeights):
     def _winkv(self, x, N, NP):
         return _window_kv(x, N, NP, self.NQ, self.NK, self.PAD_LEFT)
 
-    def _dit_pair_biases(self, pair_z):
+    def _dit_pair_biases(self, pair_z, extra_attn_bias=None):
         """Per-block DiT attention pair bias linear_z(LN(LN(pair_z))). Depends only on the
         trunk pair_z (fixed across all sampling steps), so it is computed ONCE per fold and
         reused every diffusion step -- the dominant host cost otherwise. Returns 24 tensors
@@ -639,8 +642,11 @@ class DiffusionModule(_KeyedWeights):
         biases = []
         for b in range(self.DIT_BLOCKS):
             A = f"blocks.{b}.attention_pair_bias."
-            zb = F.layer_norm(z_h, (256,)) * gP(A + "layernorm_z.weight")
-            biases.append(F.linear(zb, gP(A + "linear_nobias_z.weight")).permute(2, 0, 1))
+            zb = F.layer_norm(z_h, (z_h.shape[-1],)) * gP(A + "layernorm_z.weight")
+            bias = F.linear(zb, gP(A + "linear_nobias_z.weight")).permute(2, 0, 1)
+            if extra_attn_bias is not None:
+                bias = bias + extra_attn_bias.float().unsqueeze(0)
+            biases.append(bias)
         return biases
 
     def _token_dit(self, a_h, s_h, biases, NT):
@@ -672,13 +678,21 @@ class DiffusionModule(_KeyedWeights):
         z_h = F.layer_norm(pair_z, (pair_z.shape[-1],)).unsqueeze(0).contiguous()
         return ttnn.from_torch(z_h, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
 
-    def _dit_block_biases(self, z_dev):
+    def _dit_block_biases(self, z_dev, extra_attn_bias=None):
         """Per-block DiT attention pair biases, computed ONCE per fold from z_dev=LN(pair_z).
         Each block's bias is a pure function of pair_z (fixed across all sampling steps), so
         recomputing the NxNxc_z layer_norm+linear every step (24 blocks x n_step) was the
         dominant diffusion cost. Precompute here; replay via AttentionPairBias(bias_precomputed
         =True). Mirrors the host _dit_pair_biases / the _atom_cond hoist."""
-        return [apb.compute_bias(z_dev) for (_, apb, _, _, _) in self._dit]
+        extra = None
+        if extra_attn_bias is not None:
+            # AttentionPairBias scales projected masks by sqrt(head_dim) to
+            # compensate ttnn SDPA's mask scaling. Match it for this direct bias.
+            extra = self._up(extra_attn_bias.float().reshape(
+                1, 1, extra_attn_bias.shape[-2], extra_attn_bias.shape[-1])
+                * self.DIT_HEAD_DIM ** 0.5)
+        return [ttnn.add(apb.compute_bias(z_dev), extra) if extra is not None
+                else apb.compute_bias(z_dev) for (_, apb, _, _, _) in self._dit]
 
     def _token_dit_device(self, a_t, s_t, biases, NT):
         """On-device 24-block token DiT (ttnn). a_t (1,NT,768), s_t (1,NT,384); biases = list
@@ -757,23 +771,197 @@ class ConfidenceHead:
         s_single = torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384)
         zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
 
-        def _expected(logits, max_a=32.0):     # softmax over distance bins -> expected value (A)
-            nb = logits.shape[-1]
-            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-            return (torch.softmax(logits, -1) * centers).sum(-1)
-
-        pae_logits = F.linear(F.layer_norm(zf, (256,)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
+        pae_logits = F.linear(F.layer_norm(zf, (zf.shape[-1],)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
                               self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
-        pae = _expected(pae_logits)                                                          # (N,N)
-        pde = _expected(F.linear(F.layer_norm(zf + zf.transpose(0, 1), (256,)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
-                                 self._g("linear_no_bias_pde.weight")))                     # (N,N)
-        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
+        pde_logits = F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
+                              self._g("linear_no_bias_pde.weight"))                          # (N,N,n_bins)
         a2t = feats["atom_to_token_idx"].long(); a2ta = feats["atom_to_tokatom_idx"].long()
         a = s_single[a2t]
         aln = F.layer_norm(a, (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
-        logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])  # (N_atom, n_bins)
-        nb = logits.shape[-1]
-        plddt_atom = (torch.softmax(logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
+        plddt_logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])        # (N_atom, n_bins)
+        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats)
+
+    # ---------------------------------------------------------------------------
+    # Device-resident confidence path (opt-in). The host path (confidence())
+    # builds z on host, UPLOADS (1,N,N,256) to the device Pairformer, then
+    # DOWNLOADS (s_single, zf) and runs the pae/pde/plddt heads on host -- a
+    # full (N,N,256) device<->host round-trip every sample. On large N the host
+    # side dominates confidence (measured 53% of 355 ms @N=256 on BH 'pc'; the
+    # device Pairformer is only 116 ms). This path keeps z_base resident: the
+    # sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] + s2(s_inputs)
+    # [None,:] is computed ONCE on device, and per-sample only the (N,3) coords
+    # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
+    # run on device, and only the small final logits (pae/pde (N,N,64), plddt
+    # (N_atom,50)) are downloaded. Feature-detected + gated behind
+    # TT_PROTENIX_CONF_DEVICE=1; off by default until PCC is verified (plddt is
+    # precision-sensitive: the host path is already PCC ~0.93 vs the reference,
+    # and moving the einsum to bf16 can regress it -- see the parity harness).
+    # ---------------------------------------------------------------------------
+    @staticmethod
+    def device_confidence_enabled():
+        """True only if the user opted in (TT_PROTENIX_CONF_DEVICE=1) AND the
+        installed ttnn exposes every op the device path needs. Off otherwise
+        (the host-heads path in confidence() is the default)."""
+        import os
+        if os.environ.get("TT_PROTENIX_CONF_DEVICE", "0") not in ("1", "true", "True"):
+            return False
+        import ttnn
+        need = ("clamp", "ge", "lt", "sqrt", "embedding", "layer_norm", "linear",
+                "matmul", "softmax", "permute")
+        return all(hasattr(ttnn, k) for k in need)
+
+    def _wtt(self, key, transpose=True):
+        """Upload a confidence weight once (TILE/bf16), cached on the instance."""
+        cache = self.__dict__.setdefault("_wtt_cache", {})
+        v = cache.get(key)
+        if v is None:
+            import ttnn
+            w = self._w[key]
+            v = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+            cache[key] = v
+        return v
+
+    def _dev_lin(self, x, wkey, bias=False):
+        import ttnn
+        b = None
+        if bias:
+            b = self._wtt(wkey.replace(".weight", ".bias"), False) if (wkey.replace(".weight", ".bias") in self._w) else None
+        return ttnn.linear(x, self._wtt(wkey), bias=b,
+                           compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+
+    def _device_resident(self, s_inputs, s_trunk, z_base_dev, feats):
+        """Build the sample-invariant device tensors ONCE per fold: s_t, the
+        coords gather index (which atoms pass distogram_rep_atom_mask), and the
+        plddt per-atom-type weight table. z_base itself (z_trunk + s1 + s2) is
+        passed in already-uploaded as a RESIDENT bf16 device tensor (computed
+        fp32 on host once via z_base_device -- bf16-accumulating it on device
+        regresses the pairformer input at small N; see the parity harness).
+        Idempotent via a cached tag on z_base_dev."""
+        import torch, torch.nn.functional as F, ttnn
+        cache = self.__dict__.setdefault("_dev_res", {})
+        tag = id(z_base_dev)
+        if cache.get("tag") == tag:
+            return cache
+        T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        N = s_trunk.shape[0]
+        s_t_h = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
+        s_t = T(s_t_h.unsqueeze(0))                                       # (1,N,384)
+        # coords gather: which atoms pass distogram_rep_atom_mask (== N tokens)
+        mask = feats["distogram_rep_atom_mask"].bool()
+        idx = torch.nonzero(mask, as_tuple=False).reshape(-1).to(torch.int32)   # (N,)
+        idx_dev = ttnn.from_torch(idx.reshape(1, N), layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        # plddt per-atom-type weight table (24, 384, 50) -> flat (24, 384*50) for embedding gather
+        pw = self._g("plddt_weight")                                       # (n_tokatom, 384, 50)
+        n_ta, c, nb = pw.shape
+        pw_dev = ttnn.from_torch(pw.reshape(n_ta, c * nb).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                 device=self.dev, dtype=ttnn.bfloat16)
+        a2ta = feats["atom_to_tokatom_idx"].long().to(torch.int32).reshape(-1, 1)  # (N_atom,1)
+        a2ta_dev = ttnn.from_torch(a2ta, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        a2t = feats["atom_to_token_idx"].long().to(torch.int32).reshape(-1, 1)     # (N_atom,1) -> s_single gather
+        a2t_dev = ttnn.from_torch(a2t, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, idx_dev=idx_dev, N=N,
+                     pw_dev=pw_dev, a2ta_dev=a2ta_dev, a2t_dev=a2t_dev,
+                     pw_shape=(n_ta, c, nb))
+        return cache
+
+    def z_base_device(self, s_inputs, s_trunk, z_trunk):
+        """Build the sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] +
+        s2(s_inputs)[None,:] in fp32 on host (precision-safe -- bf16-accumulating
+        it on device regresses the pairformer input at small N), then upload as
+        bf16 ONCE. Returned as a resident (1,N,N,256) device tensor; reuse across
+        samples so the (N,N,256) upload is paid once per fold, not per sample."""
+        import torch, torch.nn.functional as F, ttnn
+        z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
+                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0)).unsqueeze(0).contiguous()
+        return ttnn.from_torch(z_base.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+
+    def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
+        """Device-resident confidence forward. z_base_dev is the RESIDENT bf16
+        device tensor from z_base_device() (z_trunk + s1 + s2, fp32-computed once
+        and uploaded once per fold). coords is a host (N_atom,3) tensor
+        (per-sample). Returns the same dict as confidence(). Mirrors confidence()
+        exactly except the per-sample distance-embed + Pairformer + pae/pde/
+        plddt heads run on device (bf16) and only the final logits are
+        downloaded -- the (N,N,256) z never round-trips per sample."""
+        import torch, ttnn
+        rc = self._device_resident(s_inputs, s_trunk, z_base_dev, feats)
+        N = rc["N"]
+        # ---- per-sample distance-embed on device ----
+        coords_tbl = ttnn.from_torch(coords.float().reshape(coords.shape[0], 3), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                     device=self.dev, dtype=ttnn.bfloat16)        # (N_atom,3) gather table
+        xr = ttnn.embedding(rc["idx_dev"], coords_tbl, layout=ttnn.ROW_MAJOR_LAYOUT,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG)               # (1,N,3)
+        xr = ttnn.to_layout(ttnn.reshape(xr, (1, N, 3)), ttnn.TILE_LAYOUT)
+        # squared dist = |xr|^2 + |xr|^2 - 2 xr.xr^T ; d = sqrt(clamp(d2, 0))
+        sq = ttnn.pow(xr, 2.0)
+        srow = ttnn.sum(sq, dim=-1)                                          # (1,N)
+        d2 = ttnn.add(ttnn.add(srow, ttnn.reshape(srow, (1, 1, N))),
+                      ttnn.multiply(ttnn.matmul(xr, ttnn.permute(xr, (0, 2, 1)),
+                                                compute_kernel_config=self.compute_kernel_config,
+                                                core_grid=CORE_GRID_MAIN), -2.0))
+        d2 = ttnn.clamp(d2, 0.0, None)
+        d = ttnn.sqrt(d2)                                                    # (1,N,N)
+        d3 = ttnn.unsqueeze(d, -1)                                           # (1,N,N,1)
+        lb = self._wtt("lower_bins", False); ub = self._wtt("upper_bins", False)
+        lb4 = ttnn.reshape(lb, (1, 1, 1, lb.shape[-1])); ub4 = ttnn.reshape(ub, (1, 1, 1, ub.shape[-1]))
+        ge = ttnn.ge(d3, lb4)                                                # (1,N,N,39) bool->bf16
+        lt = ttnn.lt(d3, ub4)
+        oh = ttnn.multiply(ge, lt)                                           # AND
+        oh = ttnn.to_layout(oh, ttnn.TILE_LAYOUT) if oh.layout != ttnn.TILE_LAYOUT else oh
+        z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
+        z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
+        # ---- confidence Pairformer (device, z stays resident) ----
+        so, zo = self.pf(rc["s_t"], z)                                       # (1,N,384),(1,N,N,256)
+        # ---- heads on device ----
+        zof = ttnn.reshape(zo, (1, N, N, 256))
+        pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
+                                 bias=(self._wtt("pae_ln.bias", False) if "pae_ln.bias" in self._w else None),
+                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        pae_logits = self._dev_lin(pae_ln, "linear_no_bias_pae.weight")      # (1,N,N,64)
+        zot = ttnn.permute(zof, (0, 2, 1, 3))                                # transpose token axes
+        zsym = ttnn.add(zof, zot)
+        pde_ln = ttnn.layer_norm(zsym, weight=self._wtt("pde_ln.weight", False),
+                                 bias=(self._wtt("pde_ln.bias", False) if "pde_ln.bias" in self._w else None),
+                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        pde_logits = self._dev_lin(pde_ln, "linear_no_bias_pde.weight")      # (1,N,N,64)
+        # plddt: a = s_single[a2t]; aln = LN(a)*w+b; logits = einsum('nc,ncb->nb', aln, pw[a2ta])
+        s_single = ttnn.reshape(so, (N, 384))
+        a = ttnn.embedding(rc["a2t_dev"], ttnn.to_layout(s_single, ttnn.ROW_MAJOR_LAYOUT),
+                           layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # (N_atom,1,384)
+        a = ttnn.to_layout(ttnn.reshape(a, (a.shape[0], 384)), ttnn.TILE_LAYOUT)
+        aln = ttnn.layer_norm(a, weight=self._wtt("plddt_ln.weight", False),
+                              bias=(self._wtt("plddt_ln.bias", False) if "plddt_ln.bias" in self._w else None),
+                              epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        n_ta, c, nb = rc["pw_shape"]
+        pw_g = ttnn.embedding(rc["a2ta_dev"], rc["pw_dev"], layout=ttnn.ROW_MAJOR_LAYOUT,
+                              memory_config=ttnn.DRAM_MEMORY_CONFIG)          # (N_atom,1, c*nb)
+        pw_g = ttnn.reshape(pw_g, (a.shape[0], c, nb))                       # (N_atom, 384, 50)
+        pw_g = ttnn.to_layout(pw_g, ttnn.TILE_LAYOUT)
+        # einsum nc,ncb->nb  ==  batched (N_atom,1,384) @ (N_atom,384,50) -> (N_atom,1,50)
+        aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
+        plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
+        # ---- download the small finals; post-process on host (small, exact) ----
+        pae_h = torch.Tensor(ttnn.to_torch(pae_logits)).float().reshape(N, N, -1)
+        pde_h = torch.Tensor(ttnn.to_torch(pde_logits)).float().reshape(N, N, -1)
+        plddt_h = torch.Tensor(ttnn.to_torch(plddt_logits)).float().reshape(a.shape[0], -1)  # (N_atom,50)
+        return self._postprocess(pae_h, pde_h, plddt_h, feats)
+
+    def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats):
+        """Shared host-side post-processing: softmax over bins -> expected
+        distance (pae/pde) and expected plddt; pTM/ipTM from the pae logits.
+        Identical to the tail of confidence() so device/host paths share it."""
+        import torch
+
+        def _expected(logits, max_a=32.0):
+            nb = logits.shape[-1]
+            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
+            return (torch.softmax(logits, -1) * centers).sum(-1)
+        pae = _expected(pae_logits)
+        pde = _expected(pde_logits)
+        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
+        nb = plddt_logits.shape[-1]
+        plddt_atom = (torch.softmax(plddt_logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
         return {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                 "ptm": ptm, "iptm": iptm}
 
@@ -823,12 +1011,14 @@ class Protenix:
     validated end-to-end (sampler draws structures within the reference's sample
     variance). feats is a dict of model-ready tensors (from the v2 data pipeline)."""
 
-    def __init__(self, model_state_dict, compute_kernel_config, device=None):
+    def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None,
+                 msa_update_first=False):
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
+        self._c_z = c_z
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         # --fast for Protenix = bf8 TRUNK + bf16 DIFFUSION. The trunk tolerates bf8
@@ -841,7 +1031,8 @@ class Protenix:
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."), compute_kernel_config)
         _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
-        self.trunk = Trunk(model_state_dict, compute_kernel_config)
+        self.trunk = Trunk(model_state_dict, compute_kernel_config, c_z=self._c_z,
+                           msa_update_first=msa_update_first)
         _TT.set_fast_mode(False)   # diffusion + confidence: always bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev, compute_kernel_config)
@@ -942,12 +1133,23 @@ class Protenix:
         """DiffusionConditioning pair branch (computed once; t-independent):
         zc = LN(concat[z_trunk, relpe(relp)]); pz = linear_z(zc); pz += transition_z1 +
         transition_z2. Reference diffusion_module.diffusion_conditioning. Validated
-        PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host."""
+        PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host.
+
+        When c_z_pair_diffusion < c_z (OpenDDE: pair-diffusion channel compressed to 128 vs
+        the shared Trunk's c_z=384; Protenix-v2 keeps them equal, 256==256, no compression),
+        the reference (DiffusionConditioning.prepare_cache / compress_pair_z) first LN+projects
+        z_trunk down to c_z_pair_diffusion via layernorm_z_trunk/linear_no_bias_z_trunk, BEFORE
+        concatenating with relpe -- gated on those keys' presence so Protenix-v2 is unchanged."""
         from .tenstorrent import Transition
         C = "diffusion_module.diffusion_conditioning."
         relpe = ttnn.linear(self._tt(relp), self._tt(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
                             compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
+        if C + "linear_no_bias_z_trunk.weight" in self._w:
+            zt = ttnn.layer_norm(z_trunk_tt, weight=self._tt(self._w[C + "layernorm_z_trunk.weight"]),
+                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+            z_trunk_tt = ttnn.linear(zt, self._tt(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
+                                     compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
         zc = ttnn.layer_norm(zc, weight=self._tt(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
@@ -1049,7 +1251,8 @@ class Protenix:
             sd_seed = None if seed is None else seed + k
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
-            coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed, trace=trace)[0])
+            coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
+                                     trace=trace, progress_fn=progress_fn)[0])
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
         coords = torch.stack(coords, 0)
@@ -1057,8 +1260,27 @@ class Protenix:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
-            confs = [self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
-                     for k in range(n_sample)]
+            # Device-resident path (opt-in, TT_PROTENIX_CONF_DEVICE=1): keep z_base
+            # on device across samples -- pass the raw trunk z device tensor
+            # straight in, skipping the (N,N,256) host round-trip the host-heads
+            # path takes. Falls back to the host-heads path otherwise.
+            if self.confidence_head.device_confidence_enabled() and NT >= 128:
+                # z_base (z_trunk + s1 + s2) is sample-invariant: build it ONCE in
+                # fp32 on host and upload as a resident bf16 device tensor, then
+                # run the per-sample distance-embed + Pairformer + heads on device
+                # -- the (N,N,256) z never round-trips per sample. Restricted to
+                # NT>=128: at small N the per-sample bf16 dist-embed rounding
+                # diverges from the host path's fp32-then-round (amplified by the
+                # Pairformer into the precision-sensitive plddt head), so the host
+                # path is kept there (it is only ~23 ms at NT=38 anyway). See
+                # docs/protenix-confidence-device-port.md for the PCC evidence.
+                z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
+                confs = [self.confidence_head.confidence_device(
+                            s_inputs, s_trunk, z_base_dev, coords[k], feats)
+                         for k in range(n_sample)]
+            else:
+                confs = [self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
+                         for k in range(n_sample)]
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
 
@@ -1075,16 +1297,24 @@ class Trunk(_KeyedWeights):
     protenix/model/protenix.py get_pairformer_output."""
 
     N_CYCLES = 10
-    C_Z = 256
+    C_Z = 256          # Protenix-v2 default; instances override via __init__(c_z=...)
+    TRI_HEAD_DIM = 32  # constant across c_z variants (Protenix-v2 256/8 heads, OpenDDE 384/12)
 
-    def __init__(self, model_state_dict, compute_kernel_config):
-        """model_state_dict: full v2 model dict with the 'module.' prefix STRIPPED."""
+    def __init__(self, model_state_dict, compute_kernel_config, c_z=None,
+                 msa_update_first=False):
+        """model_state_dict: full v2-family model dict with the 'module.' prefix STRIPPED.
+        c_z: pair channel width (default 256, Protenix-v2's; OpenDDE's shared Trunk subtree
+        is c_z=384 -- same architecture, wider pair, head_dim fixed at 32 so n_tri_heads
+        scales as c_z // 32)."""
         import re
         from .tenstorrent import (get_device, Pairformer, PairformerLayer,
                                    OuterProductMean, PairWeightedAveraging, Transition)
         self._w = model_state_dict
         self.compute_kernel_config = compute_kernel_config
         self.dev = get_device()
+        self.C_Z = c_z or self.C_Z
+        self._msa_update_first = msa_update_first
+        n_tri_heads = self.C_Z // self.TRI_HEAD_DIM
         self._wc = {}  # cached device weights (upload once; reused every recycle cycle)
         ti_keys = ("linear_no_bias_sinit", "linear_no_bias_zinit1", "linear_no_bias_zinit2",
                    "linear_no_bias_token_bond", "relative_position_encoding")
@@ -1099,7 +1329,7 @@ class Trunk(_KeyedWeights):
                    if k.startswith(f"pairformer_stack.blocks.{i}.")}
             for k, v in PW.remap_pairformer_block(blk).items():
                 comb[f"layers.{i}.{k}"] = v
-        self.PF = Pairformer(nb_pf, 32, 8, 384 // 16, 16, True, comb, compute_kernel_config)
+        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb, compute_kernel_config)
         # template embedder: 2 pair-only PairformerLayers
         tpl = {k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v for b in range(2)
                for k, v in self._w.items()
@@ -1116,7 +1346,7 @@ class Trunk(_KeyedWeights):
             P = f"msa_module.blocks.{i}."
             sub = lambda pp: {k[len(pp):]: v for k, v in self._w.items() if k.startswith(pp)}
             opm = OuterProductMean(PW.remap_outer_product_mean(sub(P + "outer_product_mean_msa.")), compute_kernel_config)
-            pl = PairformerLayer(32, 8, None, None, False, PW.remap_msa_pair_stack(sub(P + "pair_stack.")), compute_kernel_config)
+            pl = PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None, False, PW.remap_msa_pair_stack(sub(P + "pair_stack.")), compute_kernel_config)
             has = any(k.startswith(P + "msa_stack.") for k in self._w)
             pwa = tm = None
             if has:
@@ -1138,11 +1368,22 @@ class Trunk(_KeyedWeights):
         return self._lin(ttnn.relu(u), "template_embedder.linear_no_bias_u.weight")
 
     def _msa(self, z3, m_feat):
+        def update_msa(m, z, pwa, transition):
+            if pwa is None:
+                return m
+            m = ttnn.add(m, ttnn.reshape(
+                pwa(m, ttnn.clone(z)), tuple(m.shape)))
+            return ttnn.add(
+                m, ttnn.reshape(transition(m), tuple(m.shape)))
+
         for (opm, pwa, tm, pl) in self.MSA:
+            # OpenDDE refreshes the MSA before OPM. Protenix-v2 retains the
+            # ordering its checkpoint was trained with.
+            if self._msa_update_first:
+                m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = ttnn.add(z3, opm(m_feat, None, None))
-            if pwa is not None:
-                m_feat = ttnn.add(m_feat, ttnn.reshape(pwa(m_feat, ttnn.clone(z3)), tuple(m_feat.shape)))
-                m_feat = ttnn.add(m_feat, ttnn.reshape(tm(m_feat), tuple(m_feat.shape)))
+            if not self._msa_update_first:
+                m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = pl(None, z3)[1]
         return z3
 
@@ -1194,7 +1435,7 @@ class Trunk(_KeyedWeights):
 
 def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False):
+               rho=7.0, seed=None, trace=False, progress_fn=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -1221,6 +1462,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
     shape = (1, n_atoms, 3)
     x = sigmas[0] * torch.randn(shape)
     for k in range(n_step):
+        if progress_fn:
+            progress_fn("diffusion", step=k, total=n_step)
         sigma_tm, sigma_t, gamma = sigmas[k].item(), sigmas[k + 1].item(), gammas[k + 1].item()
         R, tr = compute_random_augmentation(1, device=x.device, dtype=x.dtype)
         x = x - x.mean(dim=-2, keepdim=True)

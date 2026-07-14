@@ -84,6 +84,7 @@ class AtomDiffusion(Module):
         time_dilation_start: float = 0.6,
         time_dilation_end: float = 0.8,
         pred_threshold: Optional[float] = None,
+        diffusion_trace: bool = False,
     ):
         super().__init__()
         # Direct ttnn — the diffusion score model is the per-step compute heart
@@ -142,6 +143,14 @@ class AtomDiffusion(Module):
 
         self.register_buffer("zero", torch.tensor(0.0), persistent=False)
 
+        # Opt-in ttnn trace replay of the per-step DiT device stream: the
+        # BoltzGen diffusion loop is shape-stable across all sampling steps
+        # (only the scalar times and the r coords change), so the captured
+        # device graph replays every step and collapses the per-step host
+        # dispatch. Lossless by construction (bit-identical to the untraced
+        # path). See TTDiffusionModule.forward_traced / docs/boltzgen-trace-replay.md.
+        self._trace = diffusion_trace
+
     @property
     def device(self):
         # Tenstorrent-only port: ``score_model`` is a TorchWrapper holding
@@ -194,6 +203,7 @@ class AtomDiffusion(Module):
         net_out = self.score_model(
             r_noisy=self.c_in(padded_sigma) * noised_atom_coords,
             times=self.c_noise(sigma),
+            trace=self._trace,
             **network_condition_kwargs,
         )
 

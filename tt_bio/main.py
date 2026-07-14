@@ -15,6 +15,30 @@ if "--debug" not in _sys.argv:
 _os.environ.setdefault("MKL_THREADING_LAYER", "GNU")
 
 
+def _ttnn_version() -> str:
+    """Installed ttnn version, without importing the (heavy) package itself."""
+    import importlib.metadata
+    try:
+        return importlib.metadata.version("ttnn")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
+# tt-metal JIT-compiles every kernel binary on first use; the compiled ELF is
+# cached on disk (default ~/.cache/tt-metal-cache) and reused by ANY later
+# process on this host, so a cold `predict`/`embed` CLI call or a restarted
+# serve worker skips recompiling shapes a prior process already built (measured
+# ~2-3x wall-clock, ~9x compute-stage win for a from-empty vs warm cache; see
+# docs/cold-start.md). Namespace by installed ttnn version so a version bump
+# can never silently reuse a differently-built cache (belt-and-suspenders on
+# top of tt-metal's own internal build-hash directory) -- setdefault so an
+# operator-set TT_METAL_CACHE always wins. Must run before ttnn is imported.
+_os.environ.setdefault(
+    "TT_METAL_CACHE",
+    _os.path.expanduser(f"~/.cache/tt-metal-cache-tt-bio/ttnn-{_ttnn_version()}"),
+)
+
+
 def _install_nanobind_leak_stderr_filter() -> None:
     """Drop nanobind leak reports while forwarding other fd-level stderr."""
     try:
@@ -1034,6 +1058,13 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         else DebugDisplay(pq) if log else NullDisplay(pq)
     )
     display.start()
+    # Optional headless event capture (TT_BIO_PROGRESS_CAPTURE=<path>): tee every
+    # streamed event to a JSONL file so the UX-regression guard can assert the
+    # live progress view advances through every real phase without scraping a
+    # TTY. Same event stream the display reads above, so it observes real
+    # behaviour. Off by default; no effect on a normal predict run.
+    cap_path = os.environ.get("TT_BIO_PROGRESS_CAPTURE")
+    cap_fh = open(cap_path, "a") if cap_path else None
     after = 0
     failed = 0
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
@@ -1064,12 +1095,23 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         if struct_dir is not None and row.get("status") == "ok":
                             _write_job_outputs(client, run_id, row["id"], struct_dir)
                 pq.put(ev)
+                if cap_fh is not None:
+                    try:
+                        cap_fh.write(json.dumps(ev, default=str) + "\n")
+                        cap_fh.flush()
+                    except Exception:
+                        pass
             if snapshot.get("status") in ("ok", "failed", "canceled"):
                 failed = int(snapshot.get("failed") or 0)
                 break
             time.sleep(0.5)
     finally:
         display.stop()
+        if cap_fh is not None:
+            try:
+                cap_fh.close()
+            except Exception:
+                pass
     if failures:
         # The rolling log only had room for a one-line clip per job; print the
         # full message here so any actionable guidance (e.g. how to supply
@@ -1814,6 +1856,35 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
         (msa_dir / f"{h}.a3m").write_text(res[i])
 
 
+def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
+                                 msa_pairing_strategy, msa_server_username,
+                                 msa_server_password, api_key_value):
+    """Run a species-pairing MSA search for a multi-chain protein complex and return
+    per-seq-hash paired a3m text (one per chain, rows species-aligned across chains).
+
+    Uses the ColabFold pair endpoint (``ticket/pair``) -- the same paired-MSA utility
+    Boltz-2 uses and the standard AF3/Protenix docking input -- so the species pairing
+    is done server-side, matching what the reference ``MSAPairingEngine.
+    pair_chains_by_species`` produces from per-chain MSAs carrying UniProt/UniRef
+    species IDs. Each returned a3m has the chain's own query as row 0 followed by the
+    paired homologs; row j across chains corresponds to the same genome. Best-effort:
+    callers should catch exceptions and fall back to unpaired-only (no cross-chain
+    signal) rather than failing the whole fold.
+
+    Returns ``{seq_hash: a3m_text}`` parallel to the input ``seqs`` dict.
+    """
+    from tt_bio.data.msa import run_mmseqs2
+
+    headers = {"Content-Type": "application/json", "X-API-Key": api_key_value} if api_key_value else None
+    keys = list(seqs)
+    res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{target_id}_paired_tmp",
+                      use_env=True, use_pairing=True, host_url=msa_server_url,
+                      pairing_strategy=msa_pairing_strategy,
+                      msa_server_username=msa_server_username,
+                      msa_server_password=msa_server_password, auth_headers=headers)
+    return {k: res[i] for i, k in enumerate(keys)}
+
+
 def _resolve_recycling_steps(recycling_steps, model):
     """Per-model default trunk-recycling count when --recycling_steps is unset (None).
 
@@ -1824,7 +1895,7 @@ def _resolve_recycling_steps(recycling_steps, model):
     """
     if recycling_steps is not None:
         return recycling_steps
-    return 10 if model == "protenix-v2" else 3
+    return 10 if model in ("protenix-v2", "opendde", "opendde-abag") else 3
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
@@ -1843,7 +1914,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
     """
-    if model not in ("boltz2", "protenix-v2"):
+    if model not in ("boltz2", "protenix-v2", "opendde", "opendde-abag"):
         return use_msa_server, msa_db_path
 
     explicit = use_msa_server or msa_db_path or msa_endpoint
@@ -1906,6 +1977,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--num_subsampled_msa", default=1024, type=int)
 @click.option("--no_kernels", is_flag=True)
 @click.option("--trace", is_flag=True)
+@click.option("--diffusion_trace", is_flag=True,
+              help="Replay a captured ttnn trace of the per-step diffusion DiT device "
+                   "stream (lossless; collapses per-step host dispatch). boltz2 only. "
+                   "Opt-in — reserves a 1 GiB trace region on the device. See "
+                   "docs/boltz2-trace-replay.md.")
 @click.option("--write_pae", is_flag=True, help="Write PAE matrix per target")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
@@ -1928,17 +2004,19 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
-@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2"]), default="boltz2", show_default=True,
+@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"]), default="boltz2", show_default=True,
               help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
                    "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
                    "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
                    "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
+                   "opendde / opendde-abag: AF3-family co-folding (Protenix-v2 stack + structural-token expander); "
+                   "opendde-abag selects the antibody-antigen checkpoint. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
             seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
-            method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace,
+            method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, fast, debug, log,
@@ -1993,17 +2071,17 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    # MSA-dependent models (boltz2, protenix-v2) must never silently fold
-    # single-sequence: resolve a source now (explicit flag > local DB > online
-    # fallback) or honor an explicit --single_sequence opt-out. esmfold2 /
+    # MSA-dependent models (boltz2, protenix-v2, opendde, opendde-abag) must never
+    # silently fold single-sequence: resolve a source now (explicit flag > local DB >
+    # online fallback) or honor an explicit --single_sequence opt-out. esmfold2 /
     # esmfold2-fast are single-sequence by design and pass through untouched.
     use_msa_server, msa_db_path = _resolve_msa_default(
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url)
 
-    if model in ("esmfold2", "esmfold2-fast", "protenix-v2"):
-        # ESMFold2 and Protenix-v2 ride the SAME scheduler / worker / progress path as
-        # Boltz-2: build a run config, then fan jobs across devices via _local_workers +
+    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"):
+        # ESMFold2, Protenix-v2 and OpenDDE ride the SAME scheduler / worker / progress path
+        # as Boltz-2: build a run config, then fan jobs across devices via _local_workers +
         # _dispatch_run (or submit to a remote --controller). Only the per-model config differs.
         for n, on in [("--use_potentials", use_potentials),
                       ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:
@@ -2023,9 +2101,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo()
             click.secho("Note: --model esmfold2-fast has no MSA encoder; folding single-sequence "
                         "(use --model esmfold2 to use the MSA).", fg="yellow")
-        # Protenix-v2 is MSA-dependent; _resolve_msa_default guarantees a source
-        # (local DB or online) is set above unless the user passed --single_sequence,
-        # so single-sequence folding here is always an explicit choice.
+        # Protenix-v2 and OpenDDE are MSA-dependent; _resolve_msa_default guarantees a
+        # source (local DB or online) is set above unless the user passed
+        # --single_sequence, so single-sequence folding here is always an explicit choice.
         data = Path(data).expanduser()
         out_dir_path = Path(out_dir).expanduser()
         out = out_dir_path / f"boltz_results_{data.stem}"
@@ -2044,10 +2122,16 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
         # shared msa_dir cache, and folds. MSA is optional here (single-sequence
         # folding when no source is given), so unlike Boltz-2 it never errors out.
+        # --trace: reserve a ttnn trace region on each worker before its first
+        # get_device() open (workers inherit the parent env). Protenix-v2/OpenDDE
+        # fold(trace=True) read it back via trace_region_size(); the device must be
+        # opened with the region up front (a later reopen is unstable on TT).
+        if trace:
+            os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
-            "diffusion_samples": diffusion_samples, "seed": seed or 0,
+            "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
             "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
             "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
             "msa_endpoint": msa_endpoint, "single_sequence": single_sequence,
@@ -2137,6 +2221,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                        "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
         use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=trace,
+        diffusion_trace=diffusion_trace,
     )
     aff_kwargs = dict(
         predict_args={"recycling_steps": 5, "sampling_steps": sampling_steps_affinity,
@@ -2146,6 +2231,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                        "contact_guidance_update": False, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
         affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=trace,
+        diffusion_trace=diffusion_trace,
     )
 
     results_path = out / "results.json"
@@ -2515,6 +2601,13 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             results = esmc.embed(seqs, model=model, devices=device_list, fast=fast,
                                  return_logits=return_logits, pool=pool, batch_size=batch_size)
         else:
+            # This process opens its TT device in-process (no fanout subprocess),
+            # so it needs the same P300-board-misdetection workaround the fanout
+            # path applies per-shard (see esmc._spawn_shard).
+            if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+                mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+                if mgd:
+                    os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
             click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
             m = esmc.load_esmc(model, fast=fast)
             click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")

@@ -72,6 +72,12 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
             hf_artifact(PROTENIX_REPO, "protenix-v2.pt", cache))
         cfg["mol_dir"] = str(download_mols(cache))     # CCD templates for nucleic acids / ligands
         return
+    # OpenDDE loads its weights from HF (aurekaresearch/OpenDDE) on the first fold via
+    # load_opendde_checkpoint; single-sequence only (no MSA dir needed -- see
+    # docs/opendde-port.md).
+    if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
+        cfg["opendde_ckpt"] = os.environ.get("OPENDDE_CKPT")
+        return
     # ESMFold2 loads its weights from HF on the first fold and needs no Boltz-2
     # checkpoints / molecule library — only a writable MSA dir.
     if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
@@ -197,6 +203,11 @@ class _WorkerState:
             from tt_bio.protenix import Protenix
 
             self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
+        elif model_id in ("opendde", "opendde-abag"):
+            from tt_bio.opendde import OpenDDE
+
+            self.model = OpenDDE.load_from_checkpoint(
+                cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))
         elif _is_esmc_model(model_id):
             from tt_bio.esmc import load_esmc
 
@@ -241,6 +252,8 @@ class _WorkerState:
             self.prepare = None
 
     def predict_one(self, path: Path, cfg: dict[str, Any]):
+        if cfg.get("model") in ("opendde", "opendde-abag"):
+            return self._predict_opendde_one(path, cfg)
         if cfg.get("model") == "protenix-v2":
             return self._predict_protenix_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
@@ -327,6 +340,132 @@ class _WorkerState:
         feats = {"record": types.SimpleNamespace(affinity=False)}
         return metrics, None, feats
 
+    def _predict_opendde_one(self, path: Path, cfg: dict[str, Any]):
+        """OpenDDE protein co-fold: sequence(s) -> (optional per-chain MSA) -> on-device
+        structural-token fold -> structure. Rides the SAME MSA stage as Protenix-v2 /
+        ESMFold2 / Boltz-2: each protein chain whose {seq_hash}.a3m is not cached is
+        searched into the shared msa_dir, resolved, and featurized via
+        build_complex_features' block-diagonal MSA. Protein-only (nucleic-acid/ligand
+        structural tokens not ported yet). Confidence-based best-of-N ranking and CIF
+        writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
+        ConfidenceHead / build_complex_features / _write_protenix_structure)."""
+        import hashlib
+        import types
+
+        from tt_bio.esmfold2 import report_progress
+        from tt_bio.main import (_generate_esmfold2_a3m,
+                                 _generate_opendde_paired_a3m, _read_bio_chains,
+                                 _read_bio_constraints, _resolve_a3m_text,
+                                 _write_protenix_structure)
+        from tt_bio.protenix_data import build_complex_features
+
+        chains = _read_bio_chains(path)
+        if not chains:
+            raise RuntimeError("no protein sequences")
+        non_protein = [cid for cid, _s, _sp, mt in chains if mt != "protein"]
+        if non_protein:
+            raise RuntimeError(
+                f"--model opendde is protein-only for now (chain(s) {non_protein} are not "
+                "protein); see docs/opendde-port.md's Remaining section.")
+        bonds = _read_bio_constraints(path)
+        msa_dir = Path(cfg["msa_dir"])
+
+        report_progress("msa")
+        # search any uncached protein chain (batched into one MSA call), reusing the
+        # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path.
+        # A second, paired (species-pairing) search is run below for multi-chain
+        # complexes to inject the cross-chain co-evolution signal.
+        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
+        need = {}
+        for _cid, cseq, spec, mt in chains:
+            have_spec = bool(spec and Path(spec).expanduser().exists())
+            if mt == "protein" and want_msa and not have_spec:
+                h = hashlib.sha256(cseq.encode()).hexdigest()[:16]
+                if not (msa_dir / f"{h}.a3m").exists():
+                    need[h] = cseq
+        if need:
+            _generate_esmfold2_a3m(
+                need, path.stem, msa_dir, cfg.get("msa_db_path"),
+                cfg.get("use_envdb", False), cfg.get("msa_server_url"),
+                cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
+                cfg.get("msa_server_password"), cfg.get("api_key_value"),
+                msa_endpoint=cfg.get("msa_endpoint"))
+        chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
+                       for _cid, cseq, spec, mt in chains]
+
+        # Paired (species-pairing) MSA for multi-chain complexes -- the cross-chain
+        # co-evolution signal the reference OpenDDE pipeline injects via
+        # MSAPairingEngine.pair_chains_by_species and this port otherwise lacks
+        # (unpaired block-diagonal MSA carries no cross-chain signal). Best-effort:
+        # a failed paired search falls back to unpaired-only so the fold still runs.
+        paired_a3ms = None
+        n_prot = sum(1 for _c, _s, _sp, mt in chains if mt == "protein")
+        if n_prot > 1 and want_msa:
+            paired_seqs = {hashlib.sha256(cseq.encode()).hexdigest()[:16]: cseq
+                           for _cid, cseq, _spec, mt in chains if mt == "protein"}
+            try:
+                paired = _generate_opendde_paired_a3m(
+                    paired_seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
+                    cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
+                    cfg.get("msa_server_password"), cfg.get("api_key_value"))
+                paired_a3ms = [paired.get(hashlib.sha256(cseq.encode()).hexdigest()[:16])
+                               for _cid, cseq, _spec, mt in chains if mt == "protein"]
+            except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
+                print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
+                paired_a3ms = None
+
+        report_progress("prep")
+        feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt in chains],
+                                       bonds=bonds, paired_a3ms=paired_a3ms)
+
+        # OpenDDE.fold rides the Protenix-v2 trunk + EDM sampler, so the same
+        # progress_fn path reports trunk iterations and diffusion steps — no
+        # separate OpenDDE progress wiring, and no premature "diffusion" emit
+        # that would skip the trunk phase on the live view.
+        n_sample = int(cfg["diffusion_samples"])
+        coords, conf = self.model.fold(
+            feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
+            seed=cfg.get("seed") or 0, progress_fn=report_progress,
+            n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
+            return_confidence=True)
+        confs = conf if isinstance(conf, list) else [conf]
+
+        # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers, falling
+        # back to pLDDT only if neither is available -- identical to Protenix-v2's ranking.
+        def _score(c):
+            ptm, iptm = c.get("ptm", 0.0), c.get("iptm", 0.0)
+            if iptm > 0.0:
+                return 0.8 * iptm + 0.2 * ptm
+            return ptm if ptm > 0.0 else c["plddt"]
+
+        order = sorted(range(len(confs)), key=lambda k: _score(confs[k]), reverse=True)
+        rank_of = {k: r for r, k in enumerate(order)}
+
+        struct_dir = Path(cfg["struct_dir"])
+        stem, fmt = path.stem, cfg["output_format"]
+        for k in range(len(confs)):
+            r = rank_of[k]
+            name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
+            _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
+                                      b_factors=confs[k]["plddt_atom"] * 100.0)
+
+        def _row(c):
+            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
+                    "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
+                    "confidence_score": round(_score(c), 6)}
+
+        best = confs[order[0]]
+        metrics = {
+            **_row(best),
+            "n_residues": sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand"),
+            "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
+            "msa": any(a for _, a, _ in chain_specs), "n_atoms": int(coords.shape[1]),
+            "samples": n_sample,
+        }
+        if len(confs) > 1:
+            metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
+        return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
+
     def _predict_protenix_one(self, path: Path, cfg: dict[str, Any]):
         """Protenix-v2 protein fold: sequence(s) -> (optional per-chain MSA) -> on-device fold
         -> structure. Rides the same MSA stage as ESMFold2/Boltz-2: each chain whose
@@ -372,14 +511,15 @@ class _WorkerState:
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
                                        chain_ids=[cid for cid, _s, _sp, _mt in chains], bonds=bonds)
 
-        def _pfn(stage, step, total):
-            report_progress("diffusion" if stage == "trunk" else stage)
-
+        # One shared progress path: report_progress has exactly the progress_fn
+        # signature, so hand it straight to the model — trunk iterations report
+        # as "trunk", diffusion steps as "diffusion" (no remapping that would
+        # hide the trunk phase).
         n_sample = int(cfg["diffusion_samples"])
         coords, conf = self.model.fold(
             feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-            seed=cfg.get("seed") or 0, progress_fn=_pfn, return_confidence=True,
-            n_cycles=cfg.get("recycling_steps"),
+            seed=cfg.get("seed") or 0, progress_fn=report_progress,
+            return_confidence=True, n_cycles=cfg.get("recycling_steps"),
         )
         confs = conf if isinstance(conf, list) else [conf]
 
