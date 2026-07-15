@@ -339,7 +339,7 @@ class OpenDDE:
         return result
 
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
-             return_confidence=False, progress_fn=None, trace=False):
+             return_confidence=False, progress_fn=None, trace=False, dump_fn=None):
         """First end-to-end residue->structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -440,8 +440,9 @@ class OpenDDE:
         coords = []
         for k in range(n_sample):
             sd_seed = None if seed is None else seed + k
+            _df = (lambda step, x, _k=k: dump_fn(_k, step, x)) if dump_fn is not None else None
             coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                     trace=trace, progress_fn=progress_fn)[0])
+                                     trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
         coords = torch.stack(coords, 0)
         if return_confidence:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
