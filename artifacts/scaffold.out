@@ -1,0 +1,37 @@
+
+========================================================================
+  MODEL FAILED TO LOAD — cannot inspect 'meituan-longcat/LongCat-Video'
+========================================================================
+  reason: ValueError: Unrecognized model in meituan-longcat/LongCat-Video. Should have a `model_type` key in its config.json.
+  This is NOT 'the model has no components' — the tool could not
+  even construct the model on CPU. If this is a missing accelerator
+  package (e.g. mamba-ssm / causal-conv1d), add a pure-CPU stand-in
+  in scripts/tt_hw_planner/cpu_compat.py so the model opens on CPU.
+========================================================================
+==============================================================================
+  SCAFFOLDING meituan-longcat/LongCat-Video  (compat=FAMILY TEMPLATE (Video))
+==============================================================================
+
+  Sibling:        hf_eager universal (Video)
+  Sibling base:   demo.py  (demo.py)
+  New base:       LongCat-Video  (LongCat-Video)
+  Compat note:    Scaffolded from `hf_eager universal (Video)` (models/demos/hf_eager/demo.py). Component plan: 2 REUSE / 0 NEW — see BRING_UP_PLAN.md.
+
+  Proposed changes:
+    A  models/demos/hf_eager/longcat_video/BRING_UP_PLAN.md
+    A  models/demos/hf_eager/longcat_video/bringup_status.json
+
+  Component status (REUSE/ADAPT/NEW):
+    Summary: 2 REUSE, 0 ADAPT, 0 NEW
+
+    [REUSE]  self_attention  models/tt_transformers/tt/attention.py
+    [REUSE]  mlp             models/tt_transformers/tt/mlp.py
+
+  Skipped:
+    -  backend demo path missing on disk: models/demos/hf_eager/demo.py
+
+  Next steps:
+    python -m scripts.tt_hw_planner scaffold meituan-longcat/LongCat-Video --apply
+    python -m scripts.tt_hw_planner prepare  meituan-longcat/LongCat-Video --execute
+
+==============================================================================
