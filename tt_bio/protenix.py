@@ -1435,7 +1435,7 @@ class Trunk(_KeyedWeights):
 
 def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False, progress_fn=None):
+               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -1461,6 +1461,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
     gammas = torch.where(sigmas > gamma_min, torch.tensor(gamma0), torch.tensor(0.0))
     shape = (1, n_atoms, 3)
     x = sigmas[0] * torch.randn(shape)
+    if dump_fn is not None:                          # optional trajectory dump (default off)
+        dump_fn(-1, x.detach().cpu())                # step -1 == initial noise frame
     for k in range(n_step):
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
@@ -1475,6 +1477,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
         denoised = _denoise(x_noisy, torch.tensor([t_hat], dtype=torch.float32), cond)
         d = (x_noisy - denoised) / t_hat
         x = x_noisy + step_scale * (sigma_t - t_hat) * d
+        if dump_fn is not None:                      # per-step coords (noise -> structure)
+            dump_fn(k, x.detach().cpu())
     return x
 
 
