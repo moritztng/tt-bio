@@ -146,6 +146,7 @@ including the honest caveats, follows in the subsections below.
 | Boltz-2 | prot/7ROA (L117, MSA) | CA-RMSD (Å) | 0.81 | 0.98 | 0.94 ± 0.14 | PASS (within floor) |
 | OpenDDE | trp-cage (L20, no-MSA) | CA-RMSD (Å) | 0.31 | 0.24 | 0.39 ± 0.11 | PASS (within floor) |
 | OpenDDE | prot/7ROA (L117, no-MSA, production 10c/200s) | CA-RMSD (Å) | 1.90 | 8.06 | 5.68 ± 3.98 | PASS (within floor; the reduced-settings 2.85x gap was a tight-floor artifact, see OpenDDE section) |
+| OpenDDE-abag | 1ahw (Ab-Ag complex, standard target) | global DockQ | 0.83-0.86 (reference, best-of-3) | 0.863-0.882 (device, best-of-5) | device matches reference (fnat 0.90-1.0 both) | PASS (checkpoint's own antibody-antigen use case reproduced on-device; see Ab-Ag reference leg) |
 | BoltzGen | binder vs 7ROA chain A | scRMSD pass-rate (≤2 Å) | 68.75% (ref GPU, n=16) | 93.8% (pooled n=16) | device ≥ reference (no 1:1 output) | PASS (device designability meets-or-exceeds reference; see BoltzGen section) |
 
 ### ESMC (protein language-model embeddings) — complete
