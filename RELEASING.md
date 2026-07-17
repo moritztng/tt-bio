@@ -28,8 +28,14 @@ false gate failure. Re-run on an idle card before treating a failure there as re
    Boltz-2, reusing `scripts/boltzgen_designability.py` (see `docs/boltzgen-designability.md`).
    **No tag ships unless it exits 0.**
    ```bash
-   TT_VISIBLE_DEVICES=<card> python scripts/release_gate.py   # all 5; exit 0 == all PASS
+   TT_VISIBLE_DEVICES=<card> ESM_ROOT=<path/to/esm/clone> python scripts/release_gate.py   # all 5 + ESMC parity; exit 0 == all PASS
    ```
+   `ESM_ROOT` (path to a clone of the `esm` reference package, e.g. `evolutionaryscale/esm`) is
+   required for the ESMC embedding-parity leg — without it that leg hard-exits rather than
+   silently skipping. Also note: `release_gate.py` folds `examples/prot.yaml` via `prepare_features`,
+   which reuses an existing `msa_dir/{sha256(seq)[:16]}.a3m` before any network call — if the public
+   ColabFold API is unreachable, drop a previously-generated a3m for that exact sequence into the
+   gate's `msa_dir` (default `<out_dir>/msa`) rather than treating the timeout as a regression.
    Self-consistency (seed-vs-reference RMSD) is **not** sufficient for the four fold models — it
    passes even when the fold is wrong. Reference floors on 7ROA (`examples/prot.yaml`), best-of-N
    by confidence, at the tag: Boltz-2 ~1.6 Å, ESMFold2 ~2.2 Å, ESMFold2-fast ~1.7 Å
