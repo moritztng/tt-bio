@@ -1,4 +1,4 @@
-"""Confidence-head + best-of-N verification for OpenDDE (docs/opendde-port.md item 2).
+"""Confidence-head and best-of-N verification for OpenDDE.
 
 Checks that OpenDDE.fold(n_sample=N, return_confidence=True) runs finite end-to-end and
 that the confidence dict (per-sample pLDDT/pTM) is sane (0-1 range for pLDDT, populated

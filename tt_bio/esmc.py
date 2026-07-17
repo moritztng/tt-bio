@@ -149,8 +149,7 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     per tensor. This is the largest single share of ESMC attention (a dispatch-
     bound elementwise stack, not a matmul), so collapsing it is a real per-layer
     win, largest on the smaller models. Matches the reference within bf16 noise;
-    the ragged fallback keeps arbitrary single-sequence lengths exact. See
-    docs/esmc-attention-kernel-scout.md.
+    the ragged fallback keeps arbitrary single-sequence lengths exact.
     """
     if q.shape[2] % 32 == 0:
         return (ttnn.experimental.rotary_embedding(q, cos, sin),
@@ -1079,7 +1078,7 @@ def _await_shard(proc, out_path: str, device: int, log_path: str, logf) -> list[
 
 
 def _shm_dir() -> str:
-    """RAM-backed scratch dir for the shared tile cache; falls back to \$TMPDIR."""
+    """RAM-backed scratch dir for the shared tile cache; falls back to $TMPDIR."""
     return "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
 
 

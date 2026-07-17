@@ -2,9 +2,8 @@
 
 **Goal:** port Protenix's ttnn trace-replay machinery
 (`tt_bio/protenix.py:_capture_trace` / `denoise_traced`, `fold(trace=True)`,
-measured -22% warm diffusion @L256) to BoltzGen's diffusion sampling loop — the
-one real dispatch-collapse candidate `docs/boltzgen-fusion-scout.md` flagged
-(projected ~13-19% of the design forward). BoltzGen's per-step device graph is
+measured -22% warm diffusion @L256) to BoltzGen's diffusion sampling loop.
+BoltzGen's per-step device graph is
 shape-stable across all 500 sampling steps (only the scalar `times` and the `r`
 coords change; schedule phases are host-side scalars), the same precondition
 Protenix's trace relies on, so the mechanism transfers directly.

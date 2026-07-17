@@ -4,7 +4,7 @@ The shared ``--recycling_steps`` flag historically defaulted to 3 (the Boltz-2/A
 convention), but ``protenix.Trunk.N_CYCLES = 10`` is Protenix-v2's spec. Running it at 3
 under-recycled the trunk into a bimodal ensemble the confidence head then mis-ranked, so the
 delivered structure on hard targets was much worse than a sample already in the ensemble
-(7ROA delivered 3.47 A vs 2.35 A at 10; docs/protenix-confidence-head-rootcause.md).
+(7ROA delivered 3.47 A versus 2.35 A at 10).
 
 ``predict`` now resolves the count per-model via ``_resolve_recycling_steps``; these tests pin
 the contract so the fix can't silently revert. Host-only — no device, no network.
