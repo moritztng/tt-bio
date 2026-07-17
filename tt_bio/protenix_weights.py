@@ -3,10 +3,10 @@
 Protenix-v2 is the same AlphaFold3 family as Boltz-2, so its trunk/MSA/template
 modules map onto the existing tt_bio.tenstorrent primitives (TriangleMultiplication,
 TriangleAttention, Transition, AttentionPairBias, OuterProductMean,
-PairWeightedAveraging, PairformerLayer). These remaps translate Protenix/OpenFold
+PairWeightedAveraging, PairformerLayer). These remaps translate Protenix
 checkpoint key names onto each primitive's expected state_dict. Every mapping was
-validated on-device vs the real v2 reference (PCC > 0.98; see docs/porting-protenix-v2.md
-and tests/test_protenix*.py). No protenix import -- pure torch.cat/rename on tensors.
+validated on-device vs the real v2 reference (PCC > 0.98 in
+tests/test_protenix*.py). No protenix import -- pure torch.cat/rename on tensors.
 """
 
 from __future__ import annotations

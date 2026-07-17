@@ -14,7 +14,6 @@ import json
 import os
 import shutil
 import signal
-import subprocess
 import sys
 import tempfile
 import time
@@ -72,9 +71,7 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
             hf_artifact(PROTENIX_REPO, "protenix-v2.pt", cache))
         cfg["mol_dir"] = str(download_mols(cache))     # CCD templates for nucleic acids / ligands
         return
-    # OpenDDE loads its weights from HF (aurekaresearch/OpenDDE) on the first fold via
-    # load_opendde_checkpoint; single-sequence only (no MSA dir needed -- see
-    # docs/opendde-port.md).
+    # OpenDDE loads its weights from HF on the first fold.
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
         cfg["opendde_ckpt"] = os.environ.get("OPENDDE_CKPT")
         return
@@ -366,7 +363,7 @@ class _WorkerState:
         if non_protein:
             raise RuntimeError(
                 f"--model opendde is protein-only for now (chain(s) {non_protein} are not "
-                "protein); see docs/opendde-port.md's Remaining section.")
+                "protein).")
         bonds = _read_bio_constraints(path)
         msa_dir = Path(cfg["msa_dir"])
 
@@ -981,17 +978,6 @@ def _forward_design_progress(path: Path, pos: int, emit) -> int:
             return f.tell()
     except Exception:
         return pos
-
-
-def _tail_text(path: Path, nbytes: int = 800) -> str:
-    try:
-        with open(path, "rb") as f:
-            f.seek(0, os.SEEK_END)
-            size = f.tell()
-            f.seek(max(0, size - nbytes))
-            return f.read().decode("utf-8", "replace").strip()[-400:]
-    except Exception:
-        return "design shard failed (see worker log)."
 
 
 def _read_outputs(output_dir: Path) -> dict[str, str]:

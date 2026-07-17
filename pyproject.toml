@@ -45,12 +45,6 @@ dependencies = [
     # pure torch/ttnn (canonical-CCD conformers bundled as JSON, no rdkit/gemmi at runtime),
     # and weights come from the Hugging Face mirror via huggingface_hub (no clone).
     "ttnn==0.68.0",
-    # OpenFold3 host-side data pipeline is vendored under tt_bio/_vendor (see NOTICE);
-    # these are the stock PyPI runtime deps it needs for query-JSON featurization.
-    "pydantic",         # Query/settings schema (inference_query_format, dataset_config_components)
-    "pdbeccdutils",      # CCD (Chemical Component Dictionary) residue/ligand lookup
-    "func_timeout",      # bounds RDKit reference-conformer generation
-    "networkx",          # connected-components on CCD bond graphs (structure/cleanup.py)
 ]
 
 [project.optional-dependencies]
@@ -69,7 +63,6 @@ include = ["tt_bio*"]
 # ship the vendored third-party license texts inside the wheel (see NOTICE)
 "tt_bio._vendor.esm" = ["LICENSE"]
 "tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
-"tt_bio._vendor.openfold3" = ["LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
