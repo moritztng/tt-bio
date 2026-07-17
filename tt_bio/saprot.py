@@ -20,6 +20,7 @@ from __future__ import annotations
 import itertools
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -392,9 +393,24 @@ def embed_sequences(model, sequences, *, return_logits=False, pool="mean", batch
     by_id = {}
     for idx in batches:
         batch = [items[i] for i in idx]
-        toks = [tokenize(aa, struc) for _, (aa, struc) in batch]
-        input_ids, lens, attn_mask, key_valid = _batch_tokens([t[0] for t in toks])
-        embed_mask = None if key_valid is None else key_valid.squeeze(1)
+        # token id lists (already fused SaProt tokens), then pad to a common bucket.
+        toks = [tokenize(aa, struc)[0].tolist() for _, (aa, struc) in batch]
+        lens = [len(t) for t in toks]
+        Lb = ((max(lens) + BUCKET - 1) // BUCKET) * BUCKET
+        B = len(batch)
+        input_ids = torch.full((B, Lb), PAD, dtype=torch.long)
+        for i, t in enumerate(toks):
+            input_ids[i, : lens[i]] = torch.tensor(t, dtype=torch.long)
+        if all(li == Lb for li in lens):
+            attn_mask = key_valid = embed_mask = None
+        else:
+            attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
+            key_valid = torch.ones(B, 1, Lb, 1, dtype=torch.float32)
+            embed_mask = torch.ones(B, Lb, 1, dtype=torch.float32)
+            for i, li in enumerate(lens):
+                attn_mask[i, :, li:] = float("-inf")
+                key_valid[i, :, li:, :] = 0.0
+                embed_mask[i, li:, :] = 0.0
         logits_b, emb_b = model(input_ids, attn_mask, key_valid, embed_mask)
         for row, (sid, (aa, struc)) in enumerate(batch):
             li = lens[row]
@@ -402,7 +418,7 @@ def embed_sequences(model, sequences, *, return_logits=False, pool="mean", batch
             per_residue, cls = emb[1:-1], emb[0]
             lg = None
             if return_logits:
-                lg = logits_b[row, 1:-1].numpy().astype(np.float32)
+                lg = logits_b[row, 1:li - 1].numpy().astype(np.float32)
             pooled = cls if pool == "cls" else _POOLERS[pool](per_residue)
             by_id[sid] = SaprotEmbedding(sid, aa, per_residue, pooled.astype(np.float32), lg)
     return [by_id[k] for k in sequences]
@@ -421,4 +437,127 @@ def embed(sequences, model: str = "saprot-650m", *, fast=False, return_logits=Fa
         sequences = {"seq0": sequences}
     m = load_saprot(model, fast=fast)
     return embed_sequences(m, sequences, return_logits=return_logits, pool=pool, batch_size=batch_size)
+
+
+# ---------------------------------------------------------------------------
+# Foldseek 3Di front-end (host-side preprocessing -- structure in, 3Di tokens out)
+# ---------------------------------------------------------------------------
+#
+# foldseek is an external dependency (GPL-3.0, not vendored): the user installs
+# the binary (e.g. `conda install -c bioconda foldseek`) and tt-bio shells out to
+# its `structureto3didescriptor` subcommand. It runs on CPU, off-device, and is
+# not a ttnn concern. The struc vocab is the 20 Foldseek 3Di states + "#" (unknown).
+
+_FOLDSEEK_BIN_CANDIDATES = (
+    os.environ.get("FOLDSEEK_BIN", ""),
+    "/home/ttuser/miniforge3/envs/foldseek/bin/foldseek",
+    "foldseek",
+)
+
+
+def find_foldseek() -> str:
+    """Locate the foldseek binary (FOLDSEEK_BIN env, then PATH)."""
+    for cand in _FOLDSEEK_BIN_CANDIDATES:
+        if not cand:
+            continue
+        p = os.path.expanduser(cand)
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    import shutil
+    found = shutil.which("foldseek")
+    if found:
+        return found
+    raise ValueError(
+        "foldseek not found. Install it (e.g. `conda install -c bioconda foldseek`) "
+        "or set FOLDSEEK_BIN to its path. SaProt needs 3Di tokens from a structure.")
+
+
+def foldseek_3di(pdb_path: str, foldseek_bin: str | None = None, chains: list | None = None) -> dict:
+    """Run foldseek ``structureto3didescriptor`` on one PDB/cif -> {chain: (aa, struc)}.
+
+    Returns the amino-acid sequence and the Foldseek 3Di structural sequence per
+    chain, exactly what SaProt's fused tokenizer needs. ``struc`` uses the 20
+    Foldseek 3Di states (lower-cased) plus ``#`` for masked/unknown residues.
+    """
+    import subprocess, tempfile, re
+    bin_ = foldseek_bin or find_foldseek()
+    if not os.path.isfile(pdb_path):
+        raise ValueError(f"structure file not found: {pdb_path}")
+    out = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False).name
+    try:
+        cmd = [bin_, "structureto3didescriptor", "-v", "0", "--threads", "1",
+               "--chain-name-mode", "1", pdb_path, out]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if r.returncode != 0:
+            raise ValueError(f"foldseek failed on {pdb_path}:\n{r.stderr[-800:]}")
+        seqs: dict[str, tuple[str, str]] = {}
+        with open(out) as fh:
+            for line in fh:
+                parts = line.rstrip("\n").split("\t")[:3]
+                if len(parts) < 3:
+                    continue
+                desc, aa, struc = parts
+                chain = desc.split(" ")[0].split("_")[-1]
+                if chains is None or chain in chains:
+                    seqs[chain] = (aa.upper(), struc.lower())
+        return seqs
+    finally:
+        for ext in ("", ".dbtype"):
+            try:
+                os.remove(out + ext)
+            except OSError:
+                pass
+
+
+def load_sequences_with_structure(data, structure=None) -> dict:
+    """Load {id: (aa, struc)} for the SaProt tokenizer.
+
+    ``data`` is a FASTA file/dir/bare AA sequence (reuses ``esmc.load_sequences``).
+    ``structure`` is a single PDB/cif (its first chain is paired with a single
+    input sequence), a directory of PDB/cif files named ``<id>.pdb``/``<id>.cif``
+    matched to the FASTA ids, or None (sequence-only: 3Di taken as all ``#``).
+    """
+    from tt_bio import esmc
+    aas = esmc.load_sequences(data)  # {id: aa}
+    out: dict[str, tuple[str, str]] = {}
+    if structure is None:
+        out = {sid: (aa, "#" * len(aa)) for sid, aa in aas.items()}
+        return out
+    spath = Path(structure).expanduser()
+    if spath.is_file():
+        seqs = foldseek_3di(str(spath))
+        first = next(iter(seqs.values()))
+        if len(aas) == 1:
+            sid = next(iter(aas))
+            out[sid] = (aas[sid], _align_3di(aas[sid], first[1]))
+        else:
+            raise ValueError(
+                "a single --structure pairs with a single input sequence; pass a "
+                "directory of <id>.pdb files for multiple sequences")
+        return out
+    if spath.is_dir():
+        for sid, aa in aas.items():
+            cand = None
+            for ext in (".pdb", ".cif", ".PDB", ".CIF"):
+                p = spath / f"{sid}{ext}"
+                if p.is_file():
+                    cand = p; break
+            if cand is None:
+                raise ValueError(
+                    f"no structure file '{sid}.pdb/.cif' in {spath}; --structure dir "
+                    "must contain one per FASTA id")
+            ch = foldseek_3di(str(cand))
+            first = next(iter(ch.values()))
+            out[sid] = (aa, _align_3di(aa, first[1]))
+        return out
+    raise ValueError(f"--structure must be a PDB/cif file or a directory: {structure}")
+
+
+def _align_3di(aa: str, struc: str) -> str:
+    """Right-pad or truncate the 3Di string to the AA length (foldseek 3Di may
+    include/omit residues relative to the FASTA AA sequence)."""
+    if len(struc) >= len(aa):
+        return struc[: len(aa)]
+    return struc + "#" * (len(aa) - len(struc))
+
 

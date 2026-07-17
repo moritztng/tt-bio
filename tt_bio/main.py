@@ -2563,5 +2563,89 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
                f"→ {out} (see manifest.json)")
 
 
+@cli.command("saprot")
+@click.argument("data")
+@click.option("--model", type=click.Choice(["saprot-35m", "saprot-650m", "saprot-1.3b"]),
+              default="saprot-650m", show_default=True,
+              help="SaProt structure-aware protein-LM variant (ESM-2 over a fused "
+                   "AA+Foldseek-3Di vocabulary).")
+@click.option("--structure", default=None,
+              help="PDB/cif file or a directory of <id>.pdb/.cif files for the 3Di "
+                   "structural tokens. Omit for sequence-only mode (3Di = '#', lower "
+                   "accuracy for 35M/650M; the 1.3B works sequence-only).")
+@click.option("--out_dir", default="./embeddings", show_default=True)
+@click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
+              default="npz", show_default=True,
+              help="npz: one <id>.npz per sequence (per-residue + pooled [+logits]). "
+                   "parquet: a single embeddings.parquet of the pooled vectors.")
+@click.option("--pool", type=click.Choice(["mean", "max", "cls"]), default="mean",
+              show_default=True, help="Pooling for the fixed-size per-sequence vector.")
+@click.option("--logits", "return_logits", is_flag=True,
+              help="Also write per-residue MLM logits [L, 446].")
+@click.option("--fast", is_flag=True,
+              help="Use block-fp8 weights (faster, slightly lower precision).")
+@click.option("--batch_size", default=8, show_default=True,
+              help="Sequences per device forward (padded+masked per batch so "
+                   "per-sequence embeddings are unchanged).")
+def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast, batch_size):
+    """Compute SaProt structure-aware protein-language-model embeddings.
+
+    SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
+    vocabulary (446 tokens): each residue is one of 20 AA x 21 3Di states. DATA
+    is a FASTA file, a directory of FASTA files, or a single bare protein
+    sequence. With ``--structure``, foldseek computes the 3Di tokens from the
+    structure (PDB/cif); without it, SaProt runs sequence-only (3Di = '#').
+
+    \b
+    Output (--out_dir, default ./embeddings):
+        <id>.npz            # per-residue [L,d] + pooled [d] (+ logits) — one per sequence
+        embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
+        manifest.json       # model/pool/shapes/dtype + which file holds each sequence
+    """
+    from tt_bio import saprot, esmc
+
+    torch.set_grad_enabled(False)
+    try:
+        seqs = saprot.load_sequences_with_structure(data, structure)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    out = Path(out_dir).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+
+    # This process opens its TT device in-process, so it needs the same
+    # P300-board-misdetection workaround the embed/predict fanout applies.
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
+    click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
+    try:
+        m = saprot.load_saprot(model, fast=fast)
+        click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
+        results = saprot.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
+                                         batch_size=batch_size)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    if out_format == "npz":
+        for emb in results:
+            esmc.write_npz(emb, out / f"{emb.id}.npz")
+    if out_format == "parquet":
+        esmc.write_parquet(results, out / "embeddings.parquet")
+        click.echo(f"Wrote {out / 'embeddings.parquet'}")
+    esmc.write_manifest(results, out / "manifest.json", model=model, pool=pool, fast=fast,
+                         out_format=out_format, return_logits=return_logits)
+    # SaProt logits are over the 446-token fused vocab, not ESMC's 64-dim sequence head.
+    import json as _json
+    _mf = out / "manifest.json"
+    _m = _json.load(open(_mf))
+    _m["shapes"]["logits"] = "[length, 446] float32 (per-residue MLM logits over the fused AA+3Di vocab)"
+    _json.dump(_m, open(_mf, "w"), indent=2)
+    click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]} "
+               f"→ {out} (see manifest.json)")
+
+
 if __name__ == "__main__":
     cli()
