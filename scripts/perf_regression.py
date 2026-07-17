@@ -98,8 +98,6 @@ SPECS: dict[str, dict] = {
                            batch_size=8, n_seqs=8),
 }
 DEFAULT_MODELS = list(SPECS)
-FOLD_MODELS = [m for m, s in SPECS.items() if s["kind"] == "fold"]
-EMBED_MODELS = [m for m, s in SPECS.items() if s["kind"] == "embed"]
 
 # Light fold protocol — fast, exercises the full trunk + diffusion + heads path.
 RECYCLING_STEPS = 1
@@ -183,15 +181,10 @@ def card_baselines(data: dict, card_type: str) -> dict | None:
 
 
 def _version() -> str:
-    try:
-        import importlib.metadata as md
-        return md.version("tt-bio")
-    except Exception:
-        # not installed (worktree run via PYTHONPATH) — read pyproject
-        import re
-        txt = (REPO_ROOT / "pyproject.toml").read_text()
-        m = re.search(r'^version\s*=\s*"([^"]+)"', txt, re.M)
-        return m.group(1) if m else "unknown"
+    import re
+    txt = (REPO_ROOT / "pyproject.toml").read_text()
+    m = re.search(r'^version\s*=\s*"([^"]+)"', txt, re.M)
+    return m.group(1) if m else "unknown"
 
 
 # ── in-process measurement (runs in a child subprocess, one device context) ─

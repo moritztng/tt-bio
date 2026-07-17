@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Standing accuracy release gate — the on-hardware accuracy leg of RELEASING.md.
 
-For every shipped fold model (Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2) this
+For every shipped fold architecture (Boltz-2, ESMFold2, ESMFold2-fast,
+Protenix-v2, OpenDDE) this
 folds one easy, foldable target end-to-end on the real device with production
 sampling and then applies two independent gates to the result:
 
@@ -15,7 +16,7 @@ sampling and then applies two independent gates to the result:
                harness in ``tests/test_structure.py`` (do not re-derive it here).
 
 Self-consistency (seed-vs-reference RMSD) is NOT sufficient — it passes even when the
-fold is wrong (see docs/protenix-accuracy-investigation.md). A tag must clear a real
+fold is wrong. A tag must clear a real
 ground-truth floor for every model.
 
 BoltzGen is a *design* model, not a fold model — there is no ground truth to fold
@@ -44,7 +45,7 @@ here. 300m/600m (the embed workhorses) run by default; esmc-6b is opt-in
 (``--model esmc-6b``) since its ~13 GB load is too slow for the fast gate, and
 its fused kernel is identical to 300m/600m (head_dim 64), so their parity covers it.
 
-    # gate everything (four fold models + BoltzGen designability + ESMC embed parity) on card 1
+    # gate everything (five fold models + BoltzGen designability + ESMC embed parity) on card 1
     TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> ESM_ROOT=/path/to/esm \
         python scripts/release_gate.py
     # one leg
@@ -78,8 +79,7 @@ DATA = REPO_ROOT / "examples" / "prot.yaml"
 GROUND_TRUTH = REPO_ROOT / "examples" / "ground_truth_structures" / "prot.cif"
 NAME = DATA.stem  # "prot" -> results land in boltz_results_prot/
 
-# Production sampling. n_step=10 (the old self-consistency harness) undersamples and
-# fails a correct model (docs/protenix-accuracy-investigation.md); 200 steps / 5
+# Production sampling. n_step=10 undersamples and can fail a correct model; 200 steps / 5
 # samples is the floor for a real accuracy read.
 SAMPLING_STEPS = 200
 DIFFUSION_SAMPLES = 5
@@ -94,8 +94,8 @@ FAST = False
 DIFFUSION_TRACE = False
 
 # Per-model ground-truth floors on 7ROA, of the confidence-selected structure.
-# Anchored to the measured on-hardware baselines (docs/protenix-accuracy-investigation.md)
-# with margin for TT diffusion's seed-to-seed stochasticity — deliberately generous
+# Anchored to measured on-hardware baselines with margin for TT diffusion's
+# seed-to-seed stochasticity — deliberately generous
 # floors that catch a regression or a gross fold failure, NOT tight targets. Tighten as
 # a model's baseline distribution is nailed down; never set below what a correct fold hits.
 #   measured best-conf: Boltz-2 1.55 A / TM 0.93 | ESMFold2 2.28 / 0.83 | Protenix-v2 3.87 / 0.71
@@ -104,6 +104,7 @@ MODELS = {
     "esmfold2":      {"max_rmsd": 4.0, "min_tm": 0.65},
     "esmfold2-fast": {"max_rmsd": 4.5, "min_tm": 0.60},
     "protenix-v2":   {"max_rmsd": 6.0, "min_tm": 0.50},
+    "opendde":       {"max_rmsd": 6.0, "min_tm": 0.50},
 }
 
 # BoltzGen designability leg — see module docstring. Small n and the target the
@@ -276,12 +277,8 @@ def run_boltzgen(bg, keep: bool) -> dict:
     return row
 
 
-def run_esmc(model: str, parity, keep: bool) -> dict:
-    """Run the shipped ESMC embed path vs reference esm and gate on per-residue PCC.
-
-    ``keep`` is accepted for API symmetry with the fold/BoltzGen legs; the embed
-    path writes no on-disk artifacts to clean up. Returns a result row.
-    """
+def run_esmc(model: str, parity) -> dict:
+    """Run the shipped ESMC embed path vs reference esm and gate on per-residue PCC."""
     print(f"\n{'='*70}\n[{model}] ESMC embedding parity vs reference esm "
           f"(fused-RoPE shipped path, PCC floor {ESMC_MIN_PCC})\n{'='*70}", flush=True)
     row = {"model": model, "seconds": None, "per_res_pcc": None,
@@ -307,7 +304,7 @@ def main() -> int:
     ap.add_argument("--model",
                     choices=list(MODELS) + ["boltzgen"] + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
-                    help="Gate only this model (repeatable). Default: the four fold "
+                    help="Gate only this model (repeatable). Default: the five fold "
                          "models + boltzgen + ESMC 300m/600m embed parity. esmc-6b is "
                          "opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
@@ -387,7 +384,8 @@ def main() -> int:
         if "ESM_ROOT" not in os.environ:
             sys.exit("ESMC parity leg needs ESM_ROOT (path to the esm clone for tests/esmc_reference.py)")
         parity = _load_esmc_parity_harness()
-        erows = [run_esmc(m, parity, args.keep) for m in esmc_models]
+        erows = [run_esmc(m, parity) for m in esmc_models]
+        esmc_pass = all(r["gate"] for r in erows)
         print(f"\n{'#'*78}\nRELEASE GATE — ESMC embedding parity (fused-RoPE shipped path), "
               f"PCC floor {ESMC_MIN_PCC}\n{'#'*78}")
         print(f"{'model':<12}{'per-res PCC':>13}{'pooled':>9}{'logits':>9}{'argmax':>9}{'wall':>9}  result")
@@ -401,7 +399,7 @@ def main() -> int:
             all_pass &= r["gate"]
             print(f"{r['model']:<12}{pr:>13}{po:>9}{lo:>9}{am:>9}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — ESMC embed path cleared the per-residue PCC floor" if all_pass
+        print("GATE PASS — ESMC embed path cleared the per-residue PCC floor" if esmc_pass
               else "GATE FAIL — an ESMC model missed the per-residue PCC floor (see above)")
 
     return 0 if all_pass else 1

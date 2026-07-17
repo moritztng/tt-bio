@@ -116,14 +116,11 @@ import torch
 from rdkit import Chem
 
 from tt_bio.data import const
-from tt_bio.data.featurizer import Boltz2Featurizer
-from tt_bio.data.mol import load_canonicals, load_molecules
+from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
-from tt_bio.data.tokenize import Boltz2Tokenizer
 from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
-from tt_bio.boltz2 import Boltz2
 from tt_bio.distributed import (
     ControllerClient,
     ControllerServer,
@@ -827,24 +824,6 @@ def _save_results(results: list[dict], path: Path) -> None:
             fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
 
 
-def _append_result(row: dict, path: Path) -> None:
-    """Append one result row to results.json atomically.
-
-    Safe for concurrent workers: reads existing, merges, writes via rename.
-    """
-    lock_path = _results_lock_path(path)
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(lock_path, "a") as lock_f:
-        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
-        try:
-            existing = _load_results_resilient(path)
-            existing = [r for r in existing if isinstance(r, dict) and r.get("id") != row["id"]]
-            existing.append(row)
-            _save_results_unlocked(existing, path)
-        finally:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-
-
 def _detect_p300_devices() -> list[int]:
     """Return P300 TT device indices from kernel sysfs.
 
@@ -1238,7 +1217,7 @@ def _persist_run_results(client: ControllerClient, run_id: str, results_path: Pa
 
 @click.group()
 def cli():
-    """Run Boltz-2 (predict / msa) or BoltzGen (gen) inference on Tenstorrent."""
+    """Run biomolecular prediction, design, and embedding on Tenstorrent."""
 
 
 @cli.command(
@@ -1808,8 +1787,6 @@ def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 
     Returns ``{seq_hash: a3m_text}`` parallel to the input ``seqs`` dict.
     """
-    from tt_bio.data.msa import run_mmseqs2
-
     headers = {"Content-Type": "application/json", "X-API-Key": api_key_value} if api_key_value else None
     keys = list(seqs)
     res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{target_id}_paired_tmp",
@@ -1825,8 +1802,7 @@ def _resolve_recycling_steps(recycling_steps, model):
 
     protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); boltz2/esmfold2 use the
     Boltz-2/AF3 convention of 3. An explicit --recycling_steps is honored verbatim for every
-    model. Running protenix-v2 at 3 under-recycles the trunk, leaving a bimodal ensemble whose
-    confidence head then mis-ranks the samples (docs/protenix-recycling-revisit.md).
+    model. Running protenix-v2 at 3 under-recycles its trunk.
     """
     if recycling_steps is not None:
         return recycling_steps
@@ -1835,7 +1811,7 @@ def _resolve_recycling_steps(recycling_steps, model):
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                          single_sequence, cache, controller, msa_server_url):
-    """Resolve the MSA source for MSA-dependent models (boltz2, protenix-v2).
+    """Resolve the MSA source for MSA-dependent structure models.
 
     These models degrade sharply folded single-sequence, so ``predict`` must
     never do so silently. Precedence:

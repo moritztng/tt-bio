@@ -1,4 +1,4 @@
-"""First end-to-end OpenDDE co-fold smoke test (docs/opendde-port.md 'Remaining' item 4).
+"""End-to-end OpenDDE co-fold smoke test.
 
 Folds examples/prot.yaml's sequence (PDB 7ROA, 117 residues -- the same target
 scripts/release_gate.py uses for Protenix-v2/Boltz-2/ESMFold2) with REDUCED settings

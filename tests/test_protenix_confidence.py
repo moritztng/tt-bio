@@ -58,8 +58,8 @@ def test_confidence_device_resident_parity():
     """Device-resident confidence path (ConfidenceHead.confidence_device, gated
     behind TT_PROTENIX_CONF_DEVICE=1 and NT>=128) vs the host-heads path. Pads the
     cached substrate to N=128 (the device path's bf16 z-accumulation regresses
-    plddt at small N; at N>=128 it is parity-clean -- see
-    docs/protenix-confidence-device-port.md). Asserts pae/pde/plddt PCC > 0.99."""
+    plddt at small N; at N>=128 it is parity-clean). Asserts
+    pae/pde/plddt PCC > 0.99."""
     import sys
     sys.path.insert(0, os.path.dirname(__file__))
     from protenix_reference import remap_pairformer_block
