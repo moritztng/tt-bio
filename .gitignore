@@ -48,3 +48,6 @@ memory_inputs/
 oom_inputs/
 
 .perf-runs/
+
+# planning/status/coordination notes belong in the coworker system, not the repo
+/notes/
