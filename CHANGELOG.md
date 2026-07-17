@@ -5,6 +5,55 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-17
+
+First release shipping **OpenDDE** antibody-antigen co-folding (`--model opendde` / `opendde-abag`, built on the Protenix-v2 stack plus a structural-token expander), the **ESMC fused-RoPE** attention kernel (an accuracy-neutral speedup for the embed path), and opt-in **diffusion trace replay** for Boltz-2, BoltzGen, Protenix-v2, and OpenDDE (lossless, collapses per-step host dispatch). Also lands the standing **perf-regression** and **UX-regression** harnesses as release-gate legs, plus two release-gate blocker fixes (OF3 pairformer gates now skip gracefully when their golden key is host-missing; the perf gate compares against the right per-card-type baseline so a P150a run is no longer judged against a P300c number).
+
+OpenDDE's antibody-antigen accuracy is currently weak on the `9dsg` target, a confirmed reference-level ceiling rather than a port bug (see `docs/opendde-port.md`); the device-vs-reference pharma-parity legs for `9dsg` and `1ahw` are resolved and documented.
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0, Blackhole P150a):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.863 Å | 0.891 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 1.774 Å | 0.915 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.725 Å | 0.909 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 1.417 Å | 0.936 | ≤6.0 Å / ≥0.50 | PASS |
+
+**BoltzGen designability** — n=4, `examples/binder.yaml`: scRMSD median 0.820 Å, 4/4 designs (100%) ≤2 Å (floor ≤2.0 Å / ≥50%) — PASS.
+
+**ESMC embedding parity** (fused-RoPE shipped path vs reference esm, 76-residue sequence, PCC floor 0.99):
+
+| model | per-res PCC | pooled | logits | argmax | result |
+|---|---|---|---|---|---|
+| esmc-300m | 0.99961 | 0.99993 | 0.99990 | 1.0000 | PASS |
+| esmc-600m | 0.99964 | 0.99989 | 0.99996 | 1.0000 | PASS |
+
+**UX gate** (`scripts/ux_regression.py`, `examples/trpcage.yaml`): every shipped surface (Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2, OpenDDE, ESMC-600m embed) cleared live-progress advancement, strict mmCIF/npz parse, and results/manifest shape — PASS.
+
+**Perf gate** (`scripts/perf_regression.py`, Blackhole P150a, trpcage 20 aa single-sequence, 1 recycle / 10 steps / 1 sample, warm 2+5, ±15% threshold):
+
+| model | metric | baseline | current | delta | result |
+|---|---|---|---|---|---|
+| boltz2 | structures/s | 1.186 | 1.190 | +0.3% | PASS |
+| esmfold2 | structures/s | 1.665 | 1.705 | +2.4% | PASS |
+| esmfold2-fast | structures/s | 2.271 | 2.290 | +0.8% | PASS |
+| protenix-v2 | structures/s | 2.406 | 2.383 | -1.0% | PASS |
+| opendde | structures/s | 1.920 | 1.922 | +0.1% | PASS |
+| esmc-600m | seq/s | 21.09 | 20.92 | -0.8% | PASS |
+
+No perf regression. No OOM observed through the gate targets.
+
+### Added
+- **OpenDDE** antibody-antigen co-folding (`opendde` / `opendde-abag`).
+- **ESMC fused-RoPE** attention kernel for the embed path (accuracy-neutral speedup).
+- Opt-in **diffusion trace replay** for Boltz-2, BoltzGen, Protenix-v2, and OpenDDE.
+- **perf-regression** and **UX-regression** harnesses as standing release-gate legs.
+
+### Fixed
+- Release gate now skips OF3 pairformer gates gracefully when their golden key is host-missing.
+- Perf gate compares against the correct per-card-type baseline (P300c vs P150a mismatch no longer reads as a false regression).
+
 ## [0.2.5] - 2026-07-11
 
 Protenix-v2 accuracy fixes — the template embedder never ran in any real `predict` call
