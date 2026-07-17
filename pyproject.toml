@@ -70,6 +70,8 @@ include = ["tt_bio*"]
 "tt_bio._vendor.esm" = ["LICENSE"]
 "tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
 "tt_bio._vendor.openfold3" = ["LICENSE"]
+"tt_bio._vendor.abodybuilder3" = ["LICENSE"]
+"tt_bio._vendor.abodybuilder3.openfold.resources" = ["stereo_chemical_props.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

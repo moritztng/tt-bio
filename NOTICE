@@ -49,3 +49,21 @@ MIT-licensed and credited in the top-level LICENSE.
                   template-cache *build* pipeline are dropped — see the
                   tt-bio note at the top of each trimmed file); absolute
                   `openfold3.` imports rewritten to `tt_bio._vendor.openfold3.`.
+
+6. tt_bio/_vendor/abodybuilder3/ — ABodyBuilder3 reference structure module
+   (the AF2-style invariant-point-attention + backbone-update + pLDDT head used
+   as the PyTorch ground truth for the tt-bio port). Inference-only: the
+   training Lightning module, loss, optimizer, ANARCI numbering, and OpenMM
+   relaxation are dropped; only the structure module, primitives, rigid math,
+   residue constants, atom14<->atom37 feats, and the pLDDT head are kept.
+   Source:        github.com/Exscientia/abodybuilder3 (Apache-2.0)
+   License:       Apache-2.0 — Copyright 2024 Exscientia; Copyright 2021
+                  AlQuraishi Laboratory; Copyright 2021 DeepMind Technologies
+                  Limited (tt_bio/_vendor/abodybuilder3/LICENSE)
+   Modifications: inference-only subset; absolute `abodybuilder3.` imports
+                  rewritten to `tt_bio._vendor.abodybuilder3.`; the training-only
+                  checkpointing/chunk/loss/config imports are stubbed or removed
+                  (see the tt-bio note at the top of each trimmed file). Model
+                  weights are NOT redistributed — downloaded from Zenodo
+                  (record 11354577) and converted to a plain state_dict on first
+                  use by tt_bio.abodybuilder3_weights.
