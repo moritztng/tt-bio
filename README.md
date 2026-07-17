@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 ## Installation
 
@@ -60,6 +60,7 @@ Every command names its model with `--model`:
 - **`boltz2`**: folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
 - **`esmfold2`** / **`esmfold2-fast`**: fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint).
 - **`protenix-v2`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`.
+- **`saprot`**: structure-aware protein embeddings — an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
 
 ```bash
@@ -168,6 +169,47 @@ emb.pooled        # [d_model] float32
 
 # Shard a large set across cards (data-parallel, order preserved):
 embs = esmc.embed(sequences, model="esmc-600m", devices=[0, 1, 2, 3])
+```
+
+### Structure-Aware Protein Embeddings (SaProt)
+
+SaProt is a structure-aware protein language model — an ESM-2 encoder over a fused
+amino-acid + Foldseek 3Di vocabulary (446 tokens). Where ESMC is sequence-only, SaProt
+also encodes local structure, so its embeddings and MLM logits reflect both sequence
+and shape. Use it for variant-effect / mutation-fitness scoring and function prediction
+when you have a structure (predicted or experimental — fold it with `tt-bio predict`
+first, then score it with SaProt).
+
+```bash
+tt-bio saprot proteins.fasta --model saprot-650m --structure structs/ --out_dir embeddings
+tt-bio saprot proteins.fasta --model saprot-650m                # sequence-only (3Di = '#')
+```
+
+`--structure` is a PDB/cif file (single sequence) or a directory of `<id>.pdb`/`<id>.cif`
+files, one per FASTA id. The 3Di structural tokens are computed on host with
+[Foldseek](https://github.com/steineggerlab/foldseek) (`conda install -c bioconda foldseek`,
+or set `FOLDSEEK_BIN`); it runs off-device. Omit `--structure` for sequence-only mode
+(lower accuracy for 35M/650M; the 1.3B works sequence-only).
+
+For each sequence you get **per-residue** structure-aware embeddings (`[length, d_model]`
+float32) and a **pooled** vector, plus per-residue MLM logits (`[length, 446]` with
+`--logits`) over the fused vocabulary — the log-likelihoods used for zero-shot mutation
+scoring. Output layout matches `tt-bio embed` (`<id>.npz` / `embeddings.parquet` /
+`manifest.json`).
+
+`--model` selects the variant (`saprot-35m`, `saprot-650m`, `saprot-1.3b`). Parity vs
+the reference HuggingFace checkpoint and warm throughput are in
+[`docs/saprot-parity.md`](docs/saprot-parity.md). The 35M port is deferred
+(non-tile-aligned head dim); use 650M.
+
+Python:
+
+```python
+from tt_bio import saprot
+
+emb = saprot.embed(("MQIFVKTLTGKTITLEV...", "dweweaepvrdidi..."), model="saprot-650m")[0]
+emb.per_residue   # [L, d_model] float32, structure-aware
+emb.logits        # [L, 446] float32 (with return_logits=True)
 ```
 
 ### Offline MSA (Optional)
