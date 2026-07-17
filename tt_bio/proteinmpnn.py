@@ -335,3 +335,36 @@ def load_checkpoint(path, device="cpu", augment_eps=0.0):
     model.load_state_dict(ckpt["model_state_dict"])
     model.to(device).eval()
     return model, k
+
+def design_backbone(model, pdb_path, *, num_sequences=1, temperature=0.1,
+                    seed=None, device="cpu"):
+    """Design amino-acid sequences for a fixed backbone.
+
+    Returns a list of ``(sequence, recovery)`` tuples (recovery is vs the native
+    sequence in the PDB, for sanity; None if the PDB had no native sequence).
+    Uses the autoregressive ``sample`` decode loop with cached node states.
+    """
+    from .proteinmpnn_data import parse_pdb, featurize, ALPHABET
+    if seed is not None:
+        torch.manual_seed(seed)
+    b = featurize(parse_pdb(pdb_path), device=device)
+    omit = np.zeros(len(ALPHABET), dtype=np.float32)
+    bias = np.zeros(len(ALPHABET), dtype=np.float32)
+    bias_by_res = torch.zeros(b["X"].shape[0], b["X"].shape[1], len(ALPHABET), device=device)
+    out = []
+    native = b["native_seq"]
+    for _ in range(num_sequences):
+        randn = torch.randn(b["chain_M"].shape, device=device)
+        r = model.sample(b["X"], randn, b["S"], b["chain_M"], b["chain_encoding_all"],
+                        b["residue_idx"], mask=b["mask"], temperature=temperature,
+                        omit_AAs_np=omit, bias_AAs_np=bias, chain_M_pos=b["chain_M_pos"],
+                        bias_by_res=bias_by_res)
+        idx = r["S"][0].cpu().numpy()
+        seq = "".join(ALPHABET[i] for i in idx)
+        m = (b["mask"][0] * b["chain_M"][0]).cpu().numpy().astype(bool)
+        rec = None
+        if native:
+            n = np.array([ALPHABET.index(a) for a in native[:len(seq)]])
+            rec = float((idx[:len(n)] == n)[m[:len(n)]].mean()) if m[:len(n)].any() else None
+        out.append((seq, rec))
+    return out
