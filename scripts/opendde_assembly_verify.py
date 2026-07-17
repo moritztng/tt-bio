@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""On-device assembly verification for the OpenDDE port (docs/opendde-port.md steps 2-3).
+"""On-device assembly verification for the OpenDDE expander/refiner seam.
 
 Loads the REAL OpenDDE checkpoint and checks, with real weights, the two things the
 assembly tick actually delivers:

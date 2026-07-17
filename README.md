@@ -1,4 +1,6 @@
-```
+# TT-Bio
+
+```text
 ████████╗████████╗        ██████╗  ██╗  ██████╗
 ╚══██╔══╝╚══██╔══╝        ██╔══██╗ ██║ ██╔═══██╗
    ██║      ██║    █████╗ ██████╔╝ ██║ ██║   ██║
@@ -75,36 +77,39 @@ tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen
 | Affinity / potentials / templates | yes | no | no | no |
 | Pocket / contact constraints | yes | no | no | no |
 | Covalent `bond` constraints | yes | no | yes | no |
-| PAE/PDE output (`--write_pae`/`--write_pde`) | no | no | yes | no |
+| PAE/PDE output (`--write_pae`) | no | no | yes | no |
 
-Shared across every model: `--fast`, `--recycling_steps`, `--sampling_steps`, `--diffusion_samples`, `--output_format`, the MSA flags, and the multi-card / multi-machine flags. Each model downloads its weights automatically on first use.
+All structure models support the sampling, output-format, and scheduling options.
+MSA, affinity, constraint, and auxiliary-output options apply only where listed
+below. Each model downloads its weights automatically on first use.
 
 Boltz-2, Protenix-v2, and OpenDDE are MSA-dependent and use an MSA **by default**, a local
 ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-msa-optional)),
 otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
 leaves your machine; a one-line notice is printed when that fallback is used. Pass
 `--msa_db_path` for a private offline database, or `--single_sequence` to deliberately fold
-without an MSA (lower accuracy; for batch-screening orphan sequences). ESMFold2 is single-sequence.
+without an MSA (lower accuracy; for batch-screening orphan sequences). OpenDDE multi-chain
+predictions still request paired MSAs from `--msa_server_url`; use `--single_sequence` to
+prevent all network MSA requests. ESMFold2 is single-sequence.
 
 `--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close.
 
-OpenDDE's antibody-antigen accuracy is currently weak (a known gap under investigation; see [`docs/opendde-port.md`](docs/opendde-port.md) for details).
+OpenDDE-abag matches the upstream checkpoint on the standard 1AHW
+antibody-antigen target. Both implementations perform poorly on 9DSG.
 
 `predict` accepts either a single YAML/FASTA file or a directory containing many input files.
 
-A live display shows the progress of each protein. On a multi-card machine such
-as a QuietBox or Galaxy server, every card is used in parallel and labelled in
-the display (`quietbox:tt0`, `quietbox:tt1`, ...). Models load once per card
-and stay resident, so jobs flow through without per-protein reloads:
+A live display shows the progress of each target. Prediction uses up to one card
+per pending target, labelled in the display (`quietbox:tt0`, `quietbox:tt1`, ...).
+Models load once per active card and stay resident:
 
 ```bash
 tt-bio predict proteins/ --model boltz2 --out_dir results --fast
 ```
 
-By default every detected card is used; pass `--devices 0,1,2,3` to pick or limit
-which cards a run fans across (matching `tt-bio embed`). Each job is an independent
-single-card fold pinned to its card, so results are identical to running that target
-alone; sharding only changes which chip folds which target.
+Pass `--devices 0,1,2,3` to pick or limit the available cards. A single target
+remains a single-card fold; additional cards increase throughput only when
+multiple targets are queued.
 
 If you have additional machines with Tenstorrent cards, you can add them to a
 single run; see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
@@ -226,7 +231,10 @@ The `--affinity_mw_correction` flag applies molecular weight correction for more
 
 ### Input Format
 
-ESMFold2 takes a plain protein FASTA or a YAML with one or more `protein` chains. The richer inputs below (ligands, affinity, DNA/RNA, constraints, and templates) are Boltz-2 features.
+ESMFold2 accepts protein inputs only. Protenix-v2 accepts proteins, DNA, RNA,
+ligands, and covalent `bond` constraints. OpenDDE currently accepts proteins
+only. Boltz-2 additionally supports affinity, pocket/contact constraints,
+potentials, and user-supplied templates.
 
 Create a YAML file describing your complex:
 
@@ -259,7 +267,7 @@ properties:
 
 ### Output Structure
 
-```
+```text
 boltz_results_prot/
 ├── structures/
 │   ├── prot.cif                      # Best-ranked predicted structure
@@ -402,7 +410,7 @@ templates:
 
 ### Command-Line Options
 
-Options apply to every model unless tagged **(Boltz-2)**.
+Model-specific options are labelled below.
 
 **Common Options:**
 
@@ -411,15 +419,15 @@ Options apply to every model unless tagged **(Boltz-2)**.
 | `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), or `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now) |
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | **(Boltz-2)** model cache directory; ESMFold2 uses the Hugging Face cache |
-| `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; ESMFold2 always runs on Tenstorrent |
-| `--recycling_steps` | `3` | Number of recycling iterations |
+| `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
+| `--recycling_steps` | model-specific | 3 for Boltz-2/ESMFold2; 10 for Protenix-v2/OpenDDE |
 | `--sampling_steps` | `200` | Diffusion sampling steps |
 | `--diffusion_samples` | `1` | Number of structure samples |
 | `--output_format` | `cif` | `cif` or `pdb` |
 | `--override` | `False` | Re-run from scratch |
-| `--use_msa_server` | auto | Use online ColabFold API for MSAs. Auto-enabled for Boltz-2/Protenix-v2 when no local DB is found; ignored by ESMFold2 unless opted in |
-| `--single_sequence` | `False` | **(Boltz-2/Protenix-v2)** Fold without an MSA (skips local DB and online server); lower accuracy |
-| `--msa_endpoint` | — | **(ESMFold2/Protenix-v2)** Fetch MSAs from a `tt-bio msa-server` at this URL instead of searching locally |
+| `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v2/OpenDDE when no local DB is found |
+| `--single_sequence` | `False` | **(Boltz-2/Protenix-v2/OpenDDE)** Skip all MSA requests; lower accuracy |
+| `--msa_endpoint` | — | Fetch unpaired MSAs from a `tt-bio msa-server`; OpenDDE pairing still uses `--msa_server_url` |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
@@ -437,14 +445,14 @@ Options apply to every model unless tagged **(Boltz-2)**.
 | `--sampling_steps_affinity` | `200` | Sampling steps for affinity |
 | `--diffusion_samples_affinity` | `5` | Number of affinity samples |
 
-**MSA Options** (Boltz-2 / Protenix-v2 use an MSA by default; ESMFold2 only when you opt in):
+**MSA Options** (Boltz-2, Protenix-v2, and OpenDDE use an MSA by default; ESMFold2 only when requested):
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--msa_db_path` | auto-detect | Path to local ColabFold database (`~/.boltz/msa_db` if present) |
 | `--use_envdb` | `False` | Also search environmental database |
 | `--use_msa_server` | auto | Use ColabFold API for MSA (auto-enabled when no local DB is found) |
-| `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v2) |
+| `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v2/OpenDDE) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
 | `--max_msa_seqs` | `8192` | Maximum MSA sequences |

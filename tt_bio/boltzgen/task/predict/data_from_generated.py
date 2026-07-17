@@ -596,7 +596,6 @@ class FromGeneratedDataModule:
             self.init_dataset(
                 design_dir,
                 skip_specific_ids=skip_specific_ids,
-                extra_features=extra_features,
                 use_new_design_mask=use_new_design_mask,
             )
         else:
@@ -634,7 +633,6 @@ class FromGeneratedDataModule:
         self,
         design_dir,
         skip_specific_ids: Optional[List[str]] = None,
-        extra_features: Optional[List[str]] = None,
         use_new_design_mask: bool = False,
     ):
         print(f"Initializing FromGeneratedDataModule datasets for {design_dir}")
