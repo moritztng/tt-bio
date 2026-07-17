@@ -106,7 +106,15 @@ class SaprotEmbeddingLayer(Module):
 
 class ESM2Attention(Module):
     """ESM-2 self-attention: pre-LN, fused q/k/v (with bias), per-head RoPE, SDPA,
-    output projection (with bias). No QK-LayerNorm (that is ESMC-specific)."""
+    output projection (with bias). No QK-LayerNorm (that is ESMC-specific).
+
+    For ``head_dim`` not aligned to 64 (the 35M variant, ``head_dim = 24``), the
+    fused on-device ``rotary_embedding`` kernel and the elementwise rotate-half
+    fallback both break (24 is not a multiple of 32, and rotate-half would split
+    the tile-padded 32, not the real 24). We instead split heads, apply RoPE, and
+    pad ``head_dim`` 24->32 on host, then run SDPA on device with ``head_dim = 32``
+    (the 8 zero-padded dims contribute 0 to every score, so softmax and the output
+    are unaffected; the real 24 dims are sliced back after)."""
 
     def __init__(self, n_heads: int, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
@@ -117,6 +125,45 @@ class ESM2Attention(Module):
         self.qkv_bias = self.torch_to_tt("qkv.bias")
         self.out_weight = self.torch_to_tt("out.weight", dtype=_dtype())
         self.out_bias = self.torch_to_tt("out.bias")
+        d_model = self.qkv_weight.shape[-1] // 3  # qkv_weight is [hidden, 3*hidden] (transposed)
+        self.head_dim = d_model // n_heads
+        self.host_rope = self.head_dim % 64 != 0
+        self._cos = self._sin = None
+
+    def _rope_tables_torch(self, seq_len):
+        if self._cos is not None and self._cos.shape[-2] >= seq_len:
+            return self._cos, self._sin
+        hd = self.head_dim
+        inv_freq = 1.0 / (ROPE_BASE ** (torch.arange(0, hd, 2, dtype=torch.float32) / hd))
+        t = torch.arange(seq_len, dtype=torch.float32)
+        freqs = torch.outer(t, inv_freq)
+        cos = torch.cat([freqs.cos(), freqs.cos()], dim=-1)[None, None]  # [1,1,L,hd]
+        sin = torch.cat([freqs.sin(), freqs.sin()], dim=-1)[None, None]
+        self._cos, self._sin = cos, sin
+        return cos, sin
+
+    def _host_split_rope(self, qkv, cos, sin):
+        """Device [B,L,3h*d] -> device q,k,v [B,H,L,32] with host-side RoPE + pad."""
+        qkv_h = torch.Tensor(ttnn.to_torch(qkv)).to(torch.float32)  # [B,L,3*hidden]
+        ttnn.deallocate(qkv)
+        B, L, _ = qkv_h.shape
+        h, d = self.n_heads, self.head_dim
+        qkv_h = qkv_h.view(B, L, 3, h, d)
+        q_h = qkv_h[:, :, 0].permute(0, 2, 1, 3)  # [B,H,L,d]
+        k_h = qkv_h[:, :, 1].permute(0, 2, 1, 3)
+        v_h = qkv_h[:, :, 2].permute(0, 2, 1, 3)
+        cos = cos[:, :, :L]  # [1,1,L,d]
+        sin = sin[:, :, :L]
+        rotate_half = lambda x: torch.cat((-x[..., d // 2:], x[..., : d // 2]), dim=-1)
+        q_h = q_h * cos + rotate_half(q_h) * sin
+        k_h = k_h * cos + rotate_half(k_h) * sin
+        pad = 32 - d
+        q_h = torch.nn.functional.pad(q_h, (0, pad))  # [B,H,L,32]
+        k_h = torch.nn.functional.pad(k_h, (0, pad))
+        v_h = torch.nn.functional.pad(v_h, (0, pad))
+        to_dev = lambda x: ttnn.from_torch(x.contiguous(), device=self.device,
+                                          layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        return to_dev(q_h), to_dev(k_h), to_dev(v_h)
 
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
@@ -127,17 +174,29 @@ class ESM2Attention(Module):
         )
         qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
         ttnn.deallocate(x_norm)
-        q, k, v = self._split_heads(qkv, self.n_heads)
-        q, k = _rope(q, k, cos, sin)
+        if self.host_rope:
+            cos_t, sin_t = self._rope_tables_torch(qkv.shape[1])
+            q, k, v = self._host_split_rope(qkv, cos_t, sin_t)
+        else:
+            q, k, v = self._split_heads(qkv, self.n_heads)
+            q, k = _rope(q, k, cos, sin)
         if key_valid is not None:
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
+        scale = head_dim ** -0.5
         o = ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_mask, is_causal=False, scale=head_dim ** -0.5,
+            q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale,
             program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
         )
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        o = self._merge_heads(o)
+        o = self._merge_heads(o)  # [B, L, H*32] for host_rope
+        if self.host_rope:
+            o_h = torch.Tensor(ttnn.to_torch(o)).to(torch.float32)  # [B,L,H*32]
+            B_, L_ = o_h.shape[0], o_h.shape[1]
+            # padded layout is [head0(32), head1(32), ...]; slice 24 per head, not the first 480.
+            o_h = o_h.view(B_, L_, self.n_heads, 32)[:, :, :, : self.head_dim].contiguous()
+            o_h = o_h.view(B_, L_, self.n_heads * self.head_dim)  # [B,L,hidden]
+            o = ttnn.from_torch(o_h, device=self.device, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
         out = self._lin(o, self.out_weight, bias=self.out_bias)
         ttnn.deallocate(o)
         return out
