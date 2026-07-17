@@ -8,8 +8,8 @@ trunk / MSA / diffusion / confidence graph is Protenix-v2's, already ported in
 same-residue pair structure, before diffusion. The rest of the pipeline then
 runs unchanged on the structural-token axis (the ttnn ops are axis-agnostic).
 
-This module ports that one block; assembly reuses the Protenix-v2 stack verbatim
-(see docs/opendde-port.md). The integer index gathers (parent, prev/next-parent
+This module ports that one block; assembly reuses the Protenix-v2 stack verbatim.
+The integer index gathers (parent, prev/next-parent
 adjacency, role-pair-type maps) are precomputed host-side; only the split-MLP,
 the 49 role-pair pair projections, and the bias adds run on device.
 """
@@ -201,7 +201,7 @@ class StructuralTokenExpander(_KeyedWeights):
 
 
 # ---------------------------------------------------------------------------
-# Pipeline assembly + real-weight load (docs/opendde-port.md steps 2-3).
+# Pipeline assembly + real-weight load.
 #
 # OpenDDE's compute graph = Protenix-v2's trunk/MSA/template/diffusion/confidence
 # (byte-identical checkpoint key names, verified 2026-07-12 against protenix-v2.pt:
@@ -276,12 +276,7 @@ class OpenDDE:
     """OpenDDE co-folding on Tenstorrent: the Protenix-v2 trunk/diffusion/confidence stack
     (reused verbatim, ``tt_bio.protenix``) + the novel :class:`StructuralTokenExpander` +
     a 4-block structural-token refiner (a reused ``Pairformer``), on the structural-token
-    axis. Ships co-folding only (no design/affinity) -- see docs/opendde-port.md.
-
-    Assembly status (2026-07-12): real-weight routing and the novel expander->refiner seam
-    are wired and run finite on-device with the REAL checkpoint
-    (``scripts/opendde_assembly_verify.py``). The full residue->structure fold is gated on
-    three still-pending prerequisites -- see :meth:`fold`."""
+    axis. Ships co-folding only (no design/affinity)."""
 
     def __init__(self, state_dict, compute_kernel_config, device=None):
         from .tenstorrent import get_device, Pairformer
@@ -292,7 +287,7 @@ class OpenDDE:
         routed = route_opendde_weights(state_dict)
         self._shared = routed["shared"]         # Protenix-v2-family graph (for step-2 trunk/diffusion)
         # Shared Protenix-v2-family stack (input embedder, trunk, diffusion, confidence),
-        # built at OpenDDE's c_z=384 (Trunk.__init__(c_z=...), docs/opendde-port.md item 2).
+        # built at OpenDDE's c_z=384.
         # Reused verbatim -- no duplicated orchestration class.
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True)
@@ -340,7 +335,7 @@ class OpenDDE:
 
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
              return_confidence=False, progress_fn=None, trace=False, dump_fn=None):
-        """First end-to-end residue->structure co-fold. feats: a tt_bio.protenix_data-style
+        """End-to-end residue-to-structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
 
@@ -363,7 +358,7 @@ class OpenDDE:
 
         --fast and multi-card fanout ride the existing Protenix-v2 machinery (the trunk
         reads the global fast flag; the predict scheduler fans targets across --devices),
-        both verified for OpenDDE -- see docs/opendde-port.md. trace=True replays a
+        both apply unchanged to OpenDDE. trace=True replays a
         captured ttnn trace of the shared denoise stream (lossless; faster on
         dispatch-bound diffusion, mirroring Protenix-v2.fold(trace=)); needs a device
         opened with a trace region (get_device(trace_region_size=1 << 30)). Returns

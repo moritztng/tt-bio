@@ -743,15 +743,14 @@ class TriangleAttention(Module):
         self.affinity = affinity
         self.scale = self.head_dim**0.5
         # nlp_concat_heads pads each head's channel dim up to a 32-tile boundary, so at
-        # a sub-tile head_dim (e.g. OF3 template pair_stack c_hidden_tri_att=16) it
+        # a sub-tile head_dim it
         # yields n_heads*32 channels while the gate g carries n_heads*head_dim -- a
         # shape mismatch that throws "Invalid subtile broadcast type" in gate_and_
         # project's multiply_. The tile-aligned head_dim=32 path (MSA / Boltz-2 /
         # Protenix) is unaffected and stays on the original nlp_concat_heads path. The
         # sub-tile path pads the qkv head_dim up to 32 (zeros, so the real head_dim
         # channels are unchanged) and slices + manual-concats the SDPA output back to
-        # n_heads*head_dim -- mirrors the already-validated AttentionPairBias sub-tile
-        # handling. See docs/openfold3-port.md P8 tick 12 / Leg 2.
+        # n_heads*head_dim -- mirrors the AttentionPairBias sub-tile handling.
         head_dim_padding = -head_dim % 32
         self.padded_head_dim = head_dim + head_dim_padding
         self.subtile = head_dim_padding != 0

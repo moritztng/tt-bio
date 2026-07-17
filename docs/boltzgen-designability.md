@@ -45,8 +45,6 @@ own on-device folding accuracy is **independently ground-truth-gated** by
 `scripts/release_gate.py` (boltz2 leg: CA-RMSD ≤ 3 Å / TM ≥ 0.75 on 7ROA). So a large
 scRMSD isolates cleanly: if the refolder is accurate (separately gated) yet a design
 refolds poorly, the fault is design quality / target hardness — not a refold device bug.
-This mirrors the "is the reference also like this" discipline of
-[docs/protenix-accuracy-investigation.md](protenix-accuracy-investigation.md).
 
 ## Running it
 

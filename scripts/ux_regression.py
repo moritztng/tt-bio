@@ -100,7 +100,7 @@ def _run(cmd: list[str], *, env: dict | None = None, timeout: int | None = None,
                           capture_output=True, text=True)
 
 
-def _cli_predict(model: str, out_dir: Path, cap_path: Path) -> list[str]:
+def _cli_predict(model: str, out_dir: Path) -> list[str]:
     """Build the predict command for one fold model."""
     cmd = [
         sys.executable, "-m", "tt_bio.main", "predict", str(DATA),
@@ -322,7 +322,7 @@ def _check_cli() -> list[str]:
 
 # ── per-model runners ──────────────────────────────────────────────────────
 
-def run_fold(model: str, keep: bool, base: Path) -> dict:
+def run_fold(model: str, base: Path) -> dict:
     """Fold one model on trpcage, capture its progress stream, and gate the
     three UX legs. Returns a result row."""
     out_dir = base / f"out_{model}"
@@ -334,7 +334,7 @@ def run_fold(model: str, keep: bool, base: Path) -> dict:
 
     env = _subprocess_env({"TT_BIO_PROGRESS_CAPTURE": str(cap_path)})
 
-    cmd = _cli_predict(model, out_dir, cap_path)
+    cmd = _cli_predict(model, out_dir)
     print(f"\n{'='*70}\n[{model}] predict trpcage (recyc={RECYCLING_STEPS}, "
           f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES})\n{'='*70}", flush=True)
 
@@ -394,7 +394,7 @@ def run_fold(model: str, keep: bool, base: Path) -> dict:
     return row
 
 
-def run_embed(model: str, keep: bool, base: Path) -> dict:
+def run_embed(model: str, base: Path) -> dict:
     """Run esmc embed on a tiny sequence and gate the UX legs (embed has no fold
     phases — its user-facing progress is the load → embed → done stdout lines)."""
     out_dir = base / f"out_{model}"
@@ -545,11 +545,11 @@ def main() -> int:
     try:
         rows = []
         for m in fold_models:
-            r = run_fold(m, args.keep, base)
+            r = run_fold(m, base)
             rows.append(("fold", r))
             all_pass &= r["gate"]
         for m in embed_models:
-            r = run_embed(m, args.keep, base)
+            r = run_embed(m, base)
             rows.append(("embed", r))
             all_pass &= r["gate"]
 

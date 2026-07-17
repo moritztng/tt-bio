@@ -7,9 +7,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [0.3.0] - 2026-07-17
 
-First release shipping **OpenDDE** antibody-antigen co-folding (`--model opendde` / `opendde-abag`, built on the Protenix-v2 stack plus a structural-token expander), the **ESMC fused-RoPE** attention kernel (an accuracy-neutral speedup for the embed path), and opt-in **diffusion trace replay** for Boltz-2, BoltzGen, Protenix-v2, and OpenDDE (lossless, collapses per-step host dispatch). Also lands the standing **perf-regression** and **UX-regression** harnesses as release-gate legs, plus two release-gate blocker fixes (OF3 pairformer gates now skip gracefully when their golden key is host-missing; the perf gate compares against the right per-card-type baseline so a P150a run is no longer judged against a P300c number).
+First release shipping **OpenDDE** antibody-antigen co-folding (`--model opendde` / `opendde-abag`, built on the Protenix-v2 stack plus a structural-token expander), the **ESMC fused-RoPE** attention kernel (an accuracy-neutral speedup for the embed path), and opt-in **diffusion trace replay** for the Boltz-2, BoltzGen, and OpenDDE CLIs plus the Protenix-v2 Python API. Also lands the standing **perf-regression** and **UX-regression** harnesses as release-gate legs, plus the per-card performance baseline fix.
 
-OpenDDE's antibody-antigen accuracy is currently weak on the `9dsg` target, a confirmed reference-level ceiling rather than a port bug (see `docs/opendde-port.md`); the device-vs-reference pharma-parity legs for `9dsg` and `1ahw` are resolved and documented.
+OpenDDE's antibody-antigen accuracy is weak on `9dsg`, a confirmed reference-level ceiling rather than a port bug; the device-vs-reference results for `9dsg` and `1ahw` are in `docs/pharma-benchmark.md`.
 
 **Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0, Blackhole P150a):
 
@@ -47,11 +47,10 @@ No perf regression. No OOM observed through the gate targets.
 ### Added
 - **OpenDDE** antibody-antigen co-folding (`opendde` / `opendde-abag`).
 - **ESMC fused-RoPE** attention kernel for the embed path (accuracy-neutral speedup).
-- Opt-in **diffusion trace replay** for Boltz-2, BoltzGen, Protenix-v2, and OpenDDE.
+- Opt-in **diffusion trace replay** for the Boltz-2, BoltzGen, and OpenDDE CLIs and the Protenix-v2 Python API.
 - **perf-regression** and **UX-regression** harnesses as standing release-gate legs.
 
 ### Fixed
-- Release gate now skips OF3 pairformer gates gracefully when their golden key is host-missing.
 - Perf gate compares against the correct per-card-type baseline (P300c vs P150a mismatch no longer reads as a false regression).
 
 ## [0.2.5] - 2026-07-11
@@ -86,13 +85,12 @@ baseline — within run-to-run/environment noise on the same unchanged code path
 
 ### Fixed
 - **Protenix-v2: template embedder never ran** — `nt` (template count) was always 0 in
-  every real `predict` call, so the template-embedder pass was silently skipped
-  regardless of input. See `docs/protenix-template-embedder-fix.md`.
+  every real `predict` call, so the template-embedder pass was silently skipped.
 - **Protenix-v2: `recycling_steps` default 3 → 10** — the trunk now runs at its spec
   recycle count (previously reused Boltz-2/ESMFold2's default of 3); the correct
   default once the template-embedder fix above made recycling actually informative.
-  See `docs/protenix-recycling-revisit.md`. This makes Protenix-v2 slower per-fold than
-  0.2.4 (more recycles) — expected, not a regression; see the gate wall-clock above.
+  This makes Protenix-v2 slower per-fold than 0.2.4 (more recycles) — expected,
+  not a regression; see the gate wall-clock above.
 - ESMC-6B `--devices` fanout regression past 2 cards, root-caused to two independent
   host-side bottlenecks (both fixed, verified bit-exact, end-to-end scaling now
   monotonic to 4 cards — see `docs/esmc-multicard-scaling.md`):
@@ -214,7 +212,7 @@ Ground-truth gate on the default path (`examples/prot.yaml`): Boltz-2 CA-RMSD 2.
 - **`--single_sequence` flag** for `predict` — deliberately fold Boltz-2/Protenix-v2 without an MSA (skips both the local-DB lookup and the online fallback), for batch-screening orphan sequences.
 
 ### Changed
-- **Boltz-2 and Protenix-v2 use an MSA by default** — these MSA-dependent models no longer silently fold single-sequence (the cause of the alarming "~10 Å Protenix-v2" result; see `docs/protenix-accuracy-investigation.md`). With no MSA flags, `predict` uses a local ColabFold DB (`~/.boltz/msa_db`) if present, else falls back to the online ColabFold server and prints a one-line notice naming the server the sequences are sent to (they leave the machine). Pass `--msa_db_path` for a private offline DB, or `--single_sequence` to skip the MSA. ESMFold2 / ESMFold2-Fast are unchanged (single-sequence by design). Ground-truth gate on the default path (`examples/prot.yaml`): Boltz-2 CA-RMSD 2.49 Å / TM 0.78, Protenix-v2 3.47 Å / TM 0.75.
+- **Boltz-2 and Protenix-v2 use an MSA by default** — these MSA-dependent models no longer silently fold single-sequence. With no MSA flags, `predict` uses a local ColabFold DB (`~/.boltz/msa_db`) if present, else falls back to the online ColabFold server and prints a one-line notice naming the server the sequences are sent to (they leave the machine). Pass `--msa_db_path` for a private offline DB, or `--single_sequence` to skip the MSA. ESMFold2 / ESMFold2-Fast are unchanged (single-sequence by design). Ground-truth gate on the default path (`examples/prot.yaml`): Boltz-2 CA-RMSD 2.49 Å / TM 0.78, Protenix-v2 3.47 Å / TM 0.75.
 
 ## [0.2.1] - 2026-07-09
 
