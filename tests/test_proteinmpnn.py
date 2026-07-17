@@ -75,3 +75,22 @@ def test_param_count():
     model, _ = load_checkpoint(CKPT, device="cpu")
     n = sum(p.numel() for p in model.parameters())
     assert n == 1_660_485, f"param count {n} != published 1.66M"
+
+def test_design_backbone_sanity():
+    """End-to-end design: produces a full-length sequence with sane recovery."""
+    import os
+    from pathlib import Path
+    from tt_bio.proteinmpnn import load_checkpoint, design_backbone
+    ckpt = os.environ.get(
+        "PROTEINMPNN_CKPT",
+        str(Path.home() / "scratch/ProteinMPNN/vanilla_model_weights/v_48_020.pt"))
+    pdb = Path.home() / "scratch/ProteinMPNN/inputs/PDB_monomers/pdbs/6MRR.pdb"
+    if not Path(ckpt).exists() or not pdb.exists():
+        pytest.skip("checkpoint/backbone fixtures absent")
+    model, _ = load_checkpoint(ckpt, device="cpu")
+    out = design_backbone(model, str(pdb), num_sequences=2, temperature=0.1, seed=0)
+    assert len(out) == 2
+    seq, rec = out[0]
+    assert len(seq) == 68
+    assert set(seq) <= set("ACDEFGHIKLMNPQRSTVWYX")
+    assert rec is not None and rec > 0.3, f"recovery {rec} implausibly low"
