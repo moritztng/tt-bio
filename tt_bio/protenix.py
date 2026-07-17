@@ -1006,8 +1006,8 @@ class Protenix:
       Trunk (10-cycle recycling)             -> s_trunk, z_trunk
       EDM ancestral sampler (edm_sample, DiffusionModule denoiser) -> atom coords
 
-    Every submodule is validated on-device vs the real v2 reference (see
-    docs/porting-protenix-v2.md / tests/test_protenix*.py); the full diffusion is
+    Every submodule is validated on-device vs the real v2 reference in
+    tests/test_protenix*.py; the full diffusion is
     validated end-to-end (sampler draws structures within the reference's sample
     variance). feats is a dict of model-ready tensors (from the v2 data pipeline)."""
 
@@ -1272,8 +1272,7 @@ class Protenix:
                 # NT>=128: at small N the per-sample bf16 dist-embed rounding
                 # diverges from the host path's fp32-then-round (amplified by the
                 # Pairformer into the precision-sensitive plddt head), so the host
-                # path is kept there (it is only ~23 ms at NT=38 anyway). See
-                # docs/protenix-confidence-device-port.md for the PCC evidence.
+                # path is kept there (it is only ~23 ms at NT=38 anyway).
                 z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
                 confs = [self.confidence_head.confidence_device(
                             s_inputs, s_trunk, z_base_dev, coords[k], feats)
