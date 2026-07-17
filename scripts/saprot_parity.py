@@ -15,7 +15,7 @@ def pcc(a, b):
     a = a.ravel().astype(np.float64); b = b.ravel().astype(np.float64)
     a = a - a.mean(); b = b - b.mean()
     den = math.sqrt((a * a).sum()) * math.sqrt((b * b).sum())
-    return float((a * b).sum() / den) if den > 0 else 0.0)
+    return float((a * b).sum() / den) if den > 0 else 0.0
 
 def main():
     ap = argparse.ArgumentParser()
