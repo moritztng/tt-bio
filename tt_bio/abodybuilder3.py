@@ -232,3 +232,94 @@ def normalize_angles(unnorm: torch.Tensor, epsilon: float = 1e-7) -> torch.Tenso
         torch.clamp(torch.sum(s ** 2, dim=-1, keepdim=True), min=epsilon)
     )
     return s / norm_denom
+
+
+class IPALayer(Module):
+    """InvariantPointAttention (Alg. 22) on ttnn — the novel op of the port.
+
+    8 of these form the structure-module block loop. Inputs (per block):
+      s [1, N, embed_dim=128], z [1, N, N, embed_dim=128] (pair state, resident
+      across blocks), r = rigid (rot_mats [1,N,3,3], trans [1,N,3]), mask [1,N].
+    Reference output: single update delta [1, N, 128].
+
+    ON-DEVICE STATUS (this is the port's ceiling):
+      * On device (validated PCC 1.0 vs the reference internals,
+        scripts/abb3_ipa_internals.py): the IPA *linear projections* — q, kv,
+        qp (q-points), kvp (kv-points), and the pair-bias b. ``__call__`` returns
+        these as a dict.
+      * NOT on device (the ceiling): the IPA *attention* — both the scalar q.k
+        and the point-attention. Both need subtile trailing-dim reshapes that ttnn
+        stock ops cannot express on device:
+          - scalar q.k needs a head reshape to [1,N,12,16] (head=12, head_dim=16,
+            both subtile); ttnn.reshape re-tiles and scrambles the layout, and
+            nlp_create_qkv_heads scrambles non-32 head_dim (the documented
+            ttnn-tile-alignment hazard).
+          - point-attention needs subtile point coords (3) / P_q,P_v (4,8)
+            broadcast/sum/reshape and front-padding; ttnn.pad rejects
+            front-padding of subtile dims on device, and subtile broadcast/sum
+            over the 3/4/8 dims are unsupported.
+        A full on-device IPA therefore needs a custom tt-metal point-attention
+        kernel (kernel authoring is a separate domain, out of scope for this
+        port). The attention math stays host-side fp32 in the structure-module
+        loop; only the projections run on device here.
+    """
+
+    def __init__(self, state_dict: Weights, ck: ttnn.DeviceComputeKernelConfig,
+                 c_hidden: int = 16, no_heads: int = 12,
+                 no_qk_points: int = 4, no_v_points: int = 8,
+                 eps: float = 1e-8, inf: float = 1e7):
+        super().__init__(state_dict, ck)
+        self.c_hidden = c_hidden
+        self.no_heads = no_heads
+        self.no_qk_points = no_qk_points
+        self.no_v_points = no_v_points
+        self.eps = eps
+        self.inf = inf
+        self.lq_w = self.torch_to_tt("linear_q.weight"); self.lq_b = self.torch_to_tt("linear_q.bias")
+        # linear_kv packs [k|v] per head (interleaved, not concatenated); load it as a single
+        # projection and split on the host for the attention (the attention math is the
+        # documented ceiling -- host-side fp32 -- so no benefit to splitting the weight).
+        self.lkv_w = self.torch_to_tt("linear_kv.weight"); self.lkv_b = self.torch_to_tt("linear_kv.bias")
+        self.lqp_w = self.torch_to_tt("linear_q_points.weight"); self.lqp_b = self.torch_to_tt("linear_q_points.bias")
+        # linear_kv_points packs [k_pts|v_pts] per head (interleaved); load as a single projection.
+        self.lkvp_w = self.torch_to_tt("linear_kv_points.weight"); self.lkvp_b = self.torch_to_tt("linear_kv_points.bias")
+        self.lb_w = self.torch_to_tt("linear_b.weight"); self.lb_b = self.torch_to_tt("linear_b.bias")
+        self.lo_w = self.torch_to_tt("linear_out.weight"); self.lo_b = self.torch_to_tt("linear_out.bias")
+        hw = torch.nn.functional.softplus(self.weights["head_weights"]) * math.sqrt(
+            1.0 / (3 * (no_qk_points * 9.0 / 2)))
+        # per-(h,p_q) weight: hw[h] broadcast over p_q -> [H*P_q]
+        self._hw = hw.view(no_heads, 1).expand(no_heads, no_qk_points).reshape(-1).contiguous()
+        self._hw_tt = ttnn.from_torch(self._hw.view(1, 1, 1, -1), layout=ttnn.TILE_LAYOUT,
+                                      device=self.device, dtype=_dtype())
+
+    def _proj(self, w, b, s):
+        return self._lin(s, w, bias=b, dtype=_dtype(), memory_config=ttnn.L1_MEMORY_CONFIG)
+
+    def __call__(self, s, z, rot_mats, trans, mask):
+        N = s.shape[1]
+        H, C = self.no_heads, self.c_hidden
+        Pq, Pv = self.no_qk_points, self.no_v_points
+        L1 = ttnn.L1_MEMORY_CONFIG
+        ck = self.compute_kernel_config
+        # --- scalar projections (the IPA linears; the attention is the documented ceiling) ---
+        q = self._proj(self.lq_w, self.lq_b, s)     # [1,N,192]
+        kv = self._proj(self.lkv_w, self.lkv_b, s)   # [1,N,384]  (packed [k|v] per head)
+        qp = self._proj(self.lqp_w, self.lqp_b, s)   # [1,N,144]
+        kvp = self._proj(self.lkvp_w, self.lkvp_b, s)  # [1,N,432]  (packed [k_pts|v_pts] per head)
+        b = self._lin(z, self.lb_w, bias=self.lb_b, dtype=_dtype(), memory_config=L1)  # [1,N,N,12]
+        # --- CEILING: the IPA attention (scalar q.k AND point) is NOT ported here.
+        # Both attentions require subtile trailing-dim reshapes that ttnn stock ops
+        # cannot express on device: the scalar q.k needs a head reshape to
+        # [1,N,12,16] (head=12, head_dim=16 -- both subtile); ttnn.reshape re-tiles
+        # and scrambles the layout, and nlp_create_qkv_heads scrambles non-32
+        # head_dim (the documented ttnn-tile-alignment hazard). The point-attention
+        # additionally needs subtile point coords (3) / P_q,P_v (4,8) broadcast/sum/reshape
+        # and front-padding (ttnn.pad rejects front-padding of subtile dims on device).
+        # A full on-device IPA therefore needs a custom tt-metal point-attention
+        # kernel (kernel authoring is a separate domain, out of scope for this port).
+        # What IS on device here: the IPA linear projections (q, k, v, q_pts,
+        # kv_points, pair bias b) -- validated PCC 1.0 vs the reference internals
+        # (scripts/abb3_ipa_internals.py). The attention math stays host-side
+        # fp32 in the structure-module loop.
+        return dict(q=q, kv=kv, qp=qp, kvp=kvp, b=b)
+

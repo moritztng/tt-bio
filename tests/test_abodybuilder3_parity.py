@@ -80,6 +80,57 @@ def test_reference_ipa_self_consistent(golden):
     assert pcc > 0.999, f"reference IPA self-consistency PCC={pcc}"
 
 
+@pytest.mark.skipif(not os.environ.get("TT_VISIBLE_DEVICES"),
+                        reason="needs a Tenstorrent device (set TT_VISIBLE_DEVICES=0)")
+def test_abodybuilder3_ipa_projections_on_device(golden):
+    """On-device IPA linear projections PCC > 0.98 vs the reference internals.
+
+    The IPA linear projections (q, kv, qp, kvp, pair bias b) are the on-device
+    piece of the IPA -- validated PCC 1.0. The IPA attention (scalar q.k AND point)
+    is the documented ceiling: it needs subtile head/point-dim reshapes (head=12,
+    head_dim=16, P_q/P_v=4/8, point coords=3) that ttnn stock ops cannot express on
+    device; a full on-device IPA needs a custom tt-metal point-attention kernel
+    (kernel authoring is a separate domain, deferred). See tt_bio/abodybuilder3.py
+    IPALayer docstring."""
+    import subprocess, sys
+    from tt_bio.tenstorrent import WeightScope
+    from tt_bio.abodybuilder3 import (abb3_compute_kernel_config, IPALayer,
+                                  _from_torch, _to_torch)
+
+    cache = os.environ.get("TT_BIO_CACHE", os.path.expanduser("~/.ttbio"))
+    ipa_pkl = os.path.join(cache, "abb3_ipa_internals.pkl")
+    if not os.path.exists(ipa_pkl):
+        env = dict(os.environ, TT_BIO_CACHE=cache)
+        subprocess.run([sys.executable, "scripts/abb3_ipa_internals.py"], check=True, env=env)
+    I = pickle.load(open(ipa_pkl, "rb"))
+
+    sd = torch.load(os.path.join(cache, "abodybuilder3_plddt.pt"), map_location="cpu", weights_only=True)
+    scope = "ipa_layers.0"
+    weights = WeightScope({k[len(scope) + 1:]: v for k, v in sd.items() if k.startswith(scope + ".")})
+    ck = abb3_compute_kernel_config()
+    ipa = IPALayer(weights, ck)
+
+    out = ipa(_from_torch(I["s"]), _from_torch(I["z"]),
+                 _from_torch(I["rot_mats"]), _from_torch(I["trans"]), _from_torch(I["mask"]))
+    N = I["s"].shape[1]
+    q = _to_torch(out["q"]).reshape(1, N, -1)
+    kv = _to_torch(out["kv"]).reshape(1, N, -1)
+    qp = _to_torch(out["qp"]).reshape(1, N, -1)
+    kvp = _to_torch(out["kvp"]).reshape(1, N, -1)
+    b = _to_torch(out["b"]).reshape(I["b"].shape)
+
+    q_ref = I["q"].reshape(1, N, -1)
+    kv_ref = torch.cat([I["k"], I["v"]], dim=-1).reshape(1, N, -1)
+    qp_ref = I["q_pts"].permute(0, 1, 4, 2, 3).reshape(1, N, -1)
+    kvp_ref = torch.cat([I["k_pts"], I["v_pts"]], dim=-2).permute(0, 1, 4, 2, 3).reshape(1, N, -1)
+
+    assert _pcc(q, q_ref) > 0.98, f"IPA q PCC={_pcc(q, q_ref)}"
+    assert _pcc(kv, kv_ref) > 0.98, f"IPA kv PCC={_pcc(kv, kv_ref)}"
+    assert _pcc(qp, qp_ref) > 0.98, f"IPA qp PCC={_pcc(qp, qp_ref)}"
+    assert _pcc(kvp, kvp_ref) > 0.98, f"IPA kvp PCC={_pcc(kvp, kvp_ref)}"
+    assert _pcc(b, I["b"]) > 0.98, f"IPA pair bias PCC={_pcc(b, I['b'])}"
+
+
 @pytest.mark.skip(reason="ttnn IPA port is the next chunk -- IPA has no reusable "
                          "primitive in tt-bio (its ESMFold2 is a diffusion folder), "
                          "so InvariantPointAttention is ported from scratch.")
