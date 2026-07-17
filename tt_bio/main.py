@@ -1506,6 +1506,86 @@ def _chain_label(n: int) -> str:
     return s
 
 
+def _read_abodybuilder3_fv(path):
+    """Parse a paired heavy+light antibody Fv from a FASTA or YAML for
+    ``--model abodybuilder3``. Returns a list of (name, heavy, light).
+
+    FASTA: two records whose ids label the chains as heavy/light (case-insensitive:
+    H/heavy and L/light). YAML: ``sequences:`` with two protein entries carrying
+    ``id: heavy`` / ``id: light`` (or chain ids H/L)."""
+    from pathlib import Path
+    suffix = Path(path).suffix.lower()
+    pairs: list[tuple[str, str, str]] = []
+    if suffix in (".fa", ".fas", ".fasta"):
+        recs: list[tuple[str, str]] = []
+        cid, buf = None, []
+        def flush():
+            if cid is not None and buf:
+                recs.append((cid, "".join(buf)))
+        for line in Path(path).read_text().splitlines():
+            line = line.strip()
+            if line.startswith(">"):
+                flush()
+                cid = line[1:].split("|")[0].strip()
+                buf = []
+            elif line and cid is not None:
+                buf.append(line)
+        flush()
+        recs.sort(key=lambda r: r[0].lower())
+        heavy = next((s for c, s in recs if c.lower().startswith("h")), None)
+        light = next((s for c, s in recs if c.lower().startswith("l")), None)
+        if heavy and light:
+            pairs.append((Path(path).stem, heavy, light))
+    elif suffix in (".yml", ".yaml"):
+        import yaml
+        doc = yaml.safe_load(Path(path).read_text()) or {}
+        h = l = None
+        for entry in doc.get("sequences", []):
+            prot = entry.get("protein") if isinstance(entry, dict) else None
+            if not (prot and prot.get("sequence")):
+                continue
+            cid = str(prot.get("id", "")).lower()
+            if cid.startswith("h"):
+                h = prot["sequence"]
+            elif cid.startswith("l"):
+                l = prot["sequence"]
+        if h and l:
+            pairs.append((Path(path).stem, h, l))
+    if not pairs:
+        raise click.ClickException(
+            f"abodybuilder3 needs a paired heavy+light Fv in {path} "
+            "(FASTA records id'd H/L or heavy/light, or YAML protein entries "
+            "id heavy/light).")
+    return pairs
+
+
+def _run_abodybuilder3_predict(data, out_dir, cache):
+    """Dedicated predict path for ``--model abodybuilder3``: parse paired Fv(s)
+    from the input file/dir, run the hybrid StructureModuleTT, write one PDB each."""
+    from pathlib import Path
+    data_path = Path(data)
+    inputs = []
+    if data_path.is_dir():
+        for p in sorted(data_path.iterdir()):
+            if p.suffix.lower() in (".fa", ".fas", ".fasta", ".yml", ".yaml"):
+                inputs.extend(_read_abodybuilder3_fv(p))
+    else:
+        inputs.extend(_read_abodybuilder3_fv(data_path))
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = cache or os.environ.get("TT_BIO_CACHE", str(Path.home() / ".ttbio"))
+    from tt_bio.abodybuilder3 import predict_abodybuilder3
+    for name, heavy, light in inputs:
+        click.echo(f"abodybuilder3: {name} — H={len(heavy)} L={len(light)} residues")
+        out_pdb = out_dir / f"{name}.pdb"
+        res = predict_abodybuilder3(heavy, light, cache_dir, str(out_pdb))
+        ca = res["atom37"][:, 1]
+        click.echo(f"  mean pLDDT: {res['plddt'].mean().item():.2f}  "
+                   f"CA range {ca.min(0).values.tolist()} .. {ca.max(0).values.tolist()}")
+        click.echo(f"  wrote PDB -> {out_pdb}")
+    click.echo(f"Done — {len(inputs)} Fv structure(s).")
+
+
 def _read_protein_chains(path):
     """Extract [(chain_id, sequence, msa_spec)] protein entries from FASTA/YAML.
 
@@ -1939,13 +2019,15 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
-@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"]), default="boltz2", show_default=True,
+@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag", "abodybuilder3"]), default="boltz2", show_default=True,
               help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
                    "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
                    "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
                    "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
                    "opendde / opendde-abag: AF3-family co-folding (Protenix-v2 stack + structural-token expander); "
                    "opendde-abag selects the antibody-antigen checkpoint. "
+                   "abodybuilder3: MSA-free one-hot antibody Fv (paired heavy+light) — on-device IPA "
+                   "projections + standard components, host-side IPA attention (custom-kernel ceiling). "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
@@ -1988,6 +2070,14 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         raise click.BadParameter("--diffusion_samples_affinity must be at least 1")
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
+
+    # ABodyBuilder3: MSA-free one-hot antibody Fv (paired heavy+light). A lightweight
+    # dedicated path — NOT the Boltz scheduler (which is MSA/complex-oriented). Parses
+    # heavy+light from a FASTA (two records, ids H/L or heavy/light) or YAML, runs the
+    # hybrid StructureModuleTT (on-device projections + standard components, host-side
+    # IPA attention — the custom-kernel ceiling), writes one PDB per input.
+    if model == "abodybuilder3":
+        return _run_abodybuilder3_predict(data, out_dir, cache)
 
     # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2 -> its
     # spec 10, boltz2/esmfold2 -> 3; an explicit --recycling_steps overrides either.

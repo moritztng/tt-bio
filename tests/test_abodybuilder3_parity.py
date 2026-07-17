@@ -131,6 +131,63 @@ def test_abodybuilder3_ipa_projections_on_device(golden):
     assert _pcc(b, I["b"]) > 0.98, f"IPA pair bias PCC={_pcc(b, I['b'])}"
 
 
+@pytest.mark.skipif(not os.environ.get("TT_VISIBLE_DEVICES"),
+                        reason="needs a Tenstorrent device (set TT_VISIBLE_DEVICES=0)")
+def test_abodybuilder3_hybrid_end_to_end(golden):
+    """End-to-end hybrid StructureModuleTT parity vs the reference: Cα-RMSD < 0.5 Å
+    and pLDDT PCC > 0.98 on the 6yio H0-L0 Fv.
+
+    The hybrid runs the IPA linear projections + linear_out + input embeddings +
+    post-IPA LayerNorm + Transition + BackboneUpdate + AngleResnet linears + pLDDT
+    head on device (bf16, fp32 dest acc; PCC ~1.0 component-by-component), and the
+    IPA rigid-apply + scalar/point attention + value aggregation + quaternion
+    backbone compose + torsion_angles_to_frames + atom14 reconstruction on host fp32
+    (the documented ceiling -- the IPA attention needs a custom tt-metal
+    point-attention kernel for a fully on-device port)."""
+    import torch
+    from tt_bio.abodybuilder3_weights import ABB3_CONFIG, ensure_abb3_weights
+    from tt_bio.abodybuilder3 import abb3_compute_kernel_config, StructureModuleTT
+    from tt_bio._vendor.abodybuilder3.openfold.data.data_transforms import make_atom14_masks
+    from tt_bio._vendor.abodybuilder3.openfold.utils.feats import atom14_to_atom37
+
+    cache = os.environ.get("TT_BIO_CACHE", os.path.expanduser("~/.ttbio"))
+    import sys
+    sys.path.insert(0, os.path.dirname(__file__))
+    from abodybuilder3_reference import string_to_input, EXAMPLE_HEAVY, EXAMPLE_LIGHT, compute_plddt
+    inp = string_to_input(EXAMPLE_HEAVY, EXAMPLE_LIGHT, "cpu")
+    single, pair, aatype = inp["single"], inp["pair"], inp["aatype"]
+    mask = torch.ones(single.shape[:-1], dtype=single.dtype)
+
+    ref_atom14 = golden["final"]["atom14"][0]
+    batch = make_atom14_masks({"aatype": aatype.squeeze(0)})
+    ref_atom37 = atom14_to_atom37(ref_atom14, batch)
+    ref_ca = ref_atom37[:, 1]
+
+    sd = torch.load(ensure_abb3_weights(cache), map_location="cpu", weights_only=True)
+    ck = abb3_compute_kernel_config()
+    model = StructureModuleTT(sd, ck, ABB3_CONFIG)
+    with torch.no_grad():
+        out = model(single, pair, aatype, mask)
+    atom14 = out["positions"][-1, 0]
+    atom37 = atom14_to_atom37(atom14, batch)
+    ca = atom37[:, 1]
+
+    # Kabsch Cα-RMSD
+    a = ca.double(); b = ref_ca.double()
+    a, b = a - a.mean(0), b - b.mean(0)
+    u, s, vt = torch.linalg.svd(a.T @ b)
+    d = torch.sign(torch.det(vt.T @ u.T))
+    corr = torch.diag(torch.tensor([1.0, 1.0, d], dtype=a.dtype))
+    a = (u @ corr @ vt @ a.T).T
+    rmsd = float(torch.sqrt(((a - b) ** 2).sum(-1).mean()))
+    assert rmsd < 0.5, f"end-to-end Cα-RMSD={rmsd:.4f} Å"
+
+    from abodybuilder3_reference import compute_plddt as _cpp
+    plddt = _cpp(out["plddt"][0])
+    plddt_ref = _cpp(golden["final"]["plddt_logits"][0])
+    assert _pcc(plddt, plddt_ref) > 0.98, f"pLDDT PCC={_pcc(plddt, plddt_ref)}"
+
+
 @pytest.mark.skip(reason="ttnn IPA port is the next chunk -- IPA has no reusable "
                          "primitive in tt-bio (its ESMFold2 is a diffusion folder), "
                          "so InvariantPointAttention is ported from scratch.")
