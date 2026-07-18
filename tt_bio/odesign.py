@@ -197,6 +197,174 @@ def generate_sampler_draws(n_atom, n_step, seed=42, condition_mask=None,
 from . import protenix_weights as PW
 
 
+# ---------------------------------------------------------------------------
+# ODesign trunk-input port (pass 6). The trunk is mostly Protenix-v2's
+# (tt_bio.protenix.Trunk, c_z=128, no-template path) but with THREE genuinely
+# new ODesign pieces this pass ports + parity-verifies:
+#   (1) RelativePositionEncoding with the cyclic-peptide offset logic
+#       (ODesign embedders.py L158-204; Protenix-v2's RPE has no cyclic branch).
+#   (2) The trunk-init linears (s_init / z_init) -- weight-driven, c_s_inputs=453.
+#   (3) ConstraintTemplateEmbedder FRONT-END: distogram binning (39 bins,
+#       min_bin=3.25, max_bin=50.75) + v_ij = LinearNoBias_z(LN_z(z)) +
+#       LinearNoBias_a(distogram). The 2-block PairformerStack INSIDE the
+#       constraint embedder (triangle attention, 4 heads x head_dim=32) is
+#       deferred to pass 7 -- it needs a dedicated pair-only Pairformer port
+#       matching ODesign's head geometry.
+# Parity vs ODesign's own modules run fresh on CPU (same methodology as
+# passes 1-5): scripts/odesign_trunk_ref.py dumps the CPU reference,
+# scripts/odesign_trunk_parity.py diffs the ttnn port against it.
+# ---------------------------------------------------------------------------
+
+class ODesignTrunkInput:
+    """ODesign trunk-input construction on Tenstorrent (pass 6): the
+    RelativePositionEncoding (with cyclic-peptide offset), the trunk-init
+    linears (s_init / z_init), and the ConstraintTemplateEmbedder front-end
+    (distogram binning + v_ij projection). Loaded from the full ODesign
+    checkpoint state dict (relative_position_encoding.*, linear_no_bias_sinit,
+    linear_no_bias_zinit1/2, linear_no_bias_token_bond, constraint_distogram_embedder.*).
+
+    The 2-block PairformerStack inside the constraint embedder is deferred to
+    pass 7; this class exposes the front-end (v_ij) only. The full trunk
+    (48-block PairformerStack + MSAModule + the constraint embedder's
+    PairformerStack) is also deferred -- pass 6 lands the clean, self-contained,
+    parity-verified entry slice.
+    """
+
+    R_MAX, S_MAX, C_Z, C_S, C_S_INPUTS = 32, 2, 128, 384, 453
+    CTE_C, CTE_NO_BINS, CTE_MIN_BIN, CTE_MAX_BIN = 64, 39, 3.25, 50.75
+
+    def __init__(self, model_state_dict, compute_kernel_config, device=None):
+        self._w = model_state_dict
+        self.compute_kernel_config = compute_kernel_config
+        self.dev = device or get_device()
+        self._wc = {}  # device weight cache (uploaded once, reused)
+
+    # --- upload helpers (mirror ODesign._tt/_lin/_ln; cached here) ---
+    def _tt(self, x):
+        return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+
+    def _w_tt(self, key, transpose=True):
+        v = self._wc.get((key, transpose))
+        if v is None:
+            w = self._w[key]
+            v = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+            self._wc[(key, transpose)] = v
+        return v
+
+    @staticmethod
+    def _to_host(t, shape=None):
+        h = torch.Tensor(ttnn.to_torch(t)).float()
+        return h.reshape(shape) if shape is not None else h
+
+    def _lin(self, x, wkey, bkey=None):
+        return ttnn.linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
+                           compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)
+
+    def _ln(self, x, wkey, bkey):
+        return ttnn.layer_norm(x, weight=self._w_tt(wkey, False), bias=self._w_tt(bkey, False),
+                               epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+
+    # --- (1) RelativePositionEncoding with cyclic-peptide offset ---
+    @staticmethod
+    def relative_position_encoding(feat, r_max=32, s_max=2):
+        """Host fp32 one-hot RPE feature (ODesign embedders.py L144-226),
+        INCLUDING the cyclic-peptide offset branch (L158-197) that Protenix-v2's
+        RPE lacks. feat needs asym_id, residue_index, entity_id, sym_id,
+        token_index, is_cyclic_token. Returns (N, N, 4*r_max + 2*s_max + 7) =
+        (N, N, 139) host fp32. The trailing linear is applied on device."""
+        import torch.nn.functional as F
+        asym = feat["asym_id"].long(); res = feat["residue_index"].long()
+        ent = feat["entity_id"].long(); tok = feat["token_index"].long()
+        sym = feat["sym_id"].long()
+        b_same_chain = (asym[:, None] == asym[None, :]).long()
+        b_same_residue = (res[:, None] == res[None, :]).long()
+        b_same_entity = (ent[:, None] == ent[None, :]).long()
+        offset = res[:, None] - res[None, :]                       # cyclic-peptide offset logic
+        is_cyclic_token = feat.get("is_cyclic_token")
+        if is_cyclic_token is not None and bool(is_cyclic_token.any()):
+            for asym_id_val in torch.unique(asym):
+                asym_mask = (asym == asym_id_val)
+                if asym_mask.any() and bool(is_cyclic_token[asym_mask][0]):
+                    len_chain = int(asym_mask.sum())
+                    if len_chain > 0:
+                        chain_mask = ((asym[:, None] == asym_id_val) &
+                                      (asym[None, :] == asym_id_val))
+                        offset_plus = offset + len_chain
+                        offset_minus = offset - len_chain
+                        abs_offset = offset.abs()
+                        abs_offset_plus = offset_plus.abs()
+                        abs_offset_minus = offset_minus.abs()
+                        choice = torch.where(abs_offset_plus <= abs_offset_minus, offset_plus, offset_minus)
+                        c_offset = torch.where(
+                            (abs_offset <= abs_offset_plus) & (abs_offset <= abs_offset_minus),
+                            offset, choice)
+                        offset = torch.where(chain_mask, c_offset, offset)
+        offset = (offset + r_max).clamp(0, 2 * r_max)
+        d_residue = torch.where(b_same_chain.bool(), offset,
+                                (2 * r_max + 1) * torch.ones_like(offset))
+        a_rel_pos = F.one_hot(d_residue, 2 * (r_max + 1))
+        d_token = torch.clip(tok[:, None] - tok[None, :] + r_max, 0, 2 * r_max) \
+            * b_same_chain * b_same_residue + (1 - b_same_chain * b_same_residue) * (2 * r_max + 1)
+        a_rel_token = F.one_hot(d_token, 2 * (r_max + 1))
+        d_chain = torch.clip(sym[:, None] - sym[None, :] + s_max, 0, 2 * s_max) \
+            * b_same_entity + (1 - b_same_entity) * (2 * s_max + 1)
+        a_rel_chain = F.one_hot(d_chain, 2 * (s_max + 1))
+        return torch.cat([a_rel_pos, a_rel_token, b_same_entity[..., None],
+                          a_rel_chain], dim=-1).float()
+
+    def rpe(self, feat):
+        """Full RPE: one-hot feature (host) -> LinearNoBias (device). Returns
+        (N, N, c_z) host fp32."""
+        relp = self.relative_position_encoding(feat, self.R_MAX, self.S_MAX)
+        out = self._lin(self._tt(relp), "relative_position_encoding.linear_no_bias.weight")
+        return self._to_host(out, (relp.shape[0], relp.shape[1], self.C_Z))
+
+    # --- (2) trunk-init linears (s_init, z_init) ---
+    def trunk_init(self, s_inputs, relp, token_bonds):
+        """s_init = LinearNoBias_sinit(s_inputs); z_init = zinit1(s_init)[:,None] +
+        zinit2(s_init)[None,:] + relp + LinearNoBias_token_bond(token_bonds[...,None]).
+        s_inputs (N,453) host, relp (N,N,128) host, token_bonds (N,N) host.
+        Returns (s_init (N,384), z_init (N,N,128)) host fp32."""
+        N = s_inputs.shape[0]
+        s_init = self._lin(self._tt(s_inputs.float()), "linear_no_bias_sinit.weight")
+        cz = self._w["linear_no_bias_zinit1.weight"].shape[0]
+        z1 = ttnn.reshape(self._lin(s_init, "linear_no_bias_zinit1.weight"), (N, 1, cz))
+        z2 = ttnn.reshape(self._lin(s_init, "linear_no_bias_zinit2.weight"), (1, N, cz))
+        z = ttnn.add(z1, z2)
+        z = ttnn.add(z, self._tt(relp.float()))
+        z = ttnn.add(z, self._lin(self._tt(token_bonds.unsqueeze(-1).float()),
+                                  "linear_no_bias_token_bond.weight"))
+        return self._to_host(s_init, (N, self.C_S)), self._to_host(z, (N, N, cz))
+
+    # --- (3) ConstraintTemplateEmbedder front-end ---
+    def constraint_distogram(self, constraint_feature):
+        """Bin a per-pair distance map (N,N,1) into a 39-bin one-hot distogram
+        (N,N,39), matching ODesign ConstraintTemplateEmbedder.forward L1548-1558
+        (boundaries = linspace(min_bin, max_bin, no_bins-1); true_bins =
+        sum(cf > boundaries, dim=-1); one_hot(true_bins, no_bins)). Host fp32."""
+        import torch.nn.functional as F
+        boundaries = torch.linspace(self.CTE_MIN_BIN, self.CTE_MAX_BIN, self.CTE_NO_BINS - 1)
+        cf = constraint_feature.float()
+        true_bins = torch.sum(cf > boundaries, dim=-1)            # (N,N) in [0, no_bins-1]
+        return F.one_hot(true_bins, self.CTE_NO_BINS).float()     # (N,N,39)
+
+    def constraint_embedder_front(self, z, constraint_feature):
+        """ConstraintTemplateEmbedder FRONT-END (the 2-block PairformerStack
+        INSIDE it is deferred to pass 7). v_ij = LinearNoBias_z(LN_z(z)) +
+        LinearNoBias_a(distogram). z (N,N,128) host, constraint_feature (N,N,1)
+        host. Returns v_ij (N,N,64) host fp32 -- the input to the deferred
+        2-block PairformerStack."""
+        C = "constraint_distogram_embedder."
+        distogram = self.constraint_distogram(constraint_feature)  # (N,N,39) host
+        zc = self._ln(self._tt(z.float()), C + "layernorm_z.weight", C + "layernorm_z.bias")
+        zt = self._lin(zc, C + "linear_no_bias_z.weight")          # (N,N,64)
+        at = self._lin(self._tt(distogram), C + "linear_no_bias_a.weight")  # (N,N,64)
+        v = ttnn.add(zt, at)
+        return self._to_host(v, (z.shape[0], z.shape[1], self.CTE_C))
+
+
 class ODesign:
     """ODesign denoiser-parity harness on Tenstorrent (pass-3 scope: diffusion leg only).
 
