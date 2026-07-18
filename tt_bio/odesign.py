@@ -411,6 +411,225 @@ class ODesignTrunkInput:
         return s_inputs
 
 
+# ---------------------------------------------------------------------------
+# ODesign FULL TRUNK port (pass 7). Wires the 48-block PairformerStack (main
+# trunk), the ConstraintTemplateEmbedder's 2-block pair-only PairformerStack, and
+# the 4-block MSA module -- all reusing the already-ported protenix/tenstorrent
+# primitives (Pairformer, PairformerLayer, Transition, OuterProductMean,
+# PairWeightedAveraging) with ODesign weights (tt_bio.protenix_weights remaps).
+# The front-end (RPE w/ cyclic offset, trunk-init linears, CTE front-end,
+# InputFeatureEmbedder) reuses the pass-6 `ODesignTrunkInput`.
+#
+# ODesign's trunk cycle (src/model/odesign.py get_pairformer_output L315-382):
+#   for cyc in range(N_cycle):
+#     z = z_init + linear_no_bias_z_cycle(LN_z_cycle(z))
+#     z += constraint_distogram_embedder(input_data, z)     # CTE (c=64, 2 pair-only blocks)
+#     z  = msa_module(input_data, z, s_inputs)             # 4-block MSA (single-seq self-MSA)
+#     s  = s_init + linear_no_bias_s(LN_s(s))
+#     s, z = pairformer_stack(s, z)                        # 48-block with-single
+# Parity vs the CPU-fp32 reference (ODesign's own trunk run fresh): see
+# scripts/odesign_trunk_full_parity.py.
+# ---------------------------------------------------------------------------
+
+class ODesignTrunk:
+    """ODesign full trunk on Tenstorrent (pass 7): InputFeatureEmbedder -> trunk
+    cycle (48-block Pairformer + CTE 2-block pair-only Pairformer + 4-block MSA)
+    -> (s_trunk, z_trunk). Reuses the pass-6 `ODesignTrunkInput` for the front-end
+    (RPE w/ cyclic offset, trunk-init linears, CTE front-end, InputFeatureEmbedder)
+    and the protenix/tenstorrent Pairformer / PairformerLayer / MSA primitives
+    with ODesign weights.
+
+    Cycle (matching ODesign get_pairformer_output, N_cycle=10, inplace_safe):
+      z = z_init + linear_no_bias_z_cycle(LN_z_cycle(z))
+      z += CTE(input_data, z)            # distogram binning + 2 pair-only Pairformer blocks
+      z  = MSA(input_data, z, s_inputs)  # single-sequence self-MSA (use_msa=false still
+                                        #   produces a 1-row MSA via set_default_msa_features,
+                                        #   so MSAModule.forward RUNS -- NOT a no-op; confirmed pass 7)
+      s  = s_init + linear_no_bias_s(LN_s(s))
+      s, z = PF(s, z)                   # 48-block with-single Pairformer
+
+    No template (template_embedder.n_blocks=0 -> nt=0, skipped). MSA uses the
+    inference-mode path (no msa_token_mask zeroing). Loaded from the full ODesign
+    checkpoint state dict (module. prefix stripped)."""
+
+    N_CYCLES = 10
+    C_Z, C_S, C_S_INPUTS = 128, 384, 453
+    TRI_HEAD_DIM = 32
+    CTE_C, CTE_NO_BINS, CTE_MIN_BIN, CTE_MAX_BIN = 64, 39, 3.25, 50.75
+
+    def __init__(self, model_state_dict, compute_kernel_config, device=None):
+        import re
+        from .tenstorrent import (get_device, Pairformer, PairformerLayer,
+                                   OuterProductMean, PairWeightedAveraging, Transition)
+        self._w = model_state_dict
+        self.compute_kernel_config = compute_kernel_config
+        self.dev = device or get_device()
+        self._wc = {}  # device weight cache (uploaded once, reused across cycles)
+        # front-end (pass-6, parity-verified): RPE w/ cyclic offset, trunk-init linears,
+        # CTE front-end (v_ij), InputFeatureEmbedder (atom encoder -> s_inputs).
+        self.ti = ODesignTrunkInput(model_state_dict, compute_kernel_config, self.dev)
+
+        n_tri_heads = self.C_Z // self.TRI_HEAD_DIM  # 128 // 32 = 4
+        # 48-block with-single Pairformer (c_z=128, c_s=384, att 16 heads x head_dim=24)
+        nb_pf = 1 + max(int(re.search(r"pairformer_stack\.blocks\.(\d+)\.", k).group(1))
+                        for k in self._w if "pairformer_stack.blocks." in k)
+        comb = {}
+        for i in range(nb_pf):
+            blk = {k[len(f"pairformer_stack.blocks.{i}."):]: v for k, v in self._w.items()
+                   if k.startswith(f"pairformer_stack.blocks.{i}.")}
+            for k, v in PW.remap_pairformer_block(blk).items():
+                comb[f"layers.{i}.{k}"] = v
+        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, self.C_S // 16, 16,
+                             True, comb, compute_kernel_config)
+
+        # ConstraintTemplateEmbedder: 2 pair-only PairformerLayers (c=64, 4 heads x head_dim=32)
+        self.CTE_PF = []
+        for b in range(2):
+            p = f"constraint_distogram_embedder.pairformer_stack.blocks.{b}."
+            sub = {k[len(p):]: v for k, v in self._w.items() if k.startswith(p)}
+            self.CTE_PF.append(PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None,
+                                False, PW.remap_msa_pair_stack(sub), compute_kernel_config))
+
+        # 4-block MSA module (reuse protenix.Trunk's MSA wiring verbatim)
+        self.MSA = []
+        for i in range(4):
+            P = f"msa_module.blocks.{i}."
+            sub = lambda pp: {k[len(pp):]: v for k, v in self._w.items() if k.startswith(pp)}
+            opm = OuterProductMean(PW.remap_outer_product_mean(sub(P + "outer_product_mean_msa.")),
+                                   compute_kernel_config)
+            pl = PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None, False,
+                                  PW.remap_msa_pair_stack(sub(P + "pair_stack.")), compute_kernel_config)
+            has = any(k.startswith(P + "msa_stack.") for k in self._w)
+            pwa = tm = None
+            if has:
+                pwa = PairWeightedAveraging(8, 8,
+                        PW.remap_pair_weighted_averaging(sub(P + "msa_stack.msa_pair_weighted_averaging.")),
+                        compute_kernel_config)
+                tm = Transition(PW.remap_transition(sub(P + "msa_stack.transition_m.")),
+                                compute_kernel_config)
+            self.MSA.append((opm, pwa, tm, pl))
+        self._msa_update_first = False        # ODesign/protenix-v2 order: OPM before MSA update
+
+    # --- _KeyedWeights-style helpers (this class owns its own weight cache so it
+    #     can stay self-contained without inheriting the mixin) ---
+    def _w_tt(self, key, transpose=True):
+        v = self._wc.get((key, transpose))
+        if v is None:
+            w = self._w[key]
+            v = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+            self._wc[(key, transpose)] = v
+        return v
+
+    def _up(self, t):
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+
+    def _lin(self, x, wkey, bkey=None):
+        return ttnn.linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
+                            compute_kernel_config=self.compute_kernel_config,
+                            core_grid=CORE_GRID_MAIN)
+
+    def _ln(self, x, wkey, bkey):
+        return ttnn.layer_norm(x, weight=self._w_tt(wkey, False), bias=self._w_tt(bkey, False),
+                               epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+
+    @staticmethod
+    def _to_host(t, shape=None):
+        h = torch.Tensor(ttnn.to_torch(t)).float()
+        return h.reshape(shape) if shape is not None else h
+
+    # --- ConstraintTemplateEmbedder (full: front-end + 2-block pairformer + LN_v + relu + linear_u) ---
+    def _ctet_a_term(self, constraint_feature):
+        """Precompute the distogram's linear_a term ONCE (constraint_feature is
+        cycle-invariant): distogram = one_hot(sum(cf > boundaries, -1), 39);
+        a_term = linear_no_bias_a(distogram) -> (N,N,64) device. Returned device
+        tensor is added to linear_z(LN_z(z)) each cycle."""
+        import torch.nn.functional as F
+        boundaries = torch.linspace(self.CTE_MIN_BIN, self.CTE_MAX_BIN, self.CTE_NO_BINS - 1)
+        cf = constraint_feature.float()
+        true_bins = torch.sum(cf > boundaries, dim=-1)            # (N,N)
+        distogram = F.one_hot(true_bins, self.CTE_NO_BINS).float()  # (N,N,39)
+        return self._lin(self._up(distogram), "constraint_distogram_embedder.linear_no_bias_a.weight")
+
+    def _cte(self, z_dev, a_term_dev):
+        """One CTE cycle update on the device-resident z (N,N,128) -> u (N,N,128) added to z.
+        v_ij = linear_no_bias_z(LN_z(z)) + a_term; v_ij = 2 pair-only PairformerLayers;
+        u = linear_no_bias_u(relu(LN_v(v_ij)))."""
+        C = "constraint_distogram_embedder."
+        zc = self._ln(z_dev, C + "layernorm_z.weight", C + "layernorm_z.bias")
+        v = self._lin(zc, C + "linear_no_bias_z.weight")          # (N,N,64)
+        v = ttnn.add(v, a_term_dev)
+        for pl in self.CTE_PF:
+            v = pl(None, v)[1]
+        v = self._ln(v, C + "layernorm_v.weight", C + "layernorm_v.bias")
+        v = ttnn.relu(v)
+        return self._lin(v, C + "linear_no_bias_u.weight")        # (N,N,128)
+
+    # --- MSA module (reuse protenix.Trunk._msa logic; _msa_update_first=False matches ODesign).
+    # ODesign's MSAModule.forward recomputes m_feat fresh each cycle from input_feature
+    # (cycle-invariant) and discards the block-updated msa_sample -- only z is returned.
+    # So _msa returns ONLY z3; the caller passes the same initial m_feat every cycle. ---
+    def _msa(self, z3, m_feat):
+        def update_msa(m, z, pwa, transition):
+            if pwa is None:
+                return m
+            m = ttnn.add(m, ttnn.reshape(pwa(m, ttnn.clone(z)), tuple(m.shape)))
+            return ttnn.add(m, ttnn.reshape(transition(m), tuple(m.shape)))
+        for (opm, pwa, tm, pl) in self.MSA:
+            if self._msa_update_first:
+                m_feat = update_msa(m_feat, z3, pwa, tm)
+            z3 = ttnn.add(z3, opm(m_feat, None, None))
+            if not self._msa_update_first:
+                m_feat = update_msa(m_feat, z3, pwa, tm)
+            z3 = pl(None, z3)[1]
+        return z3
+
+    def __call__(self, feat, n_cycles=None, progress_fn=None):
+        """Run the full ODesign trunk. feat needs (host tensors): ref_pos, ref_space_uid,
+        ref_element(129), ref_mask, ref_atom_name_chars, ref_charge, atom_to_token_idx,
+        restype(35), profile(32), deletion_mean(1), is_hotspot_residue(1), token_bonds,
+        msa(1,N), has_deletion(1,N), deletion_value(1,N), constraint_feature(N,N,1),
+        and the token meta (asym_id, residue_index, entity_id, sym_id, token_index,
+        is_cyclic_token). Returns (s_trunk (N,384), z_trunk (N,N,128)) host fp32."""
+        import torch.nn.functional as F
+        N = feat["residue_index"].shape[0]          # N_token (trunk operates at token level)
+        # 1) s_inputs (InputFeatureEmbedder) + RPE + trunk-init linears (pass-6 front-end)
+        s_inputs = self.ti.input_feature_embedder(feat)            # (N,453) host
+        relp = self.ti.rpe(feat)                                  # (N,N,128) host
+        token_bonds = feat["token_bonds"].float()
+        s_init, z_init = self.ti.trunk_init(s_inputs, relp, token_bonds)  # host (N,384),(N,N,128)
+        # 2) CTE cycle-invariant a_term (precompute once)
+        a_term = self._ctet_a_term(feat["constraint_feature"])     # device (N,N,64)
+        # 3) MSA m_feat (precompute once): linear_no_bias_m(ms) + linear_no_bias_s(s_inputs)
+        msa = F.one_hot(feat["msa"].long(), 32).float()           # (1,N,32)
+        ms = torch.cat([msa, feat["has_deletion"].unsqueeze(-1).float(),
+                        feat["deletion_value"].unsqueeze(-1).float()], dim=-1).unsqueeze(0)  # (1,1,N,34)
+        m_feat = ttnn.add(self._lin(self._up(ms), "msa_module.linear_no_bias_m.weight"),
+                          self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight"))
+        # 4) trunk cycle (N_cycle=10)
+        z3 = ttnn.mul(self._up(z_init.float().reshape(1, N, N, self.C_Z)), 0.0)
+        s = ttnn.mul(self._up(s_init.float().reshape(1, N, self.C_S)), 0.0)
+        s_init_dev = self._up(s_init.float().reshape(1, N, self.C_S))
+        z_init_dev = self._up(z_init.float().reshape(1, N, N, self.C_Z))
+        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
+        for cyc in range(n_cycles):
+            if progress_fn:
+                progress_fn("trunk", step=cyc, total=n_cycles)
+            zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"),
+                            "linear_no_bias_z_cycle.weight")
+            z3 = ttnn.add(z_init_dev, zc)
+            z3 = ttnn.add(z3, self._cte(z3, a_term))              # CTE (2 pair-only blocks)
+            z3 = self._msa(z3, m_feat)                          # 4-block MSA (m_feat cycle-invariant)
+            sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"),
+                            "linear_no_bias_s.weight")
+            s = ttnn.add(s_init_dev, sc)
+            s, z3 = self.PF(s, z3)
+            s = ttnn.reshape(s, (N, self.C_S))
+            if progress_fn:
+                progress_fn("trunk_cycle_end", step=cyc, s=s, z=z3)
+        return self._to_host(s, (N, self.C_S)), self._to_host(z3, (N, N, self.C_Z))
+
+
 class ODesign:
     """ODesign denoiser-parity harness on Tenstorrent (pass-3 scope: diffusion leg only).
 
