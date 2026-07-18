@@ -133,7 +133,7 @@ class InterformerModule(Module):
         e_inter = inter_edge
         for layer in self.inter:
             x, e_inter = self._encoder_layer(layer, x, e_inter, inter_bias)
-        return self.readout(x), x
+        return self.readout(x), x, e_inter
 
 
 class _EncoderLayerWeights(Module):
@@ -205,12 +205,13 @@ class InterformerBackbone(TorchWrapper):
         return InterformerModule(weights, self.compute_kernel_config, self.cfg)
 
     def __call__(self, node_feats, intra_edge, inter_edge, intra_bias, inter_bias):
-        affinity_tt, inter_node_tt = self.module(node_feats, intra_edge, inter_edge,
+        affinity_tt, inter_node_tt, inter_edge_tt = self.module(node_feats, intra_edge, inter_edge,
                                                   intra_bias, inter_bias)
         import ttnn
         affinity = torch.Tensor(ttnn.to_torch(affinity_tt)).float()
         inter_node = torch.Tensor(ttnn.to_torch(inter_node_tt)).float()
-        return affinity, inter_node
+        inter_edge = torch.Tensor(ttnn.to_torch(inter_edge_tt)).float()
+        return affinity, inter_node, inter_edge
 
     def rel_pos_proj(self, rbf_tt):
         return self.module.rel_pos_proj(rbf_tt)

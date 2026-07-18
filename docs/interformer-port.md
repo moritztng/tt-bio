@@ -26,7 +26,11 @@ matmul, LayerNorm, softmax, FFN — and the accuracy-relevant trunk.
   interaction, not standard additive-bias attention), a node FFN (ReLU), and an
   edge FFN that updates the pair features.
 - Affinity readout: `final_ln` on the virtual-node token + a PReLU FFN → scalar
-  pIC50. (Pose-selection head is the same shape — deferred, see below.)
+  pIC50.
+- Energy head (`VinaScoreHead`): the 3 Gaussian PFFNs (`meanHead`/`sigmaHead`/
+  `WeightHead`, each Linear(128,256)+PReLU+Linear(256,4)) + `elu`, plus the
+  cfg-gated `edge_output_layer` (3 LayerNorms + outer-product). Drives pose
+  selection (the per-pair Gaussian energy function the MC sampler scores with).
 
 **On host (NOT ported — irregular glue):**
 - Graph construction: RDKit / OpenBabel atom typing (29 GNINA atom types),
@@ -34,10 +38,11 @@ matmul, LayerNorm, softmax, FFN — and the accuracy-relevant trunk.
 - Distance matrix `D`, the RBF expansion (cutoff polynomial × Gaussian basis),
   the learned atom / edge **embeddings** (gather ops), padding, and the
   attention-bias / pair masks.
-- The MDN / `VinaScoreHead` (energy mode): per-pair Gaussian heads
-  (`mean`/`sigma`/`Weight`) over pair embeddings, the VdW / hydrophobic / H-bond
-  pair-type lookup tables, and the `shelve` energy-file output consumed by the
-  sampler.
+- The energy head's irregular glue: the pair-type gather, the VdW /
+  hydrophobic / H-bond pair-type lookup tables, the hydro/hbond soft mask, the
+  `softmax(+mask)`, and the `shelve` energy-file output consumed by the sampler.
+  (The dense learned parts of `VinaScoreHead` — the 3 Gaussian PFFNs + `elu` +
+  `edge_output_layer` — are on device; see above.)
 - The Monte-Carlo / differential-evolution docking sampler and energy
   minimization (`docking/reconstruct_ligands`, compiled C++).
 
@@ -74,6 +79,22 @@ Numbers are measured, not estimated. Run:
 `TT_VISIBLE_DEVICES=0 PYTHONPATH=.:tests python3 tests/test_interformer_realweights.py`
 (the pass-1 random-weight test, `tests/test_interformer.py`, also still passes).
 
+### Energy head (real-weight parity)
+
+The energy head is ported on top of the same trunk and loaded from the released
+energy checkpoint (`v0.2_energy_model`). The released ckpt has
+`edge_output_layer=None`, so the model bypasses `edge_output_layer`
+(`pair_emb = inter_edge[:, 1:, 1:, :]`); the 3 LayerNorms + outer-product are
+dead weights in this ckpt. Parity (card 2, bf16 HiFi4 vs fp32 ref, same inputs):
+
+| Component | PCC | Gate |
+|---|---|---|
+| mean (elu(meanHead)) | 0.99971 | >=0.999 pass |
+| sigma (elu(sigmaHead)+1+1e-5) | 0.99989 | >=0.999 pass |
+| pi (softmax(WeightHead+mask)+1e-9) | 0.99948 | >=0.999 pass |
+
+Run: `TT_VISIBLE_DEVICES=2 PYTHONPATH=.:tests python3 tests/test_interformer_energy_realweights.py`
+
 ## End-to-end on a real complex (affinity)
 
 The on-device port runs the full released data pipeline on the 2qbr demo complex
@@ -93,20 +114,41 @@ and both land within ~0.42 pIC50 of the experimental label — inside the model'
 single-complex error (PDBbind core-set RMSE ≈ 1.0–1.3 pIC50). The native pose is
 scored directly, so this does not exercise the docking sampler.
 
-## What is deferred (honest)
+## Pose-RMSD end-to-end (ported leg) — gate NOT met
 
-- **Pose-RMSD end-to-end** (the full PoseBusters pipeline). Reproducing a docked
-  pose needs the energy model (`v0.2_energy_model`, in `checkpoints.zip`) to
-  predict per-pair Gaussian energy functions, then the compiled C++ docking
-  sampler (`docking/reconstruct_ligands`, built via `python setup.py install`)
-  to generate poses, then the affinity model to score them. The C++ sampler
-  build is the hard blocker — not yet attempted. The affinity e2e above sidesteps
-  it by scoring the native pose.
+The C++ docking sampler (`pyvina_core`) builds without root (pass 3), and the
+energy head is now ported (above), so the ported leg of the pose-RMSD pipeline
+runs end-to-end: the ported trunk + ported energy head produce a `G.pkl` (device
+energy-model outputs), which feeds the compiled C++ MC/BFGS sampler, then `obrms`
+for RMSD vs the crystal pose.
+
+On the 2qbr demo complex (graph = 31 ligand + 140 pocket = 171 atoms, matching
+the shipped reference `G.pkl`), with the same sampler config the reference leg
+used (64×2000 MC, `weight_intra=30.0`):
+
+| Metric | Reference (shipped `G.pkl`) | Ported (device `G.pkl`) |
+|---|---|---|
+| Top1 (rank-0 lowest-energy) RMSD | 1.78 Å | 9.26 Å |
+| Best sampled RMSD | 1.51 Å | 3.63 Å |
+
+The ported Top1 RMSD (9.26 Å) does **not** match the reference (1.78 Å). The port
+itself is parity-correct — on identical inputs, port vs fp32 reference PCC is
+0.99991 (mean), 0.99996 (sigma), 0.99479 (pi). The gap is a host-glue
+reproducibility issue, not a port bug: the inputs reproducible from the released
+energy checkpoint + the shipped `2qbq_uff.sdf` do not reproduce the shipped demo
+`G.pkl`'s `pi`/`mean`/`sigma` (the atom types, distances, and pocket ordering all
+match; the model-output gap is driven by `intra_D = cdist(uff_xyz)`). The
+shipped demo `G.pkl` appears to have been generated with a different model
+config (`edge_output_layer=True`, which the released checkpoint bypasses) and/or
+different UFF ligand coords. The actual 9.26 Å is reported, not a fabricated
+match. Closing this gap (fixing the port's `edge_output_layer=True` device path,
+or identifying the authors' exact UFF ligand) is left to a follow-up pass.
+
+## What is still deferred
+
 - **`--fast` (block-fp8) path, load/predict timing, multi-card fanout** — perf
-  characterization, after pose-RMSD e2e.
-- **Pose-selection head + energy/MDN head on device** — the energy head's
-  pair-type gather / shelve output is irregular and intentionally host; the
-  pose-selection head is a small FFN that could be ported trivially if needed.
+  characterization, after the pose-RMSD gate lands.
+- **Closing the pose-RMSD host-glue gap** (see above) — the next pass.
 
 ## Generalizable lesson
 

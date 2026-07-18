@@ -111,3 +111,41 @@ if __name__ == "__main__":
     sd, cfg = load_affinity_checkpoint()
     print("cfg:", cfg)
     print("num state_dict keys:", len(sd))
+
+
+DEFAULT_ENERGY_CKPT = (
+    "/home/ttuser/.coworker/scratch/interformer/ckpts/checkpoints/"
+    "v0.2_energy_model/checkpoints/last.ckpt"
+)
+
+
+def load_energy_checkpoint(path=None):
+    """Return (state_dict, cfg) for the real Zenodo ENERGY checkpoint.
+
+    cfg includes energy_mode=True and edge_output_layer (None for the released
+    ckpt -> the head bypasses edge_output_layer). Built for
+    interformer_reference_energy.InterformerEnergyBackbone.
+    """
+    ck = path or os.environ.get("INTERFORMER_ENERGY_CKPT", DEFAULT_ENERGY_CKPT)
+    if not os.path.exists(ck):
+        raise FileNotFoundError(f"Interformer energy checkpoint not found: {ck}")
+    _install_stubs()
+    d = torch.load(ck, map_location="cpu", weights_only=False)
+    sd = d["state_dict"]
+    hp = d.get("hyper_parameters") or d.get("hparams")
+    args = hp["args"] if hp is not None and isinstance(hp, dict) else {}
+    eol = args.get("edge_output_layer", None)
+    cfg = dict(
+        hidden_dim=int(args.get("hidden_dim", 128)),
+        num_heads=int(args.get("num_heads", 8)),
+        n_layers=int(args.get("n_layers", 6)),
+        ffn_scale=int(args.get("ffn_scale", 4)),
+        K=int(args.get("rbf_K", 128)),
+        rbf_cutoff=float(args.get("rbf_cutoff", 10.0)),
+        node_feat_size=int(args.get("node_feat_size", 1)),
+        edge_feat_size=0,
+        energy_mode=True,
+        pose_sel_mode=False,
+        edge_output_layer=eol,
+    )
+    return sd, cfg

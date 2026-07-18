@@ -90,7 +90,7 @@ def main():
     with torch.no_grad():
         ref_aff, ref_inter, ref_vn = ref.forward_backbone(node_feats, intra_edge, inter_edge,
                                                           intra_bias, inter_bias)
-    tt_aff, tt_inter = port(up(node_feats), up(intra_edge), up(inter_edge),
+    tt_aff, tt_inter, _ = port(up(node_feats), up(intra_edge), up(inter_edge),
                            up(intra_bias), up(inter_bias))
     results['C3 backbone inter_node'] = pcc(ref_inter, tt_inter)
     results['C3 backbone affinity (absdiff)'] = absdiff(ref_aff, tt_aff)
