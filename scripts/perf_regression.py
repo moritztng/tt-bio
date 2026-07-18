@@ -18,6 +18,12 @@ What it measures, per model:
     ``scripts/release_gate.py``'s job).
   * esmc-600m embed — seq/s on a fixed batch of 8 ubiquitin-length sequences
     (batch_size 8). Same warmup-then-time protocol.
+  * boltzgen — designs/s on ``examples/binder.yaml`` (protein-anything, 4
+    designs). A single end-to-end ``tt-bio gen run`` subprocess (design +
+    inverse-fold + refold + analysis + filter); the first design's first-kernel
+    compile is included in the timed region, so this is a conservative
+    cold-inflated warm-throughput proxy. Reuses the SAME fixture/protocol the
+    designability accuracy leg gates.
 
 Baselines live in ``docs/perf_baselines.json`` and are EXPLICIT and PER-CARD-TYPE:
 the file nests one ``models`` block per card type (``p150a``, ``p300c``, ...) under
@@ -71,6 +77,11 @@ BASELINE_FILE = REPO_ROOT / "docs" / "perf_baselines.json"
 # few seconds per fold, so the whole gate runs in minutes. trpcage (20 aa) is the
 # canonical fast fold target; the embed batch is 8x ubiquitin (76 aa).
 TRPCAGE = REPO_ROOT / "examples" / "trpcage.yaml"
+# BoltzGen's canonical binder-design fixture (de-novo binder vs chain A of 7ROA,
+# protein-anything protocol) — the SAME target README documents for `tt-bio gen run`
+# and the designability accuracy leg (scripts/release_gate.py) gates. Reused here
+# for the perf leg so the two legs share one fixture, not two.
+BINDER = REPO_ROOT / "examples" / "binder.yaml"
 UBIQUITIN = ("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTL"
              "LHLVLRLRGG")  # 76 aa — tests/test_esmc.py / scripts/esmc_embed_parity.py golden
 
@@ -97,6 +108,8 @@ SPECS: dict[str, dict] = {
     "opendde":        dict(kind="fold", unit="structures/s", direction="higher"),
     "esmc-600m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
+    "boltzgen":       dict(kind="gen", unit="designs/s", direction="higher",
+                           num_designs=4, protocol="protein-anything"),
 }
 DEFAULT_MODELS = list(SPECS)
 
@@ -306,6 +319,92 @@ def _write_embed_fasta(path: Path, n_seqs: int) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
+def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
+    """Time one ``tt-bio gen run`` design job end-to-end and write a JSON result.
+
+    BoltzGen is a *design* pipeline, not a fold loop: it has no warm steady-state
+    ``predict_one`` to repeat. So this leg spawns the shipping ``tt-bio gen run``
+    CLI as a subprocess (the pipeline owns its own device lifecycle — no device is
+    opened in this measure process) and times the full design + inverse-fold +
+    refold + analysis + filter pipeline on the canonical binder fixture. The
+    gated metric is ``designs/s = num_designs / wall-clock``.
+
+    This is a single end-to-end invocation, not a warm loop: the first design
+    absorbs first-kernel compile and is included in the timed region, so
+    ``designs/s`` is a conservative (cold-inflated) warm-throughput proxy. The cold
+    fraction is stable across releases, so a dispatch/throughput regression still
+    shows up as a higher wall-clock. Reuses the SAME fixture/protocol the
+    designability accuracy leg runs (``examples/binder.yaml``,
+    ``protein-anything``) — no new fixture invented.
+    """
+    spec_path = BINDER
+    if not spec_path.exists():
+        raise FileNotFoundError(f"missing gen fixture {spec_path}")
+    n = spec["num_designs"]
+    protocol = spec["protocol"]
+    work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
+    out_dir = work / "gen"
+    log_path = work / "gen.log"
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "gen", "run", str(spec_path),
+        "--output", str(out_dir),
+        "--num_designs", str(n),
+        "--protocol", protocol,
+        "--devices", "1",
+        "--budget", str(n),
+        "--debug",  # headless: no Rich live view, no-op reporter
+    ]
+    env = dict(os.environ)
+    pp = str(REPO_ROOT)
+    env["PYTHONPATH"] = pp + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    env.setdefault("TT_VISIBLE_DEVICES", "0")
+    env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
+    env.setdefault("LOGURU_LEVEL", "WARNING")
+    t0 = time.perf_counter()
+    with open(log_path, "w") as log:
+        proc = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
+    wall = time.perf_counter() - t0
+    if proc.returncode != 0:
+        tail = ""
+        if log_path.exists():
+            lines = log_path.read_text().strip().splitlines()
+            tail = lines[-1] if lines else ""
+        raise RuntimeError(f"gen run exited {proc.returncode} after {wall:.0f}s: {tail}")
+    throughput = n / wall
+    latency_ms = wall / n * 1000.0
+    card = detect_card_type()
+    result = dict(
+        model=model,
+        kind=spec["kind"],
+        unit=spec["unit"],
+        direction=spec["direction"],
+        hardware="blackhole",
+        card_type=card,
+        throughput=round(throughput, 6),
+        latency_ms=round(latency_ms, 2),
+        median_s=round(wall, 4),
+        times_s=[round(wall, 4)],
+        load_s=0.0,
+        warmup=0,
+        repeat=1,
+        # protein-anything production defaults (design 500 / refold 200 steps,
+        # recycling 3) — informational; the perf leg does not override them.
+        sampling_steps=500,
+        diffusion_samples=1,
+        recycling_steps=3,
+        num_designs=n,
+        protocol=protocol,
+        input=f"{spec_path.name} ({protocol}, {n} designs)",
+        tt_bio_version=_version(),
+        date=date.today().isoformat(),
+    )
+    out_path.write_text(json.dumps(result))
+    print(f"[{model}] {result['throughput']} {spec['unit']}  "
+          f"({latency_ms:.0f} ms/design, wall {wall:.0f}s)", file=sys.stderr)
+    shutil.rmtree(work, ignore_errors=True)
+    return result
+
+
 def measure(model: str, out_path: Path) -> dict:
     """Load one model, warmup, time REPEAT folds, write a JSON result to out_path.
 
@@ -314,6 +413,8 @@ def measure(model: str, out_path: Path) -> dict:
     cross-model device-reopen path that the worker loop deliberately never takes.
     """
     spec = SPECS[model]
+    if spec["kind"] == "gen":
+        return _measure_gen(model, spec, out_path)
     import torch  # noqa: F401  — imported by worker anyway; sets grad off below
     torch.set_grad_enabled(False)
     from tt_bio.tenstorrent import get_device, arch_name, cleanup
@@ -479,9 +580,18 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, threshold: f
     all_pass = True
     bm = card_baselines(baselines, card_type)
     have_card = bm is not None
+    # The warm-protocol suffix is per-row (fold/embed legs use WARMUP+REPEAT; the
+    # gen leg is a single end-to-end pipeline run, warmup=0/repeat=1). Describe
+    # the first row's protocol so the title never mislabels a gen-only run as
+    # "2 warmup + 5 timed".
+    r0 = rows[0] if rows else {}
+    w = r0.get("warmup", WARMUP)
+    rep = r0.get("repeat", REPEAT)
+    warm_desc = (f"warm ({w} warmup + {rep} timed)" if r0.get("kind") != "gen"
+                 else f"single end-to-end run ({rep} timed)")
     title = (f"PERF REGRESSION GATE — card {card_type} — "
              f"{', '.join(r['model'] for r in rows)}  "
-             f"| threshold ±{threshold:.0f}%  | warm ({WARMUP} warmup + {REPEAT} timed)")
+             f"| threshold ±{threshold:.0f}%  | {warm_desc}")
     print(f"\n{'#' * 78}\n{title}\n{'#' * 78}")
     hdr = (f"{'model':<16}{'metric':<16}{'baseline':>11}{'current':>11}"
            f"{'delta':>10}{'verdict':>10}")
