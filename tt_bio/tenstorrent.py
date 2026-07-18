@@ -1111,15 +1111,33 @@ class Transition(Module):
         self,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        fp32: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
+        # fp32 mode keeps the SwiGLU MLP's matmul inputs + weights in fp32 (vs bf16).
+        # With HiFi4 + fp32_dest_acc the accumulation is already fp32; the dominant
+        # error is the bf16 rounding of the 4x-inner-expansion weights (a 512-wide
+        # bf16-product matmul). Keeping the fc weights fp32 makes every product
+        # fp32(weight)*upcast-fp32(act), accumulated in fp32. The layer_norm stays
+        # bf16 (it is well-conditioned; an fp32 layer_norm CB clashes L1 on the
+        # small Wormhole grid). Output is cast back to bf16 so the residual add is
+        # unchanged. Opt-in (default off) -- used by the ODesign recycled trunk to
+        # clear the 10-cycle z PCC bar; no effect on other ports.
+        self.fp32 = fp32
+        wdt = ttnn.float32 if fp32 else ttnn.bfloat16
         self.norm_weight = self.torch_to_tt("norm.weight")
         self.norm_bias = self.torch_to_tt("norm.bias")
-        self.fc1_weight = self.torch_to_tt("fc1.weight")
-        self.fc2_weight = self.torch_to_tt("fc2.weight")
-        self.fc3_weight = self.torch_to_tt("fc3.weight")
+        self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=wdt)
+        self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=wdt)
+        self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=wdt)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        f32 = ttnn.float32
+        out_dt = f32 if self.fp32 else _dtype()
+        # fp32 doubles every footprint; spill the 4x-inner-expansion intermediates
+        # (x_1, x_2) to DRAM so they don't compete with the matmul's L1 circular
+        # buffers. x_norm stays L1 (input-sized); fc3 output already DRAM.
+        mid_mem = ttnn.DRAM_MEMORY_CONFIG if self.fp32 else ttnn.L1_MEMORY_CONFIG
         def swiglu(x):
             x_norm = ttnn.layer_norm(
                 x,
@@ -1129,21 +1147,23 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
+            if self.fp32 and x_norm.dtype != f32:
+                x_norm = ttnn.typecast(x_norm, f32)
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
                 activation="silu",
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=_dtype(),
+                memory_config=mid_mem,
+                dtype=out_dt,
                 core_grid=CORE_GRID_MAIN,
             )
             x_2 = ttnn.linear(
                 x_norm,
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=_dtype(),
+                memory_config=mid_mem,
+                dtype=out_dt,
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
@@ -1153,18 +1173,31 @@ class Transition(Module):
                 x,
                 self.fc3_weight,
                 compute_kernel_config=self.compute_kernel_config,
-                dtype=_dtype(),
+                dtype=out_dt,
                 core_grid=CORE_GRID_MAIN,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             ttnn.deallocate(x)
             return x_dram
+        if self.fp32:
+            # fp32 path: run swiglu in fp32, cast the result back to bf16 so the
+            # residual add in the caller is unchanged (precision gain is inside
+            # the MLP matmuls, not the storage).
+            res = swiglu(x)
+            res_b = ttnn.typecast(res, ttnn.bfloat16)
+            ttnn.deallocate(res)
+            return res_b
         if len(x.shape) < 4:
             batch_chunking_threshold = (
                 SEQ_LEN_MORE_CHUNKING
                 if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
                 else TRANSITION_BATCH_CHUNKING_THRESHOLD
             )
+            if self.fp32:
+                # fp32 doubles footprint; halve the batch threshold so the single
+                # representation's Transition (c_s=384 -> 1536 inner) chunks on the
+                # small grid instead of clashing L1.
+                batch_chunking_threshold = max(1, batch_chunking_threshold // 2)
             if x.shape[1] > batch_chunking_threshold:
                 return ttnn.concat([swiglu(x[b:b+1, :, :]) for b in range(x.shape[0])], dim=0)
             return swiglu(x)
@@ -1184,12 +1217,21 @@ class Transition(Module):
         _ref = 1024 * 128
         if _IS_SMALL_GRID:
             _ref = _ref * 128 // max(128, x.shape[-1])
-        transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (W * x.shape[-1]))))
+        # fp32 doubles every CB/tensor footprint (2x bytes); halve the row-chunk
+        # budget and the W-chunking threshold so the fp32 Transition fits L1 on the
+        # small Wormhole grid (the c=64 CTE pairformer and c=128 PF both clash
+        # without this). Correctness first; the chunks are still large enough that
+        # the perf cost is modest.
+        _fp32_factor = 0.5 if self.fp32 else 1.0
+        transition_h_chunk_size = max(1, int(transition_h_chunk_size * _fp32_factor
+                                            * min(1.0, _ref / (W * x.shape[-1]))))
         transition_w_chunking_threshold = (
             SEQ_LEN_MORE_CHUNKING
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
             else TRANSITION_W_CHUNKING_THRESHOLD
         )
+        if self.fp32:
+            transition_w_chunking_threshold = max(1, transition_w_chunking_threshold // 2)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         if W <= transition_w_chunking_threshold:
             return ttnn.concat([swiglu(c) for c in chunks], dim=1)
@@ -1210,9 +1252,12 @@ class PairformerLayer(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         affinity: bool = False,
+        fp32_transition: bool = False,
+        fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
+        self.fp32_residual = fp32_residual
         self.triangle_multiplication_start = TriangleMultiplication(
             False, self.scope("tri_mul_out"), compute_kernel_config
         )
@@ -1236,7 +1281,7 @@ class PairformerLayer(Module):
             affinity=affinity,
         )
         self.transition_z = Transition(
-            self.scope("transition_z"), compute_kernel_config
+            self.scope("transition_z"), compute_kernel_config, fp32=fp32_transition
         )
         if transform_s:
             self.pre_norm_s_weight = self.torch_to_tt("pre_norm_s.weight")
@@ -1250,7 +1295,7 @@ class PairformerLayer(Module):
                 compute_kernel_config,
             )
             self.transition_s = Transition(
-                self.scope("transition_s"), compute_kernel_config
+                self.scope("transition_s"), compute_kernel_config, fp32=fp32_transition
             )
 
     def __call__(
@@ -1258,45 +1303,67 @@ class PairformerLayer(Module):
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
         extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
-        z_update = self.triangle_multiplication_start(z, mask)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        if not self.fp32_residual:
+            # Original bf16 path (unchanged): z is bf16 throughout, residual adds
+            # are in-place bf16. Kept verbatim so non-fp32 ports are unaffected.
+            z_update = self.triangle_multiplication_start(z, mask)
+            z = ttnn.add_(z, z_update); ttnn.deallocate(z_update)
+            z_update = self.triangle_multiplication_end(z, mask)
+            z = ttnn.add_(z, z_update); ttnn.deallocate(z_update)
+            z_update = self.triangle_attention_start(z, attn_mask_start)
+            z = ttnn.add_(z, z_update); ttnn.deallocate(z_update)
+            z_update = self.triangle_attention_end(z, attn_mask_end)
+            z = ttnn.add_(z, z_update); ttnn.deallocate(z_update)
+            z_update = self.transition_z(z)
+            z = ttnn.add_(z, z_update); ttnn.deallocate(z_update)
+            if self.transform_s:
+                s_norm = ttnn.layer_norm(
+                    s, weight=self.pre_norm_s_weight, bias=self.pre_norm_s_bias,
+                    epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+                s_update = self.attention_pair_bias(
+                    s_norm, z,
+                    seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start)
+                ttnn.deallocate(s_norm)
+                s = ttnn.add_(s, s_update); ttnn.deallocate(s_update)
+                s_update = self.transition_s(s)
+                s = ttnn.add_(s, s_update); ttnn.deallocate(s_update)
+            return s, z
 
-        z_update = self.triangle_multiplication_end(z, mask)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        # fp32 residual path: keep z in fp32 across the 5 residual adds; cast to
+        # bf16 only at each op's input (ops still run bf16 -- no internal changes)
+        # and at the layer exit. Removes the per-block bf16 re-rounding of z.
+        f32 = ttnn.float32; bf = ttnn.bfloat16
+        if z.dtype != f32:
+            z_acc = ttnn.typecast(z, f32); ttnn.deallocate(z)
+        else:
+            z_acc = z
 
-        z_update = self.triangle_attention_start(z, attn_mask_start)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        def _op_add(op, *a):
+            nonlocal z_acc
+            zb = ttnn.typecast(z_acc, bf)
+            z_update = op(zb, *a); ttnn.deallocate(zb)
+            zu = ttnn.typecast(z_update, f32); ttnn.deallocate(z_update)
+            new = ttnn.add(z_acc, zu); ttnn.deallocate(zu); ttnn.deallocate(z_acc)
+            z_acc = new
 
-        z_update = self.triangle_attention_end(z, attn_mask_end)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
-
-        z_update = self.transition_z(z)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        _op_add(self.triangle_multiplication_start, mask)
+        _op_add(self.triangle_multiplication_end, mask)
+        _op_add(self.triangle_attention_start, attn_mask_start)
+        _op_add(self.triangle_attention_end, attn_mask_end)
+        _op_add(self.transition_z)
+        z = z_acc
         if self.transform_s:
             s_norm = ttnn.layer_norm(
-                s,
-                weight=self.pre_norm_s_weight,
-                bias=self.pre_norm_s_bias,
-                epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
-            )
+                s, weight=self.pre_norm_s_weight, bias=self.pre_norm_s_bias,
+                epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+            z_bf = ttnn.typecast(z, bf)
             s_update = self.attention_pair_bias(
-                s_norm,
-                z,
-                seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
-            )
-            ttnn.deallocate(s_norm)
-            s = ttnn.add_(s, s_update)
-            ttnn.deallocate(s_update)
-
+                s_norm, z_bf,
+                seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start)
+            ttnn.deallocate(z_bf); ttnn.deallocate(s_norm)
+            s = ttnn.add_(s, s_update); ttnn.deallocate(s_update)
             s_update = self.transition_s(s)
-            s = ttnn.add_(s, s_update)
-            ttnn.deallocate(s_update)
+            s = ttnn.add_(s, s_update); ttnn.deallocate(s_update)
         return s, z
 
 
@@ -1312,6 +1379,8 @@ class Pairformer(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         affinity: bool = False,
+        fp32_transition: bool = False,
+        fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -1324,6 +1393,8 @@ class Pairformer(Module):
                 self.scope(f"layers.{i}"),
                 compute_kernel_config,
                 affinity=affinity,
+                fp32_transition=fp32_transition,
+                fp32_residual=fp32_residual,
             )
             for i in range(n_blocks)
         ]
@@ -1335,6 +1406,12 @@ class Pairformer(Module):
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
         for block in self.blocks:
             s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
+        # The fp32 residual accumulator is internal to the stack; cast z back to
+        # bf16 at the boundary so downstream (MSA, next cycle, layernorm w/ bf16
+        # weights) sees bf16.
+        if self.blocks and getattr(self.blocks[0], "fp32_residual", False) and z.dtype == ttnn.float32:
+            zb = ttnn.typecast(z, ttnn.bfloat16); ttnn.deallocate(z)
+            z = zb
         return s, z
 
 

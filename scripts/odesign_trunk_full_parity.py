@@ -6,11 +6,11 @@ fresh in fp32, the rigorous metric) AND against the golden pre (bf16-GPU, the
 expected-gap sanity check). Same methodology as passes 1-6: CPU ref = ODesign's own
 modules run fresh; bar PCC >= 0.99 for the full trunk.
 
-Run: TT_VISIBLE_DEVICES=0 PYTHONPATH=/home/moritz/.coworker/wt/tt-bio-odesign-port-p7 \
+Run: TT_VISIBLE_DEVICES=0 PYTHONPATH=/home/moritz/.coworker/wt/tt-bio-odesign-port-p8 \
      /home/moritz/tt-bio/env/bin/python3 scripts/odesign_trunk_full_parity.py
 """
 import os, sys, pickle, time, torch, ttnn
-sys.path.insert(0, "/home/moritz/.coworker/wt/tt-bio-odesign-port-p7")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tt_bio.odesign import ODesignTrunk
 from tt_bio.tenstorrent import get_device
 
@@ -18,7 +18,7 @@ CKPT = "/home/moritz/.coworker/scratch/odesign-ref/ckpt/odesign_base_prot_flex.p
 INP = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_trunk_inputs.pkl"
 REF = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_trunk_full_ref.pkl"
 PRE = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_denoiser_pre.pkl"
-OUT = "/home/moritz/.coworker/scratch/odesign-ref/ckpt/p7_trunk_parity.txt"
+OUT = "/home/moritz/.coworker/scratch/odesign-ref/ckpt/p8_trunk_parity.txt"
 
 
 def pcc(u, v):

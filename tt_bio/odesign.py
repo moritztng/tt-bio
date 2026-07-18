@@ -25,6 +25,7 @@ The constraint embedder is only on the trunk path; it is NOT exercised by the de
 parity replay (which consumes precomputed trunk conditioning), so its absence does not
 affect the parity number reported here.
 """
+import os
 import random as _random
 import numpy as np
 import torch
@@ -465,6 +466,18 @@ class ODesignTrunk:
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
         self._wc = {}  # device weight cache (uploaded once, reused across cycles)
+        # Pass-8 precision levers (release-gated; env-gated for A/B measurement).
+        #   ODESIGN_FP32_TRANSITION=1 -> fp32 pair/single Transition MLP in the 48-block
+        #   PF + CTE pairformer + MSA pair_stack (the 4x inner expansion, 512-wide bf16
+        #   matmul, is the most likely 10-cycle z-precision bottleneck per pass-7).
+        self.fp32_transition = os.environ.get("ODESIGN_FP32_TRANSITION", "1") == "1"
+        # Lever 3 (extended): keep z in fp32 across the 48-block PF residual adds.
+        # DEFAULT OFF: on the small Wormhole grid the per-op bf16 typecast of the
+        # fp32 accumulator lands in a memory config that sends the triangle-attention
+        # SDPA into a pathological multi-minute recompile/compute per block (pass-8
+        # measured: 25+ min, no completion). Revisit in pass 9 with a layout-preserving
+        # typecast or by making the triangle ops natively fp32.
+        self.fp32_residual = os.environ.get("ODESIGN_FP32_RESIDUAL", "0") == "1"
         # front-end (pass-6, parity-verified): RPE w/ cyclic offset, trunk-init linears,
         # CTE front-end (v_ij), InputFeatureEmbedder (atom encoder -> s_inputs).
         self.ti = ODesignTrunkInput(model_state_dict, compute_kernel_config, self.dev)
@@ -480,7 +493,9 @@ class ODesignTrunk:
             for k, v in PW.remap_pairformer_block(blk).items():
                 comb[f"layers.{i}.{k}"] = v
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, self.C_S // 16, 16,
-                             True, comb, compute_kernel_config)
+                             True, comb, compute_kernel_config,
+                             fp32_transition=self.fp32_transition,
+                             fp32_residual=self.fp32_residual)
 
         # ConstraintTemplateEmbedder: 2 pair-only PairformerLayers (c=64, 4 heads x head_dim=32)
         self.CTE_PF = []
@@ -488,7 +503,8 @@ class ODesignTrunk:
             p = f"constraint_distogram_embedder.pairformer_stack.blocks.{b}."
             sub = {k[len(p):]: v for k, v in self._w.items() if k.startswith(p)}
             self.CTE_PF.append(PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None,
-                                False, PW.remap_msa_pair_stack(sub), compute_kernel_config))
+                                False, PW.remap_msa_pair_stack(sub), compute_kernel_config,
+                                fp32_transition=self.fp32_transition))
 
         # 4-block MSA module (reuse protenix.Trunk's MSA wiring verbatim)
         self.MSA = []
@@ -498,7 +514,9 @@ class ODesignTrunk:
             opm = OuterProductMean(PW.remap_outer_product_mean(sub(P + "outer_product_mean_msa.")),
                                    compute_kernel_config)
             pl = PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None, False,
-                                  PW.remap_msa_pair_stack(sub(P + "pair_stack.")), compute_kernel_config)
+                                  PW.remap_msa_pair_stack(sub(P + "pair_stack.")),
+                                  compute_kernel_config,
+                                  fp32_transition=self.fp32_transition)
             has = any(k.startswith(P + "msa_stack.") for k in self._w)
             pwa = tm = None
             if has:
@@ -506,7 +524,7 @@ class ODesignTrunk:
                         PW.remap_pair_weighted_averaging(sub(P + "msa_stack.msa_pair_weighted_averaging.")),
                         compute_kernel_config)
                 tm = Transition(PW.remap_transition(sub(P + "msa_stack.transition_m.")),
-                                compute_kernel_config)
+                                compute_kernel_config, fp32=self.fp32_transition)
             self.MSA.append((opm, pwa, tm, pl))
         self._msa_update_first = False        # ODesign/protenix-v2 order: OPM before MSA update
 
