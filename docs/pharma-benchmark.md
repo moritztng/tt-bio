@@ -35,7 +35,7 @@ so a customer evaluating an antibody program sees the port tested on the target
 shape that program folds. The affinity leg is the second increment: every prior
 leg is structure-only, so Boltz-2's binding-affinity prediction mode (the README
 "Binding Affinity Prediction" section) was the largest unmeasured surface in
-this benchmark.
+this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure coverage had only two lengths (L20 trp-cage, L117 7ROA), so ubiquitin (L76) adds the middle of the range and mirrors the ESMFold2 length ladder, the shape a pharma team hits when folding a small single-domain target.
 
 | model | target | metric | R | D | X | result |
 |---|---|---|---:|---:|---:|---|
@@ -48,6 +48,7 @@ this benchmark.
 | Protenix-v2 | 7ROA, L117, MSA | CA-RMSD | 2.94 Å | 1.47 Å | 2.63 ± 0.42 Å | PASS |
 | Boltz-2 | trp-cage, L20, no MSA | CA-RMSD | 0.79 Å | 0.37 Å | 0.60 ± 0.24 Å | PASS |
 | Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 0.81 Å | 0.98 Å | 0.94 ± 0.14 Å | PASS |
+| Boltz-2 | ubiquitin, L76, no MSA | CA-RMSD | 1.85 Å | 1.63 Å | 1.63 ± 0.25 Å | PASS§ |
 | Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA | Δlog10(IC50) | 0.010 | 0.027 | 0.041 ± 0.018 | GAP‡ |
 | OpenDDE | trp-cage, L20, no MSA | CA-RMSD | 0.31 Å | 0.24 Å | 0.39 ± 0.11 Å | PASS |
 | OpenDDE | 7ROA, production settings | CA-RMSD | 1.90 Å | 8.06 Å | 5.68 ± 3.98 Å | PASS |
@@ -136,6 +137,8 @@ non-PASS entry and stays a release-gate concern for the Boltz-2 affinity port.
 Pass-by-pass detail: ~/.coworker/state/tt-bio-boltz2-affinity-precision-p1.md
 and tt-bio-boltz2-affinity-trunk-fp32-p2.md.
 
+§ The ubiquitin leg (L76, no MSA, 2 reference + 2 device seeds, 3 recycle / 200 sampling steps / 1 sample): the device-vs-reference CA-RMSD is 1.63 ± 0.25 Å, below the floor max(R, D) = 1.85 Å (R 1.85, D 1.63; X/floor 0.88). The no-MSA single-sequence basin is underdetermined, so the reference self-consistency floor is wider than the MSA-backed 7ROA leg's (R 1.85 Å vs 0.81 Å) — the same no-MSA property already documented for the trp-cage and prot no-MSA legs. The device sits inside that floor, so the residual is single-sequence diffusion stochasticity, not an algorithmic discrepancy. Boltz-2 now covers three structure lengths (L20/L76/L117), mirroring the ESMFold2 ladder.
+
 ## Reproducing a comparison
 
 Embedding parity runs the upstream ESM model directly:
@@ -185,6 +188,25 @@ TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> \
 python3 scripts/boltz2_affinity_parity.py \
   --ref-dirs <fixture>/seed0 <fixture>/seed1 <fixture>/seed2 \
   --dev-dirs dev_seed0 dev_seed1 dev_seed2 --target-id affinity_fkg
+```
+
+The Boltz-2 ubiquitin leg (no MSA) reuses the same noise-floor core against a committed reference fixture; only the device side re-runs live:
+
+```bash
+# reference (once, pinned in docs/pharma-benchmark-data/ref-fixtures/boltz2/ubiquitin/nomsa_200step_1sample_3recycle_bf16/):
+boltz_ref_venv/bin/boltz predict examples/ubiquitin_no_msa.yaml --out_dir ref_seed0 \
+  --seed 0 --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 \
+  --accelerator cpu --override
+# device (live):
+TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> \
+  python -m tt_bio.main predict examples/ubiquitin_no_msa.yaml --model boltz2 \
+  --out_dir dev_seed0 --override --single_sequence --recycling_steps 3 \
+  --sampling_steps 200 --diffusion_samples 1 --seed 0
+# score (against the committed fixture, no reference compute):
+python3 scripts/pharma_parity.py structures \
+  --ref-fixtures boltz2/ubiquitin/nomsa_200step_1sample_3recycle_bf16 \
+  --dev-dirs dev_seed0/boltz_results_ubiquitin_no_msa dev_seed1/boltz_results_ubiquitin_no_msa \
+  --label "Boltz-2 ubiquitin L76 no-MSA"
 ```
 
 Regenerate a reference fixture only when its pinned upstream version or settings

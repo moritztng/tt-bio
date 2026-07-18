@@ -312,6 +312,42 @@ SPECS = [
             "re-measured here (device side not re-run) and is flagged for re-verification."
         ),
     ),
+    FixtureSpec(
+        model="boltz2",
+        target="ubiquitin",
+        settings_tag="nomsa_200step_1sample_3recycle_bf16",
+        reference_impl="official Boltz-2 (torch + pytorch-lightning, CPU)",
+        reference_version="boltz 2.2.1",
+        reference_commit="boltz 2.2.1 (pip-installed in boltz_ref_venv; upstream jwohlwend/boltz)",
+        command=(
+            "boltz_ref_venv/bin/boltz predict examples/ubiquitin_no_msa.yaml "
+            "--out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 "
+            "--diffusion_samples 1 --accelerator cpu  "
+            "&& boltz_ref_venv/bin/python scripts/boltz2_ref_layout.py <out>/boltz_results_ubiquitin_no_msa "
+            "<harness_dir>  (ubiquitin_no_msa.yaml sets msa: empty so boltz runs single-sequence)"
+        ),
+        settings={
+            "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
+            "diffusion_samples": 1, "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "target": "ubiquitin (examples/ubiquitin_no_msa.yaml, PDB 1UBQ, 76 res, msa: empty)",
+            "rationale": "third Boltz-2 structure length (L20/L76/L117) mirroring the ESMFold2 "
+                         "length ladder; same no-MSA single-sequence methodology as the trpcage leg "
+                         "so the three no-MSA reads are directly comparable at the same compute budget.",
+        },
+        seeds=[
+            SeedSpec(0, "/home/ttuser/pharma_boltz2_ubq_run/ref_harness_s0", "ubiquitin_no_msa"),
+            SeedSpec(1, "/home/ttuser/pharma_boltz2_ubq_run/ref_harness_s1", "ubiquitin_no_msa"),
+        ],
+        provenance_note=(
+            "Harvested from a FRESH 2026-07-18 qb1 reference run (pharma_boltz2_ubq_run/"
+            "ref_seed{0,1}, mtime 2026-07-18 20:14/20:15 UTC), generated for this fixture. Boltz-2 "
+            "CPU is bit-exact deterministic. Per-seed wall ~87s (1 sample, 200 steps, 3 recycle, "
+            "CPU). The fresh reference-vs-reference floor R=1.851 A (1 seed pair) and device-vs-"
+            "reference cross X=1.625+-0.250 A (X/floor 0.88, within floor) -> PASS, recorded in "
+            "docs/pharma-benchmark-data/boltz2-ubiquitin.json. Per-seed reference ptm 0.825/0.825, "
+            "confidence_score 0.886/0.886; device ptm 0.914/0.914, confidence_score 0.926/0.926."
+        ),
+    ),
 ]
 
 

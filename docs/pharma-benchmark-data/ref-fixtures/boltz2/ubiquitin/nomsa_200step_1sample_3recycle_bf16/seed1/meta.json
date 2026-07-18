@@ -1,0 +1,26 @@
+{
+  "seed": 1,
+  "target_id": "ubiquitin_no_msa",
+  "harvested_from": "/home/ttuser/pharma_boltz2_ubq_run/ref_harness_s1",
+  "selected_record": {
+    "confidence_score": 0.8874356150627136,
+    "ptm": 0.8250824809074402,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.9030239582061768,
+    "complex_iplddt": 0.9030239582061768,
+    "complex_pde": 0.40130898356437683,
+    "complex_ipde": 0.0,
+    "chains_ptm": {
+      "0": 0.8250824809074402
+    },
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.8250824809074402
+      }
+    },
+    "id": "ubiquitin_no_msa"
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}
