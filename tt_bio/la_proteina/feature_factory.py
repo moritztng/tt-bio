@@ -183,6 +183,13 @@ class TTFeatureFactory:
         self.feats = list(feats)
         self.dim_out = dim_out
         self.feat_dims = feat_dims
+        # Per-(n,b) cache of device-resident CONSTANT features (features that
+        # depend only on n / b, NOT on x_t / t / x_sc -- so they are identical
+        # every sampler step). Building them on host + moving to device each
+        # step is pure waste (rel_seq_sep alone is [B,N,N,127] -> ~1MB bf16
+        # host->device per step); caching eliminates the host compute, the
+        # from_torch, and the transfer for every step after the first.
+        self._const_cache: Dict[Tuple[int, int, str], "ttnn.Tensor"] = {}
         # split linear_out.weight [sum_dims, dim_out] by feature dim, padded to
         # the tile-aligned in-dim (ttnn TILE pads the feature's last dim to a
         # multiple of 32; the weight's in-dim must match). Extra lanes are 0 on
@@ -209,6 +216,40 @@ class TTFeatureFactory:
         else:
             self.ln_w = None
             self.ln_b = None
+
+    def _const_feature(self, name, n, b):
+        # Constant features (depend only on n/b, not on x_t/t/x_sc): built once,
+        # cached device-resident, reused every step. Bit-identical to the
+        # per-step host build (same host math, same tile padding, same dtype).
+        key = (n, b, name)
+        if key in self._const_cache:
+            return self._const_cache[key]
+        dev = self.device
+        dt = self.dtype
+
+        def tile_in_for(nm):
+            d = _feature_dim(nm, self.feat_dims)
+            return ((d + 31) // 32) * 32
+
+        def host_to_dev(host_t, nm):
+            return _tt(_pad_tile(host_t, tile_in_for(nm)), dev, dt)
+
+        if name == "rel_seq_sep":
+            d = self.feat_dims["seq_sep_dim"]
+            rs = _rel_seq_sep(n, d, torch.device("cpu")).to(torch.float32)
+            rs = rs.expand(b, n, n, d).contiguous()
+            t = host_to_dev(rs, name)
+        elif name == "optional_ca_pair_dist":
+            d = self.feat_dims["xt_pair_dist_dim"]
+            t = host_to_dev(torch.zeros(b, n, n, d, dtype=torch.float32), name)
+        elif name == "optional_ca_coors_nm_seq_feat":
+            t = host_to_dev(torch.zeros(b, n, 3, dtype=torch.float32), name)
+        elif name == "optional_res_type_seq_feat":
+            t = host_to_dev(torch.zeros(b, n, 20, dtype=torch.float32), name)
+        else:
+            raise KeyError(name)
+        self._const_cache[key] = t
+        return t
 
     def _feature_tensor(self, name, batch, mask_pair_tt, n, b):
         # returns a device tensor [B, N, tile_in] (seq) or [B, N, N, tile_in] (pair).
@@ -242,10 +283,9 @@ class TTFeatureFactory:
             if x_sc is not None:
                 return x_sc["local_latents"]
             return host_to_dev(torch.zeros(b, n, d, dtype=torch.float32), name)
-        if name == "optional_ca_coors_nm_seq_feat":
-            return host_to_dev(torch.zeros(b, n, 3, dtype=torch.float32), name)
-        if name == "optional_res_type_seq_feat":
-            return host_to_dev(torch.zeros(b, n, 20, dtype=torch.float32), name)
+        if name in ("optional_ca_coors_nm_seq_feat", "optional_res_type_seq_feat",
+                    "rel_seq_sep", "optional_ca_pair_dist"):
+            return self._const_feature(name, n, b)
         if name in ("time_emb_bb_ca", "time_emb_local_latents"):
             dm = "bb_ca" if name.endswith("bb_ca") else "local_latents"
             edim = self.feat_dims["t_emb_dim"]
@@ -256,11 +296,6 @@ class TTFeatureFactory:
             else:
                 te = te.expand(b, n, n, edim).contiguous()
             return host_to_dev(te, name)
-        if name == "rel_seq_sep":
-            d = self.feat_dims["seq_sep_dim"]
-            rs = _rel_seq_sep(n, d, torch.device("cpu")).to(torch.float32)  # [1, n, n, d]
-            rs = rs.expand(b, n, n, d).contiguous()
-            return host_to_dev(rs, name)
         if name == "xt_bb_ca_pair_dists":
             d = self.feat_dims["xt_pair_dist_dim"]
             xh = _to_host(x_t["bb_ca"])[..., :3]  # [B, N, 3]
@@ -276,9 +311,6 @@ class TTFeatureFactory:
             else:
                 pd = torch.zeros(b, n, n, d, dtype=torch.float32)
             return host_to_dev(pd.to(torch.float32), name)
-        if name == "optional_ca_pair_dist":
-            d = self.feat_dims["xt_pair_dist_dim"]
-            return host_to_dev(torch.zeros(b, n, n, d, dtype=torch.float32), name)
         raise KeyError(name)
 
     def __call__(self, batch, mask_tt, pair_mask_tt, b, n):
