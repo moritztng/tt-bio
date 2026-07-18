@@ -115,8 +115,15 @@ def main():
         dev.enable_program_cache()
         dtype = ttnn.bfloat16 if DTYPE == "bf16" else ttnn.float32
 
+        def _scope(sd, prefix):
+            return {k[len(prefix):]: v for k, v in sd.items() if k.startswith(prefix)}
+        port_sd = {
+            "adaln": _scope(sd, "adaln."),
+            "mha": _scope(sd, "mha."),
+            "scale_output": _scope(sd, "scale_output."),
+        }
         port = TTPairBiasAttentionAdaLN(
-            dev, ck, sd, token_dim=TOKEN_DIM, pair_dim=PAIR_DIM,
+            dev, ck, port_sd, token_dim=TOKEN_DIM, pair_dim=PAIR_DIM,
             nheads=NHEADS, dim_cond=DIM_COND, use_qkln=USE_QKLN, dtype=dtype,
         )
 

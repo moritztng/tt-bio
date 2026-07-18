@@ -18,7 +18,7 @@ generation up to ~800 residues.
 
 ## Status
 
-Port in progress on branch `wk/tt-bio-la-proteina-port-p2` (not merged; subject
+Port in progress on branch `wk/tt-bio-la-proteina-port-p3` (not merged; subject
 to the model-merge-approval-gate).
 
 - Pass 1 cleared the license gate, confirmed the parameter count (~160M
@@ -26,11 +26,18 @@ to the model-merge-approval-gate).
   and scoped the architecture.
 - Pass 2 vendored the reference implementation, built a component-level PyTorch
   golden harness, and ported the denoiser's core sequence-side attention block
-  to ttnn. The block (adaptive layer norm + pair-biased attention with QK-LN,
-  pair bias, and gated output + adaptive output scale) matches the reference at
-  PCC 0.9997 on fixed inputs in bf16, clearing the tt-bio parity bar.
+  to ttnn (PCC 0.9997 on fixed inputs in bf16).
+- Pass 3 ported the rest of the denoiser trunk component-by-component against
+  the unmodified vendored reference, same random-weight PCC bar (>= 0.999): the
+  transition block (TransitionADALN), the timestep/noise conditioning pathway
+  (two SwiGLU transitions on the conditioning vector), the two output heads
+  (C-alpha coordinate head and the per-residue 8-D latent head), a full
+  single-block trunk layer (attention + transition, sequential, both residual),
+  and the pair-representation update (non-tri-mult path). All clear the bar on
+  both all-True and partial masks in bf16.
 
-The flow-matching denoiser transformer (full trunk: pair-representation update
-with optional triangular multiplicative update, the transition block, and the
-Euler sampler loop) and the autoencoder are follow-on passes. No numerical
-parity has been claimed end-to-end yet.
+Real-weight parity is still blocked on NGC checkpoint access (the NGC catalog
+serves the `.ckpt` via a browser-auth file-browser, not a direct download), so
+parity is component-level on random/seeded weights for now. The full multi-layer
+denoiser forward, the Euler sampler loop, the autoencoder, and the tri-mult
+pair-update path are follow-on passes. No end-to-end parity is claimed yet.
