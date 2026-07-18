@@ -535,9 +535,22 @@ class TriangleMultiplication(Module):
         ending: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        fp32: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.ending = ending
+        # fp32 lever (NOT IMPLEMENTED this pass): the goal was to run the
+        # N-contraction matmul (per-channel a_chunk @ b_chunk over N=257) with
+        # genuinely fp32 inputs, which needs fp32 g_in/p_in weights + a fp32 gp_in
+        # matmul so a_chunk/b_chunk are fp32 products. BLOCKED on the small Wormhole
+        # grid: the gp_in matmul's static L1 circular buffer grows past the 1.5 MiB
+        # per-core budget in fp32 (spilling the OUTPUT to DRAM does not help -- the
+        # CB is L1-resident regardless). An after-the-fact bf16->fp32 cast of
+        # a_chunk/b_chunk runs but is a no-op (does not recover the upstream bf16
+        # rounding). Pass 10: a custom matmul program config with halved
+        # in0_block_w / per-core tiles to fit the fp32 CB. Flag kept (default off,
+        # no effect) so the env gate and plumbing are in place.
+        self.fp32 = fp32
         self.in_norm_weight = self.torch_to_tt("norm_in.weight")
         self.in_norm_bias = self.torch_to_tt("norm_in.bias")
         self.out_norm_weight = self.torch_to_tt("norm_out.weight")
@@ -735,12 +748,23 @@ class TriangleAttention(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         affinity: bool = False,
+        fp32: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
         self.affinity = affinity
+        # fp32 mode runs the SDPA (QKt * scale, softmax over the N=257 keys, attn@V)
+        # with fp32 q/k/v/bias so the softmax + attention matmul are fp32 (HiFi4 +
+        # fp32_dest_acc already accumulates fp32; the gain is fp32 inputs/scores vs
+        # bf16). Layout-preserving: q/k/v from nlp_create_qkv_heads are DRAM, so the
+        # fp32 cast pins DRAM -- the SDPA program config (shape-selected) is
+        # unchanged, avoiding the pathological multi-minute recompute pass-8 hit
+        # when a typecast spilled to a different buffer type. The attn output is
+        # cast back to bf16 before the head concat / output projection so the rest
+        # of the op is byte-identical to the bf16 path. Opt-in (default off).
+        self.fp32 = fp32
         self.scale = self.head_dim**0.5
         # nlp_concat_heads pads each head's channel dim up to a 32-tile boundary, so at
         # a sub-tile head_dim it
@@ -808,6 +832,12 @@ class TriangleAttention(Module):
                 transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             ttnn.deallocate(qkv_in)
+            # NOTE: fp32-ifying the SDPA is NOT implemented. The SDPA op rejects fp32
+            # q/k/v (TT_FATAL: bfloat16/bfloat8_b/bfloat4_b only), and with
+            # fp32_dest_acc_en=True the internal scores + softmax are ALREADY fp32,
+            # so the only remaining gain would be fp32 q/k/v INPUTS -- which are bf16
+            # products of the qkv matmul and would need fp32 qkv weights + a fp32 qkv
+            # matmul (same small-grid L1 CB clash as TriangleMultiplication). Pass 10.
             o = ttnn.transformer.scaled_dot_product_attention(
                 q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
                 program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
@@ -1254,15 +1284,17 @@ class PairformerLayer(Module):
         affinity: bool = False,
         fp32_transition: bool = False,
         fp32_residual: bool = False,
+        fp32_tri_mul: bool = False,
+        fp32_tri_att: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
         self.fp32_residual = fp32_residual
         self.triangle_multiplication_start = TriangleMultiplication(
-            False, self.scope("tri_mul_out"), compute_kernel_config
+            False, self.scope("tri_mul_out"), compute_kernel_config, fp32=fp32_tri_mul
         )
         self.triangle_multiplication_end = TriangleMultiplication(
-            True, self.scope("tri_mul_in"), compute_kernel_config
+            True, self.scope("tri_mul_in"), compute_kernel_config, fp32=fp32_tri_mul
         )
         self.triangle_attention_start = TriangleAttention(
             tri_att_head_dim,
@@ -1271,6 +1303,7 @@ class PairformerLayer(Module):
             self.scope("tri_att_start", "mha."),
             compute_kernel_config,
             affinity=affinity,
+            fp32=fp32_tri_att,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -1279,6 +1312,7 @@ class PairformerLayer(Module):
             self.scope("tri_att_end", "mha."),
             compute_kernel_config,
             affinity=affinity,
+            fp32=fp32_tri_att,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config, fp32=fp32_transition
@@ -1332,18 +1366,27 @@ class PairformerLayer(Module):
         # fp32 residual path: keep z in fp32 across the 5 residual adds; cast to
         # bf16 only at each op's input (ops still run bf16 -- no internal changes)
         # and at the layer exit. Removes the per-block bf16 re-rounding of z.
+        # LAYOUT-PRESERVING (pass-9 fix for the pass-8 hang): every typecast / add
+        # pins the SAME memory config as the incoming bf16 z, so the bf16 view
+        # handed to each triangle op (and its SDPA) lands in the identical buffer
+        # type/layout the bf16 path uses -- the SDPA program config (selected from
+        # q/k/v shapes) is unchanged, avoiding the pathological multi-minute
+        # recompute pass-8 hit when the default typecast spilled to DRAM.
         f32 = ttnn.float32; bf = ttnn.bfloat16
+        z_mem = z.memory_config()
         if z.dtype != f32:
-            z_acc = ttnn.typecast(z, f32); ttnn.deallocate(z)
+            z_acc = ttnn.typecast(z, f32, memory_config=z_mem); ttnn.deallocate(z)
         else:
             z_acc = z
 
         def _op_add(op, *a):
             nonlocal z_acc
-            zb = ttnn.typecast(z_acc, bf)
+            zb = ttnn.typecast(z_acc, bf, memory_config=z_mem)
             z_update = op(zb, *a); ttnn.deallocate(zb)
-            zu = ttnn.typecast(z_update, f32); ttnn.deallocate(z_update)
-            new = ttnn.add(z_acc, zu); ttnn.deallocate(zu); ttnn.deallocate(z_acc)
+            zu = ttnn.typecast(z_update, f32, memory_config=z_mem)
+            ttnn.deallocate(z_update)
+            new = ttnn.add(z_acc, zu, memory_config=z_mem)
+            ttnn.deallocate(zu); ttnn.deallocate(z_acc)
             z_acc = new
 
         _op_add(self.triangle_multiplication_start, mask)
@@ -1356,7 +1399,7 @@ class PairformerLayer(Module):
             s_norm = ttnn.layer_norm(
                 s, weight=self.pre_norm_s_weight, bias=self.pre_norm_s_bias,
                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-            z_bf = ttnn.typecast(z, bf)
+            z_bf = ttnn.typecast(z, bf, memory_config=z_mem)
             s_update = self.attention_pair_bias(
                 s_norm, z_bf,
                 seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start)
@@ -1381,6 +1424,8 @@ class Pairformer(Module):
         affinity: bool = False,
         fp32_transition: bool = False,
         fp32_residual: bool = False,
+        fp32_tri_mul: bool = False,
+        fp32_tri_att: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -1395,6 +1440,8 @@ class Pairformer(Module):
                 affinity=affinity,
                 fp32_transition=fp32_transition,
                 fp32_residual=fp32_residual,
+                fp32_tri_mul=fp32_tri_mul,
+                fp32_tri_att=fp32_tri_att,
             )
             for i in range(n_blocks)
         ]

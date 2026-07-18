@@ -18,7 +18,7 @@ CKPT = "/home/moritz/.coworker/scratch/odesign-ref/ckpt/odesign_base_prot_flex.p
 INP = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_trunk_inputs.pkl"
 REF = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_trunk_full_ref.pkl"
 PRE = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_denoiser_pre.pkl"
-OUT = "/home/moritz/.coworker/scratch/odesign-ref/ckpt/p8_trunk_parity.txt"
+OUT = "/home/moritz/.coworker/scratch/odesign-ref/ckpt/p9_trunk_parity.txt"
 
 
 def pcc(u, v):

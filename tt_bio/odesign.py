@@ -478,6 +478,17 @@ class ODesignTrunk:
         # measured: 25+ min, no completion). Revisit in pass 9 with a layout-preserving
         # typecast or by making the triangle ops natively fp32.
         self.fp32_residual = os.environ.get("ODESIGN_FP32_RESIDUAL", "0") == "1"
+        # Lever 2 (pass 9): fp32 the triangle-multiplication N-contraction matmul
+        # inputs (the per-channel a@b over the N=257 pair dim). DEFAULT OFF; A/B
+        # measured this pass. With HiFi4 + fp32_dest_acc the accumulation is already
+        # fp32, so the gain is fp32 inputs vs bf16 inputs (the dominant remaining
+        # per-cycle z error per pass-8's revised diagnosis).
+        self.fp32_tri_mul = os.environ.get("ODESIGN_FP32_TRI_MUL", "0") == "1"
+        # Lever 3 (pass 9): fp32 the triangle-attention SDPA (q/k/v/bias) so the
+        # softmax over the N=257 keys and the attn@V matmul run in fp32. DEFAULT OFF;
+        # A/B measured this pass. Layout-preserving (DRAM-pinned typecast) to avoid
+        # the pass-8 SDPA pathological-hang trap.
+        self.fp32_tri_att = os.environ.get("ODESIGN_FP32_TRI_ATT", "0") == "1"
         # front-end (pass-6, parity-verified): RPE w/ cyclic offset, trunk-init linears,
         # CTE front-end (v_ij), InputFeatureEmbedder (atom encoder -> s_inputs).
         self.ti = ODesignTrunkInput(model_state_dict, compute_kernel_config, self.dev)
@@ -495,7 +506,9 @@ class ODesignTrunk:
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, self.C_S // 16, 16,
                              True, comb, compute_kernel_config,
                              fp32_transition=self.fp32_transition,
-                             fp32_residual=self.fp32_residual)
+                             fp32_residual=self.fp32_residual,
+                             fp32_tri_mul=self.fp32_tri_mul,
+                             fp32_tri_att=self.fp32_tri_att)
 
         # ConstraintTemplateEmbedder: 2 pair-only PairformerLayers (c=64, 4 heads x head_dim=32)
         self.CTE_PF = []
@@ -504,7 +517,9 @@ class ODesignTrunk:
             sub = {k[len(p):]: v for k, v in self._w.items() if k.startswith(p)}
             self.CTE_PF.append(PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None,
                                 False, PW.remap_msa_pair_stack(sub), compute_kernel_config,
-                                fp32_transition=self.fp32_transition))
+                                fp32_transition=self.fp32_transition,
+                                fp32_tri_mul=self.fp32_tri_mul,
+                                fp32_tri_att=self.fp32_tri_att))
 
         # 4-block MSA module (reuse protenix.Trunk's MSA wiring verbatim)
         self.MSA = []
@@ -516,7 +531,9 @@ class ODesignTrunk:
             pl = PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None, False,
                                   PW.remap_msa_pair_stack(sub(P + "pair_stack.")),
                                   compute_kernel_config,
-                                  fp32_transition=self.fp32_transition)
+                                  fp32_transition=self.fp32_transition,
+                                  fp32_tri_mul=self.fp32_tri_mul,
+                                  fp32_tri_att=self.fp32_tri_att)
             has = any(k.startswith(P + "msa_stack.") for k in self._w)
             pwa = tm = None
             if has:
