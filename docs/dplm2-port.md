@@ -231,6 +231,46 @@ the all-mask generation start than at pass-1's representative inputs.
 - **CLI / job-path wiring** (deferred item 4) — not started; capability first.
 - **Performance** (deferred item 5) — not started; capability first.
 
+## Pass 3 — backbone precision floor confirmed (fp32 levers exhausted)
+
+**Status: the fp32/residual precision levers do not close the all-mask gap; the
+gate stays on validity + step-0 logit PCC, not token parity.**
+
+Pass 3 tested whether raising the backbone's logit PCC on the all-mask
+generation start (the 0.88–0.98 worst case from pass 2) up toward the 0.999 bar
+would make device generation reproduce fp32 tokens. Three real levers were
+tried on the all-mask input with real weights: an fp32 SDPA compute kernel,
+fp32 SDPA inputs, and an fp32 LayerNorm input. **None move the needle** — the
+fp32 SDPA compute kernel is strictly *worse* on the all-mask case too, fp32 SDPA
+inputs are unsupported (the op is bf16/bf8/bf4-only), and fp32 LayerNorm input
+changes nothing. A per-layer diagnostic confirmed the residual error is
+*distributed* across layers (not concentrated in one targetable layer), and the
+fully-fp32 LM head then amplifies it into the flat all-mask logits. This is a
+real precision floor on the current ttnn stack, not a tunable knob; the pass-1
+config remains the best. The full investigation, numbers, and the durable lesson
+are in `notes/tt-bio-dplm2-port-p3.md`.
+
+### Generation gate (unchanged from pass 2)
+
+Because the backbone gap was not closed, device generation is gated on
+**validity + step-0 logit PCC** (the existing `test_generation_ttnn_valid` and
+`test_generation_step0_logit_parity`, floor 0.95), **not** on exact token parity
+with fp32. The flipped-argmax 2-cycle on all-mask co-generation persists
+(backbone unchanged). Closing the token-parity gap would need either a real fp32
+SDPA kernel (not available on this stack — the manual fp32
+matmul->softmax->matmul path is also less accurate than bf16 SDPA) or an
+architectural residual-scaling change (would break parity by design and is
+release-gated on Moritz's approval). Both are out of scope for this pass.
+
+### Deferred (carried forward)
+
+- 3D ↔ struct-token VQ-VAE (`airkingbd/struct_tokenizer`) — full model pass.
+- CLI / job-path wiring.
+- Performance (trace, bucketing, fanout).
+- Robust-0.999 backbone: the fp32/residual levers are exhausted; the remaining
+  lever is a real fp32 SDPA kernel or an architectural residual-scaling change
+  (release-gated), not a pass-3 knob.
+
 ## Reproduce
 
 ```bash
