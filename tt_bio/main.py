@@ -2123,7 +2123,15 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                   "synchronize_sigmas": True}
     _pairformer = {"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True}
     _msa = {"subsample_msa": subsample_msa, "num_subsampled_msa": num_subsampled_msa,
-            "use_paired_feature": True}
+            "use_paired_feature": True,
+            # Required by the non-tenstorrent (PyTorch reference) MSAModule path; the
+            # tenstorrent path builds tenstorrent.MSAModule(n_blocks=4,...) and ignores
+            # this dict, so adding these keys is a no-op for device runs. Values mirror
+            # the boltz2_conf/aff checkpoint hparams so the CPU/host path matches the
+            # reference implementation exactly.
+            "msa_s": 64, "msa_blocks": 4, "msa_dropout": 0.15, "z_dropout": 0.25,
+            "pairwise_head_width": 32, "pairwise_num_heads": 4,
+            "activation_checkpointing": True}
     conf_kwargs = dict(
         predict_args={"recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
                       "diffusion_samples": diffusion_samples, "max_parallel_samples": max_parallel_samples},

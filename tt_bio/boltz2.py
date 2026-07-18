@@ -4735,6 +4735,13 @@ class AffinityModule(nn.Module):
         multiplicity=1,
         use_kernels=False,
     ):
+        # Host fp32 path: the trunk ships bf16 tensors off-device; cast to fp32 so
+        # the PyTorch pairformer/heads (fp32 weights) run without dtype mismatch
+        # and without bf16 accumulation bias in the affinity scalar.
+        if not self.use_tenstorrent:
+            z = z.float()
+            s_inputs = s_inputs.float()
+            x_pred = x_pred.float()
         z = self.z_linear(self.z_norm(z))
         z = z.repeat_interleave(multiplicity, 0)
 
@@ -5133,17 +5140,28 @@ class Boltz2(nn.Module):
                 )
 
         if self.affinity_prediction:
+            # The affinity pairformer + heads are far more precision-sensitive than
+            # the structure trunk: the reference runs the whole affinity module in
+            # fp32 (torch.autocast("cuda", enabled=False) in Boltz2.forward), and the
+            # affinity scalar is a mean over a pooled pair representation where a
+            # small bf16 bias becomes a systematic log10(IC50) shift. Running the
+            # affinity pairformer (8 + 4 blocks, small) and heads in fp32 on host
+            # removes that bias while the expensive trunk/diffusion stays on device.
+            # Gated by BOLTZ2_AFFINITY_FP32_HOST (default on) so it can be A/B'd.
+            import os as _os
+            _aff_host_fp32 = _os.environ.get("BOLTZ2_AFFINITY_FP32_HOST", "1") != "0"
+            _aff_use_tt = False if _aff_host_fp32 else use_tenstorrent
             if self.affinity_ensemble:
                 self.affinity_module1 = AffinityModule(
                     token_s,
                     token_z,
-                    use_tenstorrent=use_tenstorrent,
+                    use_tenstorrent=_aff_use_tt,
                     **affinity_model_args1,
                 )
                 self.affinity_module2 = AffinityModule(
                     token_s,
                     token_z,
-                    use_tenstorrent=use_tenstorrent,
+                    use_tenstorrent=_aff_use_tt,
                     **affinity_model_args2,
                 )
                 if compile_affinity:
