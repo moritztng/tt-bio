@@ -5107,6 +5107,28 @@ class Boltz2(nn.Module):
         )
 
         # Output modules
+        # Pass 3 (release-gated, DEFAULT OFF): the affinity model re-runs its OWN
+        # diffusion (5 samples, 200 steps, recycling 5, separate boltz2_aff.ckpt) to
+        # produce the coords that condition the affinity head's pairwise rep. Pass 2
+        # hypothesized the residual ~0.06 log10(IC50) gap was bf16 bias in those
+        # device diffusion coords and that running the affinity diffusion in fp32 on
+        # host (conditioning is already host fp32; only the score model moves) would
+        # close it. A clean same-session A/B (3 seeds) DISCONFIRMED that: fp32 host
+        # diffusion does NOT shrink the systematic offset — it grows X 0.061->0.098
+        # and widens per-seed dev variance D 0.028->0.077 (vs ref R=0.010), so the
+        # within-noise-floor gate only flips by inflating the floor, not by matching
+        # the reference. Default OFF because it regresses the parity distance and
+        # ~doubles the affinity-target wall-clock (~116 s -> ~255 s); kept as an A/B
+        # lever (set BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST=1) for future investigation.
+        # Scoped to the affinity model only (affinity_prediction=True): the
+        # structure model has affinity_prediction=False so _diff_use_tt ==
+        # use_tenstorrent and its diffusion is byte-for-byte unchanged.
+        import os as _os_diff
+        self.affinity_diffusion_fp32_host = (
+            affinity_prediction
+            and _os_diff.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST", "0") == "1"
+        )
+        _diff_use_tt = use_tenstorrent and not self.affinity_diffusion_fp32_host
         self.structure_module = AtomDiffusion(
             score_model_args={
                 "token_s": token_s,
@@ -5116,7 +5138,7 @@ class Boltz2(nn.Module):
                 **score_model_args,
             },
             compile_score=compile_structure,
-            use_tenstorrent=use_tenstorrent,
+            use_tenstorrent=_diff_use_tt,
             diffusion_trace=diffusion_trace,
             **diffusion_process_args,
         )

@@ -133,8 +133,44 @@ the fast bf16-trunk path. The structure legs are unaffected by construction
 (the structure model skips the touched block) and re-verified clean (trp-cage
 CA-RMSD X 0.614 Å, X/floor 0.75, within floor). The leg remains the only
 non-PASS entry and stays a release-gate concern for the Boltz-2 affinity port.
-Pass-by-pass detail: ~/.coworker/state/tt-bio-boltz2-affinity-precision-p1.md
-and tt-bio-boltz2-affinity-trunk-fp32-p2.md.
+
+Pass 3 tested the obvious next lever and it did NOT close the gap. Two options
+were on the table. (1) Reuse the structure model's already-computed diffusion
+coords as the affinity head's coords input — INVALID: the reference affinity
+mode runs its OWN diffusion (separate boltz2_aff.ckpt, 5 samples, 200 steps,
+recycling 5, per the fixture meta.json and tt_bio/main.py aff_kwargs), so the
+structure model's coords (1 sample, recycling 3, different checkpoint) are not
+what the reference feeds the affinity head; reusing them would be an
+approximation, not parity. (2) Run the affinity model's AtomDiffusion in fp32 on
+host, gated by BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST (same pattern as the trunk
+gate). A clean same-session A/B (3 seeds vs the committed ref fixture):
+
+  | gate (diffusion) | pred_value X | R | D | X/floor | within floor | prob_binary X/floor |
+  |---|---|---|---|---|---|---|
+  | OFF (bf16 device, = pass 2) | 0.061 | 0.010 | 0.028 | 2.21 | NO | 2.55 |
+  | ON  (fp32 host)             | 0.098 | 0.010 | 0.077 | 1.28 | yes | 0.71 |
+
+fp32 host diffusion does NOT shrink the systematic offset — it GROWS X
+(0.061 -> 0.098) and widens per-seed dev variance (D 0.028 -> 0.077, vs the
+reference's tight R=0.010). The within-noise-floor gate flips to yes only
+because the wider D inflates the floor+sigma threshold (0.077+0.029=0.106 >
+X=0.098), i.e. the device passes by becoming noisier, not by matching the
+reference. That is not a real close-the-gap, so the leg stays GAP and the gate
+defaults OFF (BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST=0; set =1 only to A/B). Perf
+cost (measured, not guessed): fp32 host diffusion ~doubles the affinity-target
+wall-clock (~116 s -> ~255 s per target; the 200-step x5-sample score loop on
+CPU is the cost, not minutes but real). The structure legs are unaffected by
+construction (the structure model has affinity_prediction=False so its
+diffusion is byte-for-byte unchanged) and re-verified clean (trp-cage CA-RMSD
+X 0.598 A, X/floor 0.73, within floor). Recommendation: drop the precision
+investigation as diminishing returns — the residual (~0.06 log10(IC50), well
+under 0.15) is below practical binding-affinity significance, the obvious
+precision lever made it worse, and the remaining gap is more likely a
+host-vs-reference diffusion implementation difference (RNG stream / schedule /
+coordinate_augmentation ordering) than bf16, a much deeper lift with unclear
+payoff. The leg remains the only non-PASS entry and a release-gate concern.
+Pass-by-pass detail: ~/.coworker/state/tt-bio-boltz2-affinity-precision-p1.md,
+tt-bio-boltz2-affinity-trunk-fp32-p2.md, and tt-bio-boltz2-affinity-trunk-fp32-p3.md.
 
 ## Reproducing a comparison
 
