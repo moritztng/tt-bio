@@ -56,6 +56,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -138,24 +139,64 @@ def _sysfs_subsystem_device(device_id: str) -> str | None:
     return None
 
 
+def _resolve_tt_smi() -> str | None:
+    """Absolute path to the ``tt-smi`` CLI, or None if it can't be found.
+
+    The gate must not depend on the caller's PATH: under non-interactive ssh
+    ``~/.local/bin`` (where tt-smi lives on the release hosts) is typically NOT
+    on PATH, so a bare ``subprocess.run(["tt-smi", ...])`` silently fails, the
+    gate falls back to sysfs, misdetects the board, and compares against the
+    wrong baseline. Resolve tt-smi from an explicit known-good path list
+    (PATH first, then ``~/.local/bin`` and the system bins) and call it by
+    absolute path so detection is identical whether or not ``~/.local/bin`` is
+    on PATH.
+    """
+    found = shutil.which("tt-smi")
+    if found:
+        return found
+    for c in (
+        Path.home() / ".local" / "bin" / "tt-smi",
+        Path("/usr/local/bin/tt-smi"),
+        Path("/usr/bin/tt-smi"),
+    ):
+        if c.is_file() and os.access(c, os.X_OK):
+            return str(c)
+    return None
+
+
 def detect_card_type() -> str:
     """Canonical board-type key for the card this gate will run on ('p150a',
     'p300c', ...). This is the per-card baseline key in docs/perf_baselines.json.
-    No device is opened; safe to call in the parent before any model loads."""
+    No device is opened; safe to call in the parent before any model loads.
+
+    tt-smi is resolved by absolute path (see ``_resolve_tt_smi``) so detection
+    does not depend on the caller's PATH. If tt-smi can't be found the gate
+    falls back to sysfs and reports a recognizable ``unknown:<sub>`` key so it
+    fails loudly against a missing baseline instead of silently matching the
+    wrong one; a stderr warning points the operator at PATH.
+    """
     visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     # Primary: tt-smi -s reports the canonical board_type — matches the baseline
     # key exactly and names boards the sysfs subsystem map can't.
-    try:
-        out = subprocess.run(["tt-smi", "-s"], capture_output=True, text=True,
-                             timeout=20, check=False)
-        info = json.loads(out.stdout).get("device_info", [])
-        if info:
-            idx = min(int(visible), len(info) - 1) if visible.isdigit() else 0
-            bt = info[idx].get("board_info", {}).get("board_type")
-            if bt:
-                return str(bt).lower()
-    except Exception:
-        pass
+    tt_smi = _resolve_tt_smi()
+    if tt_smi is not None:
+        try:
+            out = subprocess.run([tt_smi, "-s"], capture_output=True, text=True,
+                                 timeout=20, check=False)
+            info = json.loads(out.stdout).get("device_info", [])
+            if info:
+                idx = min(int(visible), len(info) - 1) if visible.isdigit() else 0
+                bt = info[idx].get("board_info", {}).get("board_type")
+                if bt:
+                    return str(bt).lower()
+        except Exception:
+            pass
+    else:
+        print(f"{sys.argv[0]}: WARNING: tt-smi not found on PATH or in "
+              f"~/.local/bin; card detection falling back to sysfs and may "
+              f"report 'unknown' (NO BASELINE). Add tt-smi to PATH (e.g. "
+              f"export PATH=$HOME/.local/bin:$PATH) and re-run.",
+              file=sys.stderr)
     # Fallback: sysfs subsystem_device -> known Blackhole board types. An
     # unrecognized subsystem returns a recognizable 'unknown:<sub>' key so the
     # gate fails loudly against a missing baseline instead of silently matching
