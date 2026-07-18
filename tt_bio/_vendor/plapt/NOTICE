@@ -1,0 +1,22 @@
+tt-bio — vendored third-party model artifacts
+============================================
+
+This directory ships small reference artifacts for the standalone affinity
+head port (PLAPT-style). Per-file provenance and licenses:
+
+  head_weights.npz
+    Weights of the PLAPT affinity predictor MLP, extracted from
+    `affinity_predictor.onnx` (Bindwell/PLAPT, MIT License, Copyright (c) 2024
+    Bindwell). See `LICENSE-PLAPT` for the full MIT text. The extraction
+    preserves the ONNX initializers verbatim (no retraining); the original
+    PLAPT code is at https://github.com/Bindwell/PLAPT .
+
+  chemberta/
+    Tokenizer + config files for `seyonec/ChemBERTa-zinc-base-v1` (MIT License,
+    ChemBERTa by Seyonec). The model weights (pytorch_model.bin, ~178 MB) are
+    NOT vendored here — they are fetched at runtime from HuggingFace by
+    `tt_bio.affinity.ChemBERTa.from_pretrained`. Only config.json, vocab.json,
+    merges.txt, and the tokenizer-config files are vendored (a few KB total).
+
+The from-scratch PyTorch reference for parity testing lives in
+`tests/affinity_reference.py` (no `transformers` dependency).
