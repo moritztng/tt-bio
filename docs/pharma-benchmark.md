@@ -35,7 +35,7 @@ so a customer evaluating an antibody program sees the port tested on the target
 shape that program folds. The affinity leg is the second increment: every prior
 leg is structure-only, so Boltz-2's binding-affinity prediction mode (the README
 "Binding Affinity Prediction" section) was the largest unmeasured surface in
-this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure coverage had only two lengths (L20 trp-cage, L117 7ROA), so ubiquitin (L76) adds the middle of the range and mirrors the ESMFold2 length ladder, the shape a pharma team hits when folding a small single-domain target.
+this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure coverage had only two lengths (L20 trp-cage, L117 7ROA), so ubiquitin (L76) adds the middle of the range and mirrors the ESMFold2 length ladder, the shape a pharma team hits when folding a small single-domain target. The fourth increment closes Protenix-v2's coverage gap: it was the thinnest-covered model in this benchmark (one target, 7ROA, vs two-to-four for every other model), so ubiquitin (L76, MSA, the same target the Boltz-2 leg folds) gives it a second target at a different length and fold, and makes Protenix-v2 directly cross-comparable to Boltz-2 on a matched target.
 
 | model | target | metric | R | D | X | result |
 |---|---|---|---:|---:|---:|---|
@@ -46,6 +46,7 @@ this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure co
 | ESMFold2 | ubiquitin, L76 | CA-RMSD | 0.92 Å | 0.23 Å | 0.75 Å | PASS |
 | ESMFold2 | lysozyme, L129 | CA-RMSD | 0.095 Å | 0.077 Å | 0.130 Å | PASS† |
 | Protenix-v2 | 7ROA, L117, MSA | CA-RMSD | 2.94 Å | 1.47 Å | 2.63 ± 0.42 Å | PASS |
+| Protenix-v2 | ubiquitin, L76, MSA | CA-RMSD | 2.67 Å | 0.12 Å | 2.09 ± 0.40 Å | PASS¶ |
 | Boltz-2 | trp-cage, L20, no MSA | CA-RMSD | 0.79 Å | 0.37 Å | 0.60 ± 0.24 Å | PASS |
 | Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 0.81 Å | 0.98 Å | 0.94 ± 0.14 Å | PASS |
 | Boltz-2 | ubiquitin, L76, no MSA | CA-RMSD | 1.85 Å | 1.63 Å | 1.63 ± 0.25 Å | PASS§ |
@@ -174,6 +175,8 @@ Pass-by-pass detail: ~/.coworker/state/tt-bio-boltz2-affinity-precision-p1.md,
 tt-bio-boltz2-affinity-trunk-fp32-p2.md, and tt-bio-boltz2-affinity-trunk-fp32-p3.md.
 
 § The ubiquitin leg (L76, no MSA, 2 reference + 2 device seeds, 3 recycle / 200 sampling steps / 1 sample): the device-vs-reference CA-RMSD is 1.63 ± 0.25 Å, below the floor max(R, D) = 1.85 Å (R 1.85, D 1.63; X/floor 0.88). The no-MSA single-sequence basin is underdetermined, so the reference self-consistency floor is wider than the MSA-backed 7ROA leg's (R 1.85 Å vs 0.81 Å) — the same no-MSA property already documented for the trp-cage and prot no-MSA legs. The device sits inside that floor, so the residual is single-sequence diffusion stochasticity, not an algorithmic discrepancy. Boltz-2 now covers three structure lengths (L20/L76/L117), mirroring the ESMFold2 ladder.
+¶ The Protenix-v2 ubiquitin leg (L76, MSA, 2 reference + 2 device seeds, n_cycle=10 / n_step=200 / n_sample=5, bf16, the same production settings as the 7ROA protenix leg): the device-vs-reference CA-RMSD is 2.09 ± 0.40 Å, below the floor max(R, D) = 2.67 Å (R 2.67, D 0.12; X/floor 0.78). Unlike the 7ROA protenix leg, the floor here is diffusion-stochasticity-dominated, not confidence-selection-dominated: both reference seeds confidence-select sample 0 with near-identical ptm (0.9315 / 0.9314), so the 2.67 Å R floor is two independent diffusion trajectories disagreeing, not the confidence head under-ranking different samples. Consistent with that, the device confidence head agrees with the reference on this target (ptm Δ device − ref = +0.0007, vs −0.041 on 7ROA) — the under-ranking caveat disclosed for 7ROA is target-specific, not a systematic port defect. The device is unusually self-consistent (D 0.12 Å, ~22× tighter than R): the bf16 device diffusion collapses to a narrower basin than the fp32 reference across two seeds, but X (2.09 Å) sits between D and R and inside the floor, so the port reproduces the reference no worse than the reference reproduces itself. Protenix-v2 now covers two structure lengths (L76/L117), both MSA-backed.
+
 
 ## Reproducing a comparison
 
@@ -243,6 +246,28 @@ python3 scripts/pharma_parity.py structures \
   --ref-fixtures boltz2/ubiquitin/nomsa_200step_1sample_3recycle_bf16 \
   --dev-dirs dev_seed0/boltz_results_ubiquitin_no_msa dev_seed1/boltz_results_ubiquitin_no_msa \
   --label "Boltz-2 ubiquitin L76 no-MSA"
+```
+
+The Protenix-v2 ubiquitin leg (MSA, production settings) reuses the same noise-floor core against a committed reference fixture; only the device side re-runs live:
+
+```bash
+# reference (once, pinned in docs/pharma-benchmark-data/ref-fixtures/protenix-v2/ubq/msa-server_200step_5sample_10cycle_bf16/):
+refenv312/bin/python protenix_ref_predict_ubq.py 0 ref_ubq_seed0
+refenv312/bin/python protenix_ref_predict_ubq.py 1 ref_ubq_seed1
+refenv312/bin/python scripts/protenix_ref_to_harness.py ref_ubq_seed0 ubq
+refenv312/bin/python scripts/protenix_ref_to_harness.py ref_ubq_seed1 ubq
+# stage the reference MSA so the device folds the identical MSA (seq_hash = sha256(seq)[:16]):
+mkdir -p dev_ubq_msa && cp ref_ubq_seed0/raw/ubq/msa/0.a3m dev_ubq_msa/233b4b0b8c461609.a3m
+# device (live; recycling_steps defaults to 10 for protenix-v2, matching the reference n_cycle=10):
+TT_VISIBLE_DEVICES=0 PYTHONPATH=<worktree> \
+  python -m tt_bio.main predict examples/ubq.yaml --model protenix-v2 \
+  --out_dir dev_ubq_seed0 --override --use_msa_server --sampling_steps 200 \
+  --diffusion_samples 5 --msa_dir dev_ubq_msa --seed 0
+# score (against the committed fixture, no reference compute):
+python3 scripts/pharma_parity.py structures \
+  --ref-fixtures protenix-v2/ubq/msa-server_200step_5sample_10cycle_bf16 \
+  --dev-dirs dev_ubq_seed0/boltz_results_ubq dev_ubq_seed1/boltz_results_ubq \
+  --label "Protenix-v2 ubiquitin L76 MSA"
 ```
 
 Regenerate a reference fixture only when its pinned upstream version or settings

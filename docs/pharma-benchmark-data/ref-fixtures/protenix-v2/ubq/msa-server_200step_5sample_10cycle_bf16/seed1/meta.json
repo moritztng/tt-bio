@@ -1,0 +1,19 @@
+{
+  "seed": 1,
+  "target_id": "ubq",
+  "harvested_from": "/home/ttuser/pharma_protenix_run/ref_ubq_seed1",
+  "selected_record": {
+    "id": "ubq",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.9314409494400024,
+    "iptm": 0.0,
+    "plddt": 93.19732666015625,
+    "ranking_score": 0.18628819286823273,
+    "selected_sample_idx": 0
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

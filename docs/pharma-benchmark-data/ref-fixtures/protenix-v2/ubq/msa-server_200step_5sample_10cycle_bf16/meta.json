@@ -1,0 +1,30 @@
+{
+  "model": "protenix-v2",
+  "target": "ubq",
+  "settings_tag": "msa-server_200step_5sample_10cycle_bf16",
+  "reference_impl": "official ByteDance Protenix (torch, CPU)",
+  "reference_version": "protenix 2.0.0 (model protenix-v2, 464M params)",
+  "reference_commit": "bytedance/Protenix c3bfc365b3e1341a11935eddfe7bfdc308092147",
+  "command": "refenv312/bin/python protenix_ref_predict_ubq.py <seed> <out_dir>  (calls runner.batch_inference.inference_jsons: use_msa=True(server), seeds=[<seed>], n_cycle=10, n_step=200, n_sample=5, dtype=bf16, model_name=protenix-v2, trimul_kernel=torch, triatt_kernel=torch, use_template=False; CUDA FusedLayerNorm stubbed by torch LayerNorm, triangle kernels forced to torch so it runs CPU-only; json prot_ubq.json names the target ubq, sequence = human ubiquitin PDB 1UBQ 76 res)",
+  "settings": {
+    "use_msa": true,
+    "msa_source": "https://protenix-server.com/api/msa",
+    "recycling_cycles": 10,
+    "diffusion_steps": 200,
+    "diffusion_samples": 5,
+    "selection": "confidence-selected best-of-5 by ranking_score",
+    "dtype": "bf16",
+    "trimul_kernel": "torch",
+    "triatt_kernel": "torch",
+    "target": "examples/ubq.yaml (PDB 1UBQ, human ubiquitin, 76 res, 602 atoms)",
+    "rationale": "second Protenix-v2 structure target: different length/fold than the 7ROA leg (L76 vs L117, ubiquitin alpha-beta grasp vs EntV136), customer-relevant (ubiquitin-proteasome oncology pathway), and the same target as the Boltz-2 ubiquitin leg for cross-model comparability. Same production settings as the 7ROA protenix leg (MSA server, n_cycle=10, n_step=200, n_sample=5, bf16) so the two protenix legs differ only in target, not methodology."
+  },
+  "seeds": [
+    0,
+    1
+  ],
+  "msa": "Protenix-server.com MSA, identical for seed0 and seed1 (diff of ref_ubq_seed{0,1}/raw/ubq/msa/0.a3m is empty). 20826 a3m entries; ubiquitin is deeply aligned in sequence databases. The device folds the SAME MSA (staged into dev_ubq_msa/<seq_hash>.a3m, seq_hash=233b4b0b8c461609) so X measures pure port fidelity with input MSA held identical.",
+  "provenance": "Harvested from a FRESH 2026-07-18 qb2 reference run (REF_PREDICT_DONE markers at ref_ubq_seed{0,1}, mtime 2026-07-18 20:45/20:49 UTC). Per-seed model-forward time 132.08s (seed0, cold) / 162.50s (seed1) from ref_ubq_seed{0,1}.log \u2014 NOT the ~3.5h/seed a stale memory note claimed (that note misread the 7ROA logs; the real on-disk cost is ~2.5 min/seed for ubiquitin, ~10-23 min/seed for 7ROA). Per-seed ptm 0.93154 / 0.93144 (both seeds confidence-selected sample 0). Matches docs/pharma-benchmark-data/protenix-v2-ubiquitin.json: X = 2.09 +- 0.40 A Kabsch CA-RMSD, within floor max(R=2.67, D=0.12) = 2.67 A (X/floor 0.78) -> PASS. Checkpoint /home/ttuser/checkpoint/protenix-v2.pt.",
+  "date": "2026-07-18",
+  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "ubq",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.9315361976623535,
+    "iptm": 0.0,
+    "plddt": 93.20968627929688,
+    "ranking_score": 0.18630723655223846,
+    "selected_sample_idx": 0
+  }
+]
