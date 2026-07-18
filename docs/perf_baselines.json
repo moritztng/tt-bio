@@ -110,6 +110,23 @@
           "tt_bio_version": "0.2.5",
           "date": "2026-07-13",
           "note": "seed from 0.2.5 main (warm run, 8x ubiquitin-76 embed, batch 8)"
+        },
+        "boltzgen": {
+          "unit": "designs/s",
+          "direction": "higher",
+          "value": 0.017057,
+          "latency_ms": 58627.78,
+          "input": "binder.yaml (protein-anything, 4 designs)",
+          "sampling_steps": 500,
+          "diffusion_samples": 1,
+          "recycling_steps": 3,
+          "warmup": 0,
+          "repeat": 1,
+          "hardware": "blackhole",
+          "card_type": "p300c",
+          "tt_bio_version": "0.3.0",
+          "date": "2026-07-18",
+          "note": "seed p300c boltzgen perf baseline (gen run binder.yaml protein-anything n=4, main HEAD 0.3.0 on qb2 P300c card 0)"
         }
       }
     },
