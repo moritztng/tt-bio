@@ -13,6 +13,7 @@ from tt_bio.tenstorrent import get_device
 
 CKPT = "/home/moritz/.coworker/scratch/odesign-ref/ckpt/odesign_base_prot_flex.pt"
 REF = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_trunk_input_ref.pkl"
+PRE = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_denoiser_pre.pkl"
 
 
 def pcc(u, v):
@@ -38,6 +39,7 @@ def main():
     sd = load_sd()
     trunk = ODesignTrunkInput(sd, ckc, dev)
     ref = pickle.load(open(REF, "rb"))
+    pre = pickle.load(open(PRE, "rb"))
 
     results = {}
 
@@ -75,6 +77,27 @@ def main():
     p = pcc(v_dev, v_ref); m = maxerr(v_dev, v_ref)
     print(f"CTE front v_ij (N={n},{n},64)  PCC {p:.6f}  maxerr {m:.4e}")
     results["cte_front"] = (p, m)
+
+    # --- (4) InputFeatureEmbedder (atom encoder -> s_inputs) ---
+    # uses the captured trunk inputs (scripts/odesign_trunk_input_capture.py) +
+    # the CPU baseline (scripts/odesign_s_inputs_ref.py)
+    INP = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_trunk_inputs.pkl"
+    SREF = "/home/moritz/.coworker/scratch/odesign-ref/golden/odesign_s_inputs_ref.pkl"
+    if os.path.exists(INP) and os.path.exists(SREF):
+        inp = pickle.load(open(INP, "rb"))
+        sref = pickle.load(open(SREF, "rb"))
+        fd = inp["feature_data"]
+        s_dev = trunk.input_feature_embedder(fd)
+        s_golden = pre["s_inputs"].float()                       # the golden pre's s_inputs
+        s_cpu = sref["s_inputs_ref"].float()                     # ODesign's own, fresh CPU fp32
+        p_g = pcc(s_dev, s_golden); m_g = maxerr(s_dev, s_golden)
+        p_c = pcc(s_dev, s_cpu); m_c = maxerr(s_dev, s_cpu)
+        print(f"InputFeatureEmbedder s_inputs (N={s_dev.shape[0]},453)  vs golden  PCC {p_g:.6f}  maxerr {m_g:.4e}")
+        print(f"InputFeatureEmbedder s_inputs (N={s_dev.shape[0]},453)  vs CPU-ref PCC {p_c:.6f}  maxerr {m_c:.4e}")
+        results["s_inputs_vs_golden"] = (p_g, m_g)
+        results["s_inputs_vs_cpuref"] = (p_c, m_c)
+    else:
+        print("InputFeatureEmbedder parity SKIPPED (trunk-input capture / CPU baseline not run)")
 
     # summary
     print("\n=== PASS-6 TRUNK-INPUT PARITY SUMMARY ===")

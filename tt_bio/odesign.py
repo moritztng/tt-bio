@@ -32,7 +32,7 @@ import ttnn
 from scipy.spatial.transform import Rotation
 
 from .tenstorrent import get_device, CORE_GRID_MAIN
-from .protenix import DiffusionModule, AtomFeaturization, _window_q, _window_kv
+from .protenix import DiffusionModule, AtomFeaturization, AtomAttentionEncoder, _window_q, _window_kv
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +238,7 @@ class ODesignTrunkInput:
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
         self._wc = {}  # device weight cache (uploaded once, reused)
+        self._aae = None  # lazy: protenix.AtomAttentionEncoder (input_embedder weights)
 
     # --- upload helpers (mirror ODesign._tt/_lin/_ln; cached here) ---
     def _tt(self, x):
@@ -363,6 +364,51 @@ class ODesignTrunkInput:
         at = self._lin(self._tt(distogram), C + "linear_no_bias_a.weight")  # (N,N,64)
         v = ttnn.add(zt, at)
         return self._to_host(v, (z.shape[0], z.shape[1], self.CTE_C))
+
+    # --- (4) InputFeatureEmbedder (atom encoder -> s_inputs) ---
+    def input_feature_embedder(self, feat):
+        """ODesign InputFeatureEmbedder: atom encoder -> `a` (N,384), then
+        s_inputs = cat([a, restype(35), profile(32), deletion_mean(1), is_hotspot_residue(1)])
+        -> (N, 453). REUSES tt_bio.protenix.AtomAttentionEncoder (has_coords=False) with
+        ODesign's `input_embedder.*` weights -- the atom encoder is structurally
+        identical to Protenix-v2's; the only ODesign diff is the 129-dim ref_element in
+        f_in (vs 128; f_in = 1+129+256 = 386; the linear_no_bias_f weight shape (128, 386)
+        absorbs it) and the +is_hotspot_residue(1) concat (453 vs 449). The protenix encoder
+        returns cat([a, restype, profile, deletion_mean]) = 452 for ODesign's 35-dim
+        restype; we append is_hotspot_residue(1) -> 453. feat needs: ref_pos, ref_charge,
+        ref_mask, ref_element(129), ref_atom_name_chars, ref_space_uid, atom_to_token_idx,
+        restype(35), profile(32), deletion_mean(1), is_hotspot_residue(1). Returns
+        s_inputs (N, 453) host fp32."""
+        if self._aae is None:
+            self._aae = AtomAttentionEncoder(
+                {k[len("input_embedder.atom_attention_encoder."):]: v
+                 for k, v in self._w.items() if k.startswith("input_embedder.atom_attention_encoder.")},
+                self.compute_kernel_config)
+        N = feat["ref_pos"].shape[0]
+        # f_in: cat([ref_mask(1), ref_element(129), ref_atom_name_chars(256)]) = 386 (ODesign)
+        f_in = torch.cat([feat["ref_mask"].reshape(N, 1),
+                          feat["ref_element"].reshape(N, 129),
+                          feat["ref_atom_name_chars"].reshape(N, 256)], dim=-1).float()
+        d_lm, v_lm, mt = ODesign._atom_pair_feats(feat["ref_pos"].float(), feat["ref_space_uid"])
+        nb, nq, nk, _ = d_lm.shape
+        M = nb * nq * nk
+        d = d_lm.reshape(M, 3); v = v_lm.reshape(M, 1)
+        invd = (1.0 / (1.0 + (d_lm ** 2).sum(-1, keepdim=True))).reshape(M, 1)
+        a2t = feat["atom_to_token_idx"].long(); NT = int(a2t.max()) + 1
+        S = torch.zeros(N, NT); S[torch.arange(N), a2t] = 1.0
+        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
+        ref_charge_asinh = torch.arcsinh(feat["ref_charge"]).reshape(N, 1).float()
+        tt = self._tt
+        s452 = self._aae(
+            tt(feat["ref_pos"].float()), tt(ref_charge_asinh),
+            tt(feat["ref_mask"].reshape(N, 1).float()), tt(f_in),
+            tt(d), tt(v), tt(invd), mt, tt(Mmat),
+            tt(feat["restype"].float()), tt(feat["profile"].float()),
+            tt(feat["deletion_mean"].reshape(-1, 1).float()))
+        s452 = self._to_host(s452)[:NT]
+        # append is_hotspot_residue (1) -> 453
+        s_inputs = torch.cat([s452, feat["is_hotspot_residue"].reshape(NT, 1).float()], dim=-1)
+        return s_inputs
 
 
 class ODesign:
