@@ -25,11 +25,175 @@ The constraint embedder is only on the trunk path; it is NOT exercised by the de
 parity replay (which consumes precomputed trunk conditioning), so its absence does not
 affect the parity number reported here.
 """
+import random as _random
+import numpy as np
 import torch
 import ttnn
+from scipy.spatial.transform import Rotation
 
 from .tenstorrent import get_device, CORE_GRID_MAIN
 from .protenix import DiffusionModule, AtomFeaturization, _window_q, _window_kv
+
+
+# ---------------------------------------------------------------------------
+# ODesign sampler primitives (new port code). These mirror ODesign's
+# src/utils/model/misc.py (centre_random_augmentation / reverse /
+# uniform_random_rotation / rot_vec_mul) and src/model/modules/schedulers.py
+# (InferenceNoiseEDMScheduler EDM math). Kept on host fp32 -- only the
+# per-step denoise hits the device. The augmentation + EDM update + condition
+# enforcement are the ODesign-specific pieces the denoiser-leg replay (pass 4)
+# did not exercise.
+# ---------------------------------------------------------------------------
+
+def _append_dims(x, ndim):
+    while x.ndim < ndim:
+        x = x.unsqueeze(-1)
+    return x
+
+
+def _rot_vec_mul(r, t):
+    """Apply rotation matrices r (...,3,3) to vectors t (...,3). Mirrors ODesign
+    rot_vec_mul (fp32, hand-written to avoid AMP downcast)."""
+    if t.dtype != torch.float32:
+        t = t.to(torch.float32)
+    if r.dtype != torch.float32:
+        r = r.to(torch.float32)
+    x, y, z = torch.unbind(t, dim=-1)
+    return torch.stack([
+        r[..., 0, 0] * x + r[..., 0, 1] * y + r[..., 0, 2] * z,
+        r[..., 1, 0] * x + r[..., 1, 1] * y + r[..., 1, 2] * z,
+        r[..., 2, 0] * x + r[..., 2, 1] * y + r[..., 2, 2] * z,
+    ], dim=-1)
+
+
+def centre_random_augmentation(x_input_coords, n_sample=1, s_trans=1.0, dtype=torch.float32,
+                               rot=None, trans=None):
+    """Algorithm 19 (AF3) centre+SE(3) augmentation. Mirrors ODesign
+    centre_random_augmentation with mask=None (inference passes no mask). Takes
+    x_input_coords as (N_atom, 3) [no batch dim] and returns (n_sample, N_atom, 3).
+    When `rot`/`trans` are supplied (precomputed draws), uses them instead of drawing
+    new ones -- so the closed-loop replay shares an identical noise realization
+    between the on-device and CPU-fp32 reference samplers. Returns
+    (x_aug, trans, rot, x_center) on host fp32."""
+    n_atom = x_input_coords.size(-2)
+    x_center = x_input_coords.mean(dim=-2, keepdim=True)   # (1,3)
+    x = x_input_coords - x_center                              # (N_atom,3)
+    if rot is None:
+        rot = uniform_random_rotation(n_sample)              # (n_sample,3,3)
+    if trans is None:
+        trans = s_trans * torch.randn(n_sample, 3)          # (n_sample,3)
+    # rot (s,3,3) @ x (N_atom,3) -> (n_sample,N_atom,3); add per-sample trans
+    x_aug = torch.einsum("sij,nj->sni", rot, x) + trans.unsqueeze(-2)
+    return x_aug.to(dtype), trans.to(dtype), rot.to(dtype), x_center.to(dtype)
+
+
+def reverse_centre_random_augmentation(x_aug, trans, rot, x_center):
+    """Inverse of centre_random_augmentation. x_aug (n_sample,N_atom,3); returns
+    (n_sample,N_atom,3) in the original frame. Mirrors ODesign reverse_centre_random_augmentation."""
+    x = x_aug - trans.unsqueeze(-2)                        # (n_sample,N_atom,3)
+    # apply rot^T: out[s,n,i] = sum_j rot[s,i,j] * x[s,n,j]
+    x = torch.einsum("sij,snj->sni", rot, x)
+    x = x + x_center.unsqueeze(-2)                          # (1,3) -> (1,1,3) broadcast
+    return x.view_as(x_aug)
+
+
+def uniform_random_rotation(n_sample=1):
+    """Random rotation matrices via scipy Rotation.random (numpy RNG). Mirrors
+    ODesign uniform_random_rotation. Returns (n_sample,3,3) fp32 torch tensor."""
+    return torch.from_numpy(Rotation.random(num=n_sample).as_matrix()).float()
+
+
+def edm_noise_schedule(n_step=200, s_max=160.0, s_min=4e-4, rho=7, sigma_data=16.0,
+                       dtype=torch.float32):
+    """InferenceNoiseEDMScheduler.set_noise_schedule: power-law sigma schedule,
+    sigma(N_step)=0. Returns tensor [N_step+1]."""
+    step = 1.0 / n_step
+    idx = torch.arange(n_step + 1, dtype=dtype)
+    t = sigma_data * (s_max ** (1.0 / rho) + idx * step * (s_min ** (1.0 / rho) - s_max ** (1.0 / rho))) ** rho
+    t[-1] = 0.0
+    return t
+
+
+def edm_step_params(schedule, step_idx, n_sample=1, use_pc=True, gamma0=0.8, gamma_min=1.0):
+    """get_noise_level: returns (t_hat, c_tau, c_tau_last). t_hat = c_tau_last*(1+gamma),
+    gamma=gamma0 if c_tau>gamma_min else 0."""
+    c_tau_last = schedule[step_idx]
+    c_tau = schedule[step_idx + 1]
+    if use_pc:
+        gamma = float(gamma0) if float(c_tau) > float(gamma_min) else 0.0
+        t_hat = c_tau_last * (gamma + 1.0)
+    else:
+        t_hat = c_tau_last
+    return t_hat.expand(n_sample), c_tau.expand(n_sample), c_tau_last.expand(n_sample)
+
+
+def add_noise_with_condition(x_l, condition_mask, t_hat, sigma_data=16.0,
+                             noise_scale_lambda=1.003, use_pc=True, c_tau_last=None,
+                             noise=None):
+    """InferenceNoiseEDMScheduler.add_noise_with_condition: corrector noise +
+    c_in scaling. `noise` (precomputed draw) is used if supplied. Returns
+    x_noisy = c_in*(x_l + lambda*delta_sigma*noise), with zero noise on cond atoms."""
+    if use_pc:
+        delta = torch.sqrt(t_hat ** 2 - c_tau_last ** 2)
+        if noise is None:
+            noise = torch.where(_append_dims(condition_mask, x_l.ndim),
+                                torch.zeros_like(x_l), torch.randn_like(x_l))
+        else:
+            noise = torch.where(_append_dims(condition_mask, x_l.ndim),
+                                torch.zeros_like(x_l), noise)
+        x_noisy = x_l + noise_scale_lambda * delta * noise
+    else:
+        x_noisy = x_l
+    c_in = 1.0 / torch.sqrt(sigma_data ** 2 + t_hat ** 2)
+    return c_in * x_noisy
+
+
+def update_with_condition(x_noisy, x_update, x_gt, condition_mask, t_hat, c_tau,
+                          sigma_data=16.0, step_scale_eta=1.5):
+    """InferenceNoiseEDMScheduler.update_with_condition: EDM denoise + Euler step +
+    condition enforcement. Mirrors ODesign schedulers.py L514-592."""
+    sigma = _append_dims(t_hat, x_noisy.ndim)
+    s_ratio = sigma / sigma_data
+    x_noisy_unscaled = x_noisy * torch.sqrt(sigma_data ** 2 + sigma ** 2)
+    x_denoised = (1.0 / (1.0 + s_ratio ** 2)) * x_noisy_unscaled \
+        + (sigma / torch.sqrt(1.0 + s_ratio ** 2)) * x_update
+    delta = (x_noisy_unscaled - x_denoised) / sigma
+    dt = c_tau - t_hat
+    x_l = x_noisy_unscaled + step_scale_eta * dt * delta
+    x_l = torch.where(_append_dims(condition_mask, x_l.ndim), x_gt, x_l)
+    return x_l
+
+
+def generate_sampler_draws(n_atom, n_step, seed=42, condition_mask=None,
+                           s_max=160.0, sigma_data=16.0, dtype=torch.float32):
+    """Generate the full set of random draws for one closed-loop sample, in the
+    exact call order ODesign's sampler consumes them (seed_everything ->
+    init randn -> per step: Rotation.random, trans randn, corrector randn_like).
+    Seeding random + numpy + torch CPU. Returns a dict of host fp32 tensors so
+    the on-device and CPU-fp32 reference samplers consume an IDENTICAL noise
+    realization (isolating the device bf16 compounding). NOTE: the original
+    golden was drawn from CUDA's Philox RNG, which is not reproducible on a
+    CPU-only/Tenstorrent box -- so these draws match the golden's numpy
+    (Rotation) stream but NOT its torch.randn (CUDA) stream; see pass-5 notes."""
+    _random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+    if condition_mask is None:
+        condition_mask = torch.zeros(n_atom, dtype=torch.bool)
+    condition_mask = condition_mask.unsqueeze(0)   # (1,N_atom) -- matches ODesign's (N_sample,N_atom)
+    schedule = edm_noise_schedule(n_step, s_max=s_max, sigma_data=sigma_data, dtype=dtype)
+    # init noise: s_max*randn for free atoms, x_gt (zeros here, no cond atoms) for cond
+    init = schedule[0] * torch.randn(1, n_atom, 3, dtype=dtype)
+    init = torch.where(_append_dims(condition_mask, init.ndim),
+                       torch.zeros_like(init), init)
+    rots, transes, noises = [], [], []
+    for i in range(n_step):
+        t_hat, c_tau, c_tau_last = edm_step_params(schedule, i, n_sample=1)
+        rot = uniform_random_rotation(1)                       # numpy draw (matches golden)
+        trans = 1.0 * torch.randn(1, 3, dtype=dtype)           # torch draw (CPU vs CUDA)
+        noise = torch.randn_like(init)                         # torch draw (CPU vs CUDA)
+        rots.append(rot); transes.append(trans); noises.append(noise)
+    return {"seed": seed, "schedule": schedule, "init_noise": init,
+            "rots": rots, "trans": transes, "noises": noises,
+            "condition_mask": condition_mask}
 from . import protenix_weights as PW
 
 
@@ -268,3 +432,55 @@ class ODesign:
                   % (min(pccs), sum(pccs) / len(pccs),
                      float(steps[-1]["t_hat"].max()), float(steps[0]["t_hat"].max())), flush=True)
         return pccs, maxerrs
+
+    def closed_loop_sample(self, pre, draws, cond=None, verbose=True):
+        """Run the FULL ODesign sampler loop (Algorithm 18) around the on-device
+        denoise_step, consuming the precomputed `draws` (init noise + per-step
+        rotation/translation/corrector-noise) so the result is directly comparable
+        to a CPU-fp32 reference sampler fed the SAME draws. This is the closed-loop
+        parity test the pass-4 per-step replay did not exercise: augmentation,
+        condition enforcement, and the EDM Euler update compound the per-step
+        network error over all 200 steps.
+
+        pre: golden trunk conditioning (s_inputs/s_trunk/z_trunk/input_data/...).
+        draws: dict from generate_sampler_draws (identical for device + CPU-ref).
+        cond: prebuilt cond dict (build_cond); built from pre if None.
+        Returns final coords (1,N,3) host fp32 tensor.
+
+        The loop mirrors ODesign src/model/modules/generator.sample_diffusion exactly:
+          x_l = init_noise (free atoms) / x_gt (cond atoms)
+          for step: x_l,trans,rot,center = centre_random_augmentation(x_l)
+                    t_hat,c_tau = get_noise_level(step)
+                    x_noisy = add_noise_with_condition(x_l, cond_mask, noise=noises[step])
+                    x_update = denoise_step(x_noisy, t_hat, cond)   # on-device network
+                    x_l = update_with_condition(x_noisy, x_update, x_gt=x_l_augment, cond_mask)
+                    x_l = reverse_centre_random_augmentation(x_l, trans, rot, center)
+        No condition atoms in this golden (is_condition_atom sum 0) -> unconditional
+        generation; condition enforcement is a no-op here but implemented for fidelity.
+        """
+        if cond is None:
+            cond = self.build_cond(pre)
+        feat = pre["input_data"]
+        N = feat["ref_pos"].shape[0]
+        schedule = draws["schedule"]
+        cond_mask = draws["condition_mask"]
+        x_gt = pre["gt_coordinate"].float()                      # (N,3); unused when no cond atoms
+        x_l = draws["init_noise"].clone()                        # (1,N,3) s_max*randn
+        n_step = len(draws["rots"])
+        for i in range(n_step):
+            x_l_aug, trans, rot, x_center = centre_random_augmentation(
+                x_l.squeeze(0), n_sample=1, rot=draws["rots"][i], trans=draws["trans"][i])
+            # x_l_aug is (1,N,3); keep the N_sample dim -- the reference DiffusionModule
+            # and our denoise_step both expect (N_sample,N_atom,3).
+            x_l_augment = x_l_aug.clone()
+            t_hat, c_tau, c_tau_last = edm_step_params(schedule, i, n_sample=1)
+            x_noisy = add_noise_with_condition(
+                x_l_aug, cond_mask, t_hat, c_tau_last=c_tau_last, noise=draws["noises"][i])
+            x_update = self.denoise_step(x_noisy, t_hat, cond)     # on-device (1,N,3)
+            x_l = update_with_condition(x_noisy, x_update, x_gt=x_l_augment,
+                                        condition_mask=cond_mask, t_hat=t_hat, c_tau=c_tau)
+            x_l = reverse_centre_random_augmentation(x_l, trans, rot, x_center)
+            if verbose and (i % 20 == 0 or i == n_step - 1):
+                print("  closed-loop step %3d  t_hat=%9.4g  |x_l|=%.4f"
+                      % (i, float(t_hat.max()), float(x_l.norm() / (x_l.numel() ** 0.5))), flush=True)
+        return x_l
