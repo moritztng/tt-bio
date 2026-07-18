@@ -17,6 +17,9 @@ tt-bio affinity --protein MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIV
 
 # batch (CSV with protein,smiles columns)
 tt-bio affinity --pairs pairs.csv --out_dir ./affinity
+
+# batch across 4 cards, device-resident pooler handoff
+tt-bio affinity --pairs pairs.csv --devices 0,1,2,3 --fast
 ```
 
 Output (`--out_dir`, default `./affinity`):
@@ -29,6 +32,21 @@ affinity.json   # one row per pair: protein, smiles, neg_log10_affinity_M, affin
 the same value in micromolar. Weights for ProtBERT and ChemBERTa are fetched
 from HuggingFace on first use and cached; the fusion-head weights and both
 tokenizers are vendored under `tt_bio/_vendor/plapt/`.
+
+### `--fast` and `--devices`
+
+The pipeline is loaded once and kept resident across every pair in the batch —
+the weight load is paid once, then each pair is a forward pass.
+
+- `--fast` keeps the encoder pooler outputs on-device straight into the fusion
+  head (no `bf16 → fp32 → bf16` host round-trip on the poolers). That round-trip
+  is bit-exact for bf16, so `--fast` is parity-identical to the default path and
+  just skips two host syncs per pair. Use it freely.
+- `--devices 0,1,2,...` shards a `--pairs` batch across physical cards
+  (data-parallel): one pinned subprocess per card, each with its own resident
+  pipeline, results reassembled in input order. Each pair is independent, so
+  sharding is lossless (sharded pKd is bit-identical to scoring the same pair on
+  one card). More cards than pairs is harmless (extra cards idle).
 
 ## Inputs
 
@@ -75,11 +93,19 @@ in `tests/affinity_reference.py`):
 
 End-to-end pKd on held-out pairs is within ~0.18 of the fp32 PLAPT reference;
 the residual is bf16 inference noise in the ChemBERTa pooler (the fusion head
-itself contributes <0.02 pKd). Run the parity suite on a TT card:
+itself contributes <0.02 pKd). `--fast` does not change this — it is bit-exact
+vs the default path (max |ΔpKd| = 0 on CSAR-HiQ_36). Run the parity suite on a
+TT card:
 
 ```bash
 TT_VISIBLE_DEVICES=0 python tests/test_affinity.py
 ```
+
+The multi-card fanout is bit-exact too: scoring 8 CSAR pairs across two cards
+gives max |ΔpKd| = 0 vs single-card (`tests/verify_affinity_p3_multicard.py`).
+The fanout mirrors the `tt-bio embed` / `predict` data-parallel pattern (one
+pinned subprocess per card); each pair is independent, so sharding only changes
+which card scores which pair.
 
 ## License
 

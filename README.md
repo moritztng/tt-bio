@@ -240,12 +240,16 @@ on-device:
 tt-bio affinity --protein MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG \
                 --smiles "CC1=CC=C(C=C1)C2=CC(=NN2C3=CC=C(C=C3)S(=O)(=O)N)C(F)(F)F"
 tt-bio affinity --pairs pairs.csv --out_dir ./affinity   # batch (CSV: protein,smiles)
+tt-bio affinity --pairs pairs.csv --devices 0,1,2,3 --fast   # multi-card, device-resident
 ```
 
 Output is `affinity.json` with `neg_log10_affinity_M` (pKd) and `affinity_uM`
-per pair. On the CSAR-HiQ_36 benchmark the port scores Pearson r=0.724 /
-RMSE=1.365, matching the original PLAPT pipeline to PCC 0.9986. See
-[docs/affinity-head.md](docs/affinity-head.md) for details.
+per pair. The pipeline loads once and stays resident across the whole batch.
+`--fast` keeps the pooler outputs on-device into the fusion head (bit-exact,
+no parity change); `--devices` shards a batch across cards data-parallel
+(lossless — each pair is independent). On the CSAR-HiQ_36 benchmark the port
+scores Pearson r=0.724 / RMSE=1.365, matching the original PLAPT pipeline to
+PCC 0.9986. See [docs/affinity-head.md](docs/affinity-head.md) for details.
 
 ### Input Format
 

@@ -2547,7 +2547,18 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
               help="CSV file with `protein,smiles` columns for batch scoring.")
 @click.option("--out_dir", default="./affinity", show_default=True,
               help="Output directory (affinity.json is written here).")
-def affinity_cmd(protein, smiles, pairs_path, out_dir):
+@click.option("--fast", is_flag=True,
+              help="Device-resident pooler handoff: keep the encoder pooler outputs "
+                   "on-device straight into the fusion head (no bf16->fp32->bf16 host "
+                   "round-trip). Bit-exact vs the default path — just skips two host "
+                   "syncs per pair. No accuracy change.")
+@click.option("--devices", default=None,
+              help="Comma-separated physical TT card ids to shard a --pairs batch "
+                   "across (data-parallel), e.g. '0,1,2,3'. One pinned subprocess per "
+                   "card, each with its own resident pipeline; results are reassembled "
+                   "in input order. Each pair is independent, so sharding is lossless. "
+                   "Default: this machine's single card.")
+def affinity_cmd(protein, smiles, pairs_path, out_dir, fast, devices):
     """Predict protein-ligand binding affinity (pKd) from sequence + SMILES.
 
     PLAPT-style standalone affinity head: a frozen ProtBERT protein encoder
@@ -2556,11 +2567,18 @@ def affinity_cmd(protein, smiles, pairs_path, out_dir):
     a normalized affinity, rescaled to neg_log10_affinity_M (pKd). Runs on this
     machine's TT card; weights are fetched from HuggingFace on first use.
 
-    
+    The pipeline is loaded once and kept resident across every pair in the batch
+    (the ~30s weight load is paid once, then each pair is a forward pass). With
+    `--devices 0,1,...` a `--pairs` batch is sharded across cards (one resident
+    pipeline per card, data-parallel); `--fast` skips the pooler host round-trip
+    (parity-identical).
+
+    \b
     Single pair:  tt-bio affinity --protein MKTVRQER... --smiles CC(=O)C
     Batch (CSV):  tt-bio affinity --pairs pairs.csv   (columns: protein,smiles)
+    Multi-card:   tt-bio affinity --pairs pairs.csv --devices 0,1,2,3 --fast
 
-    
+    \b
     Output:
         affinity.json   # one row per pair: protein, smiles, neg_log10_affinity_M, affinity_uM
     """
@@ -2592,19 +2610,31 @@ def affinity_cmd(protein, smiles, pairs_path, out_dir):
         rows = [(protein, smiles)]
 
     click.echo("Loading affinity pipeline (ProtBERT + ChemBERTa + fusion head) ...")
-    model = aff.Affinity.from_pretrained()
+    device_list = None
+    if devices:
+        from tt_bio import runtime
+        device_list = runtime.detect_tenstorrent_devices(devices, 0, len(rows))
+
     import json
-    results = []
-    for i, (prot, mol) in enumerate(rows):
-        if not prot or not mol:
-            click.secho(f"skipping row {i}: missing protein or smiles", fg="yellow")
-            continue
-        res = model.predict(prot, mol)
-        res["protein"] = prot
-        res["smiles"] = mol
-        results.append(res)
-        click.echo(f"[{i}] pKd={res['neg_log10_affinity_M']:.3f}  "
-                   f"affinity={res['affinity_uM']:.3g} uM  ({mol[:40]})")
+    n = sum(1 for p, m in rows if p and m)
+    if device_list and len(device_list) > 1 and n > 1:
+        click.echo(f"Sharding {n} pair(s) across cards {device_list}"
+                   f"{' (fast)' if fast else ''} → {out}")
+        scored = aff.predict(rows, devices=device_list, fast=fast)
+        results = [r for r in scored if r is not None]
+    else:
+        model = aff.Affinity.from_pretrained()
+        results = []
+        for i, (prot, mol) in enumerate(rows):
+            if not prot or not mol:
+                click.secho(f"skipping row {i}: missing protein or smiles", fg="yellow")
+                continue
+            res = model.predict(prot, mol, fast=fast)
+            res["protein"] = prot
+            res["smiles"] = mol
+            results.append(res)
+            click.echo(f"[{i}] pKd={res['neg_log10_affinity_M']:.3f}  "
+                       f"affinity={res['affinity_uM']:.3g} uM  ({mol[:40]})")
     (out / "affinity.json").write_text(json.dumps(results, indent=2))
     click.echo(f"Wrote {out / 'affinity.json'} ({len(results)} pair(s))")
 

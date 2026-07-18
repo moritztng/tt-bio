@@ -257,7 +257,9 @@ class ChemBERTa(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> _ChemBERTaModel:
         return _ChemBERTaModel(weights, self.compute_kernel_config, self.cfg)
 
-    def forward(self, input_ids: torch.Tensor):
+    def _encode_tt(self, input_ids: torch.Tensor):
+        """Run the encoder, returning (pooler, last_hidden) as on-device ttnn
+        tensors (bf16). Used by the device-resident `--fast` path."""
         pos = _position_ids(input_ids, self.cfg["pad_token_id"])
         tokens_tt = ttnn.from_torch(
             input_ids.to(torch.int32), device=self.tt_device,
@@ -267,7 +269,14 @@ class ChemBERTa(TorchWrapper):
             pos.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        pool, hidden = self.module(tokens_tt, pos_tt)
+        return self.module(tokens_tt, pos_tt)
+
+    def forward_tt(self, input_ids: torch.Tensor):
+        """On-device encode: returns (pooler, last_hidden) as ttnn tensors."""
+        return self._encode_tt(input_ids)
+
+    def forward(self, input_ids: torch.Tensor):
+        pool, hidden = self._encode_tt(input_ids)
         return self._to_torch(pool), self._to_torch(hidden)
 
 
@@ -530,7 +539,10 @@ class ProtBERT(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> _ProtBertModel:
         return _ProtBertModel(weights, self.compute_kernel_config, self.cfg)
 
-    def forward(self, input_ids: torch.Tensor):
+    def _encode_tt(self, input_ids: torch.Tensor):
+        """Run the encoder, returning (pooler, last_hidden) as on-device ttnn
+        tensors (bf16). Used by the device-resident `--fast` path so the pooler
+        feeds the fusion head without a host round-trip."""
         L = input_ids.shape[1]
         pos = torch.arange(L, dtype=torch.long).unsqueeze(0).expand_as(input_ids)
         tokens_tt = ttnn.from_torch(
@@ -541,7 +553,14 @@ class ProtBERT(TorchWrapper):
             pos.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        pool, hidden = self.module(tokens_tt, pos_tt)
+        return self.module(tokens_tt, pos_tt)
+
+    def forward_tt(self, input_ids: torch.Tensor):
+        """On-device encode: returns (pooler, last_hidden) as ttnn tensors."""
+        return self._encode_tt(input_ids)
+
+    def forward(self, input_ids: torch.Tensor):
+        pool, hidden = self._encode_tt(input_ids)
         return self._to_torch(pool), self._to_torch(hidden)
 
 
@@ -626,6 +645,15 @@ class Affinity:
 
     protein -> ProtBERT pooler (1024) ; SMILES -> ChemBERTa pooler (768) ;
     fusion MLP -> normalized affinity -> rescaled to neg_log10_affinity_M (pKd).
+
+    The pipeline is loaded once and kept resident across every ``predict`` /
+    ``predict_many`` call (weights stay on-device; the only per-call host traffic
+    is the tiny input-id tensors). ``fast=True`` additionally keeps the pooler
+    activations on-device between the encoders and the fusion head — no
+    bf16->fp32->bf16 host round-trip on the pooler outputs. That round-trip is
+    bit-exact for bf16 (bf16->fp32 is zero-extension, fp32->bf16 of an
+    already-bf16 value is identity), so ``--fast`` is parity-identical to the
+    default path and just skips two host syncs per pair.
     """
 
     def __init__(self, prot: "ProtBERT", mol: "ChemBERTa", head: "AffinityHead"):
@@ -638,15 +666,197 @@ class Affinity:
         return cls(ProtBERT.from_pretrained(), ChemBERTa.from_pretrained(),
                    AffinityHead.from_pretrained())
 
-    def predict(self, protein_seq: str, smiles: str) -> dict:
+    def _predict_tt(self, protein_seq: str, smiles: str) -> torch.Tensor:
+        """Device-resident forward: encode both towers, feed on-device bf16
+        poolers straight into the fusion head, return the normalized affinity
+        as a host fp32 tensor [B,1] (B=1 here)."""
         prot_ids = tokenize_protein(protein_seq)
         mol_ids = tokenize_smiles(smiles)
-        prot_pool, _ = self.prot(prot_ids)
-        mol_pool, _ = self.mol(mol_ids)
-        norm = self.head(prot_pool, mol_pool)
+        prot_pool, _ = self.prot._encode_tt(prot_ids)
+        mol_pool, _ = self.mol._encode_tt(mol_ids)
+        norm_tt = self.head.module(prot_pool, mol_pool)
+        return self.head._to_torch(norm_tt)
+
+    def predict(self, protein_seq: str, smiles: str, *, fast: bool = False) -> dict:
+        if fast:
+            norm = self._predict_tt(protein_seq, smiles)
+            bsz = norm.shape[0]
+            norm = norm.reshape(bsz, 1)
+        else:
+            prot_ids = tokenize_protein(protein_seq)
+            mol_ids = tokenize_smiles(smiles)
+            prot_pool, _ = self.prot(prot_ids)
+            mol_pool, _ = self.mol(mol_ids)
+            norm = self.head(prot_pool, mol_pool)
         pkd = AffinityHead.to_affinity(norm)
         pkd_v = float(pkd.reshape(-1)[0].item())
         return {
             "neg_log10_affinity_M": pkd_v,
             "affinity_uM": float((10 ** 6) * (10 ** (-pkd_v))),
         }
+
+    def predict_many(
+        self, pairs: list[tuple[str, str]], *, fast: bool = False,
+    ) -> list[dict]:
+        """Score a list of (protein, smiles) pairs with one resident pipeline.
+
+        Reuses the loaded encoders + head across the whole batch (the ~30s
+        weight load is paid once, then each pair is a forward pass). ``fast``
+        toggles the device-resident pooler handoff (parity-identical)."""
+        out = []
+        for prot, mol in pairs:
+            if not prot or not mol:
+                out.append(None)
+                continue
+            out.append(self.predict(prot, mol, fast=fast))
+        return out
+
+
+# ---------------------------------------------------------------------------
+# Multi-card data-parallel fanout (mirrors tt_bio.esmc.embed_multicard)
+# ---------------------------------------------------------------------------
+
+import os as _os
+import sys as _sys
+import pickle as _pickle
+import shutil as _shutil
+import subprocess as _subprocess
+import tempfile as _tempfile
+
+
+def _shard_pairs(pairs: list[tuple[str, str]], n: int) -> list[list[tuple[int, tuple[str, str]]]]:
+    """Split pairs into ``n`` length-balanced shards for data-parallel scoring.
+
+    Returns shards of ``(original_index, (protein, smiles))`` so the gather can
+    restore input order without ``list.index`` (which is O(n^2) and ambiguous on
+    duplicate pairs). Protein length dominates per-pair cost (ProtBERT is
+    O(L^2) attention over 30 layers), so pairs are length-sorted and striped
+    round-robin across shards so every card gets a similar length distribution."""
+    shards: list[list[tuple[int, tuple[str, str]]]] = [[] for _ in range(n)]
+    order = sorted(range(len(pairs)), key=lambda i: len(pairs[i][0]))
+    for rank, i in enumerate(order):
+        shards[rank % n].append((i, pairs[i]))
+    return shards
+
+
+def _run_affinity_shard(in_path: str, out_path: str) -> None:
+    """Subprocess entry: score one shard on the pinned card, pickle results.
+
+    Runs in a fresh interpreter with ``TT_VISIBLE_DEVICES`` set so the assigned
+    physical chip is logical device 0. Reads a pickled ``{pairs, fast}`` request
+    and writes ``[(index, result_dict), ...]`` (indices into the original list).
+    """
+    with open(in_path, "rb") as f:
+        req = _pickle.load(f)
+    model = Affinity.from_pretrained()
+    results = []
+    for idx, (prot, mol) in req["pairs"]:
+        if not prot or not mol:
+            results.append((idx, None))
+            continue
+        res = model.predict(prot, mol, fast=req["fast"])
+        res["protein"] = prot
+        res["smiles"] = mol
+        results.append((idx, res))
+    with open(out_path, "wb") as f:
+        _pickle.dump(results, f)
+
+
+def _thread_cap_env(n_workers: int) -> dict:
+    cap = max(1, (_os.cpu_count() or 1) // max(1, n_workers))
+    return {var: str(cap) for var in
+            ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
+            if var not in _os.environ}
+
+
+def _spawn_affinity_shard(idx: int, device: int, shard: list[tuple[int, tuple[str, str]]],
+                          workdir: str, *, fast: bool, thread_cap_env: dict | None = None):
+    """Launch a pinned subprocess scoring ``shard`` on physical card ``device``.
+
+    ``shard`` is a list of ``(original_index, (protein, smiles))``. Returns
+    ``(proc, out_path, device, log_path, logf)``."""
+    in_path = _os.path.join(workdir, f"shard{idx}.in.pkl")
+    out_path = _os.path.join(workdir, f"shard{idx}.out.pkl")
+    log_path = _os.path.join(workdir, f"shard{idx}.log")
+    with open(in_path, "wb") as f:
+        _pickle.dump(dict(pairs=shard, fast=fast), f)
+    env = {**_os.environ, **(thread_cap_env or {}),
+           "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
+    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    if device in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            env["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    logf = open(log_path, "w")
+    proc = _subprocess.Popen(
+        [_sys.executable, "-c",
+         "import sys; from tt_bio.affinity import _run_affinity_shard; "
+         "_run_affinity_shard(sys.argv[1], sys.argv[2])",
+         in_path, out_path],
+        env=env, stdout=logf, stderr=_subprocess.STDOUT)
+    return proc, out_path, device, log_path, logf
+
+
+def _read_log_tail(path: str, n: int) -> str:
+    try:
+        return "\n".join(Path(path).read_text(errors="replace").splitlines()[-n:])
+    except OSError:
+        return ""
+
+
+def predict_multicard(pairs: list[tuple[str, str]], *, devices: list[int],
+                      fast: bool = False) -> list[dict]:
+    """Data-parallel affinity scoring across multiple physical TT cards.
+
+    Shards ``pairs`` across ``devices`` (one pinned subprocess per card, each
+    loads its own resident pipeline), runs :meth:`Affinity.predict_many` in each,
+    then gathers results and restores the original input order. Embarrassingly
+    parallel: each pair is independent (no cross-pair state), so a pair's pKd is
+    identical to running it on one card — sharding changes only which chip
+    scores which pair. More cards than pairs is harmless (extra cards idle)."""
+    devices = list(devices)[:max(1, len(pairs))]
+    shards = _shard_pairs(pairs, len(devices))
+    workdir = _tempfile.mkdtemp(prefix="tt-bio-affinity-fanout-")
+    thread_cap_env = _thread_cap_env(len(devices))
+    try:
+        handles = [
+            _spawn_affinity_shard(idx, dev, shard, workdir,
+                                  fast=fast, thread_cap_env=thread_cap_env)
+            for idx, (dev, shard) in enumerate(zip(devices, shards)) if shard
+        ]
+        gathered: list[tuple[int, dict]] = []
+        for proc, out_path, device, log_path, logf in handles:
+            proc.wait()
+            logf.close()
+            if proc.returncode != 0:
+                raise RuntimeError(f"affinity shard on device {device} failed "
+                                   f"(exit {proc.returncode}):\n{_read_log_tail(log_path, 25)}")
+            with open(out_path, "rb") as f:
+                gathered.extend(_pickle.load(f))
+    finally:
+        _shutil.rmtree(workdir, ignore_errors=True)
+    gathered.sort(key=lambda r: r[0])
+    return [r[1] for r in gathered]
+
+
+def predict(pairs: list[tuple[str, str]], *, devices: list[int] | None = None,
+            fast: bool = False) -> list[dict]:
+    """Score (protein, smiles) pairs, optionally fanned across multiple cards.
+
+    With 0/1 device the pipeline is loaded in-process on this card; with >1 the
+    pairs are sharded across the cards (data-parallel, one resident pipeline per
+    card) and results are returned in the original input order.
+    """
+    if devices and len(devices) > 1:
+        return predict_multicard(pairs, devices=devices, fast=fast)
+    model = Affinity.from_pretrained()
+    results = []
+    for prot, mol in pairs:
+        if not prot or not mol:
+            results.append(None)
+            continue
+        res = model.predict(prot, mol, fast=fast)
+        res["protein"] = prot
+        res["smiles"] = mol
+        results.append(res)
+    return results
