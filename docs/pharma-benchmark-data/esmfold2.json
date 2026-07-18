@@ -190,5 +190,92 @@
       "cross_over_floor": 0.7271653637630731,
       "within_noise_floor": true
     }
+  },
+  {
+    "protein": "lysozyme",
+    "L": 129,
+    "n_seeds": 5,
+    "plddt_pcc": 0.995029091835022,
+    "plddt_mae": 0.0007965555414557457,
+    "distogram_pcc": 0.9995667338371277,
+    "ptm_tt": 0.9915123581886292,
+    "ptm_ref": 0.9914461970329285,
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 25,
+        "mean": 0.13020768702030183,
+        "std": 0.01770033107124703,
+        "min": 0.10180740058422089,
+        "max": 0.15192212164402008
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.09496348723769188,
+        "std": 0.020693836842356313,
+        "min": 0.06443656235933304,
+        "max": 0.133821502327919
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.07737840004265309,
+        "std": 0.008145491707168356,
+        "min": 0.061744000762701035,
+        "max": 0.08708040416240692
+      },
+      "floor_mean": 0.09496348723769188,
+      "cross_over_floor": 1.3711342201913286,
+      "within_noise_floor": false
+    },
+    "coord_dm_1mpcc": {
+      "metric": "1-coord_dm_pcc",
+      "cross": {
+        "n": 25,
+        "mean": 0.00011054277420043945,
+        "std": 3.065329136851384e-05,
+        "min": 6.210803985595703e-05,
+        "max": 0.00015628337860107422
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 5.7870149612426756e-05,
+        "std": 2.5144648043869613e-05,
+        "min": 2.2590160369873047e-05,
+        "max": 0.00010991096496582031
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 3.9064884185791014e-05,
+        "std": 8.099181250668726e-06,
+        "min": 2.5212764739990234e-05,
+        "max": 4.9233436584472656e-05
+      },
+      "floor_mean": 5.7870149612426756e-05,
+      "cross_over_floor": 1.910186424966526,
+      "within_noise_floor": false
+    },
+    "_provenance": {
+      "leg": "ESMFold2 longer-sequence parity (tt-bio-pharma-benchmark-next-leg)",
+      "host": "pc (card 0, Blackhole)",
+      "date": "2026-07-18",
+      "target": "hen egg-white lysozyme (PDB 1L2Y/2VB1, L129) \u2014 the model antigen in antibody drug-discovery assays (HyHEL10-class complexes); extends the ESMFold2 leg past the L76 ubiquitin ceiling toward pharma-realistic lengths",
+      "harness": "scripts/esmfold2_e2e_parity.py (in-process vendored torch reference + ttnn device, sharing pharma_parity.noise_floor_verdict)",
+      "settings": {
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "steps": 20,
+        "recycles": 3,
+        "diffusion_samples": 1,
+        "feature_seed": 7,
+        "msa": "none (ESMFold2 is single-sequence)"
+      },
+      "note": "0.130 A is the tightest ABSOLUTE CA-RMSD of any ESMFold2 leg (vs trpcage 0.605, gb1 0.332, ubiquitin 0.755). Lysozyme is a rigid, well-folded domain so the torch reference is unusually self-consistent (R=0.095 A), making the floor tight; the device bf16 diffusion stochasticity (X=0.130 A) sits at 1.37x that floor (above the strict floor, sub-angstrom, t~=4.6 on the mean difference). Sampler-independent outputs match essentially exactly: pLDDT PCC 0.9950, distogram PCC 0.99957, pTM delta +0.00007. Disclosed as a coordinate-floor nuance, not an algorithmic discrepancy.",
+      "invalidation_rule": "Regenerate only when the pinned ESMFold2/ESMC-6B weights or the harness settings change; the device side re-runs live."
+    }
   }
 ]
