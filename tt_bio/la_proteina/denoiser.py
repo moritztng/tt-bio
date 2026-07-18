@@ -519,22 +519,139 @@ class TTPairTransition:
         return h
 
 
+
+
+# ---------------------------------------------------------------------------
+# pass 4: tri-mult pair update + full multi-layer trunk
+# ---------------------------------------------------------------------------
+
+
+class TTTriangleMultiplicativeUpdate:
+    """ttnn port of openfold `TriangleMultiplicativeUpdate` (Algorithms 11/12).
+
+    Self-contained direct port (mirrors the openfold math exactly; does NOT
+    reuse `tt_bio.tenstorrent.TriangleMultiplication` because that port uses
+    the boltz2/protenix state-dict key layout (`norm_in/g_in/p_in/...`), not
+    openfold's (`layer_norm_in/linear_a_p/...`), and is coupled to the
+    tenstorrent.py `Module`/`Weights` framework. Reuse was not free; a clean
+    parity-focused port here keeps the la_proteina denoiser self-contained.
+    The perf-grade fused/chunked path is a follow-on (see memory
+    `trimul-largeN-permute-bottleneck`); at parity N=64 it is L1-resident.
+
+    forward (c_z = pair_dim, c_hidden = min(pair_dim, tri_mult_c)):
+        z = LN_in(z)
+        a = linear_a_p(z) * sigmoid(linear_a_g(z))   ; a *= mask
+        b = linear_b_p(z) * sigmoid(linear_b_g(z))   ; b *= mask
+        # contraction (batch over c_hidden), outgoing vs incoming differ only
+        # in which spatial axes of a/b become (N_i, N_k) / (N_k, N_j):
+        #   outgoing: a->(C,N_i,N_k)  b->(C,N_k,N_j)
+        #   incoming: a->(C,N_i,N_k)  b->(C,N_k,N_j)   (permutes swapped)
+        p = matmul(a_perm, b_perm)                   # [B,C,N_i,N_j]
+        x = permute(p, -> [B,N_i,N_j,C])
+        x = LN_out(x) ; x = linear_z(x)              # [B,N,N,c_z]
+        g = sigmoid(linear_g(z))                     # z = LN_in(z)
+        out = x * g                                  # [B,N,N,c_z]
+    No trailing mask (the outer PairReprUpdate re-masks after adding).
+    """
+
+    def __init__(
+        self,
+        device,
+        ck,
+        state_dict: dict,
+        c_z: int,
+        c_hidden: int,
+        outgoing: bool = True,
+        dtype=ttnn.bfloat16,
+    ):
+        self.device = device
+        self.ck = ck
+        self.dtype = dtype
+        self.c_z = c_z
+        self.c_hidden = c_hidden
+        self.outgoing = outgoing
+        self.ln_in_w = _tt(state_dict["layer_norm_in.weight"], device, dtype)
+        self.ln_in_b = _tt(state_dict["layer_norm_in.bias"], device, dtype)
+        self.ln_out_w = _tt(state_dict["layer_norm_out.weight"], device, dtype)
+        self.ln_out_b = _tt(state_dict["layer_norm_out.bias"], device, dtype)
+        self.a_p_w = _tt(state_dict["linear_a_p.weight"], device, dtype, lambda x: x.t())
+        self.a_p_b = _tt(state_dict["linear_a_p.bias"], device, dtype)
+        self.a_g_w = _tt(state_dict["linear_a_g.weight"], device, dtype, lambda x: x.t())
+        self.a_g_b = _tt(state_dict["linear_a_g.bias"], device, dtype)
+        self.b_p_w = _tt(state_dict["linear_b_p.weight"], device, dtype, lambda x: x.t())
+        self.b_p_b = _tt(state_dict["linear_b_p.bias"], device, dtype)
+        self.b_g_w = _tt(state_dict["linear_b_g.weight"], device, dtype, lambda x: x.t())
+        self.b_g_b = _tt(state_dict["linear_b_g.bias"], device, dtype)
+        self.g_w = _tt(state_dict["linear_g.weight"], device, dtype, lambda x: x.t())
+        self.g_b = _tt(state_dict["linear_g.bias"], device, dtype)
+        self.z_w = _tt(state_dict["linear_z.weight"], device, dtype, lambda x: x.t())
+        self.z_b = _tt(state_dict["linear_z.bias"], device, dtype)
+
+    def _lin(self, x, w, bias=None):
+        return ttnn.linear(
+            x, w, bias=bias, compute_kernel_config=self.ck,
+            dtype=self.dtype, core_grid=_CORE_GRID,
+        )
+
+    def _ln(self, x, w, b):
+        return ttnn.layer_norm(
+            x, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=self.ck,
+        )
+
+    def __call__(self, z, pair_mask_4):
+        # z: [B,N,N,c_z]; pair_mask_4: [B,N,N,1]
+        zn = self._ln(z, self.ln_in_w, self.ln_in_b)
+        a = self._lin(zn, self.a_p_w, self.a_p_b)
+        a = ttnn.multiply(a, ttnn.sigmoid(self._lin(zn, self.a_g_w, self.a_g_b)))
+        a = ttnn.multiply(a, pair_mask_4)
+        b = self._lin(zn, self.b_p_w, self.b_p_b)
+        b = ttnn.multiply(b, ttnn.sigmoid(self._lin(zn, self.b_g_w, self.b_g_b)))
+        b = ttnn.multiply(b, pair_mask_4)
+        # to [B, c_hidden, N, N] (channel-move permute)
+        if self.outgoing:
+            a_p = ttnn.permute(a, (0, 3, 1, 2))   # [B,C,N_i,N_k]
+            b_p = ttnn.permute(b, (0, 3, 2, 1))   # [B,C,N_k,N_j]
+        else:
+            a_p = ttnn.permute(a, (0, 3, 2, 1))   # [B,C,N_i,N_k]
+            b_p = ttnn.permute(b, (0, 3, 1, 2))   # [B,C,N_k,N_j]
+        ttnn.deallocate(a); ttnn.deallocate(b)
+        # batched matmul over the channel dim. squeeze the leading B=1 batch
+        # so ttnn.matmul sees a 3D [C,N,N]@[C,N,N] contraction (M=K=N=64,
+        # tile-aligned; batch=C is the leading dim).
+        squeeze_batch = a_p.shape[0] == 1
+        if squeeze_batch:
+            a_p = ttnn.squeeze(a_p, 0)
+            b_p = ttnn.squeeze(b_p, 0)
+        p = ttnn.matmul(a_p, b_p, compute_kernel_config=self.ck)  # [C,N,N]
+        ttnn.deallocate(a_p); ttnn.deallocate(b_p)
+        if squeeze_batch:
+            p = ttnn.unsqueeze(p, 0)
+        # [B,C,N,N] -> [B,N,N,C]
+        p = ttnn.permute(p, (0, 2, 3, 1))
+        x = self._ln(p, self.ln_out_w, self.ln_out_b)
+        ttnn.deallocate(p)
+        x = self._lin(x, self.z_w, self.z_b)          # [B,N,N,c_z]
+        g = ttnn.sigmoid(self._lin(zn, self.g_w, self.g_b))
+        ttnn.deallocate(zn)
+        out = ttnn.multiply(x, g)
+        return out
+
+
+
 class TTPairReprUpdate:
-    """ttnn port of `pair_update.PairReprUpdate` (non-tri-mult path).
+    """ttnn port of `pair_update.PairReprUpdate`.
 
     forward (use_tri_mult=False):
         pair_mask = mask[:,None,:] * mask[:,:,None]
-        x = x * mask
-        x1, x2 = linear_x(LN(x)).chunk(2, -1)
-        pair_rep = (pair_rep + x1[:,None,:] + x2[:,:,None]) * pair_mask
-        pair_rep = (pair_rep + PairTransition(pair_rep, pair_mask)) * pair_mask
-    The `use_tri_mult=True` path inserts openfold TriangleMultiplicationOutgoing/
-    Incoming between the injection and the PairTransition; that reuses the
-    existing `tt_bio.tenstorrent.TriangleMultiplication` port (same openfold
-    state-dict layout: norm_in/g_in/p_in/norm_out/g_out/z_out). Tri-mult device
-    parity is already covered by tt-bio's boltz2/protenix ports, so the fused
-    tri-mult path is deferred to a follow-on pass (wired when a `_tri` checkpoint
-    is available for real-weight parity).
+        x = x * mask[...,None]
+        x1, x2 = linear_x(LN_in(x)).chunk(2, -1)
+        pair_rep = (pair_rep + x1[:,None,:] + x2[:,:,None,:]) * pair_mask[...,None]
+        pair_rep = (pair_rep + PairTransition(pair_rep, pair_mask)) * pair_mask[...,None]
+    use_tri_mult=True inserts openfold TriangleMultiplicationOutgoing/Incoming
+    between the injection and the PairTransition (each tri-mult add followed by
+    a re-mask), via the self-contained `TTTriangleMultiplicativeUpdate` port
+    (same openfold state-dict layout: layer_norm_in / linear_a_p / linear_a_g /
+    linear_b_p / linear_b_g / linear_g / linear_z / layer_norm_out).
     """
 
     def __init__(
@@ -546,6 +663,7 @@ class TTPairReprUpdate:
         pair_dim: int = 256,
         expansion_factor_transition: int = 2,
         use_tri_mult: bool = False,
+        tri_mult_c: int = 196,
         dtype=ttnn.bfloat16,
     ):
         self.device = device
@@ -554,11 +672,6 @@ class TTPairReprUpdate:
         self.token_dim = token_dim
         self.pair_dim = pair_dim
         self.use_tri_mult = use_tri_mult
-        if use_tri_mult:
-            raise NotImplementedError(
-                "TTPairReprUpdate tri-mult path deferred -- reuse "
-                "tt_bio.tenstorrent.TriangleMultiplication (openfold idiom)."
-            )
         self.ln_in_w = _tt(state_dict["layer_norm_in.weight"], device, dtype)
         self.ln_in_b = _tt(state_dict["layer_norm_in.bias"], device, dtype)
         self.linear_x_w = _tt(state_dict["linear_x.weight"], device, dtype, lambda x: x.t())
@@ -566,16 +679,23 @@ class TTPairReprUpdate:
             device, ck, state_dict["transition_out"],
             c_z=pair_dim, n=expansion_factor_transition, dtype=dtype,
         )
+        if use_tri_mult:
+            c_hidden = min(pair_dim, tri_mult_c)
+            self.tri_mult_out = TTTriangleMultiplicativeUpdate(
+                device, ck, state_dict["tri_mult_out"],
+                c_z=pair_dim, c_hidden=c_hidden, outgoing=True, dtype=dtype,
+            )
+            self.tri_mult_in = TTTriangleMultiplicativeUpdate(
+                device, ck, state_dict["tri_mult_in"],
+                c_z=pair_dim, c_hidden=c_hidden, outgoing=False, dtype=dtype,
+            )
 
     def __call__(self, x, pair_rep, mask):
         b, n, _ = x.shape
-        # pair_mask [B,N,N] -> [B,N,N,1]
-        # build pair_mask from mask [B,N,1]
-        # mask is [B,N,1]; pair_mask = mask_b * mask_a^T
-        m1 = mask  # [B,N,1]
-        m2 = ttnn.permute(mask, (0, 2, 1))  # [B,1,N]
-        pair_mask = ttnn.multiply(m1, m2)  # [B,N,N]
-        pair_mask_4 = ttnn.reshape(pair_mask, (b, n, n, 1))  # [B,N,N,1]
+        m1 = mask
+        m2 = ttnn.permute(mask, (0, 2, 1))
+        pair_mask = ttnn.multiply(m1, m2)            # [B,N,N]
+        pair_mask_4 = ttnn.reshape(pair_mask, (b, n, n, 1))
 
         x = ttnn.multiply(x, mask)
         xn = ttnn.layer_norm(
@@ -585,19 +705,165 @@ class TTPairReprUpdate:
         proj = ttnn.linear(
             xn, self.linear_x_w, compute_kernel_config=self.ck,
             dtype=self.dtype, core_grid=_CORE_GRID,
-        )  # [B,N,2*pair_dim]
+        )
         x1 = ttnn.slice(proj, (0, 0, 0), (b, n, self.pair_dim), (1, 1, 1))
         x2 = ttnn.slice(proj, (0, 0, self.pair_dim), (b, n, 2 * self.pair_dim), (1, 1, 1))
         ttnn.deallocate(proj)
-        # x1[:,None,:] -> [B,1,N,pair_dim]; x2[:,:,None,:] -> [B,N,1,pair_dim]
         x1 = ttnn.reshape(x1, (b, 1, n, self.pair_dim))
         x2 = ttnn.reshape(x2, (b, n, 1, self.pair_dim))
         pair_rep = ttnn.add(pair_rep, x1)
         pair_rep = ttnn.add(pair_rep, x2)
         ttnn.deallocate(x1); ttnn.deallocate(x2)
         pair_rep = ttnn.multiply(pair_rep, pair_mask_4)
+        if self.use_tri_mult:
+            tmo = self.tri_mult_out(pair_rep, pair_mask_4)
+            pair_rep = ttnn.add(pair_rep, tmo)
+            ttnn.deallocate(tmo)
+            pair_rep = ttnn.multiply(pair_rep, pair_mask_4)
+            tmi = self.tri_mult_in(pair_rep, pair_mask_4)
+            pair_rep = ttnn.add(pair_rep, tmi)
+            ttnn.deallocate(tmi)
+            pair_rep = ttnn.multiply(pair_rep, pair_mask_4)
         pt = self.transition_out(pair_rep, pair_mask_4)
         pair_rep = ttnn.add(pair_rep, pt)
         ttnn.deallocate(pt)
         pair_rep = ttnn.multiply(pair_rep, pair_mask_4)
         return pair_rep
+
+class TTTransformerTrunk:
+    """Shared denoiser/AE trunk orchestrator: cond stack + nlayers x
+    MultiheadAttnAndTransition (+ optional PairReprUpdate every n layers).
+
+    Mirrors `local_latents_transformer.LocalLatentsTransformer.forward` (and the
+    AE `EncoderTransformer` / `DecoderTransformer` trunks, which are
+    structurally identical). Inputs are injected at the post-builder interface
+    (seqs, pair_rep, c_pre, mask) so the full trunk runs without porting the
+    FeatureFactory / PairReprBuilder dataset feature pipeline.
+
+    forward:
+        c = transition_c_2(transition_c_1(c_pre, mask), mask)
+        seqs = seqs_in * mask
+        for i in range(nlayers):
+            seqs = transformer_layers[i](seqs, pair_rep, c, mask, pair_mask_bias)
+            if update_pair_repr and i < nlayers-1 and pair_update_layers[i]:
+                pair_rep = pair_update_layers[i](seqs, pair_rep, mask)
+        return seqs, pair_rep, c
+    """
+
+    def __init__(
+        self,
+        device,
+        ck,
+        state_dict: dict,
+        token_dim: int = 768,
+        pair_dim: int = 256,
+        nheads: int = 12,
+        dim_cond: int = 256,
+        nlayers: int = 14,
+        use_qkln: bool = True,
+        update_pair_repr: bool = False,
+        update_pair_repr_every_n: int = 3,
+        use_tri_mult: bool = False,
+        tri_mult_c: int = 196,
+        dtype=ttnn.bfloat16,
+    ):
+        self.device = device
+        self.ck = ck
+        self.dtype = dtype
+        self.nlayers = nlayers
+        self.update_pair_repr = update_pair_repr
+        self.transition_c_1 = TTTransition(
+            device, ck, state_dict["transition_c_1"], dim=dim_cond,
+            expansion_factor=2, layer_norm=False, dtype=dtype,
+        )
+        self.transition_c_2 = TTTransition(
+            device, ck, state_dict["transition_c_2"], dim=dim_cond,
+            expansion_factor=2, layer_norm=False, dtype=dtype,
+        )
+        self.transformer_layers = [
+            TTMultiheadAttnAndTransition(
+                device, ck, state_dict["transformer_layers"][i],
+                token_dim=token_dim, pair_dim=pair_dim, nheads=nheads,
+                dim_cond=dim_cond, use_qkln=use_qkln, expansion_factor=4,
+                residual_mha=True, residual_transition=True, parallel=False,
+                dtype=dtype,
+            )
+            for i in range(nlayers)
+        ]
+        self.pair_update_layers = []
+        if update_pair_repr:
+            for i in range(nlayers - 1):
+                if i % update_pair_repr_every_n == 0:
+                    self.pair_update_layers.append(
+                        TTPairReprUpdate(
+                            device, ck, state_dict["pair_update_layers"][i],
+                            token_dim=token_dim, pair_dim=pair_dim,
+                            expansion_factor_transition=2,
+                            use_tri_mult=use_tri_mult,
+                            tri_mult_c=tri_mult_c, dtype=dtype,
+                        )
+                    )
+                else:
+                    self.pair_update_layers.append(None)
+
+    def __call__(self, seqs, pair_rep, c_pre, mask, pair_mask_bias):
+        c = self.transition_c_1(c_pre, mask)
+        c = self.transition_c_2(c, mask)
+        seqs = ttnn.multiply(seqs, mask)
+        for i in range(self.nlayers):
+            seqs = self.transformer_layers[i](seqs, pair_rep, c, mask, pair_mask_bias)
+            if self.update_pair_repr and i < self.nlayers - 1:
+                upd = self.pair_update_layers[i]
+                if upd is not None:
+                    pair_rep = upd(seqs, pair_rep, mask)
+        return seqs, pair_rep, c
+
+
+class TTLocalLatentsTransformer:
+    """ttnn port of `local_latents_transformer.LocalLatentsTransformer` (denoiser).
+
+    = `TTTransformerTrunk` (cond stack + 14x MultiheadAttnAndTransition, optional
+    PairReprUpdate) + the two output heads (local_latents_linear -> latent_dim,
+    ca_linear -> 3). Inputs injected at the post-builder interface (seqs,
+    pair_rep, c_pre, mask) so the full trunk + cond + heads run without porting
+    the 1990-line feature_factory. See `TTTransformerTrunk` for the forward.
+    """
+
+    def __init__(
+        self,
+        device,
+        ck,
+        state_dict: dict,
+        token_dim: int = 768,
+        pair_dim: int = 256,
+        nheads: int = 12,
+        dim_cond: int = 256,
+        latent_dim: int = 8,
+        nlayers: int = 14,
+        use_qkln: bool = True,
+        update_pair_repr: bool = False,
+        update_pair_repr_every_n: int = 3,
+        use_tri_mult: bool = False,
+        tri_mult_c: int = 196,
+        dtype=ttnn.bfloat16,
+    ):
+        self.trunk = TTTransformerTrunk(
+            device, ck, state_dict, token_dim=token_dim, pair_dim=pair_dim,
+            nheads=nheads, dim_cond=dim_cond, nlayers=nlayers,
+            use_qkln=use_qkln, update_pair_repr=update_pair_repr,
+            update_pair_repr_every_n=update_pair_repr_every_n,
+            use_tri_mult=use_tri_mult, tri_mult_c=tri_mult_c, dtype=dtype,
+        )
+        self.local_latents_head = TTLocalLatentsHead(
+            device, ck, state_dict["local_latents_linear"],
+            dim=token_dim, latent_dim=latent_dim, dtype=dtype,
+        )
+        self.ca_head = TTCaHead(
+            device, ck, state_dict["ca_linear"], dim=token_dim, dtype=dtype,
+        )
+
+    def __call__(self, seqs, pair_rep, c_pre, mask, pair_mask_bias):
+        seqs, _, _ = self.trunk(seqs, pair_rep, c_pre, mask, pair_mask_bias)
+        local_latents = self.local_latents_head(seqs, mask)
+        ca = self.ca_head(seqs, mask)
+        return local_latents, ca
