@@ -461,13 +461,15 @@ class DiffusionModule(_KeyedWeights):
         cond["atxE_bias"] = self.atxE.precompute_biases(cond["p_dev"], mtf)
         cond["atxD_bias"] = self.atxD.precompute_biases(cond["p_dev"], mtf)
 
-    def denoise(self, x_noisy, t_hat, cond):
-        """x_noisy (1,N,3) host; t_hat scalar host tensor (1,); cond dict with host
-        tensors s_trunk (NT,c_s), s_inputs (NT,449), pair_z (NT,NT,c_z), c_l (N,128),
-        p_lm (nb,nq,nk,16), S (N,NT) atom->token onehot, mask_trunked (nb,nq,nk).
-        Returns denoised coords (1,N,3) host tensor."""
-        import torch.nn.functional as F
-        self._atom_cond(cond)   # idempotent: t-independent conditioning, computed once per fold
+    def _denoise_net(self, r_noisy_n3, t_hat, cond):
+        """The pure network forward (F_theta), no c_in input scaling, no EDM output
+        preconditioning. r_noisy_n3 (N,3) host = the ALREADY-c_in-scaled noisy coords
+        (c_in * x_raw). Returns r_update (1,N,3) host = the raw network output (x_update),
+        matching what a bare DiffusionTransformer.forward returns (e.g. ODesign's
+        DiffusionModule.forward, whose golden trajectory stores x_update -- NOT the
+        EDM-preconditioned denoised -- as the per-step `denoised` field). Shared between
+        denoise() (protenix: applies c_in + EDM around this) and the ODesign harness
+        (feeds the checkpoint's already-scaled x_noisy directly, returns x_update)."""
         s_inputs = cond["s_inputs"]
         sd = self.SIGMA_DATA
         N = cond["c_l"].shape[0]; NT = s_inputs.shape[0]
@@ -488,8 +490,7 @@ class DiffusionModule(_KeyedWeights):
         s_single = ss
 
         # 2) atom encoder: only the coordinate-dependent path (c_la / p come from cond)
-        r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
-        q_l = ttnn.add(c_la, self._lin(T(r_noisy[0]), E + "linear_no_bias_r.weight"))
+        q_l = ttnn.add(c_la, self._lin(T(r_noisy_n3), E + "linear_no_bias_r.weight"))
         q_out = self.atxE(ttnn.reshape(q_l, (1, N, 128)), ttnn.reshape(c_la, (1, N, 128)), p, mt,
                           bias_cache=cond.get("atxE_bias"))
         a_tok = ttnn.matmul(cond["Smean_dev"], ttnn.reshape(ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight")), (N, 768)),
@@ -524,9 +525,20 @@ class DiffusionModule(_KeyedWeights):
         qd = self.atxD(ttnn.reshape(q, (1, N, 128)), ttnn.reshape(c_skip, (1, N, 128)), p_skip, mt,
                        bias_cache=cond.get("atxD_bias"))
         qn = self._ln(qd, DE + "layernorm_q.weight")
-        r_update = torch.Tensor(ttnn.to_torch(self._lin(qn, DE + "linear_no_bias_out.weight"))).float().reshape(1, N, 3)[:, :N]
+        return torch.Tensor(ttnn.to_torch(self._lin(qn, DE + "linear_no_bias_out.weight"))).float().reshape(1, N, 3)[:, :N]
 
-        # EDM preconditioning
+    def denoise(self, x_noisy, t_hat, cond):
+        """x_noisy (1,N,3) host = RAW (un-scaled) noisy coords; t_hat scalar host tensor
+        (1,); cond dict with host tensors s_trunk (NT,c_s), s_inputs (NT,449), pair_z
+        (NT,NT,c_z), c_l (N,128), p_lm (nb,nq,nk,16), S (N,NT) atom->token onehot,
+        mask_trunked (nb,nq,nk). Applies c_in = 1/sqrt(sd^2+t^2) to the coords, runs the
+        network, and returns the EDM-preconditioned denoised coords (1,N,3) host tensor:
+        c_skip*x_noisy + c_out*x_update, sr = t/sd."""
+        self._atom_cond(cond)   # idempotent: t-independent conditioning, computed once per fold
+        sd = self.SIGMA_DATA
+        N = cond["c_l"].shape[0]
+        r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
+        r_update = self._denoise_net(r_noisy[0], t_hat, cond)
         sr = (t_hat / sd).reshape(-1, 1, 1)
         return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
 

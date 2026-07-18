@@ -221,10 +221,25 @@ class ODesign:
                 "p_lm": p_lm, "S": S, "mask_trunked": mt.float()}
 
     def denoise_step(self, x_noisy, t_hat, cond):
-        """One EDM-preconditioned denoise step. Delegates to protenix.DiffusionModule.denoise
-        (loaded with ODesign weights). x_noisy (1,N,3), t_hat (1,), cond from build_cond.
-        Returns denoised coords (1,N,3) host tensor."""
-        return self.diffusion.denoise(x_noisy, t_hat, cond)
+        """One denoise network step, matching ODesign's DiffusionModule.forward. x_noisy
+        (1,N,3) is the ODesign checkpoint's ALREADY-c_in-scaled noisy coords
+        (c_in = 1/sqrt(sd^2+t^2); see schedulers.add_noise_with_condition -- magnitude ~1,
+        NOT raw coords). t_hat (1,), cond from build_cond. Returns the raw network output
+        x_update (1,N,3) host tensor -- NOT EDM-preconditioned.
+
+        Two conventions differ from protenix.DiffusionModule.denoise, both absorbed here
+        by calling _denoise_net directly (no c_in re-scaling, no EDM preconditioning):
+          (1) c_in: ODesign stores x_noisy already c_in-scaled and feeds it straight to the
+              atom encoder (r_l = x_noisy); protenix.denoise expects RAW x_noisy and re-applies
+              c_in internally. Feeding ODesign's scaled x_noisy to protenix.denoise would
+              double-scale the encoder's coordinate input (~sigma/sigma_data too small).
+          (2) EDM: ODesign's DiffusionModule.forward returns the raw network output x_update
+              (the sampler's update_with_condition applies EDM later); protenix.denoise applies
+              EDM itself and returns c_skip*x + c_out*x_update. The golden trajectory's
+              `denoised` field is the hooked diffusion_module.forward return = x_update, so we
+              compare x_update-to-x_update (no EDM)."""
+        self.diffusion._atom_cond(cond)
+        return self.diffusion._denoise_net(x_noisy[0].float(), t_hat, cond)
 
     def replay_trajectory(self, pre, traj, n_steps=None, verbose=True):
         """Replay the golden denoiser trajectory step-by-step and report REAL per-step PCC
