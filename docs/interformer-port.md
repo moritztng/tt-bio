@@ -45,47 +45,65 @@ The device forward takes host-prepared `node_feats`, `intra`/`inter edge_feats`,
 and `intra`/`inter attn_bias`, and returns the affinity scalar — the same
 interface the reference exposes for parity.
 
-## Current parity state (measured on qb1 card 1, bf16, HiFi4)
+## Parity state (measured on qb1 card 0, bf16, HiFi4)
 
 Reference: a from-scratch PyTorch reimplementation
 (`tests/interformer_reference.py`, weight-compatible with the source — no
-pytorch_lightning / torchmetrics / obabel dependency, neither of which is in the
-dev env). The on-device port is built from the reference's state_dict (identical
-weights); host glue (embeddings, RBF, masks) is computed by the reference and fed
-**identically** to both sides, so the comparison isolates the on-device dense
-math. Random weights, `b=1`, `n=64`, hidden=128, 8 heads, 6+3 layers.
+pytorch_lightning / torchmetrics / obabel dependency for parity). The on-device
+port is built from the **same** state_dict; host glue (embeddings, RBF, masks)
+is computed by the reference and fed **identically** to both sides, so the
+comparison isolates the on-device dense math.
 
-| Component | Metric | Value |
-|---|---|---|
-| `rel_pos_3d_proj` (RBF→hidden Linear) | PCC | 1.0000 |
-| EncoderLayer — node output | PCC | 0.99998 |
-| EncoderLayer — edge output | PCC | 1.0000 |
-| Full backbone (intra×6 + inter×3) — inter_node | PCC | 0.99986 |
-| Full backbone — affinity (scalar) | absdiff | 0.0092 |
-| Affinity readout in isolation (scalar) | absdiff | 0.0014 |
+**Real-weight parity** — both sides loaded from the released Zenodo affinity
+checkpoint (`v0.2_affinity_model/model0`, exact hparams read from the
+checkpoint: hidden=128, 8 heads, 6+3 layers, node_feat_size=1). The reference
+loads the real state_dict strict (0 missing / 0 unexpected). `b=1`, `n=64`.
+
+| Component | Metric | Value | Gate |
+|---|---|---|---|
+| `rel_pos_3d_proj` (RBF→hidden Linear) | PCC | 1.00006 | ≥0.999 pass |
+| EncoderLayer — node output | PCC | 0.99989 | ≥0.999 pass |
+| EncoderLayer — edge output | PCC | 1.00003 | ≥0.999 pass |
+| Full backbone (intra×6 + inter×3) — inter_node | PCC | 0.99990 | ≥0.999 pass |
+| Full backbone — affinity (scalar) | absdiff | 0.01726 | <0.05 pass |
+| Affinity readout in isolation (scalar) | absdiff | 0.00813 | <0.05 pass |
 
 Gate: PCC ≥ 0.999 for the dense tensors; the affinity scalar is checked by
-absdiff (PCC is undefined for a single element). **All pass.** Numbers are
-measured, not estimated. Run: `TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3
-tests/test_interformer.py`.
+absdiff (PCC is undefined for a single element). **All pass with real weights.**
+Numbers are measured, not estimated. Run:
+`TT_VISIBLE_DEVICES=0 PYTHONPATH=.:tests python3 tests/test_interformer_realweights.py`
+(the pass-1 random-weight test, `tests/test_interformer.py`, also still passes).
+
+## End-to-end on a real complex (affinity)
+
+The on-device port runs the full released data pipeline on the 2qbr demo complex
+(pocket + native ligand, 258 graph atoms after PLIP featurization) and produces
+a real affinity prediction:
+
+| Output | Value |
+|---|---|
+| Reference affinity (real weights, fp32) | 6.7666 |
+| Port affinity (real weights, bf16 HiFi4) | 6.75 |
+| Experimental pIC50 label (demo_dock.csv) | 6.33 |
+| inter_node PCC (ref vs port) | 0.99986 |
+| affinity absdiff (ref vs port) | 0.0166 |
+
+The port matches the reference on a real complex (PCC 0.99986, absdiff 0.0166),
+and both land within ~0.42 pIC50 of the experimental label — inside the model's
+single-complex error (PDBbind core-set RMSE ≈ 1.0–1.3 pIC50). The native pose is
+scored directly, so this does not exercise the docking sampler.
 
 ## What is deferred (honest)
 
-- **Real-weight parity.** Random-weight parity clears the gate above; loading
-  the released Zenodo affinity checkpoint (1.1 GB `checkpoints.zip`) into both
-  the reference and the port for real-weight PCC is the next step. The port's
-  submodule names mirror the source, so a strict `load_state_dict` should load
-  directly once the checkpoint's exact hyperparameters (n_layers / hidden_dim /
-  edge_feat_size) are read from its hparams.
-- **End-to-end on one real complex (pose RMSD + affinity).** The stock
-  Interformer inference pipeline needs OpenBabel + Reduce + PLIP +
-  pytorch_lightning + the compiled C++ docking sampler — none are in the qb1 dev
-  env. Reproducing a single PoseBusters pose is therefore blocked on environment
-  setup (a host-side, non-port task), not on the device port. The on-device
-  trunk is verified against the reference forward; wiring it into the host
-  MDN/docking pipeline is the integration step that follows.
-- **`--fast` (block-fp8) path, load/predict timing, multi-card fanout** —
-  perf characterization, after real-weight parity and end-to-end wiring.
+- **Pose-RMSD end-to-end** (the full PoseBusters pipeline). Reproducing a docked
+  pose needs the energy model (`v0.2_energy_model`, in `checkpoints.zip`) to
+  predict per-pair Gaussian energy functions, then the compiled C++ docking
+  sampler (`docking/reconstruct_ligands`, built via `python setup.py install`)
+  to generate poses, then the affinity model to score them. The C++ sampler
+  build is the hard blocker — not yet attempted. The affinity e2e above sidesteps
+  it by scoring the native pose.
+- **`--fast` (block-fp8) path, load/predict timing, multi-card fanout** — perf
+  characterization, after pose-RMSD e2e.
 - **Pose-selection head + energy/MDN head on device** — the energy head's
   pair-type gather / shelve output is irregular and intentionally host; the
   pose-selection head is a small FFN that could be ported trivially if needed.
