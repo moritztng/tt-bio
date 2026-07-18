@@ -48,7 +48,7 @@ this benchmark.
 | Protenix-v2 | 7ROA, L117, MSA | CA-RMSD | 2.94 Å | 1.47 Å | 2.63 ± 0.42 Å | PASS |
 | Boltz-2 | trp-cage, L20, no MSA | CA-RMSD | 0.79 Å | 0.37 Å | 0.60 ± 0.24 Å | PASS |
 | Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 0.81 Å | 0.98 Å | 0.94 ± 0.14 Å | PASS |
-| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA | Δlog10(IC50) | 0.010 | 0.044 | 0.405 ± 0.032 | GAP‡ |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA | Δlog10(IC50) | 0.010 | 0.077 | 0.188 ± 0.047 | GAP‡ |
 | OpenDDE | trp-cage, L20, no MSA | CA-RMSD | 0.31 Å | 0.24 Å | 0.39 ± 0.11 Å | PASS |
 | OpenDDE | 7ROA, production settings | CA-RMSD | 1.90 Å | 8.06 Å | 5.68 ± 3.98 Å | PASS |
 | OpenDDE-abag | 1AHW antibody–antigen | global DockQ | 0.83–0.86 | 0.863–0.882 | device matches reference | PASS |
@@ -81,17 +81,40 @@ affinity heads), so the parity distance is |device − reference| rather than a
 Kabsch RMSD, and the R/D/X noise-floor framework applies directly. The
 reference is unusually self-consistent (R = 0.010 log10(IC50) units; seeds 0 and
 1 are bit-identical) because the scalar is already a 5-sample ensemble mean, so
-per-seed variance is small; the device self-floor D = 0.044 is ~4× that. The
-device-vs-reference delta X = 0.405 ± 0.032 is ~9× the floor and is a systematic
-offset, not sampling noise: the device's pre-MW ensemble mean sits ~0.4 log10(IC50)
-(~2.5× in IC50) above the reference on every seed (device −0.10/−0.09/−0.16 vs
-reference −0.52/−0.52/−0.53), and the binding probability is ~0.027 lower
-(device 0.903 vs reference 0.930). The structure legs above pass, so the
-upstream fold is faithful; the residual is in the affinity diffusion/head path
-itself. This is the first non-PASS leg in the benchmark and is flagged as a
-release-gate concern for the Boltz-2 affinity port (accuracy is out of scope
-here, but the port does not reproduce the reference implementation within its
-own run-to-run floor).
+per-seed variance is small. The structure legs above pass, so the upstream fold
+is faithful; the residual is isolated to the affinity head path.
+
+Root cause (precision): the reference runs the whole affinity module in fp32 —
+Boltz2.forward wraps the affinity call in torch.autocast("cuda", enabled=False),
+and the CPU reference is fp32 throughout — while the Tenstorrent port ran the
+affinity pairformer in bf16 on device. The affinity scalar is a mean over a
+pooled pair representation, so a small bf16 bias in that pairformer becomes a
+systematic log10(IC50) offset. A same-input replay (identical z_affinity,
+s_inputs, coords fed to both paths) confirmed it: the bf16 device affinity
+pairformer shifts the pre-MW ensemble mean by +0.226 log10(IC50) versus an
+fp32 host run on the same inputs.
+
+Applied fix (on this branch, release-gated): run the affinity pairformer
+(8 + 4 blocks, small) and the affinity heads in fp32 on host — the heads
+already ran on host — so only the affinity pairformer moves off the bf16 device
+path. It is gated by BOLTZ2_AFFINITY_FP32_HOST (default on) and costs ~2-3 s per
+target (negligible; the expensive trunk/diffusion stays on device). It narrows
+the gap substantially:
+
+  affinity_pred_value:         X 0.387 ± 0.025 -> 0.188 ± 0.047  (X/floor 10.0 -> 2.46)
+  affinity_probability_binary: X 0.0256 ± 0.002 -> 0.0093 ± 0.002 (X/floor 8.7 -> 2.94)
+
+It does NOT reach the floor (X/floor ~2.5, still GAP). The residual is the bf16
+trunk pair representation that feeds the affinity head: the affinity model
+re-runs its own 64-block trunk in bf16 on device, and the same sensitivity that
+makes the affinity head amplify the affinity-pairformer bf16 bias also makes it
+amplify the smaller bf16 bias in the trunk z. Closing the last ~0.19 requires
+the trunk z for the affinity path in fp32 too — a larger, perf-scoped lift (the
+64-block trunk in fp32 on host is too slow for production; it needs an fp32
+device path or architectural reuse of a fp32 z). That follow-up is tracked in
+~/.coworker/state/tt-bio-boltz2-affinity-precision-p1.md. The leg remains the
+only non-PASS entry and stays a release-gate concern for the Boltz-2 affinity
+port.
 
 ## Reproducing a comparison
 
