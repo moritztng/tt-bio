@@ -2539,5 +2539,76 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
                f"→ {out} (see manifest.json)")
 
 
+@cli.command("affinity")
+@click.option("--protein", default=None,
+              help="Protein sequence (raw amino-acid string; U/Z/O/B mapped to X).")
+@click.option("--smiles", default=None, help="Ligand SMILES string.")
+@click.option("--pairs", "pairs_path", default=None, type=click.Path(exists=True),
+              help="CSV file with `protein,smiles` columns for batch scoring.")
+@click.option("--out_dir", default="./affinity", show_default=True,
+              help="Output directory (affinity.json is written here).")
+def affinity_cmd(protein, smiles, pairs_path, out_dir):
+    """Predict protein-ligand binding affinity (pKd) from sequence + SMILES.
+
+    PLAPT-style standalone affinity head: a frozen ProtBERT protein encoder
+    (Rostlab/prot_bert, 1024-d pooler) and a ChemBERTa ligand encoder
+    (seyonec/ChemBERTa-zinc-base-v1, 768-d pooler) feed a fusion MLP that emits
+    a normalized affinity, rescaled to neg_log10_affinity_M (pKd). Runs on this
+    machine's TT card; weights are fetched from HuggingFace on first use.
+
+    
+    Single pair:  tt-bio affinity --protein MKTVRQER... --smiles CC(=O)C
+    Batch (CSV):  tt-bio affinity --pairs pairs.csv   (columns: protein,smiles)
+
+    
+    Output:
+        affinity.json   # one row per pair: protein, smiles, neg_log10_affinity_M, affinity_uM
+    """
+    from tt_bio import affinity as aff
+
+    # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open it
+    # without a 1x1 mesh-graph descriptor (see the embed command).
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
+    torch.set_grad_enabled(False)
+    out = Path(out_dir).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+
+    if pairs_path:
+        import csv
+        rows = []
+        with open(pairs_path, newline="") as f:
+            for row in csv.DictReader(f):
+                prot = row.get("protein") or row.get("sequence")
+                mol = row.get("smiles") or row.get("ligand") or row.get("molecule")
+                rows.append((prot, mol))
+    else:
+        if not protein or not smiles:
+            raise click.ClickException(
+                "Provide --protein and --smiles, or --pairs <csv> with protein,smiles columns.")
+        rows = [(protein, smiles)]
+
+    click.echo("Loading affinity pipeline (ProtBERT + ChemBERTa + fusion head) ...")
+    model = aff.Affinity.from_pretrained()
+    import json
+    results = []
+    for i, (prot, mol) in enumerate(rows):
+        if not prot or not mol:
+            click.secho(f"skipping row {i}: missing protein or smiles", fg="yellow")
+            continue
+        res = model.predict(prot, mol)
+        res["protein"] = prot
+        res["smiles"] = mol
+        results.append(res)
+        click.echo(f"[{i}] pKd={res['neg_log10_affinity_M']:.3f}  "
+                   f"affinity={res['affinity_uM']:.3g} uM  ({mol[:40]})")
+    (out / "affinity.json").write_text(json.dumps(results, indent=2))
+    click.echo(f"Wrote {out / 'affinity.json'} ({len(results)} pair(s))")
+
+
+
 if __name__ == "__main__":
     cli()

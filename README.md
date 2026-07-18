@@ -229,6 +229,24 @@ tt-bio predict examples/affinity.yaml --model boltz2 --use_msa_server --override
 
 The `--affinity_mw_correction` flag applies molecular weight correction for more accurate predictions.
 
+### Sequence-based Affinity Prediction (PLAPT)
+
+Predict binding affinity (pKd) from a protein sequence and a ligand SMILES
+string alone — no structure, no MSA, no folding. A standalone PLAPT-style head
+(frozen ProtBERT + ChemBERTa encoders feeding a fusion MLP) runs entirely
+on-device:
+
+```bash
+tt-bio affinity --protein MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG \
+                --smiles "CC1=CC=C(C=C1)C2=CC(=NN2C3=CC=C(C=C3)S(=O)(=O)N)C(F)(F)F"
+tt-bio affinity --pairs pairs.csv --out_dir ./affinity   # batch (CSV: protein,smiles)
+```
+
+Output is `affinity.json` with `neg_log10_affinity_M` (pKd) and `affinity_uM`
+per pair. On the CSAR-HiQ_36 benchmark the port scores Pearson r=0.724 /
+RMSE=1.365, matching the original PLAPT pipeline to PCC 0.9986. See
+[docs/affinity-head.md](docs/affinity-head.md) for details.
+
 ### Input Format
 
 ESMFold2 accepts protein inputs only. Protenix-v2 accepts proteins, DNA, RNA,

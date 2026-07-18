@@ -196,3 +196,138 @@ def make_chemberta(seed: int = 0) -> ChemBERTaReference:
 
 def fusion_head() -> FusionHead:
     return FusionHead().eval()
+
+# ---------------------------------------------------------------------------
+# ProtBERT (Rostlab/prot_bert, BERT-large post-LN) — pass 2
+# ---------------------------------------------------------------------------
+
+PROTBERT_CFG = dict(
+    vocab_size=30, hidden_size=1024, num_hidden_layers=30,
+    num_attention_heads=16, intermediate_size=4096, max_position_embeddings=40000,
+    type_vocab_size=2, pad_token_id=0, layer_norm_eps=1e-12,
+)
+
+# ProtBERT BERT tokenizer vocab (Rostlab/prot_bert). Single-char amino-acid
+# tokens + 4 BERT specials + the "." (period) token. Pure-python so the port
+# has no runtime transformers dependency.
+PROTBERT_VOCAB = {
+    "[PAD]": 0, "[UNK]": 1, "[CLS]": 2, "[SEP]": 3, ".": 4,
+    "L": 5, "A": 6, "G": 7, "V": 8, "E": 9, "S": 10, "I": 11, "K": 12,
+    "R": 13, "D": 14, "T": 15, "P": 16, "N": 17, "Q": 18, "F": 19, "Y": 20,
+    "M": 21, "H": 22, "C": 23, "W": 24, "X": 25, "U": 26, "B": 27, "Z": 28,
+    "O": 29,
+}
+PROTBERT_CLS, PROTBERT_SEP, PROTBERT_PAD, PROTBERT_UNK = 2, 3, 0, 1
+_PROT_RARE = str.maketrans({"U": "X", "Z": "X", "O": "X", "B": "X"})
+
+
+def preprocess_protein(seq: str) -> str:
+    """PLAPT preprocessing: U/Z/O/B -> X, then space-separate residues."""
+    import re
+    return " ".join(re.sub(r"[UZOB]", "X", seq))
+
+
+def tokenize_protein(seq: str, max_length: int = 3200) -> torch.Tensor:
+    """Protein sequence -> ProtBERT token ids [1, L] (CLS ... SEP), truncation
+    to max_length. Matches BertTokenizer(preprocess(seq), max_length, truncation)."""
+    pre = preprocess_protein(seq)
+    ids = [PROTBERT_CLS]
+    for ch in pre.split():
+        ids.append(PROTBERT_VOCAB.get(ch, PROTBERT_UNK))
+        if len(ids) >= max_length - 1:
+            break
+    ids.append(PROTBERT_SEP)
+    return torch.tensor([ids], dtype=torch.long)
+
+
+class BertEmbeddings(nn.Module):
+    def __init__(self, cfg: dict):
+        super().__init__()
+        H = cfg["hidden_size"]
+        self.word_embeddings = nn.Embedding(cfg["vocab_size"], H, padding_idx=cfg["pad_token_id"])
+        self.position_embeddings = nn.Embedding(cfg["max_position_embeddings"], H)
+        self.token_type_embeddings = nn.Embedding(cfg["type_vocab_size"], H)
+        self.LayerNorm = nn.LayerNorm(H, eps=cfg["layer_norm_eps"])
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        L = input_ids.size(1)
+        pos = torch.arange(L, dtype=torch.long, device=input_ids.device).unsqueeze(0)
+        x = (
+            self.word_embeddings(input_ids)
+            + self.position_embeddings(pos)
+            + self.token_type_embeddings(torch.zeros_like(input_ids))
+        )
+        return self.LayerNorm(x)
+
+
+class BertSelfAttention(nn.Module):
+    def __init__(self, cfg: dict):
+        super().__init__()
+        H = cfg["hidden_size"]
+        self.num_heads = cfg["num_attention_heads"]
+        self.head_dim = H // self.num_heads
+        self.scale = self.head_dim ** -0.5
+        self.query = nn.Linear(H, H)
+        self.key = nn.Linear(H, H)
+        self.value = nn.Linear(H, H)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, L, H = x.shape
+        q = self.query(x).view(B, L, self.num_heads, self.head_dim).transpose(1, 2)
+        k = self.key(x).view(B, L, self.num_heads, self.head_dim).transpose(1, 2)
+        v = self.value(x).view(B, L, self.num_heads, self.head_dim).transpose(1, 2)
+        scores = (q @ k.transpose(-1, -2)) * self.scale
+        probs = F.softmax(scores, dim=-1)
+        ctx = probs @ v
+        return ctx.transpose(1, 2).reshape(B, L, H)
+
+
+class BertLayer(nn.Module):
+    def __init__(self, cfg: dict):
+        super().__init__()
+        H = cfg["hidden_size"]
+        self.self = BertSelfAttention(cfg)
+        self.att_dense = nn.Linear(H, H)
+        self.att_LN = nn.LayerNorm(H, eps=cfg["layer_norm_eps"])
+        self.inter_dense = nn.Linear(H, cfg["intermediate_size"])
+        self.out_dense = nn.Linear(cfg["intermediate_size"], H)
+        self.out_LN = nn.LayerNorm(H, eps=cfg["layer_norm_eps"])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        a = self.att_dense(self.self(x))
+        a = self.att_LN(a + x)
+        h = F.gelu(self.inter_dense(a))
+        o = self.out_dense(h)
+        return self.out_LN(o + a)
+
+
+class BertPooler(nn.Module):
+    def __init__(self, cfg: dict):
+        super().__init__()
+        self.dense = nn.Linear(cfg["hidden_size"], cfg["hidden_size"])
+
+    def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+        return torch.tanh(self.dense(hidden[:, 0]))
+
+
+class ProtBERTReference(nn.Module):
+    """Rostlab/prot_bert (BERT-large, post-LN) encoder + pooler, inference only."""
+
+    def __init__(self, cfg: dict | None = None):
+        super().__init__()
+        cfg = cfg or dict(PROTBERT_CFG)
+        self.cfg = cfg
+        self.embeddings = BertEmbeddings(cfg)
+        self.encoder = nn.ModuleList([BertLayer(cfg) for _ in range(cfg["num_hidden_layers"])])
+        self.pooler = BertPooler(cfg)
+
+    def forward(self, input_ids: torch.Tensor):
+        x = self.embeddings(input_ids)
+        for layer in self.encoder:
+            x = layer(x)
+        return self.pooler(x), x
+
+
+def make_protbert(seed: int = 0) -> ProtBERTReference:
+    torch.manual_seed(seed)
+    return ProtBERTReference().eval()

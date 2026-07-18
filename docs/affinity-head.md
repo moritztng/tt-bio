@@ -1,64 +1,89 @@
-# Standalone affinity head (PLAPT-style) — pass 1
+# Sequence-based affinity prediction (PLAPT-style)
 
-Predicts protein-ligand binding affinity (Kd/IC50 as neg_log10_affinity_M) from
-**sequence + SMILES only** — no structure, no folding. A frozen protein PLM
-(ProtBERT) and a small ligand encoder (ChemBERTa-zinc-base-v1) feed a light
-fusion MLP that emits a normalized affinity, rescaled to pKd-like units.
+Predicts protein-ligand binding affinity (pKd) from **sequence + SMILES only** —
+no structure, no folding. A frozen protein language model (ProtBERT) and a small
+ligand encoder (ChemBERTa-zinc-base-v1) feed a light fusion MLP that emits a
+normalized affinity, rescaled to `neg_log10_affinity_M` (pKd).
 
 Reference: [PLAPT](https://github.com/Bindwell/PLAPT) (Bindwell, MIT) — ProtBERT
 + ChemBERTa pooler outputs concatenated, fed to a small branching MLP.
 
-## Status (pass 1)
-
-This is a **pass-1 port**: the two portable components are on Tenstorrent with
-verified per-component PCC parity vs a from-scratch PyTorch reference. The
-protein tower and end-to-end wiring are deferred to pass 2.
-
-| Component | Port | Parity (PCC) | Weights |
-|---|---|---|---|
-| ChemBERTa ligand encoder (6-layer RoBERTa + pooler, ~43M) | ttnn, done | embeddings 0.99999, layer 0.99999, pooler 0.99994, full 0.99986 (real weights) | `seyonec/ChemBERTa-zinc-base-v1` (HF, MIT) |
-| Fusion MLP head | ttnn, done | 0.9997 (real ONNX weights) | PLAPT `affinity_predictor.onnx` (MIT), vendored in `tt_bio/_vendor/plapt/head_weights.npz` |
-| ProtBERT protein tower | host-side torch only (not ported) | n/a | `Rostlab/prot_bert` (HF) |
-| End-to-end + SMILES tokenization + benchmark | deferred | n/a | — |
-
-Run the parity tests on a TT card:
+## Run it
 
 ```bash
-TT_VISIBLE_DEVICES=1 python tests/test_affinity.py
+# single pair
+tt-bio affinity --protein MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG \
+                --smiles "CC1=CC=C(C=C1)C2=CC(=NN2C3=CC=C(C=C3)S(=O)(=O)N)C(F)(F)F"
+
+# batch (CSV with protein,smiles columns)
+tt-bio affinity --pairs pairs.csv --out_dir ./affinity
 ```
 
-## Protein tower reuse decision
+Output (`--out_dir`, default `./affinity`):
 
-PLAPT's fusion head is **ProtBERT-specific**: its protein branch takes a
-1024-d pooler input (`ProtLinear_Weights` is `[512, 1024]`) and was trained on
-ProtBERT pooler semantics. tt-bio's existing ESMC port produces 960-d
-embeddings (ESMC-300M) — dimensionally incompatible, and a different PLM with
-different pooling. So ESMC cannot drop-in substitute ProtBERT for the PLAPT
-head; reusing ESMC would require retraining the head on ESMC embeddings (a
-training task, out of scope for an inference port).
+```
+affinity.json   # one row per pair: protein, smiles, neg_log10_affinity_M, affinity_uM
+```
 
-For pass 1 the protein tower is kept host-side (frozen ProtBERT, CPU torch) so
-the port stays parity-faithful to the PLAPT reference. Porting ProtBERT to ttnn
-(BERT-large, ~420M, standard post-LN transformer — same pattern as the ESMC
-encoder) and/or retraining the head on ESMC embeddings are pass-2+ research
-directions, flagged here honestly rather than forced.
+`neg_log10_affinity_M` is the pKd (higher = tighter binder); `affinity_uM` is
+the same value in micromolar. Weights for ProtBERT and ChemBERTa are fetched
+from HuggingFace on first use and cached; the fusion-head weights and both
+tokenizers are vendored under `tt_bio/_vendor/plapt/`.
 
-## Architecture (from the PLAPT source + ONNX graph)
+## Inputs
 
-- Protein: `Rostlab/prot_bert` (BERT-large, hidden 1024), `pooler_output`
-  (tanh(dense(CLS))). Sequence preprocessed: space-separated, U/Z/O/B → X,
-  `max_length=3200`.
-- Ligand: `seyonec/ChemBERTa-zinc-base-v1` (RoBERTa, 6 layers, hidden 768, 12
-  heads, intermediate 3072, gelu, LN eps 1e-5, vocab 767, max_pos 514),
-  `pooler_output`. `max_length=278`.
-- Fusion: concat `[prot_pooler(1024) || mol_pooler(768)]` → branch A
-  `Linear(1024→512)+ReLU`, branch B `Linear(768→512)+ReLU` → concat 1024 →
-  `BatchNorm` → `Linear(1024→512)+ReLU` → `Linear(512→64)+ReLU` →
-  `Linear(64→1)`.
-- Output: `neg_log10_affinity_M = out * 1.5614094578916633 + 6.51286529169358`.
+- **Protein**: a raw amino-acid string. `U/Z/O/B` are mapped to `X` (ProtBERT's
+  unknown residue), residues are space-separated, `[CLS] … [SEP]` added, and the
+  sequence is truncated to 3200 residues (ProtBERT's max length).
+- **SMILES**: a ligand SMILES string. Tokenized with the vendored ChemBERTa
+  RoBERTa BPE (pure-python, no `transformers` runtime dependency), `[s] … [/s]`
+  added, truncated to 278 tokens.
+
+## Accuracy
+
+On the PLAPT CSAR-HiQ_36 held-out benchmark (36 protein-ligand pairs with
+experimental pKd), the on-device pipeline scores:
+
+| Metric | Value |
+|---|---|
+| Pearson r | 0.724 |
+| RMSE | 1.365 pKd |
+| MAE | 1.165 pKd |
+
+This is PLAPT's inherent sequence-only accuracy — the on-device port matches
+the original PLAPT pipeline (HF ProtBERT + HF ChemBERTa + the ONNX fusion head)
+to PCC 0.9986 / MAE 0.078 pKd on the same pairs, so no accuracy is lost in the
+port. Reproduce with `tests/test_affinity.py::test_e2e_affinity` (parity) and
+the CSAR runner noted in the pass-2 notes (accuracy).
+
+## Parity vs the PLAPT reference
+
+Per-component PCC (real weights, on-device vs a from-scratch PyTorch reference
+in `tests/affinity_reference.py`):
+
+| Component | PCC |
+|---|---|
+| ProtBERT embeddings | 0.99999 |
+| ProtBERT layer 0 | 0.99996 |
+| ProtBERT pooler | 0.99999 |
+| ProtBERT full (pooler) | 0.99999 |
+| ChemBERTa embeddings | 0.99999 |
+| ChemBERTa pooler | 0.99994 |
+| ChemBERTa full (real weights) | 0.99986 |
+| Fusion head (real ONNX weights) | 0.9997 |
+| SMILES tokenizer | bit-exact vs `RobertaTokenizer` |
+
+End-to-end pKd on held-out pairs is within ~0.18 of the fp32 PLAPT reference;
+the residual is bf16 inference noise in the ChemBERTa pooler (the fusion head
+itself contributes <0.02 pKd). Run the parity suite on a TT card:
+
+```bash
+TT_VISIBLE_DEVICES=0 python tests/test_affinity.py
+```
 
 ## License
 
 PLAPT code + the affinity-predictor weights: MIT (Bindwell 2024), vendored under
 `tt_bio/_vendor/plapt/` (see `LICENSE-PLAPT`, `NOTICE`). ChemBERTa tokenizer +
-config: MIT (Seyonec); weights fetched at runtime from HuggingFace.
+config: MIT (Seyonec); ProtBERT and ChemBERTa weights are fetched at runtime
+from HuggingFace (`Rostlab/prot_bert`, `seyonec/ChemBERTa-zinc-base-v1`).

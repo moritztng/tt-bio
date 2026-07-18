@@ -55,16 +55,21 @@ def _position_ids(input_ids: torch.Tensor, pad_token_id: int) -> torch.Tensor:
 
 
 class _Embedding(Module):
-    """RoBERTa embeddings: word + position + token_type(=0) -> LayerNorm."""
+    """BERT/RoBERTa embeddings: word + position + token_type(=0) -> LayerNorm.
+
+    Position-agnostic: the caller supplies position_ids (RoBERTa cumsum or BERT
+    arange). token_type is always id 0, so we slice row 0 of the table into a
+    [1,1,H] broadcast bias (works for type_vocab_size 1 or 2).
+    """
 
     def __init__(self, state_dict: Weights, compute_kernel_config, cfg: dict):
         super().__init__(state_dict, compute_kernel_config)
         self.pad_token_id = cfg["pad_token_id"]
+        self.eps = cfg.get("layer_norm_eps", BN_EPS)
         self.word = self.torch_to_tt("word_embeddings.weight", transform=lambda x: x)
         self.pos = self.torch_to_tt("position_embeddings.weight", transform=lambda x: x)
-        # token_type is always id 0 -> a single [1,1,H] broadcast bias.
         self.ttype = self.torch_to_tt(
-            "token_type_embeddings.weight", transform=lambda x: x.reshape(1, 1, -1)
+            "token_type_embeddings.weight", transform=lambda x: x[0].reshape(1, 1, -1)
         )
         self.ln_w = self.torch_to_tt("LayerNorm.weight")
         self.ln_b = self.torch_to_tt("LayerNorm.bias")
@@ -77,7 +82,7 @@ class _Embedding(Module):
         x = ttnn.add(x, p)
         ttnn.deallocate(p)
         x = ttnn.add(x, self.ttype)
-        x = ttnn.layer_norm(x, weight=self.ln_w, bias=self.ln_b, epsilon=BN_EPS,
+        x = ttnn.layer_norm(x, weight=self.ln_w, bias=self.ln_b, epsilon=self.eps,
                             compute_kernel_config=self.compute_kernel_config)
         return x
 
@@ -91,6 +96,7 @@ class _Layer(Module):
         self.n_heads = cfg["num_attention_heads"]
         self.head_dim = H // self.n_heads
         self.scale = self.head_dim ** -0.5
+        self.eps = cfg.get("layer_norm_eps", BN_EPS)
         self.q_w = self.torch_to_tt("self.query.weight", dtype=_dtype())
         self.q_b = self.torch_to_tt("self.query.bias", transform=lambda x: x.reshape(1, 1, -1))
         self.k_w = self.torch_to_tt("self.key.weight", dtype=_dtype())
@@ -124,13 +130,13 @@ class _Layer(Module):
         o = self._merge_heads(o)
         o = self._lin(o, self.o_w, bias=self.o_b)
         a = ttnn.layer_norm(ttnn.add(o, x), weight=self.att_ln_w, bias=self.att_ln_b,
-                            epsilon=BN_EPS, compute_kernel_config=ck)
+                            epsilon=self.eps, compute_kernel_config=ck)
         ttnn.deallocate(o)
         h = ttnn.gelu(self._lin(a, self.i_w, bias=self.i_b))
         out = self._lin(h, self.f_w, bias=self.f_b)
         ttnn.deallocate(h)
         y = ttnn.layer_norm(ttnn.add(out, a), weight=self.out_ln_w, bias=self.out_ln_b,
-                            epsilon=BN_EPS, compute_kernel_config=ck)
+                            epsilon=self.eps, compute_kernel_config=ck)
         ttnn.deallocate(out)
         return y
 
@@ -363,3 +369,284 @@ class AffinityHead(TorchWrapper):
     @staticmethod
     def to_affinity(normalized: torch.Tensor) -> torch.Tensor:
         return normalized * AFFINITY_SCALE + AFFINITY_MEAN
+
+# ---------------------------------------------------------------------------
+# ProtBERT (Rostlab/prot_bert, BERT-large post-LN) — pass 2
+# ---------------------------------------------------------------------------
+
+PROTBERT_CFG = dict(
+    vocab_size=30, hidden_size=1024, num_hidden_layers=30,
+    num_attention_heads=16, intermediate_size=4096, max_position_embeddings=40000,
+    type_vocab_size=2, pad_token_id=0, layer_norm_eps=1e-12,
+)
+PROTBERT_MAX_LEN = 3200
+
+# ProtBERT BERT tokenizer vocab (Rostlab/prot_bert). Single-char amino-acid
+# tokens + 4 BERT specials + the "." (period) token. Pure-python so the port
+# has no runtime transformers dependency.
+PROTBERT_VOCAB = {
+    "[PAD]": 0, "[UNK]": 1, "[CLS]": 2, "[SEP]": 3, ".": 4,
+    "L": 5, "A": 6, "G": 7, "V": 8, "E": 9, "S": 10, "I": 11, "K": 12,
+    "R": 13, "D": 14, "T": 15, "P": 16, "N": 17, "Q": 18, "F": 19, "Y": 20,
+    "M": 21, "H": 22, "C": 23, "W": 24, "X": 25, "U": 26, "B": 27, "Z": 28,
+    "O": 29,
+}
+_PROT_CLS, _PROT_SEP, _PROT_PAD, _PROT_UNK = 2, 3, 0, 1
+
+
+def preprocess_protein(seq: str) -> str:
+    """PLAPT preprocessing: U/Z/O/B -> X, then space-separate residues."""
+    import re
+    return " ".join(re.sub(r"[UZOB]", "X", seq))
+
+
+def tokenize_protein(seq: str, max_length: int = PROTBERT_MAX_LEN) -> torch.Tensor:
+    """Protein sequence -> ProtBERT token ids [1, L] (CLS ... SEP), truncated to
+    max_length. Matches BertTokenizer(preprocess(seq), max_length, truncation)."""
+    pre = preprocess_protein(seq)
+    ids = [_PROT_CLS]
+    for ch in pre.split():
+        ids.append(PROTBERT_VOCAB.get(ch, _PROT_UNK))
+        if len(ids) >= max_length - 1:
+            break
+    ids.append(_PROT_SEP)
+    return torch.tensor([ids], dtype=torch.long)
+
+
+class _ProtBertModel(Module):
+    """ProtBERT encoder + pooler: embeddings -> 30 post-LN layers -> pooler.
+
+    Reuses _Embedding/_Layer/_Pooler (same subkey layout as ChemBERTa); only the
+    cfg differs (eps 1e-12, hidden 1024, 30 layers, 16 heads) and position_ids
+    are absolute arange (BERT) instead of RoBERTa cumsum.
+    """
+
+    def __init__(self, state_dict: Weights, compute_kernel_config, cfg: dict):
+        super().__init__(state_dict, compute_kernel_config)
+        self.cfg = cfg
+        self.embed = _Embedding(self.scope("embeddings"), compute_kernel_config, cfg)
+        self.layers = [
+            _Layer(self.scope(f"layer.{i}"), compute_kernel_config, cfg)
+            for i in range(cfg["num_hidden_layers"])
+        ]
+        self.pooler = _Pooler(self.scope("pooler"), compute_kernel_config, cfg)
+
+    def __call__(self, tokens: ttnn.Tensor, position_ids: ttnn.Tensor):
+        x = self.embed(tokens, position_ids)
+        for layer in self.layers:
+            x = layer(x)
+        return self.pooler(x), x
+
+
+_PROTBERT_KEYMAP = {
+    "bert.embeddings.word_embeddings.weight": "embeddings.word_embeddings.weight",
+    "bert.embeddings.position_embeddings.weight": "embeddings.position_embeddings.weight",
+    "bert.embeddings.token_type_embeddings.weight": "embeddings.token_type_embeddings.weight",
+    "bert.embeddings.LayerNorm.weight": "embeddings.LayerNorm.weight",
+    "bert.embeddings.LayerNorm.bias": "embeddings.LayerNorm.bias",
+    "bert.pooler.dense.weight": "pooler.dense.weight",
+    "bert.pooler.dense.bias": "pooler.dense.bias",
+}
+
+
+def _protbert_layer_keymap(i: int) -> dict:
+    p = f"bert.encoder.layer.{i}."
+    q = f"layer.{i}."
+    return {
+        p + "attention.self.query.weight": q + "self.query.weight",
+        p + "attention.self.query.bias": q + "self.query.bias",
+        p + "attention.self.key.weight": q + "self.key.weight",
+        p + "attention.self.key.bias": q + "self.key.bias",
+        p + "attention.self.value.weight": q + "self.value.weight",
+        p + "attention.self.value.bias": q + "self.value.bias",
+        p + "attention.output.dense.weight": q + "att_dense.weight",
+        p + "attention.output.dense.bias": q + "att_dense.bias",
+        p + "attention.output.LayerNorm.weight": q + "att_LN.weight",
+        p + "attention.output.LayerNorm.bias": q + "att_LN.bias",
+        p + "intermediate.dense.weight": q + "inter_dense.weight",
+        p + "intermediate.dense.bias": q + "inter_dense.bias",
+        p + "output.dense.weight": q + "out_dense.weight",
+        p + "output.dense.bias": q + "out_dense.bias",
+        p + "output.LayerNorm.weight": q + "out_LN.weight",
+        p + "output.LayerNorm.bias": q + "out_LN.bias",
+    }
+
+
+def remap_protbert_state_dict(sd: dict, n_layers: int = 30) -> dict:
+    """Map HuggingFace ProtBERT (BertForMaskedLM) keys to the tt_bio.affinity
+    layout. Accepts both ``bert.*`` (BertForMaskedLM) and bare (BertModel) keys."""
+    import collections
+    out = collections.OrderedDict()
+    bare = {
+        "embeddings.word_embeddings.weight": "embeddings.word_embeddings.weight",
+        "embeddings.position_embeddings.weight": "embeddings.position_embeddings.weight",
+        "embeddings.token_type_embeddings.weight": "embeddings.token_type_embeddings.weight",
+        "embeddings.LayerNorm.weight": "embeddings.LayerNorm.weight",
+        "embeddings.LayerNorm.bias": "embeddings.LayerNorm.bias",
+        "pooler.dense.weight": "pooler.dense.weight",
+        "pooler.dense.bias": "pooler.dense.bias",
+    }
+    for k, v in sd.items():
+        if k in _PROTBERT_KEYMAP:
+            out[_PROTBERT_KEYMAP[k]] = v
+        elif k in bare:
+            out[bare[k]] = v
+    for i in range(n_layers):
+        km = _protbert_layer_keymap(i)
+        for hf, ours in km.items():
+            if hf in sd:
+                out[ours] = sd[hf]
+            else:
+                bare_hf = hf.replace("bert.encoder", "encoder")
+                if bare_hf in sd:
+                    out[ours] = sd[bare_hf]
+    return out
+
+
+class ProtBERT(TorchWrapper):
+    """ProtBERT (Rostlab/prot_bert) protein encoder on device (torch in/out).
+
+    forward(input_ids[int B,L]) -> (pooler_output[B,1024], last_hidden[B,L,1024]).
+    """
+
+    def __init__(self, cfg: dict | None = None):
+        super().__init__()
+        import json
+        if cfg is None:
+            cfg = json.loads((_VENDOR / "protbert" / "config.json").read_text())
+        self.cfg = cfg
+
+    @classmethod
+    def from_pretrained(cls, weights_path: str | None = None) -> "ProtBERT":
+        """Load real Rostlab/prot_bert weights (HF pytorch_model.bin)."""
+        if weights_path is None:
+            from huggingface_hub import hf_hub_download
+            weights_path = hf_hub_download("Rostlab/prot_bert", "pytorch_model.bin")
+        sd = torch.load(weights_path, map_location="cpu", weights_only=False)
+        m = cls()
+        m.load_state_dict(remap_protbert_state_dict(sd), strict=False)
+        return m
+
+    def _create_module(self, weights: WeightScope) -> _ProtBertModel:
+        return _ProtBertModel(weights, self.compute_kernel_config, self.cfg)
+
+    def forward(self, input_ids: torch.Tensor):
+        L = input_ids.shape[1]
+        pos = torch.arange(L, dtype=torch.long).unsqueeze(0).expand_as(input_ids)
+        tokens_tt = ttnn.from_torch(
+            input_ids.to(torch.int32), device=self.tt_device,
+            layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
+        )
+        pos_tt = ttnn.from_torch(
+            pos.to(torch.int32), device=self.tt_device,
+            layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
+        )
+        pool, hidden = self.module(tokens_tt, pos_tt)
+        return self._to_torch(pool), self._to_torch(hidden)
+
+
+# ---------------------------------------------------------------------------
+# SMILES tokenizer (ChemBERTa RoBERTa BPE, pure-python) + end-to-end pipeline
+# ---------------------------------------------------------------------------
+
+import json as _json
+import regex as _re
+
+_CHEMBERTA_TOK_DIR = _VENDOR / "chemberta"
+_SMILES_BPE_PATTERN = _re.compile(
+    r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+"""
+)
+_smiles_vocab: dict | None = None
+_smiles_merges: dict | None = None
+
+
+def _load_smiles_bpe() -> tuple[dict, dict]:
+    """Lazily load the vendored ChemBERTa BPE vocab + merge ranks (no network)."""
+    global _smiles_vocab, _smiles_merges
+    if _smiles_vocab is None:
+        _smiles_vocab = _json.loads((_CHEMBERTA_TOK_DIR / "vocab.json").read_text())
+        lines = (_CHEMBERTA_TOK_DIR / "merges.txt").read_text().split("\n")
+        m = {}
+        for i, line in enumerate(lines[1:]):  # skip "#version" header
+            if not line or " " not in line:
+                continue
+            a, b = line.split(" ", 1)
+            m[(a, b)] = i
+        _smiles_merges = m
+    return _smiles_vocab, _smiles_merges
+
+
+def _bpe(word: str, merges: dict) -> list[str]:
+    """Apply BPE merges to a pre-token (string of chars) -> list of subwords."""
+    w = list(word)
+    if len(w) < 2:
+        return w
+    while True:
+        best = None
+        best_rank = None
+        for i in range(len(w) - 1):
+            r = merges.get((w[i], w[i + 1]))
+            if r is not None and (best_rank is None or r < best_rank):
+                best_rank = r
+                best = (w[i], w[i + 1])
+        if best is None:
+            break
+        new = []
+        i = 0
+        while i < len(w):
+            if i < len(w) - 1 and (w[i], w[i + 1]) == best:
+                new.append(w[i] + w[i + 1])
+                i += 2
+            else:
+                new.append(w[i])
+                i += 1
+        w = new
+    return w
+
+
+def tokenize_smiles(smiles: str, max_length: int = 278) -> torch.Tensor:
+    """SMILES string -> ChemBERTa token ids [1, L] (``<s>`` ... ``</s>``), truncated
+    to max_length. Pure-python BPE over the vendored vocab/merges — verified
+    bit-exact vs ``RobertaTokenizer`` (see tests/test_affinity.py)."""
+    vocab, merges = _load_smiles_bpe()
+    ids = [0]  # <s>
+    for pre in _SMILES_BPE_PATTERN.findall(smiles):
+        for tok in _bpe(pre, merges):
+            ids.append(vocab.get(tok, 3))  # <unk>=3
+            if len(ids) >= max_length - 1:
+                break
+        if len(ids) >= max_length - 1:
+            break
+    ids.append(2)  # </s>
+    return torch.tensor([ids], dtype=torch.long)
+
+
+class Affinity:
+    """End-to-end PLAPT affinity pipeline on device: protein seq + SMILES -> pKd.
+
+    protein -> ProtBERT pooler (1024) ; SMILES -> ChemBERTa pooler (768) ;
+    fusion MLP -> normalized affinity -> rescaled to neg_log10_affinity_M (pKd).
+    """
+
+    def __init__(self, prot: "ProtBERT", mol: "ChemBERTa", head: "AffinityHead"):
+        self.prot = prot
+        self.mol = mol
+        self.head = head
+
+    @classmethod
+    def from_pretrained(cls) -> "Affinity":
+        return cls(ProtBERT.from_pretrained(), ChemBERTa.from_pretrained(),
+                   AffinityHead.from_pretrained())
+
+    def predict(self, protein_seq: str, smiles: str) -> dict:
+        prot_ids = tokenize_protein(protein_seq)
+        mol_ids = tokenize_smiles(smiles)
+        prot_pool, _ = self.prot(prot_ids)
+        mol_pool, _ = self.mol(mol_ids)
+        norm = self.head(prot_pool, mol_pool)
+        pkd = AffinityHead.to_affinity(norm)
+        pkd_v = float(pkd.reshape(-1)[0].item())
+        return {
+            "neg_log10_affinity_M": pkd_v,
+            "affinity_uM": float((10 ** 6) * (10 ** (-pkd_v))),
+        }
