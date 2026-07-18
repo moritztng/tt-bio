@@ -32,7 +32,10 @@ leg is the first post-0.3.0 verify increment: it extends the ESMFold2 length
 coverage from L76 to L129, the range pharma targets actually live in. Lysozyme
 is the model antigen in antibody drug-discovery assays (HyHEL10-class complexes),
 so a customer evaluating an antibody program sees the port tested on the target
-shape that program folds.
+shape that program folds. The affinity leg is the second increment: every prior
+leg is structure-only, so Boltz-2's binding-affinity prediction mode (the README
+"Binding Affinity Prediction" section) was the largest unmeasured surface in
+this benchmark.
 
 | model | target | metric | R | D | X | result |
 |---|---|---|---:|---:|---:|---|
@@ -45,6 +48,7 @@ shape that program folds.
 | Protenix-v2 | 7ROA, L117, MSA | CA-RMSD | 2.94 Å | 1.47 Å | 2.63 ± 0.42 Å | PASS |
 | Boltz-2 | trp-cage, L20, no MSA | CA-RMSD | 0.79 Å | 0.37 Å | 0.60 ± 0.24 Å | PASS |
 | Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 0.81 Å | 0.98 Å | 0.94 ± 0.14 Å | PASS |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA | Δlog10(IC50) | 0.010 | 0.044 | 0.405 ± 0.032 | GAP‡ |
 | OpenDDE | trp-cage, L20, no MSA | CA-RMSD | 0.31 Å | 0.24 Å | 0.39 ± 0.11 Å | PASS |
 | OpenDDE | 7ROA, production settings | CA-RMSD | 1.90 Å | 8.06 Å | 5.68 ± 3.98 Å | PASS |
 | OpenDDE-abag | 1AHW antibody–antigen | global DockQ | 0.83–0.86 | 0.863–0.882 | device matches reference | PASS |
@@ -68,6 +72,26 @@ reference essentially exactly: pLDDT PCC 0.9950, distogram PCC 0.99957,
 pTM Δ +0.00007. This is the same bf16-diffusion-stochasticity property already
 documented for Boltz-2, Protenix-v2, and OpenDDE, now measured at a longer
 single-sequence length.
+
+‡ The affinity leg (FKBP12, the PDBbind immunophilin drug target, 107 residues
++ the small-molecule inhibitor SB3; `msa: empty`, 3 seeds, `--affinity_mw_correction`):
+Boltz-2's affinity mode emits a scalar `affinity_pred_value` (MW-corrected
+log10(IC50) in μM, ensemble mean over 5 affinity diffusion samples and the two
+affinity heads), so the parity distance is |device − reference| rather than a
+Kabsch RMSD, and the R/D/X noise-floor framework applies directly. The
+reference is unusually self-consistent (R = 0.010 log10(IC50) units; seeds 0 and
+1 are bit-identical) because the scalar is already a 5-sample ensemble mean, so
+per-seed variance is small; the device self-floor D = 0.044 is ~4× that. The
+device-vs-reference delta X = 0.405 ± 0.032 is ~9× the floor and is a systematic
+offset, not sampling noise: the device's pre-MW ensemble mean sits ~0.4 log10(IC50)
+(~2.5× in IC50) above the reference on every seed (device −0.10/−0.09/−0.16 vs
+reference −0.52/−0.52/−0.53), and the binding probability is ~0.027 lower
+(device 0.903 vs reference 0.930). The structure legs above pass, so the
+upstream fold is faithful; the residual is in the affinity diffusion/head path
+itself. This is the first non-PASS leg in the benchmark and is flagged as a
+release-gate concern for the Boltz-2 affinity port (accuracy is out of scope
+here, but the port does not reproduce the reference implementation within its
+own run-to-run floor).
 
 ## Reproducing a comparison
 
@@ -94,6 +118,30 @@ leg reproduces with:
 ```bash
 TT_VISIBLE_DEVICES=0 \
   python3 scripts/esmfold2_e2e_parity.py --proteins lysozyme --seeds 0,1,2,3,4
+```
+
+The Boltz-2 affinity leg runs the official `boltz` CLI (CPU) for the reference
+and `tt-bio predict --model boltz2 --affinity_mw_correction` for the device,
+then scores the scalar affinity outputs with the shared noise-floor core. The
+committed reference fixture (3 seeds) is reused as-is; only the device side
+re-runs live:
+
+```bash
+# reference (once, pinned in docs/pharma-benchmark-data/ref-fixtures/boltz2/affinity_fkg/):
+boltz predict input_affinity_fkg.yaml --out_dir ref_seed0 --seed 0 \
+  --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 \
+  --diffusion_samples_affinity 5 --sampling_steps_affinity 200 \
+  --affinity_mw_correction --accelerator cpu --override
+# device (live):
+TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> \
+  python -m tt_bio.main predict examples/affinity_fkg.yaml --model boltz2 \
+  --out_dir dev_seed0 --override --single_sequence --affinity_mw_correction \
+  --diffusion_samples_affinity 5 --sampling_steps_affinity 200 \
+  --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 --seed 0
+# score:
+python3 scripts/boltz2_affinity_parity.py \
+  --ref-dirs <fixture>/seed0 <fixture>/seed1 <fixture>/seed2 \
+  --dev-dirs dev_seed0 dev_seed1 dev_seed2 --target-id affinity_fkg
 ```
 
 Regenerate a reference fixture only when its pinned upstream version or settings
