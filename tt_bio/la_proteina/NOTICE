@@ -1,0 +1,26 @@
+NVIDIA Open Model License — attribution notice
+================================================
+
+This distribution includes or is derived from the La-Proteina model weights,
+which are licensed by NVIDIA Corporation under the NVIDIA Open Model License
+(Version Release Date: April 28, 2025).
+
+  "Licensed by NVIDIA Corporation under the NVIDIA Open Model License"
+
+The full text of the NVIDIA Open Model License is available at:
+  https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/
+
+Under the NOML:
+  - Models are commercially usable.
+  - You are free to create and distribute Derivative Models.
+  - NVIDIA does not claim ownership to any outputs generated using the Models
+    or Model Derivatives.
+
+Use of the model is consistent with NVIDIA's Trustworthy AI terms
+(https://www.nvidia.com/en-us/agreements/trustworthy-ai/terms/).
+
+La-Proteina is NOT a NVIDIA Cosmos Model; the "Built on NVIDIA Cosmos"
+attribution does not apply.
+
+La-Proteina reference source code (Apache-2.0):
+  https://github.com/NVIDIA-Digital-Bio/la-proteina
