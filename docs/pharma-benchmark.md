@@ -48,7 +48,7 @@ this benchmark.
 | Protenix-v2 | 7ROA, L117, MSA | CA-RMSD | 2.94 Å | 1.47 Å | 2.63 ± 0.42 Å | PASS |
 | Boltz-2 | trp-cage, L20, no MSA | CA-RMSD | 0.79 Å | 0.37 Å | 0.60 ± 0.24 Å | PASS |
 | Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 0.81 Å | 0.98 Å | 0.94 ± 0.14 Å | PASS |
-| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA | Δlog10(IC50) | 0.010 | 0.077 | 0.188 ± 0.047 | GAP‡ |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA | Δlog10(IC50) | 0.010 | 0.027 | 0.041 ± 0.018 | GAP‡ |
 | OpenDDE | trp-cage, L20, no MSA | CA-RMSD | 0.31 Å | 0.24 Å | 0.39 ± 0.11 Å | PASS |
 | OpenDDE | 7ROA, production settings | CA-RMSD | 1.90 Å | 8.06 Å | 5.68 ± 3.98 Å | PASS |
 | OpenDDE-abag | 1AHW antibody–antigen | global DockQ | 0.83–0.86 | 0.863–0.882 | device matches reference | PASS |
@@ -98,23 +98,43 @@ Applied fix (on this branch, release-gated): run the affinity pairformer
 (8 + 4 blocks, small) and the affinity heads in fp32 on host — the heads
 already ran on host — so only the affinity pairformer moves off the bf16 device
 path. It is gated by BOLTZ2_AFFINITY_FP32_HOST (default on) and costs ~2-3 s per
-target (negligible; the expensive trunk/diffusion stays on device). It narrows
-the gap substantially:
+target (negligible; the expensive trunk/diffusion stays on device). Pass 1
+narrowed the gap substantially:
 
   affinity_pred_value:         X 0.387 ± 0.025 -> 0.188 ± 0.047  (X/floor 10.0 -> 2.46)
   affinity_probability_binary: X 0.0256 ± 0.002 -> 0.0093 ± 0.002 (X/floor 8.7 -> 2.94)
 
-It does NOT reach the floor (X/floor ~2.5, still GAP). The residual is the bf16
-trunk pair representation that feeds the affinity head: the affinity model
-re-runs its own 64-block trunk in bf16 on device, and the same sensitivity that
-makes the affinity head amplify the affinity-pairformer bf16 bias also makes it
-amplify the smaller bf16 bias in the trunk z. Closing the last ~0.19 requires
-the trunk z for the affinity path in fp32 too — a larger, perf-scoped lift (the
-64-block trunk in fp32 on host is too slow for production; it needs an fp32
-device path or architectural reuse of a fp32 z). That follow-up is tracked in
-~/.coworker/state/tt-bio-boltz2-affinity-precision-p1.md. The leg remains the
-only non-PASS entry and stays a release-gate concern for the Boltz-2 affinity
-port.
+Pass 2 closes the remaining trunk-z residual: the affinity model re-runs its
+own 64-block trunk in bf16 on device to produce the z that feeds the (now fp32)
+affinity head, and the same pooled-pair sensitivity that made the affinity
+pairformer's bf16 bias systematic also amplifies the smaller bf16 bias in that
+trunk z. Pass 2 runs the affinity model's TRUNK (MSA + 64-block pairformer) in
+fp32 on host — scoped to the affinity model only (the structure model has
+affinity_prediction=False, so its trunk is byte-for-byte unchanged) — while the
+expensive diffusion and confidence stay on the bf16 device path. Gated by
+BOLTZ2_AFFINITY_TRUNK_FP32_HOST (default on; set =0 to A/B the old bf16 device
+trunk). It narrows the gap further, to the edge of the floor:
+
+  affinity_pred_value:         X 0.188 ± 0.047 -> 0.041 ± 0.018  (X/floor 2.46 -> 1.52)
+  affinity_probability_binary: X 0.0093 ± 0.002 -> 0.0025 ± 0.001 (X/floor 2.94 -> 1.07)
+
+`affinity_probability_binary` now sits within the noise floor (X ≤ floor + σ).
+`affinity_pred_value` misses by ~0.0016 (X 0.0409 vs the within-floor threshold
+0.0393), so the leg is still GAP. The residual is no longer the trunk z (now
+fp32) but the bf16 device diffusion coords that feed the affinity head's
+pairwise conditioning: the reference runs its diffusion in fp32 on CPU, the
+device runs it in bf16, and the resulting coords differ enough to shift the
+distogram-conditioned pair representation by a hair. Closing it needs an fp32
+diffusion path (host or device), a larger lift than this pass. Perf cost: the
+64-block trunk in fp32 on host adds ~140 s per affinity target (30 s -> 170 s
+total); affinity is not the hot path, but this is more than "seconds", so the
+gate is the release lever — set BOLTZ2_AFFINITY_TRUNK_FP32_HOST=0 to revert to
+the fast bf16-trunk path. The structure legs are unaffected by construction
+(the structure model skips the touched block) and re-verified clean (trp-cage
+CA-RMSD X 0.614 Å, X/floor 0.75, within floor). The leg remains the only
+non-PASS entry and stays a release-gate concern for the Boltz-2 affinity port.
+Pass-by-pass detail: ~/.coworker/state/tt-bio-boltz2-affinity-precision-p1.md
+and tt-bio-boltz2-affinity-trunk-fp32-p2.md.
 
 ## Reproducing a comparison
 

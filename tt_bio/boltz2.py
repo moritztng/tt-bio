@@ -5015,10 +5015,27 @@ class Boltz2(nn.Module):
 
         # Pairwise stack
         self.use_templates = use_templates
+        # Pass 2 (release-gated): the affinity model re-runs its own 64-block trunk
+        # in bf16 on device to produce the z that feeds the (now fp32, pass 1)
+        # affinity head. That bf16 trunk z carries a small systematic bias that the
+        # affinity scalar's mean-over-pooled-pair reduction amplifies into the
+        # residual ~0.19 log10(IC50) offset. Running the affinity model's TRUNK
+        # (MSA + 64-block pairformer) in fp32 on host closes that, while the expensive
+        # diffusion + confidence stay on device. Scoped to the affinity model only
+        # (affinity_prediction=True): the structure model has affinity_prediction=False
+        # so _trunk_use_tt == use_tenstorrent and its trunk is byte-for-byte unchanged.
+        # Gated by BOLTZ2_AFFINITY_TRUNK_FP32_HOST (default on; set =0 to A/B the old
+        # bf16 device trunk).
+        import os as _os_trunk
+        self.affinity_trunk_fp32_host = (
+            affinity_prediction
+            and _os_trunk.environ.get("BOLTZ2_AFFINITY_TRUNK_FP32_HOST", "1") != "0"
+        )
+        _trunk_use_tt = use_tenstorrent and not self.affinity_trunk_fp32_host
         if use_templates:
             if use_templates_v2:
                 self.template_module = TemplateV2Module(
-                    token_z, use_tenstorrent=use_tenstorrent, **template_args
+                    token_z, use_tenstorrent=_trunk_use_tt, **template_args
                 )
             else:
                 self.template_module = TemplateModule(token_z, **template_args)
@@ -5039,7 +5056,7 @@ class Boltz2(nn.Module):
                 tri_att_head_dim=32,
                 tri_att_n_heads=4,
             )
-            if self.use_tenstorrent
+            if _trunk_use_tt
             else MSAModule_(
                 token_z=token_z,
                 token_s=token_s,
@@ -5055,7 +5072,7 @@ class Boltz2(nn.Module):
             )
         self.pairformer_module = (
             tenstorrent.PairformerModule(64, 32, 4, 24, 16, True)
-            if use_tenstorrent
+            if _trunk_use_tt
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )
         if compile_pairformer:
@@ -5292,6 +5309,7 @@ class Boltz2(nn.Module):
             and self.use_tenstorrent
             and not self.is_msa_compiled
             and not self.is_pairformer_compiled
+            and not self.affinity_trunk_fp32_host
         )
         if use_resident_trunk:
             _trunk = self._tt_trunk_module()
