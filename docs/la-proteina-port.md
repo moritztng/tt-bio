@@ -18,7 +18,7 @@ generation up to ~800 residues.
 
 ## Status
 
-Port in progress on branch `wk/tt-bio-la-proteina-port-p4` (not merged; subject
+Port in progress on branch `wk/tt-bio-la-proteina-port-p5` (not merged; subject
 to the model-merge-approval-gate).
 
 - Pass 1 cleared the license gate, confirmed the parameter count (~160M
@@ -50,11 +50,23 @@ to the model-merge-approval-gate).
     logits + all-atom coordinate head with the abs_coors post-process), 12-layer
     trunks each (PCC 0.99996-0.99999).
 
+- Pass 5 ported the dataset feature pipeline and wired the full sampler loop
+  end-to-end (random weights, bf16 trunk + factory, fp32 Euler score math,
+  HiFi4 + fp32_dest_acc, both all-True and partial masks):
+  - the `FeatureFactory` / `PairReprBuilder` feature pipeline that rebuilds
+    `seqs` / `c` / `pair_rep` from `x_t` / `t` (and self-conditioning `x_sc`)
+    at each sampler step -- the piece Pass 4 bypassed by injecting at the
+    post-builder interface. Verified in isolation against the vendored
+    `FeatureFactory` / `PairReprBuilder`: seq factories at 0.99999, pair builder
+    at 0.996 in bf16 (LayerNorm-over-256 precision) and 1.0000 in fp32 (no bug).
+  - the full nsteps Euler sampler LOOP around the denoiser (denoiser trunk +
+    Euler integrator + builders, with shared stochastic draws via a resettable
+    `torch.Generator`), parity vs the reference loop output on final coordinates
+    across 3 seeds x nsteps {3,4,5,6} x both data modes (PCC 0.99986-0.99999).
+
 Real-weight parity is still blocked on NGC checkpoint access (the NGC catalog
 serves the `.ckpt` via a browser-auth file-browser, not a direct download), so
-parity is on random/seeded weights for now. The full nsteps Euler sampler LOOP
-around the denoiser is gated on the FeatureFactory/PairReprBuilder dataset
-feature-pipeline port (the same gate that blocks the full end-to-end forward
-with real input features); the per-step integrator math is ported and
-parity-verified. No end-to-end real-weight parity is claimed yet. See
-`~/.coworker/notes/tt-bio-la-proteina-port-p4.md` for the per-pass detail.
+parity is on random/seeded weights for now. The full sampler loop is now wired
+and parity-verified on random weights; what remains is real-weight parity
+(NGC-blocked) and performance work. See
+`~/.coworker/notes/tt-bio-la-proteina-port-p5.md` for the per-pass detail.
