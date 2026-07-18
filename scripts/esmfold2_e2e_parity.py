@@ -39,11 +39,16 @@ import torch
 
 from pharma_parity import noise_floor_verdict, summarize
 
-# Representative single-domain proteins (no MSA): short, medium, medium-long.
+# Representative single-domain proteins (no MSA): short, medium, medium-long, and a
+# pharma-realistic length. Hen egg-white lysozyme (L129) is the model antigen in antibody
+# drug-discovery assays (HyHEL10-class complexes) and extends the leg past the L76 ubiquitin
+# ceiling toward the 150-450 aa range pharma targets actually live in.
 PROTEINS = {
     "trpcage": "NLYIQWLKDGGPSSGRPPPS",                                              # 20
     "gb1": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTE",             # 56
     "ubiquitin": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",  # 76
+    "lysozyme": ("KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDG"
+                 "RTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL"),        # 129
 }
 
 # forward() kwargs that prepare_input supplies (extras are dropped by name).
