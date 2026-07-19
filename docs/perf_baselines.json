@@ -318,11 +318,28 @@
           "tt_bio_version": "0.3.1",
           "date": "2026-07-19",
           "note": "seed saprot baseline"
+        },
+        "esmc-6b": {
+          "unit": "seq/s",
+          "direction": "higher",
+          "value": 3.170977,
+          "latency_ms": 2522.88,
+          "input": "8x ubiquitin (76 aa), batch 1",
+          "sampling_steps": 10,
+          "diffusion_samples": 1,
+          "recycling_steps": 1,
+          "warmup": 2,
+          "repeat": 5,
+          "hardware": "blackhole",
+          "card_type": "p150a",
+          "tt_bio_version": "0.3.1",
+          "date": "2026-07-19",
+          "note": "seed esmc-6b p150a baseline (was NO BASELINE on p150a \u2014 only p300c recorded; close known gap so gate judges esmc-6b/p150a instead of vacuously failing)"
         }
       },
       "date": "2026-07-19",
       "tt_bio_version": "0.3.1",
-      "note": "seed saprot baseline"
+      "note": "seed esmc-6b p150a baseline (was NO BASELINE on p150a \u2014 only p300c recorded; close known gap so gate judges esmc-6b/p150a instead of vacuously failing)"
     }
   }
 }
