@@ -5,6 +5,73 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- **SaProt-1.3b config bug** — `CONFIGS["saprot-1.3b"]` carried a fabricated arch
+  (hidden=2560 / n_heads=40 / n_layers=40 / intermediate=10240) that does not match
+  the real `westlake-repl/SaProt_1.3B_AF2` checkpoint (1280 / 20 / 66 / 5120 — the
+  650m width with double the layers). `load_state_dict(..., strict=False)` silently
+  masked the mismatch, so the device ran with effectively untrained weights and the
+  1.3b leg read as a parity failure. Config corrected; `Saprot.from_pretrained` now
+  reads the checkpoint's `config.json` and refuses to build on an arch mismatch. With
+  correct shapes saprot-1.3b reaches X_emb=0.99508 / X_logits=0.99895 (deterministic,
+  qb1 card 1) — a near-pass; the per-residue embedding PCC lands just below the
+  0.9987–0.9996 ESMC band (bf16 accumulation over 66 residual layers), so no clean
+  PASS row is added to `docs/pharma-benchmark.md`. See `docs/saprot-parity.md`.
+- **Perf-gate within-card-type false positives** — the perf-regression gate keyed
+  baselines by card type only, so two machines with the same card type (pc vs qb1,
+  both p150a) read as false ~30–36% regressions against each other. Added a machine-id
+  layer under card type (`socket.gethostname()`), with backward-compatible fallback
+  to the card-type block. `--update-baseline` now writes to the detected machine's
+  block.
+
+### Added
+- **`tt-bio saprot --devices`** — multi-card data-parallel fanout for SaProt
+  embeddings (one pinned worker per card, sequences sharded by length, results
+  reassembled in input order), mirroring the ESMC `--devices` path. Row-independent:
+  a sequence's output is identical to running it on one card.
+- **esmc-300m and esmc-6b perf-gate baselines seeded** (esmc-300m 33.17 seq/s on
+  p300c, esmc-6b 3.17 seq/s on p150a), activating the perf-regression legs specced
+  in 0.3.1.
+- **Release-gate perf + UX coverage for SaProt and Boltz-2 affinity** — both shipped
+  in 0.3.1 with accuracy-leg coverage but no perf/UX gate legs; saprot-650m
+  (222.69 seq/s, qb1 p150a) and boltz2-affinity (0.014319 affinities/s, p300c)
+  baselines seeded.
+
+### Removed
+- **ProteinMPNN** — the `tt-bio design` inverse-folding port is dropped entirely.
+  It ran CPU-only (dispatch-bound, no TT-card use), duplicated BoltzGen's
+  inverse-fold capability, and reimplemented the mature upstream
+  `dauparas/ProteinMPNN`. SaProt is untouched.
+
+### Verify / benchmark hardening
+- **Boltz-2 and Protenix-v2 ubiquitin flagship legs hardened 2+2 → 5+5 seeds**
+  (seeds 0–4 both sides): R and D are now 10 pairwise distances each, so the parity
+  verdict is a real statistical statement rather than a single-pair coincidence.
+  Both PASS within floor on CA-RMSD and TM-score; CA-lDDT misses on Boltz-2 (a bf16
+  narrower-basin residual on local structure, recorded as a borderline GAP) and
+  passes on Protenix-v2.
+- **TM-score and CA-lDDT added** alongside CA-RMSD for the two flagship stochastic
+  legs — alignment-free metrics a pharma customer evaluating a binding interface
+  actually feels.
+- **Boltz-2 affinity leg widened 1 → 3 targets** (FKBP12, DHFR+MTX, trypsin+BAM)
+  with ligand-pose RMSD and pocket-lDDT added alongside the scalar Δlog10(IC50).
+  Scalar affinity PASSES on all three; ligand-pose RMSD passes on FKBP12 and
+  trypsin, misses on DHFR; pocket-lDDT misses on all three (the consistent bf16
+  narrower-basin residual on local interface geometry).
+- **FKBP12 affinity GAP root-caused and fixed** — the boltz-2 worker is
+  spawn-started (does not inherit the controller's RNG) and the affinity path calls
+  `predict_affinity` without re-seeding, so the affinity diffusion's `torch.randn`
+  draws ran from an unseeded global RNG; the tight affinity floor (R=0.010) surfaced
+  this as a systematic GAP. Seeded the global RNG once before the boltz-2 structure
+  step, matching the reference's single `seed_everything` → structure → affinity
+  stream. `affinity_pred_value` now X=0.041 ± 0.024, within floor.
+- **HSA (PDB 1AO6, L585) added** as the first L300–800 pharma-realistic large target
+  on both flagship legs: Boltz-2 PASS (CA-RMSD X=1.47 ± 0.22 Å, within floor);
+  Protenix-v2 GAP (X=1.03 ± 0.17 Å vs a tight GPU-bf16 reference floor R=0.70 Å — a
+  tight-floor effect from bf16 numerical divergence between NVIDIA and Tenstorrent
+  reduction orders, not a structural defect; both folds are correct HSA shapes). See
+  `docs/pharma-benchmark.md`.
+
 ## [0.3.1] - 2026-07-19
 
 Adds **SaProt** structure-aware protein embeddings (`tt-bio saprot`, an ESM-2 encoder over a
