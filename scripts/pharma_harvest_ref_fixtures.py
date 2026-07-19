@@ -462,6 +462,68 @@ SPECS = [
             "differs only by floating-point non-determinism, within the R/D/X tolerance."
         ),
     ),
+    FixtureSpec(
+        model="protenix-v2",
+        target="hsa",
+        settings_tag="msa-server_200step_5sample_10cycle_bf16",
+        reference_impl="official ByteDance Protenix (torch, GPU via vast.ai RTX3090)",
+        reference_version="protenix 2.0.0 (model protenix-v2, 464M params)",
+        reference_commit="bytedance/Protenix c3bfc365b3e1341a11935eddfe7bfdc308092147",
+        command=(
+            "protenix_venv/bin/python protenix_ref_predict_hsa.py <seed> <out_dir>  "
+            "(calls runner.batch_inference.inference_jsons: use_msa=True(server), "
+            "seeds=[<seed>], n_cycle=10, n_step=200, n_sample=5, dtype=bf16, "
+            "model_name=protenix-v2, trimul_kernel=torch, triatt_kernel=torch, "
+            "use_template=False; CUDA FusedLayerNorm stubbed by torch LayerNorm, "
+            "triangle kernels forced to torch (the SAME torch kernels as the qb2 CPU "
+            "reference for the other protenix legs -- only the execution device differs "
+            "GPU vs CPU); json prot_hsa.json names the target hsa, sequence = human serum "
+            "albumin PDB 1AO6 585 res)"
+        ),
+        settings={
+            "use_msa": True, "msa_source": "https://protenix-server.com/api/msa",
+            "recycling_cycles": 10, "diffusion_steps": 200, "diffusion_samples": 5,
+            "selection": "confidence-selected best-of-5 by ranking_score",
+            "dtype": "bf16", "trimul_kernel": "torch", "triatt_kernel": "torch",
+            "target": "examples/hsa.yaml (PDB 1AO6, human serum albumin, 585 res, 3-domain)",
+            "rationale": ("large pharma-realistic Protenix-v2 target (L585, multi-domain human "
+                           "serum albumin, classic drug-binding carrier) extending Protenix-v2 "
+                           "past L117 to the L300-800 regime, and the SAME target as the Boltz-2 "
+                           "HSA leg for cross-model comparability. Same production settings as the "
+                           "7ROA/ubiquitin protenix legs (MSA server, n_cycle=10, n_step=200, "
+                           "n_sample=5, bf16) so the protenix legs differ only in target, not "
+                           "methodology. Reference generated on vast.ai GPU (CPU infeasible at "
+                           "L585) with the same pinned protenix 2.0.0 / commit and same torch "
+                           "triangle kernels as the qb2 CPU reference."),
+        },
+        seeds=[
+            SeedSpec(0, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed0", "hsa"),
+            SeedSpec(1, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed1", "hsa"),
+            SeedSpec(2, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed2", "hsa"),
+            SeedSpec(3, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed3", "hsa"),
+            SeedSpec(4, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed4", "hsa"),
+        ],
+        msa_source="/home/ttuser/hsa_ref_protenix/hsa_ref_msa.a3m",
+        msa_note=(
+            "Protenix-server.com MSA, identical across all 5 reference seeds (the ref script "
+            "copies ref_protenix_seed0/raw/.../0.a3m to hsa_ref_msa.a3m). The device folds the "
+            "SAME MSA (staged into the dev run) so X measures pure port fidelity with input MSA "
+            "held identical."
+        ),
+        provenance_note=(
+            "Harvested from a 2026-07-19 vast.ai RTX3090 reference run (ref_protenix_seed{0-4}). "
+            "Pinned protenix 2.0.0 / commit c3bfc365b3e1341a11935eddfe7bfdc308092147, torch "
+            "2.6.0+cu124, n_cycle=10 / n_step=200 / n_sample=5 / bf16, use_msa=True (protenix-"
+            "server.com), trimul_kernel=torch, triatt_kernel=torch, FusedLayerNorm stubbed by "
+            "torch LayerNorm -- the SAME torch kernels as the qb2 CPU reference for the other "
+            "protenix legs; only the execution device differs (GPU vs CPU), so the fixture stays "
+            "valid under the existing invalidation rule (same commit, same settings, same "
+            "kernel). The data cache (components.cif + rdkit_mol.pkl) and the protenix-v2 "
+            "checkpoint were copied from qb2 (the same cache+checkpoint the ubiquitin/7ROA protenix "
+            "legs used, Jul 13 vintage) so the CCD+checkpoint version matches the existing protenix "
+            "legs exactly. CPU was infeasible at L585 (multi-hour/seed), hence vast.ai GPU."
+        ),
+    ),
 ]
 
 

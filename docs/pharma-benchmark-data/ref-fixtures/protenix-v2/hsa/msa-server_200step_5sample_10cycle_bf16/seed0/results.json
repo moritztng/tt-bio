@@ -1,0 +1,15 @@
+[
+  {
+    "id": "hsa",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.9296879172325134,
+    "iptm": 0.0,
+    "plddt": 92.21007537841797,
+    "ranking_score": 0.18593758344650269,
+    "selected_sample_idx": 0
+  }
+]
