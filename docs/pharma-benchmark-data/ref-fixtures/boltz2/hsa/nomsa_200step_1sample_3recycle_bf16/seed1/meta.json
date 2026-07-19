@@ -1,0 +1,26 @@
+{
+  "seed": 1,
+  "target_id": "hsa_no_msa",
+  "harvested_from": "/home/ttuser/hsa_ref_boltz/ref_boltz_harness_s1",
+  "selected_record": {
+    "confidence_score": 0.8637015223503113,
+    "ptm": 0.6977518200874329,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.9051889181137085,
+    "complex_iplddt": 0.9051889181137085,
+    "complex_pde": 0.6590390801429749,
+    "complex_ipde": 0.0,
+    "chains_ptm": {
+      "0": 0.6977518200874329
+    },
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.6977518200874329
+      }
+    },
+    "id": "hsa_no_msa"
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}
