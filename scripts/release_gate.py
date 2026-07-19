@@ -42,8 +42,17 @@ always takes the fused kernel (``BUCKET=64`` pads L tile-aligned), so this leg
 exercises it directly. Reuses ``scripts/esmc_embed_parity.py``'s
 ``run_esmc_parity`` (and the ``tests/esmc_reference.py`` golden) — not re-derived
 here. 300m/600m (the embed workhorses) run by default; esmc-6b is opt-in
-(``--model esmc-6b``) since its ~13 GB load is too slow for the fast gate, and
-its fused kernel is identical to 300m/600m (head_dim 64), so their parity covers it.
+(``--model esmc-6b``) since its ~13 GB load dominates wall-clock and is too slow
+for the fast gate. It is *not* opt-in for accuracy reasons: the 6b leg has been
+run on-device against the esm-repo fp32 reference (same golden as 300m/600m, at
+the 6b config) on the four benchmark proteins and passes at the same bar
+(per-residue embedding PCC 0.99904–0.99969, device self-consistency 1.00000 —
+see docs/pharma-benchmark.md's ESMC-6b row). The 6b port is the same code path
+as 300m/600m (same Block/Embedding modules, same fused RoPE, head_dim 64), so
+300m/600m's default-gate parity is a cheap proxy; the opt-in 6b leg is the
+standing on-device confirmation. ``run_esmc_parity`` delegates to
+``scripts/esmc6b_embed_parity.py`` for 6b (sharded TE safetensors, no sequence
+head — the single-.pth / logits path does not apply).
 
     # gate everything (five fold models + BoltzGen designability + ESMC embed parity) on card 1
     TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> ESM_ROOT=/path/to/esm \
@@ -125,7 +134,9 @@ BOLTZGEN_MIN_PASS_RATE = 0.5
 # floor vs the reference esm ESMC on a real protein. Generous (the shipped fused
 # path measures ~0.9996-0.9998): catches a gross numerics regression, not a tight
 # target, same philosophy as the fold floors. 300m/600m are the embed workhorses
-# (`tt-bio embed`, JapanFold embeddings) and run by default; 6b is opt-in.
+# (`tt-bio embed`, JapanFold embeddings) and run by default; 6b is opt-in — it
+# passes the same bar on-device (see docs/pharma-benchmark.md's ESMC-6b row) but
+# its ~13 GB load is too slow for the fast gate, so 300m/600m cover it by default.
 ESMC_MIN_PCC = 0.99
 ESMC_DEFAULT = ["esmc-300m", "esmc-600m"]
 ESMC_OPT_IN = ["esmc-6b"]

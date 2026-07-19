@@ -1888,7 +1888,6 @@ def process_ensemble_features(
     assert num_ensembles > 0, "Number of conformers sampled must be greater than 0."
 
     # Number of available conformers in the structure
-    # s_ensemble_num = min(len(cropped.structure.ensemble), 24)  # Limit to 24 conformers DEBUG: TODO: remove !
     s_ensemble_num = len(data.structure.ensemble)
 
     if fix_single_ensemble:
