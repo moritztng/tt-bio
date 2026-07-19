@@ -143,11 +143,24 @@ def _cif(d: Path, tid: str) -> Path:
     return Path(d) / "structures" / f"{tid}.cif"
 
 
-def _pair_rmsd_pcc(dA: Path, dB: Path, tid: str):
+def _pair_metrics(dA: Path, dB: Path, tid: str):
+    """All four structure-parity DISTANCES (lower = more similar) for a run pair."""
     s = compare_structure(_cif(dA, tid), _cif(dB, tid))
     if s.get("n_matched", 0) == 0:
         return None
-    return s["kabsch_rmsd"], s["coord_pcc"]
+    return {
+        "kabsch_rmsd": s["kabsch_rmsd"],
+        "1-coord_pcc": 1.0 - s["coord_pcc"],
+        "1-tm_score": 1.0 - s.get("tm_score", 0.0),
+        "1-lddt": 1.0 - s.get("lddt", 0.0),
+    }
+
+
+def _pair_rmsd_pcc(dA: Path, dB: Path, tid: str):
+    m = _pair_metrics(dA, dB, tid)
+    if m is None:
+        return None
+    return m["kabsch_rmsd"], 1.0 - m["1-coord_pcc"]
 
 
 def structures(args) -> int:
@@ -178,27 +191,38 @@ def structures(args) -> int:
     print("| target | metric | dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |")
     print("|---|---|---|---|---|---|---|")
 
+    metric_keys = ("kabsch_rmsd", "1-coord_pcc", "1-tm_score", "1-lddt")
+    metric_labels = {
+        "kabsch_rmsd": "CA-RMSD (Å)",
+        "1-coord_pcc": "1-PCC",
+        "1-tm_score": "1-TM",
+        "1-lddt": "1-lDDT",
+    }
     for tid in ids:
-        cross_r, cross_p = [], []
+        cross = {k: [] for k in metric_keys}
+        rf = {k: [] for k in metric_keys}
+        df = {k: [] for k in metric_keys}
         for da, db in itertools.product(dev_dirs, ref_dirs):
-            v = _pair_rmsd_pcc(da, db, tid)
-            if v:
-                cross_r.append(v[0]); cross_p.append(1 - v[1])
-        rf_r, rf_p = [], []
+            m = _pair_metrics(da, db, tid)
+            if m:
+                for k in metric_keys:
+                    cross[k].append(m[k])
         for da, db in itertools.combinations(ref_dirs, 2):
-            v = _pair_rmsd_pcc(da, db, tid)
-            if v:
-                rf_r.append(v[0]); rf_p.append(1 - v[1])
-        df_r, df_p = [], []
+            m = _pair_metrics(da, db, tid)
+            if m:
+                for k in metric_keys:
+                    rf[k].append(m[k])
         for da, db in itertools.combinations(dev_dirs, 2):
-            v = _pair_rmsd_pcc(da, db, tid)
-            if v:
-                df_r.append(v[0]); df_p.append(1 - v[1])
+            m = _pair_metrics(da, db, tid)
+            if m:
+                for k in metric_keys:
+                    df[k].append(m[k])
 
-        vr = noise_floor_verdict(cross_r, rf_r, df_r, "kabsch_rmsd")
-        vp = noise_floor_verdict(cross_p, rf_p, df_p, "1-coord_pcc")
-        report["targets"][tid] = {"rmsd": vr, "pcc": vp}
-        for name, v in (("CA-RMSD (Å)", vr), ("1-PCC", vp)):
+        verdicts = {k: noise_floor_verdict(cross[k], rf[k], df[k], k) for k in metric_keys}
+        report["targets"][tid] = {k.split("-", 1)[-1]: v for k, v in verdicts.items()}
+        for k in metric_keys:
+            v = verdicts[k]
+            name = metric_labels[k]
             print(f"| {tid} | {name} | {v['cross'].get('mean', float('nan')):.3f}"
                   f"±{v['cross'].get('std', 0):.3f} "
                   f"| {v['ref_floor'].get('mean', float('nan')):.3f} "
