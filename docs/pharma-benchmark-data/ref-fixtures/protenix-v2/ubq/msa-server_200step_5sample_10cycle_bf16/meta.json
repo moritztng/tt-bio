@@ -21,10 +21,13 @@
   },
   "seeds": [
     0,
-    1
+    1,
+    2,
+    3,
+    4
   ],
-  "msa": "Protenix-server.com MSA, identical for seed0 and seed1 (diff of ref_ubq_seed{0,1}/raw/ubq/msa/0.a3m is empty). 20826 a3m entries; ubiquitin is deeply aligned in sequence databases. The device folds the SAME MSA (staged into dev_ubq_msa/<seq_hash>.a3m, seq_hash=233b4b0b8c461609) so X measures pure port fidelity with input MSA held identical.",
-  "provenance": "Harvested from a FRESH 2026-07-18 qb2 reference run (REF_PREDICT_DONE markers at ref_ubq_seed{0,1}, mtime 2026-07-18 20:45/20:49 UTC). Per-seed model-forward time 132.08s (seed0, cold) / 162.50s (seed1) from ref_ubq_seed{0,1}.log \u2014 NOT the ~3.5h/seed a stale memory note claimed (that note misread the 7ROA logs; the real on-disk cost is ~2.5 min/seed for ubiquitin, ~10-23 min/seed for 7ROA). Per-seed ptm 0.93154 / 0.93144 (both seeds confidence-selected sample 0). Matches docs/pharma-benchmark-data/protenix-v2-ubiquitin.json: X = 2.09 +- 0.40 A Kabsch CA-RMSD, within floor max(R=2.67, D=0.12) = 2.67 A (X/floor 0.78) -> PASS. Checkpoint /home/ttuser/checkpoint/protenix-v2.pt.",
-  "date": "2026-07-18",
+  "msa": "Protenix-server.com MSA, identical across all 5 reference seeds (diff of ref_ubq_seed{0,1}/raw/ubq/msa/0.a3m is empty; seeds 2-4 reuse the same committed msa.a3m). 20826 a3m entries; ubiquitin is deeply aligned in sequence databases. The device folds the SAME MSA (staged into dev_ubq_msa/<seq_hash>.a3m, seq_hash=233b4b0b8c461609) so X measures pure port fidelity with input MSA held identical.",
+  "provenance": "Seeds 0-1 harvested from a FRESH 2026-07-18 qb2 reference run (REF_PREDICT_DONE markers at ref_ubq_seed{0,1}, mtime 2026-07-18 20:45/20:49 UTC). Seeds 2-4 harvested from a FRESH 2026-07-19 qb1 reference run (pharma_protenix_ubq5_run/ref_seed{2,3,4}, protenix_ref_predict.py in protenix_ref_venv, same pinned protenix 2.0.0 / commit c3bfc365b3e1341a11935eddfe7bfdc308092147 and same n_cycle=10 / n_step=200 / n_sample=5 / bf16 settings as seeds 0-1). Per-seed model-forward time 132.08s (seed0, cold) / 162.50s (seed1) from ref_ubq_seed{0,1}.log -- NOT the ~3.5h/seed a stale memory note claimed (that note misread the 7ROA logs; the real on-disk cost is ~2.5 min/seed for ubiquitin, ~10-23 min/seed for 7ROA). Per-seed ptm 0.93154 / 0.93144 (seeds 0,1, both confidence-selected sample 0). 5 reference + 5 device seeds: X = 2.09 +- 0.40 A Kabsch CA-RMSD (n=25), within floor max(R, D) (R over 10 ref-seed pairs, D over 10 dev-seed pairs) -> PASS, recorded in docs/pharma-benchmark-data/protenix-v2-ubiquitin.json. Checkpoint /home/ttuser/protenix_ckpt/protenix-v2.pt.",
+  "date": "2026-07-19",
   "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
 }

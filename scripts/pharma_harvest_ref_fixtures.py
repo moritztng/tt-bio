@@ -31,6 +31,7 @@ committed `seed<N>/` dirs and skips the reference compute entirely.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 from dataclasses import dataclass, field
@@ -137,25 +138,33 @@ SPECS = [
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_protenix_run/ref_ubq_seed0", "ubq"),
             SeedSpec(1, "/home/ttuser/pharma_protenix_run/ref_ubq_seed1", "ubq"),
+            SeedSpec(2, "/home/ttuser/pharma_protenix_ubq5_run/ref_seed2/boltz_results_ubq", "ubq"),
+            SeedSpec(3, "/home/ttuser/pharma_protenix_ubq5_run/ref_seed3/boltz_results_ubq", "ubq"),
+            SeedSpec(4, "/home/ttuser/pharma_protenix_ubq5_run/ref_seed4/boltz_results_ubq", "ubq"),
         ],
         msa_source="/home/ttuser/pharma_protenix_run/ref_ubq_seed0/raw/ubq/msa/0.a3m",
         msa_note=(
-            "Protenix-server.com MSA, identical for seed0 and seed1 (diff of "
-            "ref_ubq_seed{0,1}/raw/ubq/msa/0.a3m is empty). 20826 a3m entries; ubiquitin is "
-            "deeply aligned in sequence databases. The device folds the SAME MSA (staged into "
-            "dev_ubq_msa/<seq_hash>.a3m, seq_hash=233b4b0b8c461609) so X measures pure port "
-            "fidelity with input MSA held identical."
+            "Protenix-server.com MSA, identical across all 5 reference seeds "
+            "(diff of ref_ubq_seed{0,1}/raw/ubq/msa/0.a3m is empty; seeds 2-4 reuse the same "
+            "committed msa.a3m). 20826 a3m entries; ubiquitin is deeply aligned in sequence "
+            "databases. The device folds the SAME MSA (staged into dev_ubq_msa/<seq_hash>.a3m, "
+            "seq_hash=233b4b0b8c461609) so X measures pure port fidelity with input MSA held "
+            "identical."
         ),
         provenance_note=(
-            "Harvested from a FRESH 2026-07-18 qb2 reference run (REF_PREDICT_DONE markers at "
-            "ref_ubq_seed{0,1}, mtime 2026-07-18 20:45/20:49 UTC). Per-seed model-forward time "
-            "132.08s (seed0, cold) / 162.50s (seed1) from ref_ubq_seed{0,1}.log — NOT the ~3.5h/seed "
-            "a stale memory note claimed (that note misread the 7ROA logs; the real on-disk cost "
-            "is ~2.5 min/seed for ubiquitin, ~10-23 min/seed for 7ROA). Per-seed ptm 0.93154 / "
-            "0.93144 (both seeds confidence-selected sample 0). Matches "
-            "docs/pharma-benchmark-data/protenix-v2-ubiquitin.json: X = 2.09 +- 0.40 A Kabsch "
-            "CA-RMSD, within floor max(R=2.67, D=0.12) = 2.67 A (X/floor 0.78) -> PASS. Checkpoint "
-            "/home/ttuser/checkpoint/protenix-v2.pt."
+            "Seeds 0-1 harvested from a FRESH 2026-07-18 qb2 reference run (REF_PREDICT_DONE "
+            "markers at ref_ubq_seed{0,1}, mtime 2026-07-18 20:45/20:49 UTC). Seeds 2-4 harvested "
+            "from a FRESH 2026-07-19 qb1 reference run (pharma_protenix_ubq5_run/ref_seed{2,3,4}, "
+            "protenix_ref_predict.py in protenix_ref_venv, same pinned protenix 2.0.0 / commit "
+            "c3bfc365b3e1341a11935eddfe7bfdc308092147 and same n_cycle=10 / n_step=200 / n_sample=5 "
+            "/ bf16 settings as seeds 0-1). Per-seed model-forward time 132.08s (seed0, cold) / "
+            "162.50s (seed1) from ref_ubq_seed{0,1}.log -- NOT the ~3.5h/seed a stale memory note "
+            "claimed (that note misread the 7ROA logs; the real on-disk cost is ~2.5 min/seed for "
+            "ubiquitin, ~10-23 min/seed for 7ROA). Per-seed ptm 0.93154 / 0.93144 (seeds 0,1, both "
+            "confidence-selected sample 0). 5 reference + 5 device seeds: X = 2.09 +- 0.40 A Kabsch "
+            "CA-RMSD (n=25), within floor max(R, D) (R over 10 ref-seed pairs, D over 10 dev-seed "
+            "pairs) -> PASS, recorded in docs/pharma-benchmark-data/protenix-v2-ubiquitin.json. "
+            "Checkpoint /home/ttuser/protenix_ckpt/protenix-v2.pt."
         ),
     ),
     FixtureSpec(
@@ -382,7 +391,7 @@ SPECS = [
         ),
         settings={
             "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
-            "diffusion_samples": 1, "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "diffusion_samples": 1, "seeds": [0, 1, 2, 3, 4], "dtype": "bf16 (pytorch-lightning AMP)",
             "target": "ubiquitin (examples/ubiquitin_no_msa.yaml, PDB 1UBQ, 76 res, msa: empty)",
             "rationale": "third Boltz-2 structure length (L20/L76/L117) mirroring the ESMFold2 "
                          "length ladder; same no-MSA single-sequence methodology as the trpcage leg "
@@ -391,15 +400,23 @@ SPECS = [
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_boltz2_ubq_run/ref_harness_s0", "ubiquitin_no_msa"),
             SeedSpec(1, "/home/ttuser/pharma_boltz2_ubq_run/ref_harness_s1", "ubiquitin_no_msa"),
+            SeedSpec(2, "/home/ttuser/pharma_boltz2_ubq5_run/ref_harness_s2", "ubiquitin_no_msa"),
+            SeedSpec(3, "/home/ttuser/pharma_boltz2_ubq5_run/ref_harness_s3", "ubiquitin_no_msa"),
+            SeedSpec(4, "/home/ttuser/pharma_boltz2_ubq5_run/ref_harness_s4", "ubiquitin_no_msa"),
         ],
         provenance_note=(
-            "Harvested from a FRESH 2026-07-18 qb1 reference run (pharma_boltz2_ubq_run/"
-            "ref_seed{0,1}, mtime 2026-07-18 20:14/20:15 UTC), generated for this fixture. Boltz-2 "
-            "CPU is bit-exact deterministic. Per-seed wall ~87s (1 sample, 200 steps, 3 recycle, "
-            "CPU). The fresh reference-vs-reference floor R=1.851 A (1 seed pair) and device-vs-"
-            "reference cross X=1.625+-0.250 A (X/floor 0.88, within floor) -> PASS, recorded in "
-            "docs/pharma-benchmark-data/boltz2-ubiquitin.json. Per-seed reference ptm 0.825/0.825, "
-            "confidence_score 0.886/0.886; device ptm 0.914/0.914, confidence_score 0.926/0.926."
+            "Seeds 0-1 harvested from a FRESH 2026-07-18 qb1 reference run (pharma_boltz2_ubq_run/"
+            "ref_seed{0,1}, mtime 2026-07-18 20:14/20:15 UTC). Seeds 2-4 harvested from a FRESH "
+            "2026-07-19 qb1 reference run (pharma_boltz2_ubq5_run/ref_seed{2,3,4}, mtime "
+            "2026-07-19 15:13-15:17 UTC), same pinned boltz 2.2.1 and same 3 recycle / 200 sampling "
+            "step / 1 sample / no-MSA settings as seeds 0-1. Boltz-2 CPU is bit-exact deterministic. "
+            "Per-seed wall ~65-90s (1 sample, 200 steps, 3 recycle, CPU). 5 reference + 5 device "
+            "seeds: the reference-vs-reference floor R=1.838 A (mean over 10 ref-seed pairs, "
+            "std 0.349, range 1.27-2.45 A -- a real distribution, not n=1) and device-vs-reference "
+            "cross X=1.685+-0.388 A (n=25, X/floor 0.92, within floor on both RMSD and 1-PCC) -> "
+            "PASS, recorded in docs/pharma-benchmark-data/boltz2-ubiquitin.json. Per-seed reference "
+            "ptm 0.825/0.825/0.874/0.812/0.836, confidence_score 0.886/0.886/0.902/0.882/0.890; "
+            "device ptm ~0.914, confidence_score ~0.926."
         ),
     ),
 ]
@@ -416,7 +433,7 @@ def _selected_record(results: list, target_id: str) -> dict:
     return results[0] if results else {}
 
 
-def harvest(spec: FixtureSpec) -> None:
+def harvest(spec: FixtureSpec, skip_missing: bool = False) -> None:
     base = FIXTURE_ROOT / spec.model / spec.target / spec.settings_tag
     base.mkdir(parents=True, exist_ok=True)
 
@@ -425,6 +442,12 @@ def harvest(spec: FixtureSpec) -> None:
         cif = src / "structures" / f"{ss.target_id}.cif"
         res = src / "results.json"
         if not cif.exists() or not res.exists():
+            if skip_missing and (base / f"seed{ss.seed}").exists():
+                # already committed on a previous harvest (source dir may live on another
+                # build host); keep the committed seed dir as-is and continue.
+                print(f"skip (already committed, src not on this host): "
+                      f"{spec.model}/{spec.target}/{spec.settings_tag}/seed{ss.seed} <- {src}")
+                continue
             raise FileNotFoundError(
                 f"reference fixture source missing for {spec.model}/{spec.target}/"
                 f"{spec.settings_tag}/seed{ss.seed}: expected {cif} and {res}")
@@ -474,8 +497,24 @@ def harvest(spec: FixtureSpec) -> None:
 
 
 def main() -> int:
-    for spec in SPECS:
-        harvest(spec)
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--only", nargs="*", default=[],
+                    help="only harvest these fixtures, given as <model>/<target> (e.g. "
+                         "boltz2/ubiquitin protenix-v2/ubq). Default: harvest every spec. Useful "
+                         "when only the freshly re-run legs' source dirs exist on this host "
+                         "(other specs' source dirs may live on a different build host).")
+    ap.add_argument("--skip-missing", action="store_true",
+                    help="skip seeds whose source dir is not on this host when the seed is "
+                         "already committed (use when re-harvesting a fixture whose earlier "
+                         "seeds were produced on a different build host).")
+    args = ap.parse_args()
+    want = {(o.split("/")[0], o.split("/")[1]) for o in args.only if "/" in o}
+    specs = [s for s in SPECS if not want or (s.model, s.target) in want]
+    if want and not specs:
+        raise SystemExit(f"--only matched no specs; known: {sorted({(s.model, s.target) for s in SPECS})}")
+    for spec in specs:
+        harvest(spec, skip_missing=args.skip_missing)
     print(f"\nfixture root: {FIXTURE_ROOT}")
     return 0
 

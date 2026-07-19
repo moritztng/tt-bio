@@ -1,0 +1,60 @@
+[
+  {
+    "id": "ubq",
+    "status": "ok",
+    "complex_plddt": 93.19944,
+    "plddt": 93.19944,
+    "ptm": 0.931485,
+    "iptm": 0.0,
+    "confidence_score": 0.931485,
+    "ranking_score": 0.186297,
+    "n_residues": 76,
+    "n_chains": 1,
+    "n_tokens": 76,
+    "msa": true,
+    "n_atoms": 602,
+    "samples": 5,
+    "all_runs": [
+      {
+        "rank": 0,
+        "sample": 3,
+        "plddt": 93.19944,
+        "ptm": 0.931485,
+        "iptm": 0.0,
+        "ranking_score": 0.186297
+      },
+      {
+        "rank": 1,
+        "sample": 0,
+        "plddt": 93.245102,
+        "ptm": 0.931455,
+        "iptm": 0.0,
+        "ranking_score": 0.186291
+      },
+      {
+        "rank": 2,
+        "sample": 1,
+        "plddt": 93.228439,
+        "ptm": 0.931323,
+        "iptm": 0.0,
+        "ranking_score": 0.186265
+      },
+      {
+        "rank": 3,
+        "sample": 2,
+        "plddt": 93.209908,
+        "ptm": 0.931051,
+        "iptm": 0.0,
+        "ranking_score": 0.18621
+      },
+      {
+        "rank": 4,
+        "sample": 4,
+        "plddt": 93.215958,
+        "ptm": 0.930638,
+        "iptm": 0.0,
+        "ranking_score": 0.186128
+      }
+    ]
+  }
+]
