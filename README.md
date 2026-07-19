@@ -12,7 +12,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) binder design, [ProteinMPNN](#sequence-design-proteinmpnn) sequence design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 ## Installation
 
@@ -30,7 +30,7 @@ tt-bio install-deps
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.3.0"   # pinned release, see Releases for the latest
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.3.1"   # pinned release, see Releases for the latest
 pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -629,6 +629,27 @@ tt-bio gen run examples/binder.yaml --output existing/ --steps analysis filterin
 | `--cache` | `~/.boltz/boltzgen` | Cache for downloaded weights |
 | `--debug` | `False` | Disable live display; show raw stage output |
 | `--debug --log` | `False` | Add per-stage progress markers |
+
+## Sequence Design (ProteinMPNN)
+
+[ProteinMPNN](https://github.com/dauparas/ProteinMPNN) designs the amino-acid sequence most likely to fold into a fixed backbone (inverse folding) — the step run after a backbone generator like BoltzGen, or any bring-your-own-backbone PDB.
+
+```bash
+tt-bio design backbone.pdb --num-sequences 8 --checkpoint v_48_020.pt
+```
+
+Runs on CPU; a data-parallel fanout of processes scales throughput near-linearly (see [docs/proteinmpnn-port.md](docs/proteinmpnn-port.md)). Writes `<name>.fasta` to `--out-dir`.
+
+### Command-Line Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--sequence-model` | `proteinmpnn` | Inverse-folding model |
+| `--num-sequences` | `1` | Sequences to sample per backbone |
+| `--temperature` | `0.1` | Sampling temperature (lower = higher recovery, less diverse) |
+| `--seed` | — | RNG seed for reproducible designs |
+| `--checkpoint` | `$PROTEINMPNN_CKPT` | ProteinMPNN checkpoint (`v_48_0XX.pt`) |
+| `--out-dir` | `./design` | Output directory |
 
 ## Cite
 

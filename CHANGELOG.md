@@ -5,6 +5,67 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-19
+
+Adds **SaProt** structure-aware protein embeddings (`tt-bio saprot`, an ESM-2 encoder over a
+fused amino-acid + Foldseek-3Di vocabulary) and **ProteinMPNN** fixed-backbone sequence design
+(`tt-bio design`, inverse folding — the step run after a backbone generator like BoltzGen, or
+any bring-your-own-backbone PDB). Both are purely additive: no existing model file changed.
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0, Blackhole P150a):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.541 Å | 0.939 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 1.774 Å | 0.915 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.725 Å | 0.909 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 1.417 Å | 0.936 | ≤6.0 Å / ≥0.50 | PASS |
+| OpenDDE | 1.367 Å | 0.952 | ≤6.0 Å / ≥0.50 | PASS |
+
+**BoltzGen designability** — n=4, `examples/binder.yaml`: scRMSD median 0.892 Å, 4/4 designs (100%) ≤2 Å (floor ≤2.0 Å / ≥50%) — PASS.
+
+**ESMC embedding parity** (fused-RoPE shipped path vs reference esm, 76-residue sequence, PCC floor 0.99):
+
+| model | per-res PCC | pooled | logits | argmax | result |
+|---|---|---|---|---|---|
+| esmc-300m | 0.99961 | 0.99993 | 0.99990 | 1.0000 | PASS |
+| esmc-600m | 0.99964 | 0.99989 | 0.99996 | 1.0000 | PASS |
+
+**SaProt embedding parity** (vs reference HF `EsmForMaskedLM` golden, PCC floor 0.99):
+
+| model | embedding PCC | logits PCC | result |
+|---|---|---|---|
+| saprot-35m | 0.999138 | 0.999772 | PASS |
+| saprot-650m | 0.999638 | 0.999927 | PASS |
+
+**ProteinMPNN parity** (`pytest tests/test_proteinmpnn.py` vs official `v_48_020.pt`): 4/4 passing —
+forward log-prob PCC ≥0.999 on 5L33 and 6MRR, exact greedy-recovery match, checkpoint param count
+1,660,485 (matches published 1.66M).
+
+**UX gate** (`scripts/ux_regression.py`, `examples/trpcage.yaml`): every shipped surface (Boltz-2,
+ESMFold2, ESMFold2-fast, Protenix-v2, OpenDDE, ESMC-600m embed, BoltzGen) cleared live-progress
+advancement, strict mmCIF/npz parse, and results/manifest shape — PASS.
+
+**Perf gate** (`scripts/perf_regression.py`, Blackhole P150a, trpcage 20 aa single-sequence, warm 2+5, ±15% threshold):
+
+| model | metric | baseline | current | delta | result |
+|---|---|---|---|---|---|
+| boltz2 | structures/s | 1.190 | 1.176 | -1.2% | PASS |
+| esmfold2 | structures/s | 1.705 | 1.692 | -0.7% | PASS |
+| esmfold2-fast | structures/s | 2.290 | 2.304 | +0.6% | PASS |
+| protenix-v2 | structures/s | 2.383 | 2.329 | -2.3% | PASS |
+| opendde | structures/s | 1.922 | 1.939 | +0.9% | PASS |
+| esmc-600m | seq/s | 20.92 | 21.03 | +0.5% | PASS |
+| boltzgen | designs/s | 0.01723 | 0.01745 | +1.3% | PASS |
+
+No perf regression. No OOM observed through the gate targets. ProteinMPNN runs on CPU
+(data-parallel fanout, not an on-device port — see `docs/proteinmpnn-port.md`).
+
+### Added
+- **SaProt** structure-aware protein embeddings (`tt-bio saprot`, `saprot-35m`/`saprot-650m`/`saprot-1.3b`).
+- **ProteinMPNN** fixed-backbone sequence design (`tt-bio design`, inverse folding).
+- **esmc-300m** and **esmc-6b** legs in the perf-regression gate.
+
 ## [0.3.0] - 2026-07-17
 
 First release shipping **OpenDDE** antibody-antigen co-folding (`--model opendde` / `opendde-abag`, built on the Protenix-v2 stack plus a structural-token expander), the **ESMC fused-RoPE** attention kernel (an accuracy-neutral speedup for the embed path), and opt-in **diffusion trace replay** for the Boltz-2, BoltzGen, and OpenDDE CLIs plus the Protenix-v2 Python API. Also lands the standing **perf-regression** and **UX-regression** harnesses as release-gate legs, plus the per-card performance baseline fix.
