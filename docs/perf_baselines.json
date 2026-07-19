@@ -2,12 +2,12 @@
   "hardware": "blackhole",
   "tt_bio_version": "0.3.0",
   "threshold_pct": 15.0,
-  "note": "Per-card-type warm-throughput baselines for the perf-regression gate (scripts/perf_regression.py). The file nests one models block per card type under a 'cards' key (p150a, p300c, ...); the gate detects the card it is running on at runtime (tt-smi / kernel sysfs, mirroring tt_bio/main.py::_detect_p300_devices) and compares only against the matching card's baseline. A P300c baseline must never be judged against a P150a run \u2014 the P150 is a smaller chip and would read as a false 20-34% regression that is just the card, not the code. If a detected card type has no recorded baseline yet the gate FAILS loudly (every model NO BASELINE) rather than silently skipping. Protocol: scripts/perf_regression.py --model <m>; fold models fold examples/trpcage.yaml (20 aa, single-sequence) at 1 recycling cycle / 10 sampling steps / 1 diffusion sample; esmc-600m embeds 8x ubiquitin (76 aa) at batch 8; boltzgen runs `tt-bio gen run examples/binder.yaml` (protein-anything, 4 designs) end-to-end and reports designs/s = num_designs / wall-clock (a single pipeline invocation, not a warm loop \u2014 the first design's first-kernel compile is included, so this is a conservative cold-inflated warm-throughput proxy; the cold fraction is stable across releases). Each fold/embed model: load once in-process, 2 warmup folds (absorb first-kernel compile, excluded), 5 timed folds, report median throughput. Model load + first-compile are excluded \u2014 this is a warm dispatch/throughput number, not a cold-start or production fold. It catches kernel/dispatch regressions; accuracy is scripts/release_gate.py's job. Update a baseline only via --update-baseline --note \"<why this perf change is intended>\" on a card of that type; never silently. Seed a new card type by running the gate on that card with --update-baseline.",
+  "note": "Per-card-type warm-throughput baselines for the perf-regression gate (scripts/perf_regression.py). The file nests one models block per card type under a 'cards' key (p150a, p300c, ...); the gate detects the card it is running on at runtime (tt-smi / kernel sysfs, mirroring tt_bio/main.py::_detect_p300_devices) and compares only against the matching card's baseline. A P300c baseline must never be judged against a P150a run \u2014 the P150 is a smaller chip and would read as a false 20-34% regression that is just the card, not the code. If a detected card type has no recorded baseline yet the gate FAILS loudly (every model NO BASELINE) rather than silently skipping. Protocol: scripts/perf_regression.py --model <m>; fold models fold examples/trpcage.yaml (20 aa, single-sequence) at 1 recycling cycle / 10 sampling steps / 1 diffusion sample; esmc-600m embeds 8x ubiquitin (76 aa) at batch 8; esmc-6b embeds 8x ubiquitin (76 aa) one-sequence-at-a-time (batch 1 nominal) -- the 6B sharded-TransformerEngine backbone (~13 GB resident) ignores batch_size and runs sequentially, so its seq/s is per-sequence throughput on a different runtime shape than 300m/600m, gated separately; boltzgen runs `tt-bio gen run examples/binder.yaml` (protein-anything, 4 designs) end-to-end and reports designs/s = num_designs / wall-clock (a single pipeline invocation, not a warm loop \u2014 the first design's first-kernel compile is included, so this is a conservative cold-inflated warm-throughput proxy; the cold fraction is stable across releases). Each fold/embed model: load once in-process, 2 warmup folds (absorb first-kernel compile, excluded), 5 timed folds, report median throughput. Model load + first-compile are excluded \u2014 this is a warm dispatch/throughput number, not a cold-start or production fold. It catches kernel/dispatch regressions; accuracy is scripts/release_gate.py's job. Update a baseline only via --update-baseline --note \"<why this perf change is intended>\" on a card of that type; never silently. Seed a new card type by running the gate on that card with --update-baseline.",
   "cards": {
     "p300c": {
       "date": "2026-07-13",
       "tt_bio_version": "0.2.5",
-      "note": "Seeded from warm runs on main HEAD (release 0.2.5) on a Blackhole P300c card (qb2).",
+      "note": "Seeded from warm runs on main HEAD (release 0.2.5) on a Blackhole P300c card (qb2). boltzgen (2026-07-18) and esmc-6b (2026-07-19) seeded later at 0.3.0; see their per-model notes.",
       "models": {
         "boltz2": {
           "unit": "structures/s",
@@ -127,6 +127,23 @@
           "tt_bio_version": "0.3.0",
           "date": "2026-07-18",
           "note": "seed p300c boltzgen perf baseline (gen run binder.yaml protein-anything n=4, main HEAD 0.3.0 on qb2 P300c card 0)"
+        },
+        "esmc-6b": {
+          "unit": "seq/s",
+          "direction": "higher",
+          "value": 4.749028,
+          "latency_ms": 1684.56,
+          "input": "8x ubiquitin (76 aa), batch 1",
+          "sampling_steps": 10,
+          "diffusion_samples": 1,
+          "recycling_steps": 1,
+          "warmup": 2,
+          "repeat": 5,
+          "hardware": "blackhole",
+          "card_type": "p300c",
+          "tt_bio_version": "0.3.0",
+          "date": "2026-07-19",
+          "note": "esmc-6b initial baseline"
         }
       }
     },

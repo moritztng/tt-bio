@@ -18,6 +18,12 @@ What it measures, per model:
     ``scripts/release_gate.py``'s job).
   * esmc-600m embed — seq/s on a fixed batch of 8 ubiquitin-length sequences
     (batch_size 8). Same warmup-then-time protocol.
+  * esmc-6b embed — seq/s on 8 ubiquitin-length sequences. The 6B backbone
+    (sharded TransformerEngine, ~13 GB resident) runs one-sequence-at-a-time
+    (embed_sequences ignores batch_size for the 6B -- no room to widen the batch),
+    so batch_size is nominal (1) and the timed work is 8 sequential forwards.
+    Same warmup-then-time protocol; a different runtime shape than 300m/600m,
+    gated separately so a 6B dispatch/throughput regression can't ship silently.
   * boltzgen — designs/s on ``examples/binder.yaml`` (protein-anything, 4
     designs). A single end-to-end ``tt-bio gen run`` subprocess (design +
     inverse-fold + refold + analysis + filter); the first design's first-kernel
@@ -108,6 +114,17 @@ SPECS: dict[str, dict] = {
     "opendde":        dict(kind="fold", unit="structures/s", direction="higher"),
     "esmc-600m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
+    # ESMC-6B is the sharded-TransformerEngine LM backbone (~13 GB resident
+    # weights). embed_sequences runs it one-sequence-at-a-time -- the 6B forward
+    # already buckets and its weight footprint leaves no room to widen the
+    # batch (see tt_bio.esmc.embed_sequences) -- so batch_size is nominal (1)
+    # and the timed work is n_seqs sequential ubiquitin forwards. Same
+    # embed-kind protocol shape as 600m (warmup-then-time, seq/s, higher=better)
+    # so a dispatch/throughput regression on the 6B load path can't ship
+    # silently -- it has no entry otherwise and is a different runtime shape
+    # than 300m/600m.
+    "esmc-6b":        dict(kind="embed", unit="seq/s", direction="higher",
+                           batch_size=1, n_seqs=8),
     "boltzgen":       dict(kind="gen", unit="designs/s", direction="higher",
                            num_designs=4, protocol="protein-anything"),
 }
