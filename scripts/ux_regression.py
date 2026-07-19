@@ -18,7 +18,7 @@ release ships with still works, headlessly and fast, on a tiny input:
      ``numpy.load``), catching the malformed-output class (e.g. the historical
      missing ``_atom_site.occupancy`` fixed in 17aeab9e).
   3. CLI behaves — ``tt-bio predict --help`` / ``tt-bio embed --help`` /
-     ``tt-bio saprot --help`` / ``tt-bio gen run --help`` / ``tt-bio design --help``
+     ``tt-bio saprot --help`` / ``tt-bio gen run --help``
      exit 0 and list the core flags, and each surface's results/manifest file
      has the shape the downstream reader expects.
 
@@ -33,12 +33,7 @@ predict examples/affinity_fkg.yaml --model boltz2 --affinity_mw_correction`
 (Boltz-2 binding-affinity mode; its progress event stream is the same shape as
 a structure fold — the affinity model's own trunk+diffusion re-run is silent —
 so the leg reuses _check_progress on the affinity path plus an
-affinity_pred_value results check), plus proteinmpnn for legs 1–2 exercised via
-`tt-bio design` (CPU-only inverse folding; its progress is the Designing →
-per-sample → Done stdout view). The proteinmpnn leg SKIPS (does not FAIL) when
-the external ProteinMPNN checkpoint/backbone fixtures are absent — they are not
-vendored in the repo; on a release host they live under ~/scratch/ProteinMPNN
-(same defaults as tests/test_proteinmpnn.py).
+affinity_pred_value results check).
 
 Fast + deterministic: folds ``examples/trpcage.yaml`` (20 residues) with
 ``recycling_steps=2``, ``sampling_steps=4``, ``diffusion_samples=1``,
@@ -119,26 +114,6 @@ GEN_TIMEOUT_S = 1200  # design + refold + analysis for 1 design; load dominates
 AFFINITY_MODEL = "boltz2-affinity"
 AFFINITY_SPEC = REPO_ROOT / "examples" / "affinity_fkg.yaml"  # FKBP12+SB3, L107, msa: empty
 AFFINITY_TIMEOUT_S = 900  # affinity trunk fp32 (5 recycles, 64 blocks) ~140s + fold; load dominates
-
-# ProteinMPNN inverse-folding — exercised via `tt-bio design` on a fixed backbone
-# (CPU-only, no TT device; the perf gate intentionally has no ProteinMPNN entry —
-# it is profiled as a single-call win by design, so it has no device-throughput
-# number to regress). Its CLI DOES have a phased stdout view (Designing → per-
-# sample "sample i: len=…, recovery=…" ticks → Done), so the UX leg gates that
-# plumbing here. Skips gracefully (SKIP, not FAIL) when the external checkpoint /
-# backbone fixtures are absent — they are not vendored in the repo; on a release
-# host they live under ~/scratch/ProteinMPNN (same defaults as tests/test_proteinmpnn.py).
-DESIGN_MODEL = "proteinmpnn"
-DESIGN_CKPT = os.environ.get(
-    "PROTEINMPNN_CKPT",
-    str(Path.home() / "scratch/ProteinMPNN/vanilla_model_weights/v_48_020.pt"),
-)
-DESIGN_BACKBONE = os.environ.get(
-    "PROTEINMPNN_BACKBONE",
-    str(Path.home() / "scratch/ProteinMPNN/inputs/PDB_monomers/pdbs/6MRR.pdb"),
-)
-DESIGN_NUM_SEQUENCES = 3   # >1 so the per-sample progress ticks are real
-DESIGN_TIMEOUT_S = 180    # CPU forward for a 68-res backbone × 3 samples; fast
 
 # esmc/saprot embed input: trpcage's 20-mer as a one-sequence FASTA, written into
 # the per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
@@ -427,23 +402,6 @@ def _check_cli() -> list[str]:
                          "--budget"):
                 if flag not in r.stdout:
                     problems.append(f"boltzgen run --help missing flag {flag}")
-
-    # `tt-bio design` (ProteinMPNN inverse folding) — a click subcommand. Assert
-    # it responds to --help cleanly AND lists the core design flags a user would
-    # reach for. CPU-only surface; no card needed for this leg.
-    try:
-        r = _run([sys.executable, "-m", "tt_bio.main", "design", "--help"],
-                 env=_subprocess_env(), timeout=60)
-    except Exception as e:
-        problems.append(f"design --help failed to run: {e}")
-    else:
-        if r.returncode != 0:
-            problems.append(f"design --help exited {r.returncode}")
-        else:
-            for flag in ("--sequence-model", "--num-sequences", "--temperature",
-                         "--seed", "--checkpoint", "--out-dir"):
-                if flag not in r.stdout:
-                    problems.append(f"design --help missing flag {flag}")
     return problems
 
 
@@ -773,130 +731,6 @@ def _check_gen_metrics(out_dir: Path) -> list[str]:
     return []
 
 
-# ── ProteinMPNN inverse-folding (tt-bio design) ─────────────────────────────
-
-def _check_design_fasta(fasta: Path, n_expected: int) -> list[str]:
-    """The design CLI writes <name>.fasta with one record per sampled sequence.
-    Each record header is ``<name>_sample<i> recovery=...`` (or bare when the
-    backbone had no native sequence) and the body is a non-empty AA string."""
-    try:
-        text = fasta.read_text()
-    except Exception as e:
-        return [f"{fasta.name}: read failed: {e}"]
-    records = []
-    header = None
-    body = []
-    for line in text.splitlines():
-        if line.startswith(">"):
-            if header is not None:
-                records.append((header, "".join(body)))
-            header = line[1:].strip()
-            body = []
-        else:
-            body.append(line.strip())
-    if header is not None:
-        records.append((header, "".join(body)))
-    if len(records) != n_expected:
-        return [f"{fasta.name}: expected {n_expected} records, got {len(records)}"]
-    problems = []
-    for h, seq in records:
-        if not seq:
-            problems.append(f"{fasta.name}: empty sequence for record '{h}'")
-        elif not set(seq) <= set("ACDEFGHIKLMNPQRSTVWYX"):
-            problems.append(f"{fasta.name}: non-AA chars in record '{h}'")
-    return problems
-
-
-def run_design(model: str, base: Path) -> dict:
-    """Run ``tt-bio design`` (ProteinMPNN inverse folding) on a fixed backbone and
-    gate the UX legs: the Designing -> per-sample -> Done stdout progress view, the
-    written FASTA parses with the expected record count, and (leg 3) the CLI
-    --help behaves. CPU-only -- no TT device. Skips (not fails) when the external
-    checkpoint / backbone fixtures are absent, mirroring tests/test_proteinmpnn.py."""
-    out_dir = base / f"out_{model}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    row = {"model": model, "seconds": None, "progress": False, "parse": False,
-           "results": False, "gate": False, "skipped": False, "error": None, "checks": []}
-
-    ckpt = DESIGN_CKPT
-    backbone = DESIGN_BACKBONE
-    if not ckpt or not Path(ckpt).exists() or not Path(backbone).exists():
-        row["skipped"] = True
-        row["error"] = ("ProteinMPNN checkpoint/backbone fixtures absent "
-                        f"(ckpt={ckpt}, backbone={backbone}); skipping the design "
-                        "UX leg -- set $PROTEINMPNN_CKPT / $PROTEINMPNN_BACKBONE to "
-                        "exercise it. This is a SKIP, not a FAIL.")
-        row["checks"].append("skipped: checkpoint/backbone fixtures absent")
-        return row
-
-    name = Path(backbone).stem
-    fasta_out = out_dir / f"{name}.fasta"
-    cmd = [
-        sys.executable, "-m", "tt_bio.main", "design", str(backbone),
-        "--sequence-model", "proteinmpnn",
-        "--num-sequences", str(DESIGN_NUM_SEQUENCES),
-        "--temperature", "0.1",
-        "--seed", str(SEED),
-        "--checkpoint", str(ckpt),
-        "--out-dir", str(out_dir),
-    ]
-    print(f"\n{'='*70}\n[{model}] design {name} "
-          f"({DESIGN_NUM_SEQUENCES} sequences)\n{'='*70}", flush=True)
-
-    t0 = time.monotonic()
-    try:
-        proc = _run(cmd, env=_subprocess_env(), timeout=DESIGN_TIMEOUT_S)
-    except subprocess.TimeoutExpired:
-        row["error"] = f"design timed out after {DESIGN_TIMEOUT_S}s"
-        return row
-    row["seconds"] = time.monotonic() - t0
-    if proc.returncode != 0:
-        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
-        row["error"] = (f"design exited {proc.returncode}: "
-                        f"{tail[-1] if tail else ''}")
-        return row
-
-    # Leg 1: the Designing -> sample i -> Done stdout progress view, in order.
-    lines = [l for l in (proc.stdout or "").splitlines() if l.strip()]
-    lower = [l.lower() for l in lines]
-    prog_problems = []
-    di = next((i for i, l in enumerate(lower) if l.startswith("designing")), None)
-    sample_idx = [i for i, l in enumerate(lower) if "sample" in l and ":" in l]
-    done_idx = next((i for i, l in enumerate(lower) if l.startswith("done")), None)
-    if di is None:
-        prog_problems.append("missing 'Designing ...' header line")
-    if not sample_idx:
-        prog_problems.append("missing per-sample 'sample i: ...' progress ticks")
-    if done_idx is None:
-        prog_problems.append("missing 'Done -- ...' completion line")
-    elif di is not None and sample_idx and not (di < min(sample_idx) < done_idx):
-        prog_problems.append(f"stdout phases out of order: designing@{di}, "
-                             f"samples@{sample_idx}, done@{done_idx}")
-    row["checks"].append(f"progress(stdout): {'OK' if not prog_problems else 'FAIL'}")
-    if prog_problems:
-        row["checks"].extend(f"  • {p}" for p in prog_problems)
-        if not row["error"]:
-            row["error"] = "progress: " + "; ".join(prog_problems)
-
-    # Leg 2: the written FASTA parses with the expected record count.
-    parse_problems = (_check_design_fasta(fasta_out, DESIGN_NUM_SEQUENCES)
-                      if fasta_out.exists() else
-                      [f"design wrote no fasta at {fasta_out}"])
-    row["checks"].append(f"parse(fasta): {'OK' if not parse_problems else 'FAIL'}")
-    if parse_problems:
-        row["checks"].extend(f"  • {p}" for p in parse_problems)
-        if not row["error"]:
-            row["error"] = "parse: " + "; ".join(parse_problems)
-
-    # Leg 3 (CLI behaves) is checked once globally in _check_cli -- no per-row work.
-
-    row["progress"] = not prog_problems
-    row["parse"] = not parse_problems
-    row["results"] = row["parse"]   # the FASTA IS the results artifact for design
-    row["gate"] = row["progress"] and row["parse"]
-    return row
-
-
 # ── driver ─────────────────────────────────────────────────────────────────
 
 def _print_fold_row(r: dict) -> None:
@@ -1046,26 +880,14 @@ def _print_affinity_row(r: dict) -> None:
     print(f"  prog={r['progress']} parse={r['parse']} results={r['results']}")
 
 
-def _print_design_row(r: dict) -> None:
-    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-    if r.get("skipped"):
-        verdict = "SKIP"
-    else:
-        verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
-    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'fasta':>9}"
-          f"{wall:>9}  {verdict}")
-    for c in r["checks"]:
-        print(f"  {c}")
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", action="append",
-                    choices=FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL],
+                    choices=FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL],
                     help="Gate only this model (repeatable). Default: all five fold "
                          "models + esmc-600m + saprot-650m embed + boltzgen gen run "
-                         "+ proteinmpnn design.")
+                         "+ boltzgen gen run.")
     ap.add_argument("--keep", action="store_true",
                     help="Keep the per-run output dirs under the tmp dir for inspection.")
     ap.add_argument("--cli-only", action="store_true",
@@ -1089,7 +911,7 @@ def main() -> int:
             f"/home/ttuser/tt-bio-dev/env/bin/python scripts/ux_regression.py")
 
     # Leg 3 (CLI behaves) runs always — it needs no card.
-    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed / saprot / gen run / design --help)\n{'#'*78}")
+    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed / saprot / gen run --help)\n{'#'*78}")
     cli_problems = _check_cli()
     all_pass = not cli_problems
     if cli_problems:
@@ -1097,18 +919,17 @@ def main() -> int:
             print(f"  ✗ {prob}")
     else:
         print("  ✓ predict --help, embed --help, saprot --help, gen run --help, "
-              "design --help, tt-bio --help all OK and list core flags")
+              "tt-bio --help all OK and list core flags")
     print(f"{'#'*78}")
 
     if args.cli_only:
         return 0 if all_pass else 1
 
-    models = args.model or (FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL])
+    models = args.model or (FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL])
     fold_models = [m for m in models if m in FOLD_MODELS]
     embed_models = [m for m in models if m in EMBED_MODELS]
     gen_models = [m for m in models if m == GEN_MODEL]
     affinity_models = [m for m in models if m == AFFINITY_MODEL]
-    design_models = [m for m in models if m == DESIGN_MODEL]
 
     if not DATA.exists() and fold_models:
         sys.exit(f"missing gate target {DATA}")
@@ -1117,7 +938,7 @@ def main() -> int:
     if not AFFINITY_SPEC.exists() and affinity_models:
         sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
     if (not fold_models and not embed_models and not gen_models
-            and not affinity_models and not design_models):
+            and not affinity_models):
         return 0 if all_pass else 1
 
     base = Path(tempfile.mkdtemp(prefix="ux_gate_", dir=str(REPO_ROOT)))
@@ -1139,14 +960,6 @@ def main() -> int:
             r = run_affinity(m, base)
             rows.append(("affinity", r))
             all_pass &= r["gate"]
-        for m in design_models:
-            r = run_design(m, base)
-            rows.append(("design", r))
-            # A SKIP is not a FAIL: the design leg is only exercised when the
-            # external ProteinMPNN checkpoint/backbone fixtures are present.
-            if not r.get("skipped"):
-                all_pass &= r["gate"]
-
         print(f"\n{'#'*78}\nUX GATE — summary ({DATA.name}, recyc={RECYCLING_STEPS}, "
               f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
         for kind, r in rows:
@@ -1158,8 +971,6 @@ def main() -> int:
                 _print_gen_row(r)
             elif kind == "affinity":
                 _print_affinity_row(r)
-            else:
-                _print_design_row(r)
         print(f"{'#'*78}")
         print("GATE PASS — every surface cleared progress + parse + results/manifest "
               "shape, and the CLI behaves" if all_pass

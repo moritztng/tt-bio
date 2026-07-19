@@ -35,7 +35,7 @@ so a customer evaluating an antibody program sees the port tested on the target
 shape that program folds. The affinity leg is the second increment: every prior
 leg is structure-only, so Boltz-2's binding-affinity prediction mode (the README
 "Binding Affinity Prediction" section) was the largest unmeasured surface in
-this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure coverage had only two lengths (L20 trp-cage, L117 7ROA), so ubiquitin (L76) adds the middle of the range and mirrors the ESMFold2 length ladder, the shape a pharma team hits when folding a small single-domain target. The fourth increment closes Protenix-v2's coverage gap: it was the thinnest-covered model in this benchmark (one target, 7ROA, vs two-to-four for every other model), so ubiquitin (L76, MSA, the same target the Boltz-2 leg folds) gives it a second target at a different length and fold, and makes Protenix-v2 directly cross-comparable to Boltz-2 on a matched target. The fifth increment folds in the two model ports that shipped in v0.3.1: SaProt (structure-aware ESM-2 encoder) and ProteinMPNN (fixed-backbone inverse folding). Both are deterministic-forward legs with no sampler on the parity path, so they slot into the same R/D/X noise-floor framework as the ESMC encoder legs rather than the diffusion legs.
+this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure coverage had only two lengths (L20 trp-cage, L117 7ROA), so ubiquitin (L76) adds the middle of the range and mirrors the ESMFold2 length ladder, the shape a pharma team hits when folding a small single-domain target. The fourth increment closes Protenix-v2's coverage gap: it was the thinnest-covered model in this benchmark (one target, 7ROA, vs two-to-four for every other model), so ubiquitin (L76, MSA, the same target the Boltz-2 leg folds) gives it a second target at a different length and fold, and makes Protenix-v2 directly cross-comparable to Boltz-2 on a matched target. The fifth increment folds in the model port that shipped in v0.3.1: SaProt (structure-aware ESM-2 encoder). It is a deterministic-forward leg with no sampler on the parity path, so it slots into the same R/D/X noise-floor framework as the ESMC encoder legs rather than the diffusion legs.
 
 | model | target | metric | R | D | X | result |
 |---|---|---|---:|---:|---:|---|
@@ -59,7 +59,6 @@ this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure co
 | BoltzGen | binder against 7ROA chain A | designs ≤2 Å scRMSD | 68.75% | 93.8% | device ≥ reference | PASS |
 | SaProt-35m | ubiquitin, L76 | embedding PCC | 1.00000 | 1.00000 | 0.99914 | PASS‡‡ |
 | SaProt-650m | ubiquitin, L76 | embedding PCC | 1.00000 | 1.00000 | 0.99964 | PASS‡‡ |
-| ProteinMPNN | 5L33 (L106), 6MRR (L68) | log-prob PCC | 1.00000 | 1.00000 | 1.00000 | PASS§§ |
 
 The ESMFold2 comparison also checks an alignment-free coordinate metric and
 sampler-independent pLDDT, distogram, and pTM outputs. Protenix-v2's confidence
@@ -67,11 +66,9 @@ head under-ranks some samples in both the upstream implementation and TT-Bio;
 the larger R floor reflects that shared behavior. OpenDDE-abag matches the
 upstream checkpoint on 1AHW. Both implementations perform poorly on 9DSG, so
 that target is a checkpoint limitation rather than a port discrepancy. The
-SaProt and ProteinMPNN legs are deterministic-forward encoder / inverse-folding
-legs with no sampler on the parity path, so they follow the ESMC convention
-(R = D = 1.00000 by construction); the SaProt residual is bf16 rounding on the
-ttnn port, and ProteinMPNN's port log-probs are bit-identical to the official
-reference forward.
+SaProt leg is a deterministic-forward encoder leg with no sampler on the parity
+path, so it follows the ESMC convention (R = D = 1.00000 by construction); the
+SaProt residual is bf16 rounding on the ttnn port.
 
 †† The ESMC-6b leg closes a coverage gap: the table previously covered only
 300m/600m, and `scripts/release_gate.py` marked esmc-6b opt-in as "too slow for
@@ -207,7 +204,6 @@ tt-bio-boltz2-affinity-trunk-fp32-p2.md, and tt-bio-boltz2-affinity-trunk-fp32-p
 
 ‡‡ The SaProt legs (ubiquitin, L76, fused AA + a deterministic 3Di string; the 3Di content does not affect parity — both paths see identical tokens). SaProt is an ESM-2 masked-LM encoder over a fused amino-acid x Foldseek-3Di vocabulary (20 AA x 21 3Di states + 5 special = 446 tokens), so the parity path is a single deterministic forward with no sampler — same convention as the ESMC legs, so R = D = 1.00000 by construction (the HF `EsmForMaskedLM` reference and the ttnn port are each bit-identical across runs, verified live on card). X is the device-vs-reference per-residue embedding PCC: 0.99914 (saprot-35m) / 0.99964 (saprot-650m), with MLM-logits PCC 0.99977 / 0.99993 as a sampler-independent secondary check. Both sit in the ESMC band (0.9987–0.9996), so the residual is bf16 rounding on the ttnn port, not an algorithmic difference. The 35M leg uses a host-side RoPE path (`head_dim = 24` is neither tile-aligned nor aligned with the fused on-device `rotary_embedding` kernel), documented in `docs/saprot-parity.md`; it does not affect the parity gate. Reproduce via the standard harness: `TT_VISIBLE_DEVICES=0 PYTHONPATH=. python3 scripts/pharma_parity.py saprot --model saprot-650m` (or `saprot-35m`); per-model detail in `docs/saprot-parity.md`. saprot-1.3b is deferred (same ESM-2 family, `head_dim = 64`; weights public, not yet parity-run in this cut).
 
-§§ The ProteinMPNN leg (5L33 L106 and 6MRR L68, official `v_48_020.pt`, teacher-forced forward, `augment_eps = 0`). ProteinMPNN is a 1.66M-parameter message-passing GNN for fixed-backbone inverse folding; the parity gate is the deterministic teacher-forced log-prob forward (no sampler on this path), so R = D = 1.00000 by construction — verified live on card, where the port's log-probs are bit-identical to the official reference forward (X = 1.00000, stronger than the asserted ≥ 0.999) and greedy (argmax) recovery matches the reference exactly (5L33 0.4623, 6MRR 0.5882, Δ < 5e-4). The autoregressive `sample` loop at T = 0.1 is stochastic and sits at 0.45–0.59 recovery on these two monomers, within the variance of the published ~52.4% large-set average — a sanity anchor, not a parity claim. ProteinMPNN has no Tenstorrent device port: the on-device ttnn path was profiled out as a single-call win (tiny dense matmuls, dispatch-bound), so throughput comes from data-parallel fanout, not a faster single call; "device" here is the tt-bio CPU torch reimplementation vs the official reference, both on CPU. Reproduce via `tests/test_proteinmpnn.py` (4/4 passing on qb1); per-model detail in `docs/proteinmpnn-port.md`. A `proteinmpnn` mode in `scripts/pharma_parity.py` is a deferred follow-up: it needs the external official ProteinMPNN repo as the reference path plus golden-fixture management, a larger lift than this pass; the committed parity test already covers the gate.
 
 
 ## Reproducing a comparison
@@ -239,14 +235,6 @@ same fused AA + 3Di input (ubiquitin, L76) through the standard harness:
 ```bash
 TT_VISIBLE_DEVICES=0 PYTHONPATH=. \
   python3 scripts/pharma_parity.py saprot --model saprot-650m   # or saprot-35m
-```
-
-ProteinMPNN parity is the teacher-forced log-prob forward vs the official
-`v_48_020` checkpoint, asserted in the parity test:
-
-```bash
-PROTEINMPNN_CKPT=~/scratch/ProteinMPNN/vanilla_model_weights/v_48_020.pt \
-  python3 -m pytest tests/test_proteinmpnn.py -q
 ```
 
 Structure parity consumes result directories from matched device and reference
