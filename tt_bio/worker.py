@@ -260,6 +260,31 @@ class _WorkerState:
 
         from tt_bio.main import to_batch, write_result
 
+        # The boltz-2 path calls ``predict_step`` directly (unlike the esmfold2 /
+        # protenix / opendde paths, which re-seed via ``_seed_context`` inside
+        # ``fold_complex``). This worker is spawned with ``mp.get_context(
+        # "spawn")``, so the controller's ``torch.manual_seed(seed)`` does NOT
+        # propagate here, and the boltz-2 forward never re-seeds on its own. The
+        # official ``boltz`` reference calls ``seed_everything(seed)`` once at
+        # the start of ``predict`` and then runs structure -> affinity from that
+        # one global RNG stream, so the affinity diffusion's ``torch.randn``
+        # draws are reproducible. Without this seed the device's affinity value
+        # swings ~0.05 log10(IC50) between identical-seed runs (verified: two
+        # seed-0 runs gave -0.394 vs -0.440, a 0.047 spread larger than the whole
+        # FKBP12 GAP of 0.041 and the reference floor R=0.010), which the tight
+        # affinity floor catches as a GAP. Seed once here (before the structure
+        # forward) and do NOT re-seed before ``predict_affinity`` so the device
+        # matches the reference's single-seed structure->affinity RNG stream.
+        _seed = cfg.get("seed")
+        if _seed is not None:
+            import random as _random
+            import numpy as _np
+            _random.seed(_seed)
+            _np.random.seed(_seed)
+            torch.manual_seed(_seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(_seed)
+
         feats, input_struct = self.prepare(path, method=cfg.get("method"), progress=self.pfn)
         batch = to_batch(feats, self.torch_device)
         with torch.no_grad():
