@@ -250,11 +250,28 @@
           "tt_bio_version": "0.3.0",
           "date": "2026-07-18",
           "note": "seed p150a boltzgen perf baseline (gen run binder.yaml protein-anything n=4, main HEAD)"
+        },
+        "esmc-300m": {
+          "unit": "seq/s",
+          "direction": "higher",
+          "value": 16.736738,
+          "latency_ms": 477.99,
+          "input": "8x ubiquitin (76 aa), batch 8",
+          "sampling_steps": 10,
+          "diffusion_samples": 1,
+          "recycling_steps": 1,
+          "warmup": 2,
+          "repeat": 5,
+          "hardware": "blackhole",
+          "card_type": "p150a",
+          "tt_bio_version": "0.3.0",
+          "date": "2026-07-19",
+          "note": "seed p150a esmc-300m embed perf baseline (warm run, 8x ubiquitin-76 embed, batch 8, main HEAD 0.3.0 on qb1 P150a card 2)"
         }
       },
-      "date": "2026-07-18",
+      "date": "2026-07-19",
       "tt_bio_version": "0.3.0",
-      "note": "seed p150a boltzgen perf baseline (gen run binder.yaml protein-anything n=4, main HEAD)"
+      "note": "seed p150a esmc-300m embed perf baseline (warm run, 8x ubiquitin-76 embed, batch 8, main HEAD 0.3.0 on qb1 P150a card 2)"
     }
   }
 }

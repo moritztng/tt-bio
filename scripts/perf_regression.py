@@ -16,8 +16,8 @@ What it measures, per model:
     EXCLUDED — this is a dispatch/throughput number, not a cold-start or production
     fold. It catches kernel/dispatch regressions, not accuracy (that is
     ``scripts/release_gate.py``'s job).
-  * esmc-600m embed — seq/s on a fixed batch of 8 ubiquitin-length sequences
-    (batch_size 8). Same warmup-then-time protocol.
+  * esmc-300m / esmc-600m embed — seq/s on a fixed batch of 8 ubiquitin-length
+    sequences (batch_size 8). Same warmup-then-time protocol.
   * boltzgen — designs/s on ``examples/binder.yaml`` (protein-anything, 4
     designs). A single end-to-end ``tt-bio gen run`` subprocess (design +
     inverse-fold + refold + analysis + filter); the first design's first-kernel
@@ -106,6 +106,8 @@ SPECS: dict[str, dict] = {
     "esmfold2-fast":  dict(kind="fold", unit="structures/s", direction="higher"),
     "protenix-v2":    dict(kind="fold", unit="structures/s", direction="higher"),
     "opendde":        dict(kind="fold", unit="structures/s", direction="higher"),
+    "esmc-300m":      dict(kind="embed", unit="seq/s", direction="higher",
+                           batch_size=8, n_seqs=8),
     "esmc-600m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
     "boltzgen":       dict(kind="gen", unit="designs/s", direction="higher",
