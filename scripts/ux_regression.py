@@ -21,18 +21,20 @@ release ships with still works, headlessly and fast, on a tiny input:
      and list the core flags, and each surface's results/manifest file has the
      shape the downstream reader expects.
 
-Coverage: the five fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
-opendde) for legs 1–3, plus esmc-600m embed for legs 2–3 (embed has no fold
-phases; its user-facing progress is the load → embed → done stdout lines),
+Coverage: the six fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
+opendde, opendde-abag) for legs 1–3, plus esmc-600m embed for legs 2–3 (embed has
+no fold phases; its user-facing progress is the load → embed → done stdout lines),
 plus boltzgen for legs 1–3 exercised via `tt-bio gen run` (a tiny 1-design
 binder job on examples/binder.yaml; its progress is the gen pipeline's own
-stdout stage stream under --debug --log).
+stdout stage stream under --debug --log). opendde-abag is gated on the Ab-Ag
+fixture examples/1ahw_abag.yaml; the other fold models use examples/trpcage.yaml.
 
-Fast + deterministic: folds ``examples/trpcage.yaml`` (20 residues) with
-``recycling_steps=2``, ``sampling_steps=4``, ``diffusion_samples=1``,
-``--single_sequence`` for the MSA-dependent models. This checks UX plumbing,
-not accuracy — it does not need full folds. Exit 0 iff every requested leg
-PASSES; 1 otherwise. Runs on the device serially (one card context per predict).
+Fast + deterministic: folds ``examples/trpcage.yaml`` (20 residues; opendde-abag
+uses the larger 1ahw_abag Ab-Ag complex) with ``recycling_steps=2``,
+``sampling_steps=4``, ``diffusion_samples=1``, ``--single_sequence`` for the
+MSA-dependent models. This checks UX plumbing, not accuracy — it does not need
+full folds. Exit 0 iff every requested leg PASSES; 1 otherwise. Runs on the
+device serially (one card context per predict).
 
     # gate every surface on card 0 (run with the project venv, like release_gate)
     TT_VISIBLE_DEVICES=0 /path/to/env/bin/python scripts/ux_regression.py
@@ -68,12 +70,22 @@ DIFFUSION_SAMPLES = 1
 SEED = 0
 # Per-model wall-clock budget. Load dominates; trpcage is tiny, but ESMFold2
 # (ESMC-6B ~12.8 GB) and Protenix-v2 (~1.9 GB ckpt) take a few minutes to load.
+# opendde-abag folds the larger Ab-Ag fixture (1ahw_abag, ~440 residues), so it
+# gets a looser budget than the trpcage fold models.
 PER_MODEL_TIMEOUT_S = 900
+ABAG_MODEL_TIMEOUT_S = 1800
 
-FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde"]
+FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde",
+               "opendde-abag"]
 # MSA-dependent models get --single_sequence so the gate is offline + deterministic
 # (no ColabFold server round-trip). esmfold2 / esmfold2-fast are single-seq by design.
-MSA_DEPENDENT = {"boltz2", "protenix-v2", "opendde"}
+# opendde-abag rides the same MSA-dependent path as opendde (only the checkpoint
+# differs — opendde_abag.pt vs opendde.pt), so it gets --single_sequence too.
+MSA_DEPENDENT = {"boltz2", "protenix-v2", "opendde", "opendde-abag"}
+# opendde-abag is the antibody-antigen checkpoint, so it is gated on the canonical
+# Ab-Ag fixture 1ahw_abag.yaml (the same SAbDab/PDB 1ahw target the benchmark uses
+# elsewhere) instead of trpcage. Every other fold model uses trpcage.
+ABAG_DATA = REPO_ROOT / "examples" / "1ahw_abag.yaml"
 EMBED_MODEL = "esmc-600m"
 
 # BoltzGen (binder design) — exercised via `tt-bio gen run` on the canonical
@@ -113,10 +125,10 @@ def _run(cmd: list[str], *, env: dict | None = None, timeout: int | None = None,
                           capture_output=True, text=True)
 
 
-def _cli_predict(model: str, out_dir: Path) -> list[str]:
+def _cli_predict(model: str, out_dir: Path, data: Path) -> list[str]:
     """Build the predict command for one fold model."""
     cmd = [
-        sys.executable, "-m", "tt_bio.main", "predict", str(DATA),
+        sys.executable, "-m", "tt_bio.main", "predict", str(data),
         "--model", model,
         "--recycling_steps", str(RECYCLING_STEPS),
         "--sampling_steps", str(SAMPLING_STEPS),
@@ -363,28 +375,34 @@ def _check_cli() -> list[str]:
 # ── per-model runners ──────────────────────────────────────────────────────
 
 def run_fold(model: str, base: Path) -> dict:
-    """Fold one model on trpcage, capture its progress stream, and gate the
-    three UX legs. Returns a result row."""
+    """Fold one model on its canonical tiny fixture, capture its progress stream,
+    and gate the three UX legs. Returns a result row."""
+    # opendde-abag is the antibody-antigen checkpoint and is gated on the Ab-Ag
+    # fixture 1ahw_abag.yaml; every other fold model uses trpcage. The CLI path
+    # is identical — only --model and the input file differ.
+    data = ABAG_DATA if model == "opendde-abag" else DATA
+    name = data.stem
+    timeout = ABAG_MODEL_TIMEOUT_S if model == "opendde-abag" else PER_MODEL_TIMEOUT_S
     out_dir = base / f"out_{model}"
     out_dir.mkdir(parents=True, exist_ok=True)
     cap_path = base / f"events_{model}.jsonl"
     cap_path.unlink(missing_ok=True)
-    results_path = out_dir / f"boltz_results_{NAME}" / "results.json"
-    struct_dir = out_dir / f"boltz_results_{NAME}" / "structures"
+    results_path = out_dir / f"boltz_results_{name}" / "results.json"
+    struct_dir = out_dir / f"boltz_results_{name}" / "structures"
 
     env = _subprocess_env({"TT_BIO_PROGRESS_CAPTURE": str(cap_path)})
 
-    cmd = _cli_predict(model, out_dir)
-    print(f"\n{'='*70}\n[{model}] predict trpcage (recyc={RECYCLING_STEPS}, "
+    cmd = _cli_predict(model, out_dir, data)
+    print(f"\n{'='*70}\n[{model}] predict {data.name} (recyc={RECYCLING_STEPS}, "
           f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES})\n{'='*70}", flush=True)
 
     row = {"model": model, "seconds": None, "progress": False, "parse": False,
            "results": False, "gate": False, "error": None, "checks": []}
     t0 = time.monotonic()
     try:
-        proc = _run(cmd, env=env, timeout=PER_MODEL_TIMEOUT_S)
+        proc = _run(cmd, env=env, timeout=timeout)
     except subprocess.TimeoutExpired:
-        row["error"] = f"predict timed out after {PER_MODEL_TIMEOUT_S}s"
+        row["error"] = f"predict timed out after {timeout}s"
         return row
     row["seconds"] = time.monotonic() - t0
     if proc.returncode != 0:
@@ -403,7 +421,7 @@ def run_fold(model: str, base: Path) -> dict:
             row["error"] = "progress: " + "; ".join(prog_problems)
 
     # Leg 2: output CIF parses
-    cifs = sorted(struct_dir.glob(f"{NAME}*.cif")) if struct_dir.exists() else []
+    cifs = sorted(struct_dir.glob(f"{name}*.cif")) if struct_dir.exists() else []
     if not cifs:
         parse_problems = [f"predict wrote no CIF under {struct_dir}"]
     else:
@@ -779,8 +797,10 @@ def main() -> int:
             rows.append(("gen", r))
             all_pass &= r["gate"]
 
-        print(f"\n{'#'*78}\nUX GATE — summary ({DATA.name}, recyc={RECYCLING_STEPS}, "
-              f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
+        print(f"\n{'#'*78}\nUX GATE — summary (fold fixtures: {DATA.name}"
+              f"{f' / {ABAG_DATA.name} (opendde-abag)' if ABAG_DATA.exists() else ''}, "
+              f"recyc={RECYCLING_STEPS}, steps={SAMPLING_STEPS}, "
+              f"samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
         for kind, r in rows:
             if kind == "fold":
                 _print_fold_row(r)
