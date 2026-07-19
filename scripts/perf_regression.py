@@ -30,6 +30,17 @@ What it measures, per model:
     compile is included in the timed region, so this is a conservative
     cold-inflated warm-throughput proxy. Reuses the SAME fixture/protocol the
     designability accuracy leg gates.
+  * boltz2-affinity — affinities/s on ``examples/affinity_fkg.yaml``
+    (FKBP12+SB3, L107, single-seq, ``--affinity_mw_correction``). A single
+    end-to-end ``tt-bio predict`` subprocess in Boltz-2's binding-affinity mode
+    (README "Binding Affinity Prediction"): fold the complex, then re-run the
+    affinity model's own 64-block trunk + AtomDiffusion + affinity heads from
+    ``boltz2_aff.ckpt``. The first call's first-kernel compile is included in the
+    timed region, so this is a conservative cold-inflated warm-throughput proxy
+    (same character as the boltzgen leg — the affinity path has no warm
+    steady-state loop to repeat). Reuses the SAME fixture the affinity accuracy
+    leg (docs/pharma-benchmark.md) folds. Shipped-default fp32 host gates stay
+    ON (no env overrides) so the timed call matches the shipped config.
 
 Baselines live in ``docs/perf_baselines.json`` and are EXPLICIT and PER-CARD-TYPE:
 the file nests one ``models`` block per card type (``p150a``, ``p300c``, ...) under
@@ -91,6 +102,19 @@ BINDER = REPO_ROOT / "examples" / "binder.yaml"
 UBIQUITIN = ("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTL"
              "LHLVLRLRGG")  # 76 aa — tests/test_esmc.py / scripts/esmc_embed_parity.py golden
 
+# Boltz-2 binding-affinity fixture (FKBP12 + SB3, L107, ) — the SAME
+# target docs/pharma-benchmark.md's affinity accuracy leg folds. Reused here for
+# the perf/UX legs so all three legs share one fixture, not three. The affinity
+# path is a heavier runtime shape than a structure fold: it folds the complex
+# (conf model) AND re-runs the affinity model's own 64-block trunk + atom
+# diffusion + affinity heads from a separate boltz2_aff.ckpt. The shipped default
+# (BOLTZ2_AFFINITY_TRUNK_FP32_HOST=1, BOLTZ2_AFFINITY_FP32_HOST=1,
+# BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST=0) runs the affinity pairformer + heads in
+# fp32 on host and the 64-block affinity trunk in fp32 on host (~140 s of the
+# ~170 s per-target wall-clock); the gate times the shipped default — no env
+# overrides — so the number reflects what a customer experiences.
+AFFINITY = REPO_ROOT / "examples" / "affinity_fkg.yaml"
+
 # ── card-type detection ────────────────────────────────────────────────────
 # The gate is card-type aware: a P300c baseline must NOT be compared against a
 # P150a run — the P150 is a smaller chip, so the same code reads as a 20-34%
@@ -129,6 +153,19 @@ SPECS: dict[str, dict] = {
                            batch_size=1, n_seqs=8),
     "boltzgen":       dict(kind="gen", unit="designs/s", direction="higher",
                            num_designs=4, protocol="protein-anything"),
+    # Boltz-2 binding-affinity prediction mode (README "Binding Affinity
+    # Prediction" — affinity_prediction=True, the affinity model's own 64-block
+    # trunk + AtomDiffusion re-run + affinity heads, distinct from structure
+    # prediction). A real customer-facing CLI mode () that
+    # had ZERO perf-gate coverage. kind="affinity" is a single end-to-end CLI
+    # subprocess like the gen leg (the affinity path has no warm steady-state
+    # predict_one loop — it folds once then predicts affinity once per target),
+    # so warmup=0/repeat=1 and the gated metric is affinities/s = 1 / wall-clock.
+    # The first call's first-kernel compile is included in the timed region, so
+    # this is a conservative cold-inflated warm-throughput proxy — same character
+    # as the boltzgen leg. Shipped-default fp32 host gates stay ON (no env
+    # overrides) so the timed call matches the shipped config.
+    "boltz2-affinity": dict(kind="affinity", unit="affinities/s", direction="higher"),
 }
 DEFAULT_MODELS = list(SPECS)
 
@@ -424,6 +461,102 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
     return result
 
 
+def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
+    """Time one ``tt-bio predict`` affinity-mode call end-to-end and write a JSON
+    result.
+
+    Boltz-2's binding-affinity mode (README "Binding Affinity Prediction") is a
+    real customer-facing CLI path that had no perf-gate coverage. It is a heavier
+    runtime shape than a structure fold: it folds the complex (conf model) AND
+    re-runs the affinity model's own 64-block trunk + AtomDiffusion + affinity
+    heads from a separate boltz2_aff.ckpt. There is no warm steady-state
+    ``predict_one`` loop to repeat (one target = fold-once + predict-affinity-once),
+    so this leg mirrors the gen leg: a single end-to-end ``tt-bio predict``
+    subprocess (the CLI owns its device lifecycle; no device is opened in this
+    measure process) timed wall-to-wall. The gated metric is
+    ``affinities/s = 1 / wall-clock``.
+
+    The first call's first-kernel compile is included in the timed region, so
+    ``affinities/s`` is a conservative (cold-inflated) warm-throughput proxy; the
+    cold fraction is stable across releases, so a dispatch/throughput regression
+    still shows up as a higher wall-clock. Uses the SAME FKBP12+SB3 fixture the
+    affinity accuracy leg (docs/pharma-benchmark.md) folds, with a light sampling
+    protocol (1 structure recycle / 10 structure steps / 1 structure sample +
+    10 affinity steps / 1 affinity sample) so the gate stays in minutes while
+    exercising the full affinity path. The shipped-default fp32 host gates
+    (BOLTZ2_AFFINITY_TRUNK_FP32_HOST=1, BOLTZ2_AFFINITY_FP32_HOST=1,
+    BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST=0) are left at their defaults (no env
+    overrides) so the timed call matches the shipped config.
+    """
+    spec_path = AFFINITY
+    if not spec_path.exists():
+        raise FileNotFoundError(f"missing affinity fixture {spec_path}")
+    work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
+    out_dir = work / "out"
+    log_path = work / "affinity.log"
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "predict", str(spec_path),
+        "--model", "boltz2",
+        "--single_sequence",
+        "--override",
+        "--affinity_mw_correction",
+        "--debug",  # NullDisplay: headless, no Rich TTY
+        "--recycling_steps", str(RECYCLING_STEPS),
+        "--sampling_steps", str(SAMPLING_STEPS),
+        "--diffusion_samples", str(DIFFUSION_SAMPLES),
+        "--sampling_steps_affinity", str(SAMPLING_STEPS),
+        "--diffusion_samples_affinity", str(DIFFUSION_SAMPLES),
+        "--out_dir", str(out_dir),
+    ]
+    env = dict(os.environ)
+    pp = str(REPO_ROOT)
+    env["PYTHONPATH"] = pp + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    env.setdefault("TT_VISIBLE_DEVICES", "0")
+    env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
+    env.setdefault("LOGURU_LEVEL", "WARNING")
+    t0 = time.perf_counter()
+    with open(log_path, "w") as log:
+        proc = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
+    wall = time.perf_counter() - t0
+    if proc.returncode != 0:
+        tail = ""
+        if log_path.exists():
+            lines = log_path.read_text().strip().splitlines()
+            tail = lines[-1] if lines else ""
+        raise RuntimeError(f"affinity predict exited {proc.returncode} after {wall:.0f}s: {tail}")
+    throughput = 1.0 / wall
+    latency_ms = wall * 1000.0
+    card = detect_card_type()
+    result = dict(
+        model=model,
+        kind=spec["kind"],
+        unit=spec["unit"],
+        direction=spec["direction"],
+        hardware="blackhole",
+        card_type=card,
+        throughput=round(throughput, 6),
+        latency_ms=round(latency_ms, 2),
+        median_s=round(wall, 4),
+        times_s=[round(wall, 4)],
+        load_s=0.0,
+        warmup=0,
+        repeat=1,
+        sampling_steps=SAMPLING_STEPS,
+        diffusion_samples=DIFFUSION_SAMPLES,
+        recycling_steps=RECYCLING_STEPS,
+        sampling_steps_affinity=SAMPLING_STEPS,
+        diffusion_samples_affinity=DIFFUSION_SAMPLES,
+        input=f"{spec_path.name} (FKBP12+SB3, L107, single-seq, affinity mode)",
+        tt_bio_version=_version(),
+        date=date.today().isoformat(),
+    )
+    out_path.write_text(json.dumps(result))
+    print(f"[{model}] {result['throughput']} {spec['unit']}  "
+          f"({latency_ms:.0f} ms/call, wall {wall:.0f}s)", file=sys.stderr)
+    shutil.rmtree(work, ignore_errors=True)
+    return result
+
+
 def measure(model: str, out_path: Path) -> dict:
     """Load one model, warmup, time REPEAT folds, write a JSON result to out_path.
 
@@ -434,6 +567,8 @@ def measure(model: str, out_path: Path) -> dict:
     spec = SPECS[model]
     if spec["kind"] == "gen":
         return _measure_gen(model, spec, out_path)
+    if spec["kind"] == "affinity":
+        return _measure_affinity(model, spec, out_path)
     import torch  # noqa: F401  — imported by worker anyway; sets grad off below
     torch.set_grad_enabled(False)
     from tt_bio.tenstorrent import get_device, arch_name, cleanup
@@ -606,7 +741,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, threshold: f
     r0 = rows[0] if rows else {}
     w = r0.get("warmup", WARMUP)
     rep = r0.get("repeat", REPEAT)
-    warm_desc = (f"warm ({w} warmup + {rep} timed)" if r0.get("kind") != "gen"
+    warm_desc = (f"warm ({w} warmup + {rep} timed)" if r0.get("kind") not in ("gen", "affinity")
                  else f"single end-to-end run ({rep} timed)")
     title = (f"PERF REGRESSION GATE — card {card_type} — "
              f"{', '.join(r['model'] for r in rows)}  "
