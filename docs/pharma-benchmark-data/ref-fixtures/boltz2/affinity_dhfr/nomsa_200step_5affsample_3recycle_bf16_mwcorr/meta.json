@@ -1,0 +1,6 @@
+{
+  "target": "affinity_dhfr",
+  "settings": {"msa": "empty", "sampling_steps": 200, "diffusion_samples": 1, "diffusion_samples_affinity": 5, "sampling_steps_affinity": 200, "recycling_steps": 3, "precision": "bf16 AMP", "affinity_mw_correction": true, "seeds": [0, 1, 2]},
+  "provenance": "Reference generated 2026-07-19 with official boltz 2.2.1 CPU affinity path on qb2 (tt-quietbox2); affinity value json + best-sample structure CIF per seed committed here. Pose-scoring (P3) CIFs included per seed (structures/affinity_dhfr.cif).",
+  "source": "P2 (pass 6) of the pharma-benchmark affinity hardening"
+}
