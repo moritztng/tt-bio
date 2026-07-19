@@ -62,7 +62,22 @@ def run_esmc_parity(
 
     Returns a metrics dict; ``ok`` is True iff per-residue PCC >= ``pcc_threshold``.
     Reused by ``scripts/release_gate.py``'s ESMC leg — do not re-derive here.
+
+    ESMC-6B (the ESMFold2 LM backbone) ships as sharded TransformerEngine
+    safetensors with no sequence head, so it cannot use the single-.pth / logits
+    path below; it delegates to ``scripts/esmc6b_embed_parity.run_esmc6b_parity``
+    (same esm-repo golden reference, fp32, just the 6B config + remapped weights).
     """
+    if name == "esmc-6b":
+        import importlib  # noqa: E402
+
+        _scripts_dir = os.path.dirname(os.path.abspath(__file__))
+        if _scripts_dir not in sys.path:
+            sys.path.insert(0, _scripts_dir)
+        from esmc6b_embed_parity import run_esmc6b_parity  # noqa: E402  (scripts/ sibling)
+
+        return run_esmc6b_parity(seq, fast=fast, pcc_threshold=pcc_threshold, verbose=verbose)
+
     torch.set_grad_enabled(False)
 
     # --- real trained weights (downloads on first use) ---
@@ -118,7 +133,7 @@ def run_esmc_parity(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="esmc-300m", choices=list(tt_esmc.CONFIGS))
+    ap.add_argument("--model", default="esmc-300m", choices=list(tt_esmc.MODELS))
     ap.add_argument("--seq", default=DEFAULT_SEQ)
     ap.add_argument("--pcc-threshold", type=float, default=0.99)
     ap.add_argument("--fast", action="store_true")
