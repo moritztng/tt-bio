@@ -45,10 +45,7 @@ What it measures, per model:
     (batch_size 8). Device-resident ESM-2 over the fused AA+Foldseek-3Di vocab,
     loaded via ``tt_bio.saprot`` directly (the worker's embed path is
     ESMC-specific). Same warmup-then-time protocol as esmc-300m/600m; sequence-only
-    mode (3Di="#"), no foldseek on the perf path. ProteinMPNN is intentionally
-    NOT in this gate: it is CPU-only with no TT device, profiled as a single-call
-    win by design (dispatch-bound dense matmuls), so it has no device-throughput
-    number to regress — its shipped UX is gated in ``scripts/ux_regression.py``.
+    mode (3Di="#"), no foldseek on the perf path.
 
 Baselines live in ``docs/perf_baselines.json`` and are EXPLICIT and PER-CARD-TYPE:
 the file nests one ``models`` block per card type (``p150a``, ``p300c``, ...) under

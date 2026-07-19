@@ -8,9 +8,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [0.3.1] - 2026-07-19
 
 Adds **SaProt** structure-aware protein embeddings (`tt-bio saprot`, an ESM-2 encoder over a
-fused amino-acid + Foldseek-3Di vocabulary) and **ProteinMPNN** fixed-backbone sequence design
-(`tt-bio design`, inverse folding — the step run after a backbone generator like BoltzGen, or
-any bring-your-own-backbone PDB). Both are purely additive: no existing model file changed.
+fused amino-acid + Foldseek-3Di vocabulary). Purely additive: no existing model file changed.
 
 **Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0, Blackhole P150a):
 
@@ -38,10 +36,6 @@ any bring-your-own-backbone PDB). Both are purely additive: no existing model fi
 | saprot-35m | 0.999138 | 0.999772 | PASS |
 | saprot-650m | 0.999638 | 0.999927 | PASS |
 
-**ProteinMPNN parity** (`pytest tests/test_proteinmpnn.py` vs official `v_48_020.pt`): 4/4 passing —
-forward log-prob PCC ≥0.999 on 5L33 and 6MRR, exact greedy-recovery match, checkpoint param count
-1,660,485 (matches published 1.66M).
-
 **UX gate** (`scripts/ux_regression.py`, `examples/trpcage.yaml`): every shipped surface (Boltz-2,
 ESMFold2, ESMFold2-fast, Protenix-v2, OpenDDE, ESMC-600m embed, BoltzGen) cleared live-progress
 advancement, strict mmCIF/npz parse, and results/manifest shape — PASS.
@@ -58,12 +52,10 @@ advancement, strict mmCIF/npz parse, and results/manifest shape — PASS.
 | esmc-600m | seq/s | 20.92 | 21.03 | +0.5% | PASS |
 | boltzgen | designs/s | 0.01723 | 0.01745 | +1.3% | PASS |
 
-No perf regression. No OOM observed through the gate targets. ProteinMPNN runs on CPU
-(data-parallel fanout, not an on-device port — see `docs/proteinmpnn-port.md`).
+No perf regression. No OOM observed through the gate targets.
 
 ### Added
 - **SaProt** structure-aware protein embeddings (`tt-bio saprot`, `saprot-35m`/`saprot-650m`/`saprot-1.3b`).
-- **ProteinMPNN** fixed-backbone sequence design (`tt-bio design`, inverse folding).
 - **esmc-300m** and **esmc-6b** legs in the perf-regression gate.
 
 ## [0.3.0] - 2026-07-17
