@@ -2571,7 +2571,12 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
 @click.option("--batch_size", default=8, show_default=True,
               help="Sequences per device forward (padded+masked per batch so "
                    "per-sequence embeddings are unchanged).")
-def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast, batch_size):
+@click.option("--devices", default=None,
+              help="Comma-separated physical TT card ids to shard the sequences across, "
+                   "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
+                   "results are reassembled in input order. Default: this machine's single card.")
+def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast,
+               batch_size, devices):
     """Compute SaProt structure-aware protein-language-model embeddings.
 
     SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
@@ -2597,19 +2602,30 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
     out = Path(out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
 
-    # This process opens its TT device in-process, so it needs the same
-    # P300-board-misdetection workaround the embed/predict fanout applies.
-    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
-        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-        if mgd:
-            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    device_list = None
+    if devices:
+        from tt_bio import runtime
+        device_list = runtime.detect_tenstorrent_devices(devices, 0, len(seqs))
 
-    click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
     try:
-        m = saprot.load_saprot(model, fast=fast)
-        click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
-        results = saprot.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
-                                         batch_size=batch_size)
+        if device_list and len(device_list) > 1:
+            click.echo(f"Sharding {len(seqs)} sequence(s) across cards "
+                       f"{device_list}{' (fast)' if fast else ''} → {out}")
+            results = saprot.embed(seqs, model=model, devices=device_list, fast=fast,
+                                  return_logits=return_logits, pool=pool, batch_size=batch_size)
+        else:
+            # This process opens its TT device in-process (no fanout subprocess),
+            # so it needs the same P300-board-misdetection workaround the fanout
+            # path applies per-shard (see saprot._spawn_saprot_shard).
+            if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+                mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+                if mgd:
+                    os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+            click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
+            m = saprot.load_saprot(model, fast=fast)
+            click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
+            results = saprot.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
+                                             batch_size=batch_size)
     except ValueError as e:
         raise click.ClickException(str(e))
 

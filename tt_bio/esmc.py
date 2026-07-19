@@ -956,25 +956,34 @@ def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = F
     return [by_id[sid] for sid, _ in items]  # restore input order
 
 
-def _shard_by_length(items: list[tuple[str, str]], n: int) -> list[list[tuple[str, str]]]:
-    """Split ``(id, seq)`` pairs into ``n`` balanced shards for data-parallel embedding.
+def _shard_by_length(items: list, n: int, *,
+                     key=lambda it: len(it[1])) -> list[list]:
+    """Split ``(id, payload)`` pairs into ``n`` balanced shards for data-parallel embedding.
 
-    Pairs are length-sorted and striped round-robin across shards, so every shard
-    gets a similar length distribution (tight length-bucketing, little padding waste)
-    and a balanced total workload — long sequences don't all land on one card. Input
-    ordering is irrelevant here; results are reassembled by id afterwards.
+    Pairs are length-sorted (by ``key``, default the character length of the pair's
+    second element) and striped round-robin across shards, so every shard gets a
+    similar length distribution (tight length-bucketing, little padding waste) and a
+    balanced total workload — long sequences don't all land on one card. Input
+    ordering is irrelevant here; results are reassembled by id afterwards. ``key`` is
+    overridden by callers whose payload isn't a bare string (e.g. SaProt's
+    ``(aa, struc)`` tuple sorts on the AA length).
     """
-    shards: list[list[tuple[str, str]]] = [[] for _ in range(n)]
-    order = sorted(range(len(items)), key=lambda i: len(items[i][1]))
+    shards: list[list] = [[] for _ in range(n)]
+    order = sorted(range(len(items)), key=lambda i: key(items[i]))
     for rank, i in enumerate(order):
         shards[rank % n].append(items[i])
     return shards
 
 
-def _reassemble(items: list[tuple[str, str]],
-                shard_results: list[list[ESMCEmbedding]]) -> list[ESMCEmbedding]:
-    """Flatten per-shard embeddings and restore the original ``items`` order."""
-    by_id: dict[str, ESMCEmbedding] = {}
+def _reassemble(items: list[tuple[str, object]],
+                shard_results: list[list]) -> list:
+    """Flatten per-shard embeddings and restore the original ``items`` order.
+
+    Duck-typed on the per-sequence result's ``.id`` (both ESMCEmbedding and
+    SaprotEmbedding expose one), so the same helper reassembles ESMC and SaProt
+    fanout results.
+    """
+    by_id: dict[str, object] = {}
     for res in shard_results:
         for emb in res:
             by_id[emb.id] = emb

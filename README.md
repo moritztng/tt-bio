@@ -188,6 +188,7 @@ first, then score it with SaProt).
 ```bash
 tt-bio saprot proteins.fasta --model saprot-650m --structure structs/ --out_dir embeddings
 tt-bio saprot proteins.fasta --model saprot-650m                # sequence-only (3Di = '#')
+tt-bio saprot proteins.fasta --model saprot-650m --devices 0,1    # data-parallel across 2 cards
 ```
 
 `--structure` is a PDB/cif file (single sequence) or a directory of `<id>.pdb`/`<id>.cif`
@@ -202,8 +203,10 @@ float32) and a **pooled** vector, plus per-residue MLM logits (`[length, 446]` w
 scoring. Output layout matches `tt-bio embed` (`<id>.npz` / `embeddings.parquet` /
 `manifest.json`).
 
-`--model` selects the variant (`saprot-35m`, `saprot-650m`, `saprot-1.3b`). Parity vs
-the reference HuggingFace checkpoint and warm throughput are in
+`--model` selects the variant (`saprot-35m`, `saprot-650m`, `saprot-1.3b`). `--devices 0,1,2,3`
+shards the input across cards data-parallel (one pinned subprocess each, results reassembled in
+input order) — bit-exact vs single-card with `--batch_size 1`. Parity vs the reference HuggingFace
+checkpoint, the multi-card bit-exactness check, and warm throughput are in
 [`docs/saprot-parity.md`](docs/saprot-parity.md). The 35M port is deferred; use 650M.
 
 Python:

@@ -47,12 +47,37 @@ saprot-35m / saprot-650m, in line with the ESMC port's 0.9995–0.9999 band. The
 structure-aware embeddings — the capability's product — match the reference to within bf16
 noise.
 
+## Multi-card fanout (`--devices`)
+
+`tt-bio saprot` accepts `--devices 0,1,2,3` (comma-separated physical TT card ids), the same
+data-parallel sharding pattern `tt-bio embed` uses: one pinned subprocess per card, sequences
+sharded by length (balanced across cards), results reassembled in input order. SaProt
+embeddings are row-independent (no cross-sequence state), so a sequence's output is identical
+to running it on one card — sharding changes only which chip computes which row.
+
+```bash
+tt-bio saprot proteins.fasta --model saprot-650m --devices 0,1
+```
+
+**Bit-exact vs single-card.** With `--batch_size 1` each sequence is embedded alone in its own
+length bucket, so a sharded run is bit-exact vs the single-card run *by construction* (no
+batchmate regrouping) — the same bar `tt-bio embed --devices` holds. Verified on qb1
+(`saprot-650m`, 12 sequences across 4 shards): Δmax = 0 per-residue and pooled, ids+order
+identical to input. Reproduce:
+
+```bash
+TT_VISIBLE_DEVICES=0 PYTHONPATH=. \
+  python scripts/saprot_multicard_parity.py --model saprot-650m --n 12 --shards 4
+```
+
+With `--batch_size > 1` (the default), a sequence's batchmates differ across shards, so padding
+and bf16 accumulation order differ by up to 1 ULP — same row-independence caveat as `tt-bio embed`.
+Use `--batch_size 1` if you need cross-shard bit-exactness.
+
 ## What is deferred
 
 - **saprot-1.3b**: same ESM-2 family, `head_dim = 64`; not yet parity-run in this cut
   (weights are public; the port loads it via the same path — left for a follow-up).
-- **Multi-card fanout**: the embed-style data-parallel fanout transfers verbatim (SaProt
-  embeddings are row-independent); not wired into the `saprot` CLI in this cut.
 
 ## Warm throughput (single card)
 

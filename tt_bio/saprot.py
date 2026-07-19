@@ -19,6 +19,11 @@ from __future__ import annotations
 
 import itertools
 import os
+import pickle
+import shutil
+import subprocess
+import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -36,7 +41,18 @@ from tt_bio.tenstorrent import (
     _sdpa_program_config_for_lengths,
     get_device,
 )
-from tt_bio.esmc import rope_tables, _rope, _batch_tokens, BUCKET
+from tt_bio.esmc import (
+    rope_tables,
+    _rope,
+    _batch_tokens,
+    BUCKET,
+    _shard_by_length,
+    _reassemble,
+    _thread_cap_env,
+    _shm_dir,
+    _read_log_tail,
+    _await_shard,
+)
 
 ROPE_BASE = 10000.0
 # token_dropout compensation baked into embeddings at inference (no mask tokens):
@@ -483,17 +499,117 @@ def embed_sequences(model, sequences, *, return_logits=False, pool="mean", batch
     return [by_id[k] for k in sequences]
 
 
+def _run_saprot_shard(in_path: str, out_path: str) -> None:
+    """Subprocess entry point: embed one SaProt shard on the pinned card, pickle results.
+
+    Invoked as a fresh interpreter with ``TT_VISIBLE_DEVICES`` already set in the
+    environment (so the assigned physical chip is logical device 0 and ttnn, imported
+    at module load, binds to it). Reads a pickled request
+    ``{model, sequences, fast, return_logits, pool, batch_size}`` and writes the
+    resulting ``list[SaprotEmbedding]``. Mirrors ``esmc._run_embed_shard``; the only
+    difference is the model loader and the (aa, struc) payload shape.
+    """
+    with open(in_path, "rb") as f:
+        req = pickle.load(f)
+    model = load_saprot(req["model"], fast=req["fast"])
+    results = embed_sequences(model, req["sequences"], return_logits=req["return_logits"],
+                              pool=req["pool"], batch_size=req["batch_size"])
+    with open(out_path, "wb") as f:
+        pickle.dump(results, f)
+
+
+def _spawn_saprot_shard(idx: int, device: int, shard: list, workdir: str, *,
+                        model: str, fast: bool, return_logits: bool, pool: str,
+                        batch_size: int, thread_cap_env: dict | None = None):
+    """Launch a pinned subprocess embedding ``shard`` on physical card ``device``.
+
+    Returns ``(proc, out_path, device, log_path, logf)``. The child sets
+    ``TT_VISIBLE_DEVICES=<device>`` so the chip is logical device 0 (see
+    ``get_device``). stdout/stderr go to a per-shard log file rather than a pipe,
+    so a chatty ttnn child never deadlocks on a full pipe buffer. Mirrors
+    ``esmc._spawn_shard`` minus the esmc-6B shared-cache path (SaProt has no 6B-style
+    shared weight cache — its largest resident checkpoint, 1.3B, is small enough
+    that per-shard reload isn't the fanout bottleneck).
+    """
+    in_path = os.path.join(workdir, f"shard{idx}.in.pkl")
+    out_path = os.path.join(workdir, f"shard{idx}.out.pkl")
+    log_path = os.path.join(workdir, f"shard{idx}.log")
+    with open(in_path, "wb") as f:
+        pickle.dump(dict(model=model, sequences=dict(shard), fast=fast,
+                         return_logits=return_logits, pool=pool, batch_size=batch_size), f)
+    env = {**os.environ, **(thread_cap_env or {}),
+           "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
+    # P300 boards are a custom topology; like the `embed`/`predict`/`boltzgen` fanout
+    # paths, a single-chip worker needs the 1x1 Blackhole mesh-graph descriptor or
+    # ttnn.open_device aborts with "Custom fabric mesh graph descriptor path must be
+    # specified".
+    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    if device in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            env["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    logf = open(log_path, "w")
+    proc = subprocess.Popen(
+        [sys.executable, "-c",
+         "import sys; from tt_bio.saprot import _run_saprot_shard; "
+         "_run_saprot_shard(sys.argv[1], sys.argv[2])",
+         in_path, out_path],
+        env=env, stdout=logf, stderr=subprocess.STDOUT)
+    return proc, out_path, device, log_path, logf
+
+
+def embed_multicard(sequences: dict, *, model: str, devices: list[int],
+                    fast: bool = False, return_logits: bool = False, pool: str = "mean",
+                    batch_size: int = 8) -> list:
+    """Data-parallel SaProt embedding across multiple physical TT cards.
+
+    Shards ``sequences`` across ``devices`` (one pinned subprocess per card), runs the
+    single-card :func:`embed_sequences` in each, then gathers and reassembles the
+    embeddings in original input order. Embarrassingly parallel: SaProt embeddings are
+    row-independent (no cross-sequence state), so a sequence's output is identical to
+    running it on one card — sharding changes only which chip computes which row.
+    Reuses the ESMC fanout primitives (``_shard_by_length`` with an aa-length key,
+    ``_reassemble``, ``_await_shard``, ``_thread_cap_env``); only the shard payload
+    and model loader are SaProt-specific.
+
+    More cards than sequences is harmless: extra cards simply get no shard.
+    """
+    items = list(sequences.items())
+    devices = list(devices)[:max(1, len(items))]
+    shards = _shard_by_length(items, len(devices), key=lambda it: len(it[1][0]))
+    workdir = tempfile.mkdtemp(prefix="tt-bio-saprot-fanout-")
+    thread_cap_env = _thread_cap_env(len(devices))
+    try:
+        handles = [
+            _spawn_saprot_shard(idx, dev, shard, workdir, model=model, fast=fast,
+                               return_logits=return_logits, pool=pool, batch_size=batch_size,
+                               thread_cap_env=thread_cap_env)
+            for idx, (dev, shard) in enumerate(zip(devices, shards)) if shard
+        ]
+        results = [_await_shard(*h) for h in handles]
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return _reassemble(items, results)
+
+
 def embed(sequences, model: str = "saprot-650m", *, fast=False, return_logits=False,
-          pool="mean", batch_size=8):
+          pool="mean", batch_size=8, devices: list[int] | None = None):
     """One-shot embedding: load ``model`` and embed ``sequences``.
 
     ``sequences`` may be a single (aa, struc) pair, a dict of {id: (aa, struc)},
     or {id: aa} (sequence-only, 3Di = "#"). Returns one SaprotEmbedding per input.
+
+    ``devices`` shards the input across multiple physical TT cards (one pinned
+    subprocess each, data-parallel); with 0 or 1 device the model is loaded in-process
+    on the single card this process already sees.
     """
     if isinstance(sequences, str):
         sequences = {"seq0": sequences}
     elif isinstance(sequences, (list, tuple)) and len(sequences) == 2 and isinstance(sequences[0], str):
         sequences = {"seq0": sequences}
+    if devices and len(devices) > 1:
+        return embed_multicard(sequences, model=model, devices=devices, fast=fast,
+                               return_logits=return_logits, pool=pool, batch_size=batch_size)
     m = load_saprot(model, fast=fast)
     return embed_sequences(m, sequences, return_logits=return_logits, pool=pool, batch_size=batch_size)
 
