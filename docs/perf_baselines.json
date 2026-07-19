@@ -284,11 +284,28 @@
           "tt_bio_version": "0.3.0",
           "date": "2026-07-19",
           "note": "seed p150a esmc-300m embed perf baseline (warm run, 8x ubiquitin-76 embed, batch 8, main HEAD 0.3.0 on qb1 P150a card 2)"
+        },
+        "saprot-650m": {
+          "unit": "seq/s",
+          "direction": "higher",
+          "value": 222.690441,
+          "latency_ms": 35.92,
+          "input": "8x ubiquitin (76 aa), batch 8",
+          "sampling_steps": 10,
+          "diffusion_samples": 1,
+          "recycling_steps": 1,
+          "warmup": 2,
+          "repeat": 5,
+          "hardware": "blackhole",
+          "card_type": "p150a",
+          "tt_bio_version": "0.3.1",
+          "date": "2026-07-19",
+          "note": "seed saprot baseline"
         }
       },
       "date": "2026-07-19",
-      "tt_bio_version": "0.3.0",
-      "note": "seed p150a esmc-300m embed perf baseline (warm run, 8x ubiquitin-76 embed, batch 8, main HEAD 0.3.0 on qb1 P150a card 2)"
+      "tt_bio_version": "0.3.1",
+      "note": "seed saprot baseline"
     }
   }
 }

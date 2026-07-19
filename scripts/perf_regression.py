@@ -30,6 +30,14 @@ What it measures, per model:
     compile is included in the timed region, so this is a conservative
     cold-inflated warm-throughput proxy. Reuses the SAME fixture/protocol the
     designability accuracy leg gates.
+  * saprot-650m embed — seq/s on a fixed batch of 8 ubiquitin-length sequences
+    (batch_size 8). Device-resident ESM-2 over the fused AA+Foldseek-3Di vocab,
+    loaded via ``tt_bio.saprot`` directly (the worker's embed path is
+    ESMC-specific). Same warmup-then-time protocol as esmc-300m/600m; sequence-only
+    mode (3Di="#"), no foldseek on the perf path. ProteinMPNN is intentionally
+    NOT in this gate: it is CPU-only with no TT device, profiled as a single-call
+    win by design (dispatch-bound dense matmuls), so it has no device-throughput
+    number to regress — its shipped UX is gated in ``scripts/ux_regression.py``.
 
 Baselines live in ``docs/perf_baselines.json`` and are EXPLICIT and PER-CARD-TYPE:
 the file nests one ``models`` block per card type (``p150a``, ``p300c``, ...) under
@@ -127,6 +135,17 @@ SPECS: dict[str, dict] = {
     # than 300m/600m.
     "esmc-6b":        dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=1, n_seqs=8),
+    # SaProt-650M is the flagship structure-aware protein-LM checkpoint (ESM-2
+    # over the fused AA+Foldseek-3Di vocab, 446 tokens; tt_bio/saprot.py). It is
+    # device-resident like esmc-300m/600m, so it mirrors that embed shape exactly
+    # (batch_size=8, n_seqs=8 ubiquitin, seq/s, warmup-then-time). Sequence-only
+    # mode (3Di="#") -- no foldseek dependency on the perf path. The 35M/1.3B
+    # sizes are skipped here, matching how only two ESMC sizes are gated. The
+    # worker's embed path is ESMC-specific, so the measurement loads via
+    # tt_bio.saprot directly (see _measure_saprot_embed) -- same warm seq/s
+    # protocol, just a different loader than esmc.
+    "saprot-650m":    dict(kind="embed", unit="seq/s", direction="higher",
+                           batch_size=8, n_seqs=8),
     "boltzgen":       dict(kind="gen", unit="designs/s", direction="higher",
                            num_designs=4, protocol="protein-anything"),
 }
@@ -434,6 +453,8 @@ def measure(model: str, out_path: Path) -> dict:
     spec = SPECS[model]
     if spec["kind"] == "gen":
         return _measure_gen(model, spec, out_path)
+    if model.startswith("saprot"):
+        return _measure_saprot_embed(model, spec, out_path)
     import torch  # noqa: F401  — imported by worker anyway; sets grad off below
     torch.set_grad_enabled(False)
     from tt_bio.tenstorrent import get_device, arch_name, cleanup
@@ -540,6 +561,90 @@ def measure(model: str, out_path: Path) -> dict:
 
     state.reset()
     cleanup()
+    return result
+
+
+def _measure_saprot_embed(model: str, spec: dict, out_path: Path) -> dict:
+    """In-process warm-throughput measurement for SaProt embed (device-resident
+    ESM-2 over the fused AA+Foldseek-3Di vocab).
+
+    Mirrors the esmc-300m/600m embed leg (batch_size=8, n_seqs=8 ubiquitin,
+    seq/s, warmup-then-time) but loads via tt_bio.saprot directly: the
+    worker's embed path (_predict_embed_one) is ESMC-specific (it calls
+    tt_bio.esmc.embed_sequences / load_sequences), and SaProt has its own
+    loader / tokenizer / embed_sequences (see scripts/saprot_parity.py for
+    the same direct-load pattern). Sequence-only mode (3Di="#"), so no foldseek
+    dependency on the perf path. Same warm seq/s protocol as esmc embed, just a
+    different loader — a dispatch/throughput regression on the SaProt load path
+    can't ship silently.
+    """
+    import torch
+    torch.set_grad_enabled(False)
+    from tt_bio.tenstorrent import get_device, arch_name, cleanup
+    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    from tt_bio import saprot
+
+    # P300 lone-chip workaround — must be set before the first get_device() call
+    # (Saprot.from_pretrained opens the device in TorchWrapper.__init__).
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
+    get_device()
+    hw = arch_name()
+    card = detect_card_type()
+
+    work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
+    fasta = work / "embed.fasta"
+    _write_embed_fasta(fasta, spec["n_seqs"])
+    seqs = saprot.load_sequences_with_structure(str(fasta), None)
+
+    t_load = time.perf_counter()
+    m = saprot.load_saprot(model)
+    load_s = time.perf_counter() - t_load
+
+    def one_call():
+        t0 = time.perf_counter()
+        saprot.embed_sequences(m, seqs, pool="mean", batch_size=spec["batch_size"])
+        return time.perf_counter() - t0
+
+    for _ in range(WARMUP):
+        one_call()
+    times = [one_call() for _ in range(REPEAT)]
+    times.sort()
+    median = times[len(times) // 2]
+    n = spec["n_seqs"]
+    throughput = n / median                 # seq/s (one batched forward per call)
+    latency_ms = median * 1000.0
+
+    result = dict(
+        model=model,
+        kind=spec["kind"],
+        unit=spec["unit"],
+        direction=spec["direction"],
+        hardware=hw,
+        card_type=card,
+        throughput=round(throughput, 6),
+        latency_ms=round(latency_ms, 2),
+        median_s=round(median, 4),
+        times_s=[round(t, 4) for t in times],
+        load_s=round(load_s, 1),
+        warmup=WARMUP,
+        repeat=REPEAT,
+        sampling_steps=SAMPLING_STEPS,
+        diffusion_samples=DIFFUSION_SAMPLES,
+        recycling_steps=RECYCLING_STEPS,
+        input=f"{spec['n_seqs']}x ubiquitin (76 aa), batch {spec['batch_size']}",
+        tt_bio_version=_version(),
+        date=date.today().isoformat(),
+    )
+    out_path.write_text(json.dumps(result))
+    print(f"[{model}] {result['throughput']} {spec['unit']}  "
+          f"({latency_ms:.0f} ms/call, load {load_s:.0f}s)", file=sys.stderr)
+
+    cleanup()
+    shutil.rmtree(work, ignore_errors=True)
     return result
 
 
