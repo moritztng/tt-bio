@@ -20,7 +20,7 @@ implementations differ from each other no more than each already differs from
 itself. Everything is reported as a distribution (mean/std/min/max/n), never one
 number.
 
-One statistical core, two comparison front-ends:
+One statistical core, three comparison front-ends:
 
   structures   fold models (boltz2, esmfold2, protenix-v2): Kabsch CA-RMSD,
                coordinate PCC and confidence-metric deltas between the output
@@ -30,6 +30,10 @@ One statistical core, two comparison front-ends:
   embeddings   ESMC: per-residue embedding PCC vs the reference esm model, plus
                device self-consistency (the embedding path has no sampler, so
                its noise floor is pure numerics).
+  saprot       SaProt (structure-aware ESM-2 encoder): per-residue embedding
+               and MLM-logits PCC vs the HF EsmForMaskedLM reference. Same
+               deterministic-forward convention as `embeddings` (R = D = 1.00000,
+               no sampler); X is the bf16 device-vs-reference residual.
 
 BoltzGen (de-novo design, no 1:1 output correspondence) is measured in
 designability space, not here: see scripts/boltzgen_designability.py.
@@ -292,6 +296,88 @@ def embeddings(args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# saprot mode (structure-aware ESM-2 encoder, deterministic forward)
+# ---------------------------------------------------------------------------
+# Ubiquitin is the leg every other encoder leg in this benchmark uses, so SaProt
+# runs the same target. The 3Di string is deterministic (the fused-token parity
+# does not depend on the 3Di content -- both paths see identical tokens), so the
+# reference is a single deterministic HF EsmForMaskedLM forward and the device is
+# a single deterministic ttnn forward; R and D are the ref-vs-ref / device-vs-
+# device PCCs (both 1.00000 by construction, no sampler), X is device-vs-ref.
+SAPROT_UBQ = "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"
+
+
+def _saprot_pair_ids():
+    from tt_bio import saprot
+    struc = (saprot.FOLDSEEK_STRUC_VOCAB[:-1] * 6)[: len(SAPROT_UBQ)]
+    return saprot.tokenize(SAPROT_UBQ, struc)  # [1, L+2] long
+
+
+def saprot(args) -> int:
+    import torch
+    from transformers import EsmForMaskedLM
+    from tt_bio import saprot as tt_saprot, esmc
+
+    torch.set_grad_enabled(False)
+    repo = {"saprot-35m": "westlake-repl/SaProt_35M_AF2",
+            "saprot-650m": "westlake-repl/SaProt_650M_AF2",
+            "saprot-1.3b": "westlake-repl/SaProt_1.3B_AF2"}[args.model]
+    ids = _saprot_pair_ids()
+    L = ids.shape[1]  # includes <cls>/<eos>
+
+    # reference: HF EsmForMaskedLM, run twice (R floor -- deterministic by construction)
+    print(f"Building HF reference EsmForMaskedLM ({repo}) ...", flush=True)
+    ref = EsmForMaskedLM.from_pretrained(repo).eval()
+    attn = torch.ones(1, L, dtype=torch.long)
+    ref_runs = []
+    with torch.no_grad():
+        for _ in range(2):
+            out = ref(input_ids=ids, attention_mask=attn, output_hidden_states=True)
+            ref_runs.append((out.hidden_states[-1][0].numpy().astype(np.float32),
+                             out.logits[0].numpy().astype(np.float32)))
+
+    # device: ttnn port, run twice (D floor -- deterministic by construction)
+    print(f"Loading tt SaProt on device ({args.model}) ...", flush=True)
+    BUCKET = esmc.BUCKET
+    Lb = ((L + BUCKET - 1) // BUCKET) * BUCKET
+    input_ids = torch.cat([ids, torch.full((1, Lb - L), 1, dtype=torch.long)], dim=1)
+    a = torch.zeros(1, Lb, Lb, dtype=torch.float32); a[0, :, L:] = float("-inf")
+    kv = torch.ones(1, 1, Lb, 1, dtype=torch.float32); kv[0, :, L:, :] = 0.0
+    em = torch.ones(1, Lb, 1, dtype=torch.float32); em[0, L:, :] = 0.0
+    m = tt_saprot.load_saprot(args.model)
+    dev_runs = []
+    for _ in range(2):
+        with torch.no_grad():
+            logits, emb = m(input_ids, a, kv, em)
+        dev_runs.append((emb[0, :L].numpy().astype(np.float32),
+                         logits[0, :L].numpy().astype(np.float32)))
+
+    def p(a, b):
+        return _pcc(a, b)
+
+    R_emb, R_log = p(ref_runs[0][0], ref_runs[1][0]), p(ref_runs[0][1], ref_runs[1][1])
+    D_emb, D_log = p(dev_runs[0][0], dev_runs[1][0]), p(dev_runs[0][1], dev_runs[1][1])
+    X_emb, X_log = p(dev_runs[0][0], ref_runs[0][0]), p(dev_runs[0][1], ref_runs[0][1])
+
+    report = {"mode": "saprot", "model": args.model, "target": "ubiquitin-L76",
+              "R_emb": R_emb, "R_logits": R_log, "D_emb": D_emb, "D_logits": D_log,
+              "X_emb": X_emb, "X_logits": X_log}
+    print(f"\n### SaProt parity ({args.model}, ubiquitin L76, fused AA+3Di)\n")
+    print("| metric | R (ref-vs-ref) | D (dev-vs-dev) | X (dev-vs-ref) |")
+    print("|---|---|---|---|")
+    print(f"| per-residue emb PCC | {R_emb:.5f} | {D_emb:.5f} | {X_emb:.5f} |")
+    print(f"| MLM logits PCC      | {R_log:.5f} | {D_log:.5f} | {X_log:.5f} |")
+    print("\nInterpretation: SaProt is a masked-LM encoder with no sampler, so R and "
+          "D are 1.00000 by construction (deterministic forward, same convention as "
+          "the ESMC legs). The device-vs-reference residual is bf16 rounding on the "
+          "ttnn port, not an algorithmic difference; PASS when X sits in the ESMC "
+          "band (0.9987-0.9996).")
+    if args.out:
+        Path(args.out).write_text(json.dumps(report, indent=2))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -314,6 +400,11 @@ def main() -> int:
     e.add_argument("--fast", action="store_true")
     e.add_argument("--out", default="")
     e.set_defaults(func=embeddings)
+
+    sp = sub.add_parser("saprot", help="SaProt: device vs HF EsmForMaskedLM reference (fused AA+3Di)")
+    sp.add_argument("--model", default="saprot-650m", choices=["saprot-35m", "saprot-650m", "saprot-1.3b"])
+    sp.add_argument("--out", default="")
+    sp.set_defaults(func=saprot)
 
     args = ap.parse_args()
     return args.func(args)
