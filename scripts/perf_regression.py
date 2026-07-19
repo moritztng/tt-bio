@@ -47,19 +47,32 @@ What it measures, per model:
     ESMC-specific). Same warmup-then-time protocol as esmc-300m/600m; sequence-only
     mode (3Di="#"), no foldseek on the perf path.
 
-Baselines live in ``docs/perf_baselines.json`` and are EXPLICIT and PER-CARD-TYPE:
-the file nests one ``models`` block per card type (``p150a``, ``p300c``, ...) under
-a ``cards`` key, and the gate compares only against the baseline matching the
-card it is actually running on (detected at runtime via tt-smi / kernel sysfs,
-mirroring ``tt_bio/main.py::_detect_p300_devices``). A P300c baseline must never
-be judged against a P150a run — the P150 is a smaller chip and would read as a
-false 20-34% regression that is just the card, not the code. If the detected card
-type has no recorded baseline yet, the gate FAILS loudly (every model NO BASELINE)
-rather than silently skipping or matching the wrong card. An intentional perf
+Baselines live in ``docs/perf_baselines.json`` and are EXPLICIT and PER-CARD-TYPE
+with a PER-MACHINE layer under that. The file nests one block per card type
+(``p150a``, ``p300c``, ...) under a ``cards`` key; each card block carries a
+card-level ``models`` map (the fallback) AND an optional ``machines`` map whose
+keys are physical-machine ids (``socket.gethostname()``, the repo's existing
+convention in ``tt_bio/runtime.py``) each pointing at a machine-specific
+``models`` map. The gate resolves a model's baseline as
+``cards.<card_type>.machines.<machine_id>.models.<model>`` if a machine-specific
+entry exists for the detected machine, else falls back to
+``cards.<card_type>.models.<model>`` — so the scheme is backward compatible and
+does NOT require every card type to carry a full per-machine block (only the
+models that actually differ per machine need one). The gate detects the card it
+is running on at runtime via tt-smi / kernel sysfs, mirroring
+``tt_bio/main.py::_detect_p300_devices``. A P300c baseline must never be judged
+against a P150a run — the P150 is a smaller chip and would read as a false 20-34%
+regression that is just the card, not the code. A baseline seeded on one physical
+p150a (e.g. ``pc``) must not be judged against a run on a different physical p150a
+(e.g. ``qb1``, ~30-36% slower on the same models) — the machine-id layer guards
+that within-card-type machine variance. If the detected card type has no
+recorded baseline at all, the gate FAILS loudly (every model NO BASELINE) rather
+than silently skipping or matching the wrong card's numbers. An intentional perf
 change (landed optimization, deliberate accuracy/perf tradeoff) updates the
-baseline via ``--update-baseline --note "<why>"`` — never silently. A regression
-the author didn't intend fails the gate. Cover new models / new card types as they
-ship by adding a spec here + a baseline entry (seeded on that card type).
+baseline via ``--update-baseline --note "<why>"`` (writes to the detected
+machine's machine-specific block) — never silently. A regression the author
+didn't intend fails the gate. Cover new models / new card types as they ship by
+adding a spec here + a baseline entry (seeded on that card type / machine).
 
 Usage::
 
@@ -85,6 +98,7 @@ import argparse
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -294,16 +308,55 @@ def detect_card_type() -> str:
     return "unknown"
 
 
-def card_baselines(data: dict, card_type: str) -> dict | None:
-    """The per-card model-baseline map for ``card_type``, or None if this card
-    type has no recorded baseline yet (the gate must fail loudly on that)."""
+def detect_machine_id() -> str:
+    """Stable per-machine key for the machine-id baseline layer
+    (``cards.<card_type>.machines.<machine_id>.models``). Reuses the repo's
+    existing hostname convention (``tt_bio/runtime.py::build_local_workers``,
+    ``tt_bio/main.py``) so a machine is identified the same way here and in
+    worker-slot naming: ``socket.gethostname()``.
+    """
+    return socket.gethostname()
+
+
+def card_baselines(data: dict, card_type: str, machine_id: str | None = None) -> dict | None:
+    """The resolved per-model baseline map for ``card_type`` on ``machine_id``,
+    or None if this card type has no recorded baseline at all (the gate must
+    fail loudly on that).
+
+    Two-level lookup with backward-compatible fallback: a model's baseline is
+    taken from ``cards.<card_type>.machines.<machine_id>.models.<model>`` if a
+    machine-specific entry exists for the detected machine, otherwise from
+    ``cards.<card_type>.models.<model>`` (today's shape). This guards
+    within-card-type machine variance — e.g. qb1's p150a cards read ~30-36%
+    slower than pc's p150a on the SAME models, so a baseline seeded on pc reads
+    as a false regression on qb1 (and vice versa). A machine-specific entry
+    overrides the card-level fallback per model, so a card type does NOT need a
+    full per-machine block — only the models that actually differ per machine
+    need one. If no machine-specific entry exists for the detected machine the
+    gate falls back to the card-level block unchanged (today's behavior)."""
     cards = data.get("cards")
     if not cards and data.get("models"):
         # Legacy single-card file (pre per-card split) — treat it as one card so
         # an un-updated checkout still gates instead of crashing.
         return data["models"]
     entry = cards.get(card_type) if cards else None
-    return entry.get("models", {}) if entry else None
+    if not entry:
+        return None
+    card_models = entry.get("models", {})
+    if not machine_id:
+        return card_models
+    machines = entry.get("machines")
+    if not machines:
+        return card_models
+    m_entry = machines.get(machine_id)
+    if not m_entry:
+        return card_models
+    machine_models = m_entry.get("models", {})
+    if not machine_models:
+        return card_models
+    # Machine-specific overrides card-level per model; models only in the
+    # card-level block fall through unchanged (backward-compatible fallback).
+    return {**card_models, **machine_models}
 
 
 def _version() -> str:
@@ -825,16 +878,21 @@ def _passes(baseline: float, current: float, direction: str, threshold: float) -
     return pct >= -threshold
 
 
-def _print_table(rows: list[dict], baselines: dict, card_type: str, threshold: float) -> bool:
+def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: str,
+                    threshold: float) -> bool:
     """Print the per-model comparison table. Returns True iff every row passes.
 
-    Compares each model against the baseline recorded for ``card_type`` only — a
-    P300c baseline must never be judged against a P150a run (the P150 is a smaller
-    chip and would read as a false 20-34% regression). If no baseline exists yet
-    for the detected card type, the gate FAILS loudly (every model NO BASELINE)
-    rather than silently skipping or matching the wrong card's numbers."""
+    Compares each model against the baseline resolved for ``card_type`` on
+    ``machine_id`` — a P300c baseline must never be judged against a P150a run
+    (the P150 is a smaller chip and would read as a false 20-34% regression),
+    and a baseline seeded on one physical p150a (e.g. pc) must not be judged
+    against a run on a different physical p150a (e.g. qb1, ~30-36% slower) —
+    the machine-id layer under card type guards that within-type variance. If
+    no baseline exists at all for the detected card type, the gate FAILS loudly
+    (every model NO BASELINE) rather than silently skipping or matching the
+    wrong card's numbers."""
     all_pass = True
-    bm = card_baselines(baselines, card_type)
+    bm = card_baselines(baselines, card_type, machine_id)
     have_card = bm is not None
     # The warm-protocol suffix is per-row (fold/embed legs use WARMUP+REPEAT; the
     # gen leg is a single end-to-end pipeline run, warmup=0/repeat=1). Describe
@@ -845,7 +903,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, threshold: f
     rep = r0.get("repeat", REPEAT)
     warm_desc = (f"warm ({w} warmup + {rep} timed)" if r0.get("kind") not in ("gen", "affinity")
                  else f"single end-to-end run ({rep} timed)")
-    title = (f"PERF REGRESSION GATE — card {card_type} — "
+    title = (f"PERF REGRESSION GATE — card {card_type} @ {machine_id} — "
              f"{', '.join(r['model'] for r in rows)}  "
              f"| threshold ±{threshold:.0f}%  | {warm_desc}")
     print(f"\n{'#' * 78}\n{title}\n{'#' * 78}")
@@ -878,7 +936,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, threshold: f
         print(f"{r['model']:<16}{unit:<16}{base:>11.4g}{r['throughput']:>11.4g}"
               f"{delta:>10}{verdict:>10}")
     print("-" * len(hdr))
-    print(f"  card: {card_type}  |  hardware: {rows[0].get('hardware', '?')}  "
+    print(f"  card: {card_type}  |  machine: {machine_id}  |  hardware: {rows[0].get('hardware', '?')}  "
           f"|  tt-bio {rows[0].get('tt_bio_version', '?')}  |  input: {rows[0].get('input', '?')}")
     if not have_card:
         msg = (f"GATE FAIL — no baseline recorded for card type '{card_type}' in "
@@ -913,7 +971,8 @@ def cmd_gate(args) -> int:
 
     baselines = load_baselines()
     card_type = detect_card_type()
-    ok = _print_table(rows, baselines, card_type, args.threshold)
+    machine_id = detect_machine_id()
+    ok = _print_table(rows, baselines, card_type, machine_id, args.threshold)
     return 0 if ok else 1
 
 
@@ -923,8 +982,18 @@ def _update_baselines(rows: list[dict], args) -> int:
     data = load_baselines()
     cards = data.setdefault("cards", {})
     card_type = detect_card_type()
+    machine_id = detect_machine_id()
     entry = cards.setdefault(card_type, {})
-    models = entry.setdefault("models", {})
+    # Write to the machine-specific block (cards.<card_type>.machines.<machine_id>.models)
+    # so a baseline is tagged with the physical machine that produced it — the gate
+    # resolves a model's baseline from the machine block first and falls back to the
+    # card-level ``models`` block if no machine-specific entry exists (see
+    # ``card_baselines``). This guards within-card-type machine variance (e.g. qb1 vs
+    # pc p150a, ~30-36% delta) without requiring every card type to carry a full
+    # per-machine block.
+    machines = entry.setdefault("machines", {})
+    m_entry = machines.setdefault(machine_id, {})
+    models = m_entry.setdefault("models", {})
     any_ok = False
     for r in rows:
         if r.get("failed"):
@@ -937,19 +1006,24 @@ def _update_baselines(rows: list[dict], args) -> int:
             sampling_steps=r["sampling_steps"], diffusion_samples=r["diffusion_samples"],
             recycling_steps=r["recycling_steps"], warmup=r["warmup"], repeat=r["repeat"],
             hardware=r["hardware"], card_type=r.get("card_type", card_type),
+            machine_id=machine_id,
             tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
         )
-        entry["date"] = r["date"]
-        entry["tt_bio_version"] = r["tt_bio_version"]
-        entry["note"] = args.note
+        m_entry["date"] = r["date"]
+        m_entry["tt_bio_version"] = r["tt_bio_version"]
+        m_entry["note"] = args.note
     # Drop a legacy top-level "models" so the file is unambiguously per-card.
     data.pop("models", None)
     data["hardware"] = data.get("hardware", "blackhole")
     data["threshold_pct"] = args.threshold
     save_baselines(data)
+    machine_names = {ct: sorted(ct_entry.get("machines", {})) for ct, ct_entry in cards.items()}
+    machine_names = {ct: ms for ct, ms in machine_names.items() if ms}
     print(f"\nWrote {BASELINE_FILE.relative_to(REPO_ROOT)}  "
-          f"(card {card_type}: {len(models)} models; "
-          f"{len(cards)} card type(s) recorded: {', '.join(sorted(cards))})")
+          f"(card {card_type} @ {machine_id}: {len(models)} models; "
+          f"{len(cards)} card type(s) recorded: {', '.join(sorted(cards))}; "
+          f"machines: " +
+          ", ".join(f"{ct}=[{', '.join(ms)}]" for ct, ms in machine_names.items()) + ")")
     print("Review the diff, then commit it with the change that justifies the new numbers.")
     return 0 if any_ok else 1
 
