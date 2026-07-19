@@ -204,8 +204,7 @@ scoring. Output layout matches `tt-bio embed` (`<id>.npz` / `embeddings.parquet`
 
 `--model` selects the variant (`saprot-35m`, `saprot-650m`, `saprot-1.3b`). Parity vs
 the reference HuggingFace checkpoint and warm throughput are in
-[`docs/saprot-parity.md`](docs/saprot-parity.md). The 35M port is deferred
-(non-tile-aligned head dim); use 650M.
+[`docs/saprot-parity.md`](docs/saprot-parity.md). The 35M port is deferred; use 650M.
 
 Python:
 
