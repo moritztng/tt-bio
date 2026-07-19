@@ -7,7 +7,7 @@
     "p300c": {
       "date": "2026-07-19",
       "tt_bio_version": "0.3.1",
-      "note": "seed boltz2-affinity baseline",
+      "note": "seed p300c esmc-300m embed perf baseline (warm run, 8x ubiquitin-76 embed, batch 8, main HEAD 0.3.1 on qb2 P300c card 1)",
       "models": {
         "boltz2": {
           "unit": "structures/s",
@@ -161,6 +161,23 @@
           "tt_bio_version": "0.3.1",
           "date": "2026-07-19",
           "note": "seed boltz2-affinity baseline"
+        },
+        "esmc-300m": {
+          "unit": "seq/s",
+          "direction": "higher",
+          "value": 33.169045,
+          "latency_ms": 241.19,
+          "input": "8x ubiquitin (76 aa), batch 8",
+          "sampling_steps": 10,
+          "diffusion_samples": 1,
+          "recycling_steps": 1,
+          "warmup": 2,
+          "repeat": 5,
+          "hardware": "blackhole",
+          "card_type": "p300c",
+          "tt_bio_version": "0.3.1",
+          "date": "2026-07-19",
+          "note": "seed p300c esmc-300m embed perf baseline (warm run, 8x ubiquitin-76 embed, batch 8, main HEAD 0.3.1 on qb2 P300c card 1)"
         }
       }
     },
