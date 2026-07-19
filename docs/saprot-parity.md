@@ -76,8 +76,20 @@ Use `--batch_size 1` if you need cross-shard bit-exactness.
 
 ## What is deferred
 
-- **saprot-1.3b**: same ESM-2 family, `head_dim = 64`; not yet parity-run in this cut
-  (weights are public; the port loads it via the same path — left for a follow-up).
+- **saprot-1.3b**: parity-run in this cut and FAILS the gate. The public
+  `westlake-repl/SaProt_1.3B_AF2` checkpoint downloads cleanly and the HF
+  `EsmForMaskedLM` reference loads normally, but the device-vs-reference PCC is
+  X_emb = 0.23415 / X_logits = 0.38640 (R = D = 1.00000), far below the
+  0.9987-0.9996 band the 35m/650m legs hit. Root cause is a port config bug: the
+  real 1.3B is the 650m width (hidden=1280, n_heads=20, head_dim=64,
+  intermediate=5120) with double the layers (66 vs 33), but
+  `CONFIGS["saprot-1.3b"]` is set to hidden=2560/n_heads=40/n_layers=40/
+  intermediate=10240. `Saprot.from_pretrained` loads with
+  `load_state_dict(..., strict=False)`, so the shape-mismatched weights are
+  silently dropped and the device runs uninitialized. head_dim=64 is tile-aligned,
+  so no 35m-style host-RoPE path is needed. The fix is a one-line config change
+  (release-gated, could change accuracy) and is out of scope for this verification
+  pass; tracked as a follow-up.
 
 ## Warm throughput (single card)
 
