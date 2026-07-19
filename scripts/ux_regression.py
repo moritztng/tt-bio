@@ -26,7 +26,12 @@ opendde) for legs 1–3, plus esmc-600m embed for legs 2–3 (embed has no fold
 phases; its user-facing progress is the load → embed → done stdout lines),
 plus boltzgen for legs 1–3 exercised via `tt-bio gen run` (a tiny 1-design
 binder job on examples/binder.yaml; its progress is the gen pipeline's own
-stdout stage stream under --debug --log).
+stdout stage stream under --debug --log), plus boltz2-affinity for legs 1–3
+exercised via `tt-bio predict examples/affinity_fkg.yaml --model boltz2
+--affinity_mw_correction` (Boltz-2 binding-affinity mode; its progress event
+stream is the same shape as a structure fold — the affinity model's own
+trunk+diffusion re-run is silent — so the leg reuses _check_progress on the
+affinity path plus an affinity_pred_value results check).
 
 Fast + deterministic: folds ``examples/trpcage.yaml`` (20 residues) with
 ``recycling_steps=2``, ``sampling_steps=4``, ``diffusion_samples=1``,
@@ -85,6 +90,23 @@ GEN_SPEC = REPO_ROOT / "examples" / "binder.yaml"
 GEN_PROTOCOL = "protein-anything"
 GEN_NUM_DESIGNS = 1
 GEN_TIMEOUT_S = 1200  # design + refold + analysis for 1 design; load dominates
+
+# Boltz-2 binding-affinity prediction mode (README "Binding Affinity Prediction")
+# — exercised via `tt-bio predict examples/affinity_fkg.yaml --model boltz2
+# --affinity_mw_correction`. A real customer-facing CLI mode that had ZERO UX-gate
+# coverage. The affinity path's progress event stream is the SAME shape as a
+# structure fold (loading → msa → prep → trunk → diffusion → confidence → saving
+# → done): the affinity model re-runs its OWN 64-block trunk + AtomDiffusion
+# after the structure fold, but that re-run is silent (no progress_fn is wired to
+# the affinity model), so the live view advances through the structure phases
+# then completes. Verified by capturing a real affinity run's event stream. So
+# this leg reuses the fold leg's _check_progress (the must-never-recur bug class
+# — a progress bar jumping past a phase instead of advancing phase-by-phase) on
+# the affinity path specifically, plus an affinity-specific results check: the
+# user-facing affinity_pred_value scalar must be present in results.json.
+AFFINITY_MODEL = "boltz2-affinity"
+AFFINITY_SPEC = REPO_ROOT / "examples" / "affinity_fkg.yaml"  # FKBP12+SB3, L107, msa: empty
+AFFINITY_TIMEOUT_S = 900  # affinity trunk fp32 (5 recycles, 64 blocks) ~140s + fold; load dominates
 
 # esmc embed input: trpcage's 20-mer as a one-sequence FASTA, written into the
 # per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
@@ -707,11 +729,132 @@ def _print_gen_row(r: dict) -> None:
         print(f"  {c}")
 
 
+def _check_affinity_results(path: Path) -> list[str]:
+    """Affinity results.json shape: the fold leg's confidence metric AND the
+    user-facing affinity scalar. The affinity_pred_value (MW-corrected
+    log10(IC50)) is the whole point of affinity mode — its absence is a real
+    shape regression in the customer-facing output."""
+    problems = _check_results_json(path)
+    try:
+        rows = json.loads(path.read_text())
+    except Exception as e:
+        return problems + [f"results.json load failed: {type(e).__name__}: {e}"]
+    ok = [r for r in rows if isinstance(r, dict) and r.get("status") == "ok"]
+    if not ok:
+        return problems
+    r = ok[0]
+    if "affinity_pred_value" not in r:
+        problems.append(f"results.json ok row has no affinity_pred_value "
+                        f"(affinity mode did not emit the user-facing scalar): "
+                        f"{sorted(r)}")
+    return problems
+
+
+def run_affinity(model: str, base: Path) -> dict:
+    """Run one tiny ``tt-bio predict`` affinity-mode call (FKBP12+SB3) and gate the
+    three UX legs: live progress phases advance correctly on the affinity path
+    (the must-never-recur jump class), the written CIF parses, and results.json
+    carries the user-facing affinity scalar. Returns a result row."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if not AFFINITY_SPEC.exists():
+        sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
+    cap_path = base / f"events_{model}.jsonl"
+    cap_path.unlink(missing_ok=True)
+    results_path = out_dir / f"boltz_results_{AFFINITY_SPEC.stem}" / "results.json"
+    struct_dir = out_dir / f"boltz_results_{AFFINITY_SPEC.stem}" / "structures"
+
+    env = _subprocess_env({"TT_BIO_PROGRESS_CAPTURE": str(cap_path)})
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "predict", str(AFFINITY_SPEC),
+        "--model", "boltz2",
+        "--single_sequence",
+        "--override",
+        "--affinity_mw_correction",
+        "--debug",  # NullDisplay: clean headless, no Rich TTY
+        "--recycling_steps", str(RECYCLING_STEPS),
+        "--sampling_steps", str(SAMPLING_STEPS),
+        "--diffusion_samples", str(DIFFUSION_SAMPLES),
+        "--sampling_steps_affinity", str(SAMPLING_STEPS),
+        "--diffusion_samples_affinity", str(DIFFUSION_SAMPLES),
+        "--out_dir", str(out_dir),
+    ]
+    print(f"\n{'='*70}\n[{model}] predict {AFFINITY_SPEC.name} (affinity mode, "
+          f"recyc={RECYCLING_STEPS}, steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES})"
+          f"\n{'='*70}", flush=True)
+
+    row = {"model": model, "seconds": None, "progress": False, "parse": False,
+           "results": False, "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=env, timeout=AFFINITY_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"affinity predict timed out after {AFFINITY_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = (f"affinity predict exited {proc.returncode}: "
+                        f"{tail[-1] if tail else ''}")
+        return row
+
+    # Leg 1: live progress view — same shape as a structure fold (verified on a
+    # real affinity run: the affinity model's own trunk+diffusion re-run is
+    # silent). _check_progress asserts trunk → diffusion → done with no phase
+    # skipped — the exact jump-class guard GOALS.md calls out.
+    events = _load_events(cap_path) if cap_path.exists() else []
+    prog_problems = _check_progress(events, model)
+    row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
+    if prog_problems:
+        row["checks"].extend(f"  • {p}" for p in prog_problems)
+        if not row["error"]:
+            row["error"] = "progress: " + "; ".join(prog_problems)
+
+    # Leg 2: written CIF parses under a strict standard parser.
+    cifs = sorted(struct_dir.glob(f"{AFFINITY_SPEC.stem}*.cif")) if struct_dir.exists() else []
+    if not cifs:
+        parse_problems = [f"predict wrote no CIF under {struct_dir}"]
+    else:
+        parse_problems = []
+        for cif in cifs:
+            parse_problems += _check_cif(cif)
+    row["checks"].append(f"parse: {'OK' if not parse_problems else 'FAIL'}")
+    if parse_problems:
+        row["checks"].extend(f"  • {p}" for p in parse_problems)
+        if not row["error"]:
+            row["error"] = "parse: " + "; ".join(parse_problems)
+
+    # Leg 3: results.json shape — fold confidence metric AND affinity scalar.
+    res_problems = _check_affinity_results(results_path) if results_path.exists() else [
+        f"predict wrote no results.json at {results_path}"]
+    row["checks"].append(f"results.json: {'OK' if not res_problems else 'FAIL'}")
+    if res_problems:
+        row["checks"].extend(f"  • {p}" for p in res_problems)
+        if not row["error"]:
+            row["error"] = "results.json: " + "; ".join(res_problems)
+
+    row["progress"] = not prog_problems
+    row["parse"] = not parse_problems
+    row["results"] = not res_problems
+    row["gate"] = row["progress"] and row["parse"] and row["results"]
+    return row
+
+
+def _print_affinity_row(r: dict) -> None:
+    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'results':>9}"
+          f"{wall:>9}  {verdict}")
+    print(f"  prog={r['progress']} parse={r['parse']} results={r['results']}")
+    for c in r["checks"]:
+        print(f"  {c}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", action="append",
-                    choices=FOLD_MODELS + [EMBED_MODEL, GEN_MODEL],
+                    choices=FOLD_MODELS + [EMBED_MODEL, GEN_MODEL, AFFINITY_MODEL],
                     help="Gate only this model (repeatable). Default: all five fold "
                          "models + esmc-600m embed + boltzgen gen run.")
     ap.add_argument("--keep", action="store_true",
@@ -751,16 +894,19 @@ def main() -> int:
     if args.cli_only:
         return 0 if all_pass else 1
 
-    models = args.model or (FOLD_MODELS + [EMBED_MODEL, GEN_MODEL])
+    models = args.model or (FOLD_MODELS + [EMBED_MODEL, GEN_MODEL, AFFINITY_MODEL])
     fold_models = [m for m in models if m in FOLD_MODELS]
     embed_models = [m for m in models if m == EMBED_MODEL]
     gen_models = [m for m in models if m == GEN_MODEL]
+    affinity_models = [m for m in models if m == AFFINITY_MODEL]
 
     if not DATA.exists() and fold_models:
         sys.exit(f"missing gate target {DATA}")
     if not GEN_SPEC.exists() and gen_models:
         sys.exit(f"missing gen fixture {GEN_SPEC}")
-    if not fold_models and not embed_models and not gen_models:
+    if not AFFINITY_SPEC.exists() and affinity_models:
+        sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
+    if not fold_models and not embed_models and not gen_models and not affinity_models:
         return 0 if all_pass else 1
 
     base = Path(tempfile.mkdtemp(prefix="ux_gate_", dir=str(REPO_ROOT)))
@@ -778,6 +924,10 @@ def main() -> int:
             r = run_gen(m, base)
             rows.append(("gen", r))
             all_pass &= r["gate"]
+        for m in affinity_models:
+            r = run_affinity(m, base)
+            rows.append(("affinity", r))
+            all_pass &= r["gate"]
 
         print(f"\n{'#'*78}\nUX GATE — summary ({DATA.name}, recyc={RECYCLING_STEPS}, "
               f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
@@ -786,8 +936,10 @@ def main() -> int:
                 _print_fold_row(r)
             elif kind == "embed":
                 _print_embed_row(r)
-            else:
+            elif kind == "gen":
                 _print_gen_row(r)
+            else:
+                _print_affinity_row(r)
         print(f"{'#'*78}")
         print("GATE PASS — every surface cleared progress + parse + results/manifest "
               "shape, and the CLI behaves" if all_pass
