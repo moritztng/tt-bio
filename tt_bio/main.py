@@ -2631,5 +2631,52 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                f"→ {out} (see manifest.json)")
 
 
+@cli.command("design")
+@click.argument("backbone", type=click.Path(exists=True))
+@click.option("--sequence-model", "sequence_model",
+              type=click.Choice(["proteinmpnn"]), default="proteinmpnn",
+              show_default=True, help="Inverse-folding model to use.")
+@click.option("--num-sequences", default=1, show_default=True,
+              help="Number of designed sequences to sample per backbone.")
+@click.option("--temperature", default=0.1, show_default=True,
+              help="Sampling temperature (lower = less diverse, higher recovery).")
+@click.option("--seed", default=None, type=int, help="RNG seed for reproducible designs.")
+@click.option("--checkpoint", default=None, type=click.Path(exists=True),
+              help="ProteinMPNN checkpoint (v_48_0XX.pt). Default: $PROTEINMPNN_CKPT.")
+@click.option("--out-dir", "out_dir", default="./design", show_default=True,
+              help="Directory to write the designed sequences (FASTA).")
+def design(backbone, sequence_model, num_sequences, temperature, seed, checkpoint, out_dir):
+    """Design amino-acid sequences for a fixed backbone (inverse folding).
+
+    ProteinMPNN: given a backbone PDB, samples the sequence most likely to fold
+    into it. Standalone, bring-your-own-backbone. Writes <name>.fasta to --out-dir.
+    """
+    import os
+    from pathlib import Path
+    from tt_bio.proteinmpnn import load_checkpoint, design_backbone
+
+    ckpt = checkpoint or os.environ.get("PROTEINMPNN_CKPT")
+    if not ckpt:
+        raise click.ClickException(
+            "No ProteinMPNN checkpoint: pass --checkpoint or set $PROTEINMPNN_CKPT "
+            "(e.g. ~/scratch/ProteinMPNN/vanilla_model_weights/v_48_020.pt).")
+    model, k = load_checkpoint(ckpt, device="cpu", augment_eps=0.0)
+    name = Path(backbone).stem
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    click.echo(f"Designing {num_sequences} sequence(s) for {name} "
+               f"(ProteinMPNN v_48, k={k}, T={temperature}) …")
+    seqs = design_backbone(model, backbone, num_sequences=num_sequences,
+                           temperature=temperature, seed=seed, device="cpu")
+    fasta = out / f"{name}.fasta"
+    with open(fasta, "w") as f:
+        for i, (seq, rec) in enumerate(seqs):
+            rec_s = f", recovery={rec:.4f}" if rec is not None else ""
+            click.echo(f"  sample {i}: len={len(seq)}{rec_s}")
+            f.write(f">{name}_sample{i} recovery={rec:.4f}\n{seq}\n" if rec is not None
+                    else f">{name}_sample{i}\n{seq}\n")
+    click.echo(f"Done — {len(seqs)} sequence(s) → {fasta}")
+
+
 if __name__ == "__main__":
     cli()
