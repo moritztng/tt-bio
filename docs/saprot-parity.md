@@ -15,12 +15,13 @@ FOLDSEEK_BIN=/path/to/foldseek TT_VISIBLE_DEVICES=0 \
   python scripts/saprot_parity.py --model saprot-650m   # or saprot-35m
 ```
 
-## Results — Blackhole (qb1 card 0)
+## Results — Blackhole (qb1)
 
 | model | seq (aa) | per-residue emb PCC | MLM logits PCC | argmax |
 |---|---|---|---|---|
 | saprot-35m  | ubiquitin (76) | **0.999138** | 0.999772 | — |
 | saprot-650m | ubiquitin (76) | **0.999638** | 0.999927 | — |
+| saprot-1.3b | ubiquitin (76) | 0.995076 | 0.998952 | — |
 
 Input is ubiquitin paired with a deterministic 3Di string (the 3Di content does not affect
 parity — both paths see identical tokens). Length is bucketed to 128 (a multiple of 64) so
@@ -74,22 +75,39 @@ With `--batch_size > 1` (the default), a sequence's batchmates differ across sha
 and bf16 accumulation order differ by up to 1 ULP — same row-independence caveat as `tt-bio embed`.
 Use `--batch_size 1` if you need cross-shard bit-exactness.
 
-## What is deferred
+## saprot-1.3b: config bug fixed, near-pass residual
 
-- **saprot-1.3b**: parity-run in this cut and FAILS the gate. The public
-  `westlake-repl/SaProt_1.3B_AF2` checkpoint downloads cleanly and the HF
-  `EsmForMaskedLM` reference loads normally, but the device-vs-reference PCC is
-  X_emb = 0.23415 / X_logits = 0.38640 (R = D = 1.00000), far below the
-  0.9987-0.9996 band the 35m/650m legs hit. Root cause is a port config bug: the
-  real 1.3B is the 650m width (hidden=1280, n_heads=20, head_dim=64,
-  intermediate=5120) with double the layers (66 vs 33), but
-  `CONFIGS["saprot-1.3b"]` is set to hidden=2560/n_heads=40/n_layers=40/
-  intermediate=10240. `Saprot.from_pretrained` loads with
-  `load_state_dict(..., strict=False)`, so the shape-mismatched weights are
-  silently dropped and the device runs uninitialized. head_dim=64 is tile-aligned,
-  so no 35m-style host-RoPE path is needed. The fix is a one-line config change
-  (release-gated, could change accuracy) and is out of scope for this verification
-  pass; tracked as a follow-up.
+The 1.3B leg previously failed the gate (X_emb = 0.23415 / X_logits = 0.38640)
+because `CONFIGS["saprot-1.3b"]` carried a fabricated shape
+(hidden=2560/n_heads=40/n_layers=40/intermediate=10240) that does not match the
+real `westlake-repl/SaProt_1.3B_AF2` checkpoint (hidden=1280/n_heads=20/
+n_layers=66/intermediate=5120 — the 650m width with double the layers,
+head_dim=64). `Saprot.from_pretrained` loaded with `load_state_dict(...,
+strict=False)`, so the wrong architecture ran with effectively untrained weights.
+
+That config is now corrected, and `from_pretrained` hardens the load: it reads
+the checkpoint's own `config.json` and refuses to build if the `CONFIGS` arch
+dict does not match it (a wrong entry now raises instead of silently producing
+an uninitialized model). `strict=False` is kept for the weight copy so
+legitimately-unused keys (`esm.contact_head`) still load cleanly.
+
+With correct shapes the 1.3B loads the real checkpoint and parity jumps to
+X_emb = 0.99508 / X_logits = 0.99895 (R = D = 1.00000, deterministic, qb1 card 1,
+two identical runs). The MLM-logits PCC sits in the 0.9987-0.9996 band the 35m/
+650m legs hit; the per-residue embedding PCC (0.99508) lands just below it. The
+gap tracks depth: 1.3B is the 650m width at 2x the layers (66 vs 33), so bf16
+rounding in the residual stream accumulates over twice as many blocks. It is a
+numerical residual, not a structural defect — the wrong-config 0.23 is gone, and
+the logits leg (the sampler-independent secondary check) clears the band. The
+emb leg is recorded above as a near-pass, not a clean PASS, and no clean PASS row
+is added to `docs/pharma-benchmark.md` for it.
+
+Reproduce:
+
+```bash
+TT_VISIBLE_DEVICES=1 PYTHONPATH=. \
+  python3 scripts/pharma_parity.py saprot --model saprot-1.3b --out /tmp/saprot13b/report.json
+```
 
 ## Warm throughput (single card)
 
