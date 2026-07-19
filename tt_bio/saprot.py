@@ -79,7 +79,7 @@ CONFIGS = {
         "westlake-repl/SaProt_650M_AF2",
     ),
     "saprot-1.3b": (
-        dict(hidden=2560, n_heads=40, n_layers=40, intermediate=10240),
+        dict(hidden=1280, n_heads=20, n_layers=66, intermediate=5120),
         "westlake-repl/SaProt_1.3B_AF2",
     ),
 }
@@ -375,6 +375,26 @@ class Saprot(TorchWrapper):
         from huggingface_hub import snapshot_download
         config, repo = CONFIGS[name]
         p = snapshot_download(repo)
+        # Fail loudly on a wrong CONFIGS entry: the checkpoint's own config.json is
+        # the source of truth for the architecture. A mismatch here means the
+        # CONFIGS arch dict is wrong, and load_state_dict(strict=False) would
+        # otherwise silently mask it (wrong head split / truncated layers /
+        # dropped tensors) and run a structurally-wrong model. See
+        # tt-bio-saprot-1.3b-config-fix for the bug this guards against.
+        import json
+        with open(os.path.join(p, "config.json")) as f:
+            hf_cfg = json.load(f)
+        declared = dict(
+            hidden=hf_cfg["hidden_size"],
+            n_heads=hf_cfg["num_attention_heads"],
+            n_layers=hf_cfg["num_hidden_layers"],
+            intermediate=hf_cfg["intermediate_size"],
+        )
+        if declared != config:
+            raise ValueError(
+                f"CONFIGS[{name!r}] arch {config} does not match checkpoint "
+                f"{repo} config.json {declared}; refusing to load "
+                f"(strict=False would otherwise silently mask the shape mismatch).")
         sd = torch.load(os.path.join(p, "pytorch_model.bin"), map_location="cpu")
         remapped = _remap_state_dict(sd, config["n_layers"])
         model = cls(**config)
