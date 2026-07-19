@@ -41,6 +41,7 @@ this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure co
 |---|---|---|---:|---:|---:|---|
 | ESMC-300m | 4 proteins, L20–129 | embedding PCC | 1.00000 | 1.00000 | 0.9987–0.9996 | PASS |
 | ESMC-600m | 4 proteins, L20–129 | embedding PCC | 1.00000 | 1.00000 | 0.9994–0.9996 | PASS |
+| ESMC-6b | 4 proteins, L20–129 | embedding PCC | 1.00000 | 1.00000 | 0.9990–0.9997 | PASS†† |
 | ESMFold2 | trp-cage, L20 | CA-RMSD | 0.51 Å | 0.16 Å | 0.61 Å | PASS |
 | ESMFold2 | GB1, L56 | CA-RMSD | 0.29 Å | 0.18 Å | 0.33 Å | PASS |
 | ESMFold2 | ubiquitin, L76 | CA-RMSD | 0.92 Å | 0.23 Å | 0.75 Å | PASS |
@@ -63,6 +64,22 @@ head under-ranks some samples in both the upstream implementation and TT-Bio;
 the larger R floor reflects that shared behavior. OpenDDE-abag matches the
 upstream checkpoint on 1AHW. Both implementations perform poorly on 9DSG, so
 that target is a checkpoint limitation rather than a port discrepancy.
+
+†† The ESMC-6b leg closes a coverage gap: the table previously covered only
+300m/600m, and `scripts/release_gate.py` marked esmc-6b opt-in as "too slow for
+the fast gate" without ever running it on-device. ESMC-6b is the ESMFold2 LM
+backbone (sharded TransformerEngine safetensors, no sequence head), so it uses a
+6b-specific harness (`scripts/esmc6b_embed_parity.py`) that builds the same esm
+reference as the 300m/600m legs at the 6b config and loads the real 6b weights
+in fp32, then compares the shipped `load_esmc("esmc-6b")` + `embed_sequences`
+bf16 device path on the same four proteins. Per-residue embedding PCC is
+0.99904 / 0.99930 / 0.99969 / 0.99938 (trp-cage / GB1 / ubiquitin / lysozyme),
+device self-consistency 1.00000 throughout — in line with the 300m/600m range
+(0.9987–0.9996), so the residual is bf16 rounding, not an algorithmic
+difference. It stays opt-in in the fast gate because the ~13 GB load dominates
+wall-clock, not for any accuracy reason; run it with
+`python scripts/release_gate.py --model esmc-6b` (or
+`scripts/esmc6b_embed_parity.py --seqs trpcage,gb1,ubiquitin,lysozyme`).
 
 † The lysozyme leg (L129, 5 sampler seeds): the device-vs-reference CA-RMSD is
 0.130 Å, the tightest absolute agreement of any ESMFold2 leg (trp-cage 0.61,
@@ -189,6 +206,20 @@ Embedding parity runs the upstream ESM model directly:
 TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm \
   python3 scripts/pharma_parity.py embeddings --model esmc-600m
 ```
+
+ESMC-6b uses its own harness (the 6b ships as sharded TransformerEngine
+safetensors with no sequence head, so the 300m/600m single-.pth path does not
+apply):
+
+```bash
+TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm PYTHONPATH=. \
+  python3 scripts/esmc6b_embed_parity.py --seqs trpcage,gb1,ubiquitin,lysozyme \
+    --out docs/pharma-benchmark-data/esmc-6b.json
+```
+
+On a P300 board also export `TT_MESH_GRAPH_DESC_PATH` to the bundled
+`p150_mesh_graph_descriptor.textproto` (the embed CLI sets this automatically;
+the parity script does not).
 
 Structure parity consumes result directories from matched device and reference
 seeds:
