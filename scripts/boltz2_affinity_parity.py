@@ -46,8 +46,102 @@ from pathlib import Path
 
 import numpy as np
 
+import gemmi
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pharma_parity import noise_floor_verdict, summarize  # noqa: E402
+
+
+# standard amino-acid three-letter codes (for ligand / pocket separation)
+_AA = set("ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL".split())
+
+
+def _load_atoms(path):
+    st = gemmi.read_structure(str(path))
+    lig = {}      # (chain, resname, atom, altloc) -> xyz  for non-AA residues
+    ca = {}       # (chain, seqid) -> xyz  for CA atoms of AA residues
+    for ch in st[0]:
+        for res in ch:
+            is_aa = res.name in _AA
+            for atom in res:
+                key = (ch.name, res.name, res.seqid.num, atom.name, atom.altloc)
+                xyz = np.array([atom.pos.x, atom.pos.y, atom.pos.z])
+                if is_aa and atom.name == "CA":
+                    ca[(ch.name, res.seqid.num)] = xyz
+                elif not is_aa:
+                    lig[key] = xyz
+    return lig, ca
+
+
+def _kabsch_rmsd(A, B):
+    ca, cb = A.mean(0), B.mean(0)
+    A0, B0 = A - ca, B - cb
+    U, _, Vt = np.linalg.svd(A0.T @ B0)
+    d = np.sign(np.linalg.det(Vt.T @ U.T))
+    R = Vt.T @ np.diag([1.0, 1.0, d]) @ U.T
+    A_al = (R @ A0.T).T
+    return float(np.sqrt(((A_al - B0) ** 2).sum() / len(A)))
+
+
+def _lddt(pred, ref, cutoff=15.0):
+    """lDDT over a set of atoms (pred vs ref), Mariani 4-threshold (0.5/1/2/4 A)."""
+    L = len(ref)
+    if L < 2:
+        return 0.0
+    dref = np.sqrt(((ref[:, None, :] - ref[None, :, :]) ** 2).sum(-1))
+    dpred = np.sqrt(((pred[:, None, :] - pred[None, :, :]) ** 2).sum(-1))
+    thr = (0.5, 1.0, 2.0, 4.0)
+    per_res = np.zeros(L)
+    for i in range(L):
+        nb = np.where((dref[i] < cutoff) & (np.arange(L) != i))[0]
+        if len(nb) == 0:
+            per_res[i] = 1.0
+            continue
+        dd = np.abs(dref[i, nb] - dpred[i, nb])
+        per_res[i] = float(np.mean([np.mean(dd < t) for t in thr]))
+    return float(per_res.mean())
+
+
+def _pose_metrics(dA, dB, tid):
+    """Ligand-pose RMSD + pocket-lDDT for a (device=A, reference=B) run pair.
+
+    Ligand-pose RMSD: Kabsch RMSD over the matched ligand (chain B, SB3) heavy
+    atoms — how well the device places the ligand relative to the reference,
+    after optimal rigid-body superposition of the ligand alone (the metric a
+    pharma customer evaluating a binding pose actually feels).
+
+    Pocket-lDDT: CA-lDDT over the pocket = ligand heavy atoms + every protein
+    CA within 10 A of any ligand heavy atom in the REFERENCE structure, with
+    the protein-ligand and ligand-ligand pairwise distances as the preserved
+    contacts. Alignment-invariant, so no superposition is applied. Reports
+    the local protein-ligand interface geometry the scalar affinity cannot.
+    """
+    # device layout: <dir>/structures/<tid>.cif ; reference (committed fixture): same
+    a_cif = Path(dA) / "structures" / f"{tid}.cif"
+    b_cif = Path(dB) / "structures" / f"{tid}.cif"
+    if not a_cif.exists() or not b_cif.exists():
+        return None
+    a_lig, a_ca = _load_atoms(a_cif)
+    b_lig, b_ca = _load_atoms(b_cif)
+    lig_keys = [k for k in a_lig if k in b_lig]
+    if len(lig_keys) < 3:
+        return None
+    A_lig = np.array([a_lig[k] for k in lig_keys])
+    B_lig = np.array([b_lig[k] for k in lig_keys])
+    lig_rmsd = _kabsch_rmsd(A_lig, B_lig)
+    # pocket: ligand atoms + protein CA within 10 A of any ligand atom in the reference
+    b_lig_pts = np.array(list(b_lig.values()))
+    pocket_ca = [k for k in b_ca if np.min(np.linalg.norm(b_ca[k] - b_lig_pts, axis=1)) <= 10.0]
+    # matched pocket atoms: ligand (by lig_keys) + pocket CA (by (chain, seqid))
+    pk_a, pk_b = [], []
+    for k in lig_keys:
+        pk_a.append(a_lig[k]); pk_b.append(b_lig[k])
+    for k in pocket_ca:
+        if k in a_ca:
+            pk_a.append(a_ca[k]); pk_b.append(b_ca[k])
+    pk_a, pk_b = np.array(pk_a), np.array(pk_b)
+    pocket_lddt = _lddt(pk_a, pk_b) if len(pk_a) >= 2 else 0.0
+    return {"ligand_rmsd": lig_rmsd, "1-pocket_lddt": 1.0 - pocket_lddt}
 
 
 AFFINITY_KEYS = ["affinity_pred_value", "affinity_probability_binary"]
@@ -140,6 +234,52 @@ def main() -> int:
               f"| {v['dev_floor']['mean']:.4f} "
               f"| {v['cross_over_floor']:.2f} "
               f"| {'yes' if v['within_noise_floor'] else 'NO'} |")
+
+    # ---- ligand-pose accuracy (P3): ligand-pose RMSD + pocket-lDDT from the
+    # best-sample structure CIFs (device vs reference), scored through the same
+    # R/D/X noise-floor core as the scalar affinity. Pharma cares about the
+    # binding POSE, not just the affinity scalar.
+    pose_keys = ("ligand_rmsd", "1-pocket_lddt")
+    pose_labels = {"ligand_rmsd": "ligand-pose RMSD (Å)", "1-pocket_lddt": "1-pocket-lDDT"}
+    pose_cross = {k: [] for k in pose_keys}
+    pose_rf = {k: [] for k in pose_keys}
+    pose_df = {k: [] for k in pose_keys}
+    have_pose = False
+    _ref_d = [Path(d) for d in args.ref_dirs]
+    _dev_d = [Path(d) for d in args.dev_dirs]
+    for da, db in itertools.product(_dev_d, _ref_d):
+        m = _pose_metrics(da, db, args.target_id)
+        if m:
+            have_pose = True
+            for k in pose_keys:
+                pose_cross[k].append(m[k])
+    for da, db in itertools.combinations(_ref_d, 2):
+        m = _pose_metrics(da, db, args.target_id)
+        if m:
+            for k in pose_keys:
+                pose_rf[k].append(m[k])
+    for da, db in itertools.combinations(_dev_d, 2):
+        m = _pose_metrics(da, db, args.target_id)
+        if m:
+            for k in pose_keys:
+                pose_df[k].append(m[k])
+    if have_pose:
+        print()
+        print("| metric | dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |")
+        print("|---|---|---|---|---|---|")
+        for k in pose_keys:
+            if not pose_cross[k]:
+                continue
+            v = noise_floor_verdict(pose_cross[k], pose_rf[k], pose_df[k], k)
+            report["metrics"][k] = v
+            print(f"| {pose_labels[k]} | {v['cross']['mean']:.3f}+/-{v['cross']['std']:.3f} "
+                  f"| {v['ref_floor']['mean']:.3f} "
+                  f"| {v['dev_floor']['mean']:.3f} "
+                  f"| {v['cross_over_floor']:.2f} "
+                  f"| {'yes' if v['within_noise_floor'] else 'NO'} |")
+    else:
+        print("\n(ligand-pose metrics skipped: no structure CIFs with a matched ligand found — "
+              "run with a fixture that carries structures/<id>.cif to enable P3)")
 
     print("\nInterpretation: affinity_pred_value is a scalar (log10 IC50), so the")
     print("parity distance is |device - reference|. X within max(R, D) means the")
