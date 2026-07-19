@@ -54,13 +54,29 @@ standing on-device confirmation. ``run_esmc_parity`` delegates to
 ``scripts/esmc6b_embed_parity.py`` for 6b (sharded TE safetensors, no sequence
 head — the single-.pth / logits path does not apply).
 
-    # gate everything (five fold models + BoltzGen designability + ESMC embed parity) on card 1
+OpenDDE-abag is an antibody-antigen *docking* leg, not a single-chain fold — the
+opendde-abag checkpoint co-folds a Fab + antigen complex, so the correctness bar is
+docking accuracy (global DockQ of the confidence-selected complex vs the experimental
+complex), NOT the CA-RMSD/TM floor the MODELS dict applies to 7ROA. It therefore runs
+as its own leg (same shape as the BoltzGen designability leg), reusing the 1AHW fixture
+committed by the prior parity cross-check (``examples/1ahw_abag.yaml`` +
+``examples/ground_truth_structures/1ahw.cif`` — public PDB 1ahw, ASU chains A/B/C) and
+the reference DockQ tool (``scripts/opendde_dockq.py``, DockQ==2.1.3, the Wallner-lab
+implementation that defines the metric) — neither re-derived here. DockQ is an
+eval-time requirement, not a project runtime dep, so the gate scores this leg by
+shelling out to ``OPENDDE_DOCKQ_PYTHON`` (defaults to the gate's own python; set it to
+a venv that has DockQ installed if the gate venv does not).
+
+    # gate everything (five fold models + BoltzGen designability + ESMC embed parity
+    # + OpenDDE-abag docking) on card 1
     TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> ESM_ROOT=/path/to/esm \
+        OPENDDE_DOCKQ_PYTHON=/path/to/dockq_venv/bin/python \
         python scripts/release_gate.py
     # one leg
     python scripts/release_gate.py --model protenix-v2
     python scripts/release_gate.py --model boltzgen
     python scripts/release_gate.py --model esmc-300m
+    python scripts/release_gate.py --model opendde-abag
 
 Exit code 0 iff every requested model PASSES its gate; 1 otherwise. Runs on the
 device serially (one card context per run); no CPU shortcut for the fold/design.
@@ -140,6 +156,29 @@ BOLTZGEN_MIN_PASS_RATE = 0.5
 ESMC_MIN_PCC = 0.99
 ESMC_DEFAULT = ["esmc-300m", "esmc-600m"]
 ESMC_OPT_IN = ["esmc-6b"]
+
+# OpenDDE-abag antibody-antigen docking leg — see module docstring. The opendde-abag
+# checkpoint co-folds a Fab + antigen complex, so the correctness bar is docking
+# accuracy (global DockQ of the confidence-selected complex vs the experimental
+# complex), NOT the single-chain CA-RMSD/TM floor the MODELS dict applies to 7ROA. It
+# therefore runs as its own leg (same shape as the BoltzGen designability leg),
+# reusing the 1AHW fixture committed by the prior parity cross-check
+# (examples/1ahw_abag.yaml + examples/ground_truth_structures/1ahw.cif — public PDB
+# 1ahw, ASU chains A/B/C) and the reference DockQ tool (scripts/opendde_dockq.py,
+# DockQ==2.1.3, the Wallner-lab implementation that defines the metric) — neither
+# re-derived here. Measured baseline on a Blackhole card: global DockQ 0.863
+# best-confidence / 0.882 oracle (best-of-5, MSA on, 10 recycles / 200 steps); the
+# floor catches a gross mis-dock (the 9dsg-class failure mode scores 0.011 / fnat 0),
+# not a tight target — same philosophy as the MODELS floors.
+OPENDDE_ABAG_DATA = REPO_ROOT / "examples" / "1ahw_abag.yaml"
+OPENDDE_ABAG_NATIVE = REPO_ROOT / "examples" / "ground_truth_structures" / "1ahw.cif"
+OPENDDE_ABAG_MIN_DOCKQ = 0.50
+# DockQ is an eval-time requirement (not a project runtime dep), installed in a
+# separate venv on the release host. The gate scores this leg by shelling out to this
+# python running scripts/opendde_dockq.py; defaults to the gate's own python so a host
+# that carries DockQ in the gate venv needs no extra config, and a host that does not
+# sets OPENDDE_DOCKQ_PYTHON to a venv that does (mirrors the ESMC leg's ESM_ROOT).
+OPENDDE_DOCKQ_PYTHON = os.environ.get("OPENDDE_DOCKQ_PYTHON", sys.executable)
 
 
 def _load_structure_harness():
@@ -310,14 +349,95 @@ def run_esmc(model: str, parity) -> dict:
     return row
 
 
+def run_opendde_abag(keep: bool) -> dict:
+    """Co-fold, parse, and DockQ-score the OpenDDE antibody-antigen leg. Returns a row.
+
+    Mirrors ``run_model`` for the predict + parse half, then swaps the Kabsch RMSD/TM
+    score for a DockQ score: the opendde-abag checkpoint co-folds a Fab + antigen
+    complex, so the ground-truth bar is docking accuracy (global DockQ of the
+    confidence-selected complex vs the experimental 1ahw complex), not single-chain
+    CA-RMSD/TM. Reuses ``scripts/opendde_dockq.py`` (the reference DockQ tool) rather
+    than re-deriving the DockQ call here.
+    """
+    data = OPENDDE_ABAG_DATA
+    name = data.stem  # "1ahw_abag" -> boltz_results_1ahw_abag/
+    out = REPO_ROOT / f"boltz_results_{name}"
+    if out.exists():
+        shutil.rmtree(out)  # never score a stale run if this predict crashes
+
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "predict", str(data),
+        "--model", "opendde-abag",
+        "--sampling_steps", str(SAMPLING_STEPS),
+        "--diffusion_samples", str(DIFFUSION_SAMPLES),
+        "--seed", str(SEED),
+        "--use_msa_server",
+        "--out_dir", str(REPO_ROOT),
+    ]
+    print(f"\n{'='*70}\n[opendde-abag] docking {data.name} "
+          f"({SAMPLING_STEPS} steps, {DIFFUSION_SAMPLES} samples)\n{'='*70}", flush=True)
+
+    row = {"model": "opendde-abag", "seconds": None, "dockq": None,
+           "fnat": None, "parse": False, "gate": False, "error": None}
+    t0 = time.monotonic()
+    proc = subprocess.run(cmd, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        row["error"] = f"predict exited {proc.returncode}"
+        return row
+
+    struct_dir = out / "structures"
+    cifs = sorted(struct_dir.glob(f"{name}*.cif")) if struct_dir.exists() else []
+    try:
+        _parse_gate(cifs, name=name)
+        row["parse"] = True
+    except Exception as e:
+        row["error"] = f"CIF parse failed: {e}"
+        return row
+
+    # DockQ of the confidence-selected complex (model 0 == {name}.cif, the structure a
+    # user receives) vs the experimental 1ahw complex. Shells out to the reference DockQ
+    # tool under OPENDDE_DOCKQ_PYTHON (which has DockQ installed; the gate venv does not).
+    conf_cif = struct_dir / f"{name}.cif"
+    dockq_script = REPO_ROOT / "scripts" / "opendde_dockq.py"
+    out_json = out / "dockq.json"
+    try:
+        dproc = subprocess.run(
+            [OPENDDE_DOCKQ_PYTHON, str(dockq_script), str(conf_cif),
+             str(OPENDDE_ABAG_NATIVE), "--out", str(out_json)],
+            cwd=REPO_ROOT, capture_output=True, text=True)
+        if dproc.returncode != 0:
+            row["error"] = (f"DockQ exited {dproc.returncode}: "
+                            f"{(dproc.stderr or dproc.stdout).strip()[:200]}")
+            return row
+        import json
+        with open(out_json) as fp:
+            dq = json.load(fp)
+        row["dockq"] = float(dq["global_dockq"])
+        # mean fnat over native interfaces, for visibility (the paratope-epitope face)
+        fnats = [v.get("fnat") for v in dq["interfaces"].values()
+                 if v.get("fnat") is not None]
+        row["fnat"] = (sum(fnats) / len(fnats)) if fnats else None
+    except Exception as e:
+        row["error"] = f"DockQ eval failed: {e}"
+        return row
+
+    row["gate"] = row["dockq"] >= OPENDDE_ABAG_MIN_DOCKQ
+
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+    return row
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model",
-                    choices=list(MODELS) + ["boltzgen"] + ESMC_DEFAULT + ESMC_OPT_IN,
+                    choices=list(MODELS) + ["boltzgen", "opendde-abag"]
+                    + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
                     help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + ESMC 300m/600m embed parity. esmc-6b is "
-                         "opt-in (slow ~13 GB load).")
+                         "models + boltzgen + opendde-abag + ESMC 300m/600m embed parity. "
+                         "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--fast", action="store_true",
                     help="Fold with --fast so the gate exercises the block-fp8 trunk path "
@@ -342,9 +462,10 @@ def main() -> int:
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    models = args.model or list(MODELS) + ["boltzgen"] + ESMC_DEFAULT
+    models = args.model or list(MODELS) + ["boltzgen", "opendde-abag"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
+    want_opendde_abag = "opendde-abag" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
 
     rows = []
@@ -390,6 +511,26 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — boltzgen designs cleared parse + designability floor" if br["gate"]
               else "GATE FAIL — boltzgen missed parse or the designability floor (see above)")
+
+    if want_opendde_abag:
+        if not OPENDDE_ABAG_DATA.exists():
+            sys.exit(f"missing opendde-abag gate target {OPENDDE_ABAG_DATA}")
+        if not OPENDDE_ABAG_NATIVE.exists():
+            sys.exit(f"missing opendde-abag ground truth {OPENDDE_ABAG_NATIVE}")
+        ar = run_opendde_abag(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {OPENDDE_ABAG_DATA.name} (opendde-abag), "
+              f"{SAMPLING_STEPS} steps / {DIFFUSION_SAMPLES} samples, seed {SEED}\n{'#'*78}")
+        print(f"{'model':<15}{'global DockQ':>14}{'mean fnat':>11}{'floor':>10}{'wall':>9}  result")
+        floor = f">={OPENDDE_ABAG_MIN_DOCKQ}"
+        dq = f"{ar['dockq']:.3f}" if ar["dockq"] is not None else "  -  "
+        fn = f"{ar['fnat']:.3f}" if ar["fnat"] is not None else "  -  "
+        wall = f"{ar['seconds']:.0f}s" if ar["seconds"] is not None else "-"
+        verdict = "PASS" if ar["gate"] else f"FAIL ({ar['error']})" if ar["error"] else "FAIL"
+        all_pass &= ar["gate"]
+        print(f"{ar['model']:<15}{dq:>14}{fn:>11}{floor:>10}{wall:>9}  {verdict}")
+        print(f"{'#'*78}")
+        print("GATE PASS — opendde-abag cleared parse + DockQ floor" if ar["gate"]
+              else "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)")
 
     if esmc_models:
         if "ESM_ROOT" not in os.environ:

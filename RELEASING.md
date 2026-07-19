@@ -18,7 +18,8 @@ Run from the repository root:
 ```bash
 python3 -m pytest -v --tb=short
 
-TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm PYTHONPATH="$PWD" \
+TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_venv/bin/python \
+  PYTHONPATH="$PWD" \
   python3 scripts/release_gate.py
 
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
@@ -29,9 +30,10 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 ```
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
-OpenDDE, BoltzGen designability, and ESMC-300m/600m reference parity. It folds
-7ROA at production sampling settings, parses every written mmCIF, and checks the
-confidence-selected structure against these regression limits:
+OpenDDE, BoltzGen designability, OpenDDE-abag antibody-antigen docking, and
+ESMC-300m/600m reference parity. It folds 7ROA at production sampling settings,
+parses every written mmCIF, and checks the confidence-selected structure against
+these regression limits:
 
 | model | maximum CA-RMSD | minimum TM-score |
 |---|---:|---:|
@@ -43,7 +45,13 @@ confidence-selected structure against these regression limits:
 
 BoltzGen passes when at least half of four generated binders refold within
 2 Å scRMSD. ESMC passes at per-residue PCC ≥0.99 against upstream ESM.
-OpenDDE-abag parity on 1AHW is tracked in `docs/pharma-benchmark.md`.
+OpenDDE-abag co-folds the 1AHW Fab + antigen complex and passes when the
+confidence-selected complex scores global DockQ ≥0.50 against the experimental
+1AHW structure (a floor that catches a gross mis-dock; the measured baseline is
+0.863 best-confidence). DockQ is an eval-time requirement, not a project runtime
+dep — set `OPENDDE_DOCKQ_PYTHON` to a venv with DockQ (==2.1.3) installed if the
+gate venv does not carry it. The 1AHW implementation-parity detail stays in
+`docs/pharma-benchmark.md`.
 
 The performance gate measures warm throughput for every shipped architecture
 — the fold models, the ESMC embed path, and the BoltzGen design pipeline
