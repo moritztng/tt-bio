@@ -850,7 +850,7 @@ def _run_measure(model: str) -> dict | None:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(REPO_ROOT) + (os.pathsep + env["PYTHONPATH"]
                                           if env.get("PYTHONPATH") else "")
-    env.setdefault("TT_VISIBLE_DEVICES", "1")
+    env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
     proc = subprocess.run(cmd, env=env)
