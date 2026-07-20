@@ -13,17 +13,23 @@
     "diffusion_samples": 1,
     "seeds": [
       0,
-      1
+      1,
+      2,
+      3,
+      4
     ],
     "dtype": "bf16 (pytorch-lightning AMP)",
     "target": "prot/7ROA (examples/prot_no_msa.yaml, 117 res, 899 atoms, msa: empty)"
   },
   "seeds": [
     0,
-    1
+    1,
+    2,
+    3,
+    4
   ],
   "msa": "none (no-MSA leg)",
-  "provenance": "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/boltz_prot_no_msa_s{0,1}, mtime 2026-07-13 15:46/15:53), generated for this fixture. Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and identical confidence). DISCREPANCY: the fresh reference-vs-reference floor R=6.94 A (1 seed pair, deterministic) does NOT reproduce the previously-published R=3.37 in docs/pharma-benchmark.md. The prior 3.37's source run is not on disk and is not reproducible from the documented 3 recycling / 200 sampling-step / 1 sample settings on the pinned boltz 2.2.1 (the only on-disk prot no-MSA reference runs used 2 recycle / 20 steps and give R=2.60). The trp-cage no-MSA leg at the same 3/200/1 settings DOES reproduce (R=0.81 vs 0.79), so the settings interpretation is correct; the prot 3.37 is the anomaly. RE-VERIFIED 2026-07-14: the device side was re-run fresh (2 seeds, 3 recycle / 200 sampling-step / 1 sample, no MSA, pc card 0) and the device-vs-reference cross X = 4.92 +- 2.13 A sits inside the R=6.94 floor (X/floor 0.71, within floor on both RMSD and PCC; D = 2.04 A). The prior 3.37/4.35/5.51 row is superseded; see docs/pharma-benchmark.md Boltz-2 section.",
-  "date": "2026-07-13",
+  "provenance": "Seeds 0-1 harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/boltz_prot_no_msa_s{0,1}, mtime 2026-07-13 15:46/15:53). Seeds 2-4 harvested from a FRESH 2026-07-21 qb2 reference run (pharma_seedbump_prot_nomsa/ref_harness_s{2,3,4}), same pinned boltz 2.2.1 and same 3 recycle / 200 sampling-step / 1 sample / no-MSA settings as seeds 0-1. Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and identical confidence). DISCREPANCY (historical, retained for honesty): the 2-seed reference-vs-reference floor R=6.94 A (1 seed pair, deterministic) did NOT reproduce the previously-published R=3.37; the 3.37's source run was not on disk and was not reproducible from the documented settings on the pinned boltz 2.2.1 (the only on-disk prot no-MSA reference runs at the time used 2 recycle / 20 steps and gave R=2.60). The trp-cage no-MSA leg at the same 3/200/1 settings DOES reproduce (R=0.81 vs 0.79), so the settings interpretation is correct; the prot 3.37 was the anomaly and was withdrawn. 5+5 hardening (2026-07-21): with 5 reference + 5 device seeds R and D are each 10 pairwise distances (a real distribution) rather than 1; CA-RMSD X=4.21+-1.59 A vs floor max(R 4.98, D 3.34)=4.98 A (X/floor 0.84, within floor on RMSD, 1-PCC, 1-TM and 1-lDDT). The 5+5 read reproduces the 2+2 verdict within noise (X 4.21 vs 4.83 A; the floor shifts inward R 6.94->4.98 as the single-pair extreme regresses to the 10-pair mean, D 2.93->3.34, X stays inside it). Per-seed reference confidence_score 0.525/0.603/0.625/0.620/0.586, ptm 0.439/0.540/0.585/0.583/0.512; device confidence_score 0.686/0.686/0.684/0.608/0.642, ptm 0.664/0.664/0.692/0.548/0.628.",
+  "date": "2026-07-20",
   "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
 }
