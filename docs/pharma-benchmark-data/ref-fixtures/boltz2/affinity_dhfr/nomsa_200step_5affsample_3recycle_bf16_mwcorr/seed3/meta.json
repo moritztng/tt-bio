@@ -1,0 +1,7 @@
+{
+  "seed": 3,
+  "target_id": "affinity_dhfr",
+  "affinity_pred_value": -1.640625,
+  "affinity_probability_binary": 0.96484375,
+  "note": "real reference output copied verbatim; added 2026-07-20 (3+3 -> 5+5 extension, same pinned boltz 2.2.1/settings as seeds 0-2)."
+}
