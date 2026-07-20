@@ -14,6 +14,10 @@
 
 TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
+## Verified accuracy
+
+Every model TT-Bio serves is checked against its **official reference implementation** on the same input: structure (Boltz-2, ESMFold2, Protenix-v2, OpenDDE), binding affinity (Boltz-2), and embeddings (ESMC, SaProt), plus BoltzGen binder designability, scored with TM-score, lDDT, pocket-lDDT, and Δlog10(IC50) alongside CA-RMSD. The device reproduces the reference within that reference's own run-to-run noise floor, the statistically honest bar for stochastic diffusion models rather than a false bit-exactness claim. The few disclosed GAPs (pocket-lDDT on the affinity targets, the Protenix-v2 HSA large-target leg) are bf16 precision-floor effects between NVIDIA and Tenstorrent reduction orders, not structural defects; both folds are correct shapes. Full methodology, per-target tables, and reproduction commands are in [`docs/pharma-benchmark.md`](docs/pharma-benchmark.md).
+
 ## Installation
 
 Create a Python virtual environment with Python 3.10 or 3.12, install, then install the matching Tenstorrent system dependencies.
