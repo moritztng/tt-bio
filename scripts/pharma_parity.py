@@ -185,6 +185,10 @@ def structures(args) -> int:
         return 1
 
     report = {"mode": "structures", "targets": {}}
+    paired_ok = args.paired and len(dev_dirs) == len(ref_dirs) and len(dev_dirs) > 0
+    if args.paired and not paired_ok:
+        print("--paired requires len(dev_dirs) == len(ref_dirs) (non-empty); "
+              "skipping the diagonal.", file=sys.stderr)
     print(f"### Implementation parity: {args.label or 'structures'}\n")
     print(f"reference seeds: {len(ref_dirs)}   device seeds: {len(dev_dirs)}   "
           f"targets: {len(ids)}\n")
@@ -202,6 +206,7 @@ def structures(args) -> int:
         cross = {k: [] for k in metric_keys}
         rf = {k: [] for k in metric_keys}
         df = {k: [] for k in metric_keys}
+        diag = {k: [] for k in metric_keys}
         for da, db in itertools.product(dev_dirs, ref_dirs):
             m = _pair_metrics(da, db, tid)
             if m:
@@ -217,6 +222,12 @@ def structures(args) -> int:
             if m:
                 for k in metric_keys:
                     df[k].append(m[k])
+        if paired_ok:
+            for da, db in zip(dev_dirs, ref_dirs):
+                m = _pair_metrics(da, db, tid)
+                if m:
+                    for k in metric_keys:
+                        diag[k].append(m[k])
 
         verdicts = {k: noise_floor_verdict(cross[k], rf[k], df[k], k) for k in metric_keys}
         report["targets"][tid] = {k.split("-", 1)[-1]: v for k, v in verdicts.items()}
@@ -229,6 +240,31 @@ def structures(args) -> int:
                   f"| {v['dev_floor'].get('mean', float('nan')):.3f} "
                   f"| {v['cross_over_floor']:.2f} "
                   f"| {'yes' if v['within_noise_floor'] else 'NO'} |")
+        if paired_ok:
+            for k in metric_keys:
+                if not diag[k] or not cross[k]:
+                    continue
+                pm = sum(diag[k]) / len(diag[k])
+                cm = sum(cross[k]) / len(cross[k])
+                seed_indep = pm >= 0.9 * cm
+                report["targets"][tid][k.split("-", 1)[-1]]["same_seed_diagonal"] = {
+                    "n": len(diag[k]), "mean": pm,
+                    "all_pairs_mean": cm, "seed_independent": seed_indep,
+                }
+
+    if paired_ok:
+        print(f"\n### Same-seed diagonal (dev_i vs ref_i, n={len(dev_dirs)}) vs "
+              f"all-pairs cross (n={len(dev_dirs) * len(ref_dirs)})\n")
+        print("| target | metric | same-seed X_diag | all-pairs X | diag == cross? |")
+        print("|---|---|---|---|---|")
+        for tid in ids:
+            for k in metric_keys:
+                d = report["targets"][tid].get(k.split("-", 1)[-1], {}).get("same_seed_diagonal")
+                if not d:
+                    continue
+                verdict = "yes (systematic bf16)" if d["seed_independent"] else "no (RNG-stochastic)"
+                print(f"| {tid} | {metric_labels[k]} | {d['mean']:.3f} | "
+                      f"{d['all_pairs_mean']:.3f} | {verdict} |")
 
     # confidence deltas (device mean vs reference mean, per key)
     print("\n### Confidence-metric agreement (device mean − reference mean)\n")
@@ -416,6 +452,16 @@ def main() -> int:
     s.add_argument("--dev-dirs", nargs="+", required=True, help="device run dirs, one per seed (live)")
     s.add_argument("--label", default="")
     s.add_argument("--out", default="")
+    s.add_argument("--paired", action="store_true",
+                   help="Also report the same-seed (diagonal dev_i vs ref_i) distances "
+                        "for every metric, alongside the all-pairs cross mean. Requires "
+                        "len(dev_dirs) == len(ref_dirs); the diagonal is zip(dev_dirs, "
+                        "ref_dirs), NOT the full cross product. A diagonal markedly "
+                        "smaller than the cross mean means matching the RNG stream collapses "
+                        "the residual (RNG-stochastic, i.e. a port defect in the RNG wiring); "
+                        "a diagonal ~= cross means shared draws do NOT help (systematic bf16 "
+                        "arithmetic divergence, a precision-floor artifact). Mirrors --paired "
+                        "in scripts/boltz2_affinity_parity.py.")
     s.set_defaults(func=structures)
 
     e = sub.add_parser("embeddings", help="ESMC: device vs reference embeddings")
