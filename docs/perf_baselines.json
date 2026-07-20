@@ -490,6 +490,31 @@
           "date": "2026-07-19",
           "tt_bio_version": "0.3.1",
           "note": "seed qb1 (tt-quietbox) p150a per-machine baselines \u2014 within-p150a machine variance (qb1 ~30-36% slower than pc on same models); machine-id layer under card type"
+        },
+        "pc": {
+          "models": {
+            "boltz2-affinity": {
+              "unit": "affinities/s",
+              "direction": "higher",
+              "value": 0.009498,
+              "latency_ms": 105283.85,
+              "input": "affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "warmup": 0,
+              "repeat": 1,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "pc",
+              "tt_bio_version": "0.3.1",
+              "date": "2026-07-20",
+              "note": "seed p150a boltz2-affinity perf baseline (new leg added in pharma-benchmark-hardening pass, no prior baseline existed)"
+            }
+          },
+          "date": "2026-07-20",
+          "tt_bio_version": "0.3.1",
+          "note": "seed p150a boltz2-affinity perf baseline (new leg added in pharma-benchmark-hardening pass, no prior baseline existed)"
         }
       }
     }
