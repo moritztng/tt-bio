@@ -1,0 +1,14 @@
+{
+  "seed": 3,
+  "target_id": "trpcage",
+  "harvested_from": "~/opendde_parity_prod/ref_trpcage_s34/trpcage/seed_3 (qb2 CPU, 2026-07-20)",
+  "selected_record": {
+    "id": "trpcage",
+    "status": "ok",
+    "confidence_score": 0.09107773005962372,
+    "ptm": 0.4553886353969574,
+    "iptm": 0.0,
+    "complex_plddt": 0.9366059875488282
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited. Added 2026-07-20 (3+3 -> 5+5 extension, same pinned commit/settings as seeds 0-2)."
+}

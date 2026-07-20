@@ -14,7 +14,9 @@
     "seeds": [
       0,
       1,
-      2
+      2,
+      3,
+      4
     ],
     "dtype": "fp32",
     "trimul_kernel": "torch",
@@ -25,10 +27,12 @@
   "seeds": [
     0,
     1,
-    2
+    2,
+    3,
+    4
   ],
   "msa": "none (no-MSA leg)",
-  "provenance": "Harvested from the 2026-07-13 qb2 production reference run (REF_PROD_DONE at opendde_parity_prod). Per-seed model-forward time from ref_prod.log: seed0 1376.14s (cold), seed1 235.58s, seed2 236.11s. Matches docs/pharma-benchmark-data/opendde-prod-leg.json (X=5.68 A within floor 8.06 A).",
-  "date": "2026-07-13",
+  "provenance": "Harvested from the 2026-07-13 qb2 production reference run (REF_PROD_DONE at opendde_parity_prod). Per-seed model-forward time from ref_prod.log: seed0 1376.14s (cold), seed1 235.58s, seed2 236.11s. Matches docs/pharma-benchmark-data/opendde-prod-leg.json (X=5.68 A within floor 8.06 A). Seeds 3,4 added 2026-07-20 from a fresh qb2 CPU run (same pinned commit a0d5134, fp32, torch kernels, identical settings) to extend the noise floor R to a real distribution (3+3 -> 5+5).",
+  "date": "2026-07-13 (seeds 0-2); 2026-07-20 (seeds 3-4)",
   "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
 }
