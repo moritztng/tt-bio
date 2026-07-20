@@ -197,6 +197,16 @@ def main() -> int:
     ap.add_argument("--target-id", default="affinity_fkg",
                     help="target id (the yaml stem / record id)")
     ap.add_argument("--out", default="")
+    ap.add_argument("--paired", action="store_true",
+                    help="Also report the same-seed (diagonal dev_i vs ref_i) "
+                         "distances for every metric, alongside the all-pairs cross "
+                         "mean. The pass-4 RNG fix made the device and reference "
+                         "share the same torch.randn stream per seed, so the "
+                         "diagonal IS the shared-RNG-draw distance: if it is no "
+                         "smaller than the cross mean the residual is seed-"
+                         "independent (systematic bf16 arithmetic divergence), "
+                         "not RNG stochasticity — the rigorous distinction between "
+                         "a port defect and a bf16-precision-floor artifact.")
     args = ap.parse_args()
 
     ref_vals = [_extract_ref(Path(d), args.target_id) for d in args.ref_dirs]
@@ -234,6 +244,18 @@ def main() -> int:
               f"| {v['dev_floor']['mean']:.4f} "
               f"| {v['cross_over_floor']:.2f} "
               f"| {'yes' if v['within_noise_floor'] else 'NO'} |")
+        if args.paired and len(d) == len(r) and d:
+            diag = [abs(di - ri) for di, ri in zip(d, r)]
+            pm = sum(diag) / len(diag)
+            cm = sum(cross) / len(cross)
+            seed_indep = pm >= 0.9 * cm
+            print(f"  same-seed diagonal: X_diag {pm:.4f} (n={len(diag)}) vs "
+                  f"all-pairs X {cm:.4f} -> "
+                  f"{'seed-independent (systematic bf16)' if seed_indep else 'RNG-stochastic'}")
+            report["metrics"][key]["same_seed_diagonal"] = {
+                "n": len(diag), "mean": pm, "all_pairs_mean": cm,
+                "seed_independent": seed_indep,
+            }
 
     # ---- ligand-pose accuracy (P3): ligand-pose RMSD + pocket-lDDT from the
     # best-sample structure CIFs (device vs reference), scored through the same
@@ -277,6 +299,35 @@ def main() -> int:
                   f"| {v['dev_floor']['mean']:.3f} "
                   f"| {v['cross_over_floor']:.2f} "
                   f"| {'yes' if v['within_noise_floor'] else 'NO'} |")
+        if args.paired and len(_dev_d) == len(_ref_d) and _dev_d:
+            pose_paired = {k: [] for k in pose_keys}
+            for da, db in zip(_dev_d, _ref_d):
+                m = _pose_metrics(da, db, args.target_id)
+                if m:
+                    for k in pose_keys:
+                        pose_paired[k].append(m[k])
+            print()
+            print("| metric | same-seed (X_diag, n=%d) | all-pairs (X, n=%d) | "
+                  "diag == cross? |" % (len(_dev_d), len(pose_cross[pose_keys[0]])))
+            print("|---|---|---|---|")
+            for k in pose_keys:
+                if not pose_paired[k] or not pose_cross[k]:
+                    continue
+                import statistics
+                pm = sum(pose_paired[k]) / len(pose_paired[k])
+                cm = sum(pose_cross[k]) / len(pose_cross[k])
+                # seed-independent iff the diagonal mean is NOT markedly below the
+                # all-pairs mean (a diagonal much smaller than cross means matching
+                # the RNG stream collapses the residual -> RNG stochasticity; a
+                # diagonal ~ cross means shared draws do NOT help -> systematic).
+                seed_indep = pm >= 0.9 * cm
+                verdict = "yes (systematic bf16)" if seed_indep else "no (RNG-stochastic)"
+                print(f"| {pose_labels[k]} | {pm:.3f} | {cm:.3f} | {verdict} |")
+                report["metrics"][k]["same_seed_diagonal"] = {
+                    "n": len(pose_paired[k]), "mean": pm,
+                    "all_pairs_mean": cm,
+                    "seed_independent": seed_indep,
+                }
     else:
         print("\n(ligand-pose metrics skipped: no structure CIFs with a matched ligand found — "
               "run with a fixture that carries structures/<id>.cif to enable P3)")
