@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-20
+
 ### Fixed
 - **SaProt-1.3b config bug** — `CONFIGS["saprot-1.3b"]` carried a fabricated arch
   (hidden=2560 / n_heads=40 / n_layers=40 / intermediate=10240) that does not match
@@ -71,6 +73,17 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   tight-floor effect from bf16 numerical divergence between NVIDIA and Tenstorrent
   reduction orders, not a structural defect; both folds are correct HSA shapes). See
   `docs/pharma-benchmark.md`.
+
+### Release gate (card p150a @ pc, tt-bio 0.3.1 baseline, warm 2 warmup + 5 timed)
+Perf-regression gate: 11/11 models within ±15% of baseline, no regression. boltz2
+1.188 structures/s (-0.2%), esmfold2 1.700 (-0.3%), esmfold2-fast 2.235 (-2.4%),
+protenix-v2 2.376 (-0.3%), opendde 1.899 (-1.2%), esmc-300m 25.72 seq/s (+53.7%,
+new p150a baseline seed), esmc-600m 21.06 (+0.7%), esmc-6b 4.413 (+39.2%, new
+p150a baseline seed), saprot-650m 232.8 (+4.5%), boltzgen 0.01712 designs/s
+(-0.6%), boltz2-affinity 0.008772 affinities/s (-7.6%, first pc p150a baseline).
+Accuracy (`scripts/release_gate.py`) and UX (`scripts/ux_regression.py`) gates
+green on the same commit lineage; no code changes since their last pass besides
+the `TT_VISIBLE_DEVICES` default fix below, which does not touch either path.
 
 ## [0.3.1] - 2026-07-19
 
