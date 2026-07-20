@@ -18,7 +18,9 @@
     "seeds": [
       0,
       1,
-      2
+      2,
+      3,
+      4
     ],
     "dtype": "bf16 (pytorch-lightning AMP)",
     "target": "FKBP12 (FKBP1A, 107 res, PDBbind immunophilin drug target) + small-molecule inhibitor SB3 (CCD, 33 heavy atoms, MW 449.59); msa: empty (single-sequence). affinity_pred_value is the MW-corrected log10(IC50) in uM, ensemble mean over 5 affinity diffusion samples and the two affinity heads."
@@ -26,10 +28,12 @@
   "seeds": [
     0,
     1,
-    2
+    2,
+    3,
+    4
   ],
   "msa": "none (msa: empty -> single-sequence, no network)",
-  "provenance": "Harvested from a FRESH 2026-07-18 qb2 reference run (/home/ttuser/affinity_bench/ref_seed{0,1,2}, mtime 2026-07-18 18:3x). Per-seed affinity_pred_value: seed0=-0.515625, seed1=-0.515625, seed2=-0.53125 (probability_binary 0.9296875 all three). The reference is unusually self-consistent (seeds 0 and 1 identical; R floor = 0.0104 log10-IC50 units) because affinity_pred_value is already an ensemble mean over 5 diffusion samples, so per-seed variance is small. Boltz-2 affinity hardcodes recycling_steps=5 (boltz/main.py predict_affinity_args), independent of --recycling_steps; the device port hardcodes the same 5 (tt_bio/main.py aff_kwargs), so --recycling_steps 3 gives identical settings on both sides (structure recycling=3, affinity recycling=5). Structure CIFs (best-sample affinity_fkg_model_0.cif, the single CIF the official affinity path writes) added to seed{0,1,2}/structures/affinity_fkg.cif on 2026-07-19 (pass 5 / P3) so scripts/boltz2_affinity_parity.py can score ligand-pose RMSD + pocket-lDDT alongside the scalar affinity \u2014 copied from the original qb2 reference output dirs (no reference re-run).",
-  "date": "2026-07-19",
+  "provenance": "Harvested from a FRESH 2026-07-18 qb2 reference run (/home/ttuser/affinity_bench/ref_seed{0,1,2}, mtime 2026-07-18 18:3x). Per-seed affinity_pred_value: seed0=-0.515625, seed1=-0.515625, seed2=-0.53125 (probability_binary 0.9296875 all three). The reference is unusually self-consistent (seeds 0 and 1 identical; R floor = 0.0104 log10-IC50 units) because affinity_pred_value is already an ensemble mean over 5 diffusion samples, so per-seed variance is small. Boltz-2 affinity hardcodes recycling_steps=5 (boltz/main.py predict_affinity_args), independent of --recycling_steps; the device port hardcodes the same 5 (tt_bio/main.py aff_kwargs), so --recycling_steps 3 gives identical settings on both sides (structure recycling=3, affinity recycling=5). Structure CIFs (best-sample affinity_fkg_model_0.cif, the single CIF the official affinity path writes) added to seed{0,1,2}/structures/affinity_fkg.cif on 2026-07-19 (pass 5 / P3) so scripts/boltz2_affinity_parity.py can score ligand-pose RMSD + pocket-lDDT alongside the scalar affinity \u2014 copied from the original qb2 reference output dirs (no reference re-run). Seeds 3,4 added 2026-07-20 from a fresh qb1 CPU run (official boltz 2.2.1, same pinned settings) to extend the noise floor R to a real distribution (3+3 -> 5+5); device seeds 3,4 ran live on qb1 card 0 (p150a).",
+  "date": "2026-07-18 (seeds 0-2); 2026-07-20 (seeds 3-4)",
   "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
 }

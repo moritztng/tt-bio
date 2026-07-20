@@ -1,0 +1,7 @@
+{
+  "seed": 3,
+  "target_id": "affinity_fkg",
+  "affinity_pred_value": -0.421875,
+  "affinity_probability_binary": 0.9375,
+  "note": "real reference output copied verbatim; added 2026-07-20 (3+3 -> 5+5 extension, same pinned boltz 2.2.1/settings as seeds 0-2)."
+}
