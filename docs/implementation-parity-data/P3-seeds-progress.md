@@ -32,8 +32,8 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" python3 scripts/ux_regression.py
 Confirm exit 0, flip the state file's gate status PENDING -> PASS, then emit DONE.
 
 ## Device-seed artifacts (still in /tmp on qb1, ephemeral)
-- DHFR device seeds 0-4: `/tmp/affinity_dev/dev_dhfr_s{0..4}/boltz_results_affinity_dhfr/` (results.json + structures/affinity_dhfr.cif).
-- trypsin device seeds 0-4: `/tmp/affinity_dev/dev_tryp_s{0..4}/boltz_results_affinity_tryp/`.
+- DHFR device seeds 0-4: `/tmp/affinity_dev/dev_dhfr_s{0..4}/boltz2_results_affinity_dhfr/` (results.json + structures/affinity_dhfr.cif).
+- trypsin device seeds 0-4: `/tmp/affinity_dev/dev_tryp_s{0..4}/boltz2_results_affinity_tryp/`.
 - Reference seeds 3,4 already harvested into the committed fixtures (seed{3,4}/affinity_*.json + structures/*.cif + meta.json; fixture meta seeds -> [0,1,2,3,4]).
 - The nohup device-seed job printed `AFFINITY_DEV_REST_ALL_DONE` at 15:32:47 UTC; the process has exited. No stray processes on card 0.
 
@@ -41,6 +41,6 @@ Confirm exit 0, flip the state file's gate status PENDING -> PASS, then emit DON
 ```
 python3 scripts/boltz2_affinity_parity.py \
   --ref-dirs docs/implementation-parity-data/ref-fixtures/boltz2/affinity_dhfr/nomsa_200step_5affsample_3recycle_bf16_mwcorr/seed{0,1,2,3,4} \
-  --dev-dirs /tmp/affinity_dev/dev_dhfr_s{0,1,2,3,4}/boltz_results_affinity_dhfr \
+  --dev-dirs /tmp/affinity_dev/dev_dhfr_s{0,1,2,3,4}/boltz2_results_affinity_dhfr \
   --target-id affinity_dhfr   # and the same for tryp
 ```

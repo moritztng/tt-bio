@@ -68,7 +68,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # trpcage (20 residues) is the canonical tiny fold target — small enough that
 # even the ESMC-6B ESMFold2 load dominates wall-clock, so the gate stays fast.
 DATA = REPO_ROOT / "examples" / "trpcage.yaml"
-NAME = DATA.stem  # "trpcage" -> predict writes boltz_results_trpcage/
+NAME = DATA.stem  # "trpcage" -> predict writes <model>_results_trpcage/
 
 # Minimal step counts: enough to prove the trunk and diffusion phases each tick
 # (≥1 event with total>0), not enough to matter for accuracy. UX plumbing only.
@@ -429,12 +429,13 @@ def run_fold(model: str, base: Path) -> dict:
     data = ABAG_DATA if model == "opendde-abag" else DATA
     name = data.stem
     timeout = ABAG_MODEL_TIMEOUT_S if model == "opendde-abag" else PER_MODEL_TIMEOUT_S
+    from tt_bio.main import predict_results_dir_name
     out_dir = base / f"out_{model}"
     out_dir.mkdir(parents=True, exist_ok=True)
     cap_path = base / f"events_{model}.jsonl"
     cap_path.unlink(missing_ok=True)
-    results_path = out_dir / f"boltz_results_{name}" / "results.json"
-    struct_dir = out_dir / f"boltz_results_{name}" / "structures"
+    results_path = out_dir / predict_results_dir_name(model, name) / "results.json"
+    struct_dir = out_dir / predict_results_dir_name(model, name) / "structures"
 
     env = _subprocess_env({"TT_BIO_PROGRESS_CAPTURE": str(cap_path)})
 
@@ -810,10 +811,11 @@ def run_affinity(model: str, base: Path) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     if not AFFINITY_SPEC.exists():
         sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
+    from tt_bio.main import predict_results_dir_name
     cap_path = base / f"events_{model}.jsonl"
     cap_path.unlink(missing_ok=True)
-    results_path = out_dir / f"boltz_results_{AFFINITY_SPEC.stem}" / "results.json"
-    struct_dir = out_dir / f"boltz_results_{AFFINITY_SPEC.stem}" / "structures"
+    results_path = out_dir / predict_results_dir_name("boltz2", AFFINITY_SPEC.stem) / "results.json"
+    struct_dir = out_dir / predict_results_dir_name("boltz2", AFFINITY_SPEC.stem) / "structures"
 
     env = _subprocess_env({"TT_BIO_PROGRESS_CAPTURE": str(cap_path)})
     cmd = [

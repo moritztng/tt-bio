@@ -314,7 +314,7 @@ properties:
 ### Output Structure
 
 ```text
-boltz_results_prot/
+<model>_results_prot/   # e.g. protenix_results_prot, boltz2_results_prot
 ├── structures/
 │   ├── prot.cif                      # Best-ranked predicted structure
 │   └── prot_model_1.cif              # Additional samples (if diffusion_samples > 1)

@@ -27,7 +27,7 @@ hardcode affinity recycling_steps=5 and use --recycling_steps 3 for the
 upstream structure, so the inputs and model settings are identical.
 
 Reference output layout (official boltz):  <out>/boltz_results_<id>/predictions/<id>/affinity_<id>.json
-Device output layout (tt-bio):              <out>/boltz_results_<id>/results.json  (list, one entry per target)
+Device output layout (tt-bio):              <out>/boltz2_results_<id>/results.json  (list, one entry per target)
 
 Usage:
   python3 scripts/boltz2_affinity_parity.py \

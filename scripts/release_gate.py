@@ -102,7 +102,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # is a real model/port problem, not a hard target.
 DATA = REPO_ROOT / "examples" / "prot.yaml"
 GROUND_TRUTH = REPO_ROOT / "examples" / "ground_truth_structures" / "prot.cif"
-NAME = DATA.stem  # "prot" -> results land in boltz_results_prot/
+NAME = DATA.stem  # "prot" -> results land in <model>_results_prot/
 
 # Production sampling. n_step=10 undersamples and can fail a correct model; 200 steps / 5
 # samples is the floor for a real accuracy read.
@@ -210,8 +210,8 @@ def _load_esmc_parity_harness():
     return mod
 
 
-def _results_cifs() -> list[Path]:
-    d = REPO_ROOT / f"boltz_results_{NAME}" / "structures"
+def _results_cifs(results_dir: Path) -> list[Path]:
+    d = results_dir / "structures"
     return sorted(d.glob(f"{NAME}*.cif")) if d.exists() else []
 
 
@@ -233,7 +233,8 @@ def _parse_gate(cifs: list[Path], name: str = NAME) -> None:
 
 def run_model(model: str, harness, keep: bool) -> dict:
     """Fold, parse, and ground-truth-score one model. Returns a result row."""
-    out = REPO_ROOT / f"boltz_results_{NAME}"
+    from tt_bio.main import predict_results_dir_name
+    out = REPO_ROOT / predict_results_dir_name(model, NAME)
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this predict crashes
 
@@ -259,7 +260,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
         row["error"] = f"predict exited {proc.returncode}"
         return row
 
-    cifs = _results_cifs()
+    cifs = _results_cifs(out)
     try:
         _parse_gate(cifs)
         row["parse"] = True
@@ -268,9 +269,9 @@ def run_model(model: str, harness, keep: bool) -> dict:
         return row
 
     # Ground-truth RMSD/TM of the confidence-selected structure (harness reads
-    # boltz_results_<NAME>/ and examples/ground_truth_structures/ relative to REPO_ROOT).
+    # <model>_results_<NAME>/ and examples/ground_truth_structures/ relative to REPO_ROOT).
     try:
-        rmsd, tm = harness.evaluate(NAME)  # no thresholds -> returns numbers, never raises
+        rmsd, tm = harness.evaluate(NAME, results_dir=out)  # no thresholds -> returns numbers, never raises
     except Exception as e:
         row["error"] = f"RMSD eval failed: {e}"
         return row
@@ -360,8 +361,9 @@ def run_opendde_abag(keep: bool) -> dict:
     than re-deriving the DockQ call here.
     """
     data = OPENDDE_ABAG_DATA
-    name = data.stem  # "1ahw_abag" -> boltz_results_1ahw_abag/
-    out = REPO_ROOT / f"boltz_results_{name}"
+    from tt_bio.main import predict_results_dir_name
+    name = data.stem  # "1ahw_abag" -> opendde_results_1ahw_abag/
+    out = REPO_ROOT / predict_results_dir_name("opendde-abag", name)
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this predict crashes
 

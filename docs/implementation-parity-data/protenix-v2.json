@@ -25,7 +25,7 @@
   },
   "methodology": {
     "msa": "Both sides fold the SAME MSA (the reference's protenix-server.com MSA, dumped at ref_seed{0,1}/raw/prot/msa/0.a3m and fed to the device via the msa_dir sequence-hash cache), so X measures pure port fidelity with input MSA held identical. The device's default ColabFold MSA server (api.colabfold.com) was unreachable this session, and feeding the reference MSA to the device is the cleaner parity test anyway (identical input). The previously-preserved device floor D=0.79 A / PCC 0.998 was from the original qb1 device run on a ColabFold MSA (ptm ~0.904); it is retained below as the prior ColabFold-MSA floor and is not the floor paired with this X.",
-    "comparison": "scripts/pharma_parity.py structures --ref-dirs ref_seed0 ref_seed1 --dev-dirs dev_seed0/boltz_results_prot dev_seed1/boltz_results_prot. Same Kabsch CA-RMSD / coord-PCC / confidence-delta methodology as every other fold model in the benchmark. R = reference seed0-vs-seed1 (1 pair); D = device seed0-vs-seed1 (1 pair); X = all 2x2 device-vs-reference pairs (n=4)."
+    "comparison": "scripts/pharma_parity.py structures --ref-dirs ref_seed0 ref_seed1 --dev-dirs dev_seed0/protenix_results_prot dev_seed1/protenix_results_prot. Same Kabsch CA-RMSD / coord-PCC / confidence-delta methodology as every other fold model in the benchmark. R = reference seed0-vs-seed1 (1 pair); D = device seed0-vs-seed1 (1 pair); X = all 2x2 device-vs-reference pairs (n=4)."
   },
   "device": {
     "seed0": {
@@ -125,7 +125,7 @@
     "ref_dump": "/home/ttuser/pharma_protenix_run/ref_seed{0,1}/raw (official Protenix 2.0.0 CPU output, 5 samples/seed)",
     "ref_repackager": "scripts/protenix_ref_to_harness.py -> ref_seed{N}/structures/prot.cif + results.json (picks max ranking_score sample, matching the device's confidence-selected best-of-5)",
     "device_regen": "TT_VISIBLE_DEVICES=2 tt-bio predict --model protenix-v2 --use_msa_server --sampling_steps 200 --diffusion_samples 5 --seed {0,1} --out_dir dev_seed{N} --msa_dir dev_msa (dev_msa pre-seeded with the reference MSA at {seq_hash}.a3m so the device folds the identical MSA; ~60s + ~22s for seeds 0/1 on card 2)",
-    "parity_command": "scripts/pharma_parity.py structures --ref-dirs ref_seed0 ref_seed1 --dev-dirs dev_seed0/boltz_results_prot dev_seed1/boltz_results_prot --label 'protenix-v2' --out docs/implementation-parity-data/protenix-v2.json",
+    "parity_command": "scripts/pharma_parity.py structures --ref-dirs ref_seed0 ref_seed1 --dev-dirs dev_seed0/protenix_results_prot dev_seed1/protenix_results_prot --label 'protenix-v2' --out docs/implementation-parity-data/protenix-v2.json",
     "additional_targets": "Each reference-side seed costs several hours of CPU wall clock (N_step=200 x N_sample=5 torch triangle ops, no CUDA fusion); run additional targets sequentially to avoid CPU contention on this 32-core host."
   }
 }
