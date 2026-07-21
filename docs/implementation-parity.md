@@ -70,9 +70,7 @@ metric passes, a stricter local metric misses), red = GAP-evidenced (gate
 metric misses, proven a bf16-precision-floor artifact). Three Boltz-2
 structure legs (trp-cage, 7ROA no-MSA, 7ROA MSA) were hardened to 5+5 seeds
 after their result JSON was committed, so those bars reflect the earlier
-snapshot while the verdict table above holds the current 5+5 numbers. The
-Protenix-v2 HSA bar likewise still reflects the pre-fp32-fix bf16 result
-(GAP) pending a chart regeneration; the verdict table holds the current PASS.
+snapshot while the verdict table above holds the current 5+5 numbers.
 Deterministic and special-metric legs (ESMC, SaProt, BoltzGen, OpenDDE-abag)
 have no X/floor ratio and are not plotted; see the verdict table.
 
