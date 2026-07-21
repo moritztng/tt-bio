@@ -25,6 +25,7 @@ structures within sample variance of the reference (scripts/protenix_fold_e2e.py
 scripts/protenix_predict.py -> PDB). Remaining (packaging): data-pipeline vendoring
 (sequence/CCD -> feats dict), worker/CLI --model protenix-v2, unified README.
 """
+import os
 import torch
 import ttnn
 
@@ -405,6 +406,24 @@ class DiffusionModule(_KeyedWeights):
         # fed the precomputed UNSCALED bias as the SDPA mask -> matches the host math exactly;
         # these primitives handle the head_dim=48 tile padding). s-gate + conditioned-transition
         # are raw ttnn (protenix's ctb differs from tt-bio's ConditionedTransitionBlock).
+        # On-device fp32 token DiT (opt-in, PROTENIX_DIFFUSION_FP32_DEVICE=1, default OFF).
+        # The Protenix-v2 GPU reference forces the ENTIRE diffusion sampling to fp32
+        # (skip_amp.sample_diffusion=True -> autocasting_disable_decorator in
+        # protenix/model/protenix.py), while the device port runs the diffusion in bf16
+        # (the HSA L585 GAP root cause). The trunk z feeding the diffusion is bf16 on BOTH
+        # ref and device (ref pairformer under the outer bf16 autocast, not disabled), so
+        # unlike the boltz2-affinity case the trunk z is matched and an fp32 diffusion lever
+        # is principled here. This gate upcasts ONLY the 24-block token DiT (the largest
+        # compute + deepest precision stack) to ttnn fp32 on device -- a targeted, perf-bounded
+        # boundary, not a blanket full-stack upcast. The atom encoder/transformer/decoder stay
+        # bf16 (matched against the device-resident trace path); the DiT is the dominant
+        # precision lever. Reuses the device_dit=True plumbing (AdaLN + AttentionPairBias
+        # primitives built with dtype=float32 + the fp32-dest-acc HiFi4 compute config, the
+        # same config the standalone scripts/protenix_dit_fp32_parity.py proved PCC~1.0 vs the
+        # reference golden). Default OFF until the same-seed diagonal is measured to collapse.
+        self._dit_fp32 = os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "0") == "1"
+        self._dit_dtype = ttnn.float32 if self._dit_fp32 else ttnn.bfloat16
+        self._dit_ckc = compute_kernel_config   # HiFi4 + fp32_dest_acc_en: dtype is on the tensors
         self.device_dit = True
         DT = "diffusion_transformer."
         sub = lambda pfx: {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
@@ -413,12 +432,34 @@ class DiffusionModule(_KeyedWeights):
             A = DT + f"blocks.{b}.attention_pair_bias."
             Cc = DT + f"blocks.{b}.conditioned_transition_block."
             self._dit.append((
-                AdaLN(False, remap_adaln(sub(A + "layernorm_a.")), compute_kernel_config),
+                AdaLN(False, remap_adaln(sub(A + "layernorm_a.")), self._dit_ckc, dtype=self._dit_dtype),
                 AttentionPairBias(self.DIT_HEAD_DIM, self.DIT_N_HEADS, True, False,
-                                  PW.remap_attention_pair_bias(sub(A)), compute_kernel_config),
-                AdaLN(False, remap_adaln(sub(Cc + "adaln.")), compute_kernel_config),
+                                  PW.remap_attention_pair_bias(sub(A)), self._dit_ckc, dtype=self._dit_dtype),
+                AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
 
+
+    def _up_dit(self, t):
+        """Upload an activation/host tensor at the DiT dtype (fp32 when the gate is on)."""
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
+
+    def _w_tt_dit(self, key, transpose=True):
+        """DiT-path weight upload cache (separate cache from the bf16 atom-path _w_tt so a
+        fp32 DiT and a bf16 atom path coexist without dtype collisions on shared keys)."""
+        cache = self.__dict__.setdefault("_wc_dit", {})
+        v = cache.get((key, transpose))
+        if v is None:
+            w = self._w[key]
+            v = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
+            cache[(key, transpose)] = v
+        return v
+
+    def _ln_dit(self, x, wkey, bkey=None):
+        """Layer norm at the DiT dtype (used for the DiT-output layernorm_a when fp32)."""
+        return ttnn.layer_norm(x, weight=self._w_tt_dit(wkey, False),
+                               bias=(self._w_tt_dit(bkey, False) if bkey else None),
+                               epsilon=1e-5, compute_kernel_config=self._dit_ckc)
 
     def _atom_cond(self, cond):
         """Hoist the t-INDEPENDENT diffusion conditioning out of the per-step denoise.
@@ -507,7 +548,11 @@ class DiffusionModule(_KeyedWeights):
                     cond["dit_z"], cond.get("structural_pair_attn_bias"))
             a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single,
                                          cond["dit_block_biases"], NT)
-            a_t = self._ln(a_t, "layernorm_a.weight")
+            if self._dit_fp32:   # DiT-output norm in fp32 (inside the ref's fp32 diffusion region),
+                # then downcast to bf16 at the atom-decoder boundary (atom path stays bf16).
+                a_t = ttnn.typecast(self._ln_dit(a_t, "layernorm_a.weight"), ttnn.bfloat16)
+            else:
+                a_t = self._ln(a_t, "layernorm_a.weight")
         else:  # host fp32 fallback (max fidelity / no precomputed device bias)
             a_h = torch.Tensor(ttnn.to_torch(ttnn.reshape(a_tok, (1, NT, 768)))).float().reshape(NT, 768)
             s_h = torch.Tensor(ttnn.to_torch(s_single)).float().reshape(NT, s_single.shape[-1])
@@ -566,7 +611,10 @@ class DiffusionModule(_KeyedWeights):
             cond["dit_block_biases"] = self._dit_block_biases(
                 cond["dit_z"], cond.get("structural_pair_attn_bias"))
         a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single, cond["dit_block_biases"], NT)
-        a_t = self._ln(a_t, "layernorm_a.weight")
+        if self._dit_fp32:
+            a_t = ttnn.typecast(self._ln_dit(a_t, "layernorm_a.weight"), ttnn.bfloat16)
+        else:
+            a_t = self._ln(a_t, "layernorm_a.weight")
         DE = "atom_attention_decoder."
         q = ttnn.add(ttnn.matmul(cond["S_dev"], self._lin(ttnn.reshape(a_t, (NT, 768)), DE + "linear_no_bias_a.weight"),
                                  compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN),
@@ -676,7 +724,7 @@ class DiffusionModule(_KeyedWeights):
         the validated trunk-pairformer convention, incl. the head-dim scaling)."""
         import torch.nn.functional as F
         z_h = F.layer_norm(pair_z, (pair_z.shape[-1],)).unsqueeze(0).contiguous()
-        return ttnn.from_torch(z_h, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        return ttnn.from_torch(z_h, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=self._dit_dtype)
 
     def _dit_block_biases(self, z_dev, extra_attn_bias=None):
         """Per-block DiT attention pair biases, computed ONCE per fold from z_dev=LN(pair_z).
@@ -688,7 +736,7 @@ class DiffusionModule(_KeyedWeights):
         if extra_attn_bias is not None:
             # AttentionPairBias scales projected masks by sqrt(head_dim) to
             # compensate ttnn SDPA's mask scaling. Match it for this direct bias.
-            extra = self._up(extra_attn_bias.float().reshape(
+            extra = self._up_dit(extra_attn_bias.float().reshape(
                 1, 1, extra_attn_bias.shape[-2], extra_attn_bias.shape[-1])
                 * self.DIT_HEAD_DIM ** 0.5)
         return [ttnn.add(apb.compute_bias(z_dev), extra) if extra is not None
@@ -697,11 +745,18 @@ class DiffusionModule(_KeyedWeights):
     def _token_dit_device(self, a_t, s_t, biases, NT):
         """On-device 24-block token DiT (ttnn). a_t (1,NT,768), s_t (1,NT,384); biases = list
         of per-block precomputed (1,n_heads,NT,NT) pair biases (from _dit_block_biases, fixed
-        across steps). Mirrors host _token_dit; reuses AdaLN + AttentionPairBias."""
-        ckc = self.compute_kernel_config
+        across steps). Mirrors host _token_dit; reuses AdaLN + AttentionPairBias. When
+        PROTENIX_DIFFUSION_FP32_DEVICE=1 the DiT runs in ttnn fp32: the atom-path bf16 inputs
+        are upcast at the DiT boundary and the result is fp32 (the caller downcasts before the
+        bf16 atom decoder)."""
+        ckc = self._dit_ckc
+        if self._dit_fp32:   # upcast atom-path bf16 inputs to fp32 at the DiT boundary (on-device)
+            a_t = ttnn.typecast(a_t, self._dit_dtype)
+            s_t = ttnn.typecast(s_t, self._dit_dtype)
+        wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
 
         def linb(x, wk, bk=None, act=None):
-            return ttnn.linear(x, self._w_tt(wk), bias=(self._w_tt(bk, False) if bk else None), activation=act,
+            return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         for (adaln_a, apb, ctb_adaln, A, Cc), bias in zip(self._dit, biases):
             b = adaln_a(a_t, s_t)
