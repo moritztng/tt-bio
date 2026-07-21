@@ -942,22 +942,25 @@ class AttentionPairBias(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        dtype: ttnn.DataType | None = None,
+        fp32_raw_matmul_attention: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
-        self.dtype = _dtype()
+        self.dtype = dtype if dtype is not None else _dtype()
+        self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
         self.atom_level = atom_level
         if atom_level:
-            self.q_weight = self.torch_to_tt("proj_q.weight", dtype=_dtype())
-            self.q_bias = self.torch_to_tt("proj_q.bias", dtype=_dtype())
+            self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
+            self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
             kv_weight = torch.cat([self.weights["proj_k.weight"], self.weights["proj_v.weight"]], dim=0)
             self.kv_weight = ttnn.from_torch(
                 kv_weight.t(),
                 layout=ttnn.TILE_LAYOUT,
                 device=self.device,
-                dtype=_dtype(),
+                dtype=self.dtype,
             )
         else:
             qkv_weight = torch.cat(
@@ -986,14 +989,14 @@ class AttentionPairBias(Module):
                 device=self.device,
                 dtype=self.dtype,
             )
-        self.g_weight = self.torch_to_tt("proj_g.weight")
+        self.g_weight = self.torch_to_tt("proj_g.weight", dtype=self.dtype)
         if compute_pair_bias:
-            self.z_norm_weight = self.torch_to_tt("proj_z.0.weight")
-            self.z_norm_bias = self.torch_to_tt("proj_z.0.bias")
+            self.z_norm_weight = self.torch_to_tt("proj_z.0.weight", dtype=self.dtype)
+            self.z_norm_bias = self.torch_to_tt("proj_z.0.bias", dtype=self.dtype)
             self.z_weight = ttnn.multiply_(
-                self.torch_to_tt("proj_z.1.weight"), self.head_dim**0.5
+                self.torch_to_tt("proj_z.1.weight", dtype=self.dtype), self.head_dim**0.5
             )
-        self.o_weight = self.torch_to_tt("proj_o.weight")
+        self.o_weight = self.torch_to_tt("proj_o.weight", dtype=self.dtype)
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -1100,9 +1103,30 @@ class AttentionPairBias(Module):
                     core_grid=CORE_GRID_MAIN,
                 )
                 z = ttnn.permute(z, (0, 3, 1, 2))
-            if seq_mask is not None:
-                z = ttnn.add_(z, seq_mask)
-            o = self._attention(q, k, v, z)
+            if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
+                # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
+                # path computes attention as raw matmul. SDPA scales its additive mask
+                # along with QK, so z_weight carries sqrt(head_dim) compensation. Undo
+                # that compensation before adding z after the explicit QK scale.
+                if self.compute_pair_bias:
+                    z = ttnn.multiply(z, self.head_dim ** -0.5)
+                if seq_mask is not None:
+                    z = ttnn.add_(z, seq_mask)
+                kt = ttnn.permute(k, (0, 1, 3, 2))
+                sc = ttnn.matmul(q, kt,
+                                 compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(kt)
+                sc = ttnn.multiply(sc, self.head_dim ** -0.5)
+                sc = ttnn.add(sc, z)
+                attn = ttnn.softmax(sc, dim=-1)
+                o = ttnn.matmul(attn, v,
+                                compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(attn)
+                ttnn.deallocate(sc)
+            else:
+                if seq_mask is not None:
+                    z = ttnn.add_(z, seq_mask)
+                o = self._attention(q, k, v, z)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
@@ -1165,7 +1189,7 @@ class AttentionPairBias(Module):
         )
         if _FAST_MODE:
             o = ttnn.typecast(o, ttnn.bfloat16)
-        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=_dtype())
+        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
         x = ttnn.linear(
             o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
@@ -1180,16 +1204,20 @@ class Transition(Module):
         self,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        dtype: ttnn.DataType | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
-        self.norm_weight = self.torch_to_tt("norm.weight")
-        self.norm_bias = self.torch_to_tt("norm.bias")
-        self.fc1_weight = self.torch_to_tt("fc1.weight")
-        self.fc2_weight = self.torch_to_tt("fc2.weight")
-        self.fc3_weight = self.torch_to_tt("fc3.weight")
+        self.dtype = dtype
+        weight_dtype = dtype if dtype is not None else ttnn.bfloat16
+        self.norm_weight = self.torch_to_tt("norm.weight", dtype=weight_dtype)
+        self.norm_bias = self.torch_to_tt("norm.bias", dtype=weight_dtype)
+        self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=weight_dtype)
+        self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
+        self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         def swiglu(x):
+            dtype = self.dtype if self.dtype is not None else _dtype()
             x_norm = ttnn.layer_norm(
                 x,
                 weight=self.norm_weight,
@@ -1204,7 +1232,7 @@ class Transition(Module):
                 activation="silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             x_2 = ttnn.linear(
@@ -1212,7 +1240,7 @@ class Transition(Module):
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
@@ -1222,7 +1250,7 @@ class Transition(Module):
                 x,
                 self.fc3_weight,
                 compute_kernel_config=self.compute_kernel_config,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
@@ -1643,13 +1671,14 @@ class AdaLN(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        dtype: ttnn.DataType = ttnn.bfloat16,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
-        self.s_norm_weight = self.torch_to_tt("s_norm.weight")
-        self.s_scale_weight = self.torch_to_tt("s_scale.weight")
-        self.s_scale_bias = self.torch_to_tt("s_scale.bias")
-        self.s_bias_weight = self.torch_to_tt("s_bias.weight")
+        self.s_norm_weight = self.torch_to_tt("s_norm.weight", dtype=dtype)
+        self.s_scale_weight = self.torch_to_tt("s_scale.weight", dtype=dtype)
+        self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
+        self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False) -> ttnn.Tensor:
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
