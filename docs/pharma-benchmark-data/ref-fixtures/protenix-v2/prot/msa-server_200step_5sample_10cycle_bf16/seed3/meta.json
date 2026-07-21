@@ -1,0 +1,19 @@
+{
+  "seed": 3,
+  "target_id": "prot",
+  "harvested_from": "/home/ttuser/pharma_seedbump2/protenix/ref_seed3",
+  "selected_record": {
+    "id": "prot",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.9266106486320496,
+    "iptm": 0.0,
+    "plddt": 90.07266998291016,
+    "ranking_score": 0.1853221356868744,
+    "selected_sample_idx": 0
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}
