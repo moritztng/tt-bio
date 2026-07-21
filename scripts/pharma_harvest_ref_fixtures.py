@@ -12,7 +12,7 @@ harness-format `results.json` + `structures/<id>.cif`, plus the exact MSA where
 the model uses one) into the committed fixture tree and writes the provenance
 metadata that makes the fixture reproducible and machine-checkable:
 
-  docs/pharma-benchmark-data/ref-fixtures/<model>/<target>/<settings-tag>/
+  docs/implementation-parity-data/ref-fixtures/<model>/<target>/<settings-tag>/
       meta.json          reference impl + version + commit, exact command, settings, date
       msa.a3m            the exact MSA fed to the reference (only when the model uses one)
       seed<N>/
@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "docs" / "pharma-benchmark-data" / "ref-fixtures"
+FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "docs" / "implementation-parity-data" / "ref-fixtures"
 
 
 @dataclass
@@ -104,7 +104,7 @@ SPECS = [
         provenance_note=(
             "Harvested from the 2026-07-13 qb2 reference run (REF_PREDICT_DONE markers "
             "at ref_seed{0,1}). Per-seed ptm in results.json matches "
-            "docs/pharma-benchmark-data/protenix-v2.json (seed0 ptm 0.91748, "
+            "docs/implementation-parity-data/protenix-v2.json (seed0 ptm 0.91748, "
             "seed1 ptm 0.82158). Checkpoint /home/ttuser/checkpoint/protenix-v2.pt."
         ),
     ),
@@ -166,7 +166,7 @@ SPECS = [
             "ubiquitin, ~10-23 min/seed for 7ROA). Per-seed ptm 0.93154 / 0.93144 (seeds 0,1, both "
             "confidence-selected sample 0). 5 reference + 5 device seeds: X = 2.09 +- 0.40 A Kabsch "
             "CA-RMSD (n=25), within floor max(R, D) (R over 10 ref-seed pairs, D over 10 dev-seed "
-            "pairs) -> PASS, recorded in docs/pharma-benchmark-data/protenix-v2-ubiquitin.json. "
+            "pairs) -> PASS, recorded in docs/implementation-parity-data/protenix-v2-ubiquitin.json. "
             "Checkpoint /home/ttuser/protenix_ckpt/protenix-v2.pt."
         ),
     ),
@@ -198,7 +198,7 @@ SPECS = [
             "Harvested from the 2026-07-13 qb2 production reference run (REF_PROD_DONE at "
             "opendde_parity_prod). Per-seed model-forward time from ref_prod.log: "
             "seed0 1376.14s (cold), seed1 235.58s, seed2 236.11s. Matches "
-            "docs/pharma-benchmark-data/opendde-prod-leg.json (X=5.68 A within floor 8.06 A)."
+            "docs/implementation-parity-data/opendde-prod-leg.json (X=5.68 A within floor 8.06 A)."
         ),
     ),
     FixtureSpec(
@@ -227,7 +227,7 @@ SPECS = [
         provenance_note=(
             "Harvested from the 2026-07-12 qb2 reduced-settings reference run "
             "(pharma_opendde_run/ref2_driver.sh, 4c/20s/sample=1). Matches the reduced prot "
-            "leg in docs/pharma-benchmark-data/opendde.json (X=7.65 A, 2.85x over floor -- "
+            "leg in docs/implementation-parity-data/opendde.json (X=7.65 A, 2.85x over floor -- "
             "the tight-device-floor artifact resolved by the production leg above)."
         ),
     ),
@@ -267,7 +267,7 @@ SPECS = [
         provenance_note=(
             "Harvested from the 2026-07-13 qb2 reference run (pharma_boltz2_msa_run/ref_harness_s{0,1}, "
             "mtime 2026-07-13 05:31). Per-seed confidence in results.json matches "
-            "docs/pharma-benchmark-data/boltz2.json prot_msa leg (ref confidence_score 0.8916)."
+            "docs/implementation-parity-data/boltz2.json prot_msa leg (ref confidence_score 0.8916)."
         ),
     ),
     FixtureSpec(
@@ -306,7 +306,7 @@ SPECS = [
             "rather than copied from a prior raw output. Per-seed model-forward ~5s (warm); "
             "ranking_score 0.0911 on all three seeds. The fresh reference-vs-reference floor "
             "R=0.31 A (mean of 3 seed pairs: 0.41/0.38/0.15) reproduces the published R=0.31 "
-            "in docs/pharma-benchmark.md within noise."
+            "in docs/implementation-parity.md within noise."
         ),
     ),
     FixtureSpec(
@@ -342,7 +342,7 @@ SPECS = [
             "boltz_trpcage_s{0,1}, mtime 2026-07-13 15:55), generated for this fixture. "
             "Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and "
             "identical confidence). The fresh reference-vs-reference floor R=0.81 A (1 seed pair) "
-            "reproduces the published R=0.79 in docs/pharma-benchmark.md within noise. "
+            "reproduces the published R=0.79 in docs/implementation-parity.md within noise. "
             "Per-seed confidence_score 0.854/0.847, ptm 0.445/0.420 (the 0.85 in the prior note was the confidence_score, not ptm). Seeds 2,3,4 were generated 2026-07-21 on qb2 CPU (pinned boltz 2.2.1, same 3 recycle / 200 sampling steps / 1 sample settings, msa: empty) for the 2+2 -> 5+5 pharma-meeting hardening pass; the 5+5 read is X 0.66 +- 0.22 A vs floor max(R 0.60, D 0.57) = 0.60 A (X/floor 1.10, within the floor+std band on CA-RMSD; 1-lDDT exceeds at 1.93), reproducing the 2+2 X 0.60 within noise."
         ),
     ),
@@ -436,7 +436,7 @@ SPECS = [
             "seeds: the reference-vs-reference floor R=1.838 A (mean over 10 ref-seed pairs, "
             "std 0.349, range 1.27-2.45 A -- a real distribution, not n=1) and device-vs-reference "
             "cross X=1.685+-0.388 A (n=25, X/floor 0.92, within floor on both RMSD and 1-PCC) -> "
-            "PASS, recorded in docs/pharma-benchmark-data/boltz2-ubiquitin.json. Per-seed reference "
+            "PASS, recorded in docs/implementation-parity-data/boltz2-ubiquitin.json. Per-seed reference "
             "ptm 0.825/0.825/0.874/0.812/0.836, confidence_score 0.886/0.886/0.902/0.882/0.890; "
             "device ptm ~0.914, confidence_score ~0.926."
         ),

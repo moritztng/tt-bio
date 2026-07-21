@@ -100,7 +100,7 @@ rounding in the residual stream accumulates over twice as many blocks. It is a
 numerical residual, not a structural defect — the wrong-config 0.23 is gone, and
 the logits leg (the sampler-independent secondary check) clears the band. The
 emb leg is recorded above as a near-pass, not a clean PASS, and no clean PASS row
-is added to `docs/pharma-benchmark.md` for it.
+is added to `docs/implementation-parity.md` for it.
 
 Reproduce:
 

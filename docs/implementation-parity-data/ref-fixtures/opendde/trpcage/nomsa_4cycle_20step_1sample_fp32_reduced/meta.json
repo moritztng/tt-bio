@@ -1,0 +1,38 @@
+{
+  "model": "opendde",
+  "target": "trpcage",
+  "settings_tag": "nomsa_4cycle_20step_1sample_fp32_reduced",
+  "reference_impl": "official Aureka Research OpenDDE (torch, CPU)",
+  "reference_version": "opendde_v1 (655.79M params), dtype fp32",
+  "reference_commit": "aurekaresearch/OpenDDE a0d5134d88f85d5c6a94629d01252251930fe5f8",
+  "command": "cd /home/ttuser/opendde-src && opendde-ref-venv/bin/python -c 'from runner.batch_inference import opendde_cli; opendde_cli()' pred -i trpcage.json -o opendde_trpcage_s<seed> -s <seed> -c 4 -p 20 -e 1 --use_msa false && opendde-ref-venv/bin/python scripts/opendde_ref_to_harness.py opendde_trpcage_s<seed> trpcage <seed> opendde_harness_trpcage_s<seed>  (trpcage.json: NLYIQWLKDGGPSSGRPPPS, single-sequence no-MSA; checkpoint /home/ttuser/.cache/opendde/checkpoint/opendde.pt; CUDA_VISIBLE_DEVICES='')",
+  "settings": {
+    "use_msa": false,
+    "recycling_cycles": 4,
+    "diffusion_steps": 20,
+    "diffusion_samples": 1,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "dtype": "fp32",
+    "trimul_kernel": "torch",
+    "triatt_kernel": "torch",
+    "target": "trp-cage (PDB 1L2Y, 20 res, 154 atoms, single-sequence no-MSA)",
+    "rationale": "sample=1 isolates convergence (cycles/steps) from best-of-N selection; matches the reduced-settings prot leg so the two trp-cage/prot reads are directly comparable at the same compute budget."
+  },
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "msa": "none (no-MSA leg)",
+  "provenance": "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/opendde_trpcage_s{0,1,2}, mtime 2026-07-13 15:47-15:49), generated for this fixture rather than copied from a prior raw output. Per-seed model-forward ~5s (warm); ranking_score 0.0911 on all three seeds. The fresh reference-vs-reference floor R=0.31 A (mean of 3 seed pairs: 0.41/0.38/0.15) reproduces the published R=0.31 in docs/implementation-parity.md within noise. Seeds 3,4 added 2026-07-20 from a fresh qb2 CPU run (same pinned commit a0d5134, fp32, torch kernels, identical settings) to extend the noise floor R to a real distribution (3+3 -> 5+5).",
+  "date": "2026-07-13 (seeds 0-2); 2026-07-20 (seeds 3-4)",
+  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
+}

@@ -39,7 +39,7 @@ What it measures, per model:
     timed region, so this is a conservative cold-inflated warm-throughput proxy
     (same character as the boltzgen leg — the affinity path has no warm
     steady-state loop to repeat). Reuses the SAME fixture the affinity accuracy
-    leg (docs/pharma-benchmark.md) folds. Shipped-default fp32 host gates stay
+    leg (docs/implementation-parity.md) folds. Shipped-default fp32 host gates stay
     ON (no env overrides) so the timed call matches the shipped config.
   * saprot-650m embed — seq/s on a fixed batch of 8 ubiquitin-length sequences
     (batch_size 8). Device-resident ESM-2 over the fused AA+Foldseek-3Di vocab,
@@ -122,7 +122,7 @@ UBIQUITIN = ("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKEST
              "LHLVLRLRGG")  # 76 aa — tests/test_esmc.py / scripts/esmc_embed_parity.py golden
 
 # Boltz-2 binding-affinity fixture (FKBP12 + SB3, L107, ) — the SAME
-# target docs/pharma-benchmark.md's affinity accuracy leg folds. Reused here for
+# target docs/implementation-parity.md's affinity accuracy leg folds. Reused here for
 # the perf/UX legs so all three legs share one fixture, not three. The affinity
 # path is a heavier runtime shape than a structure fold: it folds the complex
 # (conf model) AND re-runs the affinity model's own 64-block trunk + atom
@@ -549,7 +549,7 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
     ``affinities/s`` is a conservative (cold-inflated) warm-throughput proxy; the
     cold fraction is stable across releases, so a dispatch/throughput regression
     still shows up as a higher wall-clock. Uses the SAME FKBP12+SB3 fixture the
-    affinity accuracy leg (docs/pharma-benchmark.md) folds, with a light sampling
+    affinity accuracy leg (docs/implementation-parity.md) folds, with a light sampling
     protocol (1 structure recycle / 10 structure steps / 1 structure sample +
     10 affinity steps / 1 affinity sample) so the gate stays in minutes while
     exercising the full affinity path. The shipped-default fp32 host gates

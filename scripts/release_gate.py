@@ -47,7 +47,7 @@ for the fast gate. It is *not* opt-in for accuracy reasons: the 6b leg has been
 run on-device against the esm-repo fp32 reference (same golden as 300m/600m, at
 the 6b config) on the four benchmark proteins and passes at the same bar
 (per-residue embedding PCC 0.99904–0.99969, device self-consistency 1.00000 —
-see docs/pharma-benchmark.md's ESMC-6b row). The 6b port is the same code path
+see docs/implementation-parity.md's ESMC-6b row). The 6b port is the same code path
 as 300m/600m (same Block/Embedding modules, same fused RoPE, head_dim 64), so
 300m/600m's default-gate parity is a cheap proxy; the opt-in 6b leg is the
 standing on-device confirmation. ``run_esmc_parity`` delegates to
@@ -151,7 +151,7 @@ BOLTZGEN_MIN_PASS_RATE = 0.5
 # path measures ~0.9996-0.9998): catches a gross numerics regression, not a tight
 # target, same philosophy as the fold floors. 300m/600m are the embed workhorses
 # (`tt-bio embed`, JapanFold embeddings) and run by default; 6b is opt-in — it
-# passes the same bar on-device (see docs/pharma-benchmark.md's ESMC-6b row) but
+# passes the same bar on-device (see docs/implementation-parity.md's ESMC-6b row) but
 # its ~13 GB load is too slow for the fast gate, so 300m/600m cover it by default.
 ESMC_MIN_PCC = 0.99
 ESMC_DEFAULT = ["esmc-300m", "esmc-600m"]

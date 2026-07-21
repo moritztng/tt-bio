@@ -1,0 +1,34 @@
+{
+  "model": "boltz2",
+  "target": "trpcage",
+  "settings_tag": "nomsa_200step_1sample_3recycle_bf16_gpu",
+  "purpose": "CPU-vs-GPU reference-equivalence leg. The sibling fixture nomsa_200step_1sample_3recycle_bf16 (no _gpu suffix) is the SAME official Boltz-2 run on CPU; this one is the SAME run on an NVIDIA GPU. The two are compared to show the reference is hardware-invariant (CPU ~= GPU), so a pharma evaluator running on GPU can accept the CPU-generated reference fixtures as representative.",
+  "reference_impl": "official Boltz-2 (torch + pytorch-lightning, GPU)",
+  "reference_version": "boltz 2.2.1",
+  "reference_commit": "boltz 2.2.1 (pip, upstream jwohlwend/boltz) — identical to the CPU fixture",
+  "command": "boltz predict trpcage_no_msa.yaml --out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 --accelerator gpu  (then scripts/boltz2_ref_layout.py to reshape to structures/<tid>.cif + results.json)",
+  "settings": {
+    "use_msa": false,
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "seeds": [0, 1],
+    "dtype": "bf16 (pytorch-lightning AMP)",
+    "accelerator": "gpu (NVIDIA RTX 3090, 24GB)",
+    "target": "trp-cage (examples/trpcage_no_msa.yaml, PDB 1L2Y, 20 res, msa: empty)"
+  },
+  "seeds": [0, 1],
+  "msa": "none (no-MSA leg)",
+  "provenance": "Generated 2026-07-13 on a rented vast.ai on-demand RTX 3090 (instance 44721818). Same official Boltz-2 2.2.1, same target, same settings, same seeds (0, 1) as the committed CPU fixture nomsa_200step_1sample_3recycle_bf16. Each seed's GPU predict ran in ~10s after the model weights were cached. Comparison output: docs/implementation-parity-data/boltz2-cpu-vs-gpu-ref.json.",
+  "result": {
+    "metric": "Kabsch CA-RMSD, GPU-vs-CPU (X) vs CPU-vs-CPU floor (R)",
+    "X_gpu_vs_cpu_CA_RMSD_A": "0.680 +/- 0.175 (n=4 pairs)",
+    "R_cpu_vs_cpu_A": 0.8136,
+    "D_gpu_vs_gpu_A": 0.4726,
+    "X_over_floor": 0.836,
+    "within_floor": true,
+    "verdict": "GPU reference agrees with CPU reference to within the CPU reference's own run-to-run noise floor (X=0.68 A <= R=0.81 A). Confidence deltas (GPU-CPU): confidence_score +0.0152, ptm +0.0591, complex_plddt +0.0042, complex_pde -0.0166 — all within 0.06. The reference is hardware-invariant."
+  },
+  "date": "2026-07-13",
+  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_version/commit changes or the settings above change. For any other change the fixture is reused as-is."
+}
