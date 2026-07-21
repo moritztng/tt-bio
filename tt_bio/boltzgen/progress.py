@@ -304,9 +304,9 @@ def _panel(title: str, rows: list[tuple[str, str]], color: str) -> None:
 
 def header(*, specs, protocol, num_designs, batches, budget, devices, output) -> None:
     if len(devices) > 1:
-        dev = f"{len(devices)} cards"
+        dev = f"{len(devices)} cards (ids {','.join(map(str, devices))})"
     elif devices:
-        dev = str(devices[0])
+        dev = f"1 card (id {devices[0]})"
     else:
         dev = "default"
     _panel("[bold cyan]tt-bio gen[/]", [
