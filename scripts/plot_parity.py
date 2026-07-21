@@ -76,7 +76,7 @@ LEGS = [
     ("Boltz-2 HSA no-MSA L585", "boltz2", PASS, lambda: _struct("boltz2-hsa.json", "hsa_no_msa", "rmsd")),
     ("OpenDDE trp-cage L20", "opendde", PASS, lambda: _struct("opendde.json", "trpcage", "rmsd")),
     ("OpenDDE 7ROA prod L117", "opendde", PASS, _opendde_prod),
-    ("Boltz-2 aff FKBP12 L107", "affinity", CAVEAT, lambda: _aff("boltz2-affinity-fkbp12-5x5.json", "affinity_pred_value")),
+    ("Boltz-2 aff FKBP12 L107 (devfp32 vs GPU)", "affinity", PASS, lambda: _aff("boltz2-affinity-fkbp12-devfp32-vs-gpu-5x5.json", "1-pocket_lddt")),
     ("Boltz-2 aff DHFR L187", "affinity", CAVEAT, lambda: _aff("boltz2-affinity-dhfr.json", "affinity_pred_value")),
     ("Boltz-2 aff trypsin L223", "affinity", CAVEAT, lambda: _aff("boltz2-affinity-tryp.json", "affinity_pred_value")),
 ]
