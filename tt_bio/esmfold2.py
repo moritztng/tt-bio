@@ -18,6 +18,7 @@ reuse tt-bio's proven ttnn `TriangleMultiplication` kernel and the ESMC
 from __future__ import annotations
 
 import math
+import os
 
 import torch
 import torch.nn.functional as F
@@ -1193,7 +1194,16 @@ def sample_structure(denoise_fn, n_atoms, ref_mask, *, steps=14, sigma_data=16.0
                      s_min=0.0004, s_max=160.0, p=7.0, gamma_0=0.8, gamma_min=1.0,
                      noise_scale=1.003, step_scale=1.5, max_inference_sigma=256.0, seed=0):
     """Run reverse diffusion (Algorithm 18). denoise_fn(x_noisy[B,N,3], t_hat[B]) -> x_denoised."""
-    gen = torch.Generator().manual_seed(seed)
+    # By default the sampler draws from a private generator seeded with `seed`
+    # so a fold is reproducible independent of global RNG state. The torch
+    # reference's DiffusionStructureHead.sample instead draws from the GLOBAL
+    # RNG (controlled by torch.manual_seed). When TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG
+    # is set, match that convention (gen=None -> torch.randn uses the global
+    # generator): the device sampler then shares draws with the reference for
+    # same-seed parity, and the public `seed` param actually controls the
+    # sampler (the private-generator path ignores it, because the forward never
+    # threads the seed kwarg -- the mp-spawn-worker-unseeded-rng-pattern).
+    gen = None if os.environ.get("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG", "0") not in ("0", "") else torch.Generator().manual_seed(seed)
     schedule = karras_schedule(steps, sigma_data, s_min, s_max, p)
     if max_inference_sigma is not None:
         schedule = schedule[schedule <= float(max_inference_sigma)]
