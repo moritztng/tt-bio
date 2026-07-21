@@ -715,6 +715,15 @@ def run_command(args: argparse.Namespace) -> None:
     try:
         if getattr(args, "controller", None):
             _run_via_controller(args, args.controller)
+        elif not devices:
+            # A local run with zero detected cards would sail through configure
+            # (which never opens the device) and then hang silently inside
+            # execute_command's device-open. Surface the real problem now.
+            raise RuntimeError(
+                "No Tenstorrent devices found under /dev/tenstorrent for a local "
+                "run. Ensure tt-kmd is loaded and the card is visible (ls "
+                "/dev/tenstorrent/), or use --controller to dispatch to a fleet."
+            )
         elif len(devices) > 1:
             _run_distributed(args, devices)
         else:
