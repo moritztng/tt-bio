@@ -1,0 +1,16 @@
+version: 1
+# Covalent inhibitor: an acrylamide warhead (SMILES) covalently bonded to a protein
+# cysteine SG via a Michael addition. atom1 is the protein Cys SG; atom2 is the
+# ligand's terminal =CH2 carbon (C1), the Michael acceptor beta-carbon. Fold with:
+#   tt-bio predict examples/opendde_covalent_ligand.yaml --model opendde --single_sequence
+sequences:
+  - protein:
+      id: A
+      sequence: GCGSQWDRSGR
+  - ligand:
+      id: B
+      smiles: C=CC(=O)N
+constraints:
+  - bond:
+      atom1: [A, 2, SG]
+      atom2: [B, 1, C1]

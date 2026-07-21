@@ -367,9 +367,12 @@ class _WorkerState:
         structural-token fold -> structure. Rides the SAME MSA stage as Protenix-v2 /
         ESMFold2 / Boltz-2: each protein chain whose {seq_hash}.a3m is not cached is
         searched into the shared msa_dir, resolved, and featurized via
-        build_complex_features' block-diagonal MSA. Protein-only (nucleic-acid/ligand
-        structural tokens not ported yet). Confidence-based best-of-N ranking and CIF
-        writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
+        build_complex_features' block-diagonal MSA. Protein + ligand co-folds (nucleic-acid
+        structural tokens not ported yet). Ligand atoms are tokenized per-atom by
+        build_complex_features and expand to one "atom"-role structural token each
+        (opendde_data.build_structural_token_features), so a covalent inhibitor bonded
+        to a protein Cys is honored end-to-end. Confidence-based best-of-N ranking and
+        CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
         ConfidenceHead / build_complex_features / _write_protenix_structure)."""
         import hashlib
         import types
@@ -384,11 +387,12 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein sequences")
-        non_protein = [cid for cid, _s, _sp, mt in chains if mt != "protein"]
-        if non_protein:
+        unsupported = [cid for cid, _s, _sp, mt in chains if mt not in ("protein", "ligand")]
+        if unsupported:
             raise RuntimeError(
-                f"--model opendde is protein-only for now (chain(s) {non_protein} are not "
-                "protein).")
+                f"--model opendde supports protein + ligand chains only (chain(s) "
+                f"{unsupported} are nucleic-acid); nucleic-acid structural tokens are not "
+                "ported yet. Ligand covalent bonds are honored.")
         bonds = _read_bio_constraints(path)
         msa_dir = Path(cfg["msa_dir"])
 
