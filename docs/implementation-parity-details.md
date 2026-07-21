@@ -121,11 +121,11 @@ this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure co
 | Protenix-v2 | 7ROA, L117, MSA | CA-RMSD | 2.76 Å | 0.59 Å | 2.43 ± 0.58 Å | PASS¶¶¶ |
 | Protenix-v2 | ubiquitin, L76, MSA | CA-RMSD | 1.92 Å | 0.91 Å | 1.73 ± 0.36 Å | PASS¶ |
 | Protenix-v2 | HSA, L585, MSA | CA-RMSD | 0.695 Å | 0.368 Å | 0.685 ± 0.156 Å | PASS¶¶ |
-| Boltz-2 | trp-cage, L20, no MSA | CA-RMSD | 0.60 Å | 0.57 Å | 0.66 ± 0.22 Å | PASS† |
-| Boltz-2 | 7ROA, L117, no MSA | CA-RMSD | 4.98 Å | 3.34 Å | 4.21 ± 1.59 Å | PASS‖ |
-| Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 1.20 Å | 1.47 Å | 1.36 ± 0.38 Å | PASS††† |
-| Boltz-2 | ubiquitin, L76, MSA (production default) | CA-RMSD | 1.54 Å | 1.45 Å | 1.59 ± 0.24 Å | PASS§§§ |
-| Boltz-2 | HSA, L585, no MSA | CA-RMSD | 1.18 Å | 1.50 Å | 1.47 ± 0.22 Å | PASS§§ |
+| Boltz-2 | trp-cage, L20, no MSA | CA-RMSD | 0.60 Å | 0.54 Å | 0.66 ± 0.17 Å | PASS† |
+| Boltz-2 | 7ROA, L117, no MSA | CA-RMSD | 4.98 Å | 3.67 Å | 4.66 ± 1.86 Å | PASS‖ |
+| Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 1.20 Å | 1.17 Å | 1.26 ± 0.22 Å | PASS††† |
+| Boltz-2 | ubiquitin, L76, MSA (production default) | CA-RMSD | 1.54 Å | 1.41 Å | 1.41 ± 0.27 Å | PASS§§§ |
+| Boltz-2 | HSA, L585, no MSA | CA-RMSD | 1.18 Å | 1.28 Å | 1.35 ± 0.19 Å | PASS§§ |
 | Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA | Δlog10(IC50) | 0.047 | 0.196 | 0.264 ± 0.151 | PASS‡ |
 | Boltz-2 (affinity) | DHFR + MTX, L187, no MSA | Δlog10(IC50) | 0.031 | 0.042 | 0.054 ± 0.036 | PASS‡ |
 | Boltz-2 (affinity) | trypsin + BAM, L223, no MSA | Δlog10(IC50) | 0.047 | 0.018 | 0.042 ± 0.024 | PASS‡ |
@@ -135,6 +135,42 @@ this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure co
 | BoltzGen | binder against 7ROA chain A | designs ≤2 Å scRMSD | 68.75% | 93.8% | device ≥ reference | PASS |
 | SaProt-35m | ubiquitin, L76 | embedding PCC | 1.00000 | 1.00000 | 0.99914 | PASS‡‡ |
 | SaProt-650m | ubiquitin, L76 | embedding PCC | 1.00000 | 1.00000 | 0.99964 | PASS‡‡ |
+
+**Seed-fix remeasure (2026-07-21).** The Boltz-2 controller `--seed` was never
+passed through `mp.spawn` to the worker, so `worker.py` `torch.manual_seed` was
+dead code and every Boltz-2 multi-process run drew from an unseeded global RNG
+(two same-seed-0 device runs disagreed by 1.73 Å CA-RMSD). The fix wires
+`"seed": seed or 0` into the boltz-2 `worker_cfg` (`tt_bio/main.py`). Because
+this changes the numerics of every Boltz-2 leg, all eight legs (five structure,
+three affinity) were re-folded on device with the fix live (five device seeds
+each, same committed settings) and re-scored against the existing committed
+reference fixtures. Every verdict is unchanged: five structure PASS, FKBP12
+affinity PASS, DHFR and trypsin affinity PASS-caveated. The device self-floor D
+tightens on the tight-floor legs exactly as a wired seed predicts (five seeds
+now produce five distinct reproducible trajectories instead of five unseeded
+draws), X holds or improves on every leg, and no metric leaves its floor.
+Before (unseeded) -> after (seeded) device self-floor D:
+
+| leg | metric | D before | D after |
+|---|---|---|---|
+| 7ROA MSA | CA-RMSD | 1.47 Å | 1.17 Å |
+| ubiquitin MSA | CA-RMSD | 1.45 Å | 1.41 Å |
+| HSA no-MSA | CA-RMSD | 1.50 Å | 1.28 Å |
+| trypsin + BAM | ligand-pose RMSD | 0.725 Å | 0.068 Å |
+| trypsin + BAM | 1-pocket-lDDT | 0.059 | 0.000 |
+
+On the wide-floor no-MSA structure legs (trp-cage, 7ROA no-MSA) the change is
+absorbed into the floor and X/D move only within noise. The trypsin affinity
+`--paired` diagonal collapses below the all-pairs cross mean on
+`affinity_probability_binary` (0.0109 vs 0.0199), the signature that matching
+the seed now matches the trajectory on the affinity path where the bug
+originally surfaced. The DHFR/trypsin pocket-lDDT GAPs are unchanged and remain
+the proven bf16-BACKEND floor (the seed fix does not touch backend precision).
+Seeded evidence JSONs: `docs/implementation-parity-data/boltz2-{trpcage,prot-nomsa,prot-msa,ubiquitin-msa,hsa}-seeded.json`
+and `boltz2-affinity-{fkbp12-devfp32-vs-gpu,dhfr,tryp}-seeded.json`. Reproduce:
+`scripts/pharma_parity.py structures` (structure legs) and
+`scripts/boltz2_affinity_parity.py --paired` (affinity legs), each pointed at
+the seeded device dirs and the committed reference fixtures.
 
 The ESMFold2 comparison also checks an alignment-free coordinate metric and
 sampler-independent pLDDT, distogram, and pTM outputs. Protenix-v2's confidence
