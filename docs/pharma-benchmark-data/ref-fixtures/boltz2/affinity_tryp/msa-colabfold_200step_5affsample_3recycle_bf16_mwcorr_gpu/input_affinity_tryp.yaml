@@ -1,0 +1,12 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: IVGGYTCGANTVPYQVSLNSGYHFCGGSLINSQWVVSAAHCYKSGIQVRLGEDNINVVEGNEQFISASKSIVHPSYNSNTLNNDIMLIKLKSAASLNSRVASISLPTSCASAGTQCLISGWGNTKSSGTSYPDVLKCLKAPILSDSSCKSAYPGQITSNMFCAGYLEGGKDSCQGDSGGPVVCSGKLQGIVSWGSGCAQKNKPGVYTKVCNYVSWIKQTIASN
+      msa: docs/pharma-benchmark-data/ref-fixtures/boltz2/affinity_tryp/msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu/msa.a3m
+  - ligand:
+      id: B
+      ccd: BAM
+properties:
+  - affinity:
+      binder: B
