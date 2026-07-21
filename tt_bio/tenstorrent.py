@@ -1029,32 +1029,35 @@ class AttentionPairBias(Module):
                 program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
             )
 
-        # SDPA does not accept fp32 tensors, so use explicit fp32 attention.
-        # The bias is pre-scaled by sqrt(head_dim); scale QK + bias together.
-        k_t = ttnn.permute(k, (0, 1, 3, 2))
-        scores = ttnn.matmul(
-            q,
-            k_t,
-            compute_kernel_config=self.compute_kernel_config,
-            dtype=self.dtype,
-            core_grid=CORE_GRID_MAIN,
+        # SDPA accepts bf16/bf8/bf4 only. Keep the fp32 transformer in fp32
+        # storage and cross this one hardware boundary in native bf16: the
+        # attention reduction is the precision-insensitive part (softmax over
+        # a large logits range), and fp32 SDPA is op-blocked on Wormhole, so a
+        # pure-fp32 matmul-attention wedges the device. The linears, residuals,
+        # and layernorm around it stay fp32.
+        q_bf16 = ttnn.typecast(q, ttnn.bfloat16, memory_config=q.memory_config())
+        k_bf16 = ttnn.typecast(k, ttnn.bfloat16, memory_config=k.memory_config())
+        v_bf16 = ttnn.typecast(v, ttnn.bfloat16, memory_config=v.memory_config())
+        bias_bf16 = ttnn.typecast(
+            bias, ttnn.bfloat16, memory_config=bias.memory_config()
         )
-        ttnn.deallocate(k_t)
-        scores = ttnn.multiply(
-            ttnn.add(scores, bias), self.head_dim**-0.5
+        out_bf16 = ttnn.transformer.scaled_dot_product_attention(
+            q_bf16,
+            k_bf16,
+            v_bf16,
+            attn_mask=bias_bf16,
+            is_causal=False,
+            scale=self.head_dim**-0.5,
+            program_config=_sdpa_program_config_for_lengths(
+                q_bf16.shape[2], k_bf16.shape[2]
+            ),
         )
-        probs = ttnn.softmax(
-            scores, dim=-1, compute_kernel_config=self.compute_kernel_config
+        for tensor in (q_bf16, k_bf16, v_bf16, bias_bf16):
+            ttnn.deallocate(tensor)
+        out = ttnn.typecast(
+            out_bf16, self.dtype, memory_config=out_bf16.memory_config()
         )
-        ttnn.deallocate(scores)
-        out = ttnn.matmul(
-            probs,
-            v,
-            compute_kernel_config=self.compute_kernel_config,
-            dtype=self.dtype,
-            core_grid=CORE_GRID_MAIN,
-        )
-        ttnn.deallocate(probs)
+        ttnn.deallocate(out_bf16)
         return out
 
     def __call__(
