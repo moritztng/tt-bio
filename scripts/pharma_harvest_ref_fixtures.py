@@ -91,6 +91,9 @@ SPECS = [
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_protenix_run/ref_seed0", "prot"),
             SeedSpec(1, "/home/ttuser/pharma_protenix_run/ref_seed1", "prot"),
+            SeedSpec(2, "/home/ttuser/pharma_seedbump2/protenix/ref_seed2", "prot"),
+            SeedSpec(3, "/home/ttuser/pharma_seedbump2/protenix/ref_seed3", "prot"),
+            SeedSpec(4, "/home/ttuser/pharma_seedbump2/protenix/ref_seed4", "prot"),
         ],
         msa_source="/home/ttuser/pharma_protenix_run/ref_seed0/raw/prot/msa/0.a3m",
         msa_note=(
@@ -245,12 +248,15 @@ SPECS = [
         settings={
             "use_msa": True, "msa_source": "colabfold server (api.colabfold.com), 93 sequences",
             "recycling_steps": 3, "diffusion_steps": 200, "diffusion_samples": 1,
-            "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "seeds": [0, 1, 2, 3, 4], "dtype": "bf16 (pytorch-lightning AMP)",
             "target": "examples/prot.yaml (PDB 7ROA, 117 res)",
         },
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_boltz2_msa_run/ref_harness_s0", "prot"),
             SeedSpec(1, "/home/ttuser/pharma_boltz2_msa_run/ref_harness_s1", "prot"),
+            SeedSpec(2, "/home/ttuser/pharma_seedbump2/boltz2_prot_msa/ref_harness_s2", "prot"),
+            SeedSpec(3, "/home/ttuser/pharma_seedbump2/boltz2_prot_msa/ref_harness_s3", "prot"),
+            SeedSpec(4, "/home/ttuser/pharma_seedbump2/boltz2_prot_msa/ref_harness_s4", "prot"),
         ],
         msa_source="/home/ttuser/pharma_boltz2_msa_run/prot_msa_clean.a3m",
         msa_note=(
@@ -321,12 +327,15 @@ SPECS = [
         ),
         settings={
             "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
-            "diffusion_samples": 1, "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "diffusion_samples": 1, "seeds": [0, 1, 2, 3, 4], "dtype": "bf16 (pytorch-lightning AMP)",
             "target": "trp-cage (examples/trpcage_no_msa.yaml, PDB 1L2Y, 20 res, msa: empty)",
         },
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_trpcage_s0", "trpcage_no_msa"),
             SeedSpec(1, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_trpcage_s1", "trpcage_no_msa"),
+            SeedSpec(2, "/home/ttuser/pharma_seedbump2/boltz2_trpcage/ref_harness_s2", "trpcage_no_msa"),
+            SeedSpec(3, "/home/ttuser/pharma_seedbump2/boltz2_trpcage/ref_harness_s3", "trpcage_no_msa"),
+            SeedSpec(4, "/home/ttuser/pharma_seedbump2/boltz2_trpcage/ref_harness_s4", "trpcage_no_msa"),
         ],
         provenance_note=(
             "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/"
@@ -334,7 +343,7 @@ SPECS = [
             "Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and "
             "identical confidence). The fresh reference-vs-reference floor R=0.81 A (1 seed pair) "
             "reproduces the published R=0.79 in docs/pharma-benchmark.md within noise. "
-            "Per-seed confidence_score 0.854/0.847, ptm 0.85/0.85."
+            "Per-seed confidence_score 0.854/0.847, ptm 0.445/0.420 (the 0.85 in the prior note was the confidence_score, not ptm). Seeds 2,3,4 were generated 2026-07-21 on qb2 CPU (pinned boltz 2.2.1, same 3 recycle / 200 sampling steps / 1 sample settings, msa: empty) for the 2+2 -> 5+5 pharma-meeting hardening pass; the 5+5 read is X 0.66 +- 0.22 A vs floor max(R 0.60, D 0.57) = 0.60 A (X/floor 1.10, within the floor+std band on CA-RMSD; 1-lDDT exceeds at 1.93), reproducing the 2+2 X 0.60 within noise."
         ),
     ),
     FixtureSpec(
