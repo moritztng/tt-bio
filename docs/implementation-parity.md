@@ -92,3 +92,26 @@ Each leg's reproduce command is in [Implementation parity — details](implement
 The harness is `scripts/pharma_parity.py`; reference fixtures live under
 `docs/implementation-parity-data/ref-fixtures/`. Regenerate this chart with
 `python3 scripts/plot_parity.py`.
+
+### Where the reference fixtures come from
+
+The verdict numbers a reader checks are the small committed JSONs at the top of
+`docs/implementation-parity-data/` (the score/verdict files, ~160 KB total) plus
+the per-fixture `meta.json`/`results.json` provenance under `ref-fixtures/`. The
+large binary fixtures — the reference CIF structures and A3M MSAs that back each
+diffusion leg — are externalized to GitHub Release assets to keep the repo
+small, and are no longer committed going forward (see `.gitignore`).
+
+A fresh checkout reproduces a leg end-to-end by restoring the binaries:
+
+```bash
+scripts/fetch_parity_fixtures.sh            # default tag = parity-fixtures-latest
+# or a pinned pass: scripts/fetch_parity_fixtures.sh --tag parity-fixtures-2026-07
+```
+
+The fixtures are harvested from real reference runs (multi-hour GPU/CPU legs via
+`scripts/pharma_harvest_ref_fixtures.py`); they are not regenerable on demand,
+which is why they are versioned as release assets rather than rebuilt. The
+fixtures already committed in the repo today (the 33 MB present at the time of
+this change) stay tracked — no history rewrite was performed; only future binary
+additions are externalized.
