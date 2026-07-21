@@ -79,8 +79,9 @@ leg with D/R above 5.0 emits `FLOOR-INFLATED-BY-D` in the parity table and JSON
 report. The warning does not change the PASS/GAP verdict; it tells the reviewer
 to investigate device instability before trusting a device-dominated floor.
 Deterministic paths with R near zero skip this ratio. The threshold is
-calibrated above the 17 current stochastic primary-metric ratios (median 0.81,
-range 0.21–4.17), so no committed leg currently triggers it.
+calibrated above the 17 current stochastic primary-metric ratios (median 0.58,
+range 0.25–1.38), ~3.6× the largest, so no committed leg currently triggers it
+and legitimate wide-but-stable no-MSA floors stay clear.
 
 ## Results
 

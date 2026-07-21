@@ -81,10 +81,14 @@ def noise_floor_verdict(cross, ref_floor, dev_floor, metric: str,
     the larger of the two self-consistency floors. `ratio` < ~1 means the
     device-vs-reference gap is indistinguishable from run-to-run noise.
 
-    The independent D/R check warns when device self-consistency is more than
-    5x looser than reference self-consistency. The threshold is just above the
-    largest committed primary-metric D/R (4.17x across 17 stochastic legs).
-    It is skipped when R is effectively zero, as on deterministic forwards.
+    The independent D/R check warns when device self-consistency is
+    anomalously looser than reference self-consistency. The 5.0 threshold is
+    ~3.6x the largest committed primary-metric D/R (1.38x; median 0.58, range
+    0.25-1.38 across the 17 stochastic kabsch_rmsd legs the check covers), a
+    conservative bar that leaves headroom for legitimate wide-but-stable
+    no-MSA floors (today up to 1.38x) while flagging a genuine device-
+    instability blowup. Skipped when R is effectively zero (deterministic
+    forwards).
     """
     X, R, D = summarize(cross), summarize(ref_floor), summarize(dev_floor)
     floor = max(R.get("mean", 0.0), D.get("mean", 0.0))
