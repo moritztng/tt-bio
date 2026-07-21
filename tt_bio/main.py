@@ -141,6 +141,28 @@ from tt_bio.worker import run_worker_loop
 BOLTZ2_REPO = "moritztng/boltz-2"            # Boltz-2 weights + molecules (MIT)
 PROTENIX_REPO = "TMF001/protenix-v2-weights"  # Protenix-v2 weights (Apache-2.0)
 
+# Single source of truth for the predict output-folder prefix. Each supported
+# --model maps to a model-named results folder; a model not listed falls back to
+# the neutral, model-independent "results" prefix (never a hardcoded "boltz_"
+# string). Add a new model here when you add it to the predict --model choice.
+_MODEL_RESULTS_PREFIX = {
+    "boltz2": "boltz2_results",
+    "esmfold2": "esmfold2_results",
+    "esmfold2-fast": "esmfold2_results",
+    "protenix-v2": "protenix_results",
+    "opendde": "opendde_results",
+    "opendde-abag": "opendde_results",
+}
+
+
+def predict_results_dir_name(model: str, stem: str) -> str:
+    """Predict output folder name: <model>_results_<stem> (e.g.
+    protenix_results_prot, boltz2_results_trpcage). Single source of truth —
+    every consumer (CLI, release gate, parity harness) derives the results-folder
+    name from here so a new model gets a correct, model-named folder automatically
+    and no generic output path ever hardcodes boltz_."""
+    return f"{_MODEL_RESULTS_PREFIX.get(model, 'results')}_{stem}"
+
 
 def hf_artifact(repo_id: str, filename: str, dest_dir: Path) -> Path:
     """Fetch one file from a Hugging Face repo into dest_dir on first use and
@@ -1951,7 +1973,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     \b
     Output:
         msa/                # MSA cache (keyed by sequence hash)
-        boltz_results_<name>/
+        <model>_results_<name>/   # e.g. protenix_results_prot, boltz2_results_trpcage
             structures/     # one CIF per complex (pLDDT in B-factors)
             results.json    # confidence metrics + affinity
     """
@@ -2017,7 +2039,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # --single_sequence, so single-sequence folding here is always an explicit choice.
         data = Path(data).expanduser()
         out_dir_path = Path(out_dir).expanduser()
-        out = out_dir_path / f"boltz_results_{data.stem}"
+        out = out_dir_path / predict_results_dir_name(model, data.stem)
         msa_dir = Path(msa_dir_opt).expanduser() if msa_dir_opt else out_dir_path / "msa"
         struct_dir = out / "structures"
         msa_dir.mkdir(parents=True, exist_ok=True)
@@ -2100,7 +2122,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
 
     data = Path(data).expanduser()
     out_dir_path = Path(out_dir).expanduser()
-    out = out_dir_path / f"boltz_results_{data.stem}"
+    out = out_dir_path / predict_results_dir_name(model, data.stem)
     msa_dir = Path(msa_dir_opt).expanduser() if msa_dir_opt else out_dir_path / "msa"
     struct_dir = out / "structures"
     msa_dir.mkdir(parents=True, exist_ok=True)
