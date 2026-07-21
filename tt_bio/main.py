@@ -2189,6 +2189,15 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
         "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
         "fast": fast, "single_sequence": single_sequence,
+        # Seed the spawned worker's RNG (mp.get_context("spawn") does NOT inherit
+        # the controller's torch.manual_seed). Without this the boltz-2 diffusion
+        # ``torch.randn`` draws are unseeded, so same-seed device runs disagree by
+        # the full stochastic spread (measured 1.73 A CA-RMSD on ubiquitin seed 0),
+        # which the doc's same-seed diagonal test cannot distinguish from "systematic
+        # bf16" -- it is the mp-spawn-worker-unseeded-rng-pattern. worker.py re-seeds
+        # once before predict_step (structure -> affinity from one stream, matching
+        # the reference's single seed_everything).
+        "seed": seed or 0,
     }
     run_payload = {
         "data": str(data),

@@ -25,9 +25,9 @@ accuracy (does the fold match the native structure) is out of scope.
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
 | Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97); residual systematic bf16, see §§§ |
 | Boltz-2 | HSA, L585, no MSA | PASS | CA-RMSD 1.47 Å inside the 1.50 Å floor; first L585 target |
-| Boltz-2 (affinity) | FKBP12 + SB3, L107 | PASS | device-fp32 hybrid diffusion vs the GPU bf16 reference: pocket-lDDT X 0.011 within the 0.011 GPU floor (X/floor 0.94); affinity scalar, affinity probability, and ligand-pose RMSD also pass (X/floor 0.77 / 0.77 / 0.85) |
-| Boltz-2 (affinity) | DHFR + MTX, L187 | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 1.29 / 0.95); pocket-lDDT GAPs (5.28), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 and CPU-bf16 references disagree on the pocket by the same ~0.13 lDDT margin the device does), not a port defect |
-| Boltz-2 (affinity) | trypsin + BAM, L223 | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.90 / 0.90); pocket-lDDT GAPs (10.67), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 vs CPU-bf16 pocket-lDDT X/floor 7.51, both NO), not a port defect |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107 | PASS | device-fp32 hybrid diffusion vs the GPU bf16 reference: pocket-lDDT X 0.014 within the GPU noise floor (X/floor 1.25); affinity scalar, affinity probability, and ligand-pose RMSD also pass (X/floor 0.79 / 1.38 / 0.92) |
+| Boltz-2 (affinity) | DHFR + MTX, L187 | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.68 / 1.36); pocket-lDDT GAPs (4.72), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 and CPU-bf16 references disagree on the pocket by the same ~0.13 lDDT margin the device does), not a port defect |
+| Boltz-2 (affinity) | trypsin + BAM, L223 | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.94 / 0.95); pocket-lDDT GAPs (10.13), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 vs CPU-bf16 pocket-lDDT X/floor 7.51, both NO), not a port defect |
 | OpenDDE | trp-cage, L20, no MSA | PASS | CA-RMSD 0.51 Å inside the 0.52 Å floor |
 | OpenDDE | 7ROA, production | PASS | wide device-dominated floor (D 6.04 Å); absolute X 4.67 Å |
 | OpenDDE-abag | 1AHW Ab–Ag | PASS | global DockQ 0.864; per-interface iRMSD 0.65/0.70/1.20 Å, all sub-Å-to-low-Å |
@@ -43,7 +43,7 @@ PASS-caveated entries (DHFR and trypsin affinity) are proven a genuine
 bf16-BACKEND precision floor, not a port defect, by three-backend triangulation
 (the pinned GPU-bf16 and CPU-bf16 references disagree on the pocket by the same
 ~0.09-0.13 lDDT margin the device does, so no single-backend lever or reference
-switch can manufacture a PASS). Protenix-v2 HSA was GAP-evidenced under bf16
+switch can manufacture a PASS). All Boltz-2 legs were re-measured with the seed-wiring fix live (2026-07-21); every verdict held (see the seed-fix remeasure note in the details doc). Protenix-v2 HSA was GAP-evidenced under bf16
 diffusion; running that model's diffusion sampler in fp32 on device — matching
 the reference's own fp32 boundary rather than a blanket precision bump — closed
 it to a clean PASS. The full measured R/D/X
