@@ -27,6 +27,15 @@ prot8/
 !docs/implementation-parity-data/ref-fixtures/boltzgen/binder/
 !docs/implementation-parity-data/ref-fixtures/boltzgen/binder/**
 
+# Parity reference fixtures: externalize the large binaries (CIF structures, A3M
+# MSAs) to GitHub Release assets and fetch on demand (scripts/fetch_parity_fixtures.sh).
+# The small provenance JSONs/yaml/csv stay committed (they are the evidence a reader
+# checks); ignore new .cif/.a3m so they are not accidentally re-added to git. The
+# already-committed fixtures stay tracked (no history rewrite); this only blocks
+# future binary additions.
+docs/implementation-parity-data/ref-fixtures/**/*.cif
+docs/implementation-parity-data/ref-fixtures/**/*.a3m
+
 # ...but keep the vendored ESM MSA package (the msa/ rule above would hide it)
 !tt_bio/_vendor/esm/utils/msa/
 !tt_bio/_vendor/esm/utils/msa/*.py
