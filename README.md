@@ -441,6 +441,14 @@ constraints:
       atom2: [B, 1, C12]     # ligand atom by name; polymer atoms by residue
 ```
 
+> **OpenDDE + covalent bonds:** OpenDDE is protein-only today, so a `bond` constraint
+> works only when **both endpoints are protein residues** (e.g. a disulfide or
+> crosslink between two chains); a ligand endpoint (the covalent-inhibitor case)
+> is rejected because ligand chains aren't accepted yet. The protein-protein subset
+> rides the same `token_bonds` machinery as Protenix-v2 and is honored in the output
+> (device-verified); see `examples/opendde_covalent_bond.yaml`. Ligand covalent bonds
+> are tracked as a scoped port of the ligand structural-token featurizer.
+
 #### Templates
 
 Use experimental structures as templates:
