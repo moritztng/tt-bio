@@ -9,13 +9,14 @@ heads -- from the separately-validated ESMC-6B port (tests/test_esmc.py) and fro
 featurization. The torch reference is ``ESMFold2Model`` left unpatched; the test
 path is the same model after ``patch_esmfold2`` (every learnable submodule -> ttnn).
 
-Diffusion noise is not bit-identical across the torch and ttnn samplers (independent
-RNG streams per backend), so a single seed pair cannot separate genuine port drift
-from sampling variance. Instead each protein is folded at several sampler seeds on
-*both* backends, giving three coordinate-metric distributions -- reference-vs-
-reference (R), device-vs-device (D) and device-vs-reference (X) -- summarized with
-the same statistical core (`pharma_parity.summarize` / `noise_floor_verdict`) the
-rest of the parity benchmark uses. Parity holds when X sits within max(R, D).
+Both samplers consume CPU ``torch`` random draws from the same globally-seeded
+stream, so matching seeds provide a paired, shared-draw comparison. Each protein
+is also folded at several seeds on both backends, giving three coordinate-metric
+distributions -- reference-vs-reference (R), device-vs-device (D) and
+device-vs-reference (X) -- summarized with the same statistical core
+(`pharma_parity.summarize` / `noise_floor_verdict`) the rest of the parity
+benchmark uses. Parity holds when X sits within max(R, D); the paired diagonal
+shows whether matching random draws collapses the residual.
 
 Reported per protein:
   * plddt_pcc / plddt_mae   -- per-residue confidence, the metric ESMFold ranks on
@@ -112,7 +113,7 @@ def pair_metrics(a, b, atom_mask):
 
 
 def compare_multiseed(ref_runs: dict, tt_runs: dict, atom_mask, seeds):
-    """R (ref-vs-ref), D (tt-vs-tt), X (tt-vs-ref) distributions over sampler seeds."""
+    """R/D/X distributions plus the shared-draw same-seed diagonal."""
     r_rmsd, r_pcc = [], []
     for s1, s2 in itertools.combinations(seeds, 2):
         rmsd, p = pair_metrics(ref_runs[s1], ref_runs[s2], atom_mask)
@@ -125,9 +126,23 @@ def compare_multiseed(ref_runs: dict, tt_runs: dict, atom_mask, seeds):
     for s1, s2 in itertools.product(seeds, seeds):
         rmsd, p = pair_metrics(tt_runs[s1], ref_runs[s2], atom_mask)
         x_rmsd.append(rmsd); x_pcc.append(1 - p)
+    paired_rmsd, paired_pcc = [], []
+    for seed in seeds:
+        rmsd, p = pair_metrics(tt_runs[seed], ref_runs[seed], atom_mask)
+        paired_rmsd.append(rmsd); paired_pcc.append(1 - p)
+
+    def with_paired(verdict, paired):
+        verdict["same_seed_cross"] = summarize(paired)
+        verdict["same_seed_over_all_cross"] = (
+            verdict["same_seed_cross"]["mean"] / verdict["cross"]["mean"]
+        )
+        return verdict
+
     return {
-        "kabsch_rmsd": noise_floor_verdict(x_rmsd, r_rmsd, d_rmsd, "kabsch_rmsd"),
-        "coord_dm_1mpcc": noise_floor_verdict(x_pcc, r_pcc, d_pcc, "1-coord_dm_pcc"),
+        "kabsch_rmsd": with_paired(
+            noise_floor_verdict(x_rmsd, r_rmsd, d_rmsd, "kabsch_rmsd"), paired_rmsd),
+        "coord_dm_1mpcc": with_paired(
+            noise_floor_verdict(x_pcc, r_pcc, d_pcc, "1-coord_dm_pcc"), paired_pcc),
     }
 
 

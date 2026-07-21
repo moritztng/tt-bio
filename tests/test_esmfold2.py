@@ -151,6 +151,25 @@ def test_distogram_head(seq_len):
     assert pcc(out, ref_out) > 0.999
 
 
+def test_diffusion_sampler_shared_rng_gate(monkeypatch):
+    """The opt-in sampler path follows the caller's global torch RNG stream."""
+    ref_mask = torch.ones(1, 8)
+
+    def denoise(x_noisy, _t_hat):
+        return 0.5 * x_noisy
+
+    monkeypatch.setenv("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG", "1")
+    torch.manual_seed(7)
+    first = tt_ef2.sample_structure(denoise, 8, ref_mask, steps=4)
+    torch.manual_seed(7)
+    repeated = tt_ef2.sample_structure(denoise, 8, ref_mask, steps=4)
+    torch.manual_seed(8)
+    different = tt_ef2.sample_structure(denoise, 8, ref_mask, steps=4)
+
+    torch.testing.assert_close(first, repeated, rtol=0, atol=0)
+    assert not torch.equal(first, different)
+
+
 def test_diffusion_sampler():
     """Sampler orchestration + ttnn DiffusionModule over a (short) reverse-diffusion
     trajectory. Compares ttnn-sampled coords to the torch reference module under

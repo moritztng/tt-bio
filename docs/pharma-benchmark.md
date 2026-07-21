@@ -186,17 +186,17 @@ wall-clock, not for any accuracy reason; run it with
 `python scripts/release_gate.py --model esmc-6b` (or
 `scripts/esmc6b_embed_parity.py --seqs trpcage,gb1,ubiquitin,lysozyme`).
 
-† The lysozyme leg (L129, 5 sampler seeds): the device-vs-reference CA-RMSD is
-0.130 Å, the tightest absolute agreement of any ESMFold2 leg (trp-cage 0.61,
-GB1 0.33, ubiquitin 0.75 Å). Lysozyme is a rigid, well-folded domain, so the
-torch reference is unusually self-consistent (R = 0.095 Å) and the floor is
-tight; the device's bf16 diffusion stochasticity sits at 1.37× that floor,
-above the strict criterion but sub-angstrom and statistically a small residual,
-not an algorithmic discrepancy. The sampler-independent outputs match the
-reference essentially exactly: pLDDT PCC 0.9950, distogram PCC 0.99957,
-pTM Δ +0.00007. This is the same bf16-diffusion-stochasticity property already
-documented for Boltz-2, Protenix-v2, and OpenDDE, now measured at a longer
-single-sequence length.
+† The lysozyme leg (L129, 5 nominal sampler seeds) remains PASS-caveated at
+the committed measurement: CA-RMSD X = 0.130 Å versus R = 0.095 Å and D =
+0.077 Å. Investigation found that the device sampler used a private generator
+fixed at seed 0, so the five device runs did not exercise five sampler seeds;
+D measured only residual ttnn run-to-run nondeterminism. A release-gated fix
+makes the device consume the same globally seeded CPU `torch` RNG stream as the
+reference. A two-seed trp-cage check verifies that device seed spread changes
+from 0.155 Å to 0.706 Å (reference 0.593 Å), but the required five-seed L129
+rerun did not complete after a card TLB failure. The row is therefore not
+promoted until that measurement exists. The sampler-independent L129 outputs
+remain pLDDT PCC 0.9950, distogram PCC 0.99957, and pTM Δ +0.00007.
 
 ‡ The affinity leg (FKBP12, the PDBbind immunophilin drug target, 107 residues
 + the small-molecule inhibitor SB3; `msa: empty`, 5 seeds, `--affinity_mw_correction`):
