@@ -921,14 +921,14 @@ class AttentionPairBias(Module):
         self.compute_pair_bias = compute_pair_bias
         self.atom_level = atom_level
         if atom_level:
-            self.q_weight = self.torch_to_tt("proj_q.weight", dtype=_dtype())
-            self.q_bias = self.torch_to_tt("proj_q.bias", dtype=_dtype())
+            self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
+            self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
             kv_weight = torch.cat([self.weights["proj_k.weight"], self.weights["proj_v.weight"]], dim=0)
             self.kv_weight = ttnn.from_torch(
                 kv_weight.t(),
                 layout=ttnn.TILE_LAYOUT,
                 device=self.device,
-                dtype=_dtype(),
+                dtype=self.dtype,
             )
         else:
             qkv_weight = torch.cat(
@@ -1133,16 +1133,20 @@ class Transition(Module):
         self,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        dtype: ttnn.DataType | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
-        self.norm_weight = self.torch_to_tt("norm.weight")
-        self.norm_bias = self.torch_to_tt("norm.bias")
-        self.fc1_weight = self.torch_to_tt("fc1.weight")
-        self.fc2_weight = self.torch_to_tt("fc2.weight")
-        self.fc3_weight = self.torch_to_tt("fc3.weight")
+        self.dtype = dtype
+        weight_dtype = dtype if dtype is not None else ttnn.bfloat16
+        self.norm_weight = self.torch_to_tt("norm.weight", dtype=weight_dtype)
+        self.norm_bias = self.torch_to_tt("norm.bias", dtype=weight_dtype)
+        self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=weight_dtype)
+        self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
+        self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         def swiglu(x):
+            dtype = self.dtype if self.dtype is not None else _dtype()
             x_norm = ttnn.layer_norm(
                 x,
                 weight=self.norm_weight,
@@ -1157,7 +1161,7 @@ class Transition(Module):
                 activation="silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             x_2 = ttnn.linear(
@@ -1165,7 +1169,7 @@ class Transition(Module):
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
@@ -1175,7 +1179,7 @@ class Transition(Module):
                 x,
                 self.fc3_weight,
                 compute_kernel_config=self.compute_kernel_config,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
