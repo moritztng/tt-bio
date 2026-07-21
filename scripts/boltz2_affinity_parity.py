@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Boltz-2 binding-affinity implementation parity: tt-bio device vs the official Boltz-2 reference.
 
-The structure legs of docs/pharma-benchmark.md compare predicted *coordinates*
+The structure legs of docs/implementation-parity.md compare predicted *coordinates*
 (Kabsch CA-RMSD) across seeds. Affinity prediction instead emits a scalar
 (``affinity_pred_value`` = log10(IC50) in uM, MW-corrected ensemble mean over the
 ``--diffusion_samples_affinity`` samples and the two affinity heads; plus

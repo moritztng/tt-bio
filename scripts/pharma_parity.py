@@ -115,13 +115,13 @@ def noise_floor_verdict(cross, ref_floor, dev_floor, metric: str,
 # ---------------------------------------------------------------------------
 # committed reference fixtures
 # ---------------------------------------------------------------------------
-FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "docs" / "pharma-benchmark-data" / "ref-fixtures"
+FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "docs" / "implementation-parity-data" / "ref-fixtures"
 
 
 def resolve_ref_fixtures(spec: str, seeds=None) -> list:
     """Resolve committed reference-fixture seed dirs for "<model>/<target>/<tag>".
 
-    The fixture tree lives at docs/pharma-benchmark-data/ref-fixtures/<model>/<target>/<tag>/
+    The fixture tree lives at docs/implementation-parity-data/ref-fixtures/<model>/<target>/<tag>/
     seed<N>/ (results.json + structures/<id>.cif), produced once by a real reference run and
     committed so the expensive reference legs do NOT re-run on every release-gate pass. Each
     fixture dir carries a meta.json pinning the reference implementation + version + settings;
@@ -499,7 +499,7 @@ def main() -> int:
     s = sub.add_parser("structures", help="fold models: device vs reference cif dirs")
     s.add_argument("--ref-dirs", nargs="+", help="reference run dirs, one per seed (live reference output)")
     s.add_argument("--ref-fixtures", default="", help="committed fixture spec <model>/<target>/<tag> "
-                   "to read the reference side from docs/pharma-benchmark-data/ref-fixtures instead of "
+                   "to read the reference side from docs/implementation-parity-data/ref-fixtures instead of "
                    "re-running the reference; the fixture is reused as-is (no reference compute)")
     s.add_argument("--ref-seeds", type=int, nargs="*", default=None, help="subset of fixture seeds to use")
     s.add_argument("--dev-dirs", nargs="+", required=True, help="device run dirs, one per seed (live)")

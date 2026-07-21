@@ -527,12 +527,12 @@
               "machine_id": "pc",
               "tt_bio_version": "0.3.1",
               "date": "2026-07-20",
-              "note": "seed p150a boltz2-affinity perf baseline (new leg added in pharma-benchmark-hardening pass, no prior baseline existed)"
+              "note": "seed p150a boltz2-affinity perf baseline (new leg added in implementation-parity-hardening pass, no prior baseline existed)"
             }
           },
           "date": "2026-07-20",
           "tt_bio_version": "0.3.1",
-          "note": "seed p150a boltz2-affinity perf baseline (new leg added in pharma-benchmark-hardening pass, no prior baseline existed)"
+          "note": "seed p150a boltz2-affinity perf baseline (new leg added in implementation-parity-hardening pass, no prior baseline existed)"
         }
       }
     }

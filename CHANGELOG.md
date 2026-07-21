@@ -18,7 +18,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   correct shapes saprot-1.3b reaches X_emb=0.99508 / X_logits=0.99895 (deterministic,
   qb1 card 1) — a near-pass; the per-residue embedding PCC lands just below the
   0.9987–0.9996 ESMC band (bf16 accumulation over 66 residual layers), so no clean
-  PASS row is added to `docs/pharma-benchmark.md`. See `docs/saprot-parity.md`.
+  PASS row is added to `docs/implementation-parity.md`. See `docs/saprot-parity.md`.
 - **Perf-gate within-card-type false positives** — the perf-regression gate keyed
   baselines by card type only, so two machines with the same card type (pc vs qb1,
   both p150a) read as false ~30–36% regressions against each other. Added a machine-id
@@ -72,7 +72,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   Protenix-v2 GAP (X=1.03 ± 0.17 Å vs a tight GPU-bf16 reference floor R=0.70 Å — a
   tight-floor effect from bf16 numerical divergence between NVIDIA and Tenstorrent
   reduction orders, not a structural defect; both folds are correct HSA shapes). See
-  `docs/pharma-benchmark.md`.
+  `docs/implementation-parity.md`.
 
 ### Release gate (card p150a @ pc, tt-bio 0.3.1 baseline, warm 2 warmup + 5 timed)
 Perf-regression gate: 11/11 models within ±15% of baseline, no regression. boltz2
@@ -142,7 +142,7 @@ No perf regression. No OOM observed through the gate targets.
 
 First release shipping **OpenDDE** antibody-antigen co-folding (`--model opendde` / `opendde-abag`, built on the Protenix-v2 stack plus a structural-token expander), the **ESMC fused-RoPE** attention kernel (an accuracy-neutral speedup for the embed path), and opt-in **diffusion trace replay** for the Boltz-2, BoltzGen, and OpenDDE CLIs plus the Protenix-v2 Python API. Also lands the standing **perf-regression** and **UX-regression** harnesses as release-gate legs, plus the per-card performance baseline fix.
 
-OpenDDE's antibody-antigen accuracy is weak on `9dsg`, a confirmed reference-level ceiling rather than a port bug; the device-vs-reference results for `9dsg` and `1ahw` are in `docs/pharma-benchmark.md`.
+OpenDDE's antibody-antigen accuracy is weak on `9dsg`, a confirmed reference-level ceiling rather than a port bug; the device-vs-reference results for `9dsg` and `1ahw` are in `docs/implementation-parity.md`.
 
 **Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0, Blackhole P150a):
 

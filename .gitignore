@@ -24,8 +24,8 @@ tests/random_protein_sweep/
 prot8/
 
 # ...but keep the committed BoltzGen reference fixtures (the binder/ rule above would hide them)
-!docs/pharma-benchmark-data/ref-fixtures/boltzgen/binder/
-!docs/pharma-benchmark-data/ref-fixtures/boltzgen/binder/**
+!docs/implementation-parity-data/ref-fixtures/boltzgen/binder/
+!docs/implementation-parity-data/ref-fixtures/boltzgen/binder/**
 
 # ...but keep the vendored ESM MSA package (the msa/ rule above would hide it)
 !tt_bio/_vendor/esm/utils/msa/

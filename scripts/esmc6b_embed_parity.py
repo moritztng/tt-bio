@@ -45,7 +45,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tests"))
 
 from tt_bio import esmc as tt_esmc  # noqa: E402
 
-# Same proteins the 300m/600m pharma-benchmark legs report (scripts/pharma_parity.py).
+# Same proteins the 300m/600m implementation-parity legs report (scripts/pharma_parity.py).
 ESMC_SEQS = {
     "trpcage": "NLYIQWLKDGGPSSGRPPPS",                                                  # 20
     "gb1": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTE",                 # 56

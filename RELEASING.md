@@ -51,7 +51,7 @@ confidence-selected complex scores global DockQ ≥0.50 against the experimental
 0.863 best-confidence). DockQ is an eval-time requirement, not a project runtime
 dep — set `OPENDDE_DOCKQ_PYTHON` to a venv with DockQ (==2.1.3) installed if the
 gate venv does not carry it. The 1AHW implementation-parity detail stays in
-`docs/pharma-benchmark.md`.
+`docs/implementation-parity.md`.
 
 The performance gate measures warm throughput for every shipped architecture
 — the fold models, the ESMC embed path, and the BoltzGen design pipeline

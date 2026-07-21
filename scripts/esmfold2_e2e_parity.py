@@ -95,7 +95,7 @@ def kabsch_rmsd(a_coords, b_coords, atom_mask):
     are not part of the structure. Averaging squared deviation over them swamps the
     real-atom RMSD and manufactures a spurious device-vs-reference gap (it inflates
     the cross-backend term more than the same-backend floor). See
-    docs/pharma-benchmark-data/esmfold2-gb1-investigation.md.
+    docs/implementation-parity-data/esmfold2-gb1-investigation.md.
     """
     import tt_bio.esmfold2 as E
     a = a_coords.float(); b = b_coords.float()

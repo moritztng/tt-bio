@@ -1,0 +1,131 @@
+{
+  "mode": "structures",
+  "model": "protenix-v2",
+  "status": "complete: R/D/X measured on 7ROA (117-res, MSA). X = 2.63 +/- 0.42 A Kabsch CA-RMSD, within the noise floor (floor = R = 2.94 A, X/floor = 0.89). The floor is dominated by the reference's own seed-to-seed inconsistency (R=2.94 > D=1.47), the confidence-head under-ranking showing up on the reference side too. ptm delta (device - ref) = -0.041 (device confidence head also under-ranks).",
+  "target": {
+    "id": "prot",
+    "source": "examples/prot.yaml",
+    "pdb": "7ROA",
+    "chain": "EntV136 (E. faecalis)",
+    "n_residues": 117,
+    "n_tokens": 117,
+    "n_atoms": 900,
+    "n_msa": 35
+  },
+  "settings": {
+    "use_msa_server": true,
+    "sampling_steps": 200,
+    "diffusion_samples": 5,
+    "recycling_steps": "default (10, protenix-v2 spec)",
+    "selection": "confidence-selected (best-of-5 by ranking_score/ptm)",
+    "seeds": [
+      0,
+      1
+    ]
+  },
+  "methodology": {
+    "msa": "Both sides fold the SAME MSA (the reference's protenix-server.com MSA, dumped at ref_seed{0,1}/raw/prot/msa/0.a3m and fed to the device via the msa_dir sequence-hash cache), so X measures pure port fidelity with input MSA held identical. The device's default ColabFold MSA server (api.colabfold.com) was unreachable this session, and feeding the reference MSA to the device is the cleaner parity test anyway (identical input). The previously-preserved device floor D=0.79 A / PCC 0.998 was from the original qb1 device run on a ColabFold MSA (ptm ~0.904); it is retained below as the prior ColabFold-MSA floor and is not the floor paired with this X.",
+    "comparison": "scripts/pharma_parity.py structures --ref-dirs ref_seed0 ref_seed1 --dev-dirs dev_seed0/boltz_results_prot dev_seed1/boltz_results_prot. Same Kabsch CA-RMSD / coord-PCC / confidence-delta methodology as every other fold model in the benchmark. R = reference seed0-vs-seed1 (1 pair); D = device seed0-vs-seed1 (1 pair); X = all 2x2 device-vs-reference pairs (n=4)."
+  },
+  "device": {
+    "seed0": {
+      "runtime_s": 59.6,
+      "ptm": 0.828758,
+      "complex_plddt": 0.865747,
+      "confidence_score": 0.828758
+    },
+    "seed1": {
+      "runtime_s": 22.0,
+      "ptm": 0.82891,
+      "complex_plddt": 0.86561,
+      "confidence_score": 0.82891
+    },
+    "note": "Device ptm ~0.829 is lower than the original qb1 run's ~0.904 because the MSA differs (reference protenix-server MSA here vs ColabFold on qb1). The device confidence head barely discriminates across the 5 samples (ptm 0.826-0.829) and picks a low-ptm 'best' -- the under-ranking caveat, on the device side.",
+    "self_consistency_D": {
+      "kabsch_rmsd_A": 1.4713656789771414,
+      "coord_pcc": 0.9937355774455457,
+      "n_pairs": 1,
+      "n_matched_atoms": 900,
+      "msa": "reference protenix-server (same as X leg)",
+      "note": "D floor: device seed0 vs seed1, confidence-selected structures, same-MSA."
+    },
+    "self_consistency_D_prior_qb1_colabfold_msa": {
+      "kabsch_rmsd_A": 0.7889609336295829,
+      "coord_pcc": 0.998227850226914,
+      "n_matched_atoms": 900,
+      "note": "Prior device floor from the original qb1 run (ColabFold MSA, ptm ~0.904). cif lost with qb1. Retained for provenance; NOT the floor paired with this X (different MSA)."
+    }
+  },
+  "reference": {
+    "implementation": "official ByteDance Protenix 2.0.0, torch, CPU",
+    "env": "protenix 2.0.0 (editable install of bytedance/Protenix main, commit c3bfc36) on Python 3.12 + torch 2.7.1+cpu; CUDA FusedLayerNorm stubbed by torch LayerNorm; triangle kernels forced to torch (no cuequivariance/deepspeed CUDA exts)",
+    "checkpoint": "/home/ttuser/.boltz/protenix-v2.pt",
+    "msa_server": "https://protenix-server.com/api/msa",
+    "seeds": {
+      "seed0": {
+        "finished_utc2": "2026-07-13 05:30",
+        "selected_sample_idx": 0,
+        "ranking_score": 0.1834959238767624,
+        "ptm": 0.9174795746803284,
+        "plddt_0_100": 90.24132537841797
+      },
+      "seed1": {
+        "finished_utc2": "2026-07-13 05:54",
+        "selected_sample_idx": 0,
+        "ranking_score": 0.16431693732738495,
+        "ptm": 0.8215846419334412,
+        "plddt_0_100": 79.8656005859375
+      }
+    },
+    "self_consistency_R": {
+      "kabsch_rmsd_A": 2.939010256749135,
+      "coord_pcc": 0.9743078561609759,
+      "n_pairs": 1,
+      "note": "R floor: reference seed0 vs seed1, confidence-selected structures. Larger than D because the reference confidence head also under-ranks -- seed0's 'best' landed on a 0.917-ptm sample, seed1's on a 0.822-ptm sample, so the two selected structures differ by 2.94 A. The same confidence-head under-ranking is observed on the device port."
+    },
+    "marker_files": [
+      "/home/ttuser/pharma_protenix_run/ref_seed0/REF_PREDICT_DONE (seed=0 done, 2026-07-13 05:30)",
+      "/home/ttuser/pharma_protenix_run/ref_seed1/REF_PREDICT_DONE (seed=1 done, 2026-07-13 05:54)"
+    ]
+  },
+  "parity": {
+    "cross_X": {
+      "kabsch_rmsd_A": {
+        "n": 4,
+        "mean": 2.630269626900602,
+        "std": 0.41971713419656936,
+        "min": 2.19359433045145,
+        "max": 3.1135594692299837
+      },
+      "coord_pcc": {
+        "n": 4,
+        "mean": 0.9791736561215365,
+        "std": 0.0065703385542827345,
+        "min": 0.9713023662979864,
+        "max": 0.9858348678357123
+      },
+      "n_matched_atoms": 900
+    },
+    "floor": {
+      "metric": "kabsch_rmsd_A",
+      "R": 2.939010256749135,
+      "D_same_msa": 1.4713656789771414,
+      "floor_mean": 2.939010256749135,
+      "cross_over_floor": 0.8949508157926492
+    },
+    "within_noise_floor": true,
+    "confidence_delta_device_minus_ref": {
+      "ptm": -0.0407,
+      "iptm": 0.0,
+      "note": "device mean ptm 0.8288 - ref mean ptm 0.8695. Device confidence head picks lower-ptm 'best' samples than the reference; both sides under-rank."
+    }
+  },
+  "verdict": "PASS within noise floor. X = 2.63 +/- 0.42 A Kabsch CA-RMSD, coord PCC 0.979, sits below the floor (max(R,D) = R = 2.94 A; X/floor = 0.89). The port reproduces the reference no worse than the reference already reproduces itself across seeds. Caveat (disclosed, model-level not port-level): the Protenix-v2 confidence head under-ranks on BOTH sides, so the 'best'-selected structure is noisy and the floor is confidence-selection-limited, not diffusion-limited; the diffusion output itself is faithful.",
+  "resume": {
+    "ref_dump": "/home/ttuser/pharma_protenix_run/ref_seed{0,1}/raw (official Protenix 2.0.0 CPU output, 5 samples/seed)",
+    "ref_repackager": "scripts/protenix_ref_to_harness.py -> ref_seed{N}/structures/prot.cif + results.json (picks max ranking_score sample, matching the device's confidence-selected best-of-5)",
+    "device_regen": "TT_VISIBLE_DEVICES=2 tt-bio predict --model protenix-v2 --use_msa_server --sampling_steps 200 --diffusion_samples 5 --seed {0,1} --out_dir dev_seed{N} --msa_dir dev_msa (dev_msa pre-seeded with the reference MSA at {seq_hash}.a3m so the device folds the identical MSA; ~60s + ~22s for seeds 0/1 on card 2)",
+    "parity_command": "scripts/pharma_parity.py structures --ref-dirs ref_seed0 ref_seed1 --dev-dirs dev_seed0/boltz_results_prot dev_seed1/boltz_results_prot --label 'protenix-v2' --out docs/implementation-parity-data/protenix-v2.json",
+    "additional_targets": "Each reference-side seed costs several hours of CPU wall clock (N_step=200 x N_sample=5 torch triangle ops, no CUDA fusion); run additional targets sequentially to avoid CPU contention on this 32-core host."
+  }
+}
