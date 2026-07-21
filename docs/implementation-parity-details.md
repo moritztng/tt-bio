@@ -126,9 +126,12 @@ this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure co
 | Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 1.20 Å | 1.17 Å | 1.26 ± 0.22 Å | PASS††† |
 | Boltz-2 | ubiquitin, L76, MSA (production default) | CA-RMSD | 1.54 Å | 1.41 Å | 1.41 ± 0.27 Å | PASS§§§ |
 | Boltz-2 | HSA, L585, no MSA | CA-RMSD | 1.18 Å | 1.28 Å | 1.35 ± 0.19 Å | PASS§§ |
-| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA | Δlog10(IC50) | 0.047 | 0.196 | 0.264 ± 0.151 | PASS‡ |
-| Boltz-2 (affinity) | DHFR + MTX, L187, no MSA | Δlog10(IC50) | 0.031 | 0.042 | 0.054 ± 0.036 | PASS‡ |
-| Boltz-2 (affinity) | trypsin + BAM, L223, no MSA | Δlog10(IC50) | 0.047 | 0.018 | 0.042 ± 0.024 | PASS‡ |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA (non-default) | Δlog10(IC50) | 0.047 | 0.196 | 0.264 ± 0.151 | PASS‡ |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, MSA (production default) | Δlog10(IC50) | 0.025 | 0.027 | 0.062 ± 0.027 | GAP‡ᴹ |
+| Boltz-2 (affinity) | DHFR + MTX, L187, no MSA (non-default) | Δlog10(IC50) | 0.031 | 0.042 | 0.054 ± 0.036 | PASS‡ |
+| Boltz-2 (affinity) | DHFR + MTX, L187, MSA (production default) | Δlog10(IC50) | 0.038 | 0.041 | 0.054 ± 0.034 | PASS‡ᴹ |
+| Boltz-2 (affinity) | trypsin + BAM, L223, no MSA (non-default) | Δlog10(IC50) | 0.047 | 0.018 | 0.042 ± 0.024 | PASS‡ |
+| Boltz-2 (affinity) | trypsin + BAM, L223, MSA (production default) | Δlog10(IC50) | 0.072 | 0.047 | 0.057 ± 0.037 | PASS‡ᴹ |
 | OpenDDE | trp-cage, L20, no MSA | CA-RMSD | 0.37 Å | 0.52 Å | 0.51 ± 0.16 Å | PASS‡‡‡ |
 | OpenDDE | 7ROA, production settings | CA-RMSD | 1.50 Å | 6.04 Å | 4.67 ± 3.32 Å | PASS‡‡‡ |
 | OpenDDE-abag | 1AHW antibody–antigen | global DockQ / interface-RMSD | 0.83–0.86 | 0.863–0.882 | device matches reference | PASS‡‡‡‡ |
@@ -625,3 +628,65 @@ change. Use `scripts/pharma_harvest_ref_fixtures.py` (with `--only
 <model>/<target>` to re-harvest a single fixture, and `--skip-missing` when an
 earlier seed's source dir lives on a different build host and the seed is already
 committed) and review the fixture metadata before committing it.
+
+## Pass 7 — MSA affinity legs (production default)
+
+‡ᴹ The three affinity legs above were re-run with MSA enabled, which is Boltz-2's
+production default (a pharma user folds a target whose homologs are known, so the
+MSA is fed). The earlier `no MSA` rows are retained and relabeled `non-default`
+because they are the single-sequence configuration used to cross-compare with the
+no-MSA structure legs; the MSA rows are the production-representative legs a
+customer actually hits. Settings are identical to the no-MSA legs (5 seeds 0-4,
+`--recycling_steps 3 --sampling_steps 200 --diffusion_samples 1
+--sampling_steps_affinity 200 --diffusion_samples_affinity 5
+--affinity_mw_correction`, bf16 device diffusion on qb1 card 2); only the MSA
+differs. The MSA for each target was generated once from the local ColabFold
+database on qb1 (`~/.boltz/msa_db`: UniRef30 2302 + EnvDB 202108, the same DBs the
+remote ColabFold server uses), committed as `msa.a3m` under
+`docs/implementation-parity-data/ref-fixtures/boltz2/affinity_<t>/msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu/`,
+and fed to BOTH the reference and the device via the YAML `msa:` field — so the
+two sides fold the identical MSA and the parity is valid (no network call, fully
+deterministic). The reference was regenerated with the official `boltz 2.2.1`
+CPU affinity path on qb1 (the same impl + kernel — torch-einsum triangle path —
+as the committed no-MSA CPU fixtures, only the MSA differs); the no-MSA
+GPU-vs-CPU check in this benchmark (`boltz2-cpu-vs-gpu-ref.json`) proved the
+Boltz-2 reference is hardware-invariant, so this CPU MSA reference represents
+what a GPU pharma user would see (a vast.ai GPU rental was attempted this run but
+was infeasible at ~114 KB/s pypi throughput). Result JSONs:
+`docs/implementation-parity-data/boltz2-affinity-{fkg,dhfr,tryp}-msa.json`. Reproduce:
+`python3 scripts/boltz2_affinity_parity.py --ref-dirs <fixture>/affinity_<t>/msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu/seed{0,1,2,3,4} --dev-dirs dev_<t>_s{0,1,2,3,4}/boltz_results_affinity_<t>_dev --target-id affinity_<t> --paired --out boltz2-affinity-<t>-msa.json`.
+
+5-seed R/D/X reads (MSA, all four metrics; within_noise_floor True=PASS, False=GAP):
+
+| target (protein + ligand, length) | metric | dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |
+|---|---|---|---|---|---|---|
+| FKBP12 + SB3, L107, MSA | affinity_pred_value (Δlog10 IC50) | 0.062 ± 0.027 | 0.025 | 0.027 | 2.27 | NO (GAP) |
+| FKBP12 + SB3, L107, MSA | affinity_probability_binary | 0.0020 ± 0.0010 | 0.000 | 0.0014 | 1.45 | YES (PASS) |
+| FKBP12 + SB3, L107, MSA | ligand-pose RMSD (Å) | 0.424 ± 0.128 | 0.224 | 0.506 | 0.84 | YES (PASS) |
+| FKBP12 + SB3, L107, MSA | 1-pocket-lDDT | 0.127 ± 0.043 | 0.025 | 0.028 | 4.48 | NO (GAP) |
+| DHFR + MTX, L187, MSA | affinity_pred_value (Δlog10 IC50) | 0.054 ± 0.034 | 0.038 | 0.041 | 1.32 | YES (PASS) |
+| DHFR + MTX, L187, MSA | affinity_probability_binary | 0.0023 ± 0.0013 | 0.000 | 0.0024 | 0.95 | YES (PASS) |
+| DHFR + MTX, L187, MSA | ligand-pose RMSD (Å) | 0.437 ± 0.101 | 0.242 | 0.271 | 1.61 | YES (PASS) |
+| DHFR + MTX, L187, MSA | 1-pocket-lDDT | 0.129 ± 0.027 | 0.010 | 0.005 | 13.35 | NO (GAP) |
+| trypsin + BAM, L223, MSA | affinity_pred_value (Δlog10 IC50) | 0.057 ± 0.037 | 0.072 | 0.047 | 0.79 | YES (PASS) |
+| trypsin + BAM, L223, MSA | affinity_probability_binary | 0.0161 ± 0.0103 | 0.013 | 0.017 | 0.92 | YES (PASS) |
+| trypsin + BAM, L223, MSA | ligand-pose RMSD (Å) | 0.508 ± 0.451 | 0.116 | 0.654 | 0.78 | YES (PASS) |
+| trypsin + BAM, L223, MSA | 1-pocket-lDDT | 0.099 ± 0.041 | 0.013 | 0.036 | 2.75 | NO (GAP) |
+
+MSA verdict: 8 PASS / 4 GAP across the 12 metric-cells. The consistent GAP is
+1-pocket-lDDT on all three targets — the same narrower-basin systematic-bf16
+property the no-MSA legs show (proven via the same-seed diagonal, which is
+seed-independent on 11 of 12 metric-cells: the device and reference land in
+slightly different local interface basins whose cross exceeds the tight
+self-consistency floor, while the global pose and the scalar affinity are
+faithful). MSA tightens the affinity-scalar floor substantially (the reference
+reproduces its own MSA-conditioned affinity more tightly than its single-sequence
+affinity), so the same device-vs-reference distance that passed at X/floor 1.35
+on FKBP12 no-MSA now GAPs at X/floor 2.27 on FKBP12 MSA — this is the honest,
+production-representative result: MSA does not widen the floor, it narrows it,
+exposing the residual device bf16 offset on the scalar for the tightest target.
+DHFR and trypsin MSA affinity scalars still PASS (X/floor 1.32 and 0.79). The
+pocket-lDDT GAP points at the same fp32-host affinity-path lift the no-MSA
+pocket-lDDT GAP points at; it is the documented release-gate concern for the
+Boltz-2 affinity port, unchanged by adding MSA. Pass-7 detail:
+`~/.coworker/state/tt-bio-boltz2-affinity-msa-legs.md`.
