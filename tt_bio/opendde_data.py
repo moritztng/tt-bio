@@ -7,11 +7,14 @@ atom names already come from tt_bio.data.const.ref_atoms (the same table protein
 uses to build ref_pos), so the backbone/sidechain split and atom<->structural-token maps are
 derived independently from the identical source, in the identical iteration order.
 
-Scope: protein chains only (the target case for a first real co-fold). Glycine and any
-non-protein/ligand residue degenerate to a single "atom"-role token -- the same fallback the
-upstream tokenizer itself uses whenever one atom group (here, sidechain) is empty. Nucleic-acid
-backbone/base splitting follows the identical pattern (NUCLEIC_BACKBONE_ATOMS) and is left for
-when a nucleic co-folding target is on the critical path.
+Scope: protein chains + ligand chains (the covalent-inhibitor case). Protein residues
+expand to backbone/sidechain structural tokens (glycine and any sidechain-less residue degenerate
+to a single protein_bb token -- upstream's own fallback). Ligand atoms are already tokenized
+per-atom by build_complex_features (one residue-token per ligand atom, restype UNK), so each
+expands to a single "atom"-role structural token -- mirroring upstream AtomArrayTokenizer's
+_get_atom_token_from_parent (opendde/data/tokenizer.py). Nucleic-acid backbone/base splitting
+follows the identical pattern (NUCLEIC_BACKBONE_ATOMS) and is left for when a nucleic co-folding
+target is on the critical path.
 """
 import torch
 
@@ -25,6 +28,7 @@ STRUCTURAL_TOKEN_ROLES = {
     "dna_bb": 3, "dna_base": 4, "rna_bb": 5, "rna_base": 6,
 }
 PROTEIN_BACKBONE_ATOMS = frozenset(["N", "CA", "C", "O", "OXT"])
+MOL_TYPE_LIGAND = 3  # feats["mol_type"] value for a ligand atom-token (MOL_TYPE_IDS["ligand"])
 
 _LETTER_TO_RES = {v: k for k, v in const.prot_token_to_letter.items()}
 
@@ -67,6 +71,8 @@ def build_structural_token_features(feats):
     res_id = feats["residue_index"]
     aatype = feats["restype"].argmax(-1)
     n_res = aatype.shape[0]
+    mol_type = feats["mol_type"]
+    n_atom = feats["atom_to_token_idx"].shape[0]
 
     # C-terminal per CHAIN: each asym_id's last residue carries OXT, matching
     # protenix_data.protein_atom_features (called once per chain). A per-chain vs
@@ -78,6 +84,14 @@ def build_structural_token_features(feats):
     parent, role, twin = [], [], []
     atom_tok, atom_tokatom = [], []
     for r in range(n_res):
+        # Ligand atom-token: one "atom"-role structural token per ligand atom
+        # (upstream AtomArrayTokenizer._get_atom_token_from_parent). build_complex_features
+        # tokenizes a ligand PER ATOM, so this parent token IS the atom (1:1); tokatom=0.
+        if int(mol_type[r]) == MOL_TYPE_LIGAND:
+            st_idx = len(parent)
+            parent.append(r); role.append(STRUCTURAL_TOKEN_ROLES["atom"]); twin.append(-1)
+            atom_tok.append(st_idx); atom_tokatom.append(0)
+            continue
         aa = int(aatype[r])
         res = _LETTER_TO_RES[RESTYPE_ORDER[aa]] if aa < len(RESTYPE_ORDER) else "UNK"
         names = _residue_atom_names(res, is_c_terminal=is_c_term[r])
@@ -105,6 +119,13 @@ def build_structural_token_features(feats):
 
     parent_t = torch.tensor(parent, dtype=torch.long)
     prev_res, next_res = _residue_adjacency(asym_id, res_id)
+    # atom_to_structural_token_idx is indexed by ATOM (feats atom order). The protein
+    # branch appends per-residue atoms in ref_atoms order and the ligand branch appends
+    # one atom per ligand token in token order -- both match feats' atom order within
+    # each chain, so the concatenated list is in feats atom order iff the count matches.
+    assert len(atom_tok) == n_atom, (
+        f"structural-token atom map misaligned: {len(atom_tok)} atoms built vs "
+        f"{n_atom} in feats (ligand atom<->token order drift?)")
     return {
         "structural_token_index": torch.arange(len(parent), dtype=torch.long),
         "parent_residue_idx": parent_t,

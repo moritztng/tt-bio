@@ -79,7 +79,7 @@ tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen
 | MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) |
 | Affinity / potentials / templates | yes | no | no | no |
 | Pocket / contact constraints | yes | no | no | no |
-| Covalent `bond` constraints | yes | no | yes | no |
+| Covalent `bond` constraints | yes | no | yes | yes |
 | PAE/PDE output (`--write_pae`) | no | no | yes | no |
 
 All structure models support the sampling, output-format, and scheduling options.
@@ -278,8 +278,8 @@ The `--affinity_mw_correction` flag applies molecular weight correction for more
 ### Input Format
 
 ESMFold2 accepts protein inputs only. Protenix-v2 accepts proteins, DNA, RNA,
-ligands, and covalent `bond` constraints. OpenDDE currently accepts proteins
-only. Boltz-2 additionally supports affinity, pocket/contact constraints,
+ligands, and covalent `bond` constraints. OpenDDE accepts proteins and ligands
+and honors covalent `bond` constraints between them. Boltz-2 additionally supports affinity, pocket/contact constraints,
 potentials, and user-supplied templates.
 
 Create a YAML file describing your complex:
@@ -411,7 +411,7 @@ For affinity targets, the same `results.json` entry also contains:
 
 #### Constraints
 
-Pocket and contact constraints are **Boltz-2 only** (they need a trained constraint embedder). Covalent `bond` constraints work with **Boltz-2 and Protenix-v2**.
+Pocket and contact constraints are **Boltz-2 only** (they need a trained constraint embedder). Covalent `bond` constraints work with **Boltz-2, Protenix-v2, and OpenDDE**.
 
 **Pocket Constraints** (binding site):
 ```yaml
@@ -441,13 +441,12 @@ constraints:
       atom2: [B, 1, C12]     # ligand atom by name; polymer atoms by residue
 ```
 
-> **OpenDDE + covalent bonds:** OpenDDE is protein-only today, so a `bond` constraint
-> works only when **both endpoints are protein residues** (e.g. a disulfide or
-> crosslink between two chains); a ligand endpoint (the covalent-inhibitor case)
-> is rejected because ligand chains aren't accepted yet. The protein-protein subset
-> rides the same `token_bonds` machinery as Protenix-v2 and is honored in the output
-> (device-verified); see `examples/opendde_covalent_bond.yaml`. Ligand covalent bonds
-> are tracked as a scoped port of the ligand structural-token featurizer.
+> **OpenDDE + covalent bonds:** OpenDDE honors a `bond` constraint between a protein
+> residue and a ligand atom (the covalent-inhibitor case) or between two protein
+> residues (a disulfide or crosslink). Both ride the same `token_bonds` machinery as
+> Protenix-v2 and are honored in the output (device-verified against upstream OpenDDE
+> within the reference's own seed noise floor); see `examples/opendde_covalent_ligand.yaml`
+> and `examples/opendde_covalent_bond.yaml`.
 
 #### Templates
 
