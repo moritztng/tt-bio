@@ -20,10 +20,13 @@
   },
   "seeds": [
     0,
-    1
+    1,
+    2,
+    3,
+    4
   ],
   "msa": "Protenix-server.com MSA, identical for seed0 and seed1 (diff of ref_seed{0,1}/raw/prot/msa/0.a3m is empty). 166 a3m entries; the reference trims to N_msa=157 for the forward pass.",
   "provenance": "Harvested from the 2026-07-13 qb2 reference run (REF_PREDICT_DONE markers at ref_seed{0,1}). Per-seed ptm in results.json matches docs/pharma-benchmark-data/protenix-v2.json (seed0 ptm 0.91748, seed1 ptm 0.82158). Checkpoint /home/ttuser/checkpoint/protenix-v2.pt.",
-  "date": "2026-07-13",
+  "date": "2026-07-21",
   "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
 }
