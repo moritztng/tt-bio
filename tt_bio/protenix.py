@@ -25,6 +25,7 @@ structures within sample variance of the reference (scripts/protenix_fold_e2e.py
 scripts/protenix_predict.py -> PDB). Remaining (packaging): data-pipeline vendoring
 (sequence/CCD -> feats dict), worker/CLI --model protenix-v2, unified README.
 """
+import os
 import torch
 import ttnn
 
@@ -55,6 +56,18 @@ def _window_kv(x, N, NP, nq=32, nk=128, pad_left=48):
     C = x.shape[-1]; nb = NP // nq; Lp = pad_left + NP + nk
     x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
     x = ttnn.pad(x, [[0, 0], [pad_left, Lp - pad_left - N], [0, 0]], 0.0)
+    if x.dtype == ttnn.float32:
+        # embedding only accepts bf16 tables. Build the same overlapping windows from
+        # four block-aligned slices so the full-fp32 diffusion path stays on device
+        # without quantizing the atom stream back to bf16.
+        blocks_per_window = nk // nq
+        x = ttnn.slice(x, [0, 0, 0], [1, NP + nk - nq, C])
+        x = ttnn.reshape(x, (nb + blocks_per_window - 1, nq, C))
+        x = ttnn.concat([
+            ttnn.slice(x, [i, 0, 0], [i + nb, nq, C])
+            for i in range(blocks_per_window)
+        ], dim=1)
+        return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
     x = ttnn.reshape(x, (Lp, C))                                   # gather table (Lp, C)
     idx = _WIN_KV_IDX.get((NP, nq, nk))
     if idx is None:
@@ -80,18 +93,20 @@ class _KeyedWeights:
         if v is None:
             w = self._w[key]
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+                                layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                dtype=getattr(self, "dtype", ttnn.bfloat16))
             cache[(key, transpose)] = v
         return v
 
     def _up(self, t):
         """Upload an activation/host tensor (per call, not cached)."""
-        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                               dtype=getattr(self, "dtype", ttnn.bfloat16))
 
     def _lin(self, x, wkey, bkey=None, activation=None):
         return ttnn.linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
                            activation=activation, compute_kernel_config=self.compute_kernel_config,
-                           core_grid=CORE_GRID_MAIN)
+                           dtype=getattr(self, "dtype", ttnn.bfloat16), core_grid=CORE_GRID_MAIN)
 
     def _ln(self, x, wkey, bkey=None):
         return ttnn.layer_norm(x, weight=self._w_tt(wkey, False),
@@ -114,8 +129,9 @@ class AtomTransformer(_KeyedWeights, Module):
     N_KEYS = 128
     PAD_LEFT = 48  # (n_keys - n_queries) // 2
 
-    def __init__(self, n_blocks, state_dict, compute_kernel_config):
+    def __init__(self, n_blocks, state_dict, compute_kernel_config, dtype=ttnn.bfloat16):
         super().__init__(state_dict, compute_kernel_config)
+        self.dtype = dtype
         self.n_blocks = n_blocks
         self._w = {k: v for k, v in self.weights.data.items()}
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
@@ -131,7 +147,7 @@ class AtomTransformer(_KeyedWeights, Module):
         ada = cache.get(pre)
         if ada is None:
             sub = {k[len(pre):]: v for k, v in self._w.items() if k.startswith(pre)}
-            ada = AdaLN(False, remap_adaln(sub), self.compute_kernel_config)
+            ada = AdaLN(False, remap_adaln(sub), self.compute_kernel_config, dtype=self.dtype)
             cache[pre] = ada
         return ada(a, s)
 
@@ -163,9 +179,19 @@ class AtomTransformer(_KeyedWeights, Module):
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
         Lp = self.PAD_LEFT + NP + nk
         x = ttnn.pad(x, [[0, 0], [self.PAD_LEFT, Lp - self.PAD_LEFT - N], [0, 0]], 0.0)
-        x = ttnn.reshape(x, (Lp, H * dh))                          # gather table (Lp, H*dh)
-        idx = self._kv_window_idx(nb, nq, nk, NP)                  # (1, nb*nk) uint32
-        x = ttnn.embedding(idx, x, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        if x.dtype == ttnn.float32:
+            blocks_per_window = nk // nq
+            x = ttnn.slice(x, [0, 0, 0], [1, NP + nk - nq, H * dh])
+            x = ttnn.reshape(x, (nb + blocks_per_window - 1, nq, H * dh))
+            x = ttnn.concat([
+                ttnn.slice(x, [i, 0, 0], [i + nb, nq, H * dh])
+                for i in range(blocks_per_window)
+            ], dim=1)
+        else:
+            x = ttnn.reshape(x, (Lp, H * dh))                      # gather table (Lp, H*dh)
+            idx = self._kv_window_idx(nb, nq, nk, NP)              # (1, nb*nk) uint32
+            x = ttnn.embedding(idx, x, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            x = ttnn.reshape(x, (nb, nk, H, dh))
         x = ttnn.reshape(x, (nb, nk, H, dh))
         x = ttnn.permute(x, (0, 2, 1, 3))
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
@@ -219,7 +245,7 @@ class AtomTransformer(_KeyedWeights, Module):
     def _make_pad_bias(self, mask_trunked):
         pad = torch.where(mask_trunked < 0.5, torch.full_like(mask_trunked, -1e9),
                           torch.zeros_like(mask_trunked)).unsqueeze(1)  # (nb,1,nq,nk)
-        return ttnn.from_torch(pad, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+        return ttnn.from_torch(pad, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.dtype)
 
     def precompute_biases(self, p, mask_trunked):
         """Per-block atom-pair bias + the pad bias -- both pure functions of (p, mask_trunked),
@@ -254,20 +280,21 @@ class AtomFeaturization(Module):
       p_lm = W_d(d_lm)*v_lm*mask_trunked + W_invd(1/(1+sum d_lm^2))*v_lm + W_v(v_lm)
     """
 
-    def __init__(self, state_dict, compute_kernel_config):
+    def __init__(self, state_dict, compute_kernel_config, dtype=ttnn.bfloat16):
         super().__init__(state_dict, compute_kernel_config)
+        self.dtype = dtype
         # nn.Linear weights are (out, in); _lin/ttnn.linear want (in, out).
-        self.w_ref_pos = self.torch_to_tt("linear_no_bias_ref_pos.weight")
-        self.w_ref_charge = self.torch_to_tt("linear_no_bias_ref_charge.weight")
-        self.w_f = self.torch_to_tt("linear_no_bias_f.weight")
-        self.w_d = self.torch_to_tt("linear_no_bias_d.weight")
-        self.w_invd = self.torch_to_tt("linear_no_bias_invd.weight")
-        self.w_v = self.torch_to_tt("linear_no_bias_v.weight")
+        self.w_ref_pos = self.torch_to_tt("linear_no_bias_ref_pos.weight", dtype=dtype)
+        self.w_ref_charge = self.torch_to_tt("linear_no_bias_ref_charge.weight", dtype=dtype)
+        self.w_f = self.torch_to_tt("linear_no_bias_f.weight", dtype=dtype)
+        self.w_d = self.torch_to_tt("linear_no_bias_d.weight", dtype=dtype)
+        self.w_invd = self.torch_to_tt("linear_no_bias_invd.weight", dtype=dtype)
+        self.w_v = self.torch_to_tt("linear_no_bias_v.weight", dtype=dtype)
 
     def _lin_nb(self, x, w):
         return ttnn.linear(
             x, w, compute_kernel_config=self.compute_kernel_config,
-            dtype=ttnn.bfloat16, core_grid=CORE_GRID_MAIN,
+            dtype=self.dtype, core_grid=CORE_GRID_MAIN,
         )
 
     def c_l(self, ref_pos, ref_charge_asinh, ref_mask, f_in):
@@ -373,8 +400,10 @@ class DiffusionModule(_KeyedWeights):
     rather than recomputed; the atom-encoder conditioning and atom-transformer pair/pad
     biases are likewise hoisted once per fold. A host fp32 DiT fallback is kept (device_dit
     =False) for the strict per-step parity test, which builds no precomputed device bias.
-    Everything runs on-device (ttnn, HiFi4); --fast drops the trunk to bf8 but keeps the
-    coordinate-sensitive diffusion in bf16 (see Protenix.__init__)."""
+    Everything runs on-device (ttnn, HiFi4). The coordinate-sensitive diffusion uses fp32
+    by default to match the reference boundary across the conditioning cache, atom encoder and
+    transformers, token DiT, and atom decoder. Set PROTENIX_DIFFUSION_FP32_DEVICE=0 to A/B bf16.
+    The --fast mode still applies only to the trunk (see Protenix.__init__)."""
 
     SIGMA_DATA = 16.0
     NQ, NK, PAD_LEFT = 32, 128, 48
@@ -386,25 +415,37 @@ class DiffusionModule(_KeyedWeights):
         self._w = dict(diffusion_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
+        self._diffusion_fp32 = os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
+        self.dtype = ttnn.float32 if self._diffusion_fp32 else ttnn.bfloat16
         self.atxE = AtomTransformer(3, {k[len("atom_attention_encoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
                                         if k.startswith("atom_attention_encoder.atom_transformer.")},
-                                    compute_kernel_config)
+                                    compute_kernel_config, dtype=self.dtype)
         self.atxD = AtomTransformer(3, {k[len("atom_attention_decoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
                                         if k.startswith("atom_attention_decoder.atom_transformer.")},
-                                    compute_kernel_config)
+                                    compute_kernel_config, dtype=self.dtype)
         self._wc = {}  # device-weight cache (upload once; reused across all sampling steps)
         from .tenstorrent import AdaLN, AttentionPairBias, Transition
         C = "diffusion_conditioning."
         self._cond_transitions = [
             Transition(PW.remap_transition({k[len(C + nm + "."):]: v for k, v in self._w.items()
-                                                if k.startswith(C + nm + ".")}), compute_kernel_config)
+                                                if k.startswith(C + nm + ".")}), compute_kernel_config,
+                       dtype=self.dtype)
             for nm in ("transition_s1", "transition_s2")]
         # On-device token DiT: per-block AdaLN + AttentionPairBias (compute_pair_bias=False,
         # fed the precomputed UNSCALED bias as the SDPA mask -> matches the host math exactly;
         # these primitives handle the head_dim=48 tile padding). s-gate + conditioned-transition
         # are raw ttnn (protenix's ctb differs from tt-bio's ConditionedTransitionBlock).
+        # Full on-device fp32 diffusion. The GPU reference disables autocast for the
+        # entire sampling score model, while its trunk remains under bf16 autocast. Match that
+        # exact boundary: the conditioning cache, atom encoder/transformer, token DiT, and atom
+        # decoder all use ttnn float32. This stays on the device and keeps the existing traced
+        # device_dit path. The paired HSA accuracy and performance gates passed; bf16 remains
+        # available as an explicit A/B opt-out through PROTENIX_DIFFUSION_FP32_DEVICE=0.
+        self._dit_fp32 = self._diffusion_fp32
+        self._dit_dtype = self.dtype
+        self._dit_ckc = compute_kernel_config   # HiFi4 + fp32_dest_acc_en: dtype is on the tensors
         self.device_dit = True
         DT = "diffusion_transformer."
         sub = lambda pfx: {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
@@ -413,12 +454,34 @@ class DiffusionModule(_KeyedWeights):
             A = DT + f"blocks.{b}.attention_pair_bias."
             Cc = DT + f"blocks.{b}.conditioned_transition_block."
             self._dit.append((
-                AdaLN(False, remap_adaln(sub(A + "layernorm_a.")), compute_kernel_config),
+                AdaLN(False, remap_adaln(sub(A + "layernorm_a.")), self._dit_ckc, dtype=self._dit_dtype),
                 AttentionPairBias(self.DIT_HEAD_DIM, self.DIT_N_HEADS, True, False,
-                                  PW.remap_attention_pair_bias(sub(A)), compute_kernel_config),
-                AdaLN(False, remap_adaln(sub(Cc + "adaln.")), compute_kernel_config),
+                                  PW.remap_attention_pair_bias(sub(A)), self._dit_ckc,
+                                  dtype=self._dit_dtype, fp32_raw_matmul_attention=True),
+                AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
 
+
+    def _up_dit(self, t):
+        """Upload an activation/host tensor at the DiT dtype (fp32 when the gate is on)."""
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
+
+    def _w_tt_dit(self, key, transpose=True):
+        """Dedicated DiT weight-upload cache at the active diffusion dtype."""
+        cache = self.__dict__.setdefault("_wc_dit", {})
+        v = cache.get((key, transpose))
+        if v is None:
+            w = self._w[key]
+            v = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
+            cache[(key, transpose)] = v
+        return v
+
+    def _ln_dit(self, x, wkey, bkey=None):
+        """Layer norm at the DiT dtype (used for the DiT-output layernorm_a when fp32)."""
+        return ttnn.layer_norm(x, weight=self._w_tt_dit(wkey, False),
+                               bias=(self._w_tt_dit(bkey, False) if bkey else None),
+                               epsilon=1e-5, compute_kernel_config=self._dit_ckc)
 
     def _atom_cond(self, cond):
         """Hoist the t-INDEPENDENT diffusion conditioning out of the per-step denoise.
@@ -507,7 +570,10 @@ class DiffusionModule(_KeyedWeights):
                     cond["dit_z"], cond.get("structural_pair_attn_bias"))
             a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single,
                                          cond["dit_block_biases"], NT)
-            a_t = self._ln(a_t, "layernorm_a.weight")
+            if self._dit_fp32:
+                a_t = self._ln_dit(a_t, "layernorm_a.weight")
+            else:
+                a_t = self._ln(a_t, "layernorm_a.weight")
         else:  # host fp32 fallback (max fidelity / no precomputed device bias)
             a_h = torch.Tensor(ttnn.to_torch(ttnn.reshape(a_tok, (1, NT, 768)))).float().reshape(NT, 768)
             s_h = torch.Tensor(ttnn.to_torch(s_single)).float().reshape(NT, s_single.shape[-1])
@@ -566,7 +632,10 @@ class DiffusionModule(_KeyedWeights):
             cond["dit_block_biases"] = self._dit_block_biases(
                 cond["dit_z"], cond.get("structural_pair_attn_bias"))
         a_t = self._token_dit_device(ttnn.reshape(a_tok, (1, NT, 768)), s_single, cond["dit_block_biases"], NT)
-        a_t = self._ln(a_t, "layernorm_a.weight")
+        if self._dit_fp32:
+            a_t = self._ln_dit(a_t, "layernorm_a.weight")
+        else:
+            a_t = self._ln(a_t, "layernorm_a.weight")
         DE = "atom_attention_decoder."
         q = ttnn.add(ttnn.matmul(cond["S_dev"], self._lin(ttnn.reshape(a_t, (NT, 768)), DE + "linear_no_bias_a.weight"),
                                  compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN),
@@ -578,7 +647,7 @@ class DiffusionModule(_KeyedWeights):
 
     def _host_tt(self, x):
         """Host-resident ttnn tensor (no device) for copy_host_to_device_tensor staging."""
-        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
 
     def _release_trace(self):
         tr = getattr(self, "_trace", None)
@@ -676,7 +745,7 @@ class DiffusionModule(_KeyedWeights):
         the validated trunk-pairformer convention, incl. the head-dim scaling)."""
         import torch.nn.functional as F
         z_h = F.layer_norm(pair_z, (pair_z.shape[-1],)).unsqueeze(0).contiguous()
-        return ttnn.from_torch(z_h, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        return ttnn.from_torch(z_h, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=self._dit_dtype)
 
     def _dit_block_biases(self, z_dev, extra_attn_bias=None):
         """Per-block DiT attention pair biases, computed ONCE per fold from z_dev=LN(pair_z).
@@ -688,7 +757,7 @@ class DiffusionModule(_KeyedWeights):
         if extra_attn_bias is not None:
             # AttentionPairBias scales projected masks by sqrt(head_dim) to
             # compensate ttnn SDPA's mask scaling. Match it for this direct bias.
-            extra = self._up(extra_attn_bias.float().reshape(
+            extra = self._up_dit(extra_attn_bias.float().reshape(
                 1, 1, extra_attn_bias.shape[-2], extra_attn_bias.shape[-1])
                 * self.DIT_HEAD_DIM ** 0.5)
         return [ttnn.add(apb.compute_bias(z_dev), extra) if extra is not None
@@ -697,11 +766,17 @@ class DiffusionModule(_KeyedWeights):
     def _token_dit_device(self, a_t, s_t, biases, NT):
         """On-device 24-block token DiT (ttnn). a_t (1,NT,768), s_t (1,NT,384); biases = list
         of per-block precomputed (1,n_heads,NT,NT) pair biases (from _dit_block_biases, fixed
-        across steps). Mirrors host _token_dit; reuses AdaLN + AttentionPairBias."""
-        ckc = self.compute_kernel_config
+        across steps). Mirrors host _token_dit; reuses AdaLN + AttentionPairBias. When
+        PROTENIX_DIFFUSION_FP32_DEVICE=1 the full diffusion stack, including this DiT,
+        runs in ttnn fp32."""
+        ckc = self._dit_ckc
+        if self._dit_fp32:   # inputs are already fp32; typecast is trace-safe and idempotent
+            a_t = ttnn.typecast(a_t, self._dit_dtype)
+            s_t = ttnn.typecast(s_t, self._dit_dtype)
+        wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
 
         def linb(x, wk, bk=None, act=None):
-            return ttnn.linear(x, self._w_tt(wk), bias=(self._w_tt(bk, False) if bk else None), activation=act,
+            return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         for (adaln_a, apb, ctb_adaln, A, Cc), bias in zip(self._dit, biases):
             b = adaln_a(a_t, s_t)
@@ -1021,19 +1096,22 @@ class Protenix:
         self._c_z = c_z
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
-        # --fast for Protenix = bf8 TRUNK + bf16 DIFFUSION. The trunk tolerates bf8
+        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8
         # (s/z PCC 0.99), but bf8 in the coordinate-sensitive diffusion collapses the
         # structure (Rg 4.7 vs 22). Capture the --fast intent, then build each stage at its
         # own precision; fold() re-applies the per-stage flag (the trunk's triangle/transition
         # ops read _dtype() at RUNTIME, so the global flag must match the weights per stage).
         self._fast = _TT._FAST_MODE
-        _TT.set_fast_mode(False)   # input embedder + diffusion atom-cache: bf16
+        _TT.set_fast_mode(False)   # input embedder stays bf16; diffusion precision is gate-controlled
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
-        self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."), compute_kernel_config)
+        diffusion_dtype = (ttnn.float32 if os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
+                           else ttnn.bfloat16)
+        self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."),
+                                            compute_kernel_config, dtype=diffusion_dtype)
         _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
         self.trunk = Trunk(model_state_dict, compute_kernel_config, c_z=self._c_z,
                            msa_update_first=msa_update_first)
-        _TT.set_fast_mode(False)   # diffusion + confidence: always bf16
+        _TT.set_fast_mode(False)   # diffusion uses its gate-controlled dtype; confidence stays bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev, compute_kernel_config)
 
@@ -1142,26 +1220,33 @@ class Protenix:
         concatenating with relpe -- gated on those keys' presence so Protenix-v2 is unchanged."""
         from .tenstorrent import Transition
         C = "diffusion_module.diffusion_conditioning."
-        relpe = ttnn.linear(self._tt(relp), self._tt(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
-                            compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        T = self.diffusion._up
+        relpe = ttnn.linear(T(relp), T(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
+                            compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
+                            core_grid=CORE_GRID_MAIN)
+        if self.diffusion._diffusion_fp32:
+            z_trunk_tt = ttnn.typecast(z_trunk_tt, self.diffusion.dtype)
         z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
         if C + "linear_no_bias_z_trunk.weight" in self._w:
-            zt = ttnn.layer_norm(z_trunk_tt, weight=self._tt(self._w[C + "layernorm_z_trunk.weight"]),
+            zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-            z_trunk_tt = ttnn.linear(zt, self._tt(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
-                                     compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+            z_trunk_tt = ttnn.linear(zt, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
+                                     compute_kernel_config=self.compute_kernel_config,
+                                     dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
         zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
-        zc = ttnn.layer_norm(zc, weight=self._tt(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
+        zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
-        pz = ttnn.linear(zc, self._tt(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
-                         compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        pz = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
+                         compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
+                         core_grid=CORE_GRID_MAIN)
         # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
         # (the 3D path doesn't chunk pair tensors -> OOM at large N).
         N = relpe.shape[0]
         pz = ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
         for nm in ("transition_z1", "transition_z2"):
             sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
-            t = Transition(PW.remap_transition(sub), self.compute_kernel_config)
+            t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
+                           dtype=self.diffusion.dtype)
             pz = ttnn.add(pz, t(pz))
         return self._to_host(pz)
 
@@ -1211,11 +1296,13 @@ class Protenix:
             tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt, tt(Mmat),
             tt(feats["restype"]), tt(feats["profile"]), tt(dm))
         s_inputs = self._to_host(s_inputs_tt)[:NT]
-        # 2) diffusion atom cache (c_l, p_lm) -- t-independent
-        mt_dev = tt(mt.reshape(-1, 1).float())
-        c_l = self._to_host(self.diff_feat.c_l(tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]),
-                                               tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
-        p_lm = self._to_host(self.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
+        # 2) diffusion atom cache (c_l, p_lm) -- t-independent and gate-controlled
+        dtt = self.diffusion._up
+        mt_dev = dtt(mt.reshape(-1, 1).float())
+        c_l = self._to_host(self.diff_feat.c_l(dtt(feats["ref_pos"]), dtt(fi["ref_charge_asinh"]),
+                                               dtt(feats["ref_mask"].reshape(N, 1)), dtt(fi["f_in"])), (N, 128))
+        p_lm = self._to_host(self.diff_feat.p_lm(dtt(fi["d"]), dtt(fi["v"]), dtt(fi["invd"]), mt_dev),
+                             (nb, nq, nk, 16))
         # 3) trunk (bf8 under --fast: toggle the global flag ON so the trunk's triangle/
         #    transition runtime _dtype() matches its bf8 weights, then restore bf16 for the
         #    coordinate-sensitive diffusion. Trunk tolerates bf8 (s/z PCC 0.99); diffusion does not.)

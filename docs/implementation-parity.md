@@ -19,7 +19,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | ESMFold2 | lysozyme, L129 | PASS | CA-RMSD 0.136 Å inside the 0.139 Å floor (X/floor 0.98); seed-wiring fix applied, see † |
 | Protenix-v2 | 7ROA, L117, MSA | PASS | CA-RMSD 2.63 Å inside the 2.94 Å floor; confidence-head under-ranking shared with reference (model property) |
 | Protenix-v2 | ubiquitin, L76, MSA | PASS | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too |
-| Protenix-v2 | HSA, L585, MSA | GAP-evidenced | CA-RMSD 1.03 Å exceeds the tight 0.70 Å floor; same-seed diagonal proves systematic bf16 (device/ref land in different tight basins ~1 Å apart; both correct HSA folds) |
+| Protenix-v2 | HSA, L585, MSA | PASS | on-device fp32 diffusion matches the reference's own fp32 boundary; CA-RMSD 0.685 Å inside the 0.695 Å floor (was GAP-evidenced in bf16, X 1.03 Å) |
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
 | Boltz-2 | 7ROA, L117, no MSA | PASS | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å |
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
@@ -35,12 +35,15 @@ accuracy (does the fold match the native structure) is out of scope.
 | SaProt-35m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99914, in the ESMC band |
 | SaProt-650m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99964, in the ESMC band |
 
-Net: 18 PASS, 5 PASS-caveated (a secondary local-structure metric misses, gate
-metric passes), 1 GAP-evidenced (Protenix-v2 HSA, gate metric misses). Every
-non-PASS entry is proven a bf16-precision-floor artifact, not a port defect, by
-a same-seed paired diagonal (FKBP12, Protenix-v2 HSA, Boltz-2 ubiquitin measured
-directly; DHFR and trypsin inherit the same-port identity). The full measured
-R/D/X table and per-leg evidence are in [Implementation parity — details](implementation-parity-details.md).
+Net: 19 PASS, 5 PASS-caveated (a secondary local-structure metric misses, gate
+metric passes). Every PASS-caveated entry is proven a bf16-precision-floor
+artifact, not a port defect, by a same-seed paired diagonal (FKBP12, Boltz-2
+ubiquitin measured directly; DHFR and trypsin inherit the same-port identity).
+Protenix-v2 HSA was GAP-evidenced under bf16 diffusion; running that model's
+diffusion sampler in fp32 on device — matching the reference's own fp32
+boundary rather than a blanket precision bump — closed it to a clean PASS. The
+full measured R/D/X table and per-leg evidence are in
+[Implementation parity — details](implementation-parity-details.md).
 
 **Method in one line.** R = reference-vs-reference across seeds, D =
 device-vs-device across seeds, X = device-vs-reference; the floor is
@@ -64,7 +67,9 @@ metric passes, a stricter local metric misses), red = GAP-evidenced (gate
 metric misses, proven a bf16-precision-floor artifact). Three Boltz-2
 structure legs (trp-cage, 7ROA no-MSA, 7ROA MSA) were hardened to 5+5 seeds
 after their result JSON was committed, so those bars reflect the earlier
-snapshot while the verdict table above holds the current 5+5 numbers.
+snapshot while the verdict table above holds the current 5+5 numbers. The
+Protenix-v2 HSA bar likewise still reflects the pre-fp32-fix bf16 result
+(GAP) pending a chart regeneration; the verdict table holds the current PASS.
 Deterministic and special-metric legs (ESMC, SaProt, BoltzGen, OpenDDE-abag)
 have no X/floor ratio and are not plotted; see the verdict table.
 
