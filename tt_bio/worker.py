@@ -627,11 +627,17 @@ class _WorkerState:
         from tt_bio.main import to_batch
 
         if self.aff_model is None:
-            self.aff_model = (
-                Boltz2.load_from_checkpoint(cfg["aff_ckpt"], **cfg["aff_kwargs"])
-                .eval()
-                .to(self.torch_device)
+            from tt_bio.tenstorrent import affinity_diffusion_fp32_device
+
+            fp32_device = (
+                os.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE", "0") == "1"
             )
+            with affinity_diffusion_fp32_device(fp32_device):
+                self.aff_model = (
+                    Boltz2.load_from_checkpoint(cfg["aff_ckpt"], **cfg["aff_kwargs"])
+                    .eval()
+                    .to(self.torch_device)
+                )
 
         feats, _ = self.prepare(path, method="other", affinity=True, pred_structure=pred_structure)
         batch = to_batch(feats, self.torch_device)

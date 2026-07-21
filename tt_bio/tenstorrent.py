@@ -19,6 +19,8 @@ TRANSITION_W_CHUNKING_THRESHOLD = 1024
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 _FAST_MODE = False
+_DTYPE_OVERRIDE = None
+_AFFINITY_DIFFUSION_FP32_DEVICE = False
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
@@ -69,6 +71,8 @@ CORE_GRID_MAIN = ttnn.CoreGrid(y=COMPUTE_GRID_Y, x=COMPUTE_GRID_X_11)
 COMPUTE_GRID_MAIN = (CORE_GRID_MAIN.x, CORE_GRID_MAIN.y)
 
 def _dtype():
+    if _DTYPE_OVERRIDE is not None:
+        return _DTYPE_OVERRIDE
     return ttnn.bfloat8_b if _FAST_MODE else ttnn.bfloat16
 
 
@@ -206,6 +210,30 @@ def set_fast_mode(enabled: bool) -> None:
     """Set fast block-fp8 mode for the current worker process."""
     global _FAST_MODE
     _FAST_MODE = bool(enabled)
+
+
+@contextlib.contextmanager
+def device_dtype_override(dtype):
+    """Temporarily override the dtype used while constructing a device module."""
+    global _DTYPE_OVERRIDE
+    old = _DTYPE_OVERRIDE
+    _DTYPE_OVERRIDE = dtype
+    try:
+        yield
+    finally:
+        _DTYPE_OVERRIDE = old
+
+
+@contextlib.contextmanager
+def affinity_diffusion_fp32_device(enabled: bool):
+    """Scope the default-off fp32 token-diffusion experiment to affinity load."""
+    global _AFFINITY_DIFFUSION_FP32_DEVICE
+    old = _AFFINITY_DIFFUSION_FP32_DEVICE
+    _AFFINITY_DIFFUSION_FP32_DEVICE = bool(enabled)
+    try:
+        yield
+    finally:
+        _AFFINITY_DIFFUSION_FP32_DEVICE = old
 
 
 @lru_cache(maxsize=1)
@@ -474,8 +502,10 @@ class Module:
         self,
         key: str,
         transform: Callable[[torch.Tensor], torch.Tensor] = lambda x: x.t(),
-        dtype=ttnn.bfloat16,
+        dtype=None,
     ) -> ttnn.Tensor:
+        if dtype is None:
+            dtype = _dtype()
         wc = _weight_cache
         if wc is None:
             return ttnn.from_torch(
@@ -502,10 +532,10 @@ class Module:
             os.replace(tmp, path)  # atomic publish
         return ttnn.to_device(host, self.device)
 
-    def _lin(self, x, w, bias=None, dtype=ttnn.bfloat16, **kw):
-        """Shared linear projection: ttnn.linear on this module's kernel config +
-        the main core grid. Used across the ESMFold2 encoders / diffusion (which
-        bind ``lin = self._lin``) instead of repeating the call everywhere."""
+    def _lin(self, x, w, bias=None, dtype=None, **kw):
+        """Shared linear projection on this module's kernel config and core grid."""
+        if dtype is None:
+            dtype = _dtype()
         return ttnn.linear(
             x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
             dtype=dtype, core_grid=CORE_GRID_MAIN, **kw,
@@ -915,6 +945,7 @@ class AttentionPairBias(Module):
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
+        self.dtype = _dtype()
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
         self.atom_level = atom_level
@@ -942,7 +973,7 @@ class AttentionPairBias(Module):
                 qkv_weight.t(),
                 layout=ttnn.TILE_LAYOUT,
                 device=self.device,
-                dtype=ttnn.bfloat16,
+                dtype=self.dtype,
             )
             q_bias = self.weights["proj_q.bias"]
             q_bias = q_bias.reshape(self.n_heads, head_dim)
@@ -953,7 +984,7 @@ class AttentionPairBias(Module):
                 qkv_bias,
                 layout=ttnn.TILE_LAYOUT,
                 device=self.device,
-                dtype=ttnn.bfloat16,
+                dtype=self.dtype,
             )
         self.g_weight = self.torch_to_tt("proj_g.weight")
         if compute_pair_bias:
@@ -979,6 +1010,55 @@ class AttentionPairBias(Module):
             z, self.z_weight, compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
         )
         return ttnn.permute(z, (0, 3, 1, 2))
+
+    def _attention(
+        self,
+        q: ttnn.Tensor,
+        k: ttnn.Tensor,
+        v: ttnn.Tensor,
+        bias: ttnn.Tensor,
+    ) -> ttnn.Tensor:
+        if self.dtype != ttnn.float32:
+            return ttnn.transformer.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=bias,
+                is_causal=False,
+                scale=self.head_dim**-0.5,
+                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+            )
+
+        # SDPA accepts bf16/bf8/bf4 only. Keep the fp32 transformer in fp32
+        # storage and cross this one hardware boundary in native bf16: the
+        # attention reduction is the precision-insensitive part (softmax over
+        # a large logits range), and fp32 SDPA is op-blocked on Wormhole, so a
+        # pure-fp32 matmul-attention wedges the device. The linears, residuals,
+        # and layernorm around it stay fp32.
+        q_bf16 = ttnn.typecast(q, ttnn.bfloat16, memory_config=q.memory_config())
+        k_bf16 = ttnn.typecast(k, ttnn.bfloat16, memory_config=k.memory_config())
+        v_bf16 = ttnn.typecast(v, ttnn.bfloat16, memory_config=v.memory_config())
+        bias_bf16 = ttnn.typecast(
+            bias, ttnn.bfloat16, memory_config=bias.memory_config()
+        )
+        out_bf16 = ttnn.transformer.scaled_dot_product_attention(
+            q_bf16,
+            k_bf16,
+            v_bf16,
+            attn_mask=bias_bf16,
+            is_causal=False,
+            scale=self.head_dim**-0.5,
+            program_config=_sdpa_program_config_for_lengths(
+                q_bf16.shape[2], k_bf16.shape[2]
+            ),
+        )
+        for tensor in (q_bf16, k_bf16, v_bf16, bias_bf16):
+            ttnn.deallocate(tensor)
+        out = ttnn.typecast(
+            out_bf16, self.dtype, memory_config=out_bf16.memory_config()
+        )
+        ttnn.deallocate(out_bf16)
+        return out
 
     def __call__(
         self,
@@ -1022,15 +1102,7 @@ class AttentionPairBias(Module):
                 z = ttnn.permute(z, (0, 3, 1, 2))
             if seq_mask is not None:
                 z = ttnn.add_(z, seq_mask)
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                attn_mask=z,
-                is_causal=False,
-                scale=self.head_dim**-0.5,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
-            )
+            o = self._attention(q, k, v, z)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
@@ -1080,10 +1152,7 @@ class AttentionPairBias(Module):
             v = ttnn.reshape(v, (B, K * H, S, D_Q))
             q = q[:, :, :ATOM_WINDOW, :]
             z = ttnn.reshape(z, (1, -1, z.shape[2], z.shape[3]))
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q, k, v, attn_mask=z, is_causal=False, scale=self.head_dim**-0.5,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
-            )
+            o = self._attention(q, k, v, z)
             o = ttnn.reshape(o, (B * K, H, W, D_Q))
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
@@ -1633,7 +1702,7 @@ class ConditionedTransitionBlock(Module):
         )
         swish_chunk, gates_chunk = torch.chunk(self.weights["swish_gate.0.weight"], chunks=2, dim=0)
         self.swish_weight, self.gates_weight = [
-            ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+            ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype())
             for chunk in [swish_chunk, gates_chunk]
         ]
         self.a_to_b_weight = self.torch_to_tt("a_to_b.weight")
@@ -2167,14 +2236,17 @@ class Diffusion(Module):
         self.s_to_a_norm_weight = self.torch_to_tt("s_to_a_linear.0.weight")
         self.s_to_a_norm_bias = self.torch_to_tt("s_to_a_linear.0.bias")
         self.s_to_a_linear_weight = self.torch_to_tt("s_to_a_linear.1.weight")
-        self.token_transformer = DiffusionTransformer(
-            n_layers=TOKEN_N_LAYERS,
-            dim=TOKEN_DIM,
-            n_heads=TOKEN_N_HEADS,
-            atom_level=False,
-            state_dict=self.scope("token_transformer"),
-            compute_kernel_config=compute_kernel_config,
-        )
+        self.token_transformer_fp32 = _AFFINITY_DIFFUSION_FP32_DEVICE
+        token_dtype = ttnn.float32 if self.token_transformer_fp32 else None
+        with device_dtype_override(token_dtype):
+            self.token_transformer = DiffusionTransformer(
+                n_layers=TOKEN_N_LAYERS,
+                dim=TOKEN_DIM,
+                n_heads=TOKEN_N_HEADS,
+                atom_level=False,
+                state_dict=self.scope("token_transformer"),
+                compute_kernel_config=compute_kernel_config,
+            )
         self.a_norm_weight = self.torch_to_tt("a_norm.weight")
         self.a_norm_bias = self.torch_to_tt("a_norm.bias")
         self.a_to_q_weight = self.torch_to_tt(
@@ -2312,7 +2384,20 @@ class Diffusion(Module):
         )
         a = ttnn.add(a, s_to_a)
         ttnn.deallocate(s_to_a)
-        a = self.token_transformer(a, s, bias_token)
+        if self.token_transformer_fp32:
+            a_fp32 = ttnn.typecast(a, ttnn.float32, memory_config=a.memory_config())
+            s_fp32 = ttnn.typecast(s, ttnn.float32, memory_config=s.memory_config())
+            bias_fp32 = ttnn.typecast(
+                bias_token, ttnn.float32, memory_config=bias_token.memory_config()
+            )
+            a_fp32 = self.token_transformer(a_fp32, s_fp32, bias_fp32)
+            a = ttnn.typecast(
+                a_fp32, ttnn.bfloat16, memory_config=a_fp32.memory_config()
+            )
+            for tensor in (a_fp32, s_fp32, bias_fp32):
+                ttnn.deallocate(tensor)
+        else:
+            a = self.token_transformer(a, s, bias_token)
         ttnn.deallocate(s)
         a = ttnn.layer_norm(
             a,
