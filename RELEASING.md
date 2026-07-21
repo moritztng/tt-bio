@@ -20,7 +20,7 @@ python3 -m pytest -v --tb=short
 
 TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_venv/bin/python \
   PYTHONPATH="$PWD" \
-  python3 scripts/release_gate.py
+  python3 scripts/full_parity_gate.py --workers pc:0
 
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/perf_regression.py
@@ -28,6 +28,35 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/ux_regression.py
 ```
+
+The parity gate is `scripts/full_parity_gate.py` — the FULL
+`docs/implementation-parity.md` story (every leg, every model/target, 5-seed
+depth) as one command. It reuses the committed reference fixtures under
+`docs/implementation-parity-data/ref-fixtures/` and only re-runs the device side
+plus the comparison, so it finishes in well under an hour when references are
+cached and cards are free. Fan it across every card that is up for parallelism:
+
+```bash
+python3 scripts/full_parity_gate.py --workers pc:0,qb1:0,qb1:1,qb2:0
+```
+
+Each leg's reference fixture carries a `meta.json` pinning the reference
+implementation, version, commit, and settings; the runner fingerprints that
+meta and compares it to
+`docs/implementation-parity-data/ref-fixture-fingerprints.json`. A match takes
+the fast path (device-only); a mismatch means the model code, weights, or test
+settings changed and the reference must be regenerated, so the leg is flagged
+`BLOCKED-REF-REGEN-NEEDED` (the slow opt-in path — run
+`scripts/pharma_harvest_ref_fixtures.py` to re-harvest it, then
+`scripts/full_parity_gate.py --init-fingerprints` to refresh the index). The
+runner never silently overwrites `docs/implementation-parity.md`: a leg that
+reproduces within its recorded noise floor is marked `REPRODUCES`; a leg that
+drifts outside the floor is flagged `DRIFT — investigate` and exits non-zero.
+
+`scripts/release_gate.py` remains as a fast single-target smoke proxy (one
+7ROA fold per model + a BoltzGen/OpenDDE-abag/ESMC quick check) for a quick
+sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`
+is the command that must pass before a tag.
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
 OpenDDE, BoltzGen designability, OpenDDE-abag antibody-antigen docking, and

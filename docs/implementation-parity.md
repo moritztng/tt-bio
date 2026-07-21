@@ -74,7 +74,11 @@ per-interface iRMSD.
 ## Reproduce
 
 Each leg's reproduce command is in [Implementation parity — details](implementation-parity-details.md#reproducing-a-comparison).
-The harness is `scripts/pharma_parity.py`; reference fixtures live under
+The one-command runner for the full story is `scripts/full_parity_gate.py` (fans
+the device side across cards, reuses the committed reference fixtures, and
+emits the verdict table + tally); the per-leg scorers it dispatches to are
+`scripts/pharma_parity.py` (structures / embeddings / saprot) and
+`scripts/boltz2_affinity_parity.py` (affinity). Reference fixtures live under
 `docs/implementation-parity-data/ref-fixtures/`.
 
 ### Where the reference fixtures come from
