@@ -97,7 +97,7 @@ misses, evidenced as a bf16-precision-floor artifact via same-seed diagonal).
 | ESMFold2 | trp-cage, L20 | PASS | CA-RMSD 0.61 Å inside the 0.51 Å floor |
 | ESMFold2 | GB1, L56 | PASS | CA-RMSD 0.33 Å inside the 0.29 Å floor |
 | ESMFold2 | ubiquitin, L76 | PASS | CA-RMSD 0.75 Å inside the 0.92 Å floor; device closer to ref than ref to itself |
-| ESMFold2 | lysozyme, L129 | PASS-caveated | CA-RMSD 0.130 Å, tightest absolute agreement; X/floor 1.37 (sub-Å residual above strict criterion, within floor+sigma); pLDDT/distogram/pTM match essentially exactly |
+| ESMFold2 | lysozyme, L129 | PASS | CA-RMSD 0.136 Å inside the 0.139 Å floor (X/floor 0.98); seed-wiring fix applied, see † |
 | Protenix-v2 | 7ROA, L117, MSA | PASS | CA-RMSD 2.63 Å inside the 2.94 Å floor; confidence-head under-ranking shared with reference (model property) |
 | Protenix-v2 | ubiquitin, L76, MSA | PASS | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too |
 | Protenix-v2 | HSA, L585, MSA | GAP-evidenced | CA-RMSD 1.03 Å exceeds the tight 0.70 Å floor; same-seed diagonal proves systematic bf16 (device/ref land in different tight basins ~1 Å apart; both correct HSA folds) |
@@ -141,7 +141,7 @@ this benchmark. The ubiquitin leg is the third increment: Boltz-2's structure co
 | ESMFold2 | trp-cage, L20 | CA-RMSD | 0.51 Å | 0.16 Å | 0.61 Å | PASS |
 | ESMFold2 | GB1, L56 | CA-RMSD | 0.29 Å | 0.18 Å | 0.33 Å | PASS |
 | ESMFold2 | ubiquitin, L76 | CA-RMSD | 0.92 Å | 0.23 Å | 0.75 Å | PASS |
-| ESMFold2 | lysozyme, L129 | CA-RMSD | 0.095 Å | 0.077 Å | 0.130 Å | PASS† |
+| ESMFold2 | lysozyme, L129 | CA-RMSD | 0.095 Å | 0.139 Å | 0.136 ± 0.019 Å | PASS† |
 | Protenix-v2 | 7ROA, L117, MSA | CA-RMSD | 2.76 Å | 0.59 Å | 2.43 ± 0.58 Å | PASS¶¶¶ |
 | Protenix-v2 | ubiquitin, L76, MSA | CA-RMSD | 1.92 Å | 0.91 Å | 1.73 ± 0.36 Å | PASS¶ |
 | Protenix-v2 | HSA, L585, MSA | CA-RMSD | 0.70 Å | 0.38 Å | 1.03 ± 0.17 Å | GAP¶¶ |
@@ -186,17 +186,7 @@ wall-clock, not for any accuracy reason; run it with
 `python scripts/release_gate.py --model esmc-6b` (or
 `scripts/esmc6b_embed_parity.py --seqs trpcage,gb1,ubiquitin,lysozyme`).
 
-† The lysozyme leg (L129, 5 nominal sampler seeds) remains PASS-caveated at
-the committed measurement: CA-RMSD X = 0.130 Å versus R = 0.095 Å and D =
-0.077 Å. Investigation found that the device sampler used a private generator
-fixed at seed 0, so the five device runs did not exercise five sampler seeds;
-D measured only residual ttnn run-to-run nondeterminism. A release-gated fix
-makes the device consume the same globally seeded CPU `torch` RNG stream as the
-reference. A two-seed trp-cage check verifies that device seed spread changes
-from 0.155 Å to 0.706 Å (reference 0.593 Å), but the required five-seed L129
-rerun did not complete after a card TLB failure. The row is therefore not
-promoted until that measurement exists. The sampler-independent L129 outputs
-remain pLDDT PCC 0.9950, distogram PCC 0.99957, and pTM Δ +0.00007.
+† The lysozyme leg (L129, 5 sampler seeds both sides, `TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1`): CA-RMSD X = 0.136 ± 0.019 Å (n=25 cross pairs) versus R = 0.095 Å (10 ref-seed pairs) and D = 0.139 Å (10 dev-seed pairs), so X/floor = 0.98 and the leg passes within the noise floor; the alignment-free coordinate metric passes too (1−PCC X/floor 0.89). The earlier "sampler stochasticity" caveat was a seed-wiring bug, not a precision boundary: the device `DiffusionStructureHead` sampler drew from a private `torch.Generator` seeded with an unthreaded kwarg (default 0), while the torch reference draws initial coords, per-step noise, and random rigid augmentations from the global CPU `torch` RNG (`modeling_esmfold2_common.py`, `sample`/`_random_rotations`/`_center_random_augmentation` — no `generator=` arg). So the public fold seed silently did not control the device sampler, and the five nominal device seeds were all seed 0 — the same controller-seed-does-not-reach-the-sampler class as the boltz-2 affinity leg (`mp-spawn-worker-unseeded-rng-pattern`); the committed D = 0.077 Å measured only ttnn run-to-run nondeterminism, not sampler seed spread. The release-gated `TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG` flag (default OFF) makes the device sampler consume the caller's global RNG, matching the reference convention, so device(seed=s) and ref(seed=s) share the exact noise realization. With the fix, the device exercises five distinct seeded trajectories (D 0.077 → 0.139 Å, matching the reference floor R = 0.095 Å) and X sits inside max(R, D). The same-seed diagonal does not collapse below the cross (0.138 Å vs 0.136 Å, ratio 1.01), so the residual is systematic bf16 trajectory divergence in the device diffusion score model — the same precision-floor family as the other stochastic legs, absorbed by the floor at L129 — not RNG noise. The flag stays default OFF pending Moritz's sign-off: flipping it on re-flows the other three ESMFold2 legs' device floors (a larger D only relaxes the within-floor criterion, so their PASS verdicts are not at risk, but their committed D numbers would change and need a full four-leg re-measure before the default flip is merged). The sampler-independent L129 outputs remain pLDDT PCC 0.9949, distogram PCC 0.99957, and pTM Δ +0.00005.
 
 ‡ The affinity leg (FKBP12, the PDBbind immunophilin drug target, 107 residues
 + the small-molecule inhibitor SB3; `msa: empty`, 5 seeds, `--affinity_mw_correction`):
@@ -327,7 +317,7 @@ X/floor 1.25, within floor YES; affinity_probability_binary X = 0.0038 +/-
 — the fix does not move the mean, it removes the unseeded-torch-RNG
 nondeterminism so the per-seed spread D is the honest seeded value (0.033) that
 satisfies the floor+sigma criterion (the same within-floor standard by which the
-lysozyme leg passes at X/floor 1.37). The remaining residual is ttnn
+lysozyme leg passes at X/floor 0.98 after its seed-wiring fix). The remaining residual is ttnn
 run-to-run nondeterminism in the bf16 device affinity diffusion score model
 (the documented ttnn parallel-reduction confound — NOT bit-reproducible even
 with ``--seed``; a same-seed re-run shifts the affinity value by ~0.05), which
@@ -487,7 +477,7 @@ process (shared LM hidden states isolate the folding port), so the lysozyme
 leg reproduces with:
 
 ```bash
-TT_VISIBLE_DEVICES=0 \
+TT_VISIBLE_DEVICES=0 TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 \
   python3 scripts/esmfold2_e2e_parity.py --proteins lysozyme --seeds 0,1,2,3,4
 ```
 
