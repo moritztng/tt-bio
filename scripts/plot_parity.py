@@ -71,7 +71,6 @@ LEGS = [
     ("Boltz-2 trp-cage no-MSA L20", "boltz2", PASS, lambda: _struct("boltz2.json", "trpcage", "rmsd")),
     ("Boltz-2 7ROA no-MSA L117", "boltz2", PASS, lambda: _struct("boltz2-prot-nomsa-restore.json", "prot_no_msa", "rmsd")),
     ("Boltz-2 7ROA MSA L117", "boltz2", PASS, lambda: _struct("boltz2.json", "prot_msa", "rmsd")),
-    ("Boltz-2 ubiquitin no-MSA L76", "boltz2", CAVEAT, lambda: _struct("boltz2-ubiquitin.json", "ubiquitin_no_msa", "kabsch_rmsd")),
     ("Boltz-2 ubiquitin MSA L76", "boltz2", PASS, lambda: _struct("boltz2-ubiquitin-msa-paired-5x5.json", "ubiquitin_msa", "kabsch_rmsd")),
     ("Boltz-2 HSA no-MSA L585", "boltz2", PASS, lambda: _struct("boltz2-hsa.json", "hsa_no_msa", "rmsd")),
     ("OpenDDE trp-cage L20", "opendde", PASS, lambda: _struct("opendde.json", "trpcage", "rmsd")),

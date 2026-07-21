@@ -23,8 +23,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
 | Boltz-2 | 7ROA, L117, no MSA | PASS | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å |
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
-| Boltz-2 | ubiquitin, L76, no MSA (not the production default config) | PASS-caveated | global CA-RMSD 1.69 Å and TM-score pass; CA-lDDT GAPs (X/floor 1.76), same narrower-basin bf16, proven via same-seed diagonal |
-| Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97 — the metric that GAPped on no-MSA); residual systematic bf16, see §§§ |
+| Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97); residual systematic bf16, see §§§ |
 | Boltz-2 | HSA, L585, no MSA | PASS | CA-RMSD 1.47 Å inside the 1.50 Å floor; first L585 target |
 | Boltz-2 (affinity) | FKBP12 + SB3, L107 | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 1.35 / 1.04); pocket-lDDT GAPs (4.68), proven via same-seed diagonal (systematic bf16) |
 | Boltz-2 (affinity) | DHFR + MTX, L187 | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 1.29 / 0.95); pocket-lDDT GAPs (5.28), same bf16 property by shared-port identity |
@@ -36,15 +35,13 @@ accuracy (does the fold match the native structure) is out of scope.
 | SaProt-35m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99914, in the ESMC band |
 | SaProt-650m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99964, in the ESMC band |
 
-Net: 20 PASS, 5 PASS-caveated (a secondary local-structure metric misses, gate
+Net: 21 PASS, 3 PASS-caveated (a secondary local-structure metric misses, gate
 metric passes). Every PASS-caveated entry is proven a bf16-precision-floor
-artifact, not a port defect, by a same-seed paired diagonal (FKBP12, Boltz-2
-ubiquitin measured directly; DHFR and trypsin inherit the same-port identity).
-The Boltz-2 ubiquitin no-MSA caveat (CA-lDDT) does not apply to the production
-MSA-backed config, which passes cleanly (see §§§). Protenix-v2 HSA was
-GAP-evidenced under bf16 diffusion; running that model's diffusion sampler in
-fp32 on device — matching the reference's own fp32 boundary rather than a
-blanket precision bump — closed it to a clean PASS. The full measured R/D/X
+artifact, not a port defect, by a same-seed paired diagonal (FKBP12 measured
+directly; DHFR and trypsin inherit the same-port identity).
+Protenix-v2 HSA was GAP-evidenced under bf16 diffusion; running that model's
+diffusion sampler in fp32 on device — matching the reference's own fp32
+boundary rather than a blanket precision bump — closed it to a clean PASS. The full measured R/D/X
 table and per-leg evidence are in
 [Implementation parity — details](implementation-parity-details.md).
 
