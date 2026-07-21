@@ -400,9 +400,9 @@ class DiffusionModule(_KeyedWeights):
     rather than recomputed; the atom-encoder conditioning and atom-transformer pair/pad
     biases are likewise hoisted once per fold. A host fp32 DiT fallback is kept (device_dit
     =False) for the strict per-step parity test, which builds no precomputed device bias.
-    Everything runs on-device (ttnn, HiFi4). By default the coordinate-sensitive diffusion
-    uses bf16. PROTENIX_DIFFUSION_FP32_DEVICE=1 matches the reference boundary by running the
-    conditioning cache, atom encoder/transformers, token DiT, and atom decoder in device fp32.
+    Everything runs on-device (ttnn, HiFi4). The coordinate-sensitive diffusion uses fp32
+    by default to match the reference boundary across the conditioning cache, atom encoder and
+    transformers, token DiT, and atom decoder. Set PROTENIX_DIFFUSION_FP32_DEVICE=0 to A/B bf16.
     The --fast mode still applies only to the trunk (see Protenix.__init__)."""
 
     SIGMA_DATA = 16.0
@@ -415,7 +415,7 @@ class DiffusionModule(_KeyedWeights):
         self._w = dict(diffusion_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
-        self._diffusion_fp32 = os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "0") == "1"
+        self._diffusion_fp32 = os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
         self.dtype = ttnn.float32 if self._diffusion_fp32 else ttnn.bfloat16
         self.atxE = AtomTransformer(3, {k[len("atom_attention_encoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
@@ -437,11 +437,12 @@ class DiffusionModule(_KeyedWeights):
         # fed the precomputed UNSCALED bias as the SDPA mask -> matches the host math exactly;
         # these primitives handle the head_dim=48 tile padding). s-gate + conditioned-transition
         # are raw ttnn (protenix's ctb differs from tt-bio's ConditionedTransitionBlock).
-        # Opt-in full on-device fp32 diffusion. The GPU reference disables autocast for the
+        # Full on-device fp32 diffusion. The GPU reference disables autocast for the
         # entire sampling score model, while its trunk remains under bf16 autocast. Match that
         # exact boundary: the conditioning cache, atom encoder/transformer, token DiT, and atom
         # decoder all use ttnn float32. This stays on the device and keeps the existing traced
-        # device_dit path. Default OFF until the paired HSA diagonal and perf gates pass.
+        # device_dit path. The paired HSA accuracy and performance gates passed; bf16 remains
+        # available as an explicit A/B opt-out through PROTENIX_DIFFUSION_FP32_DEVICE=0.
         self._dit_fp32 = self._diffusion_fp32
         self._dit_dtype = self.dtype
         self._dit_ckc = compute_kernel_config   # HiFi4 + fp32_dest_acc_en: dtype is on the tensors
@@ -1094,7 +1095,7 @@ class Protenix:
         self._c_z = c_z
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
-        # --fast for Protenix = bf8 TRUNK + bf16 DIFFUSION. The trunk tolerates bf8
+        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8
         # (s/z PCC 0.99), but bf8 in the coordinate-sensitive diffusion collapses the
         # structure (Rg 4.7 vs 22). Capture the --fast intent, then build each stage at its
         # own precision; fold() re-applies the per-stage flag (the trunk's triangle/transition
@@ -1102,14 +1103,14 @@ class Protenix:
         self._fast = _TT._FAST_MODE
         _TT.set_fast_mode(False)   # input embedder stays bf16; diffusion precision is gate-controlled
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
-        diffusion_dtype = (ttnn.float32 if os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "0") == "1"
+        diffusion_dtype = (ttnn.float32 if os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
                            else ttnn.bfloat16)
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."),
                                             compute_kernel_config, dtype=diffusion_dtype)
         _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
         self.trunk = Trunk(model_state_dict, compute_kernel_config, c_z=self._c_z,
                            msa_update_first=msa_update_first)
-        _TT.set_fast_mode(False)   # diffusion + confidence: always bf16
+        _TT.set_fast_mode(False)   # diffusion uses its gate-controlled dtype; confidence stays bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev, compute_kernel_config)
 
