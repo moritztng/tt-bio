@@ -21,6 +21,15 @@ TRANSITION_H_CHUNK_SIZE = 16
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _AFFINITY_DIFFUSION_FP32_DEVICE = False
+# Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
+# on device, matching the Boltz-2 reference's autocast-disabled fp32-softmax-then-
+# cast-back-to-bf16 recipe (src/boltz/model/layers/attention.py:119-127 and
+# triangular_attention/primitives.py:127-194). Operands and storage stay bf16; only
+# the softmax reduction (and the additive bias it consumes) upcast to fp32. The
+# q@k score matmul already uses fp32_dest_acc, so per memory
+# boltz-reference-selective-fp32-softmax the softmax is the remaining mismatch. Set
+# BOLTZ2_FP32_SOFTMAX=1 to A/B; default OFF until a leg closes against it.
+_FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
@@ -117,6 +126,46 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
         q_chunk_size=_capped_sdpa_chunk_size(q_len),
         k_chunk_size=_capped_sdpa_chunk_size(k_len),
     )
+
+
+def _fp32_softmax_attention(
+    q: ttnn.Tensor,
+    k: ttnn.Tensor,
+    v: ttnn.Tensor,
+    bias: ttnn.Tensor,
+    scale_inv: float,
+    compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+    out_dtype: ttnn.DataType = ttnn.bfloat16,
+) -> ttnn.Tensor:
+    """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
+
+    Mirrors the Boltz-2 reference recipe (attention.py:119-127):
+    ``softmax((q@k^T)/sqrt(h) + z)`` in fp32, then ``o = attn @ v`` cast back to bf16.
+    The q@k matmul keeps bf16 operands with fp32_dest_acc (the existing einsum recipe);
+    only the softmax reduction and the additive bias it consumes upcast to fp32. The
+    additive ``bias`` arrives pre-baked by ``sqrt(h)`` (z_weight * sqrt(h)), so it is
+    multiplied by ``scale_inv`` to recover the raw reference ``z`` before the add —
+    the same undo the fp32_raw_matmul_attention path applies. Replaces the fused
+    ``ttnn.transformer.scaled_dot_product_attention`` call (bf16 softmax) when the
+    BOLTZ2_FP32_SOFTMAX gate is on.
+    """
+    kt = ttnn.permute(k, (0, 1, 3, 2))
+    # bf16 operands, fp32_dest_acc -> bf16 scores (the existing einsum recipe).
+    sc = ttnn.matmul(q, kt, compute_kernel_config=compute_kernel_config)
+    ttnn.deallocate(kt)
+    sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
+    sc = ttnn.multiply(sc, scale_inv)
+    bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+    bias_f = ttnn.multiply(bias_f, scale_inv)  # undo the sqrt(h) pre-bake -> raw z
+    sc = ttnn.add(sc, bias_f)
+    ttnn.deallocate(bias_f)
+    attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
+    attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
+    ttnn.deallocate(attn)
+    ttnn.deallocate(sc)
+    o = ttnn.matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
+    ttnn.deallocate(attn_bf)
+    return o
 
 
 @lru_cache(maxsize=None)
@@ -838,10 +887,18 @@ class TriangleAttention(Module):
                 transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             ttnn.deallocate(qkv_in)
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
-            )
+            if _FP32_SOFTMAX:
+                o = _fp32_softmax_attention(
+                    q, k, v, bias,
+                    scale_inv=self.scale ** -1,
+                    compute_kernel_config=self.compute_kernel_config,
+                    out_dtype=_dtype(),
+                )
+            else:
+                o = ttnn.transformer.scaled_dot_product_attention(
+                    q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
+                    program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+                )
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
@@ -1021,6 +1078,14 @@ class AttentionPairBias(Module):
         v: ttnn.Tensor,
         bias: ttnn.Tensor,
     ) -> ttnn.Tensor:
+        if _FP32_SOFTMAX and self.dtype != ttnn.float32:
+            # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
+            return _fp32_softmax_attention(
+                q, k, v, bias,
+                scale_inv=self.head_dim ** -0.5,
+                compute_kernel_config=self.compute_kernel_config,
+                out_dtype=_dtype(),
+            )
         if self.dtype != ttnn.float32:
             return ttnn.transformer.scaled_dot_product_attention(
                 q,
