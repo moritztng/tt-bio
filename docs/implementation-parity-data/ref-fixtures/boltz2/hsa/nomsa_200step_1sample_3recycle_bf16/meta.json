@@ -20,7 +20,7 @@
     ],
     "dtype": "bf16 (pytorch-lightning AMP)",
     "target": "hsa (examples/hsa_no_msa.yaml, PDB 1AO6, 585 res, 3-domain, msa: empty)",
-    "rationale": "large pharma-realistic target (L585, multi-domain human serum albumin, classic drug-binding carrier) extending Boltz-2 past L117 to the L300-800 regime; same no-MSA single-sequence methodology as the trpcage/ubiquitin/prot legs so the no-MSA length ladder reads L20/L76/L117/L585 are directly comparable. Reference generated on vast.ai GPU (CPU infeasible at L585) with --no_kernels (torch einsum, identical kernel to the qb1 CPU ref)."
+    "rationale": "large pharma-realistic target (L585, multi-domain human serum albumin, classic drug-binding carrier) extending Boltz-2 past L117 to the L300-800 regime; same no-MSA single-sequence methodology as the trpcage/prot legs so the no-MSA length ladder reads L20/L117/L585 are directly comparable. Reference generated on vast.ai GPU (CPU infeasible at L585) with --no_kernels (torch einsum, identical kernel to the qb1 CPU ref)."
   },
   "seeds": [
     0,

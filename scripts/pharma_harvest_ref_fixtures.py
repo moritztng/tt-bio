@@ -399,50 +399,6 @@ SPECS = [
     ),
     FixtureSpec(
         model="boltz2",
-        target="ubiquitin",
-        settings_tag="nomsa_200step_1sample_3recycle_bf16",
-        reference_impl="official Boltz-2 (torch + pytorch-lightning, CPU)",
-        reference_version="boltz 2.2.1",
-        reference_commit="boltz 2.2.1 (pip-installed in boltz_ref_venv; upstream jwohlwend/boltz)",
-        command=(
-            "boltz_ref_venv/bin/boltz predict examples/ubiquitin_no_msa.yaml "
-            "--out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 "
-            "--diffusion_samples 1 --accelerator cpu  "
-            "&& boltz_ref_venv/bin/python scripts/boltz2_ref_layout.py <out>/boltz_results_ubiquitin_no_msa "
-            "<harness_dir>  (ubiquitin_no_msa.yaml sets msa: empty so boltz runs single-sequence)"
-        ),
-        settings={
-            "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
-            "diffusion_samples": 1, "seeds": [0, 1, 2, 3, 4], "dtype": "bf16 (pytorch-lightning AMP)",
-            "target": "ubiquitin (examples/ubiquitin_no_msa.yaml, PDB 1UBQ, 76 res, msa: empty)",
-            "rationale": "third Boltz-2 structure length (L20/L76/L117) mirroring the ESMFold2 "
-                         "length ladder; same no-MSA single-sequence methodology as the trpcage leg "
-                         "so the three no-MSA reads are directly comparable at the same compute budget.",
-        },
-        seeds=[
-            SeedSpec(0, "/home/ttuser/pharma_boltz2_ubq_run/ref_harness_s0", "ubiquitin_no_msa"),
-            SeedSpec(1, "/home/ttuser/pharma_boltz2_ubq_run/ref_harness_s1", "ubiquitin_no_msa"),
-            SeedSpec(2, "/home/ttuser/pharma_boltz2_ubq5_run/ref_harness_s2", "ubiquitin_no_msa"),
-            SeedSpec(3, "/home/ttuser/pharma_boltz2_ubq5_run/ref_harness_s3", "ubiquitin_no_msa"),
-            SeedSpec(4, "/home/ttuser/pharma_boltz2_ubq5_run/ref_harness_s4", "ubiquitin_no_msa"),
-        ],
-        provenance_note=(
-            "Seeds 0-1 harvested from a FRESH 2026-07-18 qb1 reference run (pharma_boltz2_ubq_run/"
-            "ref_seed{0,1}, mtime 2026-07-18 20:14/20:15 UTC). Seeds 2-4 harvested from a FRESH "
-            "2026-07-19 qb1 reference run (pharma_boltz2_ubq5_run/ref_seed{2,3,4}, mtime "
-            "2026-07-19 15:13-15:17 UTC), same pinned boltz 2.2.1 and same 3 recycle / 200 sampling "
-            "step / 1 sample / no-MSA settings as seeds 0-1. Boltz-2 CPU is bit-exact deterministic. "
-            "Per-seed wall ~65-90s (1 sample, 200 steps, 3 recycle, CPU). 5 reference + 5 device "
-            "seeds: the reference-vs-reference floor R=1.838 A (mean over 10 ref-seed pairs, "
-            "std 0.349, range 1.27-2.45 A -- a real distribution, not n=1) and device-vs-reference "
-            "cross X=1.685+-0.388 A (n=25, X/floor 0.92, within floor on both RMSD and 1-PCC) -> "
-            "PASS, recorded in docs/implementation-parity-data/boltz2-ubiquitin.json. Per-seed reference "
-            "ptm 0.825/0.825/0.874/0.812/0.836, confidence_score 0.886/0.886/0.902/0.882/0.890; "
-            "device ptm ~0.914, confidence_score ~0.926."
-        ),
-    ),
-    FixtureSpec(
-        model="boltz2",
         target="hsa",
         settings_tag="nomsa_200step_1sample_3recycle_bf16",
         reference_impl="official Boltz-2 (torch + pytorch-lightning, GPU via vast.ai RTX3090)",
@@ -462,8 +418,8 @@ SPECS = [
             "target": "hsa (examples/hsa_no_msa.yaml, PDB 1AO6, 585 res, 3-domain, msa: empty)",
             "rationale": "large pharma-realistic target (L585, multi-domain human serum albumin, "
                          "classic drug-binding carrier) extending Boltz-2 past L117 to the L300-800 "
-                         "regime; same no-MSA single-sequence methodology as the trpcage/ubiquitin/"
-                         "prot legs so the no-MSA length ladder reads L20/L76/L117/L585 are directly "
+                         "regime; same no-MSA single-sequence methodology as the trpcage/"
+                         "prot legs so the no-MSA length ladder reads L20/L117/L585 are directly "
                          "comparable. Reference generated on vast.ai GPU (CPU infeasible at L585) "
                          "with --no_kernels (torch einsum, identical kernel to the qb1 CPU ref).",
         },
