@@ -57,6 +57,14 @@ from boltz2_fast_parity import CONF_KEYS, compare_structure, load_results  # noq
 # ---------------------------------------------------------------------------
 # Statistical core: the noise-floor verdict.
 # ---------------------------------------------------------------------------
+DEVICE_FLOOR_INFLATION_THRESHOLD = 5.0
+REFERENCE_FLOOR_EPS = 1e-12
+FLOOR_INFLATED_BY_D_MESSAGE = (
+    "FLOOR-INFLATED-BY-D: device self-consistency is looser than the reference's own; "
+    "investigate device instability before trusting this PASS."
+)
+
+
 def summarize(xs) -> dict:
     a = np.asarray(list(xs), dtype=float)
     if a.size == 0:
@@ -65,18 +73,42 @@ def summarize(xs) -> dict:
             "min": float(a.min()), "max": float(a.max())}
 
 
-def noise_floor_verdict(cross, ref_floor, dev_floor, metric: str) -> dict:
+def noise_floor_verdict(cross, ref_floor, dev_floor, metric: str,
+                        *, check_dev_instability: bool = True) -> dict:
     """cross/ref_floor/dev_floor are DISTANCES (lower = more similar: RMSD, 1-PCC).
 
     Parity holds when the mean cross-implementation distance is no larger than
     the larger of the two self-consistency floors. `ratio` < ~1 means the
     device-vs-reference gap is indistinguishable from run-to-run noise.
+
+    The independent D/R check warns when device self-consistency is
+    anomalously looser than reference self-consistency. The 5.0 threshold is
+    ~3.6x the largest committed primary-metric D/R (1.38x; median 0.58, range
+    0.25-1.38 across the 17 stochastic kabsch_rmsd legs the check covers), a
+    conservative bar that leaves headroom for legitimate wide-but-stable
+    no-MSA floors (today up to 1.38x) while flagging a genuine device-
+    instability blowup. Skipped when R is effectively zero (deterministic
+    forwards).
     """
     X, R, D = summarize(cross), summarize(ref_floor), summarize(dev_floor)
     floor = max(R.get("mean", 0.0), D.get("mean", 0.0))
     ratio = (X["mean"] / floor) if floor > 0 else float("inf")
+    ref_mean = R.get("mean", 0.0)
+    dev_over_ref = (
+        D.get("mean", 0.0) / ref_mean
+        if R.get("n", 0) and D.get("n", 0) and ref_mean > REFERENCE_FLOOR_EPS
+        else None
+    )
+    instability_check_applied = check_dev_instability and dev_over_ref is not None
+    floor_inflated_by_dev = bool(
+        instability_check_applied
+        and dev_over_ref > DEVICE_FLOOR_INFLATION_THRESHOLD
+    )
     return {"metric": metric, "cross": X, "ref_floor": R, "dev_floor": D,
             "floor_mean": floor, "cross_over_floor": ratio,
+            "dev_over_ref_floor": dev_over_ref,
+            "dev_floor_instability_check_applied": instability_check_applied,
+            "floor_inflated_by_dev": floor_inflated_by_dev,
             "within_noise_floor": bool(X["n"] and X["mean"] <= floor + max(R.get("std", 0), D.get("std", 0)))}
 
 
@@ -192,8 +224,9 @@ def structures(args) -> int:
     print(f"### Implementation parity: {args.label or 'structures'}\n")
     print(f"reference seeds: {len(ref_dirs)}   device seeds: {len(dev_dirs)}   "
           f"targets: {len(ids)}\n")
-    print("| target | metric | dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | X/floor | within floor |")
-    print("|---|---|---|---|---|---|---|")
+    print("| target | metric | dev-vs-ref (X) | ref-floor (R) | dev-floor (D) | "
+          "X/floor | within floor | D/R stability |")
+    print("|---|---|---|---|---|---|---|---|")
 
     metric_keys = ("kabsch_rmsd", "1-coord_pcc", "1-tm_score", "1-lddt")
     metric_labels = {
@@ -202,6 +235,7 @@ def structures(args) -> int:
         "1-tm_score": "1-TM",
         "1-lddt": "1-lDDT",
     }
+    instability_warnings = []
     for tid in ids:
         cross = {k: [] for k in metric_keys}
         rf = {k: [] for k in metric_keys}
@@ -229,17 +263,32 @@ def structures(args) -> int:
                     for k in metric_keys:
                         diag[k].append(m[k])
 
-        verdicts = {k: noise_floor_verdict(cross[k], rf[k], df[k], k) for k in metric_keys}
+        verdicts = {
+            k: noise_floor_verdict(
+                cross[k], rf[k], df[k], k,
+                check_dev_instability=(k == "kabsch_rmsd"),
+            )
+            for k in metric_keys
+        }
         report["targets"][tid] = {k.split("-", 1)[-1]: v for k, v in verdicts.items()}
         for k in metric_keys:
             v = verdicts[k]
             name = metric_labels[k]
+            if not v["dev_floor_instability_check_applied"]:
+                stability = "—"
+            elif v["floor_inflated_by_dev"]:
+                stability = f"FLOOR-INFLATED-BY-D ({v['dev_over_ref_floor']:.2f}×)"
+            else:
+                stability = f"ok ({v['dev_over_ref_floor']:.2f}×)"
             print(f"| {tid} | {name} | {v['cross'].get('mean', float('nan')):.3f}"
                   f"±{v['cross'].get('std', 0):.3f} "
                   f"| {v['ref_floor'].get('mean', float('nan')):.3f} "
                   f"| {v['dev_floor'].get('mean', float('nan')):.3f} "
                   f"| {v['cross_over_floor']:.2f} "
-                  f"| {'yes' if v['within_noise_floor'] else 'NO'} |")
+                  f"| {'yes' if v['within_noise_floor'] else 'NO'} "
+                  f"| {stability} |")
+            if v["floor_inflated_by_dev"]:
+                instability_warnings.append((tid, name, v["dev_over_ref_floor"]))
         if paired_ok:
             for k in metric_keys:
                 if not diag[k] or not cross[k]:
@@ -251,6 +300,10 @@ def structures(args) -> int:
                     "n": len(diag[k]), "mean": pm,
                     "all_pairs_mean": cm, "seed_independent": seed_indep,
                 }
+
+    for tid, name, dev_over_ref in instability_warnings:
+        print(f"\n> **{FLOOR_INFLATED_BY_D_MESSAGE}** "
+              f"Target `{tid}`, metric {name}, D/R={dev_over_ref:.2f}×.")
 
     if paired_ok:
         print(f"\n### Same-seed diagonal (dev_i vs ref_i, n={len(dev_dirs)}) vs "
