@@ -71,24 +71,8 @@ does. BoltzGen is scored by designability (fraction of designs re-folding
 within 2 Å scRMSD), not by a distance. OpenDDE-abag by global DockQ and
 per-interface iRMSD.
 
-## Visual
-
-![Implementation parity: gate-metric X/floor per stochastic leg](implementation-parity-data/implementation-parity.png)
-
-Bars read the committed result JSONs in `docs/implementation-parity-data/`.
-The dashed line is the floor (X/floor = 1.0); bars left of it sit within the
-reference's own run-to-run noise. Green = PASS, amber = PASS-caveated (gate
-metric passes, a stricter local metric misses), red = GAP-evidenced (gate
-metric misses, proven a bf16-precision-floor artifact). Three Boltz-2
-structure legs (trp-cage, 7ROA no-MSA, 7ROA MSA) were hardened to 5+5 seeds
-after their result JSON was committed, so those bars reflect the earlier
-snapshot while the verdict table above holds the current 5+5 numbers.
-Deterministic and special-metric legs (ESMC, SaProt, BoltzGen, OpenDDE-abag)
-have no X/floor ratio and are not plotted; see the verdict table.
-
 ## Reproduce
 
 Each leg's reproduce command is in [Implementation parity — details](implementation-parity-details.md#reproducing-a-comparison).
 The harness is `scripts/pharma_parity.py`; reference fixtures live under
-`docs/implementation-parity-data/ref-fixtures/`. Regenerate this chart with
-`python3 scripts/plot_parity.py`.
+`docs/implementation-parity-data/ref-fixtures/`.
