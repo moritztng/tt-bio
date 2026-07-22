@@ -1775,6 +1775,31 @@ def _artifact_intact(path: Path, name: str | None = None) -> bool:
         return False
 
 
+def _sweep_stale_staging(cache: Path, max_age_s: float = 3600.0) -> None:
+    """Remove orphaned ``.dl-*`` staging dirs/files left by a hard-killed run.
+
+    ``get_artifact_path`` stages each download in a fresh ``.dl-*`` entry and
+    cleans it in a ``finally`` — which a SIGKILL skips, so the staging lingers
+    forever (harmless: each run picks a unique name, but it grows unbounded).
+    Anything from a PRIOR process is safe to delete; the mtime gate keeps us
+    off an in-flight download (multi-device workers share this cache and each
+    spin up their own staging within seconds of each other, so a threshold
+    well past startup is safe in practice).
+    """
+    cutoff = time.time() - max_age_s
+    if not cache.is_dir():
+        return
+    for entry in cache.glob(".dl-*"):
+        try:
+            if entry.stat().st_mtime < cutoff:
+                if entry.is_dir():
+                    shutil.rmtree(entry, ignore_errors=True)
+                else:
+                    entry.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def get_artifact_path(
     args, artifact: str, repo_type: str = "model", verbose: bool = True
 ) -> Path:
@@ -1790,6 +1815,7 @@ def get_artifact_path(
     cache = args.cache if args.cache is not None else (Path.home() / ".boltz" / "boltzgen")
     force = bool(getattr(args, "force_download", False))
     if artifact.startswith("huggingface:"):
+        _sweep_stale_staging(cache)
         import tempfile
         from huggingface_hub import hf_hub_download
 
@@ -1820,6 +1846,7 @@ def get_artifact_path(
         import urllib.request
 
         cache.mkdir(parents=True, exist_ok=True)
+        _sweep_stale_staging(cache)
         result = cache / artifact.rsplit("/", 1)[-1]
         if force or not result.exists() or not _artifact_intact(result):
             if result.exists() and not force:
