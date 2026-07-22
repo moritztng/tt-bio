@@ -256,6 +256,18 @@ class TokenInitializer(Module):
         self.w_atom1d_2 = _embedder_weights("atom_1d_embedder_2")
 
         self.downcast_gca = self.scope("downcast_atom.gca")
+        # GatedCrossAttention weights (device port; c_query=c_kv=c_s=384, c_model=128, n_head=4, hd=32)
+        g = "downcast_atom.gca."
+        self.gca_ln_q = self.torch_to_tt(g + "ln_q.weight", dtype=self.dtype)
+        self.gca_ln_kv = self.torch_to_tt(g + "ln_kv.weight", dtype=self.dtype)
+        self.gca_to_q = self.torch_to_tt(g + "to_q.weight", dtype=self.dtype)
+        self.gca_to_k = self.torch_to_tt(g + "to_k.weight", dtype=self.dtype)
+        self.gca_to_v = self.torch_to_tt(g + "to_v.weight", dtype=self.dtype)
+        self.gca_to_g = self.torch_to_tt(g + "to_g.0.weight", dtype=self.dtype)
+        self.gca_k_norm = self.torch_to_tt(g + "k_norm.weight", dtype=self.dtype)
+        self.gca_q_norm = self.torch_to_tt(g + "q_norm.weight", dtype=self.dtype)
+        self.gca_to_out_w = self.torch_to_tt(g + "to_out.0.weight", dtype=self.dtype)
+        self.gca_to_out_b = self.torch_to_tt(g + "to_out.0.bias", dtype=self.dtype)
         self.tr_post_tok = Transition(self.scope("transition_post_token"), ckc, self.C_S, n=2, dtype=self.dtype)
         self.tr_post_atom = Transition(self.scope("transition_post_atom"), ckc, self.C_S, n=2, dtype=self.dtype)
         self.process_s_init_n = self.torch_to_tt("process_s_init.0.weight", dtype=self.dtype)
@@ -348,6 +360,57 @@ class TokenInitializer(Module):
         o = F.linear(o, W["to_out.0.weight"], W["to_out.0.bias"])  # [1,I,1,C_S]
         return o.squeeze(0).squeeze(1)                            # [I, C_S]
 
+    def _device_gca(self, s_h, ql_h, vm):
+        """On-device GatedCrossAttention (Downcast). s_h [I, C_S], ql_h [L, C_S],
+        vm [I, A]. Returns the per-token update [I, C_S] on host. head_dim=32 (tile-aligned)
+        so manual matmul-softmax attention is clean (same recipe as PairformerAttention)."""
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        c_s, c_model, n_head = self.C_S, 128, 4
+        hd = c_model // n_head  # 32
+        I, A = s_h.shape[0], vm.shape[1]
+        # ungroup atoms on host: Q_L [L,384] -> Q_IA [1, I, A, 384]
+        flat_idx = vm.flatten().nonzero(as_tuple=False).squeeze(1)
+        idx = flat_idx.view(1, -1, 1).expand(1, -1, c_s)
+        Q_IA = torch.zeros(1, I * A, c_s, dtype=ql_h.dtype).scatter(1, idx, ql_h.unsqueeze(0))
+        Q_IA = Q_IA.reshape(1, I, A, c_s)
+        q = _tt(s_h.unsqueeze(0), dev, dt)
+        kv = _tt(Q_IA, dev, dt)
+        q = ttnn.rms_norm(q, weight=self.gca_ln_q, epsilon=1e-6, compute_kernel_config=ckc)
+        kv = ttnn.rms_norm(kv, weight=self.gca_ln_kv, epsilon=1e-6, compute_kernel_config=ckc)
+        qq = ttnn.linear(q, self.gca_to_q, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        kk = ttnn.linear(kv, self.gca_to_k, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        vv = ttnn.linear(kv, self.gca_to_v, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        gg = ttnn.linear(q, self.gca_to_g, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        qq = ttnn.rms_norm(qq, weight=self.gca_q_norm, epsilon=1e-6, compute_kernel_config=ckc)
+        kk = ttnn.rms_norm(kk, weight=self.gca_k_norm, epsilon=1e-6, compute_kernel_config=ckc)
+        # batch over tokens: q [1,I,128]->[I,4,1,32]; k/v [1,I,A,128]->[I,4,A,32]
+        qq = ttnn.permute(ttnn.reshape(qq, (1, I, n_head, hd)), (0, 2, 1, 3))            # [1,4,I,32]
+        qq = ttnn.reshape(qq, (I, n_head, 1, hd))                                    # [I,4,1,32]
+        gg = ttnn.reshape(ttnn.permute(ttnn.reshape(gg, (1, I, n_head, hd)), (0, 2, 1, 3)), (I, n_head, 1, hd))
+        kk = ttnn.permute(ttnn.reshape(kk, (1, I, A, n_head, hd)), (0, 3, 1, 2, 4))   # [1,4,I,A,32]
+        vv = ttnn.permute(ttnn.reshape(vv, (1, I, A, n_head, hd)), (0, 3, 1, 2, 4))
+        kk = ttnn.reshape(kk, (I, n_head, A, hd))                                    # [I,4,A,32]
+        vv = ttnn.reshape(vv, (I, n_head, A, hd))
+        kt = ttnn.permute(kk, (0, 1, 3, 2))                                        # [I,4,32,A]
+        sc = ttnn.matmul(qq, kt, compute_kernel_config=ckc)                          # [I,4,1,A]
+        ttnn.deallocate(qq); ttnn.deallocate(kt)
+        sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
+        sc = ttnn.multiply(sc, hd ** -0.5)
+        mask = torch.where(vm, 0.0, -1e4).to(torch.float32).unsqueeze(1).unsqueeze(1)  # [I,1,1,A]
+        mask = _tt(mask, dev, ttnn.float32)
+        sc = ttnn.add(sc, mask)
+        ttnn.deallocate(mask)
+        attn = ttnn.softmax(sc, dim=-1)
+        attn = ttnn.typecast(attn, dt, memory_config=attn.memory_config())
+        o = ttnn.matmul(attn, vv, compute_kernel_config=ckc, dtype=dt)                       # [I,4,1,32]
+        ttnn.deallocate(attn); ttnn.deallocate(vv)
+        o = ttnn.multiply(o, ttnn.sigmoid(gg))
+        ttnn.deallocate(gg)
+        o = ttnn.reshape(o, (1, I, c_model))
+        o = ttnn.linear(o, self.gca_to_out_w, bias=self.gca_to_out_b,
+                          compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        return ttnn.to_torch(o).float().squeeze(0)                                  # [I, C_S]
+
     def __call__(self, f):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         tok_idx = f["atom_to_token_map"].long()
@@ -366,7 +429,7 @@ class TokenInitializer(Module):
         s_h = ttnn.to_torch(s).float().squeeze(0)            # [I, C_S]
         ql_h = ttnn.to_torch(ql).float().squeeze(0)         # [L, C_S]
         vm = _build_valid_mask(tok_idx)                     # [I, A]
-        s_h = s_h + self._host_gca(s_h, ql_h, vm)            # [I, C_S]
+        s_h = s_h + self._host_gca(s_h, ql_h, vm)            # [I, C_S]  (device GCA port WIP -> p5)
         s = _tt(s_h.unsqueeze(0), dev, dt)                 # back to device [1,I,C_S]
         s = ttnn.add(s, self.tr_post_atom(s))
         # process_s_init: RMSNorm + linear
