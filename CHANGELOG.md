@@ -5,6 +5,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-07-22
+
+### Fixed
+- **BoltzGen abort/resume robustness** — hard-killing `tt-bio gen` mid-download no
+  longer poisons the artifact cache or leaks `.dl-*` staging directories. A sweep
+  on startup reaps orphaned staging dirs left by a killed fetch, and a download-path
+  patch keeps partial downloads out of the cache so a resumed run picks up cleanly.
+- **BoltzGen design-spec-check perceived hang** — `tt-bio gen` now reports progress
+  during the design-spec check (the gap after `mols.zip` is cached where the CLI
+  previously showed no output), so a genuinely slow conformer-generation step reads
+  as activity instead of a frozen process. Print-only; parsed molecule data is
+  bit-identical.
+
+### Changed
+- **Repo docs reorganization** — internal engineering-journey notes moved out of the
+  public repository into the private knowledge base, leaving the public docs focused
+  on what a user needs to decide and use the package. Comment/docstring/doc-move
+  only; no logic change.
+
 ## [0.3.2] - 2026-07-20
 
 ### Fixed
