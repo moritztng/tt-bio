@@ -776,7 +776,13 @@ def main() -> int:
                     wall = 0.0
                     committed = _committed_verdict(leg)
                     drift = ""
-                    if committed and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
+                    # Only drift-check when the committed record carries a comparable
+                    # verdict. A committed=NO-DATA record (e.g. a legacy narrative-shape
+                    # or a targets block missing the kabsch_rmsd metric) has nothing to
+                    # compare against; a real regression is still caught below by the
+                    # live verdict itself (ERROR/GAP/NO-DATA -> all_pass=False).
+                    if committed and committed not in ("NO-DATA",) \
+                            and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
                         drift = " [reproduces committed]" if verdict == committed else \
                             f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
                         if verdict != committed:
@@ -820,7 +826,11 @@ def main() -> int:
         # drift check vs committed
         committed = _committed_verdict(leg)
         drift = ""
-        if committed and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
+        # See resume-branch note: skip the drift check when the committed record is
+        # NO-DATA (no comparable verdict); a real regression is still caught by the
+        # live verdict below.
+        if committed and committed not in ("NO-DATA",) \
+                and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
             if verdict == committed:
                 drift = " [reproduces committed]"
             else:
