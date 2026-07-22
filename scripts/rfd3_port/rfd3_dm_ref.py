@@ -191,13 +191,13 @@ class CompactStreamingDecoderRef(nn.Module):
         cab = dict(n_head=n_head, c_model=c_atom)
         self.upcast = nn.ModuleList([Upcast(c_atom, c_token, n_split=n_split, cross_attention_block=cab)
                                     for _ in range(n_block)])
-        self.blocks = nn.ModuleList([DiTBlockRef(c_token=c_atom, c_s=c_atom, c_pair=c_atompair, n_head=n_head)
+        self.atom_transformer = nn.ModuleList([DiTBlockRef(c_token=c_atom, c_s=c_atom, c_pair=c_atompair, n_head=n_head)
                                     for _ in range(n_block)])
         self.downcast = Downcast(c_atom=c_atom, c_token=c_token, c_s=c_s, method="cross_attention",
                                  cross_attention_block=cab)
 
     def forward(self, A_I, S_I, Z_II, Q_L, C_L, P_LL, valid_mask, tok_idx):
-        for up, blk in zip(self.upcast, self.blocks):
+        for up, blk in zip(self.upcast, self.atom_transformer):
             Q_L = up(Q_L, A_I, tok_idx=tok_idx)
             Q_L = blk(Q_L, C_L, P_LL, valid_mask=valid_mask)
         A_I = self.downcast(Q_L, A_I, S_I, tok_idx=tok_idx)
@@ -222,12 +222,13 @@ class LinearEmbedWithPoolRef(nn.Module):
 
 # --- LinearSequenceHead ---
 class LinearSequenceHeadRef(nn.Module):
-    def __init__(self, c_s=384, n_token=32):
+    def __init__(self, c_token=768, n_token=32):
         super().__init__()
-        self.linear = nn.Sequential(RMSNorm(c_s), linearNoBias(c_s, n_token))
+        self.linear = nn.Linear(c_token, n_token)
+        self.register_buffer("valid_out_mask", torch.ones(n_token, dtype=torch.bool))
 
-    def forward(self, S_I):
-        return self.linear(S_I)
+    def forward(self, A_I):
+        return self.linear(A_I)
 
 
 # --- DiffusionTokenEncoder (encoders.py) ---
@@ -304,7 +305,7 @@ class RFD3DiffusionModuleRef(nn.Module):
         self.n_recycle = n_recycle
         self.process_r = linearNoBias(3, c_atom)
         self.to_r_update = nn.Sequential(RMSNorm(c_atom), linearNoBias(c_atom, 3))
-        self.sequence_head = LinearSequenceHeadRef(c_s=c_token)
+        self.sequence_head = LinearSequenceHeadRef(c_token=c_token)
         self.fourier_embedding = nn.ModuleList([FourierEmbedding(c_t_embed), FourierEmbedding(c_t_embed)])
         self.process_n = nn.ModuleList([
             nn.Sequential(RMSNorm(c_t_embed), linearNoBias(c_t_embed, c_atom)),
