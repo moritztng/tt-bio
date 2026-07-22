@@ -1,0 +1,2 @@
+[transformers] You are using a model of type `hunyuan_image_3_moe` to instantiate a model of type `Hunyuan`. This may be expected if you are loading a checkpoint that shares a subset of the architecture (e.g., loading a `sam2_video` checkpoint into `Sam2Model`), but is otherwise not supported and can yield errors. Please verify that the checkpoint is compatible with the model you are instantiating.
+[transformers] Missing validation function in 'RotaryEmbeddingConfigMixin' for 'rope_type'='custom'

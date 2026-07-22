@@ -1,0 +1,72 @@
+==============================================================================
+  Model:        tencent/HunyuanImage-3.0
+  Category:     LLM     (pipeline_tag=text-to-image, library=transformers)
+  Architecture: moe
+==============================================================================
+
+  On-disk weights:  168.54 GB  (saved as bf16 (mixed))
+  Total parameters: 83.01 B (exact)
+  Transformer:      32 layers, hidden=4096, Q/KV heads=32/8, head_dim=128
+  Native context:   22,800
+  MoE:              64 experts, top-8 routing
+
+  Flags:
+    * Reclassified Image to LLM via config.architectures=['HunyuanImage3ForCausalMM']
+    * MoE detected (64 experts, top-8)
+
+  Probe knobs:  batch=1  seq/horizon=8192  KV dtype=bf16
+
+  Memory budget @ bf16 (model-level, before sharding):
+    weights                         166.02 GB
+    KV cache                          1.07 GB
+    activations                       0.81 GB
+    TOTAL                           167.90 GB
+
+  Per-chip overhead (subtracted from HBM before fit-check):
+    Wormhole   dispatch=0.5 GB + ccl=0.4 GB + frag=5% of 12 GB
+               source: estimate; aligned with measurements from tt_transformers Llama-3.1-8B@N150 demos (PR# pending calibration)
+    Blackhole  dispatch=1.2 GB + ccl=0.6 GB + frag=5% of 32 GB
+               source: estimate; BH dispatch path has more in-flight buffers than WH (per ttnn dispatch_kernel notes)
+
+  ------------------------------------------------------------------------
+  BOX       DTYPE      PER-CHIP     USABLE    HEADROOM  VERDICT
+  ------------------------------------------------------------------------
+  N150      bf16         167.90G    10.90G   -157.00G  no
+  N150      bfp8_b        90.08G    10.90G    -79.18G  no
+        ------------------------------------------------------------------
+  N300      bf16          87.27G    10.50G    -76.77G  no
+  N300      bfp8_b        46.80G    10.50G    -36.30G  no
+        ------------------------------------------------------------------
+  T3K       bf16          26.80G    10.50G    -16.30G  no
+  T3K       bfp8_b        14.35G    10.50G     -3.85G  no
+        ------------------------------------------------------------------
+  QB2       bf16          46.95G    28.60G    -18.35G  no
+  QB2       bfp8_b        25.16G    28.60G      3.44G  FITS (room)
+        ------------------------------------------------------------------
+  GalaxyWH  bf16          11.78G    10.50G     -1.28G  no
+  GalaxyWH  bfp8_b         6.33G    10.50G      4.17G  FITS (comfortable)
+        ------------------------------------------------------------------
+  GalaxyBH  bf16          11.78G    28.60G     16.82G  FITS (comfortable)
+  GalaxyBH  bfp8_b         6.33G    28.60G     22.27G  FITS (comfortable)
+        ------------------------------------------------------------------
+  P100      bf16         167.90G    29.20G   -138.70G  no
+  P100      bfp8_b        90.08G    29.20G    -60.88G  no
+        ------------------------------------------------------------------
+  P150      bf16         167.90G    29.20G   -138.70G  no
+  P150      bfp8_b        90.08G    29.20G    -60.88G  no
+        ------------------------------------------------------------------
+  P300      bf16          87.27G    28.60G    -58.67G  no
+  P300      bfp8_b        46.80G    28.60G    -18.20G  no
+  ------------------------------------------------------------------------
+
+  RECOMMENDATION: GalaxyWH with bfp8_b weights
+                  per-chip=6.3 GB, headroom=4.2 GB
+                  verdict: FITS (comfortable)
+                  32x Wormhole. Needed for 70B+ dense, large MoE, or video gen. Canonical large-scale shape is [4,8].
+                  Runtime mesh is selected in `prepare` after TP/divisibility and demo constraints.
+
+  Category guidance (LLM):
+    Standard transformer LLM. Closest templates: models/tt_transformers/, models/demos/llama3_subdevices/, models/demos/qwen3_tts/.
+
+  CONFIDENCE: HIGH
+              Exact weight footprint + architecture-aware KV math.
