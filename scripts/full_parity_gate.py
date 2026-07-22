@@ -368,7 +368,7 @@ def parse_workers(spec: str) -> list[Worker]:
 
 
 def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Worker],
-                     log_dir: Path) -> dict:
+                     log_dir: Path, resume: bool = False) -> dict:
     """Run one device fold per seed, fanned across workers; return {seed: out_dir}."""
     leg_dir = workdir / leg.id
     leg_dir.mkdir(parents=True, exist_ok=True)
@@ -386,6 +386,19 @@ def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Wo
         out = {}
         for s, _ in jobs_w:
             out_dir = leg_dir / f"seed{s}"
+            # --resume: reuse an existing completed fold (a subdir with results.json)
+            # rather than re-folding. Device folds are seeded and model code is fixed
+            # for the release, so a prior run's output is valid evidence.
+            if resume:
+                inner = None
+                if out_dir.is_dir():
+                    for p in out_dir.iterdir():
+                        if p.is_dir() and (p / "results.json").exists():
+                            inner = p
+                            break
+                if inner is not None:
+                    out[s] = inner
+                    continue
             cmd = device_cmd(leg, s, out_dir, workdir)
             wrapped = w.wrap(cmd, REPO, {})
             t0 = time.monotonic()
@@ -484,8 +497,11 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict) -> dict |
     if proc.returncode != 0:
         return None
     if leg.kind in ("boltzgen", "abag"):
-        # release_gate prints a verdict table but writes no JSON; capture pass/fail from rc
-        return {"_release_gate_rc": proc.returncode, "_log": log_path.read_text()[-2000:]}
+        # release_gate prints a verdict table but writes no JSON; capture pass/fail from rc.
+        # Persist it to out_json so --resume can reuse the verdict without re-folding.
+        report = {"_release_gate_rc": proc.returncode, "_log": log_path.read_text()[-2000:]}
+        out_json.write_text(json.dumps(report))
+        return report
     if out_json.exists():
         return json.loads(out_json.read_text())
     return None
@@ -648,6 +664,11 @@ def main() -> int:
     ap.add_argument("--out", default="", help="write the JSON report here too.")
     ap.add_argument("--dry-run", action="store_true",
                    help="inventory + fingerprint check only; run no device folds.")
+    ap.add_argument("--resume", action="store_true",
+                   help="reuse completed device folds and prior per-leg reports already in "
+                        "the workdir instead of re-running them. Lets a long gate be run "
+                        "across multiple invocations; only legs/seeds without existing "
+                        "valid output are (re)run. Off by default so a fresh run folds anew.")
     ap.add_argument("--init-fingerprints", action="store_true",
                    help="write/refresh docs/implementation-parity-data/ref-fixture-fingerprints.json "
                    "from the current fixtures and exit (run once after harvesting a fixture; "
@@ -742,8 +763,34 @@ def main() -> int:
 
         # run + score
         report = None
+        # --resume: if a prior per-leg report exists in the workdir, reuse it instead of
+        # re-running. Re-evaluate the verdict + drift with the current (fixed) extractors.
+        cached_report_path = workdir / f"{leg.id}.json"
+        if args.resume and cached_report_path.exists():
+            try:
+                cached = json.loads(cached_report_path.read_text())
+                cached_verdict, _ = extract_verdict(leg, cached)
+                if cached_verdict not in ("ERROR", "NO-DATA", None):
+                    report = cached
+                    verdict, detail = cached_verdict, f"(resumed from {leg.id}.json)"
+                    wall = 0.0
+                    committed = _committed_verdict(leg)
+                    drift = ""
+                    if committed and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
+                        drift = " [reproduces committed]" if verdict == committed else \
+                            f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
+                        if verdict != committed:
+                            all_pass = False
+                    rows.append({"leg": leg.id, "verdict": verdict, "detail": detail,
+                                 "wall": wall, "committed": committed,
+                                 "report": leg.id + ".json"})
+                    print(f"{leg.id:<34}{leg.kind:<11}{'cached':<14}{verdict:<18}{wall:>7.0f}s  "
+                          f"{detail[:60]}{drift}")
+                    continue
+            except Exception:
+                pass  # fall through to a fresh run
         if leg.kind in ("structure", "affinity"):
-            folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir)
+            folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir, resume=args.resume)
             dev_dirs = []
             fold_errs = []
             for s in seeds:
