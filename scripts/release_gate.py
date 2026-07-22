@@ -24,8 +24,7 @@ against, so it is gated separately from the four above. Its correctness bar is
 designability (self-consistency RMSD, scRMSD): refold each design's sequence in
 isolation with Boltz-2 and check the shape reproduces. This is the exact
 ``scripts/boltzgen_designability.py`` method already validated on this hardware
-(docs/boltzgen-designability.md, docs/boltzgen-resident-trunk.md's n=8 parity pass)
-— reused here, not re-derived. At n=4 (production 500-step sampling) a full
+(docs/boltzgen-designability.md; also confirmed at n=8) — reused here, not re-derived. At n=4 (production 500-step sampling) a full
 design+refold+analysis run measured ~4.5 min on Blackhole, comparable to a fold
 model's leg, so it runs by default alongside the other four rather than standalone
 (supersedes docs/boltzgen-designability.md's earlier "keep it out of the fast gate"

@@ -3902,8 +3902,7 @@ class AtomDiffusion(Module):
         # host-side scalars), so the captured device graph replays every step
         # and collapses the per-step host dispatch. Lossless by construction
         # (bit-identical to the untraced path). See the shared
-        # ``DiffusionModule.forward_traced`` in tt_bio/tenstorrent.py and
-        # docs/boltz2-trace-replay.md.
+        # ``DiffusionModule.forward_traced`` in tt_bio/tenstorrent.py.
         self._diffusion_trace = bool(diffusion_trace) and use_tenstorrent
         DiffusionModule_, _, _, _ = _get_pytorch_modules()
         self.score_model = (

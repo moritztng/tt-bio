@@ -1020,7 +1020,7 @@ def _thread_cap_env(n_workers: int) -> dict:
     co-resident shards spawn N*cores threads that thrash the host CPU -- confirmed
     via `ps -eLo pcpu` during a 4-card esmc-6b run (each shard bursts to 200-380%
     CPU, host loadavg > 2x core count) as the residual fanout regression left after
-    fixing the weight-load contention (see docs/esmc-multicard-scaling.md). Mirrors
+    fixing the weight-load contention. Mirrors
     the identical fix already applied to the fleet worker pool in
     ``main._cap_worker_threads``; an operator-set value wins.
     """

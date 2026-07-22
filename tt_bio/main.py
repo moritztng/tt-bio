@@ -1913,8 +1913,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--diffusion_trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
-                   "Opt-in — reserves a 1 GiB trace region on the device. See "
-                   "docs/boltz2-trace-replay.md.")
+                   "Opt-in — reserves a 1 GiB trace region on the device.")
 @click.option("--write_pae", is_flag=True, help="Write PAE matrix per target")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
@@ -2495,7 +2494,7 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
                    "worker --connect`) instead of spawning local subprocess shards. Workers keep "
                    "the ESMC model resident across calls, so repeated embed runs against the same "
                    "controller skip the weight reload that otherwise dominates wall-clock for "
-                   "large models (see docs/esmc-multicard-scaling.md).")
+                   "large models.")
 @click.option("--owner", default=None,
               help="Opaque fairness key the controller uses to fair-share workers across users. "
                    "Requires --controller.")

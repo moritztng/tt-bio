@@ -276,7 +276,7 @@ def add_configure_arguments(
         action="store_true",
         help="Replay a captured ttnn trace of the per-step diffusion DiT device "
         "stream (lossless; collapses per-step host dispatch). Opt-in — reserves a "
-        "1 GiB trace region on the device. See docs/boltzgen-trace-replay.md.",
+        "1 GiB trace region on the device.",
     )
 
     # Inverse folding configuration options

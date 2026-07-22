@@ -188,7 +188,7 @@ def main() -> int:
                     help="Resume/keep an existing partial run instead of restarting.")
     ap.add_argument("--diffusion_trace", action="store_true",
                     help="Pass --diffusion_trace to gen run (ttnn trace replay of the "
-                    "diffusion DiT; lossless). See docs/boltzgen-trace-replay.md.")
+                    "diffusion DiT; lossless).")
     ap.add_argument("--sc-threshold", type=float, default=STRICT_A,
                     help=f"scRMSD pass bar in A (default {STRICT_A}).")
     ap.add_argument("--min-pass-rate", type=float, default=None, metavar="FRAC",

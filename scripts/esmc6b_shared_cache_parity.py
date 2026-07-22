@@ -11,7 +11,7 @@ Three short-lived pinned subprocesses on ONE leased card (so the parent never ho
 the card): the single-card baseline (`load_esmc`, cache disabled), the cache *builder*
 (`dump`), and a cache *peer* (`load`). We then assert Δ == 0 per-residue and pooled
 across all three. End-to-end concurrent multi-card wall-clock scaling needs 2+ free
-cards and is out of scope here (see docs/esmc-multicard-scaling.md).
+cards and is out of scope here.
 
 Usage:
     TT_VISIBLE_DEVICES=0 python3 scripts/esmc6b_shared_cache_parity.py --n 8 --len 192

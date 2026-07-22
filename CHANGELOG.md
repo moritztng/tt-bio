@@ -212,7 +212,7 @@ unchanged within seed-to-seed noise vs 0.2.4.
 
 No OOM: `examples/615.yaml` and `examples/1303.yaml` (Boltz-2 `--fast`) completed cleanly;
 the full supported range to `examples/3233.yaml` (4-chain multimer + ligand) was already
-verified OOM-free on this unchanged Boltz-2 code (`docs/boltz2-tt-vs-nvidia.md`). No perf
+verified OOM-free on this unchanged Boltz-2 code. No perf
 regression: Boltz-2 `--fast` warm e2e at L=615 is **46.5 s**, vs the 43.4 s 0.2.4-era
 baseline — within run-to-run/environment noise on the same unchanged code path.
 
@@ -226,7 +226,7 @@ baseline — within run-to-run/environment noise on the same unchanged code path
   not a regression; see the gate wall-clock above.
 - ESMC-6B `--devices` fanout regression past 2 cards, root-caused to two independent
   host-side bottlenecks (both fixed, verified bit-exact, end-to-end scaling now
-  monotonic to 4 cards — see `docs/esmc-multicard-scaling.md`):
+  monotonic to 4 cards):
   - **Redundant weight loading**: the N data-parallel workers now share one host-tiled
     copy of the 24 GB checkpoint via a `/dev/shm` cache (`esmc.load_esmc6b_shared` +
     `tenstorrent.weight_cache`) instead of each independently reading+tiling it.
@@ -246,7 +246,7 @@ baseline — within run-to-run/environment noise on the same unchanged code path
 - `tt-bio embed --controller URL`: dispatch to a persistent `tt-bio controller`/`worker`
   pool instead of spawning per-call subprocesses. A worker's ESMC model stays resident
   across calls, so the weight reload that dominates `--devices` wall-clock for
-  `esmc-6b` (see `docs/esmc-multicard-scaling.md`) becomes a one-time cost per worker
+  `esmc-6b` becomes a one-time cost per worker
   lifetime instead of a per-invocation tax (measured: esmc-6b N=48 50.0s cold -> 9.1s
   warm on 1 card, 261s cold -> 13.4s warm on 2 cards; bit-exact vs single-shot). Reuses
   the existing predict/design scheduler/lease machinery (`tt_bio/distributed.py`,
@@ -256,7 +256,7 @@ baseline — within run-to-run/environment noise on the same unchanged code path
 
 ### Measured
 - Re-measured `esmc-300m`/`esmc-600m` `--devices` wall-clock scaling on qb2 post
-  thread-cap fix (N=48/256/4096, see `docs/esmc-multicard-scaling.md`): the original
+  thread-cap fix (N=48/256/4096): the original
   table's `esmc-600m/N=256` 3-card 0.62x cliff does not reproduce (now a 0.87x dip,
   within run-to-run noise) — no regression for either model at any previously-fine
   config. New finding: both models scale far more modestly on qb2 (~1.1x@4cards for
@@ -288,7 +288,7 @@ No regression vs 0.2.3 (within TT diffusion's seed-to-seed variance band).
 **BoltzGen designability** — n=8 fixed-length-100 designs, `examples/binder.yaml`: scRMSD
 median 0.84 Å (resident) vs 0.91 Å (host), 7/8 designs ≤2 Å strict pass (comparable to host's
 8/8) — no regression. Wall-clock (design + refold + confidence + analysis + filtering) **697 s
-→ 479 s, ~31% faster**. See `docs/boltzgen-resident-trunk.md`.
+→ 479 s, ~31% faster**.
 
 ### Added
 - **BoltzGen device-resident trunk** — `TokenDistanceRecycle` (mirrors `TemplateRecycle`) keeps
@@ -319,14 +319,14 @@ and `tt-bio embed` input/UX polish. No structure-model code changed vs 0.2.2 (`t
 Full test suite: 71 passed, 46 skipped (missing optional reference checkpoints/packages, same
 gap as prior releases), 0 failed. No OOM: `examples/615.yaml` and `examples/1303.yaml`
 (Boltz-2 `--fast`) completed cleanly; the full supported range up to `examples/3233.yaml`
-(4-chain multimer + ligand) was already verified OOM-free on this same unchanged model code
-(`docs/boltz2-tt-vs-nvidia.md`). No perf regression: Boltz-2 `--fast` warm e2e at L=615 is
+(4-chain multimer + ligand) was already verified OOM-free on this same unchanged model code.
+No perf regression: Boltz-2 `--fast` warm e2e at L=615 is
 **43.4 s**, matching the 0.2.2-era baseline exactly (same code path since before 0.2.2).
 
 ### Added
 - **`tt-bio predict --devices`** — alias for `--device_ids` (comma-separated card ids), matching `tt-bio embed`'s flag name; `--device_ids` still works for back-compat.
 - **BoltzGen designability (scRMSD) verify script** — `scripts/boltzgen_designability.py` harvests the self-consistency RMSD `tt-bio gen` already computes and summarizes/gates on it; see `docs/boltzgen-designability.md`.
-- **`tt-bio embed --devices` wall-clock scaling measured** (`docs/esmc-multicard-scaling.md`) — real ~2x @ 4 cards for `esmc-600m` on large batches, but flat/worse for small batches and for `esmc-6b` beyond 2 cards (concurrent weight-load contention); README softened to match. Performance-only finding, no change to the (already bit-exact) sharding correctness.
+- **`tt-bio embed --devices` wall-clock scaling measured** — real ~2x @ 4 cards for `esmc-600m` on large batches, but flat/worse for small batches and for `esmc-6b` beyond 2 cards (concurrent weight-load contention); README softened to match. Performance-only finding, no change to the (already bit-exact) sharding correctness.
 
 ### Changed
 - **`tt-bio embed` input handling** — `DATA` now also accepts a YAML `{id: sequence}` mapping or a bare sequence string (previously FASTA file/directory only), writes a `manifest.json` (model/pool/shapes/dtype + which output file holds each sequence) alongside the embeddings, and reports bad input as a one-line error instead of a raw traceback.

@@ -148,7 +148,7 @@ class AtomDiffusion(Module):
         # (only the scalar times and the r coords change), so the captured
         # device graph replays every step and collapses the per-step host
         # dispatch. Lossless by construction (bit-identical to the untraced
-        # path). See TTDiffusionModule.forward_traced / docs/boltzgen-trace-replay.md.
+        # path). See TTDiffusionModule.forward_traced.
         self._trace = diffusion_trace
 
     @property
