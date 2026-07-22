@@ -1083,6 +1083,9 @@ def parse_entity(item, mols, mol_dir, ligand_id, is_msa_custom, is_msa_auto):
                     f"{seq} has an atom with a name longer than 4 characters: {atom_name}"
                 )
             atom.SetProp("name", atom_name)
+        print(
+            f"  Generating 3D conformer for ligand ({mol.GetNumHeavyAtoms()} heavy atoms)..."
+        )
         success = compute_3d_conformer(mol)
 
         if not success:
@@ -1963,6 +1966,9 @@ class YamlDesignParser:
                         atom.SetProp("name", atom_name)
                     mols[f"LIG{ligand_id}"] = mol
 
+                    print(
+                        f"  Generating 3D conformer for ligand ({mol.GetNumHeavyAtoms()} heavy atoms)..."
+                    )
                     success = compute_3d_conformer(mol)
 
                     if not success:
