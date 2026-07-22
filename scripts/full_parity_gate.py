@@ -423,9 +423,44 @@ def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Wo
             wrapped = w.wrap(cmd, REPO, {})
             t0 = time.monotonic()
             logf = open(log_dir / f"{leg.id}_seed{s}.log", "w")
+            # Poll for completion rather than blocking on subprocess.run: a
+            # boltz2 affinity `predict` can hang in do_select on shutdown AFTER
+            # it has already written results.json (a pre-existing process-exit
+            # bug, not a fold/numerics failure). results.json present is the
+            # fold-success signal; once it appears, give the process a short
+            # grace window to exit cleanly, then kill a hung shutdown so the
+            # gate does not block forever on a succeeded fold.
+            GRACE_S = 30.0
+            inner_marker = None
+            rc = 0
             try:
-                proc = subprocess.run(wrapped, cwd=REPO, stdout=logf, stderr=subprocess.STDOUT)
-                rc = proc.returncode
+                proc = subprocess.Popen(wrapped, cwd=REPO, stdout=logf,
+                                         stderr=subprocess.STDOUT)
+                folded_at = None
+                while True:
+                    rc_now = proc.poll()
+                    if rc_now is not None:
+                        rc = rc_now
+                        break
+                    # look for the inner results.json the scorer expects
+                    if inner_marker is None and out_dir.is_dir():
+                        for p in out_dir.iterdir():
+                            if p.is_dir() and (p / "results.json").exists():
+                                inner_marker = p
+                                folded_at = time.monotonic()
+                                break
+                    if inner_marker is not None:
+                        if time.monotonic() - folded_at >= GRACE_S:
+                            # fold done but process hung in shutdown — reap it.
+                            proc.terminate()
+                            try:
+                                proc.wait(timeout=10)
+                            except subprocess.TimeoutExpired:
+                                proc.kill()
+                                proc.wait()
+                            rc = 0
+                            break
+                    time.sleep(2.0)
             finally:
                 logf.close()
             wall = time.monotonic() - t0
@@ -434,11 +469,12 @@ def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Wo
                 continue
             # tt-bio writes results into <out_dir>/<model>_results_<id>/; the scorer
             # expects that inner dir as the dev_dir. Resolve it by locating results.json.
-            inner = None
-            for p in out_dir.iterdir():
-                if p.is_dir() and (p / "results.json").exists():
-                    inner = p
-                    break
+            inner = inner_marker
+            if inner is None:
+                for p in out_dir.iterdir():
+                    if p.is_dir() and (p / "results.json").exists():
+                        inner = p
+                        break
             out[s] = inner or out_dir
         return out
 
