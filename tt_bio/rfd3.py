@@ -1,16 +1,15 @@
-"""RFD3 (RFdiffusion3) TokenInitializer — ttnn on-device port.
+"""RFD3 (RFdiffusion3) ttnn component ports.
 
-Mirrors the upstream `TokenInitializer` (RosettaCommons/foundry models/rfd3,
-production): relative_position_encoding (r_max=32, s_max=2) + 2-block no-triangle
-Pairformer (AttentionPairBias + z/s Transitions, NO triangle_mult / NO
-triangle_attn) + 1D/atom-1D feature embedders, MSA-free. Produces
-{Q_L_init, C_L, P_LL, S_I, Z_II}.
+Includes the TokenInitializer, dense-mask LocalAtomTransformer encoder,
+CompactStreamingDecoder (device Upcast/Downcast cross-attention), and
+LinearSequenceHead. The atom attention mask is mathematically equivalent to
+upstream's gather-sparse path.
 
 Design (per p1 §4 / state §2c.3): the index/one-hot/scatter/gather feature
 engineering runs on HOST (pure torch, cheap, index-heavy — no matmul); the heavy
 linears / RMSNorm / Transition / pair-bias attention / Downcast cross-attention run
-on the TT device via ttnn. TokenInitializer is step-invariant (computed once per
-fold), so host<->device round-trips at the feature boundaries are free here.
+on the TT device via ttnn. Decoder atom grouping uses device gathers, keeping the
+three-block decoder resident.
 
 Weight remap is a trivial prefix-strip: the 118 `model.token_initializer.*` ckpt keys
 are canonical and load 1:1 (verified 0 missing / 0 extra vs the faithful reference).
@@ -19,13 +18,12 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 
 import ttnn
 
-from .tenstorrent import Module, get_device, CORE_GRID_MAIN, _sdpa_program_config_for_lengths
+from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 
 
 # --- host-side feature helpers (pure torch; mirror upstream, deps stubbed) ----
@@ -63,16 +61,6 @@ def _build_relpos_onehot(f, r_max, s_max):
     return torch.cat([A_relpos, A_reltoken, b_same_entity.unsqueeze(-1), A_relchain], dim=-1).to(torch.float32)
 
 
-def _pairwise_inv_dist(ref_pos, valid_mask):
-    """Host: PositionPairDistEmbedder (no-frame) inputs -> (D_LL [L,L,3], inv_dist
-    [L,L,1], V_LL [L,L,1]) for the device linears."""
-    D_LL = ref_pos.unsqueeze(-2) - ref_pos.unsqueeze(-3)
-    norm = torch.linalg.norm(D_LL, dim=-1, keepdim=True) ** 2
-    norm = torch.clamp(norm, min=1e-6)
-    inv_dist = 1 / (1 + norm)
-    return D_LL, inv_dist.unsqueeze(-1), valid_mask.to(torch.float32)
-
-
 def _sinusoidal_embed(pos, valid_mask, n_freqs=32):
     """Host: SinusoidalDistEmbed inputs -> (sincos [L,L,2*n_freqs], V_LL [L,L,1])."""
     D = pos.unsqueeze(-2) - pos.unsqueeze(-3)
@@ -102,13 +90,6 @@ def _scatter_mean_pool(pairwise_atom, tok_idx, I):
 # --- ttnn helpers ----------------------------------------------------------
 def _tt(x, dev, dtype=ttnn.bfloat16):
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
-
-
-def _pcc(a, b):
-    a = a.float().flatten(); b = b.float().flatten()
-    a = a - a.mean(); b = b - b.mean()
-    d = a.norm() * b.norm()
-    return float((a @ b) / d.clamp(min=1e-12)) if d > 0 else 0.0
 
 
 # --- ttnn Transition (RFD3: RMSNorm + silu-gated SwiGLU, keys layer_norm_1/linear_1-3) --
@@ -320,7 +301,7 @@ class TokenInitializer(Module):
             acc = y if acc is None else ttnn.add(acc, y)
         return acc
 
-    # --- host-side GatedCrossAttention (Downcast cross-attn; device port deferred to p4) ---
+    # --- host-side GatedCrossAttention reference (kept for parity isolation) ---
     def _host_gca(self, s_h, ql_h, vm):
         """Mirror Downcast(cross_attention) + GatedCrossAttention(kq_norm=True) on host.
         s_h [I, C_S], ql_h [L, C_S], vm [I, A]. Returns the per-token update [I, C_S]."""
@@ -383,12 +364,14 @@ class TokenInitializer(Module):
         gg = ttnn.linear(q, self.gca_to_g, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
         qq = ttnn.rms_norm(qq, weight=self.gca_q_norm, epsilon=1e-6, compute_kernel_config=ckc)
         kk = ttnn.rms_norm(kk, weight=self.gca_k_norm, epsilon=1e-6, compute_kernel_config=ckc)
-        # batch over tokens: q [1,I,128]->[I,4,1,32]; k/v [1,I,A,128]->[I,4,A,32]
-        qq = ttnn.permute(ttnn.reshape(qq, (1, I, n_head, hd)), (0, 2, 1, 3))            # [1,4,I,32]
+        # Batch over tokens. Keep token before head until after flattening the token
+        # batch; moving head before token here scrambles both axes.
+        qq = ttnn.permute(ttnn.reshape(qq, (1, I, 1, n_head, hd)), (0, 1, 3, 2, 4))
         qq = ttnn.reshape(qq, (I, n_head, 1, hd))                                    # [I,4,1,32]
-        gg = ttnn.reshape(ttnn.permute(ttnn.reshape(gg, (1, I, n_head, hd)), (0, 2, 1, 3)), (I, n_head, 1, hd))
-        kk = ttnn.permute(ttnn.reshape(kk, (1, I, A, n_head, hd)), (0, 3, 1, 2, 4))   # [1,4,I,A,32]
-        vv = ttnn.permute(ttnn.reshape(vv, (1, I, A, n_head, hd)), (0, 3, 1, 2, 4))
+        gg = ttnn.permute(ttnn.reshape(gg, (1, I, 1, n_head, hd)), (0, 1, 3, 2, 4))
+        gg = ttnn.reshape(gg, (I, n_head, 1, hd))
+        kk = ttnn.permute(ttnn.reshape(kk, (1, I, A, n_head, hd)), (0, 1, 3, 2, 4))
+        vv = ttnn.permute(ttnn.reshape(vv, (1, I, A, n_head, hd)), (0, 1, 3, 2, 4))
         kk = ttnn.reshape(kk, (I, n_head, A, hd))                                    # [I,4,A,32]
         vv = ttnn.reshape(vv, (I, n_head, A, hd))
         kt = ttnn.permute(kk, (0, 1, 3, 2))                                        # [I,4,32,A]
@@ -429,7 +412,7 @@ class TokenInitializer(Module):
         s_h = ttnn.to_torch(s).float().squeeze(0)            # [I, C_S]
         ql_h = ttnn.to_torch(ql).float().squeeze(0)         # [L, C_S]
         vm = _build_valid_mask(tok_idx)                     # [I, A]
-        s_h = s_h + self._host_gca(s_h, ql_h, vm)            # [I, C_S]  (device GCA port WIP -> p5)
+        s_h = s_h + self._device_gca(s_h, ql_h, vm)          # [I, C_S]
         s = _tt(s_h.unsqueeze(0), dev, dt)                 # back to device [1,I,C_S]
         s = ttnn.add(s, self.tr_post_atom(s))
         # process_s_init: RMSNorm + linear
@@ -542,19 +525,440 @@ class TokenInitializer(Module):
         return {"Q_L_init": Q_L_init, "C_L": C_L, "P_LL": P_LL, "S_I": S_init_I, "Z_II": Z_II}
 
 
+def _dense_attention_mask(indices):
+    """Convert [B,L,K] neighbour indices to the equivalent dense additive mask."""
+    indices = indices.long()
+    batch, length, _ = indices.shape
+    keep = torch.zeros(batch, length, length, dtype=torch.bool)
+    keep.scatter_(2, indices.cpu(), True)
+    return torch.where(keep, 0.0, -1e4).unsqueeze(1)
+
+
+class GatedCrossAttention(Module):
+    """RFD3 GatedCrossAttention on device; token grouping stays host-side."""
+
+    def __init__(
+        self,
+        state_dict,
+        ckc,
+        c_query,
+        c_kv,
+        c_model=128,
+        n_head=4,
+        dtype=None,
+    ):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        self.c_query = c_query
+        self.c_kv = c_kv
+        self.c_model = c_model
+        self.n_head = n_head
+        self.head_dim = c_model // n_head
+        self.ln_q = self.torch_to_tt("ln_q.weight", dtype=self.dtype)
+        self.ln_kv = self.torch_to_tt("ln_kv.weight", dtype=self.dtype)
+        self.to_q = self.torch_to_tt("to_q.weight", dtype=self.dtype)
+        self.to_k = self.torch_to_tt("to_k.weight", dtype=self.dtype)
+        self.to_v = self.torch_to_tt("to_v.weight", dtype=self.dtype)
+        self.to_g = self.torch_to_tt("to_g.0.weight", dtype=self.dtype)
+        self.k_norm = self.torch_to_tt("k_norm.weight", dtype=self.dtype)
+        self.q_norm = self.torch_to_tt("q_norm.weight", dtype=self.dtype)
+        self.to_out_w = self.torch_to_tt("to_out.0.weight", dtype=self.dtype)
+        self.to_out_b = self.torch_to_tt("to_out.0.bias", dtype=self.dtype)
+
+    def run_device(self, q, kv, attn_mask=None):
+        """q [B,T,Q,Cq], kv [B,T,K,Ckv]; return device [B,T,Q,Cq]."""
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        batch, tokens, n_query, _ = q.shape
+        n_key = kv.shape[2]
+        q = ttnn.rms_norm(q, weight=self.ln_q, epsilon=1e-6, compute_kernel_config=ckc)
+        kv = ttnn.rms_norm(kv, weight=self.ln_kv, epsilon=1e-6, compute_kernel_config=ckc)
+        qq = ttnn.linear(q, self.to_q, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        kk = ttnn.linear(kv, self.to_k, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        vv = ttnn.linear(kv, self.to_v, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        gg = ttnn.linear(q, self.to_g, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        qq = ttnn.rms_norm(qq, weight=self.q_norm, epsilon=1e-6, compute_kernel_config=ckc)
+        kk = ttnn.rms_norm(kk, weight=self.k_norm, epsilon=1e-6, compute_kernel_config=ckc)
+
+        def split(x, count):
+            x = ttnn.reshape(
+                x, (batch, tokens, count, self.n_head, self.head_dim)
+            )
+            x = ttnn.permute(x, (0, 1, 3, 2, 4))
+            return ttnn.reshape(
+                x, (batch * tokens, self.n_head, count, self.head_dim)
+            )
+
+        qq = split(qq, n_query)
+        kk = split(kk, n_key)
+        vv = split(vv, n_key)
+        gg = split(gg, n_query)
+        scores = ttnn.matmul(
+            qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc
+        )
+        scores = ttnn.multiply(scores, self.head_dim**-0.5)
+        if attn_mask is not None:
+            mask = attn_mask
+            if mask.ndim == 3:
+                mask = mask.unsqueeze(0)
+            mask = torch.where(mask, 0.0, -1e4).to(torch.float32)
+            mask = mask.expand(batch, -1, -1, -1).reshape(
+                batch * tokens, 1, n_query, n_key
+            )
+            scores = ttnn.add(scores, _tt(mask, dev, dt))
+        attention = ttnn.softmax(scores, dim=-1)
+        out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt)
+        out = ttnn.multiply(out, ttnn.sigmoid(gg))
+        out = ttnn.permute(out, (0, 2, 1, 3))
+        out = ttnn.reshape(
+            out, (batch, tokens, n_query, self.c_model)
+        )
+        out = ttnn.linear(
+            out,
+            self.to_out_w,
+            bias=self.to_out_b,
+            compute_kernel_config=ckc,
+            dtype=dt,
+            core_grid=CORE_GRID_MAIN,
+        )
+        return out
+
+    def __call__(self, q_host, kv_host, attn_mask=None):
+        """Host-boundary wrapper used by isolated component tests."""
+        q = _tt(q_host, self.device, self.dtype)
+        kv = _tt(kv_host, self.device, self.dtype)
+        return ttnn.to_torch(self.run_device(q, kv, attn_mask)).float()
+
+
+class RFD3AtomBlock(Module):
+    """One dense-mask RFD3 structure-local atom transformer block."""
+
+    N_HEAD = 4
+    HEAD_DIM = 32
+
+    def __init__(self, state_dict, ckc, dtype=None):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        dt = self.dtype
+        a = "attention_pair_bias."
+        self.a_ln_s = self.torch_to_tt(a + "ada_ln_1.ln_s.weight", dtype=dt)
+        self.a_gain_w = self.torch_to_tt(a + "ada_ln_1.to_gain.0.weight", dtype=dt)
+        self.a_gain_b = self.torch_to_tt(a + "ada_ln_1.to_gain.0.bias", dtype=dt)
+        self.a_bias_w = self.torch_to_tt(a + "ada_ln_1.to_bias.weight", dtype=dt)
+        self.q_w = self.torch_to_tt(a + "to_q.weight", dtype=dt)
+        self.k_w = self.torch_to_tt(a + "to_k.weight", dtype=dt)
+        self.v_w = self.torch_to_tt(a + "to_v.weight", dtype=dt)
+        self.b_w = self.torch_to_tt(a + "to_b.weight", dtype=dt)
+        self.g_w = self.torch_to_tt(a + "to_g.0.weight", dtype=dt)
+        self.q_ln = self.torch_to_tt(a + "ln_q.weight", dtype=dt)
+        self.k_ln = self.torch_to_tt(a + "ln_k.weight", dtype=dt)
+        self.o_w = self.torch_to_tt(a + "to_o.weight", dtype=dt)
+        self.a_out_w = self.torch_to_tt(a + "linear_output_project.0.weight", dtype=dt)
+        self.a_out_b = self.torch_to_tt(a + "linear_output_project.0.bias", dtype=dt)
+
+        t = "transition_block."
+        self.t_ln_s = self.torch_to_tt(t + "ada_ln.ln_s.weight", dtype=dt)
+        self.t_gain_w = self.torch_to_tt(t + "ada_ln.to_gain.0.weight", dtype=dt)
+        self.t_gain_b = self.torch_to_tt(t + "ada_ln.to_gain.0.bias", dtype=dt)
+        self.t_bias_w = self.torch_to_tt(t + "ada_ln.to_bias.weight", dtype=dt)
+        self.t_fc1 = self.torch_to_tt(t + "linear_1.weight", dtype=dt)
+        self.t_fc2 = self.torch_to_tt(t + "linear_2.weight", dtype=dt)
+        self.t_fc3 = self.torch_to_tt(t + "linear_3.weight", dtype=dt)
+        self.t_out_w = self.torch_to_tt(t + "linear_output_project.0.weight", dtype=dt)
+        self.t_out_b = self.torch_to_tt(t + "linear_output_project.0.bias", dtype=dt)
+
+    def _adaln(self, a, s, ln_s, gain_w, gain_b, bias_w):
+        ckc, dt = self.compute_kernel_config, self.dtype
+        a = ttnn.rms_norm(a, epsilon=1e-6, compute_kernel_config=ckc)
+        s = ttnn.rms_norm(s, weight=ln_s, epsilon=1e-6, compute_kernel_config=ckc)
+        gain = ttnn.linear(
+            s, gain_w, bias=gain_b, compute_kernel_config=ckc,
+            dtype=dt, core_grid=CORE_GRID_MAIN,
+        )
+        bias = ttnn.linear(
+            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+        )
+        return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
+
+    def __call__(self, q, c, p, additive_mask):
+        ckc, dt = self.compute_kernel_config, self.dtype
+        batch, length = q.shape[0], q.shape[1]
+        norm = self._adaln(
+            q, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
+        )
+        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        qq = ttnn.rms_norm(qq, weight=self.q_ln, epsilon=1e-6, compute_kernel_config=ckc)
+        kk = ttnn.rms_norm(kk, weight=self.k_ln, epsilon=1e-6, compute_kernel_config=ckc)
+
+        def heads(x):
+            x = ttnn.reshape(
+                x, (batch, length, self.N_HEAD, self.HEAD_DIM)
+            )
+            return ttnn.permute(x, (0, 2, 1, 3))
+
+        qq, kk, vv, gg = map(heads, (qq, kk, vv, gg))
+        pair_bias = ttnn.linear(
+            p, self.b_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+        )
+        pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+        bias = ttnn.add(pair_bias, additive_mask)
+        # The reference's softmax reduction is fp32 even under bf16 autocast.
+        # Keep q/k/v and output storage bf16, but match that reduction boundary.
+        scores = ttnn.matmul(
+            qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc
+        )
+        scores = ttnn.typecast(
+            scores, ttnn.float32, memory_config=scores.memory_config()
+        )
+        scores = ttnn.multiply(scores, self.HEAD_DIM**-0.5)
+        bias_f = ttnn.typecast(
+            bias, ttnn.float32, memory_config=bias.memory_config()
+        )
+        scores = ttnn.add(scores, bias_f)
+        attention = ttnn.softmax(scores, dim=-1)
+        attention = ttnn.typecast(
+            attention, dt, memory_config=attention.memory_config()
+        )
+        out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt)
+        out = ttnn.multiply(out, ttnn.sigmoid(gg))
+        out = ttnn.permute(out, (0, 2, 1, 3))
+        out = ttnn.reshape(
+            out, (batch, length, self.N_HEAD * self.HEAD_DIM)
+        )
+        out = ttnn.linear(
+            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+        )
+        gate = ttnn.linear(
+            c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
+            dtype=dt, core_grid=CORE_GRID_MAIN,
+        )
+        q = ttnn.add(q, ttnn.multiply(out, ttnn.sigmoid(gate)))
+
+        norm = self._adaln(
+            q, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
+        )
+        left = ttnn.linear(
+            norm, self.t_fc1, activation="silu", compute_kernel_config=ckc,
+            dtype=dt, core_grid=CORE_GRID_MAIN,
+        )
+        right = ttnn.linear(
+            norm, self.t_fc2, compute_kernel_config=ckc,
+            dtype=dt, core_grid=CORE_GRID_MAIN,
+        )
+        update = ttnn.linear(
+            ttnn.multiply(left, right), self.t_fc3, compute_kernel_config=ckc,
+            dtype=dt, core_grid=CORE_GRID_MAIN,
+        )
+        gate = ttnn.linear(
+            c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
+            dtype=dt, core_grid=CORE_GRID_MAIN,
+        )
+        return ttnn.add(q, ttnn.multiply(update, ttnn.sigmoid(gate)))
+
+
+class LocalAtomTransformer(Module):
+    """Three-block RFD3 atom encoder using dense additive-mask attention."""
+
+    def __init__(self, state_dict, ckc, n_blocks=3, dtype=None):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        self.blocks = [
+            RFD3AtomBlock(self.scope(f"blocks.{i}"), ckc, dtype=self.dtype)
+            for i in range(n_blocks)
+        ]
+
+    def run_device(self, q, c, p, additive_mask):
+        for block in self.blocks:
+            q = block(q, c, p, additive_mask)
+        return q
+
+    def __call__(self, q_host, c_host, p_host, indices):
+        dt, dev = self.dtype, self.device
+        q = _tt(q_host, dev, dt)
+        c = _tt(c_host, dev, dt)
+        p = _tt(p_host.unsqueeze(0) if p_host.ndim == 3 else p_host, dev, dt)
+        mask = _tt(_dense_attention_mask(indices), dev, dt)
+        return ttnn.to_torch(self.run_device(q, c, p, mask)).float()
+
+
+class CompactStreamingDecoder(Module):
+    """RFD3 decoder: three device Upcast/atom blocks plus device Downcast."""
+
+    def __init__(self, state_dict, ckc, dtype=None):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        self.upcast = [
+            GatedCrossAttention(
+                self.scope(f"upcast.{i}.gca"), ckc,
+                c_query=128, c_kv=256, dtype=self.dtype,
+            )
+            for i in range(3)
+        ]
+        self.atom_blocks = [
+            RFD3AtomBlock(
+                self.scope(f"atom_transformer.{i}"), ckc, dtype=self.dtype
+            )
+            for i in range(3)
+        ]
+        self.downcast = GatedCrossAttention(
+            self.scope("downcast.gca"), ckc,
+            c_query=768, c_kv=128, dtype=self.dtype,
+        )
+        self.process_s_n = self.torch_to_tt(
+            "downcast.process_s.0.weight", dtype=self.dtype
+        )
+        self.process_s_w = self.torch_to_tt(
+            "downcast.process_s.1.weight", dtype=self.dtype
+        )
+
+    def _grouping_indices(self, tok_idx, batch):
+        valid = _build_valid_mask(tok_idx)
+        length = tok_idx.numel()
+        padded = torch.full(valid.shape, length, dtype=torch.int64)
+        padded[valid] = torch.arange(length)
+        pack = torch.cat(
+            [padded.reshape(-1) + b * (length + 1) for b in range(batch)]
+        )
+        flat_valid = valid.flatten().nonzero(as_tuple=False).squeeze(1)
+        unpack = torch.cat(
+            [flat_valid + b * valid.numel() for b in range(batch)]
+        )
+        return valid, pack, unpack
+
+    def _pack_atoms_device(self, q, pack_indices, valid):
+        batch, length, channels = q.shape
+        q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
+        q = ttnn.pad(q, [[0, 0], [0, 1], [0, 0]], 0.0)
+        q = ttnn.reshape(q, (batch * (length + 1), channels))
+        idx = ttnn.from_torch(
+            pack_indices.to(torch.int32).reshape(1, -1),
+            layout=ttnn.ROW_MAJOR_LAYOUT,
+            device=self.device,
+            dtype=ttnn.uint32,
+        )
+        packed = ttnn.embedding(
+            idx, q, layout=ttnn.ROW_MAJOR_LAYOUT,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+        packed = ttnn.reshape(
+            packed, (batch, valid.shape[0], valid.shape[1], channels)
+        )
+        return ttnn.to_layout(packed, ttnn.TILE_LAYOUT)
+
+    def _unpack_atoms_device(self, q, unpack_indices, length):
+        batch, tokens, atoms, channels = q.shape
+        q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
+        q = ttnn.reshape(q, (batch * tokens * atoms, channels))
+        idx = ttnn.from_torch(
+            unpack_indices.to(torch.int32).reshape(1, -1),
+            layout=ttnn.ROW_MAJOR_LAYOUT,
+            device=self.device,
+            dtype=ttnn.uint32,
+        )
+        unpacked = ttnn.embedding(
+            idx, q, layout=ttnn.ROW_MAJOR_LAYOUT,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+        unpacked = ttnn.reshape(unpacked, (batch, length, channels))
+        return ttnn.to_layout(unpacked, ttnn.TILE_LAYOUT)
+
+    def __call__(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices):
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        batch, length, _ = q_host.shape
+        valid, pack_indices, unpack_indices = self._grouping_indices(tok_idx, batch)
+        a = _tt(a_host, dev, dt)
+        a_split = ttnn.reshape(a, (a_host.shape[0], a_host.shape[1], 3, 256))
+        q = _tt(q_host, dev, dt)
+        c = _tt(c_host, dev, dt)
+        p = _tt(p_host.unsqueeze(0) if p_host.ndim == 3 else p_host, dev, dt)
+        mask = _tt(_dense_attention_mask(indices), dev, dt)
+        for upcast, atom_block in zip(self.upcast, self.atom_blocks):
+            q_grouped = self._pack_atoms_device(q, pack_indices, valid)
+            valid_q = valid.unsqueeze(-1).expand(-1, -1, 3)
+            q_grouped = ttnn.add(
+                q_grouped, upcast.run_device(q_grouped, a_split, valid_q)
+            )
+            q = self._unpack_atoms_device(q_grouped, unpack_indices, length)
+            q = atom_block(q, c, p, mask)
+
+        q_grouped = self._pack_atoms_device(q, pack_indices, valid)
+        query = ttnn.unsqueeze(a, 2)
+        down_mask = valid.unsqueeze(1)
+        a_update = ttnn.squeeze(
+            self.downcast.run_device(query, q_grouped, down_mask), 2
+        )
+        s = _tt(s_host, dev, dt)
+        s = ttnn.rms_norm(
+            s, weight=self.process_s_n, epsilon=1e-6, compute_kernel_config=ckc
+        )
+        s = ttnn.linear(
+            s, self.process_s_w, compute_kernel_config=ckc,
+            dtype=dt, core_grid=CORE_GRID_MAIN,
+        )
+        a_out = ttnn.add(ttnn.add(a, a_update), s)
+        return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
+
+
+class LinearSequenceHead(Module):
+    def __init__(self, state_dict, ckc, dtype=None):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        self.weight = self.torch_to_tt("linear.weight", dtype=self.dtype)
+        self.bias = self.torch_to_tt("linear.bias", dtype=self.dtype)
+        self.valid_out_mask = self.weights["valid_out_mask"].bool()
+
+    def __call__(self, a_host):
+        logits = ttnn.linear(
+            _tt(a_host, self.device, self.dtype),
+            self.weight,
+            bias=self.bias,
+            compute_kernel_config=self.compute_kernel_config,
+            dtype=self.dtype,
+            core_grid=CORE_GRID_MAIN,
+        )
+        logits = ttnn.to_torch(logits).float()
+        masked = logits.masked_fill(~self.valid_out_mask.view(1, 1, -1), float("-inf"))
+        return logits, masked.argmax(dim=-1)
+
+
+def _default_compute_kernel_config():
+    dev = get_device()
+    kernel_cls = (
+        ttnn.types.WormholeComputeKernelConfig
+        if dev.arch() == ttnn.Arch.WORMHOLE_B0
+        else ttnn.types.BlackholeComputeKernelConfig
+    )
+    return kernel_cls(
+        math_fidelity=ttnn.MathFidelity.HiFi4,
+        math_approx_mode=False,
+        fp32_dest_acc_en=True,
+        packer_l1_acc=True,
+    )
+
+
 def build_token_initializer(state_dict, compute_kernel_config=None, dtype=None):
     """Construct the ttnn TokenInitializer from a flat `token_initializer.*` state dict
     (prefix already stripped) + a compute_kernel_config. Mirrors the construction order
     used by the torch reference so weight keys line up 1:1."""
     if compute_kernel_config is None:
-        dev = get_device()
-        kernel_cls = (
-            ttnn.types.WormholeComputeKernelConfig
-            if dev.arch() == ttnn.Arch.WORMHOLE_B0
-            else ttnn.types.BlackholeComputeKernelConfig
-        )
-        compute_kernel_config = kernel_cls(
-            math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
-            fp32_dest_acc_en=True, packer_l1_acc=True,
-        )
+        compute_kernel_config = _default_compute_kernel_config()
     return TokenInitializer(state_dict, compute_kernel_config, dtype=dtype)
+
+
+def build_atom_encoder(state_dict, compute_kernel_config=None, dtype=None):
+    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
+    return LocalAtomTransformer(
+        state_dict, compute_kernel_config, n_blocks=3, dtype=dtype
+    )
+
+
+def build_decoder(state_dict, compute_kernel_config=None, dtype=None):
+    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
+    return CompactStreamingDecoder(state_dict, compute_kernel_config, dtype=dtype)
+
+
+def build_sequence_head(state_dict, compute_kernel_config=None, dtype=None):
+    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
+    return LinearSequenceHead(state_dict, compute_kernel_config, dtype=dtype)
