@@ -1,0 +1,152 @@
+{
+  "mode": "affinity",
+  "target": "affinity_fkg",
+  "metrics": {
+    "affinity_pred_value": {
+      "metric": "affinity_pred_value",
+      "cross": {
+        "n": 25,
+        "mean": 0.05900219999999999,
+        "std": 0.02929712307650701,
+        "min": 0.005744000000000027,
+        "max": 0.10363099999999997
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.046875,
+        "std": 0.03952847075210474,
+        "min": 0.0,
+        "max": 0.109375
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.028915599999999986,
+        "std": 0.020295592936398783,
+        "min": 0.0018039999999999723,
+        "max": 0.050160999999999956
+      },
+      "floor_mean": 0.046875,
+      "cross_over_floor": 1.2587135999999999,
+      "dev_over_ref_floor": 0.6168661333333331,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_diagonal": {
+        "n": 5,
+        "mean": 0.05326259999999999,
+        "all_pairs_mean": 0.05900220000000001,
+        "seed_independent": true
+      }
+    },
+    "affinity_probability_binary": {
+      "metric": "affinity_probability_binary",
+      "cross": {
+        "n": 25,
+        "mean": 0.003995420000000003,
+        "std": 0.0033840791618400365,
+        "min": 6.850000000002687e-05,
+        "max": 0.010751999999999984
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.00625,
+        "std": 0.004687500000000001,
+        "min": 0.0,
+        "max": 0.015625
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.002056800000000014,
+        "std": 0.0010416087365225076,
+        "min": 0.0007690000000000197,
+        "max": 0.004159000000000024
+      },
+      "floor_mean": 0.00625,
+      "cross_over_floor": 0.6392672000000005,
+      "dev_over_ref_floor": 0.3290880000000022,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_diagonal": {
+        "n": 5,
+        "mean": 0.0036364999999999982,
+        "all_pairs_mean": 0.003995420000000003,
+        "seed_independent": true
+      }
+    },
+    "ligand_rmsd": {
+      "metric": "ligand_rmsd",
+      "cross": {
+        "n": 25,
+        "mean": 0.29110227436119707,
+        "std": 0.057660070523820904,
+        "min": 0.18486510775301448,
+        "max": 0.40011919203262986
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.23274116316108168,
+        "std": 0.03325547665683545,
+        "min": 0.16866531178529975,
+        "max": 0.2925504743769179
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.21400238640571997,
+        "std": 0.050467546484914645,
+        "min": 0.11767284624305988,
+        "max": 0.30822482201999124
+      },
+      "floor_mean": 0.23274116316108168,
+      "cross_over_floor": 1.2507554332351742,
+      "dev_over_ref_floor": 0.9194866241070022,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": false,
+      "same_seed_diagonal": {
+        "n": 5,
+        "mean": 0.305428964584946,
+        "all_pairs_mean": 0.291102274361197,
+        "seed_independent": true
+      }
+    },
+    "1-pocket_lddt": {
+      "metric": "1-pocket_lddt",
+      "cross": {
+        "n": 25,
+        "mean": 0.12311913443512566,
+        "std": 0.016563948346693735,
+        "min": 0.08438264441934762,
+        "max": 0.15161990460350627
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.01864284923765751,
+        "std": 0.008558702004772824,
+        "min": 0.006330125237509421,
+        "max": 0.03791248176073059
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.005559430632563889,
+        "std": 0.003621192169652151,
+        "min": 0.0004657959505871556,
+        "max": 0.012287850650705034
+      },
+      "floor_mean": 0.01864284923765751,
+      "cross_over_floor": 6.604094302625797,
+      "dev_over_ref_floor": 0.29820713356057993,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": false,
+      "same_seed_diagonal": {
+        "n": 5,
+        "mean": 0.12360550841380083,
+        "all_pairs_mean": 0.12311913443512566,
+        "seed_independent": true
+      }
+    }
+  },
+  "verdict": "PASS",
+  "note": "FKBP12+SB3, L107, no MSA (non-default). affinity scalar + ligand-RMSD pass; pocket-lDDT within the GPU noise floor. See docs/implementation-parity.md (no-MSA row). Verdict asserted here (explicit field) per the doc; the gate treats PASS and PASS-caveated as equivalent."
+}

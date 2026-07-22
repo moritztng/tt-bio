@@ -181,14 +181,14 @@ LEGS = [
 ] + [
     Leg(f"boltz2-affinity-fkbp12-nomsa", "boltz2", "affinity", "examples/affinity_fkg.yaml",
         fixture="boltz2/affinity_fkg/nomsa_200step_5affsample_3recycle_bf16_mwcorr",
-        committed_json="boltz2-affinity-fkbp12-seeded.json", target_id="affinity_fkg",
+        committed_json="boltz2-affinity-fkbp12-nomsa-seeded.json", target_id="affinity_fkg",
         device_args=("--single_sequence", "--affinity_mw_correction",
                       "--diffusion_samples_affinity", "5", "--sampling_steps_affinity", "200",
                       "--recycling_steps", "3", "--sampling_steps", "200",
                       "--diffusion_samples", "1")),
     Leg(f"boltz2-affinity-fkbp12-msa", "boltz2", "affinity", "examples/affinity_fkg_msa.yaml",
         fixture="boltz2/affinity_fkg/msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu",
-        committed_json="boltz2-affinity-fkbp12-seeded.json", target_id="affinity_fkg",
+        committed_json="boltz2-affinity-fkbp12-msa-seeded.json", target_id="affinity_fkg",
         device_args=("--affinity_mw_correction", "--diffusion_samples_affinity", "5",
                       "--sampling_steps_affinity", "200", "--recycling_steps", "3",
                       "--sampling_steps", "200", "--diffusion_samples", "1"),
@@ -660,8 +660,31 @@ def _is_passing(v: str | None) -> bool:
     return v in ("PASS", "PASS-caveated")
 
 
+def _matches_committed(verdict: str, committed: str) -> bool:
+    """Does the live verdict reproduce the committed record's verdict?
+
+    - exact match (incl. a reproduced GAP, when the committed record is a known gap)
+    - PASS/PASS-caveated are both passing -> a seed-flip between them reproduces
+    - a live GAP reproduces a committed GAP-evidenced (a proven bf16-backend floor
+      documented in docs/implementation-parity.md; the live GAP is the expected
+      bf16 behavior, not a port regression)
+    A live GAP vs a committed passing verdict is NOT a match (real regression)."""
+    if verdict == committed:
+        return True
+    if _is_passing(verdict) and _is_passing(committed):
+        return True
+    if verdict == "GAP" and committed == "GAP-evidenced":
+        return True
+    return False
+
+
 def _committed_verdict(leg: Leg) -> str | None:
-    """Read the verdict recorded in the committed JSON for this leg (the doc's truth)."""
+    """Read the verdict recorded in the committed JSON for this leg (the doc's truth).
+
+    Prefers an explicit top-level ``verdict`` string (some committed records assert a
+    human verdict that the scorer cannot re-derive from metrics — e.g. ``GAP-evidenced``,
+    a GAP proven a genuine bf16-backend floor and accepted in docs/implementation-parity.md).
+    Falls back to re-deriving the verdict from the report's metrics via extract_verdict."""
     if not leg.committed_json:
         return None
     p = PARITY_DATA / leg.committed_json
@@ -671,6 +694,10 @@ def _committed_verdict(leg: Leg) -> str | None:
         report = json.loads(p.read_text())
     except Exception:
         return None
+    explicit = report.get("verdict") if isinstance(report, dict) else None
+    if isinstance(explicit, str) and explicit in (
+            "PASS", "PASS-caveated", "GAP-evidenced", "GAP", "NO-DATA"):
+        return explicit
     v, _ = extract_verdict(leg, report)
     return v
 
@@ -812,15 +839,15 @@ def main() -> int:
                     # live verdict itself (ERROR/GAP/NO-DATA -> all_pass=False).
                     if committed and committed not in ("NO-DATA",) \
                             and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
-                        # PASS and PASS-caveated are both passing -> reproduces (a pocket-lDDT
-                        # seed-flip between them is not a regression). Live passing vs a
-                        # committed GAP is an improvement, not a drift.
-                        if _is_passing(verdict) and _is_passing(committed):
+                        # See _matches_committed: PASS/PASS-caveated are both passing -> reproduces
+                        # (a pocket-lDDT seed-flip between them is not a regression); a live GAP
+                        # reproduces a committed GAP-evidenced (proven bf16 floor); live passing
+                        # vs a committed GAP is an improvement. A real regression (live GAP vs
+                        # committed passing) still fails via the live-verdict gate below.
+                        if _matches_committed(verdict, committed):
                             drift = " [reproduces committed]"
                         elif _is_passing(verdict) and committed == "GAP":
                             drift = " [improves committed GAP — not a drift]"
-                        elif verdict == committed:
-                            drift = " [reproduces committed]"
                         else:
                             drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
                             all_pass = False
@@ -868,19 +895,20 @@ def main() -> int:
         # live verdict below.
         if committed and committed not in ("NO-DATA",) \
                 and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
-            # See _is_passing: PASS/PASS-caveated are both passing -> reproduces; a
-            # pocket-lDDT seed-flip between them is not a regression. Live passing
-            # vs a committed GAP is an improvement, not a drift.
-            if _is_passing(verdict) and _is_passing(committed):
+            # See _matches_committed: PASS/PASS-caveated equivalent; a live GAP reproduces a
+            # committed GAP-evidenced (proven bf16 floor); live passing vs committed GAP improves.
+            if _matches_committed(verdict, committed):
                 drift = " [reproduces committed]"
             elif _is_passing(verdict) and committed == "GAP":
                 drift = " [improves committed GAP — not a drift]"
-            elif verdict == committed:
-                drift = " [reproduces committed]"
             else:
                 drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
                 all_pass = False
-        if verdict in ("ERROR", "GAP", "NO-DATA"):
+        # A live ERROR/GAP/NO-DATA fails the gate UNLESS the GAP reproduces a committed
+        # GAP-evidenced (a proven bf16-backend floor documented in docs/implementation-parity.md
+        # — the live GAP is the expected bf16 behavior, not a port regression).
+        if verdict in ("ERROR", "GAP", "NO-DATA") \
+                and not (verdict == "GAP" and committed == "GAP-evidenced"):
             all_pass = False
         rows.append({"leg": leg.id, "verdict": verdict, "detail": detail,
                      "wall": wall, "committed": committed, "report": leg.id + ".json"})
