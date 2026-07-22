@@ -1019,6 +1019,7 @@ def configure_command(args: argparse.Namespace) -> None:
         $ boltzgen configure path/to/design.yaml --output out_dir --protocol peptide-anything
     """
     moldir = get_artifact_path(args, args.moldir, repo_type="dataset")
+    print(f"Loading molecule library from {Path(moldir).name}...")
     mols = load_canonicals(moldir=moldir)
 
     # Setup output directory
@@ -1097,6 +1098,7 @@ def check_command(args: argparse.Namespace) -> None:
     This function does **not** execute the pipeline — it only validates inputs.
     """
     moldir = get_artifact_path(args, args.moldir, repo_type="dataset")
+    print(f"Loading molecule library from {Path(moldir).name}...")
     mols = load_canonicals(moldir=moldir)
 
     if args.output:
@@ -1681,6 +1683,7 @@ def check_design_spec(
         check_design_spec(args, moldir, Path("design.yaml"), mols)
     """
     parser = YamlDesignParser(moldir)
+    print(f"  Parsing design spec {design_spec.name}...")
     parsed = parser.parse_yaml(design_spec, mols, moldir)
     structure = parsed.structure
     design_info = parsed.design_info
