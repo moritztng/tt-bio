@@ -17,6 +17,7 @@ are canonical and load 1:1 (verified 0 missing / 0 extra vs the faithful referen
 from __future__ import annotations
 
 import math
+import os
 
 import torch
 import torch.nn.functional as F
@@ -782,7 +783,7 @@ class LocalAtomTransformer(Module):
         dt, dev = self.dtype, self.device
         q = _tt(q_host, dev, dt)
         c = _tt(c_host, dev, dt)
-        p = _tt(p_host.unsqueeze(0) if p_host.ndim == 3 else p_host, dev, dt)
+        p = _tt(p_host.unsqueeze(0) if p_host.ndim == 2 else p_host, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
         return ttnn.to_torch(self.run_device(q, c, p, mask)).float()
 
@@ -876,7 +877,7 @@ class CompactStreamingDecoder(Module):
         a_split = ttnn.reshape(a, (a_host.shape[0], a_host.shape[1], 3, 256))
         q = _tt(q_host, dev, dt)
         c = _tt(c_host, dev, dt)
-        p = _tt(p_host.unsqueeze(0) if p_host.ndim == 3 else p_host, dev, dt)
+        p = _tt(p_host.unsqueeze(0) if p_host.ndim == 2 else p_host, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
         for upcast, atom_block in zip(self.upcast, self.atom_blocks):
             q_grouped = self._pack_atoms_device(q, pack_indices, valid)
@@ -964,13 +965,17 @@ class DiffusionTokenEncoder(Module):
         Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         B, I = R_L_ca.shape[0], R_L_ca.shape[1]
-        s = _tt(S_init_I if S_init_I.ndim == 3 else S_init_I.unsqueeze(0).expand(B, -1, -1).contiguous(), dev, dt)
+        if S_init_I.ndim == 2:
+            S_init_I = S_init_I.unsqueeze(0).expand(B, -1, -1).contiguous()
+        s = _tt(S_init_I, dev, dt)
         for tr in self.transition_1:
             s = ttnn.add(s, tr(s))
         D_LL = _bucketize_scaled_distogram(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
         if D_II_self is None:
             D_II_self = torch.zeros(B, I, I, self.N_BINS, dtype=D_LL.dtype, device=D_LL.device)
-        z = _tt(Z_init_II.unsqueeze(0).expand(B, -1, -1, -1).contiguous(), dev, dt)
+        if Z_init_II.ndim == 3:
+            Z_init_II = Z_init_II.unsqueeze(0).expand(B, -1, -1, -1).contiguous()
+        z = _tt(Z_init_II, dev, dt)
         zcat = ttnn.concat([z, _tt(D_LL, dev, dt), _tt(D_II_self, dev, dt)], dim=-1)  # [B,I,I,258]
         z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
@@ -1005,7 +1010,7 @@ class LocalTokenTransformer(Module):
         dev, dt = self.device, self.dtype
         a = _tt(a_host, dev, dt)
         s = _tt(s_host, dev, dt)
-        z = _tt(z_host.unsqueeze(0) if z_host.ndim == 3 else z_host, dev, dt)
+        z = _tt(z_host.unsqueeze(0) if z_host.ndim == 2 else z_host, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
         return ttnn.to_torch(self.run_device(a, s, z, mask)).float()
 
@@ -1059,3 +1064,257 @@ def build_diffusion_token_encoder(state_dict, compute_kernel_config=None, dtype=
 def build_dit(state_dict, compute_kernel_config=None, dtype=None, n_block=18):
     compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
     return LocalTokenTransformer(state_dict, compute_kernel_config, n_block=n_block, dtype=dtype)
+
+
+# --- Host-side attention-index builder (vendored from foundry block_utils) ---
+def _build_index_mask(tok_idx, n_seq_neighbours, k_max, chain_id=None, base_mask=None):
+    device = tok_idx.device
+    L = tok_idx.shape[0]; k_max = min(k_max, L)
+    I = int(tok_idx.max().item()) + 1
+    n_per_tok = torch.zeros(I, device=device).float()
+    n_per_tok.scatter_add_(0, tok_idx.long(), torch.ones_like(tok_idx).float())
+    tidx = torch.arange(I, device=device)
+    tdiff = (tidx[:, None] - tidx[None, :]).abs()
+    aidx = torch.arange(L, device=device)
+    adiff = (aidx[:, None] - aidx[None, :]).abs()
+    tmask = tdiff <= n_seq_neighbours
+    ti, tj = tok_idx[:, None], tok_idx[None, :]
+    mask = tmask[ti, tj] & (adiff <= (k_max // 2))
+    n_q = torch.zeros((L, I), device=device).float()
+    n_q.scatter_add_(1, tok_idx.long()[None, :].expand(L, -1).contiguous(), mask.float())
+    fully = n_q == n_per_tok[None, :]
+    n_fi = torch.zeros((I, I), device=device)
+    n_fi.index_add_(0, tok_idx.long(), fully.float())
+    ftmask = (n_fi == n_per_tok[:, None])[ti, tj]
+    mask &= ftmask
+    if chain_id is not None:
+        mask &= (chain_id.unsqueeze(-1) == chain_id.unsqueeze(-2))
+    if base_mask is not None:
+        mask &= base_mask
+    return mask
+
+
+def _extend_with_neighbours(mask, D_LL, k):
+    if D_LL.ndim == 2:
+        D_LL = D_LL.unsqueeze(0)
+    B, L, _ = D_LL.shape; k = min(k, L); device = D_LL.device
+    inf = torch.tensor(float("inf"), dtype=D_LL.dtype, device=device)
+    rows = torch.arange(L, device=device).unsqueeze(0).expand(L, L)
+    idx = torch.where(mask.contiguous(), rows, inf).sort(dim=1)[0][:, :k]
+    Dm = torch.where(mask.contiguous(), inf, D_LL)
+    fill = torch.topk(Dm, k, dim=-1, largest=False).indices.flip(dims=[-1])
+    tof = (idx == inf).expand_as(fill).contiguous()
+    idx = torch.where(tof, fill, idx.expand_as(fill).contiguous()).long()
+    return idx
+
+
+def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
+    device = X_L.device; L = len(tok_idx)
+    D_LL = torch.cdist(X_L, X_L, p=2)
+    base_mask = ~f["unindexing_pair_mask"][tok_idx[None, :], tok_idx[:, None]]
+    k = min(n_keys, L)
+    chain = f["asym_id"][tok_idx] if "asym_id" in f else None
+    if chain is not None and len(torch.unique(chain)) > 3:
+        ki, kc = max(32, k // 4), k - max(32, k // 4)
+        intra = _extend_with_neighbours(_build_index_mask(tok_idx, n_seq_neighbours, kc, chain, base_mask), D_LL, kc)
+        inter = torch.zeros(D_LL.shape[0], L, ki, dtype=torch.long, device=device)
+        for b in range(D_LL.shape[0]):
+            for c in torch.unique(chain):
+                ci = chain[c]; other = (chain != ci) & base_mask[c, :]
+                oi = torch.where(other)[0]; ns = min(ki, len(oi))
+                if ns > 0:
+                    inter[b, c, :ns] = oi[torch.topk(D_LL[b, c, oi], ns, largest=False).indices]
+        idx = torch.cat([intra, inter], dim=-1)
+    else:
+        idx = _extend_with_neighbours(_build_index_mask(tok_idx, n_seq_neighbours, k, chain, base_mask), D_LL, k)
+    return torch.sort(idx, dim=-1)[0].detach()
+
+
+def _grouping_indices(tok_idx, batch, dev):
+    valid = _build_valid_mask(tok_idx)
+    length = tok_idx.numel()
+    padded = torch.full(valid.shape, length, dtype=torch.int64)
+    padded[valid] = torch.arange(length)
+    pack = torch.cat([padded.reshape(-1) + b * (length + 1) for b in range(batch)])
+    flat_valid = valid.flatten().nonzero(as_tuple=False).squeeze(1)
+    unpack = torch.cat([flat_valid + b * valid.numel() for b in range(batch)])
+    return valid, pack, unpack
+
+
+def _pack_atoms_dev(dev, q, pack_indices, valid):
+    batch, length, channels = q.shape
+    q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
+    q = ttnn.pad(q, [[0, 0], [0, 1], [0, 0]], 0.0)
+    q = ttnn.reshape(q, (batch * (length + 1), channels))
+    idx = ttnn.from_torch(pack_indices.to(torch.int32).reshape(1, -1), layout=ttnn.ROW_MAJOR_LAYOUT,
+                          device=dev, dtype=ttnn.uint32)
+    packed = ttnn.embedding(idx, q, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    packed = ttnn.reshape(packed, (batch, valid.shape[0], valid.shape[1], channels))
+    return ttnn.to_layout(packed, ttnn.TILE_LAYOUT)
+
+
+def _scatter_mean(emb, tok_idx, I):
+    B, L, C = emb.shape
+    out = torch.zeros(B, I, C, dtype=emb.dtype, device=emb.device)
+    out.scatter_add_(-2, tok_idx.long().view(1, L, 1).expand(B, L, C).contiguous(), emb)
+    cnt = torch.zeros(B, I, 1, dtype=emb.dtype, device=emb.device)
+    cnt.scatter_add_(-2, tok_idx.long().view(1, L, 1).expand(B, L, 1).contiguous(),
+                       torch.ones(B, L, 1, dtype=emb.dtype, device=emb.device))
+    return out / cnt.clamp(min=1)
+
+
+class RFD3DiffusionModule(Module):
+    """RFD3 DiffusionModule (one resident denoise step) on ttnn. Composes the verified
+    encoder/decoder/DiffusionTokenEncoder/DiT/sequence-head (host-boundary __call__ wrappers)
+    with the new glue (process_a, downcast_c/q, process_r/c, process_time_, to_r_update,
+    scale_positions). Heavy linears on device; scatter/fourier/scale/bucketize on host.
+    Faithful to upstream RFD3_diffusion_module.py (f_pred=edm, n_recycle=2, n_attn_keys=128,
+    n_attn_seq_neighbours=2; DiT n_keys=32, n_local_tokens=8)."""
+
+    C_ATOM, C_ATOMPAIR, C_TOKEN, C_S, C_Z = 128, 16, 768, 384, 128
+    C_T_EMBED, SIGMA_DATA, N_RECYCLE = 256, 16.0, 2
+    N_ATTN_KEYS, N_ATTN_SEQ = 128, 2
+    DIT_KEYS, DIT_SEQ = 32, 8
+
+    def __init__(self, state_dict, ckc, dtype=None):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        dt = self.dtype
+        self.process_r_w = self.torch_to_tt("process_r.weight", dtype=dt)
+        self.to_r_n = self.torch_to_tt("to_r_update.0.weight", dtype=dt)
+        self.to_r_w = self.torch_to_tt("to_r_update.1.weight", dtype=dt)
+        self.process_c_n = self.torch_to_tt("process_c.0.weight", dtype=dt)
+        self.process_c_w = self.torch_to_tt("process_c.1.weight", dtype=dt)
+        self.process_a_w = self.torch_to_tt("process_a.linear.weight", dtype=dt)
+        self.fourier_w = [self.weights["fourier_embedding.0.w"].float(),
+                          self.weights["fourier_embedding.1.w"].float()]
+        self.fourier_b = [self.weights["fourier_embedding.0.b"].float(),
+                          self.weights["fourier_embedding.1.b"].float()]
+        self.process_n_n = [self.torch_to_tt("process_n.0.0.weight", dtype=dt),
+                            self.torch_to_tt("process_n.1.0.weight", dtype=dt)]
+        self.process_n_w = [self.torch_to_tt("process_n.0.1.weight", dtype=dt),
+                            self.torch_to_tt("process_n.1.1.weight", dtype=dt)]
+        self.downcast_c = GatedCrossAttention(self.scope("downcast_c.gca"), ckc,
+                                              c_query=self.C_S, c_kv=self.C_ATOM, c_model=self.C_ATOM, n_head=4, dtype=dt)
+        self.downcast_q = GatedCrossAttention(self.scope("downcast_q.gca"), ckc,
+                                              c_query=self.C_TOKEN, c_kv=self.C_ATOM, c_model=self.C_ATOM, n_head=4, dtype=dt)
+        self.downcast_q_s_n = self.torch_to_tt("downcast_q.process_s.0.weight", dtype=dt)
+        self.downcast_q_s_w = self.torch_to_tt("downcast_q.process_s.1.weight", dtype=dt)
+        self.diffusion_token_encoder = DiffusionTokenEncoder(self.scope("diffusion_token_encoder"), ckc, dtype=dt)
+        self.diffusion_transformer = LocalTokenTransformer(self.scope("diffusion_transformer"), ckc, dtype=dt)
+        self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt)
+        self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt)
+        self.sequence_head = LinearSequenceHead(self.scope("sequence_head"), ckc, dtype=dt)
+
+    def scale_positions_in(self, X, t):
+        if t.ndim == 1:
+            t = t[..., None, None]
+        elif t.ndim == 2:
+            t = t[..., None]
+        return X / torch.sqrt(t ** 2 + self.SIGMA_DATA ** 2)
+
+    def scale_positions_out(self, R_upd, X, t):
+        if t.ndim == 1:
+            t = t[..., None, None]
+        elif t.ndim == 2:
+            t = t[..., None]
+        sd = self.SIGMA_DATA
+        return (sd ** 2 / (sd ** 2 + t ** 2)) * X + (sd * t / (sd ** 2 + t ** 2) ** 0.5) * R_upd
+
+    def _process_time(self, t_L, i):
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        tt = 0.25 * torch.log(torch.clamp(t_L, min=1e-20) / self.SIGMA_DATA)
+        emb = torch.cos(2 * math.pi * (tt[..., None] * self.fourier_w[i] + self.fourier_b[i]))
+        emb = emb * (t_L > 0).float()[..., None]
+        x = _tt(emb, dev, dt)
+        x = ttnn.rms_norm(x, weight=self.process_n_n[i], epsilon=1e-6, compute_kernel_config=ckc)
+        out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        return ttnn.to_torch(out).float()
+
+    def _downcast_c(self, C_L, S_I, tok_idx):
+        dev, dt = self.device, self.dtype
+        if C_L.ndim == 2: C_L = C_L.unsqueeze(0)
+        if S_I.ndim == 2: S_I = S_I.unsqueeze(0)
+        B, I, _ = S_I.shape
+        valid, pack, _ = _grouping_indices(tok_idx, B, dev)
+        c_g = _pack_atoms_dev(dev, _tt(C_L, dev, dt), pack, valid)
+        q = ttnn.unsqueeze(_tt(S_I, dev, dt), 2)
+        upd = ttnn.squeeze(self.downcast_c.run_device(q, c_g, valid.unsqueeze(1)), 2)
+        return ttnn.to_torch(ttnn.add(_tt(S_I, dev, dt), upd)).float()
+
+    def _downcast_q(self, Q_L, A_I, S_I, tok_idx):
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        B, I, _ = A_I.shape
+        valid, pack, _ = _grouping_indices(tok_idx, B, dev)
+        q_g = _pack_atoms_dev(dev, _tt(Q_L, dev, dt), pack, valid)
+        a = _tt(A_I, dev, dt)
+        upd = ttnn.squeeze(self.downcast_q.run_device(ttnn.unsqueeze(a, 2), q_g, valid.unsqueeze(1)), 2)
+        a = ttnn.add(a, upd)
+        s = ttnn.rms_norm(_tt(S_I, dev, dt), weight=self.downcast_q_s_n, epsilon=1e-6, compute_kernel_config=ckc)
+        s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        return ttnn.to_torch(ttnn.add(a, s)).float()
+
+    def __call__(self, X_noisy_L, t, f, Q_L_init, C_L, P_LL, S_I, Z_II, n_recycle=None):
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        tok_idx = f["atom_to_token_map"]
+        L = len(tok_idx); I = int(tok_idx.max().item()) + 1
+        if Q_L_init.ndim == 2: Q_L_init = Q_L_init.unsqueeze(0)
+        if C_L.ndim == 2: C_L = C_L.unsqueeze(0)
+        if S_I.ndim == 2: S_I = S_I.unsqueeze(0)
+        if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
+        if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
+        f = dict(f)
+        f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
+        is_motif = f["is_motif_atom_with_fixed_coord"]
+        t_L = t.unsqueeze(-1).expand(-1, L) * (~is_motif).float().unsqueeze(0)
+        t_I = t.unsqueeze(-1).expand(-1, I) * (~f["is_motif_token_with_fully_fixed_coord"]).float().unsqueeze(0)
+        R_L_uniform = self.scale_positions_in(X_noisy_L, t)
+        R_noisy_L = self.scale_positions_in(X_noisy_L, t_L)
+        # process_a (host scatter after device linear)
+        a_emb = ttnn.to_torch(ttnn.linear(_tt(R_noisy_L, dev, dt), self.process_a_w,
+                                          compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
+        A_I = _scatter_mean(a_emb, tok_idx, I)
+        S_I = self._downcast_c(C_L, S_I, tok_idx)
+        Q_L = Q_L_init + ttnn.to_torch(ttnn.linear(_tt(R_noisy_L, dev, dt), self.process_r_w,
+                                                          compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
+        C_L = C_L + self._process_time(t_L, 0)
+        S_I = S_I + self._process_time(t_I, 1)
+        C_L = C_L + ttnn.to_torch(
+            ttnn.linear(ttnn.rms_norm(_tt(C_L, dev, dt), weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
+                        self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
+        Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"])
+        A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
+        recycled = self._forward_with_recycle(
+            n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
+            C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II)
+        return {"X_L": recycled["X_L"], "sequence_logits_I": recycled["sequence_logits_I"]}
+
+    def _forward_with_recycle(self, n_recycle, **kw):
+        n_recycle = n_recycle if n_recycle is not None else self.N_RECYCLE
+        rec = {}
+        for i in range(n_recycle):
+            rec = self._process_(D_II_self=rec.get("D_II_self"), X_L_self=rec.get("X_L"), **kw)
+        return rec
+
+    def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II):
+        is_ca = f["is_ca"]
+        R_L_ca = R_L_uniform[..., is_ca, :]
+        S_I, Z_II = self.diffusion_token_encoder(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
+        dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(I := S_I.shape[1], device=X_L_ca.device),
+                                            self.DIT_KEYS, self.DIT_SEQ)
+        A_I = self.diffusion_transformer(A_I, S_I, Z_II, dit_idx)
+        A_I, Q_L = self.decoder(A_I, S_I, Q_L, C_L, P_LL, tok_idx=f["atom_to_token_map"], indices=f["attn_indices"])
+        R_upd = ttnn.to_torch(ttnn.linear(ttnn.rms_norm(_tt(Q_L, self.device, self.dtype),
+                                                        weight=self.to_r_n, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config),
+                                          self.to_r_w, compute_kernel_config=self.compute_kernel_config,
+                                          dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
+        X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
+        logits, _ = self.sequence_head(A_I)
+        D_II_self = _bucketize_scaled_distogram(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
+        return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits}
+
+
+def build_diffusion_module(state_dict, compute_kernel_config=None, dtype=None):
+    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
+    return RFD3DiffusionModule(state_dict, compute_kernel_config, dtype=dtype)
