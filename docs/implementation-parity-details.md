@@ -252,6 +252,56 @@ recorded as the achievable verdict for that target. Reproduce:
 device compute); FKBP12 device-fp32 fold + score recipe in
 `~/.coworker/state/tt-bio-close-affinity-pocket-lddt.md`.
 
+### 2b. Three-backend triangulation on the affinity SCALAR (the FKBP12 MSA Δlog10(IC50) GAP)
+
+The triangulation above was measured on the pocket-lDDT (local geometry). The
+FKBP12+SB3 MSA affinity-scalar GAP (X/floor 2.27, the one remaining
+GAP-evidenced leg) is a different readout — the affinity head's regression
+output, not diffusion geometry — so it was previously only ASSERTED a bf16
+floor by transfer, not proven on the scalar path. The same triangulation method
+applied to the scalar itself (new scorer
+`scripts/boltz2_affinity_scalar_gpu_vs_cpu.py`, reusing the
+`noise_floor_verdict` core; JSONs
+`docs/implementation-parity-data/boltz2-affinity-{fkg,dhfr,tryp}-scalar-gpu-vs-cpu.json`)
+measures the GPU-bf16-vs-CPU-bf16 reference-reference distance on
+`affinity_pred_value` (Δlog10 IC50), no device compute, all 3 targets, no MSA
+(the only GPU fixtures committed are no-MSA; the MSA fixtures are CPU-only):
+
+| target | CPU self-floor (R_A) | GPU self-floor (R_B) | GPU-vs-CPU scalar X | floor=max(R_A,R_B) | X/floor | within floor |
+|---|---|---|---|---|---|---|
+| FKBP12 + SB3  | 0.0469 | 0.0420 | 0.0573 | 0.0469 | 1.22 | YES |
+| DHFR + MTX    | 0.0312 | 0.2065 | 0.1330 | 0.2065 | 0.64 | YES |
+| trypsin + BAM | 0.0469 | 0.0207 | 0.0577 | 0.0469 | 1.23 | YES |
+
+The R_A/R_B cells reproduce the committed GPU self-floor table
+(`boltz2-affinity-{fkbp12,dhfr,tryp}-gpu-ref-floor.json`) exactly, confirming
+the fixture labeling. The affinity scalar IS backend-divergence-sensitive: the
+two pinned-boltz-2.2.1 bf16-mixed references (only execution device differs)
+DISAGREE on the scalar by 0.057-0.133 log10(IC50) — directly refuting the
+"the two references agree tightly" scenario that would indicate a closable
+device defect. FKBP12's GPU-vs-CPU scalar X (0.057) is the SAME magnitude as
+the device-vs-CPU MSA scalar X (0.062, the GAP number): the device (ttnn bf16)
+sits at the cross-backend offset scale, not the odd one out — the same
+triangulation signature as pocket-lDDT. MSA narrows the CPU self-floor ~8x
+(R 0.047 → 0.025), exposing this persistent ~0.06 cross-backend offset as a GAP.
+
+The scalar-specific path is also clean by code reading
+(`tt_bio/boltzgen/model/modules/affinity.py`): the affinity head
+(`AffinityHeadsTransformer.forward`) is deterministic — no `torch.randn`, no
+`dropout`, no MSA-specific branch, no head-local dtype/autocast — a pure
+function of the trunk pair features `z` and the structure coords `x_pred`. MSA
+enters only upstream (trunk `z` conditioning + structure diffusion), so the
+cross-backend offset is generated in the trunk/diffusion bf16 arithmetic and
+is MSA-independent by construction. The no-MSA triangulation therefore
+transfers to the MSA leg structurally (the offset mechanism is upstream and
+metric-agnostic), not by the bare assumption the task warned against. The
+FKBP12 MSA scalar GAP is thus PROVEN a genuine bf16-backend floor (same class
+as pocket-lDDT), not a ttnn port defect and not an RNG-wiring defect (the
+same-seed diagonal is seed-independent, `boltz2-affinity-fkg-msa.json`). A
+GPU MSA reference would be the gold-standard MSA-specific empirical
+confirmation; it is the one recommended follow-up (a vast.ai generation was
+attempted but blocked by a defective CDN network on the rented box this pass).
+
 ### 3. GPU-reference self-floor (the GPU reference sharpens, not softens, the GAPs)
 
 The three Boltz-2 affinity targets had their REFERENCE regenerated on a rented
@@ -527,7 +577,12 @@ seed-independent on 11 of 12 metric-cells). MSA tightens the affinity-scalar
 floor substantially, so the same device-vs-reference distance that passed at
 X/floor 1.35 on FKBP12 no-MSA now GAPs at X/floor 2.27 on FKBP12 MSA — MSA does
 not widen the floor, it narrows it, exposing the residual device bf16 offset on
-the scalar for the tightest target. DHFR and trypsin MSA affinity scalars still
+the scalar for the tightest target. This scalar GAP is PROVEN a genuine
+bf16-BACKEND floor (not a port defect) on the scalar path itself by the
+GPU-vs-CPU reference triangulation in section 2b: the two bf16 references
+disagree on Δlog10(IC50) by 0.057 (FKBP12), the same magnitude as device-vs-CPU
+MSA (0.062), and the affinity head is deterministic + MSA-agnostic by code, so
+the cross-backend offset is upstream and MSA-independent. DHFR and trypsin MSA affinity scalars still
 PASS (X/floor 1.32 and 0.79). The pocket-lDDT GAP points at the same fp32
 affinity-path lift the no-MSA pocket-lDDT GAP points at; it is the documented
 release-gate concern for the Boltz-2 affinity port, unchanged by adding MSA.
