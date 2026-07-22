@@ -651,6 +651,15 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 # Drift check vs committed numbers
 # ---------------------------------------------------------------------------
+def _is_passing(v: str | None) -> bool:
+    """PASS and PASS-caveated are both passing verdicts — a leg that lands in either is
+    release-acceptable. PASS-caveated means the gate metric passes but a documented
+    bf16-backend floor GAPs a secondary metric (e.g. pocket-lDDT); it is not a drift
+    of the gate metric. Used so the drift check treats PASS vs PASS-caveated as reproduces
+    (a seed-variance pocket-lDDT flip between PASS and PASS-caveated is not a regression)."""
+    return v in ("PASS", "PASS-caveated")
+
+
 def _committed_verdict(leg: Leg) -> str | None:
     """Read the verdict recorded in the committed JSON for this leg (the doc's truth)."""
     if not leg.committed_json:
@@ -803,9 +812,17 @@ def main() -> int:
                     # live verdict itself (ERROR/GAP/NO-DATA -> all_pass=False).
                     if committed and committed not in ("NO-DATA",) \
                             and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
-                        drift = " [reproduces committed]" if verdict == committed else \
-                            f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
-                        if verdict != committed:
+                        # PASS and PASS-caveated are both passing -> reproduces (a pocket-lDDT
+                        # seed-flip between them is not a regression). Live passing vs a
+                        # committed GAP is an improvement, not a drift.
+                        if _is_passing(verdict) and _is_passing(committed):
+                            drift = " [reproduces committed]"
+                        elif _is_passing(verdict) and committed == "GAP":
+                            drift = " [improves committed GAP — not a drift]"
+                        elif verdict == committed:
+                            drift = " [reproduces committed]"
+                        else:
+                            drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
                             all_pass = False
                     rows.append({"leg": leg.id, "verdict": verdict, "detail": detail,
                                  "wall": wall, "committed": committed,
@@ -851,7 +868,14 @@ def main() -> int:
         # live verdict below.
         if committed and committed not in ("NO-DATA",) \
                 and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
-            if verdict == committed:
+            # See _is_passing: PASS/PASS-caveated are both passing -> reproduces; a
+            # pocket-lDDT seed-flip between them is not a regression. Live passing
+            # vs a committed GAP is an improvement, not a drift.
+            if _is_passing(verdict) and _is_passing(committed):
+                drift = " [reproduces committed]"
+            elif _is_passing(verdict) and committed == "GAP":
+                drift = " [improves committed GAP — not a drift]"
+            elif verdict == committed:
                 drift = " [reproduces committed]"
             else:
                 drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
