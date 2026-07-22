@@ -179,6 +179,40 @@ OPENDDE_ABAG_MIN_DOCKQ = 0.50
 # sets OPENDDE_DOCKQ_PYTHON to a venv that does (mirrors the ESMC leg's ESM_ROOT).
 OPENDDE_DOCKQ_PYTHON = os.environ.get("OPENDDE_DOCKQ_PYTHON", sys.executable)
 
+# Every fold this gate launches is bounded by a hard wall-clock timeout so a flaky external
+# MSA server (the v0.3.3 release lost ~25 min to a ColabFold hang) or a hung multiprocessing
+# shutdown can never block the gate forever. The offline fallback for when the public ColabFold
+# service is down/flaky: set RELEASE_GATE_MSA_DIR to a dir holding the cached
+# `{sha256(sequence)[:16]}.a3m` files (see RELEASING.md); the fold then runs with --msa_dir and
+# never touches the network. Both are env-tunable so a slow host can raise the timeout.
+FOLD_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_FOLD_TIMEOUT", "1800"))
+MSA_DIR = os.environ.get("RELEASE_GATE_MSA_DIR")
+
+
+def _msa_args() -> list:
+    """MSA source for a gate fold: an offline cached-a3m dir if RELEASE_GATE_MSA_DIR is set,
+    otherwise the ColabFold server (bounded by FOLD_TIMEOUT_S). See RELEASING.md."""
+    return ["--msa_dir", MSA_DIR] if MSA_DIR else ["--use_msa_server"]
+
+
+def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
+    """Run a fold subprocess in its OWN process group; on timeout kill the whole group so a
+    hung MSA-server wait or a hung multiprocessing shutdown cannot orphan device-holding
+    children (which would wedge the card for later legs). Returns (returncode, timed_out)."""
+    import signal
+    proc = subprocess.Popen(cmd, start_new_session=True, **popen_kw)
+    try:
+        return proc.wait(timeout=timeout), False
+    except subprocess.TimeoutExpired:
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(os.getpgid(proc.pid), sig)
+                proc.wait(timeout=10)
+                break
+            except Exception:
+                continue
+        return None, True
+
 
 def _load_structure_harness():
     """Import tests/test_structure.py by path (tests/ is not an installed package)."""
@@ -243,7 +277,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
         "--sampling_steps", str(SAMPLING_STEPS),
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
-        "--use_msa_server",
+        *_msa_args(),
         "--out_dir", str(REPO_ROOT),
     ] + ((["--fast"] if FAST else [])
           + (["--diffusion_trace"] if (DIFFUSION_TRACE and model == "boltz2") else []))
@@ -253,10 +287,14 @@ def run_model(model: str, harness, keep: bool) -> dict:
     row = {"model": model, "seconds": None, "rmsd": None, "tm": None,
            "parse": False, "gate": False, "error": None}
     t0 = time.monotonic()
-    proc = subprocess.run(cmd, cwd=REPO_ROOT)
+    rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT)
     row["seconds"] = time.monotonic() - t0
-    if proc.returncode != 0:
-        row["error"] = f"predict exited {proc.returncode}"
+    if timed_out:
+        row["error"] = (f"predict timed out after {FOLD_TIMEOUT_S}s (flaky MSA server? set "
+                        f"RELEASE_GATE_MSA_DIR to a dir with the cached a3m — see RELEASING.md)")
+        return row
+    if rc != 0:
+        row["error"] = f"predict exited {rc}"
         return row
 
     cifs = _results_cifs(out)
@@ -372,7 +410,7 @@ def run_opendde_abag(keep: bool) -> dict:
         "--sampling_steps", str(SAMPLING_STEPS),
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
-        "--use_msa_server",
+        *_msa_args(),
         "--out_dir", str(REPO_ROOT),
     ]
     print(f"\n{'='*70}\n[opendde-abag] docking {data.name} "
@@ -381,10 +419,14 @@ def run_opendde_abag(keep: bool) -> dict:
     row = {"model": "opendde-abag", "seconds": None, "dockq": None,
            "fnat": None, "parse": False, "gate": False, "error": None}
     t0 = time.monotonic()
-    proc = subprocess.run(cmd, cwd=REPO_ROOT)
+    rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT)
     row["seconds"] = time.monotonic() - t0
-    if proc.returncode != 0:
-        row["error"] = f"predict exited {proc.returncode}"
+    if timed_out:
+        row["error"] = (f"predict timed out after {FOLD_TIMEOUT_S}s (flaky MSA server? set "
+                        f"RELEASE_GATE_MSA_DIR to a dir with the cached a3m — see RELEASING.md)")
+        return row
+    if rc != 0:
+        row["error"] = f"predict exited {rc}"
         return row
 
     struct_dir = out / "structures"
