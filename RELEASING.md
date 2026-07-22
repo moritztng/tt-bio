@@ -23,6 +23,11 @@ python3 -m pytest -v --tb=short
 # a clean `pip install` because the package-data globs were missing). Card-free.
 python3 scripts/packaging_smoke.py
 
+# Card-free preflight — validates every leg's yaml / fixture+fingerprint / committed-JSON /
+# target-id / MSA wiring in seconds. Run it first; it catches a misconfigured leg before a
+# device turn is wasted on it. (It also runs automatically at the start of the gate below.)
+python3 scripts/full_parity_gate.py --check
+
 TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_venv/bin/python \
   PYTHONPATH="$PWD" \
   python3 scripts/full_parity_gate.py --workers pc:0
@@ -71,7 +76,52 @@ drifts outside the floor is flagged `DRIFT — investigate` and exits non-zero.
 `scripts/release_gate.py` remains as a fast single-target smoke proxy (one
 7ROA fold per model + a BoltzGen/OpenDDE-abag/ESMC quick check) for a quick
 sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`
-is the command that must pass before a tag.
+is the command that must pass before a tag. The two do not overlap awkwardly:
+the full gate runs the BoltzGen designability and OpenDDE-abag DockQ legs by
+calling `release_gate`'s vetted `run_boltzgen` / `run_opendde_abag` **in-process**
+(capturing their real scRMSD/DockQ numbers), so there is one implementation of
+each leg, not two.
+
+### Gate behavior you can rely on
+
+- **Resume is the default.** The gate reuses completed device folds and per-leg
+  reports already in `--workdir`, so a run interrupted partway (a bounded shell,
+  a lost connection) resumes where it stopped instead of re-folding everything.
+  Use a fresh `--workdir` per release commit, or pass `--fresh`, for a clean
+  from-scratch run.
+- **No leg can hang forever.** Every device fold is bounded by `--fold-timeout`
+  (default 2400 s); a fold that never produces `results.json` in that window
+  (e.g. a flaky MSA server) is killed with a clear error. A fold that succeeds
+  but hangs on shutdown is reaped once its `results.json` is written.
+- **Offline MSA fallback.** When the public ColabFold service is down or flaky,
+  set `RELEASE_GATE_MSA_DIR` to a directory holding the cached
+  `{sha256(sequence)[:16]}.a3m` files; the network-MSA legs then fold with
+  `--msa_dir` and never touch the network. `RELEASE_GATE_FOLD_TIMEOUT` tunes the
+  `release_gate.py` fold timeout for a slow host.
+
+### Verdict semantics
+
+| verdict | meaning | gate effect |
+|---|---|---|
+| `PASS` | metric within the recorded noise floor | pass |
+| `PASS-caveated` | gate metric passes; a documented secondary metric (e.g. affinity pocket-lDDT) GAPs on a known bf16 floor | pass (equivalent to PASS for drift) |
+| `GAP` | metric outside the floor | **fail** — unless it reproduces a committed `GAP-evidenced` |
+| `GAP-evidenced` | a GAP proven to be a genuine bf16-backend floor, accepted in `docs/implementation-parity.md` (a committed verdict only) | a live GAP that matches it reproduces (pass) |
+| `DRIFT` | live verdict does not reproduce the committed one and is not an improvement | **fail**; never silently overwrites the doc |
+| `BLOCKED-REF-REGEN-NEEDED` | reference fixture missing or its fingerprint changed | not a failure — the slow opt-in regen path, reported separately |
+| `ERROR` | the fold or scorer produced no report | **fail** |
+| `NO-DATA` | a report with no comparable metric | drift check skipped; a live NO-DATA still fails |
+
+### Trusting a new or changed gate
+
+**Any new gate-of-record script, or a significant change to one, must be dry-run
+end-to-end on a real release candidate before it is trusted to gate a tag.** The
+v0.3.3 release learned this the hard way: `full_parity_gate.py` was made the
+parity gate of record and first exercised during the release itself, so a string
+of harness/config bugs (leg-id mismatches, a live-vs-committed shape mismatch, no
+resume, no network timeout, broken remote fan-out) surfaced one device turn at a
+time — an all-day thrash with zero model-numerics problems. Run `--check` and a
+one-leg `--dry-run`/fold smoke first; they catch that whole class in minutes.
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
 OpenDDE, BoltzGen designability, OpenDDE-abag antibody-antigen docking, and
@@ -120,8 +170,11 @@ Also run the documented supported-size and multi-card smoke cases for the target
 hardware. Record hard limits in the changelog; do not infer OOM safety from the
 small gate inputs.
 
-If the public ColabFold service is unavailable, place the previously generated
-`{sha256(sequence)[:16]}.a3m` in the gate output's `msa/` directory and rerun.
+If the public ColabFold service is unavailable, use the offline MSA fallback
+described above: set `RELEASE_GATE_MSA_DIR` to a directory holding the previously
+generated `{sha256(sequence)[:16]}.a3m` files and rerun. (Equivalently, for a
+single leg, drop the a3m into the gate output's `msa/` directory, which is
+`predict`'s default `msa_dir`.)
 
 ## Cut the release
 
