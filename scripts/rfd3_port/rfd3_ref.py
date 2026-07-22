@@ -559,3 +559,104 @@ TOKEN_INITIALIZER_CONFIG = dict(
 def build_token_initializer(config=None):
     cfg = dict(config) if config else dict(TOKEN_INITIALIZER_CONFIG)
     return TokenInitializer(**cfg)
+
+
+# --- Diffusion DiT block reference (StructureLocalAtomTransformerBlock, dense path) ---
+# Faithful to rfd3.model.layers.attention.LocalAttentionPairBias (full=True path) +
+# blocks.ConditionedTransitionBlock / StructureLocalAtomTransformerBlock. Used as
+# the PCC target for the ttnn DiT block port (tt_bio/rfd3.py RFD3AtomBlock at
+# c_token=768, c_s=384, c_tokenpair=128, n_head=16, head_dim=48).
+def _indices_to_mask(neigh_idx):
+    neigh_idx = neigh_idx.to(dtype=torch.long)
+    B, L, k = neigh_idx.shape
+    mask = torch.zeros((B, L, L), dtype=torch.bool, device=neigh_idx.device)
+    mask.scatter_(2, neigh_idx, torch.ones_like(neigh_idx, dtype=torch.bool))
+    return mask
+
+
+def _pairbias_attention_dense(Q, K, V, B, H, valid_mask=None, G=None):
+    """Dense pairbias attention (full=True path): full LxL then mask to the sparse
+    pattern. Equivalent to the gather-sparse inference path (PCC=1.0, see state 2b.5)."""
+    D, L, c = Q.shape
+    Q = Q.reshape(D, L, H, c // H).permute(0, 2, 1, 3)
+    K = K.reshape(D, L, H, c // H).permute(0, 2, 1, 3)
+    V = V.reshape(D, L, H, c // H).permute(0, 2, 1, 3)
+    B = B.reshape(D, L, L, H).permute(0, 3, 1, 2)
+    attn = torch.einsum("...ld,...kd->...lk", Q, K) / math.sqrt(c // H)
+    attn = attn + B
+    if valid_mask is not None:
+        attn = attn.masked_fill(~valid_mask.unsqueeze(1), float("-inf"))
+    attn = torch.softmax(attn, dim=-1)
+    out = torch.einsum("...ij,...jc->...ic", attn, V)
+    if G is not None:
+        G = G.reshape(D, L, H, c // H).permute(0, 2, 1, 3)
+        out = out * G
+    return out.permute(0, 2, 1, 3).reshape(D, L, c).contiguous()
+
+
+class LocalAttentionPairBiasRef(nn.Module):
+    """Dense-path reference of LocalAttentionPairBias (conditioned, kq_norm)."""
+
+    def __init__(self, c_a, c_s, c_pair, n_head, kq_norm=True):
+        super().__init__()
+        self.c = c_a
+        self.n_head = n_head
+        self.to_q = linearNoBias(c_a, c_a)
+        self.to_k = linearNoBias(c_a, c_a)
+        self.to_v = linearNoBias(c_a, c_a)
+        self.to_b = linearNoBias(c_pair, n_head)
+        self.to_g = nn.Sequential(linearNoBias(c_a, c_a), nn.Sigmoid())
+        self.kq_norm = kq_norm
+        if kq_norm:
+            self.ln_q = RMSNorm(c_a)
+            self.ln_k = RMSNorm(c_a)
+        self.to_o = linearNoBias(c_a, c_a)
+        self.ada_ln_1 = AdaLN(c_a=c_a, c_s=c_s)
+        self.linear_output_project = nn.Sequential(LinearBiasInit(c_s, c_a, biasinit=-2.0), nn.Sigmoid())
+
+    def forward(self, Q_L, C_L, P_LL, valid_mask=None):
+        Q_L = self.ada_ln_1(Q_L, C_L)
+        q, k, v, g = self.to_q(Q_L), self.to_k(Q_L), self.to_v(Q_L), self.to_g(Q_L)
+        if self.kq_norm:
+            q, k = self.ln_q(q), self.ln_k(k)
+        b = self.to_b(P_LL)
+        out = _pairbias_attention_dense(q, k, v, b, self.n_head, valid_mask=valid_mask, G=g)
+        out = self.to_o(out)
+        return self.linear_output_project(C_L) * out
+
+
+class ConditionedTransitionBlockRef(nn.Module):
+    def __init__(self, c_token, c_s, n=2):
+        super().__init__()
+        self.ada_ln = AdaLN(c_a=c_token, c_s=c_s)
+        self.linear_1 = linearNoBias(c_token, c_token * n)
+        self.linear_2 = linearNoBias(c_token, c_token * n)
+        self.linear_output_project = nn.Sequential(LinearBiasInit(c_s, c_token, biasinit=-2.0), nn.Sigmoid())
+        self.linear_3 = linearNoBias(c_token * n, c_token)
+
+    def forward(self, Ai, Si):
+        Ai = self.ada_ln(Ai, Si)
+        Bi = silu(self.linear_1(Ai)) * self.linear_2(Ai)
+        return self.linear_output_project(Si) * self.linear_3(Bi)
+
+
+class DiTBlockRef(nn.Module):
+    """Reference of StructureLocalAtomTransformerBlock for the token DiT (no dropout at eval)."""
+
+    def __init__(self, c_token, c_s, c_pair, n_head):
+        super().__init__()
+        self.attention_pair_bias = LocalAttentionPairBiasRef(c_a=c_token, c_s=c_s, c_pair=c_pair, n_head=n_head)
+        self.transition_block = ConditionedTransitionBlockRef(c_token=c_token, c_s=c_s)
+
+    def forward(self, A_I, S_I, Z_II, valid_mask=None):
+        A_I = A_I + self.attention_pair_bias(A_I, S_I, Z_II, valid_mask=valid_mask)
+        A_I = A_I + self.transition_block(A_I, S_I)
+        return A_I
+
+
+DIT_BLOCK_CONFIG = dict(c_token=768, c_s=384, c_pair=128, n_head=16)
+
+
+def build_dit_block_ref(config=None):
+    cfg = dict(config) if config else dict(DIT_BLOCK_CONFIG)
+    return DiTBlockRef(**cfg)

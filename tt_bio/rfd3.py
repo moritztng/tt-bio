@@ -630,15 +630,19 @@ class GatedCrossAttention(Module):
 
 
 class RFD3AtomBlock(Module):
-    """One dense-mask RFD3 structure-local atom transformer block."""
+    """One dense-mask RFD3 structure-local transformer block.
 
-    N_HEAD = 4
-    HEAD_DIM = 32
+    Parameterized by dims so the same block serves the atom encoder/decoder
+    (c_a=128, c_s=128, c_pair=16, n_head=4, head_dim=32) and the 18-block token
+    DiT (c_a=768, c_s=384, c_pair=128, n_head=16, head_dim=48). Weight shapes
+    encode c_a/c_s/c_pair; n_head is the only structural knob that is not."""
 
-    def __init__(self, state_dict, ckc, dtype=None):
+    def __init__(self, state_dict, ckc, c_a=128, c_s=128, c_pair=16, n_head=4, dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         dt = self.dtype
+        self.n_head = n_head
+        self.head_dim = c_a // n_head
         a = "attention_pair_bias."
         self.a_ln_s = self.torch_to_tt(a + "ada_ln_1.ln_s.weight", dtype=dt)
         self.a_gain_w = self.torch_to_tt(a + "ada_ln_1.to_gain.0.weight", dtype=dt)
@@ -694,7 +698,7 @@ class RFD3AtomBlock(Module):
 
         def heads(x):
             x = ttnn.reshape(
-                x, (batch, length, self.N_HEAD, self.HEAD_DIM)
+                x, (batch, length, self.n_head, self.head_dim)
             )
             return ttnn.permute(x, (0, 2, 1, 3))
 
@@ -712,7 +716,7 @@ class RFD3AtomBlock(Module):
         scores = ttnn.typecast(
             scores, ttnn.float32, memory_config=scores.memory_config()
         )
-        scores = ttnn.multiply(scores, self.HEAD_DIM**-0.5)
+        scores = ttnn.multiply(scores, self.head_dim**-0.5)
         bias_f = ttnn.typecast(
             bias, ttnn.float32, memory_config=bias.memory_config()
         )
@@ -725,7 +729,7 @@ class RFD3AtomBlock(Module):
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
         out = ttnn.permute(out, (0, 2, 1, 3))
         out = ttnn.reshape(
-            out, (batch, length, self.N_HEAD * self.HEAD_DIM)
+            out, (batch, length, self.n_head * self.head_dim)
         )
         out = ttnn.linear(
             out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
@@ -923,6 +927,89 @@ class LinearSequenceHead(Module):
         return logits, masked.argmax(dim=-1)
 
 
+def _bucketize_scaled_distogram(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_bins=65):
+    """Host port of block_utils.bucketize_scaled_distogram. R_L: [B, N, 3] -> one-hot [B, N, N, n_bins]."""
+    D_LL = torch.linalg.norm(R_L.unsqueeze(-2) - R_L.unsqueeze(-3), dim=-1)  # [B, N, N]
+    lo, hi = min_dist / sigma_data, max_dist / sigma_data
+    bins = torch.linspace(lo, hi, n_bins - 1, device=R_L.device)
+    bin_idxs = torch.bucketize(D_LL, bins)
+    return torch.nn.functional.one_hot(bin_idxs, num_classes=n_bins).float()
+
+
+class DiffusionTokenEncoder(Module):
+    """RFD3 DiffusionTokenEncoder: self-conditioning distogram + noise distogram -> 2-block
+    no-triangle Pairformer. Reuses the verified PairformerBlock (c_s=384, c_z=128, n_head=16)."""
+
+    C_S, C_Z, N_HEAD = 384, 128, 16
+    N_BINS, N_PAIRFORMER = 65, 2
+
+    def __init__(self, state_dict, ckc, sigma_data=16.0, dtype=None):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        self.sigma_data = sigma_data
+        self.transition_1 = [Transition(self.scope(f"transition_1.{i}"), ckc, self.C_S, n=2, dtype=self.dtype)
+                             for i in range(2)]
+        cat_c_z = self.C_Z + self.N_BINS + self.N_BINS  # 128 + 65 (distogram) + 65 (self)
+        self.process_z_n = self.torch_to_tt("process_z.0.weight", dtype=self.dtype)
+        self.process_z_w = self.torch_to_tt("process_z.1.weight", dtype=self.dtype)
+        self.transition_2 = [Transition(self.scope(f"transition_2.{i}"), ckc, self.C_Z, n=2, dtype=self.dtype)
+                             for i in range(2)]
+        self.pairformer_stack = [PairformerBlock(self.scope(f"pairformer_stack.{i}"), ckc,
+                                 self.C_S, self.C_Z, self.N_HEAD, dtype=self.dtype)
+                                for i in range(self.N_PAIRFORMER)]
+
+    def __call__(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
+        """R_L_ca: [B, I, 3] (scaled C-alpha positions), S_init_I: [B, I, c_s],
+        Z_init_II: [I, I, c_z] (expanded over batch), D_II_self: [B, I, I, 65] or None.
+        Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host."""
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        B, I = R_L_ca.shape[0], R_L_ca.shape[1]
+        s = _tt(S_init_I if S_init_I.ndim == 3 else S_init_I.unsqueeze(0).expand(B, -1, -1).contiguous(), dev, dt)
+        for tr in self.transition_1:
+            s = ttnn.add(s, tr(s))
+        D_LL = _bucketize_scaled_distogram(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
+        if D_II_self is None:
+            D_II_self = torch.zeros(B, I, I, self.N_BINS, dtype=D_LL.dtype, device=D_LL.device)
+        z = _tt(Z_init_II.unsqueeze(0).expand(B, -1, -1, -1).contiguous(), dev, dt)
+        zcat = ttnn.concat([z, _tt(D_LL, dev, dt), _tt(D_II_self, dev, dt)], dim=-1)  # [B,I,I,258]
+        z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
+        z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(zcat)
+        for tr in self.transition_2:
+            z = ttnn.add(z, tr(z))
+        for blk in self.pairformer_stack:
+            s, z = blk(s, z)
+        return ttnn.to_torch(s).float(), ttnn.to_torch(z).float()
+
+
+class LocalTokenTransformer(Module):
+    """RFD3 18-block token DiT. Each block is the dense-additive-mask
+    StructureLocalAtomTransformerBlock (conditioned AttentionPairBias + ConditionedTransition)
+    at c_token=768, c_s=384, c_tokenpair=128, n_head=16, head_dim=48."""
+
+    C_TOKEN, C_S, C_PAIR, N_HEAD, N_BLOCK = 768, 384, 128, 16, 18
+
+    def __init__(self, state_dict, ckc, n_block=18, dtype=None):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        self.blocks = [RFD3AtomBlock(self.scope(f"blocks.{i}"), ckc,
+                        c_a=self.C_TOKEN, c_s=self.C_S, c_pair=self.C_PAIR, n_head=self.N_HEAD, dtype=self.dtype)
+                       for i in range(n_block)]
+
+    def run_device(self, a, s, z, additive_mask):
+        for block in self.blocks:
+            a = block(a, s, z, additive_mask)
+        return a
+
+    def __call__(self, a_host, s_host, z_host, indices):
+        dev, dt = self.device, self.dtype
+        a = _tt(a_host, dev, dt)
+        s = _tt(s_host, dev, dt)
+        z = _tt(z_host.unsqueeze(0) if z_host.ndim == 3 else z_host, dev, dt)
+        mask = _tt(_dense_attention_mask(indices), dev, dt)
+        return ttnn.to_torch(self.run_device(a, s, z, mask)).float()
+
+
 def _default_compute_kernel_config():
     dev = get_device()
     kernel_cls = (
@@ -962,3 +1049,13 @@ def build_decoder(state_dict, compute_kernel_config=None, dtype=None):
 def build_sequence_head(state_dict, compute_kernel_config=None, dtype=None):
     compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
     return LinearSequenceHead(state_dict, compute_kernel_config, dtype=dtype)
+
+
+def build_diffusion_token_encoder(state_dict, compute_kernel_config=None, dtype=None, sigma_data=16.0):
+    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
+    return DiffusionTokenEncoder(state_dict, compute_kernel_config, sigma_data=sigma_data, dtype=dtype)
+
+
+def build_dit(state_dict, compute_kernel_config=None, dtype=None, n_block=18):
+    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
+    return LocalTokenTransformer(state_dict, compute_kernel_config, n_block=n_block, dtype=dtype)
