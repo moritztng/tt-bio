@@ -322,8 +322,13 @@ def stage_msa(leg: Leg, workdir: Path) -> tuple[Path | None, list[str]]:
 
 
 def device_cmd(leg: Leg, seed: int, out_dir: Path, workdir: Path) -> list[str]:
-    """Build the `tt-bio predict` command for one device fold (one seed)."""
-    cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(REPO / leg.yaml),
+    """Build the `tt-bio predict` command for one device fold (one seed).
+
+    The yaml arg is RELATIVE (leg.yaml is already relative, e.g. "examples/x.yaml") —
+    Worker.wrap() cd's into the repo root (local or remote) before exec'ing, so a relative
+    path resolves correctly on whichever host actually runs this command.
+    """
+    cmd = [sys.executable, "-m", "tt_bio.main", "predict", leg.yaml,
            "--model", leg.model, "--out_dir", str(out_dir), "--override",
            "--seed", str(seed)]
     cmd += list(leg.device_args)
@@ -340,30 +345,45 @@ class Worker:
     host: str
     card: int
     is_local: bool
+    remote_cwd: str | None = None     # remote checkout path, if different from the local worktree
+    remote_python: str | None = None  # remote env's python, if different from sys.executable
 
     def wrap(self, cmd: list[str], cwd: Path, env: dict) -> list[str]:
         """Wrap a command for this worker: local subprocess or ssh + remote shell."""
-        env_prefix = [f"TT_VISIBLE_DEVICES={self.card}", f"PYTHONPATH={cwd}"]
+        work_dir = str(cwd) if self.is_local else (self.remote_cwd or str(cwd))
+        if not self.is_local and self.remote_python and cmd and cmd[0] == sys.executable:
+            cmd = [self.remote_python, *cmd[1:]]
+        env_prefix = [f"TT_VISIBLE_DEVICES={self.card}", f"PYTHONPATH={work_dir}"]
         env_str = " ".join(f"{k}={shlex.quote(str(v))}" for k, v in env.items())
         full_env = " ".join(env_prefix + ([env_str] if env_str else []))
         if self.is_local:
             # run via env + sh -c so the env vars apply to the python process
             return ["sh", "-c", full_env + " exec " + " ".join(shlex.quote(c) for c in cmd)]
-        # remote: ssh host -- 'env ... cmd' (cwd via remote cd)
-        remote = f"cd {shlex.quote(str(cwd))} && {full_env} exec " + " ".join(shlex.quote(c) for c in cmd)
+        # remote: ssh host -- 'env ... cmd' (cwd via remote cd). Use remote_cwd/remote_python
+        # when the remote checkout+env don't live at the same absolute paths as the local
+        # worktree (different user/host) — cmd's own file arguments are relative (see
+        # device_cmd), so they resolve correctly under whichever cwd we land in here.
+        remote = f"cd {shlex.quote(work_dir)} && {full_env} exec " + " ".join(shlex.quote(c) for c in cmd)
         return ["ssh", "-o", "ConnectTimeout=5", self.host, remote]
 
 
 def parse_workers(spec: str) -> list[Worker]:
+    """Parse '--workers' entries: host:card, or host:card:remote_cwd[:remote_python] for a
+    remote whose checkout/env don't live at the same absolute paths as the local worktree
+    (e.g. a different user/home on that host)."""
     out = []
     local_host = os.environ.get("HOSTNAME", "pc").split(".")[0]
     for part in spec.split(","):
         part = part.strip()
         if not part:
             continue
-        host, _, card = part.partition(":")
-        out.append(Worker(host=host, card=int(card or 0),
-                           is_local=(host == "pc" or host == local_host)))
+        host, _, rest = part.partition(":")
+        card_str, _, rest2 = rest.partition(":")
+        remote_cwd, _, remote_python = rest2.partition(":")
+        out.append(Worker(host=host, card=int(card_str or 0),
+                           is_local=(host == "pc" or host == local_host),
+                           remote_cwd=remote_cwd or None,
+                           remote_python=remote_python or None))
     return out or [Worker(host="pc", card=0, is_local=True)]
 
 
