@@ -18,6 +18,11 @@ Run from the repository root:
 ```bash
 python3 -m pytest -v --tb=short
 
+# Packaging guard — catches a dropped data file in the wheel/sdist before it
+# ships to PyPI (the v0.3.3 bug class: protenix-v2/opendde/boltzgen crashed on
+# a clean `pip install` because the package-data globs were missing). Card-free.
+python3 scripts/packaging_smoke.py
+
 TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_venv/bin/python \
   PYTHONPATH="$PWD" \
   python3 scripts/full_parity_gate.py --workers pc:0
@@ -28,6 +33,16 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/ux_regression.py
 ```
+
+The packaging guard (`scripts/packaging_smoke.py`) builds the wheel and sdist
+from the current tree and asserts every non-`.py` data file under `tt_bio/`
+ships in both artifacts and lands on disk after a clean `pip install --no-deps
+--target` of the wheel. The expected file set is derived from the repo, so a
+newly committed data file is automatically required to ship — no allowlist to
+forget. Pass `--fold` to also install the wheel into a deps-inheriting venv and
+run one protenix-v2 + one opendde + one boltzgen fold on a card, asserting each
+gets past the missing-data-file gate. The card-free default is the required
+pre-tag step; `--fold` is the deeper on-device confirmation.
 
 The parity gate is `scripts/full_parity_gate.py` — the FULL
 `docs/implementation-parity.md` story (every leg, every model/target, 5-seed

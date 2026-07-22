@@ -5,6 +5,23 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-07-22
+
+### Fixed
+- **Missing package data broke every clean `pip install`** — the
+  `[tool.setuptools.package-data]` table shipped only the two vendored
+  ESM/ESMFold2 license files, so the 0.3.3 wheel and sdist omitted the 13
+  runtime data files the package loads by path. A fresh `pip install tt-bio`
+  crashed at featurization for protenix-v2 and opendde / opendde-abag folds
+  (`FileNotFoundError: .../tt_bio/data/protein_ref_conformers.json`) and at
+  `_configure` for every `tt-bio gen` design
+  (`FileNotFoundError: .../boltzgen/resources/config/design.yaml`).
+  boltz2 / esmfold2 / esmc / saprot were unaffected. Added the missing globs
+  for `tt_bio.data` and the `tt_bio.boltzgen.resources` tree plus a
+  `MANIFEST.in`, and added `scripts/packaging_smoke.py` to the release gate
+  so a dropped data file fails the gate instead of shipping silently.
+  Packaging-only; no model or behavior change.
+
 ## [0.3.3] - 2026-07-22
 
 ### Fixed

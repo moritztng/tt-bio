@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tt-bio"
-version = "0.3.3"
+version = "0.3.4"
 description = "Boltz-2, ESMFold2, Protenix-v2, and OpenDDE structure prediction, BoltzGen binder design, and ESMC/SaProt protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
 readme = "README.md"
 requires-python = ">=3.10,<3.13,!=3.11.*"
@@ -63,6 +63,15 @@ include = ["tt_bio*"]
 # ship the vendored third-party license texts inside the wheel (see NOTICE)
 "tt_bio._vendor.esm" = ["LICENSE"]
 "tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
+# runtime data files the package loads by path at import/featurize time — these
+# MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
+#   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization
+#   - tt_bio/boltzgen/resources/**: every `tt-bio gen` design (config yamls, splits, metrics)
+"tt_bio.data" = ["*.json"]
+"tt_bio.boltzgen" = ["LICENSE"]
+"tt_bio.boltzgen.resources" = ["*.json"]
+"tt_bio.boltzgen.resources.config" = ["*.yaml"]
+"tt_bio.boltzgen.resources.splits" = ["*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
