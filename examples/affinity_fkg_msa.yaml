@@ -3,6 +3,7 @@ sequences:
   - protein:
       id: A
       sequence: GVQVETISPGDGRTFPKRGQTCVVHYTGMLEDGKKFDSSRDRNKPFKFMLGKQEVIRGWEEGVAQMSVGQRAKLTISPDYAYGATGHPGIIPPHATLVFDVELLKLE
+      msa: docs/implementation-parity-data/ref-fixtures/boltz2/affinity_fkg/msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu/msa.a3m
   - ligand:
       id: B
       ccd: SB3

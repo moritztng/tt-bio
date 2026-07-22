@@ -555,13 +555,32 @@ def _saprot_verdict(report: dict) -> tuple[str, str]:
 
 
 def _boltzgen_verdict(report: dict) -> tuple[str, str]:
-    rc = report.get("_release_gate_rc", 1)
-    return ("PASS" if rc == 0 else "GAP"), f"release_gate rc={rc}"
+    # Live run: release_gate prints a verdict table but writes no JSON, so the gate
+    # carries the rc in _release_gate_rc.
+    if "_release_gate_rc" in report:
+        rc = report["_release_gate_rc"]
+        return ("PASS" if rc == 0 else "GAP"), f"release_gate rc={rc}"
+    # Committed JSON (docs/implementation-parity-data/boltzgen.json): a designability
+    # evidence record with device_batches[].designs[].scrmsd. The floor (RELEASING.md) is
+    # >=50% of binders refolding within 2.0 A scRMSD.
+    scrmsds = [x.get("scrmsd") for b in report.get("device_batches", [])
+               for x in b.get("designs", []) if x.get("scrmsd") is not None]
+    if not scrmsds:
+        return "NO-DATA", "no designs in committed record"
+    rate = sum(1 for s in scrmsds if s <= 2.0) / len(scrmsds)
+    return ("PASS" if rate >= 0.5 else "GAP"), f"committed scrmsd pass-rate {rate*100:.0f}% ({len(scrmsds)} designs)"
 
 
 def _abag_verdict(report: dict) -> tuple[str, str]:
-    rc = report.get("_release_gate_rc", 1)
-    return ("PASS" if rc == 0 else "GAP"), f"release_gate rc={rc}"
+    if "_release_gate_rc" in report:
+        rc = report["_release_gate_rc"]
+        return ("PASS" if rc == 0 else "GAP"), f"release_gate rc={rc}"
+    # Committed JSON (opendde-abag-1ahw-irmsd.json): a DockQ evidence record. Floor
+    # (RELEASING.md) is global_dockq >= 0.50.
+    dq = report.get("global_dockq")
+    if dq is None:
+        return "NO-DATA", "no global_dockq in committed record"
+    return ("PASS" if dq >= 0.50 else "GAP"), f"committed global_dockq={dq:.3f}"
 
 
 def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
