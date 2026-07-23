@@ -18,7 +18,7 @@ OUT_BASE = "/tmp/abag_stage2"
 STAGE1_CIF_DIR = f"{OUT_BASE}/opendde_stage1_cifs"
 PROGRESS = f"{OUT_BASE}/progress.jsonl"
 TARGETS = ["9ck4", "9d3j", "9i5n", "9m72", "9obn", "22ps", "9yio", "9ncy", "9w14", "9gfr", "9udq", "9jkr"]
-DOCKQ_PY = "opendde_dockq.py"  # run with cwd=ROOT
+DOCKQ_PY = "scripts/opendde_dockq.py"  # run with cwd=ROOT
 MEDIUM_BAR = 0.49
 COVERAGE_BAR = 0.30
 PRECISION_BAR = 0.85
