@@ -93,6 +93,12 @@ def _tt(x, dev, dtype=ttnn.bfloat16):
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
 
 
+def _tt_idx(indices, dev):
+    """Upload a flat gather/scatter index tensor once (uint32, row-major)."""
+    return ttnn.from_torch(indices.to(torch.int32).reshape(1, -1),
+                            layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.uint32)
+
+
 # --- ttnn Transition (RFD3: RMSNorm + silu-gated SwiGLU, keys layer_norm_1/linear_1-3) --
 class Transition(Module):
     def __init__(self, state_dict, ckc, c, n, dtype=None):
@@ -590,8 +596,22 @@ class GatedCrossAttention(Module):
         self.to_out_w = self.torch_to_tt("to_out.0.weight", dtype=self.dtype)
         self.to_out_b = self.torch_to_tt("to_out.0.bias", dtype=self.dtype)
 
-    def run_device(self, q, kv, attn_mask=None):
-        """q [B,T,Q,Cq], kv [B,T,K,Ckv]; return device [B,T,Q,Cq]."""
+    def _prepare_additive_mask(self, mask, batch, tokens, n_query, n_key):
+        """Host mask -> device additive mask. Callers that reuse the SAME mask
+        across multiple run_device() calls (e.g. an unchanged token-grouping
+        mask across a block loop) should call this once and pass the result
+        via attn_mask_dev instead of re-uploading identical data every call."""
+        dev, dt = self.device, self.dtype
+        if mask.ndim == 3:
+            mask = mask.unsqueeze(0)
+        mask = torch.where(mask, 0.0, -1e4).to(torch.float32)
+        mask = mask.expand(batch, -1, -1, -1).reshape(batch * tokens, 1, n_query, n_key)
+        return _tt(mask, dev, dt)
+
+    def run_device(self, q, kv, attn_mask=None, attn_mask_dev=None):
+        """q [B,T,Q,Cq], kv [B,T,K,Ckv]; return device [B,T,Q,Cq].
+        attn_mask_dev (already-uploaded additive mask) takes priority over
+        attn_mask (host bool mask, uploaded here) when both are given."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         batch, tokens, n_query, _ = q.shape
         n_key = kv.shape[2]
@@ -621,15 +641,10 @@ class GatedCrossAttention(Module):
             qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc
         )
         scores = ttnn.multiply(scores, self.head_dim**-0.5)
-        if attn_mask is not None:
-            mask = attn_mask
-            if mask.ndim == 3:
-                mask = mask.unsqueeze(0)
-            mask = torch.where(mask, 0.0, -1e4).to(torch.float32)
-            mask = mask.expand(batch, -1, -1, -1).reshape(
-                batch * tokens, 1, n_query, n_key
-            )
-            scores = ttnn.add(scores, _tt(mask, dev, dt))
+        if attn_mask_dev is not None:
+            scores = ttnn.add(scores, attn_mask_dev)
+        elif attn_mask is not None:
+            scores = ttnn.add(scores, self._prepare_additive_mask(attn_mask, batch, tokens, n_query, n_key))
         attention = ttnn.softmax(scores, dim=-1)
         out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt)
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
@@ -885,7 +900,7 @@ class CompactStreamingDecoder(Module):
         )
         return valid, pack, unpack
 
-    def _pack_atoms_device(self, q, pack_indices, valid):
+    def _pack_atoms_device(self, q, pack_idx_dev, valid):
         batch, length, channels = q.shape
         orig_dt = q.dtype
         # ttnn.embedding requires bf16; the gather is a pure reindex (exact), so round-trip
@@ -895,14 +910,8 @@ class CompactStreamingDecoder(Module):
         q = ttnn.reshape(q, (batch * (length + 1), channels))
         if orig_dt != ttnn.bfloat16:
             q = ttnn.typecast(q, ttnn.bfloat16)
-        idx = ttnn.from_torch(
-            pack_indices.to(torch.int32).reshape(1, -1),
-            layout=ttnn.ROW_MAJOR_LAYOUT,
-            device=self.device,
-            dtype=ttnn.uint32,
-        )
         packed = ttnn.embedding(
-            idx, q, layout=ttnn.ROW_MAJOR_LAYOUT,
+            pack_idx_dev, q, layout=ttnn.ROW_MAJOR_LAYOUT,
             memory_config=ttnn.DRAM_MEMORY_CONFIG,
         )
         if orig_dt != ttnn.bfloat16:
@@ -912,21 +921,15 @@ class CompactStreamingDecoder(Module):
         )
         return ttnn.to_layout(packed, ttnn.TILE_LAYOUT)
 
-    def _unpack_atoms_device(self, q, unpack_indices, length):
+    def _unpack_atoms_device(self, q, unpack_idx_dev, length):
         batch, tokens, atoms, channels = q.shape
         orig_dt = q.dtype
         q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
         q = ttnn.reshape(q, (batch * tokens * atoms, channels))
         if orig_dt != ttnn.bfloat16:
             q = ttnn.typecast(q, ttnn.bfloat16)
-        idx = ttnn.from_torch(
-            unpack_indices.to(torch.int32).reshape(1, -1),
-            layout=ttnn.ROW_MAJOR_LAYOUT,
-            device=self.device,
-            dtype=ttnn.uint32,
-        )
         unpacked = ttnn.embedding(
-            idx, q, layout=ttnn.ROW_MAJOR_LAYOUT,
+            unpack_idx_dev, q, layout=ttnn.ROW_MAJOR_LAYOUT,
             memory_config=ttnn.DRAM_MEMORY_CONFIG,
         )
         if orig_dt != ttnn.bfloat16:
@@ -938,22 +941,32 @@ class CompactStreamingDecoder(Module):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         batch, length, _ = q_host.shape
         valid, pack_indices, unpack_indices = self._grouping_indices(tok_idx, batch)
+        # pack_indices/unpack_indices and the upcast valid-mask are the SAME host
+        # tensors on every one of the 4 pack / 3 unpack / 3 upcast calls below
+        # (they depend only on tok_idx, fixed for the whole design) -- upload each
+        # ONCE here and reuse the device tensor, instead of re-uploading identical
+        # data on every call (p23 perf: was 7 redundant idx/mask uploads per decoder
+        # call, now 3; bit-identical, same data just uploaded once).
+        pack_idx_dev = _tt_idx(pack_indices, dev)
+        unpack_idx_dev = _tt_idx(unpack_indices, dev)
         a = _tt(a_host, dev, dt)
         a_split = ttnn.reshape(a, (a_host.shape[0], a_host.shape[1], 3, 256))
         q = _tt(q_host, dev, dt)
         c = _tt(c_host, dev, dt)
         p = _tt(p_host.unsqueeze(0) if p_host.ndim == 2 else p_host, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
+        valid_q = valid.unsqueeze(-1).expand(-1, -1, 3)
+        upcast_mask_dev = self.upcast[0]._prepare_additive_mask(
+            valid_q, batch, valid.shape[0], valid.shape[1], 3)
         for upcast, atom_block in zip(self.upcast, self.atom_blocks):
-            q_grouped = self._pack_atoms_device(q, pack_indices, valid)
-            valid_q = valid.unsqueeze(-1).expand(-1, -1, 3)
+            q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
             q_grouped = ttnn.add(
-                q_grouped, upcast.run_device(q_grouped, a_split, valid_q)
+                q_grouped, upcast.run_device(q_grouped, a_split, attn_mask_dev=upcast_mask_dev)
             )
-            q = self._unpack_atoms_device(q_grouped, unpack_indices, length)
+            q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
             q = atom_block(q, c, p, mask)
 
-        q_grouped = self._pack_atoms_device(q, pack_indices, valid)
+        q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
         query = ttnn.unsqueeze(a, 2)
         down_mask = valid.unsqueeze(1)
         a_update = ttnn.squeeze(
