@@ -1546,6 +1546,21 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
     sigmas = torch.cat([sig, torch.zeros(1, dtype=torch.float64)]).float()      # (n_step+1,)
     gammas = torch.where(sigmas > gamma_min, torch.tensor(gamma0), torch.tensor(0.0))
     shape = (1, n_atoms, 3)
+    # Shared-draws hook for the integration-parity gate (see tt_bio/boltz2.py
+    # AtomDiffusion.sample for the full rationale). The ttnn and torch trunks
+    # consume the global RNG differently between worker.py's single up-front
+    # torch.manual_seed and this sampler, so device and CPU-reference folds would
+    # otherwise draw DIFFERENT diffusion noise and the envelope numerator would
+    # compare different basins, not arithmetic. edm_sample already re-seeds to
+    # `seed` at its top, but that only holds when the caller threads a non-None
+    # seed identically on both paths; TT_BIO_SHARED_DRAW_SEED forces an identical
+    # global-RNG state immediately before the first draw regardless. Both protenix
+    # and opendde route their initial noise through this one function, so this hook
+    # covers both. Unset in production, so normal folds are untouched.
+    import os as _os
+    _sds = _os.environ.get("TT_BIO_SHARED_DRAW_SEED")
+    if _sds:
+        torch.manual_seed(int(_sds))
     x = sigmas[0] * torch.randn(shape)
     if dump_fn is not None:                          # optional trajectory dump (default off)
         dump_fn(-1, x.detach().cpu())                # step -1 == initial noise frame

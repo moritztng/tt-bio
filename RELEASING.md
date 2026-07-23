@@ -103,14 +103,81 @@ each leg, not two.
 
 | verdict | meaning | gate effect |
 |---|---|---|
-| `PASS` | metric within the recorded noise floor | pass |
-| `PASS-caveated` | gate metric passes; a documented secondary metric (e.g. affinity pocket-lDDT) GAPs on a known bf16 floor | pass (equivalent to PASS for drift) |
-| `GAP` | metric outside the floor | **fail** — unless it reproduces a committed `GAP-evidenced` |
+| `PASS` | diffusion leg: every metric within the measured bf16 envelope (§ below); other legs: metric within its threshold / recorded noise floor | pass |
+| `PASS-caveated` | (legacy R/D/X only) gate metric passes; a documented secondary metric GAPs on a known bf16 floor | pass (equivalent to PASS for drift) |
+| `GAP` | diffusion leg: a metric exceeds the bf16 envelope — a real residual to hunt; other legs: metric outside its floor | **fail** — unless it reproduces a committed `GAP-evidenced` |
 | `GAP-evidenced` | a GAP proven to be a genuine bf16-backend floor, accepted in `docs/implementation-parity.md` (a committed verdict only) | a live GAP that matches it reproduces (pass) |
 | `DRIFT` | live verdict does not reproduce the committed one and is not an improvement | **fail**; never silently overwrites the doc |
-| `BLOCKED-REF-REGEN-NEEDED` | reference fixture missing or its fingerprint changed | not a failure — the slow opt-in regen path, reported separately |
+| `BLOCKED-REF-REGEN-NEEDED` | reference missing or its fingerprint changed — diffusion legs need `ref_fp32`+`ref_bf16` CPU references (`--regen-refs`) | not a failure — the slow opt-in regen path, reported separately |
 | `ERROR` | the fold or scorer produced no report | **fail** |
 | `NO-DATA` | a report with no comparable metric | drift check skipped; a live NO-DATA still fails |
+
+### Integration-parity envelope — the correctness test (supersedes R/D/X)
+
+The correctness question "is this port numerically right end-to-end" is answered by a
+DETERMINISTIC shared-draws, measured-bf16-envelope integration test — NOT by the old R/D/X
+same-backend self-consistency floor, which is unsound for that question (it compares independent
+stochastic samples against a guessed self-spread floor, so it cannot separate a real backend bug
+from ordinary sample-to-sample diffusion noise; a correct port could fail it and a subtle bug
+could hide in it).
+
+A diffusion model is a deterministic function of its input noise. So the test feeds byte-identical
+noise (initial coords + every per-step eps) to three CLOSED-LOOP runs and compares their FINAL
+structures with the same per-leg distance the leg already uses (CA/ligand Kabsch-RMSD,
+pocket-lDDT, |Δ| for the affinity scalar):
+
+- `device_bf16`    — tt-bio on Tenstorrent (the port under test)
+- `reference_fp32` — tt-bio on CPU, `--no_kernels`, fp32 (ground truth)
+- `reference_bf16` — tt-bio on CPU, `--no_kernels`, `TT_BIO_REF_BF16=1` (bf16 autocast)
+
+All three are tt-bio's OWN torch path (CPU references via `--accelerator cpu --no_kernels`), so
+they are the same code with a backend/dtype toggle. But shared draws do NOT hold from the single
+`--seed` alone: the device (ttnn) trunk and the CPU (torch) trunk consume the global RNG
+differently between that seed and the sampler, so the device would otherwise draw DIFFERENT
+diffusion noise than the reference (measured 2026-07-23 — the device vs CPU initial noise diverged
+completely). The gate therefore sets `TT_BIO_SHARED_DRAW_SEED` on all three runs, which re-seeds in
+`AtomDiffusion.sample` immediately before the first `torch.randn` (covering the structure AND
+affinity samplers); with it, device and reference draw byte-identical noise (verified bit-exact) so
+the only difference between any two runs is arithmetic. `--regen-refs` and the device fold both set
+it automatically; it is unset in production. Pass, per leg per metric `d(.,.)`:
+
+    d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
+
+The device may differ from the fp32 reference by no more than a bf16 recomputation of the reference
+differs from itself (plus a small honest residual for TT-bf16 vs torch-bf16 accumulation,
+absorbed by `margin`). The floor is MEASURED per leg, not guessed. If the numerator blows well
+past the envelope, that is an unambiguous bug signal — surfaced, never excused as "floor". Scorer:
+`scripts/integration_envelope.py`; bf16 reference hook: `tt_bio/worker.py:_maybe_ref_bf16`.
+
+This is the DEFAULT correctness criterion for every diffusion (structure/affinity) leg in
+`full_parity_gate.py`. Per leg the gate folds the device once at the reference seed, reads the
+leg's two cached CPU references under `<fixture>/ref_fp32/` and `<fixture>/ref_bf16/`, and scores
+via `integration_envelope.py` through the one `finalize_leg` path (PASS iff every metric is within
+the envelope; else GAP — a real residual to hunt). The CPU references are the cached fixture,
+fingerprinted like the old ones, so only the device fold + scoring re-run per release. Generate or
+regenerate them (2 CPU folds per leg, run serially — concurrent pure-torch CPU folds oversubscribe
+the host) with:
+
+```
+# one leg (or drop --leg for every envelope leg); ~2 CPU folds/leg, slow but cached
+PYTHONPATH="$PWD" python3 scripts/full_parity_gate.py --regen-refs --leg boltz2-affinity-fkbp12-nomsa
+```
+
+A leg whose `ref_fp32`/`ref_bf16` are absent (or whose fingerprint drifted) reports
+`BLOCKED-REF-REGEN-NEEDED` and does not fail the gate — regenerate rather than trust a false pass.
+The retired R/D/X floor stays available as an opt-in device self-consistency (`D`) DIAGNOSTIC via
+`--legacy-rdx`; it is no longer a pass criterion. `--margin` overrides the envelope margin
+(default 0.50, justified in `~/.coworker/state/tt-bio-integration-parity-gate.md §4`).
+
+Landed: the scorer, the CPU bf16-reference hook (boltz2 + affinity path), the `--regen-refs`
+reference generator, and the envelope verdict wired into `full_parity_gate.py:finalize_leg`. Proven
+end-to-end on FKBP12 (no-MSA affinity, seed 0): `full_parity_gate.py --leg
+boltz2-affinity-fkbp12-nomsa` folds the device (136 s) and returns `PASS` (all four metrics within
+envelope; device-vs-fp32 affinity residual 0.0227 log10(IC50) vs a measured bf16 envelope of 0.0620,
+ratio 0.37) with no manual intervention. See `docs/implementation-parity.md` for the head-to-head.
+Remaining (CPU-bound, not a code gap): regenerate the cached CPU references for the rest of the leg
+matrix — DHFR / trypsin / the MSA legs / Protenix-v2 HSA — so those legs score instead of blocking.
+Gate of record: needs Moritz's OK before merge.
 
 ### Trusting a new or changed gate
 

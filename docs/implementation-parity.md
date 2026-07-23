@@ -79,6 +79,71 @@ does. BoltzGen is scored by designability (fraction of designs re-folding
 within 2 Å scRMSD), not by a distance. OpenDDE-abag by global DockQ and
 per-interface iRMSD.
 
+## Correctness method — integration-parity envelope (supersedes the R/D/X floor)
+
+The R/D/X floor above answers a distribution question ("is X within the run-to-run spread?") with
+a point comparison against a GUESSED floor `max(R, D)`. Because R, D and X each compare INDEPENDENT
+stochastic samples (device and reference drew different diffusion noise), X conflates real backend
+arithmetic divergence with ordinary sample-to-sample chaos: a correct port can fail by construction
+(different noise basin) and a subtle bug can hide under a loose floor. The "GAP-evidenced" and
+"PASS-caveated" verdicts above are the floor telling us it cannot separate a bug from noise — and
+each was ultimately cleared only by an ad-hoc cross-backend triangulation (GPU-bf16 vs CPU-bf16
+references disagreeing by the same margin the device does). The integration-parity envelope test
+turns that triangulation into the systematic pass criterion.
+
+A diffusion model is a deterministic function of its input noise. Feed byte-identical noise to
+three CLOSED-LOOP runs — `device_bf16` (TT), `reference_fp32` and `reference_bf16` (both tt-bio's
+own CPU torch path, `--no_kernels`, the second under `TT_BIO_REF_BF16=1`). The single `--seed` is
+NOT enough to share draws: the device (ttnn) trunk and the CPU (torch) trunk consume the global RNG
+differently before the sampler, so the gate sets `TT_BIO_SHARED_DRAW_SEED` on all three runs, which
+re-seeds in `AtomDiffusion.sample` right before the first `torch.randn` so all three draw
+byte-identical noise (verified bit-exact). Then, per leg per metric `d`:
+
+    d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
+
+The floor is the intrinsic bf16 cost of the full trajectory (chaotic amplification included),
+MEASURED from a bf16 recomputation of the reference itself, not guessed. Scorer:
+`scripts/integration_envelope.py`; see `RELEASING.md` for the full rationale and the pass criterion.
+
+**Shared draws require a sampler-entry re-seed (`TT_BIO_SHARED_DRAW_SEED`).** The single up-front
+seed is not enough: the device (ttnn) and CPU (torch) trunks consume the global RNG differently
+before the sampler, so without the re-seed the device and reference draw DIFFERENT diffusion noise
+(measured bit-for-bit). With it they draw byte-identical noise, so the numerator is arithmetic-only.
+The numbers below are with the fix (the first valid head-to-head).
+
+**Three-leg head-to-head (no-MSA affinity, seed 0, shared draws).**
+
+| leg | affinity_pred_value ratio | ligand-RMSD ratio | 1-pocket-lDDT | verdict |
+|---|---|---|---|---|
+| trypsin | 0.96 | 0.20 | 0.00 (bit-identical) | **PASS** |
+| DHFR    | 1.22 | 0.19 | 0.00 (bit-identical) | **PASS** |
+| FKBP12  | 1.90 | 0.32 | 0.00 (bit-identical) | **GAP** (affinity scalar only) |
+
+Structure/pose parity is excellent on all three legs — the device structure is bit-identical to fp32
+in pocket-lDDT and ligand pose is well inside the bf16 envelope. The affinity SCALAR passes on 2 of 3
+(trypsin, DHFR) and GAPs on FKBP12 alone: the device affinity head carries a small TT-bf16 residual
+(~0.04-0.24 abs log10 IC50; ~0.07 on FKBP12), and on FKBP12 — the target with the tightest
+fp32-vs-bf16 envelope (0.037) — that residual exceeds the 1.5× bound. It is a lone outlier, not a
+uniform band. Running the affinity diffusion in fp32 (`BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1`)
+removes only ~17% of it, so the residual is in the affinity head's non-diffusion bf16 arithmetic. Per
+the standing rule this GAP is flagged as a real residual to hunt (candidate: an fp32 boundary on the
+affinity head) and margin is not loosened. This is the sound test working: it passes a clean port
+(2 of 3 affinity scalars and every structure metric) and isolates a genuine affinity-head residual
+the old self-consistency floor buried in noise.
+
+**Wired into the gate of record.** The envelope test is the default correctness criterion for
+every diffusion (structure/affinity) leg in `scripts/full_parity_gate.py`: the gate folds the
+device once at the reference seed, reads the leg's cached `ref_fp32` + `ref_bf16` CPU references,
+and scores with `integration_envelope.py` through the one `finalize_leg` verdict path. The two CPU
+references are the cached fixture (`--regen-refs` generates them, fingerprinted like the old ones,
+so only the device fold + scoring re-run per release); a leg without them reports
+`BLOCKED-REF-REGEN-NEEDED` rather than a false pass. The retired R/D/X floor is still available as
+an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`. Run end-to-end on all three legs
+above with no manual intervention (trypsin 324 s → PASS; DHFR 344 s → PASS; FKBP12 130 s → GAP on the
+affinity scalar). Rollout of the cached CPU references across the MSA legs and Protenix-v2 HSA is the
+remaining (CPU-bound) work; the gate correctly blocks those legs until their references are
+regenerated. Gate of record — pending Moritz's sign-off before merge.
+
 ## Reproduce
 
 Each leg's reproduce command is in [Implementation parity — details](implementation-parity-details.md#reproducing-a-comparison).
