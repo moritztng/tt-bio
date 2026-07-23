@@ -32,11 +32,16 @@ dependencies = [
     "pydssp",
     "tqdm",
     "rich",
-    "huggingface_hub<1.0",  # esmc.py weight download; <1.0 also matches the vendored ESMFold2 model
+    "huggingface_hub>=1.5.0,<2.0",  # esmc.py weight download; transformers>=5.3 requires >=1.5.0
     "safetensors",          # esmc.py: safe_open for the sharded 6B checkpoint
     # ESMFold2 reference code is vendored under tt_bio/_vendor (see NOTICE); these
     # are the stock PyPI runtime deps it needs — no git clones / external repos.
-    "transformers==4.57.6",  # the vendored ESMFold2 model runs on the stock transformers core
+    # >=5.5.0 clears all 3 open dependabot alerts (#3 Trainer RCE fixed 5.0.0rc3,
+    # #4 config.json RCE fixed 5.3.0, #5 LightGlue RCE fixed 5.5.0 -- N/A to tt-bio,
+    # no LightGlue usage). CPU-level bit-exact parity verified (transformers
+    # 4.57.6 -> 5.5.0/5.14.1, same torch, same weights, same seed):
+    # ~/.coworker/state/tt-bio-dependabot-transformers-triage.md.
+    "transformers>=5.5.0,<6.0",  # the vendored ESMFold2 model runs on the stock transformers core
     "zstd",                  # esm MSA utils (vendored)
     "msgpack-numpy",         # esm structure serialization (vendored)
     "brotli",                # esm (vendored)
