@@ -332,6 +332,22 @@ def _fixture_result_ids(spec: str) -> set:
     return ids
 
 
+def _incomplete_fixture_seeds(leg, seeds: list) -> list:
+    """For a structure leg, the seeds whose committed fixture dir lacks results.json or the
+    target CIF the scorer needs. Empty == complete. Catches a fixture whose CIFs were never
+    force-added past the .gitignore `ref-fixtures/**/*.cif` rule (present-but-incomplete on a
+    clean checkout). Affinity/other kinds score off results.json only, so are not checked here."""
+    if leg.kind != "structure" or not leg.fixture:
+        return []
+    base = _fixture_dir(leg.fixture)
+    bad = []
+    for s in seeds:
+        sd = base / f"seed{s}"
+        if not (sd / "results.json").exists() or not (sd / "structures" / f"{leg.target_id}.cif").exists():
+            bad.append(f"seed{s}")
+    return bad
+
+
 def preflight_check(legs: list) -> list:
     """Card-free validation of every leg's static wiring, run before any device work (and via
     ``--check``). Returns a list of human-readable problems (empty == every leg well-formed).
@@ -1011,8 +1027,16 @@ def main() -> int:
             print("Refusing to run the gate with misconfigured legs; fix the above (or scope with --leg).")
         return 1
     if args.check:
+        blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs]
+        blocked = [(i, b) for i, b in blocked if b]
+        if blocked:
+            print("PREFLIGHT — fixtures present but INCOMPLETE (reference CIFs missing; each such "
+                  "leg reports BLOCKED-REF-REGEN-NEEDED and does NOT fail the gate):")
+            for i, b in blocked:
+                print(f"  - {i}: {', '.join(b)} missing structures/*.cif")
         print(f"PREFLIGHT OK — {len(legs)} legs well-formed "
-              f"(yaml / fixture+fingerprint / committed-JSON / target-id / MSA wiring).")
+              f"(yaml / fixture+fingerprint / committed-JSON / target-id / MSA wiring)"
+              f"{f'; {len(blocked)} fixture(s) incomplete → BLOCKED-REGEN' if blocked else ''}.")
         return 0
 
     print(f"\n{'#'*78}\n# FULL PARITY GATE — {len(legs)} legs, "
@@ -1047,6 +1071,21 @@ def main() -> int:
                              "wall": 0})
                 print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
                       f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fingerprint drift")
+                continue
+
+            # Reference must be COMPLETE to score. A structure fixture whose CIFs were never
+            # force-added past the .gitignore `ref-fixtures/**/*.cif` rule is present-but-
+            # incomplete on a clean checkout — the reference is unavailable, the same class as a
+            # fingerprint drift: BLOCKED-REF-REGEN-NEEDED (regenerate/restore the reference), NOT
+            # a hard gate failure and NOT a silent per-leg ERROR mid-run.
+            incomplete = _incomplete_fixture_seeds(leg, seeds)
+            if incomplete:
+                rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
+                             "detail": f"fixture incomplete: {', '.join(incomplete)} missing "
+                                       f"structures/{leg.target_id}.cif (CIFs gitignored — force-add or regen)",
+                             "wall": 0})
+                print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
+                      f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fixture incomplete (missing structures/ cif)")
                 continue
 
         if args.dry_run:
