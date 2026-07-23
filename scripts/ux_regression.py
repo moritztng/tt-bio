@@ -148,9 +148,14 @@ def _subprocess_env(extra: dict | None = None) -> dict:
     return env
 
 
-def _run(cmd: list[str], *, env: dict | None = None, timeout: int | None = None,
+def _run(cmd: list[str], *, env: dict | None = None, timeout: int | None = PER_MODEL_TIMEOUT_S,
          cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess:
-    """Run a command, capturing stdout+stderr. Raises TimeoutExpired on timeout."""
+    """Run a command, capturing stdout+stderr. Raises TimeoutExpired on timeout.
+
+    Defaults to ``PER_MODEL_TIMEOUT_S`` rather than ``None`` so a caller that
+    forgets an explicit timeout still can't hang the gate forever on a wedged
+    device or a flaky dependency (standing gate rule). Every current caller
+    passes an explicit timeout, so this only hardens future ones."""
     return subprocess.run(cmd, cwd=str(cwd), env=env, timeout=timeout,
                           capture_output=True, text=True)
 
@@ -187,7 +192,7 @@ def _load_events(cap_path: Path) -> list[dict]:
     return events
 
 
-def _check_progress(events: list[dict], model: str) -> list[str]:
+def _check_progress(events: list[dict]) -> list[str]:
     """Assert the event stream advances through trunk → diffusion → done with
     no phase skipped. Returns a list of problem strings (empty == pass)."""
     problems = []
@@ -263,7 +268,7 @@ def _check_cif(cif: Path) -> list[str]:
     return []
 
 
-def _check_npz(npz: Path, seq_id: str, seq: str) -> list[str]:
+def _check_npz(npz: Path, seq: str) -> list[str]:
     try:
         import numpy as np
     except ImportError:
@@ -460,7 +465,7 @@ def run_fold(model: str, base: Path) -> dict:
 
     # Leg 1: live progress view
     events = _load_events(cap_path) if cap_path.exists() else []
-    prog_problems = _check_progress(events, model)
+    prog_problems = _check_progress(events)
     row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
     if prog_problems:
         row["checks"].extend(f"  • {p}" for p in prog_problems)
@@ -558,7 +563,7 @@ def run_embed(model: str, base: Path) -> dict:
 
     # Leg 2: npz parses with the expected shape.
     npz = out_dir / f"{seq_id}.npz"
-    parse_problems = _check_npz(npz, seq_id, EMBED_SEQ) if npz.exists() else [
+    parse_problems = _check_npz(npz, EMBED_SEQ) if npz.exists() else [
         f"embed wrote no npz at {npz}"]
     row["checks"].append(f"parse(npz): {'OK' if not parse_problems else 'FAIL'}")
     if parse_problems:
@@ -856,7 +861,7 @@ def run_affinity(model: str, base: Path) -> dict:
     # silent). _check_progress asserts trunk → diffusion → done with no phase
     # skipped — the exact jump-class guard GOALS.md calls out.
     events = _load_events(cap_path) if cap_path.exists() else []
-    prog_problems = _check_progress(events, model)
+    prog_problems = _check_progress(events)
     row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
     if prog_problems:
         row["checks"].extend(f"  • {p}" for p in prog_problems)
@@ -908,7 +913,7 @@ def main() -> int:
                     choices=FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL],
                     help="Gate only this model (repeatable). Default: all five fold "
                          "models + esmc-600m + saprot-650m embed + boltzgen gen run "
-                         "+ boltzgen gen run.")
+                         "+ boltz2-affinity.")
     ap.add_argument("--keep", action="store_true",
                     help="Keep the per-run output dirs under the tmp dir for inspection.")
     ap.add_argument("--cli-only", action="store_true",
