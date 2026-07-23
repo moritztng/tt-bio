@@ -324,112 +324,144 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
 
     # ref_pos: motif atoms keep their real coord; designed/virtual -> 0
     ref_pos = motif_pos.copy()  # motif_pos is already 0 for non-motif
-    # ref_mask: 1 where the reference conformer is provided (motif with seq) else 0
-    ref_mask = is_motif_atom_fixed_seq.astype(np.float32)
-    # ref_element / ref_charge / ref_atom_name_chars
-    ref_element = _element_onehot(atom_elements)
-    ref_charge = np.zeros(L, dtype=np.float32)
-    ref_atom_name_chars = _encode_atom_names_like_af3(atom_names)  # [L,4,64]
+    # ref_mask: bool, 1 where the reference conformer is provided (motif with seq) else 0
+    ref_mask = is_motif_atom_fixed_seq.copy()
+    # ref_element / ref_charge / ref_atom_name_chars (golden dtypes: bf16 one-hot / int8 / bf16 flat)
+    ref_element = _element_onehot(atom_elements)            # [L,128] float -> bf16
+    ref_charge = np.zeros(L, dtype=np.int8)
+    ref_atom_name_chars = _encode_atom_names_like_af3(atom_names).reshape(L, 256)  # [L,256]
     # has_zero_occupancy
     has_zero_occupancy = (occupancy == 0.0)
     # ref_space_uid: per-residue segment id (same value for all 14 atoms of a token)
     ref_space_uid = np.repeat(np.arange(I, dtype=np.int64), 14)
-    # atom_to_token_map
-    atom_to_token_map = np.repeat(np.arange(I, dtype=np.int64), 14)
+    # atom_to_token_map (golden dtype int32)
+    atom_to_token_map = np.repeat(np.arange(I, dtype=np.int32), 14)
 
     # --- atomworks-ungated defaults (confirm vs golden p11) ---
-    # ref_atomwise_rasa: reference sets excluded atoms to bin n_bins (3) then drops last
-    # -> one-hot over 3 bins, all-zero for excluded (no rasa annotation present).
-    ref_atomwise_rasa = np.zeros((L, 3), dtype=np.float32)
-    # active_donor / active_acceptor: zeros when no hbond annotation (reference default).
-    active_donor = np.zeros(L, dtype=np.float32)
-    active_acceptor = np.zeros(L, dtype=np.float32)
-    # is_atom_level_hotspot: zeros when no hotspot annotation.
-    is_atom_level_hotspot = np.zeros(L, dtype=np.float32)
+    # ref_atomwise_rasa: one-hot int64 [L,3]; all-zero when no rasa annotation (the dsDNA_basic
+    # golden is all-zero; a protein-binder WOULD have non-zero rasa computed from surface area,
+    # which needs atomworks -> owed p11. Set all-zero (the no-annotation default) and flag.
+    ref_atomwise_rasa = np.zeros((L, 3), dtype=np.int64)
+    # active_donor / active_acceptor: int64, zeros when no hbond annotation (reference default).
+    active_donor = np.zeros(L, dtype=np.int64)
+    active_acceptor = np.zeros(L, dtype=np.int64)
+    # is_atom_level_hotspot: bf16 [L,1], zeros when no hotspot annotation.
+    is_atom_level_hotspot = np.zeros((L, 1), dtype=np.float32)
 
     # --- token-level features ---
-    restype = _restype_onehot(token_res_name)  # [I, 32]
-    # ref_motif_token_type: [I,3] one-hot (0 non-motif, 1 indexed motif, 2 unindexed motif)
+    restype = _restype_onehot(token_res_name).astype(np.int64)  # [I,32] one-hot int64
+    # ref_motif_token_type: [I,3] one-hot int8 (0 non-motif, 1 indexed motif, 2 unindexed motif)
     motif_token_class = np.zeros(I, dtype=np.int8)
     motif_token_class[token_is_motif] = 1
     motif_token_class[token_is_unindexed] = 2
-    ref_motif_token_type = np.eye(3, dtype=np.float32)[motif_token_class]
-    # ref_plddt: 0 when no ref_plddt annotation (reference inference default).
-    ref_plddt = np.zeros(I, dtype=np.float32)
-    # is_non_loopy: default 0 (no annotation).
-    is_non_loopy = np.zeros(I, dtype=np.float32)
+    ref_motif_token_type = np.eye(3, dtype=np.int8)[motif_token_class]
+    # ref_plddt: int64 [I], 0/1 (golden shows 0/1, not -1/0/+1; inference default 0).
+    ref_plddt = np.zeros(I, dtype=np.int64)
+    # is_non_loopy: bf16 [I,1], default 0.
+    is_non_loopy = np.zeros((I, 1), dtype=np.float32)
+    # is_motif_token_unindexed: bool [I] (token-level spread of is_motif_atom_unindexed).
+    is_motif_token_unindexed = token_is_unindexed.copy()
+    # is_motif_token_with_fully_fixed_coord: bool [I] (all 14 atoms fixed-coord -> motif tokens).
+    is_motif_token_with_fully_fixed_coord = token_is_motif.copy()
 
-    # --- indices (parity-ungated assignment; confirm vs golden p11) ---
-    # asym_id: 1-based per chain (in order of appearance).
+    # --- molecule-type token masks (bool [I]) ---
+    is_protein_tok = np.ones(I, dtype=bool)   # protein-only input this pass
+    is_rna_tok = np.zeros(I, dtype=bool)
+    is_dna_tok = np.zeros(I, dtype=bool)
+    is_ligand_tok = np.zeros(I, dtype=bool)
+    # is_polar: is_protein & res_name in polar set (util_transforms.py:446).
+    _POLAR = {"SER", "THR", "ASN", "GLN", "TYR", "CYS", "HIS", "LYS", "ARG", "ASP", "GLU"}
+    is_polar = is_protein_tok & np.isin(np.array(token_res_name), np.array(list(_POLAR)))
+
+    # --- terminus_type [I,2] int64 one-hot: col0 = C-terminus, col1 = N-terminus ---
+    # A token is N-term if it starts a chain-segment (first, or break_before, or chain change);
+    # C-term if it ends a segment (last, or next has break, or next is different chain).
+    is_N_term = np.zeros(I, dtype=bool)
+    is_C_term = np.zeros(I, dtype=bool)
+    for ti in range(I):
+        first_seg = (ti == 0) or token_break_before[ti] or (token_chain[ti] != token_chain[ti - 1])
+        is_N_term[ti] = first_seg
+        last_in_seg = (ti == I - 1) or token_break_before[ti + 1] or (token_chain[ti + 1] != token_chain[ti])
+        is_C_term[ti] = last_in_seg
+    terminus_type = np.zeros((I, 2), dtype=np.int64)
+    terminus_type[is_C_term, 0] = 1
+    terminus_type[is_N_term, 1] = 1
+
+    # --- indices (golden dtypes: asym_id/entity_id/token_index int64; residue_index/sym_id int32) ---
     chain_to_asym = {}
     for c in token_chain:
         if c not in chain_to_asym:
             chain_to_asym[c] = len(chain_to_asym) + 1
     asym_id = np.array([chain_to_asym[c] for c in token_chain], dtype=np.int64)
-    # entity_id: protein motif+scaffold in one chain -> same entity per chain.
     entity_id = asym_id.copy()
-    # sym_id: 0 (no symmetry this pass).
-    sym_id = np.zeros(I, dtype=np.int64)
-    # residue_index: per-chain contiguous 1..N (index-removal semantics).
-    residue_index = np.zeros(I, dtype=np.int64)
+    sym_id = np.zeros(I, dtype=np.int32)
+    residue_index = np.zeros(I, dtype=np.int32)
     _per_chain_ctr = {}
     for ti, c in enumerate(token_chain):
         _per_chain_ctr.setdefault(c, 0)
         _per_chain_ctr[c] += 1
         residue_index[ti] = _per_chain_ctr[c]
-    # token_index: global contiguous 0..I-1.
     token_index = np.arange(I, dtype=np.int64)
 
-    # --- token_bonds [I, I]: peptide bond between consecutive same-chain tokens
+    # --- token_bonds [I, I] bool: peptide bond between consecutive same-chain tokens
     #     with no chain break between them and contiguous res_id. ---
-    token_bonds = np.zeros((I, I), dtype=np.float32)
+    token_bonds = np.zeros((I, I), dtype=bool)
     for ti in range(I - 1):
         if (token_chain[ti] == token_chain[ti + 1]
                 and not token_break_before[ti + 1]
                 and token_res_id[ti + 1] == token_res_id[ti] + 1):
-            token_bonds[ti, ti + 1] = 1.0
-            token_bonds[ti + 1, ti] = 1.0
+            token_bonds[ti, ti + 1] = True
+            token_bonds[ti + 1, ti] = True
 
-    # --- unindexing_pair_mask [I, I]: all-False this pass (no unindex field). ---
+    # --- unindexing_pair_mask [I, I] bool: all-False this pass (no unindex field). ---
     unindexing_pair_mask = np.zeros((I, I), dtype=bool)
 
+    bf = lambda a: torch.from_numpy(a).to(torch.bfloat16)
     f = {
-        # atom-level
-        "ref_atom_name_chars": torch.from_numpy(ref_atom_name_chars),  # [L,4,64]
-        "ref_pos": torch.from_numpy(ref_pos),                          # [L,3]
-        "ref_mask": torch.from_numpy(ref_mask),                        # [L]
-        "ref_element": torch.from_numpy(ref_element),                   # [L,128]
-        "ref_charge": torch.from_numpy(ref_charge),                    # [L]
-        "ref_space_uid": torch.from_numpy(ref_space_uid),              # [L]
-        "ref_pos_is_ground_truth": torch.from_numpy(is_motif_atom_fixed_seq),  # [L]
-        "has_zero_occupancy": torch.from_numpy(has_zero_occupancy),     # [L]
+        # atom-level (golden dtypes from the captured dsDNA_basic `f`)
+        "ref_atom_name_chars": bf(ref_atom_name_chars),                # [L,256] bf16
+        "ref_pos": bf(ref_pos),                                        # [L,3] bf16
+        "ref_mask": torch.from_numpy(ref_mask),                        # [L] bool
+        "ref_element": bf(ref_element),                               # [L,128] bf16
+        "ref_charge": torch.from_numpy(ref_charge),                    # [L] int8
+        "ref_space_uid": torch.from_numpy(ref_space_uid),              # [L] int64
+        "ref_pos_is_ground_truth": torch.from_numpy(is_motif_atom_fixed_seq),  # [L] bool
+        "has_zero_occupancy": torch.from_numpy(has_zero_occupancy),     # [L] bool
         "ref_is_motif_atom_with_fixed_coord": torch.from_numpy(is_motif_atom_fixed_coord),
         "ref_is_motif_atom_unindexed": torch.from_numpy(is_motif_atom_unindexed),
-        "ref_atomwise_rasa": torch.from_numpy(ref_atomwise_rasa),      # [L,3]
-        "active_donor": torch.from_numpy(active_donor),                # [L]
-        "active_acceptor": torch.from_numpy(active_acceptor),          # [L]
-        "is_atom_level_hotspot": torch.from_numpy(is_atom_level_hotspot),
+        "ref_atomwise_rasa": torch.from_numpy(ref_atomwise_rasa),      # [L,3] int64
+        "active_donor": torch.from_numpy(active_donor),                # [L] int64
+        "active_acceptor": torch.from_numpy(active_acceptor),          # [L] int64
+        "is_atom_level_hotspot": bf(is_atom_level_hotspot),            # [L,1] bf16
         "is_motif_atom_with_fixed_coord": torch.from_numpy(is_motif_atom_fixed_coord),
         "is_motif_atom_with_fixed_seq": torch.from_numpy(is_motif_atom_fixed_seq),
         "is_motif_atom_unindexed": torch.from_numpy(is_motif_atom_unindexed),
-        "motif_pos": torch.from_numpy(motif_pos),                      # [L,3]
+        "motif_pos": bf(motif_pos),                                  # [L,3] bf16
         "is_ca": torch.from_numpy(is_ca),
         "is_central": torch.from_numpy(is_central),
         "is_backbone": torch.from_numpy(is_backbone),
         "is_sidechain": torch.from_numpy(is_sidechain),
         "is_virtual": torch.from_numpy(is_virtual),
-        "atom_to_token_map": torch.from_numpy(atom_to_token_map),
+        "atom_to_token_map": torch.from_numpy(atom_to_token_map),     # [L] int32
         # token-level
-        "restype": torch.from_numpy(restype),                          # [I,32]
-        "ref_motif_token_type": torch.from_numpy(ref_motif_token_type),  # [I,3]
-        "ref_plddt": torch.from_numpy(ref_plddt),                      # [I]
-        "is_non_loopy": torch.from_numpy(is_non_loopy),                # [I]
+        "restype": torch.from_numpy(restype),                          # [I,32] int64 one-hot
+        "ref_motif_token_type": torch.from_numpy(ref_motif_token_type),  # [I,3] int8 one-hot
+        "ref_plddt": torch.from_numpy(ref_plddt),                      # [I] int64
+        "is_non_loopy": bf(is_non_loopy),                              # [I,1] bf16
+        "is_motif_token_unindexed": torch.from_numpy(is_motif_token_unindexed),  # [I] bool
+        "is_motif_token_with_fully_fixed_coord": torch.from_numpy(is_motif_token_with_fully_fixed_coord),
+        "is_protein": torch.from_numpy(is_protein_tok),                # [I] bool
+        "is_rna": torch.from_numpy(is_rna_tok),                        # [I] bool
+        "is_dna": torch.from_numpy(is_dna_tok),                        # [I] bool
+        "is_ligand": torch.from_numpy(is_ligand_tok),                  # [I] bool
+        "is_polar": torch.from_numpy(is_polar),                        # [I] bool
+        "terminus_type": torch.from_numpy(terminus_type),              # [I,2] int64 one-hot
         "asym_id": torch.from_numpy(asym_id),
         "entity_id": torch.from_numpy(entity_id),
-        "sym_id": torch.from_numpy(sym_id),
-        "residue_index": torch.from_numpy(residue_index),
+        "sym_id": torch.from_numpy(sym_id),                          # [I] int32
+        "residue_index": torch.from_numpy(residue_index),              # [I] int32
         "token_index": torch.from_numpy(token_index),
-        "token_bonds": torch.from_numpy(token_bonds),                  # [I,I]
+        "token_bonds": torch.from_numpy(token_bonds),                  # [I,I] bool
         "unindexing_pair_mask": torch.from_numpy(unindexing_pair_mask),
     }
     return f
