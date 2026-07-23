@@ -53,9 +53,18 @@ per-subunit ligand instances), and `select_fixed_atoms` per-atom partial
 fixing on an INDEXED (contig) motif residue (p21, see the F1/F6 grounding
 above), and dict-form `unindex` per-atom subsetting, composed with
 `select_fixed_atoms` as an intersection (p22, see ``_plan_unindexed_tokens``).
-NA as an *indexed motif inside a protein chain*'s unindex field still raises
-NotImplementedError. The unindex numeric-offset-tie syntax (``A11,N,A12``)
-is VERIFIED BROKEN in the reference itself (p22, both input dialects — see
+p23: `select_fixed_atoms` can now partially fix an *indexed* (contig) DNA/RNA
+residue's real atoms too (previously protein-only since p21) — grounded
+against the real ``dsDNA_complex`` doc example
+(``models/rfd3/docs/examples/na_binder_design.json``, see
+``_plan_tokens_from_contig``/``_na_atom_layout``), including a comma-joined
+multi-range dict key (``"C5-8,C15-18"``, see ``_dict_key_matches``). A
+non-protein *unindexed* motif component, by contrast, is NOT a gap in this
+port: the base rfd3 model itself hard-asserts against it (verified — see
+``_plan_unindexed_tokens``); that capability belongs to the separate RFD3NA/
+atom23-checkpoint extension, a different model this port doesn't target.
+The unindex numeric-offset-tie syntax (``A11,N,A12``) is VERIFIED BROKEN in
+the reference itself (p22, both input dialects — see
 ``_plan_unindexed_tokens``) and intentionally not implemented.
 
 F5 symmetry grounding (verified against the real reference's own
@@ -705,15 +714,37 @@ def _motif_atom_layout(r: _Residue, keep: frozenset | None = None, fixed: frozen
     return names, coord_arr, np.zeros(len(names), dtype=bool), None, fixed_arr
 
 
-def _na_atom_layout(r: _Residue):
+def _na_atom_layout(r: _Residue, keep: frozenset | None = None, fixed: frozenset | None = None):
     """Real heavy atoms of a DNA/RNA motif residue, verbatim: real names, real
     order, no scheme lookup, no renaming (``PadTokensWithVirtualAtoms``'s
     ``is_residue`` gate is protein-only, so non-protein tokens never get
     V-slot-relabeled or padded — see module docstring). Elements are the real
     parsed per-atom element (needed for ``ref_element``, which — unlike
-    protein — IS filled for NA). Returns (names, coord[n,3], is_virtual[n]
-    =False, elements[n], fixed_mask=None)."""
-    return list(r.atom_names), r.coord.copy(), np.zeros(len(r.atom_names), dtype=bool), list(r.elements), None
+    protein — IS filled for NA).
+    ``keep``/``fixed`` (p23): the same `select_fixed_atoms`/`unindex`-dict
+    per-atom subsetting `_motif_atom_layout` applies to protein — grounded
+    against the real reference's own ``dsDNA_complex``/``unindexed_rnasep``
+    doc examples (indexed DNA/RNA residues with dict-form `select_fixed_atoms`
+    values ``"ALL"``/``""``, see ``_plan_tokens_from_contig``). ``keep=None``
+    keeps every real atom (unchanged default); ``fixed=None`` returns no mask
+    (caller falls back to the token-level `fixed_coord`), exactly mirroring
+    `_motif_atom_layout`'s contract. Returns (names, coord[n,3], is_virtual[n]
+    =False, elements[n], fixed_mask[n]|None)."""
+    names: list[str] = []
+    coord: list[np.ndarray] = []
+    elements: list[str] = []
+    fixed_mask: list[bool] = []
+    for real_name, c, el in zip(r.atom_names, r.coord, r.elements):
+        if keep is not None and real_name not in keep:
+            continue
+        names.append(real_name)
+        coord.append(c)
+        elements.append(el)
+        if fixed is not None:
+            fixed_mask.append(real_name in fixed)
+    coord_arr = np.asarray(coord, dtype=np.float32) if coord else np.zeros((0, 3), dtype=np.float32)
+    fixed_arr = np.asarray(fixed_mask, dtype=bool) if fixed is not None else None
+    return names, coord_arr, np.zeros(len(names), dtype=bool), elements, fixed_arr
 
 
 def _designed_atom_layout():
@@ -776,13 +807,22 @@ def _dict_key_matches(key, chain: str, res_id: int) -> bool:
     `unravel_components` before its value is assigned to each residue, which
     expands EITHER form to per-residue keys the same way a contig range does
     -- so a range key applies its value to every residue in that range, not
-    just an exact string match."""
-    m = _DICT_KEY_RE.match(str(key).strip())
-    if not m:
-        return False
-    key_chain, start, end = m.group(1), int(m.group(2)), m.group(3)
-    end = int(end) if end is not None else start
-    return key_chain.upper() == chain.upper() and start <= res_id <= end
+    just an exact string match.
+
+    p23: a key can ALSO be a comma-joined list of single-residues/ranges
+    sharing one value (e.g. ``"C5-8,C15-18"``) -- grounded against the real
+    ``dsDNA_complex`` doc example (`select_fixed_atoms: {"C5-8,C15-18": ""}`)
+    -- matches if ANY comma-separated part names this residue (same
+    `unravel_components`-style expansion, just multiple parts under one key)."""
+    for part in str(key).split(","):
+        m = _DICT_KEY_RE.match(part.strip())
+        if not m:
+            continue
+        key_chain, start, end = m.group(1), int(m.group(2)), m.group(3)
+        end = int(end) if end is not None else start
+        if key_chain.upper() == chain.upper() and start <= res_id <= end:
+            return True
+    return False
 
 
 def _unindexed_kept_atom_names(spec: InputSpecification, chain: str, res_id: int,
@@ -810,7 +850,7 @@ def _unindexed_kept_atom_names(spec: InputSpecification, chain: str, res_id: int
         return None
     raise NotImplementedError(
         f"select_fixed_atoms={sel!r} (a contig-string selection) on an "
-        "unindexed protein residue is not supported this pass — p17+"
+        "unindexed protein/NA residue is not supported this pass — p17+"
     )
 
 
@@ -872,7 +912,7 @@ def _indexed_fixed_atom_names(spec: InputSpecification, chain: str, res_id: int,
         return None
     raise NotImplementedError(
         f"select_fixed_atoms={sel!r} (a contig-string selection) on an "
-        "indexed protein residue is not supported this pass — p21+"
+        "indexed protein/NA residue is not supported this pass — p21+"
     )
 
 
@@ -896,6 +936,32 @@ def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -
     (`scripts/rfd3_port/parity_artifacts/parity_unindex_dictform.py`):
     dict-only subsetting, dict+select_fixed_atoms composition (intersection),
     and a range-form dict key (`"A5-6"`) all match.
+
+    p23: a NON-protein unindexed component (NA or ligand) is NOT a gap in
+    this port — the real BASE rfd3 model itself hard-asserts against it
+    (``UnindexFlaggedTokens.forward``: ``assert token.is_protein.all()``).
+    The one real doc example that looks like a counter-case
+    (``rfd3na/docs/examples/atom23_design.md``'s "unindexed_rnasep",
+    ``unindex: "B49,B50,B51,B52,B321,/0,A56-58,/0"`` with chain B = RNA) is
+    an RFD3NA/**atom23-checkpoint** extension example, a DIFFERENT model from
+    the one this port targets (`models/rfd3/...`) — reproduced empirically:
+    running it through the exact base pipeline `capture_ref_f_spec.py` uses
+    crashes with precisely that assertion. So the protein-only restriction
+    below is intentional and reference-verified, not a scope gap.
+
+    p23: a plain ``/0`` chain break CAN appear inside a ``unindex`` string
+    without crashing the reference (``dsDNA_complex``: "/0,/0,B251-255") —
+    but it is NOT a no-op, and NOT simply "start a fresh chain" either:
+    empirically, capturing the exact doc spec vs the same spec with the
+    '/0's dropped gives the reference DIFFERENT `asym_id`/`entity_id`/
+    `residue_index` for the resulting unindexed tokens in each case (with
+    the '/0's: the unindexed tokens continue the immediately-preceding
+    chain's `asym_id`/`residue_index` run; without: they land on a
+    DIFFERENT, seemingly-reused `asym_id`) — a real chain-continuation
+    interaction between `unindex`'s own break markers and whatever chain
+    `accumulate_components` was last writing that this port doesn't model
+    yet, not guessable from the doc text alone. Left unimplemented (raises
+    NotImplementedError, see below) rather than ship an unverified guess.
 
     p22: the doc-described numeric-offset-tie syntax (``A11,0,A12`` /
     ``A11,3,A12``) is VERIFIED BROKEN in the currently-pinned reference
@@ -926,17 +992,46 @@ def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -
         if not isinstance(c, Indexed):
             raise NotImplementedError(
                 f"unindex component {c!r} not supported: only plain indexed "
-                "residues/ranges ('A244' or 'A11-12'); the numeric-offset-tie "
-                "syntax and '/0' inside unindex are verified broken in the "
-                "reference itself (see this function's docstring) and '/0' "
-                "remains unimplemented"
+                "residues/ranges ('A244' or 'A11-12'). p23: a ChainBreak "
+                "('/0') DOES appear inside a real doc example's `unindex` "
+                "field (``dsDNA_complex``: "'"/0,/0,B251-255"'") and does NOT "
+                "crash the reference -- but it is NOT a no-op either "
+                "(disproven empirically: reproducing the exact doc spec vs "
+                "the same spec with the '/0's simply dropped gives the "
+                "reference DIFFERENT asym_id/entity_id/residue_index for "
+                "the unindexed tokens in each case -- a real chain-"
+                "continuation effect this port doesn't model yet, not "
+                "guessable from the doc text). Left unimplemented rather "
+                "than ship an unverified guess; the numeric-offset-tie "
+                "syntax is SEPARATELY verified broken in the reference "
+                "itself (see this function's docstring)."
             )
         for k, rid in enumerate(range(c.start, c.end + 1)):
             r = by_key.get((c.chain, rid))
             if r is None:
                 raise ValueError(f"unindex references {c.chain}{rid} not present in input structure")
             if not _is_protein(r):
-                raise NotImplementedError("non-protein unindexed motif (NA/ligand) — p15+")
+                # p23: NOT a gap in this port -- the real BASE rfd3 model
+                # (this port's target, `models/rfd3/...`) itself HARD-ASSERTS
+                # against unindexing a non-protein token
+                # (`UnindexFlaggedTokens.forward`/`conditioning_base.py`:
+                # ``assert token.is_protein.all(), "Cannot unindex
+                # non-protein token"``), reproduced empirically: the
+                # `rfd3na`-doc-only "unindexed_rnasep" example (`atom23_
+                # design.md`, an RFD3NA/atom23-CHECKPOINT extension, a
+                # DIFFERENT model from the one this port targets) crashes
+                # with exactly that assertion when run through the base
+                # pipeline `capture_ref_f_spec.py` uses. Ligand tokens never
+                # reach `unindex` either (always routed through the separate
+                # `ligand` field). So a non-protein unindex target is a real
+                # reference-side restriction of the base model, correctly
+                # matched here, not an unimplemented feature.
+                raise NotImplementedError(
+                    "non-protein (NA/ligand) unindexed motif is unsupported "
+                    "in the base rfd3 model itself (verified: reference "
+                    'asserts "Cannot unindex non-protein token" — an RFD3NA/'
+                    "atom23-only capability, out of this port's scope)"
+                )
             kept_sfa = _unindexed_kept_atom_names(spec, c.chain, rid, r.atom_names)
             kept_uix = _unindex_dict_atom_names(spec, c.chain, rid, r.atom_names)
             kept = (kept_sfa if kept_uix is None else
@@ -1232,15 +1327,17 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                     raise NotImplementedError("ligand/enzyme indexed motif (F3/F4) — p15+")
                 # p21: `select_fixed_atoms` can partially fix an INDEXED
                 # motif residue's real atoms (per-atom, not a subset -- see
-                # `_indexed_fixed_atom_names`). NA indexed residues never
-                # need the dense-atom14 rename this resolves against (real
-                # name == emitted name for NA, see `_na_atom_layout`), but
-                # the reference's own `apply_selections` runs on ANY residue
-                # type identically, so this is not protein-only in principle
-                # -- restricted to protein here (NA indexed + select_fixed_
-                # atoms is unexercised, not grounded this pass).
+                # `_indexed_fixed_atom_names`). `apply_selections` runs on ANY
+                # residue type identically in the reference, and p23 grounded
+                # this against a real doc example on NA too (the
+                # ``dsDNA_complex``/``unindexed_rnasep`` examples: dict-form
+                # `select_fixed_atoms` values ``"ALL"``/``""`` on indexed DNA/
+                # RNA residues, e.g. ``"C9-14": "ALL"``) -- so this applies to
+                # protein AND NA alike; only ligand indexed motifs remain out
+                # of scope (excluded above, F3/F4 always route through
+                # `ligand`, never `contig`).
                 fixed_atom_names = (_indexed_fixed_atom_names(spec, c.chain, rid, r.atom_names)
-                                     if _is_protein(r) else None)
+                                     if (_is_protein(r) or _is_na(r)) else None)
                 tokens.append(_Token(c.chain, rid, r.res_name, True, False, False,
                                      break_before_next, r, fixed_atom_names=fixed_atom_names))
                 indexed_keys.add((c.chain, rid))
@@ -1651,7 +1748,7 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     # lookup — see module docstring).
     layouts = [
         _ligand_atom_layout(tk) if kind == "ligand" else
-        (_na_atom_layout(tk.residue) if kind in ("dna", "rna")
+        (_na_atom_layout(tk.residue, tk.kept_atom_names, tk.fixed_atom_names) if kind in ("dna", "rna")
          else _motif_atom_layout(tk.residue, tk.kept_atom_names, tk.fixed_atom_names))
         if tk.is_motif else _designed_atom_layout()
         for tk, kind in zip(tokens, token_kind)

@@ -509,18 +509,22 @@ class TokenInitializer(Module):
         invd = _tt(invd.unsqueeze(0), dev, dt); vm_rp = _tt(vm_rp.unsqueeze(0), dev, dt)
         p = ttnn.add(p, ttnn.multiply(ttnn.linear(invd, self.refpos_invd, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vm_rp))
         p = ttnn.add(p, ttnn.multiply(ttnn.linear(vm_rp, self.refpos_vm, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN), vm_rp))
-        # process_single_l/m (ReLU + linear on C_L)
+        # process_single_l/m (ReLU + linear on C_L) -- c_l_h uploaded once,
+        # reused for both sl/sm (was 2x, p23 perf; identical bf16 cast either way)
         c_l_h = ttnn.to_torch(c_l).float().squeeze(0)        # [L, C_ATOM]
         c_l_dev = _tt(c_l_h.unsqueeze(0), dev, dt)
         sl = ttnn.relu(c_l_dev)
         sl = ttnn.linear(sl, self.proc_single_l_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)  # [1,L,16]
-        sm = ttnn.relu(_tt(c_l_h.unsqueeze(0), dev, dt))
+        sm = ttnn.relu(c_l_dev)
         sm = ttnn.linear(sm, self.proc_single_m_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
         p = ttnn.add(p, ttnn.unsqueeze(sl, -2))             # [1,L,1,16] + [1,L,L,16] -> [1,L,L,16]
         p = ttnn.add(p, ttnn.unsqueeze(sm, -3))
         # process_z(Z_init_II): RMSNorm + linear -> [I,I,16]; gather to atoms [L,L,16]
-        z_dev = _tt(Z_init_II.unsqueeze(0), dev, dt)
-        z_dev = ttnn.rms_norm(z_dev, weight=self.proc_z_n, epsilon=1e-6, compute_kernel_config=ckc)
+        # (Z_init_II_dev kept around unmodified -- ttnn ops return new tensors,
+        # not in-place -- and reused below for the zupd add instead of a 2nd
+        # upload of the same host tensor; p23 perf, bit-identical.)
+        Z_init_II_dev = _tt(Z_init_II.unsqueeze(0), dev, dt)
+        z_dev = ttnn.rms_norm(Z_init_II_dev, weight=self.proc_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         pz = ttnn.linear(z_dev, self.proc_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)  # [1,I,I,16]
         pz_h = ttnn.to_torch(pz).float().squeeze(0)          # [I,I,16]
         pz_h = pz_h[tok_idx][:, tok_idx, :]                   # [L,L,16] (gather both axes)
@@ -538,8 +542,7 @@ class TokenInitializer(Module):
         pooled = _scatter_mean_pool(pll_h, tok_idx, I)        # [I,I,16]
         pooled = _tt(pooled.unsqueeze(0), dev, dt)
         zupd = ttnn.linear(pooled, self.project_pll_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)  # [1,I,I,128]
-        z_dev = _tt(Z_init_II.unsqueeze(0), dev, dt)
-        z_dev = ttnn.add(z_dev, zupd)
+        z_dev = ttnn.add(Z_init_II_dev, zupd)
         Z_II = ttnn.to_torch(z_dev).float().squeeze(0)       # [I,I,128]
         Q_L_init = ttnn.to_torch(ql_init).float().squeeze(0)  # [L,128]
         C_L = ttnn.to_torch(c_l).float().squeeze(0)          # [L,128]
@@ -1350,9 +1353,10 @@ class RFD3DiffusionModule(Module):
         B, I, _ = S_I.shape
         valid, pack, _ = _grouping_indices(tok_idx, B, dev)
         c_g = _pack_atoms_dev(dev, _tt(C_L, dev, dt), pack, valid)
-        q = ttnn.unsqueeze(_tt(S_I, dev, dt), 2)
+        S_I_dev = _tt(S_I, dev, dt)  # uploaded once, reused below (was 2x, p23 perf)
+        q = ttnn.unsqueeze(S_I_dev, 2)
         upd = ttnn.squeeze(self.downcast_c.run_device(q, c_g, valid.unsqueeze(1)), 2)
-        return ttnn.to_torch(ttnn.add(_tt(S_I, dev, dt), upd)).float()
+        return ttnn.to_torch(ttnn.add(S_I_dev, upd)).float()
 
     def _downcast_q(self, Q_L, A_I, S_I, tok_idx):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
@@ -1382,12 +1386,19 @@ class RFD3DiffusionModule(Module):
         t_I = t.unsqueeze(-1).expand(-1, I) * (~f["is_motif_token_with_fully_fixed_coord"]).float().unsqueeze(0)
         R_L_uniform = self.scale_positions_in(X_noisy_L, t)
         R_noisy_L = self.scale_positions_in(X_noisy_L, t_L)
+        # process_a / process_r both take the SAME R_noisy_L -- upload once,
+        # reuse the device tensor for both linears (p23 perf: this step runs
+        # once per diffusion timestep, ~200x/design; every avoided
+        # ttnn.from_torch is a real dispatch-latency win on this
+        # host-dispatch-bound small-protein path, bit-identical since it's
+        # the same deterministic bf16 cast either way).
+        R_noisy_L_dev = _tt(R_noisy_L, dev, dt)
         # process_a (host scatter after device linear)
-        a_emb = ttnn.to_torch(ttnn.linear(_tt(R_noisy_L, dev, dt), self.process_a_w,
+        a_emb = ttnn.to_torch(ttnn.linear(R_noisy_L_dev, self.process_a_w,
                                           compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
         A_I = _scatter_mean(a_emb, tok_idx, I)
         S_I = self._downcast_c(C_L, S_I, tok_idx)
-        Q_L = Q_L_init + ttnn.to_torch(ttnn.linear(_tt(R_noisy_L, dev, dt), self.process_r_w,
+        Q_L = Q_L_init + ttnn.to_torch(ttnn.linear(R_noisy_L_dev, self.process_r_w,
                                                           compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
         C_L = C_L + self._process_time(t_L, 0)
         S_I = S_I + self._process_time(t_I, 1)
