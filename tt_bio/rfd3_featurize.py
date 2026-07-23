@@ -123,6 +123,115 @@ atom_array,frames}.py``, via a real local CPU capture of the doc's own
   OUT of scope this pass (upstream itself defaults it off; the real
   `uncond_C5`/`uncond_D4` example command never sets it).
 
+F5 symmetry + a REAL motif (p19, grounded against real local CPU captures of
+the real reference's own `unsym_C3_6t8h` example verbatim, PLUS a minimal
+deterministic variant of `unindexed_C2_1j79` with its `ligand` field dropped
+— see p19+ "still owed" below for why the full `ligand`-bearing example is
+NOT shipped this pass — via `rfd3.inference.symmetry.{symmetry_utils,
+atom_array,frames,checks,contigs}.py`):
+- `get_symmetry_frames_from_atom_array` (mechanism (a)): when a real
+  `structure_path` is given AND the built ASU has at least one real
+  (fixed-coord) motif token AND `symmetry.is_symmetric_motif` is not
+  explicitly `false` (the real default is `true`), the frames are NOT the
+  closed-form `_cyclic_frames`/`_dihedral_frames` — they are derived from the
+  RAW input structure's own real protein chains via a Kabsch alignment
+  (`_symmetry_frames_from_structure`/`_kabsch_align`, a faithful numpy port
+  of the reference's `_align`): group the raw structure's protein-only
+  residues by chain, find the (single, this pass's scope) entity whose
+  chain-count equals the symmetry id's own order (e.g. 2 identical chains
+  for `C2`), sort those chains alphabetically, and Kabsch-align every
+  non-reference chain's real backbone+sidechain coordinates onto the first
+  (reference) chain's — the resulting rotation (translation always dropped,
+  `t=[0,0,0]`, matching the reference) is frame `transform_id=i` for the
+  `i`-th chain in that sorted order. This REQUIRES the same one-time
+  pre-centering the reference applies before frame derivation
+  (`center_symmetric_src_atom_array`, ported as
+  `_center_symmetric_src_residues`): shift EVERY real residue's real
+  coordinates (protein AND any motif/ligand) by the negative mean of
+  PROTEIN-only real atoms in the RAW structure, once, before any token
+  planning — otherwise a pure rotation (no added translation) cannot
+  reproduce a real subunit's true position from another's. Verified
+  bit-exact-to-float-precision against a real capture's `motif_pos` for a
+  REAL, geometrically-transformed replica atom (the `unindexed_C2_1j79`
+  variant's replica copy of unindexed residue A250 — see p19 VALUE-PARITY
+  section). Scoped this pass to a single real symmetric protein entity whose
+  chain count matches the symmetry id's order exactly (every real reference
+  example this port grounds against is exactly this shape); a genuinely
+  heteromeric or mismatched-multiplicity symmetric input raises
+  NotImplementedError rather than guess.
+- `is_unsym_motif` (mechanism (b), `rfd3.inference.symmetry.contigs.
+  get_unsym_motif_mask`/`expand_contig_unsym_motif`): a comma-separated list
+  on `symmetry.is_unsym_motif` naming contig/ligand components that must NOT
+  be symmetrized — a bare token (e.g. `"HEM"`) matches a ligand CCD code (out
+  of scope this pass, ligand+symmetry is blocked, see below) or a single
+  `{chain}{res_id}`; a `-`-range (e.g. `"Y1-11"`) expands to individual
+  `{chain}{res_id}` names, matching indexed motif RESIDUES already present in
+  the built token list (verified against a real capture of `unsym_C3_6t8h`:
+  the DNA contig components `Y1-11`/`Z16-25` are excluded from the 3x
+  cyclic replication entirely — ONE copy each, physically placed AFTER all 3
+  replicated protein copies, in their original relative contig order,
+  keeping their OWN real chain letters unchanged). Verified: excluded
+  (`is_unsym_motif`) tokens need NO special-case `entity_id` override — the
+  PRE-EXISTING generic `chain_full_seq`-based entity grouping already gives
+  Y and Z their own distinct entity ids correctly (they are genuinely
+  different real DNA sequences), unlike the F5 "symmetric replica" special
+  case (p18's `sym_chains` override), which is a DIFFERENT mechanism only
+  needed for tokens that ARE replicated.
+- Unindexed-motif replication ("mechanism (c)", verified against the
+  `unindexed_C2_1j79`-minus-`ligand` variant): an unindexed motif token NOT
+  flagged `is_unsym_motif` (e.g. `unindex: "A250"`, a catalytic residue
+  "within a subunit") stays in the replicated ASU stream exactly like an
+  ordinary protein token — it gets `len(frames)` real, geometrically-correct
+  copies (one per subunit, each the ASU's own real atom coordinates rotated
+  by that subunit's frame) — its replica copies share the SAME per-replica
+  chain letter as the main protein/contig replicas (reusing one
+  `replica_chains` list across both `_symmetrize_tokens` calls, needed so a
+  replica's unindexed-motif copy and its subunit's main chain share one
+  `asym_id`/`entity_id`, verified against the real capture). AFTER
+  replication, EVERY unindexed-motif atom (regardless of which replica it
+  came from) is forced back to the F5 "fixed" sentinel
+  (`sym_transform_id=-1`, `sym_entity_id=-1`, `is_sym_asu=False`) — a direct
+  port of `fix_3D_sym_motif_annotations`'s post-hoc override
+  (`_is_motif & ~_is_indexed_motif`) — so the SAMPLER's existing generic
+  `apply_symmetry_atomwise` (unchanged, already skips any `sym_entity_id ==
+  FIXED_ENTITY_ID` atom) never overwrites these already-geometrically-placed
+  replica copies with a bogus reconstruction. This composes with the
+  PRE-EXISTING, symmetry-independent "never add noise to a fixed-coord atom"
+  sampler mechanism (unindexed motif atoms are always `is_motif_atom_with_
+  fixed_coord=True` for protein, see F4 grounding) — the two mechanisms are
+  redundant-but-consistent by design, exactly like the real reference's own
+  belt-and-suspenders annotation.
+- **`ligand` + `symmetry` is NOT supported this pass** (raises
+  NotImplementedError) — a real, non-obvious finding from grounding against
+  the REAL (unmodified) `unindexed_C2_1j79` example first, before dropping
+  its `ligand` field for the variant above: the reference does NOT treat a
+  symmetric design's ligand as one excluded, un-replicated instance the way
+  this port's F3/F4 single-instance model assumes. A genuinely symmetric
+  input PDB's ligand is typically ALREADY physically duplicated once per
+  real subunit in the deposited coordinates (1j79's real PDB has an ORO +
+  TWO Zn ions in EACH of its two chains' active sites, verified via `grep
+  HETATM`) — the reference's `_append_ligand` picks up EVERY real instance
+  matching the requested CCD code(s) (needs `allow_ligand_on_existing_chain:
+  true`, a real passthrough field), groups them by which real input chain
+  (subunit) they physically belong to, gives each subunit-group its OWN
+  fresh chain (paralleling this port's existing "multiple codes share one
+  chain" F4 rule, but now once PER SUBUNIT), and marks ALL of them
+  `sym_entity_id=FIXED_ENTITY_ID` (matching mechanism (c) above — a ligand,
+  symmetrized input or not, is NEVER resymmetrized by the sampler). This
+  much is grounded and would be portable — but the CROSS-SUBUNIT-BLOCK
+  ordering of the final ligand token block (verified via a real capture:
+  subunit-B's `ORO` instance is emitted BEFORE subunit-A's, while subunit-A's
+  TWO `ZN` instances are emitted before subunit-B's — i.e. NOT a consistent
+  "subunit order" or "chain-letter order" across the two different CCD
+  codes) could not be root-caused against the real reference source in the
+  time available this pass. Shipping a token order this port could not
+  explain would risk exactly the kind of silent latent ordering bug flagged
+  as this port's #1 recurring bug class (p17/p18 durable lessons) — so this
+  combination raises NotImplementedError with a pointer here instead of
+  guessing. The exploration (spec + real capture) is preserved at
+  `scripts/rfd3_port/parity_artifacts/unindexed_c2_1j79_full/` for whoever
+  picks this up next.
+
 Enzyme (F4) grounding (verified against a real local CPU capture of the real
 ``enzyme_design.md`` example — ``M0255_1mg5.pdb`` + its own
 ``ligand: "NAI,ACT", unindex: "A108,A139,A152,A156", select_fixed_atoms: {...}``
@@ -694,24 +803,178 @@ def _symmetry_frames(sym_conf: Mapping) -> list[tuple[np.ndarray, np.ndarray]]:
 
 
 def _symmetrize_tokens(asu_tokens: list["_Token"], frames: list[tuple[np.ndarray, np.ndarray]],
-                        used_chains: set[str]) -> tuple[list["_Token"], list[int], set[str]]:
-    """Replicate an unconditional ASU token list into ``len(frames)``
-    symmetric copies (F5, scope this pass: no ligand/motif — see module
-    docstring). Copy 0 is the ASU itself, unchanged; copies 1..N-1 each get a
-    fresh chain letter (own `residue_index` run, verified vs a real capture).
+                        used_chains: set[str], replica_chains: list[str] | None = None,
+                        ) -> tuple[list["_Token"], list[int], set[str], list[str]]:
+    """Replicate an ASU token list (or ASU-token SUBSET, p19: e.g. just an
+    unindexed-motif block, see module docstring's "unindexed-motif
+    replication" grounding) into ``len(frames)`` symmetric copies. Copy 0 is
+    the ASU itself, UNCHANGED (transform_id=0, its own real chain letter,
+    never reassigned — matches the reference's own transform_id=0 being a
+    no-op copy); copies 1..N-1 each get a fresh chain letter (own
+    `residue_index` run, verified vs a real capture). ``replica_chains``
+    (p19): pass a PRECOMPUTED list (from an earlier call) to make a SECOND,
+    disjoint ASU-token group (e.g. an unindexed-motif block) share the exact
+    same per-replica chain letters as the first (verified vs a real capture:
+    a replica's unindexed-motif copy shares `asym_id`/`entity_id` with its
+    subunit's own main chain) — ``None`` (p18 default) allocates fresh ones.
     Returns (all tokens in ASU-then-replica order, each token's transform id,
     the set of chains belonging to this one symmetric group — needed by the
-    entity_id/sym_id special case in `featurize()`)."""
+    entity_id/sym_id special case in `featurize()`, and the replica_chains
+    list itself, for reuse by a second call).
+
+    A replica token that carries a REAL residue (a real motif atom, e.g. an
+    unindexed catalytic residue "within a subunit") must have that residue's
+    REAL COORDINATES rotated by the replica's own frame, not just its
+    `.chain` relabeled — a purely-designed token (`residue=None`) has no
+    coordinate to transform either way, which is why this was invisible in
+    p18's fully-unconditional-only scope (every replicated token was
+    `residue=None`) and only surfaced as a real bug this pass, once a real
+    motif was replicated for the first time (verified vs a real capture: the
+    bug produced a near-zero `motif_pos` — both replicas' underlying
+    `_Residue` objects were literally the SAME shared, untransformed real
+    coordinate, so centering on their mean collapsed both to ~0)."""
+    if replica_chains is None:
+        replica_chains = [_fresh_chain_letter(used_chains) for _ in range(1, len(frames))]
+    assert len(replica_chains) == len(frames) - 1
     tokens = list(asu_tokens)
     transform_ids = [0] * len(asu_tokens)
-    sym_chains = {tk.chain for tk in asu_tokens}
-    for tid in range(1, len(frames)):
-        chain = _fresh_chain_letter(used_chains)
-        sym_chains.add(chain)
+    sym_chains = {tk.chain for tk in asu_tokens} | set(replica_chains)
+    for tid, chain in enumerate(replica_chains, start=1):
+        R, t = frames[tid]
         for tk in asu_tokens:
-            tokens.append(_dc_replace(tk, chain=chain))
+            if tk.residue is not None:
+                new_residue = _dc_replace(tk.residue, coord=tk.residue.coord @ R.T + t)
+                tokens.append(_dc_replace(tk, chain=chain, residue=new_residue))
+            else:
+                tokens.append(_dc_replace(tk, chain=chain))
             transform_ids.append(tid)
-    return tokens, transform_ids, sym_chains
+    return tokens, transform_ids, sym_chains, replica_chains
+
+
+def _kabsch_align(X_fixed: np.ndarray, X_moving: np.ndarray) -> np.ndarray:
+    """Bit-faithful numpy port of ``rfd3.inference.symmetry.frames._align``
+    (the numpy code path — the real reference itself calls this with plain
+    numpy `biotite` coordinates, never torch, for
+    `get_symmetry_frames_from_atom_array`), TRANSLATIONS DISCARDED (only the
+    rotation `R` is used by the caller, matching the reference discarding
+    both returned means too — see module docstring's "get_symmetry_frames_
+    from_atom_array" grounding for why a pure rotation is sufficient once the
+    whole input has been pre-centered via `_center_symmetric_src_residues`).
+    Returns `R` such that ``R @ (X_moving - mean(X_moving)) ~= X_fixed -
+    mean(X_fixed)``."""
+    u_fixed = X_fixed.mean(axis=0)
+    u_moving = X_moving.mean(axis=0)
+    Xf = X_fixed - u_fixed
+    Xm = X_moving - u_moving
+    C = Xf.T @ Xm
+    U, S, Vt = np.linalg.svd(C, full_matrices=False)
+    R = U @ Vt
+    F = np.eye(3, dtype=R.dtype)
+    F[-1, -1] = np.sign(np.linalg.det(R))
+    R = U @ F @ Vt
+    return R.astype(np.float32)
+
+
+def _center_symmetric_src_residues(all_residues: list[_Residue]) -> list[_Residue]:
+    """Bit-faithful port of ``rfd3.inference.symmetry.symmetry_utils.
+    center_symmetric_src_atom_array``: shift EVERY real residue's real
+    coordinates (protein AND any motif/ligand/NA) by the negative mean of
+    PROTEIN-only real atoms, once, before any token planning — the real
+    reference applies this unconditionally whenever `symmetry` is set on a
+    spec with a real `input` structure (regardless of whether frames end up
+    Kabsch-derived or closed-form). See module docstring's F5+motif
+    grounding for why this is required for `get_symmetry_frames_from_
+    atom_array`'s discarded-translation frames to correctly reproduce a real
+    subunit's true position."""
+    protein_coords = [r.coord for r in all_residues if _is_protein(r)]
+    if not protein_coords:
+        return all_residues
+    com = np.concatenate(protein_coords, axis=0).mean(axis=0)
+    return [_dc_replace(r, coord=r.coord - com) for r in all_residues]
+
+
+def _symmetry_frames_from_structure(all_residues: list[_Residue], n_frames: int,
+                                     ) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Bit-faithful (scope-narrowed) port of ``rfd3.inference.symmetry.
+    frames.get_symmetry_frames_from_atom_array``: derive `n_frames` rigid
+    (R, t=0) transforms from the RAW input structure's own real protein
+    chains (Kabsch alignment), rather than the closed-form origin-rotation
+    formula (see module docstring's grounding). Scoped this pass to a single
+    real symmetric protein entity whose chain count equals `n_frames` exactly
+    (every real reference example this port grounds against is this shape) —
+    a genuinely heteromeric or mismatched-multiplicity symmetric input raises
+    NotImplementedError rather than guess at the real function's general
+    multi-entity multiplicity-detection logic."""
+    protein = [r for r in all_residues if _is_protein(r)]
+    by_chain: dict[str, list[_Residue]] = {}
+    for r in protein:
+        by_chain.setdefault(r.chain, []).append(r)
+    seq_by_chain = {c: tuple(r.res_name for r in rs) for c, rs in by_chain.items()}
+    groups: dict[tuple, list[str]] = {}
+    for c, seq in seq_by_chain.items():
+        groups.setdefault(seq, []).append(c)
+    candidates = [chains for chains in groups.values() if len(chains) == n_frames]
+    if len(candidates) != 1:
+        raise NotImplementedError(
+            "get_symmetry_frames_from_atom_array: expected exactly one real "
+            f"protein entity with {n_frames} identical-sequence chains (the "
+            f"symmetry id's own order), found candidate group sizes "
+            f"{sorted(len(v) for v in groups.values())} — a genuinely "
+            "heteromeric or mismatched-multiplicity symmetric input is not "
+            "supported this pass (p19+)"
+        )
+    chains_to_consider = sorted(candidates[0])
+    ref_chain = chains_to_consider[0]
+
+    def _flat_coord(c: str) -> np.ndarray:
+        return np.concatenate([r.coord for r in by_chain[c]], axis=0)
+
+    ref_coord = _flat_coord(ref_chain)
+    frames: list[tuple[np.ndarray, np.ndarray]] = []
+    for c in chains_to_consider:
+        coord = _flat_coord(c)
+        if coord.shape != ref_coord.shape:
+            raise NotImplementedError(
+                f"get_symmetry_frames_from_atom_array: chain {c!r} has "
+                f"{coord.shape[0]} real protein atoms, reference chain "
+                f"{ref_chain!r} has {ref_coord.shape[0]} — unequal subunit "
+                "sizes not supported this pass (p19+)"
+            )
+        R = _kabsch_align(coord, ref_coord)
+        frames.append((R, np.zeros(3, dtype=np.float32)))
+    return frames
+
+
+def _parse_is_unsym_motif(sym_conf: Mapping) -> set[str] | None:
+    """`symmetry.is_unsym_motif`: comma-separated list of ligand CCD codes
+    and/or contig-style chain+residue(-range) names that should NOT be
+    symmetrized (``rfd3.inference.symmetry.contigs.
+    expand_contig_unsym_motif``/``get_unsym_motif_mask``, verified against a
+    real capture of the real `unsym_C3_6t8h` example). A residue RANGE
+    (``"Y1-11"``) expands to individual ``{chain}{res_id}`` names; a bare
+    token with no ``-`` is kept as-is (a ligand CCD code like ``"HEM"``, or a
+    single residue like ``"M52"``)."""
+    raw = sym_conf.get("is_unsym_motif") if isinstance(sym_conf, Mapping) else None
+    if not raw:
+        return None
+    names: list[str] = []
+    for n in str(raw).split(","):
+        n = n.strip()
+        if not n:
+            continue
+        m = re.match(r"^([A-Za-z]+)(\d+)-(\d+)$", n)
+        if m:
+            chain, lo, hi = m.group(1), int(m.group(2)), int(m.group(3))
+            names.extend(f"{chain}{i}" for i in range(lo, hi + 1))
+        else:
+            names.append(n)
+    return set(names)
+
+
+def _token_matches_unsym(tk: "_Token", names: set[str]) -> bool:
+    if tk.is_ligand:
+        return tk.res_name in names
+    return f"{tk.chain}{tk.res_id}" in names
 
 
 def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue]) -> tuple[list[_Token], set]:
@@ -964,19 +1227,28 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     atom array once `contig` is actually set (even to an all-Designed
     string); a bare `length` field never needs one.
     """
-    if spec.symmetry:
-        if structure_path is not None or spec.contig is not None:
-            raise NotImplementedError(
-                "F5 symmetry combined with a real input structure/contig "
-                "(symmetric motif scaffolding) is not supported this pass — p19+"
-            )
-        if spec.ligand or spec.unindex:
-            raise NotImplementedError("F5 symmetry combined with ligand/unindex — p19+")
+    if spec.symmetry and spec.ligand:
+        # p19: grounded (via a real capture of the unmodified unindexed_C2_1j79
+        # example) that this combination is real and reachable, but the
+        # cross-subunit-block ligand-token ordering could not be root-caused
+        # this pass — see module docstring's F5+motif grounding for the full
+        # finding and NotImplementedError pointer.
+        raise NotImplementedError(
+            "F5 symmetry combined with `ligand` is not supported this pass "
+            "(explored, not shipped — see tt_bio.rfd3_featurize module "
+            "docstring's F5+motif grounding, 'ligand + symmetry' — p19+)"
+        )
     if structure_path is None:
         all_residues: list[_Residue] = []
     else:
         arr = load_structure(structure_path)
         all_residues = _group_residues(arr)
+        if spec.symmetry:
+            # Bit-faithful port of center_symmetric_src_atom_array: shift
+            # EVERY real residue by -mean(protein-only real atoms), once,
+            # before any token planning (see module docstring's F5+motif
+            # grounding + `_center_symmetric_src_residues`'s docstring).
+            all_residues = _center_symmetric_src_residues(all_residues)
     # Non-polymer residues NOT named by `spec.ligand` (solvent, ions, an
     # unreferenced HETATM) are simply invisible to this featurizer, exactly
     # like a real PDB's crystallographic waters are to a contig that never
@@ -994,17 +1266,70 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
         contig_spec = copy.copy(spec)
         contig_spec.contig = str(spec.length)
     tokens, indexed_keys = _plan_tokens_from_contig(contig_spec, residues)
+    # Unindexed motif tokens are planned here (early -- needed below for the
+    # F5 "does a real motif exist at all" gate) but physically APPENDED only
+    # after any ligand tokens (F4: verified vs a real reference capture --
+    # see `_plan_tokens_from_contig`'s docstring for why this differs from
+    # this port's pre-p17 assumption).
+    unindexed = _plan_unindexed_tokens(spec, residues)
+    overlap = indexed_keys & {(tk.chain, tk.res_id) for tk in unindexed}
+    if overlap:
+        raise ValueError(f"contig and unindex must not overlap, got: {overlap}")
     sym_frames = None
-    sym_transform_id_by_token = None
+    sym_transform_id_by_token: list[int] | None = None
+    unindexed_transform_id: list[int] = [-1] * len(unindexed)
     sym_chains: set[str] = set()
+    unsym_motif_names = _parse_is_unsym_motif(spec.symmetry) if spec.symmetry else None
+    replica_chains: list[str] | None = None
     if spec.symmetry:
-        # F5: replicate the ASU (the whole token list built above -- no
-        # ligand/motif in scope this pass, see the guard above) into
-        # len(sym_frames) symmetric copies. See module docstring's F5
-        # grounding + `_symmetrize_tokens`'s docstring.
-        sym_frames = _symmetry_frames(spec.symmetry)
-        used_chains = {tk.chain for tk in tokens}
-        tokens, sym_transform_id_by_token, sym_chains = _symmetrize_tokens(tokens, sym_frames, used_chains)
+        # F5: pick the frames FIRST (closed-form, unless a real motif exists
+        # to derive them from -- see below), then split the built contig
+        # token list into "gets replicated" vs "is_unsym_motif, single copy"
+        # (mechanism (b)), then replicate (mechanism (a)/(c) -- see module
+        # docstring's F5+motif grounding).
+        closed_form_frames = _symmetry_frames(spec.symmetry)
+        is_symmetric_motif = bool(spec.symmetry.get("is_symmetric_motif", True))
+        has_real_motif = any(tk.fixed_coord for tk in tokens + unindexed)
+        if structure_path is not None and has_real_motif and is_symmetric_motif:
+            sym_frames = _symmetry_frames_from_structure(all_residues, len(closed_form_frames))
+        else:
+            sym_frames = closed_form_frames
+
+        if unsym_motif_names:
+            sym_part = [tk for tk in tokens if not _token_matches_unsym(tk, unsym_motif_names)]
+            unsym_part = [tk for tk in tokens if _token_matches_unsym(tk, unsym_motif_names)]
+        else:
+            sym_part, unsym_part = tokens, []
+        used_chains = {tk.chain for tk in tokens} | {tk.chain for tk in unindexed}
+        sym_part, sym_transform_id_by_token, sym_chains, replica_chains = _symmetrize_tokens(
+            sym_part, sym_frames, used_chains)
+        # is_unsym_motif tokens are never part of any transform (F5 "fixed"
+        # sentinel, transform_id=-1) and keep their own real chain letter,
+        # unchanged; physically placed AFTER the replicated block (verified
+        # vs a real capture of unsym_C3_6t8h).
+        tokens = sym_part + unsym_part
+        sym_transform_id_by_token = sym_transform_id_by_token + [-1] * len(unsym_part)
+
+        if unindexed:
+            # F5 + unindexed motif (p19, mechanism (c)/(b) -- see module
+            # docstring's F5+motif grounding): same split-then-replicate
+            # treatment, reusing the SAME `replica_chains` so a replica's
+            # unindexed-motif copy shares asym_id/entity_id with its
+            # subunit's own main chain (verified vs a real capture of the
+            # unindexed_C2_1j79-minus-ligand variant).
+            if unsym_motif_names:
+                unind_sym = [tk for tk in unindexed if not _token_matches_unsym(tk, unsym_motif_names)]
+                unind_unsym = [tk for tk in unindexed if _token_matches_unsym(tk, unsym_motif_names)]
+            else:
+                unind_sym, unind_unsym = unindexed, []
+            if unind_sym:
+                used_chains = {tk.chain for tk in tokens} | set(replica_chains)
+                unind_sym, unind_tid, _, _ = _symmetrize_tokens(
+                    unind_sym, sym_frames, used_chains, replica_chains=replica_chains)
+            else:
+                unind_tid = []
+            unindexed = unind_sym + unind_unsym
+            unindexed_transform_id = unind_tid + [-1] * len(unind_unsym)
     if spec.ligand:
         # Fresh chain letter must avoid whatever chain the OUTPUT token list
         # has claimed so far (indexed + designed tokens) -- NOT every real
@@ -1014,14 +1339,20 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
         # residue's own real chain, verified vs a real reference capture).
         used_chains = {tk.chain for tk in tokens}
         tokens = tokens + _plan_ligand_tokens(spec, all_residues, used_chains)
-    # Unindexed motif tokens go LAST, after any ligand tokens (F4: verified
-    # vs a real reference capture -- see `_plan_tokens_from_contig`'s
-    # docstring for why this differs from this port's pre-p17 assumption).
-    unindexed = _plan_unindexed_tokens(spec, residues)
-    overlap = indexed_keys & {(tk.chain, tk.res_id) for tk in unindexed}
-    if overlap:
-        raise ValueError(f"contig and unindex must not overlap, got: {overlap}")
     tokens = tokens + unindexed
+    if spec.symmetry:
+        sym_transform_id_by_token = sym_transform_id_by_token + unindexed_transform_id
+        # Bit-faithful port of fix_3D_sym_motif_annotations's post-hoc
+        # override: EVERY unindexed-motif atom (regardless of which replica
+        # transform it came from) is forced back to the F5 "fixed" sentinel
+        # -- it was still replicated (real, geometrically-correct per-replica
+        # coordinates via mechanism (a)/(c)), but must never be
+        # RE-symmetrized by the sampler from an ASU (verified vs a real
+        # capture: unindexed_C2_1j79-minus-ligand's replica copy of A250 has
+        # sym_transform_id=-1, not its real transform id 1).
+        sym_transform_id_by_token = [
+            -1 if tk.is_unindexed else tid for tk, tid in zip(tokens, sym_transform_id_by_token)
+        ]
     I = len(tokens)
     token_kind = [_token_kind(tk) for tk in tokens]
 
@@ -1444,15 +1775,18 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     # F5 symmetry: broadcast each token's transform id to its atoms, plus the
     # ASU mask + the raw (R,t) transform dict the sampler needs to actually
     # re-derive every replica's coordinates from the ASU each step (see
-    # module docstring's F5 grounding + tt_bio.rfd3_sampler). sym_entity_id
-    # is 0 for every atom in this pass's single symmetric group (no ligand/
-    # motif in scope -> the reference's FIXED_ENTITY_ID=-1 sentinel for
-    # non-symmetrized atoms is unreachable here).
+    # module docstring's F5 grounding + tt_bio.rfd3_sampler). sym_entity_id is
+    # 0 for every REPLICATED atom (this pass's single symmetric protein
+    # group); a token forced to transform_id=-1 (is_unsym_motif, or an
+    # unindexed motif regardless of which replica it came from — see the
+    # module docstring's F5+motif grounding, mechanisms (b)/(c)) gets the
+    # reference's FIXED_ENTITY_ID=-1 sentinel too, so the sampler's existing
+    # `apply_symmetry_atomwise` never resymmetrizes it.
     sym_transform = None
     if sym_frames is not None:
         tok_transform_id = np.asarray(sym_transform_id_by_token, dtype=np.int32)
         sym_transform_id = tok_transform_id[atom_to_token_map]
-        sym_entity_id = np.zeros(L, dtype=np.int64)
+        sym_entity_id = np.where(sym_transform_id == -1, -1, 0).astype(np.int64)
         is_sym_asu = sym_transform_id == 0
         sym_transform = {
             str(i): (torch.from_numpy(R), torch.from_numpy(t))

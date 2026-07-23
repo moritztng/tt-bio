@@ -1,0 +1,11 @@
+{
+    "symmetry": {
+        "id": "C2",
+        "is_symmetric_motif": true
+    },
+    "unindex": "A250",
+    "length": 130,
+    "select_fixed_atoms": {
+        "A250": "OD1,CG"
+    }
+}

@@ -67,9 +67,13 @@ def strip_X(X_L: torch.Tensor, f_ref: dict[str, torch.Tensor]) -> torch.Tensor:
 # then reconstruct every symmetric replica's coordinates from the ASU's own (now-centered)
 # atoms via that replica's rigid transform -- every step "snaps" the design back to exact
 # symmetry from the ASU alone, rather than relying on the network to keep it symmetric.
-# FIXED_ENTITY_ID=-1 (atoms outside any symmetric group) is unreachable in this port's
-# current F5 scope (no ligand/motif combined with symmetry yet -- see
-# tt_bio.rfd3_featurize's F5 grounding).
+# FIXED_ENTITY_ID=-1 marks atoms outside any symmetric group: real motif/ligand
+# atoms that are replicated per-subunit but held fixed (never re-symmetrized
+# every step, since their per-replica coordinate was already baked in once at
+# feature-build time) or excluded from symmetrization entirely via
+# `is_unsym_motif` -- reachable since p19's F5+motif combination (see
+# tt_bio.rfd3_featurize's F5+motif grounding), verified device-vs-reference
+# on real `unsym_C3_6t8h`/`unindexed_C2_1j79` fixtures.
 _FIXED_ENTITY_ID = -1
 
 
