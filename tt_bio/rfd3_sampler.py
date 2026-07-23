@@ -62,6 +62,39 @@ def strip_X(X_L: torch.Tensor, f_ref: dict[str, torch.Tensor]) -> torch.Tensor:
     return X_L[..., : f_ref["is_motif_atom_unindexed"].shape[0], :]
 
 
+# --- F5 symmetry: rfd3.inference.symmetry.symmetry_utils.apply_symmetry_to_xyz_atomwise
+# (partial_diffusion=False case only). Recenter the non-fixed-motif atoms at their mean,
+# then reconstruct every symmetric replica's coordinates from the ASU's own (now-centered)
+# atoms via that replica's rigid transform -- every step "snaps" the design back to exact
+# symmetry from the ASU alone, rather than relying on the network to keep it symmetric.
+# FIXED_ENTITY_ID=-1 (atoms outside any symmetric group) is unreachable in this port's
+# current F5 scope (no ligand/motif combined with symmetry yet -- see
+# tt_bio.rfd3_featurize's F5 grounding).
+_FIXED_ENTITY_ID = -1
+
+
+def apply_symmetry_atomwise(X_L: torch.Tensor, sym_transform: dict, sym_transform_id: torch.Tensor,
+                             sym_entity_id: torch.Tensor, is_sym_asu: torch.Tensor) -> torch.Tensor:
+    fixed_mask = sym_entity_id == _FIXED_ENTITY_ID
+    non_fixed = ~fixed_mask
+    X_L = X_L.clone()
+    X_L[:, non_fixed, :] = X_L[:, non_fixed, :] - X_L[:, non_fixed, :].mean(dim=1, keepdim=True)
+    out = X_L.clone()
+    for entity_id in torch.unique(sym_entity_id).tolist():
+        if entity_id == _FIXED_ENTITY_ID:
+            continue
+        entity_mask = sym_entity_id == entity_id
+        asu_mask = is_sym_asu & entity_mask
+        if int(asu_mask.sum()) == 0:
+            continue
+        asu_xyz = X_L[:, asu_mask, :]
+        for tid in torch.unique(sym_transform_id[entity_mask]).tolist():
+            subunit = entity_mask & (sym_transform_id == tid)
+            R, t = sym_transform[str(tid)]
+            out[:, subunit, :] = torch.einsum("blc,cd->bld", asu_xyz, R.to(asu_xyz.dtype)) + t.to(asu_xyz.dtype)
+    return out
+
+
 class RFD3Sampler:
     """AF3-family EDM sampler (default / partial / CFG).
 
@@ -97,7 +130,8 @@ class RFD3Sampler:
     def sample(self, diffusion_module, D: int, L: int, coord, f, initializer_outputs,
                is_motif_fixed, *, generator=None, partial_t=None,
                cfg: bool = False, cfg_scale: float = 2.0, cfg_features=(),
-               ref_initializer_outputs=None, f_ref=None, n_recycle=None):
+               ref_initializer_outputs=None, f_ref=None, n_recycle=None,
+               sym_step_frac: float = 0.9):
         device = coord.device
         sched = self.noise_schedule(device, partial_t=partial_t)
         c0 = sched[0]
@@ -106,6 +140,12 @@ class RFD3Sampler:
         noise0[..., is_motif_fixed, :] = 0
         X_L = noise0 + coord
         traj = []
+        # F5: symmetrize the denoised output while c_t > gamma_min_sym (the last
+        # ~10% of steps run unconstrained, per upstream's SampleDiffusionWithSymmetry
+        # default sym_step_frac=0.9 -- see tt_bio.rfd3_featurize's F5 grounding).
+        sym_feats = {k: f[k] for k in ("sym_transform", "sym_transform_id", "sym_entity_id", "is_sym_asu")
+                     if k in f} or None
+        gamma_min_sym = sched[min(int(len(sched) * sym_step_frac), len(sched) - 1)] if sym_feats else None
         for step, (c_tm1, c_t) in enumerate(zip(sched, sched[1:])):
             gamma = self.gamma_0 if c_t > self.gamma_min else 0.0
             t_hat = c_tm1 * (gamma + 1)
@@ -116,6 +156,10 @@ class RFD3Sampler:
             outs = diffusion_module(X_noisy_L=X_noisy, t=t_hat.tile(D), f=f,
                                     n_recycle=n_recycle, **initializer_outputs)
             X_denoised = outs["X_L"]
+            if sym_feats is not None and c_t > gamma_min_sym:
+                X_denoised = apply_symmetry_atomwise(
+                    X_denoised, sym_feats["sym_transform"], sym_feats["sym_transform_id"],
+                    sym_feats["sym_entity_id"], sym_feats["is_sym_asu"])
             delta = (X_noisy - X_denoised) / t_hat
             if cfg and (ref_initializer_outputs is not None) and (f_ref is not None):
                 X_ref = strip_X(X_noisy, f_ref)

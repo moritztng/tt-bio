@@ -43,10 +43,85 @@ ligand named by CCD code via the separate `ligand` spec field, e.g. the real
 multiple ligand instances via a comma-separated `ligand` field, e.g.
 ``"NAI,ACT"``, plus `select_fixed_atoms`-subsetted catalytic protein residues
 via `unindex`, e.g. the real ``enzyme_design.md``/M0255_1mg5 example — see the
-F4 grounding below). Symmetry (F5) input still raises NotImplementedError with
-a pointer to the reference transform; so does NA as an *indexed motif inside a
-protein chain*'s unindex field, and the unindex numeric-offset-tie syntax /
-dict-form per-atom fixing (see ``_plan_unindexed_tokens``).
+F4 grounding below), PLUS cyclic/dihedral symmetric oligomer design (F5: the
+``symmetry: {"id": "C3"}``-style field on a fully-unconditional (no `input`,
+no `contig`, bare `length`) design spec, e.g. the real ``symmetry.md``
+``uncond_C5``/``uncond_D4`` examples — see the F5 grounding below). NA as an
+*indexed motif inside a protein chain*'s unindex field, the unindex numeric-
+offset-tie syntax / dict-form per-atom fixing (see ``_plan_unindexed_tokens``),
+and F5 symmetry COMBINED with any real input structure/motif/ligand all still
+raise NotImplementedError with a pointer to the reference transform.
+
+F5 symmetry grounding (verified against the real reference's own
+``docs/examples/symmetry.md`` + ``rfd3.inference.symmetry.{symmetry_utils,
+atom_array,frames}.py``, via a real local CPU capture of the doc's own
+``uncond_C5``-shaped spec, e.g. ``{"length": 12, "is_non_loopy": true,
+"symmetry": {"id": "C3"}}`` — no ``input`` PDB needed for this case, via
+``capture_ref_f_uncond.py``):
+- Scoped THIS PASS to the fully-unconditional case only: no `input` PDB, no
+  `contig` (bare `length` only — verified the reference itself REQUIRES a
+  real atom array the moment `contig` is set at all, even for an all-Designed
+  contig string with zero Indexed components; only a bare `length` field
+  skips that requirement), no `ligand`, no `unindex`. Symmetric MOTIF
+  scaffolding (`is_symmetric_motif`, `is_unsym_motif`, the real
+  ``unindexed_C2_*``/``indexed_unsym_C2_1bfr``/``unsym_C3_6t8h`` examples,
+  which all combine symmetry with a real input structure) is NOT grounded
+  this pass — raises NotImplementedError (see F5 durable-lesson note, p19+).
+- Mechanism (`rfd3.inference.symmetry.symmetry_utils.make_symmetric_atom_array`):
+  the parsed ASU (asymmetric-unit) token list — built by the SAME contig/
+  designed-length machinery as every non-symmetric spec — is replicated
+  `len(frames)` times, where `frames` is a list of `(R[3,3], t[3])` rigid
+  transforms: `len(frames)==order` for `"C<order>"` (cyclic,
+  `R = rotate 2*pi*i/order about z`, `t=0`), `len(frames)==2*order` for
+  `"D<order>"` (dihedral: the same `order` cyclic rotations, PLUS each
+  composed with a 180-degree in-plane flip — verified bit-exact against
+  `rfd3.inference.symmetry.frames.get_cyclic_frames`/`get_dihedral_frames`).
+  Copy 0 (`transform_id=0`, `R=I`) IS the original ASU, unchanged; each
+  replica 1..N-1 gets its own fresh synthetic chain letter (same
+  `_fresh_chain_letter` used elsewhere), each restarting `residue_index` at 0
+  (verified: the reference's replicas are ordinary new chains, not a
+  continuation of the ASU's chain).
+- `entity_id`/`sym_id` special case: ALL replicas of one symmetric ASU share
+  ONE `entity_id` (verified against a real capture: 3 C3 replicas of a
+  12-residue unconditional design all get `entity_id=0`, NOT 3 distinct
+  entities) with `sym_id` enumerating replicas 0..N-1 in ASU-then-replica
+  order — this is a genuinely NEW case the pre-existing `entity_id` logic
+  (grouping chains by matching real full-chain sequence, `chain_full_seq`)
+  cannot handle on its own: a purely-DESIGNED (sequence-unknown) chain has no
+  real sequence to match by content, so without an explicit symmetric-group
+  override every replica would silently get its OWN fresh entity id (each
+  designed chain looking "unique" by the pre-existing content-matching rule)
+  — see `_symmetrize_tokens`/the entity_id computation below for the fix.
+- Three NEW atom-level `f` keys beyond the existing 43 (verified via a real
+  reference capture diffed against the identical spec with no `symmetry`
+  field: `+sym_transform` [dict, NOT a plain tensor — `{str(transform_id):
+  (R, t)}`, excluded from bit-exact tensor comparison the same way the
+  reference's OWN capture script excludes it], `+sym_transform_id` [L] int32
+  (which replica/transform an atom belongs to, broadcast from its token),
+  `+sym_entity_id` [L] int64 (0 for every atom in this pass's single
+  symmetric group — the reference's `FIXED_ENTITY_ID=-1` sentinel for
+  non-symmetrized atoms is unreachable in this pass's no-ligand/no-motif
+  scope), `+is_sym_asu` [L] bool (True only for `transform_id=0`'s atoms).
+  All existing 43 keys' semantics are UNCHANGED (verified: entity_id
+  special-case aside, every other per-atom/per-token feature is computed by
+  the exact same code whether or not the token list happens to include
+  symmetric replicas — a replica token is just an ordinary `_Token` on a new
+  chain, not a new code path).
+- Device-trajectory parity requires a matching SAMPLER-level mechanism, not
+  just a featurizer one: the reference's `SampleDiffusionWithSymmetry`
+  (`rfd3.model.inference_sampler`) re-derives every non-ASU replica's
+  coordinates from the ASU's own (COM-recentered) denoised output at every
+  step via `apply_symmetry_to_xyz_atomwise` (ported to
+  :mod:`tt_bio.rfd3_sampler`) — it does NOT rely on the network alone to keep
+  the design symmetric. Gated by `sym_step_frac` (default 0.9, unchanged from
+  upstream): symmetrization is skipped once `c_t <= noise_schedule[floor(
+  len(schedule)*sym_step_frac)]` (the last ~10% of steps, letting the network
+  add final asymmetric detail) — for this port's own few-step device-
+  trajectory checks (4-8 timesteps) this reduces to "every step except the
+  last". `allow_realignment` (a separate, default-False upstream knob that
+  additionally re-randomizes the whole structure's global pose every step) is
+  OUT of scope this pass (upstream itself defaults it off; the real
+  `uncond_C5`/`uncond_D4` example command never sets it).
 
 Enzyme (F4) grounding (verified against a real local CPU capture of the real
 ``enzyme_design.md`` example — ``M0255_1mg5.pdb`` + its own
@@ -193,9 +268,10 @@ from __future__ import annotations
 
 import copy
 import os as _os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, replace as _dc_replace
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import numpy as np
 import torch
@@ -568,6 +644,76 @@ def _fresh_chain_letter(used: set[str]) -> str:
     raise NotImplementedError("more than 26 chains — p15+")
 
 
+# -- symmetry (F5) ------------------------------------------------------------
+# Bit-exact port of rfd3.inference.symmetry.frames.get_cyclic_frames /
+# get_dihedral_frames (verified against a real local capture — see module
+# docstring's F5 grounding section). Each frame is a rigid (R[3,3], t[3])
+# transform; t is always the zero vector for both symmetry kinds (only
+# rotation about the origin, no translation).
+_SYMMETRY_ID_RE = re.compile(r"^([CD])(\d+)$")
+
+
+def _cyclic_frames(order: int) -> list[tuple[np.ndarray, np.ndarray]]:
+    frames = []
+    for i in range(order):
+        angle = 2 * np.pi * i / order
+        R = np.array([[np.cos(angle), -np.sin(angle), 0],
+                      [np.sin(angle), np.cos(angle), 0],
+                      [0, 0, 1]], dtype=np.float32)
+        frames.append((R, np.zeros(3, dtype=np.float32)))
+    return frames
+
+
+def _dihedral_frames(order: int) -> list[tuple[np.ndarray, np.ndarray]]:
+    frames = []
+    for i in range(order):
+        angle = 2 * np.pi * i / order
+        R = np.array([[np.cos(angle), -np.sin(angle), 0],
+                      [np.sin(angle), np.cos(angle), 0],
+                      [0, 0, 1]], dtype=np.float32)
+        phi = angle + np.pi / order
+        u = np.array([np.cos(phi), np.sin(phi), 0], dtype=np.float32)
+        flip = -np.eye(3, dtype=np.float32) + 2 * np.outer(u, u)
+        frames.append((R, np.zeros(3, dtype=np.float32)))
+        frames.append((R @ flip, np.zeros(3, dtype=np.float32)))
+    return frames
+
+
+def _symmetry_frames(sym_conf: Mapping) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Parse `spec.symmetry` (e.g. ``{"id": "C3"}``) into a list of rigid
+    transforms, one per symmetric copy (transform 0 == the ASU/identity).
+    Only cyclic (``C<n>``) and dihedral (``D<n>``) groups are supported —
+    matches the real reference's own stated scope ("only C and D symmetry
+    types are supported currently", `docs/examples/symmetry.md`)."""
+    sym_id = str(sym_conf.get("id", "")).strip().upper()
+    m = _SYMMETRY_ID_RE.match(sym_id)
+    if not m:
+        raise NotImplementedError(f"symmetry id {sym_id!r} not supported (only C<n>/D<n>) — p18+")
+    kind, order = m.group(1), int(m.group(2))
+    return _cyclic_frames(order) if kind == "C" else _dihedral_frames(order)
+
+
+def _symmetrize_tokens(asu_tokens: list["_Token"], frames: list[tuple[np.ndarray, np.ndarray]],
+                        used_chains: set[str]) -> tuple[list["_Token"], list[int], set[str]]:
+    """Replicate an unconditional ASU token list into ``len(frames)``
+    symmetric copies (F5, scope this pass: no ligand/motif — see module
+    docstring). Copy 0 is the ASU itself, unchanged; copies 1..N-1 each get a
+    fresh chain letter (own `residue_index` run, verified vs a real capture).
+    Returns (all tokens in ASU-then-replica order, each token's transform id,
+    the set of chains belonging to this one symmetric group — needed by the
+    entity_id/sym_id special case in `featurize()`)."""
+    tokens = list(asu_tokens)
+    transform_ids = [0] * len(asu_tokens)
+    sym_chains = {tk.chain for tk in asu_tokens}
+    for tid in range(1, len(frames)):
+        chain = _fresh_chain_letter(used_chains)
+        sym_chains.add(chain)
+        for tk in asu_tokens:
+            tokens.append(_dc_replace(tk, chain=chain))
+            transform_ids.append(tid)
+    return tokens, transform_ids, sym_chains
+
+
 def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue]) -> tuple[list[_Token], set]:
     """Map a parsed contig + the parsed structure's residues into an ordered
     token plan. Indexed components pull residues from the input structure
@@ -804,15 +950,33 @@ def _ligand_atom_layout(tk: "_Token"):
              np.zeros(1, dtype=bool), [tk.residue.elements[idx]])
 
 
-def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str, torch.Tensor]:
+def featurize(structure_path: str | Path | None, spec: InputSpecification) -> dict[str, torch.Tensor]:
     """Build the ``f`` feature dict for one design spec from a real PDB/CIF.
 
     Protein-binder (F1) + motif scaffolding (F6) + nucleic-acid-binder design
-    (F2/F8: a fixed-sequence DNA/RNA target + a designed protein binder), with
-    atom-level parity vs the real reference (see module docstring).
+    (F2/F8: a fixed-sequence DNA/RNA target + a designed protein binder) +
+    cyclic/dihedral symmetric oligomer design (F5, unconditional-only this
+    pass), with atom-level parity vs the real reference (see module
+    docstring).
+
+    ``structure_path=None`` (F5): a fully-unconditional design (no real input
+    structure at all) — matches the real reference, which only requires an
+    atom array once `contig` is actually set (even to an all-Designed
+    string); a bare `length` field never needs one.
     """
-    arr = load_structure(structure_path)
-    all_residues = _group_residues(arr)
+    if spec.symmetry:
+        if structure_path is not None or spec.contig is not None:
+            raise NotImplementedError(
+                "F5 symmetry combined with a real input structure/contig "
+                "(symmetric motif scaffolding) is not supported this pass — p19+"
+            )
+        if spec.ligand or spec.unindex:
+            raise NotImplementedError("F5 symmetry combined with ligand/unindex — p19+")
+    if structure_path is None:
+        all_residues: list[_Residue] = []
+    else:
+        arr = load_structure(structure_path)
+        all_residues = _group_residues(arr)
     # Non-polymer residues NOT named by `spec.ligand` (solvent, ions, an
     # unreferenced HETATM) are simply invisible to this featurizer, exactly
     # like a real PDB's crystallographic waters are to a contig that never
@@ -830,6 +994,17 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
         contig_spec = copy.copy(spec)
         contig_spec.contig = str(spec.length)
     tokens, indexed_keys = _plan_tokens_from_contig(contig_spec, residues)
+    sym_frames = None
+    sym_transform_id_by_token = None
+    sym_chains: set[str] = set()
+    if spec.symmetry:
+        # F5: replicate the ASU (the whole token list built above -- no
+        # ligand/motif in scope this pass, see the guard above) into
+        # len(sym_frames) symmetric copies. See module docstring's F5
+        # grounding + `_symmetrize_tokens`'s docstring.
+        sym_frames = _symmetry_frames(spec.symmetry)
+        used_chains = {tk.chain for tk in tokens}
+        tokens, sym_transform_id_by_token, sym_chains = _symmetrize_tokens(tokens, sym_frames, used_chains)
     if spec.ligand:
         # Fresh chain letter must avoid whatever chain the OUTPUT token list
         # has claimed so far (indexed + designed tokens) -- NOT every real
@@ -1111,7 +1286,16 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     motif_token_class[token_is_unindexed] = 2
     ref_motif_token_type = np.eye(3, dtype=np.int8)[motif_token_class]
     ref_plddt = np.where(token_is_motif, 0, 1).astype(np.int64)
+    # is_non_loopy: a per-spec "temperature conditioning" toggle
+    # (`spec.is_non_loopy`), applied only to DIFFUSED (non-motif) tokens --
+    # verified against the real reference (`input_parsing.py::_apply_globals`:
+    # unset -> 0 everywhere; set -> 1/-1 on `~is_motif_token`, still 0 on any
+    # motif/unindexed token). Pre-existing bug found by F5 (p18): this was
+    # hardcoded to all-zero regardless of `spec.is_non_loopy`, uncaught
+    # because no F1-F4 fixture ever set the field (see module docstring).
     is_non_loopy = np.zeros((I, 1), dtype=np.float32)
+    if spec.is_non_loopy is not None:
+        is_non_loopy[~token_is_motif, 0] = 1.0 if spec.is_non_loopy else -1.0
     is_motif_token_unindexed = token_is_unindexed.copy()
     is_motif_token_with_fully_fixed_coord = token_is_fully_fixed_coord
 
@@ -1157,7 +1341,17 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     # with sym_id enumerating replica copies — verified vs a real reference
     # capture (dsDNA_basic: chain A and B are the same 12-mer palindrome, so
     # they share entity_id with distinct sym_id). A synthetic (designed)
-    # chain has no real sequence to match and always starts a fresh entity.
+    # chain has no real sequence to match and always starts a fresh entity —
+    # EXCEPT F5's symmetric replicas, which share no real sequence either but
+    # must still share ONE entity_id (verified vs a real reference capture: 3
+    # C3 replicas of a 12-residue unconditional design all get entity_id=0,
+    # not 3 distinct entities). `sym_chains` (F5 only, empty otherwise) is the
+    # override for exactly that case; `sym_group_entity_id` is assigned once,
+    # the first time a sym_chains member is seen (in token order, i.e. the
+    # ASU itself, so the shared entity lands wherever the ASU's own chain
+    # would have — the downstream sym_id loop below then naturally enumerates
+    # 0..N-1 in ASU-then-replica order since it iterates the same insertion
+    # order).
     chain_full_seq: dict[str, tuple] = {}
     for r in residues:
         chain_full_seq.setdefault(r.chain, []).append((r.res_id, r.res_name))
@@ -1165,9 +1359,15 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     entity_of_seq: dict[tuple, int] = {}
     chain_entity: dict[str, int] = {}
     next_entity = 0
+    sym_group_entity_id: int | None = None
     for c in chain_to_asym:  # insertion order == order of first appearance among tokens
         seq = chain_full_seq.get(c)
-        if seq is None or seq not in entity_of_seq:
+        if sym_chains and c in sym_chains:
+            if sym_group_entity_id is None:
+                sym_group_entity_id = next_entity
+                next_entity += 1
+            eid = sym_group_entity_id
+        elif seq is None or seq not in entity_of_seq:
             eid = next_entity
             next_entity += 1
             if seq is not None:
@@ -1241,6 +1441,24 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
         sub_mask = island[:, None] != island[None, :]
         unindexing_pair_mask[np.ix_(idx_ui, idx_ui)] = sub_mask
 
+    # F5 symmetry: broadcast each token's transform id to its atoms, plus the
+    # ASU mask + the raw (R,t) transform dict the sampler needs to actually
+    # re-derive every replica's coordinates from the ASU each step (see
+    # module docstring's F5 grounding + tt_bio.rfd3_sampler). sym_entity_id
+    # is 0 for every atom in this pass's single symmetric group (no ligand/
+    # motif in scope -> the reference's FIXED_ENTITY_ID=-1 sentinel for
+    # non-symmetrized atoms is unreachable here).
+    sym_transform = None
+    if sym_frames is not None:
+        tok_transform_id = np.asarray(sym_transform_id_by_token, dtype=np.int32)
+        sym_transform_id = tok_transform_id[atom_to_token_map]
+        sym_entity_id = np.zeros(L, dtype=np.int64)
+        is_sym_asu = sym_transform_id == 0
+        sym_transform = {
+            str(i): (torch.from_numpy(R), torch.from_numpy(t))
+            for i, (R, t) in enumerate(sym_frames)
+        }
+
     bf = lambda a: torch.from_numpy(a)
     f = {
         # atom-level
@@ -1289,4 +1507,9 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
         "token_bonds": torch.from_numpy(token_bonds),                  # [I,I] bool
         "unindexing_pair_mask": torch.from_numpy(unindexing_pair_mask),
     }
+    if sym_transform is not None:
+        f["sym_transform"] = sym_transform                            # {str(id): (R[3,3], t[3])}
+        f["sym_transform_id"] = torch.from_numpy(sym_transform_id)     # [L] int32
+        f["sym_entity_id"] = torch.from_numpy(sym_entity_id)           # [L] int64
+        f["is_sym_asu"] = torch.from_numpy(is_sym_asu)                 # [L] bool
     return f

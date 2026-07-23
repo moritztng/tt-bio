@@ -401,6 +401,38 @@ class _NullCtx:
 def _nullctx(): return _NullCtx()
 
 
+# --- F5 symmetry: rfd3.inference.symmetry.symmetry_utils.apply_symmetry_to_xyz_atomwise
+# (partial_diffusion=False case only -- no partial_t in this port's F5 scope). Recenter
+# the non-fixed-motif atoms at their mean, then reconstruct every symmetric replica's
+# coordinates from the ASU's own (now-centered) atoms via that replica's rigid transform
+# -- every step "snaps" the design back to exact symmetry from the ASU alone, rather than
+# relying on the network to keep it symmetric. FIXED_ENTITY_ID=-1 (atoms outside any
+# symmetric group) is unreachable in this port's current F5 scope (no ligand/motif
+# combined with symmetry yet -- see tt_bio.rfd3_featurize's F5 grounding).
+_FIXED_ENTITY_ID = -1
+
+
+def apply_symmetry_atomwise(X_L, sym_transform, sym_transform_id, sym_entity_id, is_sym_asu):
+    fixed_mask = sym_entity_id == _FIXED_ENTITY_ID
+    non_fixed = ~fixed_mask
+    X_L = X_L.clone()
+    X_L[:, non_fixed, :] = X_L[:, non_fixed, :] - X_L[:, non_fixed, :].mean(dim=1, keepdim=True)
+    out = X_L.clone()
+    for entity_id in torch.unique(sym_entity_id).tolist():
+        if entity_id == _FIXED_ENTITY_ID:
+            continue
+        entity_mask = sym_entity_id == entity_id
+        asu_mask = is_sym_asu & entity_mask
+        if int(asu_mask.sum()) == 0:
+            continue
+        asu_xyz = X_L[:, asu_mask, :]
+        for tid in torch.unique(sym_transform_id[entity_mask]).tolist():
+            subunit = entity_mask & (sym_transform_id == tid)
+            R, t = sym_transform[str(tid)]
+            out[:, subunit, :] = torch.einsum("blc,cd->bld", asu_xyz, R.to(asu_xyz.dtype)) + t.to(asu_xyz.dtype)
+    return out
+
+
 # --- EDM sampler (inference_sampler.py, default solver) ---
 class EDMSamplerRef:
     def __init__(self, num_timesteps=10, sigma_data=16.0, s_min=4e-4, s_max=160.0, p=7,
@@ -415,11 +447,15 @@ class EDMSamplerRef:
         return self.sigma_data * (self.s_max ** (1 / self.p) + t * (self.s_min ** (1 / self.p) - self.s_max ** (1 / self.p))) ** self.p
 
     def sample(self, diffusion_module, D, L, coord_atom_lvl_to_be_noised, f, initializer_outputs,
-               draws, is_motif_fixed):
+               draws, is_motif_fixed, sym_feats=None, sym_step_frac=0.9):
         sched = self.noise_schedule(coord_atom_lvl_to_be_noised.device)
         c0 = sched[0]
         X_L = draws.initial(c0, D, L, coord_atom_lvl_to_be_noised, is_motif_fixed)
         traj = []
+        # F5: symmetrize the denoised output while c_t > gamma_min_sym (the last
+        # ~10% of steps run unconstrained, per upstream's SampleDiffusionWithSymmetry
+        # default sym_step_frac=0.9 -- see tt_bio.rfd3_featurize's F5 grounding).
+        gamma_min_sym = sched[min(int(len(sched) * sym_step_frac), len(sched) - 1)] if sym_feats else None
         for step, (c_tm1, c_t) in enumerate(zip(sched, sched[1:])):
             gamma = self.gamma_0 if c_t > self.gamma_min else 0.0
             t_hat = c_tm1 * (gamma + 1)
@@ -428,6 +464,10 @@ class EDMSamplerRef:
             X_noisy_L = X_L + eps
             outs = diffusion_module(X_noisy_L=X_noisy_L, t=t_hat.tile(D), f=f, n_recycle=None, **initializer_outputs)
             X_denoised_L = outs["X_L"]
+            if sym_feats is not None and c_t > gamma_min_sym:
+                X_denoised_L = apply_symmetry_atomwise(
+                    X_denoised_L, sym_feats["sym_transform"], sym_feats["sym_transform_id"],
+                    sym_feats["sym_entity_id"], sym_feats["is_sym_asu"])
             delta_L = (X_noisy_L - X_denoised_L) / t_hat
             d_t = c_t - t_hat
             X_L = X_noisy_L + self.step_scale * d_t * delta_L
