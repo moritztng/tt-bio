@@ -6,14 +6,13 @@ it parses an InputSpecification (JSON/YAML) via :mod:`tt_bio.rfd3_input`,
 validates it, runs the on-device diffusion sampler, and writes the designed
 structure to disk.
 
-Status (p9): the parser + on-device pipeline + CIF writer are landed and
-exercised end-to-end through the CLI. The remaining piece is the host
-featurizer that builds the `f` feature dict + initial token/pair states from a
-user's PDB/CIF + contig (the atomworks atom14 / RASA / hbond / hotspot / ori_token
-/ symmetry conventions). Until that lands, `design` sources `f` from a captured
-reference `f` (the parity-golden) so the on-device path is real and produces a
-real CIF, but a from-PDB binder design is not yet wired. See the scorecard in
-``~/.coworker/state/tt-bio-rfdiffusion3-port-p1.md`` §6.
+Status (p10): the parser + on-device pipeline + CIF writer are landed. The host
+featurizer (:mod:`tt_bio.rfd3_featurize`) is landed for the protein-binder (F1) /
+motif-scaffolding (F6) case and structurally unit-verified, but NOT yet
+parity-gated against a reference ``f`` capture. ``--from_pdb`` wires the real
+from-PDB path (featurize → on-device TokenInitializer → sampler → CIF); the
+``--golden_dir`` bridge remains the verified path and still supplies the device
+ckpt weights. See ``scripts/rfd3_port/parity_compare_f.py`` for the gate.
 """
 from __future__ import annotations
 
@@ -138,41 +137,59 @@ def run_design(
     if fp32_residual:
         os.environ["RFD3_FP32_RESIDUAL"] = "1"
     if golden_dir is None:
-        raise ValueError("golden_dir is required this pass (the from-PDB featurizer is not yet landed)")
+        raise ValueError("golden_dir is required (it holds the device ckpt weights)")
 
     results: list[DesignResult] = []
-    # load the device weights + golden f once (shared across specs this pass)
     cap = Path(golden_dir)
     dm_weights = torch.load(cap / "diffusion_module.real_weights.pt", map_location="cpu", weights_only=True)
     ti_weights = torch.load(cap / "token_initializer.real_weights.pt", map_location="cpu", weights_only=True)
-    f = _load_golden_f(str(cap))
-    Q_L_init = torch.load(cap / "token_initializer.out_Q_L_init.pt", map_location="cpu", weights_only=True).float()
-    C_L = torch.load(cap / "token_initializer.out_C_L.pt", map_location="cpu", weights_only=True).float()
-    P_LL = torch.load(cap / "token_initializer.out_P_LL.pt", map_location="cpu", weights_only=True).float()
-    S_I = torch.load(cap / "token_initializer.out_S_I.pt", map_location="cpu", weights_only=True).float()
-    Z_II = torch.load(cap / "token_initializer.out_Z_II.pt", map_location="cpu", weights_only=True).float()
-    init = dict(Q_L_init=Q_L_init, C_L=C_L, P_LL=P_LL, S_I=S_I, Z_II=Z_II)
-    L = Q_L_init.shape[0]
-    is_motif = f["is_motif_atom_with_fixed_coord"]
-
+    dev_ti = build_token_initializer(ti_weights)
     dev_dm = build_diffusion_module(dm_weights)
-    dev_ti = build_token_initializer(ti_weights)  # noqa: F841 (resident; built for parity with the verify path)
     sampler = RFD3Sampler(num_timesteps=num_timesteps)
+
+    # golden-bridge path: one captured f + init shared across specs
+    golden_f = None; golden_init = None; golden_L = None; golden_is_motif = None
+    if not from_pdb:
+        golden_f = _load_golden_f(str(cap))
+        Q_L_init = torch.load(cap / "token_initializer.out_Q_L_init.pt", map_location="cpu", weights_only=True).float()
+        C_L = torch.load(cap / "token_initializer.out_C_L.pt", map_location="cpu", weights_only=True).float()
+        P_LL = torch.load(cap / "token_initializer.out_P_LL.pt", map_location="cpu", weights_only=True).float()
+        S_I = torch.load(cap / "token_initializer.out_S_I.pt", map_location="cpu", weights_only=True).float()
+        Z_II = torch.load(cap / "token_initializer.out_Z_II.pt", map_location="cpu", weights_only=True).float()
+        golden_init = dict(Q_L_init=Q_L_init, C_L=C_L, P_LL=P_LL, S_I=S_I, Z_II=Z_II)
+        golden_L = Q_L_init.shape[0]
+        golden_is_motif = golden_f["is_motif_atom_with_fixed_coord"]
 
     for spec_id, raw in specs.items():
         spec = InputSpecification.from_dict(raw)
         spec.validate()
         if verbose:
             print(f"[design:{spec_id}] contig={spec.contig!r} length={spec.length!r} "
-                  f"ligand={spec.ligand!r} partial_t={spec.partial_t}")
-        # sampler knobs: per-spec partial_t / cfg override the call defaults
+                  f"ligand={spec.ligand!r} partial_t={spec.partial_t} from_pdb={from_pdb}")
         sp_t = spec.partial_t if spec.partial_t is not None else partial_t
+
+        if from_pdb:
+            # real from-PDB path: featurize the spec's input PDB + contig, run
+            # the on-device TokenInitializer on the ported f. NOT parity-gated.
+            from .rfd3_featurize import featurize
+            if spec.input is None:
+                raise ValueError(f"spec {spec_id!r} has no `input` PDB (required for --from_pdb)")
+            f = featurize(spec.input, spec)
+            with torch.no_grad():
+                init = dev_ti({k: (v.clone() if torch.is_tensor(v) else v) for k, v in f.items()})
+            L = init["Q_L_init"].shape[0]
+            is_motif = f["is_motif_atom_with_fixed_coord"]
+            f_used = f; init_used = init
+        else:
+            f_used = golden_f; init_used = golden_init
+            L = golden_L; is_motif = golden_is_motif
+
         with torch.no_grad():
             g = torch.Generator().manual_seed(seed)
-            X, _ = sampler.sample(dev_dm, 1, L, torch.zeros(1, L, 3), f, init, is_motif,
+            X, _ = sampler.sample(dev_dm, 1, L, torch.zeros(1, L, 3), f_used, init_used, is_motif,
                                   generator=g, partial_t=sp_t, cfg_scale=cfg_scale)
         out_path = out_dir / f"{spec_id}.cif"
-        _write_cif(X[0], f, out_path)
+        _write_cif(X[0], f_used, out_path)
         results.append(DesignResult(spec_id=spec_id, out_path=out_path,
                                     final_pcc_vs_ref=None, n_atoms=int(X.shape[1])))
         if verbose:

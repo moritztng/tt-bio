@@ -2697,7 +2697,12 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                    "the DiT + encoder + DiffusionTokenEncoder; default off = bf16).")
 @click.option("--spec", "spec_subset", default=None,
               help="Comma-separated subset of spec ids from the inputs file to run.")
-def design_cmd(inputs, out_dir, golden_dir, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
+@click.option("--from_pdb", is_flag=True,
+              help="Build `f` from each spec's `input` PDB + contig via the host featurizer "
+                   "(the real from-PDB path) instead of the captured golden. EXPERIMENTAL (p10): "
+                   "the featurizer is structurally unit-verified but NOT yet parity-gated, so the "
+                   "output is not accuracy-verified. Still needs --golden_dir for the device weights.")
+def design_cmd(inputs, out_dir, golden_dir, from_pdb, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
     """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
 
     INPUTS is a JSON or YAML file of InputSpecifications (each top-level key is
@@ -2715,11 +2720,14 @@ def design_cmd(inputs, out_dir, golden_dir, num_timesteps, seed, partial_t, fp32
     EDM sampler produce one CIF per spec.
 
     \b
-    NOTE (p9): the parser + on-device pipeline + CIF writer are landed. The
-    remaining piece is the host featurizer that builds the `f` feature dict
-    from a user PDB/CIF + contig; until it lands, `--golden_dir` supplies `f`
-    from a captured reference, so the on-device path is real and produces a
-    real CIF, but a from-PDB binder design is not yet wired.
+    NOTE (p10): the parser + on-device pipeline + CIF writer are landed. The
+    host featurizer (tt_bio.rfd3_featurize) is landed for the protein-binder (F1)
+    / motif-scaffolding (F6) case and structurally unit-verified, but NOT yet
+    parity-gated against a reference `f` capture. `--from_pdb` wires the real
+    from-PDB path (featurize → on-device TokenInitializer → sampler → CIF); the
+    `--golden_dir` bridge remains the verified path and still supplies the
+    device ckpt weights. The parity gate lives at
+    scripts/rfd3_port/parity_compare_f.py (run once a binder-`f` capture exists).
     """
     import json as _json
     import yaml as _yaml
@@ -2747,12 +2755,13 @@ def design_cmd(inputs, out_dir, golden_dir, num_timesteps, seed, partial_t, fp32
     if not Path(gdir).exists():
         raise click.ClickException(
             f"golden_dir not found: {gdir}. Pass --golden_dir <path> to a captured RFD3 `f` "
-            f"golden (the from-PDB featurizer is not yet landed).")
+            f"golden (it holds the device ckpt weights; --from_pdb still needs it).")
 
-    click.echo(f"Designing {len(specs)} spec(s) → {out_dir} (golden={gdir}, {num_timesteps} steps)")
+    click.echo(f"Designing {len(specs)} spec(s) → {out_dir} "
+               f"(golden={gdir}, from_pdb={from_pdb}, {num_timesteps} steps)")
     try:
         results = rfd3_design.run_design(
-            specs, out_dir, golden_dir=gdir, num_timesteps=num_timesteps,
+            specs, out_dir, golden_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
             seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, verbose=True,
         )
     except (ValueError, TypeError) as e:
