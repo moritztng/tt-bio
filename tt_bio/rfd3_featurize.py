@@ -10,18 +10,17 @@ reads (``model/layers/encoders.py`` TokenInitializer.forward + the
 ``token_1d_features`` / ``atom_1d_features`` lists vendored in
 ``scripts/rfd3_port/rfd3_ref.py``).
 
-Status (p10): the assembly core is landed and unit-verified for STRUCTURAL
-invariants (shapes/dtypes/key relationships). It is NOT yet parity-gated
-against a real reference ``f`` capture. The atomworks-dependent annotation
-layer (RASA via surface, hbond donor/acceptor, atom-level hotspots, virtual
-atom padding to atom14, reference-molecule conformer features for ligands,
-ori_token inference) is reproduced here from the reference's documented
-behaviour but its exact tensor encodings (one-hot vs class-index, index
-assignment) MUST be confirmed against a captured design-``f`` golden on
-vast.ai before any accuracy claim. The parity-compare harness lives at
-``scripts/rfd3_port/parity_compare_f.py``; the capture script at
-``scripts/rfd3_port/capture_binder_f.sh``. Both are ready to run; the gate
-itself is owed to p11.
+Status (p11): TOKEN-LEVEL parity ACHIEVED — 19/19 token-level keys are bit-exact
+vs a real CPU-captured protein reference `f` (IAI, contig A1-10,20,A31-40; see
+``scripts/rfd3_port/parity_artifacts/``). The reference capture runs LOCALLY on
+CPU via ``rc-foundry[rfd3]`` (python 3.12, uv-installable) — no vast.ai, no
+checkpoint; the featurizer pipeline is standalone. ATOM-LEVEL parity is NOT yet
+achieved: the reference uses a VARIABLE atom count per token (motif tokens emit
+real heavy atoms only, no virtuals; designed tokens emit the full 14-atom
+template), whereas this implementation pads every token to 14 (L=I*14). That
+atom-layout rework + the protein-specific semantics (ref_pos=0, ref_mask=False,
+motif_pos centered at COM-of-fixed-motif, rasa/donor/acceptor=0) are the next
+slice. Until atom-level parity passes, ``--from_pdb`` is EXPERIMENTAL/ungated.
 
 Coverage this pass: protein-binder (F1) + motif-scaffolding (F6) on a
 protein-only input (contig with indexed-motif + designed regions + chain
@@ -350,13 +349,21 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
 
     # --- token-level features ---
     restype = _restype_onehot(token_res_name).astype(np.int64)  # [I,32] one-hot int64
+    # Parity-gated vs protein reference: DESIGNED (non-motif, no sequence) tokens use
+    # restype class index 31 (the "mask/designed" slot), NOT UNK(20). Motif tokens keep
+    # their real-aa one-hot (SER->15 etc., matches the reference AF3 ordering).
+    for ti, tk in enumerate(tokens):
+        if not tk.is_motif:
+            restype[ti] = 0
+            restype[ti, 31] = 1
     # ref_motif_token_type: [I,3] one-hot int8 (0 non-motif, 1 indexed motif, 2 unindexed motif)
     motif_token_class = np.zeros(I, dtype=np.int8)
     motif_token_class[token_is_motif] = 1
     motif_token_class[token_is_unindexed] = 2
     ref_motif_token_type = np.eye(3, dtype=np.int8)[motif_token_class]
-    # ref_plddt: int64 [I], 0/1 (golden shows 0/1, not -1/0/+1; inference default 0).
-    ref_plddt = np.zeros(I, dtype=np.int64)
+    # ref_plddt: int64 [I].  Parity-gated vs a real protein reference capture
+    # (IAI, contig A1-10,20,A31-40): designed (non-motif) tokens -> 1, motif -> 0.
+    ref_plddt = np.where(token_is_motif, 0, 1).astype(np.int64)
     # is_non_loopy: bf16 [I,1], default 0.
     is_non_loopy = np.zeros((I, 1), dtype=np.float32)
     # is_motif_token_unindexed: bool [I] (token-level spread of is_motif_atom_unindexed).
@@ -388,10 +395,12 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     terminus_type[is_N_term, 1] = 1
 
     # --- indices (golden dtypes: asym_id/entity_id/token_index int64; residue_index/sym_id int32) ---
+    # Parity-gated vs protein reference: asym_id/entity_id are 0-BASED (single chain -> all 0),
+    # residue_index is 0-BASED per chain ([0..I-1] for one chain), token_index 0-based global.
     chain_to_asym = {}
     for c in token_chain:
         if c not in chain_to_asym:
-            chain_to_asym[c] = len(chain_to_asym) + 1
+            chain_to_asym[c] = len(chain_to_asym)  # 0-based
     asym_id = np.array([chain_to_asym[c] for c in token_chain], dtype=np.int64)
     entity_id = asym_id.copy()
     sym_id = np.zeros(I, dtype=np.int32)
@@ -399,19 +408,14 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     _per_chain_ctr = {}
     for ti, c in enumerate(token_chain):
         _per_chain_ctr.setdefault(c, 0)
+        residue_index[ti] = _per_chain_ctr[c]  # 0-based per chain
         _per_chain_ctr[c] += 1
-        residue_index[ti] = _per_chain_ctr[c]
     token_index = np.arange(I, dtype=np.int64)
 
-    # --- token_bonds [I, I] bool: peptide bond between consecutive same-chain tokens
-    #     with no chain break between them and contiguous res_id. ---
+    # --- token_bonds [I, I] bool: parity-gated vs protein reference -> ALL FALSE for
+    #     standard contiguous protein (token_bonds is NOT the peptide-bond graph; it
+    #     encodes inter-token bonds for modified residues / crosslinks / ligands only).
     token_bonds = np.zeros((I, I), dtype=bool)
-    for ti in range(I - 1):
-        if (token_chain[ti] == token_chain[ti + 1]
-                and not token_break_before[ti + 1]
-                and token_res_id[ti + 1] == token_res_id[ti] + 1):
-            token_bonds[ti, ti + 1] = True
-            token_bonds[ti + 1, ti] = True
 
     # --- unindexing_pair_mask [I, I] bool: all-False this pass (no unindex field). ---
     unindexing_pair_mask = np.zeros((I, I), dtype=bool)

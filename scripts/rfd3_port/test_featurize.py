@@ -90,9 +90,13 @@ def test_chain_break():
         _write_minipdb(pdb, n=40)
         spec = _spec({"input": pdb, "contig": "A1-10,/0,A31-40"})
         f = featurize(pdb, spec)
-    # two segments on chain A separated by a chain break -> no bond between token 9 and 10
+    # Parity-gated vs a real protein reference capture: token_bonds is NOT the
+    # peptide-bond graph (that lives elsewhere); for standard contiguous protein it
+    # is ALL FALSE, with or without a chain break. token_bonds encodes inter-token
+    # bonds for modified residues / crosslinks / ligands only.
+    assert bool((f["token_bonds"] == 0).all())
     assert float(f["token_bonds"][9, 10]) == 0.0
-    assert float(f["token_bonds"][8, 9]) == 1.0  # within first motif
+    assert float(f["token_bonds"][8, 9]) == 0.0
     print("test_chain_break OK")
 
 
