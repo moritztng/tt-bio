@@ -1,0 +1,18 @@
+[
+  {
+    "id": "22ps_abag",
+    "status": "ok",
+    "complex_plddt": 0.944484,
+    "plddt": 0.944484,
+    "ptm": 0.910672,
+    "iptm": 0.909096,
+    "confidence_score": 0.909411,
+    "n_residues": 656,
+    "n_chains": 3,
+    "n_tokens": 656,
+    "msa": true,
+    "n_atoms": 5051,
+    "samples": 1,
+    "runtime_s": 504.0
+  }
+]
