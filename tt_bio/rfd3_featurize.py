@@ -51,10 +51,12 @@ symmetry combined with a real motif/ligand input (p19/p20: motif-derived
 Kabsch frames, `is_unsym_motif` exclusion, unindexed-motif replication, and
 per-subunit ligand instances), and `select_fixed_atoms` per-atom partial
 fixing on an INDEXED (contig) motif residue (p21, see the F1/F6 grounding
-above). NA as an *indexed motif inside a protein chain*'s unindex field and
-the unindex numeric-offset-tie syntax / dict-form per-atom fixing (see
-``_plan_unindexed_tokens``) still raise NotImplementedError with a pointer to
-the reference transform.
+above), and dict-form `unindex` per-atom subsetting, composed with
+`select_fixed_atoms` as an intersection (p22, see ``_plan_unindexed_tokens``).
+NA as an *indexed motif inside a protein chain*'s unindex field still raises
+NotImplementedError. The unindex numeric-offset-tie syntax (``A11,N,A12``)
+is VERIFIED BROKEN in the reference itself (p22, both input dialects — see
+``_plan_unindexed_tokens``) and intentionally not implemented.
 
 F5 symmetry grounding (verified against the real reference's own
 ``docs/examples/symmetry.md`` + ``rfd3.inference.symmetry.{symmetry_utils,
@@ -764,6 +766,25 @@ class _Token:
         return self.is_motif if self.is_fixed_seq is None else self.is_fixed_seq
 
 
+_DICT_KEY_RE = re.compile(r"^([A-Za-z]+)(\d+)(?:-(\d+))?$")
+
+
+def _dict_key_matches(key, chain: str, res_id: int) -> bool:
+    """p22: does an InputSelection dict key name this residue -- a single
+    residue (``"A108"``) or a range (``"A108-115"``)? Real reference
+    mechanism (`parsing.py::canonicalize_`): a dict key is passed through
+    `unravel_components` before its value is assigned to each residue, which
+    expands EITHER form to per-residue keys the same way a contig range does
+    -- so a range key applies its value to every residue in that range, not
+    just an exact string match."""
+    m = _DICT_KEY_RE.match(str(key).strip())
+    if not m:
+        return False
+    key_chain, start, end = m.group(1), int(m.group(2)), m.group(3)
+    end = int(end) if end is not None else start
+    return key_chain.upper() == chain.upper() and start <= res_id <= end
+
+
 def _unindexed_kept_atom_names(spec: InputSpecification, chain: str, res_id: int,
                                 real_names: Sequence[str]) -> frozenset | None:
     """F4: which of an unindexed residue's real atoms actually enter the
@@ -774,15 +795,16 @@ def _unindexed_kept_atom_names(spec: InputSpecification, chain: str, res_id: int
     does not just flag them; see module docstring). Returns None (keep every
     real atom — the F6/p14-verified default) when `select_fixed_atoms` is the
     global True/False default or a dict that doesn't name this residue's
-    `{chain}{res_id}` key (verified vs `apply_selections`: an un-named
-    residue keeps the annotation's init default, which is True/keep-all)."""
+    `{chain}{res_id}` key, single-residue or range-form (verified vs
+    `apply_selections`: an un-named residue keeps the annotation's init
+    default, which is True/keep-all; range-key expansion verified p22, see
+    `_dict_key_matches`)."""
     sel = spec.select_fixed_atoms
     if sel is None or isinstance(sel, bool):
         return None if (sel is None or sel) else frozenset()
     if isinstance(sel, dict):
-        key = f"{chain}{res_id}".upper()
         for k, v in sel.items():
-            if str(k).strip().upper() == key:
+            if _dict_key_matches(k, chain, res_id):
                 mask = _atom_selection_mask(_parse_atom_spec(v), real_names)
                 return frozenset(np.asarray(real_names)[mask].tolist())
         return None
@@ -790,6 +812,29 @@ def _unindexed_kept_atom_names(spec: InputSpecification, chain: str, res_id: int
         f"select_fixed_atoms={sel!r} (a contig-string selection) on an "
         "unindexed protein residue is not supported this pass — p17+"
     )
+
+
+def _unindex_dict_atom_names(spec: InputSpecification, chain: str, res_id: int,
+                              real_names: Sequence[str]) -> frozenset | None:
+    """p22: per-residue atom-name subset from `unindex` ITSELF when it is a
+    dict -- a SEPARATE, composable restriction from `select_fixed_atoms`.
+    Real reference mechanism: `InputSelection.get_tokens` (-> `from_any_` ->
+    `get_name_mask`) subsets each unindexed component's real atoms to its own
+    dict VALUE's atom-name spec, BEFORE `_build_init`'s independent
+    `select_fixed_atoms`-driven `is_motif_atom_with_fixed_coord` subsetting
+    ever runs -- the two compose as an INTERSECTION (verified against a real
+    reference capture: `unindex: {"A108": "ND2,CG,OD1"}` + `select_fixed_
+    atoms: {"A108": "ND2,CG"}` gives exactly {ND2,CG}, not either alone; see
+    `scripts/rfd3_port/parity_artifacts/parity_unindex_dictform.py`). Returns
+    None (no restriction from this source) when `unindex` is not a dict, or
+    is a dict that doesn't name this residue."""
+    if not isinstance(spec.unindex, Mapping):
+        return None
+    for k, v in spec.unindex.items():
+        if _dict_key_matches(k, chain, res_id):
+            mask = _atom_selection_mask(_parse_atom_spec(v), real_names)
+            return frozenset(np.asarray(real_names)[mask].tolist())
+    return None
 
 
 def _indexed_fixed_atom_names(spec: InputSpecification, chain: str, res_id: int,
@@ -812,16 +857,16 @@ def _indexed_fixed_atom_names(spec: InputSpecification, chain: str, res_id: int,
     that one token, True for every other real motif token in the fixture.
     Returns None (every real atom fixed -- the F1/p10-verified default) when
     `select_fixed_atoms` is the global True/absent default or a dict that
-    doesn't name this residue's `{chain}{res_id}` key (same resolution
-    mechanics as `_unindexed_kept_atom_names`, consumed differently: this
-    marks a subset fixed rather than dropping the rest)."""
+    doesn't name this residue's `{chain}{res_id}` key, single-residue or
+    range-form (same resolution mechanics as `_unindexed_kept_atom_names`,
+    consumed differently: this marks a subset fixed rather than dropping the
+    rest; range-key expansion verified p22, see `_dict_key_matches`)."""
     sel = spec.select_fixed_atoms
     if sel is None or isinstance(sel, bool):
         return None if (sel is None or sel) else frozenset()
     if isinstance(sel, dict):
-        key = f"{chain}{res_id}".upper()
         for k, v in sel.items():
-            if str(k).strip().upper() == key:
+            if _dict_key_matches(k, chain, res_id):
                 mask = _atom_selection_mask(_parse_atom_spec(v), real_names)
                 return frozenset(np.asarray(real_names)[mask].tolist())
         return None
@@ -837,16 +882,33 @@ def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -
     unindexed components after the main contig; ``UnindexFlaggedTokens``
     reorders/expands them, but at inference they are already physically last).
 
-    Scoped this pass (p14, grounded via a real local reference capture —
-    ``scripts/rfd3_port/parity_artifacts/parity_unindex.py``): plain contig
-    components only (a single indexed residue, or an indexed ``-`` RANGE which
-    ties the residues together / "leaks" their relative order to the model).
-    The doc-described numeric-offset-tie syntax (``A11,0,A12`` / ``A11,3,A12``)
-    and dict-form per-atom fixing are NOT implemented — both are genuinely
-    ambiguous from the reference source alone (the offset digit does not
-    obviously survive into ``get_motif_components_and_breaks``'s breaks array
-    the way the docs describe) and were not capture-verified this pass; they
-    raise NotImplementedError with a pointer here rather than guess.
+    Scoped through p14: plain contig components only (a single indexed
+    residue, or an indexed ``-`` RANGE which ties the residues together /
+    "leaks" their relative order to the model).
+
+    p22: dict-form ``unindex`` is now implemented (``spec.unindex`` as a
+    ``Mapping``, e.g. ``{"A108": "ND2,CG"}``) — same component/tie grammar as
+    the string form (``InputSpecification.parsed_unindex()`` joins the dict's
+    keys and reparses, matching the reference's own `break_unindexed`), PLUS
+    each residue's own dict VALUE additionally subsets its atoms (composed as
+    an INTERSECTION with any separate `select_fixed_atoms` restriction — see
+    `_unindex_dict_atom_names`). Verified against real reference captures
+    (`scripts/rfd3_port/parity_artifacts/parity_unindex_dictform.py`):
+    dict-only subsetting, dict+select_fixed_atoms composition (intersection),
+    and a range-form dict key (`"A5-6"`) all match.
+
+    p22: the doc-described numeric-offset-tie syntax (``A11,0,A12`` /
+    ``A11,3,A12``) is VERIFIED BROKEN in the currently-pinned reference
+    (`rc-foundry==0.2.0`) itself, under BOTH input dialects — reproduced a
+    `ValueError: invalid literal for int() with base 10: ''` in
+    `accumulate_components`/`legacy_input_parsing.accumulate_components`
+    (both strip the last character off a non-alpha component expecting a
+    size-suffix like the main contig's designed segments use, e.g. "5P", but
+    `get_motif_components_and_breaks` emits the unindex offset digit with NO
+    suffix at all — a real mismatch between two reference-internal
+    functions, not this port's ambiguity to resolve). Implementing this
+    syntax would mean matching a crash, which makes no sense; it remains
+    NotImplementedError, now root-caused rather than merely unverified.
 
     A residue is "tied" (leaked) to the PRECEDING residue in the same ``-``
     range (RPE may reveal their relative sequence position); it is masked
@@ -857,17 +919,17 @@ def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -
     """
     if spec.unindex is None:
         return []
-    if not isinstance(spec.unindex, str):
-        raise NotImplementedError("dict-form unindex (per-atom fixing) — p14+")
     by_key = {(r.chain, r.res_id): r for r in residues}
     comps = spec.parsed_unindex()
     tokens: list[_Token] = []
     for c in comps:
         if not isinstance(c, Indexed):
             raise NotImplementedError(
-                f"unindex component {c!r} not supported this pass (p14): only "
-                "plain indexed residues/ranges ('A244' or 'A11-12'); the "
-                "numeric-offset-tie syntax and '/0' inside unindex are out of scope"
+                f"unindex component {c!r} not supported: only plain indexed "
+                "residues/ranges ('A244' or 'A11-12'); the numeric-offset-tie "
+                "syntax and '/0' inside unindex are verified broken in the "
+                "reference itself (see this function's docstring) and '/0' "
+                "remains unimplemented"
             )
         for k, rid in enumerate(range(c.start, c.end + 1)):
             r = by_key.get((c.chain, rid))
@@ -875,7 +937,11 @@ def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -
                 raise ValueError(f"unindex references {c.chain}{rid} not present in input structure")
             if not _is_protein(r):
                 raise NotImplementedError("non-protein unindexed motif (NA/ligand) — p15+")
-            kept = _unindexed_kept_atom_names(spec, c.chain, rid, r.atom_names)
+            kept_sfa = _unindexed_kept_atom_names(spec, c.chain, rid, r.atom_names)
+            kept_uix = _unindex_dict_atom_names(spec, c.chain, rid, r.atom_names)
+            kept = (kept_sfa if kept_uix is None else
+                    kept_uix if kept_sfa is None else
+                    kept_sfa & kept_uix)
             tokens.append(_Token(c.chain, rid, r.res_name, True, False, True,
                                  False, r, unindex_new_island=(k == 0),
                                  kept_atom_names=kept))

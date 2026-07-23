@@ -17,18 +17,32 @@ Contig string (comma-separated components):
   - ``60-80``                       a designed region of random length in [60, 80]
   - ``A203``                        a single indexed residue (A171-A202 are dropped,
                                     a bond is created across the gap to A203)
-  - ``A11-12`` / ``A11,0,A12``      unindexed components tied together (0 offset)
-  - ``A11,3,A12``                   unindexed components with a 3-residue offset
+  - ``A11-12``                      unindexed components tied together (0 offset)
+  - ``A11,0,A12`` / ``A11,3,A12``   documented, but VERIFIED BROKEN in the real
+                                    reference itself (`rc-foundry==0.2.0`, both
+                                    input dialects — p22, see
+                                    ``rfd3_featurize._plan_unindexed_tokens``);
+                                    parsed here as ``UnindexedOffset`` for
+                                    completeness, the featurizer intentionally
+                                    still raises NotImplementedError rather
+                                    than match a reference crash
 
 InputSelection (boolean | contig string | dict):
   - ``True`` / ``False``
   - a contig string (see above)
-  - a dict ``{ "<contig>": "<atom spec>" }`` where ``<atom spec>`` is one of:
+  - a dict ``{ "<contig>": "<atom spec>" }`` (``<contig>`` may be a single
+    residue or a range, e.g. ``"A2-10"`` — expanded per-residue, same value
+    applied to each) where ``<atom spec>`` is one of:
       ``ALL``  all atoms in the residue(s)
       ``TIP``  the common tip atom for the residue (per upstream constants.py)
       ``BKBN`` backbone atoms (N, CA, C, O)
       ``N,CA,C,O,CB``  an explicit comma-joined atom-name list
       ``""``           no atoms (unfix)
+  - dict-form ``unindex`` is a SEPARATE mechanism from `select_fixed_atoms`
+    (p22): its own dict value additionally subsets which real atoms enter the
+    unindexed token, composed as an intersection with any `select_fixed_atoms`
+    restriction on the same residue — see
+    ``rfd3_featurize._unindex_dict_atom_names``.
 
 Only the grammar lives here. Resolving ``TIP``/``BKBN`` to concrete atom names,
 building atom14, RASA, hbond, hotspot, ori_token, symmetry and the rest of the
@@ -338,6 +352,12 @@ class InputSpecification:
             parse_contig(self.contig)  # raises on malformed
         if isinstance(self.unindex, str):
             parse_contig(self.unindex, unindex=True)
+        elif isinstance(self.unindex, Mapping):
+            # p22: dict-form unindex -- same component/tie grammar as the
+            # string form, applied to the joined keys (verified vs the real
+            # reference's own `break_unindexed`: `",".join(unindex.raw.keys())`
+            # re-parsed by the identical `get_motif_components_and_breaks`).
+            parse_contig(",".join(str(k) for k in self.unindex.keys()), unindex=True)
         if self.dialect not in (1, 2):
             raise ValueError(f"dialect must be 1 or 2, got {self.dialect}")
         if self.infer_ori_strategy is not None and self.infer_ori_strategy not in ("com", "hotspots"):
@@ -360,4 +380,11 @@ class InputSpecification:
             return []
         if isinstance(self.unindex, str):
             return parse_contig(self.unindex, unindex=True)
-        return []  # dict form resolved by the featurizer against the structure
+        if isinstance(self.unindex, Mapping):
+            # p22: same component/tie grammar as the string form, over the
+            # joined dict keys (see `validate()`) -- the reference's own
+            # `break_unindexed` does the identical join-then-reparse. Per-
+            # residue atom subsetting from the dict VALUES is a separate
+            # concern, resolved by the featurizer (`_unindex_dict_atom_names`).
+            return parse_contig(",".join(str(k) for k in self.unindex.keys()), unindex=True)
+        return []
