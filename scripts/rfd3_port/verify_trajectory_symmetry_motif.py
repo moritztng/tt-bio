@@ -1,26 +1,31 @@
 """Multi-step trajectory parity on F5 symmetry COMBINED with a real motif
-(p19) -- the two real, value-parity-verified targets from
-`scripts/rfd3_port/parity_artifacts/parity_symmetry_motif.py`:
+(p19) and, as of p20, a real `ligand` too -- the value-parity-verified
+targets from `scripts/rfd3_port/parity_artifacts/parity_symmetry_motif.py`
++ `parity_symmetry_ligand.py`:
 
 1. `unsym_C3_6t8h` (verbatim real example): unconditional C3 oligomer around
    a real DNA helix, DNA excluded from symmetrization via `is_unsym_motif`
    (mechanisms (a) Kabsch frames + (b) is_unsym_motif exclusion).
-2. `unindexed_C2_1j79` minus `ligand` (deterministic variant, `ligand`+
-   `symmetry` out of scope this pass -- see tt_bio.rfd3_featurize's module
-   docstring): C2 design with an unindexed catalytic residue "within a
-   subunit" (mechanisms (a) again, different real frame + (c) unindexed-
-   motif replication-then-forced-fixed).
+2. `unindexed_C2_1j79` minus `ligand` (deterministic variant): C2 design
+   with an unindexed catalytic residue "within a subunit" (mechanisms (a)
+   again, different real frame + (c) unindexed-motif replication-then-
+   forced-fixed).
+3. `unindexed_C2_1j79_full` (p20, verbatim real example WITH `ligand:
+   "ORO,ZN"`): same C2 design as #2, PLUS each subunit's own real ORO+2xZn
+   active-site ligand instances (mechanism per tt_bio.rfd3_featurize's
+   module docstring's "ligand + symmetry" grounding) -- `sym_transform_id
+   =-1`/never resymmetrized, same as #2's unindexed motif.
 
 Checks the on-device RFD3DiffusionModule + tt_bio.rfd3_sampler's F5 per-step
 symmetry reapplication (`apply_symmetry_atomwise`) numerically agrees with
 the vendored torch reference's own, AND that the reference's generic
 "never add noise to a fixed-coord atom" mechanism keeps the real motif atom
-(DNA / the unindexed catalytic residue) pinned at its seeded `motif_pos`,
-exactly as it does with no symmetry involved at all.
+(DNA / the unindexed catalytic residue / the ligand) pinned at its seeded
+`motif_pos`, exactly as it does with no symmetry involved at all.
 
 Usage:
   TT_VISIBLE_DEVICES=0 python3 scripts/rfd3_port/verify_trajectory_symmetry_motif.py [num_timesteps] [case]
-  case: "6t8h" (default) or "1j79_nolig"
+  case: "6t8h" (default), "1j79_nolig", or "1j79_full"
 """
 import json
 import os, sys, torch
@@ -41,6 +46,8 @@ CASES = {
     "1j79_nolig": ("symmetry_motif_1j79_nolig", "1j79_C2.pdb", "spec.json"),
     "6t8h_small": ("symmetry_motif_6t8h", "6t8h_C3.pdb", "spec_small.json"),
     "1j79_nolig_small": ("symmetry_motif_1j79_nolig", "1j79_C2.pdb", "spec_small.json"),
+    "1j79_full": ("unindexed_c2_1j79_full", "1j79_C2.pdb", "spec.json"),
+    "1j79_full_small": ("unindexed_c2_1j79_full", "1j79_C2.pdb", "spec_small.json"),
 }
 
 

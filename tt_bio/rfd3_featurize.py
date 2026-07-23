@@ -126,8 +126,8 @@ atom_array,frames}.py``, via a real local CPU capture of the doc's own
 F5 symmetry + a REAL motif (p19, grounded against real local CPU captures of
 the real reference's own `unsym_C3_6t8h` example verbatim, PLUS a minimal
 deterministic variant of `unindexed_C2_1j79` with its `ligand` field dropped
-— see p19+ "still owed" below for why the full `ligand`-bearing example is
-NOT shipped this pass — via `rfd3.inference.symmetry.{symmetry_utils,
+— the full `ligand`-bearing example is grounded and shipped as of p20, see
+"ligand + symmetry" below — via `rfd3.inference.symmetry.{symmetry_utils,
 atom_array,frames,checks,contigs}.py`):
 - `get_symmetry_frames_from_atom_array` (mechanism (a)): when a real
   `structure_path` is given AND the built ASU has at least one real
@@ -201,36 +201,72 @@ atom_array,frames,checks,contigs}.py`):
   fixed_coord=True` for protein, see F4 grounding) — the two mechanisms are
   redundant-but-consistent by design, exactly like the real reference's own
   belt-and-suspenders annotation.
-- **`ligand` + `symmetry` is NOT supported this pass** (raises
-  NotImplementedError) — a real, non-obvious finding from grounding against
-  the REAL (unmodified) `unindexed_C2_1j79` example first, before dropping
-  its `ligand` field for the variant above: the reference does NOT treat a
-  symmetric design's ligand as one excluded, un-replicated instance the way
-  this port's F3/F4 single-instance model assumes. A genuinely symmetric
-  input PDB's ligand is typically ALREADY physically duplicated once per
-  real subunit in the deposited coordinates (1j79's real PDB has an ORO +
-  TWO Zn ions in EACH of its two chains' active sites, verified via `grep
-  HETATM`) — the reference's `_append_ligand` picks up EVERY real instance
-  matching the requested CCD code(s) (needs `allow_ligand_on_existing_chain:
-  true`, a real passthrough field), groups them by which real input chain
-  (subunit) they physically belong to, gives each subunit-group its OWN
-  fresh chain (paralleling this port's existing "multiple codes share one
-  chain" F4 rule, but now once PER SUBUNIT), and marks ALL of them
+- **`ligand` + `symmetry` (p20, root-caused and shipped)**: grounded against
+  the REAL (unmodified) `unindexed_C2_1j79` example — the reference does NOT
+  treat a symmetric design's ligand as one excluded, un-replicated instance
+  the way F3/F4's original single-instance model assumed. A genuinely
+  symmetric input PDB's ligand is typically ALREADY physically duplicated
+  once per real subunit in the deposited coordinates (1j79's real PDB has an
+  ORO + TWO Zn ions in EACH of its two chains' active sites, verified via
+  `grep HETATM`) — the reference's `_append_ligand` picks up EVERY real
+  instance matching the requested CCD code(s) (needs
+  `allow_ligand_on_existing_chain: true`, a real passthrough field), groups
+  them by which real input chain (subunit) they physically belong to, gives
+  each subunit-group its OWN fresh chain (`_plan_ligand_tokens` groups by
+  `residue.chain`, generalizing the pre-existing "multiple codes share one
+  chain" F4 rule — a non-symmetric input's ligands all share one real source
+  chain, so this reduces to exactly the old F4 behavior with zero regression;
+  a symmetric input's ligands, physically duplicated per subunit, split into
+  one fresh chain PER subunit), and marks ALL of them
   `sym_entity_id=FIXED_ENTITY_ID` (matching mechanism (c) above — a ligand,
-  symmetrized input or not, is NEVER resymmetrized by the sampler). This
-  much is grounded and would be portable — but the CROSS-SUBUNIT-BLOCK
-  ordering of the final ligand token block (verified via a real capture:
-  subunit-B's `ORO` instance is emitted BEFORE subunit-A's, while subunit-A's
-  TWO `ZN` instances are emitted before subunit-B's — i.e. NOT a consistent
-  "subunit order" or "chain-letter order" across the two different CCD
-  codes) could not be root-caused against the real reference source in the
-  time available this pass. Shipping a token order this port could not
-  explain would risk exactly the kind of silent latent ordering bug flagged
-  as this port's #1 recurring bug class (p17/p18 durable lessons) — so this
-  combination raises NotImplementedError with a pointer here instead of
-  guessing. The exploration (spec + real capture) is preserved at
-  `scripts/rfd3_port/parity_artifacts/unindexed_c2_1j79_full/` for whoever
-  picks this up next.
+  symmetrized input or not, is NEVER resymmetrized by the sampler:
+  `sym_transform_id=-1` for every ligand token). A further real finding,
+  needed for the general `entity_id` feature (separate from the F5-specific
+  `sym_entity_id`): every ligand chain — however many subunit-groups it was
+  split into — shares ONE `entity_id`, mirroring `sym_group_entity_id`'s
+  "no real sequence, but still one group" override (verified: the two
+  per-subunit ligand chains of the symmetric enzyme both land on the same
+  entity, not two distinct ones; for a single-chain non-symmetric ligand this
+  reduces to the pre-existing "give it a fresh entity" behavior, zero
+  regression).
+
+  **The CROSS-SUBUNIT-BLOCK ordering of the final ligand token block is NOT a
+  rule at all — it is PYTHONHASHSEED-dependent and non-reproducible even by
+  the reference itself.** `unravel_components` (`foundry/utils/components.py`)
+  resolves a CCD code with multiple physical matches via
+  `components = list(set(components)); return components` — an un-sorted
+  Python `set` over `f"{chain_id}{res_id}"` strings. Re-running the IDENTICAL
+  capture (`capture_ref_f_spec.py`, same PDB/spec/seed) three times with three
+  different `PYTHONHASHSEED` values gave three DIFFERENT interleavings of
+  which subunit's `ORO`/`ZN` atoms land first in the emitted token block
+  (verified: `asym_id` sequence for the 26 ligand atoms differed across all 3
+  runs). Everything downstream of that raw order (which specific
+  `residue_index` slot / array position a given physical instance lands at)
+  is consequently also run-dependent — this is a real, if minor, upstream
+  reference bug (unordered-set iteration used where the surrounding code
+  assumes a stable order), not a deliberate rule to reverse-engineer. What
+  IS stable across every run (verified all 3): each real ligand instance's
+  own chain-of-origin, its `entity_id`/`sym_transform_id`/`sym_entity_id`/
+  `is_sym_asu`, and the PARTITION of atoms into per-real-residue
+  `residue_index` groups (e.g. one subunit's `ORO`+`ZN`+`ZN` always land in 3
+  groups of sizes {11,1,1}, never merged or split differently) — this port
+  reproduces exactly that stable structure with its own deterministic order
+  (codes in `spec.ligand`'s given order; multiple instances of one code in
+  their structure-file order) rather than attempting to replicate an
+  accident of CPython's per-process string-hash seed. Parity for this
+  fixture is therefore verified by IDENTITY-matched comparison (per real
+  `(chain, res_id, atom_name)`), not raw positional bit-exactness, for the
+  ligand sub-block specifically — see
+  `scripts/rfd3_port/parity_artifacts/unindexed_c2_1j79_full/` for the
+  fixture, the multi-run evidence, and the verification script.
+
+  The one remaining narrower gap: `is_unsym_motif` naming a `ligand` CCD code
+  directly (rather than relying on the reference's own mechanism (c), which
+  already treats every ligand as implicitly unsym) is still out of scope —
+  `_plan_ligand_tokens`'s output never passes through the
+  `is_unsym_motif`/`_token_matches_unsym` split at all (ligand tokens are
+  appended after that split runs), so this specific combination still raises
+  NotImplementedError explicitly rather than silently no-op.
 
 Enzyme (F4) grounding (verified against a real local CPU capture of the real
 ``enzyme_design.md`` example — ``M0255_1mg5.pdb`` + its own
@@ -245,7 +281,16 @@ land on the same raw chain):
   ``residue_index`` increments once PER LIGAND INSTANCE on that shared chain
   (0 for the first code, 1 for the second, ...), matching how a real multi-
   atom residue occupies one `residue_index` slot regardless of atom count.
-  Repeated instances of the SAME code are still out of scope (NotImplementedError).
+  **Corrected p20**: the real rule is one slot per REAL RESIDUE INSTANCE,
+  keyed by that instance's own real (chain, res_id) — NOT one slot per CODE
+  (this port's `(chain, res_name)`-keyed implementation through p19 was only
+  coincidentally right, since every case verified through p19 had exactly one
+  instance per code — the multi-instance case itself was still explicitly
+  `NotImplementedError`-guarded, so this was a scoped gap, not a silent
+  latent bug). 1j79's per-subunit ORO+2×Zn (see the F5+ligand grounding
+  above) needed the fix: it always partitions into 3 `residue_index` groups
+  of sizes {11,1,1}, never merged by code. Multiple instances of the SAME
+  code are now supported (p20), keyed by real residue identity.
 - ``ref_space_uid`` is a GLOBAL count of distinct residue-groups in first-
   appearance order (biotite's residue-level indexing) — NOT literally "this
   ligand's own first token index" (that framing, used through p16, happens to
@@ -253,7 +298,11 @@ land on the same raw chain):
   instance: verified NAI's 44 atoms -> ref_space_uid 197 (correct, matches its
   first-token-index by coincidence) but ACT's 4 atoms -> ref_space_uid 198,
   NOT 241 (its real first-token index) — ACT is simply the 199th distinct
-  residue-group, not token #241).
+  residue-group, not token #241). Same p20 correction as `residue_index`
+  above: the group key is the real residue INSTANCE `(chain, res_id)`, not
+  the code — verified against 1j79's per-subunit ORO+2×Zn giving 6 distinct
+  `ref_space_uid` groups among the 26 ligand atoms (sizes {11,11,1,1,1,1}),
+  not 2 (one per code).
 - ``select_fixed_atoms`` can SUBSET which of an UNINDEXED protein residue's
   real atoms enter the token at all (not merely flag them) — verified against
   the reference source (``input_parsing.py::_build_init``:
@@ -274,6 +323,26 @@ land on the same raw chain):
   against the real capture (e.g. A108 subsetted to ``{ND2,CG}``: neither
   survives as CB, so CG — the first KEPT real atom in input-structure order —
   becomes the representative, NOT literally "whichever real atom is CB").
+- **A ligand CCD code with NO entry in `select_fixed_atoms` defaults to
+  FULLY FIXED, not fully diffused (p20 fix)** — root-caused at the reference
+  source (`input_parsing.py::_assign_types_to_input.apply_selections`): the
+  WHOLE array's `is_motif_atom_with_fixed_coord` starts at the GLOBAL init
+  value `True` (`REQUIRED_CONDITIONING_ANNOTATION_VALUES`); a per-residue
+  `apply_selections` call `continue`s (leaves that residue's annotation
+  UNTOUCHED) whenever `selection.get(f"{chain_id}{res_id}")` is `None` — i.e.
+  a residue absent from `select_fixed_atoms` keeps the default `True`, it is
+  NOT reset to `False`. Every fixture through p19 happened to explicitly
+  list EVERY ligand code in `select_fixed_atoms` (even as `""`, meaning
+  "fix nothing" — a real, deliberate per-code OVERRIDE, still correctly
+  `none_()`), so "code entirely absent from the dict" was never exercised
+  until `unindexed_C2_1j79`'s real ORO/Zn (present in the ligand field, but
+  never named in that spec's `select_fixed_atoms: {"A250": ...}`) — verified
+  they are ALL fixed (`is_motif_atom_with_fixed_coord=True` for all 26
+  atoms) in a real reference capture, not diffused. This is a DIFFERENT
+  default than `select_buried`/`select_exposed` (whose own global init is
+  effectively "no label", so their existing `none_()`-when-absent default is
+  correct and unchanged) — `_resolve_ligand_atom_selection` now takes a
+  per-FIELD `not_selected` fallback, `all_()` for `select_fixed_atoms` only.
 
 Ligand (F3) grounding (same design_transforms.py/virtual_atoms.py + the real
 ``rfd3.inference.input_parsing.py``/``rfd3.inference.parsing.py`` select-field
@@ -326,11 +395,12 @@ ckpt needed, same method as F2/F8):
   binder with nothing but a fresh designed chain + a ``ligand``) is treated
   as a bare designed-length contig string (``parse_contig`` already parses a
   bare "180-180"/"180" as Designed/DesignedRange).
-- Scoped out this pass: multiple instances of the SAME CCD code (a comma-
-  separated list of *different* codes IS supported — see F4 grounding above),
-  the ``TIP``/``BKBN`` atom-selection shorthands applied to a ligand, and a
-  contig-string (rather than dict-form) select_* value targeting a ligand —
-  all raise NotImplementedError rather than guess.
+- Multiple instances of the SAME CCD code are supported (p20, see F4/F5+
+  ligand grounding above for the residue_index/ref_space_uid fix this
+  needed) — as is a comma-separated list of *different* codes (F4). Still
+  scoped out: the ``TIP``/``BKBN`` atom-selection shorthands applied to a
+  ligand, and a contig-string (rather than dict-form) select_* value
+  targeting a ligand — both raise NotImplementedError rather than guess.
 
 NA (F2/F8) grounding (``rfd3.transforms.design_transforms.py`` +
 ``virtual_atoms.py`` + ``util_transforms.py``, verified against real local CPU
@@ -454,6 +524,8 @@ PYRIMIDINE_RES = {"DC", "DT", "C", "U"}
 _ELEMENT_TO_ATOMIC_NUMBER = {
     "H": 1, "C": 6, "N": 7, "O": 8, "F": 9, "P": 15, "S": 16,
     "CL": 17, "BR": 35, "I": 53,
+    "ZN": 30,  # p20: 1j79's real active-site Zn2+ ions -- the first metal
+               # ion ligand this port has grounded against a real capture.
 }
 
 
@@ -1110,25 +1182,43 @@ def _ligand_template(ccd_code: str, mol_dir: str | None = None) -> dict:
     }
 
 
-def _resolve_ligand_atom_selection(sel_value, code: str) -> AtomSelection:
+def _resolve_ligand_atom_selection(sel_value, code: str, not_selected: "AtomSelection" = None) -> AtomSelection:
     """Resolve a select_fixed_atoms/select_buried/select_exposed field value to
     an ``AtomSelection`` for a ligand, keyed by CCD code (e.g. ``{"IAI": "C1,C2"}``)
     — a SEPARATE key convention from protein/NA's ``{chain}{res_id}`` (verified
     vs a real reference capture + rfd3.inference.parsing.canonicalize_, which
     resolves a bare ligand-code dict key via `unravel_components` to the
     ligand's actual chain+res_id before the same per-atom-name lookup protein/
-    NA use). A dict WITHOUT the ligand's code present defaults to "no atoms"
-    (matches the reference: providing the field at all means only the given
-    keys are set, unlisted residues keep the annotation's init default)."""
+    NA use).
+
+    A residue with NO entry in the dict (or the field not provided at all)
+    is genuinely SKIPPED by the reference's per-residue `apply_selections`
+    (`input_parsing.py`: `atom_names_sele = selection.get(...); if
+    atom_names_sele is None: continue`) — it keeps whichever GLOBAL init
+    value that annotation started at, UNTOUCHED. ``not_selected`` is that
+    per-FIELD init value, as an ``AtomSelection`` (``none_()`` default,
+    correct for select_buried/select_exposed's `rasa_bin`, whose "no
+    override" IS "no atoms"). ``select_fixed_atoms`` is DIFFERENT:
+    ``is_motif_atom_with_fixed_coord``'s global init
+    (`REQUIRED_CONDITIONING_ANNOTATION_VALUES`) is ``True`` — a ligand code
+    absent from `select_fixed_atoms` (p20 fix; the pre-p20 `none_()` default
+    here was only coincidentally untested: every fixture through p19 either
+    omitted `select_fixed_atoms` entirely for a spec with no ligand, or
+    explicitly listed EVERY ligand code including as `""` — verified vs a
+    real reference capture of `unindexed_C2_1j79`'s ORO/Zn, absent from that
+    spec's `select_fixed_atoms`, which are ALL fixed in the real capture,
+    not diffused) — its caller passes ``not_selected=AtomSelection.all_()``."""
+    if not_selected is None:
+        not_selected = AtomSelection.none_()
     if sel_value is None:
-        return AtomSelection.none_()
+        return not_selected
     if isinstance(sel_value, bool):
         return AtomSelection.all_() if sel_value else AtomSelection.none_()
     if isinstance(sel_value, dict):
         for k, v in sel_value.items():
             if str(k).strip().upper() == code:
                 return _parse_atom_spec(v)
-        return AtomSelection.none_()
+        return not_selected
     raise NotImplementedError(
         f"select_* value {sel_value!r} not supported for ligand atoms "
         "(a contig-string selection targeting a ligand) — p17+"
@@ -1160,12 +1250,24 @@ def _plan_ligand_tokens(spec: InputSpecification, all_residues: list[_Residue],
     per-residue token like protein/NA are). Real coordinates/atom identity come
     from the actual input-structure ligand residue (matched by CCD code).
 
-    Multiple DIFFERENT ligand codes share ONE fresh synthetic chain (verified
-    vs a real reference capture of ``enzyme_design.md``'s ``"NAI,ACT"``: both
-    land on the SAME `asym_id` — NOT one fresh chain per code, unlike this
-    port's original single-ligand assumption through p16). Repeated instances
-    of the SAME code are still out of scope (NotImplementedError, unchanged
-    from p16).
+    Every matching residue (regardless of code) is grouped by its real
+    SOURCE chain (``residue.chain``, i.e. which real input chain it was
+    physically deposited on) — each source-chain group gets its OWN fresh
+    synthetic output chain (p20, generalizing the p17 F4 rule). A
+    non-symmetric input's ligand instances typically all share one real
+    source chain, so this reduces to exactly the pre-existing "multiple
+    DIFFERENT codes share ONE fresh chain" F4 behavior verified against
+    ``enzyme_design.md``'s ``"NAI,ACT"`` (both land on the SAME `asym_id`).
+    A symmetric input's ligand is typically physically duplicated once per
+    real subunit (verified vs ``unindexed_C2_1j79``'s real ORO+2×Zn per
+    chain) — those duplicates land on DIFFERENT source chains and so get
+    split into one fresh chain per subunit (see module docstring's
+    "ligand + symmetry" grounding). Multiple instances of the SAME code
+    (p20; e.g. 1j79's two ZN ions per subunit) are supported: matches are
+    taken in each code's own structure-file order — the reference's actual
+    cross-instance order is PYTHONHASHSEED-dependent and not a real rule to
+    reproduce (see module docstring); this port picks its own deterministic
+    order instead of guessing at an accident.
 
     Each atom's ``is_fixed_coord`` (F4 fix) is resolved HERE, at token-
     construction time, from ``select_fixed_atoms`` — not deferred to the main
@@ -1182,25 +1284,35 @@ def _plan_ligand_tokens(spec: InputSpecification, all_residues: list[_Residue],
     codes = _ligand_codes(spec)
     if len(codes) != len(set(codes)):
         raise NotImplementedError(
-            f"multiple instances of the same ligand code in {spec.ligand!r} "
-            "— p17+ (one instance per code only this pass)"
+            f"ligand code repeated in the `ligand` string itself {spec.ligand!r} "
+            "— p17+ (a degenerate spec; name each code once, multiple physical "
+            "instances of one code are resolved from the structure, not the string)"
         )
-    chain = _fresh_chain_letter(used_chains)
-    tokens: list[_Token] = []
+    matches_by_code: dict[str, list[_Residue]] = {}
     for code in codes:
         matches = [r for r in all_residues if r.res_name == code]
         if not matches:
             raise ValueError(f"ligand {code!r} not found in input structure")
-        if len(matches) > 1:
-            raise NotImplementedError(f"multiple {code!r} ligand instances — p17+ (single instance only this pass)")
-        residue = matches[0]
-        fixed_mask = _atom_selection_mask(
-            _resolve_ligand_atom_selection(spec.select_fixed_atoms, code), residue.atom_names)
-        tokens.extend(
-            _Token(chain, k + 1, code, True, False, False, False, residue,
-                   is_ligand=True, ligand_atom_name=nm, is_fixed_coord=bool(fixed_mask[k]))
-            for k, nm in enumerate(residue.atom_names)
-        )
+        matches_by_code[code] = matches
+
+    source_chains = sorted({r.chain for matches in matches_by_code.values() for r in matches})
+    fresh_chain_by_source: dict[str, str] = {}
+    for src_chain in source_chains:
+        fresh_chain_by_source[src_chain] = _fresh_chain_letter(used_chains)
+
+    tokens: list[_Token] = []
+    for code in codes:
+        for residue in matches_by_code[code]:
+            chain = fresh_chain_by_source[residue.chain]
+            fixed_mask = _atom_selection_mask(
+                _resolve_ligand_atom_selection(
+                    spec.select_fixed_atoms, code, not_selected=AtomSelection.all_()),
+                residue.atom_names)
+            tokens.extend(
+                _Token(chain, residue.res_id, code, True, False, False, False, residue,
+                       is_ligand=True, ligand_atom_name=nm, is_fixed_coord=bool(fixed_mask[k]))
+                for k, nm in enumerate(residue.atom_names)
+            )
     return tokens
 
 
@@ -1227,17 +1339,6 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     atom array once `contig` is actually set (even to an all-Designed
     string); a bare `length` field never needs one.
     """
-    if spec.symmetry and spec.ligand:
-        # p19: grounded (via a real capture of the unmodified unindexed_C2_1j79
-        # example) that this combination is real and reachable, but the
-        # cross-subunit-block ligand-token ordering could not be root-caused
-        # this pass — see module docstring's F5+motif grounding for the full
-        # finding and NotImplementedError pointer.
-        raise NotImplementedError(
-            "F5 symmetry combined with `ligand` is not supported this pass "
-            "(explored, not shipped — see tt_bio.rfd3_featurize module "
-            "docstring's F5+motif grounding, 'ligand + symmetry' — p19+)"
-        )
     if structure_path is None:
         all_residues: list[_Residue] = []
     else:
@@ -1280,6 +1381,21 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     unindexed_transform_id: list[int] = [-1] * len(unindexed)
     sym_chains: set[str] = set()
     unsym_motif_names = _parse_is_unsym_motif(spec.symmetry) if spec.symmetry else None
+    if spec.symmetry and spec.ligand and unsym_motif_names:
+        # `is_unsym_motif` naming a `ligand` CCD code directly is a narrower,
+        # still-unsupported combination (see module docstring's "ligand +
+        # symmetry" grounding): `_plan_ligand_tokens`'s tokens never pass
+        # through the `_token_matches_unsym` split at all (they're appended
+        # after it runs), so this would otherwise silently no-op instead of
+        # raising.
+        overlap_codes = set(_ligand_codes(spec)) & set(unsym_motif_names)
+        if overlap_codes:
+            raise NotImplementedError(
+                f"`is_unsym_motif` naming ligand code(s) {sorted(overlap_codes)!r} "
+                "directly is not supported this pass (the reference's own "
+                "mechanism (c) already treats every ligand as implicitly "
+                "unsym — see module docstring) — p20+"
+            )
     replica_chains: list[str] | None = None
     if spec.symmetry:
         # F5: pick the frames FIRST (closed-form, unless a real motif exists
@@ -1330,15 +1446,26 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
                 unind_tid = []
             unindexed = unind_sym + unind_unsym
             unindexed_transform_id = unind_tid + [-1] * len(unind_unsym)
+    ligand_chains: set[str] = set()
     if spec.ligand:
-        # Fresh chain letter must avoid whatever chain the OUTPUT token list
-        # has claimed so far (indexed + designed tokens) -- NOT every real
-        # input chain (see `_plan_tokens_from_contig`'s docstring for the
-        # grounded reasoning; a real chain never touched by contig/ligand is
-        # fair game and can legitimately coincide with a later unindexed
-        # residue's own real chain, verified vs a real reference capture).
+        # Fresh chain letter(s) must avoid whatever chain the OUTPUT token
+        # list has claimed so far (indexed + designed + symmetric-replica
+        # tokens) -- NOT every real input chain (see `_plan_tokens_from_contig`'s
+        # docstring for the grounded reasoning; a real chain never touched by
+        # contig/ligand is fair game and can legitimately coincide with a
+        # later unindexed residue's own real chain, verified vs a real
+        # reference capture).
         used_chains = {tk.chain for tk in tokens}
-        tokens = tokens + _plan_ligand_tokens(spec, all_residues, used_chains)
+        ligand_tokens = _plan_ligand_tokens(spec, all_residues, used_chains)
+        ligand_chains = {tk.chain for tk in ligand_tokens}
+        tokens = tokens + ligand_tokens
+        if spec.symmetry:
+            # F5 mechanism (c): a ligand -- symmetric input or not -- is
+            # NEVER resymmetrized by the sampler, the same FIXED sentinel as
+            # an is_unsym_motif/post-replication-unindexed token (verified
+            # vs module docstring's "ligand + symmetry" grounding: every
+            # ligand atom in a real capture has sym_transform_id=-1).
+            sym_transform_id_by_token = sym_transform_id_by_token + [-1] * len(ligand_tokens)
     tokens = tokens + unindexed
     if spec.symmetry:
         sym_transform_id_by_token = sym_transform_id_by_token + unindexed_transform_id
@@ -1520,8 +1647,11 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
         # verified vs a real reference capture (see module docstring, F4
         # grounding, for why this is a GLOBAL group counter and not simply
         # "this ligand's own first token index" once 2+ ligand instances are
-        # present).
-        gkey = ("ligand", tk.res_name) if tk.is_ligand else ("single", ti)
+        # present). Keyed by real residue IDENTITY (chain, res_id), NOT CCD
+        # code (p20 fix, same coincidental-until-tested bug as
+        # `residue_index` above — see module docstring's "ligand + symmetry"
+        # grounding).
+        gkey = ("ligand", tk.residue.chain, tk.residue.res_id) if tk.is_ligand else ("single", ti)
         if gkey not in _group_id_by_key:
             _group_id_by_key[gkey] = _next_group_id
             _next_group_id += 1
@@ -1691,6 +1821,7 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     chain_entity: dict[str, int] = {}
     next_entity = 0
     sym_group_entity_id: int | None = None
+    ligand_group_entity_id: int | None = None
     for c in chain_to_asym:  # insertion order == order of first appearance among tokens
         seq = chain_full_seq.get(c)
         if sym_chains and c in sym_chains:
@@ -1698,6 +1829,21 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
                 sym_group_entity_id = next_entity
                 next_entity += 1
             eid = sym_group_entity_id
+        elif ligand_chains and c in ligand_chains:
+            # F4/F5: every ligand chain -- one shared chain for a
+            # non-symmetric input, one PER real source subunit for a
+            # symmetric one (see `_plan_ligand_tokens`) -- shares ONE
+            # entity_id, mirroring `sym_group_entity_id`'s "no real
+            # sequence, but still one group" override (verified vs a real
+            # reference capture: a symmetric enzyme's two per-subunit ligand
+            # chains both land on the SAME entity, not two distinct ones;
+            # for a single ligand chain this reduces to exactly the
+            # pre-existing "give it a fresh entity" behavior below, zero
+            # regression).
+            if ligand_group_entity_id is None:
+                ligand_group_entity_id = next_entity
+                next_entity += 1
+            eid = ligand_group_entity_id
         elif seq is None or seq not in entity_of_seq:
             eid = next_entity
             next_entity += 1
@@ -1716,17 +1862,20 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     sym_id = np.array([chain_sym[c] for c in token_chain], dtype=np.int32)
     residue_index = np.zeros(I, dtype=np.int32)
     _per_chain_ctr = {}
-    _ligand_res_idx_by_key = {}  # F4: (chain, code) -> the one residue_index shared by that instance's atoms
+    _ligand_res_idx_by_key = {}  # (chain, real source chain, real res_id) -> the one residue_index shared by that INSTANCE's atoms
     for ti, c in enumerate(token_chain):
         if tokens[ti].is_ligand:
             # All of ONE ligand instance's per-atom tokens are the SAME
-            # underlying residue -> they share ONE residue_index; multiple
-            # DIFFERENT instances sharing this pass's single ligand chain
-            # each consume their OWN slot in that chain's counter (verified
-            # vs a real reference capture: enzyme_design.md's NAI -> 0, ACT
-            # -> 1, on the same chain — NOT both 0, unlike this port's
-            # original single-ligand-only assumption through p16).
-            key = (c, tokens[ti].res_name)
+            # underlying residue -> they share ONE residue_index; every
+            # OTHER instance on that chain -- a different code (F4:
+            # enzyme_design.md's NAI -> 0, ACT -> 1) OR a second instance of
+            # the SAME code (p20: 1j79's two Zn on one subunit's ligand
+            # chain -> 1, 2) -- consumes its OWN slot in that chain's
+            # counter. Keyed by real residue IDENTITY (chain, res_id), NOT
+            # by CCD code (p20 fix — see module docstring's "ligand +
+            # symmetry" grounding: code-keying was only coincidentally right
+            # while every case had exactly one instance per code).
+            key = (c, tokens[ti].residue.chain, tokens[ti].residue.res_id)
             if key not in _ligand_res_idx_by_key:
                 _ligand_res_idx_by_key[key] = _per_chain_ctr.get(c, 0)
                 _per_chain_ctr[c] = _ligand_res_idx_by_key[key] + 1
@@ -1742,15 +1891,25 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     # token, the real intra-ligand covalent bond graph (from the CCD template)
     # becomes real inter-TOKEN bonds — verified vs a real reference capture
     # (a 33-heavy-atom ligand token block has a real, non-trivial token_bonds
-    # submatrix, not all-zero). F4: each ligand CODE's bond graph is resolved
-    # separately (name_to_tok keyed per-code) so two different-code instances
-    # sharing a chain never cross-wire each other's bonds (verified: zero
-    # cross-ligand token_bonds entries in a real capture of "NAI,ACT").
+    # submatrix, not all-zero). F4: each ligand INSTANCE's bond graph is
+    # resolved separately, keyed by (code, real residue identity) — NOT just
+    # by code (p20 fix: a plain per-code `name_to_tok` dict would silently
+    # collide two instances of the SAME code, since both share atom names —
+    # the SECOND instance's token indices would overwrite the FIRST's, wiring
+    # every bond onto the last instance only and leaving earlier instances
+    # bond-free; verified vs 1j79's two ORO instances, real ring atoms with
+    # real intra-residue bonds). Different-code instances sharing a chain
+    # already never cross-wire each other's bonds (verified: zero
+    # cross-ligand token_bonds entries in a real capture of "NAI,ACT") since
+    # each instance's dict is built fresh.
     token_bonds = np.zeros((I, I), dtype=bool)
     if spec.ligand:
-        for code in _ligand_codes(spec):
-            name_to_tok = {tokens[ti].ligand_atom_name: ti for ti in np.where(is_ligand_tok)[0]
-                           if tokens[ti].res_name == code}
+        _lig_instances: dict[tuple, dict[str, int]] = {}
+        for ti in np.where(is_ligand_tok)[0]:
+            tk = tokens[ti]
+            _lig_instances.setdefault((tk.res_name, tk.residue.chain, tk.residue.res_id), {})[
+                tk.ligand_atom_name] = ti
+        for (code, _src_chain, _src_res_id), name_to_tok in _lig_instances.items():
             for u, v in _lig_template[code]["bonds"]:
                 tu = name_to_tok.get(_lig_template[code]["names"][u])
                 tv = name_to_tok.get(_lig_template[code]["names"][v])
