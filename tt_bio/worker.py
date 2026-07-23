@@ -469,11 +469,15 @@ class _WorkerState:
         # separate OpenDDE progress wiring, and no premature "diffusion" emit
         # that would skip the trunk phase on the live view.
         n_sample = int(cfg["diffusion_samples"])
-        coords, conf = self.model.fold(
-            feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-            seed=cfg.get("seed") or 0, progress_fn=report_progress,
-            n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
-            return_confidence=True)
+        # Integration-parity envelope: run the bf16 CPU reference fold under bf16
+        # autocast (see _predict_protenix_one / _maybe_ref_bf16). nullcontext on
+        # device and on the fp32 reference, so those paths are untouched.
+        with torch.no_grad(), self._maybe_ref_bf16():
+            coords, conf = self.model.fold(
+                feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
+                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
+                return_confidence=True)
         confs = conf if isinstance(conf, list) else [conf]
 
         # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers, falling
@@ -562,11 +566,18 @@ class _WorkerState:
         # as "trunk", diffusion steps as "diffusion" (no remapping that would
         # hide the trunk phase).
         n_sample = int(cfg["diffusion_samples"])
-        coords, conf = self.model.fold(
-            feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-            seed=cfg.get("seed") or 0, progress_fn=report_progress,
-            return_confidence=True, n_cycles=cfg.get("recycling_steps"),
-        )
+        # Integration-parity envelope: the bf16 CPU reference must run the whole
+        # protenix fold under bf16 autocast (mirroring the boltz2 path at
+        # predict_step), otherwise the bf16 ref runs in fp32, the envelope
+        # denominator collapses to ~0 and any device residual reads as a false GAP.
+        # On device (accelerator == "tenstorrent") and on the fp32 reference this
+        # is a nullcontext, so those paths are untouched.
+        with torch.no_grad(), self._maybe_ref_bf16():
+            coords, conf = self.model.fold(
+                feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
+                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                return_confidence=True, n_cycles=cfg.get("recycling_steps"),
+            )
         confs = conf if isinstance(conf, list) else [conf]
 
         # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers,

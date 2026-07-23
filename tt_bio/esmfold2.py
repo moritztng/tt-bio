@@ -1204,6 +1204,17 @@ def sample_structure(denoise_fn, n_atoms, ref_mask, *, steps=14, sigma_data=16.0
     # sampler (the private-generator path ignores it, because the forward never
     # threads the seed kwarg -- the mp-spawn-worker-unseeded-rng-pattern).
     gen = None if os.environ.get("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG", "0") not in ("0", "") else torch.Generator().manual_seed(seed)
+    # Shared-draws hook for the integration-parity gate (see tt_bio/boltz2.py
+    # AtomDiffusion.sample). The private generator above makes a fold reproducible
+    # regardless of global RNG state, but for the envelope test the device and CPU
+    # references must draw byte-identical noise. TT_BIO_SHARED_DRAW_SEED forces the
+    # GLOBAL RNG (gen=None) into an identical state immediately before the first
+    # draw on both paths, so every torch.randn(..., generator=gen) below shares
+    # draws. Unset in production, so normal folds keep the private-generator path.
+    _sds = os.environ.get("TT_BIO_SHARED_DRAW_SEED")
+    if _sds:
+        gen = None
+        torch.manual_seed(int(_sds))
     schedule = karras_schedule(steps, sigma_data, s_min, s_max, p)
     if max_inference_sigma is not None:
         schedule = schedule[schedule <= float(max_inference_sigma)]
