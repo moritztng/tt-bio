@@ -179,6 +179,33 @@
           "date": "2026-07-19",
           "note": "seed p300c esmc-300m embed perf baseline (warm run, 8x ubiquitin-76 embed, batch 8, main HEAD 0.3.1 on qb2 P300c card 1)"
         }
+      },
+      "machines": {
+        "tt-quietbox2": {
+          "models": {
+            "saprot-650m": {
+              "unit": "seq/s",
+              "direction": "higher",
+              "value": 229.506352,
+              "latency_ms": 34.86,
+              "input": "8x ubiquitin (76 aa), batch 8",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p300c",
+              "machine_id": "tt-quietbox2",
+              "tt_bio_version": "0.3.4",
+              "date": "2026-07-23",
+              "note": "seed qb2 (tt-quietbox2) p300c saprot-650m baseline; the p300c card-level block predated saprot-650m being added to SPECS so the gate read NO BASELINE for it on qb2. Measured 2026-07-23 on clean main HEAD; machine-block (not card-level) so it does not assume other p300c machines match qb2."
+            }
+          },
+          "date": "2026-07-23",
+          "tt_bio_version": "0.3.4",
+          "note": "seed qb2 (tt-quietbox2) p300c saprot-650m baseline; the p300c card-level block predated saprot-650m being added to SPECS so the gate read NO BASELINE for it on qb2. Measured 2026-07-23 on clean main HEAD; machine-block (not card-level) so it does not assume other p300c machines match qb2."
+        }
       }
     },
     "p150a": {
