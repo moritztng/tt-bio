@@ -787,11 +787,12 @@ class RFD3AtomBlock(Module):
 class LocalAtomTransformer(Module):
     """Three-block RFD3 atom encoder using dense additive-mask attention."""
 
-    def __init__(self, state_dict, ckc, n_blocks=3, dtype=None):
+    def __init__(self, state_dict, ckc, n_blocks=3, dtype=None, fp32_residual=False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.blocks = [
-            RFD3AtomBlock(self.scope(f"blocks.{i}"), ckc, dtype=self.dtype)
+            RFD3AtomBlock(self.scope(f"blocks.{i}"), ckc, dtype=self.dtype,
+                          fp32_residual=fp32_residual)
             for i in range(n_blocks)
         ]
 
@@ -812,7 +813,7 @@ class LocalAtomTransformer(Module):
 class CompactStreamingDecoder(Module):
     """RFD3 decoder: three device Upcast/atom blocks plus device Downcast."""
 
-    def __init__(self, state_dict, ckc, dtype=None):
+    def __init__(self, state_dict, ckc, dtype=None, fp32_residual=False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.upcast = [
@@ -822,6 +823,13 @@ class CompactStreamingDecoder(Module):
             )
             for i in range(3)
         ]
+        # The decoder atom blocks stay bf16 even when fp32_residual is requested: the
+        # decoder interleaves a GatedCrossAttention (upcast) between atom blocks, and an
+        # fp32 residual would leak into that GCA's matmul -> host fp32 fallback. The
+        # decoder's atom-grouping gathers also truncate the inter-block residual to bf16
+        # (ttnn.embedding), so an fp32 residual here would not compound anyway. fp32-residual
+        # is only useful on a pure atom-block stack whose output hits a casting boundary
+        # (the encoder + the DiT), not on the decoder's interleaved layout.
         self.atom_blocks = [
             RFD3AtomBlock(
                 self.scope(f"atom_transformer.{i}"), ckc, dtype=self.dtype
@@ -1251,15 +1259,24 @@ class RFD3DiffusionModule(Module):
         self.downcast_q_s_n = self.torch_to_tt("downcast_q.process_s.0.weight", dtype=dt)
         self.downcast_q_s_w = self.torch_to_tt("downcast_q.process_s.1.weight", dtype=dt)
         self.diffusion_token_encoder = DiffusionTokenEncoder(self.scope("diffusion_token_encoder"), ckc, dtype=dt)
-        # fp32 residual stream on the 18-block DiT only (the deepest compounding path): matmuls
-        # stay bf16 (Blackhole fp32 matmul is a host-fallback dead-end), the residual sum is
-        # kept in fp32 so bf16 storage rounding does not compound across the 18-block stack.
-        # Opt-in via RFD3_FP32_RESIDUAL=1; default off keeps the verified bf16 behavior.
+        # fp32 residual stream across the pure RFD3AtomBlock stacks in the DM: the 18-block
+        # DiT (deepest compounding path) and the 3-block encoder. The decoder is intentionally
+        # excluded (its atom blocks are interleaved with a GatedCrossAttention and truncated by
+        # embedding gathers between blocks, so an fp32 residual would leak into a GCA matmul
+        # -> host fallback and would not compound anyway). Matmuls stay bf16 (Blackhole fp32
+        # matmul is a host-fallback dead-end); only the residual sum is fp32 so bf16 storage
+        # rounding does not compound across the block stacks. Opt-in via RFD3_FP32_RESIDUAL=1;
+        # default off keeps the verified bf16 behavior.
         self._dit_fp32_residual = os.environ.get("RFD3_FP32_RESIDUAL") == "1"
         self.diffusion_transformer = LocalTokenTransformer(self.scope("diffusion_transformer"), ckc, dtype=dt,
                                                          fp32_residual=self._dit_fp32_residual)
-        self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt)
-        self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt)
+        # The fp32-residual lever threads through the DiT and the encoder (the two pure
+        # atom-block stacks); the decoder accepts the flag but ignores it (see its ctor).
+        # Default off keeps the verified bf16 behavior.
+        self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
+                                            fp32_residual=self._dit_fp32_residual)
+        self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
+                                               fp32_residual=self._dit_fp32_residual)
         self.sequence_head = LinearSequenceHead(self.scope("sequence_head"), ckc, dtype=dt)
 
     def scale_positions_in(self, X, t):
