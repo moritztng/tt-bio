@@ -93,14 +93,22 @@ turns that triangulation into the systematic pass criterion.
 
 A diffusion model is a deterministic function of its input noise. Feed byte-identical noise to
 three CLOSED-LOOP runs — `device_bf16` (TT), `reference_fp32` and `reference_bf16` (both tt-bio's
-own CPU torch path, `--no_kernels`, the second under `TT_BIO_REF_BF16=1`) — all seeded so they
-share one CPU-MT19937 draw stream by construction. Then, per leg per metric `d`:
+own CPU torch path, `--no_kernels`, the second under `TT_BIO_REF_BF16=1`). The single `--seed` is
+NOT enough to share draws: the device (ttnn) trunk and the CPU (torch) trunk consume the global RNG
+differently before the sampler, so the gate sets `TT_BIO_SHARED_DRAW_SEED` on all three runs, which
+re-seeds in `AtomDiffusion.sample` right before the first `torch.randn` so all three draw
+byte-identical noise (verified bit-exact). Then, per leg per metric `d`:
 
     d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
 
 The floor is the intrinsic bf16 cost of the full trajectory (chaotic amplification included),
 MEASURED from a bf16 recomputation of the reference itself, not guessed. Scorer:
 `scripts/integration_envelope.py`; see `RELEASING.md` for the full rationale and the pass criterion.
+
+> **Note (2026-07-23):** the FKBP12/DHFR numbers below were measured BEFORE the shared-draws fix
+> (`TT_BIO_SHARED_DRAW_SEED`) and are not valid parity verdicts — device and reference drew
+> different diffusion noise. They stand only as illustration; the real head-to-head is regenerated
+> with the fix. The METHOD and gate wiring are correct; the reference NUMBERS need regeneration.
 
 **FKBP12 head-to-head (no-MSA affinity, seed 0 — proof of the method).** Under the old floor the
 FKBP12 affinity metrics were cleared only with caveats and manual triangulation (pocket-lDDT read

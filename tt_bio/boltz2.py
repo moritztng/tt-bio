@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import gc
+import os
 from abc import ABC, abstractmethod
 from functools import partial
 from math import exp, pi, sqrt
@@ -4089,6 +4090,19 @@ class AtomDiffusion(Module):
 
         # atom position is noise at the beginning
         init_sigma = sigmas[0]
+        # Integration-parity gate hook (opt-in, off in production). The device (ttnn trunk) and the
+        # CPU reference (torch trunk) consume the global RNG DIFFERENTLY between the one seed set in
+        # worker.py and this sampler, so a plain single-seed run does NOT give the device and the
+        # reference the same diffusion noise — the "shared draws" the envelope test needs are broken
+        # by construction (measured 2026-07-23: device vs CPU init noise diverged completely). Re-
+        # seeding immediately before the first draw makes every sampler call (structure AND affinity
+        # both route through this method) start from an identical RNG state regardless of what the
+        # trunk consumed, so device and reference draw byte-identical noise and the only remaining
+        # difference is arithmetic. Both sides of the gate set this env to the same value; unset in
+        # production, so normal folds are untouched.
+        _sds = os.environ.get("TT_BIO_SHARED_DRAW_SEED")
+        if _sds:
+            torch.manual_seed(int(_sds))
         atom_coords = init_sigma * torch.randn(shape, device=self.device)
         token_repr = None
         atom_coords_denoised = None

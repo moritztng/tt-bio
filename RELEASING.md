@@ -130,10 +130,16 @@ pocket-lDDT, |Δ| for the affinity scalar):
 - `reference_fp32` — tt-bio on CPU, `--no_kernels`, fp32 (ground truth)
 - `reference_bf16` — tt-bio on CPU, `--no_kernels`, `TT_BIO_REF_BF16=1` (bf16 autocast)
 
-Because the reference is tt-bio's OWN torch path, all three are the same code with a backend/dtype
-toggle and draw their diffusion `torch.randn` on CPU MT19937 from the one `--seed`, so shared
-draws hold by construction (the only difference between any two runs is arithmetic). Pass, per leg
-per metric `d(.,.)`:
+All three are tt-bio's OWN torch path (CPU references via `--accelerator cpu --no_kernels`), so
+they are the same code with a backend/dtype toggle. But shared draws do NOT hold from the single
+`--seed` alone: the device (ttnn) trunk and the CPU (torch) trunk consume the global RNG
+differently between that seed and the sampler, so the device would otherwise draw DIFFERENT
+diffusion noise than the reference (measured 2026-07-23 — the device vs CPU initial noise diverged
+completely). The gate therefore sets `TT_BIO_SHARED_DRAW_SEED` on all three runs, which re-seeds in
+`AtomDiffusion.sample` immediately before the first `torch.randn` (covering the structure AND
+affinity samplers); with it, device and reference draw byte-identical noise (verified bit-exact) so
+the only difference between any two runs is arithmetic. `--regen-refs` and the device fold both set
+it automatically; it is unset in production. Pass, per leg per metric `d(.,.)`:
 
     d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
 

@@ -123,6 +123,16 @@ def _is_envelope_leg(leg) -> bool:
     return leg.kind in ENVELOPE_KINDS
 
 
+def _shared_draw_env() -> dict:
+    """Env that forces byte-identical diffusion noise across the device fold and both CPU
+    references (see tt_bio/boltz2.py AtomDiffusion.sample). WITHOUT it the device (ttnn trunk) and
+    the CPU reference (torch trunk) consume the global RNG differently before the sampler, so a
+    plain single-seed run gives them DIFFERENT noise — the envelope numerator would then conflate
+    arithmetic divergence with a different diffusion basin (the exact flaw the R/D/X floor had).
+    Set identically on all three runs so shared draws hold and the numerator is arithmetic-only."""
+    return {"TT_BIO_SHARED_DRAW_SEED": str(ENVELOPE_SEED)}
+
+
 # ---------------------------------------------------------------------------
 # Leg registry — every row of docs/implementation-parity.md
 # ---------------------------------------------------------------------------
@@ -600,7 +610,8 @@ def _run_remote_fold(wrapped, worker: "Worker", out_dir: Path, logf, fold_timeou
 
 
 def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Worker],
-                     log_dir: Path, resume: bool = True, fold_timeout: float | None = None) -> dict:
+                     log_dir: Path, resume: bool = True, fold_timeout: float | None = None,
+                     extra_env: dict | None = None) -> dict:
     """Run one device fold per seed, fanned across workers; return {seed: out_dir_or_error}.
 
     Workers run in parallel; each worker runs its seeds serially (one device context per
@@ -627,7 +638,7 @@ def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Wo
                 if inner is not None:
                     out[s] = inner
                     continue
-            wrapped = w.wrap(device_cmd(leg, s, out_dir, workdir), REPO, {})
+            wrapped = w.wrap(device_cmd(leg, s, out_dir, workdir), REPO, dict(extra_env or {}))
             logf = open(log_dir / f"{leg.id}_seed{s}.log", "w")
             t0 = time.monotonic()
             try:
@@ -731,6 +742,7 @@ def _ref_settings(leg: Leg) -> dict:
     """The settings that DEFINE this leg's reference — the fingerprint's cache key. Change any of
     these and the reference must be regenerated (fingerprint drift => BLOCKED-REF-REGEN-NEEDED)."""
     return {"device_args": list(leg.device_args), "seed": ENVELOPE_SEED,
+            "shared_draw_seed": ENVELOPE_SEED,  # the shared-draws discipline is part of the ref identity
             "yaml": leg.yaml, "model": leg.model, "target_id": leg.target_id, "msa": leg.msa}
 
 
@@ -753,7 +765,8 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
         base = _fixture_dir(leg.fixture)
         base.mkdir(parents=True, exist_ok=True)
         leg_ok = True
-        for dtype, env in (("fp32", {}), ("bf16", {"TT_BIO_REF_BF16": "1"})):
+        for dtype, env in (("fp32", dict(_shared_draw_env())),
+                           ("bf16", {"TT_BIO_REF_BF16": "1", **_shared_draw_env()})):
             out_dir = base / f"ref_{dtype}"
             if resume and _find_results_dir(out_dir) is not None:
                 print(f"  {leg.id} ref_{dtype}: cached, skip")
@@ -1307,7 +1320,8 @@ def main() -> int:
                 # references. The refs' presence was already verified above.
                 fp32_dir, bf16_dir = envelope_ref_dirs(leg)
                 folds = run_folds_fanout(leg, [ENVELOPE_SEED], workdir, workers, log_dir,
-                                         resume=resume, fold_timeout=args.fold_timeout)
+                                         resume=resume, fold_timeout=args.fold_timeout,
+                                         extra_env=_shared_draw_env())
                 dev = folds.get(ENVELOPE_SEED)
                 if not isinstance(dev, Path):
                     err = dev.get("error") if isinstance(dev, dict) else "no output dir"
