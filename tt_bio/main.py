@@ -2087,8 +2087,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                     struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
             return
-        workers = _local_workers("tenstorrent" if use_tt else accelerator,
-                                 num_devices, device_ids, max_workers=max(len(jobs), 1))
+        workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                       struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
         return
