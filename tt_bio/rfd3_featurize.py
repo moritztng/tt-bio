@@ -8,8 +8,9 @@ real RosettaCommons/foundry featurizer
 + ``pipelines.py``, production branch, 2026-07-23) and the ``f`` contract the
 TokenInitializer reads.
 
-Status (p12): ATOM-LEVEL parity landed for the protein-binder/motif-scaffold
-case (F1/F6). The reference does NOT pad every token to a fixed 14 atoms —
+Status (p15): ATOM-LEVEL parity landed for the protein-binder/motif-scaffold
+case (F1/F6) AND the nucleic-acid-binder case (F2/F8). The reference does NOT
+pad every token to a fixed 14 atoms —
 ``PadTokensWithVirtualAtoms`` only pads DESIGNED (sequence-unknown) tokens to
 14; MOTIF (fixed-seq, indexed) tokens keep exactly their real observed heavy
 atoms, looked up via the "dense" association scheme
@@ -34,11 +35,54 @@ identity). ``motif_pos`` is centered: the whole design is translated so the
 center of mass of the real (motif) atoms sits at the origin.
 
 Coverage: protein-binder (F1) + motif-scaffolding (F6, indexed AND unindexed)
-on a protein-only input (contig with indexed-motif + designed regions + chain
-breaks; ``unindex`` with plain/`-`-range components). Ligand (F3), NA (F2/F8),
-enzyme (F4) and symmetry (F5) raise NotImplementedError with a pointer to the
-reference transform; so does the unindex numeric-offset-tie syntax and
-dict-form per-atom fixing (see ``_plan_unindexed_tokens``).
+on protein input, PLUS nucleic-acid-binder design (F2/F8: a fixed-sequence
+DNA/RNA target chain + a designed protein binder chain, e.g. the
+``dsDNA_basic``/``RNA_basic`` reference examples). Ligand (F3), enzyme (F4)
+and symmetry (F5) input still raise NotImplementedError with a pointer to the
+reference transform; so does NA as an *indexed motif inside a protein chain*'s
+unindex field, and the unindex numeric-offset-tie syntax / dict-form per-atom
+fixing (see ``_plan_unindexed_tokens``).
+
+NA (F2/F8) grounding (``rfd3.transforms.design_transforms.py`` +
+``virtual_atoms.py`` + ``util_transforms.py``, verified against real local CPU
+captures of ``1bna.pdb``/dsDNA and ``1q75.pdb``/RNA via ``capture_ref_f.py`` —
+no ckpt needed, same method as F1/F6):
+- DNA/RNA atoms are NEVER renamed to generic ``V0..V8`` labels and NEVER
+  padded — ``PadTokensWithVirtualAtoms``'s ``is_residue`` gate is
+  ``is_protein & ~atomize`` (plus unindexed, N/A here), so non-protein tokens
+  never enter that transform at all. Real atom names (``O5'``, ``C1'``,
+  ``N9``, ...) are kept verbatim, in the input structure's real order — no
+  scheme lookup needed (unlike the protein "dense" scheme).
+- ``ref_element`` IS filled for NA (unlike protein, whose ``has_sequence``
+  is unconditionally excluded by ``generate_conformers_for_non_protein_only``)
+  — one-hot atomic number of the real parsed element. ``ref_charge`` is 0 and
+  ``ref_mask`` is True for every NA atom (verified against both a real capture
+  AND the persisted p4/p10 dsDNA_basic ckpt golden).
+- ``ref_pos`` (the reference-conformer 3D geometry) is NOT reproduced this
+  pass — the real pipeline calls into RDKit/CCD-template conformer generation
+  (``get_af3_reference_molecule_features``), which this port does not vendor;
+  left at 0 (documented gap, same simplification protein already uses since
+  fixed atoms get real geometry via ``motif_pos`` regardless).
+- ``is_ca``/``is_central`` (the one "representative atom" per token) is the
+  base's ring-center atom: ``C4`` for purines (DA/DG/A/G), ``C2`` for
+  pyrimidines (DC/DT/C/U) — verified against both captures.
+- ``is_backbone``/``is_sidechain`` are never set for NA (that split is
+  protein-only in the reference); ``terminus_type`` (5'/3') is likewise never
+  set for NA in this contract (verified all-zero on both captures).
+- ``restype``'s 32-dim one-hot follows the real AF3 vocabulary
+  (``atomworks.ml.encoding_definitions.AF3_TOKENS``): 0-19 the 20 AA, 20
+  unknown-AA, 21-24 RNA A/C/G/U, 25 unknown-RNA, 26-29 DNA DA/DC/DG/DT, 30
+  unknown-DNA, 31 GAP (designed/no-sequence) — verified index-for-index
+  against both captures.
+- ``entity_id``/``sym_id``: chains are grouped into the same entity by their
+  FULL real-chain residue-name sequence (not just the contig-selected
+  subset) — e.g. dsDNA_basic's chain A and chain B are the same 12-mer
+  palindrome, so they share ``entity_id`` and get distinct ``sym_id`` replica
+  indices. A synthetic (designed) chain always starts a fresh entity. A
+  ``Designed``/``DesignedRange`` segment immediately after a contig chain
+  break (``/0``) gets a brand-new synthetic chain letter rather than
+  inheriting the preceding indexed block's chain (verified: dsDNA_basic's
+  designed protein segment is its own chain/entity, not chain "B").
 """
 from __future__ import annotations
 
@@ -89,20 +133,30 @@ _DENSE_ATOM14_SCHEME: dict[str, list[str | None]] = {
     "VAL": ["N", "CA", "C", "O", "CB", "CG1", "CG2", None, None, None, None, None, None, None],
 }
 
-# AF3 standard 20-AA restype order (index 0..19); restype=32 channels, designed
-# (sequence-unknown) tokens use class index 31 (confirmed vs a real reference
-# capture, see module docstring / state notes).
+# Real AF3 sequence vocabulary (atomworks.ml.encoding_definitions.AF3_TOKENS):
+# 20 AA + unknown-AA, 4 RNA + unknown-RNA, 4 DNA + unknown-DNA, GAP. restype
+# is a 32-dim one-hot over this exact order (index-verified vs real local
+# captures of dsDNA_basic-style and RNA_basic-style inputs, see module
+# docstring). Designed (sequence-unknown) tokens use the GAP slot (31).
 _RESTYPE_ORDER = [
     "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE",
     "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL",
+    "UNK",
+    "A", "C", "G", "U", "N",
+    "DA", "DC", "DG", "DT", "DN",
+    "GAP",
 ]
 _RESTYPE_TO_IDX = {n: i for i, n in enumerate(_RESTYPE_ORDER)}
-DESIGNED_RESTYPE_IDX = 31
+DESIGNED_RESTYPE_IDX = _RESTYPE_TO_IDX["GAP"]
 RESTYPE_DIM = 32
+assert DESIGNED_RESTYPE_IDX == 31 and RESTYPE_DIM == len(_RESTYPE_ORDER)
 
-PROTEIN_RES = set(_RESTYPE_ORDER)
-DNA_RES = {"DA", "DC", "DG", "DT", "A", "C", "G", "T", "DX"}
+PROTEIN_RES = set(_RESTYPE_ORDER[:20])
 RNA_RES = {"A", "C", "G", "U"}
+DNA_RES = {"DA", "DC", "DG", "DT"}
+PURINE_RES = {"DA", "DG", "A", "G"}
+PYRIMIDINE_RES = {"DC", "DT", "C", "U"}
+_ELEMENT_TO_ATOMIC_NUMBER = {"H": 1, "C": 6, "N": 7, "O": 8, "P": 15, "S": 16}
 
 
 # -- encoders ---------------------------------------------------------------
@@ -133,8 +187,16 @@ def _restype_onehot(res_names: Sequence[str]) -> np.ndarray:
 def load_structure(path: str | Path):
     """Parse a PDB/CIF into a biotite AtomArray with the annotations the
     featurizer needs. This replaces atomworks.io.parser.parse for the
-    protein-only case; it does NOT reproduce atomworks' bond perception,
-    assembly building, or CCD normalisation (parity-ungated)."""
+    protein/NA case; it does NOT reproduce atomworks' bond perception,
+    assembly building, or CCD normalisation (parity-ungated).
+
+    Heavy atoms only (matches the reference's universal heavy-atom-only
+    convention): the protein path already gets this implicitly (hydrogens
+    aren't in the "dense" atom14 scheme so they're silently skipped), but an
+    NA input file that models explicit hydrogens (e.g. an NMR structure)
+    needs an explicit drop here — verified vs a real reference capture
+    (1q75.pdb/RNA_basic, which is H-explicit; without this filter L came out
+    550 instead of the reference's 386)."""
     from biotite.structure.io.pdb import PDBFile
     from biotite.structure.io.pdbx import CIFFile, get_structure
 
@@ -146,6 +208,7 @@ def load_structure(path: str | Path):
         pf = PDBFile.read(str(p))
         arr = pf.get_structure(model=1)
     arr = arr[arr.element != ""] if hasattr(arr, "element") else arr
+    arr = arr[arr.element != "H"] if hasattr(arr, "element") else arr
     return arr
 
 
@@ -156,6 +219,7 @@ class _Residue:
     res_name: str
     atom_names: list[str]
     coord: np.ndarray  # [n_atoms, 3]
+    elements: list[str]
 
 
 def _group_residues(arr) -> list[_Residue]:
@@ -173,12 +237,29 @@ def _group_residues(arr) -> list[_Residue]:
             res_name=str(sub.res_name[0]).strip().upper(),
             atom_names=[str(a).strip() for a in sub.atom_name],
             coord=np.asarray(sub.coord, dtype=np.float32),
+            elements=[str(e).strip().upper() for e in sub.element],
         ))
     return res
 
 
 def _is_protein(r: _Residue) -> bool:
     return r.res_name in PROTEIN_RES
+
+
+def _is_na(r: _Residue) -> bool:
+    return r.res_name in DNA_RES or r.res_name in RNA_RES
+
+
+def _central_atom_name(res_name: str) -> str | None:
+    """The single "representative atom" name for a DNA/RNA residue (the
+    reference's ``is_ca``/``is_central`` flag) — the base ring-center atom:
+    C4 for purines, C2 for pyrimidines. Verified vs real captures (dsDNA_basic
+    -style and RNA_basic-style)."""
+    if res_name in PURINE_RES:
+        return "C4"
+    if res_name in PYRIMIDINE_RES:
+        return "C2"
+    return None
 
 
 def _motif_atom_layout(r: _Residue):
@@ -197,7 +278,9 @@ def _motif_atom_layout(r: _Residue):
     TRP): getting this wrong silently permutes ``motif_pos``/atom-name
     features for any residue with non-canonical side-chain atom ordering in
     its input file (didn't manifest on the p12 F1/F6 fixture by coincidence).
-    Returns (names, coord[n,3], is_virtual[n]=False)."""
+    Returns (names, coord[n,3], is_virtual[n]=False, elements=None) — elements
+    is always None for protein: ``ref_element`` is never filled for protein
+    atoms regardless (see module docstring), so no per-atom element is needed."""
     scheme = _DENSE_ATOM14_SCHEME.get(r.res_name)
     if scheme is None:
         raise NotImplementedError(f"no dense atom14 scheme for motif residue {r.res_name!r}")
@@ -213,18 +296,30 @@ def _motif_atom_layout(r: _Residue):
         names.append(ATOM14_ATOM_NAMES[slot])
         coord.append(c)
     coord_arr = np.asarray(coord, dtype=np.float32) if coord else np.zeros((0, 3), dtype=np.float32)
-    return names, coord_arr, np.zeros(len(names), dtype=bool)
+    return names, coord_arr, np.zeros(len(names), dtype=bool), None
+
+
+def _na_atom_layout(r: _Residue):
+    """Real heavy atoms of a DNA/RNA motif residue, verbatim: real names, real
+    order, no scheme lookup, no renaming (``PadTokensWithVirtualAtoms``'s
+    ``is_residue`` gate is protein-only, so non-protein tokens never get
+    V-slot-relabeled or padded — see module docstring). Elements are the real
+    parsed per-atom element (needed for ``ref_element``, which — unlike
+    protein — IS filled for NA). Returns (names, coord[n,3], is_virtual[n]
+    =False, elements[n])."""
+    return list(r.atom_names), r.coord.copy(), np.zeros(len(r.atom_names), dtype=bool), list(r.elements)
 
 
 def _designed_atom_layout():
     """Full 14-slot template for a designed (sequence-unknown) residue: the
     5 backbone+CB slots are real (undetermined, coord 0); V0..V8 are virtual
-    pad atoms (PadTokensWithVirtualAtoms). Returns (names, coord[14,3], is_virtual[14])."""
+    pad atoms (PadTokensWithVirtualAtoms). Returns (names, coord[14,3],
+    is_virtual[14], elements=None)."""
     names = list(ATOM14_ATOM_NAMES)
     coord = np.zeros((14, 3), dtype=np.float32)
     is_virtual = np.zeros(14, dtype=bool)
     is_virtual[5:] = True
-    return names, coord, is_virtual
+    return names, coord, is_virtual, None
 
 
 # -- contig -> token plan ----------------------------------------------------
@@ -284,23 +379,39 @@ def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -
             if r is None:
                 raise ValueError(f"unindex references {c.chain}{rid} not present in input structure")
             if not _is_protein(r):
-                raise NotImplementedError("non-protein unindexed motif (NA/ligand) — p14+")
+                raise NotImplementedError("non-protein unindexed motif (NA/ligand) — p15+")
             tokens.append(_Token(c.chain, rid, r.res_name, True, False, True,
                                  False, r, unindex_new_island=(k == 0)))
     return tokens
 
 
+def _fresh_chain_letter(used: set[str]) -> str:
+    """Allocate a synthetic chain letter for a Designed/DesignedRange segment
+    that does not reuse any real input chain or previously-assigned synthetic
+    chain. Verified vs a real reference capture (dsDNA_basic-style): a
+    designed segment immediately after a contig chain break (``/0``) gets its
+    own new chain/entity, NOT the preceding indexed block's chain letter."""
+    import string
+    for letter in string.ascii_uppercase:
+        if letter not in used:
+            used.add(letter)
+            return letter
+    raise NotImplementedError("more than 26 chains — p15+")
+
+
 def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue]) -> list[_Token]:
     """Map a parsed contig + the parsed structure's residues into an ordered
     token plan. Indexed components pull residues from the input structure
-    (motif, fixed coord+seq); Designed/DesignedRange components become diffused
-    tokens; ChainBreak marks the next token. Unindexed motif tokens (from
-    ``spec.unindex``, see ``_plan_unindexed_tokens``) are appended last."""
+    (motif, fixed coord+seq, protein OR DNA/RNA); Designed/DesignedRange
+    components become diffused (protein) tokens; ChainBreak marks the next
+    token. Unindexed motif tokens (from ``spec.unindex``, see
+    ``_plan_unindexed_tokens``) are appended last."""
     by_key = {(r.chain, r.res_id): r for r in residues}
     comps = spec.parsed_contig()
     tokens: list[_Token] = []
     break_before_next = False
     indexed_keys: set[tuple[str, int]] = set()
+    used_chains: set[str] = {r.chain for r in residues}
     for c in comps:
         if isinstance(c, ChainBreak):
             break_before_next = True
@@ -310,8 +421,8 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                 r = by_key.get((c.chain, rid))
                 if r is None:
                     raise ValueError(f"contig indexes {c.chain}{rid} not present in input structure")
-                if not _is_protein(r):
-                    raise NotImplementedError("non-protein indexed motif (NA/ligand) — p12")
+                if not (_is_protein(r) or _is_na(r)):
+                    raise NotImplementedError("ligand/enzyme indexed motif (F3/F4) — p15+")
                 tokens.append(_Token(c.chain, rid, r.res_name, True, False, False,
                                      break_before_next, r))
                 indexed_keys.add((c.chain, rid))
@@ -319,9 +430,14 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
             continue
         if isinstance(c, (Designed, DesignedRange)):
             n = c.length if isinstance(c, Designed) else (c.lo + c.hi) // 2
-            # designed residues continue on the same chain as the preceding indexed block
-            chain = tokens[-1].chain if tokens else "A"
-            base = (tokens[-1].res_id + 1) if tokens else 1
+            # A designed segment continues the preceding block's chain UNLESS
+            # a chain break (or nothing yet) precedes it, in which case it
+            # gets a brand-new synthetic chain (verified vs a real capture).
+            if break_before_next or not tokens:
+                chain = _fresh_chain_letter(used_chains)
+            else:
+                chain = tokens[-1].chain
+            base = (tokens[-1].res_id + 1) if tokens and tokens[-1].chain == chain else 1
             for k in range(n):
                 tokens.append(_Token(chain, base + k, "", False, True, False,
                                      break_before_next, None))
@@ -336,37 +452,59 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
     return tokens
 
 
+def _token_kind(tk: "_Token") -> str:
+    """'protein' | 'dna' | 'rna' for a token (designed tokens, res_name=="",
+    are always protein in this port's scope — NA is never diffused/designed
+    in the documented use cases, only ever a fixed binder target)."""
+    if not tk.res_name or tk.res_name in PROTEIN_RES:
+        return "protein"
+    if tk.res_name in DNA_RES:
+        return "dna"
+    if tk.res_name in RNA_RES:
+        return "rna"
+    raise NotImplementedError(f"unrecognized residue {tk.res_name!r} (ligand/enzyme, F3/F4) — p15+")
+
+
 def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str, torch.Tensor]:
     """Build the ``f`` feature dict for one design spec from a real PDB/CIF.
 
-    Protein-binder (F1) + motif scaffolding (F6) on protein-only input, with
+    Protein-binder (F1) + motif scaffolding (F6) + nucleic-acid-binder design
+    (F2/F8: a fixed-sequence DNA/RNA target + a designed protein binder), with
     atom-level parity vs the real reference (see module docstring).
     """
     arr = load_structure(structure_path)
     residues = _group_residues(arr)
-    if any(not _is_protein(r) for r in residues):
-        raise NotImplementedError("non-protein input (NA/ligand) — p12")
+    # Non-polymer residues (solvent, ions, ligands — F3/F4 is out of scope
+    # this pass) are simply invisible to this featurizer, exactly like a real
+    # PDB's crystallographic waters are to a contig that never references
+    # them. A contig that DOES try to index one fails with a ValueError
+    # ("not present in input structure") since it's filtered out here.
+    residues = [r for r in residues if _is_protein(r) or _is_na(r)]
     tokens = _plan_tokens_from_contig(spec, residues)
     I = len(tokens)
+    token_kind = [_token_kind(tk) for tk in tokens]
 
     # Per-token atom layout (variable count: motif = real heavy atoms only,
-    # designed = full 14-slot template).
+    # designed = full 14-slot template). NA motif tokens keep real atom
+    # names/order verbatim (no scheme lookup — see module docstring).
     layouts = [
-        _motif_atom_layout(tk.residue) if tk.is_motif else _designed_atom_layout()
-        for tk in tokens
+        (_na_atom_layout(tk.residue) if kind in ("dna", "rna") else _motif_atom_layout(tk.residue))
+        if tk.is_motif else _designed_atom_layout()
+        for tk, kind in zip(tokens, token_kind)
     ]
-    L = sum(len(nm) for nm, _, _ in layouts)
+    L = sum(len(nm) for nm, _, _, _ in layouts)
 
     # The whole design is centered at the center of mass of the real (motif)
     # atoms (verified vs a real reference capture: motif_pos == real_coord -
     # com, where com = mean over every motif atom actually emitted).
-    motif_coords = [c for tk, (nm, c, _) in zip(tokens, layouts) if tk.is_motif and len(nm)]
+    motif_coords = [c for tk, (nm, c, _, _) in zip(tokens, layouts) if tk.is_motif and len(nm)]
     if motif_coords:
         com = np.concatenate(motif_coords, axis=0).mean(axis=0)
     else:
         com = np.zeros(3, dtype=np.float32)
 
     atom_names: list[str] = []
+    atom_elements: list[str | None] = []
     atom_coord = np.zeros((L, 3), dtype=np.float32)
     is_virtual = np.zeros(L, dtype=bool)
     is_backbone = np.zeros(L, dtype=bool)
@@ -376,6 +514,7 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     is_motif_atom_fixed_coord = np.zeros(L, dtype=bool)
     is_motif_atom_fixed_seq = np.zeros(L, dtype=bool)
     is_motif_atom_unindexed = np.zeros(L, dtype=bool)
+    is_na_atom = np.zeros(L, dtype=bool)
     motif_pos = np.zeros((L, 3), dtype=np.float32)
     ref_space_uid = np.zeros(L, dtype=np.int64)
     atom_to_token_map = np.zeros(L, dtype=np.int32)
@@ -388,23 +527,34 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     token_break_before = np.zeros(I, dtype=bool)
 
     pos = 0
-    for ti, (tk, (names, coord, tk_is_virtual)) in enumerate(zip(tokens, layouts)):
+    for ti, (tk, kind, (names, coord, tk_is_virtual, elements)) in enumerate(zip(tokens, token_kind, layouts)):
         n = len(names)
         s, e = pos, pos + n
         atom_names.extend(names)
+        atom_elements.extend(elements if elements is not None else [None] * n)
         is_virtual[s:e] = tk_is_virtual
-        has_cb = "CB" in names
-        for j, nm in enumerate(names):
-            if nm in BACKBONE_NAMES:
-                is_backbone[s + j] = True
-                if nm == "CA":
-                    is_ca[s + j] = True
-                    if not has_cb:
-                        is_central[s + j] = True  # GLY: CA is the representative atom
-            else:
-                is_sidechain[s + j] = True
-                if nm == "CB":
-                    is_central[s + j] = True
+        if kind == "protein":
+            has_cb = "CB" in names
+            for j, nm in enumerate(names):
+                if nm in BACKBONE_NAMES:
+                    is_backbone[s + j] = True
+                    if nm == "CA":
+                        is_ca[s + j] = True
+                        if not has_cb:
+                            is_central[s + j] = True  # GLY: CA is the representative atom
+                else:
+                    is_sidechain[s + j] = True
+                    if nm == "CB":
+                        is_central[s + j] = True
+        else:  # dna/rna: never backbone/sidechain-flagged; representative
+            # atom is the base ring-center (C4 purine / C2 pyrimidine) —
+            # verified vs a real reference capture (see module docstring).
+            is_na_atom[s:e] = True
+            central = _central_atom_name(tk.res_name)
+            if central is not None and central in names:
+                j = names.index(central)
+                is_ca[s + j] = True
+                is_central[s + j] = True
         if tk.is_motif:
             is_motif_atom_fixed_coord[s:e] = True
             is_motif_atom_fixed_seq[s:e] = True
@@ -421,7 +571,7 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
                 is_ca[s] = True
         ref_space_uid[s:e] = ti
         atom_to_token_map[s:e] = ti
-        token_res_name.append(tk.res_name or "UNK")
+        token_res_name.append(tk.res_name or "GAP")
         token_chain.append(tk.chain)
         token_res_id.append(tk.res_id)
         token_is_motif[ti] = tk.is_motif
@@ -432,16 +582,24 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     # --- reference-conformer features: ALL-ZERO/False for protein (motif or
     # designed alike) — CreateDesignReferenceFeatures.has_sequence excludes
     # protein entirely under generate_conformers_for_non_protein_only, so
-    # ref_pos/ref_mask/ref_charge/ref_pos_is_ground_truth never get filled;
-    # real motif geometry flows only through motif_pos. ref_element's one-hot
-    # is therefore the constant index-0 row (its scalar source stays 0), not
-    # real chemical identity. Verified vs a real reference capture.
+    # ref_pos/ref_charge/ref_pos_is_ground_truth never get filled for protein;
+    # real motif geometry flows only through motif_pos. For NA (not excluded),
+    # ref_mask=True and ref_element is the real per-atom atomic-number one-hot
+    # (verified vs real reference captures — see module docstring); ref_pos
+    # stays 0 (the real reference-conformer 3D geometry needs RDKit/CCD
+    # embedding this port does not vendor — documented gap) and ref_charge
+    # stays 0 (matches both real captures: no formally-charged atoms in the
+    # standard-nucleotide neutral conformer).
     ref_pos = np.zeros((L, 3), dtype=np.float32)
-    ref_mask = np.zeros(L, dtype=bool)
+    ref_mask = np.array(is_na_atom, dtype=bool)
     ref_pos_is_ground_truth = np.zeros(L, dtype=bool)
     ref_charge = np.zeros(L, dtype=np.int8)
     ref_element = np.zeros((L, 128), dtype=np.float32)
     ref_element[:, 0] = 1.0
+    for i, (elem, is_na) in enumerate(zip(atom_elements, is_na_atom)):
+        if is_na and elem in _ELEMENT_TO_ATOMIC_NUMBER:
+            ref_element[i, 0] = 0.0
+            ref_element[i, _ELEMENT_TO_ATOMIC_NUMBER[elem]] = 1.0
     ref_atom_name_chars = _encode_atom_names_like_af3(atom_names)  # [L,4,64] f32 (live-pipeline dtype)
     has_zero_occupancy = np.zeros(L, dtype=bool)  # forced False at inference regardless of input
 
@@ -464,9 +622,9 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     is_motif_token_unindexed = token_is_unindexed.copy()
     is_motif_token_with_fully_fixed_coord = token_is_motif.copy()
 
-    is_protein_tok = np.ones(I, dtype=bool)
-    is_rna_tok = np.zeros(I, dtype=bool)
-    is_dna_tok = np.zeros(I, dtype=bool)
+    is_protein_tok = np.array([k == "protein" for k in token_kind], dtype=bool)
+    is_rna_tok = np.array([k == "rna" for k in token_kind], dtype=bool)
+    is_dna_tok = np.array([k == "dna" for k in token_kind], dtype=bool)
     is_ligand_tok = np.zeros(I, dtype=bool)
     _POLAR = {"SER", "THR", "ASN", "GLN", "TYR", "CYS", "HIS", "LYS", "ARG", "ASP", "GLU"}
     is_polar = is_protein_tok & np.isin(np.array(token_res_name), np.array(list(_POLAR)))
@@ -486,9 +644,11 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     # Unindexed tokens never carry a terminus flag (verified vs a real
     # reference capture: terminus_type is all-zero for every unindexed token,
     # regardless of island boundaries — add_protein_termini_annotation is not
-    # re-applied to them).
-    is_N_term[token_is_unindexed] = False
-    is_C_term[token_is_unindexed] = False
+    # re-applied to them). Same for NA (5'/3' ends): terminus_type is
+    # protein-only in the reference contract — verified all-zero for DNA/RNA
+    # on both real captures.
+    is_N_term[token_is_unindexed | ~is_protein_tok] = False
+    is_C_term[token_is_unindexed | ~is_protein_tok] = False
     terminus_type = np.zeros((I, 2), dtype=np.int64)
     terminus_type[is_C_term, 0] = 1
     terminus_type[is_N_term, 1] = 1
@@ -498,8 +658,38 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
         if c not in chain_to_asym:
             chain_to_asym[c] = len(chain_to_asym)  # 0-based
     asym_id = np.array([chain_to_asym[c] for c in token_chain], dtype=np.int64)
-    entity_id = asym_id.copy()
-    sym_id = np.zeros(I, dtype=np.int32)
+
+    # entity_id/sym_id: chains sharing the SAME full real-chain residue-name
+    # sequence (not just the contig-selected subset) are the same entity,
+    # with sym_id enumerating replica copies — verified vs a real reference
+    # capture (dsDNA_basic: chain A and B are the same 12-mer palindrome, so
+    # they share entity_id with distinct sym_id). A synthetic (designed)
+    # chain has no real sequence to match and always starts a fresh entity.
+    chain_full_seq: dict[str, tuple] = {}
+    for r in residues:
+        chain_full_seq.setdefault(r.chain, []).append((r.res_id, r.res_name))
+    chain_full_seq = {c: tuple(name for _, name in sorted(v)) for c, v in chain_full_seq.items()}
+    entity_of_seq: dict[tuple, int] = {}
+    chain_entity: dict[str, int] = {}
+    next_entity = 0
+    for c in chain_to_asym:  # insertion order == order of first appearance among tokens
+        seq = chain_full_seq.get(c)
+        if seq is None or seq not in entity_of_seq:
+            eid = next_entity
+            next_entity += 1
+            if seq is not None:
+                entity_of_seq[seq] = eid
+        else:
+            eid = entity_of_seq[seq]
+        chain_entity[c] = eid
+    entity_id = np.array([chain_entity[c] for c in token_chain], dtype=np.int64)
+    sym_counter: dict[int, int] = {}
+    chain_sym: dict[str, int] = {}
+    for c in chain_to_asym:
+        e = chain_entity[c]
+        chain_sym[c] = sym_counter.get(e, 0)
+        sym_counter[e] = chain_sym[c] + 1
+    sym_id = np.array([chain_sym[c] for c in token_chain], dtype=np.int32)
     residue_index = np.zeros(I, dtype=np.int32)
     _per_chain_ctr = {}
     for ti, c in enumerate(token_chain):

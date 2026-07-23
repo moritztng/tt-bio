@@ -72,3 +72,25 @@ where `has_sequence` excludes protein under `generate_conformers_for_non_protein
 
 See `tt_bio/rfd3_featurize.py` module docstring for the full implementation and
 state §2l for the p12 writeup.
+
+## F2/F8 nucleic-acid-binder case (p15)
+
+- `dsdna_basic/1bna.pdb` — the real B-DNA dodecamer duplex (chains A+B, public
+  PDB entry 1BNA), the same input as RFD3's own documented `dsDNA_basic`
+  example. `dsdna_basic/1q75.pdb` (a public RNA NMR structure) was used to
+  verify the RNA path too (same code, `parity_dna.py`'s method applied
+  ad hoc — see state §2o).
+- `parity_dna.py` — compares the ported featurizer vs a fresh local capture
+  (contig `A1-10,/0,B15-24,/0,5`, a deterministic designed length to avoid
+  RNG ambiguity). Reproduce per the script's own docstring.
+
+**Value-gate result (p15 — 42/43 keys bit-exact, both token- and atom-level).**
+The lone gap is `ref_pos` (real reference-conformer 3D geometry via RDKit/CCD
+embedding, not vendored — see `tt_bio/rfd3_featurize.py` module docstring);
+`ref_mask`/`ref_element`/`ref_charge` (which unlike protein ARE filled for
+NA) are all bit-exact. DNA/RNA atoms keep real atom names verbatim (never
+V-slot-relabeled or padded — that's protein-only), use the base ring-center
+atom (C4 purine / C2 pyrimidine) as their `is_ca`/`is_central` representative,
+never carry `is_backbone`/`is_sidechain`/`terminus_type`, and `entity_id`/
+`sym_id` are grouped by the full real-chain sequence (not just the
+contig-selected subset) — see the module docstring for the full list.

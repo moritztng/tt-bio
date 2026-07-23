@@ -2699,9 +2699,9 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
 @click.option("--from_pdb", is_flag=True,
               help="Build `f` from each spec's `input` PDB + contig via the host featurizer "
                    "(the real from-PDB path) instead of the captured golden bridge. Value-parity "
-                   "verified for protein-binder (F1) / motif-scaffold (F6) inputs (43/43 `f` keys "
-                   "bit-exact vs a real reference capture). Still needs --golden_dir for the "
-                   "device weights. Non-protein inputs (ligand/NA/enzyme) and symmetry raise "
+                   "verified for protein-binder (F1) / motif-scaffold (F6) AND nucleic-acid-binder "
+                   "(F2/F8, a fixed DNA/RNA target chain) inputs. Still needs --golden_dir for the "
+                   "device weights. Ligand/enzyme (F3/F4) inputs and symmetry (F5) raise "
                    "NotImplementedError.")
 def design_cmd(inputs, out_dir, golden_dir, from_pdb, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
     """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
@@ -2721,14 +2721,17 @@ def design_cmd(inputs, out_dir, golden_dir, from_pdb, num_timesteps, seed, parti
     EDM sampler produce one CIF per spec.
 
     \b
-    NOTE (p12): the host featurizer (tt_bio.rfd3_featurize) is value-parity
-    verified for the protein-binder (F1) / motif-scaffolding (F6) case (43/43
-    `f` keys bit-exact vs a real reference capture — see
+    NOTE (p15): the host featurizer (tt_bio.rfd3_featurize) is value-parity
+    verified for protein-binder (F1) / motif-scaffolding (F6) (43/43 `f` keys
+    bit-exact) AND nucleic-acid-binder design (F2/F8: a fixed DNA/RNA target
+    chain + a designed protein binder, e.g. a dsDNA duplex) (42/43 keys
+    bit-exact; the lone gap, `ref_pos`'s real reference-conformer geometry,
+    is a documented, irrelevant-to-the-trajectory simplification — see
     scripts/rfd3_port/parity_artifacts/). `--from_pdb` runs the real
     end-to-end path (featurize → on-device TokenInitializer → sampler → CIF);
     `--golden_dir` is still required for the device ckpt weights either way.
-    Non-protein inputs (ligand/NA/enzyme) and symmetry are not yet supported
-    by the featurizer (NotImplementedError).
+    Ligand/enzyme (F3/F4) inputs and symmetry (F5) are not yet supported by
+    the featurizer (NotImplementedError).
     """
     import json as _json
     import yaml as _yaml

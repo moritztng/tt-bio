@@ -127,19 +127,62 @@ def test_binder_contig_designed_only():
     print("test_binder_contig_designed_only OK  I=", I)
 
 
-def test_non_protein_rejected():
+def test_ligand_rejected():
+    """Ligand/enzyme design (F3/F4) is out of scope this pass: an Indexed
+    contig component referencing a real ligand residue (not protein/DNA/RNA)
+    must fail loud, not silently misfeaturize."""
     with tempfile.TemporaryDirectory() as td:
         pdb = os.path.join(td, "m.pdb")
-        # write a DA (DNA) residue
         with open(pdb, "w") as fh:
-            fh.write("ATOM      1  P   DA A   1      0.000   0.000   0.000  1.00  0.00           P\nEND\n")
+            fh.write(
+                "HETATM    1  C1  LIG A   1       0.000   0.000   0.000  1.00  0.00           C\n"
+                "END\n")
         spec = _spec({"input": pdb, "contig": "A1,10"})
         try:
             featurize(pdb, spec)
-            raise AssertionError("expected NotImplementedError for non-protein input")
-        except NotImplementedError:
+            raise AssertionError("expected an error for a ligand indexed motif")
+        except (NotImplementedError, ValueError):
             pass
-    print("test_non_protein_rejected OK")
+    print("test_ligand_rejected OK")
+
+
+def _dsdna_basic_pdb():
+    return os.path.join(os.path.dirname(__file__), "parity_artifacts", "dsdna_basic", "1bna.pdb")
+
+
+def test_na_binder_dsdna():
+    """F2/F8 NA-binder design (p15): a fixed dsDNA target (1bna.pdb, chains A
+    +B, real B-DNA dodecamer duplex) + a designed protein binder chain.
+    Bit-exact VALUE parity vs a real reference capture is
+    scripts/rfd3_port/parity_artifacts/parity_dna.py (42/43 keys, the lone
+    documented gap being `ref_pos`'s real reference-conformer geometry);
+    this is the structural/shape+invariant gate."""
+    pdb = _dsdna_basic_pdb()
+    spec = _spec({"input": pdb, "contig": "A1-10,/0,B15-24,/0,5"})
+    f = featurize(pdb, spec)
+    I = 10 + 10 + 5  # 20 DNA motif tokens (2 chains) + 5 designed protein
+    assert f["restype"].shape == (I, 32)
+    is_dna = f["is_dna"]
+    assert int(is_dna.sum()) == 20 and int(f["is_protein"].sum()) == 5
+    # the two DNA chains are the same 12-mer palindrome -> same entity, distinct sym_id
+    assert f["entity_id"][0].item() == f["entity_id"][10].item()
+    assert f["sym_id"][0].item() == 0 and f["sym_id"][10].item() == 1
+    # designed protein chain after the '/0' break is its own chain/entity
+    assert f["asym_id"][20].item() not in (f["asym_id"][0].item(), f["asym_id"][10].item())
+    assert f["entity_id"][20].item() != f["entity_id"][0].item()
+    # every DNA atom: ref_mask True, real (non-column-0) ref_element, never backbone/sidechain
+    dna_atoms = torch.isin(f["atom_to_token_map"], is_dna.nonzero().flatten().to(torch.int32))
+    assert bool(f["ref_mask"][dna_atoms].all())
+    assert bool((f["ref_element"][dna_atoms, 0] == 0).all())
+    assert not bool(f["is_backbone"][dna_atoms].any())
+    assert not bool(f["is_sidechain"][dna_atoms].any())
+    # DNA tokens never carry a terminus flag in this contract
+    assert torch.all(f["terminus_type"][is_dna] == 0)
+    # exactly one representative (is_ca/is_central) atom per DNA token
+    dna_tok_of_atom = f["atom_to_token_map"][dna_atoms].long()
+    rep_count = torch.bincount(dna_tok_of_atom, weights=f["is_ca"][dna_atoms].float(), minlength=I)
+    assert int(rep_count[is_dna].sum().item()) == 20 and bool((rep_count[is_dna] == 1).all())
+    print(f"test_na_binder_dsdna OK  I={I} L={f['ref_pos'].shape[0]}")
 
 
 def test_unindex_tied_and_separate_islands():
@@ -299,7 +342,8 @@ if __name__ == "__main__":
     test_motif_scaffold_shapes_and_invariants()
     test_chain_break()
     test_binder_contig_designed_only()
-    test_non_protein_rejected()
+    test_ligand_rejected()
+    test_na_binder_dsdna()
     test_unindex_tied_and_separate_islands()
     test_contract_vs_golden()
     test_model_consumable()
