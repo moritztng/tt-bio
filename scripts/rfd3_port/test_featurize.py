@@ -338,6 +338,64 @@ def test_model_consumable():
           f"Z_II {tuple(out['Z_II'].shape)})")
 
 
+def test_ligand_small_molecule_binder():
+    """F3 small-molecule-binder design (p16): a pure designed-length (180)
+    protein chain around a real ligand (IAI, RosettaCommons/foundry's own
+    `sm_binder_design.md` "buried" example) named via `spec.ligand` (a
+    SEPARATE mechanism from `contig` — distinct from test_ligand_rejected's
+    ligand-via-contig-index, which must still fail loud). Bit-exact VALUE
+    parity vs a real reference capture is scripts/rfd3_port/parity_artifacts/
+    parity_ligand.py (42/43 keys, the lone documented gap being `ref_pos`'s
+    stochastic RDKit reference-conformer draw); this is the structural/
+    shape+invariant gate."""
+    pdb = os.path.join(os.path.dirname(__file__), "parity_artifacts", "ligand_iai", "IAI.pdb")
+    code = "IAI"
+    buried_atoms = ("C22,C23,C25,C24,C21,C20,N13,C15,C16,N14,C19,C11,N12,C18,C17,"
+                     "N9,O8,C4,C1,N3,C10,N5,C7,C2,C6,N27,O26,C33,C29,C32,O31,C30,N28")
+    spec = _spec({
+        "input": pdb, "length": "180-180", "ligand": code,
+        "select_fixed_atoms": {code: ""},
+        "select_buried": {code: buried_atoms},
+    })
+    f = featurize(pdb, spec)
+    I = 180 + 33  # 180 designed protein tokens + 33 ligand atoms (one token/atom)
+    assert f["restype"].shape == (I, 32)
+    is_lig = f["is_ligand"]
+    assert int(is_lig.sum()) == 33 and int(f["is_protein"].sum()) == 180
+    # ligand tokens: restype == UNK (index 20), never protein/rna/dna
+    assert torch.all(f["restype"][is_lig].argmax(-1) == 20)
+    assert not bool(f["is_protein"][is_lig].any())
+    # ligand is its own fresh chain/entity, distinct from the designed protein
+    assert f["asym_id"][180].item() != f["asym_id"][0].item()
+    assert f["entity_id"][180].item() != f["entity_id"][0].item()
+    # each ligand atom is its own token -> is_ca/is_central/is_backbone all True,
+    # is_sidechain False (the AF3 "atomized token" convention)
+    lig_atoms = torch.isin(f["atom_to_token_map"], is_lig.nonzero().flatten().to(torch.int32))
+    assert bool(f["is_ca"][lig_atoms].all()) and bool(f["is_central"][lig_atoms].all())
+    assert bool(f["is_backbone"][lig_atoms].all()) and not bool(f["is_sidechain"][lig_atoms].any())
+    # select_fixed_atoms: {"IAI": ""} -> no ligand atom is coordinate-fixed,
+    # but the ligand IS still "motif" (known chemical identity, class 1) and
+    # fixed-SEQUENCE (ligands always have a known identity, never diffused
+    # chemistry) -- verified vs a real reference capture.
+    assert not bool(f["is_motif_atom_with_fixed_coord"][lig_atoms].any())
+    assert bool(f["is_motif_atom_with_fixed_seq"][lig_atoms].all())
+    assert bool(torch.all(f["ref_motif_token_type"][is_lig] == torch.tensor([0, 1, 0], dtype=torch.int8)))
+    assert torch.all(f["ref_plddt"][is_lig] == 0)
+    assert not bool(f["is_motif_token_with_fully_fixed_coord"][is_lig].any())
+    # select_buried: {"IAI": <all 33 atoms>} -> ref_atomwise_rasa == "buried" (bin 0) everywhere
+    assert bool(torch.all(f["ref_atomwise_rasa"][lig_atoms] == torch.tensor([1, 0, 0])))
+    # ref_element/ref_charge/ref_mask are real (unlike protein's always-zero placeholder)
+    assert bool(f["ref_mask"][lig_atoms].all())
+    assert bool((f["ref_element"][lig_atoms, 0] == 0).all())  # never the "no element" placeholder row
+    # real intra-ligand covalent bond graph -> a non-trivial token_bonds submatrix
+    assert int(f["token_bonds"][180:, 180:].sum().item()) > 0
+    # residue_index / ref_space_uid: all 33 atoms are ONE underlying residue
+    assert torch.all(f["residue_index"][is_lig] == 0)
+    ref_space_uid_lig = f["ref_space_uid"][lig_atoms]
+    assert bool((ref_space_uid_lig == ref_space_uid_lig[0]).all())
+    print(f"test_ligand_small_molecule_binder OK  I={I} L={f['ref_pos'].shape[0]}")
+
+
 if __name__ == "__main__":
     test_motif_scaffold_shapes_and_invariants()
     test_chain_break()
@@ -345,6 +403,7 @@ if __name__ == "__main__":
     test_ligand_rejected()
     test_na_binder_dsdna()
     test_unindex_tied_and_separate_islands()
+    test_ligand_small_molecule_binder()
     test_contract_vs_golden()
     test_model_consumable()
     print("\nALL FEATURIZE STRUCTURAL TESTS PASS")
