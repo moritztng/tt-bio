@@ -33,10 +33,12 @@ so its one-hot is the constant index-0 row for every atom (not real chemical
 identity). ``motif_pos`` is centered: the whole design is translated so the
 center of mass of the real (motif) atoms sits at the origin.
 
-Coverage this pass: protein-binder (F1) + motif-scaffolding (F6) on a
-protein-only input (contig with indexed-motif + designed regions + chain
-breaks). Ligand (F3), NA (F2/F8), enzyme (F4) and symmetry (F5) raise
-NotImplementedError with a pointer to the reference transform.
+Coverage: protein-binder (F1) + motif-scaffolding (F6, indexed AND unindexed)
+on a protein-only input (contig with indexed-motif + designed regions + chain
+breaks; ``unindex`` with plain/`-`-range components). Ligand (F3), NA (F2/F8),
+enzyme (F4) and symmetry (F5) raise NotImplementedError with a pointer to the
+reference transform; so does the unindex numeric-offset-tie syntax and
+dict-form per-atom fixing (see ``_plan_unindexed_tokens``).
 """
 from __future__ import annotations
 
@@ -180,22 +182,36 @@ def _is_protein(r: _Residue) -> bool:
 
 
 def _motif_atom_layout(r: _Residue):
-    """Real heavy atoms of a motif (fixed-seq) residue, in dense-scheme slot
-    order, renamed to the generic atom14 template — NOT padded. Missing atoms
+    """Real heavy atoms of a motif (fixed-seq) residue, in the INPUT
+    STRUCTURE'S real atom order, renamed to the generic atom14 template via
+    the dense-scheme slot lookup — NOT padded, NOT slot-sorted. Missing atoms
     (absent from the input structure) are simply skipped, matching the
     reference (it only ever sees the atoms present in the parsed structure).
+
+    Emission order matters and is NOT the same as slot order: a residue whose
+    real PDB atom listing doesn't already happen to match the canonical
+    dense-scheme slot order (e.g. a TRP with CE2/CE3 listed before NE1) keeps
+    its real order in the reference — only the per-atom NAME is remapped to
+    the generic V-slot label. Verified vs a real reference capture (p14,
+    ``scripts/rfd3_port/parity_artifacts/parity_unindex.py``, residue A100
+    TRP): getting this wrong silently permutes ``motif_pos``/atom-name
+    features for any residue with non-canonical side-chain atom ordering in
+    its input file (didn't manifest on the p12 F1/F6 fixture by coincidence).
     Returns (names, coord[n,3], is_virtual[n]=False)."""
     scheme = _DENSE_ATOM14_SCHEME.get(r.res_name)
     if scheme is None:
         raise NotImplementedError(f"no dense atom14 scheme for motif residue {r.res_name!r}")
-    real_by_name = dict(zip(r.atom_names, r.coord))
+    slot_by_name = {name: slot for slot, name in enumerate(scheme) if name is not None}
     names: list[str] = []
     coord: list[np.ndarray] = []
-    for slot, real_name in enumerate(scheme):
-        if real_name is None or real_name not in real_by_name:
+    seen: set[str] = set()
+    for real_name, c in zip(r.atom_names, r.coord):
+        slot = slot_by_name.get(real_name)
+        if slot is None or real_name in seen:
             continue
+        seen.add(real_name)
         names.append(ATOM14_ATOM_NAMES[slot])
-        coord.append(real_by_name[real_name])
+        coord.append(c)
     coord_arr = np.asarray(coord, dtype=np.float32) if coord else np.zeros((0, 3), dtype=np.float32)
     return names, coord_arr, np.zeros(len(names), dtype=bool)
 
@@ -217,22 +233,74 @@ class _Token:
     chain: str
     res_id: int          # input PDB res_id (motif) or assigned (designed)
     res_name: str        # real name (motif) or "" (designed -> DESIGNED_RESTYPE_IDX)
-    is_motif: bool       # fixed coord + fixed seq (indexed motif)
+    is_motif: bool       # fixed coord + fixed seq (indexed OR unindexed motif)
     is_designed: bool    # diffused
     is_unindexed: bool    # unindexed motif (from the unindex field)
     is_chain_break_before: bool  # /0 precedes this token
     residue: _Residue | None  # source residue for motif tokens, else None
+    unindex_new_island: bool = False  # this unindexed token starts a new RPE-leak island
+
+
+def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -> list[_Token]:
+    """Unindexed motif tokens (``spec.unindex``), appended at the END of the
+    token list — matches the reference (``accumulate_components`` places
+    unindexed components after the main contig; ``UnindexFlaggedTokens``
+    reorders/expands them, but at inference they are already physically last).
+
+    Scoped this pass (p14, grounded via a real local reference capture —
+    ``scripts/rfd3_port/parity_artifacts/parity_unindex.py``): plain contig
+    components only (a single indexed residue, or an indexed ``-`` RANGE which
+    ties the residues together / "leaks" their relative order to the model).
+    The doc-described numeric-offset-tie syntax (``A11,0,A12`` / ``A11,3,A12``)
+    and dict-form per-atom fixing are NOT implemented — both are genuinely
+    ambiguous from the reference source alone (the offset digit does not
+    obviously survive into ``get_motif_components_and_breaks``'s breaks array
+    the way the docs describe) and were not capture-verified this pass; they
+    raise NotImplementedError with a pointer here rather than guess.
+
+    A residue is "tied" (leaked) to the PRECEDING residue in the same ``-``
+    range (RPE may reveal their relative sequence position); it is masked
+    (never leaked) from every other token — indexed motif, designed, AND any
+    other unindexed island — per the captured ``unindexing_pair_mask`` (see
+    ``UnindexFlaggedTokens.create_unindexed_masks``: group id = cumsum of
+    per-token "new island" flags; same group -> leak allowed, else masked).
+    """
+    if spec.unindex is None:
+        return []
+    if not isinstance(spec.unindex, str):
+        raise NotImplementedError("dict-form unindex (per-atom fixing) — p14+")
+    by_key = {(r.chain, r.res_id): r for r in residues}
+    comps = spec.parsed_unindex()
+    tokens: list[_Token] = []
+    for c in comps:
+        if not isinstance(c, Indexed):
+            raise NotImplementedError(
+                f"unindex component {c!r} not supported this pass (p14): only "
+                "plain indexed residues/ranges ('A244' or 'A11-12'); the "
+                "numeric-offset-tie syntax and '/0' inside unindex are out of scope"
+            )
+        for k, rid in enumerate(range(c.start, c.end + 1)):
+            r = by_key.get((c.chain, rid))
+            if r is None:
+                raise ValueError(f"unindex references {c.chain}{rid} not present in input structure")
+            if not _is_protein(r):
+                raise NotImplementedError("non-protein unindexed motif (NA/ligand) — p14+")
+            tokens.append(_Token(c.chain, rid, r.res_name, True, False, True,
+                                 False, r, unindex_new_island=(k == 0)))
+    return tokens
 
 
 def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue]) -> list[_Token]:
     """Map a parsed contig + the parsed structure's residues into an ordered
     token plan. Indexed components pull residues from the input structure
     (motif, fixed coord+seq); Designed/DesignedRange components become diffused
-    tokens; ChainBreak marks the next token."""
+    tokens; ChainBreak marks the next token. Unindexed motif tokens (from
+    ``spec.unindex``, see ``_plan_unindexed_tokens``) are appended last."""
     by_key = {(r.chain, r.res_id): r for r in residues}
     comps = spec.parsed_contig()
     tokens: list[_Token] = []
     break_before_next = False
+    indexed_keys: set[tuple[str, int]] = set()
     for c in comps:
         if isinstance(c, ChainBreak):
             break_before_next = True
@@ -246,6 +314,7 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                     raise NotImplementedError("non-protein indexed motif (NA/ligand) — p12")
                 tokens.append(_Token(c.chain, rid, r.res_name, True, False, False,
                                      break_before_next, r))
+                indexed_keys.add((c.chain, rid))
                 break_before_next = False
             continue
         if isinstance(c, (Designed, DesignedRange)):
@@ -259,8 +328,11 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                 break_before_next = False
             continue
         raise NotImplementedError(f"contig component {c!r} not supported this pass (p12)")
-    if spec.unindex is not None:
-        raise NotImplementedError("unindex field (unindexed motif) -> p12")
+    unindexed = _plan_unindexed_tokens(spec, residues)
+    overlap = indexed_keys & {(tk.chain, tk.res_id) for tk in unindexed}
+    if overlap:
+        raise ValueError(f"contig and unindex must not overlap, got: {overlap}")
+    tokens.extend(unindexed)
     return tokens
 
 
@@ -338,6 +410,15 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
             is_motif_atom_fixed_seq[s:e] = True
             atom_coord[s:e] = coord
             motif_pos[s:e] = coord - com
+        if tk.is_unindexed:
+            is_motif_atom_unindexed[s:e] = True
+            # Reference override for unindexed tokens: `is_ca` is forced onto
+            # the token's FIRST atom regardless of its real name (design_
+            # transforms.py: "Ensure is_ca represents one and the first atom
+            # only for unindexed tokens") — verified vs a real capture.
+            is_ca[s:e] = False
+            if n:
+                is_ca[s] = True
         ref_space_uid[s:e] = ti
         atom_to_token_map[s:e] = ti
         token_res_name.append(tk.res_name or "UNK")
@@ -395,8 +476,19 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     for ti in range(I):
         first_seg = (ti == 0) or token_break_before[ti] or (token_chain[ti] != token_chain[ti - 1])
         is_N_term[ti] = first_seg
-        last_in_seg = (ti == I - 1) or token_break_before[ti + 1] or (token_chain[ti + 1] != token_chain[ti])
+        # The real chain's C-terminus lands on the last non-unindexed token
+        # even though the array continues with the appended unindexed block
+        # (verified vs a real reference capture: the token right before the
+        # first unindexed token IS flagged C-terminus).
+        entering_unindexed = token_is_unindexed[ti + 1] and not token_is_unindexed[ti] if ti + 1 < I else False
+        last_in_seg = (ti == I - 1) or token_break_before[ti + 1] or (token_chain[ti + 1] != token_chain[ti]) or entering_unindexed
         is_C_term[ti] = last_in_seg
+    # Unindexed tokens never carry a terminus flag (verified vs a real
+    # reference capture: terminus_type is all-zero for every unindexed token,
+    # regardless of island boundaries — add_protein_termini_annotation is not
+    # re-applied to them).
+    is_N_term[token_is_unindexed] = False
+    is_C_term[token_is_unindexed] = False
     terminus_type = np.zeros((I, 2), dtype=np.int64)
     terminus_type[is_C_term, 0] = 1
     terminus_type[is_N_term, 1] = 1
@@ -418,9 +510,23 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
 
     # token_bonds: ALL FALSE for standard contiguous protein (not the peptide-
     # bond graph — encodes inter-token bonds for modified residues/crosslinks/
-    # ligands only). unindexing_pair_mask: all-False (no unindex field).
+    # ligands only).
     token_bonds = np.zeros((I, I), dtype=bool)
+
+    # unindexing_pair_mask: True = RPE must NOT leak relative position between
+    # this token pair (UnindexFlaggedTokens.create_unindexed_masks). Indexed<->
+    # unindexed is ALWAYS masked; unindexed<->unindexed is masked unless the
+    # two tokens are in the same "island" (contiguous '-' range in the unindex
+    # spec). Verified vs a real reference capture (scripts/rfd3_port/
+    # parity_artifacts/parity_unindex.py).
     unindexing_pair_mask = np.zeros((I, I), dtype=bool)
+    ui = token_is_unindexed
+    if ui.any():
+        unindexing_pair_mask = ui[:, None] ^ ui[None, :]
+        idx_ui = np.where(ui)[0]
+        island = np.cumsum([tokens[i].unindex_new_island for i in idx_ui])
+        sub_mask = island[:, None] != island[None, :]
+        unindexing_pair_mask[np.ix_(idx_ui, idx_ui)] = sub_mask
 
     bf = lambda a: torch.from_numpy(a)
     f = {

@@ -142,6 +142,48 @@ def test_non_protein_rejected():
     print("test_non_protein_rejected OK")
 
 
+def test_unindex_tied_and_separate_islands():
+    """F6 unindex field (p14): 'A31-32' (tied island, leaked to each other) +
+    'A35' (separate singleton island) appended after the main contig. Value
+    parity vs a real reference capture is scripts/rfd3_port/parity_artifacts/
+    parity_unindex.py (43/43 keys bit-exact on a real protein, p14); this is
+    the structural/shape+mask-invariant gate on a synthetic input."""
+    with tempfile.TemporaryDirectory() as td:
+        pdb = os.path.join(td, "m.pdb")
+        _write_minipdb(pdb, n=40)
+        spec = _spec({"input": pdb, "contig": "A1-10,20", "unindex": "A31-32,A35"})
+        f = featurize(pdb, spec)
+
+        # overlap between contig and unindex must be rejected (same tempdir/pdb)
+        try:
+            featurize(pdb, _spec({"input": pdb, "contig": "A1-10,20", "unindex": "A5"}))
+            raise AssertionError("expected ValueError for contig/unindex overlap")
+        except ValueError:
+            pass
+
+    I = 10 + 20 + 3  # 30 main tokens + 3 unindexed (A31,A32,A35)
+    assert f["restype"].shape[0] == I
+    unind = f["is_motif_token_unindexed"]
+    assert unind.tolist() == [False] * 30 + [True, True, True]
+    # unindexed tokens carry no terminus flag, regardless of island boundaries
+    assert torch.all(f["terminus_type"][unind] == 0)
+    # unindexed tokens are motif-like (fixed coord/seq) — reused atom layout
+    assert torch.all(f["is_motif_token_with_fully_fixed_coord"][unind])
+    assert torch.all(f["ref_plddt"][unind] == 0)
+
+    upm = f["unindexing_pair_mask"]
+    assert upm.shape == (I, I)
+    # indexed <-> unindexed: ALWAYS masked (no leak), both directions
+    assert bool(upm[:30, 30:].all()) and bool(upm[30:, :30].all())
+    # tied island (A31,A32 -> tokens 30,31): leaked to each other (not masked)
+    assert not bool(upm[30, 31]) and not bool(upm[31, 30])
+    # separate singleton island (A35 -> token 32): masked from the other island
+    assert bool(upm[30, 32]) and bool(upm[31, 32])
+    # indexed <-> indexed: never masked by this feature
+    assert not bool(upm[:30, :30].any())
+    print("test_unindex_tied_and_separate_islands OK  I=", I)
+
+
 def test_contract_vs_golden():
     """Verify the ported featurizer's `f` key set against the REAL captured
     dsDNA_basic golden meta.json at
@@ -258,6 +300,7 @@ if __name__ == "__main__":
     test_chain_break()
     test_binder_contig_designed_only()
     test_non_protein_rejected()
+    test_unindex_tied_and_separate_islands()
     test_contract_vs_golden()
     test_model_consumable()
     print("\nALL FEATURIZE STRUCTURAL TESTS PASS")
