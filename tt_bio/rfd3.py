@@ -638,10 +638,12 @@ class RFD3AtomBlock(Module):
     DiT (c_a=768, c_s=384, c_pair=128, n_head=16, head_dim=48). Weight shapes
     encode c_a/c_s/c_pair; n_head is the only structural knob that is not."""
 
-    def __init__(self, state_dict, ckc, c_a=128, c_s=128, c_pair=16, n_head=4, dtype=None):
+    def __init__(self, state_dict, ckc, c_a=128, c_s=128, c_pair=16, n_head=4, dtype=None,
+                 fp32_residual=False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         dt = self.dtype
+        self.fp32_residual = fp32_residual
         self.n_head = n_head
         self.head_dim = c_a // n_head
         a = "attention_pair_bias."
@@ -686,9 +688,17 @@ class RFD3AtomBlock(Module):
 
     def __call__(self, q, c, p, additive_mask):
         ckc, dt = self.compute_kernel_config, self.dtype
+        f32 = self.fp32_residual
+        if f32 and q.dtype != ttnn.float32:
+            # promote the residual stream to fp32 on entry (first block); subsequent
+            # blocks already receive an fp32 residual from the previous block.
+            q = ttnn.typecast(q, ttnn.float32, memory_config=q.memory_config())
         batch, length = q.shape[0], q.shape[1]
+        # matmuls/linears/norms run in bf16 (dt); only the residual accumulation is fp32,
+        # so no fp32 matmul is ever issued (Blackhole fp32 matmul is a host-fallback dead-end).
+        q_compute = ttnn.typecast(q, dt, memory_config=q.memory_config()) if f32 else q
         norm = self._adaln(
-            q, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
+            q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
         qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
         kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
@@ -739,10 +749,16 @@ class RFD3AtomBlock(Module):
             c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
             dtype=dt, core_grid=CORE_GRID_MAIN,
         )
-        q = ttnn.add(q, ttnn.multiply(out, ttnn.sigmoid(gate)))
+        upd = ttnn.multiply(out, ttnn.sigmoid(gate))
+        if f32:
+            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
+        else:
+            q = ttnn.add(q, upd)
+        ttnn.deallocate(upd)
 
+        q_compute = ttnn.typecast(q, dt, memory_config=q.memory_config()) if f32 else q
         norm = self._adaln(
-            q, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
+            q_compute, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
         )
         left = ttnn.linear(
             norm, self.t_fc1, activation="silu", compute_kernel_config=ckc,
@@ -760,7 +776,12 @@ class RFD3AtomBlock(Module):
             c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
             dtype=dt, core_grid=CORE_GRID_MAIN,
         )
-        return ttnn.add(q, ttnn.multiply(update, ttnn.sigmoid(gate)))
+        upd = ttnn.multiply(update, ttnn.sigmoid(gate))
+        if f32:
+            q = ttnn.add(q, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config()))
+        else:
+            q = ttnn.add(q, upd)
+        return q
 
 
 class LocalAtomTransformer(Module):
@@ -834,9 +855,14 @@ class CompactStreamingDecoder(Module):
 
     def _pack_atoms_device(self, q, pack_indices, valid):
         batch, length, channels = q.shape
+        orig_dt = q.dtype
+        # ttnn.embedding requires bf16; the gather is a pure reindex (exact), so round-trip
+        # through bf16 only for the embedding op, then restore the compute dtype.
         q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
         q = ttnn.pad(q, [[0, 0], [0, 1], [0, 0]], 0.0)
         q = ttnn.reshape(q, (batch * (length + 1), channels))
+        if orig_dt != ttnn.bfloat16:
+            q = ttnn.typecast(q, ttnn.bfloat16)
         idx = ttnn.from_torch(
             pack_indices.to(torch.int32).reshape(1, -1),
             layout=ttnn.ROW_MAJOR_LAYOUT,
@@ -847,6 +873,8 @@ class CompactStreamingDecoder(Module):
             idx, q, layout=ttnn.ROW_MAJOR_LAYOUT,
             memory_config=ttnn.DRAM_MEMORY_CONFIG,
         )
+        if orig_dt != ttnn.bfloat16:
+            packed = ttnn.typecast(packed, orig_dt)
         packed = ttnn.reshape(
             packed, (batch, valid.shape[0], valid.shape[1], channels)
         )
@@ -854,8 +882,11 @@ class CompactStreamingDecoder(Module):
 
     def _unpack_atoms_device(self, q, unpack_indices, length):
         batch, tokens, atoms, channels = q.shape
+        orig_dt = q.dtype
         q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
         q = ttnn.reshape(q, (batch * tokens * atoms, channels))
+        if orig_dt != ttnn.bfloat16:
+            q = ttnn.typecast(q, ttnn.bfloat16)
         idx = ttnn.from_torch(
             unpack_indices.to(torch.int32).reshape(1, -1),
             layout=ttnn.ROW_MAJOR_LAYOUT,
@@ -866,6 +897,8 @@ class CompactStreamingDecoder(Module):
             idx, q, layout=ttnn.ROW_MAJOR_LAYOUT,
             memory_config=ttnn.DRAM_MEMORY_CONFIG,
         )
+        if orig_dt != ttnn.bfloat16:
+            unpacked = ttnn.typecast(unpacked, orig_dt)
         unpacked = ttnn.reshape(unpacked, (batch, length, channels))
         return ttnn.to_layout(unpacked, ttnn.TILE_LAYOUT)
 
@@ -994,11 +1027,12 @@ class LocalTokenTransformer(Module):
 
     C_TOKEN, C_S, C_PAIR, N_HEAD, N_BLOCK = 768, 384, 128, 16, 18
 
-    def __init__(self, state_dict, ckc, n_block=18, dtype=None):
+    def __init__(self, state_dict, ckc, n_block=18, dtype=None, fp32_residual=False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.blocks = [RFD3AtomBlock(self.scope(f"blocks.{i}"), ckc,
-                        c_a=self.C_TOKEN, c_s=self.C_S, c_pair=self.C_PAIR, n_head=self.N_HEAD, dtype=self.dtype)
+                        c_a=self.C_TOKEN, c_s=self.C_S, c_pair=self.C_PAIR, n_head=self.N_HEAD,
+                        dtype=self.dtype, fp32_residual=fp32_residual)
                        for i in range(n_block)]
 
     def run_device(self, a, s, z, additive_mask):
@@ -1143,12 +1177,19 @@ def _grouping_indices(tok_idx, batch, dev):
 
 def _pack_atoms_dev(dev, q, pack_indices, valid):
     batch, length, channels = q.shape
+    orig_dt = q.dtype
+    # ttnn.embedding requires bf16 weights; the gather is a pure reindex (exact), so
+    # round-trip through bf16 only for the embedding op, then restore the compute dtype.
     q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
     q = ttnn.pad(q, [[0, 0], [0, 1], [0, 0]], 0.0)
     q = ttnn.reshape(q, (batch * (length + 1), channels))
+    if orig_dt != ttnn.bfloat16:
+        q = ttnn.typecast(q, ttnn.bfloat16)
     idx = ttnn.from_torch(pack_indices.to(torch.int32).reshape(1, -1), layout=ttnn.ROW_MAJOR_LAYOUT,
                           device=dev, dtype=ttnn.uint32)
     packed = ttnn.embedding(idx, q, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    if orig_dt != ttnn.bfloat16:
+        packed = ttnn.typecast(packed, orig_dt)
     packed = ttnn.reshape(packed, (batch, valid.shape[0], valid.shape[1], channels))
     return ttnn.to_layout(packed, ttnn.TILE_LAYOUT)
 
@@ -1178,6 +1219,15 @@ class RFD3DiffusionModule(Module):
 
     def __init__(self, state_dict, ckc, dtype=None):
         super().__init__(state_dict, ckc)
+        # Selective-fp32 boundary (per af3-diffusion-sampler-selective-fp32-boundary): the
+        # diffusion SCORE MODEL (this DM, run every step+recycle) is the precision knob for
+        # the low-noise trajectory tail; the step-invariant TokenInitializer stays bf16.
+        # Opt-in via RFD3_DIT_FP32=1 so the default path keeps bf16 perf. The compute kernel
+        # already accumulates in fp32 (fp32_dest_acc_en=True, HiFi4); this raises the STORAGE
+        # dtype of the DM's matmuls/linears/norms to fp32 to stop bf16 rounding compounding
+        # across the 18-block DiT stack. Measure before/after; keep default perf intact.
+        if dtype is None and os.environ.get("RFD3_DIT_FP32") == "1":
+            dtype = ttnn.float32
         self.dtype = dtype or ttnn.bfloat16
         dt = self.dtype
         self.process_r_w = self.torch_to_tt("process_r.weight", dtype=dt)
@@ -1201,7 +1251,13 @@ class RFD3DiffusionModule(Module):
         self.downcast_q_s_n = self.torch_to_tt("downcast_q.process_s.0.weight", dtype=dt)
         self.downcast_q_s_w = self.torch_to_tt("downcast_q.process_s.1.weight", dtype=dt)
         self.diffusion_token_encoder = DiffusionTokenEncoder(self.scope("diffusion_token_encoder"), ckc, dtype=dt)
-        self.diffusion_transformer = LocalTokenTransformer(self.scope("diffusion_transformer"), ckc, dtype=dt)
+        # fp32 residual stream on the 18-block DiT only (the deepest compounding path): matmuls
+        # stay bf16 (Blackhole fp32 matmul is a host-fallback dead-end), the residual sum is
+        # kept in fp32 so bf16 storage rounding does not compound across the 18-block stack.
+        # Opt-in via RFD3_FP32_RESIDUAL=1; default off keeps the verified bf16 behavior.
+        self._dit_fp32_residual = os.environ.get("RFD3_FP32_RESIDUAL") == "1"
+        self.diffusion_transformer = LocalTokenTransformer(self.scope("diffusion_transformer"), ckc, dtype=dt,
+                                                         fp32_residual=self._dit_fp32_residual)
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt)
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt)
         self.sequence_head = LinearSequenceHead(self.scope("sequence_head"), ckc, dtype=dt)
