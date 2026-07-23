@@ -248,6 +248,25 @@ class _WorkerState:
         else:
             self.prepare = None
 
+    def _maybe_ref_bf16(self):
+        """Integration-parity envelope (scripts/full_parity_gate.py): when TT_BIO_REF_BF16=1 and
+        this is the CPU/host reference (NOT tenstorrent), run the model forward under a bf16
+        autocast so its closed-loop divergence from the fp32 reference measures the intrinsic
+        bf16 cost of the full sampler trajectory (chaotic amplification included). Applied at
+        every forward the device runs in bf16 — the structure ``predict_step`` AND the affinity
+        ``aff_model.predict_step`` (the device runs the affinity head in bf16 too, unless
+        BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1) — so the bf16 reference mirrors the device's
+        dtype boundary rather than leaving the affinity scalar in fp32. Shared draws are
+        preserved: the diffusion ``torch.randn`` draws (boltz2.py:4092/4127) run on CPU MT19937
+        from the one seed, unaffected by autocast, so fp32 and bf16 references differ only in
+        arithmetic dtype, nothing stochastic. Default off — device runs and the fp32 reference
+        get a nullcontext and are untouched."""
+        import contextlib
+        _on = os.environ.get("TT_BIO_REF_BF16", "0") not in ("0", "")
+        if _on and self.accelerator != "tenstorrent":
+            return torch.autocast(device_type="cpu", dtype=torch.bfloat16)
+        return contextlib.nullcontext()
+
     def predict_one(self, path: Path, cfg: dict[str, Any]):
         if cfg.get("model") in ("opendde", "opendde-abag"):
             return self._predict_opendde_one(path, cfg)
@@ -287,20 +306,8 @@ class _WorkerState:
 
         feats, input_struct = self.prepare(path, method=cfg.get("method"), progress=self.pfn)
         batch = to_batch(feats, self.torch_device)
-        # Integration-parity envelope (scripts/full_parity_gate.py): the bf16 REFERENCE leg
-        # runs the SAME torch path (use_tenstorrent=False) under a CPU bf16 autocast so its
-        # closed-loop divergence from the fp32 reference measures the intrinsic bf16 cost of
-        # the full sampler trajectory (chaotic amplification included). Shared draws are
-        # preserved — the diffusion torch.randn draws (boltz2.py:4092/4127) run on CPU MT19937
-        # from the one seed above, unaffected by autocast — so the fp32 and bf16 references
-        # differ only in arithmetic dtype, nothing stochastic. Default off (device runs and
-        # the fp32 reference are untouched).
-        _ref_bf16 = os.environ.get("TT_BIO_REF_BF16", "0") not in ("0", "")
         with torch.no_grad():
-            if _ref_bf16 and self.accelerator != "tenstorrent":
-                with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
-                    pred = self.model.predict_step(batch)
-            else:
+            with self._maybe_ref_bf16():
                 pred = self.model.predict_step(batch)
         metrics, best = write_result(
             pred,
@@ -659,7 +666,8 @@ class _WorkerState:
         feats, _ = self.prepare(path, method="other", affinity=True, pred_structure=pred_structure)
         batch = to_batch(feats, self.torch_device)
         with torch.no_grad():
-            pred = self.aff_model.predict_step(batch)
+            with self._maybe_ref_bf16():
+                pred = self.aff_model.predict_step(batch)
         if pred.get("exception"):
             return {}
         keys = [
