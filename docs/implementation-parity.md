@@ -79,6 +79,46 @@ does. BoltzGen is scored by designability (fraction of designs re-folding
 within 2 Å scRMSD), not by a distance. OpenDDE-abag by global DockQ and
 per-interface iRMSD.
 
+## Correctness method — integration-parity envelope (supersedes the R/D/X floor)
+
+The R/D/X floor above answers a distribution question ("is X within the run-to-run spread?") with
+a point comparison against a GUESSED floor `max(R, D)`. Because R, D and X each compare INDEPENDENT
+stochastic samples (device and reference drew different diffusion noise), X conflates real backend
+arithmetic divergence with ordinary sample-to-sample chaos: a correct port can fail by construction
+(different noise basin) and a subtle bug can hide under a loose floor. The "GAP-evidenced" and
+"PASS-caveated" verdicts above are the floor telling us it cannot separate a bug from noise — and
+each was ultimately cleared only by an ad-hoc cross-backend triangulation (GPU-bf16 vs CPU-bf16
+references disagreeing by the same margin the device does). The integration-parity envelope test
+turns that triangulation into the systematic pass criterion.
+
+A diffusion model is a deterministic function of its input noise. Feed byte-identical noise to
+three CLOSED-LOOP runs — `device_bf16` (TT), `reference_fp32` and `reference_bf16` (both tt-bio's
+own CPU torch path, `--no_kernels`, the second under `TT_BIO_REF_BF16=1`) — all seeded so they
+share one CPU-MT19937 draw stream by construction. Then, per leg per metric `d`:
+
+    d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
+
+The floor is the intrinsic bf16 cost of the full trajectory (chaotic amplification included),
+MEASURED from a bf16 recomputation of the reference itself, not guessed. Scorer:
+`scripts/integration_envelope.py`; see `RELEASING.md` for the full rationale and the pass criterion.
+
+**FKBP12 head-to-head (no-MSA affinity, seed 0 — proof of the method).** Under the old floor the
+FKBP12 affinity metrics were cleared only with caveats and manual triangulation (pocket-lDDT read
+as "X/floor" up to ~4-13 across the affinity legs because the independent-seed floor is tiny).
+Under the sound test:
+
+| metric | d(dev_bf16, ref_fp32) | envelope d(ref_bf16, ref_fp32) | ratio | verdict |
+|---|---|---|---|---|
+| affinity_pred_value (log10 IC50) | 0.02268 | 0.06204 | 0.37 | PASS |
+| affinity_probability_binary | 0.00146 | 0.00152 | 0.96 | PASS |
+| ligand-pose RMSD (Å) | 0.15894 | 0.21617 | 0.74 | PASS |
+| 1-pocket-lDDT | 0.00466 | 0.08385 | 0.06 | PASS |
+
+The device is closer to the fp32 reference than a torch-bf16 recomputation of that reference is
+(every ratio < 1). Per-run affinity_pred_value: device -0.477780, ref_fp32 -0.500461, ref_bf16
+-0.562500. Rollout across DHFR / trypsin / the MSA legs / Protenix-v2 HSA, and the wiring of this
+verdict into `full_parity_gate.py`, are in progress (gate of record — pending sign-off).
+
 ## Reproduce
 
 Each leg's reproduce command is in [Implementation parity — details](implementation-parity-details.md#reproducing-a-comparison).

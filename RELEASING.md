@@ -112,6 +112,45 @@ each leg, not two.
 | `ERROR` | the fold or scorer produced no report | **fail** |
 | `NO-DATA` | a report with no comparable metric | drift check skipped; a live NO-DATA still fails |
 
+### Integration-parity envelope — the correctness test (supersedes R/D/X)
+
+The correctness question "is this port numerically right end-to-end" is answered by a
+DETERMINISTIC shared-draws, measured-bf16-envelope integration test — NOT by the old R/D/X
+same-backend self-consistency floor, which is unsound for that question (it compares independent
+stochastic samples against a guessed self-spread floor, so it cannot separate a real backend bug
+from ordinary sample-to-sample diffusion noise; a correct port could fail it and a subtle bug
+could hide in it).
+
+A diffusion model is a deterministic function of its input noise. So the test feeds byte-identical
+noise (initial coords + every per-step eps) to three CLOSED-LOOP runs and compares their FINAL
+structures with the same per-leg distance the leg already uses (CA/ligand Kabsch-RMSD,
+pocket-lDDT, |Δ| for the affinity scalar):
+
+- `device_bf16`    — tt-bio on Tenstorrent (the port under test)
+- `reference_fp32` — tt-bio on CPU, `--no_kernels`, fp32 (ground truth)
+- `reference_bf16` — tt-bio on CPU, `--no_kernels`, `TT_BIO_REF_BF16=1` (bf16 autocast)
+
+Because the reference is tt-bio's OWN torch path, all three are the same code with a backend/dtype
+toggle and draw their diffusion `torch.randn` on CPU MT19937 from the one `--seed`, so shared
+draws hold by construction (the only difference between any two runs is arithmetic). Pass, per leg
+per metric `d(.,.)`:
+
+    d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
+
+The device may differ from the fp32 reference by no more than a bf16 recomputation of the reference
+differs from itself (plus a small honest residual for TT-bf16 vs torch-bf16 accumulation,
+absorbed by `margin`). The floor is MEASURED per leg, not guessed. If the numerator blows well
+past the envelope, that is an unambiguous bug signal — surfaced, never excused as "floor". Scorer:
+`scripts/integration_envelope.py`; bf16 reference hook: `tt_bio/worker.py:_maybe_ref_bf16`.
+
+Landed: the scorer + the CPU bf16-reference hook (boltz2 path). Proven end-to-end on FKBP12
+(no-MSA affinity, seed 0): device-vs-fp32 residual 0.0227 log10(IC50) vs a measured bf16 envelope
+of 0.0620 (ratio 0.37) — a clean PASS, with pocket-lDDT ratio 0.06 where the old floor reported
+pocket-lDDT "X/floor" 4-13. See `docs/implementation-parity.md` for the head-to-head. Pending
+(needs Moritz's OK — this is the gate of record): wiring the envelope verdict into
+`full_parity_gate.py:finalize_leg` across the full leg matrix, and the Protenix bf16 hook for HSA.
+`D` (device self-consistency) is retained as a reported DIAGNOSTIC, not a pass criterion.
+
 ### Trusting a new or changed gate
 
 **Any new gate-of-record script, or a significant change to one, must be dry-run
