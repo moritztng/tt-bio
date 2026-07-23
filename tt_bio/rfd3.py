@@ -201,17 +201,38 @@ class PairformerAttention(Module):
 
 
 class PairformerBlock(Module):
-    def __init__(self, state_dict, ckc, c_s=384, c_z=128, n_head=16, dtype=None):
+    def __init__(self, state_dict, ckc, c_s=384, c_z=128, n_head=16, dtype=None,
+                 fp32_residual=False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
+        self.fp32_residual = fp32_residual
         self.z_transition = Transition(self.scope("z_transition"), ckc, c_z, n=4, dtype=self.dtype)
         self.s_transition = Transition(self.scope("s_transition"), ckc, c_s, n=4, dtype=self.dtype)
         self.attn = PairformerAttention(self.scope("attention_pair_bias"), ckc, c_s, c_z, n_head, dtype=self.dtype)
 
     def __call__(self, s, z):
-        z = ttnn.add(z, self.z_transition(z))
-        s = ttnn.add(s, self.attn(s, z))
-        s = ttnn.add(s, self.s_transition(s))
+        if not self.fp32_residual:
+            z = ttnn.add(z, self.z_transition(z))
+            s = ttnn.add(s, self.attn(s, z))
+            s = ttnn.add(s, self.s_transition(s))
+            return s, z
+        # fp32 residual stream (both s and z): matmuls/linears/norms run bf16 (self.dtype),
+        # only the residual accumulation is fp32 — no fp32 matmul is issued (Blackhole
+        # fp32 matmul is a host-fallback dead-end, per p7 §2g.2). Mirrors RFD3AtomBlock.
+        dt = self.dtype
+        if s.dtype != ttnn.float32:
+            s = ttnn.typecast(s, ttnn.float32, memory_config=s.memory_config())
+            z = ttnn.typecast(z, ttnn.float32, memory_config=z.memory_config())
+        zc = ttnn.typecast(z, dt, memory_config=z.memory_config())
+        z_upd = self.z_transition(zc)
+        z = ttnn.add(z, ttnn.typecast(z_upd, ttnn.float32, memory_config=z_upd.memory_config()))
+        sc = ttnn.typecast(s, dt, memory_config=s.memory_config())
+        zc = ttnn.typecast(z, dt, memory_config=z.memory_config())
+        s_upd = self.attn(sc, zc)
+        s = ttnn.add(s, ttnn.typecast(s_upd, ttnn.float32, memory_config=s_upd.memory_config()))
+        sc = ttnn.typecast(s, dt, memory_config=s.memory_config())
+        s_upd = self.s_transition(sc)
+        s = ttnn.add(s, ttnn.typecast(s_upd, ttnn.float32, memory_config=s_upd.memory_config()))
         return s, z
 
 
@@ -985,9 +1006,10 @@ class DiffusionTokenEncoder(Module):
     C_S, C_Z, N_HEAD = 384, 128, 16
     N_BINS, N_PAIRFORMER = 65, 2
 
-    def __init__(self, state_dict, ckc, sigma_data=16.0, dtype=None):
+    def __init__(self, state_dict, ckc, sigma_data=16.0, dtype=None, fp32_residual=False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
+        self.fp32_residual = fp32_residual
         self.sigma_data = sigma_data
         self.transition_1 = [Transition(self.scope(f"transition_1.{i}"), ckc, self.C_S, n=2, dtype=self.dtype)
                              for i in range(2)]
@@ -997,7 +1019,8 @@ class DiffusionTokenEncoder(Module):
         self.transition_2 = [Transition(self.scope(f"transition_2.{i}"), ckc, self.C_Z, n=2, dtype=self.dtype)
                              for i in range(2)]
         self.pairformer_stack = [PairformerBlock(self.scope(f"pairformer_stack.{i}"), ckc,
-                                 self.C_S, self.C_Z, self.N_HEAD, dtype=self.dtype)
+                                 self.C_S, self.C_Z, self.N_HEAD, dtype=self.dtype,
+                                 fp32_residual=fp32_residual)
                                 for i in range(self.N_PAIRFORMER)]
 
     def __call__(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
@@ -1005,12 +1028,18 @@ class DiffusionTokenEncoder(Module):
         Z_init_II: [I, I, c_z] (expanded over batch), D_II_self: [B, I, I, 65] or None.
         Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        f32 = self.fp32_residual
         B, I = R_L_ca.shape[0], R_L_ca.shape[1]
         if S_init_I.ndim == 2:
             S_init_I = S_init_I.unsqueeze(0).expand(B, -1, -1).contiguous()
         s = _tt(S_init_I, dev, dt)
+        if f32:
+            s = ttnn.typecast(s, ttnn.float32, memory_config=s.memory_config())
         for tr in self.transition_1:
-            s = ttnn.add(s, tr(s))
+            sc = ttnn.typecast(s, dt, memory_config=s.memory_config()) if f32 else s
+            upd = tr(sc)
+            s = ttnn.add(s, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
+                else ttnn.add(s, upd)
         D_LL = _bucketize_scaled_distogram(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
         if D_II_self is None:
             D_II_self = torch.zeros(B, I, I, self.N_BINS, dtype=D_LL.dtype, device=D_LL.device)
@@ -1021,8 +1050,13 @@ class DiffusionTokenEncoder(Module):
         z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(zcat)
+        if f32:
+            z = ttnn.typecast(z, ttnn.float32, memory_config=z.memory_config())
         for tr in self.transition_2:
-            z = ttnn.add(z, tr(z))
+            zc = ttnn.typecast(z, dt, memory_config=z.memory_config()) if f32 else z
+            upd = tr(zc)
+            z = ttnn.add(z, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
+                else ttnn.add(z, upd)
         for blk in self.pairformer_stack:
             s, z = blk(s, z)
         return ttnn.to_torch(s).float(), ttnn.to_torch(z).float()
@@ -1238,6 +1272,10 @@ class RFD3DiffusionModule(Module):
             dtype = ttnn.float32
         self.dtype = dtype or ttnn.bfloat16
         dt = self.dtype
+        # fp32-residual-stream lever (opt-in via RFD3_FP32_RESIDUAL=1): threads through the
+        # pure RFD3AtomBlock stacks (DiT + encoder) AND the DiffusionTokenEncoder's 2-block
+        # Pairformer stack (the last shallow residual path). Default off = bf16, bit-identical.
+        self._dit_fp32_residual = os.environ.get("RFD3_FP32_RESIDUAL") == "1"
         self.process_r_w = self.torch_to_tt("process_r.weight", dtype=dt)
         self.to_r_n = self.torch_to_tt("to_r_update.0.weight", dtype=dt)
         self.to_r_w = self.torch_to_tt("to_r_update.1.weight", dtype=dt)
@@ -1258,16 +1296,17 @@ class RFD3DiffusionModule(Module):
                                               c_query=self.C_TOKEN, c_kv=self.C_ATOM, c_model=self.C_ATOM, n_head=4, dtype=dt)
         self.downcast_q_s_n = self.torch_to_tt("downcast_q.process_s.0.weight", dtype=dt)
         self.downcast_q_s_w = self.torch_to_tt("downcast_q.process_s.1.weight", dtype=dt)
-        self.diffusion_token_encoder = DiffusionTokenEncoder(self.scope("diffusion_token_encoder"), ckc, dtype=dt)
+        self.diffusion_token_encoder = DiffusionTokenEncoder(self.scope("diffusion_token_encoder"), ckc, dtype=dt,
+                                                             fp32_residual=self._dit_fp32_residual)
         # fp32 residual stream across the pure RFD3AtomBlock stacks in the DM: the 18-block
-        # DiT (deepest compounding path) and the 3-block encoder. The decoder is intentionally
+        # DiT (deepest compounding path), the 3-block encoder, and the 2-block
+        # DiffusionTokenEncoder (the last shallow residual path). The decoder is intentionally
         # excluded (its atom blocks are interleaved with a GatedCrossAttention and truncated by
         # embedding gathers between blocks, so an fp32 residual would leak into a GCA matmul
         # -> host fallback and would not compound anyway). Matmuls stay bf16 (Blackhole fp32
         # matmul is a host-fallback dead-end); only the residual sum is fp32 so bf16 storage
         # rounding does not compound across the block stacks. Opt-in via RFD3_FP32_RESIDUAL=1;
         # default off keeps the verified bf16 behavior.
-        self._dit_fp32_residual = os.environ.get("RFD3_FP32_RESIDUAL") == "1"
         self.diffusion_transformer = LocalTokenTransformer(self.scope("diffusion_transformer"), ckc, dtype=dt,
                                                          fp32_residual=self._dit_fp32_residual)
         # The fp32-residual lever threads through the DiT and the encoder (the two pure

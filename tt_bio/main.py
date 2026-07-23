@@ -2677,6 +2677,89 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                f"→ {out} (see manifest.json)")
 
 
+@cli.command("design")
+@click.argument("inputs", type=click.Path(exists=True, dir_okay=False))
+@click.option("--out_dir", default="./designs", show_default=True,
+              help="Output directory (one <spec_id>.cif per design).")
+@click.option("--golden_dir", default=None,
+              help="Path to a captured RFD3 `f` golden used as the feature source. "
+                   "Required this pass: the from-PDB featurizer (atomworks atom14/RASA/hbond/"
+                   "hotspot/ori_token/symmetry) is in progress, so `design` runs the verified "
+                   "on-device pipeline against a captured reference `f` and writes a real CIF. "
+                   "Default: the worktree's .scratch/rfd3-ref/goldens/capture.")
+@click.option("--num_timesteps", default=4, show_default=True,
+              help="Diffusion denoising timesteps (low for a fast smoke; upstream default 200).")
+@click.option("--seed", default=42, show_default=True)
+@click.option("--partial_t", default=None, type=float,
+              help="Partial-diffusion noise in Angstroms (per-spec partial_t overrides this).")
+@click.option("--fp32_residual", is_flag=True,
+              help="Opt in the RFD3_FP32_RESIDUAL precision lever (fp32 residual stream across "
+                   "the DiT + encoder + DiffusionTokenEncoder; default off = bf16).")
+@click.option("--spec", "spec_subset", default=None,
+              help="Comma-separated subset of spec ids from the inputs file to run.")
+def design_cmd(inputs, out_dir, golden_dir, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
+    """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
+
+    INPUTS is a JSON or YAML file of InputSpecifications (each top-level key is
+    one independent design), e.g.:
+
+    \b
+    {
+      "binder-1": {"input": "target.pdb", "contig": "A1-100,70", "length": "70"},
+      "scaffold-1": {"input": "motif.pdb", "contig": "A10-20,40,A30-40"}
+    }
+
+    Each spec is parsed and validated against the RFD3 InputSelection /
+    contig-string grammar (see `tt-bio design --help` and the RFD3 input docs)
+    before any device work. The on-device TokenInitializer + DiffusionModule +
+    EDM sampler produce one CIF per spec.
+
+    \b
+    NOTE (p9): the parser + on-device pipeline + CIF writer are landed. The
+    remaining piece is the host featurizer that builds the `f` feature dict
+    from a user PDB/CIF + contig; until it lands, `--golden_dir` supplies `f`
+    from a captured reference, so the on-device path is real and produces a
+    real CIF, but a from-PDB binder design is not yet wired.
+    """
+    import json as _json
+    import yaml as _yaml
+    from tt_bio import rfd3_design
+
+    torch.set_grad_enabled(False)
+    src = Path(inputs).expanduser()
+    text = src.read_text()
+    try:
+        if src.suffix in (".json",):
+            specs = _json.loads(text)
+        else:
+            specs = _yaml.safe_load(text)
+    except Exception as e:
+        raise click.ClickException(f"could not parse {src}: {e}")
+    if not isinstance(specs, dict) or not specs:
+        raise click.ClickException("inputs file must be a non-empty mapping of spec_id -> spec")
+    if spec_subset:
+        keep = {s.strip() for s in spec_subset.split(",")}
+        specs = {k: v for k, v in specs.items() if k in keep}
+        if not specs:
+            raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
+
+    gdir = golden_dir or str(Path(".scratch/rfd3-ref/goldens/capture").resolve())
+    if not Path(gdir).exists():
+        raise click.ClickException(
+            f"golden_dir not found: {gdir}. Pass --golden_dir <path> to a captured RFD3 `f` "
+            f"golden (the from-PDB featurizer is not yet landed).")
+
+    click.echo(f"Designing {len(specs)} spec(s) → {out_dir} (golden={gdir}, {num_timesteps} steps)")
+    try:
+        results = rfd3_design.run_design(
+            specs, out_dir, golden_dir=gdir, num_timesteps=num_timesteps,
+            seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, verbose=True,
+        )
+    except (ValueError, TypeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done — {len(results)} design(s) → {out_dir}")
+    for r in results:
+        click.echo(f"  {r.spec_id}: {r.out_path} ({r.n_atoms} atoms)")
 
 
 if __name__ == "__main__":
