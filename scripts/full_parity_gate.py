@@ -24,10 +24,22 @@ Per leg this runner:
       every available card given via ``--workers host:card[,host:card...]``
       (default: the local card). Each worker runs one fold at a time (one device
       context per process); legs are dispatched round-robin to free workers.
-  (c) scores device-vs-cached-reference through the EXISTING vetted scorers
-      (``scripts/pharma_parity.py structures``, ``scripts/boltz2_affinity_parity.py``,
-      and the dedicated in-process harnesses for ESMC / SaProt / ESMFold2 /
-      BoltzGen / OpenDDE-abag) — nothing re-derived here.
+  (c) scores each leg. DIFFUSION legs (structure/affinity) use the INTEGRATION-PARITY
+      ENVELOPE (``scripts/integration_envelope.py``): a deterministic shared-draws test
+      comparing the device fold against two cached CPU references (fp32 + bf16) at one
+      seed — see the ENVELOPE note below. All other legs keep their existing vetted
+      scorers/thresholds (``scripts/pharma_parity.py`` saprot, the ESMC / SaProt /
+      ESMFold2 / BoltzGen / OpenDDE-abag in-process harnesses) — nothing re-derived here.
+
+  INTEGRATION-PARITY ENVELOPE (the correctness criterion for diffusion legs; supersedes the
+  old R/D/X self-consistency floor, which conflated bf16 arithmetic with diffusion-noise chaos
+  and so could not tell a real backend bug from ordinary sample-to-sample spread). A diffusion
+  model is deterministic given its noise, so the gate folds the device once at ENVELOPE_SEED,
+  reads the leg's cached ``<fixture>/ref_fp32`` + ``<fixture>/ref_bf16`` CPU references (tt-bio's
+  own torch path, so all three share one CPU-MT19937 draw stream), and passes iff
+  ``d(device_bf16, ref_fp32) <= d(ref_bf16, ref_fp32)*(1+margin) + abs_floor`` on every metric.
+  Regenerate the two CPU references with ``--regen-refs`` (fingerprint-cached). ``--legacy-rdx``
+  keeps the retired R/D/X floor as an opt-in device self-consistency (D) DIAGNOSTIC.
   (d) emits the SAME verdict table + tally as ``docs/implementation-parity.md``,
       writes a JSON report + markdown summary to the workdir, and compares each
       leg's verdict to the committed JSON. A leg that reproduces within the
@@ -96,6 +108,19 @@ REPO = Path(__file__).resolve().parent.parent
 FIXTURE_ROOT = REPO / "docs" / "implementation-parity-data" / "ref-fixtures"
 FINGERPRINT_INDEX = REPO / "docs" / "implementation-parity-data" / "ref-fixture-fingerprints.json"
 PARITY_DATA = REPO / "docs" / "implementation-parity-data"
+
+# The integration-parity envelope (see score_envelope) is the correctness criterion for every
+# diffusion leg — the structure + affinity folds, whose stochasticity is entirely the diffusion
+# noise draw. Deterministic encoders (esmc/saprot), esmfold2, and the designability/DockQ legs
+# are NOT closed-loop diffusion, so they keep their own deterministic/threshold verdicts.
+ENVELOPE_KINDS = ("structure", "affinity")
+# The envelope is a per-shared-draw test: the device fold's seed MUST match the seed the fp32/bf16
+# CPU references were generated at, so all three share one CPU-MT19937 draw sequence.
+ENVELOPE_SEED = 0
+
+
+def _is_envelope_leg(leg) -> bool:
+    return leg.kind in ENVELOPE_KINDS
 
 
 # ---------------------------------------------------------------------------
@@ -665,6 +690,114 @@ def score_affinity(leg: Leg, dev_dirs: list[str], out_json: Path, log_path: Path
     return json.loads(out_json.read_text())
 
 
+# ---------------------------------------------------------------------------
+# Integration-parity envelope — the CORRECTNESS criterion for diffusion legs
+# ---------------------------------------------------------------------------
+# Replaces the old R/D/X same-backend self-consistency floor (see the module docstring
+# "INTEGRATION-PARITY ENVELOPE" note and docs/implementation-parity.md). For a diffusion
+# leg (structure/affinity), correctness is a DETERMINISTIC shared-draws test:
+#   device_bf16 (TT, the port)  vs  reference_fp32 (CPU)      -> numerator
+#   reference_bf16 (CPU)        vs  reference_fp32 (CPU)      -> measured bf16 envelope
+# All three are tt-bio's own code (CPU refs via --accelerator cpu --no_kernels) from the SAME
+# --seed, so the diffusion torch.randn draws are byte-identical (CPU MT19937) by construction
+# and the only difference is arithmetic. PASS iff numerator <= envelope*(1+margin)+abs_floor on
+# every metric. The two CPU references are the CACHED fixture (fingerprinted like the old ones);
+# only the device fold + scoring re-run per release. Regenerate them with --regen-refs.
+def envelope_ref_dirs(leg: Leg) -> tuple[Path | None, Path | None]:
+    """Locate the fp32 + bf16 CPU shared-draw reference result dirs for an envelope leg.
+
+    Convention: ``<fixture>/ref_fp32/`` and ``<fixture>/ref_bf16/`` each hold the inner
+    ``<model>_results_<id>/`` dir a fold writes (located by its results.json). Returns
+    (fp32_inner, bf16_inner); a missing side is None (leg -> BLOCKED-REF-REGEN-NEEDED)."""
+    base = _fixture_dir(leg.fixture)
+    return _find_results_dir(base / "ref_fp32"), _find_results_dir(base / "ref_bf16")
+
+
+def score_envelope(leg: Leg, dev_dir: str, ref_fp32: Path, ref_bf16: Path,
+                   out_json: Path, margin: float) -> dict | None:
+    """Score one diffusion leg with the deterministic shared-draws envelope test.
+
+    Reuses scripts/integration_envelope.py (the vetted envelope scorer + per-leg distance
+    primitives) — nothing re-derived here. Writes the report to out_json for --resume and
+    returns it (mode == 'integration_envelope', consumed by extract_verdict)."""
+    sys.path.insert(0, str(REPO / "scripts"))
+    from integration_envelope import envelope_verdict  # lazy: pulls numpy/gemmi
+    rep = envelope_verdict(dev_dir, ref_fp32, ref_bf16, leg.kind, leg.target_id, margin)
+    out_json.write_text(json.dumps(rep, indent=2))
+    return rep
+
+
+def _ref_settings(leg: Leg) -> dict:
+    """The settings that DEFINE this leg's reference — the fingerprint's cache key. Change any of
+    these and the reference must be regenerated (fingerprint drift => BLOCKED-REF-REGEN-NEEDED)."""
+    return {"device_args": list(leg.device_args), "seed": ENVELOPE_SEED,
+            "yaml": leg.yaml, "model": leg.model, "target_id": leg.target_id, "msa": leg.msa}
+
+
+def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
+                        fold_timeout: float | None, resume: bool) -> int:
+    """(Re)generate each envelope leg's fp32 + bf16 CPU shared-draw references into
+    <fixture>/ref_{fp32,bf16}/ and write the fixture meta.json (fingerprint cache key).
+
+    Both references are the SAME tt-bio CPU torch path (--accelerator cpu --no_kernels; the pure
+    torch trimul, no CUDA cuequivariance) at ENVELOPE_SEED, differing only by the TT_BIO_REF_BF16
+    bf16-autocast toggle — so they share one CPU-MT19937 diffusion draw sequence by construction.
+    Run SERIALLY (fp32 then bf16, one leg at a time): concurrent pure-torch CPU folds oversubscribe
+    the host and triple wall-clock (measured 2026-07-23). This is the expensive cached step; a
+    normal gate run then only re-folds the device side + scores."""
+    local = Worker(host="pc", card=0, is_local=True)
+    n_ok = 0
+    for leg in legs:
+        if not _is_envelope_leg(leg) or not leg.fixture:
+            continue
+        base = _fixture_dir(leg.fixture)
+        base.mkdir(parents=True, exist_ok=True)
+        leg_ok = True
+        for dtype, env in (("fp32", {}), ("bf16", {"TT_BIO_REF_BF16": "1"})):
+            out_dir = base / f"ref_{dtype}"
+            if resume and _find_results_dir(out_dir) is not None:
+                print(f"  {leg.id} ref_{dtype}: cached, skip")
+                continue
+            out_dir.mkdir(parents=True, exist_ok=True)
+            cmd = device_cmd(leg, ENVELOPE_SEED, out_dir, workdir) + ["--accelerator", "cpu", "--no_kernels"]
+            wrapped = local.wrap(cmd, REPO, env)
+            logf = open(log_dir / f"regen_{leg.id}_{dtype}.log", "w")
+            t0 = time.monotonic()
+            try:
+                rc, timed_out = _run_local_fold(wrapped, out_dir, logf, fold_timeout)
+            finally:
+                logf.close()
+            wall = time.monotonic() - t0
+            ok = (rc == 0 and _find_results_dir(out_dir) is not None)
+            print(f"  {leg.id} ref_{dtype}: {'OK' if ok else 'FAILED'} ({wall/60:.1f} min)"
+                  + ("" if ok else f" rc={rc} timed_out={timed_out} — see regen_{leg.id}_{dtype}.log"))
+            leg_ok &= ok
+        if leg_ok:
+            meta = {"reference_impl": "tt-bio-cpu-torch", "reference_version": _repo_commit(),
+                    "reference_commit": _repo_commit(), "settings": _ref_settings(leg),
+                    "seeds": [ENVELOPE_SEED]}
+            (base / "meta.json").write_text(json.dumps(meta, indent=2, sort_keys=True))
+            n_ok += 1
+    # refresh the fingerprint index so a matching reference takes the fast (device-only) path
+    idx = load_fingerprint_index()
+    for leg in legs:
+        if _is_envelope_leg(leg) and leg.fixture:
+            fp = fixture_fingerprint(leg.fixture)
+            if fp:
+                idx[leg.id] = fp
+    FINGERPRINT_INDEX.write_text(json.dumps(idx, indent=2, sort_keys=True))
+    print(f"regen complete: {n_ok} leg(s) with fp32+bf16 references; fingerprint index updated.")
+    return 0
+
+
+def _repo_commit() -> str:
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=REPO,
+                                       text=True, timeout=5).strip()
+    except Exception:
+        return "unknown"
+
+
 def _load_release_gate():
     """Import scripts/release_gate.py as a module so the boltzgen/abag legs can call its
     vetted ``run_boltzgen`` / ``run_opendde_abag`` IN-PROCESS and capture their real structured
@@ -821,9 +954,28 @@ def _abag_verdict(report: dict) -> tuple[str, str]:
     return "NO-DATA", "no global_dockq in record"
 
 
+def _envelope_verdict_row(report: dict) -> tuple[str, str]:
+    """Verdict for an integration_envelope report: PASS iff every metric is within the measured
+    bf16 envelope; else GAP (a real residual exceeding the envelope — to hunt, not excuse). The
+    detail line lists the worst per-metric numerator/envelope ratio so a GAP is legible."""
+    metrics = report.get("metrics", {})
+    if not metrics:
+        return "NO-DATA", "no envelope metrics scored"
+    worst = max(metrics.items(), key=lambda kv: kv[1].get("ratio", 0.0))
+    wk, wm = worst
+    parts = [f"{k} r={m.get('ratio', float('nan')):.2f}" for k, m in metrics.items()]
+    detail = f"envelope worst {wk}: num={wm['numerator']:.4f} env={wm['envelope']:.4f} " \
+             f"ratio={wm['ratio']:.2f}; " + ", ".join(parts)
+    return report.get("verdict", "NO-DATA"), detail
+
+
 def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
     if report is None:
         return "ERROR", "scorer returned no report (see log)"
+    # Diffusion legs (structure/affinity) score with the integration-parity envelope; a resumed
+    # or legacy R/D/X report (no 'mode') still reads through the old extractors (D-diagnostic).
+    if isinstance(report, dict) and report.get("mode") == "integration_envelope":
+        return _envelope_verdict_row(report)
     if leg.kind == "structure":
         return _structure_verdict(report)
     if leg.kind == "affinity":
@@ -962,6 +1114,20 @@ def main() -> int:
                    help="hard wall-clock timeout (s) per device fold / in-process harness. A fold "
                         "that never produces results.json within this window (e.g. a flaky MSA "
                         "server) is killed with a clear error instead of hanging the gate. Default 2400.")
+    ap.add_argument("--margin", type=float, default=None,
+                   help="integration-parity envelope margin (device may drift up to "
+                        "envelope*(1+margin) from the fp32 reference). Default: integration_envelope"
+                        f".DEFAULT_MARGIN. Justified in ~/.coworker/state/tt-bio-integration-parity-gate.md §4.")
+    ap.add_argument("--legacy-rdx", action="store_true",
+                   help="score diffusion legs with the OLD R/D/X same-backend self-consistency "
+                        "floor instead of the integration-parity envelope. Retired as the pass "
+                        "criterion (it conflates bf16 arithmetic with diffusion-noise chaos); kept "
+                        "only as an opt-in device self-consistency (D) DIAGNOSTIC.")
+    ap.add_argument("--regen-refs", action="store_true",
+                   help="(re)generate the fp32 + bf16 CPU shared-draw references for the selected "
+                        "envelope legs (2 CPU folds/leg at seed 0, run SERIALLY per host-contention) "
+                        "into <fixture>/ref_{fp32,bf16}/, then exit. The expensive cached step; only "
+                        "rerun when model code/weights/settings change.")
     ap.add_argument("--init-fingerprints", action="store_true",
                    help="write/refresh docs/implementation-parity-data/ref-fixture-fingerprints.json "
                    "from the current fixtures and exit (run once after harvesting a fixture; "
@@ -1015,6 +1181,21 @@ def main() -> int:
         seeds_override = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
 
     resume = not args.fresh
+
+    if args.margin is None:
+        sys.path.insert(0, str(REPO / "scripts"))
+        from integration_envelope import DEFAULT_MARGIN
+        args.margin = DEFAULT_MARGIN
+
+    # (Re)generate CPU shared-draw references, then exit — the expensive cached step.
+    if args.regen_refs:
+        env_legs = [l for l in legs if _is_envelope_leg(l) and l.fixture]
+        if not env_legs:
+            print("--regen-refs: no envelope (structure/affinity) legs selected.")
+            return 1
+        print(f"--regen-refs: generating fp32+bf16 CPU references for {len(env_legs)} leg(s) "
+              f"(serial; ~2 CPU folds/leg). margin default {args.margin}.")
+        return regen_envelope_refs(env_legs, workdir, log_dir, args.fold_timeout, resume)
 
     # Card-free preflight self-check — abort in seconds on a misconfigured leg instead of a
     # wasted device turn (postmortem #2/#3). Always runs; --check runs it and exits.
@@ -1073,20 +1254,32 @@ def main() -> int:
                       f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fingerprint drift")
                 continue
 
-            # Reference must be COMPLETE to score. A structure fixture whose CIFs were never
-            # force-added past the .gitignore `ref-fixtures/**/*.cif` rule is present-but-
-            # incomplete on a clean checkout — the reference is unavailable, the same class as a
-            # fingerprint drift: BLOCKED-REF-REGEN-NEEDED (regenerate/restore the reference), NOT
-            # a hard gate failure and NOT a silent per-leg ERROR mid-run.
-            incomplete = _incomplete_fixture_seeds(leg, seeds)
-            if incomplete:
-                rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
-                             "detail": f"fixture incomplete: {', '.join(incomplete)} missing "
-                                       f"structures/{leg.target_id}.cif (CIFs gitignored — force-add or regen)",
-                             "wall": 0})
-                print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
-                      f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fixture incomplete (missing structures/ cif)")
-                continue
+            # Reference must be COMPLETE to score. For an envelope leg that means BOTH CPU
+            # shared-draw references (ref_fp32 + ref_bf16) are present; for a legacy R/D/X
+            # structure leg it means the seed-dir CIFs were force-added past the .gitignore
+            # `ref-fixtures/**/*.cif` rule. Either way an absent reference is the same class as a
+            # fingerprint drift: BLOCKED-REF-REGEN-NEEDED (regenerate the reference with
+            # --regen-refs), NOT a hard gate failure and NOT a silent per-leg ERROR mid-run.
+            if _is_envelope_leg(leg) and not args.legacy_rdx:
+                fp32_dir, bf16_dir = envelope_ref_dirs(leg)
+                missing = [d for d, p in (("ref_fp32", fp32_dir), ("ref_bf16", bf16_dir)) if p is None]
+                if missing:
+                    rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
+                                 "detail": f"envelope reference incomplete: {', '.join(missing)} "
+                                           f"missing under {leg.fixture} — run --regen-refs", "wall": 0})
+                    print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
+                          f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  envelope ref missing ({', '.join(missing)})")
+                    continue
+            else:
+                incomplete = _incomplete_fixture_seeds(leg, seeds)
+                if incomplete:
+                    rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
+                                 "detail": f"fixture incomplete: {', '.join(incomplete)} missing "
+                                           f"structures/{leg.target_id}.cif (CIFs gitignored — force-add or regen)",
+                                 "wall": 0})
+                    print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
+                          f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fixture incomplete (missing structures/ cif)")
+                    continue
 
         if args.dry_run:
             rows.append({"leg": leg.id, "verdict": "DRY-RUN", "detail": ref_status, "wall": 0})
@@ -1108,7 +1301,22 @@ def main() -> int:
                 pass  # fall through to a fresh run
         if verdict is None:
             t_run = time.monotonic()
-            if leg.kind in ("structure", "affinity"):
+            if _is_envelope_leg(leg) and not args.legacy_rdx:
+                # Envelope leg: ONE device fold at ENVELOPE_SEED (must match the seed the CPU
+                # references were generated at — shared draws), scored device_bf16 vs the two CPU
+                # references. The refs' presence was already verified above.
+                fp32_dir, bf16_dir = envelope_ref_dirs(leg)
+                folds = run_folds_fanout(leg, [ENVELOPE_SEED], workdir, workers, log_dir,
+                                         resume=resume, fold_timeout=args.fold_timeout)
+                dev = folds.get(ENVELOPE_SEED)
+                if not isinstance(dev, Path):
+                    err = dev.get("error") if isinstance(dev, dict) else "no output dir"
+                    verdict, detail = "ERROR", f"device fold: {err}"
+                else:
+                    report = score_envelope(leg, str(dev), fp32_dir, bf16_dir,
+                                            cached_report_path, args.margin)
+                    verdict, detail = extract_verdict(leg, report)
+            elif leg.kind in ("structure", "affinity"):
                 folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir,
                                          resume=resume, fold_timeout=args.fold_timeout)
                 dev_dirs, fold_errs = [], []

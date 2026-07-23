@@ -116,8 +116,21 @@ Under the sound test:
 
 The device is closer to the fp32 reference than a torch-bf16 recomputation of that reference is
 (every ratio < 1). Per-run affinity_pred_value: device -0.477780, ref_fp32 -0.500461, ref_bf16
--0.562500. Rollout across DHFR / trypsin / the MSA legs / Protenix-v2 HSA, and the wiring of this
-verdict into `full_parity_gate.py`, are in progress (gate of record — pending sign-off).
+-0.562500.
+
+**Wired into the gate of record.** The envelope test is the default correctness criterion for
+every diffusion (structure/affinity) leg in `scripts/full_parity_gate.py`: the gate folds the
+device once at the reference seed, reads the leg's cached `ref_fp32` + `ref_bf16` CPU references,
+and scores with `integration_envelope.py` through the one `finalize_leg` verdict path. The two CPU
+references are the cached fixture (`--regen-refs` generates them, fingerprinted like the old ones,
+so only the device fold + scoring re-run per release); a leg without them reports
+`BLOCKED-REF-REGEN-NEEDED` rather than a false pass. The retired R/D/X floor is still available as
+an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`. Proven end-to-end on FKBP12:
+`full_parity_gate.py --leg boltz2-affinity-fkbp12-nomsa` folds the device (136 s) and returns
+`PASS` (all four metrics within envelope) with no manual intervention. Rollout of the cached CPU
+references across DHFR / trypsin / the MSA legs / Protenix-v2 HSA is the remaining (CPU-bound)
+work; the gate correctly blocks those legs until their references are regenerated. Gate of record —
+pending Moritz's sign-off before merge.
 
 ## Reproduce
 
