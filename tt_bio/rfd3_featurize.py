@@ -46,11 +46,15 @@ via `unindex`, e.g. the real ``enzyme_design.md``/M0255_1mg5 example — see the
 F4 grounding below), PLUS cyclic/dihedral symmetric oligomer design (F5: the
 ``symmetry: {"id": "C3"}``-style field on a fully-unconditional (no `input`,
 no `contig`, bare `length`) design spec, e.g. the real ``symmetry.md``
-``uncond_C5``/``uncond_D4`` examples — see the F5 grounding below). NA as an
-*indexed motif inside a protein chain*'s unindex field, the unindex numeric-
-offset-tie syntax / dict-form per-atom fixing (see ``_plan_unindexed_tokens``),
-and F5 symmetry COMBINED with any real input structure/motif/ligand all still
-raise NotImplementedError with a pointer to the reference transform.
+``uncond_C5``/``uncond_D4`` examples — see the F5 grounding below), F5
+symmetry combined with a real motif/ligand input (p19/p20: motif-derived
+Kabsch frames, `is_unsym_motif` exclusion, unindexed-motif replication, and
+per-subunit ligand instances), and `select_fixed_atoms` per-atom partial
+fixing on an INDEXED (contig) motif residue (p21, see the F1/F6 grounding
+above). NA as an *indexed motif inside a protein chain*'s unindex field and
+the unindex numeric-offset-tie syntax / dict-form per-atom fixing (see
+``_plan_unindexed_tokens``) still raise NotImplementedError with a pointer to
+the reference transform.
 
 F5 symmetry grounding (verified against the real reference's own
 ``docs/examples/symmetry.md`` + ``rfd3.inference.symmetry.{symmetry_utils,
@@ -311,10 +315,24 @@ land on the same raw chain):
   INDEXED (contig) motif-only exempt: an indexed/contig motif token always
   keeps every real atom regardless of `select_fixed_atoms` (verified: the
   subsetting call only ever touches `unindexed_tokens`, never
-  `indexed_tokens`) — a dict-form `select_fixed_atoms` targeting an INDEXED
-  motif residue is therefore still out of scope (NotImplementedError; would
-  need genuine per-atom partial-fixing bookkeeping on a still-full atom set,
-  a different mechanism than unindexed atom-subsetting).
+  `indexed_tokens`) — for an INDEXED residue, `select_fixed_atoms` instead
+  resolves to a genuine PER-ATOM partial-fixing mask on a still-FULL atom set
+  (p21, `_indexed_fixed_atom_names`): `apply_selections` computes
+  `is_motif_atom_with_fixed_coord` for EVERY residue, indexed or unindexed,
+  BEFORE `_build_init` ever decides whether to subset — an indexed residue
+  named in `select_fixed_atoms` keeps every real atom, but only the NAMED
+  atoms become fixed-coord; the rest stay present (known sequence identity,
+  from the same `contig` motif) and diffuse like a designed atom. Verified
+  against a real reference capture (`IAI_protein.pdb`, contig
+  "A1-10,20,A31-40" + `select_fixed_atoms: {"A5": "CB,CG,CD"}`, 43/43 keys
+  bit-exact, `scripts/rfd3_port/parity_artifacts/parity_indexed_atomsubset.py`):
+  ARG5 keeps all 11 real atoms, only CB/CG/CD get
+  `is_motif_atom_with_fixed_coord=True`, and the reference's own token-level
+  `is_motif_token_with_fully_fixed_coord` flag is False for that one token,
+  True for every other real motif token in the fixture — this port's own
+  same-named feature already derived itself from the atom-level mask
+  (`token_is_fully_fixed_coord[ti] = is_motif_atom_fixed_coord[s:e].all()`),
+  so it came out correct automatically once the atom-level mask did.
 - When an unindexed residue's `select_fixed_atoms`-kept atom subset has no
   real CB (or no CA, for glycine), the reference falls back to forcing the
   FIRST kept real atom to be its own representative (`add_representative_atom`
@@ -632,7 +650,7 @@ def _central_atom_name(res_name: str) -> str | None:
     return None
 
 
-def _motif_atom_layout(r: _Residue, keep: frozenset | None = None):
+def _motif_atom_layout(r: _Residue, keep: frozenset | None = None, fixed: frozenset | None = None):
     """Real heavy atoms of a motif (fixed-seq) residue, in the INPUT
     STRUCTURE'S real atom order, renamed to the generic atom14 template via
     the dense-scheme slot lookup — NOT padded, NOT slot-sorted. Missing atoms
@@ -642,6 +660,11 @@ def _motif_atom_layout(r: _Residue, keep: frozenset | None = None):
     in it are dropped too — this is how the reference's `select_fixed_atoms`
     atom-subsetting reaches an unindexed motif token (see module docstring);
     None (the F1/F6/p14 default) keeps every real atom, unchanged.
+    ``fixed`` (p21, indexed tokens only): when not None, a per-atom boolean
+    mask (aligned with the returned ``names``, real-atom-name-keyed, computed
+    BEFORE the V-slot rename) marking which real atoms are individually
+    fixed-coord — see `_indexed_fixed_atom_names`. None (the F1/p10 default)
+    returns no mask (caller falls back to the token-level `fixed_coord`).
 
     Emission order matters and is NOT the same as slot order: a residue whose
     real PDB atom listing doesn't already happen to match the canonical
@@ -652,15 +675,17 @@ def _motif_atom_layout(r: _Residue, keep: frozenset | None = None):
     TRP): getting this wrong silently permutes ``motif_pos``/atom-name
     features for any residue with non-canonical side-chain atom ordering in
     its input file (didn't manifest on the p12 F1/F6 fixture by coincidence).
-    Returns (names, coord[n,3], is_virtual[n]=False, elements=None) — elements
-    is always None for protein: ``ref_element`` is never filled for protein
-    atoms regardless (see module docstring), so no per-atom element is needed."""
+    Returns (names, coord[n,3], is_virtual[n]=False, elements=None,
+    fixed_mask[n]|None) — elements is always None for protein: ``ref_element``
+    is never filled for protein atoms regardless (see module docstring), so
+    no per-atom element is needed."""
     scheme = _DENSE_ATOM14_SCHEME.get(r.res_name)
     if scheme is None:
         raise NotImplementedError(f"no dense atom14 scheme for motif residue {r.res_name!r}")
     slot_by_name = {name: slot for slot, name in enumerate(scheme) if name is not None}
     names: list[str] = []
     coord: list[np.ndarray] = []
+    fixed_mask: list[bool] = []
     seen: set[str] = set()
     for real_name, c in zip(r.atom_names, r.coord):
         if keep is not None and real_name not in keep:
@@ -671,8 +696,11 @@ def _motif_atom_layout(r: _Residue, keep: frozenset | None = None):
         seen.add(real_name)
         names.append(ATOM14_ATOM_NAMES[slot])
         coord.append(c)
+        if fixed is not None:
+            fixed_mask.append(real_name in fixed)
     coord_arr = np.asarray(coord, dtype=np.float32) if coord else np.zeros((0, 3), dtype=np.float32)
-    return names, coord_arr, np.zeros(len(names), dtype=bool), None
+    fixed_arr = np.asarray(fixed_mask, dtype=bool) if fixed is not None else None
+    return names, coord_arr, np.zeros(len(names), dtype=bool), None, fixed_arr
 
 
 def _na_atom_layout(r: _Residue):
@@ -682,20 +710,20 @@ def _na_atom_layout(r: _Residue):
     V-slot-relabeled or padded — see module docstring). Elements are the real
     parsed per-atom element (needed for ``ref_element``, which — unlike
     protein — IS filled for NA). Returns (names, coord[n,3], is_virtual[n]
-    =False, elements[n])."""
-    return list(r.atom_names), r.coord.copy(), np.zeros(len(r.atom_names), dtype=bool), list(r.elements)
+    =False, elements[n], fixed_mask=None)."""
+    return list(r.atom_names), r.coord.copy(), np.zeros(len(r.atom_names), dtype=bool), list(r.elements), None
 
 
 def _designed_atom_layout():
     """Full 14-slot template for a designed (sequence-unknown) residue: the
     5 backbone+CB slots are real (undetermined, coord 0); V0..V8 are virtual
     pad atoms (PadTokensWithVirtualAtoms). Returns (names, coord[14,3],
-    is_virtual[14], elements=None)."""
+    is_virtual[14], elements=None, fixed_mask=None)."""
     names = list(ATOM14_ATOM_NAMES)
     coord = np.zeros((14, 3), dtype=np.float32)
     is_virtual = np.zeros(14, dtype=bool)
     is_virtual[5:] = True
-    return names, coord, is_virtual, None
+    return names, coord, is_virtual, None, None
 
 
 # -- contig -> token plan ----------------------------------------------------
@@ -722,6 +750,10 @@ class _Token:
     ligand_atom_name: str | None = None  # real atom name (ligand tokens only)
     kept_atom_names: frozenset | None = None  # F4: unindexed + select_fixed_atoms
                          # atom subset (None => keep every real atom, the F6/p14 default)
+    fixed_atom_names: frozenset | None = None  # p21: INDEXED motif + select_fixed_atoms
+                         # per-atom fixed-coord subset (real atom names; every real atom
+                         # is still KEPT -- unlike kept_atom_names, nothing is dropped).
+                         # None => every real atom is fixed (the F1/p10 default).
 
     @property
     def fixed_coord(self) -> bool:
@@ -757,6 +789,45 @@ def _unindexed_kept_atom_names(spec: InputSpecification, chain: str, res_id: int
     raise NotImplementedError(
         f"select_fixed_atoms={sel!r} (a contig-string selection) on an "
         "unindexed protein residue is not supported this pass — p17+"
+    )
+
+
+def _indexed_fixed_atom_names(spec: InputSpecification, chain: str, res_id: int,
+                               real_names: Sequence[str]) -> frozenset | None:
+    """p21: which of an INDEXED (contig) motif residue's real atoms are
+    individually fixed-coord, per `select_fixed_atoms`. Real reference
+    mechanism (`input_parsing.py::_assign_types_to_input.apply_selections`):
+    the per-atom `is_motif_atom_with_fixed_coord` mask is computed for EVERY
+    residue (indexed or unindexed) BEFORE `_build_init` decides whether to
+    subset -- and `_build_init` only ever subsets `unindexed_tokens`, never
+    `indexed_tokens` (see `_unindexed_kept_atom_names`). So an indexed
+    residue keeps EVERY real atom regardless of `select_fixed_atoms` (unlike
+    the unindexed case, nothing is dropped), but atoms NOT named in the
+    selection are simply not fixed-coord: still present, known sequence
+    identity, diffused position -- like a designed atom. Verified against a
+    real reference capture (`IAI_protein.pdb`, contig "A1-10,20,A31-40" +
+    `select_fixed_atoms: {"A5": "CB,CG,CD"}`): ARG5 keeps all 11 real atoms,
+    only CB/CG/CD get `is_motif_atom_with_fixed_coord=True`, and the
+    reference's own `is_motif_token_with_fully_fixed_coord` flag is False for
+    that one token, True for every other real motif token in the fixture.
+    Returns None (every real atom fixed -- the F1/p10-verified default) when
+    `select_fixed_atoms` is the global True/absent default or a dict that
+    doesn't name this residue's `{chain}{res_id}` key (same resolution
+    mechanics as `_unindexed_kept_atom_names`, consumed differently: this
+    marks a subset fixed rather than dropping the rest)."""
+    sel = spec.select_fixed_atoms
+    if sel is None or isinstance(sel, bool):
+        return None if (sel is None or sel) else frozenset()
+    if isinstance(sel, dict):
+        key = f"{chain}{res_id}".upper()
+        for k, v in sel.items():
+            if str(k).strip().upper() == key:
+                mask = _atom_selection_mask(_parse_atom_spec(v), real_names)
+                return frozenset(np.asarray(real_names)[mask].tolist())
+        return None
+    raise NotImplementedError(
+        f"select_fixed_atoms={sel!r} (a contig-string selection) on an "
+        "indexed protein residue is not supported this pass — p21+"
     )
 
 
@@ -1093,8 +1164,19 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                     raise ValueError(f"contig indexes {c.chain}{rid} not present in input structure")
                 if not (_is_protein(r) or _is_na(r)):
                     raise NotImplementedError("ligand/enzyme indexed motif (F3/F4) — p15+")
+                # p21: `select_fixed_atoms` can partially fix an INDEXED
+                # motif residue's real atoms (per-atom, not a subset -- see
+                # `_indexed_fixed_atom_names`). NA indexed residues never
+                # need the dense-atom14 rename this resolves against (real
+                # name == emitted name for NA, see `_na_atom_layout`), but
+                # the reference's own `apply_selections` runs on ANY residue
+                # type identically, so this is not protein-only in principle
+                # -- restricted to protein here (NA indexed + select_fixed_
+                # atoms is unexercised, not grounded this pass).
+                fixed_atom_names = (_indexed_fixed_atom_names(spec, c.chain, rid, r.atom_names)
+                                     if _is_protein(r) else None)
                 tokens.append(_Token(c.chain, rid, r.res_name, True, False, False,
-                                     break_before_next, r))
+                                     break_before_next, r, fixed_atom_names=fixed_atom_names))
                 indexed_keys.add((c.chain, rid))
                 break_before_next = False
             continue
@@ -1319,10 +1401,10 @@ def _plan_ligand_tokens(spec: InputSpecification, all_residues: list[_Residue],
 def _ligand_atom_layout(tk: "_Token"):
     """Single real heavy atom, verbatim (no renaming/padding — see module
     docstring for the reference's atomize gate). Returns (names, coord[1,3],
-    is_virtual[1]=False, elements[1])."""
+    is_virtual[1]=False, elements[1], fixed_mask=None)."""
     idx = tk.residue.atom_names.index(tk.ligand_atom_name)
     return ([tk.ligand_atom_name], tk.residue.coord[idx:idx + 1].copy(),
-             np.zeros(1, dtype=bool), [tk.residue.elements[idx]])
+             np.zeros(1, dtype=bool), [tk.residue.elements[idx]], None)
 
 
 def featurize(structure_path: str | Path | None, spec: InputSpecification) -> dict[str, torch.Tensor]:
@@ -1489,11 +1571,12 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     # lookup — see module docstring).
     layouts = [
         _ligand_atom_layout(tk) if kind == "ligand" else
-        (_na_atom_layout(tk.residue) if kind in ("dna", "rna") else _motif_atom_layout(tk.residue, tk.kept_atom_names))
+        (_na_atom_layout(tk.residue) if kind in ("dna", "rna")
+         else _motif_atom_layout(tk.residue, tk.kept_atom_names, tk.fixed_atom_names))
         if tk.is_motif else _designed_atom_layout()
         for tk, kind in zip(tokens, token_kind)
     ]
-    L = sum(len(nm) for nm, _, _, _ in layouts)
+    L = sum(len(nm) for nm, _, _, _, _ in layouts)
 
     # The whole design is centered at the center of mass of the real, FIXED-
     # COORD atoms (verified vs a real reference capture: motif_pos ==
@@ -1502,8 +1585,21 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     # a ligand can be `is_motif` (known chemical identity) while NOT
     # fixed-coord (its position is diffused), so it must NOT contribute to
     # centering in that case; gate on `tk.fixed_coord`, not the broader
-    # `tk.is_motif`).
-    motif_coords = [c for tk, (nm, c, _, _) in zip(tokens, layouts) if tk.fixed_coord and len(nm)]
+    # `tk.is_motif`). p21: an INDEXED motif residue with a per-atom
+    # `fixed_mask` (partial `select_fixed_atoms`) only contributes its
+    # individually-fixed atoms, not the whole token's coords (verified vs a
+    # real reference capture: `set_com`'s own COM is the mean over the
+    # ATOM-level `is_motif_atom_with_fixed_coord` mask, not a token-level
+    # flag — see `_indexed_fixed_atom_names`).
+    motif_coords = []
+    for tk, (nm, c, _, _, fixed_mask) in zip(tokens, layouts):
+        if not len(nm):
+            continue
+        if fixed_mask is not None:
+            if fixed_mask.any():
+                motif_coords.append(c[fixed_mask])
+        elif tk.fixed_coord:
+            motif_coords.append(c)
     if motif_coords:
         com = np.concatenate(motif_coords, axis=0).mean(axis=0)
     else:
@@ -1565,7 +1661,7 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     _next_group_id = 0
 
     pos = 0
-    for ti, (tk, kind, (names, coord, tk_is_virtual, elements)) in enumerate(zip(tokens, token_kind, layouts)):
+    for ti, (tk, kind, (names, coord, tk_is_virtual, elements, fixed_mask)) in enumerate(zip(tokens, token_kind, layouts)):
         n = len(names)
         s, e = pos, pos + n
         atom_names.extend(names)
@@ -1625,7 +1721,17 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
                 j = names.index(central)
                 is_ca[s + j] = True
                 is_central[s + j] = True
-        if fixed_coord:
+        if fixed_mask is not None:
+            # p21: INDEXED motif residue with a partial `select_fixed_atoms`
+            # -- only the individually-named atoms are fixed-coord; every
+            # other real atom of this SAME token stays present (sequence
+            # identity known) but diffused, matching the reference's
+            # per-atom (not per-token) `is_motif_atom_with_fixed_coord`
+            # mask (see `_indexed_fixed_atom_names`).
+            is_motif_atom_fixed_coord[s:e][fixed_mask] = True
+            atom_coord[s:e][fixed_mask] = coord[fixed_mask]
+            motif_pos[s:e][fixed_mask] = coord[fixed_mask] - com
+        elif fixed_coord:
             is_motif_atom_fixed_coord[s:e] = True
             atom_coord[s:e] = coord
             motif_pos[s:e] = coord - com
