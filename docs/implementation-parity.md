@@ -105,26 +105,29 @@ The floor is the intrinsic bf16 cost of the full trajectory (chaotic amplificati
 MEASURED from a bf16 recomputation of the reference itself, not guessed. Scorer:
 `scripts/integration_envelope.py`; see `RELEASING.md` for the full rationale and the pass criterion.
 
-> **Note (2026-07-23):** the FKBP12/DHFR numbers below were measured BEFORE the shared-draws fix
-> (`TT_BIO_SHARED_DRAW_SEED`) and are not valid parity verdicts — device and reference drew
-> different diffusion noise. They stand only as illustration; the real head-to-head is regenerated
-> with the fix. The METHOD and gate wiring are correct; the reference NUMBERS need regeneration.
+**Shared draws require a sampler-entry re-seed (`TT_BIO_SHARED_DRAW_SEED`).** The single up-front
+seed is not enough: the device (ttnn) and CPU (torch) trunks consume the global RNG differently
+before the sampler, so without the re-seed the device and reference draw DIFFERENT diffusion noise
+(measured bit-for-bit). With it they draw byte-identical noise, so the numerator is arithmetic-only.
+The numbers below are with the fix (the first valid head-to-head).
 
-**FKBP12 head-to-head (no-MSA affinity, seed 0 — proof of the method).** Under the old floor the
-FKBP12 affinity metrics were cleared only with caveats and manual triangulation (pocket-lDDT read
-as "X/floor" up to ~4-13 across the affinity legs because the independent-seed floor is tiny).
-Under the sound test:
+**Two-leg head-to-head (no-MSA affinity, seed 0, shared draws).**
 
-| metric | d(dev_bf16, ref_fp32) | envelope d(ref_bf16, ref_fp32) | ratio | verdict |
+| leg | affinity_pred_value ratio | ligand-RMSD ratio | 1-pocket-lDDT | verdict |
 |---|---|---|---|---|
-| affinity_pred_value (log10 IC50) | 0.02268 | 0.06204 | 0.37 | PASS |
-| affinity_probability_binary | 0.00146 | 0.00152 | 0.96 | PASS |
-| ligand-pose RMSD (Å) | 0.15894 | 0.21617 | 0.74 | PASS |
-| 1-pocket-lDDT | 0.00466 | 0.08385 | 0.06 | PASS |
+| DHFR   | 1.22 | 0.19 | 0.00 (bit-identical) | **PASS** |
+| FKBP12 | 1.90 | 0.32 | 0.00 (bit-identical) | **GAP** (affinity scalar only) |
 
-The device is closer to the fp32 reference than a torch-bf16 recomputation of that reference is
-(every ratio < 1). Per-run affinity_pred_value: device -0.477780, ref_fp32 -0.500461, ref_bf16
--0.562500.
+Structure/pose parity is excellent on both legs — the device structure is bit-identical to fp32 in
+pocket-lDDT and ligand pose is well inside the bf16 envelope. The one metric at/over the boundary is
+the affinity SCALAR: the device affinity head carries a small (~0.06-0.07 log10 IC50) TT-bf16
+residual that, on FKBP12 (where the bf16 envelope is tiny, 0.037), exceeds the 1.5× bound and GAPs.
+Running the affinity diffusion in fp32 (`BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1`) removes only ~17%
+of it, so the residual is in the affinity head's non-diffusion bf16 arithmetic. Per the standing
+rule this GAP is flagged as a real residual to hunt (candidate: an fp32 boundary on the affinity
+head), NOT excused by loosening the margin. This is the sound test working: it passes a clean port
+(DHFR, and every structure metric) and isolates a genuine affinity-head residual the old
+self-consistency floor buried in noise.
 
 **Wired into the gate of record.** The envelope test is the default correctness criterion for
 every diffusion (structure/affinity) leg in `scripts/full_parity_gate.py`: the gate folds the
@@ -133,12 +136,11 @@ and scores with `integration_envelope.py` through the one `finalize_leg` verdict
 references are the cached fixture (`--regen-refs` generates them, fingerprinted like the old ones,
 so only the device fold + scoring re-run per release); a leg without them reports
 `BLOCKED-REF-REGEN-NEEDED` rather than a false pass. The retired R/D/X floor is still available as
-an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`. Proven end-to-end on FKBP12:
-`full_parity_gate.py --leg boltz2-affinity-fkbp12-nomsa` folds the device (136 s) and returns
-`PASS` (all four metrics within envelope) with no manual intervention. Rollout of the cached CPU
-references across DHFR / trypsin / the MSA legs / Protenix-v2 HSA is the remaining (CPU-bound)
-work; the gate correctly blocks those legs until their references are regenerated. Gate of record —
-pending Moritz's sign-off before merge.
+an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`. Run end-to-end on both legs
+above with no manual intervention (DHFR device fold 344 s → PASS; FKBP12 130 s → GAP on the affinity
+scalar). Rollout of the cached CPU references across trypsin / the MSA legs / Protenix-v2 HSA is the
+remaining (CPU-bound) work; the gate correctly blocks those legs until their references are
+regenerated. Gate of record — pending Moritz's sign-off before merge.
 
 ## Reproduce
 
