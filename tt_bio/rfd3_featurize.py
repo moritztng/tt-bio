@@ -1247,6 +1247,20 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                 break_before_next = False
             continue
         if isinstance(c, (Designed, DesignedRange)):
+            # KNOWN, DOCUMENTED GAP (flagged p17, still open p22): a
+            # DesignedRange ("180-200") is NOT reference-sampled -- the real
+            # reference stochastically draws an actual length via
+            # `get_design_pattern_with_constraints` (a random.randint call,
+            # unseeded relative to this port's own RNG), so no single
+            # deterministic value can be "the" bit-exact match. This port
+            # instead uses a fixed midpoint `(lo+hi)//2` for a reproducible,
+            # arbitrary-but-valid design length. Not reproduced because
+            # (a) matching the reference's specific draw isn't meaningful
+            # (a fresh reference run would draw differently too), and
+            # (b) threading a seed through to reproduce THIS port's own
+            # midpoint choice run-to-run already works via the featurizer's
+            # existing determinism -- there is no real reference VALUE this
+            # gap needs to match, only a documented convention choice.
             n = c.length if isinstance(c, Designed) else (c.lo + c.hi) // 2
             # A designed segment continues the preceding block's chain UNLESS
             # a chain break (or nothing yet) precedes it, in which case it

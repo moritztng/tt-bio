@@ -96,7 +96,15 @@ class Designed:
 
 @dataclass(frozen=True)
 class DesignedRange:
-    """A designed region of random length within [min, max] (a bare ``min-max``)."""
+    """A designed region of random length within [min, max] (a bare ``min-max``).
+
+    KNOWN GAP (documented p17/p22): the real reference stochastically samples
+    the actual length (`get_design_pattern_with_constraints`, an unseeded
+    `random.randint`); this port's featurizer instead resolves this to a
+    fixed midpoint `(lo+hi)//2` for a reproducible, arbitrary-but-valid
+    length — there is no single reference VALUE to match (a fresh reference
+    run draws differently each time too), so this is a documented convention
+    choice, not an unresolved parity mismatch."""
 
     lo: int
     hi: int

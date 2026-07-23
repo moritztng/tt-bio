@@ -185,6 +185,43 @@ def test_na_binder_dsdna():
     print(f"test_na_binder_dsdna OK  I={I} L={f['ref_pos'].shape[0]}")
 
 
+def _rna_basic_pdb():
+    return os.path.join(os.path.dirname(__file__), "parity_artifacts", "dsdna_basic", "1q75.pdb")
+
+
+def test_na_binder_rna():
+    """F2/F8 NA-binder design (p22, symmetric to test_na_binder_dsdna, owed
+    since p15): a fixed single-strand RNA target (1q75.pdb, chain A, real
+    A/C/G/U bases) + a designed protein binder chain. Bit-exact VALUE parity
+    vs a real reference capture is scripts/rfd3_port/parity_artifacts/
+    parity_rna.py (42/43 keys, the lone documented gap being `ref_pos`'s real
+    reference-conformer geometry, same shape of gap as the DNA case); this is
+    the structural/shape+invariant gate."""
+    pdb = _rna_basic_pdb()
+    spec = _spec({"input": pdb, "contig": "A1-15,/0,5"})
+    f = featurize(pdb, spec)
+    I = 15 + 5  # 15 RNA motif tokens (single strand) + 5 designed protein
+    assert f["restype"].shape == (I, 32)
+    is_rna = f["is_rna"]
+    assert int(is_rna.sum()) == 15 and int(f["is_protein"].sum()) == 5
+    # designed protein chain after the '/0' break is its own chain/entity
+    assert f["asym_id"][15].item() != f["asym_id"][0].item()
+    assert f["entity_id"][15].item() != f["entity_id"][0].item()
+    # every RNA atom: ref_mask True, real (non-column-0) ref_element, never backbone/sidechain
+    rna_atoms = torch.isin(f["atom_to_token_map"], is_rna.nonzero().flatten().to(torch.int32))
+    assert bool(f["ref_mask"][rna_atoms].all())
+    assert bool((f["ref_element"][rna_atoms, 0] == 0).all())
+    assert not bool(f["is_backbone"][rna_atoms].any())
+    assert not bool(f["is_sidechain"][rna_atoms].any())
+    # RNA tokens never carry a terminus flag in this contract
+    assert torch.all(f["terminus_type"][is_rna] == 0)
+    # exactly one representative (is_ca/is_central) atom per RNA token
+    rna_tok_of_atom = f["atom_to_token_map"][rna_atoms].long()
+    rep_count = torch.bincount(rna_tok_of_atom, weights=f["is_ca"][rna_atoms].float(), minlength=I)
+    assert int(rep_count[is_rna].sum().item()) == 15 and bool((rep_count[is_rna] == 1).all())
+    print(f"test_na_binder_rna OK  I={I} L={f['ref_pos'].shape[0]}")
+
+
 def test_unindex_tied_and_separate_islands():
     """F6 unindex field (p14): 'A31-32' (tied island, leaked to each other) +
     'A35' (separate singleton island) appended after the main contig. Value
