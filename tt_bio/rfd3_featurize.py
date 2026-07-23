@@ -37,14 +37,59 @@ center of mass of the real (motif) atoms sits at the origin.
 Coverage: protein-binder (F1) + motif-scaffolding (F6, indexed AND unindexed)
 on protein input, nucleic-acid-binder design (F2/F8: a fixed-sequence DNA/RNA
 target chain + a designed protein binder chain, e.g. the ``dsDNA_basic``/
-``RNA_basic`` reference examples), PLUS small-molecule-binder design (F3: a
-real ligand named by CCD code via the separate `ligand` spec field, e.g. the
-real ``sm_binder_design.md`` "buried"/"partial" examples). Enzyme (F4, catalytic-
-residue conditioning on TOP of a ligand) and symmetry (F5) input still raise
-NotImplementedError with a pointer to the reference transform; so does NA as
-an *indexed motif inside a protein chain*'s unindex field, and the unindex
-numeric-offset-tie syntax / dict-form per-atom fixing (see
-``_plan_unindexed_tokens``).
+``RNA_basic`` reference examples), small-molecule-binder design (F3: a real
+ligand named by CCD code via the separate `ligand` spec field, e.g. the real
+``sm_binder_design.md`` "buried"/"partial" examples), PLUS enzyme design (F4:
+multiple ligand instances via a comma-separated `ligand` field, e.g.
+``"NAI,ACT"``, plus `select_fixed_atoms`-subsetted catalytic protein residues
+via `unindex`, e.g. the real ``enzyme_design.md``/M0255_1mg5 example — see the
+F4 grounding below). Symmetry (F5) input still raises NotImplementedError with
+a pointer to the reference transform; so does NA as an *indexed motif inside a
+protein chain*'s unindex field, and the unindex numeric-offset-tie syntax /
+dict-form per-atom fixing (see ``_plan_unindexed_tokens``).
+
+Enzyme (F4) grounding (verified against a real local CPU capture of the real
+``enzyme_design.md`` example — ``M0255_1mg5.pdb`` + its own
+``ligand: "NAI,ACT", unindex: "A108,A139,A152,A156", select_fixed_atoms: {...}``
+spec, via ``capture_ref_f_spec.py``; needed
+``allow_ligand_on_existing_chain: true`` since this PDB's two hetero groups
+land on the same raw chain):
+- Multiple *different* ligand CCD codes in one ``ligand`` field (comma-
+  separated, e.g. ``"NAI,ACT"``) all land on ONE SHARED fresh chain (verified:
+  both NAI's and ACT's tokens get the SAME ``asym_id``/entity) — NOT one fresh
+  chain per code as a single-ligand spec's chain allocation might suggest.
+  ``residue_index`` increments once PER LIGAND INSTANCE on that shared chain
+  (0 for the first code, 1 for the second, ...), matching how a real multi-
+  atom residue occupies one `residue_index` slot regardless of atom count.
+  Repeated instances of the SAME code are still out of scope (NotImplementedError).
+- ``ref_space_uid`` is a GLOBAL count of distinct residue-groups in first-
+  appearance order (biotite's residue-level indexing) — NOT literally "this
+  ligand's own first token index" (that framing, used through p16, happens to
+  coincide for a single trailing ligand block but breaks for a second ligand
+  instance: verified NAI's 44 atoms -> ref_space_uid 197 (correct, matches its
+  first-token-index by coincidence) but ACT's 4 atoms -> ref_space_uid 198,
+  NOT 241 (its real first-token index) — ACT is simply the 199th distinct
+  residue-group, not token #241).
+- ``select_fixed_atoms`` can SUBSET which of an UNINDEXED protein residue's
+  real atoms enter the token at all (not merely flag them) — verified against
+  the reference source (``input_parsing.py::_build_init``:
+  ``unindexed_tokens[k] = tok[tok.is_motif_atom_with_fixed_coord]`` runs
+  BEFORE tokenization, permanently dropping every other real atom). This is
+  INDEXED (contig) motif-only exempt: an indexed/contig motif token always
+  keeps every real atom regardless of `select_fixed_atoms` (verified: the
+  subsetting call only ever touches `unindexed_tokens`, never
+  `indexed_tokens`) — a dict-form `select_fixed_atoms` targeting an INDEXED
+  motif residue is therefore still out of scope (NotImplementedError; would
+  need genuine per-atom partial-fixing bookkeeping on a still-full atom set,
+  a different mechanism than unindexed atom-subsetting).
+- When an unindexed residue's `select_fixed_atoms`-kept atom subset has no
+  real CB (or no CA, for glycine), the reference falls back to forcing the
+  FIRST kept real atom to be its own representative (`add_representative_atom`
+  -> per-atom `atomize`) — is_backbone/is_central True, is_sidechain False for
+  that one atom, same convention already used for ligand atoms — verified
+  against the real capture (e.g. A108 subsetted to ``{ND2,CG}``: neither
+  survives as CB, so CG — the first KEPT real atom in input-structure order —
+  becomes the representative, NOT literally "whichever real atom is CB").
 
 Ligand (F3) grounding (same design_transforms.py/virtual_atoms.py + the real
 ``rfd3.inference.input_parsing.py``/``rfd3.inference.parsing.py`` select-field
@@ -97,10 +142,11 @@ ckpt needed, same method as F2/F8):
   binder with nothing but a fresh designed chain + a ``ligand``) is treated
   as a bare designed-length contig string (``parse_contig`` already parses a
   bare "180-180"/"180" as Designed/DesignedRange).
-- Scoped out this pass: multiple ligand instances of the same/different CCD
-  code (single instance only), the ``TIP``/``BKBN`` atom-selection shorthands
-  applied to a ligand, and a contig-string (rather than dict-form) select_*
-  value targeting a ligand — all raise NotImplementedError rather than guess.
+- Scoped out this pass: multiple instances of the SAME CCD code (a comma-
+  separated list of *different* codes IS supported — see F4 grounding above),
+  the ``TIP``/``BKBN`` atom-selection shorthands applied to a ligand, and a
+  contig-string (rather than dict-form) select_* value targeting a ligand —
+  all raise NotImplementedError rather than guess.
 
 NA (F2/F8) grounding (``rfd3.transforms.design_transforms.py`` +
 ``virtual_atoms.py`` + ``util_transforms.py``, verified against real local CPU
@@ -329,12 +375,16 @@ def _central_atom_name(res_name: str) -> str | None:
     return None
 
 
-def _motif_atom_layout(r: _Residue):
+def _motif_atom_layout(r: _Residue, keep: frozenset | None = None):
     """Real heavy atoms of a motif (fixed-seq) residue, in the INPUT
     STRUCTURE'S real atom order, renamed to the generic atom14 template via
     the dense-scheme slot lookup — NOT padded, NOT slot-sorted. Missing atoms
     (absent from the input structure) are simply skipped, matching the
     reference (it only ever sees the atoms present in the parsed structure).
+    ``keep`` (F4, unindexed tokens only): when not None, real atoms NOT named
+    in it are dropped too — this is how the reference's `select_fixed_atoms`
+    atom-subsetting reaches an unindexed motif token (see module docstring);
+    None (the F1/F6/p14 default) keeps every real atom, unchanged.
 
     Emission order matters and is NOT the same as slot order: a residue whose
     real PDB atom listing doesn't already happen to match the canonical
@@ -356,6 +406,8 @@ def _motif_atom_layout(r: _Residue):
     coord: list[np.ndarray] = []
     seen: set[str] = set()
     for real_name, c in zip(r.atom_names, r.coord):
+        if keep is not None and real_name not in keep:
+            continue
         slot = slot_by_name.get(real_name)
         if slot is None or real_name in seen:
             continue
@@ -411,6 +463,8 @@ class _Token:
     is_fixed_coord: bool | None = None  # None => derive from is_motif (protein/NA)
     is_fixed_seq: bool | None = None    # None => derive from is_motif (protein/NA)
     ligand_atom_name: str | None = None  # real atom name (ligand tokens only)
+    kept_atom_names: frozenset | None = None  # F4: unindexed + select_fixed_atoms
+                         # atom subset (None => keep every real atom, the F6/p14 default)
 
     @property
     def fixed_coord(self) -> bool:
@@ -419,6 +473,34 @@ class _Token:
     @property
     def fixed_seq(self) -> bool:
         return self.is_motif if self.is_fixed_seq is None else self.is_fixed_seq
+
+
+def _unindexed_kept_atom_names(spec: InputSpecification, chain: str, res_id: int,
+                                real_names: Sequence[str]) -> frozenset | None:
+    """F4: which of an unindexed residue's real atoms actually enter the
+    design, per `select_fixed_atoms` (real reference:
+    `input_parsing.py::_build_init` does
+    `unindexed_tokens[k] = tok[tok.is_motif_atom_with_fixed_coord]` BEFORE any
+    tokenization — a dict-keyed selection SUBSETS the token's real atoms, it
+    does not just flag them; see module docstring). Returns None (keep every
+    real atom — the F6/p14-verified default) when `select_fixed_atoms` is the
+    global True/False default or a dict that doesn't name this residue's
+    `{chain}{res_id}` key (verified vs `apply_selections`: an un-named
+    residue keeps the annotation's init default, which is True/keep-all)."""
+    sel = spec.select_fixed_atoms
+    if sel is None or isinstance(sel, bool):
+        return None if (sel is None or sel) else frozenset()
+    if isinstance(sel, dict):
+        key = f"{chain}{res_id}".upper()
+        for k, v in sel.items():
+            if str(k).strip().upper() == key:
+                mask = _atom_selection_mask(_parse_atom_spec(v), real_names)
+                return frozenset(np.asarray(real_names)[mask].tolist())
+        return None
+    raise NotImplementedError(
+        f"select_fixed_atoms={sel!r} (a contig-string selection) on an "
+        "unindexed protein residue is not supported this pass — p17+"
+    )
 
 
 def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -> list[_Token]:
@@ -465,8 +547,10 @@ def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -
                 raise ValueError(f"unindex references {c.chain}{rid} not present in input structure")
             if not _is_protein(r):
                 raise NotImplementedError("non-protein unindexed motif (NA/ligand) — p15+")
+            kept = _unindexed_kept_atom_names(spec, c.chain, rid, r.atom_names)
             tokens.append(_Token(c.chain, rid, r.res_name, True, False, True,
-                                 False, r, unindex_new_island=(k == 0)))
+                                 False, r, unindex_new_island=(k == 0),
+                                 kept_atom_names=kept))
     return tokens
 
 
@@ -484,24 +568,44 @@ def _fresh_chain_letter(used: set[str]) -> str:
     raise NotImplementedError("more than 26 chains — p15+")
 
 
-def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue]) -> list[_Token]:
+def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue]) -> tuple[list[_Token], set]:
     """Map a parsed contig + the parsed structure's residues into an ordered
     token plan. Indexed components pull residues from the input structure
     (motif, fixed coord+seq, protein OR DNA/RNA); Designed/DesignedRange
     components become diffused (protein) tokens; ChainBreak marks the next
-    token. Unindexed motif tokens (from ``spec.unindex``, see
-    ``_plan_unindexed_tokens``) are appended last."""
+    token. Unindexed motif tokens are NOT appended here — see `featurize()`,
+    which places them after any ligand tokens (F4: verified vs a real
+    reference capture of `enzyme_design.md`'s "NAI,ACT" + unindexed-catalytic-
+    residue example that ligand tokens physically precede unindexed ones,
+    correcting this port's pre-p17 assumption that unindexed was always
+    physically last — true only when no ligand coexists, per p11-p14/p16's
+    own tests, which never combined the two)."""
     by_key = {(r.chain, r.res_id): r for r in residues}
     comps = spec.parsed_contig()
     tokens: list[_Token] = []
     break_before_next = False
     indexed_keys: set[tuple[str, int]] = set()
-    used_chains: set[str] = {r.chain for r in residues}
+    # NOT pre-seeded with every real residue's chain (F4 finding, see below):
+    # only chains actually CONSUMED so far by the output token list (indexed
+    # components as they're visited, plus previously-allocated designed
+    # chains) are avoided -- a real chain the contig never touches is fair
+    # game for a designed segment to reuse. Verified vs a real reference
+    # capture (enzyme_design.md, a bare "length"-only spec with unindex-only
+    # catalytic residues on real chain "A"): the reference's sole designed
+    # segment IS named "A" (`accumulate_components(..., start_chain="A")`)
+    # and the later-appended unindexed catalytic residues (also real chain
+    # "A") end up sharing that SAME asym_id/entity/residue_index run, not a
+    # fresh one -- pre-seeding `used_chains` from every real residue (this
+    # port's pre-p17 behavior) wrongly steered the sole designed segment away
+    # from "A" whenever ANY part of the input structure used that letter,
+    # even a part never referenced by `contig` at all.
+    used_chains: set[str] = set()
     for c in comps:
         if isinstance(c, ChainBreak):
             break_before_next = True
             continue
         if isinstance(c, Indexed):
+            used_chains.add(c.chain)
             for rid in range(c.start, c.end + 1):
                 r = by_key.get((c.chain, rid))
                 if r is None:
@@ -529,12 +633,7 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                 break_before_next = False
             continue
         raise NotImplementedError(f"contig component {c!r} not supported this pass (p12)")
-    unindexed = _plan_unindexed_tokens(spec, residues)
-    overlap = indexed_keys & {(tk.chain, tk.res_id) for tk in unindexed}
-    if overlap:
-        raise ValueError(f"contig and unindex must not overlap, got: {overlap}")
-    tokens.extend(unindexed)
-    return tokens
+    return tokens, indexed_keys
 
 
 def _token_kind(tk: "_Token") -> str:
@@ -550,7 +649,7 @@ def _token_kind(tk: "_Token") -> str:
         return "dna"
     if tk.res_name in RNA_RES:
         return "rna"
-    raise NotImplementedError(f"unrecognized residue {tk.res_name!r} (enzyme catalytic-residue conditioning, F4) — p17+")
+    raise NotImplementedError(f"unrecognized residue {tk.res_name!r} — p17+")
 
 
 # -- ligand (F3/F4) -----------------------------------------------------------
@@ -637,28 +736,63 @@ def _atom_selection_mask(sel: AtomSelection, names: Sequence[str]) -> np.ndarray
     return np.isin(np.asarray(names), np.asarray(sorted(sel.atoms)))
 
 
+def _ligand_codes(spec: InputSpecification) -> list[str]:
+    """F4: `ligand` can name multiple DIFFERENT CCD codes, comma-separated
+    (real ``enzyme_design.md`` example: ``"ligand": "NAI,ACT"`` — a cofactor
+    plus a separate small-molecule product, each a single instance)."""
+    return [c.strip().upper() for c in spec.ligand.split(",") if c.strip()]
+
+
 def _plan_ligand_tokens(spec: InputSpecification, all_residues: list[_Residue],
                          used_chains: set[str]) -> list[_Token]:
     """One token PER ATOM (AF3/RFD3 "atomize" convention — verified vs a real
     reference capture: PadTokensWithVirtualAtoms's `is_residue` gate excludes
     every non-protein-non-unindexed token, so a ligand is never grouped into a
     per-residue token like protein/NA are). Real coordinates/atom identity come
-    from the actual input-structure ligand residue (matched by CCD code); a
-    fresh synthetic chain (never colliding with a real or prior chain letter)
-    matches the reference's own chain re-numbering for an appended ligand."""
-    code = spec.ligand.strip().upper()
-    matches = [r for r in all_residues if r.res_name == code]
-    if not matches:
-        raise ValueError(f"ligand {code!r} not found in input structure")
-    if len(matches) > 1:
-        raise NotImplementedError(f"multiple {code!r} ligand instances — p17+ (single instance only this pass)")
-    residue = matches[0]
+    from the actual input-structure ligand residue (matched by CCD code).
+
+    Multiple DIFFERENT ligand codes share ONE fresh synthetic chain (verified
+    vs a real reference capture of ``enzyme_design.md``'s ``"NAI,ACT"``: both
+    land on the SAME `asym_id` — NOT one fresh chain per code, unlike this
+    port's original single-ligand assumption through p16). Repeated instances
+    of the SAME code are still out of scope (NotImplementedError, unchanged
+    from p16).
+
+    Each atom's ``is_fixed_coord`` (F4 fix) is resolved HERE, at token-
+    construction time, from ``select_fixed_atoms`` — not deferred to the main
+    per-atom loop. p16's single-ligand tests never exercised a ligand with
+    ANY fixed atom (the ``sm_binder_design.md`` "buried" example fixes none),
+    so a real bug went uncaught: leaving ``_Token.is_fixed_coord`` at its
+    default (None -> derives from ``is_motif``, always True for a ligand)
+    made the design's center-of-mass computation (which runs BEFORE the main
+    loop, gated on ``tk.fixed_coord``) silently treat EVERY ligand atom as
+    fixed, not just the ``select_fixed_atoms``-selected ones — verified vs a
+    real reference capture (enzyme_design.md's ACT ligand fixes only its
+    OXT atom; the old code's COM was off by a constant vector, visible as a
+    constant-offset ``motif_pos`` mismatch on every fixed-coord atom)."""
+    codes = _ligand_codes(spec)
+    if len(codes) != len(set(codes)):
+        raise NotImplementedError(
+            f"multiple instances of the same ligand code in {spec.ligand!r} "
+            "— p17+ (one instance per code only this pass)"
+        )
     chain = _fresh_chain_letter(used_chains)
-    return [
-        _Token(chain, k + 1, code, True, False, False, False, residue,
-               is_ligand=True, ligand_atom_name=nm)
-        for k, nm in enumerate(residue.atom_names)
-    ]
+    tokens: list[_Token] = []
+    for code in codes:
+        matches = [r for r in all_residues if r.res_name == code]
+        if not matches:
+            raise ValueError(f"ligand {code!r} not found in input structure")
+        if len(matches) > 1:
+            raise NotImplementedError(f"multiple {code!r} ligand instances — p17+ (single instance only this pass)")
+        residue = matches[0]
+        fixed_mask = _atom_selection_mask(
+            _resolve_ligand_atom_selection(spec.select_fixed_atoms, code), residue.atom_names)
+        tokens.extend(
+            _Token(chain, k + 1, code, True, False, False, False, residue,
+                   is_ligand=True, ligand_atom_name=nm, is_fixed_coord=bool(fixed_mask[k]))
+            for k, nm in enumerate(residue.atom_names)
+        )
+    return tokens
 
 
 def _ligand_atom_layout(tk: "_Token"):
@@ -695,12 +829,24 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     if spec.contig is None and spec.length is not None:
         contig_spec = copy.copy(spec)
         contig_spec.contig = str(spec.length)
-    tokens = _plan_tokens_from_contig(contig_spec, residues)
+    tokens, indexed_keys = _plan_tokens_from_contig(contig_spec, residues)
     if spec.ligand:
-        # Fresh chain letters must avoid BOTH real input chains AND any
-        # synthetic chain the designed segments above already claimed.
-        used_chains = {r.chain for r in all_residues} | {tk.chain for tk in tokens}
+        # Fresh chain letter must avoid whatever chain the OUTPUT token list
+        # has claimed so far (indexed + designed tokens) -- NOT every real
+        # input chain (see `_plan_tokens_from_contig`'s docstring for the
+        # grounded reasoning; a real chain never touched by contig/ligand is
+        # fair game and can legitimately coincide with a later unindexed
+        # residue's own real chain, verified vs a real reference capture).
+        used_chains = {tk.chain for tk in tokens}
         tokens = tokens + _plan_ligand_tokens(spec, all_residues, used_chains)
+    # Unindexed motif tokens go LAST, after any ligand tokens (F4: verified
+    # vs a real reference capture -- see `_plan_tokens_from_contig`'s
+    # docstring for why this differs from this port's pre-p17 assumption).
+    unindexed = _plan_unindexed_tokens(spec, residues)
+    overlap = indexed_keys & {(tk.chain, tk.res_id) for tk in unindexed}
+    if overlap:
+        raise ValueError(f"contig and unindex must not overlap, got: {overlap}")
+    tokens = tokens + unindexed
     I = len(tokens)
     token_kind = [_token_kind(tk) for tk in tokens]
 
@@ -710,7 +856,7 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     # lookup — see module docstring).
     layouts = [
         _ligand_atom_layout(tk) if kind == "ligand" else
-        (_na_atom_layout(tk.residue) if kind in ("dna", "rna") else _motif_atom_layout(tk.residue))
+        (_na_atom_layout(tk.residue) if kind in ("dna", "rna") else _motif_atom_layout(tk.residue, tk.kept_atom_names))
         if tk.is_motif else _designed_atom_layout()
         for tk, kind in zip(tokens, token_kind)
     ]
@@ -755,24 +901,35 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     token_is_fully_fixed_coord = np.zeros(I, dtype=bool)
     is_ligand_atom = np.zeros(L, dtype=bool)
 
-    # Ligand-only per-atom selections (resolved once, outside the loop): the
-    # ligand's real atom-name order (== emission order, since `_ligand_atom_layout`
-    # emits one real atom per token in the SAME order `_plan_ligand_tokens`
-    # created them) lets a single boolean mask line up with the per-atom arrays
-    # built below.
+    # Ligand-only per-atom selections (resolved once per CODE, outside the
+    # loop): each ligand instance's own real atom-name order (== emission
+    # order, since `_ligand_atom_layout` emits one real atom per token in the
+    # SAME order `_plan_ligand_tokens` created them) lets a single boolean
+    # mask line up with that instance's atoms. F4: multiple different codes
+    # each get their OWN mask/template, keyed by code (a code's atoms are
+    # always contiguous in the token list, one block per instance).
     if spec.ligand:
-        code = spec.ligand.strip().upper()
-        lig_names = [tk.ligand_atom_name for tk in tokens if tk.is_ligand]
-        lig_fixed_mask = _atom_selection_mask(
-            _resolve_ligand_atom_selection(spec.select_fixed_atoms, code), lig_names)
-        lig_buried_mask = _atom_selection_mask(
-            _resolve_ligand_atom_selection(spec.select_buried, code), lig_names)
-        lig_exposed_mask = _atom_selection_mask(
-            _resolve_ligand_atom_selection(spec.select_exposed, code), lig_names)
-        lig_template = _ligand_template(code)
-        _lig_pos_by_name = {nm: i for i, nm in enumerate(lig_template["names"])}
-        _lig_atom_counter = 0
-    lig_first_ti = next((ti for ti, tk in enumerate(tokens) if tk.is_ligand), None)
+        _lig_buried_mask, _lig_exposed_mask = {}, {}
+        _lig_template, _lig_pos_by_name = {}, {}
+        for code in _ligand_codes(spec):
+            lig_names = [tk.ligand_atom_name for tk in tokens if tk.is_ligand and tk.res_name == code]
+            _lig_buried_mask[code] = _atom_selection_mask(
+                _resolve_ligand_atom_selection(spec.select_buried, code), lig_names)
+            _lig_exposed_mask[code] = _atom_selection_mask(
+                _resolve_ligand_atom_selection(spec.select_exposed, code), lig_names)
+            _lig_template[code] = _ligand_template(code)
+            _lig_pos_by_name[code] = {nm: i for i, nm in enumerate(_lig_template[code]["names"])}
+
+    # ref_space_uid group id (F4-generalized): a GLOBAL count of distinct
+    # residue-groups in first-appearance order (biotite's residue-level
+    # indexing) — a protein/NA token is always its own group (1 token == 1
+    # residue); ALL of one ligand INSTANCE's per-atom tokens share ONE group
+    # (keyed by its CCD code, since one instance's tokens are contiguous and
+    # this pass allows only one instance per code). See module docstring
+    # (F4 grounding) for why this replaced the old "first ligand token index"
+    # framing once a SECOND ligand instance is present.
+    _group_id_by_key: dict = {}
+    _next_group_id = 0
 
     pos = 0
     for ti, (tk, kind, (names, coord, tk_is_virtual, elements)) in enumerate(zip(tokens, token_kind, layouts)):
@@ -790,12 +947,30 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
                     is_backbone[s + j] = True
                     if nm == "CA":
                         is_ca[s + j] = True
-                        if not has_cb:
-                            is_central[s + j] = True  # GLY: CA is the representative atom
                 else:
                     is_sidechain[s + j] = True
                     if nm == "CB":
                         is_central[s + j] = True
+            if tk.res_name == "GLY" and "CA" in names:
+                # GLY has no CB in the dense scheme at all -- the reference's
+                # `get_af3_token_representative_masks` has a DEDICATED
+                # glycine branch (CA is always its representative), unlike
+                # any other residue -- verified unconditional, not just an
+                # atomize fallback (see the `is_unindexed` branch below).
+                is_central[s + names.index("CA")] = True
+            if tk.is_unindexed and n and not is_central[s:e].any():
+                # F4: `select_fixed_atoms` can subset an unindexed residue's
+                # real atoms to a set with no CB (and not GLY) -- verified vs
+                # a real reference capture (enzyme_design.md's M0255_1mg5
+                # catalytic residues, e.g. A108 subsetted to {ND2,CG}): the
+                # reference then forces the FIRST KEPT atom to be its own
+                # representative (`add_representative_atom` -> per-atom
+                # `atomize`), the same "atomized" convention already used for
+                # ligand atoms -- is_backbone/is_central True, is_sidechain
+                # False, for that one atom only (see module docstring).
+                is_backbone[s] = True
+                is_central[s] = True
+                is_sidechain[s] = False
         elif kind == "ligand":
             # A single-atom token IS its own representative atom (verified vs
             # a real reference capture: is_ca/is_central/is_backbone all True,
@@ -805,8 +980,9 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
             is_ca[s:e] = True
             is_central[s:e] = True
             is_backbone[s:e] = True
-            fixed_coord = bool(lig_fixed_mask[_lig_atom_counter])
-            _lig_atom_counter += 1
+            # fixed_coord already resolved onto `tk.is_fixed_coord` in
+            # `_plan_ligand_tokens` (F4 fix — see its docstring); `fixed_coord`
+            # (set from `tk.fixed_coord` a few lines above) is used as-is.
         else:  # dna/rna: never backbone/sidechain-flagged; representative
             # atom is the base ring-center (C4 purine / C2 pyrimidine) —
             # verified vs a real reference capture (see module docstring).
@@ -833,11 +1009,17 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
                 is_ca[s] = True
         # ref_space_uid is a RESIDUE-level index (biotite's get_residue_starts
         # grouping), not a token-level one: a ligand's per-atom tokens all
-        # belong to the SAME underlying residue, so they all share the ligand
-        # residue's index rather than each atom claiming its own (verified vs
-        # a real reference capture: all 33 ligand atoms -> ref_space_uid=180,
-        # the token-index of the FIRST ligand token, not 180..212).
-        ref_space_uid[s:e] = lig_first_ti if (tk.is_ligand and lig_first_ti is not None) else ti
+        # belong to the SAME underlying residue, so they all share ONE group
+        # id rather than each atom (or each token) claiming its own —
+        # verified vs a real reference capture (see module docstring, F4
+        # grounding, for why this is a GLOBAL group counter and not simply
+        # "this ligand's own first token index" once 2+ ligand instances are
+        # present).
+        gkey = ("ligand", tk.res_name) if tk.is_ligand else ("single", ti)
+        if gkey not in _group_id_by_key:
+            _group_id_by_key[gkey] = _next_group_id
+            _next_group_id += 1
+        ref_space_uid[s:e] = _group_id_by_key[gkey]
         atom_to_token_map[s:e] = ti
         token_res_name.append("UNK" if tk.is_ligand else (tk.res_name or "GAP"))
         token_chain.append(tk.chain)
@@ -895,21 +1077,31 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     # selection; `rfd3.transforms.rasa.CalculateRASA`'s real Shrake-Rupley
     # computation is training-only, never invoked at inference).
     if spec.ligand:
+        # F4: track each CODE's own position-within-its-instance counter so a
+        # second (or third) ligand instance's buried/exposed mask indexes
+        # correctly, even though atoms of DIFFERENT codes are interleaved in
+        # `lig_atom_idx` only in the sense that each code's own run is
+        # contiguous (never interleaved with another code's atoms).
+        _lig_pos_ctr: dict = {}
         lig_atom_idx = np.where(is_ligand_atom)[0]
-        for k, atom_i in enumerate(lig_atom_idx):
+        for atom_i in lig_atom_idx:
+            ti = int(atom_to_token_map[atom_i])
+            code = tokens[ti].res_name
+            k = _lig_pos_ctr.get(code, 0)
+            _lig_pos_ctr[code] = k + 1
             nm = atom_names[atom_i]
-            tmpl_i = _lig_pos_by_name.get(nm)
+            tmpl_i = _lig_pos_by_name[code].get(nm)
             if tmpl_i is not None:
-                ref_pos[atom_i] = lig_template["coord"][tmpl_i]
-                ref_charge[atom_i] = lig_template["charges"][tmpl_i]
-                elem = lig_template["elements"][tmpl_i]
+                ref_pos[atom_i] = _lig_template[code]["coord"][tmpl_i]
+                ref_charge[atom_i] = _lig_template[code]["charges"][tmpl_i]
+                elem = _lig_template[code]["elements"][tmpl_i]
                 if elem in _ELEMENT_TO_ATOMIC_NUMBER:
                     ref_element[atom_i, 0] = 0.0
                     ref_element[atom_i, _ELEMENT_TO_ATOMIC_NUMBER[elem]] = 1.0
                 ref_atom_name_chars[atom_i] = _encode_atom_names_like_af3([elem])[0]
-            if lig_buried_mask[k]:
+            if _lig_buried_mask[code][k]:
                 ref_atomwise_rasa[atom_i] = [1, 0, 0]
-            elif lig_exposed_mask[k]:
+            elif _lig_exposed_mask[code][k]:
                 ref_atomwise_rasa[atom_i] = [0, 0, 1]
 
     # --- token-level features ---
@@ -993,17 +1185,24 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     sym_id = np.array([chain_sym[c] for c in token_chain], dtype=np.int32)
     residue_index = np.zeros(I, dtype=np.int32)
     _per_chain_ctr = {}
+    _ligand_res_idx_by_key = {}  # F4: (chain, code) -> the one residue_index shared by that instance's atoms
     for ti, c in enumerate(token_chain):
-        _per_chain_ctr.setdefault(c, 0)
         if tokens[ti].is_ligand:
-            # All of a ligand's per-atom tokens are the SAME underlying
-            # residue (one CCD instance) -> they all share residue_index=0 on
-            # their (fresh, ligand-only) chain rather than each incrementing
-            # it — verified vs a real reference capture.
-            residue_index[ti] = 0
+            # All of ONE ligand instance's per-atom tokens are the SAME
+            # underlying residue -> they share ONE residue_index; multiple
+            # DIFFERENT instances sharing this pass's single ligand chain
+            # each consume their OWN slot in that chain's counter (verified
+            # vs a real reference capture: enzyme_design.md's NAI -> 0, ACT
+            # -> 1, on the same chain — NOT both 0, unlike this port's
+            # original single-ligand-only assumption through p16).
+            key = (c, tokens[ti].res_name)
+            if key not in _ligand_res_idx_by_key:
+                _ligand_res_idx_by_key[key] = _per_chain_ctr.get(c, 0)
+                _per_chain_ctr[c] = _ligand_res_idx_by_key[key] + 1
+            residue_index[ti] = _ligand_res_idx_by_key[key]
         else:
-            residue_index[ti] = _per_chain_ctr[c]  # 0-based per chain
-            _per_chain_ctr[c] += 1
+            residue_index[ti] = _per_chain_ctr.get(c, 0)  # 0-based per chain
+            _per_chain_ctr[c] = residue_index[ti] + 1
     token_index = np.arange(I, dtype=np.int64)
 
     # token_bonds: ALL FALSE for standard contiguous protein (not the peptide-
@@ -1012,15 +1211,20 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     # token, the real intra-ligand covalent bond graph (from the CCD template)
     # becomes real inter-TOKEN bonds — verified vs a real reference capture
     # (a 33-heavy-atom ligand token block has a real, non-trivial token_bonds
-    # submatrix, not all-zero).
+    # submatrix, not all-zero). F4: each ligand CODE's bond graph is resolved
+    # separately (name_to_tok keyed per-code) so two different-code instances
+    # sharing a chain never cross-wire each other's bonds (verified: zero
+    # cross-ligand token_bonds entries in a real capture of "NAI,ACT").
     token_bonds = np.zeros((I, I), dtype=bool)
     if spec.ligand:
-        lig_token_idx = np.where(is_ligand_tok)[0]
-        name_to_tok = {tokens[ti].ligand_atom_name: ti for ti in lig_token_idx}
-        for u, v in lig_template["bonds"]:
-            tu, tv = name_to_tok.get(lig_template["names"][u]), name_to_tok.get(lig_template["names"][v])
-            if tu is not None and tv is not None:
-                token_bonds[tu, tv] = token_bonds[tv, tu] = True
+        for code in _ligand_codes(spec):
+            name_to_tok = {tokens[ti].ligand_atom_name: ti for ti in np.where(is_ligand_tok)[0]
+                           if tokens[ti].res_name == code}
+            for u, v in _lig_template[code]["bonds"]:
+                tu = name_to_tok.get(_lig_template[code]["names"][u])
+                tv = name_to_tok.get(_lig_template[code]["names"][v])
+                if tu is not None and tv is not None:
+                    token_bonds[tu, tv] = token_bonds[tv, tu] = True
 
     # unindexing_pair_mask: True = RPE must NOT leak relative position between
     # this token pair (UnindexFlaggedTokens.create_unindexed_masks). Indexed<->
