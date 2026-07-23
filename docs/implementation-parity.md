@@ -111,23 +111,25 @@ before the sampler, so without the re-seed the device and reference draw DIFFERE
 (measured bit-for-bit). With it they draw byte-identical noise, so the numerator is arithmetic-only.
 The numbers below are with the fix (the first valid head-to-head).
 
-**Two-leg head-to-head (no-MSA affinity, seed 0, shared draws).**
+**Three-leg head-to-head (no-MSA affinity, seed 0, shared draws).**
 
 | leg | affinity_pred_value ratio | ligand-RMSD ratio | 1-pocket-lDDT | verdict |
 |---|---|---|---|---|
-| DHFR   | 1.22 | 0.19 | 0.00 (bit-identical) | **PASS** |
-| FKBP12 | 1.90 | 0.32 | 0.00 (bit-identical) | **GAP** (affinity scalar only) |
+| trypsin | 0.96 | 0.20 | 0.00 (bit-identical) | **PASS** |
+| DHFR    | 1.22 | 0.19 | 0.00 (bit-identical) | **PASS** |
+| FKBP12  | 1.90 | 0.32 | 0.00 (bit-identical) | **GAP** (affinity scalar only) |
 
-Structure/pose parity is excellent on both legs — the device structure is bit-identical to fp32 in
-pocket-lDDT and ligand pose is well inside the bf16 envelope. The one metric at/over the boundary is
-the affinity SCALAR: the device affinity head carries a small (~0.06-0.07 log10 IC50) TT-bf16
-residual that, on FKBP12 (where the bf16 envelope is tiny, 0.037), exceeds the 1.5× bound and GAPs.
-Running the affinity diffusion in fp32 (`BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1`) removes only ~17%
-of it, so the residual is in the affinity head's non-diffusion bf16 arithmetic. Per the standing
-rule this GAP is flagged as a real residual to hunt (candidate: an fp32 boundary on the affinity
-head), NOT excused by loosening the margin. This is the sound test working: it passes a clean port
-(DHFR, and every structure metric) and isolates a genuine affinity-head residual the old
-self-consistency floor buried in noise.
+Structure/pose parity is excellent on all three legs — the device structure is bit-identical to fp32
+in pocket-lDDT and ligand pose is well inside the bf16 envelope. The affinity SCALAR passes on 2 of 3
+(trypsin, DHFR) and GAPs on FKBP12 alone: the device affinity head carries a small TT-bf16 residual
+(~0.04-0.24 abs log10 IC50; ~0.07 on FKBP12), and on FKBP12 — the target with the tightest
+fp32-vs-bf16 envelope (0.037) — that residual exceeds the 1.5× bound. It is a lone outlier, not a
+uniform band. Running the affinity diffusion in fp32 (`BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1`)
+removes only ~17% of it, so the residual is in the affinity head's non-diffusion bf16 arithmetic. Per
+the standing rule this GAP is flagged as a real residual to hunt (candidate: an fp32 boundary on the
+affinity head) and margin is not loosened. This is the sound test working: it passes a clean port
+(2 of 3 affinity scalars and every structure metric) and isolates a genuine affinity-head residual
+the old self-consistency floor buried in noise.
 
 **Wired into the gate of record.** The envelope test is the default correctness criterion for
 every diffusion (structure/affinity) leg in `scripts/full_parity_gate.py`: the gate folds the
@@ -136,9 +138,9 @@ and scores with `integration_envelope.py` through the one `finalize_leg` verdict
 references are the cached fixture (`--regen-refs` generates them, fingerprinted like the old ones,
 so only the device fold + scoring re-run per release); a leg without them reports
 `BLOCKED-REF-REGEN-NEEDED` rather than a false pass. The retired R/D/X floor is still available as
-an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`. Run end-to-end on both legs
-above with no manual intervention (DHFR device fold 344 s → PASS; FKBP12 130 s → GAP on the affinity
-scalar). Rollout of the cached CPU references across trypsin / the MSA legs / Protenix-v2 HSA is the
+an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`. Run end-to-end on all three legs
+above with no manual intervention (trypsin 324 s → PASS; DHFR 344 s → PASS; FKBP12 130 s → GAP on the
+affinity scalar). Rollout of the cached CPU references across the MSA legs and Protenix-v2 HSA is the
 remaining (CPU-bound) work; the gate correctly blocks those legs until their references are
 regenerated. Gate of record — pending Moritz's sign-off before merge.
 
