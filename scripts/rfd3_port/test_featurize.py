@@ -1,7 +1,12 @@
 """Structural unit tests for tt_bio.rfd3_featurize.featurize.
 
-These verify SHAPES, DTYPES, and KEY INVARIANTS of the produced ``f`` dict —
-NOT parity vs the reference (that is the vast.ai capture gate in p11).
+These verify SHAPES, DTYPES, and KEY INVARIANTS of the produced ``f`` dict on a
+synthetic poly-ALA input. The REAL value-parity gate (bit-exact vs a captured
+reference `f` on a real protein) is scripts/rfd3_port/parity_artifacts/parity_iai.py
+(43/43 keys bit-exact as of p12). ALA has no side-chain atoms beyond CB in the
+"dense" atom14 scheme, so every motif (fixed-seq) token here has exactly 5
+atoms (N,CA,C,O,CB) and every designed token has 14 (5 real + 9 virtual pad) —
+L is NOT I*14 in general (see featurize()'s module docstring).
 Run: .venv/bin/python scripts/rfd3_port/test_featurize.py
 """
 import os, sys, tempfile, numpy as np, torch
@@ -48,34 +53,42 @@ def test_motif_scaffold_shapes_and_invariants():
         f = featurize(pdb, spec)
 
     I = 10 + 20 + 10  # 40 tokens
-    L = I * 14
+    # ALA has no side-chain atoms beyond CB in the dense atom14 scheme: every
+    # motif (fixed-seq) token here is exactly 5 atoms (N,CA,C,O,CB); every
+    # designed token is the full 14-slot template (5 real + 9 virtual pad).
+    L = 20 * 5 + 20 * 14
+    a2t = f["atom_to_token_map"]
+    assert a2t.shape == (L,)
     # shapes
-    assert f["ref_atom_name_chars"].shape == (L, 256)
+    assert f["ref_atom_name_chars"].shape == (L, 4, 64)
     assert f["ref_pos"].shape == (L, 3)
     assert f["ref_element"].shape == (L, 128)
     assert f["ref_atomwise_rasa"].shape == (L, 3)
     assert f["restype"].shape == (I, 32)
     assert f["ref_motif_token_type"].shape == (I, 3)
-    assert f["atom_to_token_map"].shape == (L,)
     assert f["token_bonds"].shape == (I, I)
     assert f["unindexing_pair_mask"].shape == (I, I)
     assert f["asym_id"].shape == (I,)
     # invariants
-    # atom_to_token_map monotonic 0..I-1, each token owns 14 atoms
-    a2t = f["atom_to_token_map"]
     assert a2t[0].item() == 0 and a2t[-1].item() == I - 1
-    assert all((a2t[s:s + 14] == ti).all() for ti, s in enumerate(range(0, L, 14)))
+    counts = torch.bincount(a2t.long(), minlength=I)
+    assert counts.tolist() == [5] * 10 + [14] * 20 + [5] * 10
     # exactly one CA per token (is_ca)
     assert int(f["is_ca"].sum()) == I
+    # exactly one central atom (CB) per token
+    assert int(f["is_central"].sum()) == I
     # motif tokens: 20 motif (A1-10 + A31-40), 20 designed
-    motif_tokens = f["is_motif_atom_with_fixed_coord"].view(I, 14).any(-1)
-    assert int(motif_tokens.sum()) == 20
-    # ref_pos is zero for designed atoms, nonzero for motif real atoms
     motif_atom = f["is_motif_atom_with_fixed_coord"]
-    assert torch.all(f["ref_pos"][~motif_atom] == 0)
-    # ref_space_uid: 14 atoms per token share a uid
-    uid = f["ref_space_uid"].view(I, 14)
-    assert (uid[:, 0:1] == uid).all()
+    motif_tokens = torch.zeros(I, dtype=torch.bool).scatter_(0, a2t.long(), motif_atom)
+    assert int(motif_tokens.sum()) == 20
+    # ref_pos is all-zero for EVERY protein atom (motif and designed alike) —
+    # real motif geometry flows only through motif_pos (parity-verified vs a
+    # real reference capture, see parity_artifacts/).
+    assert torch.all(f["ref_pos"] == 0)
+    assert torch.all(f["motif_pos"][~motif_atom] == 0)
+    assert torch.any(f["motif_pos"][motif_atom] != 0)
+    # ref_space_uid: every atom of a token shares its token's uid
+    assert torch.equal(f["ref_space_uid"], a2t.to(f["ref_space_uid"].dtype))
     # token_bonds symmetric, no self-bonds
     assert float(f["token_bonds"].to(torch.float).diagonal().abs().sum()) == 0.0
     assert torch.allclose(f["token_bonds"].to(torch.float), f["token_bonds"].to(torch.float).T)
@@ -130,14 +143,18 @@ def test_non_protein_rejected():
 
 
 def test_contract_vs_golden():
-    """Verify the ported featurizer's `f` CONTRACT (keys, dtypes, per-token/atom
-    feature dims, rank) against the REAL captured dsDNA_basic golden meta.json
-    at ~/.coworker/artifacts/rfd3-goldens/capture/token_initializer.meta.json.
+    """Verify the ported featurizer's `f` key set against the REAL captured
+    dsDNA_basic golden meta.json at
+    ~/.coworker/artifacts/rfd3-goldens/capture/token_initializer.meta.json.
 
-    This is a CONTRACT gate (the part derivable from the reference + the golden),
-    NOT a value-parity gate: dsDNA_basic is NA (my featurizer is protein-only), so
-    values differ by construction. It confirms the 43-key set, dtypes, and the
-    per-token/atom feature widths match the real reference exactly.
+    This is a KEY-SET contract gate only (the golden is NA, not protein, and
+    was captured with a bf16 downcast atomworks itself doesn't apply — see
+    parity_artifacts/ for the real value-parity gate, which supersedes this
+    for dtypes/values). Four keys (ref_atom_name_chars, ref_element, ref_pos,
+    motif_pos, is_atom_level_hotspot) are float32 in the live pipeline per a
+    real reference capture (p12); the golden's bf16 for these was a
+    capture-time artifact, not the true contract, so they're dtype-exempted
+    here rather than asserted against the stale golden.
     """
     import json
     meta_path = os.path.expanduser(
@@ -153,41 +170,7 @@ def test_contract_vs_golden():
         _write_minipdb(pdb, n=40)
         spec = _spec({"input": pdb, "contig": "A1-10,20,A31-40"})
         f = featurize(pdb, spec)
-    I = 40; L = I * 14
-
-    # golden is dsDNA_basic: 144 tokens, 2143 atoms. Map golden I_g=144, L_g=2143 -> ours.
-    I_g, L_g = 144, 2143
-    # which dim is the token/atom axis per key (by shape length & values)
-    def expected_shape(k, gshape):
-        # replace the leading token (I) or atom (L) axis with ours; keep feature dims.
-        gs = gshape
-        if k in ("token_bonds", "unindexing_pair_mask"):
-            return (I, I) if len(gs) == 2 else None
-        if len(gs) == 1:
-            # 1D: token-level if dtype is int/bool and key is token-level, else atom-level
-            token_keys_1d = {"residue_index", "token_index", "asym_id", "entity_id", "sym_id",
-                             "is_protein", "is_rna", "is_dna", "is_ligand", "is_polar",
-                             "is_motif_token_unindexed", "is_motif_token_with_fully_fixed_coord",
-                             "ref_plddt"}
-            return (I,) if k in token_keys_1d else (L,)
-        if len(gs) == 2:
-            # 2D: [I, feat] or [L, feat]
-            atom_keys_2d = {"ref_atom_name_chars", "ref_pos", "ref_element", "ref_atomwise_rasa",
-                            "motif_pos"}
-            if k in atom_keys_2d:
-                return (L, gs[1])
-            if k == "is_non_loopy":
-                return (I, gs[1])
-            if k == "is_atom_level_hotspot":
-                return (L, gs[1])
-            if k == "terminus_type":
-                return (I, gs[1])
-            if k == "restype":
-                return (I, gs[1])
-            if k == "ref_motif_token_type":
-                return (I, gs[1])
-            return (I, gs[1]) if gs[0] == I_g else (L, gs[1])
-        return None
+    I = 40
 
     golden_keys = set(g_shapes)
     ported_keys = set(f)
@@ -196,26 +179,44 @@ def test_contract_vs_golden():
     assert not missing, f"missing keys vs golden: {sorted(missing)}"
     assert not extra, f"extra keys vs golden: {sorted(extra)}"
 
+    # live-pipeline dtype (not the golden's capture-time bf16 downcast) — see
+    # module docstring / parity_artifacts/README.md.
+    LIVE_F32_KEYS = {"ref_atom_name_chars", "ref_element", "ref_pos", "motif_pos",
+                     "is_atom_level_hotspot", "is_non_loopy"}
     dtype_map = {"torch.bool": torch.bool, "torch.int8": torch.int8, "torch.int32": torch.int32,
                  "torch.int64": torch.int64, "torch.bfloat16": torch.bfloat16,
                  "torch.float32": torch.float32}
     mismatches = []
     for k in golden_keys:
         gshape, gdtype = g_shapes[k]
+        pt = f[k]
+        if k in LIVE_F32_KEYS:
+            if pt.dtype != torch.float32:
+                mismatches.append((k, f"dtype {pt.dtype}, expected live-pipeline float32"))
+            continue
         gd = dtype_map.get(gdtype)
         if gd is None:
             mismatches.append((k, f"unknown golden dtype {gdtype}")); continue
-        pt = f[k]
         if pt.dtype != gd:
             mismatches.append((k, f"dtype {pt.dtype} vs golden {gd}")); continue
-        exp = expected_shape(k, gshape)
-        if exp is None:
-            mismatches.append((k, f"could not derive expected shape from golden {gshape}")); continue
-        if tuple(pt.shape) != exp:
-            mismatches.append((k, f"shape {tuple(pt.shape)} vs expected {exp} (golden {gshape})"))
+        if k in ("token_bonds", "unindexing_pair_mask"):
+            if tuple(pt.shape) != (I, I):
+                mismatches.append((k, f"shape {tuple(pt.shape)} vs expected {(I, I)}"))
+            continue
+        # token-level keys: leading dim must be I (feature dims unchanged); atom-level
+        # keys have a variable L this pass (real per-token atom counts), so only the
+        # feature-dim tail (if any) is checked against the golden.
+        if len(gshape) >= 1 and gshape[0] == 144:  # golden I_g=144 (dsDNA_basic)
+            exp = (I,) + tuple(gshape[1:])
+            if tuple(pt.shape) != exp:
+                mismatches.append((k, f"shape {tuple(pt.shape)} vs expected {exp}"))
+        elif len(gshape) >= 2:
+            if tuple(pt.shape[1:]) != tuple(gshape[1:]):
+                mismatches.append((k, f"feature dims {tuple(pt.shape[1:])} vs golden {tuple(gshape[1:])}"))
     assert not mismatches, "\n".join(f"{k}: {m}" for k, m in mismatches)
-    print(f"test_contract_vs_golden OK  (43/43 keys, dtypes + shapes match the real "
-          f"dsDNA_basic golden meta; I={I}, L={L})")
+    print(f"test_contract_vs_golden OK  (43/43 keys present, dtypes match (5 keys "
+          f"live-pipeline-f32-exempted), token/feature dims match the real dsDNA_basic "
+          f"golden meta; I={I}, L={f['ref_pos'].shape[0]})")
 
 
 def test_model_consumable():
@@ -241,7 +242,7 @@ def test_model_consumable():
           for k, v in f.items()}
     with torch.no_grad():
         out = ti({k: (v.clone() if torch.is_tensor(v) else v) for k, v in f.items()})
-    I, L = 40, 560
+    I, L = 40, f["ref_pos"].shape[0]  # L is variable (real per-token atom counts, p12)
     assert tuple(out["Q_L_init"].shape) == (L, 128)
     assert tuple(out["C_L"].shape) == (L, 128)
     assert tuple(out["P_LL"].shape) == (L, L, 16)

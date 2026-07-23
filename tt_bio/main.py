@@ -2682,10 +2682,9 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
 @click.option("--out_dir", default="./designs", show_default=True,
               help="Output directory (one <spec_id>.cif per design).")
 @click.option("--golden_dir", default=None,
-              help="Path to a captured RFD3 `f` golden used as the feature source. "
-                   "Required this pass: the from-PDB featurizer (atomworks atom14/RASA/hbond/"
-                   "hotspot/ori_token/symmetry) is in progress, so `design` runs the verified "
-                   "on-device pipeline against a captured reference `f` and writes a real CIF. "
+              help="Path to the captured RFD3 device ckpt weights (always required). "
+                   "Without --from_pdb, also supplies a captured reference `f` used as the "
+                   "feature source (the pre-featurizer bridge). "
                    "Default: the worktree's .scratch/rfd3-ref/goldens/capture.")
 @click.option("--num_timesteps", default=4, show_default=True,
               help="Diffusion denoising timesteps (low for a fast smoke; upstream default 200).")
@@ -2699,9 +2698,11 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
               help="Comma-separated subset of spec ids from the inputs file to run.")
 @click.option("--from_pdb", is_flag=True,
               help="Build `f` from each spec's `input` PDB + contig via the host featurizer "
-                   "(the real from-PDB path) instead of the captured golden. EXPERIMENTAL (p10): "
-                   "the featurizer is structurally unit-verified but NOT yet parity-gated, so the "
-                   "output is not accuracy-verified. Still needs --golden_dir for the device weights.")
+                   "(the real from-PDB path) instead of the captured golden bridge. Value-parity "
+                   "verified for protein-binder (F1) / motif-scaffold (F6) inputs (43/43 `f` keys "
+                   "bit-exact vs a real reference capture). Still needs --golden_dir for the "
+                   "device weights. Non-protein inputs (ligand/NA/enzyme) and symmetry raise "
+                   "NotImplementedError.")
 def design_cmd(inputs, out_dir, golden_dir, from_pdb, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
     """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
 
@@ -2720,14 +2721,14 @@ def design_cmd(inputs, out_dir, golden_dir, from_pdb, num_timesteps, seed, parti
     EDM sampler produce one CIF per spec.
 
     \b
-    NOTE (p10): the parser + on-device pipeline + CIF writer are landed. The
-    host featurizer (tt_bio.rfd3_featurize) is landed for the protein-binder (F1)
-    / motif-scaffolding (F6) case and structurally unit-verified, but NOT yet
-    parity-gated against a reference `f` capture. `--from_pdb` wires the real
-    from-PDB path (featurize → on-device TokenInitializer → sampler → CIF); the
-    `--golden_dir` bridge remains the verified path and still supplies the
-    device ckpt weights. The parity gate lives at
-    scripts/rfd3_port/parity_compare_f.py (run once a binder-`f` capture exists).
+    NOTE (p12): the host featurizer (tt_bio.rfd3_featurize) is value-parity
+    verified for the protein-binder (F1) / motif-scaffolding (F6) case (43/43
+    `f` keys bit-exact vs a real reference capture — see
+    scripts/rfd3_port/parity_artifacts/). `--from_pdb` runs the real
+    end-to-end path (featurize → on-device TokenInitializer → sampler → CIF);
+    `--golden_dir` is still required for the device ckpt weights either way.
+    Non-protein inputs (ligand/NA/enzyme) and symmetry are not yet supported
+    by the featurizer (NotImplementedError).
     """
     import json as _json
     import yaml as _yaml

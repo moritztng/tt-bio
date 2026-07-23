@@ -71,7 +71,7 @@ def main():
             print(f"      ref   : {b.flatten().tolist()}")
 
     print()
-    print("--- ATOM-LEVEL structural comparison (L differs) ---")
+    print("--- ATOM-LEVEL value comparison ---")
     atom_keys = ["ref_atom_name_chars", "ref_pos", "ref_mask", "ref_element", "ref_charge",
                  "ref_space_uid", "ref_pos_is_ground_truth", "has_zero_occupancy",
                  "ref_is_motif_atom_with_fixed_coord", "ref_is_motif_atom_unindexed",
@@ -79,14 +79,25 @@ def main():
                  "is_motif_atom_with_fixed_coord", "is_motif_atom_with_fixed_seq",
                  "is_motif_atom_unindexed", "motif_pos", "is_ca", "is_central",
                  "is_backbone", "is_sidechain", "is_virtual", "atom_to_token_map"]
+    atom_mismatches = []
     for k in atom_keys:
         if k not in pf or k not in rf:
-            print(f"  {k:30s} MISSING"); continue
+            print(f"  {k:30s} MISSING (ported={'Y' if k in pf else 'N'} ref={'Y' if k in rf else 'N'})")
+            atom_mismatches.append(k); continue
         a, b = pf[k], rf[k]
-        print(f"  {k:30s} ported {list(a.shape)} {a.dtype} | ref {list(b.shape)} {b.dtype}  {'SAME' if a.shape==b.shape else 'STRUCT-DIFF'}")
+        if a.shape != b.shape:
+            print(f"  {k:30s} SHAPE {list(a.shape)} vs {list(b.shape)}  MISMATCH")
+            atom_mismatches.append(k); continue
+        be = torch.equal(a, b)
+        p = pcc(a, b) if a.dtype.is_floating_point else 1.0
+        status = "OK" if be else "DIFF"
+        if not be:
+            atom_mismatches.append(k)
+        print(f"  {k:30s} {status:4s} bitexact={be} pcc={p:.4f}  {list(a.shape)} {a.dtype}")
 
     print()
     print(f"TOKEN-LEVEL MISMATCHES ({len(mismatches)}): {mismatches}")
+    print(f"ATOM-LEVEL MISMATCHES ({len(atom_mismatches)}): {atom_mismatches}")
 
 if __name__ == "__main__":
     main()

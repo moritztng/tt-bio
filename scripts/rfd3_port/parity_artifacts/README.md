@@ -39,33 +39,36 @@ uv pip install --python /tmp/fndry_venv/bin/python "rc-foundry[rfd3]"
 python scripts/rfd3_port/parity_artifacts/parity_iai.py
 ```
 
-## Value-gate result (p11)
+## Value-gate result (p12 — 43/43 keys bit-exact, both token- and atom-level)
 
-**Token-level: 19/19 keys bit-exact** vs the reference capture, after the p11
-token-level fixes (ref_plddt direction, asym_id/entity_id/residue_index 0-based,
-token_bonds all-False, restype designed->class 31):
-`restype, ref_motif_token_type, ref_plddt, is_non_loopy, is_motif_token_unindexed,
-is_motif_token_with_fully_fixed_coord, is_protein, is_rna, is_dna, is_ligand,
-is_polar, terminus_type, asym_id, entity_id, sym_id, residue_index, token_index,
-token_bonds, unindexing_pair_mask`.
+**Token-level: 19/19 keys bit-exact** (landed p11): `restype, ref_motif_token_type,
+ref_plddt, is_non_loopy, is_motif_token_unindexed, is_motif_token_with_fully_fixed_coord,
+is_protein, is_rna, is_dna, is_ligand, is_polar, terminus_type, asym_id, entity_id,
+sym_id, residue_index, token_index, token_bonds, unindexing_pair_mask`.
 
-**Atom-level: STRUCTURAL MISMATCH (owed rework).** The ported featurizer pads every
-token to 14 atoms (L=560); the reference emits a **variable** atom count per token:
-- motif (fixed-coord) tokens emit ONLY their real heavy atoms (no virtuals)
-  — e.g. SER=6 (N,CA,C,O,CB,OG);
-- designed (sequence-unknown) tokens emit the full 14-atom template
-  (N,CA,C,O,CB + V1..V9 virtuals).
+**Atom-level: 24/24 keys bit-exact** (landed p12). The reference does NOT pad
+every token to 14 atoms — it uses a **variable** atom count per token via the
+`rfd3.constants.association_schemes["dense"]` scheme:
+- MOTIF (fixed-seq) tokens emit ONLY their real heavy atoms, looked up per-slot
+  via the "dense" scheme (with symmetry-reserved gaps, e.g. GLU's OE2 lands at
+  slot 9, not 8) — e.g. SER=6 atoms (N,CA,C,O,CB,OG).
+- DESIGNED (sequence-unknown) tokens emit the full 14-atom template
+  (N,CA,C,O,CB + V0..V8 virtuals).
+- Beyond backbone, atom NAMES are relabeled to generic `V0..V8` for BOTH motif
+  and designed atoms (hides side-chain chemical identity from the name channel;
+  real geometry still flows through `motif_pos`).
 
-Plus the protein-specific semantics the ported layer gets wrong (all derived from
-`CreateDesignReferenceFeatures.forward`, where `has_sequence` excludes protein):
-- `ref_pos` is **all-zero** for protein (motif coords go via `motif_pos`, not `ref_pos`);
-- `ref_mask`, `ref_pos_is_ground_truth` are **all-False** for protein;
-- `ref_charge` is all-zero; `ref_element` is set by a later transform (verify values);
-- `motif_pos` = `coord * is_motif_atom` **centered at the COM of the fixed motif**
-  (origin subtracted); ported version is uncentered;
-- `ref_atomwise_rasa`, `active_donor`, `active_acceptor` are **all-zero** in the
-  default inference config (not computed); ported version must zero them;
-- `is_virtual` is True only for the designed-token virtual slots, False for all
-  motif atoms (ported version sets virtuals for every token).
+Protein-specific reference-feature semantics (`CreateDesignReferenceFeatures.forward`,
+where `has_sequence` excludes protein under `generate_conformers_for_non_protein_only`):
+- `ref_pos`, `ref_mask`, `ref_pos_is_ground_truth`, `ref_charge` are all-zero/False
+  for EVERY protein atom (motif or designed) — real motif coordinates flow only
+  through `motif_pos`.
+- `ref_element`'s one-hot is the constant index-0 row for every atom (its scalar
+  source is never filled for protein, not real chemical identity).
+- `motif_pos` is centered: the whole design is translated so the center of mass
+  of the real (motif) atoms sits at the origin.
+- `ref_atomwise_rasa`, `active_donor`, `active_acceptor` are all-zero in the
+  default inference config (not computed).
 
-The atom-level rework is the p11 major item; see state §2k.
+See `tt_bio/rfd3_featurize.py` module docstring for the full implementation and
+state §2l for the p12 writeup.

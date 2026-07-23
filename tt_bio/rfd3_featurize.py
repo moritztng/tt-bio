@@ -4,23 +4,34 @@ metadata from a real user PDB/CIF + a parsed :class:`InputSpecification`.
 This is the N6 core that turns a from-PDB design input into the ``f`` dict the
 on-device TokenInitializer + DiffusionModule consume. It is grounded in the
 real RosettaCommons/foundry featurizer
-(``models/rfd3/src/rfd3/transforms/design_transforms.py`` + ``pipelines.py``,
-production branch, 2026-07-23) and the ``f`` contract the TokenInitializer
-reads (``model/layers/encoders.py`` TokenInitializer.forward + the
-``token_1d_features`` / ``atom_1d_features`` lists vendored in
-``scripts/rfd3_port/rfd3_ref.py``).
+(``models/rfd3/src/rfd3/transforms/design_transforms.py`` + ``virtual_atoms.py``
++ ``pipelines.py``, production branch, 2026-07-23) and the ``f`` contract the
+TokenInitializer reads.
 
-Status (p11): TOKEN-LEVEL parity ACHIEVED — 19/19 token-level keys are bit-exact
-vs a real CPU-captured protein reference `f` (IAI, contig A1-10,20,A31-40; see
-``scripts/rfd3_port/parity_artifacts/``). The reference capture runs LOCALLY on
-CPU via ``rc-foundry[rfd3]`` (python 3.12, uv-installable) — no vast.ai, no
-checkpoint; the featurizer pipeline is standalone. ATOM-LEVEL parity is NOT yet
-achieved: the reference uses a VARIABLE atom count per token (motif tokens emit
-real heavy atoms only, no virtuals; designed tokens emit the full 14-atom
-template), whereas this implementation pads every token to 14 (L=I*14). That
-atom-layout rework + the protein-specific semantics (ref_pos=0, ref_mask=False,
-motif_pos centered at COM-of-fixed-motif, rasa/donor/acceptor=0) are the next
-slice. Until atom-level parity passes, ``--from_pdb`` is EXPERIMENTAL/ungated.
+Status (p12): ATOM-LEVEL parity landed for the protein-binder/motif-scaffold
+case (F1/F6). The reference does NOT pad every token to a fixed 14 atoms —
+``PadTokensWithVirtualAtoms`` only pads DESIGNED (sequence-unknown) tokens to
+14; MOTIF (fixed-seq, indexed) tokens keep exactly their real observed heavy
+atoms, looked up via the "dense" association scheme
+(``rfd3.constants.association_schemes["dense"]``, vendored below as
+``_DENSE_ATOM14_SCHEME``) which assigns each residue's real atoms to a
+per-residue-type slot (with symmetry-reserved gaps, e.g. GLU's OE2 lands at
+slot 9 not 8). Beyond backbone (N/CA/C/O/CB), atom NAMES are relabeled to
+generic ``V0..V8`` for BOTH motif and designed atoms (``ATOM14_ATOM_NAMES``) —
+this hides side-chain chemical identity from the atom-name channel while still
+conditioning on real 3D geometry via ``motif_pos``. Verified against a local
+CPU capture of the real reference featurizer (``rc-foundry[rfd3]``, no ckpt
+needed): see ``scripts/rfd3_port/parity_artifacts/``.
+
+Protein-specific reference-feature semantics (from
+``CreateDesignReferenceFeatures.forward``, where ``has_sequence`` excludes
+protein under ``generate_conformers_for_non_protein_only``): ``ref_pos``,
+``ref_mask``, ``ref_pos_is_ground_truth``, ``ref_charge`` are all-zero/False
+for EVERY protein atom (motif or designed) — real motif coordinates flow only
+through ``motif_pos``. ``ref_element`` is likewise never filled for protein,
+so its one-hot is the constant index-0 row for every atom (not real chemical
+identity). ``motif_pos`` is centered: the whole design is translated so the
+center of mass of the real (motif) atoms sits at the origin.
 
 Coverage this pass: protein-binder (F1) + motif-scaffolding (F6) on a
 protein-only input (contig with indexed-motif + designed regions + chain
@@ -31,34 +42,60 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Sequence
 
 import numpy as np
 import torch
 
 from .rfd3_input import InputSpecification, parse_contig, ChainBreak, Indexed, Designed, DesignedRange
 
-# -- atom14 layout (from rfd3/constants.py) ---------------------------------
-ATOM14_ATOM_NAMES = ["N", "CA", "C", "O", "CB"] + [f"V{i}" for i in range(14 - 5)]
-ATOM14_ATOM_ELEMENTS = ["N", "C", "C", "O", "C"] + ["VX" for _ in range(14 - 5)]
-VIRTUAL_ATOM_ELEMENT_NAME = "VX"
+# -- atom14 generic name template (rfd3.constants.ATOM14_ATOM_NAMES) --------
+# Slots 0..4 keep real backbone/CB names; slots 5..13 are always the generic
+# "V{i}" placeholder, whether the atom is a real (renamed) side-chain atom of
+# a motif residue or a synthetic virtual pad atom of a designed residue.
+ATOM14_ATOM_NAMES = ["N", "CA", "C", "O", "CB"] + [f"V{i}" for i in range(9)]
 BACKBONE_NAMES = {"N", "CA", "C", "O"}
 
-# AF3 element vocabulary: index = atomic_number - 1 (H=1 -> idx 0), 128 bins.
-# Matches atomworks ELEMENT_NAME_TO_ATOMIC_NUMBER / ref_element=128 contract.
-_ELEMENT_TO_Z = {
-    "H": 1, "B": 5, "C": 6, "N": 7, "O": 8, "F": 9, "P": 15, "S": 16,
-    "CL": 17, "BR": 35, "I": 53, "VX": 0,  # VX (virtual) -> 0 / all-zero one-hot
+# The "dense" association scheme (rfd3.constants.association_schemes["dense"],
+# stripped variant used by map_to_association_scheme): for each residue type,
+# the REAL atom name occupying each of the 14 atom14 slots (None = unused
+# slot for that residue — note the gaps, e.g. GLU's OE2 sits at slot 9, not
+# 8, reserved for symmetry-consistent packing across residue types). A real
+# atom's generic name is ATOM14_ATOM_NAMES[slot]; a motif residue emits only
+# the slots that are both non-None here AND actually present in the input
+# structure (no padding — this is what makes L variable per token).
+_DENSE_ATOM14_SCHEME: dict[str, list[str | None]] = {
+    "ALA": ["N", "CA", "C", "O", "CB", None, None, None, None, None, None, None, None, None],
+    "ARG": ["N", "CA", "C", "O", "CB", "CG", "CD", "NE", "CZ", "NH1", "NH2", None, None, None],
+    "ASN": ["N", "CA", "C", "O", "CB", "CG", "OD1", "ND2", None, None, None, None, None, None],
+    "ASP": ["N", "CA", "C", "O", "CB", "CG", "OD1", None, "OD2", None, None, None, None, None],
+    "CYS": ["N", "CA", "C", "O", "CB", None, "SG", None, None, None, None, None, None, None],
+    "GLN": ["N", "CA", "C", "O", "CB", "CG", "CD", "OE1", "NE2", None, None, None, None, None],
+    "GLU": ["N", "CA", "C", "O", "CB", "CG", "CD", "OE1", None, "OE2", None, None, None, None],
+    "GLY": ["N", "CA", "C", "O", None, None, None, None, None, None, None, None, None, None],
+    "HIS": ["N", "CA", "C", "O", "CB", "CG", "ND1", "CD2", "CE1", "NE2", None, None, None, None],
+    "ILE": ["N", "CA", "C", "O", "CB", "CG1", "CG2", "CD1", None, None, None, None, None, None],
+    "LEU": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", None, None, None, None, None, None],
+    "LYS": ["N", "CA", "C", "O", "CB", "CG", "CD", "CE", "NZ", None, None, None, None, None],
+    "MET": ["N", "CA", "C", "O", "CB", "CG", "SD", "CE", None, None, None, None, None, None],
+    "PHE": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", None, None, None],
+    "PRO": ["N", "CA", "C", "O", "CB", "CG", "CD", None, None, None, None, None, None, None],
+    "SER": ["N", "CA", "C", "O", "CB", "OG", None, None, None, None, None, None, None, None],
+    "THR": ["N", "CA", "C", "O", "CB", "OG1", "CG2", None, None, None, None, None, None, None],
+    "TRP": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
+    "TYR": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH", None, None],
+    "VAL": ["N", "CA", "C", "O", "CB", "CG1", "CG2", None, None, None, None, None, None, None],
 }
 
-# AF3 standard 20-AA restype order (index 0..19) + UNK at 20; restype=32 channels
-# leaves a margin. Exact index mapping must be confirmed vs the captured golden.
+# AF3 standard 20-AA restype order (index 0..19); restype=32 channels, designed
+# (sequence-unknown) tokens use class index 31 (confirmed vs a real reference
+# capture, see module docstring / state notes).
 _RESTYPE_ORDER = [
     "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE",
     "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL",
 ]
 _RESTYPE_TO_IDX = {n: i for i, n in enumerate(_RESTYPE_ORDER)}
-UNK_IDX = 20
+DESIGNED_RESTYPE_IDX = 31
 RESTYPE_DIM = 32
 
 PROTEIN_RES = set(_RESTYPE_ORDER)
@@ -81,21 +118,11 @@ def _encode_atom_names_like_af3(names: Sequence[str]) -> np.ndarray:
     return out
 
 
-def _element_onehot(elements: Sequence[str]) -> np.ndarray:
-    """[N, 128] one-hot over atomic_number (idx = Z - 1). VX -> all-zero row."""
-    out = np.zeros((len(elements), 128), dtype=np.float32)
-    for i, e in enumerate(elements):
-        z = _ELEMENT_TO_Z.get(str(e).strip().upper(), 0)
-        if z > 0 and z <= 128:
-            out[i, z - 1] = 1.0
-    return out
-
-
 def _restype_onehot(res_names: Sequence[str]) -> np.ndarray:
-    """[I, 32] one-hot restype (UNK at idx 20; 21..31 unused -> zero)."""
+    """[I, 32] one-hot restype (designed slot at DESIGNED_RESTYPE_IDX=31)."""
     out = np.zeros((len(res_names), RESTYPE_DIM), dtype=np.float32)
     for i, r in enumerate(res_names):
-        idx = _RESTYPE_TO_IDX.get(str(r).strip().upper(), UNK_IDX)
+        idx = _RESTYPE_TO_IDX.get(str(r).strip().upper(), DESIGNED_RESTYPE_IDX)
         out[i, idx] = 1.0
     return out
 
@@ -106,7 +133,6 @@ def load_structure(path: str | Path):
     featurizer needs. This replaces atomworks.io.parser.parse for the
     protein-only case; it does NOT reproduce atomworks' bond perception,
     assembly building, or CCD normalisation (parity-ungated)."""
-    import biotite.structure as struc
     from biotite.structure.io.pdb import PDBFile
     from biotite.structure.io.pdbx import CIFFile, get_structure
 
@@ -118,7 +144,6 @@ def load_structure(path: str | Path):
         pf = PDBFile.read(str(p))
         arr = pf.get_structure(model=1)
     arr = arr[arr.element != ""] if hasattr(arr, "element") else arr
-    # biotite gives chain_id, res_id, res_name, atom_name, element, coord, occupancy, b_factor
     return arr
 
 
@@ -128,10 +153,7 @@ class _Residue:
     res_id: int
     res_name: str
     atom_names: list[str]
-    elements: list[str]
     coord: np.ndarray  # [n_atoms, 3]
-    occupancy: np.ndarray  # [n_atoms]
-    b_factor: np.ndarray  # [n_atoms]
 
 
 def _group_residues(arr) -> list[_Residue]:
@@ -148,10 +170,7 @@ def _group_residues(arr) -> list[_Residue]:
             chain=str(sub.chain_id[0]), res_id=int(sub.res_id[0]),
             res_name=str(sub.res_name[0]).strip().upper(),
             atom_names=[str(a).strip() for a in sub.atom_name],
-            elements=[str(e_).strip().upper() for e_ in sub.element],
             coord=np.asarray(sub.coord, dtype=np.float32),
-            occupancy=np.asarray(getattr(sub, "occupancy", np.ones(len(sub))), dtype=np.float32),
-            b_factor=np.asarray(getattr(sub, "b_factor", np.zeros(len(sub))), dtype=np.float32),
         ))
     return res
 
@@ -160,28 +179,36 @@ def _is_protein(r: _Residue) -> bool:
     return r.res_name in PROTEIN_RES
 
 
-def _pad_protein_to_atom14(r: _Residue):
-    """Return atom14 names/elements/coord/is_virtual for a protein residue.
-    Real atoms N,CA,C,O,CB are placed in slots 0..4; missing real atoms and
-    slots 5..13 are virtual (VX, coord 0). For GLY, CB is virtual."""
+def _motif_atom_layout(r: _Residue):
+    """Real heavy atoms of a motif (fixed-seq) residue, in dense-scheme slot
+    order, renamed to the generic atom14 template — NOT padded. Missing atoms
+    (absent from the input structure) are simply skipped, matching the
+    reference (it only ever sees the atoms present in the parsed structure).
+    Returns (names, coord[n,3], is_virtual[n]=False)."""
+    scheme = _DENSE_ATOM14_SCHEME.get(r.res_name)
+    if scheme is None:
+        raise NotImplementedError(f"no dense atom14 scheme for motif residue {r.res_name!r}")
+    real_by_name = dict(zip(r.atom_names, r.coord))
+    names: list[str] = []
+    coord: list[np.ndarray] = []
+    for slot, real_name in enumerate(scheme):
+        if real_name is None or real_name not in real_by_name:
+            continue
+        names.append(ATOM14_ATOM_NAMES[slot])
+        coord.append(real_by_name[real_name])
+    coord_arr = np.asarray(coord, dtype=np.float32) if coord else np.zeros((0, 3), dtype=np.float32)
+    return names, coord_arr, np.zeros(len(names), dtype=bool)
+
+
+def _designed_atom_layout():
+    """Full 14-slot template for a designed (sequence-unknown) residue: the
+    5 backbone+CB slots are real (undetermined, coord 0); V0..V8 are virtual
+    pad atoms (PadTokensWithVirtualAtoms). Returns (names, coord[14,3], is_virtual[14])."""
     names = list(ATOM14_ATOM_NAMES)
-    elements = list(ATOM14_ATOM_ELEMENTS)
     coord = np.zeros((14, 3), dtype=np.float32)
     is_virtual = np.zeros(14, dtype=bool)
-    real_by_name = {n: (e, c) for n, e, c in zip(r.atom_names, r.elements, r.coord)}
-    for slot, nm in enumerate(["N", "CA", "C", "O", "CB"]):
-        if nm in real_by_name:
-            e, c = real_by_name[nm]
-            elements[slot] = e
-            coord[slot] = c
-            is_virtual[slot] = False
-        else:
-            # missing real backbone/CB atom -> virtual placeholder
-            elements[slot] = VIRTUAL_ATOM_ELEMENT_NAME
-            is_virtual[slot] = True
-    # slots 5..13 are always virtual
     is_virtual[5:] = True
-    return names, elements, coord, is_virtual
+    return names, coord, is_virtual
 
 
 # -- contig -> token plan ----------------------------------------------------
@@ -189,29 +216,23 @@ def _pad_protein_to_atom14(r: _Residue):
 class _Token:
     chain: str
     res_id: int          # input PDB res_id (motif) or assigned (designed)
-    res_name: str        # real name (motif) or "" (designed -> UNK)
+    res_name: str        # real name (motif) or "" (designed -> DESIGNED_RESTYPE_IDX)
     is_motif: bool       # fixed coord + fixed seq (indexed motif)
     is_designed: bool    # diffused
     is_unindexed: bool    # unindexed motif (from the unindex field)
     is_chain_break_before: bool  # /0 precedes this token
-    # atom14 layout (filled for protein)
-    atom_names: list[str]
-    elements: list[str]
-    coord: np.ndarray     # [14, 3]
-    is_virtual: np.ndarray  # [14]
+    residue: _Residue | None  # source residue for motif tokens, else None
 
 
 def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue]) -> list[_Token]:
     """Map a parsed contig + the parsed structure's residues into an ordered
     token plan. Indexed components pull residues from the input structure
     (motif, fixed coord+seq); Designed/DesignedRange components become diffused
-    tokens (UNK restype, zero ref_pos); ChainBreak marks the next token."""
-    # index residues by (chain, res_id) for motif lookup
+    tokens; ChainBreak marks the next token."""
     by_key = {(r.chain, r.res_id): r for r in residues}
     comps = spec.parsed_contig()
     tokens: list[_Token] = []
     break_before_next = False
-    # sample a designed length for DesignedRange (deterministic: midpoint)
     for c in comps:
         if isinstance(c, ChainBreak):
             break_before_next = True
@@ -222,59 +243,58 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
                 if r is None:
                     raise ValueError(f"contig indexes {c.chain}{rid} not present in input structure")
                 if not _is_protein(r):
-                    raise NotImplementedError("non-protein indexed motif (NA/ligand) — p11")
-                nm, el, co, iv = _pad_protein_to_atom14(r)
+                    raise NotImplementedError("non-protein indexed motif (NA/ligand) — p12")
                 tokens.append(_Token(c.chain, rid, r.res_name, True, False, False,
-                                     break_before_next, nm, el, co, iv))
+                                     break_before_next, r))
                 break_before_next = False
             continue
         if isinstance(c, (Designed, DesignedRange)):
             n = c.length if isinstance(c, Designed) else (c.lo + c.hi) // 2
-            # designed tokens: assign a fresh chain (B for a binder scaffold) + continuing res_id
-            # For the simple F1/F6 case, designed residues share the LAST motif chain if the
-            # contig is contiguous, else a new chain. We follow the common binder convention:
-            # designed region continues on the same chain as the preceding indexed block.
+            # designed residues continue on the same chain as the preceding indexed block
             chain = tokens[-1].chain if tokens else "A"
             base = (tokens[-1].res_id + 1) if tokens else 1
             for k in range(n):
-                nm = list(ATOM14_ATOM_NAMES); el = list(ATOM14_ATOM_ELEMENTS)
-                co = np.zeros((14, 3), dtype=np.float32); iv = np.ones(14, dtype=bool)
-                iv[:5] = False  # N,CA,C,O,CB slots exist but are diffused (coord 0)
                 tokens.append(_Token(chain, base + k, "", False, True, False,
-                                     break_before_next, nm, el, co, iv))
+                                     break_before_next, None))
                 break_before_next = False
             continue
-        raise NotImplementedError(f"contig component {c!r} not supported this pass (p11)")
-    # unindex field (F6 unindexed motif) -> mark those tokens unindexed
+        raise NotImplementedError(f"contig component {c!r} not supported this pass (p12)")
     if spec.unindex is not None:
-        raise NotImplementedError("unindex field (unindexed motif) -> p11")
+        raise NotImplementedError("unindex field (unindexed motif) -> p12")
     return tokens
 
 
 def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str, torch.Tensor]:
     """Build the ``f`` feature dict for one design spec from a real PDB/CIF.
 
-    Returns the atom-level + token-level tensors the TokenInitializer reads
-    (see module docstring for the contract). Protein-binder (F1) + motif
-    scaffolding (F6) on protein-only input this pass.
-
-    NOT parity-gated: the atomworks-dependent encodings (rasa, donor/acceptor,
-    hotspot, ref conformer, exact index assignment) use the reference's
-    documented default-when-absent behaviour. Confirm against a captured
-    design-``f`` golden before any accuracy claim (parity_compare_f.py).
+    Protein-binder (F1) + motif scaffolding (F6) on protein-only input, with
+    atom-level parity vs the real reference (see module docstring).
     """
     arr = load_structure(structure_path)
     residues = _group_residues(arr)
-    # reject ligand/NA inputs this pass
     if any(not _is_protein(r) for r in residues):
-        raise NotImplementedError("non-protein input (NA/ligand) — p11")
+        raise NotImplementedError("non-protein input (NA/ligand) — p12")
     tokens = _plan_tokens_from_contig(spec, residues)
     I = len(tokens)
-    L = I * 14  # atom14
 
-    # --- flatten atom14 across tokens ---
+    # Per-token atom layout (variable count: motif = real heavy atoms only,
+    # designed = full 14-slot template).
+    layouts = [
+        _motif_atom_layout(tk.residue) if tk.is_motif else _designed_atom_layout()
+        for tk in tokens
+    ]
+    L = sum(len(nm) for nm, _, _ in layouts)
+
+    # The whole design is centered at the center of mass of the real (motif)
+    # atoms (verified vs a real reference capture: motif_pos == real_coord -
+    # com, where com = mean over every motif atom actually emitted).
+    motif_coords = [c for tk, (nm, c, _) in zip(tokens, layouts) if tk.is_motif and len(nm)]
+    if motif_coords:
+        com = np.concatenate(motif_coords, axis=0).mean(axis=0)
+    else:
+        com = np.zeros(3, dtype=np.float32)
+
     atom_names: list[str] = []
-    atom_elements: list[str] = []
     atom_coord = np.zeros((L, 3), dtype=np.float32)
     is_virtual = np.zeros(L, dtype=bool)
     is_backbone = np.zeros(L, dtype=bool)
@@ -285,8 +305,9 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     is_motif_atom_fixed_seq = np.zeros(L, dtype=bool)
     is_motif_atom_unindexed = np.zeros(L, dtype=bool)
     motif_pos = np.zeros((L, 3), dtype=np.float32)
-    occupancy = np.ones(L, dtype=np.float32)
-    b_factor = np.zeros(L, dtype=np.float32)
+    ref_space_uid = np.zeros(L, dtype=np.int64)
+    atom_to_token_map = np.zeros(L, dtype=np.int32)
+
     token_res_name = []
     token_chain = []
     token_res_id = []
@@ -294,95 +315,81 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     token_is_unindexed = np.zeros(I, dtype=bool)
     token_break_before = np.zeros(I, dtype=bool)
 
-    for ti, tk in enumerate(tokens):
-        s = ti * 14
-        atom_names.extend(tk.atom_names)
-        atom_elements.extend(tk.elements)
-        atom_coord[s:s + 14] = tk.coord
-        is_virtual[s:s + 14] = tk.is_virtual
-        for j, nm in enumerate(tk.atom_names):
-            if nm in BACKBONE_NAMES and not tk.is_virtual[j]:
+    pos = 0
+    for ti, (tk, (names, coord, tk_is_virtual)) in enumerate(zip(tokens, layouts)):
+        n = len(names)
+        s, e = pos, pos + n
+        atom_names.extend(names)
+        is_virtual[s:e] = tk_is_virtual
+        has_cb = "CB" in names
+        for j, nm in enumerate(names):
+            if nm in BACKBONE_NAMES:
                 is_backbone[s + j] = True
                 if nm == "CA":
                     is_ca[s + j] = True
-                    is_central[s + j] = True  # CA is the protein token representative
-            elif nm == "CB" and not tk.is_virtual[j]:
+                    if not has_cb:
+                        is_central[s + j] = True  # GLY: CA is the representative atom
+            else:
                 is_sidechain[s + j] = True
+                if nm == "CB":
+                    is_central[s + j] = True
         if tk.is_motif:
-            is_motif_atom_fixed_coord[s:s + 14] = True
-            is_motif_atom_fixed_seq[s:s + 14] = True
-            motif_pos[s:s + 14] = tk.coord
-        if tk.is_unindexed:
-            is_motif_atom_unindexed[s:s + 14] = True
+            is_motif_atom_fixed_coord[s:e] = True
+            is_motif_atom_fixed_seq[s:e] = True
+            atom_coord[s:e] = coord
+            motif_pos[s:e] = coord - com
+        ref_space_uid[s:e] = ti
+        atom_to_token_map[s:e] = ti
         token_res_name.append(tk.res_name or "UNK")
         token_chain.append(tk.chain)
         token_res_id.append(tk.res_id)
         token_is_motif[ti] = tk.is_motif
         token_is_unindexed[ti] = tk.is_unindexed
         token_break_before[ti] = tk.is_chain_break_before
+        pos = e
 
-    # ref_pos: motif atoms keep their real coord; designed/virtual -> 0
-    ref_pos = motif_pos.copy()  # motif_pos is already 0 for non-motif
-    # ref_mask: bool, 1 where the reference conformer is provided (motif with seq) else 0
-    ref_mask = is_motif_atom_fixed_seq.copy()
-    # ref_element / ref_charge / ref_atom_name_chars (golden dtypes: bf16 one-hot / int8 / bf16 flat)
-    ref_element = _element_onehot(atom_elements)            # [L,128] float -> bf16
+    # --- reference-conformer features: ALL-ZERO/False for protein (motif or
+    # designed alike) — CreateDesignReferenceFeatures.has_sequence excludes
+    # protein entirely under generate_conformers_for_non_protein_only, so
+    # ref_pos/ref_mask/ref_charge/ref_pos_is_ground_truth never get filled;
+    # real motif geometry flows only through motif_pos. ref_element's one-hot
+    # is therefore the constant index-0 row (its scalar source stays 0), not
+    # real chemical identity. Verified vs a real reference capture.
+    ref_pos = np.zeros((L, 3), dtype=np.float32)
+    ref_mask = np.zeros(L, dtype=bool)
+    ref_pos_is_ground_truth = np.zeros(L, dtype=bool)
     ref_charge = np.zeros(L, dtype=np.int8)
-    ref_atom_name_chars = _encode_atom_names_like_af3(atom_names).reshape(L, 256)  # [L,256]
-    # has_zero_occupancy
-    has_zero_occupancy = (occupancy == 0.0)
-    # ref_space_uid: per-residue segment id (same value for all 14 atoms of a token)
-    ref_space_uid = np.repeat(np.arange(I, dtype=np.int64), 14)
-    # atom_to_token_map (golden dtype int32)
-    atom_to_token_map = np.repeat(np.arange(I, dtype=np.int32), 14)
+    ref_element = np.zeros((L, 128), dtype=np.float32)
+    ref_element[:, 0] = 1.0
+    ref_atom_name_chars = _encode_atom_names_like_af3(atom_names)  # [L,4,64] f32 (live-pipeline dtype)
+    has_zero_occupancy = np.zeros(L, dtype=bool)  # forced False at inference regardless of input
 
-    # --- atomworks-ungated defaults (confirm vs golden p11) ---
-    # ref_atomwise_rasa: one-hot int64 [L,3]; all-zero when no rasa annotation (the dsDNA_basic
-    # golden is all-zero; a protein-binder WOULD have non-zero rasa computed from surface area,
-    # which needs atomworks -> owed p11. Set all-zero (the no-annotation default) and flag.
+    # atomworks-ungated defaults (all-zero in the default inference config —
+    # verified vs a real reference capture: FeaturizeAtoms' rasa_binned default
+    # bin is excluded from the one-hot; no hbond/hotspot annotation present).
     ref_atomwise_rasa = np.zeros((L, 3), dtype=np.int64)
-    # active_donor / active_acceptor: int64, zeros when no hbond annotation (reference default).
     active_donor = np.zeros(L, dtype=np.int64)
     active_acceptor = np.zeros(L, dtype=np.int64)
-    # is_atom_level_hotspot: bf16 [L,1], zeros when no hotspot annotation.
     is_atom_level_hotspot = np.zeros((L, 1), dtype=np.float32)
 
     # --- token-level features ---
     restype = _restype_onehot(token_res_name).astype(np.int64)  # [I,32] one-hot int64
-    # Parity-gated vs protein reference: DESIGNED (non-motif, no sequence) tokens use
-    # restype class index 31 (the "mask/designed" slot), NOT UNK(20). Motif tokens keep
-    # their real-aa one-hot (SER->15 etc., matches the reference AF3 ordering).
-    for ti, tk in enumerate(tokens):
-        if not tk.is_motif:
-            restype[ti] = 0
-            restype[ti, 31] = 1
-    # ref_motif_token_type: [I,3] one-hot int8 (0 non-motif, 1 indexed motif, 2 unindexed motif)
     motif_token_class = np.zeros(I, dtype=np.int8)
     motif_token_class[token_is_motif] = 1
     motif_token_class[token_is_unindexed] = 2
     ref_motif_token_type = np.eye(3, dtype=np.int8)[motif_token_class]
-    # ref_plddt: int64 [I].  Parity-gated vs a real protein reference capture
-    # (IAI, contig A1-10,20,A31-40): designed (non-motif) tokens -> 1, motif -> 0.
     ref_plddt = np.where(token_is_motif, 0, 1).astype(np.int64)
-    # is_non_loopy: bf16 [I,1], default 0.
     is_non_loopy = np.zeros((I, 1), dtype=np.float32)
-    # is_motif_token_unindexed: bool [I] (token-level spread of is_motif_atom_unindexed).
     is_motif_token_unindexed = token_is_unindexed.copy()
-    # is_motif_token_with_fully_fixed_coord: bool [I] (all 14 atoms fixed-coord -> motif tokens).
     is_motif_token_with_fully_fixed_coord = token_is_motif.copy()
 
-    # --- molecule-type token masks (bool [I]) ---
-    is_protein_tok = np.ones(I, dtype=bool)   # protein-only input this pass
+    is_protein_tok = np.ones(I, dtype=bool)
     is_rna_tok = np.zeros(I, dtype=bool)
     is_dna_tok = np.zeros(I, dtype=bool)
     is_ligand_tok = np.zeros(I, dtype=bool)
-    # is_polar: is_protein & res_name in polar set (util_transforms.py:446).
     _POLAR = {"SER", "THR", "ASN", "GLN", "TYR", "CYS", "HIS", "LYS", "ARG", "ASP", "GLU"}
     is_polar = is_protein_tok & np.isin(np.array(token_res_name), np.array(list(_POLAR)))
 
-    # --- terminus_type [I,2] int64 one-hot: col0 = C-terminus, col1 = N-terminus ---
-    # A token is N-term if it starts a chain-segment (first, or break_before, or chain change);
-    # C-term if it ends a segment (last, or next has break, or next is different chain).
     is_N_term = np.zeros(I, dtype=bool)
     is_C_term = np.zeros(I, dtype=bool)
     for ti in range(I):
@@ -394,9 +401,6 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
     terminus_type[is_C_term, 0] = 1
     terminus_type[is_N_term, 1] = 1
 
-    # --- indices (golden dtypes: asym_id/entity_id/token_index int64; residue_index/sym_id int32) ---
-    # Parity-gated vs protein reference: asym_id/entity_id are 0-BASED (single chain -> all 0),
-    # residue_index is 0-BASED per chain ([0..I-1] for one chain), token_index 0-based global.
     chain_to_asym = {}
     for c in token_chain:
         if c not in chain_to_asym:
@@ -412,35 +416,33 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
         _per_chain_ctr[c] += 1
     token_index = np.arange(I, dtype=np.int64)
 
-    # --- token_bonds [I, I] bool: parity-gated vs protein reference -> ALL FALSE for
-    #     standard contiguous protein (token_bonds is NOT the peptide-bond graph; it
-    #     encodes inter-token bonds for modified residues / crosslinks / ligands only).
+    # token_bonds: ALL FALSE for standard contiguous protein (not the peptide-
+    # bond graph — encodes inter-token bonds for modified residues/crosslinks/
+    # ligands only). unindexing_pair_mask: all-False (no unindex field).
     token_bonds = np.zeros((I, I), dtype=bool)
-
-    # --- unindexing_pair_mask [I, I] bool: all-False this pass (no unindex field). ---
     unindexing_pair_mask = np.zeros((I, I), dtype=bool)
 
-    bf = lambda a: torch.from_numpy(a).to(torch.bfloat16)
+    bf = lambda a: torch.from_numpy(a)
     f = {
-        # atom-level (golden dtypes from the captured dsDNA_basic `f`)
-        "ref_atom_name_chars": bf(ref_atom_name_chars),                # [L,256] bf16
-        "ref_pos": bf(ref_pos),                                        # [L,3] bf16
+        # atom-level
+        "ref_atom_name_chars": bf(ref_atom_name_chars),                # [L,4,64] f32
+        "ref_pos": bf(ref_pos),                                        # [L,3] f32
         "ref_mask": torch.from_numpy(ref_mask),                        # [L] bool
-        "ref_element": bf(ref_element),                               # [L,128] bf16
+        "ref_element": bf(ref_element),                                # [L,128] f32
         "ref_charge": torch.from_numpy(ref_charge),                    # [L] int8
         "ref_space_uid": torch.from_numpy(ref_space_uid),              # [L] int64
-        "ref_pos_is_ground_truth": torch.from_numpy(is_motif_atom_fixed_seq),  # [L] bool
+        "ref_pos_is_ground_truth": torch.from_numpy(ref_pos_is_ground_truth),  # [L] bool
         "has_zero_occupancy": torch.from_numpy(has_zero_occupancy),     # [L] bool
         "ref_is_motif_atom_with_fixed_coord": torch.from_numpy(is_motif_atom_fixed_coord),
         "ref_is_motif_atom_unindexed": torch.from_numpy(is_motif_atom_unindexed),
         "ref_atomwise_rasa": torch.from_numpy(ref_atomwise_rasa),      # [L,3] int64
         "active_donor": torch.from_numpy(active_donor),                # [L] int64
         "active_acceptor": torch.from_numpy(active_acceptor),          # [L] int64
-        "is_atom_level_hotspot": bf(is_atom_level_hotspot),            # [L,1] bf16
+        "is_atom_level_hotspot": bf(is_atom_level_hotspot),            # [L,1] f32
         "is_motif_atom_with_fixed_coord": torch.from_numpy(is_motif_atom_fixed_coord),
         "is_motif_atom_with_fixed_seq": torch.from_numpy(is_motif_atom_fixed_seq),
         "is_motif_atom_unindexed": torch.from_numpy(is_motif_atom_unindexed),
-        "motif_pos": bf(motif_pos),                                  # [L,3] bf16
+        "motif_pos": bf(motif_pos),                                  # [L,3] f32
         "is_ca": torch.from_numpy(is_ca),
         "is_central": torch.from_numpy(is_central),
         "is_backbone": torch.from_numpy(is_backbone),
@@ -451,7 +453,7 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
         "restype": torch.from_numpy(restype),                          # [I,32] int64 one-hot
         "ref_motif_token_type": torch.from_numpy(ref_motif_token_type),  # [I,3] int8 one-hot
         "ref_plddt": torch.from_numpy(ref_plddt),                      # [I] int64
-        "is_non_loopy": bf(is_non_loopy),                              # [I,1] bf16
+        "is_non_loopy": bf(is_non_loopy),                              # [I,1] f32
         "is_motif_token_unindexed": torch.from_numpy(is_motif_token_unindexed),  # [I] bool
         "is_motif_token_with_fully_fixed_coord": torch.from_numpy(is_motif_token_with_fully_fixed_coord),
         "is_protein": torch.from_numpy(is_protein_tok),                # [I] bool
@@ -469,6 +471,3 @@ def featurize(structure_path: str | Path, spec: InputSpecification) -> dict[str,
         "unindexing_pair_mask": torch.from_numpy(unindexing_pair_mask),
     }
     return f
-
-
-

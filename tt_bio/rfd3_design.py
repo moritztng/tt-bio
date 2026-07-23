@@ -6,13 +6,20 @@ it parses an InputSpecification (JSON/YAML) via :mod:`tt_bio.rfd3_input`,
 validates it, runs the on-device diffusion sampler, and writes the designed
 structure to disk.
 
-Status (p10): the parser + on-device pipeline + CIF writer are landed. The host
-featurizer (:mod:`tt_bio.rfd3_featurize`) is landed for the protein-binder (F1) /
-motif-scaffolding (F6) case and structurally unit-verified, but NOT yet
-parity-gated against a reference ``f`` capture. ``--from_pdb`` wires the real
-from-PDB path (featurize → on-device TokenInitializer → sampler → CIF); the
-``--golden_dir`` bridge remains the verified path and still supplies the device
-ckpt weights. See ``scripts/rfd3_port/parity_compare_f.py`` for the gate.
+Status (p12): the host featurizer (:mod:`tt_bio.rfd3_featurize`) is
+value-parity-verified (43/43 `f` keys bit-exact vs a real reference capture,
+see ``scripts/rfd3_port/parity_artifacts/``) for the protein-binder (F1) /
+motif-scaffolding (F6) case. ``--from_pdb`` runs the real end-to-end path
+(featurize → on-device TokenInitializer → sampler → CIF) without a captured
+golden for the features; ``--golden_dir`` is still required for the device
+ckpt weights (both paths need it). The fixed-motif atoms are seeded at their
+real (centered) ground-truth position via ``f["motif_pos"]`` — the sampler
+never moves them, so this is what actually appears in the output structure.
+Full end-to-end design accuracy (device output vs an independent reference
+RFD3 sampler run on the same real input) has not been separately measured
+this pass; the earlier device-vs-reference sampler parity numbers (p5/p6)
+used a placeholder zero motif seed on both sides, so they remain valid as
+parity claims but don't cover this real-seed path.
 """
 from __future__ import annotations
 
@@ -91,12 +98,14 @@ def _write_cif(coords, f, out_path: Path, b_factors=None):
 
 
 def _chain_label(asym: int) -> str:
-    # asym_id is 1-based for real chains; 0 = virtual/guidepost atoms (no chain).
-    if asym <= 0:
+    # asym_id is 0-based (parity-verified vs a real reference capture, p11/p12:
+    # a single chain -> asym_id all 0). Negative values (none in the featurizer's
+    # output) fall back to a placeholder label.
+    if asym < 0:
         return "Z"
-    if asym <= 26:
-        return chr(ord("A") + asym - 1)
-    return chr(ord("A") + (asym - 1) // 26 - 1) + chr(ord("A") + (asym - 1) % 26)
+    if asym < 26:
+        return chr(ord("A") + asym)
+    return chr(ord("A") + asym // 26 - 1) + chr(ord("A") + asym % 26)
 
 
 def _resname(rt_idx: int) -> str:
@@ -113,6 +122,7 @@ def run_design(
     out_dir: str | Path,
     *,
     golden_dir: str | None = None,
+    from_pdb: bool = False,
     num_timesteps: int = 4,
     seed: int = 42,
     partial_t: float | None = None,
@@ -129,8 +139,13 @@ def run_design(
         The parsed JSON/YAML InputSpecification file (each top-level key is one
         design). Each spec is validated via :class:`InputSpecification`.
     out_dir : output directory (created if missing).
-    golden_dir : path to a captured `f` golden used as the feature source until
-        the from-PDB featurizer lands (p9 bridge). Required this pass.
+    golden_dir : path to the captured RFD3 device ckpt weights (always required —
+        this holds the TokenInitializer/DiffusionModule weights regardless of
+        the feature source).
+    from_pdb : if True, build `f` from each spec's real `input` PDB + contig via
+        :mod:`tt_bio.rfd3_featurize` (parity-verified for the F1/F6
+        protein-binder/motif-scaffold case, see scripts/rfd3_port/parity_artifacts/).
+        If False, fall back to the captured golden `f` bridge (p9).
     num_timesteps, seed, partial_t, cfg_scale, fp32_residual : sampler knobs.
     """
     out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
@@ -184,9 +199,16 @@ def run_design(
             f_used = golden_f; init_used = golden_init
             L = golden_L; is_motif = golden_is_motif
 
+        # Seed the trajectory's fixed-motif atoms at their real (centered)
+        # ground-truth position — the sampler never adds noise or a delta
+        # update at is_motif_fixed atoms (rfd3_sampler.RFD3Sampler.sample), so
+        # whatever `coord` holds there is exactly what comes out. `motif_pos`
+        # is zero everywhere else, so this is a correct seed for both the
+        # designed (start-from-noise) and motif (start-at-truth) atoms.
+        coord0 = f_used["motif_pos"].float().unsqueeze(0) if "motif_pos" in f_used else torch.zeros(1, L, 3)
         with torch.no_grad():
             g = torch.Generator().manual_seed(seed)
-            X, _ = sampler.sample(dev_dm, 1, L, torch.zeros(1, L, 3), f_used, init_used, is_motif,
+            X, _ = sampler.sample(dev_dm, 1, L, coord0, f_used, init_used, is_motif,
                                   generator=g, partial_t=sp_t, cfg_scale=cfg_scale)
         out_path = out_dir / f"{spec_id}.cif"
         _write_cif(X[0], f_used, out_path)
