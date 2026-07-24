@@ -12,7 +12,13 @@ Usage:
         --targets 9dsg,9fte,9j4c --device <card> \
         > /tmp/abag_expansion/campaign_<card>.log 2>&1 &
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, json, os, signal, subprocess, sys, time
+
+FOLD_TIMEOUT_S = 1200  # a real hang was observed this pass (opendde-abag's paired-MSA
+# network call stuck at 0% CPU for 15+ min with 4 concurrent same-host requests) --
+# kill the whole process group (multiprocessing forks don't die from a plain
+# subprocess timeout on the direct child) and record it so the campaign self-heals
+# instead of needing a manual kill + tt-smi reset every time.
 
 ALL_TARGETS = ["9dsg", "9fte", "9j4c", "9k6j", "9loe", "9lof", "9log", "9kwy",
                "21tw", "9lp1", "9jno", "9loz"]
@@ -37,7 +43,8 @@ def done_pairs():
                 continue
             try:
                 r = json.loads(line)
-                seen.add((r["target"], r["model"]))
+                if r.get("status") == "ok":
+                    seen.add((r["target"], r["model"]))
             except Exception:
                 pass
     return seen
@@ -73,16 +80,37 @@ def fold_one(target, model, device):
     yaml = f"{YAML_DIR}/{target}_abag.yaml"
     native = f"{GT}/{target}.cif"
     t0 = time.time()
-    r = subprocess.run(
+    proc = subprocess.Popen(
         [sys.executable, "-m", "tt_bio.main", "predict", yaml, "--model", model,
          "--out_dir", out_dir, "--diffusion_samples", "5", "--msa_dir", MSA_DIR,
          "--seed", "42", "--override", "--write_pae"],
-        cwd=ROOT, capture_output=True, text=True,
+        cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         env={**os.environ, "TT_VISIBLE_DEVICES": str(device), "PYTHONPATH": ROOT},
+        start_new_session=True,
     )
+    timed_out = False
+    try:
+        out, _ = proc.communicate(timeout=FOLD_TIMEOUT_S)
+        returncode = proc.returncode
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        out, _ = proc.communicate()
+        returncode = -9
+
+    class _R:  # subprocess.CompletedProcess-shaped shim for the rest of this function
+        pass
+    r = _R()
+    r.returncode = returncode
+    r.stderr = out or ""
+
     wall_s = time.time() - t0
     rec = {"target": target, "model": model, "wall_s": round(wall_s, 1)}
     rjson = f"{result_dir}/results.json"
+    if timed_out:
+        rec["status"] = "timed_out"
+        rec["stderr"] = f"killed after {FOLD_TIMEOUT_S}s (process group); tail: {r.stderr[-1000:]}"
+        return rec
     if r.returncode != 0 or not os.path.exists(rjson):
         rec["status"] = "fold_failed"
         rec["stderr"] = r.stderr[-2000:]

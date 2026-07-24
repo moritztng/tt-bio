@@ -8,7 +8,12 @@ correctly assign LOW confidence to a pair that should not bind.
     nohup env TT_VISIBLE_DEVICES=<card> python3 scripts/abag_decoy_fold.py \
         --device <card> > /tmp/abag_decoys/campaign.log 2>&1 &
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, json, os, signal, subprocess, sys, time
+
+FOLD_TIMEOUT_S = 1200  # see abag_expansion_fold.py -- a real hang was observed this
+# pass (opendde-abag's paired-MSA network call stuck at 0% CPU under concurrent
+# same-host load); kill the whole process group and record it so the campaign
+# self-heals instead of needing a manual kill + tt-smi reset every time.
 
 DECOYS = ["decoy_9ck4ab_9i5nag", "decoy_9i5nab_9m72ag", "decoy_9m72ab_22psag",
           "decoy_22psab_9obnag", "decoy_9obnab_9gfrag", "decoy_9gfrab_9udqag",
@@ -32,7 +37,8 @@ def done_pairs():
                 continue
             try:
                 r = json.loads(line)
-                seen.add((r["target"], r["model"]))
+                if r.get("status") == "ok":
+                    seen.add((r["target"], r["model"]))
             except Exception:
                 pass
     return seen
@@ -53,19 +59,34 @@ def fold_one(decoy_id, model, device):
     result_dir = f"{out_dir}/{RESULT_DIR_PREFIX[model]}_results_{decoy_id}"
     yaml = f"{YAML_DIR}/{decoy_id}.yaml"
     t0 = time.time()
-    r = subprocess.run(
+    proc = subprocess.Popen(
         [sys.executable, "-m", "tt_bio.main", "predict", yaml, "--model", model,
          "--out_dir", out_dir, "--diffusion_samples", "5", "--msa_dir", MSA_DIR,
          "--seed", "42", "--override", "--write_pae"],
-        cwd=ROOT, capture_output=True, text=True,
+        cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         env={**os.environ, "TT_VISIBLE_DEVICES": str(device), "PYTHONPATH": ROOT},
+        start_new_session=True,
     )
+    timed_out = False
+    try:
+        out, _ = proc.communicate(timeout=FOLD_TIMEOUT_S)
+        returncode = proc.returncode
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        out, _ = proc.communicate()
+        returncode = -9
+
     wall_s = time.time() - t0
     rec = {"target": decoy_id, "model": model, "wall_s": round(wall_s, 1)}
     rjson = f"{result_dir}/results.json"
-    if r.returncode != 0 or not os.path.exists(rjson):
+    if timed_out:
+        rec["status"] = "timed_out"
+        rec["stderr"] = f"killed after {FOLD_TIMEOUT_S}s (process group); tail: {(out or '')[-1000:]}"
+        return rec
+    if returncode != 0 or not os.path.exists(rjson):
         rec["status"] = "fold_failed"
-        rec["stderr"] = r.stderr[-2000:]
+        rec["stderr"] = (out or "")[-2000:]
         return rec
     results = json.load(open(rjson))
     entry = results[0] if isinstance(results, list) else results
