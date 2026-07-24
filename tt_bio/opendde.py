@@ -288,9 +288,13 @@ class OpenDDE:
         self._shared = routed["shared"]         # Protenix-v2-family graph (for step-2 trunk/diffusion)
         # Shared Protenix-v2-family stack (input embedder, trunk, diffusion, confidence),
         # built at OpenDDE's c_z=384.
-        # Reused verbatim -- no duplicated orchestration class.
+        # Reused verbatim -- no duplicated orchestration class. diffusion_fp32=False pins
+        # OpenDDE to its own validated bf16 diffusion config regardless of Protenix-v2's
+        # PROTENIX_DIFFUSION_FP32_DEVICE default (fp32 diffusion is >60x slower on OpenDDE's
+        # atom-level tensors, see tt-bio-shared-diffusion-global-env-default-regression).
         self._protenix = Protenix(
-            self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True)
+            self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
+            diffusion_fp32=False)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
