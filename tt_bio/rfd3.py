@@ -833,7 +833,26 @@ class LocalAtomTransformer(Module):
     eager path unchanged unless the caller opts in. The trace is captured
     once per (L, n_key) shape and replayed with fresh q/c/p/mask data staged
     into persistent device buffers every call (correct regardless of how
-    often the data actually changes -- see the class docstring on _trace)."""
+    often the data actually changes -- see the class docstring on _trace).
+
+    KNOWN UNSAFE in the full RFD3DiffusionModule pipeline (p26, reproduced 3x on pc
+    after a clean device reset each time): once this trace is captured it stays open
+    for the rest of the process (same design as CompactStreamingDecoder's trace), but
+    the very next op after the encoder call in `RFD3DiffusionModule._process_forward`
+    is `_downcast_q`, which allocates FRESH (non-trace) device buffers -- exactly the
+    case ttnn's own allocator warns about ("Allocating device buffers is unsafe due to
+    the existence of an active trace"). On this ttnn build that manifests as a real
+    device-level hang in `_downcast_q`'s closing `ttnn.to_torch()` (confirmed via
+    py-spy: stuck at the identical stack frame every time), not silent corruption --
+    see ttnn-trace-interleaved-eager-corruption. Isolated component-level PCC (direct
+    repeated __call__ invocations, no intervening eager allocation) IS clean
+    (0.999999-1.000001, capture/refresh/shape-change-recapture all verified) --
+    the bug is specific to the full-pipeline interleaving, not the trace mechanics
+    themselves. RFD3_TRACE_ENCODER=1 must NOT be enabled in production until this is
+    fixed (release the trace immediately after each replay, or fold the encoder +
+    _downcast_q into one wider trace per the La-Proteina full-step-trace resolution).
+    CompactStreamingDecoder's trace (RFD3_TRACE_DECODER=1) does not have this problem
+    (verified clean end-to-end in p25, reconfirmed on pc in p26)."""
 
     def __init__(self, state_dict, ckc, n_blocks=3, dtype=None, fp32_residual=False, trace=False):
         super().__init__(state_dict, ckc)
@@ -1487,6 +1506,10 @@ class RFD3DiffusionModule(Module):
         # a real isolated trace speedup (the 18-block DiT does not -- never traced). Requires the
         # device to be opened with a trace region (get_device(trace_region_size=1 << 28)+).
         # Default off keeps the verified eager path unchanged.
+        # RFD3_TRACE_DECODER=1 is verified safe end-to-end (p25, reconfirmed p26: real 1.25x
+        # on pc). RFD3_TRACE_ENCODER=1 is CONFIRMED UNSAFE in the full pipeline (p26: reproducible
+        # device hang in the immediately-following _downcast_q -- see LocalAtomTransformer
+        # docstring) -- do not enable in production until fixed.
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
                                             fp32_residual=self._dit_fp32_residual,
                                             trace=os.environ.get("RFD3_TRACE_ENCODER") == "1")
