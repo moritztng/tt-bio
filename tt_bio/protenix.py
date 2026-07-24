@@ -409,13 +409,15 @@ class DiffusionModule(_KeyedWeights):
     NQ, NK, PAD_LEFT = 32, 128, 48
     DIT_BLOCKS, DIT_HEAD_DIM, DIT_N_HEADS = 24, 48, 16
 
-    def __init__(self, diffusion_state_dict, device, compute_kernel_config):
-        """diffusion_state_dict: {key: tensor} for diffusion_module.* (prefix stripped)."""
+    def __init__(self, diffusion_state_dict, device, compute_kernel_config, diffusion_fp32=None):
+        """diffusion_state_dict: {key: tensor} for diffusion_module.* (prefix stripped).
+        diffusion_fp32: explicit override; None falls back to PROTENIX_DIFFUSION_FP32_DEVICE."""
         import torch.nn.functional as F  # noqa: F401  (used in DiT)
         self._w = dict(diffusion_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
-        self._diffusion_fp32 = os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
+        self._diffusion_fp32 = (os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
+                                 if diffusion_fp32 is None else diffusion_fp32)
         self.dtype = ttnn.float32 if self._diffusion_fp32 else ttnn.bfloat16
         self.atxE = AtomTransformer(3, {k[len("atom_attention_encoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
@@ -1087,7 +1089,11 @@ class Protenix:
     variance). feats is a dict of model-ready tensors (from the v2 data pipeline)."""
 
     def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None,
-                 msa_update_first=False):
+                 msa_update_first=False, diffusion_fp32=None):
+        """diffusion_fp32: explicit per-instantiation override for the coordinate-sensitive
+        diffusion stack's precision; None falls back to PROTENIX_DIFFUSION_FP32_DEVICE (default
+        fp32). Callers that share this class across models (e.g. OpenDDE) should pass this
+        explicitly rather than rely on the env-var default, which is scoped to Protenix-v2."""
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
@@ -1096,6 +1102,8 @@ class Protenix:
         self._c_z = c_z
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
+        resolved_diffusion_fp32 = (os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
+                                   if diffusion_fp32 is None else diffusion_fp32)
         # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8
         # (s/z PCC 0.99), but bf8 in the coordinate-sensitive diffusion collapses the
         # structure (Rg 4.7 vs 22). Capture the --fast intent, then build each stage at its
@@ -1104,15 +1112,15 @@ class Protenix:
         self._fast = _TT._FAST_MODE
         _TT.set_fast_mode(False)   # input embedder stays bf16; diffusion precision is gate-controlled
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
-        diffusion_dtype = (ttnn.float32 if os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
-                           else ttnn.bfloat16)
+        diffusion_dtype = ttnn.float32 if resolved_diffusion_fp32 else ttnn.bfloat16
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."),
                                             compute_kernel_config, dtype=diffusion_dtype)
         _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
         self.trunk = Trunk(model_state_dict, compute_kernel_config, c_z=self._c_z,
                            msa_update_first=msa_update_first)
         _TT.set_fast_mode(False)   # diffusion uses its gate-controlled dtype; confidence stays bf16
-        self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config)
+        self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config,
+                                          diffusion_fp32=resolved_diffusion_fp32)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev, compute_kernel_config)
 
     @classmethod
