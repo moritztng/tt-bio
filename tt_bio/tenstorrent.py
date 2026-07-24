@@ -316,6 +316,7 @@ def pair_row_tile(L: int) -> int:
 
 _device = None
 _trace_region_size = 0
+_device_lease = None
 
 _DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
 
@@ -413,38 +414,56 @@ def get_device(trace_region_size=0):
     the parity harness in perf/boltzgen_trace_step_parity/) so a single-BH open
     can reserve a trace region without the caller threading the kwarg.
     """
-    global _device, _trace_region_size
+    global _device, _trace_region_size, _device_lease
     if _device is None:
-        if trace_region_size == 0:
-            env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
-            if env_sz:
-                trace_region_size = int(env_sz)
-        device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
-        # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
-        # (rather than 8x7 after worker-dispatch reservation) is available.
-        # BUT on a multi-chip system (Galaxy / multi-card mesh) the ETH cores are
-        # consumed by the inter-chip fabric, so ETH dispatch has no free cores
-        # ("No more available dispatch cores"). We must NOT attempt-then-reopen in
-        # the same process: the failed ETH open leaves the device mid-initialized
-        # ("dispatch kernels still running", "unexpected run_mailbox value") and a
-        # subsequent in-process open is unstable (later from_torch / close_device
-        # hang). So decide up front from the physical chip count and open cleanly
-        # once. Default (Tensix) dispatch yields an 8x7 grid that
-        # _configure_active_compute_grid picks up and tunes for.
-        eth_dispatch = is_wormhole() and num_chips() <= 1
-        kwargs = (
-            {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
-            if eth_dispatch else {}
-        )
-        # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound
-        # diffusion). Default 0 -> device layout unchanged when tracing is off.
-        if trace_region_size > 0:
-            kwargs["trace_region_size"] = trace_region_size
-        dev = _open_device_locked(device_id, kwargs)
-        _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
-        _device = dev
-        _trace_region_size = trace_region_size
+        # Enforce an exclusive, host-local lease on the physical card BEFORE opening it,
+        # so two processes on this host can never open the same card at once regardless of
+        # how they were launched (fleet worker, detached campaign, cross-host fanout, manual).
+        # The flock is auto-released by the kernel on any process death, so a crashed/killed
+        # holder never leaves a phantom claim. See tt_bio/device_lease.py.
+        from tt_bio.device_lease import DeviceLease
+        _device_lease = DeviceLease().acquire()
+        try:
+            _device = _open_and_init_device(trace_region_size)
+        except Exception:
+            _device_lease.release()
+            _device_lease = None
+            raise
     return _device
+
+
+def _open_and_init_device(trace_region_size):
+    """Open + configure TT device 0 (the physical card is already leased by the caller)."""
+    global _trace_region_size
+    if trace_region_size == 0:
+        env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
+        if env_sz:
+            trace_region_size = int(env_sz)
+    device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
+    # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
+    # (rather than 8x7 after worker-dispatch reservation) is available.
+    # BUT on a multi-chip system (Galaxy / multi-card mesh) the ETH cores are
+    # consumed by the inter-chip fabric, so ETH dispatch has no free cores
+    # ("No more available dispatch cores"). We must NOT attempt-then-reopen in
+    # the same process: the failed ETH open leaves the device mid-initialized
+    # ("dispatch kernels still running", "unexpected run_mailbox value") and a
+    # subsequent in-process open is unstable (later from_torch / close_device
+    # hang). So decide up front from the physical chip count and open cleanly
+    # once. Default (Tensix) dispatch yields an 8x7 grid that
+    # _configure_active_compute_grid picks up and tunes for.
+    eth_dispatch = is_wormhole() and num_chips() <= 1
+    kwargs = (
+        {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
+        if eth_dispatch else {}
+    )
+    # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound
+    # diffusion). Default 0 -> device layout unchanged when tracing is off.
+    if trace_region_size > 0:
+        kwargs["trace_region_size"] = trace_region_size
+    dev = _open_device_locked(device_id, kwargs)
+    _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
+    _trace_region_size = trace_region_size
+    return dev
 
 
 def trace_region_size():
@@ -453,7 +472,7 @@ def trace_region_size():
 
 
 def cleanup():
-    global _device, _trace_region_size
+    global _device, _trace_region_size, _device_lease
     if _device is not None:
         try:
             # Drain queued work before closing so teardown is deterministic.
@@ -467,6 +486,12 @@ def cleanup():
             ttnn.close_device(_device)
         _device = None
         _trace_region_size = 0
+    # Release the physical-card lease AFTER the chip is closed, so the card is not
+    # advertised as free while UMD teardown is still in flight. The kernel also drops
+    # the flock on process exit, so a skipped cleanup (e.g. SIGKILL) still frees it.
+    if _device_lease is not None:
+        _device_lease.release()
+        _device_lease = None
 
 
 atexit.register(cleanup)
