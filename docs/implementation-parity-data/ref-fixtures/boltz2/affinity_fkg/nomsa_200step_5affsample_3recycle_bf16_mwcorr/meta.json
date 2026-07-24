@@ -1,7 +1,7 @@
 {
-  "reference_commit": "8c4e2edcc",
+  "reference_commit": "7e342263",
   "reference_impl": "tt-bio-cpu-torch",
-  "reference_version": "8c4e2edcc",
+  "reference_version": "7e342263",
   "seeds": [
     0
   ],

@@ -714,14 +714,26 @@ def score_affinity(leg: Leg, dev_dirs: list[str], out_json: Path, log_path: Path
 # and the only difference is arithmetic. PASS iff numerator <= envelope*(1+margin)+abs_floor on
 # every metric. The two CPU references are the CACHED fixture (fingerprinted like the old ones);
 # only the device fold + scoring re-run per release. Regenerate them with --regen-refs.
+def _envelope_ref_complete(inner: Path | None, leg: Leg) -> Path | None:
+    """A structure leg's envelope ref is only usable if its CA-RMSD CIF is actually present —
+    results.json alone (e.g. a regen that crashed before writing structures/) is not enough and
+    must not be handed to the scorer, which has no graceful path for a missing file."""
+    if inner is None or leg.kind != "structure":
+        return inner
+    return inner if (inner / "structures" / f"{leg.target_id}.cif").exists() else None
+
+
 def envelope_ref_dirs(leg: Leg) -> tuple[Path | None, Path | None]:
     """Locate the fp32 + bf16 CPU shared-draw reference result dirs for an envelope leg.
 
     Convention: ``<fixture>/ref_fp32/`` and ``<fixture>/ref_bf16/`` each hold the inner
     ``<model>_results_<id>/`` dir a fold writes (located by its results.json). Returns
-    (fp32_inner, bf16_inner); a missing side is None (leg -> BLOCKED-REF-REGEN-NEEDED)."""
+    (fp32_inner, bf16_inner); a missing OR structurally-incomplete side is None (leg ->
+    BLOCKED-REF-REGEN-NEEDED, never a crash mid-scoring)."""
     base = _fixture_dir(leg.fixture)
-    return _find_results_dir(base / "ref_fp32"), _find_results_dir(base / "ref_bf16")
+    fp32 = _envelope_ref_complete(_find_results_dir(base / "ref_fp32"), leg)
+    bf16 = _envelope_ref_complete(_find_results_dir(base / "ref_bf16"), leg)
+    return fp32, bf16
 
 
 def score_envelope(leg: Leg, dev_dir: str, ref_fp32: Path, ref_bf16: Path,
@@ -768,7 +780,7 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
         for dtype, env in (("fp32", dict(_shared_draw_env())),
                            ("bf16", {"TT_BIO_REF_BF16": "1", **_shared_draw_env()})):
             out_dir = base / f"ref_{dtype}"
-            if resume and _find_results_dir(out_dir) is not None:
+            if resume and _envelope_ref_complete(_find_results_dir(out_dir), leg) is not None:
                 print(f"  {leg.id} ref_{dtype}: cached, skip")
                 continue
             out_dir.mkdir(parents=True, exist_ok=True)
