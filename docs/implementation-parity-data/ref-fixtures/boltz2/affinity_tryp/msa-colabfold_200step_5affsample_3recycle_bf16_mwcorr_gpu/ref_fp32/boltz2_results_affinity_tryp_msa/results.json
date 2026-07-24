@@ -1,0 +1,36 @@
+[
+  {
+    "id": "affinity_tryp_msa",
+    "status": "ok",
+    "confidence_score": 0.988233,
+    "ptm": 0.989461,
+    "iptm": 0.986568,
+    "ligand_iptm": 0.986568,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.988649,
+    "complex_iplddt": 0.985498,
+    "complex_pde": 0.262933,
+    "complex_ipde": 0.331302,
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.989591,
+        "1": 0.789914
+      },
+      "1": {
+        "0": 0.986568,
+        "1": 0.985743
+      }
+    },
+    "chains_ptm": {
+      "0": 0.989591,
+      "1": 0.985743
+    },
+    "runtime_s": 262.1,
+    "affinity_pred_value": 2.416286,
+    "affinity_probability_binary": 0.87256,
+    "affinity_pred_value1": 2.423548,
+    "affinity_probability_binary1": 0.941029,
+    "affinity_pred_value2": 1.65917,
+    "affinity_probability_binary2": 0.80409
+  }
+]
