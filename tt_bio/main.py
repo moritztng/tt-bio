@@ -1794,21 +1794,29 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
 
 def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
                                  msa_pairing_strategy, msa_server_username,
-                                 msa_server_password, api_key_value):
+                                 msa_server_password, api_key_value,
+                                 msa_db_path=None, use_envdb=False):
     """Run a species-pairing MSA search for a multi-chain protein complex and return
     per-seq-hash paired a3m text (one per chain, rows species-aligned across chains).
 
-    Uses the ColabFold pair endpoint (``ticket/pair``) -- the same paired-MSA utility
-    Boltz-2 uses and the standard AF3/Protenix docking input -- so the species pairing
-    is done server-side, matching what the reference ``MSAPairingEngine.
-    pair_chains_by_species`` produces from per-chain MSAs carrying UniProt/UniRef
-    species IDs. Each returned a3m has the chain's own query as row 0 followed by the
-    paired homologs; row j across chains corresponds to the same genome. Best-effort:
-    callers should catch exceptions and fall back to unpaired-only (no cross-chain
-    signal) rather than failing the whole fold.
+    With ``msa_db_path`` set, searches a local ColabFold DB via ``compute_msa_offline``
+    (``pair=True``, the same offline pairing path boltz2/protenix-v2 already use in
+    ``prepare_features``) instead of ever touching the network. Otherwise uses the
+    ColabFold pair endpoint (``ticket/pair``) -- the same paired-MSA utility Boltz-2
+    uses and the standard AF3/Protenix docking input -- so the species pairing is done
+    server-side, matching what the reference ``MSAPairingEngine.pair_chains_by_species``
+    produces from per-chain MSAs carrying UniProt/UniRef species IDs. Each returned a3m
+    has the chain's own query as row 0 followed by the paired homologs; row j across
+    chains corresponds to the same genome. Best-effort: callers should catch exceptions
+    and fall back to unpaired-only (no cross-chain signal) rather than failing the
+    whole fold.
 
     Returns ``{seq_hash: a3m_text}`` parallel to the input ``seqs`` dict.
     """
+    if msa_db_path:
+        compute_msa_offline(seqs, target_id, msa_dir, msa_db_path, use_env=use_envdb,
+                            pairing_strategy=msa_pairing_strategy, pair=True)
+        return {k: (msa_dir / f"{k}.a3m").read_text() for k in seqs}
     headers = {"Content-Type": "application/json", "X-API-Key": api_key_value} if api_key_value else None
     keys = list(seqs)
     res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{target_id}_paired_tmp",

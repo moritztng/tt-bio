@@ -453,7 +453,8 @@ class _WorkerState:
                 paired = _generate_opendde_paired_a3m(
                     paired_seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
                     cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                    cfg.get("msa_server_password"), cfg.get("api_key_value"))
+                    cfg.get("msa_server_password"), cfg.get("api_key_value"),
+                    msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
                 paired_a3ms = [paired.get(hashlib.sha256(cseq.encode()).hexdigest()[:16])
                                for _cid, cseq, _spec, mt in chains if mt == "protein"]
             except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired

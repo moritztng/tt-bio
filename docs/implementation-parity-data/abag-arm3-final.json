@@ -1,0 +1,110 @@
+{
+  "pre_declared_bar": "AUC clearly > 0.5",
+  "summary": {
+    "opendde-abag": {
+      "auc": 0.75,
+      "n_cognate_targets": 8,
+      "n_pairs": 64
+    },
+    "boltz2": {
+      "auc": 0.7344,
+      "n_cognate_targets": 8,
+      "n_pairs": 64
+    },
+    "protenix-v2": {
+      "auc": 0.8438,
+      "n_cognate_targets": 8,
+      "n_pairs": 64
+    }
+  },
+  "table": [
+    {
+      "decoy_id": "decoy_9ck4ab_9i5nag",
+      "antibody_source": "9ck4",
+      "decoy_antigen_source": null,
+      "opendde-abag_cognate_iptm": 0.706891,
+      "opendde-abag_decoy_iptm": 0.600491,
+      "boltz2_cognate_iptm": 0.949203,
+      "boltz2_decoy_iptm": 0.885649,
+      "protenix-v2_cognate_iptm": 0.710444,
+      "protenix-v2_decoy_iptm": 0.608131
+    },
+    {
+      "decoy_id": "decoy_9i5nab_9m72ag",
+      "antibody_source": "9i5n",
+      "decoy_antigen_source": null,
+      "opendde-abag_cognate_iptm": 0.660367,
+      "opendde-abag_decoy_iptm": 0.661215,
+      "boltz2_cognate_iptm": 0.942982,
+      "boltz2_decoy_iptm": 0.839823,
+      "protenix-v2_cognate_iptm": 0.652956,
+      "protenix-v2_decoy_iptm": 0.625443
+    },
+    {
+      "decoy_id": "decoy_9m72ab_22psag",
+      "antibody_source": "9m72",
+      "decoy_antigen_source": null,
+      "opendde-abag_cognate_iptm": 0.676991,
+      "opendde-abag_decoy_iptm": 0.759245,
+      "boltz2_cognate_iptm": 0.946698,
+      "boltz2_decoy_iptm": 0.905251,
+      "protenix-v2_cognate_iptm": 0.63034,
+      "protenix-v2_decoy_iptm": 0.45543
+    },
+    {
+      "decoy_id": "decoy_22psab_9obnag",
+      "antibody_source": "22ps",
+      "decoy_antigen_source": null,
+      "opendde-abag_cognate_iptm": 0.910215,
+      "opendde-abag_decoy_iptm": 0.730858,
+      "boltz2_cognate_iptm": 0.767464,
+      "boltz2_decoy_iptm": 0.628868,
+      "protenix-v2_cognate_iptm": 0.889083,
+      "protenix-v2_decoy_iptm": 0.645259
+    },
+    {
+      "decoy_id": "decoy_9obnab_9gfrag",
+      "antibody_source": "9obn",
+      "decoy_antigen_source": null,
+      "opendde-abag_cognate_iptm": 0.910212,
+      "opendde-abag_decoy_iptm": 0.369476,
+      "boltz2_cognate_iptm": 0.906999,
+      "boltz2_decoy_iptm": 0.828862,
+      "protenix-v2_cognate_iptm": 0.86385,
+      "protenix-v2_decoy_iptm": 0.371124
+    },
+    {
+      "decoy_id": "decoy_9gfrab_9udqag",
+      "antibody_source": "9gfr",
+      "decoy_antigen_source": null,
+      "opendde-abag_cognate_iptm": 0.809952,
+      "opendde-abag_decoy_iptm": 0.765526,
+      "boltz2_cognate_iptm": 0.847475,
+      "boltz2_decoy_iptm": 0.897228,
+      "protenix-v2_cognate_iptm": 0.72965,
+      "protenix-v2_decoy_iptm": 0.680256
+    },
+    {
+      "decoy_id": "decoy_9udqab_9jkrag",
+      "antibody_source": "9udq",
+      "decoy_antigen_source": null,
+      "opendde-abag_cognate_iptm": 0.784777,
+      "opendde-abag_decoy_iptm": 0.778572,
+      "boltz2_cognate_iptm": 0.685375,
+      "boltz2_decoy_iptm": 0.71509,
+      "protenix-v2_cognate_iptm": 0.704288,
+      "protenix-v2_decoy_iptm": 0.662524
+    },
+    {
+      "decoy_id": "decoy_9jkrab_9ck4ag",
+      "antibody_source": "9jkr",
+      "decoy_antigen_source": null,
+      "opendde-abag_cognate_iptm": 0.895703,
+      "opendde-abag_decoy_iptm": 0.780868,
+      "boltz2_cognate_iptm": 0.955782,
+      "boltz2_decoy_iptm": 0.865813,
+      "protenix-v2_cognate_iptm": 0.871642,
+      "protenix-v2_decoy_iptm": 0.765117
+    }
+  ]
+}
