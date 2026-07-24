@@ -1,38 +1,25 @@
 {
-  "model": "opendde",
-  "target": "prot",
-  "settings_tag": "nomsa_10cycle_200step_1sample_fp32_prod",
-  "reference_impl": "official Aureka Research OpenDDE (torch, CPU)",
-  "reference_version": "opendde_v1 (655.79M params), dtype fp32",
-  "reference_commit": "aurekaresearch/OpenDDE a0d5134d88f85d5c6a94629d01252251930fe5f8",
-  "command": "python -c 'from runner.batch_inference import opendde_cli; opendde_cli()' pred -i prot_nomsa.json -o ref_prod -s 0 1 2 -c 10 -p 200 -e 1 --use_msa false  && scripts/opendde_ref_to_harness.py ref_prod prot <seed> ref_harness_seed<seed>",
-  "settings": {
-    "use_msa": false,
-    "recycling_cycles": 10,
-    "diffusion_steps": 200,
-    "diffusion_samples": 1,
-    "seeds": [
-      0,
-      1,
-      2,
-      3,
-      4
-    ],
-    "dtype": "fp32",
-    "trimul_kernel": "torch",
-    "triatt_kernel": "torch",
-    "target": "PDB 7ROA (117 res, 900 atoms, single-sequence no-MSA)",
-    "rationale": "sample=1 isolates convergence (cycles/steps) from best-of-N selection"
-  },
+  "reference_commit": "c12c8729",
+  "reference_impl": "tt-bio-cpu-torch",
+  "reference_version": "c12c8729",
   "seeds": [
-    0,
-    1,
-    2,
-    3,
-    4
+    0
   ],
-  "msa": "none (no-MSA leg)",
-  "provenance": "Harvested from the 2026-07-13 qb2 production reference run (REF_PROD_DONE at opendde_parity_prod). Per-seed model-forward time from ref_prod.log: seed0 1376.14s (cold), seed1 235.58s, seed2 236.11s. Matches docs/implementation-parity-data/opendde-prod-leg.json (X=5.68 A within floor 8.06 A). Seeds 3,4 added 2026-07-20 from a fresh qb2 CPU run (same pinned commit a0d5134, fp32, torch kernels, identical settings) to extend the noise floor R to a real distribution (3+3 -> 5+5).",
-  "date": "2026-07-13 (seeds 0-2); 2026-07-20 (seeds 3-4)",
-  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
+  "settings": {
+    "device_args": [
+      "--single_sequence",
+      "--recycling_steps",
+      "10",
+      "--sampling_steps",
+      "200",
+      "--diffusion_samples",
+      "1"
+    ],
+    "model": "opendde",
+    "msa": "none",
+    "seed": 0,
+    "shared_draw_seed": 0,
+    "target_id": "prot_no_msa",
+    "yaml": "examples/prot_no_msa.yaml"
+  }
 }

@@ -98,6 +98,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -783,6 +784,14 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
             if resume and _envelope_ref_complete(_find_results_dir(out_dir), leg) is not None:
                 print(f"  {leg.id} ref_{dtype}: cached, skip")
                 continue
+            # A prior interrupted regen can leave a STALE, incomplete results.json in out_dir
+            # (e.g. results.json with no structures/*.cif). _run_local_fold's completion check
+            # is a bare _find_results_dir(out_dir) probe -- it would see that stale file the
+            # instant the fresh subprocess starts, believe the NEW fold already "folded", and
+            # reap it after the grace window without ever letting it run. Clear any leftover
+            # out_dir before starting so only the fresh subprocess's own output can satisfy it.
+            if out_dir.exists():
+                shutil.rmtree(out_dir)
             out_dir.mkdir(parents=True, exist_ok=True)
             cmd = device_cmd(leg, ENVELOPE_SEED, out_dir, workdir) + ["--accelerator", "cpu", "--no_kernels"]
             wrapped = local.wrap(cmd, REPO, env)
@@ -793,7 +802,7 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
             finally:
                 logf.close()
             wall = time.monotonic() - t0
-            ok = (rc == 0 and _find_results_dir(out_dir) is not None)
+            ok = (rc == 0 and _envelope_ref_complete(_find_results_dir(out_dir), leg) is not None)
             print(f"  {leg.id} ref_{dtype}: {'OK' if ok else 'FAILED'} ({wall/60:.1f} min)"
                   + ("" if ok else f" rc={rc} timed_out={timed_out} — see regen_{leg.id}_{dtype}.log"))
             leg_ok &= ok
