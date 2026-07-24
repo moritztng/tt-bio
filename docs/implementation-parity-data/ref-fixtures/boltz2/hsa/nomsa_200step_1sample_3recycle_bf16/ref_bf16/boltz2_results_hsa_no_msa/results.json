@@ -2,23 +2,23 @@
   {
     "id": "hsa_no_msa",
     "status": "ok",
-    "confidence_score": 0.808757,
-    "ptm": 0.559509,
+    "confidence_score": 0.818901,
+    "ptm": 0.581427,
     "iptm": 0.0,
     "ligand_iptm": 0.0,
     "protein_iptm": 0.0,
-    "complex_plddt": 0.871069,
-    "complex_iplddt": 0.871069,
-    "complex_pde": 0.995353,
+    "complex_plddt": 0.878269,
+    "complex_iplddt": 0.878269,
+    "complex_pde": 0.920666,
     "complex_ipde": 0.0,
     "pair_chains_iptm": {
       "0": {
-        "0": 0.559509
+        "0": 0.581427
       }
     },
     "chains_ptm": {
-      "0": 0.559509
+      "0": 0.581427
     },
-    "runtime_s": 1711.3
+    "runtime_s": 1487.0
   }
 ]
