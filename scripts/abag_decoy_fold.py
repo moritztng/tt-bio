@@ -90,6 +90,13 @@ def fold_one(decoy_id, model, device):
         return rec
     results = json.load(open(rjson))
     entry = results[0] if isinstance(results, list) else results
+    if entry.get("status") == "failed":
+        # results.json parses fine but records an internal failure (e.g. a stale cwd
+        # from a torn-down worktree) -- catch this or it silently records status=ok
+        # with every confidence field null (hit once for decoy_22psab_9obnag/opendde-abag).
+        rec["status"] = "fold_failed"
+        rec["stderr"] = str(entry.get("error", ""))
+        return rec
     rec["status"] = "ok"
     rec["confidence"] = {k: entry.get(k) for k in
                           ("confidence_score", "ptm", "iptm", "protein_iptm", "complex_plddt", "runtime_s")}
