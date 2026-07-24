@@ -1,36 +1,25 @@
 {
-  "model": "boltz2",
-  "target": "hsa",
-  "settings_tag": "nomsa_200step_1sample_3recycle_bf16",
-  "reference_impl": "official Boltz-2 (torch + pytorch-lightning, GPU via vast.ai RTX3090)",
-  "reference_version": "boltz 2.2.1",
-  "reference_commit": "boltz 2.2.1 (pip-installed in /root/boltz_venv on vast.ai; upstream jwohlwend/boltz)",
-  "command": "boltz predict examples/hsa_no_msa.yaml --out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 --accelerator gpu --no_kernels --override  && python scripts/boltz2_ref_layout.py <out>/boltz_results_hsa_no_msa <harness_dir>  (hsa_no_msa.yaml sets msa: empty so boltz runs single-sequence; --no_kernels forces the torch einsum triangle path, matching the qb1 CPU reference kernel; GPU execution only)",
-  "settings": {
-    "use_msa": false,
-    "recycling_steps": 3,
-    "sampling_steps": 200,
-    "diffusion_samples": 1,
-    "seeds": [
-      0,
-      1,
-      2,
-      3,
-      4
-    ],
-    "dtype": "bf16 (pytorch-lightning AMP)",
-    "target": "hsa (examples/hsa_no_msa.yaml, PDB 1AO6, 585 res, 3-domain, msa: empty)",
-    "rationale": "large pharma-realistic target (L585, multi-domain human serum albumin, classic drug-binding carrier) extending Boltz-2 past L117 to the L300-800 regime; same no-MSA single-sequence methodology as the trpcage/prot legs so the no-MSA length ladder reads L20/L117/L585 are directly comparable. Reference generated on vast.ai GPU (CPU infeasible at L585) with --no_kernels (torch einsum, identical kernel to the qb1 CPU ref)."
-  },
+  "reference_commit": "5c7988b9",
+  "reference_impl": "tt-bio-cpu-torch",
+  "reference_version": "5c7988b9",
   "seeds": [
-    0,
-    1,
-    2,
-    3,
-    4
+    0
   ],
-  "msa": "none (no-MSA leg)",
-  "provenance": "Harvested from a 2026-07-19 vast.ai RTX3090 reference run (ref_boltz_seed{0-4}, BOLTZ_SEED{0-4}_DONE 18:58-19:06 UTC). Pinned boltz 2.2.1, torch 2.5.1+cu124, --accelerator gpu --no_kernels (torch einsum triangle path, the SAME kernel as the qb1 CPU reference for the other boltz2 legs -- only the execution device differs). Per-seed wall ~1.8 min on RTX3090 (vs multi-hour on CPU, which is why vast.ai GPU was used). Boltz-2 is deterministic per seed; GPU-vs-CPU of the same torch-einsum path differs only by floating-point non-determinism, within the R/D/X tolerance.",
-  "date": "2026-07-19",
-  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
+  "settings": {
+    "device_args": [
+      "--recycling_steps",
+      "3",
+      "--sampling_steps",
+      "200",
+      "--diffusion_samples",
+      "1",
+      "--single_sequence"
+    ],
+    "model": "boltz2",
+    "msa": "none",
+    "seed": 0,
+    "shared_draw_seed": 0,
+    "target_id": "hsa_no_msa",
+    "yaml": "examples/hsa_no_msa.yaml"
+  }
 }

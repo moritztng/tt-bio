@@ -36,7 +36,7 @@ def main():
            "interfaces": {}}
     for k, v in res.items():
         out["interfaces"][k] = {m: v.get(m) for m in
-                                ("DockQ", "fnat", "fnonnat", "irms", "lrms", "clashes")}
+                                ("DockQ", "fnat", "fnonnat", "iRMSD", "LRMSD", "clashes")}
     print(json.dumps(out, indent=2, default=str))
     if a.out:
         with open(a.out, "w") as fp:

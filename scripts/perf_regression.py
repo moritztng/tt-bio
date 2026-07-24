@@ -74,6 +74,25 @@ machine's machine-specific block) — never silently. A regression the author
 didn't intend fails the gate. Cover new models / new card types as they ship by
 adding a spec here + a baseline entry (seeded on that card type / machine).
 
+Regression threshold (default 15%) — evidence, not a guess. Run-to-run spread
+was measured on qb2 (p300c) by running the gate 3x per model as separate
+invocations (fresh process, fresh first-kernel compile each time):
+
+  * embed  (esmc-300m, warm median of 5): 33.506 / 33.531 / 33.506 seq/s  → 0.08%
+  * fold   (boltz2,    warm median of 5): 1.524 / 1.520 / 1.519 struct/s  → 0.34%
+  * single-shot (boltz2-affinity, 1 timed): 72.1 s / 74.1 s wall          → ~2.7%
+
+The warm-median legs (fold/embed) are extremely stable (<0.5%) because WARMUP
+absorbs compile and the median of REPEAT smooths dispatch jitter. The single-shot
+legs (kind="gen"/"affinity") have NO warm loop to median over — one cold-inflated
+wall-clock — so they are the noisy floor (~3% here; the gen pipeline, longer and
+unmeasured, is expected to be similar or a little higher). 15% sits comfortably
+above that ~3% worst-case floor with margin for the gen leg and for thermal/clock
+drift over the weeks between releases, while still catching any material
+kernel/dispatch regression (which shows up as tens of percent, not single digits).
+Do NOT tighten below ~10% without adding a warm loop to the single-shot legs
+first, or they will false-alarm on their own run-to-run noise.
+
 Usage::
 
     # run the whole gate on the card (one device context per model subprocess)
@@ -205,7 +224,18 @@ SAMPLING_STEPS = 10
 DIFFUSION_SAMPLES = 1
 WARMUP = 2          # warmup folds absorb first-kernel compile (excluded from timing)
 REPEAT = 5          # timed folds; report the median
-DEFAULT_THRESHOLD = 15.0   # % regression allowed before the gate fails
+DEFAULT_THRESHOLD = 15.0   # % regression allowed before the gate fails; see docstring
+                           # "regression threshold" note for the measured evidence.
+
+# Wall-clock ceilings so a wedged device / hung dependency can never stall a
+# release (the same standing rule the gate redesign established: every long step
+# gets a timeout + an honest fallback — a timeout is reported as a measurement
+# FAILURE, which is itself a gate failure, never a silent skip). Generous vs the
+# real cost (an in-process fold gate is a model load + WARMUP+REPEAT tiny folds,
+# minutes; the gen leg is a full 4-design production pipeline) so a timeout means
+# genuinely stuck, not merely slow. Env-overridable for a slow host.
+MEASURE_TIMEOUT_S = int(os.environ.get("PERF_MEASURE_TIMEOUT", "1800"))   # fold/embed/affinity child
+GEN_TIMEOUT_S = int(os.environ.get("PERF_GEN_TIMEOUT", "3600"))           # full design pipeline
 
 
 # ── baseline file ──────────────────────────────────────────────────────────
@@ -254,6 +284,16 @@ def _resolve_tt_smi() -> str | None:
     if found:
         return found
     for c in (
+        # Next to the running interpreter first: on the release hosts tt-smi is
+        # pip-installed into the same venv as tt-bio (e.g. <env>/bin), which is
+        # NOT on PATH under non-interactive ssh and is NOT ~/.local/bin. Missing
+        # this was a live misdetection risk — the gate fell through to the sysfs
+        # board map, which only knows a fixed subsystem set, so any board not in
+        # that set read as 'unknown' (NO BASELINE) even though tt-smi was installed
+        # and would have named it. NOTE: do NOT .resolve() sys.executable — a venv
+        # python is a symlink to the system interpreter, so resolving it would point
+        # at /usr/bin and miss the venv's own tt-smi. Use the unresolved bin dir.
+        Path(sys.executable).parent / "tt-smi",
         Path.home() / ".local" / "bin" / "tt-smi",
         Path("/usr/local/bin/tt-smi"),
         Path("/usr/bin/tt-smi"),
@@ -368,7 +408,7 @@ def _version() -> str:
 
 # ── in-process measurement (runs in a child subprocess, one device context) ─
 
-def _boltz_conf_kwargs() -> dict:
+def _boltz_conf_kwargs() -> tuple[dict, dict]:
     """Build Boltz-2's load-time conf_kwargs with the light perf protocol.
 
     Boltz-2 bakes recycling/sampling/diffusion_samples into the model at load
@@ -444,6 +484,49 @@ def _write_embed_fasta(path: Path, n_seqs: int) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
+def _log_tail(log_path: Path) -> str:
+    """Last non-empty line of a subprocess log, for a one-line failure summary."""
+    if not Path(log_path).exists():
+        return ""
+    lines = Path(log_path).read_text().strip().splitlines()
+    return lines[-1] if lines else ""
+
+
+def _run_cli(cmd: list[str], env: dict, log_path: Path, timeout: int, label: str) -> float:
+    """Run a tt-bio CLI subprocess to completion, timed, with a hard wall-clock
+    timeout, and return the wall-clock seconds.
+
+    Spawns in its own session (``start_new_session``) so a timeout kills the
+    WHOLE process tree via ``killpg`` — a ``tt-bio predict``/``gen`` fans out
+    device workers, and a bare ``subprocess`` timeout would SIGKILL only the
+    launcher and orphan those workers still holding the card (wedging every later
+    leg). Raises ``RuntimeError`` (with the log tail) on a non-zero exit or a
+    timeout so the caller records a measurement FAILURE — the standing gate rule:
+    no leg hangs forever on a flaky dependency; a timeout is a gate failure, never
+    a silent skip."""
+    import signal
+    t0 = time.perf_counter()
+    with open(log_path, "w") as log:
+        proc = subprocess.Popen(cmd, env=env, stdout=log, stderr=subprocess.STDOUT,
+                                start_new_session=True)
+        try:
+            rc = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except Exception:
+                proc.kill()
+            proc.wait()
+            wall = time.perf_counter() - t0
+            raise RuntimeError(
+                f"{label} exceeded {timeout}s timeout (killed after {wall:.0f}s) — "
+                f"treat as a measurement failure / possible device wedge")
+    wall = time.perf_counter() - t0
+    if rc != 0:
+        raise RuntimeError(f"{label} exited {rc} after {wall:.0f}s: {_log_tail(log_path)}")
+    return wall
+
+
 def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
     """Time one ``tt-bio gen run`` design job end-to-end and write a JSON result.
 
@@ -485,16 +568,7 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    t0 = time.perf_counter()
-    with open(log_path, "w") as log:
-        proc = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
-    wall = time.perf_counter() - t0
-    if proc.returncode != 0:
-        tail = ""
-        if log_path.exists():
-            lines = log_path.read_text().strip().splitlines()
-            tail = lines[-1] if lines else ""
-        raise RuntimeError(f"gen run exited {proc.returncode} after {wall:.0f}s: {tail}")
+    wall = _run_cli(cmd, env, log_path, GEN_TIMEOUT_S, f"gen run [{model}]")
     throughput = n / wall
     latency_ms = wall / n * 1000.0
     card = detect_card_type()
@@ -583,16 +657,7 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    t0 = time.perf_counter()
-    with open(log_path, "w") as log:
-        proc = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
-    wall = time.perf_counter() - t0
-    if proc.returncode != 0:
-        tail = ""
-        if log_path.exists():
-            lines = log_path.read_text().strip().splitlines()
-            tail = lines[-1] if lines else ""
-        raise RuntimeError(f"affinity predict exited {proc.returncode} after {wall:.0f}s: {tail}")
+    wall = _run_cli(cmd, env, log_path, MEASURE_TIMEOUT_S, f"affinity predict [{model}]")
     throughput = 1.0 / wall
     latency_ms = wall * 1000.0
     card = detect_card_type()
@@ -853,9 +918,28 @@ def _run_measure(model: str) -> dict | None:
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    proc = subprocess.run(cmd, env=env)
-    if proc.returncode != 0 or not out.exists():
-        print(f"[{model}] measurement FAILED (exit {proc.returncode})", file=sys.stderr)
+    # Parent-side backstop timeout: the inner CLI legs (gen/affinity) already
+    # bound their own grandchild, so this is the ceiling for the in-process
+    # fold/embed child (which has no inner subprocess) plus a margin over the
+    # gen ceiling. start_new_session + killpg so a wedge reaps the whole tree,
+    # not just the launcher (which would orphan device-holding workers).
+    import signal
+    timeout = (GEN_TIMEOUT_S if SPECS[model]["kind"] == "gen" else MEASURE_TIMEOUT_S) + 300
+    proc = subprocess.Popen(cmd, env=env, start_new_session=True)
+    try:
+        rc = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            proc.kill()
+        proc.wait()
+        print(f"[{model}] measurement TIMED OUT after {timeout}s — killed the "
+              f"process tree; treating as a gate failure (possible device wedge)",
+              file=sys.stderr)
+        return None
+    if rc != 0 or not out.exists():
+        print(f"[{model}] measurement FAILED (exit {rc})", file=sys.stderr)
         return None
     try:
         return json.loads(out.read_text())

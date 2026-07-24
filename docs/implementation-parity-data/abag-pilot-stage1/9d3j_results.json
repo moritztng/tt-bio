@@ -1,0 +1,18 @@
+[
+  {
+    "id": "9d3j_abag",
+    "status": "ok",
+    "complex_plddt": 0.944018,
+    "plddt": 0.944018,
+    "ptm": 0.926264,
+    "iptm": 0.900157,
+    "confidence_score": 0.905378,
+    "n_residues": 502,
+    "n_chains": 3,
+    "n_tokens": 502,
+    "msa": true,
+    "n_atoms": 3812,
+    "samples": 1,
+    "runtime_s": 392.3
+  }
+]

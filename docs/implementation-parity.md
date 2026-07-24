@@ -21,7 +21,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | Protenix-v2 | ubiquitin, L76, MSA | PASS | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too |
 | Protenix-v2 | HSA, L585, MSA | PASS | on-device fp32 diffusion matches the reference's own fp32 boundary; CA-RMSD 0.685 Å inside the 0.695 Å floor (was GAP-evidenced in bf16, X 1.03 Å) |
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
-| Boltz-2 | 7ROA, L117, no MSA | PASS | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å |
+| Boltz-2 | 7ROA, L117, no MSA | PASS (legacy R/D/X); GAP under the envelope gate | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å. The newer, tighter envelope test (below) GAPs this leg (ratio 1.83, reproducible) — open item, not yet root-caused |
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
 | Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97); residual systematic bf16, see §§§ |
 | Boltz-2 | HSA, L585, no MSA | PASS | CA-RMSD 1.47 Å inside the 1.50 Å floor; first L585 target |
@@ -78,6 +78,94 @@ seed, so the comparison is RNG-fair; both sides run bf16 where the reference
 does. BoltzGen is scored by designability (fraction of designs re-folding
 within 2 Å scRMSD), not by a distance. OpenDDE-abag by global DockQ and
 per-interface iRMSD.
+
+## Correctness method — integration-parity envelope (supersedes the R/D/X floor)
+
+The R/D/X floor above answers a distribution question ("is X within the run-to-run spread?") with
+a point comparison against a GUESSED floor `max(R, D)`. Because R, D and X each compare INDEPENDENT
+stochastic samples (device and reference drew different diffusion noise), X conflates real backend
+arithmetic divergence with ordinary sample-to-sample chaos: a correct port can fail by construction
+(different noise basin) and a subtle bug can hide under a loose floor. The "GAP-evidenced" and
+"PASS-caveated" verdicts above are the floor telling us it cannot separate a bug from noise — and
+each was ultimately cleared only by an ad-hoc cross-backend triangulation (GPU-bf16 vs CPU-bf16
+references disagreeing by the same margin the device does). The integration-parity envelope test
+turns that triangulation into the systematic pass criterion.
+
+A diffusion model is a deterministic function of its input noise. Feed byte-identical noise to
+three CLOSED-LOOP runs — `device_bf16` (TT), `reference_fp32` and `reference_bf16` (both tt-bio's
+own CPU torch path, `--no_kernels`, the second under `TT_BIO_REF_BF16=1`). The single `--seed` is
+NOT enough to share draws: the device (ttnn) trunk and the CPU (torch) trunk consume the global RNG
+differently before the sampler, so the gate sets `TT_BIO_SHARED_DRAW_SEED` on all three runs, which
+re-seeds in `AtomDiffusion.sample` right before the first `torch.randn` so all three draw
+byte-identical noise (verified bit-exact). Then, per leg per metric `d`:
+
+    d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
+
+The floor is the intrinsic bf16 cost of the full trajectory (chaotic amplification included),
+MEASURED from a bf16 recomputation of the reference itself, not guessed. Scorer:
+`scripts/integration_envelope.py`; see `RELEASING.md` for the full rationale and the pass criterion.
+
+**Shared draws require a sampler-entry re-seed (`TT_BIO_SHARED_DRAW_SEED`).** The single up-front
+seed is not enough: the device (ttnn) and CPU (torch) trunks consume the global RNG differently
+before the sampler, so without the re-seed the device and reference draw DIFFERENT diffusion noise
+(measured bit-for-bit). With it they draw byte-identical noise, so the numerator is arithmetic-only.
+The numbers below are with the fix (the first valid head-to-head).
+
+**Three-leg head-to-head (no-MSA affinity, seed 0, shared draws).**
+
+| leg | affinity_pred_value ratio | ligand-RMSD ratio | 1-pocket-lDDT | verdict |
+|---|---|---|---|---|
+| trypsin | 0.96 | 0.20 | 0.00 (bit-identical) | **PASS** |
+| DHFR    | 1.22 | 0.19 | 0.00 (bit-identical) | **PASS** |
+| FKBP12  | 1.90 | 0.32 | 0.00 (bit-identical) | **GAP** (affinity scalar only) |
+
+Structure/pose parity is excellent on all three legs — the device structure is bit-identical to fp32
+in pocket-lDDT and ligand pose is well inside the bf16 envelope. The affinity SCALAR passes on 2 of 3
+(trypsin, DHFR) and GAPs on FKBP12 alone: the device affinity head carries a small TT-bf16 residual
+(~0.04-0.24 abs log10 IC50; ~0.07 on FKBP12), and on FKBP12 — the target with the tightest
+fp32-vs-bf16 envelope (0.037) — that residual exceeds the 1.5× bound. It is a lone outlier, not a
+uniform band. Running the affinity diffusion in fp32 (`BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1`)
+removes only ~17% of it, so the residual is in the affinity head's non-diffusion bf16 arithmetic. Per
+the standing rule this GAP is flagged as a real residual to hunt (candidate: an fp32 boundary on the
+affinity head) and margin is not loosened. This is the sound test working: it passes a clean port
+(2 of 3 affinity scalars and every structure metric) and isolates a genuine affinity-head residual
+the old self-consistency floor buried in noise.
+
+**Wired into the gate of record.** The envelope test is the default correctness criterion for
+every diffusion (structure/affinity) leg in `scripts/full_parity_gate.py`: the gate folds the
+device once at the reference seed, reads the leg's cached `ref_fp32` + `ref_bf16` CPU references,
+and scores with `integration_envelope.py` through the one `finalize_leg` verdict path. The two CPU
+references are the cached fixture (`--regen-refs` generates them, fingerprinted like the old ones,
+so only the device fold + scoring re-run per release); a leg without them reports
+`BLOCKED-REF-REGEN-NEEDED` rather than a false pass. The retired R/D/X floor is still available as
+an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`.
+
+**Full matrix complete as of 2026-07-24.** Every envelope leg's `ref_fp32`/`ref_bf16` CPU
+reference is now regenerated (the last 9: `boltz2-hsa-nomsa`, all 3 `protenix-v2-*-msa`
+structure legs, all 3 `boltz2-affinity-*-msa` legs, and both `opendde-*-nomsa` legs — see
+`~/.coworker/state/tt-bio-integration-parity-gate.md` §8-9 for the regen log and two real bugs
+fixed along the way). A full non-dry `full_parity_gate.py` run against every one of the 21 wired
+legs gives:
+
+    Tally: 20 PASS, 1 GAP    (esmc/saprot/esmfold2/boltzgen/opendde-abag all reproduce committed)
+
+The lone GAP is `boltz2-prot-nomsa` (7ROA, no-MSA structure leg): envelope worst kabsch_rmsd
+ratio 1.83 (exceeds the 1.5× bound), reproduced bit-for-bit on a second `--fresh` re-fold (not
+noise or a flaky measurement). This DRIFTS from the leg's legacy R/D/X-methodology verdict
+(PASS) — plausibly the same effect already documented above for the FKBP12 affinity scalar: the
+new envelope test's tighter, single-seed floor surfaces a bf16 residual that the old wide
+cross-seed noise floor buried, rather than a new regression. Not root-caused or fixed this pass
+(would need the same triangulation work as the FKBP12 case); flagged here as an open item, gate
+metric intentionally not loosened to hide it. A second discrepancy, `boltz2-affinity-fkbp12-msa`,
+DRIFTS the other direction — the envelope test PASSES it (both `affinity_pred_value` ratio 0.062
+and `affinity_probability_binary` ratio 0.60) against the legacy `GAP-evidenced` record — but this is
+not a contradiction: the two use different metrics/methodology and this leg's committed
+`GAP-evidenced` record is a Moritz-reviewed, deeply-triangulated finding (§5 above) that is not
+superseded by one envelope pass; it stays documented as-is pending its own re-review.
+
+Prior state: a 2026-07-23/24 pass first wired the automated gate end-to-end but had only 9 of the
+21 legs' CPU references generated (9 PASS, 12 BLOCKED-REF-REGEN-NEEDED). This pass closed every
+remaining reference gap. Gate of record — pending Moritz's sign-off before merge.
 
 ## Reproduce
 

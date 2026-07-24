@@ -44,6 +44,14 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PKG = "tt_bio"
 
+# Wall-clock ceilings so a hung pip/network step or a wedged on-device fold can
+# never stall a release (standing gate rule: every external / long step gets a
+# timeout + honest fallback). Generous vs the real cost so a timeout means stuck,
+# not slow. build/pip are network-bound; the --fold leg runs real inference.
+PIP_TIMEOUT_S = 600
+BUILD_TIMEOUT_S = 600
+FOLD_TIMEOUT_S = 1800
+
 
 def _expected_data_files() -> list[str]:
     """Every non-.py file under tt_bio/ (the set the wheel/sdist must ship).
@@ -69,10 +77,11 @@ def _build() -> tuple[Path, Path]:
     if dist.exists():
         shutil.rmtree(dist)
     subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--quiet", "build"],
-                   check=True)
-    subprocess.run([sys.executable, "-m", "build", "--quiet"], cwd=REPO_ROOT, check=True)
-    wheels = sorted(dist.glob(f"tt_bio-*.whl"))
-    sdists = sorted(dist.glob(f"tt_bio-*.tar.gz"))
+                   check=True, timeout=PIP_TIMEOUT_S)
+    subprocess.run([sys.executable, "-m", "build", "--quiet"], cwd=REPO_ROOT,
+                   check=True, timeout=BUILD_TIMEOUT_S)
+    wheels = sorted(dist.glob("tt_bio-*.whl"))
+    sdists = sorted(dist.glob("tt_bio-*.tar.gz"))
     if not wheels or not sdists:
         sys.exit(f"build produced no wheel/sdist in {dist}")
     return wheels[-1], sdists[-1]
@@ -80,7 +89,67 @@ def _build() -> tuple[Path, Path]:
 
 def _wheel_names(whl: Path) -> set[str]:
     with zipfile.ZipFile(whl) as z:
-        return {n for n in z.namelist()}
+        return set(z.namelist())
+
+
+def _wheel_requires(whl: Path) -> set[str]:
+    """Runtime dependency NAMES declared in the wheel's METADATA (Requires-Dist),
+    normalized (lowercased, extras/version/markers stripped). This is what a
+    ``pip install tt-bio`` would pull. Compared against pyproject's declared
+    dependencies so a dependency dropped from ``[project.dependencies]`` — which
+    would make a fresh install import-fail at runtime — fails the gate at the
+    artifact level, cheaply and card-free (no need to actually resolve the tree).
+    """
+    import re
+    names: set[str] = set()
+    with zipfile.ZipFile(whl) as z:
+        meta = next((n for n in z.namelist()
+                     if n.endswith(".dist-info/METADATA")), None)
+        if meta is None:
+            return names
+        for line in z.read(meta).decode().splitlines():
+            if line.startswith("Requires-Dist:"):
+                spec = line.split(":", 1)[1].strip()
+                # strip environment markers (after ';') and extras/version
+                spec = spec.split(";", 1)[0].strip()
+                m = re.match(r"[A-Za-z0-9._-]+", spec)
+                if m:
+                    names.add(m.group(0).lower().replace("_", "-"))
+    return names
+
+
+def _pyproject_requires() -> set[str]:
+    """Runtime dependency names declared in pyproject's [project.dependencies]."""
+    import re
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # py<3.11 fallback
+        import tomli as tomllib  # type: ignore
+    data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    deps = data.get("project", {}).get("dependencies", []) or []
+    names: set[str] = set()
+    for d in deps:
+        m = re.match(r"[A-Za-z0-9._-]+", d.strip())
+        if m:
+            names.add(m.group(0).lower().replace("_", "-"))
+    return names
+
+
+def _check_dependencies(whl: Path) -> list[str]:
+    """Assert the wheel's declared runtime deps match pyproject's. Catches a
+    dependency dropped from the published metadata (a fresh install would then
+    import-fail) without installing the tree. Returns failures.
+
+    Note: this catches a *declaration* drop (pyproject vs wheel metadata). It does
+    NOT catch a dependency the code imports but nobody ever declared — that needs a
+    truly isolated install and is documented as the --fold leg's job / a follow-up
+    --isolated mode, not this fast card-free guard."""
+    pj = _pyproject_requires()
+    wl = _wheel_requires(whl)
+    failures = []
+    for miss in sorted(pj - wl):
+        failures.append(f"wheel METADATA missing declared dependency: {miss}")
+    return failures
 
 
 def _sdist_names(sdist: Path) -> set[str]:
@@ -118,7 +187,8 @@ def _check_install(whl: Path, expected: list[str]) -> list[str]:
     with tempfile.TemporaryDirectory(prefix="tt-bio-pkg-smoke-") as tmp:
         target = Path(tmp) / "site"
         subprocess.run([sys.executable, "-m", "pip", "install", "--quiet",
-                        "--no-deps", "--target", str(target), str(whl)], check=True)
+                        "--no-deps", "--target", str(target), str(whl)],
+                       check=True, timeout=PIP_TIMEOUT_S)
         failures = []
         for rel in expected:
             # rel is "tt_bio/..."; --target lays the package out as <target>/tt_bio/...
@@ -164,14 +234,21 @@ def _fold_check(whl: Path) -> int:
         ttbio = venv_dir / "bin" / "tt-bio"
         print("installing wheel --no-deps into deps-inheriting venv...", flush=True)
         subprocess.run([str(py), "-m", "pip", "install", "--quiet", "--no-deps",
-                        str(whl)], check=True)
+                        str(whl)], check=True, timeout=PIP_TIMEOUT_S)
         failures = 0
         for name, args in cases:
             print(f"\n{'='*70}\n[fold] {name}: tt-bio {' '.join(args)}\n{'='*70}", flush=True)
             work = Path(tmp) / name
             work.mkdir()
-            proc = subprocess.run([str(ttbio), *args], cwd=work,
-                                  capture_output=True, text=True)
+            try:
+                proc = subprocess.run([str(ttbio), *args], cwd=work,
+                                      capture_output=True, text=True,
+                                      timeout=FOLD_TIMEOUT_S)
+            except subprocess.TimeoutExpired:
+                print(f"FAIL [{name}]: exceeded {FOLD_TIMEOUT_S}s timeout "
+                      f"(possible device wedge / hung dependency)", file=sys.stderr)
+                failures += 1
+                continue
             out = proc.stdout + proc.stderr
             if "FileNotFoundError" in out and ("protein_ref_conformers.json" in out
                                                or "resources/config/" in out
@@ -204,18 +281,28 @@ def main() -> int:
 
     failures = _check_artifacts(whl, sdist, expected)
     failures += _check_install(whl, expected)
+    dep_failures = _check_dependencies(whl)
 
-    print(f"\n{'#'*70}\nPACKAGING SMOKE — artifact + install contents\n{'#'*70}")
-    if failures:
+    print(f"\n{'#'*70}\nPACKAGING SMOKE — artifact + install contents + deps\n{'#'*70}")
+    if failures or dep_failures:
         for f in failures:
             print(f"  FAIL {f}")
-        print(f"\nGATE FAIL — {len(failures)} data file(s) missing from the built "
-              f"wheel/sdist/install. A clean `pip install` will crash. Fix "
-              f"[tool.setuptools.package-data] / MANIFEST.in before tagging.")
+        for f in dep_failures:
+            print(f"  FAIL {f}")
+        if failures:
+            print(f"\nGATE FAIL — {len(failures)} data file(s) missing from the built "
+                  f"wheel/sdist/install. A clean `pip install` will crash. Fix "
+                  f"[tool.setuptools.package-data] / MANIFEST.in before tagging.")
+        if dep_failures:
+            print(f"GATE FAIL — {len(dep_failures)} declared dependency(ies) dropped "
+                  f"from the wheel METADATA. A clean `pip install` won't pull them. "
+                  f"Fix [project.dependencies] before tagging.")
         return 1
     print(f"  PASS all {len(expected)} expected data files ship in wheel + sdist "
           f"and land on disk after a clean install.")
-    print("GATE PASS — no dropped data files.")
+    print(f"  PASS all {len(_pyproject_requires())} declared runtime dependencies "
+          f"ship in the wheel METADATA.")
+    print("GATE PASS — no dropped data files or dependencies.")
 
     if args.fold:
         print(f"\n{'#'*70}\nPACKAGING SMOKE — on-device fold check\n{'#'*70}")

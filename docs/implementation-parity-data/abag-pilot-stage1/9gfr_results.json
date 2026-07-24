@@ -1,0 +1,18 @@
+[
+  {
+    "id": "9gfr_abag",
+    "status": "ok",
+    "complex_plddt": 0.904374,
+    "plddt": 0.904374,
+    "ptm": 0.865269,
+    "iptm": 0.811751,
+    "confidence_score": 0.822455,
+    "n_residues": 517,
+    "n_chains": 3,
+    "n_tokens": 517,
+    "msa": true,
+    "n_atoms": 3849,
+    "samples": 1,
+    "runtime_s": 416.2
+  }
+]

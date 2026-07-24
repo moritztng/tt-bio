@@ -1,35 +1,25 @@
 {
-  "model": "boltz2",
-  "target": "prot",
-  "settings_tag": "nomsa_200step_1sample_3recycle_bf16",
-  "reference_impl": "official Boltz-2 (torch + pytorch-lightning, CPU)",
-  "reference_version": "boltz 2.2.1",
-  "reference_commit": "boltz 2.2.1 (pip-installed in boltz_ref_venv; upstream jwohlwend/boltz)",
-  "command": "boltz_ref_venv/bin/boltz predict examples/prot_no_msa.yaml --out_dir <out> --seed <N> --recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 --accelerator cpu  && boltz_ref_venv/bin/python scripts/boltz2_ref_layout.py <out>/boltz_results_prot_no_msa <harness_dir>  (prot_no_msa.yaml sets msa: empty so boltz runs single-sequence)",
-  "settings": {
-    "use_msa": false,
-    "recycling_steps": 3,
-    "sampling_steps": 200,
-    "diffusion_samples": 1,
-    "seeds": [
-      0,
-      1,
-      2,
-      3,
-      4
-    ],
-    "dtype": "bf16 (pytorch-lightning AMP)",
-    "target": "prot/7ROA (examples/prot_no_msa.yaml, 117 res, 899 atoms, msa: empty)"
-  },
+  "reference_commit": "ff473d2e",
+  "reference_impl": "tt-bio-cpu-torch",
+  "reference_version": "ff473d2e",
   "seeds": [
-    0,
-    1,
-    2,
-    3,
-    4
+    0
   ],
-  "msa": "none (no-MSA leg)",
-  "provenance": "Seeds 0-1 harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/boltz_prot_no_msa_s{0,1}, mtime 2026-07-13 15:46/15:53). Seeds 2-4 harvested from a FRESH 2026-07-21 qb2 reference run (pharma_seedbump_prot_nomsa/ref_harness_s{2,3,4}), same pinned boltz 2.2.1 and same 3 recycle / 200 sampling-step / 1 sample / no-MSA settings as seeds 0-1. Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and identical confidence). DISCREPANCY (historical, retained for honesty): the 2-seed reference-vs-reference floor R=6.94 A (1 seed pair, deterministic) did NOT reproduce the previously-published R=3.37; the 3.37's source run was not on disk and was not reproducible from the documented settings on the pinned boltz 2.2.1 (the only on-disk prot no-MSA reference runs at the time used 2 recycle / 20 steps and gave R=2.60). The trp-cage no-MSA leg at the same 3/200/1 settings DOES reproduce (R=0.81 vs 0.79), so the settings interpretation is correct; the prot 3.37 was the anomaly and was withdrawn. 5+5 hardening (2026-07-21): with 5 reference + 5 device seeds R and D are each 10 pairwise distances (a real distribution) rather than 1; CA-RMSD X=4.21+-1.59 A vs floor max(R 4.98, D 3.34)=4.98 A (X/floor 0.84, within floor on RMSD, 1-PCC, 1-TM and 1-lDDT). The 5+5 read reproduces the 2+2 verdict within noise (X 4.21 vs 4.83 A; the floor shifts inward R 6.94->4.98 as the single-pair extreme regresses to the 10-pair mean, D 2.93->3.34, X stays inside it). Per-seed reference confidence_score 0.525/0.603/0.625/0.620/0.586, ptm 0.439/0.540/0.585/0.583/0.512; device confidence_score 0.686/0.686/0.684/0.608/0.642, ptm 0.664/0.664/0.692/0.548/0.628.",
-  "date": "2026-07-20",
-  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference_commit/version changes or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs."
+  "settings": {
+    "device_args": [
+      "--recycling_steps",
+      "3",
+      "--sampling_steps",
+      "200",
+      "--diffusion_samples",
+      "1",
+      "--single_sequence"
+    ],
+    "model": "boltz2",
+    "msa": "none",
+    "seed": 0,
+    "shared_draw_seed": 0,
+    "target_id": "prot_no_msa",
+    "yaml": "examples/prot_no_msa.yaml"
+  }
 }

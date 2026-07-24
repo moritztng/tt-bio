@@ -24,10 +24,22 @@ Per leg this runner:
       every available card given via ``--workers host:card[,host:card...]``
       (default: the local card). Each worker runs one fold at a time (one device
       context per process); legs are dispatched round-robin to free workers.
-  (c) scores device-vs-cached-reference through the EXISTING vetted scorers
-      (``scripts/pharma_parity.py structures``, ``scripts/boltz2_affinity_parity.py``,
-      and the dedicated in-process harnesses for ESMC / SaProt / ESMFold2 /
-      BoltzGen / OpenDDE-abag) — nothing re-derived here.
+  (c) scores each leg. DIFFUSION legs (structure/affinity) use the INTEGRATION-PARITY
+      ENVELOPE (``scripts/integration_envelope.py``): a deterministic shared-draws test
+      comparing the device fold against two cached CPU references (fp32 + bf16) at one
+      seed — see the ENVELOPE note below. All other legs keep their existing vetted
+      scorers/thresholds (``scripts/pharma_parity.py`` saprot, the ESMC / SaProt /
+      ESMFold2 / BoltzGen / OpenDDE-abag in-process harnesses) — nothing re-derived here.
+
+  INTEGRATION-PARITY ENVELOPE (the correctness criterion for diffusion legs; supersedes the
+  old R/D/X self-consistency floor, which conflated bf16 arithmetic with diffusion-noise chaos
+  and so could not tell a real backend bug from ordinary sample-to-sample spread). A diffusion
+  model is deterministic given its noise, so the gate folds the device once at ENVELOPE_SEED,
+  reads the leg's cached ``<fixture>/ref_fp32`` + ``<fixture>/ref_bf16`` CPU references (tt-bio's
+  own torch path, so all three share one CPU-MT19937 draw stream), and passes iff
+  ``d(device_bf16, ref_fp32) <= d(ref_bf16, ref_fp32)*(1+margin) + abs_floor`` on every metric.
+  Regenerate the two CPU references with ``--regen-refs`` (fingerprint-cached). ``--legacy-rdx``
+  keeps the retired R/D/X floor as an opt-in device self-consistency (D) DIAGNOSTIC.
   (d) emits the SAME verdict table + tally as ``docs/implementation-parity.md``,
       writes a JSON report + markdown summary to the workdir, and compares each
       leg's verdict to the committed JSON. A leg that reproduces within the
@@ -38,6 +50,33 @@ Per leg this runner:
 Exit 0 iff every leg that took the fast path reproduces within its floor (legs
 flagged ``BLOCKED-REF-REGEN-NEEDED`` do not fail the gate; they are the slow
 opt-in path and are reported separately).
+
+VERDICT SEMANTICS — the single source of truth (see ``finalize_leg`` /
+``_matches_committed``; also mirrored in RELEASING.md):
+
+  PASS                    metric within the recorded noise floor. Gate-passing.
+  PASS-caveated           gate metric passes, a documented secondary metric (e.g.
+                          affinity pocket-lDDT) GAPs on a known bf16 floor. Gate-passing;
+                          treated as equivalent to PASS for drift (a seed-variance flip
+                          between the two is not a regression).
+  GAP                     metric outside the floor. Gate-FAILING — UNLESS it reproduces a
+                          committed ``GAP-evidenced`` (then it is the expected bf16 behavior).
+  GAP-evidenced           a GAP proven to be a genuine bf16-backend floor and accepted in
+                          docs/implementation-parity.md. Only ever a *committed* verdict; a
+                          live GAP that matches it reproduces (gate-passing).
+  DRIFT                   live verdict does not reproduce the committed one (and is not an
+                          improvement). Gate-FAILING; never silently overwrites the doc.
+  BLOCKED-REF-REGEN-NEEDED  the reference fixture is missing or its fingerprint changed
+                          (model/weights/settings moved). NOT a gate failure — the slow
+                          opt-in regen path; reported separately.
+  ERROR                   the fold or scorer failed to produce a report. Gate-FAILING.
+  NO-DATA                 a report with no comparable metric (legacy/narrative record). The
+                          drift check is skipped, but a live NO-DATA still fails the gate.
+
+Before any device work the runner runs a card-free ``preflight_check`` (also
+exposed as ``--check``) that validates every leg's yaml/fixture/committed-JSON/
+target-id wiring — so a misconfigured leg aborts in seconds with a precise message
+instead of a wasted device turn on a mysterious "no common targets" scorer error.
 
     # full parity, fan across every card that is up (pc + qb1 + qb2)
     TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm \
@@ -59,6 +98,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -69,6 +109,29 @@ REPO = Path(__file__).resolve().parent.parent
 FIXTURE_ROOT = REPO / "docs" / "implementation-parity-data" / "ref-fixtures"
 FINGERPRINT_INDEX = REPO / "docs" / "implementation-parity-data" / "ref-fixture-fingerprints.json"
 PARITY_DATA = REPO / "docs" / "implementation-parity-data"
+
+# The integration-parity envelope (see score_envelope) is the correctness criterion for every
+# diffusion leg — the structure + affinity folds, whose stochasticity is entirely the diffusion
+# noise draw. Deterministic encoders (esmc/saprot), esmfold2, and the designability/DockQ legs
+# are NOT closed-loop diffusion, so they keep their own deterministic/threshold verdicts.
+ENVELOPE_KINDS = ("structure", "affinity")
+# The envelope is a per-shared-draw test: the device fold's seed MUST match the seed the fp32/bf16
+# CPU references were generated at, so all three share one CPU-MT19937 draw sequence.
+ENVELOPE_SEED = 0
+
+
+def _is_envelope_leg(leg) -> bool:
+    return leg.kind in ENVELOPE_KINDS
+
+
+def _shared_draw_env() -> dict:
+    """Env that forces byte-identical diffusion noise across the device fold and both CPU
+    references (see tt_bio/boltz2.py AtomDiffusion.sample). WITHOUT it the device (ttnn trunk) and
+    the CPU reference (torch trunk) consume the global RNG differently before the sampler, so a
+    plain single-seed run gives them DIFFERENT noise — the envelope numerator would then conflate
+    arithmetic divergence with a different diffusion basin (the exact flaw the R/D/X floor had).
+    Set identically on all three runs so shared draws hold and the numerator is arithmetic-only."""
+    return {"TT_BIO_SHARED_DRAW_SEED": str(ENVELOPE_SEED)}
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +175,7 @@ def _boltz2_struct_args(recycling=3, steps=200, samples=1, msa="none"):
     if msa == "none":
         return tuple(base + ["--single_sequence"])
     if msa == "server":
-        return tuple(base + ["--use_mesa_server" if False else "--use_msa_server"])
+        return tuple(base + ["--use_msa_server"])
     return tuple(base)  # staged: --msa_dir appended at run time
 
 
@@ -283,6 +346,93 @@ def load_fingerprint_index() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Startup self-check — validate every leg's static wiring before any device work
+# ---------------------------------------------------------------------------
+def _fixture_result_ids(spec: str) -> set:
+    """Target ids present in a committed fixture's seed results.json files. Used to catch a
+    leg.target_id the device fold will never match (the 'no common targets' bug class): the
+    structure scorer intersects the `id` fields across ref+dev seed dirs."""
+    ids: set = set()
+    for seed_dir in sorted(_fixture_dir(spec).glob("seed*")):
+        rj = seed_dir / "results.json"
+        if not rj.exists():
+            continue
+        try:
+            data = json.loads(rj.read_text())
+        except Exception:
+            continue
+        if isinstance(data, list):
+            ids |= {x.get("id") for x in data if isinstance(x, dict) and x.get("id")}
+        elif isinstance(data, dict) and data.get("id"):
+            ids.add(data["id"])
+    return ids
+
+
+def _incomplete_fixture_seeds(leg, seeds: list) -> list:
+    """For a structure leg, the seeds whose committed fixture dir lacks results.json or the
+    target CIF the scorer needs. Empty == complete. Catches a fixture whose CIFs were never
+    force-added past the .gitignore `ref-fixtures/**/*.cif` rule (present-but-incomplete on a
+    clean checkout). Affinity/other kinds score off results.json only, so are not checked here."""
+    if leg.kind != "structure" or not leg.fixture:
+        return []
+    base = _fixture_dir(leg.fixture)
+    bad = []
+    for s in seeds:
+        sd = base / f"seed{s}"
+        if not (sd / "results.json").exists() or not (sd / "structures" / f"{leg.target_id}.cif").exists():
+            bad.append(f"seed{s}")
+    return bad
+
+
+def preflight_check(legs: list) -> list:
+    """Card-free validation of every leg's static wiring, run before any device work (and via
+    ``--check``). Returns a list of human-readable problems (empty == every leg well-formed).
+
+    Catches, in seconds, the class of bugs that each cost a device turn during the v0.3.3
+    release: a yaml/fixture/committed-JSON that does not exist, a target_id that will not match
+    the device fold, a staged-MSA leg missing its a3m, and an msa='yaml' affinity leg whose yaml
+    has no `msa:` field (so it would silently fold single-sequence against an MSA reference)."""
+    problems = []
+    for leg in legs:
+        if leg.yaml and not (REPO / leg.yaml).exists():
+            problems.append(f"{leg.id}: yaml {leg.yaml} not found")
+        if leg.committed_json:
+            cp = PARITY_DATA / leg.committed_json
+            if not cp.exists():
+                problems.append(f"{leg.id}: committed_json {leg.committed_json} not found")
+            else:
+                try:
+                    json.loads(cp.read_text())
+                except Exception as e:
+                    problems.append(f"{leg.id}: committed_json {leg.committed_json} unparseable: {e}")
+        if leg.fixture:
+            if not (_fixture_dir(leg.fixture) / "meta.json").exists():
+                problems.append(f"{leg.id}: fixture {leg.fixture} missing meta.json (regenerate reference)")
+            elif leg.kind == "structure" and leg.target_id:
+                have = _fixture_result_ids(leg.fixture)
+                if have and leg.target_id not in have:
+                    problems.append(
+                        f"{leg.id}: target_id '{leg.target_id}' not in fixture ids {sorted(have)} "
+                        f"— device fold and reference will not match (pharma_parity id intersection)")
+        if leg.msa == "staged":
+            src = _fixture_dir(leg.fixture) / "msa.a3m"
+            if not src.exists():
+                problems.append(f"{leg.id}: staged-MSA leg missing {src}")
+        if leg.msa == "yaml":
+            yp = REPO / leg.yaml
+            if yp.exists():
+                m = re.search(r"msa:\s*(\S+)", yp.read_text())
+                val = m.group(1) if m else None
+                if val is None or val.lower() in ("empty", "null", "none", "~"):
+                    problems.append(
+                        f"{leg.id}: msa='yaml' but {leg.yaml} has msa={val!r} — device fold would "
+                        f"run single-sequence, mismatching the MSA reference")
+                elif ("/" in val or val.endswith(".a3m")) and not (REPO / val).exists():
+                    problems.append(f"{leg.id}: msa='yaml' points at missing MSA file {val}")
+    return problems
+
+
+# ---------------------------------------------------------------------------
 # Device command construction + MSA staging
 # ---------------------------------------------------------------------------
 def _yaml_protein_seq(yaml_path: Path) -> str | None:
@@ -387,102 +537,132 @@ def parse_workers(spec: str) -> list[Worker]:
     return out or [Worker(host="pc", card=0, is_local=True)]
 
 
+def _find_results_dir(out_dir: Path) -> Path | None:
+    """The inner ``<model>_results_<id>/`` dir the scorer wants, located by its results.json.
+    tt-bio predict writes results into a subdir of ``--out_dir``; the scorer expects that
+    inner dir as the dev_dir. results.json present is also the fold-success signal."""
+    if not out_dir.is_dir():
+        return None
+    for p in out_dir.iterdir():
+        if p.is_dir() and (p / "results.json").exists():
+            return p
+    return None
+
+
+def _reap(proc) -> None:
+    """Terminate a process and its children, escalating to kill after a short grace."""
+    proc.terminate()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+
+def _run_local_fold(wrapped, out_dir: Path, logf, fold_timeout: float | None):
+    """Run a local device fold with poll-based completion detection. Returns (rc, timed_out).
+
+    Two hang classes are handled by one loop:
+      - shutdown hang AFTER success: a boltz2 affinity predict can hang in do_select on exit
+        after writing results.json (a process-exit bug, not a fold failure). results.json is
+        the success signal, so once it appears we grant a short grace window then reap a hung
+        shutdown -> (0, False).
+      - real hang BEFORE success: a fold that never writes results.json within fold_timeout
+        (e.g. a flaky MSA server, #6 in the postmortem) is killed -> (timeout-sentinel, True).
+    """
+    GRACE_S = 30.0
+    proc = subprocess.Popen(wrapped, cwd=REPO, stdout=logf, stderr=subprocess.STDOUT)
+    t0 = time.monotonic()
+    folded_at = None
+    while True:
+        rc = proc.poll()
+        if rc is not None:
+            return rc, False
+        if folded_at is None and _find_results_dir(out_dir) is not None:
+            folded_at = time.monotonic()
+        if folded_at is not None and time.monotonic() - folded_at >= GRACE_S:
+            _reap(proc)
+            return 0, False
+        if folded_at is None and fold_timeout and time.monotonic() - t0 > fold_timeout:
+            _reap(proc)
+            return -99, True
+        time.sleep(2.0)
+
+
+def _run_remote_fold(wrapped, worker: "Worker", out_dir: Path, logf, fold_timeout: float | None):
+    """Run a fold on a remote host, then rsync its output dir back to the coordinator so the
+    LOCAL scorer can see it. Returns (rc, timed_out).
+
+    Fixes the postmortem's latent remote bug: device_cmd bakes the coordinator's absolute
+    --out_dir into the command, so a remote fold writes to that same absolute path ON THE
+    REMOTE; without this copy-back the local scorer never sees the output. Correct-by-
+    construction and isolated to the non-local branch; the tested release path is local cards.
+    """
+    try:
+        proc = subprocess.run(wrapped, cwd=REPO, stdout=logf, stderr=subprocess.STDOUT,
+                              timeout=fold_timeout)
+    except subprocess.TimeoutExpired:
+        return -99, True
+    if proc.returncode == 0:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["rsync", "-a", "-e", "ssh -o ConnectTimeout=5",
+                        f"{worker.host}:{out_dir}/", f"{out_dir}/"], check=False)
+    return proc.returncode, False
+
+
 def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Worker],
-                     log_dir: Path, resume: bool = False) -> dict:
-    """Run one device fold per seed, fanned across workers; return {seed: out_dir}."""
+                     log_dir: Path, resume: bool = True, fold_timeout: float | None = None,
+                     extra_env: dict | None = None) -> dict:
+    """Run one device fold per seed, fanned across workers; return {seed: out_dir_or_error}.
+
+    Workers run in parallel; each worker runs its seeds serially (one device context per
+    process). Local workers use poll-based reaping; remote workers rsync output back. With
+    ``resume`` (default) a seed whose output already carries a results.json is reused, so a
+    bounded turn never re-folds work a prior turn finished.
+    """
     leg_dir = workdir / leg.id
     leg_dir.mkdir(parents=True, exist_ok=True)
     results: dict[int, Path] = {}
-    # simple round-robin dispatch with a per-worker queue (serial within a card)
-    jobs = [(s, workers[i % len(workers)]) for i, s in enumerate(seeds)]
-    # group by worker so each worker runs its jobs serially; workers run in parallel
-    by_worker: dict[Worker, list[tuple[int, Worker]]] = {}
-    for s, w in jobs:
-        by_worker.setdefault(w, []).append((s, w))
+    # round-robin seeds across workers; group by worker so each runs serially, workers parallel
+    by_worker: dict[Worker, list[int]] = {}
+    for i, s in enumerate(seeds):
+        by_worker.setdefault(workers[i % len(workers)], []).append(s)
 
     import concurrent.futures
 
-    def worker_run(w: Worker, jobs_w: list[tuple[int, Worker]]):
+    def worker_run(w: Worker, seeds_w: list[int]):
         out = {}
-        for s, _ in jobs_w:
+        for s in seeds_w:
             out_dir = leg_dir / f"seed{s}"
-            # --resume: reuse an existing completed fold (a subdir with results.json)
-            # rather than re-folding. Device folds are seeded and model code is fixed
-            # for the release, so a prior run's output is valid evidence.
             if resume:
-                inner = None
-                if out_dir.is_dir():
-                    for p in out_dir.iterdir():
-                        if p.is_dir() and (p / "results.json").exists():
-                            inner = p
-                            break
+                inner = _find_results_dir(out_dir)
                 if inner is not None:
                     out[s] = inner
                     continue
-            cmd = device_cmd(leg, s, out_dir, workdir)
-            wrapped = w.wrap(cmd, REPO, {})
-            t0 = time.monotonic()
+            wrapped = w.wrap(device_cmd(leg, s, out_dir, workdir), REPO, dict(extra_env or {}))
             logf = open(log_dir / f"{leg.id}_seed{s}.log", "w")
-            # Poll for completion rather than blocking on subprocess.run: a
-            # boltz2 affinity `predict` can hang in do_select on shutdown AFTER
-            # it has already written results.json (a pre-existing process-exit
-            # bug, not a fold/numerics failure). results.json present is the
-            # fold-success signal; once it appears, give the process a short
-            # grace window to exit cleanly, then kill a hung shutdown so the
-            # gate does not block forever on a succeeded fold.
-            GRACE_S = 30.0
-            inner_marker = None
-            rc = 0
+            t0 = time.monotonic()
             try:
-                proc = subprocess.Popen(wrapped, cwd=REPO, stdout=logf,
-                                         stderr=subprocess.STDOUT)
-                folded_at = None
-                while True:
-                    rc_now = proc.poll()
-                    if rc_now is not None:
-                        rc = rc_now
-                        break
-                    # look for the inner results.json the scorer expects
-                    if inner_marker is None and out_dir.is_dir():
-                        for p in out_dir.iterdir():
-                            if p.is_dir() and (p / "results.json").exists():
-                                inner_marker = p
-                                folded_at = time.monotonic()
-                                break
-                    if inner_marker is not None:
-                        if time.monotonic() - folded_at >= GRACE_S:
-                            # fold done but process hung in shutdown — reap it.
-                            proc.terminate()
-                            try:
-                                proc.wait(timeout=10)
-                            except subprocess.TimeoutExpired:
-                                proc.kill()
-                                proc.wait()
-                            rc = 0
-                            break
-                    time.sleep(2.0)
+                runner = _run_local_fold if w.is_local else _run_remote_fold
+                rc, timed_out = (runner(wrapped, out_dir, logf, fold_timeout) if w.is_local
+                                 else runner(wrapped, w, out_dir, logf, fold_timeout))
             finally:
                 logf.close()
             wall = time.monotonic() - t0
-            if rc != 0:
+            if timed_out:
+                out[s] = {"error": f"fold timed out after {fold_timeout:.0f}s (no results.json "
+                          f"— flaky MSA server? place a cached a3m per RELEASING.md and rerun)",
+                          "wall": wall}
+            elif rc != 0:
                 out[s] = {"error": f"predict exited {rc}", "wall": wall}
-                continue
-            # tt-bio writes results into <out_dir>/<model>_results_<id>/; the scorer
-            # expects that inner dir as the dev_dir. Resolve it by locating results.json.
-            inner = inner_marker
-            if inner is None:
-                for p in out_dir.iterdir():
-                    if p.is_dir() and (p / "results.json").exists():
-                        inner = p
-                        break
-            out[s] = inner or out_dir
+            else:
+                out[s] = _find_results_dir(out_dir) or out_dir
         return out
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(by_worker)) as ex:
         futs = [ex.submit(worker_run, w, j) for w, j in by_worker.items()]
         for f in concurrent.futures.as_completed(futs):
-            r = f.result()
-            for s, v in r.items():
+            for s, v in f.result().items():
                 results[s] = v
     return results
 
@@ -522,18 +702,170 @@ def score_affinity(leg: Leg, dev_dirs: list[str], out_json: Path, log_path: Path
     return json.loads(out_json.read_text())
 
 
-def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict) -> dict | None:
-    """Shell out to the dedicated in-process harness for esmc/saprot/esmfold2/boltzgen/abag."""
+# ---------------------------------------------------------------------------
+# Integration-parity envelope — the CORRECTNESS criterion for diffusion legs
+# ---------------------------------------------------------------------------
+# Replaces the old R/D/X same-backend self-consistency floor (see the module docstring
+# "INTEGRATION-PARITY ENVELOPE" note and docs/implementation-parity.md). For a diffusion
+# leg (structure/affinity), correctness is a DETERMINISTIC shared-draws test:
+#   device_bf16 (TT, the port)  vs  reference_fp32 (CPU)      -> numerator
+#   reference_bf16 (CPU)        vs  reference_fp32 (CPU)      -> measured bf16 envelope
+# All three are tt-bio's own code (CPU refs via --accelerator cpu --no_kernels) from the SAME
+# --seed, so the diffusion torch.randn draws are byte-identical (CPU MT19937) by construction
+# and the only difference is arithmetic. PASS iff numerator <= envelope*(1+margin)+abs_floor on
+# every metric. The two CPU references are the CACHED fixture (fingerprinted like the old ones);
+# only the device fold + scoring re-run per release. Regenerate them with --regen-refs.
+def _envelope_ref_complete(inner: Path | None, leg: Leg) -> Path | None:
+    """A structure leg's envelope ref is only usable if its CA-RMSD CIF is actually present —
+    results.json alone (e.g. a regen that crashed before writing structures/) is not enough and
+    must not be handed to the scorer, which has no graceful path for a missing file."""
+    if inner is None or leg.kind != "structure":
+        return inner
+    return inner if (inner / "structures" / f"{leg.target_id}.cif").exists() else None
+
+
+def envelope_ref_dirs(leg: Leg) -> tuple[Path | None, Path | None]:
+    """Locate the fp32 + bf16 CPU shared-draw reference result dirs for an envelope leg.
+
+    Convention: ``<fixture>/ref_fp32/`` and ``<fixture>/ref_bf16/`` each hold the inner
+    ``<model>_results_<id>/`` dir a fold writes (located by its results.json). Returns
+    (fp32_inner, bf16_inner); a missing OR structurally-incomplete side is None (leg ->
+    BLOCKED-REF-REGEN-NEEDED, never a crash mid-scoring)."""
+    base = _fixture_dir(leg.fixture)
+    fp32 = _envelope_ref_complete(_find_results_dir(base / "ref_fp32"), leg)
+    bf16 = _envelope_ref_complete(_find_results_dir(base / "ref_bf16"), leg)
+    return fp32, bf16
+
+
+def score_envelope(leg: Leg, dev_dir: str, ref_fp32: Path, ref_bf16: Path,
+                   out_json: Path, margin: float) -> dict | None:
+    """Score one diffusion leg with the deterministic shared-draws envelope test.
+
+    Reuses scripts/integration_envelope.py (the vetted envelope scorer + per-leg distance
+    primitives) — nothing re-derived here. Writes the report to out_json for --resume and
+    returns it (mode == 'integration_envelope', consumed by extract_verdict)."""
+    sys.path.insert(0, str(REPO / "scripts"))
+    from integration_envelope import envelope_verdict  # lazy: pulls numpy/gemmi
+    rep = envelope_verdict(dev_dir, ref_fp32, ref_bf16, leg.kind, leg.target_id, margin)
+    out_json.write_text(json.dumps(rep, indent=2))
+    return rep
+
+
+def _ref_settings(leg: Leg) -> dict:
+    """The settings that DEFINE this leg's reference — the fingerprint's cache key. Change any of
+    these and the reference must be regenerated (fingerprint drift => BLOCKED-REF-REGEN-NEEDED)."""
+    return {"device_args": list(leg.device_args), "seed": ENVELOPE_SEED,
+            "shared_draw_seed": ENVELOPE_SEED,  # the shared-draws discipline is part of the ref identity
+            "yaml": leg.yaml, "model": leg.model, "target_id": leg.target_id, "msa": leg.msa}
+
+
+def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
+                        fold_timeout: float | None, resume: bool) -> int:
+    """(Re)generate each envelope leg's fp32 + bf16 CPU shared-draw references into
+    <fixture>/ref_{fp32,bf16}/ and write the fixture meta.json (fingerprint cache key).
+
+    Both references are the SAME tt-bio CPU torch path (--accelerator cpu --no_kernels; the pure
+    torch trimul, no CUDA cuequivariance) at ENVELOPE_SEED, differing only by the TT_BIO_REF_BF16
+    bf16-autocast toggle — so they share one CPU-MT19937 diffusion draw sequence by construction.
+    Run SERIALLY (fp32 then bf16, one leg at a time): concurrent pure-torch CPU folds oversubscribe
+    the host and triple wall-clock (measured 2026-07-23). This is the expensive cached step; a
+    normal gate run then only re-folds the device side + scores."""
+    local = Worker(host="pc", card=0, is_local=True)
+    n_ok = 0
+    for leg in legs:
+        if not _is_envelope_leg(leg) or not leg.fixture:
+            continue
+        base = _fixture_dir(leg.fixture)
+        base.mkdir(parents=True, exist_ok=True)
+        leg_ok = True
+        for dtype, env in (("fp32", dict(_shared_draw_env())),
+                           ("bf16", {"TT_BIO_REF_BF16": "1", **_shared_draw_env()})):
+            out_dir = base / f"ref_{dtype}"
+            if resume and _envelope_ref_complete(_find_results_dir(out_dir), leg) is not None:
+                print(f"  {leg.id} ref_{dtype}: cached, skip")
+                continue
+            # A prior interrupted regen can leave a STALE, incomplete results.json in out_dir
+            # (e.g. results.json with no structures/*.cif). _run_local_fold's completion check
+            # is a bare _find_results_dir(out_dir) probe -- it would see that stale file the
+            # instant the fresh subprocess starts, believe the NEW fold already "folded", and
+            # reap it after the grace window without ever letting it run. Clear any leftover
+            # out_dir before starting so only the fresh subprocess's own output can satisfy it.
+            if out_dir.exists():
+                shutil.rmtree(out_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            cmd = device_cmd(leg, ENVELOPE_SEED, out_dir, workdir) + ["--accelerator", "cpu", "--no_kernels"]
+            wrapped = local.wrap(cmd, REPO, env)
+            logf = open(log_dir / f"regen_{leg.id}_{dtype}.log", "w")
+            t0 = time.monotonic()
+            try:
+                rc, timed_out = _run_local_fold(wrapped, out_dir, logf, fold_timeout)
+            finally:
+                logf.close()
+            wall = time.monotonic() - t0
+            ok = (rc == 0 and _envelope_ref_complete(_find_results_dir(out_dir), leg) is not None)
+            print(f"  {leg.id} ref_{dtype}: {'OK' if ok else 'FAILED'} ({wall/60:.1f} min)"
+                  + ("" if ok else f" rc={rc} timed_out={timed_out} — see regen_{leg.id}_{dtype}.log"))
+            leg_ok &= ok
+        if leg_ok:
+            meta = {"reference_impl": "tt-bio-cpu-torch", "reference_version": _repo_commit(),
+                    "reference_commit": _repo_commit(), "settings": _ref_settings(leg),
+                    "seeds": [ENVELOPE_SEED]}
+            (base / "meta.json").write_text(json.dumps(meta, indent=2, sort_keys=True))
+            n_ok += 1
+    # refresh the fingerprint index so a matching reference takes the fast (device-only) path
+    idx = load_fingerprint_index()
+    for leg in legs:
+        if _is_envelope_leg(leg) and leg.fixture:
+            fp = fixture_fingerprint(leg.fixture)
+            if fp:
+                idx[leg.id] = fp
+    FINGERPRINT_INDEX.write_text(json.dumps(idx, indent=2, sort_keys=True))
+    print(f"regen complete: {n_ok} leg(s) with fp32+bf16 references; fingerprint index updated.")
+    return 0
+
+
+def _repo_commit() -> str:
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=REPO,
+                                       text=True, timeout=5).strip()
+    except Exception:
+        return "unknown"
+
+
+def _load_release_gate():
+    """Import scripts/release_gate.py as a module so the boltzgen/abag legs can call its
+    vetted ``run_boltzgen`` / ``run_opendde_abag`` IN-PROCESS and capture their real structured
+    row (scRMSD/pass-rate, DockQ/fnat) — instead of shelling out and capturing only a return
+    code. That removes the live-vs-committed shape mismatch (postmortem #3) at the root."""
+    import importlib.util
+    path = REPO / "scripts" / "release_gate.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_release_gate", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
+                  fold_timeout: float | None = None) -> dict | None:
+    """Run the dedicated harness for esmc/saprot/esmfold2 (subprocess) or the in-process
+    designability/DockQ leg for boltzgen/abag. Persists the report to out_json (for --resume)."""
+    if leg.kind in ("boltzgen", "abag"):
+        try:
+            rg = _load_release_gate()
+            row = (rg.run_boltzgen(rg._load_designability_harness(), keep=False)
+                   if leg.kind == "boltzgen" else rg.run_opendde_abag(keep=False))
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}"}
+        out_json.write_text(json.dumps(row, indent=2, default=str))
+        return row
+
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
-        if leg.model == "esmc-6b":
-            cmd = [sys.executable, script, "--seqs", "trpcage,gb1,ubiquitin,lysozyme",
-                   "--out", str(out_json)]
-        else:
-            # esmc_embed_parity multi-leg mode: --seqs + --out writes the pharma-style
-            # targets report whose shape matches the committed esmc-{300m,600m}.json.
-            cmd = [sys.executable, script, "--model", leg.model,
-                   "--seqs", "trpcage,gb1,ubiquitin,lysozyme", "--out", str(out_json)]
+        # esmc_embed_parity multi-leg mode: --seqs + --out writes the pharma-style targets
+        # report whose shape matches the committed esmc-{300m,600m}.json. (6b has no --model.)
+        cmd = [sys.executable, script, "--seqs", "trpcage,gb1,ubiquitin,lysozyme", "--out", str(out_json)]
+        if leg.model != "esmc-6b":
+            cmd[2:2] = ["--model", leg.model]
     elif leg.kind == "saprot":
         cmd = [sys.executable, "scripts/pharma_parity.py", "saprot", "--model", leg.model,
                "--out", str(out_json)]
@@ -541,23 +873,16 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict) -> dict |
         cmd = [sys.executable, "scripts/esmfold2_e2e_parity.py",
                "--proteins", "trpcage,gb1,ubiquitin,lysozyme", "--seeds", "0,1,2,3,4",
                "--out", str(out_json)]
-    elif leg.kind == "boltzgen":
-        # reuse release_gate's boltzgen leg (designability harness) + keep the dir
-        cmd = [sys.executable, "scripts/release_gate.py", "--model", "boltzgen", "--keep"]
-    elif leg.kind == "abag":
-        cmd = [sys.executable, "scripts/release_gate.py", "--model", "opendde-abag", "--keep"]
     else:
         return None
-    with open(log_path, "w") as f:
-        proc = subprocess.run(cmd, cwd=REPO, stdout=f, stderr=subprocess.STDOUT, env=env)
+    try:
+        with open(log_path, "w") as f:
+            proc = subprocess.run(cmd, cwd=REPO, stdout=f, stderr=subprocess.STDOUT, env=env,
+                                  timeout=fold_timeout)
+    except subprocess.TimeoutExpired:
+        return {"error": f"{leg.id} harness timed out after {fold_timeout:.0f}s"}
     if proc.returncode != 0:
         return None
-    if leg.kind in ("boltzgen", "abag"):
-        # release_gate prints a verdict table but writes no JSON; capture pass/fail from rc.
-        # Persist it to out_json so --resume can reuse the verdict without re-folding.
-        report = {"_release_gate_rc": proc.returncode, "_log": log_path.read_text()[-2000:]}
-        out_json.write_text(json.dumps(report))
-        return report
     if out_json.exists():
         return json.loads(out_json.read_text())
     return None
@@ -627,37 +952,64 @@ def _saprot_verdict(report: dict) -> tuple[str, str]:
 
 
 def _boltzgen_verdict(report: dict) -> tuple[str, str]:
-    # Live run: release_gate prints a verdict table but writes no JSON, so the gate
-    # carries the rc in _release_gate_rc.
-    if "_release_gate_rc" in report:
-        rc = report["_release_gate_rc"]
-        return ("PASS" if rc == 0 else "GAP"), f"release_gate rc={rc}"
+    # Live row (run_boltzgen): {scrmsd_median, pass_rate, gate, error}. The floor (RELEASING.md)
+    # is >=50% of binders refolding within 2.0 A scRMSD.
+    if report.get("error"):
+        return "ERROR", str(report["error"])
+    if report.get("pass_rate") is not None:
+        rate = report["pass_rate"]
+        return ("PASS" if report.get("gate") else "GAP"), \
+               f"scRMSD pass-rate {rate*100:.0f}% (median {report.get('scrmsd_median')})"
     # Committed JSON (docs/implementation-parity-data/boltzgen.json): a designability
-    # evidence record with device_batches[].designs[].scrmsd. The floor (RELEASING.md) is
-    # >=50% of binders refolding within 2.0 A scRMSD.
+    # record with device_batches[].designs[].scrmsd.
     scrmsds = [x.get("scrmsd") for b in report.get("device_batches", [])
                for x in b.get("designs", []) if x.get("scrmsd") is not None]
-    if not scrmsds:
-        return "NO-DATA", "no designs in committed record"
-    rate = sum(1 for s in scrmsds if s <= 2.0) / len(scrmsds)
-    return ("PASS" if rate >= 0.5 else "GAP"), f"committed scrmsd pass-rate {rate*100:.0f}% ({len(scrmsds)} designs)"
+    if scrmsds:
+        rate = sum(1 for s in scrmsds if s <= 2.0) / len(scrmsds)
+        return ("PASS" if rate >= 0.5 else "GAP"), f"committed scrmsd pass-rate {rate*100:.0f}% ({len(scrmsds)} designs)"
+    if "_release_gate_rc" in report:  # legacy rc-only record
+        rc = report["_release_gate_rc"]
+        return ("PASS" if rc == 0 else "GAP"), f"release_gate rc={rc}"
+    return "NO-DATA", "no designs in record"
 
 
 def _abag_verdict(report: dict) -> tuple[str, str]:
-    if "_release_gate_rc" in report:
+    # Live row (run_opendde_abag): {dockq, fnat, gate, error}. Floor (RELEASING.md) global_dockq>=0.50.
+    if report.get("error"):
+        return "ERROR", str(report["error"])
+    if report.get("dockq") is not None:
+        return ("PASS" if report.get("gate") else "GAP"), f"global DockQ={report['dockq']:.3f}"
+    dq = report.get("global_dockq")  # committed DockQ record
+    if dq is not None:
+        return ("PASS" if dq >= 0.50 else "GAP"), f"committed global_dockq={dq:.3f}"
+    if "_release_gate_rc" in report:  # legacy rc-only record
         rc = report["_release_gate_rc"]
         return ("PASS" if rc == 0 else "GAP"), f"release_gate rc={rc}"
-    # Committed JSON (opendde-abag-1ahw-irmsd.json): a DockQ evidence record. Floor
-    # (RELEASING.md) is global_dockq >= 0.50.
-    dq = report.get("global_dockq")
-    if dq is None:
-        return "NO-DATA", "no global_dockq in committed record"
-    return ("PASS" if dq >= 0.50 else "GAP"), f"committed global_dockq={dq:.3f}"
+    return "NO-DATA", "no global_dockq in record"
+
+
+def _envelope_verdict_row(report: dict) -> tuple[str, str]:
+    """Verdict for an integration_envelope report: PASS iff every metric is within the measured
+    bf16 envelope; else GAP (a real residual exceeding the envelope — to hunt, not excuse). The
+    detail line lists the worst per-metric numerator/envelope ratio so a GAP is legible."""
+    metrics = report.get("metrics", {})
+    if not metrics:
+        return "NO-DATA", "no envelope metrics scored"
+    worst = max(metrics.items(), key=lambda kv: kv[1].get("ratio", 0.0))
+    wk, wm = worst
+    parts = [f"{k} r={m.get('ratio', float('nan')):.2f}" for k, m in metrics.items()]
+    detail = f"envelope worst {wk}: num={wm['numerator']:.4f} env={wm['envelope']:.4f} " \
+             f"ratio={wm['ratio']:.2f}; " + ", ".join(parts)
+    return report.get("verdict", "NO-DATA"), detail
 
 
 def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
     if report is None:
         return "ERROR", "scorer returned no report (see log)"
+    # Diffusion legs (structure/affinity) score with the integration-parity envelope; a resumed
+    # or legacy R/D/X report (no 'mode') still reads through the old extractors (D-diagnostic).
+    if isinstance(report, dict) and report.get("mode") == "integration_envelope":
+        return _envelope_verdict_row(report)
     if leg.kind == "structure":
         return _structure_verdict(report)
     if leg.kind == "affinity":
@@ -738,6 +1090,34 @@ def _committed_verdict(leg: Leg) -> str | None:
     return v
 
 
+def finalize_leg(leg: Leg, verdict: str, detail: str, wall: float) -> tuple[dict, str, bool]:
+    """The ONE verdict/drift/gate-effect code path (shared by the resumed and fresh branches;
+    see VERDICT SEMANTICS in the module docstring). Returns (row, drift_annotation, gate_ok).
+
+    Drift is only checked when the committed record carries a comparable verdict; a committed
+    NO-DATA has nothing to compare against (a real regression is still caught by the live
+    verdict). PASS/PASS-caveated are equivalent; a live GAP reproduces a committed GAP-evidenced
+    (a proven bf16 floor); a live passing verdict vs a committed GAP is an improvement, not drift.
+    """
+    committed = _committed_verdict(leg)
+    drift, ok = "", True
+    comparable = (verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"))
+    if committed and committed != "NO-DATA" and comparable:
+        if _matches_committed(verdict, committed):
+            drift = " [reproduces committed]"
+        elif _is_passing(verdict) and committed == "GAP":
+            drift = " [improves committed GAP — not a drift]"
+        else:
+            drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
+            ok = False
+    # a live ERROR/GAP/NO-DATA fails the gate unless the GAP reproduces a committed GAP-evidenced
+    if verdict in ("ERROR", "GAP", "NO-DATA") and not (verdict == "GAP" and committed == "GAP-evidenced"):
+        ok = False
+    row = {"leg": leg.id, "verdict": verdict, "detail": detail, "wall": wall,
+           "committed": committed, "report": leg.id + ".json"}
+    return row, drift, ok
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                   formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -754,13 +1134,34 @@ def main() -> int:
     ap.add_argument("--workdir", default="/tmp/full_parity_gate",
                    help="workdir for device output + reports.")
     ap.add_argument("--out", default="", help="write the JSON report here too.")
+    ap.add_argument("--check", action="store_true",
+                   help="run the card-free preflight self-check (leg yaml/fixture/committed-JSON/"
+                        "target-id wiring) and exit. No device work. Use before trusting the gate.")
     ap.add_argument("--dry-run", action="store_true",
-                   help="inventory + fingerprint check only; run no device folds.")
-    ap.add_argument("--resume", action="store_true",
-                   help="reuse completed device folds and prior per-leg reports already in "
-                        "the workdir instead of re-running them. Lets a long gate be run "
-                        "across multiple invocations; only legs/seeds without existing "
-                        "valid output are (re)run. Off by default so a fresh run folds anew.")
+                   help="preflight + inventory + fingerprint check only; run no device folds.")
+    ap.add_argument("--fresh", action="store_true",
+                   help="force a clean re-fold: ignore completed folds/reports already in the "
+                        "workdir. By DEFAULT the gate resumes (reuses completed folds + per-leg "
+                        "reports) so a bounded turn always makes forward progress; use a fresh "
+                        "--workdir per release commit, or pass --fresh, for a from-scratch run.")
+    ap.add_argument("--fold-timeout", type=float, default=2400.0,
+                   help="hard wall-clock timeout (s) per device fold / in-process harness. A fold "
+                        "that never produces results.json within this window (e.g. a flaky MSA "
+                        "server) is killed with a clear error instead of hanging the gate. Default 2400.")
+    ap.add_argument("--margin", type=float, default=None,
+                   help="integration-parity envelope margin (device may drift up to "
+                        "envelope*(1+margin) from the fp32 reference). Default: integration_envelope"
+                        f".DEFAULT_MARGIN. Justified in ~/.coworker/state/tt-bio-integration-parity-gate.md §4.")
+    ap.add_argument("--legacy-rdx", action="store_true",
+                   help="score diffusion legs with the OLD R/D/X same-backend self-consistency "
+                        "floor instead of the integration-parity envelope. Retired as the pass "
+                        "criterion (it conflates bf16 arithmetic with diffusion-noise chaos); kept "
+                        "only as an opt-in device self-consistency (D) DIAGNOSTIC.")
+    ap.add_argument("--regen-refs", action="store_true",
+                   help="(re)generate the fp32 + bf16 CPU shared-draw references for the selected "
+                        "envelope legs (2 CPU folds/leg at seed 0, run SERIALLY per host-contention) "
+                        "into <fixture>/ref_{fp32,bf16}/, then exit. The expensive cached step; only "
+                        "rerun when model code/weights/settings change.")
     ap.add_argument("--init-fingerprints", action="store_true",
                    help="write/refresh docs/implementation-parity-data/ref-fixture-fingerprints.json "
                    "from the current fixtures and exit (run once after harvesting a fixture; "
@@ -813,6 +1214,46 @@ def main() -> int:
     if args.seeds:
         seeds_override = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
 
+    resume = not args.fresh
+
+    if args.margin is None:
+        sys.path.insert(0, str(REPO / "scripts"))
+        from integration_envelope import DEFAULT_MARGIN
+        args.margin = DEFAULT_MARGIN
+
+    # (Re)generate CPU shared-draw references, then exit — the expensive cached step.
+    if args.regen_refs:
+        env_legs = [l for l in legs if _is_envelope_leg(l) and l.fixture]
+        if not env_legs:
+            print("--regen-refs: no envelope (structure/affinity) legs selected.")
+            return 1
+        print(f"--regen-refs: generating fp32+bf16 CPU references for {len(env_legs)} leg(s) "
+              f"(serial; ~2 CPU folds/leg). margin default {args.margin}.")
+        return regen_envelope_refs(env_legs, workdir, log_dir, args.fold_timeout, resume)
+
+    # Card-free preflight self-check — abort in seconds on a misconfigured leg instead of a
+    # wasted device turn (postmortem #2/#3). Always runs; --check runs it and exits.
+    problems = preflight_check(legs)
+    if problems:
+        print("PREFLIGHT — leg wiring problems detected:")
+        for p in problems:
+            print(f"  - {p}")
+        if not args.check:
+            print("Refusing to run the gate with misconfigured legs; fix the above (or scope with --leg).")
+        return 1
+    if args.check:
+        blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs]
+        blocked = [(i, b) for i, b in blocked if b]
+        if blocked:
+            print("PREFLIGHT — fixtures present but INCOMPLETE (reference CIFs missing; each such "
+                  "leg reports BLOCKED-REF-REGEN-NEEDED and does NOT fail the gate):")
+            for i, b in blocked:
+                print(f"  - {i}: {', '.join(b)} missing structures/*.cif")
+        print(f"PREFLIGHT OK — {len(legs)} legs well-formed "
+              f"(yaml / fixture+fingerprint / committed-JSON / target-id / MSA wiring)"
+              f"{f'; {len(blocked)} fixture(s) incomplete → BLOCKED-REGEN' if blocked else ''}.")
+        return 0
+
     print(f"\n{'#'*78}\n# FULL PARITY GATE — {len(legs)} legs, "
           f"workers {[f'{w.host}:{w.card}' for w in workers]}\n{'#'*78}")
     print(f"{'leg':<34}{'kind':<11}{'ref':<14}{'verdict':<18}{'wall':>8}  detail")
@@ -823,7 +1264,6 @@ def main() -> int:
     t_start = time.monotonic()
     for leg in legs:
         seeds = seeds_override if seeds_override is not None else list(leg.seeds)
-        t0 = time.monotonic()
         # fingerprint check for fixture legs
         ref_status = "in-process"
         if leg.fixture:
@@ -848,106 +1288,99 @@ def main() -> int:
                       f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fingerprint drift")
                 continue
 
+            # Reference must be COMPLETE to score. For an envelope leg that means BOTH CPU
+            # shared-draw references (ref_fp32 + ref_bf16) are present; for a legacy R/D/X
+            # structure leg it means the seed-dir CIFs were force-added past the .gitignore
+            # `ref-fixtures/**/*.cif` rule. Either way an absent reference is the same class as a
+            # fingerprint drift: BLOCKED-REF-REGEN-NEEDED (regenerate the reference with
+            # --regen-refs), NOT a hard gate failure and NOT a silent per-leg ERROR mid-run.
+            if _is_envelope_leg(leg) and not args.legacy_rdx:
+                fp32_dir, bf16_dir = envelope_ref_dirs(leg)
+                missing = [d for d, p in (("ref_fp32", fp32_dir), ("ref_bf16", bf16_dir)) if p is None]
+                if missing:
+                    rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
+                                 "detail": f"envelope reference incomplete: {', '.join(missing)} "
+                                           f"missing under {leg.fixture} — run --regen-refs", "wall": 0})
+                    print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
+                          f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  envelope ref missing ({', '.join(missing)})")
+                    continue
+            else:
+                incomplete = _incomplete_fixture_seeds(leg, seeds)
+                if incomplete:
+                    rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
+                                 "detail": f"fixture incomplete: {', '.join(incomplete)} missing "
+                                           f"structures/{leg.target_id}.cif (CIFs gitignored — force-add or regen)",
+                                 "wall": 0})
+                    print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
+                          f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fixture incomplete (missing structures/ cif)")
+                    continue
+
         if args.dry_run:
             rows.append({"leg": leg.id, "verdict": "DRY-RUN", "detail": ref_status, "wall": 0})
             print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}{'(dry-run)':<18}{0:>7.0f}s  -")
             continue
 
-        # run + score
-        report = None
-        # --resume: if a prior per-leg report exists in the workdir, reuse it instead of
-        # re-running. Re-evaluate the verdict + drift with the current (fixed) extractors.
+        # ---- obtain (report, verdict, detail, wall): resume-cache first, else run fresh ----
         cached_report_path = workdir / f"{leg.id}.json"
-        if args.resume and cached_report_path.exists():
+        report = verdict = detail = None
+        wall = 0.0
+        if resume and cached_report_path.exists():
             try:
                 cached = json.loads(cached_report_path.read_text())
-                cached_verdict, _ = extract_verdict(leg, cached)
-                if cached_verdict not in ("ERROR", "NO-DATA", None):
-                    report = cached
-                    verdict, detail = cached_verdict, f"(resumed from {leg.id}.json)"
-                    wall = 0.0
-                    committed = _committed_verdict(leg)
-                    drift = ""
-                    # Only drift-check when the committed record carries a comparable
-                    # verdict. A committed=NO-DATA record (e.g. a legacy narrative-shape
-                    # or a targets block missing the kabsch_rmsd metric) has nothing to
-                    # compare against; a real regression is still caught below by the
-                    # live verdict itself (ERROR/GAP/NO-DATA -> all_pass=False).
-                    if committed and committed not in ("NO-DATA",) \
-                            and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
-                        # See _matches_committed: PASS/PASS-caveated are both passing -> reproduces
-                        # (a pocket-lDDT seed-flip between them is not a regression); a live GAP
-                        # reproduces a committed GAP-evidenced (proven bf16 floor); live passing
-                        # vs a committed GAP is an improvement. A real regression (live GAP vs
-                        # committed passing) still fails via the live-verdict gate below.
-                        if _matches_committed(verdict, committed):
-                            drift = " [reproduces committed]"
-                        elif _is_passing(verdict) and committed == "GAP":
-                            drift = " [improves committed GAP — not a drift]"
-                        else:
-                            drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
-                            all_pass = False
-                    rows.append({"leg": leg.id, "verdict": verdict, "detail": detail,
-                                 "wall": wall, "committed": committed,
-                                 "report": leg.id + ".json"})
-                    print(f"{leg.id:<34}{leg.kind:<11}{'cached':<14}{verdict:<18}{wall:>7.0f}s  "
-                          f"{detail[:60]}{drift}")
-                    continue
+                cverdict, _ = extract_verdict(leg, cached)
+                if cverdict not in ("ERROR", "NO-DATA", None):
+                    report, verdict, detail = cached, cverdict, f"(resumed from {leg.id}.json)"
+                    ref_status = "resumed"
             except Exception:
                 pass  # fall through to a fresh run
-        if leg.kind in ("structure", "affinity"):
-            folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir, resume=args.resume)
-            dev_dirs = []
-            fold_errs = []
-            for s in seeds:
-                v = folds.get(s)
-                if isinstance(v, dict) and "error" in v:
-                    fold_errs.append(f"seed{s}: {v['error']}")
-                elif isinstance(v, Path):
-                    dev_dirs.append(str(v))
+        if verdict is None:
+            t_run = time.monotonic()
+            if _is_envelope_leg(leg) and not args.legacy_rdx:
+                # Envelope leg: ONE device fold at ENVELOPE_SEED (must match the seed the CPU
+                # references were generated at — shared draws), scored device_bf16 vs the two CPU
+                # references. The refs' presence was already verified above.
+                fp32_dir, bf16_dir = envelope_ref_dirs(leg)
+                folds = run_folds_fanout(leg, [ENVELOPE_SEED], workdir, workers, log_dir,
+                                         resume=resume, fold_timeout=args.fold_timeout,
+                                         extra_env=_shared_draw_env())
+                dev = folds.get(ENVELOPE_SEED)
+                if not isinstance(dev, Path):
+                    err = dev.get("error") if isinstance(dev, dict) else "no output dir"
+                    verdict, detail = "ERROR", f"device fold: {err}"
                 else:
-                    fold_errs.append(f"seed{s}: no output dir")
-            if fold_errs or not dev_dirs:
-                verdict, detail = "ERROR", "; ".join(fold_errs) or "no device folds completed"
+                    report = score_envelope(leg, str(dev), fp32_dir, bf16_dir,
+                                            cached_report_path, args.margin)
+                    verdict, detail = extract_verdict(leg, report)
+            elif leg.kind in ("structure", "affinity"):
+                folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir,
+                                         resume=resume, fold_timeout=args.fold_timeout)
+                dev_dirs, fold_errs = [], []
+                for s in seeds:
+                    v = folds.get(s)
+                    if isinstance(v, dict) and "error" in v:
+                        fold_errs.append(f"seed{s}: {v['error']}")
+                    elif isinstance(v, Path):
+                        dev_dirs.append(str(v))
+                    else:
+                        fold_errs.append(f"seed{s}: no output dir")
+                if fold_errs or not dev_dirs:
+                    verdict, detail = "ERROR", "; ".join(fold_errs) or "no device folds completed"
+                else:
+                    log_path = log_dir / f"{leg.id}_score.log"
+                    report = (score_structure if leg.kind == "structure" else score_affinity)(
+                        leg, dev_dirs, cached_report_path, log_path)
+                    verdict, detail = extract_verdict(leg, report)
             else:
-                out_json = workdir / f"{leg.id}.json"
-                log_path = log_dir / f"{leg.id}_score.log"
-                report = (score_structure if leg.kind == "structure" else score_affinity)(
-                    leg, dev_dirs, out_json, log_path)
+                log_path = log_dir / f"{leg.id}.log"
+                report = run_inprocess(leg, cached_report_path, log_path, dict(os.environ),
+                                       fold_timeout=args.fold_timeout)
                 verdict, detail = extract_verdict(leg, report)
-        else:
-            out_json = workdir / f"{leg.id}.json"
-            log_path = log_dir / f"{leg.id}.log"
-            env = dict(os.environ)
-            report = run_inprocess(leg, out_json, log_path, env)
-            verdict, detail = extract_verdict(leg, report)
+            wall = time.monotonic() - t_run
 
-        wall = time.monotonic() - t0
-        # drift check vs committed
-        committed = _committed_verdict(leg)
-        drift = ""
-        # See resume-branch note: skip the drift check when the committed record is
-        # NO-DATA (no comparable verdict); a real regression is still caught by the
-        # live verdict below.
-        if committed and committed not in ("NO-DATA",) \
-                and verdict not in ("ERROR", "NO-DATA", "BLOCKED-REF-REGEN-NEEDED"):
-            # See _matches_committed: PASS/PASS-caveated equivalent; a live GAP reproduces a
-            # committed GAP-evidenced (proven bf16 floor); live passing vs committed GAP improves.
-            if _matches_committed(verdict, committed):
-                drift = " [reproduces committed]"
-            elif _is_passing(verdict) and committed == "GAP":
-                drift = " [improves committed GAP — not a drift]"
-            else:
-                drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
-                all_pass = False
-        # A live ERROR/GAP/NO-DATA fails the gate UNLESS the GAP reproduces a committed
-        # GAP-evidenced (a proven bf16-backend floor documented in docs/implementation-parity.md
-        # — the live GAP is the expected bf16 behavior, not a port regression).
-        if verdict in ("ERROR", "GAP", "NO-DATA") \
-                and not (verdict == "GAP" and committed == "GAP-evidenced"):
-            all_pass = False
-        rows.append({"leg": leg.id, "verdict": verdict, "detail": detail,
-                     "wall": wall, "committed": committed, "report": leg.id + ".json"})
+        # ---- single verdict/drift/gate-effect path ----
+        row, drift, ok = finalize_leg(leg, verdict, detail, wall)
+        all_pass &= ok
+        rows.append(row)
         print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}{verdict:<18}{wall:>7.0f}s  "
               f"{detail[:60]}{drift}")
 
