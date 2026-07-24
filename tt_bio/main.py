@@ -141,6 +141,13 @@ from tt_bio.worker import run_worker_loop
 BOLTZ2_REPO = "moritztng/boltz-2"            # Boltz-2 weights + molecules (MIT)
 PROTENIX_REPO = "TMF001/protenix-v2-weights"  # Protenix-v2 weights (Apache-2.0)
 
+# RFdiffusion3 (RFD3, BSD-3-Clause, Institute for Protein Design / UW) ships no
+# HF repo; its checkpoint lives on IPD's own file server. This is the same URL
+# RosettaCommons' `foundry install rfd3` installer downloads (read from the
+# `rc-foundry` package's checkpoint_registry.py) — tt-bio fetches it directly
+# over plain HTTPS so users never need `rc-foundry`/`foundry` installed.
+RFD3_CKPT_URL = "https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt"
+
 # Single source of truth for the predict output-folder prefix. Each supported
 # --model maps to a model-named results folder; a model not listed falls back to
 # the neutral, model-independent "results" prefix (never a hardcoded "boltz_"
@@ -175,6 +182,24 @@ def hf_artifact(repo_id: str, filename: str, dest_dir: Path) -> Path:
         click.echo(f"Downloading {filename}")
         hf_hub_download(repo_id=repo_id, filename=filename, local_dir=str(dest_dir))
     return dest
+
+
+def ensure_rfd3_weights(cache: Path) -> Path:
+    """Fetch the RFD3 checkpoint from files.ipd.uw.edu on first use and extract
+    the TokenInitializer/DiffusionModule weights `tt-bio design` loads. Cached
+    under cache/rfd3 thereafter."""
+    from tt_bio.rfd3_design import extract_rfd3_weights
+    weights_dir = cache / "rfd3" / "weights"
+    if (weights_dir / "diffusion_module.real_weights.pt").exists():
+        return weights_dir
+    ckpt_path = cache / "rfd3" / "rfd3_foundry_2025_12_01_remapped.ckpt"
+    if not ckpt_path.exists():
+        ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+        click.echo("Downloading RFD3 checkpoint (~2.5 GiB, files.ipd.uw.edu)")
+        _download_file(RFD3_CKPT_URL, ckpt_path)
+    click.echo("Extracting RFD3 weights")
+    extract_rfd3_weights(ckpt_path, weights_dir)
+    return weights_dir
 
 
 def download_mols(cache: Path) -> Path:
@@ -2682,10 +2707,13 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
 @click.option("--out_dir", default="./designs", show_default=True,
               help="Output directory (one <spec_id>.cif per design).")
 @click.option("--golden_dir", default=None,
-              help="Path to the captured RFD3 device ckpt weights (always required). "
-                   "Without --from_pdb, also supplies a captured reference `f` used as the "
-                   "feature source (the pre-featurizer bridge). "
-                   "Default: the worktree's .scratch/rfd3-ref/goldens/capture.")
+              help="Path to the RFD3 device ckpt weights. Default: auto-download the "
+                   "checkpoint from files.ipd.uw.edu and extract it into --cache (first "
+                   "run only, ~2.5 GiB). Pass an explicit path to use an internal captured "
+                   "golden `f` bridge fixture instead (also supplies the feature source when "
+                   "--from_pdb is not set; dev/test only).")
+@click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())),
+              show_default=False, help="Weight cache directory (default: $BOLTZ_CACHE or ~/.boltz).")
 @click.option("--num_timesteps", default=4, show_default=True,
               help="Diffusion denoising timesteps (low for a fast smoke; upstream default 200).")
 @click.option("--seed", default=42, show_default=True)
@@ -2703,7 +2731,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                    "(F2/F8, a fixed DNA/RNA target chain) inputs. Still needs --golden_dir for the "
                    "device weights. Ligand/enzyme (F3/F4) inputs and symmetry (F5) raise "
                    "NotImplementedError.")
-def design_cmd(inputs, out_dir, golden_dir, from_pdb, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
+def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
     """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
 
     INPUTS is a JSON or YAML file of InputSpecifications (each top-level key is
@@ -2728,10 +2756,9 @@ def design_cmd(inputs, out_dir, golden_dir, from_pdb, num_timesteps, seed, parti
     bit-exact; the lone gap, `ref_pos`'s real reference-conformer geometry,
     is a documented, irrelevant-to-the-trajectory simplification — see
     scripts/rfd3_port/parity_artifacts/). `--from_pdb` runs the real
-    end-to-end path (featurize → on-device TokenInitializer → sampler → CIF);
-    `--golden_dir` is still required for the device ckpt weights either way.
-    Ligand/enzyme (F3/F4) inputs and symmetry (F5) are not yet supported by
-    the featurizer (NotImplementedError).
+    end-to-end path (featurize → on-device TokenInitializer → sampler → CIF)
+    and is what real inputs should use. Ligand/enzyme (F3/F4) inputs and
+    symmetry (F5) are not yet supported by the featurizer (NotImplementedError).
     """
     import json as _json
     import yaml as _yaml
@@ -2755,11 +2782,12 @@ def design_cmd(inputs, out_dir, golden_dir, from_pdb, num_timesteps, seed, parti
         if not specs:
             raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
 
-    gdir = golden_dir or str(Path(".scratch/rfd3-ref/goldens/capture").resolve())
-    if not Path(gdir).exists():
-        raise click.ClickException(
-            f"golden_dir not found: {gdir}. Pass --golden_dir <path> to a captured RFD3 `f` "
-            f"golden (it holds the device ckpt weights; --from_pdb still needs it).")
+    if golden_dir is None:
+        gdir = str(ensure_rfd3_weights(Path(cache).expanduser()))
+    else:
+        gdir = golden_dir
+        if not Path(gdir).exists():
+            raise click.ClickException(f"golden_dir not found: {gdir}")
 
     click.echo(f"Designing {len(specs)} spec(s) → {out_dir} "
                f"(golden={gdir}, from_pdb={from_pdb}, {num_timesteps} steps)")

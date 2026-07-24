@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) binder design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) and [RFdiffusion3](#rfdiffusion3) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 ## Accuracy
 
@@ -642,6 +642,21 @@ tt-bio gen run examples/binder.yaml --output existing/ --steps analysis filterin
 | `--debug` | `False` | Disable live display; show raw stage output |
 | `--debug --log` | `False` | Add per-stage progress markers |
 
+## RFdiffusion3
+
+[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967) (RFD3) is an all-atom
+generative model that designs new protein structures and sequences from a specification, rather
+than folding an existing one. `tt-bio` runs protein-binder design, motif scaffolding, and
+nucleic-acid-binder design end to end from a real input structure.
+
+```bash
+tt-bio design specs.json --from_pdb --out_dir ./designs
+```
+
+The checkpoint downloads automatically on first use (no `rc-foundry` install needed). See
+[`docs/rfd3-design.md`](docs/rfd3-design.md) for the design modes, the contig-string input
+grammar, and current limitations.
+
 ## Cite
 
 If you use this code or the models in your research, please cite the following papers:
@@ -685,6 +700,14 @@ If you use this code or the models in your research, please cite the following p
   year = {2025},
   url = {https://github.com/bytedance/Protenix}
 }
+
+@article{butcher2025rfdiffusion3,
+  author = {Butcher, Jasper and Krishna, Rohith and Mitra, Raktim and Brent, Rafael Isaac and Li, Yanjing and Corley, Nathaniel and Kim, Paul T and Funk, Jonathan and Mathis, Simon Valentin and Salike, Saman and Muraishi, Aiko and Eisenach, Helen and Thompson, Tuscan Rock and Chen, Jie and Politanska, Yuliya and Sehgal, Enisha and Coventry, Brian and Zhang, Odin and Qiang, Bo and Didi, Kieran and Kazman, Maxwell and DiMaio, Frank and Baker, David},
+  title = {De novo Design of All-atom Biomolecular Interactions with RFdiffusion3},
+  year = {2025},
+  doi = {10.1101/2025.09.18.676967},
+  journal = {bioRxiv}
+}
 ```
 
 In addition if you use the automatic MSA generation, please cite:
@@ -700,4 +723,4 @@ In addition if you use the automatic MSA generation, please cite:
 
 ## License
 
-tt-bio is released under the MIT License (see [`LICENSE`](LICENSE)) and is built on the MIT-licensed Boltz-2 / Boltz-1 code. It bundles third-party code, each under its upstream license: the ESMFold2 host-side reference under `tt_bio/_vendor/` (the `esm` pipeline, MIT, © Chan Zuckerberg Biohub; and the HuggingFace ESMFold2 model definition, Apache-2.0) and the BoltzGen binder-design source under `tt_bio/boltzgen/` (MIT, © Hannes Stärk). Protenix-v2 is an independent ttnn reimplementation (no upstream code is vendored) and its weights download from ByteDance's Hugging Face mirror under Apache-2.0. See [`NOTICE`](NOTICE) for sources, versions, and modifications.
+tt-bio is released under the MIT License (see [`LICENSE`](LICENSE)) and is built on the MIT-licensed Boltz-2 / Boltz-1 code. It bundles third-party code, each under its upstream license: the ESMFold2 host-side reference under `tt_bio/_vendor/` (the `esm` pipeline, MIT, © Chan Zuckerberg Biohub; and the HuggingFace ESMFold2 model definition, Apache-2.0) and the BoltzGen binder-design source under `tt_bio/boltzgen/` (MIT, © Hannes Stärk). Protenix-v2 and RFdiffusion3 are independent ttnn reimplementations (no upstream code is vendored); Protenix-v2's weights download from ByteDance's Hugging Face mirror under Apache-2.0, and RFdiffusion3's checkpoint downloads directly from the Institute for Protein Design (BSD-3-Clause). See [`NOTICE`](NOTICE) for sources, versions, and modifications.

@@ -43,6 +43,36 @@ class DesignResult:
     n_atoms: int
 
 
+def extract_rfd3_weights(ckpt_path: str | Path, out_dir: str | Path) -> Path:
+    """Split a raw RFD3 training checkpoint into the two weight files tt-bio
+    actually loads (TokenInitializer + DiffusionModule submodules, prefix
+    stripped). Shared by scripts/rfd3_port/extract_weights.py (manual/dev use)
+    and tt_bio.main's auto-downloader (real users)."""
+    import json
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ck = torch.load(str(ckpt_path), map_location="cpu", mmap=True, weights_only=False)
+    model_sd = ck["model"]
+
+    def extract(submodule):
+        for prefix in (f"{submodule}.", f"model.{submodule}."):
+            sub = {k[len(prefix):]: v for k, v in model_sd.items() if k.startswith(prefix)}
+            if sub:
+                return sub, prefix
+        return {}, None
+
+    for sub in ("token_initializer", "diffusion_module"):
+        weights, prefix = extract(sub)
+        out_path = out_dir / f"{sub}.real_weights.pt"
+        torch.save({k: v.detach().cpu() for k, v in weights.items()}, out_path)
+        meta = {"n_keys": len(weights), "prefix": prefix,
+                "keys": sorted(weights.keys()),
+                "shapes": {k: [list(v.shape), str(v.dtype)] for k, v in weights.items()}}
+        (out_dir / f"{sub}.real_weights.meta.json").write_text(json.dumps(meta, indent=2))
+        print(f"[extract] {sub}: {len(weights)} tensors (prefix '{prefix}') -> {out_path}", flush=True)
+    return out_dir
+
+
 def _load_golden_f(cap_dir: str) -> dict:
     """Reconstruct the `f` feature dict from a captured golden (the parity
     fixture). Mirrors scripts/rfd3_port/verify_sampler.reconstruct_f."""
@@ -165,6 +195,11 @@ def run_design(
     # golden-bridge path: one captured f + init shared across specs
     golden_f = None; golden_init = None; golden_L = None; golden_is_motif = None
     if not from_pdb:
+        if not (cap / "token_initializer.out_Q_L_init.pt").exists():
+            raise ValueError(
+                f"{cap} has weights but no captured golden `f` bridge (it is an internal "
+                "dev/test fixture, not publicly distributed). Pass --from_pdb to featurize "
+                "from a real input PDB instead.")
         golden_f = _load_golden_f(str(cap))
         Q_L_init = torch.load(cap / "token_initializer.out_Q_L_init.pt", map_location="cpu", weights_only=True).float()
         C_L = torch.load(cap / "token_initializer.out_C_L.pt", map_location="cpu", weights_only=True).float()
