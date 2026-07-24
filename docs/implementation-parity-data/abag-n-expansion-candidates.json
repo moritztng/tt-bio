@@ -1,0 +1,77 @@
+{
+  "_purpose": "All 40 pre-staged 2026ARK-AB candidates (from candidate_expansion_targets.txt) verified via live RCSB GraphQL metadata (initial_release_date + polymer_entity pdbx_description/auth_asym_ids), to expand Stage 3's N=12 abag pilot beyond its sampling-noise floor. NOT folded yet -- this is a verified, ready-to-use target list for whenever there is spare device time, gated behind finishing the core 12-target x 3-model OpenDDE self-consistency measurement first.",
+  "_method": "For each candidate: (1) release date via RCSB (all confirmed 2026-01 through 2026-04, consistent with the original 12); (2) auth_asym_ids per polymer entity to detect multi-copy ASUs (same failure mode fixed for 9obn in Stage 0, see dockq-multicopy-chain-mapper-false-zero) vs genuine multi-interface/multi-chain-antigen structures; (3) pdbx_description read to exclude cases where the 'antigen' is itself an antibody-derived scaffold (the 9yxd exclusion pattern) or an unrelated fusion/adaptor protein reached only via a crystallization-chaperone antibody with no direct real antigen.",
+  "tier_a_clean_ready": {
+    "description": "Single copy, single real Ab-Ag interface, ready to fold with the existing abag_pilot_stage3 pipeline as-is.",
+    "targets": [
+      {"pdb": "9dsg", "released": "2026-04-08", "ab": "P2 Fab (H/L)", "antigen": "Spike protein S1", "note": "already deeply characterized as an opendde-abag hard target, DockQ~0.011 both reference and device -- see opendde-9dsg-reference-parity-confirmed-not-port-bug; still a valid independent N point, expected fail case"},
+      {"pdb": "9fte", "released": "2026-01-14", "ab": "Nanobody RE02", "antigen": "Adhesion GPCR V1"},
+      {"pdb": "9gei", "released": "2026-02-11", "ab": "scFv CP33-H/L-LA22", "antigen": "Galactose/GalNAc lectin heavy subunit 1"},
+      {"pdb": "9j4c", "released": "2026-01-21", "ab": "aPlexinA1-19-43 Fab", "antigen": "Plexin-A1"},
+      {"pdb": "9k6j", "released": "2026-01-07", "ab": "P5-1C8 Fab", "antigen": "Spike protein S1"},
+      {"pdb": "9loe", "released": "2026-01-28", "ab": "YSJ1C5 Fab", "antigen": "Envelopment polyprotein", "note": "same antigen as 9lof/9log -- 3 different antibodies vs the same viral protein, not fully independent samples statistically"},
+      {"pdb": "9lof", "released": "2026-01-28", "ab": "336 Fab", "antigen": "Envelopment polyprotein"},
+      {"pdb": "9log", "released": "2026-01-28", "ab": "65 Fab", "antigen": "Envelopment polyprotein"},
+      {"pdb": "9kwy", "released": "2026-03-18", "ab": "1C4 Fab", "antigen": "Spike protein S1", "note": "ternary complex, ACE2 also present -- fold as the full 3-chain complex for biological accuracy, score only the Fab-S1 interface"},
+      {"pdb": "21tw", "released": "2026-04-29", "ab": "TNF30 nanobody (derived from Ozoralizumab)", "antigen": "TNF-alpha (homotrimer)"},
+      {"pdb": "9lp1", "released": "2026-01-28", "ab": "F61R2-780 Fab", "antigen": "Spike protein S1", "note": "check 9loz before folding both -- same antibody name and antigen, likely a duplicate deposition of the same real complex"},
+      {"pdb": "9jno", "released": "2026-02-18", "ab": "CH76 Fab", "antigen": "Hemagglutinin"},
+      {"pdb": "9hv9", "released": "2026-01-14", "ab": "Fab (H/L)", "antigen": "Capsid protein VP1"}
+    ]
+  },
+  "tier_b_needs_multicopy_trim": {
+    "description": "Real single interface but 2 crystallographic copies of the complex in the ASU -- needs the same gemmi CA-CA distance trim to the one real contacting triple that Stage 0 applied to 9obn before scoring.",
+    "targets": [
+      {"pdb": "9lh2", "released": "2026-01-14", "ab": "MNb-11 nanobody", "antigen": "Spike protein S1"},
+      {"pdb": "9lme", "released": "2026-01-21", "ab": "T3CL11", "antigen": "CD276 antigen (B7-H3)"},
+      {"pdb": "9l8z", "released": "2026-02-18", "ab": "VAC-CF22/CAV-CF22 Fab", "antigen": "Hemagglutinin"},
+      {"pdb": "9lbw", "released": "2026-01-07", "ab": "mAb40 Fab", "antigen": "Capsid protein"},
+      {"pdb": "9gvn", "released": "2026-01-14", "ab": "Fab (H/L)", "antigen": "Interleukin-5"},
+      {"pdb": "9iar", "released": "2026-03-04", "ab": "Nb11 nanobody", "antigen": "Sodium-independent sulfate anion transporter"},
+      {"pdb": "9lqw", "released": "2026-02-04", "ab": "JN241-9 (nanobody-style)", "antigen": "Apelin receptor", "note": "also possibly Tier D (raised for GPCR structure determination) -- do not assume therapeutic intent"},
+      {"pdb": "9l9y", "released": "2026-01-14", "ab": "mAb 6H8 (H/L)", "antigen": "Capsid protein"}
+    ]
+  },
+  "tier_c_complex_multichain": {
+    "description": "2 distinct real Ab-Ag interfaces in one entry, or a multi-chain/multi-domain real antigen -- usable but needs chain-subsetting work before folding, not a drop-in extension of the existing yaml pattern.",
+    "targets": [
+      {"pdb": "21av", "released": "2026-04-29", "note": "two different antibodies (BD70-4008, BD70-4017) both bound to the same Envelopment-polyprotein antigen chain -- usable as 2 separate N points"},
+      {"pdb": "9ivj", "released": "2026-01-28", "ab": "4G12 Fab", "antigen": "gp42 + envelope glycoprotein H + L (EBV entry complex, 3-chain antigen)"},
+      {"pdb": "9lxp", "released": "2026-03-04", "ab": "Fab30 (H/L)", "antigen": "beta-arrestin-1", "note": "real antigen is beta-arrestin, not the GPCR mega-complex it's embedded in (PTH1R + LA-PTH peptide + Fab30 + arrestin) -- would need to subset just the Fab30-arrestin chains"},
+      {"pdb": "9ly2", "released": "2026-03-04", "ab": "Fab30 (H/L)", "antigen": "beta-arrestin-1", "note": "near-duplicate of 9lxp (same Fab30-arrestin pair, different GPCR partner in the mega-complex) -- check for redundancy before folding both"}
+    ]
+  },
+  "tier_d_chaperone_style": {
+    "description": "Real, distinct, non-antibody protein antigen, but the antibody fragment was very likely raised/selected as a structural-biology crystallization aid (nanobody/scFv fiducial for a GPCR or transporter) rather than a therapeutic candidate. Included with this caveat, not excluded -- the model still has to solve the same 3D docking problem regardless of why the antibody exists.",
+    "targets": [
+      {"pdb": "21du", "released": "2026-02-11", "ab": "nb35 nanobody", "antigen": "Adhesion GPCR G6 signaling complex"},
+      {"pdb": "9j87", "released": "2026-02-25", "ab": "scFv16", "antigen": "5-HT2A receptor signaling complex"},
+      {"pdb": "9lsz", "released": "2026-02-18", "ab": "Fab (H/L)", "antigen": "B(0)AT1 amino-acid transporter"},
+      {"pdb": "9lr1", "released": "2026-02-04", "ab": "JN241-9 + scFv16 (2 fragments)", "antigen": "Apelin receptor signaling complex"},
+      {"pdb": "9lwc", "released": "2026-02-18", "ab": "Nanobody 35", "antigen": "D1 dopamine receptor signaling complex"},
+      {"pdb": "9ldx", "released": "2026-01-28", "ab": "scFv16", "antigen": "consOR6 olfactory receptor signaling complex"},
+      {"pdb": "9le0", "released": "2026-01-28", "ab": "scFv16", "antigen": "bmOR6A2 olfactory receptor signaling complex"}
+    ]
+  },
+  "excluded": {
+    "description": "Real disqualifying issue, not just caution.",
+    "targets": [
+      {"pdb": "9i3p", "reason": "the 'antibody' is a ProMacrobody scaffold and the two candidate antigens are Grb2/THEMIS adaptor proteins -- reads as a chaperone-aided protein-protein-interaction structure, not a clean single antibody-vs-one-antigen case"},
+      {"pdb": "9l9o", "reason": "double indirect: the Fab's actual epitope is a BRIL fusion tag, not the real GPCR target, and the second 'antibody' present is an anti-Fab nanobody targeting the Fab itself, not an antigen"},
+      {"pdb": "9d72", "reason": "MHC-class-I-peptide-restricted 'TCR-mimic' antibody (Fab M1/42 binds a peptide-MHC-beta2m complex, not a normal protein antigen) -- atypical antigen type, excluded from this pass's scope"},
+      {"pdb": "9d73", "reason": "same MHC-peptide-restricted pattern as 9d72 (B1.23.2 mAb vs HLA-B*44:05 + peptide + beta2m)"},
+      {"pdb": "9d74", "reason": "same MHC-peptide-restricted pattern as 9d72/9d73"},
+      {"pdb": "9l1l", "reason": "same MHC-peptide-restricted pattern (mouse mAb 11-72 vs H-2 class II MHC + lysozyme peptide)"}
+    ]
+  },
+  "unclear_not_classified": {
+    "description": "Metadata insufficient to classify confidently this pass -- flagged, not fabricated as checked.",
+    "targets": [
+      {"pdb": "9lsy", "reason": "entities are 'Heavy chain'/'Light chain'/'gamma chain'/'TRA@ protein' -- ambiguous whether this is a normal Ab-Ag pair or an Fc-receptor/TCR-related complex; needs a closer read before use"}
+    ]
+  },
+  "possible_duplicate_check_needed": [
+    {"pair": ["9lp1", "9loz"], "reason": "same antibody name (F61R2-780) and same antigen (Spike protein S1), same 3-entity composition -- likely the same real complex deposited twice (e.g. different crystal form); fold and score only one unless confirmed genuinely distinct"}
+  ],
+  "summary_counts": {"tier_a": 13, "tier_b": 8, "tier_c": 4, "tier_d": 7, "excluded": 6, "unclear": 1, "total_checked": 39, "note_on_total": "40 candidates minus 1 (9loz) folded into the 9lp1 duplicate-check entry rather than double-counted"}
+}
