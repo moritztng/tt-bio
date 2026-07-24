@@ -140,9 +140,13 @@ so only the device fold + scoring re-run per release); a leg without them report
 `BLOCKED-REF-REGEN-NEEDED` rather than a false pass. The retired R/D/X floor is still available as
 an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`. Run end-to-end on all three legs
 above with no manual intervention (trypsin 324 s → PASS; DHFR 344 s → PASS; FKBP12 130 s → GAP on the
-affinity scalar). Rollout of the cached CPU references across the MSA legs and Protenix-v2 HSA is the
-remaining (CPU-bound) work; the gate correctly blocks those legs until their references are
-regenerated. Gate of record — pending Moritz's sign-off before merge.
+affinity scalar). A 2026-07-23/24 full (non-dry) gate run reproduced this end-to-end across all
+21 wired legs: 9 PASS on the fast path, 12 BLOCKED-REF-REGEN-NEEDED (envelope refs not yet
+generated for those legs) — see ~/.coworker/state/tt-bio-integration-parity-gate.md §2 for the
+full tally and §7 for exactly which legs remain (MSA affinity legs, Protenix-v2 MSA structure
+legs, and the two OpenDDE no-MSA legs). Rollout of the cached CPU references across those legs is
+the remaining (CPU-bound) work; the gate correctly blocks a leg until its reference is
+regenerated, never falsely passing it. Gate of record — pending Moritz's sign-off before merge.
 
 ## Reproduce
 
