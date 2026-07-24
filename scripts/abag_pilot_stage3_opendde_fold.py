@@ -68,7 +68,16 @@ def fold_one(target):
          "--out_dir", out_dir, "--diffusion_samples", "5", "--msa_dir", MSA_DIR,
          "--seed", "42", "--override"],
         cwd=ROOT, capture_output=True, text=True,
-        env={**os.environ, "TT_VISIBLE_DEVICES": "0", "PYTHONPATH": ROOT},
+        env={**os.environ, "TT_VISIBLE_DEVICES": "0", "PYTHONPATH": ROOT,
+             # See docs/implementation-parity-data/abag-n-expansion-candidates.json sibling note
+             # and state/flagship-abag-trust-signal-rethink.md: PROTENIX_DIFFUSION_FP32_DEVICE
+             # defaults to "1" (2026-07-21, for a Protenix-v2 HSA accuracy fix) but OpenDDE
+             # shares that diffusion module and its atom-level tensors make fp32 there a >60x
+             # slowdown (measured: 9ck4 1-sample 109.6s at bf16 vs 110+min stuck at fp32, never
+             # completing). bf16 is also the ALREADY-VALIDATED config for OpenDDE -- its
+             # device-vs-reference parity (9dsg, 1ahw) was established before this fp32 default
+             # existed. Not a compromise; the more defensible and far faster choice.
+             "PROTENIX_DIFFUSION_FP32_DEVICE": "0"},
     )
     wall_s = time.time() - t0
     rec = {"target": target, "model": MODEL, "wall_s": round(wall_s, 1)}
