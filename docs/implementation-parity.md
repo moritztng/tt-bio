@@ -21,7 +21,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | Protenix-v2 | ubiquitin, L76, MSA | PASS | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too |
 | Protenix-v2 | HSA, L585, MSA | PASS | on-device fp32 diffusion matches the reference's own fp32 boundary; CA-RMSD 0.685 Å inside the 0.695 Å floor (was GAP-evidenced in bf16, X 1.03 Å) |
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
-| Boltz-2 | 7ROA, L117, no MSA | PASS | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å |
+| Boltz-2 | 7ROA, L117, no MSA | PASS (legacy R/D/X); GAP under the envelope gate | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å. The newer, tighter envelope test (below) GAPs this leg (ratio 1.83, reproducible) — open item, not yet root-caused |
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
 | Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97); residual systematic bf16, see §§§ |
 | Boltz-2 | HSA, L585, no MSA | PASS | CA-RMSD 1.47 Å inside the 1.50 Å floor; first L585 target |
@@ -138,15 +138,34 @@ and scores with `integration_envelope.py` through the one `finalize_leg` verdict
 references are the cached fixture (`--regen-refs` generates them, fingerprinted like the old ones,
 so only the device fold + scoring re-run per release); a leg without them reports
 `BLOCKED-REF-REGEN-NEEDED` rather than a false pass. The retired R/D/X floor is still available as
-an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`. Run end-to-end on all three legs
-above with no manual intervention (trypsin 324 s → PASS; DHFR 344 s → PASS; FKBP12 130 s → GAP on the
-affinity scalar). A 2026-07-23/24 full (non-dry) gate run reproduced this end-to-end across all
-21 wired legs: 9 PASS on the fast path, 12 BLOCKED-REF-REGEN-NEEDED (envelope refs not yet
-generated for those legs) — see ~/.coworker/state/tt-bio-integration-parity-gate.md §2 for the
-full tally and §7 for exactly which legs remain (MSA affinity legs, Protenix-v2 MSA structure
-legs, and the two OpenDDE no-MSA legs). Rollout of the cached CPU references across those legs is
-the remaining (CPU-bound) work; the gate correctly blocks a leg until its reference is
-regenerated, never falsely passing it. Gate of record — pending Moritz's sign-off before merge.
+an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`.
+
+**Full matrix complete as of 2026-07-24.** Every envelope leg's `ref_fp32`/`ref_bf16` CPU
+reference is now regenerated (the last 9: `boltz2-hsa-nomsa`, all 3 `protenix-v2-*-msa`
+structure legs, all 3 `boltz2-affinity-*-msa` legs, and both `opendde-*-nomsa` legs — see
+`~/.coworker/state/tt-bio-integration-parity-gate.md` §8-9 for the regen log and two real bugs
+fixed along the way). A full non-dry `full_parity_gate.py` run against every one of the 21 wired
+legs gives:
+
+    Tally: 20 PASS, 1 GAP    (esmc/saprot/esmfold2/boltzgen/opendde-abag all reproduce committed)
+
+The lone GAP is `boltz2-prot-nomsa` (7ROA, no-MSA structure leg): envelope worst kabsch_rmsd
+ratio 1.83 (exceeds the 1.5× bound), reproduced bit-for-bit on a second `--fresh` re-fold (not
+noise or a flaky measurement). This DRIFTS from the leg's legacy R/D/X-methodology verdict
+(PASS) — plausibly the same effect already documented above for the FKBP12 affinity scalar: the
+new envelope test's tighter, single-seed floor surfaces a bf16 residual that the old wide
+cross-seed noise floor buried, rather than a new regression. Not root-caused or fixed this pass
+(would need the same triangulation work as the FKBP12 case); flagged here as an open item, gate
+metric intentionally not loosened to hide it. A second discrepancy, `boltz2-affinity-fkbp12-msa`,
+DRIFTS the other direction — the envelope test PASSES it (both `affinity_pred_value` ratio 0.062
+and `affinity_probability_binary` ratio 0.60) against the legacy `GAP-evidenced` record — but this is
+not a contradiction: the two use different metrics/methodology and this leg's committed
+`GAP-evidenced` record is a Moritz-reviewed, deeply-triangulated finding (§5 above) that is not
+superseded by one envelope pass; it stays documented as-is pending its own re-review.
+
+Prior state: a 2026-07-23/24 pass first wired the automated gate end-to-end but had only 9 of the
+21 legs' CPU references generated (9 PASS, 12 BLOCKED-REF-REGEN-NEEDED). This pass closed every
+remaining reference gap. Gate of record — pending Moritz's sign-off before merge.
 
 ## Reproduce
 
