@@ -1,0 +1,18 @@
+[
+  {
+    "id": "prot_no_msa",
+    "status": "ok",
+    "complex_plddt": 0.538774,
+    "plddt": 0.538774,
+    "ptm": 0.453853,
+    "iptm": 0.0,
+    "confidence_score": 0.453853,
+    "n_residues": 117,
+    "n_chains": 1,
+    "n_tokens": 117,
+    "msa": false,
+    "n_atoms": 900,
+    "samples": 1,
+    "runtime_s": 28.8
+  }
+]
