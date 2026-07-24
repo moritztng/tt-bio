@@ -1,0 +1,136 @@
+[
+  {
+    "complex": "1vfb",
+    "tag": "wt",
+    "mutation": null,
+    "ddG": 0.0,
+    "yaml": "/tmp/abbind/yaml/1vfb_wt.yaml"
+  },
+  {
+    "complex": "1vfb",
+    "tag": "HG31E",
+    "mutation": "G31E",
+    "chain": "H",
+    "ddG": -0.51,
+    "yaml": "/tmp/abbind/yaml/1vfb_HG31E.yaml"
+  },
+  {
+    "complex": "1vfb",
+    "tag": "CD18A",
+    "mutation": "D18A",
+    "chain": "C",
+    "ddG": 0.3,
+    "yaml": "/tmp/abbind/yaml/1vfb_CD18A.yaml"
+  },
+  {
+    "complex": "1vfb",
+    "tag": "CS24A",
+    "mutation": "S24A",
+    "chain": "C",
+    "ddG": 0.8,
+    "yaml": "/tmp/abbind/yaml/1vfb_CS24A.yaml"
+  },
+  {
+    "complex": "1vfb",
+    "tag": "HD54A",
+    "mutation": "D54A",
+    "chain": "H",
+    "ddG": 1.0,
+    "yaml": "/tmp/abbind/yaml/1vfb_HD54A.yaml"
+  },
+  {
+    "complex": "1vfb",
+    "tag": "LY32A",
+    "mutation": "Y32A",
+    "chain": "L",
+    "ddG": 1.7,
+    "yaml": "/tmp/abbind/yaml/1vfb_LY32A.yaml"
+  },
+  {
+    "complex": "1vfb",
+    "tag": "CQ121A",
+    "mutation": "Q121A",
+    "chain": "C",
+    "ddG": 2.9,
+    "yaml": "/tmp/abbind/yaml/1vfb_CQ121A.yaml"
+  },
+  {
+    "complex": "1vfb",
+    "tag": "LW92A",
+    "mutation": "W92A",
+    "chain": "L",
+    "ddG": 3.3,
+    "yaml": "/tmp/abbind/yaml/1vfb_LW92A.yaml"
+  },
+  {
+    "complex": "1vfb",
+    "tag": "LL46D",
+    "mutation": "L46D",
+    "chain": "L",
+    "ddG": 8.0,
+    "yaml": "/tmp/abbind/yaml/1vfb_LL46D.yaml"
+  },
+  {
+    "complex": "3hfm",
+    "tag": "wt",
+    "mutation": null,
+    "ddG": 0.0,
+    "yaml": "/tmp/abbind/yaml/3hfm_wt.yaml"
+  },
+  {
+    "complex": "3hfm",
+    "tag": "HD32N",
+    "mutation": "D32N",
+    "chain": "H",
+    "ddG": 0.17,
+    "yaml": "/tmp/abbind/yaml/3hfm_HD32N.yaml"
+  },
+  {
+    "complex": "3hfm",
+    "tag": "LQ53A",
+    "mutation": "Q53A",
+    "chain": "L",
+    "ddG": 0.95,
+    "yaml": "/tmp/abbind/yaml/3hfm_LQ53A.yaml"
+  },
+  {
+    "complex": "3hfm",
+    "tag": "LN31D",
+    "mutation": "N31D",
+    "chain": "L",
+    "ddG": 1.34,
+    "yaml": "/tmp/abbind/yaml/3hfm_LN31D.yaml"
+  },
+  {
+    "complex": "3hfm",
+    "tag": "LY50F",
+    "mutation": "Y50F",
+    "chain": "L",
+    "ddG": 2.36,
+    "yaml": "/tmp/abbind/yaml/3hfm_LY50F.yaml"
+  },
+  {
+    "complex": "3hfm",
+    "tag": "HC95A",
+    "mutation": "C95A",
+    "chain": "H",
+    "ddG": 5.52,
+    "yaml": "/tmp/abbind/yaml/3hfm_HC95A.yaml"
+  },
+  {
+    "complex": "3hfm",
+    "tag": "YK97A",
+    "mutation": "K97A",
+    "chain": "Y",
+    "ddG": 6.18,
+    "yaml": "/tmp/abbind/yaml/3hfm_YK97A.yaml"
+  },
+  {
+    "complex": "3hfm",
+    "tag": "HY50A",
+    "mutation": "Y50A",
+    "chain": "H",
+    "ddG": 8.0,
+    "yaml": "/tmp/abbind/yaml/3hfm_HY50A.yaml"
+  }
+]
