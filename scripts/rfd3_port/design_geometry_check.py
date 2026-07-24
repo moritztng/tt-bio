@@ -13,8 +13,10 @@ notes (a real CA-CB distance check on those atoms is meaningless: they sit
 ~0.05-0.1A from CA, not the ~1.53A a real bond would need).
 
 Usage:
-    python3 scripts/rfd3_port/design_geometry_check.py <path/to/design.cif>
+    python3 scripts/rfd3_port/design_geometry_check.py <path/to/design.cif> \
+        [--protein-chains A,B] [--ligand-chains C,D]
 """
+import argparse
 import sys
 
 import numpy as np
@@ -87,7 +89,14 @@ def check(path, protein_chains=("A", "B"), ligand_chains=("C", "D")):
 
 
 if __name__ == "__main__":
-    r = check(sys.argv[1])
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cif")
+    ap.add_argument("--protein-chains", default="A,B")
+    ap.add_argument("--ligand-chains", default="C,D")
+    args = ap.parse_args()
+    r = check(args.cif,
+              protein_chains=tuple(args.protein_chains.split(",")),
+              ligand_chains=tuple(args.ligand_chains.split(",")))
     print(f"backbone bonds checked: {r['n_backbone_bonds_checked']}, "
           f"outliers (>{BOND_TOL}A from ideal): {r['n_bond_outliers']}")
     for b in r["bond_outliers_sample"]:
