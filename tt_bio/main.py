@@ -199,6 +199,7 @@ def ensure_rfd3_weights(cache: Path) -> Path:
         _download_file(RFD3_CKPT_URL, ckpt_path)
     click.echo("Extracting RFD3 weights")
     extract_rfd3_weights(ckpt_path, weights_dir)
+    ckpt_path.unlink()  # only the extracted weights are ever loaded again
     return weights_dir
 
 
@@ -2728,9 +2729,8 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
               help="Build `f` from each spec's `input` PDB + contig via the host featurizer "
                    "(the real from-PDB path) instead of the captured golden bridge. Value-parity "
                    "verified for protein-binder (F1) / motif-scaffold (F6) AND nucleic-acid-binder "
-                   "(F2/F8, a fixed DNA/RNA target chain) inputs. Still needs --golden_dir for the "
-                   "device weights. Ligand/enzyme (F3/F4) inputs and symmetry (F5) raise "
-                   "NotImplementedError.")
+                   "(F2/F8, a fixed DNA/RNA target chain) inputs. This is what real inputs should "
+                   "use. Ligand/enzyme (F3/F4) inputs and symmetry (F5) raise NotImplementedError.")
 def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
     """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
 

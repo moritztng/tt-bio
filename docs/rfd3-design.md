@@ -58,8 +58,10 @@ default is 200 for production-quality designs).
 The RFD3 checkpoint downloads automatically on first use, straight from the
 [Institute for Protein Design's file server](https://files.ipd.uw.edu/pub/rfd3/)
 — the same URL RosettaCommons' own `foundry install rfd3` fetches — so no
-`rc-foundry`/`foundry` install is needed. It's cached under `--cache` (default
-`~/.boltz/rfd3`, ~2.5 GiB after extraction).
+`rc-foundry`/`foundry` install is needed. The ~2.5 GiB checkpoint downloads to a
+scratch path under `--cache` (default `~/.boltz/rfd3`), gets split into the
+~0.65 GiB of weights `tt-bio design` actually loads, and is then deleted —
+~0.65 GiB kept on disk after the first run.
 
 ## License
 
