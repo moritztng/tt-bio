@@ -56,7 +56,7 @@ default is 200 for production-quality designs).
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the
-[Institute for Protein Design's file server](https://files.ipd.uw.edu/pub/rfd3/)
+[Institute for Protein Design's file server](https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt)
 — the same URL RosettaCommons' own `foundry install rfd3` fetches — so no
 `rc-foundry`/`foundry` install is needed. The ~2.5 GiB checkpoint downloads to a
 scratch path under `--cache` (default `~/.boltz/rfd3`), gets split into the
