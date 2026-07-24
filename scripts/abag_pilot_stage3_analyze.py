@@ -70,6 +70,20 @@ def opendde_seed_consistency(rec, target):
             pass
     return round(sum(vals) / len(vals), 4) if vals else None
 
+def auc(table, signal_key):
+    """Threshold-free rank separation: P(random correct target's score > random incorrect
+    target's score), ties=0.5. Cuts through the coverage-based precision numbers' ceiling
+    effect (multiple signals tie at 1.0 when coverage <= n_correct, or at n_correct/k when
+    coverage > n_correct -- neither extreme can distinguish signals with real headroom)."""
+    correct = [r[signal_key] for r in table if r["label_medium_correct"] == 1 and r.get(signal_key) is not None]
+    incorrect = [r[signal_key] for r in table if r["label_medium_correct"] == 0 and r.get(signal_key) is not None]
+    if not correct or not incorrect:
+        return None
+    pairs = len(correct) * len(incorrect)
+    wins = sum(1.0 if c > w else 0.5 if c == w else 0.0 for c in correct for w in incorrect)
+    return round(wins / pairs, 4)
+
+
 def precision_at_coverage(table, signal_key, n, coverage_points):
     ranked = sorted([row for row in table if row.get(signal_key) is not None],
                      key=lambda r: r[signal_key], reverse=True)
@@ -133,13 +147,17 @@ def main():
         "precision_by_signal_and_coverage": {
             s: precision_at_coverage(table, s, n, COVERAGE_POINTS) for s in signals
         },
+        "auc_by_signal": {s: auc(table, s) for s in signals},
     }
     out_path = f"{ROOT}/docs/implementation-parity-data/abag-pilot-stage3-final.json"
     json.dump(result, open(out_path, "w"), indent=2)
     print(f"wrote {out_path}")
     print(f"n_targets={n} n_medium_correct={n_correct} missing={missing}")
+    print("\n=== AUC (threshold-free rank separation, 0.5=random) ===")
+    for s, a in sorted(result["auc_by_signal"].items(), key=lambda kv: -(kv[1] or 0)):
+        print(f"  {s:40s} AUC={a}")
     for s in signals:
-        print(f"\n=== {s} ===")
+        print(f"\n=== {s} (AUC={result['auc_by_signal'][s]}) ===")
         for c in COVERAGE_POINTS:
             v = result["precision_by_signal_and_coverage"][s][c]
             if v is None:
