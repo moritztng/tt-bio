@@ -1,0 +1,69 @@
+{
+  "method": "cyclic shift by 1 over 8 targets from distinct antigen classes (viral/parasite/human-cytokine/structural), following ipSAE's random-shuffle-across-entries decoy convention (Dunbrack et al. bioRxiv 2025.02.10.637595) adapted to keep antigen classes disjoint rather than purely random, to avoid accidental real cross-reactivity.",
+  "pairs": [
+    {
+      "decoy_id": "decoy_9ck4ab_9i5nag",
+      "antibody_source": "9ck4",
+      "antigen_source": "9i5n",
+      "antibody_real_antigen": "L9 epitope scaffold (malaria CSP-family)",
+      "decoy_antigen": "human CD40 ligand",
+      "yaml": "/home/moritz/.coworker/wt/flagship-abag-trust-validation/examples/abag_pilot_decoys/decoy_9ck4ab_9i5nag.yaml"
+    },
+    {
+      "decoy_id": "decoy_9i5nab_9m72ag",
+      "antibody_source": "9i5n",
+      "antigen_source": "9m72",
+      "antibody_real_antigen": "human CD40 ligand",
+      "decoy_antigen": "ASFV p15 (African swine fever virus)",
+      "yaml": "/home/moritz/.coworker/wt/flagship-abag-trust-validation/examples/abag_pilot_decoys/decoy_9i5nab_9m72ag.yaml"
+    },
+    {
+      "decoy_id": "decoy_9m72ab_22psag",
+      "antibody_source": "9m72",
+      "antigen_source": "22ps",
+      "antibody_real_antigen": "ASFV p15 (African swine fever virus)",
+      "decoy_antigen": "human IgE-Fc",
+      "yaml": "/home/moritz/.coworker/wt/flagship-abag-trust-validation/examples/abag_pilot_decoys/decoy_9m72ab_22psag.yaml"
+    },
+    {
+      "decoy_id": "decoy_22psab_9obnag",
+      "antibody_source": "22ps",
+      "antigen_source": "9obn",
+      "antibody_real_antigen": "human IgE-Fc",
+      "decoy_antigen": "Pfs48/45 (malaria transmission-blocking antigen)",
+      "yaml": "/home/moritz/.coworker/wt/flagship-abag-trust-validation/examples/abag_pilot_decoys/decoy_22psab_9obnag.yaml"
+    },
+    {
+      "decoy_id": "decoy_9obnab_9gfrag",
+      "antibody_source": "9obn",
+      "antigen_source": "9gfr",
+      "antibody_real_antigen": "Pfs48/45 (malaria transmission-blocking antigen)",
+      "decoy_antigen": "collagen type II triple-helical peptide (THP59)",
+      "yaml": "/home/moritz/.coworker/wt/flagship-abag-trust-validation/examples/abag_pilot_decoys/decoy_9obnab_9gfrag.yaml"
+    },
+    {
+      "decoy_id": "decoy_9gfrab_9udqag",
+      "antibody_source": "9gfr",
+      "antigen_source": "9udq",
+      "antibody_real_antigen": "collagen type II triple-helical peptide (THP59)",
+      "decoy_antigen": "MPXV A35R (monkeypox virus)",
+      "yaml": "/home/moritz/.coworker/wt/flagship-abag-trust-validation/examples/abag_pilot_decoys/decoy_9gfrab_9udqag.yaml"
+    },
+    {
+      "decoy_id": "decoy_9udqab_9jkrag",
+      "antibody_source": "9udq",
+      "antigen_source": "9jkr",
+      "antibody_real_antigen": "MPXV A35R (monkeypox virus)",
+      "decoy_antigen": "human GM-CSF",
+      "yaml": "/home/moritz/.coworker/wt/flagship-abag-trust-validation/examples/abag_pilot_decoys/decoy_9udqab_9jkrag.yaml"
+    },
+    {
+      "decoy_id": "decoy_9jkrab_9ck4ag",
+      "antibody_source": "9jkr",
+      "antigen_source": "9ck4",
+      "antibody_real_antigen": "human GM-CSF",
+      "decoy_antigen": "L9 epitope scaffold (malaria CSP-family)",
+      "yaml": "/home/moritz/.coworker/wt/flagship-abag-trust-validation/examples/abag_pilot_decoys/decoy_9jkrab_9ck4ag.yaml"
+    }
+  ]
+}

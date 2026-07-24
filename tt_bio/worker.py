@@ -514,6 +514,10 @@ class _WorkerState:
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
+        if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
+            import numpy as np
+            np.savez(struct_dir / f"{stem}_pae.npz",
+                     pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_protenix_one(self, path: Path, cfg: dict[str, Any]):
