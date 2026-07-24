@@ -60,3 +60,6 @@ oom_inputs/
 
 # planning/status/coordination notes belong in the coworker system, not the repo
 /notes/
+
+# RFD3 port local scratch (goldens, foundry clone, ckpt) - not repo content
+.scratch/

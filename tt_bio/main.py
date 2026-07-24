@@ -141,6 +141,13 @@ from tt_bio.worker import run_worker_loop
 BOLTZ2_REPO = "moritztng/boltz-2"            # Boltz-2 weights + molecules (MIT)
 PROTENIX_REPO = "TMF001/protenix-v2-weights"  # Protenix-v2 weights (Apache-2.0)
 
+# RFdiffusion3 (RFD3, BSD-3-Clause, Institute for Protein Design / UW) ships no
+# HF repo; its checkpoint lives on IPD's own file server. This is the same URL
+# RosettaCommons' `foundry install rfd3` installer downloads (read from the
+# `rc-foundry` package's checkpoint_registry.py) — tt-bio fetches it directly
+# over plain HTTPS so users never need `rc-foundry`/`foundry` installed.
+RFD3_CKPT_URL = "https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt"
+
 # Single source of truth for the predict output-folder prefix. Each supported
 # --model maps to a model-named results folder; a model not listed falls back to
 # the neutral, model-independent "results" prefix (never a hardcoded "boltz_"
@@ -175,6 +182,25 @@ def hf_artifact(repo_id: str, filename: str, dest_dir: Path) -> Path:
         click.echo(f"Downloading {filename}")
         hf_hub_download(repo_id=repo_id, filename=filename, local_dir=str(dest_dir))
     return dest
+
+
+def ensure_rfd3_weights(cache: Path) -> Path:
+    """Fetch the RFD3 checkpoint from files.ipd.uw.edu on first use and extract
+    the TokenInitializer/DiffusionModule weights `tt-bio design` loads. Cached
+    under cache/rfd3 thereafter."""
+    from tt_bio.rfd3_design import extract_rfd3_weights
+    weights_dir = cache / "rfd3" / "weights"
+    if (weights_dir / "diffusion_module.real_weights.pt").exists():
+        return weights_dir
+    ckpt_path = cache / "rfd3" / "rfd3_foundry_2025_12_01_remapped.ckpt"
+    if not ckpt_path.exists():
+        ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+        click.echo("Downloading RFD3 checkpoint (~2.5 GiB, files.ipd.uw.edu)")
+        _download_file(RFD3_CKPT_URL, ckpt_path)
+    click.echo("Extracting RFD3 weights")
+    extract_rfd3_weights(ckpt_path, weights_dir)
+    ckpt_path.unlink()  # only the extracted weights are ever loaded again
+    return weights_dir
 
 
 def download_mols(cache: Path) -> Path:
@@ -2677,6 +2703,104 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                f"→ {out} (see manifest.json)")
 
 
+@cli.command("design")
+@click.argument("inputs", type=click.Path(exists=True, dir_okay=False))
+@click.option("--out_dir", default="./designs", show_default=True,
+              help="Output directory (one <spec_id>.cif per design).")
+@click.option("--golden_dir", default=None,
+              help="Path to the RFD3 device ckpt weights. Default: auto-download the "
+                   "checkpoint from files.ipd.uw.edu and extract it into --cache (first "
+                   "run only, ~2.5 GiB). Pass an explicit path to use an internal captured "
+                   "golden `f` bridge fixture instead (also supplies the feature source when "
+                   "--from_pdb is not set; dev/test only).")
+@click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())),
+              show_default=False, help="Weight cache directory (default: $BOLTZ_CACHE or ~/.boltz).")
+@click.option("--num_timesteps", default=4, show_default=True,
+              help="Diffusion denoising timesteps (low for a fast smoke; upstream default 200).")
+@click.option("--seed", default=42, show_default=True)
+@click.option("--partial_t", default=None, type=float,
+              help="Partial-diffusion noise in Angstroms (per-spec partial_t overrides this).")
+@click.option("--fp32_residual", is_flag=True,
+              help="Opt in the RFD3_FP32_RESIDUAL precision lever (fp32 residual stream across "
+                   "the DiT + encoder + DiffusionTokenEncoder; default off = bf16).")
+@click.option("--spec", "spec_subset", default=None,
+              help="Comma-separated subset of spec ids from the inputs file to run.")
+@click.option("--from_pdb", is_flag=True,
+              help="Build `f` from each spec's `input` PDB + contig via the host featurizer "
+                   "(the real from-PDB path) instead of the captured golden bridge. Value-parity "
+                   "verified for protein-binder (F1) / motif-scaffold (F6) AND nucleic-acid-binder "
+                   "(F2/F8, a fixed DNA/RNA target chain) inputs. This is what real inputs should "
+                   "use. Ligand/enzyme (F3/F4) inputs and symmetry (F5) raise NotImplementedError.")
+def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed, partial_t, fp32_residual, spec_subset):
+    """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
+
+    INPUTS is a JSON or YAML file of InputSpecifications (each top-level key is
+    one independent design), e.g.:
+
+    \b
+    {
+      "binder-1": {"input": "target.pdb", "contig": "A1-100,70", "length": "70"},
+      "scaffold-1": {"input": "motif.pdb", "contig": "A10-20,40,A30-40"}
+    }
+
+    Each spec is parsed and validated against the RFD3 InputSelection /
+    contig-string grammar (see `tt-bio design --help` and the RFD3 input docs)
+    before any device work. The on-device TokenInitializer + DiffusionModule +
+    EDM sampler produce one CIF per spec.
+
+    \b
+    NOTE (p15): the host featurizer (tt_bio.rfd3_featurize) is value-parity
+    verified for protein-binder (F1) / motif-scaffolding (F6) (43/43 `f` keys
+    bit-exact) AND nucleic-acid-binder design (F2/F8: a fixed DNA/RNA target
+    chain + a designed protein binder, e.g. a dsDNA duplex) (42/43 keys
+    bit-exact; the lone gap, `ref_pos`'s real reference-conformer geometry,
+    is a documented, irrelevant-to-the-trajectory simplification — see
+    scripts/rfd3_port/parity_artifacts/). `--from_pdb` runs the real
+    end-to-end path (featurize → on-device TokenInitializer → sampler → CIF)
+    and is what real inputs should use. Ligand/enzyme (F3/F4) inputs and
+    symmetry (F5) are not yet supported by the featurizer (NotImplementedError).
+    """
+    import json as _json
+    import yaml as _yaml
+    from tt_bio import rfd3_design
+
+    torch.set_grad_enabled(False)
+    src = Path(inputs).expanduser()
+    text = src.read_text()
+    try:
+        if src.suffix in (".json",):
+            specs = _json.loads(text)
+        else:
+            specs = _yaml.safe_load(text)
+    except Exception as e:
+        raise click.ClickException(f"could not parse {src}: {e}")
+    if not isinstance(specs, dict) or not specs:
+        raise click.ClickException("inputs file must be a non-empty mapping of spec_id -> spec")
+    if spec_subset:
+        keep = {s.strip() for s in spec_subset.split(",")}
+        specs = {k: v for k, v in specs.items() if k in keep}
+        if not specs:
+            raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
+
+    if golden_dir is None:
+        gdir = str(ensure_rfd3_weights(Path(cache).expanduser()))
+    else:
+        gdir = golden_dir
+        if not Path(gdir).exists():
+            raise click.ClickException(f"golden_dir not found: {gdir}")
+
+    click.echo(f"Designing {len(specs)} spec(s) → {out_dir} "
+               f"(golden={gdir}, from_pdb={from_pdb}, {num_timesteps} steps)")
+    try:
+        results = rfd3_design.run_design(
+            specs, out_dir, golden_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
+            seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, verbose=True,
+        )
+    except (ValueError, TypeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done — {len(results)} design(s) → {out_dir}")
+    for r in results:
+        click.echo(f"  {r.spec_id}: {r.out_path} ({r.n_atoms} atoms)")
 
 
 if __name__ == "__main__":
