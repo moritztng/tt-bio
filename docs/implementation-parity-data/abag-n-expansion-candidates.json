@@ -2,21 +2,26 @@
   "_purpose": "All 40 pre-staged 2026ARK-AB candidates (from candidate_expansion_targets.txt) verified via live RCSB GraphQL metadata (initial_release_date + polymer_entity pdbx_description/auth_asym_ids), to expand Stage 3's N=12 abag pilot beyond its sampling-noise floor. NOT folded yet -- this is a verified, ready-to-use target list for whenever there is spare device time, gated behind finishing the core 12-target x 3-model OpenDDE self-consistency measurement first.",
   "_method": "For each candidate: (1) release date via RCSB (all confirmed 2026-01 through 2026-04, consistent with the original 12); (2) auth_asym_ids per polymer entity to detect multi-copy ASUs (same failure mode fixed for 9obn in Stage 0, see dockq-multicopy-chain-mapper-false-zero) vs genuine multi-interface/multi-chain-antigen structures; (3) pdbx_description read to exclude cases where the 'antigen' is itself an antibody-derived scaffold (the 9yxd exclusion pattern) or an unrelated fusion/adaptor protein reached only via a crystallization-chaperone antibody with no direct real antigen.",
   "tier_a_clean_ready": {
-    "description": "Single copy, single real Ab-Ag interface, ready to fold with the existing abag_pilot_stage3 pipeline as-is.",
+    "description": "Single copy, single real Ab-Ag interface. All 11 below now have committed, ready-to-fold yaml + ground-truth CIF (examples/abag_pilot_expansion/<pdb>_abag.yaml, examples/ground_truth_structures/<pdb>.cif), built from the REAL RESOLVED per-chain sequence extracted via gemmi from the actual RCSB CIF -- not the RCSB polymer_entity canonical/construct sequence, which caught a real discrepancy for 21tw (see yaml_prep_correction below) and would have silently fed 2 extra unresolved nanobody domains into the model input.",
     "targets": [
-      {"pdb": "9dsg", "released": "2026-04-08", "ab": "P2 Fab (H/L)", "antigen": "Spike protein S1", "note": "already deeply characterized as an opendde-abag hard target, DockQ~0.011 both reference and device -- see opendde-9dsg-reference-parity-confirmed-not-port-bug; still a valid independent N point, expected fail case"},
-      {"pdb": "9fte", "released": "2026-01-14", "ab": "Nanobody RE02", "antigen": "Adhesion GPCR V1"},
-      {"pdb": "9gei", "released": "2026-02-11", "ab": "scFv CP33-H/L-LA22", "antigen": "Galactose/GalNAc lectin heavy subunit 1"},
-      {"pdb": "9j4c", "released": "2026-01-21", "ab": "aPlexinA1-19-43 Fab", "antigen": "Plexin-A1"},
-      {"pdb": "9k6j", "released": "2026-01-07", "ab": "P5-1C8 Fab", "antigen": "Spike protein S1"},
-      {"pdb": "9loe", "released": "2026-01-28", "ab": "YSJ1C5 Fab", "antigen": "Envelopment polyprotein", "note": "same antigen as 9lof/9log -- 3 different antibodies vs the same viral protein, not fully independent samples statistically"},
-      {"pdb": "9lof", "released": "2026-01-28", "ab": "336 Fab", "antigen": "Envelopment polyprotein"},
-      {"pdb": "9log", "released": "2026-01-28", "ab": "65 Fab", "antigen": "Envelopment polyprotein"},
-      {"pdb": "9kwy", "released": "2026-03-18", "ab": "1C4 Fab", "antigen": "Spike protein S1", "note": "ternary complex, ACE2 also present -- fold as the full 3-chain complex for biological accuracy, score only the Fab-S1 interface"},
-      {"pdb": "21tw", "released": "2026-04-29", "ab": "TNF30 nanobody (derived from Ozoralizumab)", "antigen": "TNF-alpha (homotrimer)"},
-      {"pdb": "9lp1", "released": "2026-01-28", "ab": "F61R2-780 Fab", "antigen": "Spike protein S1", "note": "check 9loz before folding both -- same antibody name and antigen, likely a duplicate deposition of the same real complex"},
-      {"pdb": "9jno", "released": "2026-02-18", "ab": "CH76 Fab", "antigen": "Hemagglutinin"},
-      {"pdb": "9hv9", "released": "2026-01-14", "ab": "Fab (H/L)", "antigen": "Capsid protein VP1"}
+      {"pdb": "9dsg", "released": "2026-04-08", "ab": "P2 Fab (H/L)", "antigen": "Spike protein S1", "note": "already deeply characterized as an opendde-abag hard target, DockQ~0.011 both reference and device -- see opendde-9dsg-reference-parity-confirmed-not-port-bug; still a valid independent N point, expected fail case", "yaml_ready": true},
+      {"pdb": "9fte", "released": "2026-01-14", "ab": "Nanobody RE02", "antigen": "Adhesion GPCR V1", "yaml_ready": true},
+      {"pdb": "9j4c", "released": "2026-01-21", "ab": "aPlexinA1-19-43 Fab", "antigen": "Plexin-A1", "yaml_ready": true},
+      {"pdb": "9k6j", "released": "2026-01-07", "ab": "P5-1C8 Fab", "antigen": "Spike protein S1", "yaml_ready": true},
+      {"pdb": "9loe", "released": "2026-01-28", "ab": "YSJ1C5 Fab", "antigen": "Envelopment polyprotein", "note": "same antigen as 9lof/9log -- 3 different antibodies vs the same viral protein, not fully independent samples statistically", "yaml_ready": true},
+      {"pdb": "9lof", "released": "2026-01-28", "ab": "336 Fab", "antigen": "Envelopment polyprotein", "yaml_ready": true},
+      {"pdb": "9log", "released": "2026-01-28", "ab": "65 Fab", "antigen": "Envelopment polyprotein", "yaml_ready": true},
+      {"pdb": "9kwy", "released": "2026-03-18", "ab": "1C4 Fab", "antigen": "Spike protein S1", "note": "ternary complex, ACE2 also present -- folded as the full 4-chain complex (chain id R = ACE2) for biological accuracy, score only the Fab(H/L)-S1(A) interface", "yaml_ready": true},
+      {"pdb": "21tw", "released": "2026-04-29", "ab": "TNF30 nanobody (derived from Ozoralizumab)", "antigen": "TNF-alpha (homotrimer, 3 antigen chains A/A2/A3)", "yaml_ready": true},
+      {"pdb": "9lp1", "released": "2026-01-28", "ab": "F61R2-780 Fab", "antigen": "Spike protein S1", "note": "check 9loz before folding both -- same antibody name and antigen, likely a duplicate deposition of the same real complex", "yaml_ready": true},
+      {"pdb": "9jno", "released": "2026-02-18", "ab": "CH76 Fab", "antigen": "Hemagglutinin", "yaml_ready": true}
+    ],
+    "yaml_prep_correction": "Fetching resolved sequences (gemmi on the real CIF) instead of trusting RCSB's polymer_entity canonical sequence caught 2 real issues before they reached a yaml: (1) 21tw's nanobody entity reads as 363 residues in RCSB's polymer_entity record (the full trivalent Ozoralizumab-derived expression construct: 2x anti-TNF + 1x anti-HSA domain), but only 224 residues (a single VHH domain) are actually resolved in the crystal and belong in the fold input -- using the full 363mer would have fed 2 irrelevant unresolved binding domains into the model. (2) 9gei and 9hv9 were reclassified out of Tier A after the real-CIF check (see below) rather than folded with wrong assumptions."
+  },
+  "tier_peptide_epitope_different_category": {
+    "description": "Real target, real antibody, but the antigen chain resolved in the crystal is a short LINEAR PEPTIDE (not a folded protein domain) -- a qualitatively different prediction problem (epitope/peptide docking, not rigid-domain Ab-Ag docking) from the rest of this benchmark. Not folded as a Tier A target; flagged separately so it isn't silently averaged into the same precision-at-coverage numbers as domain-antigen targets.",
+    "targets": [
+      {"pdb": "9hv9", "released": "2026-01-14", "ab": "Fab (H/L)", "antigen": "Capsid protein VP1", "note": "RCSB's polymer_entity record describes the antigen as the full 'Capsid protein VP1', but gemmi on the real CIF shows only 7 residues (KIVAPVK) are actually resolved for that chain -- a linear peptide epitope, not the folded VP1 domain. Caught by the same resolved-sequence check that fixed 21tw's yaml."}
     ]
   },
   "tier_b_needs_multicopy_trim": {
@@ -29,7 +34,8 @@
       {"pdb": "9gvn", "released": "2026-01-14", "ab": "Fab (H/L)", "antigen": "Interleukin-5"},
       {"pdb": "9iar", "released": "2026-03-04", "ab": "Nb11 nanobody", "antigen": "Sodium-independent sulfate anion transporter"},
       {"pdb": "9lqw", "released": "2026-02-04", "ab": "JN241-9 (nanobody-style)", "antigen": "Apelin receptor", "note": "also possibly Tier D (raised for GPCR structure determination) -- do not assume therapeutic intent"},
-      {"pdb": "9l9y", "released": "2026-01-14", "ab": "mAb 6H8 (H/L)", "antigen": "Capsid protein"}
+      {"pdb": "9l9y", "released": "2026-01-14", "ab": "mAb 6H8 (H/L)", "antigen": "Capsid protein"},
+      {"pdb": "9gei", "released": "2026-02-11", "ab": "scFv CP33-H/L-LA22", "antigen": "Galactose/GalNAc lectin heavy subunit 1", "note": "moved here from an earlier Tier A pass -- RCSB's entity record only listed 1 chain per role, but the real CIF has 2 full copies (A/B and C/D), a multi-copy ASU this pass's first check missed until it fetched auth_asym_ids for the actual structure"}
     ]
   },
   "tier_c_complex_multichain": {
@@ -73,5 +79,5 @@
   "possible_duplicate_check_needed": [
     {"pair": ["9lp1", "9loz"], "reason": "same antibody name (F61R2-780) and same antigen (Spike protein S1), same 3-entity composition -- likely the same real complex deposited twice (e.g. different crystal form); fold and score only one unless confirmed genuinely distinct"}
   ],
-  "summary_counts": {"tier_a": 13, "tier_b": 8, "tier_c": 4, "tier_d": 7, "excluded": 6, "unclear": 1, "total_checked": 39, "note_on_total": "40 candidates minus 1 (9loz) folded into the 9lp1 duplicate-check entry rather than double-counted"}
+  "summary_counts": {"tier_a": 11, "tier_a_yaml_ready": 11, "tier_b": 9, "tier_c": 4, "tier_d": 7, "tier_peptide_epitope": 1, "excluded": 6, "unclear": 1, "total_checked": 39, "note_on_total": "40 candidates minus 1 (9loz) folded into the 9lp1 duplicate-check entry rather than double-counted"}
 }
