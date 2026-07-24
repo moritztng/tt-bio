@@ -96,7 +96,14 @@ def _write_cif(coords, f, out_path: Path, b_factors=None):
     import biotite.structure.io.pdbx as _pdbx
 
     a2t = f["atom_to_token_map"].tolist()
-    # ref_element: [N_atom, 128] one-hot over element (index = atomic number - 1).
+    # ref_element: [N_atom, 128] one-hot over element, index 0 = unknown/padding,
+    # index N (N>=1) = atomic number N directly (see rfd3_featurize.py's
+    # `ref_element[i, _ELEMENT_TO_ATOMIC_NUMBER[elem]] = 1.0` -- NOT "index =
+    # atomic number - 1" as a stale comment here previously claimed; the extra
+    # "+1" below used to shift every element by one row, e.g. real N/C/O/Zn were
+    # written as O/N/F/Ga -- cosmetically silent (coordinates/atom names were
+    # unaffected) but broke any downstream `elem Zn`-style element-based
+    # selection (PyMOL, BoltzGen's mmCIF parser, etc).
     z_idx = f["ref_element"].argmax(-1).tolist() if f["ref_element"].ndim == 2 else f["ref_element"].tolist()
     from tt_bio.data import const
     z2sym = getattr(const, "atomic_num_to_element", None) or {z: s for s, z in const.element_to_atomic_num.items()}
@@ -121,7 +128,7 @@ def _write_cif(coords, f, out_path: Path, b_factors=None):
         arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
         arr.atom_name[i] = names[i]
-        z = int(z_idx[i]) + 1
+        z = int(z_idx[i])
         arr.element[i] = z2sym.get(z, "C")
         arr.res_name[i] = "LIG" if rt[t] == 20 else _resname(rt[t])
     cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(out_path))
