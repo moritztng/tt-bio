@@ -53,6 +53,27 @@ Each design writes one `<id>.cif` to `--out_dir`. `--num_timesteps` controls
 the diffusion sampling steps (default 4, a fast smoke setting; the upstream
 default is 200 for production-quality designs).
 
+### Generating multiple designs per spec
+
+`--num_designs N` produces N independent designs per spec (each with a different
+noise seed, `--seed + i`), writing `<id>_<i>.cif` (when N>1; `<id>.cif` when
+N=1). This is the TT equivalent of rc-foundry's `diffusion_batch_size`: where a
+GPU batches N designs into one forward to reuse weights across the batch dim,
+on TT the per-step device forward is already compute-bound at batch=1, so the
+right path is N independent forwards fanned across cards.
+
+`--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
+physical TT cards, one pinned subprocess per card (data-parallel — the same
+pattern `tt-bio embed`/`predict` use). Each design is bit-identical to a
+standalone single-card run with the same seed. Throughput scales with the
+number of cards; on a single card `--num_designs` just produces N designs
+sequentially (no per-design speedup, but no parity cost either).
+
+```bash
+# 8 designs per spec, fanned across 4 cards:
+tt-bio design specs.json --from_pdb --out_dir ./designs --num_designs 8 --devices 0,1,2,3
+```
+
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the
