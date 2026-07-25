@@ -24,13 +24,18 @@ def dir_bytes(p: Path) -> int:
 
 
 def run_once(model, device, target, yaml_path, n_samples, msa_dir, out_base, timeout_s,
-             write_pae):
+             write_pae, msa_db_path=None):
     tid = yaml_path.stem
     out_dir = out_base / f"{model.replace('-', '_')}_n{n_samples}_{int(time.time())}"
     cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(yaml_path),
            "--model", model, "--out_dir", str(out_dir),
            "--diffusion_samples", str(n_samples), "--msa_dir", str(msa_dir),
            "--seed", "42", "--override"]
+    if msa_db_path:
+        # pass it EXPLICITLY, never rely on the ~/.boltz/msa_db auto-detect: a per-model
+        # MSA path that silently falls back to the online endpoint is the known stall
+        # (memory opendde-abag-paired-msa-offline-gap)
+        cmd += ["--msa_db_path", str(msa_db_path)]
     if write_pae:
         cmd.append("--write_pae")
     env = {**os.environ, "TT_VISIBLE_DEVICES": str(device), "PYTHONPATH": str(ROOT),
@@ -88,6 +93,8 @@ def main():
     ap.add_argument("--jsonl", default=None)
     ap.add_argument("--timeout_s", type=int, default=2400)
     ap.add_argument("--no_pae", action="store_true")
+    ap.add_argument("--msa_db_path", default=str(Path.home() / ".boltz" / "msa_db"),
+                    help="local ColabFold DB (qb1 has a complete 1.3 TB one); '' to force online")
     a = ap.parse_args()
 
     yaml_path = Path(a.yaml) if a.yaml else ROOT / "examples/abag_pilot" / f"{a.target}_abag.yaml"
@@ -101,8 +108,9 @@ def main():
 
     for i, n in enumerate([int(x) for x in a.samples.split(",")]):
         rec = run_once(a.model, a.device, a.target, yaml_path, n, msa_dir, out_base,
-                       a.timeout_s, not a.no_pae)
+                       a.timeout_s, not a.no_pae, a.msa_db_path or None)
         rec["run_index"] = i
+        rec["msa_db_path"] = a.msa_db_path or None
         rec["msa_cold"] = bool(a.fresh_msa and i == 0)
         with open(jsonl, "a") as fh:
             fh.write(json.dumps(rec) + "\n")
