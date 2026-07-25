@@ -34,7 +34,10 @@ GOLDEN_DIR = Path("~/.coworker/artifacts/rfd3-goldens/capture").expanduser()
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch", type=int, choices=(1, 2, 4, 8), required=True)
+    parser.add_argument("--batch", type=int, required=True)
+    parser.add_argument("--pdb", type=Path, default=PDB)
+    parser.add_argument("--contig", default="A1-10,20,A31-40")
+    parser.add_argument("--spec", type=Path, help="JSON InputSpecification; overrides --pdb/--contig")
     parser.add_argument("--trace-decoder", action="store_true")
     parser.add_argument(
         "--sync-profile",
@@ -133,11 +136,19 @@ def main() -> None:
     from tt_bio.rfd3_featurize import featurize
     from tt_bio.rfd3_input import InputSpecification
 
-    spec = InputSpecification.from_dict(
-        {"input": str(PDB), "contig": "A1-10,20,A31-40"}
-    )
+    if args.spec:
+        spec_data = json.loads(args.spec.read_text())
+        input_path = Path(spec_data["input"])
+        if not input_path.is_absolute():
+            input_path = args.spec.parent / input_path
+        spec_data["input"] = str(input_path.resolve())
+        fixture = f"spec={args.spec}"
+    else:
+        spec_data = {"input": str(args.pdb), "contig": args.contig}
+        fixture = f"pdb={args.pdb} contig={args.contig!r}"
+    spec = InputSpecification.from_dict(spec_data)
     spec.validate()
-    features = featurize(str(PDB), spec)
+    features = featurize(spec_data["input"], spec)
     features = {
         key: value.float()
         if torch.is_tensor(value) and value.is_floating_point()
@@ -219,6 +230,9 @@ def main() -> None:
             json.dumps(
                 {
                     "batch": args.batch,
+                    "fixture": fixture,
+                    "tokens": int(features["restype"].shape[0]),
+                    "atoms": int(length),
                     "trace_decoder": args.trace_decoder,
                     "wall_elapsed_ns": round(elapsed * 1e9),
                     "operations": op_profiler.rows,
@@ -232,6 +246,9 @@ def main() -> None:
             json.dumps(
                 {
                     "batch": args.batch,
+                    "fixture": fixture,
+                    "tokens": int(features["restype"].shape[0]),
+                    "atoms": int(length),
                     "trace_decoder": args.trace_decoder,
                     "wall_elapsed_ns": round(elapsed * 1e9),
                     "stages": stage_rows,
