@@ -1,0 +1,167 @@
+[
+  {
+    "complex": "1vfb",
+    "tag": "HG31E",
+    "mutation": "G31E",
+    "chain": "H",
+    "ddG_experimental": -0.51,
+    "ddG_evoef2_predstruct": -10.95,
+    "delta_iptm": 0.00013,
+    "mut_binding_energy": -40.72,
+    "mut_iptm": 0.969821
+  },
+  {
+    "complex": "1vfb",
+    "tag": "CD18A",
+    "mutation": "D18A",
+    "chain": "C",
+    "ddG_experimental": 0.3,
+    "ddG_evoef2_predstruct": 1.31,
+    "delta_iptm": -0.00013,
+    "mut_binding_energy": -28.46,
+    "mut_iptm": 0.970083
+  },
+  {
+    "complex": "1vfb",
+    "tag": "CS24A",
+    "mutation": "S24A",
+    "chain": "C",
+    "ddG_experimental": 0.8,
+    "ddG_evoef2_predstruct": -1.62,
+    "delta_iptm": 0.00038,
+    "mut_binding_energy": -31.39,
+    "mut_iptm": 0.96957
+  },
+  {
+    "complex": "1vfb",
+    "tag": "HD54A",
+    "mutation": "D54A",
+    "chain": "H",
+    "ddG_experimental": 1.0,
+    "ddG_evoef2_predstruct": 0.04,
+    "delta_iptm": 0.00045,
+    "mut_binding_energy": -29.73,
+    "mut_iptm": 0.9695
+  },
+  {
+    "complex": "1vfb",
+    "tag": "LY32A",
+    "mutation": "Y32A",
+    "chain": "L",
+    "ddG_experimental": 1.7,
+    "ddG_evoef2_predstruct": -5.29,
+    "delta_iptm": 0.00428,
+    "mut_binding_energy": -35.06,
+    "mut_iptm": 0.965672
+  },
+  {
+    "complex": "1vfb",
+    "tag": "CQ121A",
+    "mutation": "Q121A",
+    "chain": "C",
+    "ddG_experimental": 2.9,
+    "ddG_evoef2_predstruct": -1.24,
+    "delta_iptm": 0.0014,
+    "mut_binding_energy": -31.01,
+    "mut_iptm": 0.968551
+  },
+  {
+    "complex": "1vfb",
+    "tag": "LW92A",
+    "mutation": "W92A",
+    "chain": "L",
+    "ddG_experimental": 3.3,
+    "ddG_evoef2_predstruct": -2.13,
+    "delta_iptm": 0.00012,
+    "mut_binding_energy": -31.9,
+    "mut_iptm": 0.969835
+  },
+  {
+    "complex": "1vfb",
+    "tag": "LL46D",
+    "mutation": "L46D",
+    "chain": "L",
+    "ddG_experimental": 8.0,
+    "ddG_evoef2_predstruct": -2.01,
+    "delta_iptm": 0.00261,
+    "mut_binding_energy": -31.78,
+    "mut_iptm": 0.967344
+  },
+  {
+    "complex": "3hfm",
+    "tag": "HD32N",
+    "mutation": "D32N",
+    "chain": "H",
+    "ddG_experimental": 0.17,
+    "ddG_evoef2_predstruct": 1.94,
+    "delta_iptm": -0.0002,
+    "mut_binding_energy": -52.51,
+    "mut_iptm": 0.92724
+  },
+  {
+    "complex": "3hfm",
+    "tag": "LQ53A",
+    "mutation": "Q53A",
+    "chain": "L",
+    "ddG_experimental": 0.95,
+    "ddG_evoef2_predstruct": 5.06,
+    "delta_iptm": 0.00045,
+    "mut_binding_energy": -49.39,
+    "mut_iptm": 0.926589
+  },
+  {
+    "complex": "3hfm",
+    "tag": "LN31D",
+    "mutation": "N31D",
+    "chain": "L",
+    "ddG_experimental": 1.34,
+    "ddG_evoef2_predstruct": -4.97,
+    "delta_iptm": -0.00035,
+    "mut_binding_energy": -59.42,
+    "mut_iptm": 0.927387
+  },
+  {
+    "complex": "3hfm",
+    "tag": "LY50F",
+    "mutation": "Y50F",
+    "chain": "L",
+    "ddG_experimental": 2.36,
+    "ddG_evoef2_predstruct": 2.04,
+    "delta_iptm": 0.00018,
+    "mut_binding_energy": -52.41,
+    "mut_iptm": 0.926862
+  },
+  {
+    "complex": "3hfm",
+    "tag": "HC95A",
+    "mutation": "C95A",
+    "chain": "H",
+    "ddG_experimental": 5.52,
+    "ddG_evoef2_predstruct": -3.67,
+    "delta_iptm": -0.00082,
+    "mut_binding_energy": -58.12,
+    "mut_iptm": 0.927858
+  },
+  {
+    "complex": "3hfm",
+    "tag": "YK97A",
+    "mutation": "K97A",
+    "chain": "Y",
+    "ddG_experimental": 6.18,
+    "ddG_evoef2_predstruct": 7.27,
+    "delta_iptm": -0.00015,
+    "mut_binding_energy": -47.18,
+    "mut_iptm": 0.927193
+  },
+  {
+    "complex": "3hfm",
+    "tag": "HY50A",
+    "mutation": "Y50A",
+    "chain": "H",
+    "ddG_experimental": 8.0,
+    "ddG_evoef2_predstruct": 3.39,
+    "delta_iptm": -0.00088,
+    "mut_binding_energy": -51.06,
+    "mut_iptm": 0.927921
+  }
+]
