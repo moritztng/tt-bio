@@ -24,6 +24,11 @@ parity claims but don't cover this real-seed path.
 from __future__ import annotations
 
 import os
+import pickle
+import shutil
+import subprocess
+import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -38,6 +43,7 @@ from .rfd3_sampler import RFD3Sampler
 @dataclass
 class DesignResult:
     spec_id: str
+    design_idx: int  # 0-based index within this spec's --num_designs draws
     out_path: Path
     final_pcc_vs_ref: float | None  # only set when a reference DM run is paired
     n_atoms: int
@@ -165,10 +171,12 @@ def run_design(
     partial_t: float | None = None,
     cfg_scale: float | None = None,
     fp32_residual: bool = False,
+    num_designs: int = 1,
+    devices: Sequence[int] | None = None,
     device_visible: str = "0",
     verbose: bool = True,
 ) -> list[DesignResult]:
-    """Run one on-device diffusion design per InputSpecification.
+    """Run on-device diffusion designs for a set of InputSpecifications.
 
     Parameters
     ----------
@@ -184,6 +192,21 @@ def run_design(
         protein-binder/motif-scaffold case, see scripts/rfd3_port/parity_artifacts/).
         If False, fall back to the captured golden `f` bridge (p9).
     num_timesteps, seed, partial_t, cfg_scale, fp32_residual : sampler knobs.
+    num_designs : number of independent designs to produce per spec (each with a
+        different noise seed = ``seed + design_idx``). The TT-equivalent of
+        rc-foundry's ``diffusion_batch_size``: rc-foundry batches D designs into
+        one GPU forward (efficient there because GPU GEMMs reuse weights across
+        the batch dim); on TT the per-step device forward is compute-bound at
+        D=1, so in-batch batching buys nothing (measured: per-step scales linearly
+        with D, ~113ms at D=1 vs ~1016ms at D=8, no amortization). The elegant
+        TT path is therefore N independent D=1 forwards, fanned across cards
+        via ``devices`` for real throughput. Output files are ``<spec_id>.cif``
+        when ``num_designs == 1`` (back-compat) else ``<spec_id>_<i>.cif``.
+    devices : list of physical TT card ids to fan the (spec x design_idx) jobs
+        across, one pinned subprocess per card (data-parallel, the same pattern
+        ``tt-bio embed``/``predict`` use). With 0/1 device the run is in-process
+        on this card. Each design is bit-identical to a standalone single-card
+        run with the same seed (no cross-job state).
     """
     out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
     if fp32_residual:
@@ -191,7 +214,33 @@ def run_design(
     if golden_dir is None:
         raise ValueError("golden_dir is required (it holds the device ckpt weights)")
 
-    results: list[DesignResult] = []
+    # Build the flat job list: (spec_id, design_idx, seed). Each spec is parsed
+    # and validated up front so a bad input fails fast before any device work.
+    parsed: list[tuple[str, InputSpecification]] = []
+    for spec_id, raw in specs.items():
+        spec = InputSpecification.from_dict(raw)
+        spec.validate()
+        parsed.append((spec_id, spec))
+    jobs = [(sid, i, seed + i) for sid, _ in parsed for i in range(num_designs)]
+
+    if devices and len(devices) > 1:
+        return _run_design_fanout(jobs, specs, out_dir, golden_dir=golden_dir,
+                                 from_pdb=from_pdb, num_timesteps=num_timesteps,
+                                 partial_t=partial_t, cfg_scale=cfg_scale,
+                                 fp32_residual=fp32_residual, devices=devices,
+                                 verbose=verbose)
+    return _run_design_jobs(jobs, specs, out_dir, golden_dir=golden_dir,
+                            from_pdb=from_pdb, num_timesteps=num_timesteps,
+                            partial_t=partial_t, cfg_scale=cfg_scale,
+                            fp32_residual=fp32_residual, verbose=verbose)
+
+
+def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timesteps,
+                     partial_t, cfg_scale, fp32_residual, verbose=True) -> list[DesignResult]:
+    """In-process: load weights once, run every (spec_id, design_idx, seed) job
+    sequentially on this card. Featurize + TokenInitializer run once per spec and
+    are reused across that spec's design_idx draws (they don't depend on the
+    noise seed); only the sampler re-runs per design."""
     cap = Path(golden_dir)
     dm_weights = torch.load(cap / "diffusion_module.real_weights.pt", map_location="cpu", weights_only=True)
     ti_weights = torch.load(cap / "token_initializer.real_weights.pt", map_location="cpu", weights_only=True)
@@ -199,7 +248,7 @@ def run_design(
     dev_dm = build_diffusion_module(dm_weights)
     sampler = RFD3Sampler(num_timesteps=num_timesteps)
 
-    # golden-bridge path: one captured f + init shared across specs
+    # golden-bridge path: one captured f + init shared across specs/designs
     golden_f = None; golden_init = None; golden_L = None; golden_is_motif = None
     if not from_pdb:
         if not (cap / "token_initializer.out_Q_L_init.pt").exists():
@@ -208,54 +257,120 @@ def run_design(
                 "dev/test fixture, not publicly distributed). Pass --from_pdb to featurize "
                 "from a real input PDB instead.")
         golden_f = _load_golden_f(str(cap))
-        Q_L_init = torch.load(cap / "token_initializer.out_Q_L_init.pt", map_location="cpu", weights_only=True).float()
-        C_L = torch.load(cap / "token_initializer.out_C_L.pt", map_location="cpu", weights_only=True).float()
-        P_LL = torch.load(cap / "token_initializer.out_P_LL.pt", map_location="cpu", weights_only=True).float()
-        S_I = torch.load(cap / "token_initializer.out_S_I.pt", map_location="cpu", weights_only=True).float()
-        Z_II = torch.load(cap / "token_initializer.out_Z_II.pt", map_location="cpu", weights_only=True).float()
-        golden_init = dict(Q_L_init=Q_L_init, C_L=C_L, P_LL=P_LL, S_I=S_I, Z_II=Z_II)
-        golden_L = Q_L_init.shape[0]
+        golden_init = dict(
+            Q_L_init=torch.load(cap / "token_initializer.out_Q_L_init.pt", map_location="cpu", weights_only=True).float(),
+            C_L=torch.load(cap / "token_initializer.out_C_L.pt", map_location="cpu", weights_only=True).float(),
+            P_LL=torch.load(cap / "token_initializer.out_P_LL.pt", map_location="cpu", weights_only=True).float(),
+            S_I=torch.load(cap / "token_initializer.out_S_I.pt", map_location="cpu", weights_only=True).float(),
+            Z_II=torch.load(cap / "token_initializer.out_Z_II.pt", map_location="cpu", weights_only=True).float(),
+        )
+        golden_L = golden_init["Q_L_init"].shape[0]
         golden_is_motif = golden_f["is_motif_atom_with_fixed_coord"]
 
-    for spec_id, raw in specs.items():
-        spec = InputSpecification.from_dict(raw)
-        spec.validate()
-        if verbose:
-            print(f"[design:{spec_id}] contig={spec.contig!r} length={spec.length!r} "
-                  f"ligand={spec.ligand!r} partial_t={spec.partial_t} from_pdb={from_pdb}")
+    # Cache per-spec featurize+init (reused across that spec's design_idx draws).
+    spec_feat: dict[str, tuple] = {}
+    results: list[DesignResult] = []
+    for spec_id, design_idx, this_seed in jobs:
+        spec = InputSpecification.from_dict(specs[spec_id])
+        if spec_id not in spec_feat:
+            if verbose:
+                print(f"[design:{spec_id}] contig={spec.contig!r} length={spec.length!r} "
+                      f"ligand={spec.ligand!r} partial_t={spec.partial_t} from_pdb={from_pdb}")
+            if from_pdb:
+                from .rfd3_featurize import featurize
+                if spec.input is None:
+                    raise ValueError(f"spec {spec_id!r} has no `input` PDB (required for --from_pdb)")
+                f = featurize(spec.input, spec)
+                with torch.no_grad():
+                    init = dev_ti({k: (v.clone() if torch.is_tensor(v) else v) for k, v in f.items()})
+                L = init["Q_L_init"].shape[0]
+                is_motif = f["is_motif_atom_with_fixed_coord"]
+            else:
+                f = golden_f; init = golden_init; L = golden_L; is_motif = golden_is_motif
+            coord0 = f["motif_pos"].float().unsqueeze(0) if "motif_pos" in f else torch.zeros(1, L, 3)
+            spec_feat[spec_id] = (f, init, L, is_motif, coord0)
+        f_used, init_used, L, is_motif, coord0 = spec_feat[spec_id]
         sp_t = spec.partial_t if spec.partial_t is not None else partial_t
 
-        if from_pdb:
-            # real from-PDB path: featurize the spec's input PDB + contig, run
-            # the on-device TokenInitializer on the ported f. NOT parity-gated.
-            from .rfd3_featurize import featurize
-            if spec.input is None:
-                raise ValueError(f"spec {spec_id!r} has no `input` PDB (required for --from_pdb)")
-            f = featurize(spec.input, spec)
-            with torch.no_grad():
-                init = dev_ti({k: (v.clone() if torch.is_tensor(v) else v) for k, v in f.items()})
-            L = init["Q_L_init"].shape[0]
-            is_motif = f["is_motif_atom_with_fixed_coord"]
-            f_used = f; init_used = init
-        else:
-            f_used = golden_f; init_used = golden_init
-            L = golden_L; is_motif = golden_is_motif
-
-        # Seed the trajectory's fixed-motif atoms at their real (centered)
-        # ground-truth position — the sampler never adds noise or a delta
-        # update at is_motif_fixed atoms (rfd3_sampler.RFD3Sampler.sample), so
-        # whatever `coord` holds there is exactly what comes out. `motif_pos`
-        # is zero everywhere else, so this is a correct seed for both the
-        # designed (start-from-noise) and motif (start-at-truth) atoms.
-        coord0 = f_used["motif_pos"].float().unsqueeze(0) if "motif_pos" in f_used else torch.zeros(1, L, 3)
         with torch.no_grad():
-            g = torch.Generator().manual_seed(seed)
+            g = torch.Generator().manual_seed(this_seed)
             X, _ = sampler.sample(dev_dm, 1, L, coord0, f_used, init_used, is_motif,
                                   generator=g, partial_t=sp_t, cfg_scale=cfg_scale)
-        out_path = out_dir / f"{spec_id}.cif"
+        out_path = _design_out_path(out_dir, spec_id, design_idx, multi=len(specs) < len(jobs))
         _write_cif(X[0], f_used, out_path)
-        results.append(DesignResult(spec_id=spec_id, out_path=out_path,
+        results.append(DesignResult(spec_id=spec_id, design_idx=design_idx, out_path=out_path,
                                     final_pcc_vs_ref=None, n_atoms=int(X.shape[1])))
         if verbose:
-            print(f"[design:{spec_id}] wrote {out_path} ({X.shape[1]} atoms)")
+            print(f"[design:{spec_id}#{design_idx}] wrote {out_path} ({X.shape[1]} atoms)")
     return results
+
+
+def _design_out_path(out_dir, spec_id, design_idx, *, multi: bool) -> Path:
+    # <spec_id>_<i>.cif when num_designs>1 (multi-design per spec), else back-compat <spec_id>.cif
+    return out_dir / (f"{spec_id}_{design_idx}.cif" if multi else f"{spec_id}.cif")
+
+
+def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timesteps,
+                       partial_t, cfg_scale, fp32_residual, devices, verbose) -> list[DesignResult]:
+    """Data-parallel fan-out: one pinned subprocess per physical card, sharding
+    the (spec_id, design_idx) jobs round-robin. Reuses the embed/predict
+    subprocess-per-card pattern. Each child runs ``_run_design_shard``."""
+    from .main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    devices = list(devices)[:max(1, len(jobs))]
+    workdir = tempfile.mkdtemp(prefix="tt-bio-design-fanout-")
+    try:
+        handles = []
+        for idx, dev in enumerate(devices):
+            shard = jobs[idx::len(devices)]
+            if not shard:
+                continue
+            in_path = os.path.join(workdir, f"shard{idx}.in.pkl")
+            out_path = os.path.join(workdir, f"shard{idx}.out.pkl")
+            log_path = os.path.join(workdir, f"shard{idx}.log")
+            with open(in_path, "wb") as fp:
+                pickle.dump(dict(jobs=shard, specs=dict(specs), out_dir=str(out_dir),
+                                 golden_dir=str(golden_dir), from_pdb=from_pdb,
+                                 num_timesteps=num_timesteps, partial_t=partial_t,
+                                 cfg_scale=cfg_scale, fp32_residual=fp32_residual,
+                                 n_specs=len(specs)), fp)
+            env = {**os.environ, "TT_VISIBLE_DEVICES": str(dev), "TT_BIO_LEASE_HOLDER":
+                   f"worker:design-fanout-{dev}"}
+            if dev in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
+                mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+                if mgd:
+                    env["TT_MESH_GRAPH_DESC_PATH"] = mgd
+            logf = open(log_path, "w")
+            proc = subprocess.Popen(
+                [sys.executable, "-c",
+                 "import sys; from tt_bio.rfd3_design import _run_design_shard; "
+                 "_run_design_shard(sys.argv[1], sys.argv[2])",
+                 in_path, out_path], env=env, stdout=logf, stderr=subprocess.STDOUT)
+            handles.append((proc, out_path, dev, log_path, logf))
+        results = []
+        for proc, out_path, dev, log_path, logf in handles:
+            proc.wait(); logf.close()
+            if proc.returncode != 0:
+                tail = Path(log_path).read_text(errors="replace").splitlines()[-25:]
+                raise RuntimeError(f"design shard on device {dev} failed (exit {proc.returncode}):\n"
+                                   + "\n".join(tail))
+            with open(out_path, "rb") as fp:
+                results.extend(pickle.load(fp))
+        # Reassemble in (spec_id, design_idx) order
+        order = {(sid, di): i for i, (sid, di, _) in enumerate(jobs)}
+        results.sort(key=lambda r: order.get((r.spec_id, r.design_idx), 0))
+        return results
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+
+def _run_design_shard(in_path: str, out_path: str) -> None:
+    """Subprocess entry: load the pickled shard, run its jobs in-process on this
+    card, pickle the DesignResult list back."""
+    with open(in_path, "rb") as fp:
+        cfg = pickle.load(fp)
+    res = _run_design_jobs(cfg["jobs"], cfg["specs"], cfg["out_dir"], golden_dir=cfg["golden_dir"],
+                           from_pdb=cfg["from_pdb"], num_timesteps=cfg["num_timesteps"],
+                           partial_t=cfg["partial_t"], cfg_scale=cfg["cfg_scale"],
+                           fp32_residual=cfg["fp32_residual"], verbose=False)
+    with open(out_path, "wb") as fp:
+        pickle.dump(res, fp)

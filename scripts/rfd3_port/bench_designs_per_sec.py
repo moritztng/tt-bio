@@ -76,6 +76,47 @@ def main():
         print(f"[estimate] num_timesteps={n_full}: sample~{est_sample:.2f}s total~{est_total:.2f}s "
               f"-> {1.0 / est_total:.4f} designs/sec ({est_total:.1f}s/design)")
 
+    # --- batch>1 (num_designs): N independent D=1 forwards, the TT-equivalent of
+    # rc-foundry's diffusion_batch_size. Measures designs/sec when producing N
+    # designs per spec (sequential on one card; fanned across --devices on a fleet).
+    # In-batch tensor batching (D>1 in one forward) is intentionally NOT measured
+    # here as a perf lever: it scales linearly on TT (per-step ~113ms at D=1 vs
+    # ~1016ms at D=8, no amortization -- the device forward is compute-bound at
+    # D=1), so it buys nothing. See scripts/rfd3_port/spike_batch_d.py for that
+    # measurement and scripts/rfd3_port/spike_batch_invariance.py for the
+    # correctness check (B>1 element 0 == B=1, PCC 0.9995, no cross-contamination).
+    print("\n[num_designs] N independent D=1 forwards (the real TT batch lever):")
+    N_designs = 8
+    n_ts = 40
+    sampler = RFD3Sampler(num_timesteps=n_ts)
+    with torch.no_grad():
+        init = dev_ti({k: (v.clone() if torch.is_tensor(v) else v) for k, v in f.items()})
+    coord0 = f["motif_pos"].float().unsqueeze(0)
+    t0 = time.time()
+    with torch.no_grad():
+        for i in range(N_designs):
+            g = torch.Generator().manual_seed(42 + i)
+            sampler.sample(dev_dm, 1, L, coord0, f, init, is_motif, generator=g)
+    t_batch = time.time() - t0
+    # warm-cache this run too (first call after run(40) is already warm)
+    t0 = time.time()
+    with torch.no_grad():
+        for i in range(N_designs):
+            g = torch.Generator().manual_seed(42 + i)
+            sampler.sample(dev_dm, 1, L, coord0, f, init, is_motif, generator=g)
+    t_batch_warm = time.time() - t0
+    per_design_warm = t_batch_warm / N_designs
+    print(f"[num_designs={N_designs}] cold={t_batch:.2f}s warm={t_batch_warm:.2f}s "
+          f"-> {per_design_warm:.3f}s/design, {1.0/per_design_warm:.4f} designs/sec "
+          f"(sequential, 1 card, {n_ts} steps)")
+    # extrapolate to num_timesteps=200 (the rc-foundry default)
+    per_step_warm = per_design_warm / (n_ts - 1)
+    est_200 = (200 - 1) * per_step_warm
+    print(f"[num_designs extrapolate] num_timesteps=200: ~{est_200:.2f}s/design -> "
+          f"{1.0/est_200:.4f} designs/sec (1 card, sequential)")
+    print(f"[reference] H200 batch=8 num_timesteps=200: 0.452 designs/sec "
+          f"(rc-foundry bf16 AMP + diffusion_batch_size=8 defaults)")
+
 
 if __name__ == "__main__":
     main()
