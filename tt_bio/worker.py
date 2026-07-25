@@ -515,8 +515,12 @@ class _WorkerState:
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
-        if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
+        if cfg.get("write_pae"):                       # per-sample PAE (float16) + top-ranked (float32)
             import numpy as np
+            for _k in range(len(confs)):
+                _r = rank_of[_k]
+                np.savez_compressed(struct_dir / f"{stem}_model_{_r}_pae.npz",
+                                    pae=confs[_k]["pae"].numpy().astype(np.float16))
             np.savez(struct_dir / f"{stem}_pae.npz",
                      pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
@@ -624,8 +628,12 @@ class _WorkerState:
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
-        if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
+        if cfg.get("write_pae"):                       # per-sample PAE (float16) + top-ranked (float32)
             import numpy as np
+            for _k in range(len(confs)):
+                _r = rank_of[_k]
+                np.savez_compressed(struct_dir / f"{stem}_model_{_r}_pae.npz",
+                                    pae=confs[_k]["pae"].numpy().astype(np.float16))
             np.savez(struct_dir / f"{stem}_pae.npz",
                      pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}

@@ -804,7 +804,15 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
 
     # Optional large outputs
     if write_pae and "pae" in pred:
-        np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=pred["pae"][best_idx].cpu().numpy())
+        # Per-sample PAE (float16) aligned with the per-sample structures
+        # ({id}_model_{rank}.{fmt}); keeps the top-ranked {id}_pae.npz (float32)
+        # for backwards compatibility with single-sample consumers.
+        _pae_all = pred["pae"]
+        for _mi in range(_pae_all.shape[0]):
+            _r = rank.get(_mi, _mi)
+            np.savez_compressed(out_dir / f"{record.id}_model_{_r}_pae.npz",
+                                pae=_pae_all[_mi].cpu().numpy().astype(np.float16))
+        np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=_pae_all[best_idx].cpu().numpy())
     if write_pde and "pde" in pred:
         np.savez_compressed(out_dir / f"{record.id}_pde.npz", pde=pred["pde"][best_idx].cpu().numpy())
     if write_embeddings and "s" in pred and "z" in pred:
