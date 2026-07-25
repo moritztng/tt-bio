@@ -39,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--contig", default="A1-10,20,A31-40")
     parser.add_argument("--spec", type=Path, help="JSON InputSpecification; overrides --pdb/--contig")
     parser.add_argument("--trace-decoder", action="store_true")
+    parser.add_argument("--compare-sparse-qk", action="store_true")
     parser.add_argument(
         "--sync-profile",
         type=Path,
@@ -181,8 +182,12 @@ def main() -> None:
     times = torch.full((args.batch,), 8.0)
 
     with torch.no_grad():
-        diffusion_module(X_noisy_L=noisy, t=times, f=features, **initial)
+        if args.compare_sparse_qk:
+            os.environ["RFD3_SPARSE_QK"] = "0"
+        baseline = diffusion_module(X_noisy_L=noisy, t=times, f=features, **initial)
         ttnn.synchronize_device(diffusion_module.device)
+        if args.compare_sparse_qk:
+            os.environ["RFD3_SPARSE_QK"] = "1"
         op_profiler = _SynchronizedOperationProfiler(ttnn, diffusion_module.device)
         stage_rows = []
         with ExitStack() as stack:
@@ -262,6 +267,17 @@ def main() -> None:
         f"elapsed_ms={elapsed * 1000:.3f} finite={torch.isfinite(output['X_L']).all().item()}",
         flush=True,
     )
+
+    if args.compare_sparse_qk:
+        for key in ("X_L", "sequence_logits_I"):
+            ref = baseline[key].float().flatten()
+            got = output[key].float().flatten()
+            ref_c, got_c = ref - ref.mean(), got - got.mean()
+            pcc = torch.dot(ref_c, got_c) / (ref_c.norm() * got_c.norm())
+            print(
+                f"SPARSE_QK_PARITY {key} pcc={pcc.item():.9f} "
+                f"maxabs={(ref - got).abs().max().item():.6f}", flush=True,
+            )
 
 
 if __name__ == "__main__":

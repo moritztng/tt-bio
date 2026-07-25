@@ -565,6 +565,47 @@ def _dense_attention_mask(indices):
     return torch.where(keep, 0.0, -1e4).unsqueeze(1)
 
 
+def _sparse_qk_host(p_host, indices, n_heads=4):
+    indices = indices.long().cpu()
+    batch, length, n_keys = indices.shape
+    p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
+    if p_host.shape[0] == 1 and batch != 1:
+        p_host = p_host.expand(batch, -1, -1, -1)
+    batch_idx = torch.arange(batch)[:, None, None]
+    row_idx = torch.arange(length)[None, :, None]
+    p_sparse = p_host[batch_idx, row_idx, indices]
+    kv_idx = (indices + batch_idx * length).to(torch.int32).reshape(1, -1)
+    attn_idx = indices.unsqueeze(1).expand(batch, n_heads, length, n_keys)
+    return p_sparse, kv_idx, attn_idx.to(torch.int32), n_keys
+
+
+def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, head_dim=32):
+    # Gather local pair features and build K/scatter indices for one step.
+    p_sparse, kv_idx, attn_idx, n_keys = _sparse_qk_host(
+        p_host, indices, n_heads
+    )
+    kv_idx_dev = ttnn.from_torch(
+        kv_idx, layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32,
+    )
+    attn_idx_dev = ttnn.from_torch(
+        attn_idx, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.uint32,
+    )
+    length = indices.shape[-2]
+    batch = indices.shape[0]
+    dense_scores = ttnn.full(
+        (batch, n_heads, length, length), -1e4 * head_dim**0.5, dtype=dtype,
+        layout=ttnn.TILE_LAYOUT, device=device,
+    )
+    dense_bias = ttnn.full(
+        (batch, n_heads, length, length), 0.0, dtype=dtype,
+        layout=ttnn.TILE_LAYOUT, device=device,
+    )
+    return (
+        _tt(p_sparse, device, dtype), kv_idx_dev, n_keys, attn_idx_dev,
+        dense_scores, dense_bias,
+    )
+
+
 class GatedCrossAttention(Module):
     """RFD3 GatedCrossAttention on device; token grouping stays host-side."""
 
@@ -725,7 +766,7 @@ class RFD3AtomBlock(Module):
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
-    def __call__(self, q, c, p, additive_mask):
+    def __call__(self, q, c, p, additive_mask=None, sparse_qk=None):
         ckc, dt = self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         if f32 and q.dtype != ttnn.float32:
@@ -753,16 +794,45 @@ class RFD3AtomBlock(Module):
             return ttnn.permute(x, (0, 2, 1, 3))
 
         qq, kk, vv, gg = map(heads, (qq, kk, vv, gg))
-        pair_bias = ttnn.linear(
-            p, self.b_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
-        )
-        pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
-        bias = ttnn.add(pair_bias, additive_mask)
-        # The reference's softmax reduction is fp32 even under bf16 autocast.
-        # Keep q/k/v and output storage bf16, but match that reduction boundary.
-        scores = ttnn.matmul(
-            qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc
-        )
+        if sparse_qk is None:
+            pair_bias = ttnn.linear(
+                p, self.b_w, compute_kernel_config=ckc, dtype=dt,
+                core_grid=CORE_GRID_MAIN,
+            )
+            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            bias = ttnn.add(pair_bias, additive_mask)
+            scores = ttnn.matmul(
+                qq, ttnn.permute(kk, (0, 1, 3, 2)),
+                compute_kernel_config=ckc,
+            )
+        else:
+            kv_idx_dev, n_keys, attn_idx_dev, dense_scores, dense_bias = sparse_qk
+            kk = ttnn.permute(kk, (0, 2, 1, 3))
+            kk = ttnn.to_layout(kk, ttnn.ROW_MAJOR_LAYOUT)
+            kk = ttnn.reshape(kk, (batch * length, self.n_head * self.head_dim))
+            kk = ttnn.embedding(
+                kv_idx_dev, kk, layout=ttnn.ROW_MAJOR_LAYOUT,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG,
+            )
+            kk = ttnn.reshape(
+                kk, (batch, length, n_keys, self.n_head, self.head_dim)
+            )
+            kk = ttnn.to_layout(
+                ttnn.permute(kk, (0, 3, 1, 2, 4)), ttnn.TILE_LAYOUT
+            )
+            pair_bias = ttnn.linear(
+                p, self.b_w, compute_kernel_config=ckc, dtype=dt,
+                core_grid=CORE_GRID_MAIN,
+            )
+            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            scores = ttnn.matmul(
+                ttnn.unsqueeze(qq, 3),
+                ttnn.permute(kk, (0, 1, 2, 4, 3)),
+                compute_kernel_config=ckc,
+            )
+            scores = ttnn.squeeze(scores, 3)
+            scores = ttnn.scatter(dense_scores, 3, attn_idx_dev, scores)
+            bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
         scores = ttnn.typecast(
             scores, ttnn.float32, memory_config=scores.memory_config()
         )
@@ -824,7 +894,7 @@ class RFD3AtomBlock(Module):
 
 
 class LocalAtomTransformer(Module):
-    """Three-block RFD3 atom encoder using dense additive-mask attention.
+    """Three-block RFD3 atom encoder with parity-preserving sparse QK.
 
     trace=True opts into a ttnn trace-capture/replay fast path (per
     rfd3-trace-viability-submodule-granularity: this narrow-channel/few-head
@@ -912,16 +982,26 @@ class LocalAtomTransformer(Module):
 
     def __call__(self, q_host, c_host, p_host, indices):
         dt, dev = self.dtype, self.device
-        p_host = p_host.unsqueeze(0) if p_host.ndim == 2 else p_host
-        mask_host = _dense_attention_mask(indices)
-        if self.trace:
-            out = self._run_device_traced(q_host, c_host, p_host, mask_host)
+        p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
+        if os.environ.get("RFD3_SPARSE_QK", "1") == "1":
+            p, kv_idx_dev, n_keys, attn_idx_dev, dense_scores, dense_bias = _sparse_qk_inputs(
+                p_host, indices, dev, dt
+            )
+            q, c = _tt(q_host, dev, dt), _tt(c_host, dev, dt)
+            sparse_qk = (kv_idx_dev, n_keys, attn_idx_dev, dense_scores, dense_bias)
+            for block in self.blocks:
+                q = block(q, c, p, sparse_qk=sparse_qk)
+            out = q
         else:
-            q = _tt(q_host, dev, dt)
-            c = _tt(c_host, dev, dt)
-            p = _tt(p_host, dev, dt)
-            mask = _tt(mask_host, dev, dt)
-            out = self.run_device(q, c, p, mask)
+            mask_host = _dense_attention_mask(indices)
+            if self.trace:
+                out = self._run_device_traced(q_host, c_host, p_host, mask_host)
+            else:
+                q = _tt(q_host, dev, dt)
+                c = _tt(c_host, dev, dt)
+                p = _tt(p_host, dev, dt)
+                mask = _tt(mask_host, dev, dt)
+                out = self.run_device(q, c, p, mask)
         return ttnn.to_torch(out).float()
 
 
@@ -1033,7 +1113,10 @@ class CompactStreamingDecoder(Module):
         unpacked = ttnn.reshape(unpacked, (batch, length, channels))
         return ttnn.to_layout(unpacked, ttnn.TILE_LAYOUT)
 
-    def run_device(self, a, q, c, p, mask, upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length):
+    def run_device(
+        self, a, q, c, p, mask, upcast_mask_dev, pack_idx_dev,
+        unpack_idx_dev, valid, length, sparse_qk=None,
+    ):
         """Pure-device core loop (pack -> upcast -> unpack -> atom_block, x3).
         `a` is the FLAT (not pre-split) atom-pair stream; the reshape to
         a_split runs here (not by the caller) so a trace replay re-derives
@@ -1045,7 +1128,7 @@ class CompactStreamingDecoder(Module):
                 q_grouped, upcast.run_device(q_grouped, a_split, attn_mask_dev=upcast_mask_dev)
             )
             q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
-            q = atom_block(q, c, p, mask)
+            q = atom_block(q, c, p, mask, sparse_qk=sparse_qk)
         return q
 
     def _design_buffers(self, tok_idx, batch):
@@ -1073,6 +1156,98 @@ class CompactStreamingDecoder(Module):
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
+
+    def _persist_index(self, x_host, layout):
+        host_t = ttnn.from_torch(x_host, layout=layout, dtype=ttnn.uint32)
+        dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
+        ttnn.copy_host_to_device_tensor(host_t, dev_t)
+        return dev_t
+
+    def _capture_sparse_trace(
+        self, a_host, q_host, c_host, p_sparse_host, kv_idx_host,
+        attn_idx_host, n_keys, upcast_mask_dev, pack_idx_dev,
+        unpack_idx_dev, valid, length, shape_key, step_key,
+    ):
+        dev = self.device
+        a_p, q_p, c_p, p_p = (
+            self._persist(x) for x in (a_host, q_host, c_host, p_sparse_host)
+        )
+        kv_p = self._persist_index(kv_idx_host, ttnn.ROW_MAJOR_LAYOUT)
+        attn_p = self._persist_index(attn_idx_host, ttnn.TILE_LAYOUT)
+        batch = q_host.shape[0]
+        n_heads = self.atom_blocks[0].n_head
+        head_dim = self.atom_blocks[0].head_dim
+        dense_scores = ttnn.full(
+            (batch, n_heads, length, length), -1e4 * head_dim**0.5, dtype=self.dtype,
+            layout=ttnn.TILE_LAYOUT, device=dev,
+        )
+        dense_bias = ttnn.full(
+            (batch, n_heads, length, length), 0.0, dtype=self.dtype,
+            layout=ttnn.TILE_LAYOUT, device=dev,
+        )
+        sparse_qk = (kv_p, n_keys, attn_p, dense_scores, dense_bias)
+        for _ in range(2):
+            _ = self.run_device(
+                a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
+                unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+            )
+        ttnn.synchronize_device(dev)
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+        out = self.run_device(
+            a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
+            unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+        )
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        self._trace_state = dict(
+            id=tid, shape=shape_key, step_key=step_key, a=a_p, q=q_p, c=c_p,
+            p=p_p, kv_idx=kv_p, attn_idx=attn_p,
+            dense_scores=dense_scores, dense_bias=dense_bias, output=out,
+        )
+
+    def _run_device_sparse_traced(
+        self, a_host, q_host, c_host, p_host, indices, upcast_mask_dev,
+        pack_idx_dev, unpack_idx_dev, valid, length,
+    ):
+        import tt_bio.tenstorrent as _TTd
+        if _TTd.trace_region_size() <= 0:
+            raise ValueError("Sparse decoder trace needs an enabled trace region")
+        dev, dt = self.device, self.dtype
+        p_sparse, kv_idx, attn_idx, n_keys = _sparse_qk_host(p_host, indices)
+        shape_key = (
+            "sparse_qk", tuple(a_host.shape), tuple(q_host.shape),
+            tuple(c_host.shape), tuple(p_sparse.shape), n_keys,
+        )
+        step_key = (id(q_host), id(c_host), id(p_host), id(indices))
+        st = self._trace_state
+        if st is None or st["shape"] != shape_key:
+            if st is not None:
+                ttnn.release_trace(dev, st["id"])
+            self._capture_sparse_trace(
+                a_host, q_host, c_host, p_sparse, kv_idx, attn_idx, n_keys,
+                upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length,
+                shape_key, step_key,
+            )
+        else:
+            ttnn.copy_host_to_device_tensor(
+                ttnn.from_torch(a_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"]
+            )
+            if st.get("step_key") != step_key:
+                for host, target in ((q_host, st["q"]), (c_host, st["c"]),
+                                     (p_sparse, st["p"])):
+                    ttnn.copy_host_to_device_tensor(
+                        ttnn.from_torch(host, layout=ttnn.TILE_LAYOUT, dtype=dt), target
+                    )
+                ttnn.copy_host_to_device_tensor(
+                    ttnn.from_torch(kv_idx, layout=ttnn.ROW_MAJOR_LAYOUT,
+                                    dtype=ttnn.uint32), st["kv_idx"]
+                )
+                ttnn.copy_host_to_device_tensor(
+                    ttnn.from_torch(attn_idx, layout=ttnn.TILE_LAYOUT,
+                                    dtype=ttnn.uint32), st["attn_idx"]
+                )
+                st["step_key"] = step_key
+        ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
+        return self._trace_state["output"]
 
     def _capture_trace(self, a_host, q_host, c_host, p_host, mask_host,
                         upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length, shape_key):
@@ -1128,7 +1303,24 @@ class CompactStreamingDecoder(Module):
         valid, pack_idx_dev, unpack_idx_dev, upcast_mask_dev = self._design_buffers(tok_idx, batch)
         p_host = p_host.unsqueeze(0) if p_host.ndim == 2 else p_host
 
-        if self.trace:
+        if os.environ.get("RFD3_SPARSE_QK", "1") == "1":
+            if self.trace:
+                q = self._run_device_sparse_traced(
+                    a_host, q_host, c_host, p_host, indices, upcast_mask_dev,
+                    pack_idx_dev, unpack_idx_dev, valid, length,
+                )
+                a = _tt(a_host, dev, dt)
+            else:
+                p, kv_idx_dev, n_keys, attn_idx_dev, dense_scores, dense_bias = _sparse_qk_inputs(
+                    p_host, indices, dev, dt
+                )
+                sparse_qk = (kv_idx_dev, n_keys, attn_idx_dev, dense_scores, dense_bias)
+                a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
+                q = self.run_device(
+                    a, q, c, p, None, upcast_mask_dev, pack_idx_dev,
+                    unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+                )
+        elif self.trace:
             q = self._run_device_traced(a_host, q_host, c_host, p_host, indices,
                                          upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
             a = _tt(a_host, dev, dt)
