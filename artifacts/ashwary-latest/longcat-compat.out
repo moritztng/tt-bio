@@ -1,0 +1,90 @@
+============================================================================================
+HF model:          meituan-longcat/LongCat-Video
+Architecture:      unknown / NEW category 'unrecognized' — attempting generic LLM path as fallback
+Overall verdict:   FEASIBLE WITH WORK
+                   All needed blocks exist somewhere in tt-metal but not all in the shared library. Plan on lifting/adapting demo code.
+============================================================================================
+
+REPO DISCOVERY -- where the model lives in tt-metal source:
+  Repo discovery: UNKNOWN
+    No references found in models/ — not yet ported.
+  --> This model is not yet referenced anywhere in models/. See the
+      block-by-block analysis below for what a port would entail.
+
+SECTION 1 -- Building-block availability (does TT have a module for each HF concept?)
+--------------------------------------------------------------------------------------------
+STATUS  BLOCK                            EFFORT                   TT IMPLEMENTATION
+--------------------------------------------------------------------------------------------
+[part]  Token embedding                  drop-in                  models/tt_transformers/tt/embedding.py
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture. BF16 weights only; ScaledEmbedding
+        variant for Gemma is included.
+[part]  Standard RoPE                    drop-in                  models/tt_transformers/tt/rope.py
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture.
+[part]  RMSNorm (text)                   drop-in                  models/tt_transformers/tt/distributed_norm.py (wraps models/common/rmsnorm.py)
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture. ttnn.rms_norm requires TILE layout;
+        distributed RMSNorm handles multi-chip.
+[part]  SwiGLU MLP                       drop-in                  models/tt_transformers/tt/mlp.py
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture. hidden_act dispatched via activation_map;
+        supports silu/gelu/relu/quick_gelu/gelu_pytorch_tanh.
+[part]  LM head                          drop-in                  models/tt_transformers/tt/lm_head.py
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture. Sharded vocab + all_reduce; pads to
+        padded_vocab_size.
+[part]  Checkpoint key remap             drop-in                  models/tt_transformers/tt/load_checkpoints.py
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture. convert_hf_to_meta() handles QKV
+        permutation; _no_qkv_permute() handles HF-RoPE-native checkpoints. New
+        families may need entries in map_hf_to_meta_keys().
+[part]  Tokenizer                        drop-in                  HF AutoTokenizer.from_pretrained(HF_MODEL)
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture. If the HF repo doesn't ship tokenizer
+        files, add an entry to base_model_tokenizer_mapping in model_config.py.
+[part]  Generator / inference loop       drop-in                  models/tt_transformers/tt/generator.py
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture. Chunked prefill, paged KV, tracing,
+        sampling.
+[part]  Top-k / sampling                 drop-in                  ttnn.argmax / ttnn.topk + on-device sampling helpers
+        LLM fallback for unrecognized model (NEW category 'unrecognized'):
+        assumed by the generic decoder path, NOT a confident match — verify
+        against the real architecture. Top-p is composed in host code;
+        multi-core top-k requires k<=64 and power-of-2 dim.
+
+--------------------------------------------------------------------------------------------
+Summary: 0 ready  /  9 partial  /  0 missing
+
+
+SECTION 2 -- Kernel-level constraints (do the model's shapes/dtypes satisfy TTNN ops?)
+--------------------------------------------------------------------------------------------
+STATUS  OP                                               FIELD                    CONSTRAINT
+--------------------------------------------------------------------------------------------
+[ ok ]  all shape / dtype constraints pass.
+
+Per-TP divisibility:
+  TP=1   [ ok ]  all divisibility constraints satisfied
+  TP=2   [ ok ]  all divisibility constraints satisfied
+  TP=4   [ ok ]  all divisibility constraints satisfied
+  TP=8   [ ok ]  all divisibility constraints satisfied
+  TP=32  [ ok ]  all divisibility constraints satisfied
+
+WORK ITEMS -- these exist but require adaptation:
+  * Token embedding  (models/tt_transformers/tt/embedding.py)
+  * Standard RoPE  (models/tt_transformers/tt/rope.py)
+  * RMSNorm (text)  (models/tt_transformers/tt/distributed_norm.py (wraps models/common/rmsnorm.py))
+  * SwiGLU MLP  (models/tt_transformers/tt/mlp.py)
+  * LM head  (models/tt_transformers/tt/lm_head.py)
+  * Checkpoint key remap  (models/tt_transformers/tt/load_checkpoints.py)
+  * Tokenizer  (HF AutoTokenizer.from_pretrained(HF_MODEL))
+  * Generator / inference loop  (models/tt_transformers/tt/generator.py)
+  * Top-k / sampling  (ttnn.argmax / ttnn.topk + on-device sampling helpers)

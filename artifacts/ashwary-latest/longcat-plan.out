@@ -1,0 +1,52 @@
+==============================================================================
+  Model:        meituan-longcat/LongCat-Video
+  Category:     Video   (pipeline_tag=text-to-video, library=diffusers)
+==============================================================================
+
+  On-disk weights:  83.29 GB  (saved as bf16 (assumed) (param count est., dtype unknown — assumed bf16, low confidence))
+  Total parameters: 41.64 B (exact)
+
+  Flags:
+    * composite repo — 3 submodel(s) [dit, text_encoder, vae]; bring up per subfolder, not one root model
+
+  Probe knobs:  batch=1  seq/horizon=8192  KV dtype=bf16
+
+  Per-chip overhead (subtracted from HBM before fit-check):
+    Wormhole   dispatch=0.5 GB + ccl=0.4 GB + frag=5% of 12 GB
+               source: estimate; aligned with measurements from tt_transformers Llama-3.1-8B@N150 demos (PR# pending calibration)
+    Blackhole  dispatch=1.2 GB + ccl=0.6 GB + frag=5% of 32 GB
+               source: estimate; BH dispatch path has more in-flight buffers than WH (per ttnn dispatch_kernel notes)
+
+  ------------------------------------------------------------------------
+  BOX       DTYPE      PER-CHIP     USABLE    HEADROOM  VERDICT
+  ------------------------------------------------------------------------
+  N150      bf16          84.29G    10.90G    -73.39G  no
+        ------------------------------------------------------------------
+  N300      bf16          42.64G    10.50G    -32.14G  no
+        ------------------------------------------------------------------
+  T3K       bf16          11.41G    10.50G     -0.91G  no
+        ------------------------------------------------------------------
+  QB2       bf16          21.82G    28.60G      6.78G  FITS (room)
+        ------------------------------------------------------------------
+  GalaxyWH  bf16           3.60G    10.50G      6.90G  FITS (comfortable)
+        ------------------------------------------------------------------
+  GalaxyBH  bf16           3.60G    28.60G     25.00G  FITS (comfortable)
+        ------------------------------------------------------------------
+  P100      bf16          84.29G    29.20G    -55.09G  no
+        ------------------------------------------------------------------
+  P150      bf16          84.29G    29.20G    -55.09G  no
+        ------------------------------------------------------------------
+  P300      bf16          42.64G    28.60G    -14.04G  no
+  ------------------------------------------------------------------------
+
+  RECOMMENDATION: GalaxyWH with bf16 weights
+                  per-chip=3.6 GB, headroom=6.9 GB
+                  verdict: FITS (comfortable)
+                  32x Wormhole. Needed for 70B+ dense, large MoE, or video gen. Canonical large-scale shape is [4,8].
+                  Runtime mesh is selected in `prepare` after TP/divisibility and demo constraints.
+
+  Category guidance (Video):
+    Video generation. No mature TT template; rough estimate only.
+
+  CONFIDENCE: LOW
+              Category-level estimates only. Smoke-test before deciding.

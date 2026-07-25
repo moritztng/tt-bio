@@ -1,0 +1,52 @@
+==============================================================================
+  Model:        ACE-Step/Ace-Step1.5
+  Category:     TTS     (pipeline_tag=text-to-audio, library=transformers)
+==============================================================================
+
+  On-disk weights:  10.03 GB  (saved as bf16 (assumed) (param count est., dtype unknown — assumed bf16, low confidence))
+  Total parameters: 5.01 B (exact)
+
+  Flags:
+    * composite repo — 4 submodel(s) [Qwen3-Embedding-0.6B, acestep-5Hz-lm-1.7B, acestep-v15-turbo, vae]; bring up per subfolder, not one root model
+
+  Probe knobs:  batch=1  seq/horizon=8192  KV dtype=bf16
+
+  Per-chip overhead (subtracted from HBM before fit-check):
+    Wormhole   dispatch=0.5 GB + ccl=0.4 GB + frag=5% of 12 GB
+               source: estimate; aligned with measurements from tt_transformers Llama-3.1-8B@N150 demos (PR# pending calibration)
+    Blackhole  dispatch=1.2 GB + ccl=0.6 GB + frag=5% of 32 GB
+               source: estimate; BH dispatch path has more in-flight buffers than WH (per ttnn dispatch_kernel notes)
+
+  ------------------------------------------------------------------------
+  BOX       DTYPE      PER-CHIP     USABLE    HEADROOM  VERDICT
+  ------------------------------------------------------------------------
+  N150      bf16          11.03G    10.90G     -0.13G  no
+        ------------------------------------------------------------------
+  N300      bf16           6.01G    10.50G      4.49G  FITS (comfortable)
+        ------------------------------------------------------------------
+  T3K       bf16           2.25G    10.50G      8.25G  FITS (comfortable)
+        ------------------------------------------------------------------
+  QB2       bf16           3.51G    28.60G     25.09G  FITS (comfortable)
+        ------------------------------------------------------------------
+  GalaxyWH  bf16           1.31G    10.50G      9.19G  FITS (comfortable)
+        ------------------------------------------------------------------
+  GalaxyBH  bf16           1.31G    28.60G     27.29G  FITS (comfortable)
+        ------------------------------------------------------------------
+  P100      bf16          11.03G    29.20G     18.17G  FITS (comfortable)
+        ------------------------------------------------------------------
+  P150      bf16          11.03G    29.20G     18.17G  FITS (comfortable)
+        ------------------------------------------------------------------
+  P300      bf16           6.01G    28.60G     22.59G  FITS (comfortable)
+  ------------------------------------------------------------------------
+
+  RECOMMENDATION: P100 with bf16 weights
+                  per-chip=11.0 GB, headroom=18.2 GB
+                  verdict: FITS (comfortable)
+                  Single Blackhole (p100).
+                  Runtime mesh is selected in `prepare` after TP/divisibility and demo constraints.
+
+  Category guidance (TTS):
+    Text-to-speech. Closest template: models/demos/qwen3_tts/.
+
+  CONFIDENCE: LOW
+              Category-level estimates only. Smoke-test before deciding.
