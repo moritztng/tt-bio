@@ -175,7 +175,7 @@ def run_design(
     cfg_scale: float | None = None,
     fp32_residual: bool = False,
     num_designs: int = 1,
-    batch_size: int = 8,
+    batch_size: int = 2,
     devices: Sequence[int] | None = None,
     device_visible: str = "0",
     verbose: bool = True,
@@ -202,7 +202,12 @@ def run_design(
         ``<spec_id>_<i>.cif``.
     batch_size : maximum number of designs from one spec evaluated in a single
         device forward. The runtime automatically shrinks the batch for larger
-        atom counts. Per-design RNG streams preserve standalone-seed random draws.
+        atom counts. Each design has its own seeded RNG stream, but batch-dependent
+        bf16 tiling makes a full production-length trajectory diverge from its
+        standalone run as batch size grows; 2 is the largest value verified
+        parity-preserving at production step counts (see
+        scripts/rfd3_port/verify_batch_trajectory_parity.py and
+        docs/rfd3-design.md). Higher values trade parity for throughput.
     devices : list of physical TT card ids to fan the (spec x design_idx) jobs
         across, one pinned subprocess per card (data-parallel, the same pattern
         ``tt-bio embed``/``predict`` use). With 0/1 device the run is in-process
