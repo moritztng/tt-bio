@@ -57,10 +57,17 @@ default is 200 for production-quality designs).
 
 `--num_designs N` produces N independent designs per spec (each with a different
 noise seed, `--seed + i`), writing `<id>_<i>.cif` (when N>1; `<id>.cif` when
-N=1). Designs from the same spec share device forwards in batches of up to 8 by
+N=1). Designs from the same spec share device forwards in batches of up to 2 by
 default. Set `--batch_size` to tune that limit; the runtime reduces it
 automatically for larger atom counts. Each design keeps its own seeded random
-stream.
+stream, but batch-dependent bf16 tiling makes a full production-length
+trajectory (`--num_timesteps 200`) diverge from its standalone run as batch
+size grows — `verify_batch_trajectory_parity.py` measures batch=2 at min
+trajectory PCC 0.999 (parity-preserving) vs batch=8 at 0.94 (fails the >0.99
+bar). 2 is the default because it's the largest value verified
+parity-preserving at production length; raise `--batch_size` only if you
+accept trading exact-draw parity for throughput (batch=8 measures ~3.3-3.9x
+designs/sec vs batch=1 across fixture sizes).
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
 physical TT cards, one pinned subprocess per card (data-parallel — the same
@@ -68,9 +75,9 @@ pattern `tt-bio embed`/`predict` use). Use in-forward batching on each card and
 `--devices` together when generating a larger set.
 
 ```bash
-# 32 designs per spec, batches of 8 fanned across 4 cards:
+# 32 designs per spec, parity-preserving batches of 2 fanned across 4 cards:
 tt-bio design specs.json --from_pdb --out_dir ./designs \
-  --num_designs 32 --batch_size 8 --devices 0,1,2,3
+  --num_designs 32 --batch_size 2 --devices 0,1,2,3
 ```
 
 ## Checkpoint
