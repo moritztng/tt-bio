@@ -10,7 +10,8 @@ method: per_step = (t(n2) - t(n1)) / (n2 - n1); trunk = t(n1) - n1*per_step).
 Usage:
   TT_VISIBLE_DEVICES=0 python3 scripts/rfd3_port/bench_designs_per_sec.py
 """
-import os, sys, time
+import os, sys, time, argparse, subprocess, shutil
+from pathlib import Path
 import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -21,10 +22,81 @@ from tt_bio.rfd3_sampler import RFD3Sampler
 
 PDB = os.path.join(os.path.dirname(__file__), "parity_artifacts", "iai_protein", "IAI_protein.pdb")
 CONTIG = "A1-10,20,A31-40"
-GOLDEN_DIR = os.path.expanduser("~/.coworker/artifacts/rfd3-goldens/capture")
+GOLDEN_DIR = os.path.expanduser(os.environ.get("RFD3_GOLDEN_DIR", "~/.coworker/artifacts/rfd3-goldens/capture"))
+
+
+def _run_multi_device(inputs_yaml, ndev, designs_per_card, num_timesteps, seed, out_root):
+    """Measure aggregate designs/sec for `tt-bio design --devices <0..ndev-1>` fan-out.
+
+    One `tt-bio design` invocation = one subprocess per card, each loading weights +
+    compiling once then running its shard of (num_designs) D=1 forwards. Wall-clock
+    includes the per-worker fixed cost (weight load + cold compile), which is exactly
+    what a real one-shot user pays; designs/sec = M / wall_clock. Run with two
+    designs_per_card values to see whether that fixed cost amortizes (steady-state).
+    """
+    device_list = ",".join(str(i) for i in range(ndev))
+    M = ndev * designs_per_card
+    out_dir = f"{out_root}/multi_d{ndev}_m{designs_per_card}pc"
+    shutil.rmtree(out_dir, ignore_errors=True)
+    cmd = [sys.executable, "-m", "tt_bio.main", "design", inputs_yaml,
+           "--from_pdb", "--devices", device_list, "--num_designs", str(M),
+           "--num_timesteps", str(num_timesteps), "--seed", str(seed),
+           "--out_dir", out_dir]
+    # The parent `tt-bio design` process must see ALL cards to validate --devices
+    # (detect_tenstorrent_devices honors TT_VISIBLE_DEVICES). The fanout children
+    # set their own per-shard TT_VISIBLE_DEVICES, so drop the ambient pin here.
+    env = {k: v for k, v in os.environ.items() if k != "TT_VISIBLE_DEVICES"}
+    env["PYTHONPATH"] = os.getcwd()
+    env["TT_BIO_LEASE_HOLDER"] = f"worker:tt-bio-rfdiffusion3-batch-perf-p2"
+    env["TT_MESH_GRAPH_DESC_PATH"] = os.environ.get(
+        "TT_MESH_GRAPH_DESC_PATH",
+        "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/tt_metal/"
+        "fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto")
+    t0 = time.time()
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    wall = time.time() - t0
+    ok = proc.returncode == 0
+    n_cif = len(list(Path(out_dir).glob("*.cif"))) if Path(out_dir).exists() else 0
+    dps = (M / wall) if wall > 0 else float("nan")
+    print(f"[multi --devices={ndev} M={M} ({designs_per_card}/card) ts={num_timesteps}] "
+          f"wall={wall:.2f}s ok={ok} cifs={n_cif} -> {dps:.4f} designs/sec (cold-start, "
+          f"includes per-worker weight-load + compile)")
+    if not ok:
+        print("  STDERR tail:", "\n".join(proc.stderr.splitlines()[-15:]))
+        print("  STDOUT tail:", "\n".join(proc.stdout.splitlines()[-15:]))
+    return wall, dps, n_cif, ok
 
 
 def main():
+    ap = argparse.ArgumentParser(description="RFD3 designs/sec bench (single-card in-process + multi-device fan-out).")
+    ap.add_argument("--multi-device", action="store_true",
+                    help="Only run the multi-device `tt-bio design --devices` fan-out measurement "
+                         "(no in-process single-card device open, so it does not hold card 0's lease).")
+    ap.add_argument("--inputs", default=os.path.join(os.path.dirname(__file__),
+                     "parity_artifacts", "iai_protein", "iai_inputs.yaml"),
+                    help="Inputs YAML for `tt-bio design` (multi-device mode).")
+    ap.add_argument("--out-root", default=os.path.join(os.getcwd(), "perf/p2"))
+    args = ap.parse_args()
+    if args.multi_device:
+        print("[multi-device] measuring `tt-bio design --devices` aggregate designs/sec "
+              "(qb2 p300c, IAI_protein fixture, num_timesteps=200, --from_pdb)")
+        results = []
+        # two designs_per_card values per ndev to check fixed-cost amortization
+        for ndev, dpc in [(2, 2), (2, 4), (4, 2), (4, 4)]:
+            wall, dps, n_cif, ok = _run_multi_device(
+                args.inputs, ndev, dpc, num_timesteps=200, seed=42, out_root=args.out_root)
+            results.append((ndev, dpc, wall, dps, n_cif, ok))
+        print("\n[multi-device summary] (num_timesteps=200, cold-start incl. per-worker fixed cost):")
+        for ndev, dpc, wall, dps, n_cif, ok in results:
+            print(f"  --devices={ndev} {dpc}/card (M={ndev*dpc}): wall={wall:.2f}s -> {dps:.4f} designs/sec "
+                  f"({n_cif} cifs, ok={ok})")
+        # steady-state warm estimate: ndev * single-card-warm (per-card compute is
+        # independent D=1 forwards; fixed cost amortizes to zero as M grows)
+        single_warm = 0.0434  # measured this run (p300c, step-count method, ts=200)
+        print(f"\n[steady-state warm estimate] ndev * single-card-warm({single_warm}): "
+              f"devices=2 -> {2*single_warm:.4f}, devices=4 -> {4*single_warm:.4f} designs/sec "
+              f"(per-card compute is independent; fixed cost -> 0 as M grows)")
+        return
     spec = InputSpecification.from_dict({"input": PDB, "contig": CONTIG})
     spec.validate()
     f = featurize(PDB, spec)

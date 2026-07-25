@@ -2816,6 +2816,15 @@ def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed
         from tt_bio import runtime
         device_list = runtime.detect_tenstorrent_devices(devices, 0, len(specs) * num_designs)
 
+    # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open it
+    # without a 1x1 mesh-graph descriptor. The fanout path sets this per shard;
+    # the single-device in-process path opens the device here (no shard to
+    # inherit it), so set it the same way as the embed/gen/saprot commands.
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
     click.echo(f"Designing {len(specs)} spec(s) × {num_designs} design(s) → {out_dir} "
                f"(golden={gdir}, from_pdb={from_pdb}, {num_timesteps} steps"
                f"{f', devices={device_list}' if device_list and len(device_list) > 1 else ''})")

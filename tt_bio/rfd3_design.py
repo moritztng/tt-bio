@@ -306,8 +306,11 @@ def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timestep
 
 
 def _design_out_path(out_dir, spec_id, design_idx, *, multi: bool) -> Path:
-    # <spec_id>_<i>.cif when num_designs>1 (multi-design per spec), else back-compat <spec_id>.cif
-    return out_dir / (f"{spec_id}_{design_idx}.cif" if multi else f"{spec_id}.cif")
+    # <spec_id>_<i>.cif when num_designs>1 (multi-design per spec), else back-compat <spec_id>.cif.
+    # Path() wrap: the fanout pickles out_dir as str for the shard subprocess, so
+    # _run_design_jobs receives a str here (run_design converts to Path for the
+    # in-process path, but _run_design_shard passes the pickled str through).
+    return Path(out_dir) / (f"{spec_id}_{design_idx}.cif" if multi else f"{spec_id}.cif")
 
 
 def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timesteps,
