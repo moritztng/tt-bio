@@ -57,6 +57,7 @@ memory_inputs/
 oom_inputs/
 
 .perf-runs/
+perf/p2/
 
 # planning/status/coordination notes belong in the coworker system, not the repo
 /notes/
