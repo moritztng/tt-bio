@@ -647,7 +647,8 @@ tt-bio gen run examples/binder.yaml --output existing/ --steps analysis filterin
 [RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967) (RFD3) is an all-atom
 generative model that designs new protein structures and sequences from a specification, rather
 than folding an existing one. `tt-bio` runs protein-binder design, motif scaffolding, and
-nucleic-acid-binder design end to end from a real input structure.
+nucleic-acid-binder design end to end from a real input structure, with batched multi-design
+generation on one or more cards.
 
 ```bash
 tt-bio design specs.json --from_pdb --out_dir ./designs

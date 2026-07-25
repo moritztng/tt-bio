@@ -57,21 +57,20 @@ default is 200 for production-quality designs).
 
 `--num_designs N` produces N independent designs per spec (each with a different
 noise seed, `--seed + i`), writing `<id>_<i>.cif` (when N>1; `<id>.cif` when
-N=1). This is the TT equivalent of rc-foundry's `diffusion_batch_size`: where a
-GPU batches N designs into one forward to reuse weights across the batch dim,
-on TT the per-step device forward is already compute-bound at batch=1, so the
-right path is N independent forwards fanned across cards.
+N=1). Designs from the same spec share device forwards in batches of up to 8 by
+default. Set `--batch_size` to tune that limit; the runtime reduces it
+automatically for larger atom counts. Each design keeps its own seeded random
+stream.
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
 physical TT cards, one pinned subprocess per card (data-parallel — the same
-pattern `tt-bio embed`/`predict` use). Each design is bit-identical to a
-standalone single-card run with the same seed. Throughput scales with the
-number of cards; on a single card `--num_designs` just produces N designs
-sequentially (no per-design speedup, but no parity cost either).
+pattern `tt-bio embed`/`predict` use). Use in-forward batching on each card and
+`--devices` together when generating a larger set.
 
 ```bash
-# 8 designs per spec, fanned across 4 cards:
-tt-bio design specs.json --from_pdb --out_dir ./designs --num_designs 8 --devices 0,1,2,3
+# 32 designs per spec, batches of 8 fanned across 4 cards:
+tt-bio design specs.json --from_pdb --out_dir ./designs \
+  --num_designs 32 --batch_size 8 --devices 0,1,2,3
 ```
 
 ## Checkpoint

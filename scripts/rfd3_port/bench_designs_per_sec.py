@@ -148,16 +148,9 @@ def main():
         print(f"[estimate] num_timesteps={n_full}: sample~{est_sample:.2f}s total~{est_total:.2f}s "
               f"-> {1.0 / est_total:.4f} designs/sec ({est_total:.1f}s/design)")
 
-    # --- batch>1 (num_designs): N independent D=1 forwards, the TT-equivalent of
-    # rc-foundry's diffusion_batch_size. Measures designs/sec when producing N
-    # designs per spec (sequential on one card; fanned across --devices on a fleet).
-    # In-batch tensor batching (D>1 in one forward) is intentionally NOT measured
-    # here as a perf lever: it scales linearly on TT (per-step ~113ms at D=1 vs
-    # ~1016ms at D=8, no amortization -- the device forward is compute-bound at
-    # D=1), so it buys nothing. See scripts/rfd3_port/spike_batch_d.py for that
-    # measurement and scripts/rfd3_port/spike_batch_invariance.py for the
-    # correctness check (B>1 element 0 == B=1, PCC 0.9995, no cross-contamination).
-    print("\n[num_designs] N independent D=1 forwards (the real TT batch lever):")
+    # Sequential D=1 baseline. The production in-forward D=1/2/4/8 comparison is
+    # measured separately by bench_batch_designs_per_sec.py.
+    print("\n[num_designs] N independent D=1 forwards (sequential baseline):")
     N_designs = 8
     n_ts = 40
     sampler = RFD3Sampler(num_timesteps=n_ts)

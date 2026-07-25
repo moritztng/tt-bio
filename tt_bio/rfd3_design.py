@@ -40,6 +40,9 @@ from .rfd3_input import InputSpecification, parse_contig
 from .rfd3_sampler import RFD3Sampler
 
 
+_BATCH_ATOM_PAIR_BUDGET = 8 * 419 * 419
+
+
 @dataclass
 class DesignResult:
     spec_id: str
@@ -172,6 +175,7 @@ def run_design(
     cfg_scale: float | None = None,
     fp32_residual: bool = False,
     num_designs: int = 1,
+    batch_size: int = 8,
     devices: Sequence[int] | None = None,
     device_visible: str = "0",
     verbose: bool = True,
@@ -193,22 +197,20 @@ def run_design(
         If False, fall back to the captured golden `f` bridge (p9).
     num_timesteps, seed, partial_t, cfg_scale, fp32_residual : sampler knobs.
     num_designs : number of independent designs to produce per spec (each with a
-        different noise seed = ``seed + design_idx``). The TT-equivalent of
-        rc-foundry's ``diffusion_batch_size``: rc-foundry batches D designs into
-        one GPU forward (efficient there because GPU GEMMs reuse weights across
-        the batch dim); on TT the per-step device forward is compute-bound at
-        D=1, so in-batch batching buys nothing (measured: per-step scales linearly
-        with D, ~113ms at D=1 vs ~1016ms at D=8, no amortization). The elegant
-        TT path is therefore N independent D=1 forwards, fanned across cards
-        via ``devices`` for real throughput. Output files are ``<spec_id>.cif``
-        when ``num_designs == 1`` (back-compat) else ``<spec_id>_<i>.cif``.
+        different noise seed = ``seed + design_idx``). Output files are
+        ``<spec_id>.cif`` when ``num_designs == 1`` (back-compat) else
+        ``<spec_id>_<i>.cif``.
+    batch_size : maximum number of designs from one spec evaluated in a single
+        device forward. The runtime automatically shrinks the batch for larger
+        atom counts. Per-design RNG streams preserve standalone-seed random draws.
     devices : list of physical TT card ids to fan the (spec x design_idx) jobs
         across, one pinned subprocess per card (data-parallel, the same pattern
         ``tt-bio embed``/``predict`` use). With 0/1 device the run is in-process
-        on this card. Each design is bit-identical to a standalone single-card
-        run with the same seed (no cross-job state).
+        on this card.
     """
     out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
+    if batch_size < 1:
+        raise ValueError("batch_size must be at least 1")
     if fp32_residual:
         os.environ["RFD3_FP32_RESIDUAL"] = "1"
     if golden_dir is None:
@@ -227,16 +229,20 @@ def run_design(
         return _run_design_fanout(jobs, specs, out_dir, golden_dir=golden_dir,
                                  from_pdb=from_pdb, num_timesteps=num_timesteps,
                                  partial_t=partial_t, cfg_scale=cfg_scale,
-                                 fp32_residual=fp32_residual, devices=devices,
+                                 fp32_residual=fp32_residual, batch_size=batch_size,
+                                 multi_designs=num_designs > 1, devices=devices,
                                  verbose=verbose)
     return _run_design_jobs(jobs, specs, out_dir, golden_dir=golden_dir,
                             from_pdb=from_pdb, num_timesteps=num_timesteps,
                             partial_t=partial_t, cfg_scale=cfg_scale,
-                            fp32_residual=fp32_residual, verbose=verbose)
+                            fp32_residual=fp32_residual, batch_size=batch_size,
+                            multi_designs=num_designs > 1, verbose=verbose)
 
 
 def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timesteps,
-                     partial_t, cfg_scale, fp32_residual, verbose=True) -> list[DesignResult]:
+                     partial_t, cfg_scale, fp32_residual, batch_size,
+                     multi_designs,
+                     verbose=True) -> list[DesignResult]:
     """In-process: load weights once, run every (spec_id, design_idx, seed) job
     sequentially on this card. Featurize + TokenInitializer run once per spec and
     are reused across that spec's design_idx draws (they don't depend on the
@@ -270,7 +276,10 @@ def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timestep
     # Cache per-spec featurize+init (reused across that spec's design_idx draws).
     spec_feat: dict[str, tuple] = {}
     results: list[DesignResult] = []
-    for spec_id, design_idx, this_seed in jobs:
+    grouped_jobs: dict[str, list[tuple[str, int, int]]] = {}
+    for job in jobs:
+        grouped_jobs.setdefault(job[0], []).append(job)
+    for spec_id, spec_jobs in grouped_jobs.items():
         spec = InputSpecification.from_dict(specs[spec_id])
         if spec_id not in spec_feat:
             if verbose:
@@ -291,17 +300,48 @@ def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timestep
             spec_feat[spec_id] = (f, init, L, is_motif, coord0)
         f_used, init_used, L, is_motif, coord0 = spec_feat[spec_id]
         sp_t = spec.partial_t if spec.partial_t is not None else partial_t
-
-        with torch.no_grad():
-            g = torch.Generator().manual_seed(this_seed)
-            X, _ = sampler.sample(dev_dm, 1, L, coord0, f_used, init_used, is_motif,
-                                  generator=g, partial_t=sp_t, cfg_scale=cfg_scale)
-        out_path = _design_out_path(out_dir, spec_id, design_idx, multi=len(specs) < len(jobs))
-        _write_cif(X[0], f_used, out_path)
-        results.append(DesignResult(spec_id=spec_id, design_idx=design_idx, out_path=out_path,
-                                    final_pcc_vs_ref=None, n_atoms=int(X.shape[1])))
-        if verbose:
-            print(f"[design:{spec_id}#{design_idx}] wrote {out_path} ({X.shape[1]} atoms)")
+        effective_batch = min(
+            batch_size,
+            max(1, _BATCH_ATOM_PAIR_BUDGET // max(1, L * L)),
+        )
+        for start in range(0, len(spec_jobs), effective_batch):
+            chunk = spec_jobs[start : start + effective_batch]
+            generators = [
+                torch.Generator().manual_seed(this_seed)
+                for _, _, this_seed in chunk
+            ]
+            with torch.no_grad():
+                X, _ = sampler.sample(
+                    dev_dm,
+                    len(chunk),
+                    L,
+                    coord0,
+                    f_used,
+                    init_used,
+                    is_motif,
+                    generator=generators,
+                    partial_t=sp_t,
+                    cfg_scale=cfg_scale,
+                )
+            for offset, (_, design_idx, _) in enumerate(chunk):
+                out_path = _design_out_path(
+                    out_dir, spec_id, design_idx, multi=multi_designs
+                )
+                _write_cif(X[offset], f_used, out_path)
+                results.append(
+                    DesignResult(
+                        spec_id=spec_id,
+                        design_idx=design_idx,
+                        out_path=out_path,
+                        final_pcc_vs_ref=None,
+                        n_atoms=int(X.shape[1]),
+                    )
+                )
+                if verbose:
+                    print(
+                        f"[design:{spec_id}#{design_idx}] wrote {out_path} "
+                        f"({X.shape[1]} atoms, batch={len(chunk)})"
+                    )
     return results
 
 
@@ -314,7 +354,8 @@ def _design_out_path(out_dir, spec_id, design_idx, *, multi: bool) -> Path:
 
 
 def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timesteps,
-                       partial_t, cfg_scale, fp32_residual, devices, verbose) -> list[DesignResult]:
+                       partial_t, cfg_scale, fp32_residual, batch_size,
+                       multi_designs, devices, verbose) -> list[DesignResult]:
     """Data-parallel fan-out: one pinned subprocess per physical card, sharding
     the (spec_id, design_idx) jobs round-robin. Reuses the embed/predict
     subprocess-per-card pattern. Each child runs ``_run_design_shard``."""
@@ -335,7 +376,8 @@ def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timest
                                  golden_dir=str(golden_dir), from_pdb=from_pdb,
                                  num_timesteps=num_timesteps, partial_t=partial_t,
                                  cfg_scale=cfg_scale, fp32_residual=fp32_residual,
-                                 n_specs=len(specs)), fp)
+                                 batch_size=batch_size,
+                                 multi_designs=multi_designs), fp)
             env = {**os.environ, "TT_VISIBLE_DEVICES": str(dev), "TT_BIO_LEASE_HOLDER":
                    f"worker:design-fanout-{dev}"}
             if dev in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
@@ -374,6 +416,8 @@ def _run_design_shard(in_path: str, out_path: str) -> None:
     res = _run_design_jobs(cfg["jobs"], cfg["specs"], cfg["out_dir"], golden_dir=cfg["golden_dir"],
                            from_pdb=cfg["from_pdb"], num_timesteps=cfg["num_timesteps"],
                            partial_t=cfg["partial_t"], cfg_scale=cfg["cfg_scale"],
-                           fp32_residual=cfg["fp32_residual"], verbose=False)
+                           fp32_residual=cfg["fp32_residual"],
+                           batch_size=cfg["batch_size"],
+                           multi_designs=cfg["multi_designs"], verbose=False)
     with open(out_path, "wb") as fp:
         pickle.dump(res, fp)
