@@ -36,7 +36,7 @@ def extract_chains(cif_path: Path) -> list[tuple[str, str]]:
             seq = str(polymer.make_one_letter_sequence())
             seq = seq.replace("-", "")
             seq = "".join(c if c in "ACDEFGHIKLMNPQRSTVWY" else "X" for c in seq)
-            if len(seq) >= 10:
+            if len(seq) >= 5:
                 out.append((ch.name, seq))
         break
     return out
@@ -73,7 +73,7 @@ def classify_chains(chains: list[tuple[str, str]]) -> dict[str, str]:
 
 def build_yaml(target_id: str, chains: list[tuple[str, str]],
                cls: dict[str, str], fold_ab_chain: str, fold_ag_chain: str,
-               has_HL: bool) -> str:
+               has_HL: bool, fold_ag_len: int = 0, fold_ab_len: int = 0) -> str:
     """Build the fold YAML. Chain ids in YAML: A=antigen, H=heavy, L=light.
 
     fold_ab_chain is the antibody chain of the fold interface (H or L); we find
@@ -83,33 +83,54 @@ def build_yaml(target_id: str, chains: list[tuple[str, str]],
     seq_map = dict(chains)
     lines = ["version: 1", f"# AbAg-XM fold target {target_id} (ARK interface)."]
     lines.append("sequences:")
-    # antigen
-    ag_seq = seq_map.get(fold_ag_chain, "")
-    lines.append("  - protein:")
-    lines.append("      id: A")
-    lines.append(f"      sequence: {ag_seq}")
-    # heavy: if fold_ab is H, use it; else find an H chain partner
-    h_chain = fold_ab_chain if cls.get(fold_ab_chain) == "H" else None
-    if h_chain is None:
-        for cid, c in cls.items():
-            if c == "H" and cid != fold_ag_chain:
-                h_chain = cid
-                break
-    if h_chain and h_chain in seq_map:
-        lines.append("  - protein:")
-        lines.append("      id: H")
-        lines.append(f"      sequence: {seq_map[h_chain]}")
-    # light: if HL, find an L chain partner (not the antigen, not the heavy)
+    # Heavy chain. When the manifest auth id is present in the CIF, use the
+    # original ANARCI-classification logic (fold_ab is H or L; if it is H use it,
+    # otherwise find an H partner) so the 160 good targets are unchanged. Only
+    # when the manifest id is ABSENT (auth/label mismatch, e.g. 22ps/9udq) do we
+    # fall back to length-matching against fold_resolved_seq_length_1 -- needed
+    # for 9udq where ANARCI mis-classifies the 82-res VHH antibody as 'antigen'
+    # and the 221-res anti-idiotype antigen as 'H'.
+    h_chain = None
+    if fold_ab_chain in seq_map:
+        h_chain = fold_ab_chain if cls.get(fold_ab_chain) == "H" else None
+        if h_chain is None:
+            for cid, c in cls.items():
+                if c == "H" and cid != fold_ag_chain:
+                    h_chain = cid
+                    break
+    elif fold_ab_len:
+        cands = [cid for cid, _ in chains if cid != fold_ag_chain]
+        if cands:
+            h_chain = min(cands, key=lambda c: abs(len(seq_map[c]) - fold_ab_len))
+    # Light chain (HL targets): an ANARCI-classified L chain that is neither the
+    # heavy nor the antigen.
+    l_chain = None
     if has_HL:
-        l_chain = None
         for cid, c in cls.items():
             if c == "L" and cid != fold_ag_chain and cid != h_chain:
                 l_chain = cid
                 break
-        if l_chain and l_chain in seq_map:
-            lines.append("  - protein:")
-            lines.append("      id: L")
-            lines.append(f"      sequence: {seq_map[l_chain]}")
+    # Antigen. When the manifest auth id is present, use it directly. When it is
+    # ABSENT, length-match against fold_resolved_seq_length_2, excluding the H
+    # and L chains already selected (so an anti-idiotype antigen that ANARCI
+    # labels 'H' is still picked correctly).
+    ag_chain = fold_ag_chain if fold_ag_chain in seq_map else None
+    if ag_chain is None and fold_ag_len:
+        cands = [cid for cid, _ in chains if cid != h_chain and cid != l_chain]
+        if cands:
+            ag_chain = min(cands, key=lambda c: abs(len(seq_map[c]) - fold_ag_len))
+    ag_seq = seq_map.get(ag_chain, "") if ag_chain else ""
+    lines.append("  - protein:")
+    lines.append("      id: A")
+    lines.append(f"      sequence: {ag_seq}")
+    if h_chain and h_chain in seq_map:
+        lines.append("  - protein:")
+        lines.append("      id: H")
+        lines.append(f"      sequence: {seq_map[h_chain]}")
+    if l_chain and l_chain in seq_map:
+        lines.append("  - protein:")
+        lines.append("      id: L")
+        lines.append(f"      sequence: {seq_map[l_chain]}")
     return "\n".join(lines) + "\n"
 
 
@@ -154,15 +175,22 @@ def main():
         # If fold_ab is not H/L but fold_ag is, swap (ARK entity order is not fixed).
         if cls.get(fold_ab) not in ("H", "L") and cls.get(fold_ag) in ("H", "L"):
             fold_ab, fold_ag = fold_ag, fold_ab
-        # If neither is H/L (e.g. very truncated VHH below even threshold 40),
-        # fall back: pick any H chain in the structure as the antibody.
-        if cls.get(fold_ab) not in ("H", "L"):
+        # If fold_ab is present in the CIF but ANARCI mis-classifies it (very
+        # truncated VHH below threshold 40), fall back to any H chain. But if
+        # fold_ab is ABSENT from the CIF (auth/label mismatch, e.g. 22ps/9udq),
+        # leave it -- build_yaml length-matches it to fold_resolved_seq_length_1
+        # so an anti-idiotype antigen that ANARCI labels 'H' is not wrongly taken
+        # as the antibody.
+        chain_names = {c for c, _ in chains}
+        if cls.get(fold_ab) not in ("H", "L") and fold_ab in chain_names:
             for cid, c in cls.items():
                 if c == "H":
                     fold_ab = cid
                     break
         has_HL = bool(row["has_HL"])
-        yaml_text = build_yaml(pid, chains, cls, fold_ab, fold_ag, has_HL)
+        fold_ag_len = int(row["fold_resolved_seq_length_2"])
+        fold_ab_len = int(row["fold_resolved_seq_length_1"])
+        yaml_text = build_yaml(pid, chains, cls, fold_ab, fold_ag, has_HL, fold_ag_len, fold_ab_len)
         ypath = yaml_dir / f"{pid}.yaml"
         ypath.write_text(yaml_text)
         n_yaml += 1

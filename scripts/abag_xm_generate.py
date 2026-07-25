@@ -18,6 +18,11 @@ results.json says failed is never recorded ok (opendde-abag-paired-msa-offline-g
 """
 import argparse, json, os, signal, subprocess, sys, time
 from pathlib import Path
+# colabfold_search (invoked by tt_bio for uncached MSAs) needs localcolabfold's
+# own mmseqs (v18, supports --prefilter-mode); the apt mmseqs (v13) exits 1.
+_lc_bin = str(Path.home() / "localcolabfold" / ".pixi" / "envs" / "default" / "bin")
+if Path(_lc_bin).exists():
+    os.environ["PATH"] = _lc_bin + os.pathsep + os.environ.get("PATH", "")
 
 ROOT = Path(__file__).resolve().parent.parent
 # Persistent (never /tmp -- qb1 clears it, losing hours of fold work). All tiers/hosts
@@ -80,6 +85,26 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS):
     if not yaml.exists():
         return {"target": target, "model": model, "status": "no_yaml",
                 "yaml": str(yaml)}
+    # Input sanity: reject malformed YAMLs (empty sequence / missing chain)
+    # BEFORE folding, so a bad YAML fails fast instead of producing silent
+    # garbage (the Phase 1 regression that folded antibody-only structures for
+    # 22ps/9hv9/9nw4/9udq whose antigen chain was empty).
+    try:
+        import yaml as _yaml
+        _doc = _yaml.safe_load(yaml.read_text())
+        _seqs = _doc.get("sequences", []) if _doc else []
+        _bad = []
+        for _s in _seqs:
+            _p = _s.get("protein", {}) if isinstance(_s, dict) else {}
+            _sid = _p.get("id"); _seq = _p.get("sequence", "") or ""
+            if _sid in ("A", "H", "L") and len(_seq) < 5:
+                _bad.append(f"{_sid}={len(_seq)}")
+        if _bad or not _seqs:
+            return {"target": target, "model": model, "status": "bad_yaml",
+                    "yaml": str(yaml), "reason": "empty/short sequence: " + ",".join(_bad)}
+    except Exception as _e:
+        return {"target": target, "model": model, "status": "bad_yaml",
+                "yaml": str(yaml), "reason": f"parse error: {_e}"}
     cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(yaml),
            "--model", model, "--out_dir", str(out_dir),
            "--diffusion_samples", str(n_samples), "--max_parallel_samples", str(mps),
