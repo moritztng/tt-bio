@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from tt_bio.rfd3 import build_diffusion_module, build_token_initializer
 from tt_bio.rfd3_featurize import featurize
 from tt_bio.rfd3_input import InputSpecification
+from tt_bio.rfd3_sampler import RFD3Sampler
 
 PDB = os.path.join(os.path.dirname(__file__), "parity_artifacts", "iai_protein", "IAI_protein.pdb")
 GOLDEN_DIR = os.path.expanduser("~/.coworker/artifacts/rfd3-goldens/capture")
@@ -51,6 +52,56 @@ def main():
     print(f"B=2 elem0 vs elem1: PCC={p01:.6f}  maxabs={ma1:.3e}  (should be ~0: identical inputs)")
     print(f"finite: B1={torch.isfinite(out1['X_L']).all().item()}  B2={torch.isfinite(out2['X_L']).all().item()}")
     ok = (p00 > 0.999 and ma1 < 1e-4)
+
+    # Full stochastic trajectory: independent per-design generators must preserve
+    # each standalone seed's random stream when those designs share one forward.
+    sampler = RFD3Sampler(num_timesteps=8)
+    coord = f["motif_pos"].float().unsqueeze(0)
+    fixed = f["is_motif_atom_with_fixed_coord"]
+    with torch.no_grad():
+        batched, _ = sampler.sample(
+            dev_dm,
+            2,
+            L,
+            coord,
+            f,
+            init,
+            fixed,
+            generator=[
+                torch.Generator().manual_seed(42),
+                torch.Generator().manual_seed(43),
+            ],
+        )
+        standalone = []
+        for seed in (42, 43):
+            value, _ = sampler.sample(
+                dev_dm,
+                1,
+                L,
+                coord,
+                f,
+                init,
+                fixed,
+                generator=torch.Generator().manual_seed(seed),
+            )
+            standalone.append(value[0])
+    trajectory_pcc = [
+        pcc(batched[index], standalone[index]) for index in range(2)
+    ]
+    trajectory_maxabs = [
+        (batched[index] - standalone[index]).abs().max().item()
+        for index in range(2)
+    ]
+    print(
+        "B=2 trajectory vs standalone seeds: "
+        + ", ".join(
+            f"seed={seed} PCC={corr:.6f} maxabs={maxabs:.3e}"
+            for seed, corr, maxabs in zip(
+                (42, 43), trajectory_pcc, trajectory_maxabs
+            )
+        )
+    )
+    ok = ok and min(trajectory_pcc) > 0.99
     print("PARITY", "PASS" if ok else "FAIL")
 
 

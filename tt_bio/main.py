@@ -2741,19 +2741,19 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                    "use. Ligand/enzyme (F3/F4) inputs and symmetry (F5) raise NotImplementedError.")
 @click.option("--num_designs", default=1, show_default=True,
               help="Number of independent designs to produce per spec (each with a different "
-                   "noise seed = --seed + design_idx). The TT-equivalent of rc-foundry's "
-                   "diffusion_batch_size: on TT the per-step device forward is compute-bound at "
-                   "D=1 so in-batch batching buys nothing (measured linear scaling), so the right "
-                   "path is N independent D=1 forwards fanned across --devices. Output files are "
-                   "<spec_id>.cif when 1 (back-compat) else <spec_id>_<i>.cif.")
+                   "noise seed = --seed + design_idx). Output files are <spec_id>.cif when 1 "
+                   "(back-compat) else <spec_id>_<i>.cif.")
+@click.option("--batch_size", default=8, show_default=True, type=click.IntRange(min=1),
+              help="Maximum designs from one spec evaluated in each device forward. The runtime "
+                   "automatically shrinks this for larger atom counts; each design keeps the "
+                   "same standalone-seed random draws.")
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to fan the (spec x --num_designs) jobs "
                    "across, e.g. '0,1,2,3'. One pinned subprocess per card (data-parallel, the "
-                   "same pattern `tt-bio embed`/`predict` use); each design is bit-identical to a "
-                   "standalone single-card run with the same seed. Default: this machine's single "
-                   "card (in-process, sequential).")
+                   "same pattern `tt-bio embed`/`predict` use). Per-design seeded random streams "
+                   "are preserved across sharding. Default: this machine's single card.")
 def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed, partial_t,
-               fp32_residual, spec_subset, num_designs, devices):
+               fp32_residual, spec_subset, num_designs, batch_size, devices):
     """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
 
     INPUTS is a JSON or YAML file of InputSpecifications (each top-level key is
@@ -2826,13 +2826,13 @@ def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
     click.echo(f"Designing {len(specs)} spec(s) × {num_designs} design(s) → {out_dir} "
-               f"(golden={gdir}, from_pdb={from_pdb}, {num_timesteps} steps"
+               f"(golden={gdir}, from_pdb={from_pdb}, {num_timesteps} steps, batch={batch_size}"
                f"{f', devices={device_list}' if device_list and len(device_list) > 1 else ''})")
     try:
         results = rfd3_design.run_design(
             specs, out_dir, golden_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
             seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, num_designs=num_designs,
-            devices=device_list, verbose=True,
+            batch_size=batch_size, devices=device_list, verbose=True,
         )
     except (ValueError, TypeError) as e:
         raise click.ClickException(str(e))

@@ -1713,11 +1713,12 @@ class RFD3DiffusionModule(Module):
         L = len(tok_idx); I = int(tok_idx.max().item()) + 1
         # Batch dim B comes from t (the sampler tiles the per-step scalar sigma to
         # shape [D]). X_noisy_L is [D,L,3]; the TokenInitializer outputs are
-        # batch-1 ([L,C]/[I,C]/[I,I,C]), so unsqueeze AND expand to the full D so
-        # every downstream sub-module sees a real [B,...] batch (not [1,...] that
-        # silently stays size-1 when B>1 -- root cause of the original D>1 crash,
-        # found via the bench harness). `.contiguous()` makes the expanded view a
-        # real tensor for ttnn.from_torch.
+        # batch-1 ([L,C]/[I,C]/[I,I,C]). Keep Q_L_init/C_L/S_I/P_LL at batch 1
+        # until torch combines them with per-design coordinates/time; broadcasting
+        # then materializes only the streams that actually diverge. P_LL remains
+        # batch 1 throughout because RFD3AtomBlock broadcasts its invariant pair
+        # bias over the attention batch. Only Z_II must be materialized here for
+        # the later concat with per-design distograms.
         B = t.shape[0]
         if Q_L_init.ndim == 2: Q_L_init = Q_L_init.unsqueeze(0)
         if C_L.ndim == 2: C_L = C_L.unsqueeze(0)
@@ -1725,11 +1726,7 @@ class RFD3DiffusionModule(Module):
         if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
         if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
         if B != 1:
-            Q_L_init = Q_L_init.expand(B, -1, -1).contiguous()
-            C_L = C_L.expand(B, -1, -1).contiguous()
-            S_I = S_I.expand(B, -1, -1).contiguous()
             Z_II = Z_II.expand(B, -1, -1, -1).contiguous()
-            P_LL = P_LL.expand(B, -1, -1, -1).contiguous()
         f = dict(f)
         f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
         is_motif = f["is_motif_atom_with_fixed_coord"]

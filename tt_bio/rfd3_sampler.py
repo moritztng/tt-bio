@@ -18,9 +18,39 @@ with shared random draws isolates the device forward under each mode.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from typing import Any
 
 import torch
+
+
+def _normal_per_design(shape, device, generator):
+    """Draw one independent RNG stream per batch element when generators are given."""
+    if isinstance(generator, Sequence):
+        if len(generator) != shape[0]:
+            raise ValueError(
+                f"expected {shape[0]} generators for batch size {shape[0]}, got {len(generator)}"
+            )
+        return torch.cat(
+            [
+                torch.normal(
+                    mean=0.0,
+                    std=1.0,
+                    size=(1, *shape[1:]),
+                    device=device,
+                    generator=item,
+                )
+                for item in generator
+            ],
+            dim=0,
+        )
+    return torch.normal(
+        mean=0.0,
+        std=1.0,
+        size=shape,
+        device=device,
+        generator=generator,
+    )
 
 
 # --- classifier-free guidance helpers (faithful port of rfd3.model.cfg_utils) ---
@@ -139,8 +169,7 @@ class RFD3Sampler:
         device = coord.device
         sched = self.noise_schedule(device, partial_t=partial_t)
         c0 = sched[0]
-        noise0 = torch.zeros((D, L, 3), device=device)
-        noise0 = c0 * torch.normal(mean=0.0, std=1.0, size=(D, L, 3), device=device, generator=generator)
+        noise0 = c0 * _normal_per_design((D, L, 3), device, generator)
         noise0[..., is_motif_fixed, :] = 0
         X_L = noise0 + coord
         traj = []
@@ -153,8 +182,11 @@ class RFD3Sampler:
         for step, (c_tm1, c_t) in enumerate(zip(sched, sched[1:])):
             gamma = self.gamma_0 if c_t > self.gamma_min else 0.0
             t_hat = c_tm1 * (gamma + 1)
-            eps = (self.noise_scale * torch.sqrt(torch.square(t_hat) - torch.square(c_tm1))
-                   * torch.normal(mean=0.0, std=1.0, size=X_L.shape, device=device, generator=generator))
+            eps = (
+                self.noise_scale
+                * torch.sqrt(torch.square(t_hat) - torch.square(c_tm1))
+                * _normal_per_design(tuple(X_L.shape), device, generator)
+            )
             eps[..., is_motif_fixed, :] = 0
             X_noisy = X_L + eps
             outs = diffusion_module(X_noisy_L=X_noisy, t=t_hat.tile(D), f=f,
