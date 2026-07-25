@@ -1526,59 +1526,71 @@ def build_dit(state_dict, compute_kernel_config=None, dtype=None, n_block=18):
 
 # --- Host-side attention-index builder (vendored from foundry block_utils) ---
 def _build_index_mask(tok_idx, n_seq_neighbours, k_max, chain_id=None, base_mask=None):
+    """Build the full-token local mask without atom-grid counting and sorting."""
     device = tok_idx.device
-    L = tok_idx.shape[0]; k_max = min(k_max, L)
-    I = int(tok_idx.max().item()) + 1
-    n_per_tok = torch.zeros(I, device=device).float()
-    n_per_tok.scatter_add_(0, tok_idx.long(), torch.ones_like(tok_idx).float())
-    tidx = torch.arange(I, device=device)
-    tdiff = (tidx[:, None] - tidx[None, :]).abs()
-    aidx = torch.arange(L, device=device)
-    adiff = (aidx[:, None] - aidx[None, :]).abs()
-    tmask = tdiff <= n_seq_neighbours
-    ti, tj = tok_idx[:, None], tok_idx[None, :]
-    mask = tmask[ti, tj] & (adiff <= (k_max // 2))
-    n_q = torch.zeros((L, I), device=device).float()
-    n_q.scatter_add_(1, tok_idx.long()[None, :].expand(L, -1).contiguous(), mask.float())
-    fully = n_q == n_per_tok[None, :]
-    n_fi = torch.zeros((I, I), device=device)
-    n_fi.index_add_(0, tok_idx.long(), fully.float())
-    ftmask = (n_fi == n_per_tok[:, None])[ti, tj]
-    mask &= ftmask
+    tok_idx = tok_idx.long()
+    length = tok_idx.shape[0]
+    k_max = min(k_max, length)
+    n_tokens = int(tok_idx.max().item()) + 1
+    positions = torch.arange(length, device=device)
+    first = torch.full((n_tokens,), length, dtype=torch.long, device=device)
+    last = torch.full((n_tokens,), -1, dtype=torch.long, device=device)
+    first.scatter_reduce_(0, tok_idx, positions, reduce="amin", include_self=True)
+    last.scatter_reduce_(0, tok_idx, positions, reduce="amax", include_self=True)
+
+    token_ids = torch.arange(n_tokens, device=device)
+    allowed = (
+        (token_ids[:, None] - token_ids[None, :]).abs() <= n_seq_neighbours
+    )
+    max_atom_distance = torch.maximum(
+        (first[:, None] - last[None, :]).abs(),
+        (last[:, None] - first[None, :]).abs(),
+    )
+    allowed &= max_atom_distance <= (k_max // 2)
     if chain_id is not None:
-        mask &= (chain_id.unsqueeze(-1) == chain_id.unsqueeze(-2))
+        token_chain = chain_id[first]
+        allowed &= token_chain[:, None] == token_chain[None, :]
     if base_mask is not None:
-        mask &= base_mask
-    return mask
+        if base_mask.shape == (n_tokens, n_tokens):
+            allowed &= base_mask
+        else:
+            allowed &= base_mask[first[:, None], first[None, :]]
+    return allowed[tok_idx[:, None], tok_idx[None, :]]
 
 
 def _extend_with_neighbours(mask, D_LL, k):
     if D_LL.ndim == 2:
         D_LL = D_LL.unsqueeze(0)
-    B, L, _ = D_LL.shape; k = min(k, L); device = D_LL.device
+    _, length, _ = D_LL.shape
+    k = min(k, length)
+    device = D_LL.device
+    rows = torch.arange(length, device=device).unsqueeze(0).expand(length, length)
+    idx = torch.where(mask.contiguous(), rows, length).topk(
+        k, dim=1, largest=False, sorted=True
+    ).values
     inf = torch.tensor(float("inf"), dtype=D_LL.dtype, device=device)
-    rows = torch.arange(L, device=device).unsqueeze(0).expand(L, L)
-    idx = torch.where(mask.contiguous(), rows, inf).sort(dim=1)[0][:, :k]
-    Dm = torch.where(mask.contiguous(), inf, D_LL)
-    fill = torch.topk(Dm, k, dim=-1, largest=False).indices.flip(dims=[-1])
-    tof = (idx == inf).expand_as(fill).contiguous()
-    idx = torch.where(tof, fill, idx.expand_as(fill).contiguous()).long()
-    return idx
+    masked_distances = torch.where(mask.contiguous(), inf, D_LL)
+    fill = torch.topk(masked_distances, k, dim=-1, largest=False).indices.flip(
+        dims=[-1]
+    )
+    idx = torch.where((idx == length).expand_as(fill), fill, idx.expand_as(fill))
+    return idx.long()
 
 
 def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
     device = X_L.device; L = len(tok_idx)
     D_LL = torch.cdist(X_L, X_L, p=2)
-    base_mask = ~f["unindexing_pair_mask"][tok_idx[None, :], tok_idx[:, None]]
+    base_mask = ~f["unindexing_pair_mask"]
     k = min(n_keys, L)
     chain = f["asym_id"][tok_idx] if "asym_id" in f else None
     if chain is not None and len(torch.unique(chain)) > 3:
         ki, kc = max(32, k // 4), k - max(32, k // 4)
         intra = _extend_with_neighbours(_build_index_mask(tok_idx, n_seq_neighbours, kc, chain, base_mask), D_LL, kc)
         inter = torch.zeros(D_LL.shape[0], L, ki, dtype=torch.long, device=device)
+        atom_base_mask = base_mask[tok_idx[None, :], tok_idx[:, None]]
         for b in range(D_LL.shape[0]):
             for c in torch.unique(chain):
-                ci = chain[c]; other = (chain != ci) & base_mask[c, :]
+                ci = chain[c]; other = (chain != ci) & atom_base_mask[c, :]
                 oi = torch.where(other)[0]; ns = min(ki, len(oi))
                 if ns > 0:
                     inter[b, c, :ns] = oi[torch.topk(D_LL[b, c, oi], ns, largest=False).indices]
