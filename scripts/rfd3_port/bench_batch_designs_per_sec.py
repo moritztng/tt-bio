@@ -1,4 +1,4 @@
-"""Measure RFD3 in-forward batching throughput at D=1/2/4/8.
+"""Measure RFD3 in-forward batching throughput.
 
 Uses the parity fixture and production decoder-trace setting. Each shape gets a
 short warmup before a timed sampler run; the 200-timestep rate is derived from
@@ -25,7 +25,13 @@ GOLDEN_DIR = Path("~/.coworker/artifacts/rfd3-goldens/capture").expanduser()
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--timesteps", type=int, default=40)
-    return parser.parse_args()
+    parser.add_argument("--batches", type=int, nargs="+", default=[1, 2, 4, 8])
+    parser.add_argument("--pdb", type=Path, default=PDB)
+    parser.add_argument("--contig", default="A1-10,20,A31-40")
+    args = parser.parse_args()
+    if any(batch < 1 for batch in args.batches):
+        parser.error("--batches values must be at least 1")
+    return args
 
 
 def main() -> None:
@@ -36,10 +42,10 @@ def main() -> None:
     from tt_bio.rfd3_sampler import RFD3Sampler
 
     spec = InputSpecification.from_dict(
-        {"input": str(PDB), "contig": "A1-10,20,A31-40"}
+        {"input": str(args.pdb), "contig": args.contig}
     )
     spec.validate()
-    features = featurize(str(PDB), spec)
+    features = featurize(str(args.pdb), spec)
     features = {
         key: value.float()
         if torch.is_tensor(value) and value.is_floating_point()
@@ -70,14 +76,15 @@ def main() -> None:
     fixed = features["is_motif_atom_with_fixed_coord"]
     coord = features["motif_pos"].float().unsqueeze(0)
     print(
-        f"fixture: I={features['restype'].shape[0]} L={length} "
+        f"fixture: pdb={args.pdb} contig={args.contig!r} "
+        f"I={features['restype'].shape[0]} L={length} "
         f"trace_decoder={os.environ.get('RFD3_TRACE_DECODER') == '1'}"
     )
     print(
         f"D  sample_{args.timesteps}_s  ms_per_step  "
         f"measured_designs_per_sec  projected_designs_per_sec_200"
     )
-    for batch in (1, 2, 4, 8):
+    for batch in args.batches:
         warmup = RFD3Sampler(num_timesteps=4)
         measured = RFD3Sampler(num_timesteps=args.timesteps)
         with torch.no_grad():

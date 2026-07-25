@@ -34,7 +34,7 @@ GOLDEN_DIR = Path("~/.coworker/artifacts/rfd3-goldens/capture").expanduser()
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch", type=int, choices=(1, 2, 4, 8), required=True)
+    parser.add_argument("--batch", type=int, required=True)
     parser.add_argument("--trace-decoder", action="store_true")
     parser.add_argument(
         "--sync-profile",
