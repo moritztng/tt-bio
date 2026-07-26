@@ -1527,7 +1527,8 @@ class Trunk(_KeyedWeights):
         return s, z3
 
 
-def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma_min=1.0,
+def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
+               n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
                rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
@@ -1540,12 +1541,37 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
     then a final sigma=0; gammas[i] = gamma0 if sigma[i] > gamma_min else 0; per step
     (sigma_tm=sigmas[k], sigma_t=sigmas[k+1], gamma=gammas[k+1]); t_hat=sigma_tm*(1+gamma).
     cond is the fixed trunk conditioning dict passed to DiffusionModule.denoise.
+
+    multiplicity (M): number of independent samples drawn in ONE batched trajectory.
+    The conditioning is sample-invariant (same target -> same s_trunk/s_inputs/pair_z/
+    c_l/p_lm/S/mask), so only the coordinate stream x_noisy carries the M dim -- mirrors
+    boltz2.AtomDiffusion.sample's multiplicity pattern (repeat_interleave would be a no-op
+    here since cond is shared, not per-sample). max_parallel_samples caps the per-step
+    batched denoise chunk for OOM safety (None = M, one batched forward); mirrors
+    boltz2's max_parallel_samples.
+
+    Parity: at multiplicity=1 (default) this is bit-exact with the prior per-sample loop
+    -- same single seed, same (1,N,3) draws, one _denoise((1,N,3),...) call per step.
+    At multiplicity>1 the sampler draws all M samples from one RNG stream (seeded once
+    with `seed`), so each sample's noise differs from the old per-sample loop's seed+k
+    draw but is statistically equivalent; the fold lands in the same basin within the
+    seed-to-seed noise floor (PCC parity, the established diffusion-leg bar). This matches
+    boltz2.AtomDiffusion.sample, which also uses one stream for its multiplicity batch.
+
     trace=True replays a captured ttnn trace of the denoise device stream (lossless;
-    collapses per-step dispatch on dispatch-bound diffusion). Requires the device to
-    have been opened with a trace region (get_device(trace_region_size=...))."""
+    collapses per-step dispatch on dispatch-bound diffusion). The captured trace is fixed
+    at (1,N,3), so trace=True with multiplicity>1 falls back to the untraced denoise
+    (correctness first; a batched trace would need re-capture per (N,M)). Requires the
+    device to have been opened with a trace region (get_device(trace_region_size=...))."""
     import torch
     from .boltz2 import compute_random_augmentation
-    _denoise = diffusion_module.denoise_traced if trace else diffusion_module.denoise
+    M = max(1, int(multiplicity))
+    if max_parallel_samples is None or max_parallel_samples > M:
+        max_parallel_samples = M
+    max_parallel_samples = max(1, int(max_parallel_samples))
+    # trace is captured at (1,N,3): keep it only for the unbatched path; fall back to
+    # the untraced (but batch-aware) denoise for M>1 so the device forward is correct.
+    _denoise = (diffusion_module.denoise_traced if trace and M == 1 else diffusion_module.denoise)
     if seed is not None:
         torch.manual_seed(seed)
     inv_rho = 1.0 / rho
@@ -1553,7 +1579,7 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
     sig = sigma_data * (s_max ** inv_rho + (i / n_step) * (s_min ** inv_rho - s_max ** inv_rho)) ** rho
     sigmas = torch.cat([sig, torch.zeros(1, dtype=torch.float64)]).float()      # (n_step+1,)
     gammas = torch.where(sigmas > gamma_min, torch.tensor(gamma0), torch.tensor(0.0))
-    shape = (1, n_atoms, 3)
+    shape = (M, n_atoms, 3)
     # Shared-draws hook for the integration-parity gate (see tt_bio/boltz2.py
     # AtomDiffusion.sample for the full rationale). The ttnn and torch trunks
     # consume the global RNG differently between worker.py's single up-front
@@ -1571,23 +1597,35 @@ def edm_sample(diffusion_module, cond, n_atoms, *, n_step=200, gamma0=0.8, gamma
         torch.manual_seed(int(_sds))
     x = sigmas[0] * torch.randn(shape)
     if dump_fn is not None:                          # optional trajectory dump (default off)
-        dump_fn(-1, x.detach().cpu())                # step -1 == initial noise frame
+        for _m in range(M):                          # preserve the (1,N,3) per-sample dump contract
+            dump_fn(-1, x[_m:_m + 1].detach().cpu())  # step -1 == initial noise frame
+    # Per-step chunked batched denoise (boltz2 max_parallel_samples pattern): one batched
+    # _denoise call per chunk per step instead of one per sample per step. The chunking
+    # is over the multiplicity dim only -- cond is shared (sample-invariant), so it is
+    # NOT replicated; the device denoise is responsible for carrying the chunk's leading
+    # dim through the atom encoder / DiT / decoder (see DiffusionModule.denoise).
+    sample_ids = torch.arange(M)
+    n_chunks = max(1, (M + max_parallel_samples - 1) // max_parallel_samples)
+    chunks = [c for c in sample_ids.chunk(n_chunks) if c.numel() > 0]
     for k in range(n_step):
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
         sigma_tm, sigma_t, gamma = sigmas[k].item(), sigmas[k + 1].item(), gammas[k + 1].item()
-        R, tr = compute_random_augmentation(1, device=x.device, dtype=x.dtype)
+        R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
         x = x - x.mean(dim=-2, keepdim=True)
         x = torch.einsum("bmd,bds->bms", x, R) + tr
         t_hat = sigma_tm * (1 + gamma)
         noise_var = noise_scale ** 2 * (t_hat ** 2 - sigma_tm ** 2)
         eps = (noise_var ** 0.5) * torch.randn(shape) if noise_var > 0 else torch.zeros(shape)
         x_noisy = x + eps
-        denoised = _denoise(x_noisy, torch.tensor([t_hat], dtype=torch.float32), cond)
+        denoised = torch.zeros_like(x_noisy)
+        for _chunk in chunks:
+            denoised[_chunk] = _denoise(x_noisy[_chunk], torch.tensor([t_hat], dtype=torch.float32), cond)
         d = (x_noisy - denoised) / t_hat
         x = x_noisy + step_scale * (sigma_t - t_hat) * d
         if dump_fn is not None:                      # per-step coords (noise -> structure)
-            dump_fn(k, x.detach().cpu())
+            for _m in range(M):
+                dump_fn(k, x[_m:_m+1].detach().cpu())
     return x
 
 
