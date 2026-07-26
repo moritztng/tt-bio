@@ -33,6 +33,10 @@ def parse_args() -> argparse.Namespace:
         "--spec", type=Path,
         help="JSON InputSpecification; overrides --pdb/--contig",
     )
+    parser.add_argument(
+        "--no-core-grid", action="store_true",
+        help="strip core_grid= from every ttnn.linear (batch-invariance A/B)",
+    )
     args = parser.parse_args()
     if any(batch < 1 for batch in args.batches):
         parser.error("--batches values must be at least 1")
@@ -41,6 +45,16 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.no_core_grid:
+        import ttnn
+
+        _linear = ttnn.linear
+
+        def linear_no_grid(*a, **kw):
+            kw.pop("core_grid", None)
+            return _linear(*a, **kw)
+
+        ttnn.linear = linear_no_grid
     from tt_bio.rfd3 import build_diffusion_module, build_token_initializer
     from tt_bio.rfd3_featurize import featurize
     from tt_bio.rfd3_input import InputSpecification
