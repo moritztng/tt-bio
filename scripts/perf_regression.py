@@ -230,6 +230,21 @@ SPECS: dict[str, dict] = {
     # as the boltzgen leg. Shipped-default fp32 host gates stay ON (no env
     # overrides) so the timed call matches the shipped config.
     "boltz2-affinity": dict(kind="affinity", unit="affinities/s", direction="higher"),
+    # RFdiffusion3 (RFD3) is a design pipeline reached via `tt-bio design` (its
+    # own CLI command, not a `--model` choice), so it is not in
+    # tt_bio.main.PREDICT_MODELS/EMBED_MODELS and _assert_full_model_coverage
+    # does not enforce it -- it is covered here voluntarily, the same way the
+    # gate covers every shipped user-facing CLI surface. Like boltzgen, RFD3
+    # has no warm steady-state loop (one design = featurize -> on-device
+    # TokenInitializer -> sampler -> CIF), so kind="design" is a single
+    # end-to-end `tt-bio design --from_pdb` subprocess timed wall-to-wall;
+    # designs/s = num_designs / wall. Reuses the SAME IAI motif-scaffold fixture
+    # the parity leg (scripts/rfd3_port/parity_gate.py) and the UX leg use --
+    # no new fixture invented. num_timesteps=4 is the shipped CLI default (a
+    # fast smoke setting); the gate measures the shipped default, not a
+    # production-quality 200-step design.
+    "rfd3": dict(kind="design", unit="designs/s", direction="higher",
+                  num_designs=1, num_timesteps=4),
 }
 DEFAULT_MODELS = list(SPECS)
 
@@ -295,6 +310,7 @@ DEFAULT_THRESHOLD = 15.0   # % regression allowed before the gate fails; see doc
 # genuinely stuck, not merely slow. Env-overridable for a slow host.
 MEASURE_TIMEOUT_S = int(os.environ.get("PERF_MEASURE_TIMEOUT", "1800"))   # fold/embed/affinity child
 GEN_TIMEOUT_S = int(os.environ.get("PERF_GEN_TIMEOUT", "3600"))           # full design pipeline
+DESIGN_TIMEOUT_S = int(os.environ.get("PERF_DESIGN_TIMEOUT", "1800"))       # tt-bio design (RFD3)
 
 
 # ── baseline file ──────────────────────────────────────────────────────────
@@ -663,6 +679,80 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
     return result
 
 
+def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
+    """Time one ``tt-bio design --from_pdb`` job end-to-end and write a JSON result.
+
+    RFD3 is a design pipeline (like BoltzGen), not a fold loop: it has no warm
+    steady-state ``predict_one`` to repeat. So this leg spawns the shipping
+    ``tt-bio design --from_pdb`` CLI as a subprocess (the pipeline owns its own
+    device lifecycle -- no device is opened in this measure process) and times
+    the full featurize -> on-device TokenInitializer -> EDM sampler -> CIF write
+    on the canonical IAI motif-scaffold fixture (the SAME fixture the parity leg
+    and the UX leg use -- scripts/rfd3_port/parity_artifacts/iai_protein/
+    iai_inputs.yaml, I40/L419). The gated metric is ``designs/s = num_designs /
+    wall-clock``.
+
+    A single end-to-end invocation, not a warm loop: the first design absorbs
+    first-kernel compile and is included in the timed region, so ``designs/s``
+    is a conservative (cold-inflated) warm-throughput proxy -- same character
+    as the boltzgen leg. The cold fraction is stable across releases, so a
+    dispatch/throughput regression still shows up as a higher wall-clock.
+    num_timesteps=4 is the shipped CLI default (a fast smoke setting); the gate
+    measures the shipped default, not a production 200-step design.
+    """
+    spec_path = REPO_ROOT / "scripts" / "rfd3_port" / "parity_artifacts" / "iai_protein" / "iai_inputs.yaml"
+    if not spec_path.exists():
+        raise FileNotFoundError(f"missing design fixture {spec_path}")
+    n = spec["num_designs"]
+    timesteps = spec["num_timesteps"]
+    work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
+    out_dir = work / "design"
+    log_path = work / "design.log"
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
+        "--from_pdb",
+        "--out_dir", str(out_dir),
+        "--num_designs", str(n),
+        "--num_timesteps", str(timesteps),
+        "--devices", "1",
+    ]
+    env = dict(os.environ)
+    pp = str(REPO_ROOT)
+    env["PYTHONPATH"] = pp + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    env.setdefault("TT_VISIBLE_DEVICES", "0")
+    env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
+    env.setdefault("LOGURU_LEVEL", "WARNING")
+    wall = _run_cli(cmd, env, log_path, DESIGN_TIMEOUT_S, f"design [{model}]")
+    throughput = n / wall
+    latency_ms = wall / n * 1000.0
+    card = detect_card_type()
+    result = dict(
+        model=model,
+        kind=spec["kind"],
+        unit=spec["unit"],
+        direction=spec["direction"],
+        hardware="blackhole",
+        card_type=card,
+        throughput=round(throughput, 6),
+        latency_ms=round(latency_ms, 2),
+        median_s=round(wall, 4),
+        times_s=[round(wall, 4)],
+        load_s=0.0,
+        warmup=0,
+        repeat=1,
+        num_timesteps=timesteps,
+        num_designs=n,
+        input=f"{spec_path.name} (IAI motif-scaffold, I40/L419, from_pdb, {timesteps} steps)",
+        tt_bio_version=_version(),
+        date=date.today().isoformat(),
+    )
+    out_path.write_text(json.dumps(result))
+    print(f"[{model}] {result['throughput']} {spec['unit']}  "
+          f"({latency_ms:.0f} ms/design, wall {wall:.0f}s)", file=sys.stderr)
+    shutil.rmtree(work, ignore_errors=True)
+    return result
+
+
 def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
     """Time one ``tt-bio predict`` affinity-mode call end-to-end and write a JSON
     result.
@@ -760,6 +850,8 @@ def measure(model: str, out_path: Path) -> dict:
     spec = SPECS[model]
     if spec["kind"] == "gen":
         return _measure_gen(model, spec, out_path)
+    if spec["kind"] == "design":
+        return _measure_design(model, spec, out_path)
     if spec["kind"] == "affinity":
         return _measure_affinity(model, spec, out_path)
     if model.startswith("saprot"):

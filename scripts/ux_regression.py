@@ -128,6 +128,16 @@ AFFINITY_MODEL = "boltz2-affinity"
 AFFINITY_SPEC = REPO_ROOT / "examples" / "affinity_fkg.yaml"  # FKBP12+SB3, L107, msa: empty
 AFFINITY_TIMEOUT_S = 900  # affinity trunk fp32 (5 recycles, 64 blocks) ~140s + fold; load dominates
 
+# RFdiffusion3 (RFD3) structure design — exercised via `tt-bio design --from_pdb`
+# on the canonical IAI motif-scaffold fixture (the SAME fixture the parity leg
+# and the perf leg use — scripts/rfd3_port/parity_artifacts/iai_protein/
+# iai_inputs.yaml). A tiny 1-design job at the shipped default 4 timesteps is
+# enough to gate the UX plumbing (progress lines, output CIF parses, CLI
+# shape); it is not an accuracy or perf measurement.
+DESIGN_MODEL = "rfd3"
+DESIGN_SPEC = REPO_ROOT / "scripts" / "rfd3_port" / "parity_artifacts" / "iai_protein" / "iai_inputs.yaml"
+DESIGN_TIMEOUT_S = 1200  # load ~0.65 GiB ckpt + first-kernel compile + 1 design; load dominates
+
 # esmc/saprot embed input: trpcage's 20-mer as a one-sequence FASTA, written into
 # the per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
 EMBED_SEQ = "NLYIQWLKDGGPSSGRPPPS"
@@ -420,6 +430,23 @@ def _check_cli() -> list[str]:
                          "--budget"):
                 if flag not in r.stdout:
                     problems.append(f"boltzgen run --help missing flag {flag}")
+
+    # `tt-bio design` is a separate click command (not a --model choice) — gate
+    # its flag surface so a regression that drops one of its core flags ships
+    # loudly. Click intercepts --help at the command level, so this asserts the
+    # wrapper responds cleanly AND lists the core design flags.
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "design", "--help"],
+                 env=_subprocess_env(), timeout=60)
+        if r.returncode != 0:
+            problems.append(f"design --help exited {r.returncode}")
+    except Exception as e:
+        problems.append(f"design --help failed to run: {e}")
+    else:
+        for flag in ("--from_pdb", "--out_dir", "--num_designs", "--num_timesteps",
+                     "--batch_size", "--devices", "--seed"):
+            if flag not in r.stdout:
+                problems.append(f"design --help missing flag {flag}")
     return problems
 
 
@@ -756,6 +783,98 @@ def _check_gen_metrics(out_dir: Path) -> list[str]:
     return []
 
 
+def _check_design_progress(stdout: str) -> list[str]:
+    """Assert `tt-bio design`'s stdout advances Designing -> Done with a
+    per-design line. The design command's progress is plain print (no Rich live
+    view, no stage stream like gen), so the check is the headline lines plus a
+    written CIF. Returns problem strings (empty == pass)."""
+    problems = []
+    if "Designing" not in stdout:
+        problems.append("no 'Designing ...' headline — design start not reported")
+    if "Done —" not in stdout and "Done -" not in stdout:
+        problems.append("no 'Done — ...' line — design completion not reported")
+    # a per-design line: "  <spec_id>#<i>: <path> (n atoms)"
+    import re
+    if not re.search(r"^\s*\S+#\d+:\s+\S+\.cif\s+\(\d+ atoms\)", stdout, re.M):
+        problems.append("no per-design 'spec#i: path (n atoms)' line — design result not reported")
+    return problems
+
+
+def run_design(model: str, base: Path) -> dict:
+    """Run one tiny `tt-bio design --from_pdb` job and gate the three UX legs
+    (progress lines, output CIF parses, CLI shape). Returns a result row.
+
+    Reuses the SAME IAI motif-scaffold fixture the parity + perf legs use
+    (scripts/rfd3_port/parity_artifacts/iai_protein/iai_inputs.yaml) — no new
+    fixture invented. 1 design at the shipped default 4 timesteps is enough to
+    gate UX plumbing, not accuracy or perf."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if not DESIGN_SPEC.exists():
+        sys.exit(f"missing design fixture {DESIGN_SPEC}")
+
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "design", str(DESIGN_SPEC),
+        "--from_pdb",
+        "--out_dir", str(out_dir),
+        "--num_designs", "1",
+        "--num_timesteps", "4",
+        "--devices", "1",
+    ]
+    print(f"\n{'='*70}\n[{model}] design {DESIGN_SPEC.name} (from_pdb, 1 design, 4 steps)\n{'='*70}", flush=True)
+
+    row = {"model": model, "seconds": None, "progress": False, "parse": False,
+           "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=_subprocess_env(), timeout=DESIGN_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"design timed out after {DESIGN_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = (f"design exited {proc.returncode}: "
+                        f"{tail[-1] if tail else ''}")
+        return row
+
+    # Leg 1: progress lines (design's plain-print Designing -> Done -> per-design).
+    prog_problems = _check_design_progress(proc.stdout or "")
+    row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
+    if prog_problems:
+        row["checks"].extend(f"  • {p}" for p in prog_problems)
+        if not row["error"]:
+            row["error"] = "progress: " + "; ".join(prog_problems)
+
+    # Leg 2: written CIF parses under a strict standard parser.
+    cifs = sorted(out_dir.rglob("*.cif")) if out_dir.exists() else []
+    if not cifs:
+        parse_problems = [f"design wrote no CIF under {out_dir}"]
+    else:
+        parse_problems = []
+        for cif in cifs:
+            parse_problems += _check_cif(cif)
+    row["checks"].append(f"parse: {'OK' if not parse_problems else 'FAIL'}")
+    if parse_problems:
+        row["checks"].extend(f"  • {p}" for p in parse_problems)
+        if not row["error"]:
+            row["error"] = "parse: " + "; ".join(parse_problems)
+
+    row["progress"] = not prog_problems
+    row["parse"] = not parse_problems
+    # design has no separate results.json/metrics table like gen — the CIF +
+    # progress lines ARE the user-facing output, so gate = progress & parse.
+    row["gate"] = row["progress"] and row["parse"]
+    return row
+
+
+def _print_design_row(r: dict) -> None:
+    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'wall':>9}  {verdict}")
+    print(f"  prog={r['progress']} parse={r['parse']}")
+
+
 # ── driver ─────────────────────────────────────────────────────────────────
 
 def _print_fold_row(r: dict) -> None:
@@ -910,7 +1029,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", action="append",
-                    choices=FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL],
+                    choices=FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL],
                     help="Gate only this model (repeatable). Default: all five fold "
                          "models + esmc-600m + saprot-650m embed + boltzgen gen run "
                          "+ boltz2-affinity.")
@@ -945,17 +1064,18 @@ def main() -> int:
             print(f"  ✗ {prob}")
     else:
         print("  ✓ predict --help, embed --help, saprot --help, gen run --help, "
-              "tt-bio --help all OK and list core flags")
+              "design --help, tt-bio --help all OK and list core flags")
     print(f"{'#'*78}")
 
     if args.cli_only:
         return 0 if all_pass else 1
 
-    models = args.model or (FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL])
+    models = args.model or (FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL])
     fold_models = [m for m in models if m in FOLD_MODELS]
     embed_models = [m for m in models if m in EMBED_MODELS]
     gen_models = [m for m in models if m == GEN_MODEL]
     affinity_models = [m for m in models if m == AFFINITY_MODEL]
+    design_models = [m for m in models if m == DESIGN_MODEL]
 
     if not DATA.exists() and fold_models:
         sys.exit(f"missing gate target {DATA}")
@@ -963,8 +1083,10 @@ def main() -> int:
         sys.exit(f"missing gen fixture {GEN_SPEC}")
     if not AFFINITY_SPEC.exists() and affinity_models:
         sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
+    if not DESIGN_SPEC.exists() and design_models:
+        sys.exit(f"missing design fixture {DESIGN_SPEC}")
     if (not fold_models and not embed_models and not gen_models
-            and not affinity_models):
+            and not affinity_models and not design_models):
         return 0 if all_pass else 1
 
     base = Path(tempfile.mkdtemp(prefix="ux_gate_", dir=str(REPO_ROOT)))
@@ -986,6 +1108,10 @@ def main() -> int:
             r = run_affinity(m, base)
             rows.append(("affinity", r))
             all_pass &= r["gate"]
+        for m in design_models:
+            r = run_design(m, base)
+            rows.append(("design", r))
+            all_pass &= r["gate"]
         print(f"\n{'#'*78}\nUX GATE — summary (fold fixtures: {DATA.name}"
               f"{f' / {ABAG_DATA.name} (opendde-abag)' if ABAG_DATA.exists() else ''}, "
               f"recyc={RECYCLING_STEPS}, steps={SAMPLING_STEPS}, "
@@ -999,6 +1125,8 @@ def main() -> int:
                 _print_gen_row(r)
             elif kind == "affinity":
                 _print_affinity_row(r)
+            elif kind == "design":
+                _print_design_row(r)
         print(f"{'#'*78}")
         print("GATE PASS — every surface cleared progress + parse + results/manifest "
               "shape, and the CLI behaves" if all_pass

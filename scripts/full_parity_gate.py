@@ -302,6 +302,18 @@ LEGS += [
     Leg("boltzgen", "boltzgen", "boltzgen", "examples/binder.yaml",
         committed_json="boltzgen.json", seeds=(0,),
         note="designability leg; reuses release_gate --model boltzgen"),
+    # --- RFD3 featurizer parity (card-free, in-process; reuses the committed
+    # reference capture under scripts/rfd3_port/parity_artifacts/iai_protein/) ---
+    # RFD3's correctness anchor is value parity of the host featurizer vs the
+    # upstream foundry featurizer (43/43 f keys bit-exact, verified during the
+    # port p12). The reference is committed, so this leg re-runs the ported
+    # featurizer on the committed IAI_protein.pdb + contig and compares every
+    # key bit-exact every release -- no device, no foundry install. The
+    # trajectory bit-exactness gates from the batch-perf chain (p8-p11) are
+    # separate device checks; this is the card-free foundation.
+    Leg("rfd3-featurizer", "rfd3", "rfd3", "", committed_json="rfd3-featurizer.json",
+        note="RFD3 host featurizer value-parity vs committed foundry reference "
+              "(43/43 keys bit-exact); card-free, in-process"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -859,6 +871,19 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         out_json.write_text(json.dumps(row, indent=2, default=str))
         return row
 
+    if leg.kind == "rfd3":
+        # Card-free in-process: run the ported featurizer on the committed IAI
+        # fixture and compare every f key bit-exact vs the committed foundry
+        # reference (scripts/rfd3_port/parity_gate.py). No device, no fold.
+        sys.path.insert(0, str(REPO / "scripts" / "rfd3_port"))
+        try:
+            from parity_gate import featurizer_parity
+            rep = featurizer_parity()
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}"}
+        out_json.write_text(json.dumps(rep, indent=2))
+        return rep
+
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
         # esmc_embed_parity multi-leg mode: --seqs + --out writes the pharma-style targets
@@ -988,6 +1013,23 @@ def _abag_verdict(report: dict) -> tuple[str, str]:
     return "NO-DATA", "no global_dockq in record"
 
 
+def _rfd3_verdict(report: dict) -> tuple[str, str]:
+    """RFD3 featurizer parity: PASS iff every comparable f key is bit-exact vs the
+    committed foundry reference capture (the port's own 43/43-key bar, p12)."""
+    if report.get("error"):
+        return "ERROR", str(report["error"])
+    total = report.get("keys_total", 0)
+    bx = report.get("keys_bitexact", 0)
+    mm = report.get("mismatches", [])
+    if total == 0:
+        return "NO-DATA", "no keys scored"
+    verdict = report.get("verdict", "PASS" if not mm else "GAP")
+    detail = f"{bx}/{total} f keys bit-exact"
+    if mm:
+        detail += f"; mismatches: {[m['key'] for m in mm]}"
+    return verdict, detail
+
+
 def _envelope_verdict_row(report: dict) -> tuple[str, str]:
     """Verdict for an integration_envelope report: PASS iff every metric is within the measured
     bf16 envelope; else GAP (a real residual exceeding the envelope — to hunt, not excuse). The
@@ -1022,6 +1064,8 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _boltzgen_verdict(report)
     if leg.kind == "abag":
         return _abag_verdict(report)
+    if leg.kind == "rfd3":
+        return _rfd3_verdict(report)
     if leg.kind == "esmfold2":
         # esmfold2_e2e_parity summary.json is a list of per-protein dicts (each with a
         # kabsch_rmsd block). The gate's recorded behavior is PASS-if-scored (the
