@@ -1422,13 +1422,25 @@ class LinearSequenceHead(Module):
         return logits, masked.argmax(dim=-1)
 
 
-def _bucketize_scaled_distogram(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_bins=65):
-    """Host port of block_utils.bucketize_scaled_distogram. R_L: [B, N, 3] -> one-hot [B, N, N, n_bins]."""
+def _scaled_distogram_bins(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_bins=65):
+    """Host port of block_utils.bucketize_scaled_distogram, stopping at the bin index.
+
+    R_L: [B, N, 3] -> int32 [B, N, N]. The one-hot expansion this feeds is done on
+    device (see DiffusionTokenEncoder._onehot_dev): materializing it here costs a
+    [B,N,N,65] int64 tensor plus its float copy on host and then uploads 65 bytes
+    per pair where 4 would do -- 51.0 ms of host work plus a 48.9 ms upload at
+    B=8/N=250, against 1.6 + 0.3 + 7.2 ms for bins + upload + device one-hot.
+    """
     D_LL = torch.linalg.norm(R_L.unsqueeze(-2) - R_L.unsqueeze(-3), dim=-1)  # [B, N, N]
     lo, hi = min_dist / sigma_data, max_dist / sigma_data
     bins = torch.linspace(lo, hi, n_bins - 1, device=R_L.device)
-    bin_idxs = torch.bucketize(D_LL, bins)
-    return torch.nn.functional.one_hot(bin_idxs, num_classes=n_bins).float()
+    return torch.bucketize(D_LL, bins).to(torch.int32)
+
+
+def _bucketize_scaled_distogram(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_bins=65):
+    """One-hot [B, N, N, n_bins] form, kept as the host reference for the device path."""
+    bin_idxs = _scaled_distogram_bins(R_L, min_dist, max_dist, sigma_data, n_bins)
+    return torch.nn.functional.one_hot(bin_idxs.long(), num_classes=n_bins).float()
 
 
 class DiffusionTokenEncoder(Module):
@@ -1454,10 +1466,59 @@ class DiffusionTokenEncoder(Module):
                                  self.C_S, self.C_Z, self.N_HEAD, dtype=self.dtype,
                                  fp32_residual=fp32_residual)
                                 for i in range(self.N_PAIRFORMER)]
+        # pure constants of (dtype) / (batch, tokens, dtype); see _onehot_dev and _zeros_dev
+        self._const = {}
+
+    def _batched(self, x_dev, batch):
+        """Replicate a batch-1 device tensor over the batch dim.
+
+        The pair stack's Z_init_II is invariant across designs, so the only reason it
+        needs a batch dim is the concat below. Doing that on device costs 0.67 ms for
+        the [8,250,250,128] bf16 form (384 GB/s, i.e. bandwidth-bound) against 18.5 ms
+        of host expand plus a 77.3 ms upload for the same bytes -- 144x, and a pure
+        copy, so bit-exact.
+        """
+        if batch == 1 or x_dev.shape[0] == batch:
+            return x_dev
+        return ttnn.concat([x_dev] * batch, dim=0)
+
+    def _onehot_dev(self, bins, batch, I):
+        """One-hot the [B,I,I] int32 bin indices on device, by gathering identity rows.
+
+        Exact: the gathered values are 0.0 and 1.0, both representable in every dtype
+        this model uses, so the result is elementwise-identical to uploading the host
+        one-hot (verify_distogram_onehot_parity.py).
+        """
+        dev, dt = self.device, self.dtype
+        eye = self._const.get(("eye", dt))
+        if eye is None:
+            eye = _tt(torch.eye(self.N_BINS), dev, dt)
+            self._const[("eye", dt)] = eye
+        idx = _tt_idx(bins, dev)
+        oh = ttnn.embedding(idx, eye, layout=ttnn.ROW_MAJOR_LAYOUT,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        oh = ttnn.reshape(oh, (batch, I, I, self.N_BINS))
+        return ttnn.to_layout(oh, ttnn.TILE_LAYOUT)
+
+    def _zeros_dev(self, batch, I):
+        """The all-zero self-conditioning distogram of the first recycle.
+
+        A pure constant of (batch, I, dtype), so it is allocated once and held, exactly
+        like the attention-mask template (p10): at B=8/I=250 uploading it is a 48.9 ms
+        transfer of 65 MB of zeros, every step.
+        """
+        key = ("zeros", batch, I, self.dtype)
+        entry = self._const.get(key)
+        if entry is None:
+            entry = ttnn.zeros((batch, I, I, self.N_BINS), dtype=self.dtype,
+                               layout=ttnn.TILE_LAYOUT, device=self.device)
+            self._const[key] = entry
+        return entry
 
     def __call__(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
         """R_L_ca: [B, I, 3] (scaled C-alpha positions), S_init_I: [B, I, c_s],
-        Z_init_II: [I, I, c_z] (expanded over batch), D_II_self: [B, I, I, 65] or None.
+        Z_init_II: [I, I, c_z] or [1, I, I, c_z] (batch 1 -- replicated on device),
+        D_II_self: int32 [B, I, I] distogram bin indices or None.
         Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
@@ -1472,13 +1533,14 @@ class DiffusionTokenEncoder(Module):
             upd = tr(sc)
             s = ttnn.add(s, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
                 else ttnn.add(s, upd)
-        D_LL = _bucketize_scaled_distogram(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
-        if D_II_self is None:
-            D_II_self = torch.zeros(B, I, I, self.N_BINS, dtype=D_LL.dtype, device=D_LL.device)
+        bins = _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
+        d_dev = self._onehot_dev(bins, B, I)
+        self_dev = (self._zeros_dev(B, I) if D_II_self is None
+                    else self._onehot_dev(D_II_self, B, I))
         if Z_init_II.ndim == 3:
-            Z_init_II = Z_init_II.unsqueeze(0).expand(B, -1, -1, -1).contiguous()
-        z = _tt(Z_init_II, dev, dt)
-        zcat = ttnn.concat([z, _tt(D_LL, dev, dt), _tt(D_II_self, dev, dt)], dim=-1)  # [B,I,I,258]
+            Z_init_II = Z_init_II.unsqueeze(0)
+        z = self._batched(_tt(Z_init_II, dev, dt), B)
+        zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
         z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(zcat)
@@ -1785,7 +1847,8 @@ class RFD3DiffusionModule(Module):
         # _encoder_downcast_traced capture below, not in LocalAtomTransformer's own
         # (still isolated-test-only) trace mechanism.
         self._trace_encoder = os.environ.get("RFD3_TRACE_ENCODER") == "1"
-        self._grouping_cache = None    # {"key", "valid", "pack_idx_dev"} -- shared by downcast_c/downcast_q
+        self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
+        self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
         self._encoder_trace_state = None  # {"id", "shape", "q", "c", "p", "mask", "a", "s", "out_q", "out_a"}
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
                                             fp32_residual=self._dit_fp32_residual, trace=False)
@@ -1840,9 +1903,19 @@ class RFD3DiffusionModule(Module):
         the multi-step trajectory replay that would confirm it end-to-end has not run yet
         (blocked by device contention, see RFD3DiffusionModule.__init__ comment)."""
         dev = self.device
-        key = (id(tok_idx), tuple(tok_idx.shape), batch)
-        st = self._grouping_cache
-        if st is None or st["key"] != key:
+        # One slot PER BATCH SIZE, not one slot total: _downcast_c is called with the
+        # batch-1 S_I while the encoder downcast is called with the batch-D A_I, so a
+        # single-slot cache missed on every call at D>1 and re-uploaded the index --
+        # 8.7 ms per call at 3359 atoms, 31x what eight batch-1 calls cost (p11).
+        owner = (id(tok_idx), tuple(tok_idx.shape))
+        if self._grouping_owner != owner:
+            # a design change can change L/I shapes -- any captured combined trace is stale.
+            self._grouping_owner, self._grouping_cache = owner, {}
+            if self._encoder_trace_state is not None:
+                ttnn.release_trace(dev, self._encoder_trace_state["id"])
+                self._encoder_trace_state = None
+        st = self._grouping_cache.get(batch)
+        if st is None:
             valid, pack, _ = _grouping_indices(tok_idx, batch, dev)
             pack_idx_dev = _tt_idx(pack, dev)
             # Additive mask for the downcast GCAs (downcast_c AND downcast_q -- same
@@ -1852,12 +1925,8 @@ class RFD3DiffusionModule(Module):
             # on every call -- see _encoder_downcast_device / _downcast_q_device).
             downcast_mask_dev = self.downcast_q._prepare_additive_mask(
                 valid.unsqueeze(1), batch, valid.shape[0], 1, valid.shape[1])
-            st = dict(key=key, valid=valid, pack_idx_dev=pack_idx_dev, downcast_mask_dev=downcast_mask_dev)
-            self._grouping_cache = st
-            if self._encoder_trace_state is not None:
-                # a design change can change L/I shapes -- any captured combined trace is stale.
-                ttnn.release_trace(dev, self._encoder_trace_state["id"])
-                self._encoder_trace_state = None
+            st = dict(valid=valid, pack_idx_dev=pack_idx_dev, downcast_mask_dev=downcast_mask_dev)
+            self._grouping_cache[batch] = st
         return st["valid"], st["pack_idx_dev"], st["downcast_mask_dev"]
 
     def _downcast_c(self, C_L, S_I, tok_idx):
@@ -1971,16 +2040,16 @@ class RFD3DiffusionModule(Module):
         # until torch combines them with per-design coordinates/time; broadcasting
         # then materializes only the streams that actually diverge. P_LL remains
         # batch 1 throughout because RFD3AtomBlock broadcasts its invariant pair
-        # bias over the attention batch. Only Z_II must be materialized here for
-        # the later concat with per-design distograms.
+        # bias over the attention batch. Z_II also stays batch 1: the pair stack
+        # needs a batch dim only for its concat with the per-design distograms, and
+        # replicating it there costs 0.67 ms on device against 95.8 ms of host
+        # expand + upload (DiffusionTokenEncoder._batched).
         B = t.shape[0]
         if Q_L_init.ndim == 2: Q_L_init = Q_L_init.unsqueeze(0)
         if C_L.ndim == 2: C_L = C_L.unsqueeze(0)
         if S_I.ndim == 2: S_I = S_I.unsqueeze(0)
         if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
         if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
-        if B != 1:
-            Z_II = Z_II.expand(B, -1, -1, -1).contiguous()
         f = dict(f)
         f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
         is_motif = f["is_motif_atom_with_fixed_coord"]
@@ -2043,7 +2112,7 @@ class RFD3DiffusionModule(Module):
                                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
         X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
         logits, _ = self.sequence_head(A_I)
-        D_II_self = _bucketize_scaled_distogram(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
+        D_II_self = _scaled_distogram_bins(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
         return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits}
 
 
