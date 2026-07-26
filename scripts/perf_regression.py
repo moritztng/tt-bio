@@ -174,6 +174,19 @@ SPECS: dict[str, dict] = {
     "esmfold2-fast":  dict(kind="fold", unit="structures/s", direction="higher"),
     "protenix-v2":    dict(kind="fold", unit="structures/s", direction="higher"),
     "opendde":        dict(kind="fold", unit="structures/s", direction="higher"),
+    # opendde-abag loads a different checkpoint (opendde_abag.pt) through the exact
+    # SAME OpenDDE class/diffusion path as "opendde" above (tt_bio/opendde.py — only
+    # load_opendde_checkpoint's abag=True flag differs). It used to have NO entry
+    # here on the assumption that "opendde" measures the shared class well enough --
+    # that assumption is exactly what let a >60x diffusion-precision regression ship
+    # in v0.3.3/v0.3.4 undetected (see tt-bio-shared-diffusion-global-env-default-
+    # regression): the correctness gate only checks DockQ (fp32 is not less
+    # accurate, so it passed), and this perf gate never ran the abag checkpoint at
+    # all. Two models sharing an implementation class still get independent entries
+    # here, same as boltz2 vs boltz2-affinity below. Reuses the same light TRPCAGE
+    # single-chain protocol as "opendde" -- this gate measures the shared code path's
+    # throughput, not docking quality (that's release_gate.py's DockQ leg).
+    "opendde-abag":   dict(kind="fold", unit="structures/s", direction="higher"),
     "esmc-300m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
     "esmc-600m":      dict(kind="embed", unit="seq/s", direction="higher",
@@ -193,9 +206,11 @@ SPECS: dict[str, dict] = {
     # over the fused AA+Foldseek-3Di vocab, 446 tokens; tt_bio/saprot.py). It is
     # device-resident like esmc-300m/600m, so it mirrors that embed shape exactly
     # (batch_size=8, n_seqs=8 ubiquitin, seq/s, warmup-then-time). Sequence-only
-    # mode (3Di="#") -- no foldseek dependency on the perf path. The 35M/1.3B
-    # sizes are skipped here, matching how only two ESMC sizes are gated. The
-    # worker's embed path is ESMC-specific, so the measurement loads via
+    # mode (3Di="#") -- no foldseek dependency on the perf path. saprot-35m and
+    # saprot-1.3b are NOT skipped silently -- see SPECS_EXEMPT below, which
+    # requires a real reason and shows up in --check output, instead of just
+    # being absent from this dict (the failure mode that hid opendde-abag).
+    # The worker's embed path is ESMC-specific, so the measurement loads via
     # tt_bio.saprot directly (see _measure_saprot_embed) -- same warm seq/s
     # protocol, just a different loader than esmc.
     "saprot-650m":    dict(kind="embed", unit="seq/s", direction="higher",
@@ -217,6 +232,50 @@ SPECS: dict[str, dict] = {
     "boltz2-affinity": dict(kind="affinity", unit="affinities/s", direction="higher"),
 }
 DEFAULT_MODELS = list(SPECS)
+
+# Models reachable via a --model CLI choice (tt_bio.main.PREDICT_MODELS /
+# EMBED_MODELS / SAPROT_MODELS) that are deliberately NOT perf-gated yet. Every
+# entry needs a real, specific reason -- never a hand-wave "shares code with a
+# covered model" (that exact reasoning, applied to opendde-abag sharing OpenDDE
+# with "opendde", is what let a >60x regression ship with zero perf coverage).
+# Remove an entry the moment its baseline is seeded. See
+# _assert_full_model_coverage, which enforces that nothing falls through this
+# dict AND the SPECS dict silently.
+SPECS_EXEMPT: dict[str, str] = {
+    "saprot-35m": "not yet seeded -- TODO: measure and add a SPECS entry (own "
+                  "checkpoint, embed shape identical to saprot-650m)",
+    "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
+                   "checkpoint, embed shape identical to saprot-650m)",
+}
+
+
+def _assert_full_model_coverage() -> None:
+    """Fail loudly, before any device work, if a model shipped behind a
+    --model CLI choice has neither a SPECS entry nor a documented
+    SPECS_EXEMPT reason.
+
+    This is the structural fix for the opendde-abag incident: it shared its
+    OpenDDE class (and the >60x diffusion-precision regression) with the
+    already-covered "opendde" entry, so the gap was invisible until a real
+    user fold caught it days after release. A model absent from a
+    hand-maintained SPECS dict can silently have zero perf coverage forever;
+    this check turns that silence into a startup failure that names exactly
+    which model is uncovered, for opendde-abag AND any future model.
+    Cross-checks against tt_bio.main.PREDICT_MODELS/EMBED_MODELS/SAPROT_MODELS
+    -- the single source of truth each CLI --model choice is built from --
+    rather than a second hand-copied list here.
+    """
+    from tt_bio.main import PREDICT_MODELS, EMBED_MODELS, SAPROT_MODELS
+    shipped = set(PREDICT_MODELS) | set(EMBED_MODELS) | set(SAPROT_MODELS)
+    uncovered = shipped - set(SPECS) - set(SPECS_EXEMPT)
+    if uncovered:
+        raise SystemExit(
+            f"perf_regression.py: no SPECS entry or SPECS_EXEMPT reason for "
+            f"{sorted(uncovered)} -- every model in tt_bio.main.PREDICT_MODELS/"
+            f"EMBED_MODELS/SAPROT_MODELS must be perf-gated or explicitly "
+            f"exempted with a reason (see opendde vs opendde-abag in SPECS for "
+            f"how two models sharing one class still get independent "
+            f"coverage). Add a SPECS[...] entry or a SPECS_EXEMPT[...] reason.")
 
 # Light fold protocol — fast, exercises the full trunk + diffusion + heads path.
 RECYCLING_STEPS = 1
@@ -1035,6 +1094,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
 
 
 def cmd_gate(args) -> int:
+    _assert_full_model_coverage()
     models = args.model or DEFAULT_MODELS
     rows = []
     for m in models:

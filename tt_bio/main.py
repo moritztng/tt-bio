@@ -151,7 +151,12 @@ RFD3_CKPT_URL = "https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remap
 # Single source of truth for the predict output-folder prefix. Each supported
 # --model maps to a model-named results folder; a model not listed falls back to
 # the neutral, model-independent "results" prefix (never a hardcoded "boltz_"
-# string). Add a new model here when you add it to the predict --model choice.
+# string). Add a new model here when you add it to the predict --model choice —
+# PREDICT_MODELS below derives from these keys, so the CLI choice and every
+# gate that imports PREDICT_MODELS (release_gate.py, perf_regression.py) stay
+# in sync automatically instead of needing their own hand-copied list (the gap
+# that let opendde-abag's diffusion_fp32 regression ship with no perf coverage
+# — see tt-bio-shared-diffusion-global-env-default-regression).
 _MODEL_RESULTS_PREFIX = {
     "boltz2": "boltz2_results",
     "esmfold2": "esmfold2_results",
@@ -160,6 +165,14 @@ _MODEL_RESULTS_PREFIX = {
     "opendde": "opendde_results",
     "opendde-abag": "opendde_results",
 }
+PREDICT_MODELS = tuple(_MODEL_RESULTS_PREFIX)
+
+# Single source of truth for the other two model-choice CLI surfaces (`embed`,
+# `saprot`), for the same reason: anything that needs "every model we ship"
+# (perf gate coverage, docs, future audits) should import these instead of
+# re-typing the list.
+EMBED_MODELS = ("esmc-300m", "esmc-600m", "esmc-6b")
+SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
 
 
 def predict_results_dir_name(model: str, stem: str) -> str:
@@ -1970,7 +1983,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
-@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"]), default="boltz2", show_default=True,
+@click.option("--model", type=click.Choice(list(PREDICT_MODELS)), default="boltz2", show_default=True,
               help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
                    "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
                    "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
@@ -2500,7 +2513,7 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
 
 @cli.command("embed")
 @click.argument("data")
-@click.option("--model", type=click.Choice(["esmc-300m", "esmc-600m", "esmc-6b"]),
+@click.option("--model", type=click.Choice(list(EMBED_MODELS)),
               default="esmc-600m", show_default=True,
               help="ESMC protein-LM variant (sequence embeddings via the LM trunk alone).")
 @click.option("--out_dir", default="./embeddings", show_default=True)
@@ -2613,7 +2626,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
 
 @cli.command("saprot")
 @click.argument("data")
-@click.option("--model", type=click.Choice(["saprot-35m", "saprot-650m", "saprot-1.3b"]),
+@click.option("--model", type=click.Choice(list(SAPROT_MODELS)),
               default="saprot-650m", show_default=True,
               help="SaProt structure-aware protein-LM variant (ESM-2 over a fused "
                    "AA+Foldseek-3Di vocabulary).")

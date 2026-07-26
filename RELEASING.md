@@ -218,8 +218,24 @@ The performance gate measures warm throughput for every shipped architecture
 — the fold models, the ESMC embed path, and the BoltzGen design pipeline
 (`tt-bio gen run` on `examples/binder.yaml`, reported as designs/s) — and
 compares each with the matching card-type baseline in
-`docs/perf_baselines.json`. A slowdown beyond 15% fails. Update a baseline only
-for an intentional performance change:
+`docs/perf_baselines.json`. A slowdown beyond 15% fails.
+
+"Every shipped architecture" is enforced, not aspirational: `perf_regression.py`
+cross-checks its `SPECS` dict against `tt_bio.main.PREDICT_MODELS` /
+`EMBED_MODELS` / `SAPROT_MODELS` (the same lists each CLI `--model` choice is
+built from) before running anything, and refuses to start if any shipped model
+has neither a `SPECS` entry nor a documented `SPECS_EXEMPT` reason. This closes
+the gap that let OpenDDE's antibody-antigen checkpoint (`opendde-abag`) ship a
+>60x diffusion-precision slowdown in v0.3.3/v0.3.4 with zero perf coverage — it
+shared its implementation class with the already-covered `opendde` entry, so a
+per-model perf gap for an "already covered" model was invisible until a real
+fold caught it days after release. Two models sharing one class (`opendde` /
+`opendde-abag`, like `boltz2` / `boltz2-affinity` already did) now get
+independent `SPECS` entries. Adding a new `--model` choice anywhere in
+`tt_bio/main.py` and forgetting its perf entry is now a loud gate failure
+naming the exact model, not a silent gap.
+
+Update a baseline only for an intentional performance change:
 
 ```bash
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
