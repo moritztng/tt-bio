@@ -48,10 +48,9 @@ def _run_multi_device(inputs_yaml, ndev, designs_per_card, num_timesteps, seed, 
     env = {k: v for k, v in os.environ.items() if k != "TT_VISIBLE_DEVICES"}
     env["PYTHONPATH"] = os.getcwd()
     env["TT_BIO_LEASE_HOLDER"] = f"worker:tt-bio-rfdiffusion3-batch-perf-p2"
-    env["TT_MESH_GRAPH_DESC_PATH"] = os.environ.get(
-        "TT_MESH_GRAPH_DESC_PATH",
-        "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/tt_metal/"
-        "fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto")
+    mgd = os.environ.get("TT_MESH_GRAPH_DESC_PATH")
+    if mgd and not Path(mgd).is_file():
+        env.pop("TT_MESH_GRAPH_DESC_PATH", None)
     t0 = time.time()
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     wall = time.time() - t0
@@ -62,8 +61,8 @@ def _run_multi_device(inputs_yaml, ndev, designs_per_card, num_timesteps, seed, 
           f"wall={wall:.2f}s ok={ok} cifs={n_cif} -> {dps:.4f} designs/sec (cold-start, "
           f"includes per-worker weight-load + compile)")
     if not ok:
-        print("  STDERR tail:", "\n".join(proc.stderr.splitlines()[-15:]))
-        print("  STDOUT tail:", "\n".join(proc.stdout.splitlines()[-15:]))
+        print("  STDERR tail:", "\n".join(proc.stderr.splitlines()[-80:]))
+        print("  STDOUT tail:", "\n".join(proc.stdout.splitlines()[-80:]))
     return wall, dps, n_cif, ok
 
 

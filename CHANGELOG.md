@@ -5,6 +5,118 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **Protenix-v2 / OpenDDE diffusion multiplicity batching** — `Protenix.fold` / `OpenDDE.fold`
+  now draw `n_sample` samples from one batched device denoise trajectory instead of looping one
+  sample at a time (mirrors `boltz2.AtomDiffusion.sample`'s `multiplicity` +
+  `max_parallel_samples` pattern; `--max_parallel_samples` chunks batches too large to fit).
+  Parity-verified against the established diffusion noise floor (batched-vs-unbatched drift
+  within the seed-to-seed floor, not bit-exact, since diffusion is stochastic) on two hosts:
+  Protenix X/floor 0.971-1.049, OpenDDE X/floor 0.995-1.003. Measured speedup at multiplicity 4:
+  Protenix 3.19-3.57x, OpenDDE 3.15x.
+
+## [0.4.0] - 2026-07-26
+
+First release shipping **RFdiffusion3** (`tt-bio design`) — an all-atom generative model that
+designs new protein structures and the sequences that support them from a specification, instead
+of folding a sequence you already have. Protein-binder design, motif scaffolding, and
+nucleic-acid-binder design run end to end from a real input structure. The checkpoint downloads
+itself from the Institute for Protein Design on first use, so no `rc-foundry` install is needed.
+Multiple designs per specification share device forwards, and `--devices` fans a design set
+across cards. See [`docs/rfd3-design.md`](docs/rfd3-design.md).
+
+Also in this release: OpenDDE no longer runs its diffusion in fp32 (a >60x slowdown it inherited
+from a Protenix-v2 default), opening a card that another process already holds now fails with a
+clear error instead of colliding, and `transformers` moves to >= 5.5.0, clearing three dependabot
+advisories.
+
+**Release gate** (Blackhole P150a on `pc`, tt-bio 0.4.0): host suite 111 passed / 49 skipped;
+packaging guard 15/15 data files and 31/31 declared dependencies present in the wheel and sdist;
+UX gate PASS on every shipped surface (live-progress advancement, strict mmCIF/npz parse, and
+results/manifest shape for boltz2, esmfold2, esmfold2-fast, protenix-v2, opendde, opendde-abag,
+esmc-600m, saprot-650m, boltzgen, boltz2-affinity).
+
+**Perf gate** (`scripts/perf_regression.py`, trpcage 20 aa single-sequence, 1 recycle / 10 steps /
+1 sample, warm 2+5, ±15% threshold):
+
+| model | metric | baseline | current | delta | result |
+|---|---|---|---|---|---|
+| boltz2 | structures/s | 1.19 | 1.15 | -3.4% | PASS |
+| esmfold2 | structures/s | 1.705 | 1.601 | -6.1% | PASS |
+| esmfold2-fast | structures/s | 2.29 | 2.141 | -6.5% | PASS |
+| protenix-v2 | structures/s | 2.383 | 2.166 | -9.1% | PASS |
+| opendde | structures/s | 1.922 | 1.785 | -7.1% | PASS |
+| esmc-300m | seq/s | 16.74 | 25.26 | +50.9% | PASS |
+| esmc-600m | seq/s | 20.92 | 20.78 | -0.7% | PASS |
+| esmc-6b | seq/s | 3.171 | 4.363 | +37.6% | PASS |
+| saprot-650m | seq/s | 222.7 | 237.9 | +6.8% | PASS |
+| boltzgen | designs/s | 0.01723 | 0.01695 | -1.6% | PASS |
+| boltz2-affinity | affinities/s | 0.009498 | 0.008148 | -14.2% | PASS |
+
+No model regressed beyond the threshold. No OOM through the gate targets.
+
+**Parity gate** (`scripts/full_parity_gate.py`, 21 legs): ESMC-300m/600m, SaProt-35m/650m,
+ESMFold2 (4 targets, L20 to L129), OpenDDE-abag (global DockQ 0.853, fnat 0.932) and BoltzGen
+(scRMSD pass-rate 100%, median 1.12 Å) all reproduce their recorded verdicts, as do five of the
+six Boltz-2 affinity legs; the sixth, FKBP12+SB3 with MSA, improves on its recorded gap. The
+FKBP12+SB3 no-MSA affinity scalar is now recorded `GAP-evidenced` under the integration-envelope
+test on the same cross-backend bf16 floor already accepted for its MSA counterpart (see
+`docs/implementation-parity.md`).
+
+The eight envelope **structure** legs report `BLOCKED-REF-REGEN-NEEDED` rather than a verdict: the
+CPU reference structures those legs compare against are not distributed with the repository, so
+they cannot be reproduced from a clean checkout. Their recorded verdicts in
+`docs/implementation-parity.md` are unchanged and remain the evidence of record; restoring the
+reference set is tracked as follow-up work.
+
+### Added
+- **RFdiffusion3 (RFD3)** — `tt-bio design specs.json --from_pdb --out_dir ./designs`. Designs
+  are specified with a contig mini-language (fixed regions taken verbatim from the input
+  structure, designed regions of fixed or randomized length, chain breaks, indexed and unindexed
+  motifs, per-atom fixing). Protein-binder design, motif scaffolding, and nucleic-acid-binder
+  design accept a real PDB input; small-molecule-binder, enzyme, and symmetric-oligomer design
+  run on device and are value-parity-verified against a captured reference, but the host
+  featurizer does not build their input from a PDB yet and raises `NotImplementedError`.
+  An independent ttnn reimplementation — no upstream RosettaCommons code is vendored, only the
+  BSD-3-Clause checkpoint is fetched.
+- **Batched multi-design generation for RFD3** — `--num_designs N` produces N designs per
+  specification (noise seed `--seed + i`), sharing device forwards in batches of up to
+  `--batch_size` (default 8, reduced automatically for larger atom counts). Batching is
+  accuracy-free: the device forward is bit-identical across batch size, so a batched design
+  reproduces its standalone run exactly (min trajectory PCC 1.000000, maxabs 0, at 200 timesteps
+  and batch 8). Throughput depends on design size — on one Blackhole p150a at 200 timesteps,
+  batch 8 is 1.59x batch 1 at 40 residues and 1.21x at 80 residues, and within a few percent of
+  batch 1 above roughly 150 residues, where `--devices` is the parallelism that matters. The
+  per-size numbers are in `docs/rfd3-design.md`.
+- **`tt-bio design --devices 0,1,2,3`** — fans the (specification × `--num_designs`) jobs across
+  the listed cards, one pinned subprocess per card, the same data-parallel pattern `tt-bio embed`
+  and `tt-bio predict` use.
+- **Physical-card lease at device open** — every device acquisition takes an exclusive `flock` on
+  a per-card lock file for as long as the card is open. A second process opening the same card
+  waits up to `TT_BIO_LEASE_TIMEOUT` (120 s) and then fails with `DeviceInUseError` naming the
+  holder, instead of colliding at the fd level. The lock is released by the kernel on any process
+  death, so a killed or orphaned job never leaves a phantom claim.
+
+### Fixed
+- **OpenDDE ran its diffusion in fp32, >60x slower than it needs to be.** OpenDDE reuses the
+  Protenix-v2 diffusion stack, and Protenix-v2 defaults that stack to fp32 on device
+  (`PROTENIX_DIFFUSION_FP32_DEVICE=1`, correct for Protenix-v2, where fp32 is what its own
+  reference uses). OpenDDE silently inherited it, and fp32 on OpenDDE's atom-level tensors is
+  catastrophically slow. OpenDDE now pins its own already-validated bf16 diffusion config
+  explicitly instead of reading the env default. A real device fold of 1AHW is back to 539 s at
+  DockQ 0.862, matching the 0.863 pre-regression baseline — accuracy-neutral, speed-only.
+- **`--write_pae` was silently a no-op for `--model opendde` / `opendde-abag`.** The flag was
+  parsed but never reached the OpenDDE prediction path, so no PAE was written. Now wired.
+- **`--msa_db_path` was silently ignored by `opendde-abag`.** An offline paired-MSA run fell
+  through to the network path and failed if the public ColabFold service was unreachable. The
+  local paired-MSA database is now honored, so `opendde-abag` folds fully offline.
+
+### Changed
+- **`transformers` >= 5.5.0, `huggingface_hub` >= 1.5.0** (were `==4.57.6` and `<1.0`). Clears
+  three dependabot advisories (Trainer, `config.json`, and LightGlue remote-code execution; the
+  last is not reachable from tt-bio). The vendored ESMFold2 model runs on the stock transformers
+  core, and the bump is CPU-level bit-exact on the same torch, weights, and seed.
+
 ## [0.3.4] - 2026-07-22
 
 ### Fixed

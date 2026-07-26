@@ -59,8 +59,32 @@ default is 200 for production-quality designs).
 noise seed, `--seed + i`), writing `<id>_<i>.cif` (when N>1; `<id>.cif` when
 N=1). Designs from the same spec share device forwards in batches of up to 8 by
 default. Set `--batch_size` to tune that limit; the runtime reduces it
-automatically for larger atom counts. Each design keeps its own seeded random
-stream.
+automatically for larger atom counts.
+
+Batching costs nothing in accuracy: the device forward is bit-identical across
+batch size, so a batched design reproduces its standalone run exactly (min
+trajectory PCC 1.000000, maxabs 0, at 200 timesteps and batch 8). Pick
+`--batch_size` on throughput alone.
+
+Throughput is where it's worth being careful, because batching pays off on
+smaller designs and stops paying on large ones. Measured on one Blackhole p150a
+at 200 timesteps:
+
+| design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
+|---|---:|---:|---:|---:|
+| 40 residues | 419 | 0.0767 designs/sec | 0.1216 | 1.59x |
+| 80 residues | 979 | 0.0500 | 0.0605 | 1.21x |
+| 150 residues | 1959 | 0.0265 | 0.0249 | 0.94x |
+| Mpro + nirmatrelvir | 2702 | 0.0149 | 0.0140 | 0.94x |
+| 250 residues | 3359 | 0.0119 | 0.0117 | 0.98x |
+
+Batch 8 wins clearly up to about 80 residues and is within a few percent of batch
+1 above that, so the default suits every size and `--batch_size` is worth changing
+only if you are chasing the last few percent on a single large spec. The
+size-dependence is a memory-traffic one: batching shares the work that does not
+depend on the design, and the per-design attention tensors it cannot share grow
+with atom count. `--devices` is the parallelism that matters at large design sizes
+either way.
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
 physical TT cards, one pinned subprocess per card (data-parallel — the same
@@ -68,9 +92,9 @@ pattern `tt-bio embed`/`predict` use). Use in-forward batching on each card and
 `--devices` together when generating a larger set.
 
 ```bash
-# 32 designs per spec, batches of 8 fanned across 4 cards:
+# 32 designs per spec fanned across 4 cards:
 tt-bio design specs.json --from_pdb --out_dir ./designs \
-  --num_designs 32 --batch_size 8 --devices 0,1,2,3
+  --num_designs 32 --devices 0,1,2,3
 ```
 
 ## Checkpoint

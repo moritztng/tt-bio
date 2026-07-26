@@ -5,7 +5,7 @@ object get_device() acquires before ttnn.open_device), so it runs anywhere and i
 companion on-hardware test (test_device_lease_hw.py) reproduces the exact flagship-vs-RFD3
 two-process open on a real TT card.
 
-Run: python3 tests/test_device_lease.py
+Run: python3 tests/test_device_lease.py, or as part of the release suite via pytest.
 """
 import json
 import os
@@ -19,6 +19,21 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 from tt_bio.device_lease import DeviceLease, DeviceInUseError, lease_dir  # noqa: E402
+
+try:
+    import pytest
+except ImportError:                 # standalone `python3 tests/test_device_lease.py`
+    pytest = None
+else:
+    @pytest.fixture
+    def d(tmp_path, monkeypatch):
+        """Per-test lease dir + host, the pytest equivalent of what __main__ sets up below.
+        Every test takes `d` as its lease directory, and the spawned holders inherit the same
+        dir/host via _env(), so contention happens on one file and never on the real fleet
+        lease dir."""
+        monkeypatch.setenv("TT_BIO_LEASE_DIR", str(tmp_path))
+        monkeypatch.setenv("TT_BIO_LEASE_HOST", "testhost")
+        return str(tmp_path)
 
 # A child that acquires card 0's lease, writes a "ready" marker, holds for `hold`
 # seconds, then releases (unless it is killed first).

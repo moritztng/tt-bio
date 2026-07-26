@@ -338,7 +338,8 @@ class OpenDDE:
         return result
 
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
-             return_confidence=False, progress_fn=None, trace=False, dump_fn=None):
+             return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
+             max_parallel_samples=None):
         """End-to-end residue-to-structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -436,13 +437,22 @@ class OpenDDE:
             cond["dit_z"] = P.diffusion._dit_z_device(pair_z)
         else:
             cond["dit_biases"] = P.diffusion._dit_pair_biases(pair_z)
-        coords = []
-        for k in range(n_sample):
-            sd_seed = None if seed is None else seed + k
-            _df = (lambda step, x, _k=k: dump_fn(_k, step, x)) if dump_fn is not None else None
-            coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                     trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
-        coords = torch.stack(coords, 0)
+        # Multiplicity batching (see Protenix.fold): one batched trajectory when
+        # P.diffusion.supports_multiplicity is on; else the per-sample loop (bit-exact).
+        if n_sample > 1 and getattr(P.diffusion, "supports_multiplicity", False):
+            _mps = n_sample if max_parallel_samples is None else max_parallel_samples
+            _df = (lambda step, x: dump_fn(step, step, x)) if dump_fn is not None else None
+            coords = edm_sample(P.diffusion, cond, N, n_step=n_step, multiplicity=n_sample,
+                                 max_parallel_samples=_mps, seed=seed, trace=trace,
+                                 progress_fn=progress_fn, dump_fn=_df)
+        else:
+            coords = []
+            for k in range(n_sample):
+                sd_seed = None if seed is None else seed + k
+                _df = (lambda step, x, _k=k: dump_fn(_k, step, x)) if dump_fn is not None else None
+                coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
+                                         trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
+            coords = torch.stack(coords, 0)
         if return_confidence:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the

@@ -115,13 +115,25 @@ PARITY_DATA = REPO / "docs" / "implementation-parity-data"
 # noise draw. Deterministic encoders (esmc/saprot), esmfold2, and the designability/DockQ legs
 # are NOT closed-loop diffusion, so they keep their own deterministic/threshold verdicts.
 ENVELOPE_KINDS = ("structure", "affinity")
+# ...and only for a TORCH-CAPABLE port. The envelope's denominator is a tt-bio fp32-vs-bf16 CPU
+# pair, so it needs tt-bio's own model to run on the host: `class Boltz2(nn.Module)` does
+# (load_from_checkpoint(...).to(torch_device)). Protenix / OpenDDE / ESMFold2 do not — they are
+# ttnn-only, load_from_checkpoint opens the device unconditionally, and predict deliberately routes
+# them to a tenstorrent worker even under --accelerator cpu (main.py's hardcoded
+# _local_workers("tenstorrent", ...); "fixing" that leaked devices and was reverted in
+# 9e74885ea/7e3422635). So --regen-refs hands those models TWO DEVICE FOLDS instead of an fp32/bf16
+# CPU pair: numerator and denominator both collapse to ~0 and the leg silently stops being a parity
+# test at all (measured 2026-07-26 — ref_fp32, ref_bf16 and the device fold came out BYTE-IDENTICAL
+# for an opendde/prot leg). Those ports keep R/D/X against the official external reference, which is
+# what their committed seed fixtures hold. Gate this on the model, not on effort.
+ENVELOPE_MODELS = ("boltz2",)
 # The envelope is a per-shared-draw test: the device fold's seed MUST match the seed the fp32/bf16
 # CPU references were generated at, so all three share one CPU-MT19937 draw sequence.
 ENVELOPE_SEED = 0
 
 
 def _is_envelope_leg(leg) -> bool:
-    return leg.kind in ENVELOPE_KINDS
+    return leg.kind in ENVELOPE_KINDS and leg.model in ENVELOPE_MODELS
 
 
 def _shared_draw_env() -> dict:
@@ -296,6 +308,15 @@ LEGS += [
         committed_json="opendde-prod-leg.json", target_id="prot_no_msa",
         device_args=("--single_sequence", "--recycling_steps", "10", "--sampling_steps", "200", "--diffusion_samples", "1"),
         msa="none"),
+    # OWED — an MSA-ON opendde leg. OpenDDE resolves an MSA by default
+    # (tt_bio.main.MSA_DEFAULT_MODELS), so both legs above being --single_sequence leaves the
+    # MSA-conditioned pair stack and the MSA encoder unscored by this gate. It is not addable
+    # from in-repo material: opendde is a ttnn-only port (see ENVELOPE_MODELS), so the leg needs
+    # a REFERENCE-implementation fold — an official Aureka-OpenDDE CPU run with --use_msa, same
+    # provenance as the nomsa fixtures above, harvested by pharma_harvest_ref_fixtures.py. The
+    # device half is already unblocked: staging docs/implementation-parity-data/ref-fixtures/
+    # protenix-v2/prot/msa-server_*/msa.a3m as msa="staged" folds prot MSA-on offline (verified —
+    # `"msa": true`, no server call), so only the reference is missing.
     Leg("opendde-abag", "opendde-abag", "abag", "examples/1ahw_abag.yaml",
         committed_json="opendde-abag-1ahw-irmsd.json", seeds=(0,),
         note="DockQ leg; reuses release_gate --model opendde-abag"),
@@ -384,6 +405,46 @@ def _incomplete_fixture_seeds(leg, seeds: list) -> list:
     return bad
 
 
+def _staged_hash_mismatch(leg) -> str | None:
+    """Problem string if ``stage_msa`` would write the fixture a3m under a name the fold will
+    not look for, else None.
+
+    A staged leg's whole offline guarantee is the filename: ``predict`` looks for
+    ``{sha256(chain_sequence)[:16]}.a3m`` in --msa_dir and, finding it, never calls the MSA
+    server. Miss by one character and the cache lookup fails, the fold silently falls back to
+    a LIVE server search (see _resolve_msa_default: --msa_dir is a cache dir, not an explicit
+    source), and the device fold scores against a reference built from a different MSA. So
+    check the name against tt_bio's own per-chain hash — the code that does the lookup — rather
+    than trusting this file's yaml regex to agree with it."""
+    from tt_bio.main import _read_bio_chains        # lazy: pulls torch
+    want = _seq_hash(_yaml_protein_seq(REPO / leg.yaml) or "")
+    have = {_seq_hash(cseq) for _cid, cseq, _spec, mt in _read_bio_chains(REPO / leg.yaml)
+            if mt == "protein"}
+    if want in have:
+        return None
+    return (f"{leg.id}: staged MSA would be written as {want}.a3m but the fold looks for "
+            f"{sorted(have)} — the fold would search the MSA server live instead")
+
+
+def incomplete_reference(leg, seeds: list, legacy_rdx: bool = False) -> str:
+    """What this leg's committed reference is missing, or "" when it is complete and scorable.
+
+    ONE rule, shared by ``--check`` and the run loop, because they must agree: an envelope leg
+    is scored against ``ref_fp32``/``ref_bf16`` and needs BOTH, a legacy R/D/X leg is scored
+    against its per-seed dirs and needs their CIFs. ``--check`` used to apply only the legacy
+    rule, so it printed PREFLIGHT OK for envelope legs whose CPU references were absent and the
+    gate then burned a device fold per leg to discover BLOCKED-REGEN."""
+    if not leg.fixture:
+        return ""
+    if _is_envelope_leg(leg) and not legacy_rdx:
+        fp32, bf16 = envelope_ref_dirs(leg)
+        missing = [d for d, p in (("ref_fp32", fp32), ("ref_bf16", bf16)) if p is None]
+        return f"CPU reference missing/incomplete: {', '.join(missing)}" if missing else ""
+    bad = _incomplete_fixture_seeds(leg, seeds)
+    return (f"{', '.join(bad)} missing structures/{leg.target_id}.cif "
+            f"(CIFs gitignored — force-add or regen)") if bad else ""
+
+
 def preflight_check(legs: list) -> list:
     """Card-free validation of every leg's static wiring, run before any device work (and via
     ``--check``). Returns a list of human-readable problems (empty == every leg well-formed).
@@ -418,6 +479,8 @@ def preflight_check(legs: list) -> list:
             src = _fixture_dir(leg.fixture) / "msa.a3m"
             if not src.exists():
                 problems.append(f"{leg.id}: staged-MSA leg missing {src}")
+            elif (bad := _staged_hash_mismatch(leg)) is not None:
+                problems.append(bad)
         if leg.msa == "yaml":
             yp = REPO / leg.yaml
             if yp.exists():
@@ -1105,8 +1168,11 @@ def finalize_leg(leg: Leg, verdict: str, detail: str, wall: float) -> tuple[dict
     if committed and committed != "NO-DATA" and comparable:
         if _matches_committed(verdict, committed):
             drift = " [reproduces committed]"
-        elif _is_passing(verdict) and committed == "GAP":
-            drift = " [improves committed GAP — not a drift]"
+        elif _is_passing(verdict) and committed in ("GAP", "GAP-evidenced"):
+            # GAP-evidenced counts here too: it records a GAP proven to be a bf16-backend
+            # floor, so a live PASS means that residual shrank below the bound. Strictly
+            # better than the committed record, never a regression.
+            drift = f" [improves committed {committed} — not a drift]"
         else:
             drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
             ok = False
@@ -1242,13 +1308,13 @@ def main() -> int:
             print("Refusing to run the gate with misconfigured legs; fix the above (or scope with --leg).")
         return 1
     if args.check:
-        blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs]
+        blocked = [(l.id, incomplete_reference(l, list(l.seeds), args.legacy_rdx)) for l in legs]
         blocked = [(i, b) for i, b in blocked if b]
         if blocked:
-            print("PREFLIGHT — fixtures present but INCOMPLETE (reference CIFs missing; each such "
+            print("PREFLIGHT — fixtures present but INCOMPLETE (reference missing; each such "
                   "leg reports BLOCKED-REF-REGEN-NEEDED and does NOT fail the gate):")
             for i, b in blocked:
-                print(f"  - {i}: {', '.join(b)} missing structures/*.cif")
+                print(f"  - {i}: {b}")
         print(f"PREFLIGHT OK — {len(legs)} legs well-formed "
               f"(yaml / fixture+fingerprint / committed-JSON / target-id / MSA wiring)"
               f"{f'; {len(blocked)} fixture(s) incomplete → BLOCKED-REGEN' if blocked else ''}.")
@@ -1294,26 +1360,13 @@ def main() -> int:
             # `ref-fixtures/**/*.cif` rule. Either way an absent reference is the same class as a
             # fingerprint drift: BLOCKED-REF-REGEN-NEEDED (regenerate the reference with
             # --regen-refs), NOT a hard gate failure and NOT a silent per-leg ERROR mid-run.
-            if _is_envelope_leg(leg) and not args.legacy_rdx:
-                fp32_dir, bf16_dir = envelope_ref_dirs(leg)
-                missing = [d for d, p in (("ref_fp32", fp32_dir), ("ref_bf16", bf16_dir)) if p is None]
-                if missing:
-                    rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
-                                 "detail": f"envelope reference incomplete: {', '.join(missing)} "
-                                           f"missing under {leg.fixture} — run --regen-refs", "wall": 0})
-                    print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
-                          f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  envelope ref missing ({', '.join(missing)})")
-                    continue
-            else:
-                incomplete = _incomplete_fixture_seeds(leg, seeds)
-                if incomplete:
-                    rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
-                                 "detail": f"fixture incomplete: {', '.join(incomplete)} missing "
-                                           f"structures/{leg.target_id}.cif (CIFs gitignored — force-add or regen)",
-                                 "wall": 0})
-                    print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
-                          f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fixture incomplete (missing structures/ cif)")
-                    continue
+            if incomplete := incomplete_reference(leg, seeds, args.legacy_rdx):
+                rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
+                             "detail": f"reference incomplete under {leg.fixture}: {incomplete} "
+                                       f"— run --regen-refs", "wall": 0})
+                print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
+                      f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  {incomplete}")
+                continue
 
         if args.dry_run:
             rows.append({"leg": leg.id, "verdict": "DRY-RUN", "detail": ref_status, "wall": 0})

@@ -202,7 +202,11 @@ def run_design(
         ``<spec_id>_<i>.cif``.
     batch_size : maximum number of designs from one spec evaluated in a single
         device forward. The runtime automatically shrinks the batch for larger
-        atom counts. Per-design RNG streams preserve standalone-seed random draws.
+        atom counts. Each design has its own seeded RNG stream and the device
+        forward is bit-identical across batch size, so a batched design matches
+        its standalone run exactly (see
+        scripts/rfd3_port/verify_batch_invariance.py and
+        scripts/rfd3_port/verify_batch_trajectory_parity.py).
     devices : list of physical TT card ids to fan the (spec x design_idx) jobs
         across, one pinned subprocess per card (data-parallel, the same pattern
         ``tt-bio embed``/``predict`` use). With 0/1 device the run is in-process

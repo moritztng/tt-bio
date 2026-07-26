@@ -19,6 +19,10 @@ Self-consistency (seed-vs-reference RMSD) is NOT sufficient — it passes even w
 fold is wrong. A tag must clear a real
 ground-truth floor for every model.
 
+Each model folds here the way it is actually used: the MSA-dependent models
+(``tt_bio.main.MSA_DEFAULT_MODELS``) get an MSA, esmfold2 and esmfold2-fast fold
+single-sequence — see ``_msa_args``.
+
 BoltzGen is a *design* model, not a fold model — there is no ground truth to fold
 against, so it is gated separately from the four above. Its correctness bar is
 designability (self-consistency RMSD, scRMSD): refold each design's sequence in
@@ -122,10 +126,19 @@ DIFFUSION_TRACE = False
 # seed-to-seed stochasticity — deliberately generous
 # floors that catch a regression or a gross fold failure, NOT tight targets. Tighten as
 # a model's baseline distribution is nailed down; never set below what a correct fold hits.
-#   measured best-conf: Boltz-2 1.55 A / TM 0.93 | ESMFold2 2.28 / 0.83 | Protenix-v2 3.87 / 0.71
+#   measured best-conf: Boltz-2 1.55 A / TM 0.93 | Protenix-v2 3.87 / 0.71
+# ESMFold2's floor is anchored to its DEFAULT single-sequence fold, measured 2026-07-26 on
+# Blackhole: 5.80 A / TM 0.508 (esmfold2-fast, same target, same run: 1.73 A / TM 0.909). The old
+# 4.0/0.65 came from an MSA-on fold, which is not what a user gets by default — see _msa_args. That
+# ESMFold2 needs the MSA on 7ROA while its lighter checkpoint does not is a model-quality property,
+# not a port defect: the single-sequence path is parity-verified against the torch reference at
+# 0.14-0.75 A on trp-cage/GB1/ubiquitin/lysozyme (docs/implementation-parity.md). The cost is a
+# loose floor for this one model here; tight ESMFold2 numerics live in full_parity_gate.py's
+# esmfold2 leg. To tighten it, move esmfold2's gate target to one of those four (needs a per-model
+# target in this gate, which currently folds one shared DATA for all five).
 MODELS = {
     "boltz2":        {"max_rmsd": 3.0, "min_tm": 0.75},
-    "esmfold2":      {"max_rmsd": 4.0, "min_tm": 0.65},
+    "esmfold2":      {"max_rmsd": 8.0, "min_tm": 0.40},
     "esmfold2-fast": {"max_rmsd": 4.5, "min_tm": 0.60},
     "protenix-v2":   {"max_rmsd": 6.0, "min_tm": 0.50},
     "opendde":       {"max_rmsd": 6.0, "min_tm": 0.50},
@@ -189,9 +202,20 @@ FOLD_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_FOLD_TIMEOUT", "1800"))
 MSA_DIR = os.environ.get("RELEASE_GATE_MSA_DIR")
 
 
-def _msa_args() -> list:
-    """MSA source for a gate fold: an offline cached-a3m dir if RELEASE_GATE_MSA_DIR is set,
-    otherwise the ColabFold server (bounded by FOLD_TIMEOUT_S). See RELEASING.md."""
+def _msa_args(model: str) -> list:
+    """MSA source for one model's gate fold — the way that model is ACTUALLY used.
+
+    ``tt_bio.main.MSA_DEFAULT_MODELS`` is the source of truth for which models resolve an MSA
+    by default (boltz2 / protenix-v2 / opendde / opendde-abag): those fold with an offline
+    cached-a3m dir if RELEASE_GATE_MSA_DIR is set, otherwise the ColabFold server (bounded by
+    FOLD_TIMEOUT_S — see RELEASING.md). esmfold2 is single-sequence with an optional MSA and
+    esmfold2-fast ships no MSA encoder at all, so both fold single-sequence here: gating a
+    config no user reaches by default leaves the default path untested. esmfold2's optional
+    MSA-conditioned trunk keeps its own coverage in tests/test_esmfold2.py::test_msa_encoder
+    (on-device MSAEncoder parity, run by RELEASING.md's pytest step)."""
+    from tt_bio.main import MSA_DEFAULT_MODELS
+    if model not in MSA_DEFAULT_MODELS:
+        return []
     return ["--msa_dir", MSA_DIR] if MSA_DIR else ["--use_msa_server"]
 
 
@@ -277,7 +301,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
         "--sampling_steps", str(SAMPLING_STEPS),
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
-        *_msa_args(),
+        *_msa_args(model),
         "--out_dir", str(REPO_ROOT),
     ] + ((["--fast"] if FAST else [])
           + (["--diffusion_trace"] if (DIFFUSION_TRACE and model == "boltz2") else []))
@@ -410,7 +434,7 @@ def run_opendde_abag(keep: bool) -> dict:
         "--sampling_steps", str(SAMPLING_STEPS),
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
-        *_msa_args(),
+        *_msa_args("opendde-abag"),
         "--out_dir", str(REPO_ROOT),
     ]
     print(f"\n{'='*70}\n[opendde-abag] docking {data.name} "

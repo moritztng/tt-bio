@@ -1,4 +1,4 @@
-"""Measure RFD3 in-forward batching throughput at D=1/2/4/8.
+"""Measure RFD3 in-forward batching throughput.
 
 Uses the parity fixture and production decoder-trace setting. Each shape gets a
 short warmup before a timed sampler run; the 200-timestep rate is derived from
@@ -8,6 +8,7 @@ the measured per-step time when another step count is requested.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import sys
@@ -25,7 +26,17 @@ GOLDEN_DIR = Path("~/.coworker/artifacts/rfd3-goldens/capture").expanduser()
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--timesteps", type=int, default=40)
-    return parser.parse_args()
+    parser.add_argument("--batches", type=int, nargs="+", default=[1, 2, 4, 8])
+    parser.add_argument("--pdb", type=Path, default=PDB)
+    parser.add_argument("--contig", default="A1-10,20,A31-40")
+    parser.add_argument(
+        "--spec", type=Path,
+        help="JSON InputSpecification; overrides --pdb/--contig",
+    )
+    args = parser.parse_args()
+    if any(batch < 1 for batch in args.batches):
+        parser.error("--batches values must be at least 1")
+    return args
 
 
 def main() -> None:
@@ -35,11 +46,19 @@ def main() -> None:
     from tt_bio.rfd3_input import InputSpecification
     from tt_bio.rfd3_sampler import RFD3Sampler
 
-    spec = InputSpecification.from_dict(
-        {"input": str(PDB), "contig": "A1-10,20,A31-40"}
-    )
+    if args.spec:
+        spec_data = json.loads(args.spec.read_text())
+        input_path = Path(spec_data["input"])
+        if not input_path.is_absolute():
+            input_path = args.spec.parent / input_path
+        spec_data["input"] = str(input_path.resolve())
+        fixture = f"spec={args.spec}"
+    else:
+        spec_data = {"input": str(args.pdb), "contig": args.contig}
+        fixture = f"pdb={args.pdb} contig={args.contig!r}"
+    spec = InputSpecification.from_dict(spec_data)
     spec.validate()
-    features = featurize(str(PDB), spec)
+    features = featurize(spec_data["input"], spec)
     features = {
         key: value.float()
         if torch.is_tensor(value) and value.is_floating_point()
@@ -70,14 +89,14 @@ def main() -> None:
     fixed = features["is_motif_atom_with_fixed_coord"]
     coord = features["motif_pos"].float().unsqueeze(0)
     print(
-        f"fixture: I={features['restype'].shape[0]} L={length} "
+        f"fixture: {fixture} I={features['restype'].shape[0]} L={length} "
         f"trace_decoder={os.environ.get('RFD3_TRACE_DECODER') == '1'}"
     )
     print(
         f"D  sample_{args.timesteps}_s  ms_per_step  "
         f"measured_designs_per_sec  projected_designs_per_sec_200"
     )
-    for batch in (1, 2, 4, 8):
+    for batch in args.batches:
         warmup = RFD3Sampler(num_timesteps=4)
         measured = RFD3Sampler(num_timesteps=args.timesteps)
         with torch.no_grad():

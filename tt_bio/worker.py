@@ -469,7 +469,7 @@ class _WorkerState:
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
                 seed=cfg.get("seed") or 0, progress_fn=report_progress,
                 n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
-                return_confidence=True)
+                return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"))
         confs = conf if isinstance(conf, list) else [conf]
 
         # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers, falling
@@ -577,6 +577,7 @@ class _WorkerState:
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
                 seed=cfg.get("seed") or 0, progress_fn=report_progress,
                 return_confidence=True, n_cycles=cfg.get("recycling_steps"),
+                max_parallel_samples=cfg.get("max_parallel_samples"),
             )
         confs = conf if isinstance(conf, list) else [conf]
 

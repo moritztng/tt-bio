@@ -26,6 +26,20 @@ import ttnn
 
 from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 
+# ttnn derives a `core_grid=` linear's matmul program config from M = batch * rows:
+# a larger per_core_M leaves less L1 for the in0 block, so in0_block_w -- the
+# K-blocking of the fp32 accumulation -- shrinks, and the same arithmetic is grouped
+# into a different number of partial sums and rounds differently in bf16. That made a
+# batched design forward diverge from the standalone one, and it is why a 200-step
+# batched trajectory used to drift. The linears that measurably lose batch invariance
+# pass `core_grid=BATCH_INVARIANT_GRID` instead: ttnn's default heuristic blocks by K
+# alone, so a batched forward stays bit-identical to the standalone one at any batch
+# size. Dropping the hint from every linear would cost 1.32x/1.59x at D=1/D=8;
+# confining it to the affected ones keeps the batching win.
+# scripts/rfd3_port/verify_batch_invariance.py is the gate;
+# scripts/rfd3_port/probe_callsites.py re-derives which linears need it.
+BATCH_INVARIANT_GRID = None
+
 
 # --- host-side feature helpers (pure torch; mirror upstream, deps stubbed) ----
 def _collapse(x, L):
@@ -89,8 +103,48 @@ def _scatter_mean_pool(pairwise_atom, tok_idx, I):
 
 
 # --- ttnn helpers ----------------------------------------------------------
+# ttnn.from_torch(layout=TILE_LAYOUT) tilizes on the HOST, single-threaded, and that cost
+# dominates every large upload in this model: one 6.9M-element atom-pair tensor costs 45 ms
+# at 250 residues and a whole diffusion step is only ~600 ms. Uploading row-major (already
+# cast to the target dtype, so the PCIe transfer is half the bytes for bf16) and tilizing on
+# device is 2.8-8.5x faster and bit-exact -- verified elementwise-equal on every large shape
+# this model uploads. Small tensors keep the host path; the extra device op is not worth it
+# below about a tile-grid of data.
+_DEVICE_TILIZE_MIN_ELEMENTS = 1 << 16
+
+_TORCH_DTYPE = {
+    ttnn.bfloat16: torch.bfloat16,
+    ttnn.float32: torch.float32,
+    ttnn.uint32: torch.int32,
+}
+
+
 def _tt(x, dev, dtype=ttnn.bfloat16):
+    torch_dtype = _TORCH_DTYPE.get(dtype)
+    if torch_dtype is not None and x.numel() >= _DEVICE_TILIZE_MIN_ELEMENTS:
+        row_major = ttnn.from_torch(x.to(torch_dtype), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                    device=dev, dtype=dtype)
+        return ttnn.to_layout(row_major, ttnn.TILE_LAYOUT)
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
+
+
+def _tt_host(x, dtype=ttnn.bfloat16):
+    """Host-side tiled tensor, for filling a persistent trace-input buffer.
+
+    Cannot use _tt: copy_host_to_device_tensor needs a host tensor whose spec already
+    matches the tiled device buffer the trace captured, so the tilize has to happen here.
+    Casting in torch first still avoids the expensive part -- letting ttnn convert fp32
+    while it tilizes costs 42.7 ms for a 6.9M-element bf16 tensor against 17.3 ms
+    pre-cast, and the result is bit-identical."""
+    torch_dtype = _TORCH_DTYPE.get(dtype)
+    if torch_dtype is not None:
+        x = x.to(torch_dtype)
+    return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=dtype)
+
+
+def _tt_refresh(x, dev_tensor, dtype=ttnn.bfloat16):
+    """Overwrite a persistent trace-input buffer with fresh host data."""
+    ttnn.copy_host_to_device_tensor(_tt_host(x, dtype), dev_tensor)
 
 
 def _tt_idx(indices, dev):
@@ -114,9 +168,9 @@ class Transition(Module):
                             compute_kernel_config=self.compute_kernel_config)
         a = ttnn.linear(x, self.fc1_w, activation="silu",
                          compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         b = ttnn.linear(x, self.fc2_w, compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         ttnn.deallocate(x)
         m = ttnn.multiply(a, b)
         ttnn.deallocate(b)
@@ -565,6 +619,62 @@ def _dense_attention_mask(indices):
     return torch.where(keep, 0.0, -1e4).unsqueeze(1)
 
 
+def _sparse_qk_host(p_host, indices, n_heads=4):
+    indices = indices.long().cpu()
+    batch, length, n_keys = indices.shape
+    p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
+    if p_host.shape[0] == 1 and batch != 1:
+        p_host = p_host.expand(batch, -1, -1, -1)
+    batch_idx = torch.arange(batch)[:, None, None]
+    row_idx = torch.arange(length)[None, :, None]
+    p_sparse = p_host[batch_idx, row_idx, indices]
+    attn_idx = indices.unsqueeze(1).expand(batch, n_heads, length, n_keys)
+    return p_sparse, attn_idx.to(torch.int32), n_keys
+
+
+def _mask_template(cache, device, dtype, batch, n_heads, length):
+    """The -1e4 dense attention-mask template the pair bias is scattered into.
+
+    It is a pure constant of (batch, n_heads, length), but `ttnn.full` on the
+    (1,4,3359,3359) bf16 form costs 38 ms -- ~60x the ~0.6 ms a bandwidth-bound
+    write of the same 90 MB takes -- so re-creating it every step was 9% of a
+    diffusion step. Keeping one template alive per shape removes that entirely and
+    is bit-exact because `ttnn.scatter` is out-of-place: verify_scatter_aliasing.py
+    replays a captured scatter against a single persistent template with two
+    different index sets and gets results identical to a fresh template each time.
+
+    One slot on purpose -- a run folds one design shape at a time, and holding the
+    90 MB template is not extra peak memory (the old code allocated it anyway).
+    """
+    key = (batch, n_heads, length, dtype)
+    entry = cache.get("mask")
+    if entry is None or entry[0] != key:
+        entry = (key, ttnn.full(
+            (batch, n_heads, length, length), -1e4, dtype=dtype,
+            layout=ttnn.TILE_LAYOUT, device=device,
+        ))
+        cache["mask"] = entry
+    return entry[1]
+
+
+def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
+    # Gather local pair features and build the scatter index for one step.
+    p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
+    attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
+    length = indices.shape[-2]
+    batch = indices.shape[0]
+    if mask_cache is None:
+        dense_bias = ttnn.full(
+            (batch, n_heads, length, length), -1e4, dtype=dtype,
+            layout=ttnn.TILE_LAYOUT, device=device,
+        )
+    else:
+        dense_bias = _mask_template(
+            mask_cache, device, dtype, batch, n_heads, length
+        )
+    return _tt(p_sparse, device, dtype), n_keys, attn_idx_dev, dense_bias
+
+
 class GatedCrossAttention(Module):
     """RFD3 GatedCrossAttention on device; token grouping stays host-side."""
 
@@ -718,14 +828,14 @@ class RFD3AtomBlock(Module):
         s = ttnn.rms_norm(s, weight=ln_s, epsilon=1e-6, compute_kernel_config=ckc)
         gain = ttnn.linear(
             s, gain_w, bias=gain_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         bias = ttnn.linear(
-            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
-    def __call__(self, q, c, p, additive_mask):
+    def __call__(self, q, c, p, additive_mask=None, sparse_qk=None):
         ckc, dt = self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         if f32 and q.dtype != ttnn.float32:
@@ -739,10 +849,10 @@ class RFD3AtomBlock(Module):
         norm = self._adaln(
             q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
-        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         qq = ttnn.rms_norm(qq, weight=self.q_ln, epsilon=1e-6, compute_kernel_config=ckc)
         kk = ttnn.rms_norm(kk, weight=self.k_ln, epsilon=1e-6, compute_kernel_config=ckc)
 
@@ -753,16 +863,36 @@ class RFD3AtomBlock(Module):
             return ttnn.permute(x, (0, 2, 1, 3))
 
         qq, kk, vv, gg = map(heads, (qq, kk, vv, gg))
-        pair_bias = ttnn.linear(
-            p, self.b_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
-        )
-        pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
-        bias = ttnn.add(pair_bias, additive_mask)
-        # The reference's softmax reduction is fp32 even under bf16 autocast.
-        # Keep q/k/v and output storage bf16, but match that reduction boundary.
-        scores = ttnn.matmul(
-            qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc
-        )
+        if sparse_qk is None:
+            pair_bias = ttnn.linear(
+                p, self.b_w, compute_kernel_config=ckc, dtype=dt,
+                core_grid=CORE_GRID_MAIN,
+            )
+            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            bias = ttnn.add(pair_bias, additive_mask)
+            scores = ttnn.matmul(
+                qq, ttnn.permute(kk, (0, 1, 3, 2)),
+                compute_kernel_config=ckc,
+            )
+        else:
+            # Only the pair-bias projection is sparsified. QK stays dense: it
+            # reduces over head_dim (a single tile deep), so its dot-product tree
+            # is independent of the M/N tiling and the scores are bit-identical to
+            # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
+            # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
+            n_keys, attn_idx_dev, dense_bias = sparse_qk
+            pair_bias = ttnn.linear(
+                p, self.b_w, compute_kernel_config=ckc, dtype=dt,
+                core_grid=CORE_GRID_MAIN,
+            )
+            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            scores = ttnn.matmul(
+                qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
+            )
+            # dense_bias carries the -1e4 mask, so scattering the local pair bias
+            # into it gives pair_bias at neighbours (as the dense path does) and
+            # leaves -1e4, whose exp underflows to zero, everywhere else.
+            bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
         scores = ttnn.typecast(
             scores, ttnn.float32, memory_config=scores.memory_config()
         )
@@ -782,11 +912,11 @@ class RFD3AtomBlock(Module):
             out, (batch, length, self.n_head * self.head_dim)
         )
         out = ttnn.linear(
-            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         gate = ttnn.linear(
             c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         upd = ttnn.multiply(out, ttnn.sigmoid(gate))
         if f32:
@@ -801,19 +931,19 @@ class RFD3AtomBlock(Module):
         )
         left = ttnn.linear(
             norm, self.t_fc1, activation="silu", compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         right = ttnn.linear(
             norm, self.t_fc2, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         update = ttnn.linear(
             ttnn.multiply(left, right), self.t_fc3, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         gate = ttnn.linear(
             c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         upd = ttnn.multiply(update, ttnn.sigmoid(gate))
         if f32:
@@ -824,7 +954,7 @@ class RFD3AtomBlock(Module):
 
 
 class LocalAtomTransformer(Module):
-    """Three-block RFD3 atom encoder using dense additive-mask attention.
+    """Three-block RFD3 atom encoder with parity-preserving sparse QK.
 
     trace=True opts into a ttnn trace-capture/replay fast path (per
     rfd3-trace-viability-submodule-granularity: this narrow-channel/few-head
@@ -866,6 +996,7 @@ class LocalAtomTransformer(Module):
         ]
         self.trace = trace
         self._trace_state = None  # {"id", "shape", "q", "c", "p", "mask", "output"}
+        self._mask_cache = {}  # one -1e4 scatter template, see _mask_template
 
     def run_device(self, q, c, p, additive_mask):
         for block in self.blocks:
@@ -873,7 +1004,7 @@ class LocalAtomTransformer(Module):
         return q
 
     def _persist(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
@@ -903,25 +1034,35 @@ class LocalAtomTransformer(Module):
                 ttnn.release_trace(dev, st["id"])
             self._capture_trace(q_host, c_host, p_host, mask_host, shape_key)
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(q_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(c_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(p_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
+            _tt_refresh(q_host, st["q"], dt)
+            _tt_refresh(c_host, st["c"], dt)
+            _tt_refresh(p_host, st["p"], dt)
+            _tt_refresh(mask_host, st["mask"], dt)
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
         return self._trace_state["output"]
 
     def __call__(self, q_host, c_host, p_host, indices):
         dt, dev = self.dtype, self.device
-        p_host = p_host.unsqueeze(0) if p_host.ndim == 2 else p_host
-        mask_host = _dense_attention_mask(indices)
-        if self.trace:
-            out = self._run_device_traced(q_host, c_host, p_host, mask_host)
+        p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
+        if os.environ.get("RFD3_SPARSE_QK", "1") == "1":
+            p, n_keys, attn_idx_dev, dense_bias = _sparse_qk_inputs(
+                p_host, indices, dev, dt, mask_cache=self._mask_cache
+            )
+            q, c = _tt(q_host, dev, dt), _tt(c_host, dev, dt)
+            sparse_qk = (n_keys, attn_idx_dev, dense_bias)
+            for block in self.blocks:
+                q = block(q, c, p, sparse_qk=sparse_qk)
+            out = q
         else:
-            q = _tt(q_host, dev, dt)
-            c = _tt(c_host, dev, dt)
-            p = _tt(p_host, dev, dt)
-            mask = _tt(mask_host, dev, dt)
-            out = self.run_device(q, c, p, mask)
+            mask_host = _dense_attention_mask(indices)
+            if self.trace:
+                out = self._run_device_traced(q_host, c_host, p_host, mask_host)
+            else:
+                q = _tt(q_host, dev, dt)
+                c = _tt(c_host, dev, dt)
+                p = _tt(p_host, dev, dt)
+                mask = _tt(mask_host, dev, dt)
+                out = self.run_device(q, c, p, mask)
         return ttnn.to_torch(out).float()
 
 
@@ -951,6 +1092,7 @@ class CompactStreamingDecoder(Module):
         self.trace = trace
         self._design_state = None  # {"key", "valid", "pack_idx_dev", "unpack_idx_dev", "upcast_mask_dev"}
         self._trace_state = None   # {"id", "shape", "a", "q", "c", "p", "mask", "output"}
+        self._mask_cache = {}      # one -1e4 scatter template, see _mask_template
         self.upcast = [
             GatedCrossAttention(
                 self.scope(f"upcast.{i}.gca"), ckc,
@@ -1033,7 +1175,10 @@ class CompactStreamingDecoder(Module):
         unpacked = ttnn.reshape(unpacked, (batch, length, channels))
         return ttnn.to_layout(unpacked, ttnn.TILE_LAYOUT)
 
-    def run_device(self, a, q, c, p, mask, upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length):
+    def run_device(
+        self, a, q, c, p, mask, upcast_mask_dev, pack_idx_dev,
+        unpack_idx_dev, valid, length, sparse_qk=None,
+    ):
         """Pure-device core loop (pack -> upcast -> unpack -> atom_block, x3).
         `a` is the FLAT (not pre-split) atom-pair stream; the reshape to
         a_split runs here (not by the caller) so a trace replay re-derives
@@ -1045,7 +1190,7 @@ class CompactStreamingDecoder(Module):
                 q_grouped, upcast.run_device(q_grouped, a_split, attn_mask_dev=upcast_mask_dev)
             )
             q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
-            q = atom_block(q, c, p, mask)
+            q = atom_block(q, c, p, mask, sparse_qk=sparse_qk)
         return q
 
     def _design_buffers(self, tok_idx, batch):
@@ -1069,10 +1214,90 @@ class CompactStreamingDecoder(Module):
         return st["valid"], st["pack_idx_dev"], st["unpack_idx_dev"], st["upcast_mask_dev"]
 
     def _persist(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
+
+    def _persist_index(self, x_host, layout):
+        host_t = ttnn.from_torch(x_host, layout=layout, dtype=ttnn.uint32)
+        dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
+        ttnn.copy_host_to_device_tensor(host_t, dev_t)
+        return dev_t
+
+    def _capture_sparse_trace(
+        self, a_host, q_host, c_host, p_sparse_host,
+        attn_idx_host, n_keys, upcast_mask_dev, pack_idx_dev,
+        unpack_idx_dev, valid, length, shape_key, step_key,
+    ):
+        dev = self.device
+        a_p, q_p, c_p, p_p = (
+            self._persist(x) for x in (a_host, q_host, c_host, p_sparse_host)
+        )
+        attn_p = self._persist_index(attn_idx_host, ttnn.TILE_LAYOUT)
+        batch = q_host.shape[0]
+        n_heads = self.atom_blocks[0].n_head
+        dense_bias = ttnn.full(
+            (batch, n_heads, length, length), -1e4, dtype=self.dtype,
+            layout=ttnn.TILE_LAYOUT, device=dev,
+        )
+        sparse_qk = (n_keys, attn_p, dense_bias)
+        for _ in range(2):
+            _ = self.run_device(
+                a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
+                unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+            )
+        ttnn.synchronize_device(dev)
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+        out = self.run_device(
+            a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
+            unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+        )
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        self._trace_state = dict(
+            id=tid, shape=shape_key, step_key=step_key, a=a_p, q=q_p, c=c_p,
+            p=p_p, attn_idx=attn_p, dense_bias=dense_bias, output=out,
+        )
+
+    def _run_device_sparse_traced(
+        self, a_host, q_host, c_host, p_host, indices, upcast_mask_dev,
+        pack_idx_dev, unpack_idx_dev, valid, length,
+    ):
+        import tt_bio.tenstorrent as _TTd
+        if _TTd.trace_region_size() <= 0:
+            raise ValueError("Sparse decoder trace needs an enabled trace region")
+        dev, dt = self.device, self.dtype
+        step_key = (id(q_host), id(c_host), id(p_host), id(indices))
+        st = self._trace_state
+        if (st is not None and st.get("step_key") == step_key
+                and st["shape"][1] == tuple(a_host.shape)):
+            # The decoder's second recycle call within a step: q/c/p and the
+            # neighbour index are already staged and only `a` differs, so the host
+            # pair gather (6.5 ms at 250 residues) would be thrown away. Skip it.
+            _tt_refresh(a_host, st["a"], dt)
+        else:
+            p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices)
+            shape_key = (
+                "sparse_qk", tuple(a_host.shape), tuple(q_host.shape),
+                tuple(c_host.shape), tuple(p_sparse.shape), n_keys,
+            )
+            if st is None or st["shape"] != shape_key:
+                if st is not None:
+                    ttnn.release_trace(dev, st["id"])
+                self._capture_sparse_trace(
+                    a_host, q_host, c_host, p_sparse, attn_idx, n_keys,
+                    upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length,
+                    shape_key, step_key,
+                )
+            else:
+                _tt_refresh(a_host, st["a"], dt)
+                for host, target in ((q_host, st["q"]), (c_host, st["c"]),
+                                     (p_sparse, st["p"])):
+                    _tt_refresh(host, target, dt)
+                _tt_refresh(attn_idx, st["attn_idx"], ttnn.uint32)
+                st["step_key"] = step_key
+        ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
+        return self._trace_state["output"]
 
     def _capture_trace(self, a_host, q_host, c_host, p_host, mask_host,
                         upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length, shape_key):
@@ -1111,13 +1336,13 @@ class CompactStreamingDecoder(Module):
                                  upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length, shape_key)
             self._trace_state["step_key"] = step_key
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(a_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"])
+            _tt_refresh(a_host, st["a"], dt)
             if st.get("step_key") != step_key:
                 mask_host = _dense_attention_mask(indices)
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(q_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(c_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(p_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
+                _tt_refresh(q_host, st["q"], dt)
+                _tt_refresh(c_host, st["c"], dt)
+                _tt_refresh(p_host, st["p"], dt)
+                _tt_refresh(mask_host, st["mask"], dt)
                 st["step_key"] = step_key
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
         return self._trace_state["output"]
@@ -1128,7 +1353,24 @@ class CompactStreamingDecoder(Module):
         valid, pack_idx_dev, unpack_idx_dev, upcast_mask_dev = self._design_buffers(tok_idx, batch)
         p_host = p_host.unsqueeze(0) if p_host.ndim == 2 else p_host
 
-        if self.trace:
+        if os.environ.get("RFD3_SPARSE_QK", "1") == "1":
+            if self.trace:
+                q = self._run_device_sparse_traced(
+                    a_host, q_host, c_host, p_host, indices, upcast_mask_dev,
+                    pack_idx_dev, unpack_idx_dev, valid, length,
+                )
+                a = _tt(a_host, dev, dt)
+            else:
+                p, n_keys, attn_idx_dev, dense_bias = _sparse_qk_inputs(
+                    p_host, indices, dev, dt, mask_cache=self._mask_cache
+                )
+                sparse_qk = (n_keys, attn_idx_dev, dense_bias)
+                a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
+                q = self.run_device(
+                    a, q, c, p, None, upcast_mask_dev, pack_idx_dev,
+                    unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+                )
+        elif self.trace:
             q = self._run_device_traced(a_host, q_host, c_host, p_host, indices,
                                          upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
             a = _tt(a_host, dev, dt)
@@ -1152,7 +1394,7 @@ class CompactStreamingDecoder(Module):
         )
         s = ttnn.linear(
             s, self.process_s_w, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         a_out = ttnn.add(ttnn.add(a, a_update), s)
         return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
@@ -1180,13 +1422,25 @@ class LinearSequenceHead(Module):
         return logits, masked.argmax(dim=-1)
 
 
-def _bucketize_scaled_distogram(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_bins=65):
-    """Host port of block_utils.bucketize_scaled_distogram. R_L: [B, N, 3] -> one-hot [B, N, N, n_bins]."""
+def _scaled_distogram_bins(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_bins=65):
+    """Host port of block_utils.bucketize_scaled_distogram, stopping at the bin index.
+
+    R_L: [B, N, 3] -> int32 [B, N, N]. The one-hot expansion this feeds is done on
+    device (see DiffusionTokenEncoder._onehot_dev): materializing it here costs a
+    [B,N,N,65] int64 tensor plus its float copy on host and then uploads 65 bytes
+    per pair where 4 would do -- 51.0 ms of host work plus a 48.9 ms upload at
+    B=8/N=250, against 1.6 + 0.3 + 7.2 ms for bins + upload + device one-hot.
+    """
     D_LL = torch.linalg.norm(R_L.unsqueeze(-2) - R_L.unsqueeze(-3), dim=-1)  # [B, N, N]
     lo, hi = min_dist / sigma_data, max_dist / sigma_data
     bins = torch.linspace(lo, hi, n_bins - 1, device=R_L.device)
-    bin_idxs = torch.bucketize(D_LL, bins)
-    return torch.nn.functional.one_hot(bin_idxs, num_classes=n_bins).float()
+    return torch.bucketize(D_LL, bins).to(torch.int32)
+
+
+def _bucketize_scaled_distogram(R_L, min_dist=1.0, max_dist=30.0, sigma_data=16.0, n_bins=65):
+    """One-hot [B, N, N, n_bins] form, kept as the host reference for the device path."""
+    bin_idxs = _scaled_distogram_bins(R_L, min_dist, max_dist, sigma_data, n_bins)
+    return torch.nn.functional.one_hot(bin_idxs.long(), num_classes=n_bins).float()
 
 
 class DiffusionTokenEncoder(Module):
@@ -1212,10 +1466,59 @@ class DiffusionTokenEncoder(Module):
                                  self.C_S, self.C_Z, self.N_HEAD, dtype=self.dtype,
                                  fp32_residual=fp32_residual)
                                 for i in range(self.N_PAIRFORMER)]
+        # pure constants of (dtype) / (batch, tokens, dtype); see _onehot_dev and _zeros_dev
+        self._const = {}
+
+    def _batched(self, x_dev, batch):
+        """Replicate a batch-1 device tensor over the batch dim.
+
+        The pair stack's Z_init_II is invariant across designs, so the only reason it
+        needs a batch dim is the concat below. Doing that on device costs 0.67 ms for
+        the [8,250,250,128] bf16 form (384 GB/s, i.e. bandwidth-bound) against 18.5 ms
+        of host expand plus a 77.3 ms upload for the same bytes -- 144x, and a pure
+        copy, so bit-exact.
+        """
+        if batch == 1 or x_dev.shape[0] == batch:
+            return x_dev
+        return ttnn.concat([x_dev] * batch, dim=0)
+
+    def _onehot_dev(self, bins, batch, I):
+        """One-hot the [B,I,I] int32 bin indices on device, by gathering identity rows.
+
+        Exact: the gathered values are 0.0 and 1.0, both representable in every dtype
+        this model uses, so the result is elementwise-identical to uploading the host
+        one-hot (verify_distogram_onehot_parity.py).
+        """
+        dev, dt = self.device, self.dtype
+        eye = self._const.get(("eye", dt))
+        if eye is None:
+            eye = _tt(torch.eye(self.N_BINS), dev, dt)
+            self._const[("eye", dt)] = eye
+        idx = _tt_idx(bins, dev)
+        oh = ttnn.embedding(idx, eye, layout=ttnn.ROW_MAJOR_LAYOUT,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        oh = ttnn.reshape(oh, (batch, I, I, self.N_BINS))
+        return ttnn.to_layout(oh, ttnn.TILE_LAYOUT)
+
+    def _zeros_dev(self, batch, I):
+        """The all-zero self-conditioning distogram of the first recycle.
+
+        A pure constant of (batch, I, dtype), so it is allocated once and held, exactly
+        like the attention-mask template (p10): at B=8/I=250 uploading it is a 48.9 ms
+        transfer of 65 MB of zeros, every step.
+        """
+        key = ("zeros", batch, I, self.dtype)
+        entry = self._const.get(key)
+        if entry is None:
+            entry = ttnn.zeros((batch, I, I, self.N_BINS), dtype=self.dtype,
+                               layout=ttnn.TILE_LAYOUT, device=self.device)
+            self._const[key] = entry
+        return entry
 
     def __call__(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
         """R_L_ca: [B, I, 3] (scaled C-alpha positions), S_init_I: [B, I, c_s],
-        Z_init_II: [I, I, c_z] (expanded over batch), D_II_self: [B, I, I, 65] or None.
+        Z_init_II: [I, I, c_z] or [1, I, I, c_z] (batch 1 -- replicated on device),
+        D_II_self: int32 [B, I, I] distogram bin indices or None.
         Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
@@ -1230,13 +1533,14 @@ class DiffusionTokenEncoder(Module):
             upd = tr(sc)
             s = ttnn.add(s, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
                 else ttnn.add(s, upd)
-        D_LL = _bucketize_scaled_distogram(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
-        if D_II_self is None:
-            D_II_self = torch.zeros(B, I, I, self.N_BINS, dtype=D_LL.dtype, device=D_LL.device)
+        bins = _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
+        d_dev = self._onehot_dev(bins, B, I)
+        self_dev = (self._zeros_dev(B, I) if D_II_self is None
+                    else self._onehot_dev(D_II_self, B, I))
         if Z_init_II.ndim == 3:
-            Z_init_II = Z_init_II.unsqueeze(0).expand(B, -1, -1, -1).contiguous()
-        z = _tt(Z_init_II, dev, dt)
-        zcat = ttnn.concat([z, _tt(D_LL, dev, dt), _tt(D_II_self, dev, dt)], dim=-1)  # [B,I,I,258]
+            Z_init_II = Z_init_II.unsqueeze(0)
+        z = self._batched(_tt(Z_init_II, dev, dt), B)
+        zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
         z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(zcat)
@@ -1334,59 +1638,71 @@ def build_dit(state_dict, compute_kernel_config=None, dtype=None, n_block=18):
 
 # --- Host-side attention-index builder (vendored from foundry block_utils) ---
 def _build_index_mask(tok_idx, n_seq_neighbours, k_max, chain_id=None, base_mask=None):
+    """Build the full-token local mask without atom-grid counting and sorting."""
     device = tok_idx.device
-    L = tok_idx.shape[0]; k_max = min(k_max, L)
-    I = int(tok_idx.max().item()) + 1
-    n_per_tok = torch.zeros(I, device=device).float()
-    n_per_tok.scatter_add_(0, tok_idx.long(), torch.ones_like(tok_idx).float())
-    tidx = torch.arange(I, device=device)
-    tdiff = (tidx[:, None] - tidx[None, :]).abs()
-    aidx = torch.arange(L, device=device)
-    adiff = (aidx[:, None] - aidx[None, :]).abs()
-    tmask = tdiff <= n_seq_neighbours
-    ti, tj = tok_idx[:, None], tok_idx[None, :]
-    mask = tmask[ti, tj] & (adiff <= (k_max // 2))
-    n_q = torch.zeros((L, I), device=device).float()
-    n_q.scatter_add_(1, tok_idx.long()[None, :].expand(L, -1).contiguous(), mask.float())
-    fully = n_q == n_per_tok[None, :]
-    n_fi = torch.zeros((I, I), device=device)
-    n_fi.index_add_(0, tok_idx.long(), fully.float())
-    ftmask = (n_fi == n_per_tok[:, None])[ti, tj]
-    mask &= ftmask
+    tok_idx = tok_idx.long()
+    length = tok_idx.shape[0]
+    k_max = min(k_max, length)
+    n_tokens = int(tok_idx.max().item()) + 1
+    positions = torch.arange(length, device=device)
+    first = torch.full((n_tokens,), length, dtype=torch.long, device=device)
+    last = torch.full((n_tokens,), -1, dtype=torch.long, device=device)
+    first.scatter_reduce_(0, tok_idx, positions, reduce="amin", include_self=True)
+    last.scatter_reduce_(0, tok_idx, positions, reduce="amax", include_self=True)
+
+    token_ids = torch.arange(n_tokens, device=device)
+    allowed = (
+        (token_ids[:, None] - token_ids[None, :]).abs() <= n_seq_neighbours
+    )
+    max_atom_distance = torch.maximum(
+        (first[:, None] - last[None, :]).abs(),
+        (last[:, None] - first[None, :]).abs(),
+    )
+    allowed &= max_atom_distance <= (k_max // 2)
     if chain_id is not None:
-        mask &= (chain_id.unsqueeze(-1) == chain_id.unsqueeze(-2))
+        token_chain = chain_id[first]
+        allowed &= token_chain[:, None] == token_chain[None, :]
     if base_mask is not None:
-        mask &= base_mask
-    return mask
+        if base_mask.shape == (n_tokens, n_tokens):
+            allowed &= base_mask
+        else:
+            allowed &= base_mask[first[:, None], first[None, :]]
+    return allowed[tok_idx[:, None], tok_idx[None, :]]
 
 
 def _extend_with_neighbours(mask, D_LL, k):
     if D_LL.ndim == 2:
         D_LL = D_LL.unsqueeze(0)
-    B, L, _ = D_LL.shape; k = min(k, L); device = D_LL.device
+    _, length, _ = D_LL.shape
+    k = min(k, length)
+    device = D_LL.device
+    rows = torch.arange(length, device=device).unsqueeze(0).expand(length, length)
+    idx = torch.where(mask.contiguous(), rows, length).topk(
+        k, dim=1, largest=False, sorted=True
+    ).values
     inf = torch.tensor(float("inf"), dtype=D_LL.dtype, device=device)
-    rows = torch.arange(L, device=device).unsqueeze(0).expand(L, L)
-    idx = torch.where(mask.contiguous(), rows, inf).sort(dim=1)[0][:, :k]
-    Dm = torch.where(mask.contiguous(), inf, D_LL)
-    fill = torch.topk(Dm, k, dim=-1, largest=False).indices.flip(dims=[-1])
-    tof = (idx == inf).expand_as(fill).contiguous()
-    idx = torch.where(tof, fill, idx.expand_as(fill).contiguous()).long()
-    return idx
+    masked_distances = torch.where(mask.contiguous(), inf, D_LL)
+    fill = torch.topk(masked_distances, k, dim=-1, largest=False).indices.flip(
+        dims=[-1]
+    )
+    idx = torch.where((idx == length).expand_as(fill), fill, idx.expand_as(fill))
+    return idx.long()
 
 
 def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
     device = X_L.device; L = len(tok_idx)
     D_LL = torch.cdist(X_L, X_L, p=2)
-    base_mask = ~f["unindexing_pair_mask"][tok_idx[None, :], tok_idx[:, None]]
+    base_mask = ~f["unindexing_pair_mask"]
     k = min(n_keys, L)
     chain = f["asym_id"][tok_idx] if "asym_id" in f else None
     if chain is not None and len(torch.unique(chain)) > 3:
         ki, kc = max(32, k // 4), k - max(32, k // 4)
         intra = _extend_with_neighbours(_build_index_mask(tok_idx, n_seq_neighbours, kc, chain, base_mask), D_LL, kc)
         inter = torch.zeros(D_LL.shape[0], L, ki, dtype=torch.long, device=device)
+        atom_base_mask = base_mask[tok_idx[None, :], tok_idx[:, None]]
         for b in range(D_LL.shape[0]):
             for c in torch.unique(chain):
-                ci = chain[c]; other = (chain != ci) & base_mask[c, :]
+                ci = chain[c]; other = (chain != ci) & atom_base_mask[c, :]
                 oi = torch.where(other)[0]; ns = min(ki, len(oi))
                 if ns > 0:
                     inter[b, c, :ns] = oi[torch.topk(D_LL[b, c, oi], ns, largest=False).indices]
@@ -1531,7 +1847,8 @@ class RFD3DiffusionModule(Module):
         # _encoder_downcast_traced capture below, not in LocalAtomTransformer's own
         # (still isolated-test-only) trace mechanism.
         self._trace_encoder = os.environ.get("RFD3_TRACE_ENCODER") == "1"
-        self._grouping_cache = None    # {"key", "valid", "pack_idx_dev"} -- shared by downcast_c/downcast_q
+        self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
+        self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
         self._encoder_trace_state = None  # {"id", "shape", "q", "c", "p", "mask", "a", "s", "out_q", "out_a"}
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
                                             fp32_residual=self._dit_fp32_residual, trace=False)
@@ -1562,7 +1879,7 @@ class RFD3DiffusionModule(Module):
         emb = emb * (t_L > 0).float()[..., None]
         x = _tt(emb, dev, dt)
         x = ttnn.rms_norm(x, weight=self.process_n_n[i], epsilon=1e-6, compute_kernel_config=ckc)
-        out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         return ttnn.to_torch(out).float()
 
     def _grouping_buffers(self, tok_idx, batch):
@@ -1586,9 +1903,19 @@ class RFD3DiffusionModule(Module):
         the multi-step trajectory replay that would confirm it end-to-end has not run yet
         (blocked by device contention, see RFD3DiffusionModule.__init__ comment)."""
         dev = self.device
-        key = (id(tok_idx), tuple(tok_idx.shape), batch)
-        st = self._grouping_cache
-        if st is None or st["key"] != key:
+        # One slot PER BATCH SIZE, not one slot total: _downcast_c is called with the
+        # batch-1 S_I while the encoder downcast is called with the batch-D A_I, so a
+        # single-slot cache missed on every call at D>1 and re-uploaded the index --
+        # 8.7 ms per call at 3359 atoms, 31x what eight batch-1 calls cost (p11).
+        owner = (id(tok_idx), tuple(tok_idx.shape))
+        if self._grouping_owner != owner:
+            # a design change can change L/I shapes -- any captured combined trace is stale.
+            self._grouping_owner, self._grouping_cache = owner, {}
+            if self._encoder_trace_state is not None:
+                ttnn.release_trace(dev, self._encoder_trace_state["id"])
+                self._encoder_trace_state = None
+        st = self._grouping_cache.get(batch)
+        if st is None:
             valid, pack, _ = _grouping_indices(tok_idx, batch, dev)
             pack_idx_dev = _tt_idx(pack, dev)
             # Additive mask for the downcast GCAs (downcast_c AND downcast_q -- same
@@ -1598,12 +1925,8 @@ class RFD3DiffusionModule(Module):
             # on every call -- see _encoder_downcast_device / _downcast_q_device).
             downcast_mask_dev = self.downcast_q._prepare_additive_mask(
                 valid.unsqueeze(1), batch, valid.shape[0], 1, valid.shape[1])
-            st = dict(key=key, valid=valid, pack_idx_dev=pack_idx_dev, downcast_mask_dev=downcast_mask_dev)
-            self._grouping_cache = st
-            if self._encoder_trace_state is not None:
-                # a design change can change L/I shapes -- any captured combined trace is stale.
-                ttnn.release_trace(dev, self._encoder_trace_state["id"])
-                self._encoder_trace_state = None
+            st = dict(valid=valid, pack_idx_dev=pack_idx_dev, downcast_mask_dev=downcast_mask_dev)
+            self._grouping_cache[batch] = st
         return st["valid"], st["pack_idx_dev"], st["downcast_mask_dev"]
 
     def _downcast_c(self, C_L, S_I, tok_idx):
@@ -1629,7 +1952,7 @@ class RFD3DiffusionModule(Module):
         upd = ttnn.squeeze(self.downcast_q.run_device(ttnn.unsqueeze(a, 2), q_g, attn_mask_dev=mask_dev), 2)
         a = ttnn.add(a, upd)
         s = ttnn.rms_norm(s, weight=self.downcast_q_s_n, epsilon=1e-6, compute_kernel_config=ckc)
-        s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         return ttnn.add(a, s)
 
     def _downcast_q(self, Q_L, A_I, S_I, tok_idx):
@@ -1653,7 +1976,7 @@ class RFD3DiffusionModule(Module):
         return q, a_out
 
     def _persist_ed(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
@@ -1697,12 +2020,12 @@ class RFD3DiffusionModule(Module):
                                                   A_I_host, S_I_host, pack_idx_dev,
                                                   downcast_mask_dev, valid, shape_key)
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(Q_L_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(C_L_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(P_LL_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(A_I_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(S_I_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["s"])
+            _tt_refresh(Q_L_host, st["q"], dt)
+            _tt_refresh(C_L_host, st["c"], dt)
+            _tt_refresh(P_LL_host, st["p"], dt)
+            _tt_refresh(mask_host, st["mask"], dt)
+            _tt_refresh(A_I_host, st["a"], dt)
+            _tt_refresh(S_I_host, st["s"], dt)
         st = self._encoder_trace_state
         ttnn.execute_trace(dev, st["id"], cq_id=0, blocking=True)
         return ttnn.to_torch(st["out_q"]).float(), ttnn.to_torch(st["out_a"]).float()
@@ -1717,16 +2040,16 @@ class RFD3DiffusionModule(Module):
         # until torch combines them with per-design coordinates/time; broadcasting
         # then materializes only the streams that actually diverge. P_LL remains
         # batch 1 throughout because RFD3AtomBlock broadcasts its invariant pair
-        # bias over the attention batch. Only Z_II must be materialized here for
-        # the later concat with per-design distograms.
+        # bias over the attention batch. Z_II also stays batch 1: the pair stack
+        # needs a batch dim only for its concat with the per-design distograms, and
+        # replicating it there costs 0.67 ms on device against 95.8 ms of host
+        # expand + upload (DiffusionTokenEncoder._batched).
         B = t.shape[0]
         if Q_L_init.ndim == 2: Q_L_init = Q_L_init.unsqueeze(0)
         if C_L.ndim == 2: C_L = C_L.unsqueeze(0)
         if S_I.ndim == 2: S_I = S_I.unsqueeze(0)
         if Z_II.ndim == 3: Z_II = Z_II.unsqueeze(0)
         if P_LL.ndim == 3: P_LL = P_LL.unsqueeze(0)
-        if B != 1:
-            Z_II = Z_II.expand(B, -1, -1, -1).contiguous()
         f = dict(f)
         f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS, self.N_ATTN_SEQ)
         is_motif = f["is_motif_atom_with_fixed_coord"]
@@ -1752,7 +2075,7 @@ class RFD3DiffusionModule(Module):
         S_I = S_I + self._process_time(t_I, 1)
         C_L = C_L + ttnn.to_torch(
             ttnn.linear(ttnn.rms_norm(_tt(C_L, dev, dt), weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
-                        self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
+                        self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)).float()
         if self._trace_encoder:
             B = A_I.shape[0] if A_I.ndim == 3 else 1
             valid, pack_idx_dev, downcast_mask_dev = self._grouping_buffers(tok_idx, B)
@@ -1789,7 +2112,7 @@ class RFD3DiffusionModule(Module):
                                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
         X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
         logits, _ = self.sequence_head(A_I)
-        D_II_self = _bucketize_scaled_distogram(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
+        D_II_self = _scaled_distogram_bins(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
         return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits}
 
 
