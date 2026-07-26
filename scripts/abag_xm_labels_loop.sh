@@ -8,7 +8,7 @@
 set +u
 WT=/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p3
 PY=/home/ttuser/.abag_xm_label_venv/bin/python3
-RUN_TIMEOUT=1800
+RUN_TIMEOUT=5400
 WORKERS=6
 log(){ echo "[$(date +%H:%M:%S)] $*"; }
 mkdir -p "$HOME/abag_xm/tier_a/labels"
