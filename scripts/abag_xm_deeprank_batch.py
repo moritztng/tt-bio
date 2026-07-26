@@ -104,8 +104,12 @@ def main():
     print(f"[deeprank-batch] {args.target}/{args.gen}: {len(ranks)} models -> "
           f"{ensemble.name}", flush=True)
 
+    # deeprank-ab-predict auto-detects chains via ANARCI, which needs hmmscan/hmmsearch
+    # (HMMER3 built from source into ~/.local/bin). Prepend it to PATH so the subprocess
+    # works regardless of the parent env.
+    _env = {**os.environ, "PATH": os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")}
     r = subprocess.run([str(cli), str(ensemble)], capture_output=True,
-                       text=True, cwd=str(Path(work)))
+                       text=True, cwd=str(Path(work)), env=_env)
     print(r.stdout[-1500:])
     if r.returncode != 0:
         print(f"[deeprank-batch] CLI failed rc={r.returncode}", file=sys.stderr)
