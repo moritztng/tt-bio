@@ -5,6 +5,24 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **Protenix-v2 / OpenDDE diffusion multiplicity batching (scaffold, gated)** —
+  `edm_sample` now carries a real `multiplicity` (M) batch dim through the EDM
+  sampler shell, and `Protenix.fold` / `OpenDDE.fold` draw `n_sample` samples in
+  one batched trajectory when `DiffusionModule.supports_multiplicity` is on
+  (mirrors `boltz2.AtomDiffusion.sample`'s `multiplicity` + `max_parallel_samples`
+  pattern: one batched denoise forward per step, `max_parallel_samples`-chunked
+  OOM safety). `--max_parallel_samples` (already in `worker_cfg`) is now threaded
+  into both fold calls. Backward-compatible: the flag is off by default, so every
+  current fold keeps the existing per-sample loop bit-exact — no behavior change
+  until the batched device-denoise path is verified on a card. CPU-only parity
+  tests (`tests/test_edm_sample_multiplicity.py`,
+  `tests/test_windowing_multiplicity.py`) verify the sampler-shell RNG/shape
+  wiring (M=1 bit-exact vs the prior path, M>1 chunking equivalence) and the
+  leading-M 3D-pad windowing spec (per-sample-correct windows, no cross-sample
+  bleed). The on-device `DiffusionModule.denoise` M carry-through, the flag flip,
+  full-fold device parity, and the wall-clock benchmark are pending a free card.
+
 ## [0.3.4] - 2026-07-22
 
 ### Fixed
