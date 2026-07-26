@@ -16,7 +16,7 @@ artifacts that Phase 4 scores. The failed-results cross-check (results.json stat
 must be "ok" AND all_runs/n_cifs must equal n_samples) is enforced so a job whose
 results.json says failed is never recorded ok (opendde-abag-paired-msa-offline-gap).
 """
-import argparse, json, os, signal, subprocess, sys, time
+import argparse, json, os, signal, socket, subprocess, sys, time
 from pathlib import Path
 # colabfold_search (invoked by tt_bio for uncached MSAs) needs localcolabfold's
 # own mmseqs (v18, supports --prefilter-mode); the apt mmseqs (v13) exits 1.
@@ -44,6 +44,19 @@ N_SAMPLES = 50
 SEED = 42
 FOLD_TIMEOUT_S = 3600  # 50 samples on a 1095-res target can approach ~50 min; give 60.
 MPS = 5  # max_parallel_samples -- honours the cap after the 3b fix (boltz2) / always did (protenix)
+
+# D12 (per-model config fairness contract) — resolved-config fields recorded in
+# every progress.jsonl line so Phase 4 can assert constancy within a generator
+# before any table is produced. paired_msa=False for all three: no generator
+# receives a species-paired MSA in this campaign (offline pairing is not available
+# without a `:`-joined complex query; see opendde-abag-paired-msa-offline-gap).
+_HOST = socket.gethostname()
+try:
+    _TT_BIO_COMMIT = subprocess.check_output(
+        ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True).strip()
+except Exception:
+    _TT_BIO_COMMIT = "unknown"
+
 
 
 def all_targets():
@@ -131,7 +144,9 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
         rc = -9
     wall_s = time.time() - t0
     rec = {"target": target, "model": model, "wall_s": round(wall_s, 1),
-           "device": device, "n_samples": n_samples, "mps": mps}
+           "device": device, "n_samples": n_samples, "mps": mps,
+           "host": _HOST, "tt_bio_commit": _TT_BIO_COMMIT,
+           "paired_msa": False}
     if timed_out:
         rec["status"] = "timed_out"
         rec["stderr"] = f"killed after {fold_timeout_s}s (process group); tail: {(out or '')[-1500:]}"
