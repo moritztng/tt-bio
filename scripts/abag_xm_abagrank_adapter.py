@@ -40,6 +40,18 @@ from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.PDBIO import PDBIO
 from Bio.PDB.Polypeptide import PPBuilder
 
+# ABAG-Rank needs py3.11 + its own deps (torch/lightning/esm/biotite/h5py/DockQ/tmtools/etc.)
+# in ~/.abagrank_venv, plus hmmer (hmmscan) on PATH for its ANARCI-based chain handling.
+# When the venv exists, run preprocess_inference.py / run_inference.py with its python and
+# ~/.local/bin on PATH; else fall back to sys.executable + inherited env.
+ABAGRANK_VENV_PY = Path.home() / ".abagrank_venv" / "bin" / "python3"
+
+def _abagrank_python_env():
+    if ABAGRANK_VENV_PY.exists():
+        env = {**os.environ, "PATH": os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")}
+        return str(ABAGRANK_VENV_PY), env
+    return sys.executable, None
+
 
 def _yaml_sequences(yaml_path):
     """Return {chain_id: sequence} for the protein chains in the YAML."""
@@ -222,7 +234,8 @@ def main():
         pp = abag / "preprocess_inference.py"
         # nanobody/VHH: single heavy chain (no light); else H,L
         ab_chains = heavy_id if light_id is None else f"{heavy_id},{light_id}"
-        cmd = [sys.executable, str(pp),
+        _py, _env = _abagrank_python_env()
+        cmd = [_py, str(pp),
                "--input_dir", work_dir,
                "--output_h5", args.out_h5,
                "--antibody_chains", ab_chains,
@@ -232,7 +245,7 @@ def main():
         if args.add_esm:
             cmd.append("--add_esm")
         print(f"[adapter] preprocess: {' '.join(cmd)}")
-        r = subprocess.run(cmd, capture_output=True, text=True)
+        r = subprocess.run(cmd, capture_output=True, text=True, env=_env)
         print(r.stdout[-2000:])
         if r.returncode != 0:
             print(r.stderr[-3000:], file=sys.stderr)
@@ -245,14 +258,15 @@ def main():
             cfg = abag / "configs" / ("config_ABAG_rank.yaml" if args.add_esm
                                      else "config_ABAG_rank_no_esm.yaml")
             inf_out = tempfile.mkdtemp(prefix=f"abagrank_inf_{args.target}_")
-            icmd = [sys.executable, str(abag / "run_inference.py"),
+            _ipy, _ienv = _abagrank_python_env()
+            icmd = [_ipy, str(abag / "run_inference.py"),
                     "--h5_file", args.out_h5,
                     "--checkpoint", str(ckpt),
                     "--config", str(cfg),
                     "--output_dir", inf_out,
                     "--target_id", args.target]
             print(f"[adapter] inference: {' '.join(icmd)}")
-            ir = subprocess.run(icmd, capture_output=True, text=True)
+            ir = subprocess.run(icmd, capture_output=True, text=True, env=_ienv)
             print(ir.stdout[-2000:])
             if ir.returncode != 0:
                 print(ir.stderr[-3000:], file=sys.stderr)
