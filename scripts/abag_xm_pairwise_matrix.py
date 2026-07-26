@@ -51,24 +51,27 @@ def _chain_obj(struct, cid):
 
 def _resolve_model_chains(ms0, ns, c1, c2):
     """Map declared native chains (c1,c2) to model chain ids via sequence (group_chains).
-    DockQ get_all_chain_maps returns {native_id: model_id}. Returns (m_ag, m_ab) or None."""
-    mc = [c.id for c in ms0]
-    nc = [c.id for c in ns]
-    clusters, rev = group_chains(ms0, ns, mc, nc, allowed_mismatches=0)
+    DockQ get_all_chain_maps returns {native_id: model_id}. Returns (m_ag, m_ab) or None.
+    Any chain-resolution failure (e.g. group_chains raising on a mismatched/odd layout
+    like 9iar) degrades gracefully to None -> pairwise runs without precomputed
+    alignments (slower run_on_chains per pair) instead of crashing the whole matrix."""
     try:
+        mc = [c.id for c in ms0]
+        nc = [c.id for c in ns]
+        clusters, rev = group_chains(ms0, ns, mc, nc, allowed_mismatches=0)
         cmap = next(get_all_chain_maps(clusters, {}, rev, mc, nc))   # {native: model}
-    except StopIteration:
-        return None
-    inv = {m: n for n, m in cmap.items()}
-    out = {}
-    for declared, role in ((c1, "c1"), (c2, "c2")):
-        if declared in nc:
-            out[role] = cmap[declared]
-        elif declared in mc:
-            out[role] = declared
-        else:
-            return None
-    return out["c1"], out["c2"]
+        inv = {m: n for n, m in cmap.items()}
+        out = {}
+        for declared, role in ((c1, "c1"), (c2, "c2")):
+            if declared in nc:
+                out[role] = cmap[declared]
+            elif declared in mc:
+                out[role] = declared
+            else:
+                return (None, None)
+        return out["c1"], out["c2"]
+    except Exception:
+        return (None, None)
 
 
 def _dockq_pair(cached_i, cached_j, m1, m2, precomputed_alignments):
