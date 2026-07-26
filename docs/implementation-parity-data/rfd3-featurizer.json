@@ -1,0 +1,14 @@
+{
+  "mode": "rfd3_featurizer",
+  "verdict": "PASS",
+  "keys_total": 43,
+  "keys_bitexact": 43,
+  "mismatches": [],
+  "fixture": "scripts/rfd3_port/parity_artifacts/iai_protein",
+  "contig": "A1-10,20,A31-40",
+  "ported_tokens": 40,
+  "ported_atoms": 419,
+  "ref_tokens": 40,
+  "ref_atoms": 419,
+  "note": "RFD3 host featurizer value-parity vs the committed upstream foundry reference capture (43/43 f keys bit-exact, p12). Card-free, in-process; re-runs scripts/rfd3_port/parity_gate.py each release."
+}

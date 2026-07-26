@@ -555,11 +555,31 @@
               "tt_bio_version": "0.3.1",
               "date": "2026-07-20",
               "note": "seed p150a boltz2-affinity perf baseline (new leg added in implementation-parity-hardening pass, no prior baseline existed)"
+            },
+            "rfd3": {
+              "unit": "designs/s",
+              "direction": "higher",
+              "value": 0.122207,
+              "latency_ms": 8182.85,
+              "input": "iai_inputs.yaml (IAI motif-scaffold, I40/L419, from_pdb, 4 steps)",
+              "sampling_steps": null,
+              "diffusion_samples": null,
+              "recycling_steps": null,
+              "num_timesteps": 4,
+              "num_designs": 1,
+              "warmup": 0,
+              "repeat": 1,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "pc",
+              "tt_bio_version": "0.4.0",
+              "date": "2026-07-26",
+              "note": "seed rfd3 perf baseline on pc p150a (card 0), COLD (page cache dropped); 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. Conservative cold-inflated single run per the design-leg docstring; warm gate runs pass comfortably, cold gate runs match."
             }
           },
-          "date": "2026-07-20",
-          "tt_bio_version": "0.3.1",
-          "note": "seed p150a boltz2-affinity perf baseline (new leg added in implementation-parity-hardening pass, no prior baseline existed)"
+          "date": "2026-07-26",
+          "tt_bio_version": "0.4.0",
+          "note": "seed rfd3 perf baseline on pc p150a (card 0), COLD (page cache dropped); 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. Conservative cold-inflated single run per the design-leg docstring; warm gate runs pass comfortably, cold gate runs match."
         }
       }
     }

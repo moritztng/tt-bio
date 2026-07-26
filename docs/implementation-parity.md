@@ -37,8 +37,9 @@ accuracy (does the fold match the native structure) is out of scope.
 | BoltzGen | binder vs 7ROA chain A | PASS | designability 93.8% (≤2 Å scRMSD) vs reference 68.75%; device meets-or-exceeds |
 | SaProt-35m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99914, in the ESMC band |
 | SaProt-650m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99964, in the ESMC band |
+| RFdiffusion3 | IAI protein motif-scaffold, I40/L419 | PASS | host featurizer 43/43 `f` keys bit-exact vs the committed upstream foundry reference capture; card-free, in-process (`scripts/rfd3_port/parity_gate.py`) |
 
-Net: 22 PASS, 4 PASS-caveated, 1 GAP-evidenced. The three Boltz-2 affinity
+Net: 23 PASS, 4 PASS-caveated, 1 GAP-evidenced. The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
 rows are retained and relabeled `non-default`. The MSA legs score 8 PASS / 4 GAP

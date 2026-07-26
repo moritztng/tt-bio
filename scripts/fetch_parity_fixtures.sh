@@ -15,18 +15,18 @@
 #   --repo  moritztng/tt-bio         (the GitHub repo hosting the release)
 #   --dest  docs/implementation-parity-data/ref-fixtures  (extract root)
 #
-# The release asset is a single tarball named parity-fixtures-<tag>.tar.gz plus a
-# parity-fixtures-<tag>.sha256 sidecar. The script downloads both, verifies the
+# The release asset is a single tarball named <tag>.tar.gz plus a
+# <tag>.sha256 sidecar. The script downloads both, verifies the
 # checksum, and extracts the tarball into --dest. It is idempotent: re-running
 # over an existing tree only overwrites files the tarball provides.
 #
 # To create the release (maintainer, once per parity pass):
 #   1. Harvest new fixtures:        python3 scripts/pharma_harvest_ref_fixtures.py ...
-#   2. Tar the binary fixtures:     tar czf parity-fixtures-<tag>.tar.gz \
+#   2. Tar the binary fixtures:     tar czf <tag>.tar.gz \
 #                                      -C docs/implementation-parity-data ref-fixtures \
 #                                      --include='*.cif' --include='*.a3m'  (or full tree)
-#   3. sha256sum parity-fixtures-<tag>.tar.gz > parity-fixtures-<tag>.sha256
-#   4. gh release create <tag> parity-fixtures-<tag>.tar.gz parity-fixtures-<tag>.sha256 \
+#   3. sha256sum <tag>.tar.gz > <tag>.sha256
+#   4. gh release create <tag> <tag>.tar.gz <tag>.sha256 \
 #         --repo moritztng/tt-bio --notes "Externalized parity reference fixtures"
 #   5. Commit the new provenance JSONs (meta.json/results.json) with the asset tag recorded.
 #
@@ -48,8 +48,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-ASSET="parity-fixtures-${TAG}.tar.gz"
-SHA_ASSET="parity-fixtures-${TAG}.sha256"
+ASSET="${TAG}.tar.gz"
+SHA_ASSET="${TAG}.sha256"
 API="https://api.github.com/repos/${REPO}/releases/tags/${TAG}"
 
 echo "Fetching parity fixtures: tag=${TAG} repo=${REPO} dest=${DEST}"
@@ -58,8 +58,13 @@ echo "Fetching parity fixtures: tag=${TAG} repo=${REPO} dest=${DEST}"
 urls_json="$(curl -fsSL -H "Accept: application/vnd.github+json" "${API}" \
   | python3 -c 'import json,sys; r=json.load(sys.stdin); print("\n".join(a["browser_download_url"] for a in r.get("assets",[])))')"
 
-tarball_url="$(printf '%s\n' "${urls_json}" | grep -F "/${ASSET}$" || true)"
-sha_url="$(printf '%s\n' "${urls_json}" | grep -F "/${SHA_ASSET}$" || true)"
+# Match the asset URL by its path suffix. grep -F (fixed-string) is used so the
+# asset name is matched literally (no regex escaping of dots); the leading "/"
+# binds the match to the path segment so one asset name can't substring-match
+# another (e.g. .tar.gz vs .tar.gz.bak). Do NOT append a "$" anchor under -F:
+# fixed-string mode treats "$" as a literal, not end-of-line.
+tarball_url="$(printf '%s\n' "${urls_json}" | grep -F "/${ASSET}" || true)"
+sha_url="$(printf '%s\n' "${urls_json}" | grep -F "/${SHA_ASSET}" || true)"
 if [[ -z "${tarball_url}" ]]; then
   echo "error: release ${TAG} on ${REPO} has no asset named ${ASSET}." >&2
   echo "       Create it (see scripts/fetch_parity_fixtures.sh header) and retry." >&2
