@@ -51,13 +51,18 @@ mkdir -p "$HOME/abag_xm/tier_a"
 log "START opendde-abag on qb2: 4 cards, models=opendde-abag, timeout=${TIMEOUT}s, stall=${STALL}s"
 log "  (164 targets, opendde-only, unpaired-only fixed path; writes to qb2 ~/abag_xm/tier_a/)"
 PIDS=(); for c in 0 1 2 3; do PIDS[$c]=$(launch_card $c); log "launched card $c pid=${PIDS[$c]}"; done
-last_prog=$(progress_mtime)
+# Stall clock starts at launch (wall-clock), NOT file mtime: progress.jsonl does
+# not exist until the first fold completes (~27 min for opendde), so mtime=0
+# would make `now - 0` always >= STALL and trigger a false kill/relaunch loop on
+# every 120s tick before any fold can finish. Reset to file mtime once it exists.
+last_prog=$(date +%s)
 while true; do
   sleep 120
   alive=0; for c in 0 1 2 3; do [ -n "${PIDS[$c]}" ] && kill -0 "${PIDS[$c]}" 2>/dev/null && alive=$((alive+1)); done
   if [ "$alive" -eq 0 ]; then log "all 4 generate.py exited — opendde campaign complete"; break; fi
-  now_prog=$(progress_mtime)
-  if [ "$now_prog" != "$last_prog" ]; then last_prog=$now_prog
-  elif [ $(( $(date +%s) - now_prog )) -ge "$STALL" ]; then recover_all; last_prog=$(progress_mtime); fi
+  pm=$(progress_mtime)
+  if [ "$pm" != "0" ] && [ "$pm" -gt "$last_prog" ]; then last_prog=$pm; fi
+  now=$(date +%s)
+  if [ $(( now - last_prog )) -ge "$STALL" ]; then recover_all; last_prog=$(date +%s); fi
 done
 log "DONE"
