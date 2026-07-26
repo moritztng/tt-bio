@@ -36,6 +36,8 @@ def parse_args():
     ap.add_argument("--pdb", type=Path, default=PDB)
     ap.add_argument("--contig", default="A1-10,20,A31-40")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--strip-breaking", action="store_true",
+                    help="strip core_grid only on the shapes measured non-batch-invariant")
     ap.add_argument("--no-core-grid", action="store_true",
                     help="strip core_grid= from every ttnn.linear (batch-invariance experiment)")
     return ap.parse_args()
@@ -75,16 +77,27 @@ def build(args):
 
 def main():
     args = parse_args()
-    if args.no_core_grid:
+    if args.no_core_grid or args.strip_breaking:
         import ttnn
         _linear = ttnn.linear
+        BREAKING = {
+            ((40, 384), (384, 1536)), ((40, 384), (384, 768)),
+            ((40, 768), (768, 768)), ((40, 768), (768, 1536)),
+            ((40, 1536), (1536, 768)), ((419, 128), (128, 128)),
+            ((419, 128), (128, 256)), ((419, 256), (256, 128)),
+            ((40, 40, 128), (128, 512)),
+        }
+        strip_all = args.no_core_grid
 
-        def linear_no_grid(*a, **kw):
-            kw.pop("core_grid", None)
-            return _linear(*a, **kw)
+        def linear_patched(a, b, *rest, **kw):
+            if kw.get("core_grid") is not None and (
+                strip_all or (tuple(a.shape)[1:], tuple(b.shape)) in BREAKING
+            ):
+                kw.pop("core_grid")
+            return _linear(a, b, *rest, **kw)
 
-        ttnn.linear = linear_no_grid
-        print("core_grid stripped from ttnn.linear")
+        ttnn.linear = linear_patched
+        print(f"core_grid stripped: all={strip_all} breaking_only={args.strip_breaking}")
     f, dm, init = build(args)
     L = f["ref_pos"].shape[0]
     print(f"fixture: contig={args.contig!r} L={L}")
