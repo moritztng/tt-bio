@@ -100,3 +100,14 @@ strictly stronger for parity. Either satisfies DONE_CHECK.
 The DONE_CHECK cannot pass this turn: the parity-pass statements require the
 on-device batched denoise, which requires a free card. Re-launch when a card is
 free.
+
+## ASK MORITZ (fleet contention)
+All 4 tt-quietbox cards are held by `worker:abag-xm-crossmodel-ranking-dataset-p3`
+and aggressively re-acquired within minutes of any freeing (confirmed across 3
+turns / ~70 min of polling). The device-denoise M carry-through needs a STABLE
+card window for iterative on-card verification, not a seconds-long gap. I cannot
+pause another worker myself. Recommendation: grant me card 0 (my assigned card)
+exclusively for ~45 min, or briefly pause abag, so I can implement + verify the
+device-denoise batch, run the parity harness for both Protenix and OpenDDE, flip
+`supports_multiplicity`, benchmark, and reach DONE in one session. Everything
+else is already committed and ready to execute the moment a stable card is free.
