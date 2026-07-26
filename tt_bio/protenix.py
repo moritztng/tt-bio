@@ -1276,7 +1276,8 @@ class Protenix:
                             for b in range(nb)], 0)                            # (nb,nq,nk,16)
 
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
-             return_confidence=False, n_cycles=None, trace=False):
+             return_confidence=False, n_cycles=None, trace=False,
+             max_parallel_samples=None):
         """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
         iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
         coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
@@ -1337,20 +1338,36 @@ class Protenix:
             cond["dit_z"] = self.diffusion._dit_z_device(pair_z)
         else:
             cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
-        coords = []
         import os as _os, time as _time
         if _os.environ.get("TT_PROTENIX_DBG_COND"):
             self._dbg_cond = cond
         _prof = _os.environ.get("TT_PROTENIX_PROFILE")
-        for k in range(n_sample):
-            sd_seed = None if seed is None else seed + k
+        # Multiplicity batching: when the device denoise carries the multiplicity dim
+        # (DiffusionModule.supports_multiplicity, flipped on once the batched denoise is
+        # parity-verified), draw all n_sample samples in ONE batched trajectory
+        # (boltz2.AtomDiffusion.sample pattern). Until then, fall back to the per-sample
+        # loop (bit-exact with the prior path). max_parallel_samples caps the per-step
+        # batched denoise chunk (OOM safety); None = n_sample (one batched forward).
+        if n_sample > 1 and getattr(self.diffusion, "supports_multiplicity", False):
+            _mps = n_sample if max_parallel_samples is None else max_parallel_samples
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
-            coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                     trace=trace, progress_fn=progress_fn)[0])
+            coords = edm_sample(self.diffusion, cond, N, n_step=n_step, multiplicity=n_sample,
+                                 max_parallel_samples=_mps, seed=seed, trace=trace,
+                                 progress_fn=progress_fn)
             if _prof:
-                import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
-        coords = torch.stack(coords, 0)
+                import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[batch={n_sample}] {_time.time()-_ts:.3f}s", flush=True)
+        else:
+            coords = []
+            for k in range(n_sample):
+                sd_seed = None if seed is None else seed + k
+                if _prof:
+                    import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
+                coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
+                                         trace=trace, progress_fn=progress_fn)[0])
+                if _prof:
+                    import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
+            coords = torch.stack(coords, 0)
         if return_confidence:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
