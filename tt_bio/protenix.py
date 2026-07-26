@@ -304,6 +304,96 @@ class AtomTransformer(_KeyedWeights, Module):
             x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
         return x
 
+    # --- M-aware (multiplicity-batched) path -- UNVERIFIED, gated -----------------
+    # Mirrors the M=1 _block/_attention but carries M as the leading batch dim. The
+    # sample-invariant s (c_la), p, and the precomputed biases are REPLICATED (concat
+    # of M copies along dim 0) -- correct because every sample uses the same shared
+    # value. Q windowing is batched (leading-M 3D pad -> (M*nb,...)); KV windowing loops
+    # the verified M=1 gather per sample and concats (correct-by-construction). The
+    # attention output recovers per-sample atoms via reshape (M,NP,...) -> slice dim 1 :N.
+    # See module-level _window_q_m / _window_kv_m docstrings for the no-bleed proof.
+
+    def _windows_q_m(self, x, M, N, NP):
+        H, dh = self.N_HEADS, self.HEAD_DIM
+        x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+        x = ttnn.pad(x, [[0, 0], [0, NP - N], [0, 0]], 0.0)            # (M, NP, H*dh)
+        x = ttnn.reshape(x, (M * (NP // self.N_QUERIES), self.N_QUERIES, H, dh))
+        x = ttnn.permute(x, (0, 2, 1, 3))                              # (M*nb, H, nq, dh)
+        return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+
+    def _windows_kv_m(self, x, M, N, NP):
+        # Loop the verified M=1 _windows_kv gather per sample; concat along dim 0.
+        cols = [self._windows_kv(x[k:k + 1], N, NP) for k in range(M)]  # each (nb, H, nk, dh)
+        return ttnn.to_layout(ttnn.concat(cols, dim=0), ttnn.TILE_LAYOUT)      # (M*nb, H, nk, dh)
+
+    def _attention_m(self, q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=None):
+        H, dh = self.N_HEADS, self.HEAD_DIM
+        Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
+        K = self._lin(kv_norm, apb + "attention.linear_k.weight")
+        V = self._lin(kv_norm, apb + "attention.linear_v.weight")
+        Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
+        if z_pre is not None:
+            z = ttnn.to_layout(ttnn.concat([z_pre] * M, dim=0), ttnn.TILE_LAYOUT)      # (M*nb,H,nq,nk)
+        else:
+            z = self._pair_bias(ttnn.to_layout(ttnn.concat([p] * M, dim=0), ttnn.TILE_LAYOUT), apb)
+        pad_bias = ttnn.to_layout(ttnn.concat([pad_bias] * M, dim=0), ttnn.TILE_LAYOUT)   # (M*nb,1,nq,nk)
+        sc = ttnn.matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = ttnn.multiply(sc, dh ** -0.5)
+        sc = ttnn.add(ttnn.add(sc, z), pad_bias)
+        o = ttnn.matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
+        o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
+        o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
+        o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)
+        return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
+
+    def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None):
+        P = f"diffusion_transformer.blocks.{b}.attention_pair_bias."; apb = P + "attention_pair_bias."
+        q_norm = self._adaln(a, s, apb + "layernorm_a.")
+        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
+        o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
+        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
+                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        attn = self._lin(o, apb + "attention.linear_o.weight")
+        gate = self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
+        attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        a1 = ttnn.add(attn, a)
+        ctb = P + "conditioned_transition_block."
+        an = self._adaln(a1, s, ctb + "adaln.")
+        b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
+        b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
+        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
+        cg = self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
+        out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        return ttnn.add(out, a1)
+
+    def __call__(self, a, s, p, mask_trunked, bias_cache=None, multiplicity=1):
+        """a,s: (1,N,c_atom) at M=1, (M,N,c_atom) at M>1; p: (nb,nq,nk,c_atompair) shared;
+        mask_trunked: (nb,nq,nk) host. bias_cache = optional (per-block z_pre, pad_bias)
+        from precompute_biases() (shared across samples). multiplicity (M): when >1 and
+        supports_multiplicity is on, run the M-aware batched path (one batched forward per
+        block); else the M=1 per-sample path. Returns (1,N,c_atom) at M=1, (M,N,c_atom) at M>1."""
+        N = a.shape[1] if multiplicity == 1 else a.shape[1]
+        NP = ((N + self.N_QUERIES - 1) // self.N_QUERIES) * self.N_QUERIES
+        if multiplicity == 1:
+            z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
+            x = a
+            for b in range(self.n_blocks):
+                x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
+            return x
+        # M-aware: replicate the sample-invariant s, p, and the precomputed biases along M.
+        s_m = ttnn.to_layout(ttnn.concat([s] * multiplicity, dim=0), ttnn.TILE_LAYOUT)        # (M,N,c_atom)
+        p_m = ttnn.to_layout(ttnn.concat([p] * multiplicity, dim=0), ttnn.TILE_LAYOUT)        # (M*nb,nq,nk,c_ap)
+        z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
+        if z_pre is not None:
+            z_pre = [ttnn.to_layout(ttnn.concat([zb] * multiplicity, dim=0), ttnn.TILE_LAYOUT) for zb in z_pre]
+        pad_bias = ttnn.to_layout(ttnn.concat([pad_bias] * multiplicity, dim=0), ttnn.TILE_LAYOUT)
+        x = a
+        for b in range(self.n_blocks):
+            x = self._block_m(x, s_m, p_m, b, N, NP, multiplicity, pad_bias,
+                                z_pre=(z_pre[b] if z_pre is not None else None))
+        return x
+
 
 class AtomFeaturization(Module):
     """Protenix AtomAttentionEncoder.prepare_cache (has_coords=False path).
@@ -445,6 +535,7 @@ class DiffusionModule(_KeyedWeights):
     SIGMA_DATA = 16.0
     NQ, NK, PAD_LEFT = 32, 128, 48
     DIT_BLOCKS, DIT_HEAD_DIM, DIT_N_HEADS = 24, 48, 16
+    supports_multiplicity = False  # gated: M>1 batched denoise path (UNVERIFIED off-card)
 
     def __init__(self, diffusion_state_dict, device, compute_kernel_config, diffusion_fp32=None):
         """diffusion_state_dict: {key: tensor} for diffusion_module.* (prefix stripped).
@@ -564,11 +655,14 @@ class DiffusionModule(_KeyedWeights):
         cond["atxD_bias"] = self.atxD.precompute_biases(cond["p_dev"], mtf)
 
     def denoise(self, x_noisy, t_hat, cond):
-        """x_noisy (1,N,3) host; t_hat scalar host tensor (1,); cond dict with host
+        """x_noisy (1,N,3) host at M=1, (M,N,3) at M>1; t_hat scalar host tensor (1,); cond dict with host
         tensors s_trunk (NT,c_s), s_inputs (NT,449), pair_z (NT,NT,c_z), c_l (N,128),
         p_lm (nb,nq,nk,16), S (N,NT) atom->token onehot, mask_trunked (nb,nq,nk).
-        Returns denoised coords (1,N,3) host tensor."""
+        Returns denoised coords (1,N,3) at M=1, (M,N,3) at M>1 host tensor."""
         import torch.nn.functional as F
+        _M = x_noisy.shape[0]
+        if _M > 1 and getattr(self, "supports_multiplicity", False):
+            return self._denoise_multiplicity(x_noisy, t_hat, cond)
         self._atom_cond(cond)   # idempotent: t-independent conditioning, computed once per fold
         s_inputs = cond["s_inputs"]
         sd = self.SIGMA_DATA
