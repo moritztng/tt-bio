@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
-# abag_xm_tiera_runner.sh — robust Tier-A driver for qb1 (4 cards) with per-card
-# CPU-based hang detection. The recurring tt_bio dispatch deadlock freezes a
-# predict proc at ~constant CPU (hung at _assert_local_dispatch->synchronize_device).
-# CPU-stall detection distinguishes a slow-but-progressing fold (CPU advancing) from
-# a hung fold (CPU frozen), so legit long folds are NOT killed mid-run. On hang:
-# kill just that card's generate.py+predict, tt-smi -r <card>, relaunch that card
-# (generate.py skips ok pairs via progress.jsonl, so no ok fold is re-done/lost).
+# abag_xm_tiera_runner.sh — Tier-A driver for qb1 (4 cards). Conservative: runs
+# generate.py per card with --timeout 3600 (generate.py's own per-fold cap handles
+# any single hang). A 30-min no-progress safety net (across ALL cards) catches a
+# genuine dirty-chip deadlock and resets all boards + relaunches. 50-sample folds
+# take ~3-10 min, so 30 min of zero progress.jsonl updates = real hang, NOT a slow
+# fold. generate.py skips ok pairs (progress.jsonl status==ok), so recovery never
+# re-does or loses an ok fold. LESSON from earlier passes: do NOT kill folds based
+# on parent-process CPU (the predict parent sits in do_wait at 0 CPU while its
+# multiprocessing child worker does the real device work at 4x CPU) — that killed
+# slow-but-progressing folds prematurely.
 set +u
 WT=/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p3
 PY=/home/ttuser/tt-bio/env/bin/python3
 PROG=$WT/scripts/abag_xm_generate.py
 PROGRESS=$HOME/abag_xm/tier_a/progress.jsonl
 LEASE=worker:abag-xm-crossmodel-ranking-dataset-p3
-TIMEOUT=3600        # per-fold wall cap (match default FOLD_TIMEOUT_S; big 50-sample folds need up to ~30 min)
-STALL_CPU=2         # <2s CPU advance in a 60s window while alive => hung
+TIMEOUT=3600
+STALL=1800          # 30 min no-progress -> genuine hang -> reset all + relaunch
 TT_SMI=$HOME/.tenstorrent-venv/bin/tt-smi
 
 T0="21av,9ck4,9d74,9gfr,9i5n,9j87,9kwy,9l9y,9lh2,9log,9lr1,9lxp,9ly6,9m0j,9m2o,9m40,9ma0,9mnt,9mz6,9mzf,9n1p,9n8i,9nkz,9nw4,9nzf,9pso,9q6y,9qqf,9rn6,9sbb,9th6,9u5r,9ugo,9ulp,9v0x,9vmo,9wb3,9x05,9xqc,9y0a,9yxd"
@@ -23,72 +26,31 @@ T3="22ps,9d73,9gei,9i3p,9j4c,9k6j,9l9o,9le0,9lof,9lqw,9lwc,9ly5,9lz2,9m1p,9m3s,9
 SUBSETS=("$T0" "$T1" "$T2" "$T3")
 
 log(){ echo "[$(date +%H:%M:%S)] $*"; }
-
-launch_card(){ # $1=card
-  local card="$1"; local targets="${SUBSETS[$card]}"
+launch_card(){ local card="$1"; local targets="${SUBSETS[$card]}"
   TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_HOLDER=$LEASE PYTHONPATH=$WT \
     PYTHONUNBUFFERED=1 nohup "$PY" -u "$PROG" --targets "$targets" --device "$card" \
     --timeout "$TIMEOUT" >> /tmp/abag_tiera_card$card.log 2>&1 < /dev/null &
-  echo "$!"
-}
-
-# predict child of a generate.py pid (the actual fold proc whose CPU we watch)
-predict_pid_of(){ # $1=generate.py pid
-  pgrep -P "$1" -f "tt_bio.main predict" 2>/dev/null | head -1
-}
-
-cpu_time_s(){ # $1=pid -> seconds of CPU (sum utime+stime in ticks, /sysconf)
-  local p="$1"; [ -n "$p" ] || { echo 0; return; }
-  local clk=$(getconf CLK_TCK 2>/dev/null || echo 100)
-  awk -v p="$p" -v clk="$clk" 'BEGIN{u=0;s=0}
-    /^proc /{next} {f[$1]=$2} END{print int((f["utime"]+f["stime"])/clk)}' /proc/$p/stat 2>/dev/null || echo 0
-}
-
-kill_card(){ # $1=card $2=generate.py pid
-  local card="$1"; local g="$2"
-  [ -n "$g" ] && kill -INT "$g" 2>/dev/null; sleep 5
-  [ -n "$g" ] && kill -KILL "$g" 2>/dev/null
-  for c in $(pgrep -f "tt_bio.main predict.*--out_dir /home/ttuser/abag_xm/tier_a" 2>/dev/null); do
-    # only kill predicts whose env card matches — simpler: kill all stale predicts for this card's targets
-    kill -KILL "$c" 2>/dev/null
-  done
-  sleep 2
-}
-
-recover_card(){ # $1=card
-  log "RECOVER card $card: kill hung tree + tt-smi -r $card"
-  kill_card "$card" "${PIDS[$card]}"
-  timeout 90 "$TT_SMI" -r "$card" >/dev/null 2>&1
-  sleep 3
-  PIDS[$card]=$(launch_card "$card")
-  log "relaunched card $card pid=${PIDS[$card]}"
-  LASTCPU[$card]=$(cpu_time_s "$(predict_pid_of "${PIDS[$card]}")")
-}
+  echo "$!"; }
+kill_all(){ for p in "${PIDS[@]}"; do [ -n "$p" ] && kill -INT "$p" 2>/dev/null; done; sleep 6
+  for c in $(pgrep -f "python3 -m tt_bio.main predict" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
+  for c in $(pgrep -f "python3.*abag_xm_generate" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
+  for c in $(pgrep -f "multiprocessing.spawn import spawn_main" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
+  sleep 2; rm -f ~/.coworker/state/leases/tt-quietbox-card*.json; }
+recover_all(){ log "RECOVER (30min stall): kill all + tt-smi -r 0,1,2,3 + relaunch"
+  kill_all; timeout 120 "$TT_SMI" -r 0,1,2,3 >/dev/null 2>&1; sleep 3
+  PIDS=(); for c in 0 1 2 3; do PIDS[$c]=$(launch_card $c); log "relaunched card $c pid=${PIDS[$c]}"; done; }
+progress_mtime(){ stat -c %Y "$PROGRESS" 2>/dev/null || echo 0; }
 
 mkdir -p "$HOME/abag_xm/tier_a"
-log "START Tier-A runner v2: 4 cards, timeout=${TIMEOUT}s, cpu-stall<${STALL_CPU}s/60s"
-PIDS=(); LASTCPU=()
-for c in 0 1 2 3; do
-  PIDS[$c]=$(launch_card $c); LASTCPU[$c]=0
-  log "launched card $c pid=${PIDS[$c]}"
-done
+log "START Tier-A runner v3: 4 cards, timeout=${TIMEOUT}s, stall=${STALL}s (conservative)"
+PIDS=(); for c in 0 1 2 3; do PIDS[$c]=$(launch_card $c); log "launched card $c pid=${PIDS[$c]}"; done
+last_prog=$(progress_mtime)
 while true; do
-  sleep 60
+  sleep 120
   alive=0; for c in 0 1 2 3; do [ -n "${PIDS[$c]}" ] && kill -0 "${PIDS[$c]}" 2>/dev/null && alive=$((alive+1)); done
   if [ "$alive" -eq 0 ]; then log "all 4 generate.py exited — campaign slice complete"; break; fi
-  for c in 0 1 2 3; do
-    [ -n "${PIDS[$c]}" ] || continue
-    kill -0 "${PIDS[$c]}" 2>/dev/null || { log "card $c generate.py died — relaunching"; PIDS[$c]=$(launch_card $c); LASTCPU[$c]=0; continue; }
-    pp=$(predict_pid_of "${PIDS[$c]}")
-    [ -n "$pp" ] || { LASTCPU[$c]=0; continue; }   # between folds — reset baseline
-    now=$(cpu_time_s "$pp")
-    delta=$(( now - ${LASTCPU[$c]} ))
-    if [ "${LASTCPU[$c]}" -ne 0 ] && [ "$delta" -lt "$STALL_CPU" ]; then
-      log "card $c HUNG: predict pid=$pp cpu ${LASTCPU[$c]}->${now} (+${delta}s/60s) < ${STALL_CPU}s"
-      recover_card "$c"
-    else
-      LASTCPU[$c]=$now
-    fi
-  done
+  now_prog=$(progress_mtime)
+  if [ "$now_prog" != "$last_prog" ]; then last_prog=$now_prog
+  elif [ $(( $(date +%s) - now_prog )) -ge "$STALL" ]; then recover_all; last_prog=$(progress_mtime); fi
 done
 log "DONE"
