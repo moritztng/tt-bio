@@ -10,16 +10,21 @@ device passes.
 
 ## Status (2026-07-26)
 
-NOT DONE — the device-denoise M carry-through, full-fold device parity, and the
-wall-clock benchmark are **pending a STABLE card window**. Across 3 turns of polling
-(~70 min total) all 4 tt-quietbox cards were held by another live worker
-(`worker:abag-xm-crossmodel-ranking-dataset-p3`); that worker aggressively
-re-acquires any card the moment its process dies (observed: card 2 freed at 18:31
-and was re-grabbed within seconds; card 3 freed at 18:42 and was re-grabbed within
-~7 min). So there is no stable window for the iterative on-card verification the
-device-denoise M carry-through needs (per the prior worker's documented judgment:
-"best written with a card present to verify the ttnn reshapes/tile padding"). The
-on-device work could not run.
+NOT DONE — the device-denoise M carry-through is IMPLEMENTED (gated, UNVERIFIED
+off-card) but the on-card verification + flag flip + full-fold parity + wall-clock
+benchmark are **blocked: all 4 tt-quietbox cards are actively held by another
+worker's in-flight campaign**. `worker:abag-xm-crossmodel-ranking-dataset-p3`
+is running a multi-hour crossmodel-ranking campaign (38 targets/card,
+protenix-v2+boltz2, --diffusion_samples 50 --max_parallel_samples 5); the
+device-opener `spawn_main` processes are its ACTIVE fold workers (ppid chains
+lead to alive abag dispatchers, etime ~2.5h). The lease-file pids dying was
+misleading (lease-tracking pids != device-opener pids) — the cards are genuinely
+held by active abag folds, not stale leases. A smoke-test attempt on card 0
+failed at TLB allocation (`tt_tlb_alloc failed with error code -12`) because abag's
+card-0 fold process holds the TLB. Grabbing any card would disrupt abag's
+in-flight folds (violates "never steal a held card"), so the on-card work is
+blocked until abag finishes its campaign or Moritz pauses abag to grant a card
+(see ASK MORITZ below).
 
 ### Landed (3 prior commits + this turn's prep)
 
