@@ -5,6 +5,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **Protenix-v2 / OpenDDE diffusion multiplicity batching** — `Protenix.fold` / `OpenDDE.fold`
+  now draw `n_sample` samples from one batched device denoise trajectory instead of looping one
+  sample at a time (mirrors `boltz2.AtomDiffusion.sample`'s `multiplicity` +
+  `max_parallel_samples` pattern; `--max_parallel_samples` chunks batches too large to fit).
+  Parity-verified against the established diffusion noise floor (batched-vs-unbatched drift
+  within the seed-to-seed floor, not bit-exact, since diffusion is stochastic) on two hosts:
+  Protenix X/floor 0.971-1.049, OpenDDE X/floor 0.995-1.003. Measured speedup at multiplicity 4:
+  Protenix 3.19-3.57x, OpenDDE 3.15x.
+
 ## [0.4.0] - 2026-07-26
 
 First release shipping **RFdiffusion3** (`tt-bio design`) — an all-atom generative model that
