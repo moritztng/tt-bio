@@ -112,7 +112,11 @@ def _scatter_mean_pool(pairwise_atom, tok_idx, I):
 # below about a tile-grid of data.
 _DEVICE_TILIZE_MIN_ELEMENTS = 1 << 16
 
-_TORCH_DTYPE = {ttnn.bfloat16: torch.bfloat16, ttnn.float32: torch.float32}
+_TORCH_DTYPE = {
+    ttnn.bfloat16: torch.bfloat16,
+    ttnn.float32: torch.float32,
+    ttnn.uint32: torch.int32,
+}
 
 
 def _tt(x, dev, dtype=ttnn.bfloat16):
@@ -628,18 +632,46 @@ def _sparse_qk_host(p_host, indices, n_heads=4):
     return p_sparse, attn_idx.to(torch.int32), n_keys
 
 
-def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4):
+def _mask_template(cache, device, dtype, batch, n_heads, length):
+    """The -1e4 dense attention-mask template the pair bias is scattered into.
+
+    It is a pure constant of (batch, n_heads, length), but `ttnn.full` on the
+    (1,4,3359,3359) bf16 form costs 38 ms -- ~60x the ~0.6 ms a bandwidth-bound
+    write of the same 90 MB takes -- so re-creating it every step was 9% of a
+    diffusion step. Keeping one template alive per shape removes that entirely and
+    is bit-exact because `ttnn.scatter` is out-of-place: verify_scatter_aliasing.py
+    replays a captured scatter against a single persistent template with two
+    different index sets and gets results identical to a fresh template each time.
+
+    One slot on purpose -- a run folds one design shape at a time, and holding the
+    90 MB template is not extra peak memory (the old code allocated it anyway).
+    """
+    key = (batch, n_heads, length, dtype)
+    entry = cache.get("mask")
+    if entry is None or entry[0] != key:
+        entry = (key, ttnn.full(
+            (batch, n_heads, length, length), -1e4, dtype=dtype,
+            layout=ttnn.TILE_LAYOUT, device=device,
+        ))
+        cache["mask"] = entry
+    return entry[1]
+
+
+def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
     # Gather local pair features and build the scatter index for one step.
     p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
-    attn_idx_dev = ttnn.from_torch(
-        attn_idx, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.uint32,
-    )
+    attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
     length = indices.shape[-2]
     batch = indices.shape[0]
-    dense_bias = ttnn.full(
-        (batch, n_heads, length, length), -1e4, dtype=dtype,
-        layout=ttnn.TILE_LAYOUT, device=device,
-    )
+    if mask_cache is None:
+        dense_bias = ttnn.full(
+            (batch, n_heads, length, length), -1e4, dtype=dtype,
+            layout=ttnn.TILE_LAYOUT, device=device,
+        )
+    else:
+        dense_bias = _mask_template(
+            mask_cache, device, dtype, batch, n_heads, length
+        )
     return _tt(p_sparse, device, dtype), n_keys, attn_idx_dev, dense_bias
 
 
@@ -964,6 +996,7 @@ class LocalAtomTransformer(Module):
         ]
         self.trace = trace
         self._trace_state = None  # {"id", "shape", "q", "c", "p", "mask", "output"}
+        self._mask_cache = {}  # one -1e4 scatter template, see _mask_template
 
     def run_device(self, q, c, p, additive_mask):
         for block in self.blocks:
@@ -1013,7 +1046,7 @@ class LocalAtomTransformer(Module):
         p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
         if os.environ.get("RFD3_SPARSE_QK", "1") == "1":
             p, n_keys, attn_idx_dev, dense_bias = _sparse_qk_inputs(
-                p_host, indices, dev, dt
+                p_host, indices, dev, dt, mask_cache=self._mask_cache
             )
             q, c = _tt(q_host, dev, dt), _tt(c_host, dev, dt)
             sparse_qk = (n_keys, attn_idx_dev, dense_bias)
@@ -1059,6 +1092,7 @@ class CompactStreamingDecoder(Module):
         self.trace = trace
         self._design_state = None  # {"key", "valid", "pack_idx_dev", "unpack_idx_dev", "upcast_mask_dev"}
         self._trace_state = None   # {"id", "shape", "a", "q", "c", "p", "mask", "output"}
+        self._mask_cache = {}      # one -1e4 scatter template, see _mask_template
         self.upcast = [
             GatedCrossAttention(
                 self.scope(f"upcast.{i}.gca"), ckc,
@@ -1233,24 +1267,30 @@ class CompactStreamingDecoder(Module):
         if _TTd.trace_region_size() <= 0:
             raise ValueError("Sparse decoder trace needs an enabled trace region")
         dev, dt = self.device, self.dtype
-        p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices)
-        shape_key = (
-            "sparse_qk", tuple(a_host.shape), tuple(q_host.shape),
-            tuple(c_host.shape), tuple(p_sparse.shape), n_keys,
-        )
         step_key = (id(q_host), id(c_host), id(p_host), id(indices))
         st = self._trace_state
-        if st is None or st["shape"] != shape_key:
-            if st is not None:
-                ttnn.release_trace(dev, st["id"])
-            self._capture_sparse_trace(
-                a_host, q_host, c_host, p_sparse, attn_idx, n_keys,
-                upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length,
-                shape_key, step_key,
-            )
-        else:
+        if (st is not None and st.get("step_key") == step_key
+                and st["shape"][1] == tuple(a_host.shape)):
+            # The decoder's second recycle call within a step: q/c/p and the
+            # neighbour index are already staged and only `a` differs, so the host
+            # pair gather (6.5 ms at 250 residues) would be thrown away. Skip it.
             _tt_refresh(a_host, st["a"], dt)
-            if st.get("step_key") != step_key:
+        else:
+            p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices)
+            shape_key = (
+                "sparse_qk", tuple(a_host.shape), tuple(q_host.shape),
+                tuple(c_host.shape), tuple(p_sparse.shape), n_keys,
+            )
+            if st is None or st["shape"] != shape_key:
+                if st is not None:
+                    ttnn.release_trace(dev, st["id"])
+                self._capture_sparse_trace(
+                    a_host, q_host, c_host, p_sparse, attn_idx, n_keys,
+                    upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length,
+                    shape_key, step_key,
+                )
+            else:
+                _tt_refresh(a_host, st["a"], dt)
                 for host, target in ((q_host, st["q"]), (c_host, st["c"]),
                                      (p_sparse, st["p"])):
                     _tt_refresh(host, target, dt)
@@ -1322,7 +1362,7 @@ class CompactStreamingDecoder(Module):
                 a = _tt(a_host, dev, dt)
             else:
                 p, n_keys, attn_idx_dev, dense_bias = _sparse_qk_inputs(
-                    p_host, indices, dev, dt
+                    p_host, indices, dev, dt, mask_cache=self._mask_cache
                 )
                 sparse_qk = (n_keys, attn_idx_dev, dense_bias)
                 a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
