@@ -2,35 +2,12 @@
 """Phase 5 ranker-score driver for the AbAg-XM campaign.
 
 Builds the per-sample ranker-score table for a completed (target, generator)
-fold by JOINing:
+fold by JOINing native confidences, closed-form PAE rankers, PSS, oracle
+labels, and optionally learned rankers (DeepRank-Ab, ABAG-Rank).
 
-  - native generator confidences (ipTM, pTM, ranking/confidence score, complex
-    pLDDT) from the harness `results.json[0]["all_runs"][rank]`;
-  - closed-form rankers (pDockQ2, ipSAE, AntiConf) from the Phase-4 labels
-    `samples[rank]["pae_metrics"]` (already computed by abag_pae_metrics.py
-    with source-verified constants);
-  - PSS (per-sample) = mean pairwise interface DockQ over the ensemble, computed
-    from `pairwise_matrix["matrix"]` (row-mean of the dockq column for pairs
-    involving sample rank);
-  - the oracle label (DockQ on the ARK-declared interface) +
-    epitope_jaccard, interface_lddt, per-CDR RMSD from the Phase-4 labels;
-  - (optional) learned rankers: DeepRank-Ab (per-sample predicted_dockq via the
-    deeprank-ab-predict CLI) and ABAG-Rank (per-sample model_predicted_dockq via
-    scripts/abag_xm_abagrank_adapter.py --run_inference).
-
-Output: one row per (target, generator, rank) with all ranker columns + the
-oracle label, written as CSV (append mode for --all). This is the Phase 5
-deliverable: the ranker-transfer table every downstream comparison is built on.
-
-Usage (one fold):
-    python scripts/abag_xm_ranker_scores.py \\
-        --fold_dir ~/abag_xm/tier_a/protenix_v2/protenix_results_21av \\
-        --target 21av --gen protenix-v2 \\
-        --labels ~/abag_xm/tier_a/labels/protenix_v2_21av.json \\
-        --out ~/abag_xm/tier_a/ranker_scores.csv
-
-Usage (all completed folds):
-    python scripts/abag_xm_ranker_scores.py --all --out ~/abag_xm/tier_a/ranker_scores.csv
+In --all mode the CSV is self-healing: rows whose (target,gen) no longer has
+a label file are pruned, so purging labels (e.g. compromised folds) cleans the
+CSV on the next run. --clean forces a full rebuild.
 """
 import argparse, csv, json, os, subprocess, sys, tempfile
 from pathlib import Path
@@ -40,26 +17,19 @@ ROOT = Path(__file__).resolve().parent.parent
 LABELS_DIR = Path.home() / "abag_xm" / "tier_a" / "labels"
 TIERA_DIR = Path.home() / "abag_xm" / "tier_a"
 
-# gen dir name -> generator id
 GEN_DIRS = {"protenix_v2": "protenix-v2", "boltz2": "boltz2", "opendde_abag": "opendde-abag"}
 
 COLUMNS = [
     "target", "gen", "rank",
-    # native (generator confidences)
     "iptm", "ptm", "ranking_score", "complex_plddt",
-    # closed-form (from pae_metrics)
     "pdockq2", "ipsae", "anticonf",
-    # consensus
     "pss",
-    # learned (optional)
     "deeprank_ab", "abag_rank",
-    # oracle / labels
     "dockq", "epitope_jaccard", "interface_lddt", "cdr_h3_rmsd",
 ]
 
 
 def _per_sample_pss(pairwise):
-    """Per-sample PSS = mean pairwise interface DockQ over pairs involving sample i."""
     m = pairwise.get("matrix", [])
     n = pairwise.get("n_samples", 0)
     if not m or n == 0:
@@ -74,7 +44,6 @@ def _per_sample_pss(pairwise):
 
 
 def _native_confidences(fold_dir):
-    """Return list of per-rank native confidence dicts from results.json all_runs."""
     with open(fold_dir / "results.json") as f:
         r = json.load(f)
     assert isinstance(r, list) and len(r) == 1
@@ -83,7 +52,6 @@ def _native_confidences(fold_dir):
 
 def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abagrank,
                     deeprank_venv, abagrank_dir):
-    """Return list of row dicts for one fold."""
     with open(labels_path) as f:
         labels = json.load(f)
     all_runs = _native_confidences(Path(fold_dir))
@@ -94,7 +62,6 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
                            f"samples={len(samples)} n={n}")
     pss = _per_sample_pss(labels["pairwise_matrix"])
 
-    # Optional learned rankers (run once per fold, merge by rank)
     deeprank_scores = {}
     if with_deeprank:
         deeprank_scores = _run_deeprank(fold_dir, target, gen, deeprank_venv)
@@ -128,10 +95,6 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
 
 
 def _run_deeprank(fold_dir, target, gen, deeprank_venv):
-    """Batched DeepRank-Ab: build one ensemble PDB from all 50 sample CIFs,
-    run `deeprank-ab-predict` ONCE (ESM loaded once via dedup), parse the
-    output CSV -> {rank: predicted_dockq}. ~2-4 min/fold vs ~30-50 min per-sample.
-    """
     wrapper = ROOT / "scripts" / "abag_xm_deeprank_batch.py"
     py = os.path.join(deeprank_venv, "bin", "python3")
     out_json = tempfile.mktemp(prefix=f"deeprank_{target}_{gen}_", suffix=".json")
@@ -156,7 +119,6 @@ def _run_deeprank(fold_dir, target, gen, deeprank_venv):
 
 
 def _run_abagrank(fold_dir, target, gen, abagrank_dir):
-    """Run the ABAG-Rank adapter on a fold; return {rank: model_predicted_dockq}."""
     yaml = ROOT / "examples" / "abag_xm" / f"{target}.yaml"
     h5 = tempfile.mktemp(suffix=".h5", prefix=f"abagrank_{target}_{gen}_")
     scores_json = tempfile.mktemp(suffix=".json", prefix=f"abagrank_sc_{target}_{gen}_")
@@ -171,7 +133,6 @@ def _run_abagrank(fold_dir, target, gen, abagrank_dir):
     if os.path.exists(scores_json):
         with open(scores_json) as f:
             d = json.load(f)
-        # keys are "seed-0_sample-k"
         out = {}
         for sk, v in d.items():
             try:
@@ -184,32 +145,22 @@ def _run_abagrank(fold_dir, target, gen, abagrank_dir):
 
 
 def _scalar(d, key):
-    """Extract a scalar from a label field that may be a dict or already a scalar."""
     if isinstance(d, dict):
         return d.get(key)
     return d
 
 
 def _all_completed_folds():
-    """Yield (fold_dir, target, gen_id, labels_path) for every labeled fold.
-
-    Labels filenames use the UNDERSCORE generator dir name
-    (e.g. protenix_v2_21av.json, opendde_abag_21av.json). The fold dir is
-    tier_a/<gen_dir>/<gen_dir>_results_<target>. The output gen id uses the
-    dash form (protenix-v2) for consistency with progress.jsonl.
-    """
     for lj in sorted(LABELS_DIR.glob("*.json")):
         stem = lj.stem
         idx = stem.rfind("_")
         if idx < 0:
             continue
         gen_dir, target = stem[:idx], stem[idx + 1:]
-        # fold dir uses the model SHORT name (protenix/boltz2/opendde), not the
-        # gen dir name (protenix_v2/opendde_abag) — glob to be robust.
         matches = list((TIERA_DIR / gen_dir).glob(f"*_results_{target}"))
         if len(matches) != 1:
             continue
-        gen_id = GEN_DIRS.get(gen_dir, gen_dir)  # underscore -> dash
+        gen_id = GEN_DIRS.get(gen_dir, gen_dir)
         yield matches[0], target, gen_id, lj
 
 
@@ -227,9 +178,10 @@ def main():
                     default=os.path.expanduser("~/.deeprank_ab_venv"))
     ap.add_argument("--abagrank_dir",
                     default=os.path.expanduser("~/ABAG-Rank"))
+    ap.add_argument("--clean", action="store_true",
+                    help="delete the CSV before scoring (full rebuild)")
     args = ap.parse_args()
 
-    write_header = not os.path.exists(args.out) or os.path.getsize(args.out) == 0
     folds = []
     if args.all:
         folds = list(_all_completed_folds())
@@ -238,28 +190,53 @@ def main():
             ap.error("--fold_dir/--target/--gen/--labels required (or --all)")
         folds = [(Path(args.fold_dir), args.target, args.gen, Path(args.labels))]
 
-    # idempotent: skip (target,gen) already present in the CSV so re-runs only
-    # score newly-labeled folds (the driver is otherwise append-mode + would dup).
-    already = set()
-    if os.path.exists(args.out) and os.path.getsize(args.out) > 0:
+    current_pairs = {(fd[1], fd[2]) for fd in folds}
+
+    # Self-healing prune: in --all mode, keep only existing CSV rows whose
+    # (target,gen) still has a label file. Prevents stale contamination when
+    # labels are purged (e.g. compromised opendde folds). --clean skips this
+    # and starts fresh.
+    surviving_rows = []
+    pruned = 0
+    if args.all and not args.clean and os.path.exists(args.out) and os.path.getsize(args.out) > 0:
+        total = 0
         try:
             with open(args.out, newline="") as f:
                 for r in csv.DictReader(f):
-                    already.add((r.get("target"), r.get("gen")))
+                    total += 1
+                    if (r.get("target"), r.get("gen")) in current_pairs:
+                        surviving_rows.append(r)
         except Exception:
-            pass
+            surviving_rows = []
+        pruned = total - len(surviving_rows)
+
+    already = {(r.get("target"), r.get("gen")) for r in surviving_rows}
     new_folds = [fd for fd in folds if (fd[1], fd[2]) not in already]
     skipped = len(folds) - len(new_folds)
-    folds = new_folds
 
-    print(f"[ranker_scores] scoring {len(folds)} folds "
-          f"(skipped {skipped} already-scored); "
-          f"deeprank={args.with_deeprank} abagrank={args.with_abagrank}")
-    with open(args.out, "a", newline="") as f:
+    msg = f"[ranker_scores] scoring {len(new_folds)} folds (skipped {skipped} already-scored)"
+    if pruned:
+        msg += f"; pruned {pruned} orphaned rows"
+    if args.clean:
+        msg += "; --clean (full rebuild)"
+    print(msg + f"; deeprank={args.with_deeprank} abagrank={args.with_abagrank}")
+
+    # --all mode: overwrite with surviving + new. single-fold: append.
+    if args.all or args.clean:
+        mode = "w"
+        write_header = True
+    else:
+        mode = "a"
+        write_header = not os.path.exists(args.out) or os.path.getsize(args.out) == 0
+
+    with open(args.out, mode, newline="") as f:
         w = csv.DictWriter(f, fieldnames=COLUMNS)
         if write_header:
             w.writeheader()
-        for fold_dir, target, gen, labels_path in folds:
+        if mode == "w":
+            for r in surviving_rows:
+                w.writerow(r)
+        for fold_dir, target, gen, labels_path in new_folds:
             try:
                 rows = _score_one_fold(fold_dir, target, gen, labels_path,
                                        args.with_deeprank, args.with_abagrank,
