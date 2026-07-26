@@ -813,13 +813,17 @@ def run_design(model: str, base: Path) -> dict:
     if not DESIGN_SPEC.exists():
         sys.exit(f"missing design fixture {DESIGN_SPEC}")
 
+    # --devices takes physical card ids (not a count); a hardcoded "1" fails on
+    # single-card hosts (pc has only id 0). Derive from TT_VISIBLE_DEVICES
+    # (default 0) so the leg runs on the caller's pinned card.
+    visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     cmd = [
         sys.executable, "-m", "tt_bio.main", "design", str(DESIGN_SPEC),
         "--from_pdb",
         "--out_dir", str(out_dir),
         "--num_designs", "1",
         "--num_timesteps", "4",
-        "--devices", "1",
+        "--devices", visible,
     ]
     print(f"\n{'='*70}\n[{model}] design {DESIGN_SPEC.name} (from_pdb, 1 design, 4 steps)\n{'='*70}", flush=True)
 

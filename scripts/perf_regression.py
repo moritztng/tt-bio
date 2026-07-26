@@ -708,13 +708,18 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
     work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
     out_dir = work / "design"
     log_path = work / "design.log"
+    # The design command's --devices takes physical card ids (not a count), so a
+    # hardcoded "1" fails on single-card hosts (pc has only id 0). Derive the id
+    # from TT_VISIBLE_DEVICES (default 0) -- the same convention detect_card_type
+    # uses -- so the leg runs on whichever card the caller pinned.
+    visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     cmd = [
         sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
         "--from_pdb",
         "--out_dir", str(out_dir),
         "--num_designs", str(n),
         "--num_timesteps", str(timesteps),
-        "--devices", "1",
+        "--devices", visible,
     ]
     env = dict(os.environ)
     pp = str(REPO_ROOT)
@@ -1236,11 +1241,18 @@ def _update_baselines(rows: list[dict], args) -> int:
             print(f"[{r['model']}] FAILED — not updating its baseline", file=sys.stderr)
             continue
         any_ok = True
+        # The knob fields are provenance (the gate compares throughput only), and
+        # they differ by kind: predict/affinity/gen carry sampling_steps/
+        # diffusion_samples/recycling_steps, while the design kind (rfd3) carries
+        # num_timesteps/num_designs. Use .get() so a kind that lacks a knob writes
+        # None instead of KeyError-ing, and persist whichever design knobs exist.
         models[r["model"]] = dict(
             unit=r["unit"], direction=r["direction"], value=r["throughput"],
             latency_ms=r["latency_ms"], input=r["input"],
-            sampling_steps=r["sampling_steps"], diffusion_samples=r["diffusion_samples"],
-            recycling_steps=r["recycling_steps"], warmup=r["warmup"], repeat=r["repeat"],
+            sampling_steps=r.get("sampling_steps"), diffusion_samples=r.get("diffusion_samples"),
+            recycling_steps=r.get("recycling_steps"),
+            num_timesteps=r.get("num_timesteps"), num_designs=r.get("num_designs"),
+            warmup=r["warmup"], repeat=r["repeat"],
             hardware=r["hardware"], card_type=r.get("card_type", card_type),
             machine_id=machine_id,
             tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
