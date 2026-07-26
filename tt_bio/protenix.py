@@ -332,11 +332,9 @@ class AtomTransformer(_KeyedWeights, Module):
         K = self._lin(kv_norm, apb + "attention.linear_k.weight")
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
         Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
-        if z_pre is not None:
-            z = ttnn.to_layout(ttnn.concat([z_pre] * M, dim=0), ttnn.TILE_LAYOUT)      # (M*nb,H,nq,nk)
-        else:
-            z = self._pair_bias(ttnn.to_layout(ttnn.concat([p] * M, dim=0), ttnn.TILE_LAYOUT), apb)
-        pad_bias = ttnn.to_layout(ttnn.concat([pad_bias] * M, dim=0), ttnn.TILE_LAYOUT)   # (M*nb,1,nq,nk)
+        # z_pre / pad_bias / p are ALREADY replicated to (M*nb, ...) by __call__; use as-is
+        # (re-replicating here would double the leading dim -> M*M*nb).
+        z = z_pre if z_pre is not None else self._pair_bias(p, apb)
         sc = ttnn.matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
         sc = ttnn.multiply(sc, dh ** -0.5)
         sc = ttnn.add(ttnn.add(sc, z), pad_bias)
@@ -347,7 +345,7 @@ class AtomTransformer(_KeyedWeights, Module):
         return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
 
     def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None):
-        P = f"diffusion_transformer.blocks.{b}.attention_pair_bias."; apb = P + "attention_pair_bias."
+        P = f"diffusion_transformer.blocks.{b}."; apb = P + "attention_pair_bias."
         q_norm = self._adaln(a, s, apb + "layernorm_a.")
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
         o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
@@ -535,7 +533,7 @@ class DiffusionModule(_KeyedWeights):
     SIGMA_DATA = 16.0
     NQ, NK, PAD_LEFT = 32, 128, 48
     DIT_BLOCKS, DIT_HEAD_DIM, DIT_N_HEADS = 24, 48, 16
-    supports_multiplicity = False  # gated: M>1 batched denoise path (UNVERIFIED off-card)
+    supports_multiplicity = True   # ON: verified on qb2 card0
 
     def __init__(self, diffusion_state_dict, device, compute_kernel_config, diffusion_fp32=None):
         """diffusion_state_dict: {key: tensor} for diffusion_module.* (prefix stripped).
@@ -922,6 +920,121 @@ class DiffusionModule(_KeyedWeights):
             cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
             a_t = ttnn.add(ttnn.multiply(cs, linb(bb, Cc + "linear_nobias_b.weight")), ao)
         return a_t
+
+
+    def _token_dit_device_m(self, a_t, s_t, biases, NT):
+        """M-aware on-device 24-block token DiT. a_t (M,NT,768), s_t (M,NT,384); biases = list
+        of (1,n_heads,NT,NT) precomputed pair biases (broadcast over M in the QK-scale add).
+        Mirrors _token_dit_device; AdaLN + AttentionPairBias handle a leading batch dim when
+        s_t is replicated to (M,NT,384). Used only by _denoise_multiplicity (gated)."""
+        ckc = self._dit_ckc
+        if self._dit_fp32:
+            a_t = ttnn.typecast(a_t, self._dit_dtype)
+            s_t = ttnn.typecast(s_t, self._dit_dtype)
+        wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
+
+        def linb(x, wk, bk=None, act=None):
+            return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
+                               compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        for (adaln_a, apb, ctb_adaln, A, Cc), bias in zip(self._dit, biases):
+            b = adaln_a(a_t, s_t)
+            attn = apb(b, bias, bias_precomputed=True)
+            sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
+            ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
+            an2 = ctb_adaln(ao, s_t)
+            bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
+                               linb(an2, Cc + "linear_nobias_a2.weight"))
+            cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
+            a_t = ttnn.add(ttnn.multiply(cs, linb(bb, Cc + "linear_nobias_b.weight")), ao)
+        return a_t
+
+    def _denoise_multiplicity(self, x_noisy, t_hat, cond):
+        """M-aware batched denoise (gated by supports_multiplicity). Mirrors denoise() but
+        carries the leading M batch dim through the atom encoder, token DiT, and atom
+        decoder. Shared conditioning (cond: c_la_dev, p_dev, Smean_dev, S_dev, atxE_bias,
+        atxD_bias, dit_block_biases) is sample-invariant -> replicated along dim 0 via concat;
+        only the coordinate stream x_noisy carries M. Returns denoised coords (M,N,3) host."""
+        import torch.nn.functional as F
+        self._atom_cond(cond)
+        M = x_noisy.shape[0]
+        s_inputs = cond["s_inputs"]
+        sd = self.SIGMA_DATA
+        N = cond["c_l"].shape[0]; NT = s_inputs.shape[0]
+        T = self._up
+        E = "atom_attention_encoder."
+        mt = cond["mask_trunked"].float()
+        c_la = cond["c_la_dev"]; p = cond["p_dev"]
+        rep = lambda t: ttnn.to_layout(ttnn.concat([t] * M, dim=0), ttnn.TILE_LAYOUT)
+        # c_la_dev is 2D (N,128) (see _atom_cond); reshape to (1,N,128) before replicating so
+        # rep gives (M,N,128), not (M*N,128).
+        c_la_m = rep(ttnn.reshape(c_la, (1, N, 128)))
+        c_la_1 = ttnn.reshape(c_la, (1, N, 128))  # sample-invariant s arg (atxE/atxD replicate internally)
+
+        # 1) single conditioning: shared (t-independent base + per-step fourier(t_hat)).
+        wf = self._w["diffusion_conditioning.fourier_embedding.w"]
+        bf = self._w["diffusion_conditioning.fourier_embedding.b"]
+        tp = torch.log(t_hat / sd) / 4
+        fou = torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf))
+        nn_ = self._lin(self._ln(T(fou), "diffusion_conditioning.layernorm_n.weight"),
+                        "diffusion_conditioning.linear_no_bias_n.weight")
+        ss = ttnn.reshape(ttnn.add(cond["ss_base"], nn_), (1, NT, cond["ss_base"].shape[-1]))
+        for t in self._cond_transitions:
+            ss = ttnn.add(ss, ttnn.reshape(t(ss), tuple(ss.shape)))
+        s_single = ss   # (1, NT, c) shared across M
+
+        # 2) atom encoder: coordinate-dependent path with M-leading q_l.
+        r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
+        q_l = ttnn.add(c_la_m, self._lin(T(r_noisy), E + "linear_no_bias_r.weight"))
+        q_out = self.atxE(q_l, c_la_1, p, mt,
+                          bias_cache=cond.get("atxE_bias"), multiplicity=M)   # (M,N,128)
+        qo_lin = ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight"))   # (M,N,768)
+        Smean_m = ttnn.to_layout(
+            ttnn.concat([ttnn.reshape(cond["Smean_dev"], (1, NT, N))] * M, dim=0), ttnn.TILE_LAYOUT)
+        a_tok = ttnn.matmul(Smean_m, qo_lin, compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)                          # (M,NT,768)
+        s_bias = ttnn.reshape(
+            self._lin(self._ln(ttnn.reshape(s_single, (NT, s_single.shape[-1])), "layernorm_s.weight"),
+                      "linear_no_bias_s.weight"), (1, NT, 768))
+        a_tok = ttnn.add(a_tok, rep(s_bias))                                  # (M,NT,768)
+
+        # 3) token DiT (device_dit path): M-leading a_t/s_t; per-block biases broadcast.
+        if self.device_dit and cond.get("dit_z") is not None:
+            if "dit_block_biases" not in cond:
+                cond["dit_block_biases"] = self._dit_block_biases(
+                    cond["dit_z"], cond.get("structural_pair_attn_bias"))
+            # ttnn rejects a leading-dim broadcast in the DiT QK-scale add (sc (M,nh,NT,NT)
+            # + bias (1,nh,NT,NT) -> "Invalid subtile broadcast type"), so replicate each
+            # per-block pair bias along M before the batched attention.
+            biases_m = [ttnn.to_layout(ttnn.concat([b] * M, dim=0), ttnn.TILE_LAYOUT)
+                        for b in cond["dit_block_biases"]]
+            a_t = self._token_dit_device_m(ttnn.reshape(a_tok, (M, NT, 768)), rep(s_single),
+                                           biases_m, NT)
+            a_t = (self._ln_dit if self._dit_fp32 else self._ln)(a_t, "layernorm_a.weight")
+        else:
+            biases = cond.get("dit_biases") or self._dit_pair_biases(
+                cond["pair_z"].float(), cond.get("structural_pair_attn_bias"))
+            a_h = torch.stack([self._token_dit(
+                torch.Tensor(ttnn.to_torch(ttnn.reshape(a_tok[m:m + 1], (1, NT, 768)))).float().reshape(NT, 768),
+                torch.Tensor(ttnn.to_torch(s_single)).float().reshape(NT, s_single.shape[-1]),
+                biases, NT) for m in range(M)], 0)
+            a_t = self._ln(T(a_h.reshape(M, NT, 768)), "layernorm_a.weight")
+
+        # 4) atom decoder: q = S_dev @ lin(a_t) + q_out.
+        DE = "atom_attention_decoder."
+        a_lin = self._lin(ttnn.reshape(a_t, (M, NT, 768)), DE + "linear_no_bias_a.weight")
+        S_m = ttnn.to_layout(
+            ttnn.concat([ttnn.reshape(cond["S_dev"], (1, N, NT))] * M, dim=0), ttnn.TILE_LAYOUT)
+        q = ttnn.add(ttnn.matmul(S_m, a_lin, compute_kernel_config=self.compute_kernel_config,
+                                 core_grid=CORE_GRID_MAIN), q_out)            # (M,N,128)
+        qd = self.atxD(q, c_la_1, p, mt,
+                       bias_cache=cond.get("atxD_bias"), multiplicity=M)      # (M,N,128)
+        qn = self._ln(qd, DE + "layernorm_q.weight")
+        r_update = torch.Tensor(ttnn.to_torch(self._lin(qn, DE + "linear_no_bias_out.weight"))
+                                ).float().reshape(M, N, 3)[:, :N]
+
+        # EDM preconditioning (t_hat broadcasts over M).
+        sr = (t_hat / sd).reshape(-1, 1, 1)
+        return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
 
 
 class ConfidenceHead:

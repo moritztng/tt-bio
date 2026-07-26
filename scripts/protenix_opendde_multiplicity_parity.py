@@ -118,7 +118,7 @@ def opendde_run(M, seed, n_step, n_cycles, supports):
         fp32_dest_acc_en=True, packer_l1_acc=True)
     sd = load_opendde_checkpoint()
     model = OpenDDE(sd, ckc, dev)
-    model.diffusion.supports_multiplicity = supports
+    model._protenix.diffusion.supports_multiplicity = supports
     feats = build_complex_features([(SEQ, None, "protein")])
     coords = model.fold(feats, n_step=n_step, n_cycles=n_cycles, n_sample=M, seed=seed,
                         max_parallel_samples=M, return_confidence=False)
