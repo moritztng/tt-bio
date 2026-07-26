@@ -72,18 +72,19 @@ at 200 timesteps:
 
 | design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
 |---|---:|---:|---:|---:|
-| 40 residues | 419 | 0.0789 designs/sec | 0.1175 | 1.49x |
-| 80 residues | 979 | 0.0497 | 0.0589 | 1.19x |
-| 150 residues | 1959 | 0.0252 | 0.0226 | 0.90x |
-| Mpro + nirmatrelvir | 2702 | 0.0145 | 0.0120 | 0.83x |
-| 250 residues | 3359 | 0.0115 | 0.0103 | 0.90x |
+| 40 residues | 419 | 0.0767 designs/sec | 0.1216 | 1.59x |
+| 80 residues | 979 | 0.0500 | 0.0605 | 1.21x |
+| 150 residues | 1959 | 0.0265 | 0.0249 | 0.94x |
+| Mpro + nirmatrelvir | 2702 | 0.0149 | 0.0140 | 0.94x |
+| 250 residues | 3359 | 0.0119 | 0.0117 | 0.98x |
 
-Batch 8 wins clearly up to about 80 residues and costs 10-17% above that, so it
-is worth setting `--batch_size 1` for large designs when you are running a single
-spec. The crossover is a memory-traffic one: batching shares the work that does
-not depend on the design, and above about 1000 atoms the per-design attention
-tensors it cannot share grow faster than that saving. `--devices` is the
-parallelism that matters at large design sizes either way.
+Batch 8 wins clearly up to about 80 residues and is within a few percent of batch
+1 above that, so the default suits every size and `--batch_size` is worth changing
+only if you are chasing the last few percent on a single large spec. The
+size-dependence is a memory-traffic one: batching shares the work that does not
+depend on the design, and the per-design attention tensors it cannot share grow
+with atom count. `--devices` is the parallelism that matters at large design sizes
+either way.
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
 physical TT cards, one pinned subprocess per card (data-parallel — the same
