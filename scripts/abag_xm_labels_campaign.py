@@ -31,6 +31,21 @@ RESULT_PREFIX = {"protenix-v2": "protenix", "opendde-abag": "opendde",
 MODEL_DIR = {"protenix-v2": "protenix_v2", "opendde-abag": "opendde_abag",
              "opendde": "opendde_abag", "boltz2": "boltz2"}
 
+# Label-venv: tmtools/anarci/pyarrow live here (not in the shared venv). When present,
+# label sub-scripts run with this python + PYTHONPATH including the shared venv site-
+# packages (for DockQ/gemmi/numpy). Falls back to sys.executable otherwise.
+LABEL_VENV_PY = Path.home() / ".abag_xm_label_venv" / "bin" / "python3"
+SHARED_VENV = Path("/home/ttuser/tt-bio-dev/env")
+
+
+def _label_python_env():
+    """Return (python, env) for invoking abag_xm_labels.py with all deps available."""
+    if LABEL_VENV_PY.exists():
+        shared_sp = next(iter(SHARED_VENV.glob("lib/python*/site-packages")), None)
+        pp = ":".join(str(x) for x in [shared_sp, ROOT] if x)
+        return str(LABEL_VENV_PY), {**os.environ, "PYTHONPATH": pp}
+    return sys.executable, {**os.environ, "PYTHONPATH": str(ROOT)}
+
 
 def done_ok_pairs():
     seen = {}
@@ -66,11 +81,11 @@ def label_one(task):
         return {"target": target, "model": model, "status": "missing_inputs",
                 "native": native.exists(), "yaml": yaml.exists(),
                 "result_dir": rd.exists()}
-    cmd = [sys.executable, str(SCRIPTS / "abag_xm_labels.py"),
+    py, lenv = _label_python_env()
+    cmd = [py, str(SCRIPTS / "abag_xm_labels.py"),
            str(rd), str(native), str(yaml), "--out", str(out)]
     t0 = time.time()
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT,
-                       env={**os.environ, "PYTHONPATH": str(ROOT)})
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, env=lenv)
     wall = time.time() - t0
     if r.returncode != 0:
         return {"target": target, "model": model, "status": "failed",
