@@ -72,9 +72,9 @@ def protenix_run(M, seed, n_step, supports):
     from tt_bio.protenix import Protenix
     from tt_bio.tenstorrent import get_device
 
-    ife = pickle.load(open("/home/ttuser/protenix_ife_gold.pkl", "rb"))
-    tg = pickle.load(open("/home/ttuser/protenix_trunkin_gold.pkl", "rb"))
-    d = pickle.load(open("/home/ttuser/protenix_ref_out.pkl", "rb"))
+    ife = pickle.load(open(os.environ.get("PROTENIX_IFE", "/home/ttuser/protenix_ife_gold.pkl"), "rb"))
+    tg = pickle.load(open(os.environ.get("PROTENIX_TRUNKIN", "/home/ttuser/protenix_trunkin_gold.pkl"), "rb"))
+    d = pickle.load(open(os.environ.get("PROTENIX_REFO", "/home/ttuser/protenix_ref_out.pkl"), "rb"))
     tfeat = d["intermediates"]["template_embedder"]["in"][0]
     F = ife["feat"]
     feats = {
@@ -97,7 +97,7 @@ def protenix_run(M, seed, n_step, supports):
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
         fp32_dest_acc_en=True, packer_l1_acc=True)
     model = Protenix.load_from_checkpoint(
-        "/home/ttuser/protenix_ckpt/protenix-v2.pt",
+        os.environ.get("PROTENIX_CKPT", "/home/ttuser/protenix_ckpt/protenix-v2.pt"),
         compute_kernel_config=ckc, device=dev)
     model.diffusion.supports_multiplicity = supports
     coords = model.fold(feats, n_step=n_step, n_sample=M, seed=seed,

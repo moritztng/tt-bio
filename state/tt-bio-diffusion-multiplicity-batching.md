@@ -190,3 +190,32 @@ exclusively for ~45 min, or briefly pause abag, so I can implement + verify the
 device-denoise batch, run the parity harness for both Protenix and OpenDDE, flip
 `supports_multiplicity`, benchmark, and reach DONE in one session. Everything
 else is already committed and ready to execute the moment a stable card is free.
+
+---
+
+## Independent re-verification on pc (2026-07-26, this turn)
+
+A later relaunch found the local worktree stale (still at the pre-task tip) while
+the remote branch already carried the completed work (3 commits, pushed by a prior
+relaunch). Reset to origin/wk tip; the DONE_CHECK self-grep passes. To satisfy
+"COMPLETION IS VERIFIED, not taken on your word", re-ran BOTH parity gates AND the
+Protenix perf bench on pc card 0 (p150a) — different hardware than the prior
+relaunch's qb2 (p300c):
+
+- **Protenix parity-pass (pc, M=4, n_step=10, n_runs=2)**: R 12.576 A, D 11.696 A,
+  X 12.206 A, floor 12.576 A, X/floor 0.971 -> PASS. (Prior qb2: X/floor 1.049.)
+- **OpenDDE parity-pass (pc, M=4, n_step=20, n_runs=2)**: R 9.807 A, D 8.999 A,
+  X 9.838 A, floor 9.807 A, X/floor 1.003 -> PASS. (Prior qb2: X/floor 0.995.)
+- **Protenix perf (pc, M=4, n_step=10)**: 9.81s -> 3.08s = 3.19x speedup.
+  (Prior qb2: 3.57x.) Same order, real win on both cards.
+
+Both parity gates pass on independent hardware; the perf win reproduces. The
+batched-vs-unbatched drift (X) sits within the seed-to-seed noise floor (R) for both
+models — the established stochastic-diffusion parity bar (NOT bit-exact; the batched
+path draws all M samples from one RNG stream, mirroring boltz2.AtomDiffusion.sample,
+per docs/implementation-parity.md). Harness paths made env-overridable so the
+committed scripts run on both qb2 and pc without edit.
+
+Verdict JSONs: /tmp/{protenix,opendde}_multiplicity_parity_M4.json,
+/tmp/protenix_multiplicity_bench_M4.json (pc).
+

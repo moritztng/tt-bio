@@ -21,9 +21,9 @@ import torch, ttnn
 def protenix_model():
     from tt_bio.protenix import Protenix
     from tt_bio.tenstorrent import get_device
-    ife = pickle.load(open("/home/ttuser/protenix_ife_gold.pkl", "rb"))
-    tg = pickle.load(open("/home/ttuser/protenix_trunkin_gold.pkl", "rb"))
-    d = pickle.load(open("/home/ttuser/protenix_ref_out.pkl", "rb"))
+    ife = pickle.load(open(os.environ.get("PROTENIX_IFE", "/home/ttuser/protenix_ife_gold.pkl"), "rb"))
+    tg = pickle.load(open(os.environ.get("PROTENIX_TRUNKIN", "/home/ttuser/protenix_trunkin_gold.pkl"), "rb"))
+    d = pickle.load(open(os.environ.get("PROTENIX_REFO", "/home/ttuser/protenix_ref_out.pkl"), "rb"))
     tfeat = d["intermediates"]["template_embedder"]["in"][0]
     F = ife["feat"]
     feats = {
@@ -42,7 +42,7 @@ def protenix_model():
     dev = get_device()
     ckc = ttnn.init_device_compute_kernel_config(
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
-    m = Protenix.load_from_checkpoint("/home/ttuser/protenix_ckpt/protenix-v2.pt",
+    m = Protenix.load_from_checkpoint(os.environ.get("PROTENIX_CKPT", "/home/ttuser/protenix_ckpt/protenix-v2.pt"),
                                       compute_kernel_config=ckc, device=dev)
     m.diffusion.supports_multiplicity = True
     return m, feats
