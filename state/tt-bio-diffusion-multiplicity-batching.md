@@ -55,19 +55,40 @@ This turn:
   `DiffusionModule.supports_multiplicity` is flipped on.
 - Added a CHANGELOG `[Unreleased]` entry describing the gated scaffold.
 
-### Pending (need a free card)
+### Implemented this turn (gated, UNVERIFIED off-card)
 
-1. **`DiffusionModule.denoise` M carry-through**: the device denoise hardcodes
-   `(1,N,3)` / `(N,...)` / `(1,NT,768)` shapes throughout (atom encoder, DiT,
-   atom decoder, windowing `_window_q`/`_window_kv`/`_windows_q`/`_windows_kv`,
-   cond cache `c_la_dev`/`p_dev`/`Smean_dev`/`S_dev`/`atxE_bias`/`atxD_bias`/
-   `dit_block_biases`). Carry M as the leading dim via the leading-M 3D pad
-   proven in `tests/test_windowing_multiplicity.py`; `repeat_interleave(M,0)`
-   the sample-invariant cond tensors; one batched forward per step. The prior
-   worker's documented judgment: "best written with a card present to verify the
-   ttnn reshapes/tile padding" — respected; not implemented blind this turn.
-2. **Flip `DiffusionModule.supports_multiplicity = True`** after the device
-   denoise is parity-verified.
+The device-denoise M carry-through is now IMPLEMENTED (commit `688bc3ae`) but gated
+behind `DiffusionModule.supports_multiplicity = False` (default off, so the M=1 path
+is bit-exact and untouched, and no fold takes the batched path yet):
+
+- Module-level M-aware windowing `_window_q_m` / `_window_kv_m` (commit `cf7d1006`):
+  leading-M 3D pad -> (M*nb, ...); KV loops the verified M=1 gather per sample and
+  concats (correct-by-construction). CPU shape test `tests/test_windowing_m_shapes.py`
+  verifies per-sample correctness (diff 0.0).
+- `AtomTransformer` M-aware `_windows_q_m` / `_windows_kv_m` / `_attention_m` /
+  `_block_m` + `multiplicity` kwarg on `__call__` (M=1 path unchanged).
+- `DiffusionModule._denoise_multiplicity` mirrors `denoise()` with M-leading inputs:
+  replicates the shared cond (c_la, p, S, mask, ss_base) and the precomputed DiT /
+  atom-tx biases along M (concat of M copies), then runs atom encoder (atxE
+  multiplicity=M) -> token DiT (`_token_dit_device`, which handles M-leading natively
+  via APB) -> atom decoder (atxD multiplicity=M) -> EDM precond. The host DiT
+  fallback (device_dit=False) raises NotImplementedError for M>1 (M=1-only, not the
+  production path).
+
+This is UNVERIFIED on-card -- it needs a STABLE card window to verify the ttnn
+reshapes / tile padding / concat (esp. the `ttnn.concat([t]*M)` replication, the
+`(M,NP,H*dh)` reshape + dim-1 slice recovery, and the APB M-leading path) before
+`supports_multiplicity` is flipped on. Written blind (no card); the card session
+must verify and fix iteratively before flipping the flag.
+
+### Pending (need a STABLE card window)
+
+1. **On-card verification** of `_denoise_multiplicity` + the M-aware AtomTransformer:
+  run a small M=2 fold (or the `protenix_traj_replay.py` style step-replay) and fix
+  any ttnn shape/tile-padding bugs iteratively. The prior worker's documented
+  judgment ("best written with a card present to verify the ttnn reshapes/tile
+  padding") stands for the VERIFICATION step.
+2. **Flip `DiffusionModule.supports_multiplicity = True`** after parity-verified.
 3. **Full-fold device parity** (the DONE_CHECK bar): run
    `scripts/protenix_opendde_multiplicity_parity.py` for BOTH protenix and
    opendde at multiplicity>1; record a parity-pass statement (bit-exact or
