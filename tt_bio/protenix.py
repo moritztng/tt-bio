@@ -80,6 +80,43 @@ def _window_kv(x, N, NP, nq=32, nk=128, pad_left=48):
     return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
 
 
+# ---------------------------------------------------------------------------
+# M-aware (multiplicity-batched) windowing helpers -- UNVERIFIED, gated.
+# Carries the multiplicity M as a real leading batch dim through the windowed
+# attention, mirroring boltz2.AtomDiffusion.sample. Gated behind
+# DiffusionModule.supports_multiplicity (default False); the M=1 path above is
+# bit-exact and untouched. The M>1 path is NEW and needs a stable card window to
+# verify the ttnn reshapes/tile padding before supports_multiplicity is flipped on
+# (see state/tt-bio-diffusion-multiplicity-batching.md). Design proven in pure
+# torch by tests/test_windowing_multiplicity.py + tests/test_windowing_m_shapes.py:
+# fold M into the windowed-attention block dim B = M*nb via a LEADING-M 3D pad
+# (per-sample right-pad on dim 1 of (M,N,C), then reshape to (M*nb, ...)). Sample
+# k's nb windows are blocks k*nb..k*nb+nb-1 (no cross-sample bleed). Sample-
+# invariant tensors (cond, biases) are REPLICATED (ttnn.concat of M copies along
+# dim 0) -- correct because every sample uses the same shared bias.
+# ---------------------------------------------------------------------------
+
+
+def _window_q_m(x, M, N, NP, nq=32):
+    """M-aware query windowing: (M,N,C) -> (M*nb, nq, C), per-sample right-pad to NP
+    via a leading-M 3D pad on dim 1, then reshape to fold M into the block dim."""
+    x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+    x = ttnn.pad(x, [[0, 0], [0, NP - N], [0, 0]], 0.0)            # (M, NP, C), per-sample
+    return ttnn.to_layout(ttnn.reshape(x, (M * (NP // nq), nq, x.shape[-1])), ttnn.TILE_LAYOUT)
+
+
+
+def _window_kv_m(x, M, N, NP, nq=32, nk=128, pad_left=48):
+    """M-aware KV windowing: (M,N,C) -> (M*nb, nk, C). Loops the verified M=1
+    _window_kv gather per sample and concats along dim 0 (correct-by-construction:
+    the ttnn.embedding gather's per-row semantics don't extend cleanly to a 3D
+    (M,Lp,C) table, so reuse the M=1 gather M times -- the gather is cheap relative
+    to attention). Sample k's nb windows land at blocks k*nb..k*nb+nb-1, matching
+    _window_q_m's layout (no cross-sample bleed)."""
+    cols = [_window_kv(x[k:k + 1], N, NP, nq, nk, pad_left) for k in range(M)]  # each (nb, nk, C)
+    return ttnn.to_layout(ttnn.concat(cols, dim=0), ttnn.TILE_LAYOUT)          # (M*nb, nk, C)
+
+
 class _KeyedWeights:
     """Mixin: cached weight-upload-by-key + linear / layernorm by key, reading a flat
     {name: torch.Tensor} dict ``self._w``. Weights upload ONCE (TILE/bf16) and are cached
