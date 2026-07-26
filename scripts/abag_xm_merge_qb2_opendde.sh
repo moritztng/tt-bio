@@ -19,7 +19,7 @@
 #
 # Usage:  bash scripts/abag_xm_merge_qb2_opendde.sh [--dry-run]
 set -u
-QB2=ttuser@tt-quietbox2
+QB2=tt-quietbox2   # host only — the python prepends "ttuser@"
 QB1_DIR=$HOME/abag_xm/tier_a
 QB2_DIR='~/abag_xm/tier_a'
 DRY=0; [ "${1:-}" = "--dry-run" ] && DRY=1
