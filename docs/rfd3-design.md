@@ -74,10 +74,15 @@ small designs. Measured on one Blackhole p150a at 200 timesteps:
 | 40 residues | 419 | 0.0834 designs/sec | 0.0982 | 1.18x |
 | 80 residues | 979 | 0.0469 | 0.0417 | 0.89x |
 | 150 residues | 1959 | 0.0193 | 0.0164 | 0.85x |
+| Mpro + nirmatrelvir | 2702 | 0.0099 | 0.0085 | 0.86x |
+| 250 residues | 3359 | 0.0084 | 0.0071 | 0.85x |
 
-Above roughly 40 residues a batched forward is slightly slower than running the
-designs one at a time, so `--batch_size 1` is the faster choice for most real
-targets. `--devices` is the parallelism that keeps scaling with design size.
+Above roughly 40 residues a batched forward is slower than running the designs
+one at a time, so `--batch_size 1` is the faster choice for most real targets.
+The reason is that the per-design pair stack grows as atoms squared and cannot be
+shared between designs, so past a small design size batching adds more memory
+traffic than it saves on shared work. `--devices` is the parallelism that keeps
+scaling with design size.
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
 physical TT cards, one pinned subprocess per card (data-parallel — the same
