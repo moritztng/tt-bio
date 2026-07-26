@@ -26,6 +26,20 @@ import ttnn
 
 from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 
+# ttnn derives a `core_grid=` linear's matmul program config from M = batch * rows:
+# a larger per_core_M leaves less L1 for the in0 block, so in0_block_w -- the
+# K-blocking of the fp32 accumulation -- shrinks, and the same arithmetic is grouped
+# into a different number of partial sums and rounds differently in bf16. That made a
+# batched design forward diverge from the standalone one, and it is why a 200-step
+# batched trajectory used to drift. The linears that measurably lose batch invariance
+# pass `core_grid=BATCH_INVARIANT_GRID` instead: ttnn's default heuristic blocks by K
+# alone, so a batched forward stays bit-identical to the standalone one at any batch
+# size. Dropping the hint from every linear would cost 1.32x/1.59x at D=1/D=8;
+# confining it to the affected ones keeps the batching win.
+# scripts/rfd3_port/verify_batch_invariance.py is the gate;
+# scripts/rfd3_port/probe_callsites.py re-derives which linears need it.
+BATCH_INVARIANT_GRID = None
+
 
 # --- host-side feature helpers (pure torch; mirror upstream, deps stubbed) ----
 def _collapse(x, L):
@@ -89,8 +103,44 @@ def _scatter_mean_pool(pairwise_atom, tok_idx, I):
 
 
 # --- ttnn helpers ----------------------------------------------------------
+# ttnn.from_torch(layout=TILE_LAYOUT) tilizes on the HOST, single-threaded, and that cost
+# dominates every large upload in this model: one 6.9M-element atom-pair tensor costs 45 ms
+# at 250 residues and a whole diffusion step is only ~600 ms. Uploading row-major (already
+# cast to the target dtype, so the PCIe transfer is half the bytes for bf16) and tilizing on
+# device is 2.8-8.5x faster and bit-exact -- verified elementwise-equal on every large shape
+# this model uploads. Small tensors keep the host path; the extra device op is not worth it
+# below about a tile-grid of data.
+_DEVICE_TILIZE_MIN_ELEMENTS = 1 << 16
+
+_TORCH_DTYPE = {ttnn.bfloat16: torch.bfloat16, ttnn.float32: torch.float32}
+
+
 def _tt(x, dev, dtype=ttnn.bfloat16):
+    torch_dtype = _TORCH_DTYPE.get(dtype)
+    if torch_dtype is not None and x.numel() >= _DEVICE_TILIZE_MIN_ELEMENTS:
+        row_major = ttnn.from_torch(x.to(torch_dtype), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                    device=dev, dtype=dtype)
+        return ttnn.to_layout(row_major, ttnn.TILE_LAYOUT)
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
+
+
+def _tt_host(x, dtype=ttnn.bfloat16):
+    """Host-side tiled tensor, for filling a persistent trace-input buffer.
+
+    Cannot use _tt: copy_host_to_device_tensor needs a host tensor whose spec already
+    matches the tiled device buffer the trace captured, so the tilize has to happen here.
+    Casting in torch first still avoids the expensive part -- letting ttnn convert fp32
+    while it tilizes costs 42.7 ms for a 6.9M-element bf16 tensor against 17.3 ms
+    pre-cast, and the result is bit-identical."""
+    torch_dtype = _TORCH_DTYPE.get(dtype)
+    if torch_dtype is not None:
+        x = x.to(torch_dtype)
+    return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=dtype)
+
+
+def _tt_refresh(x, dev_tensor, dtype=ttnn.bfloat16):
+    """Overwrite a persistent trace-input buffer with fresh host data."""
+    ttnn.copy_host_to_device_tensor(_tt_host(x, dtype), dev_tensor)
 
 
 def _tt_idx(indices, dev):
@@ -114,9 +164,9 @@ class Transition(Module):
                             compute_kernel_config=self.compute_kernel_config)
         a = ttnn.linear(x, self.fc1_w, activation="silu",
                          compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         b = ttnn.linear(x, self.fc2_w, compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         ttnn.deallocate(x)
         m = ttnn.multiply(a, b)
         ttnn.deallocate(b)
@@ -746,10 +796,10 @@ class RFD3AtomBlock(Module):
         s = ttnn.rms_norm(s, weight=ln_s, epsilon=1e-6, compute_kernel_config=ckc)
         gain = ttnn.linear(
             s, gain_w, bias=gain_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         bias = ttnn.linear(
-            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
@@ -767,10 +817,10 @@ class RFD3AtomBlock(Module):
         norm = self._adaln(
             q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
-        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         qq = ttnn.rms_norm(qq, weight=self.q_ln, epsilon=1e-6, compute_kernel_config=ckc)
         kk = ttnn.rms_norm(kk, weight=self.k_ln, epsilon=1e-6, compute_kernel_config=ckc)
 
@@ -830,11 +880,11 @@ class RFD3AtomBlock(Module):
             out, (batch, length, self.n_head * self.head_dim)
         )
         out = ttnn.linear(
-            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         gate = ttnn.linear(
             c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         upd = ttnn.multiply(out, ttnn.sigmoid(gate))
         if f32:
@@ -849,19 +899,19 @@ class RFD3AtomBlock(Module):
         )
         left = ttnn.linear(
             norm, self.t_fc1, activation="silu", compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         right = ttnn.linear(
             norm, self.t_fc2, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         update = ttnn.linear(
             ttnn.multiply(left, right), self.t_fc3, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         gate = ttnn.linear(
             c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         upd = ttnn.multiply(update, ttnn.sigmoid(gate))
         if f32:
@@ -921,7 +971,7 @@ class LocalAtomTransformer(Module):
         return q
 
     def _persist(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
@@ -951,10 +1001,10 @@ class LocalAtomTransformer(Module):
                 ttnn.release_trace(dev, st["id"])
             self._capture_trace(q_host, c_host, p_host, mask_host, shape_key)
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(q_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(c_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(p_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
+            _tt_refresh(q_host, st["q"], dt)
+            _tt_refresh(c_host, st["c"], dt)
+            _tt_refresh(p_host, st["p"], dt)
+            _tt_refresh(mask_host, st["mask"], dt)
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
         return self._trace_state["output"]
 
@@ -1130,7 +1180,7 @@ class CompactStreamingDecoder(Module):
         return st["valid"], st["pack_idx_dev"], st["unpack_idx_dev"], st["upcast_mask_dev"]
 
     def _persist(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
@@ -1199,19 +1249,12 @@ class CompactStreamingDecoder(Module):
                 shape_key, step_key,
             )
         else:
-            ttnn.copy_host_to_device_tensor(
-                ttnn.from_torch(a_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"]
-            )
+            _tt_refresh(a_host, st["a"], dt)
             if st.get("step_key") != step_key:
                 for host, target in ((q_host, st["q"]), (c_host, st["c"]),
                                      (p_sparse, st["p"])):
-                    ttnn.copy_host_to_device_tensor(
-                        ttnn.from_torch(host, layout=ttnn.TILE_LAYOUT, dtype=dt), target
-                    )
-                ttnn.copy_host_to_device_tensor(
-                    ttnn.from_torch(attn_idx, layout=ttnn.TILE_LAYOUT,
-                                    dtype=ttnn.uint32), st["attn_idx"]
-                )
+                    _tt_refresh(host, target, dt)
+                _tt_refresh(attn_idx, st["attn_idx"], ttnn.uint32)
                 st["step_key"] = step_key
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
         return self._trace_state["output"]
@@ -1253,13 +1296,13 @@ class CompactStreamingDecoder(Module):
                                  upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length, shape_key)
             self._trace_state["step_key"] = step_key
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(a_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"])
+            _tt_refresh(a_host, st["a"], dt)
             if st.get("step_key") != step_key:
                 mask_host = _dense_attention_mask(indices)
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(q_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(c_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(p_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
+                _tt_refresh(q_host, st["q"], dt)
+                _tt_refresh(c_host, st["c"], dt)
+                _tt_refresh(p_host, st["p"], dt)
+                _tt_refresh(mask_host, st["mask"], dt)
                 st["step_key"] = step_key
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
         return self._trace_state["output"]
@@ -1311,7 +1354,7 @@ class CompactStreamingDecoder(Module):
         )
         s = ttnn.linear(
             s, self.process_s_w, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         a_out = ttnn.add(ttnn.add(a, a_update), s)
         return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
@@ -1733,7 +1776,7 @@ class RFD3DiffusionModule(Module):
         emb = emb * (t_L > 0).float()[..., None]
         x = _tt(emb, dev, dt)
         x = ttnn.rms_norm(x, weight=self.process_n_n[i], epsilon=1e-6, compute_kernel_config=ckc)
-        out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         return ttnn.to_torch(out).float()
 
     def _grouping_buffers(self, tok_idx, batch):
@@ -1800,7 +1843,7 @@ class RFD3DiffusionModule(Module):
         upd = ttnn.squeeze(self.downcast_q.run_device(ttnn.unsqueeze(a, 2), q_g, attn_mask_dev=mask_dev), 2)
         a = ttnn.add(a, upd)
         s = ttnn.rms_norm(s, weight=self.downcast_q_s_n, epsilon=1e-6, compute_kernel_config=ckc)
-        s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         return ttnn.add(a, s)
 
     def _downcast_q(self, Q_L, A_I, S_I, tok_idx):
@@ -1824,7 +1867,7 @@ class RFD3DiffusionModule(Module):
         return q, a_out
 
     def _persist_ed(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
@@ -1868,12 +1911,12 @@ class RFD3DiffusionModule(Module):
                                                   A_I_host, S_I_host, pack_idx_dev,
                                                   downcast_mask_dev, valid, shape_key)
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(Q_L_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(C_L_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(P_LL_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(A_I_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(S_I_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["s"])
+            _tt_refresh(Q_L_host, st["q"], dt)
+            _tt_refresh(C_L_host, st["c"], dt)
+            _tt_refresh(P_LL_host, st["p"], dt)
+            _tt_refresh(mask_host, st["mask"], dt)
+            _tt_refresh(A_I_host, st["a"], dt)
+            _tt_refresh(S_I_host, st["s"], dt)
         st = self._encoder_trace_state
         ttnn.execute_trace(dev, st["id"], cq_id=0, blocking=True)
         return ttnn.to_torch(st["out_q"]).float(), ttnn.to_torch(st["out_a"]).float()
@@ -1923,7 +1966,7 @@ class RFD3DiffusionModule(Module):
         S_I = S_I + self._process_time(t_I, 1)
         C_L = C_L + ttnn.to_torch(
             ttnn.linear(ttnn.rms_norm(_tt(C_L, dev, dt), weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
-                        self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
+                        self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)).float()
         if self._trace_encoder:
             B = A_I.shape[0] if A_I.ndim == 3 else 1
             valid, pack_idx_dev, downcast_mask_dev = self._grouping_buffers(tok_idx, B)
