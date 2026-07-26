@@ -58,8 +58,13 @@ echo "Fetching parity fixtures: tag=${TAG} repo=${REPO} dest=${DEST}"
 urls_json="$(curl -fsSL -H "Accept: application/vnd.github+json" "${API}" \
   | python3 -c 'import json,sys; r=json.load(sys.stdin); print("\n".join(a["browser_download_url"] for a in r.get("assets",[])))')"
 
-tarball_url="$(printf '%s\n' "${urls_json}" | grep -F "/${ASSET}$" || true)"
-sha_url="$(printf '%s\n' "${urls_json}" | grep -F "/${SHA_ASSET}$" || true)"
+# Match the asset URL by its path suffix. grep -F (fixed-string) is used so the
+# asset name is matched literally (no regex escaping of dots); the leading "/"
+# binds the match to the path segment so one asset name can't substring-match
+# another (e.g. .tar.gz vs .tar.gz.bak). Do NOT append a "$" anchor under -F:
+# fixed-string mode treats "$" as a literal, not end-of-line.
+tarball_url="$(printf '%s\n' "${urls_json}" | grep -F "/${ASSET}" || true)"
+sha_url="$(printf '%s\n' "${urls_json}" | grep -F "/${SHA_ASSET}" || true)"
 if [[ -z "${tarball_url}" ]]; then
   echo "error: release ${TAG} on ${REPO} has no asset named ${ASSET}." >&2
   echo "       Create it (see scripts/fetch_parity_fixtures.sh header) and retry." >&2
