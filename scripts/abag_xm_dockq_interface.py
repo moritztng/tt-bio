@@ -35,7 +35,50 @@ def _chain_by_id(struct, cid):
     raise KeyError(f"chain {cid!r} not in structure (have {[c.id for c in struct]})")
 
 
-def _resolve(declared, mc, nc, cmap, inv):
+
+
+def _build_seq_map(model_path, native_path):
+    """Many-to-one {native_chain_id: model_chain_id} by best sequence identity.
+
+    Handles multicopy natives (2+ chains with the same entity/length) where
+    DockQ's one-to-one group_chains leaves the second copy unmapped. For each
+    native chain, pick the model chain with the highest sequence identity
+    (allowing multiple native chains to map to the same model chain).
+    """
+    import gemmi
+
+    def _seqs(path):
+        st = gemmi.read_structure(str(path))
+        out = {}
+        for m in st:
+            for ch in m:
+                try:
+                    s = ch.get_polymer().make_one_letter_sequence()
+                except Exception:
+                    s = ""
+                if s:
+                    out[ch.name] = s
+        return out
+
+    ms = _seqs(model_path)
+    ns = _seqs(native_path)
+    smap = {}
+    for n_id, n_seq in ns.items():
+        best, best_id = -1.0, None
+        for m_id, m_seq in ms.items():
+            if not m_seq:
+                continue
+            if len(n_seq) == len(m_seq):
+                ident = sum(a == b for a, b in zip(n_seq, m_seq)) / max(len(n_seq), 1)
+            else:
+                ident = 1.0 - abs(len(n_seq) - len(m_seq)) / max(len(n_seq), len(m_seq), 1)
+            if ident > best:
+                best, best_id = ident, m_id
+        if best_id is not None and best >= 0.5:
+            smap[n_id] = best_id
+    return smap
+
+def _resolve(declared, mc, nc, cmap, inv, seq_map=None):
     """Return (model_id, native_id) for a declared chain id, or raise.
 
     DockQ's chain_map from get_all_chain_maps is {native_id: model_id} (keys are
@@ -44,7 +87,14 @@ def _resolve(declared, mc, nc, cmap, inv):
     id being a native chain; we also accept a declared model chain for robustness.
     """
     if declared in nc:           # declared id is a native chain -> map to model
-        return cmap[declared], declared
+        if declared in cmap:
+            return cmap[declared], declared
+        # multicopy fallback: another native copy took the one-to-one mapping;
+        # use the many-to-one sequence map to find the model chain directly.
+        if seq_map and declared in seq_map:
+            return seq_map[declared], declared
+        raise KeyError(f"declared chain {declared!r} is a native chain but not in "
+                       f"chain_map (multicopy?) and no seq_map fallback; native={nc}")
     if declared in mc:           # declared id is a model chain -> map to native
         return declared, inv[declared]
     raise KeyError(f"declared chain {declared!r} is neither a native chain {nc} "
@@ -69,10 +119,11 @@ def main():
     clusters, rev = group_chains(ms, ns, mc, nc, allowed_mismatches=0)
     cmap = next(get_all_chain_maps(clusters, {}, rev, mc, nc))   # {model_id: native_id}
     inv = {n: m for m, n in cmap.items()}
+    seq_map = _build_seq_map(a.model, a.native)
 
     try:
-        m1, n1 = _resolve(a.chain1, mc, nc, cmap, inv)
-        m2, n2 = _resolve(a.chain2, mc, nc, cmap, inv)
+        m1, n1 = _resolve(a.chain1, mc, nc, cmap, inv, seq_map)
+        m2, n2 = _resolve(a.chain2, mc, nc, cmap, inv, seq_map)
     except KeyError as e:
         result = {"model": a.model, "native": a.native, "chain1": a.chain1,
                  "chain2": a.chain2, "chain_map": cmap, "status": "unresolved",
