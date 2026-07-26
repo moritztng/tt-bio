@@ -7,7 +7,7 @@
 # hanging, label it manually or skip. CPU-only — does NOT touch the device.
 set +u
 WT=/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p3
-PY=/home/ttuser/.opendde_dockq_venv/bin/python3
+PY=/home/ttuser/.abag_xm_label_venv/bin/python3
 RUN_TIMEOUT=1800
 WORKERS=6
 log(){ echo "[$(date +%H:%M:%S)] $*"; }
