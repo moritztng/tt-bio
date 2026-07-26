@@ -44,11 +44,17 @@ else
   sleep 5
 fi
 last_prog=$(progress_mtime)
+zero_streak=0
 log "WATCHDOG active: stall=${STALL}s (90min), timeout=${TIMEOUT}s. generate.py runs autonomously."
 while true; do
   sleep 120
   ngen=$(ps -ef | grep "python3.*abag_xm_generate" | grep -v grep | grep -v "bash -c" | wc -l)
-  if [ "$ngen" -eq 0 ]; then log "all generate.py exited — campaign complete"; break; fi
+  if [ "$ngen" -eq 0 ]; then
+    zero_streak=$((zero_streak+1))
+    [ "$zero_streak" -ge 2 ] && { log "all generate.py exited (2 consecutive checks) — campaign complete"; break; }
+    log "ngen=0 (check $zero_streak/2) — re-checking next cycle before exiting"; continue
+  fi
+  zero_streak=0
   now_prog=$(progress_mtime)
   if [ "$now_prog" != "$last_prog" ]; then last_prog=$now_prog
   elif [ $(( $(date +%s) - now_prog )) -ge "$STALL" ]; then
