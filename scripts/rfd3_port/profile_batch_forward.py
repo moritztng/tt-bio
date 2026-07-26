@@ -50,6 +50,14 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Write synchronized model-stage timings as JSON.",
     )
+    parser.add_argument(
+        "--substage-profile",
+        action="store_true",
+        help="With --stage-profile: also time the methods INSIDE the atom encoder and "
+             "decoder (pack/unpack, cross-attention, atom block, host sparse gather). "
+             "Fast runtime mode stays on, so unlike --sync-profile the totals stay "
+             "comparable to an uninstrumented run; check the reported inflation.",
+    )
     return parser.parse_args()
 
 
@@ -127,9 +135,11 @@ def main() -> None:
     from tt_bio.rfd3 import (
         CompactStreamingDecoder,
         DiffusionTokenEncoder,
+        GatedCrossAttention,
         LinearSequenceHead,
         LocalAtomTransformer,
         LocalTokenTransformer,
+        RFD3AtomBlock,
         RFD3DiffusionModule,
         build_diffusion_module,
         build_token_initializer,
@@ -205,6 +215,25 @@ def main() -> None:
                     ("decoder", CompactStreamingDecoder, "__call__"),
                     ("sequence_head", LinearSequenceHead, "__call__"),
                 )
+                if args.substage_profile:
+                    import tt_bio.rfd3 as _rfd3
+
+                    stage_methods += (
+                        # decoder: the traced core, then the eager tail around it
+                        ("dec.traced_core", CompactStreamingDecoder, "_run_device_sparse_traced"),
+                        ("dec.eager_core", CompactStreamingDecoder, "run_device"),
+                        ("dec.pack", CompactStreamingDecoder, "_pack_atoms_device"),
+                        ("dec.unpack", CompactStreamingDecoder, "_unpack_atoms_device"),
+                        ("dec.design_buffers", CompactStreamingDecoder, "_design_buffers"),
+                        # shared by the decoder's 3 upcasts + its downcast
+                        ("gca", GatedCrossAttention, "run_device"),
+                        ("gca.mask_upload", GatedCrossAttention, "_prepare_additive_mask"),
+                        # shared by encoder + decoder atom stacks
+                        ("atom_block", RFD3AtomBlock, "__call__"),
+                        # host-side sparse pair work
+                        ("sparse_qk_host", _rfd3, "_sparse_qk_host"),
+                        ("sparse_qk_inputs", _rfd3, "_sparse_qk_inputs"),
+                    )
                 for label, cls, method_name in stage_methods:
                     original = getattr(cls, method_name)
                     stack.enter_context(
