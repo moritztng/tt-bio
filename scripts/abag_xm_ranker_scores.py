@@ -238,7 +238,22 @@ def main():
             ap.error("--fold_dir/--target/--gen/--labels required (or --all)")
         folds = [(Path(args.fold_dir), args.target, args.gen, Path(args.labels))]
 
-    print(f"[ranker_scores] scoring {len(folds)} folds; "
+    # idempotent: skip (target,gen) already present in the CSV so re-runs only
+    # score newly-labeled folds (the driver is otherwise append-mode + would dup).
+    already = set()
+    if os.path.exists(args.out) and os.path.getsize(args.out) > 0:
+        try:
+            with open(args.out, newline="") as f:
+                for r in csv.DictReader(f):
+                    already.add((r.get("target"), r.get("gen")))
+        except Exception:
+            pass
+    new_folds = [fd for fd in folds if (fd[1], fd[2]) not in already]
+    skipped = len(folds) - len(new_folds)
+    folds = new_folds
+
+    print(f"[ranker_scores] scoring {len(folds)} folds "
+          f"(skipped {skipped} already-scored); "
           f"deeprank={args.with_deeprank} abagrank={args.with_abagrank}")
     with open(args.out, "a", newline="") as f:
         w = csv.DictWriter(f, fieldnames=COLUMNS)
