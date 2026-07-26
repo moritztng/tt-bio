@@ -2,11 +2,11 @@
   {
     "id": "prot",
     "status": "ok",
-    "complex_plddt": 0.866773,
-    "plddt": 0.866773,
-    "ptm": 0.831785,
+    "complex_plddt": 0.866735,
+    "plddt": 0.866735,
+    "ptm": 0.831782,
     "iptm": 0.0,
-    "confidence_score": 0.831785,
+    "confidence_score": 0.831782,
     "n_residues": 117,
     "n_chains": 1,
     "n_tokens": 117,
@@ -16,45 +16,45 @@
     "all_runs": [
       {
         "rank": 0,
-        "complex_plddt": 0.866773,
-        "plddt": 0.866773,
-        "ptm": 0.831785,
+        "complex_plddt": 0.866735,
+        "plddt": 0.866735,
+        "ptm": 0.831782,
         "iptm": 0.0,
-        "confidence_score": 0.831785
+        "confidence_score": 0.831782
       },
       {
         "rank": 1,
-        "complex_plddt": 0.866773,
-        "plddt": 0.866773,
-        "ptm": 0.831785,
+        "complex_plddt": 0.866735,
+        "plddt": 0.866735,
+        "ptm": 0.831782,
         "iptm": 0.0,
-        "confidence_score": 0.831785
+        "confidence_score": 0.831782
       },
       {
         "rank": 2,
-        "complex_plddt": 0.866773,
-        "plddt": 0.866773,
-        "ptm": 0.831785,
+        "complex_plddt": 0.866735,
+        "plddt": 0.866735,
+        "ptm": 0.831782,
         "iptm": 0.0,
-        "confidence_score": 0.831785
+        "confidence_score": 0.831782
       },
       {
         "rank": 3,
-        "complex_plddt": 0.866773,
-        "plddt": 0.866773,
-        "ptm": 0.831785,
+        "complex_plddt": 0.866735,
+        "plddt": 0.866735,
+        "ptm": 0.831782,
         "iptm": 0.0,
-        "confidence_score": 0.831785
+        "confidence_score": 0.831782
       },
       {
         "rank": 4,
-        "complex_plddt": 0.866773,
-        "plddt": 0.866773,
-        "ptm": 0.831785,
+        "complex_plddt": 0.866735,
+        "plddt": 0.866735,
+        "ptm": 0.831782,
         "iptm": 0.0,
-        "confidence_score": 0.831785
+        "confidence_score": 0.831782
       }
     ],
-    "runtime_s": 133.6
+    "runtime_s": 54.0
   }
 ]

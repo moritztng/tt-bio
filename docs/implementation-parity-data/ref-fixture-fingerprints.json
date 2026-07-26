@@ -5,14 +5,14 @@
   "boltz2-affinity-fkbp12-nomsa": "b7b160cd5cf26b54",
   "boltz2-affinity-tryp-msa": "919b6f0921e82d20",
   "boltz2-affinity-tryp-nomsa": "fc83f02f14c14291",
-  "boltz2-hsa-nomsa": "65254384f7b309d3",
+  "boltz2-hsa-nomsa": "12645d0f4a98edd1",
   "boltz2-prot-msa": "c5ab4fde5c12b78d",
-  "boltz2-prot-nomsa": "198960b6e1beef6d",
-  "boltz2-trpcage-nomsa": "09912336c430a09f",
+  "boltz2-prot-nomsa": "ea1a4748901d4849",
+  "boltz2-trpcage-nomsa": "17ca9c0e4309c2d5",
   "boltz2-ubiquitin-msa": "0b36b642a7dbab05",
-  "opendde-prot-prod": "2791e5cde5ab0b02",
-  "opendde-trpcage-nomsa": "e968fa580cb8c93a",
-  "protenix-hsa-msa": "d0a6a1d885182b56",
-  "protenix-prot-msa": "8c8e850fb6b2ec10",
-  "protenix-ubq-msa": "99a51e26efa04b77"
+  "opendde-prot-prod": "3beebe57a1fa09ea",
+  "opendde-trpcage-nomsa": "1e9adeeb7f5862ea",
+  "protenix-hsa-msa": "4375abff4f12ab48",
+  "protenix-prot-msa": "4893399d01022faf",
+  "protenix-ubq-msa": "99657f575f86fab4"
 }

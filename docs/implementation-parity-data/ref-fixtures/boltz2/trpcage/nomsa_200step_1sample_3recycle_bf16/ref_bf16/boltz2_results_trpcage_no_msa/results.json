@@ -2,23 +2,23 @@
   {
     "id": "trpcage_no_msa",
     "status": "ok",
-    "confidence_score": 0.850428,
-    "ptm": 0.430893,
+    "confidence_score": 0.85439,
+    "ptm": 0.443884,
     "iptm": 0.0,
     "ligand_iptm": 0.0,
     "protein_iptm": 0.0,
-    "complex_plddt": 0.955312,
-    "complex_iplddt": 0.955312,
-    "complex_pde": 0.317737,
+    "complex_plddt": 0.957016,
+    "complex_iplddt": 0.957016,
+    "complex_pde": 0.313354,
     "complex_ipde": 0.0,
     "pair_chains_iptm": {
       "0": {
-        "0": 0.430893
+        "0": 0.443884
       }
     },
     "chains_ptm": {
-      "0": 0.430893
+      "0": 0.443884
     },
-    "runtime_s": 26.9
+    "runtime_s": 18.0
   }
 ]
