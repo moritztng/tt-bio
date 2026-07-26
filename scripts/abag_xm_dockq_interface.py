@@ -38,16 +38,20 @@ def _chain_by_id(struct, cid):
 
 
 def _build_seq_map(model_path, native_path):
-    """Many-to-one {native_chain_id: model_chain_id} by best sequence identity.
+    """Many-to-one {native_chain_id: model_chain_id} by best sequence identity,
+    with residue-count fallback for models lacking _entity_poly (e.g. some
+    OpenDDE/Protenix CIFs where gemmi returns empty polymer sequences).
 
     Handles multicopy natives (2+ chains with the same entity/length) where
     DockQ's one-to-one group_chains leaves the second copy unmapped. For each
     native chain, pick the model chain with the highest sequence identity
-    (allowing multiple native chains to map to the same model chain).
+    (allowing multiple native chains to map to the same model chain). When
+    model sequences are unavailable (no _entity_poly), fall back to matching
+    by residue (CA-atom) count.
     """
     import gemmi
 
-    def _seqs(path):
+    def _info(path):
         st = gemmi.read_structure(str(path))
         out = {}
         for m in st:
@@ -56,22 +60,25 @@ def _build_seq_map(model_path, native_path):
                     s = ch.get_polymer().make_one_letter_sequence()
                 except Exception:
                     s = ""
-                if s:
-                    out[ch.name] = s
+                n_ca = sum(1 for r in ch for a in r if a.name == "CA")
+                out[ch.name] = (s, n_ca)
         return out
 
-    ms = _seqs(model_path)
-    ns = _seqs(native_path)
+    ms = _info(model_path)
+    ns = _info(native_path)
     smap = {}
-    for n_id, n_seq in ns.items():
+    have_seq = any(s for s, _ in ms.values())
+    for n_id, (n_seq, n_ca) in ns.items():
         best, best_id = -1.0, None
-        for m_id, m_seq in ms.items():
-            if not m_seq:
-                continue
-            if len(n_seq) == len(m_seq):
-                ident = sum(a == b for a, b in zip(n_seq, m_seq)) / max(len(n_seq), 1)
+        for m_id, (m_seq, m_ca) in ms.items():
+            if have_seq and n_seq and m_seq:
+                if len(n_seq) == len(m_seq):
+                    ident = sum(a == b for a, b in zip(n_seq, m_seq)) / max(len(n_seq), 1)
+                else:
+                    ident = 1.0 - abs(len(n_seq) - len(m_seq)) / max(len(n_seq), len(m_seq), 1)
             else:
-                ident = 1.0 - abs(len(n_seq) - len(m_seq)) / max(len(n_seq), len(m_seq), 1)
+                denom = max(n_ca, m_ca, 1)
+                ident = 1.0 - abs(n_ca - m_ca) / denom
             if ident > best:
                 best, best_id = ident, m_id
         if best_id is not None and best >= 0.5:
