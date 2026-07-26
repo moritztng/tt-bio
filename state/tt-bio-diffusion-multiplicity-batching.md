@@ -11,9 +11,15 @@ device passes.
 ## Status (2026-07-26)
 
 NOT DONE — the device-denoise M carry-through, full-fold device parity, and the
-wall-clock benchmark are **pending a free card**. All 4 cards on tt-quietbox were
-held by another live worker (`worker:abag-xm-crossmodel-ranking-dataset-p3`,
-PIDs alive) for the entire turn, so the on-device work could not run.
+wall-clock benchmark are **pending a STABLE card window**. Across 3 turns of polling
+(~70 min total) all 4 tt-quietbox cards were held by another live worker
+(`worker:abag-xm-crossmodel-ranking-dataset-p3`); that worker aggressively
+re-acquires any card the moment its process dies (observed: card 2 freed at 18:31
+and was re-grabbed within seconds; card 3 freed at 18:42 and was re-grabbed within
+~7 min). So there is no stable window for the iterative on-card verification the
+device-denoise M carry-through needs (per the prior worker's documented judgment:
+"best written with a card present to verify the ttnn reshapes/tile padding"). The
+on-device work could not run.
 
 ### Landed (3 prior commits + this turn's prep)
 
