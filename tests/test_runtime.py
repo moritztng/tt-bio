@@ -13,6 +13,9 @@ from tt_bio import runtime
 def two_cards(monkeypatch):
     monkeypatch.setattr(runtime.glob, "glob",
                         lambda pat: ["/dev/tenstorrent/0", "/dev/tenstorrent/1"])
+    # detect_tenstorrent_devices also filters by ambient TT_VISIBLE_DEVICES, so a suite run
+    # from a shell pinned to one card would see through the fake two-card box and fail.
+    monkeypatch.delenv("TT_VISIBLE_DEVICES", raising=False)
     return None
 
 
