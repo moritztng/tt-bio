@@ -22,8 +22,10 @@ PY
 )
 
 remaining() {  # $1 = model name (boltz2|opendde-abag|protenix-v2); echoes comma-sep remaining targets
+  # Excludes targets already "ok" AND targets currently in-progress (in any active
+  # harness's --targets list for the SAME model) to avoid duplicate folds.
   python3 - "$1" "$ALL_TGT" <<'PY'
-import json, sys
+import json, os, re, subprocess, sys
 model, allcsv = sys.argv[1], sys.argv[2]
 allt = allcsv.split(",")
 ok = set()
@@ -35,7 +37,22 @@ try:
                 ok.add(r["target"])
 except FileNotFoundError:
     pass
-rem = [t for t in allt if t not in ok]
+# in-progress: targets in any active abag_xm_generate.py --targets list for this model
+inprog = set()
+try:
+    out = subprocess.check_output(["pgrep", "-af", "abag_xm_generate.py"], text=True)
+except subprocess.CalledProcessError:
+    out = ""
+for line in out.splitlines():
+    if "pgrep" in line or "--targets" not in line:
+        continue
+    # match --models <model> ... --targets <csv>
+    m = re.search(r"--models\s+(\S+)", line)
+    t = re.search(r"--targets\s+([^\s]+)", line)
+    if m and t and m.group(1) == model:
+        for tgt in t.group(1).split(","):
+            inprog.add(tgt)
+rem = [t for t in allt if t not in ok and t not in inprog]
 print(",".join(rem))
 PY
 }
