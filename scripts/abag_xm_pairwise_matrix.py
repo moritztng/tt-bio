@@ -20,7 +20,9 @@ chain1/chain2 default to the manifest fold_auth_chain_id_1/2 (resolved by pdb_id
 """
 import argparse, json, sys
 from pathlib import Path
-from DockQ.DockQ import (load_PDB, run_on_chains, group_chains, get_all_chain_maps)
+from DockQ.DockQ import (load_PDB, run_on_chains, calc_DockQ,
+                          align_chains, format_alignment,
+                          group_chains, get_all_chain_maps)
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
@@ -69,17 +71,40 @@ def _resolve_model_chains(ms0, ns, c1, c2):
     return out["c1"], out["c2"]
 
 
-def _dockq_pair(cached_i, cached_j, m1, m2):
-    """run_on_chains on the two declared model chains. small_molecule mirrors
-    run_on_all_native_interfaces (is_het). Returns DockQ or None."""
+def _dockq_pair(cached_i, cached_j, m1, m2, precomputed_alignments):
+    """calc_DockQ on the two declared model chains with a PRE-COMPUTED alignment.
+
+    All samples in one fold share IDENTICAL chain sequences (only coordinates
+    differ), so align_chains (the per-pair sequence alignment run_on_chains does
+    internally) is identity work -- the residue mapping is the same for every pair.
+    We pre-compute it once (rank-0 vs rank-0) and call calc_DockQ directly, bypassing
+    align_chains per pair. This is the difference between ~1s/pair and ~0.1s/pair
+    (the dominant cost for O(N^2) matrices). For small_molecule (het) chains we
+    fall back to run_on_chains (the calc_sym_corrected_lrmsd path needs the live
+    alignment and is rare for Ab-Ag)."""
     mi = (_chain_obj(cached_i["struct"], m1), _chain_obj(cached_i["struct"], m2))
     mj = (_chain_obj(cached_j["struct"], m1), _chain_obj(cached_j["struct"], m2))
     sm = bool(getattr(mi[0], "is_het", False) or getattr(mi[1], "is_het", False) or
              getattr(mj[0], "is_het", False) or getattr(mj[1], "is_het", False))
-    info = run_on_chains(mi, mj, small_molecule=sm)
-    if info is None:
+    if sm or precomputed_alignments is None:
+        info = run_on_chains(mi, mj, small_molecule=sm)
+        return None if info is None else info.get("DockQ")
+    info = calc_DockQ(mi, mj, alignments=precomputed_alignments)
+    return None if info is None else info.get("DockQ")
+
+
+def _precompute_alignments(cached0, m1, m2):
+    """Identity alignment for the two declared chains (rank-0 vs rank-0).
+    Returns tuple of (seqA, matches, seqB) per chain, or None on failure."""
+    try:
+        alns = []
+        for cid in (m1, m2):
+            c = _chain_obj(cached0["struct"], cid)
+            aln = align_chains(c, c)              # identity (same sequence)
+            alns.append(tuple(format_alignment(aln).values()))
+        return tuple(alns)
+    except Exception:
         return None
-    return info.get("DockQ")
 
 
 THREE_TO_ONE = {"ALA":"A","ARG":"R","ASN":"N","ASP":"D","CYS":"C","GLN":"Q","GLU":"E",
@@ -159,10 +184,13 @@ def main():
 
     rows = []
     dockq_vals = []
+    precomputed_alignments = None
+    if m1 is not None and m2 is not None:
+        precomputed_alignments = _precompute_alignments(cached[0], m1, m2)
     for i in range(n):
         for j in range(i + 1, n):
             if m1 is not None and m2 is not None:
-                dq = _dockq_pair(cached[i], cached[j], m1, m2)
+                dq = _dockq_pair(cached[i], cached[j], m1, m2, precomputed_alignments)
             else:
                 dq = None
             tm = _tm_pair(cached[i], cached[j])
