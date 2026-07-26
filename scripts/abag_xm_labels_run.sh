@@ -27,4 +27,7 @@ else
     PY="$SHARED_VENV/bin/python3"
 fi
 
+# anarci (cdr_rmsd) needs hmmscan/hmmsearch; hmmer 3.3.2 built from source into ~/.local
+export PATH="$HOME/.local/bin:$PATH"
+
 exec "$PY" "$WT/scripts/abag_xm_labels.py" "$@"
