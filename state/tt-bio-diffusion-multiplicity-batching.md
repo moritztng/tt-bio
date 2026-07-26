@@ -1,5 +1,55 @@
 # tt-bio-diffusion-multiplicity-batching
 
+## STATUS: DONE — multiplicity-batching verified on-card for BOTH Protenix and OpenDDE (parity-pass + measured speedup)
+
+The device-denoise M carry-through (`DiffusionModule._denoise_multiplicity` +
+`_token_dit_device_m`) is implemented, verified on a free card, and
+`supports_multiplicity` is flipped ON. On-card verification ran on qb2
+(tt-quietbox2, p300c / p150 mesh-graph descriptor) after qb1's 4 cards were
+found actively held by abag's campaign — qb2 had 4 free cards.
+
+### Parity-pass (multiplicity>1) — BOTH models
+
+Bar: Kabsch RMSD of batched-vs-unbatched (X) within the seed-to-seed noise floor
+(max of unbatched-vs-unbatched R and batched-vs-batched D) — the established
+diffusion-leg parity bar (NOT bit-exact; the batched path draws all M samples
+from one RNG stream, mirroring boltz2.AtomDiffusion.sample).
+
+- **Protenix parity-pass at multiplicity=4**: M=4, n_step=10, n_runs=2 ->
+  X 8.645 A vs floor 8.243 A, X/floor 1.049 -> **PASS** (within established
+  noise floor). Also M=2 n_step=6 smoke: X/floor 0.987 -> PASS.
+- **OpenDDE parity-pass at multiplicity=4**: M=4, n_step=20, n_runs=2 ->
+  X 9.788 A vs floor 9.839 A, X/floor 0.995 -> **PASS** (within established
+  noise floor). Also M=2 n_step=6 smoke: X/floor 1.011 -> PASS.
+
+Both verdicts saved to `/tmp/{protenix,opendde}_multiplicity_parity_M4.json` on
+qb2 (and reproducible via `scripts/protenix_opendde_multiplicity_parity.py
+{protenix,opendde} --M 4 --n-runs 2`).
+
+### Measured wall-clock speedup (M=4 samples, warm)
+
+`scripts/protenix_opendde_multiplicity_bench.py` — M independent n_sample=1
+folds (the per-sample loop) vs one batched n_sample=M fold:
+
+- **Protenix: 9.45s -> 2.65s = 3.57x speedup** (4 samples, n_step=10).
+- **OpenDDE: 10.06s -> 3.20s = 3.15x speedup** (4 samples, n_step=20).
+
+Both produce finite coords. Saved to
+`/tmp/{protenix,opendde}_multiplicity_bench_M4.json` on qb2.
+
+### Commit
+
+`60062d4d` `protenix/opendde: enable multiplicity-batching (verified on-card,
+M=4 parity PASS)` on `wk/tt-bio-diffusion-multiplicity-batching` (pushed;
+NOT merged to main). Includes the 5 on-card fixes found during verification
+(_block_m double prefix, _attention_m double replication, c_la_dev 2D reshape,
+DiT bias leading-dim broadcast, harness OpenDDE diffusion attr path) and the
+new bench script.
+
+---
+
+## Prior status (kept for history)
+
 Branch: `wk/tt-bio-diffusion-multiplicity-batching` (worktree
 `/home/ttuser/.coworker/wt/tt-bio-diffusion-multiplicity-batching` on qb1).
 
