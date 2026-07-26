@@ -1105,8 +1105,11 @@ def finalize_leg(leg: Leg, verdict: str, detail: str, wall: float) -> tuple[dict
     if committed and committed != "NO-DATA" and comparable:
         if _matches_committed(verdict, committed):
             drift = " [reproduces committed]"
-        elif _is_passing(verdict) and committed == "GAP":
-            drift = " [improves committed GAP — not a drift]"
+        elif _is_passing(verdict) and committed in ("GAP", "GAP-evidenced"):
+            # GAP-evidenced counts here too: it records a GAP proven to be a bf16-backend
+            # floor, so a live PASS means that residual shrank below the bound. Strictly
+            # better than the committed record, never a regression.
+            drift = f" [improves committed {committed} — not a drift]"
         else:
             drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
             ok = False
