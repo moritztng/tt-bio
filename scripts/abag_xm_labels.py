@@ -4,11 +4,16 @@
 Runs the Phase 4 label scripts over a completed (target, gen) fold dir and writes
 labels.json (one record per sample + fold-level PSS / basin clusters).
 
-Per-sample (rank r, CIF): DockQ, PAE metrics, epitope Jaccard, interface lDDT,
-per-CDR RMSD. Per-fold: pairwise DockQ/TM matrix + PSS, basin clustering.
+Per-sample (rank r, CIF): DockQ on the ARK-declared Ab-Ag interface (D6, via
+abag_xm_dockq_interface -- not the auto-mapper GlobalDockQ average), PAE metrics,
+epitope Jaccard, interface lDDT, per-CDR RMSD. Per-fold: pairwise DockQ/TM matrix
++ PSS, basin clustering.
 
 Per-sample pTM is read from results.json[0]["all_runs"][rank]["ptm"]; the PAE npz
 is <target>_model_<rank>_pae.npz (uniform across ranks, incl. rank 0).
+
+The declared interface chains (fold_auth_chain_id_1/2) are resolved from the
+manifest by pdb_id; if --chain1/--chain2 are passed they override the lookup.
 
 Usage:
     PYTHONPATH=<wt> python3 scripts/abag_xm_labels.py <results_dir> <native.cif> <fold.yaml> [--n_samples N] [--out labels.json]
@@ -17,6 +22,22 @@ import argparse, json, subprocess, sys, tempfile
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
+ROOT = SCRIPTS.parent
+MANIFEST = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
+
+
+def _declared_chains(target):
+    """Look up fold_auth_chain_id_1/2 from the manifest by pdb_id (D6)."""
+    try:
+        import pandas as pd
+        df = pd.read_parquet(MANIFEST)
+        row = df[df["pdb_id"] == target]
+        if len(row) == 0:
+            return None, None
+        r = row.iloc[0]
+        return r["fold_auth_chain_id_1"], r["fold_auth_chain_id_2"]
+    except Exception:
+        return None, None
 
 
 def _run(script, args, out_path=None):
@@ -76,10 +97,19 @@ def main():
     ap.add_argument("yaml")
     ap.add_argument("--n_samples", type=int, default=0,
                     help="0 = all; else limit per-sample loop and pairwise matrix to first N")
+    ap.add_argument("--chain1", default=None,
+                    help="override manifest fold_auth_chain_id_1 (antibody side)")
+    ap.add_argument("--chain2", default=None,
+                    help="override manifest fold_auth_chain_id_2 (antigen side)")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     rd = Path(a.results_dir)
     target = rd.name.split("results_")[1]
+    c1, c2 = a.chain1, a.chain2
+    if c1 is None or c2 is None:
+        mc1, mc2 = _declared_chains(target)
+        c1 = c1 or mc1
+        c2 = c2 or mc2
     samples = _samples(rd, target)
     if a.n_samples and a.n_samples > 0:
         samples = samples[:a.n_samples]
@@ -89,7 +119,15 @@ def main():
     recs = []
     for rank, cif in samples:
         rec = {"target": target, "rank": rank, "cif": str(cif)}
-        rec["dockq"] = _run("opendde_dockq", [str(cif), a.native])
+        if c1 is not None and c2 is not None:
+            rec["dockq"] = _run("abag_xm_dockq_interface",
+                               [str(cif), a.native, str(c1), str(c2)])
+        else:
+            # Manifest lookup failed -- fall back to the auto-mapper average and
+            # flag it so the label is never silently the wrong quantity.
+            dq = _run("opendde_dockq", [str(cif), a.native])
+            dq["_fallback_global_average"] = True
+            rec["dockq"] = dq
         rec["epitope_jaccard"] = _run("abag_xm_epitope_jaccard", [str(cif), a.native, a.yaml])
         rec["interface_lddt"] = _run("abag_xm_interface_lddt", [str(cif), a.native, a.yaml])
         rec["cdr_rmsd"] = _run("abag_xm_cdr_rmsd", [str(cif), a.native, a.yaml])

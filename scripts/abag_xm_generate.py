@@ -77,7 +77,8 @@ def _dir_bytes(p):
     return sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
 
 
-def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS):
+def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
+             fold_timeout_s=FOLD_TIMEOUT_S):
     out_dir = OUT_BASE / model.replace("-", "_")
     result_dir = out_dir / f"{RESULT_PREFIX[model]}_results_{target}"
     yaml = YAML_DIR / f"{target}.yaml"
@@ -121,7 +122,7 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS):
                             start_new_session=True)
     timed_out = False
     try:
-        out, _ = proc.communicate(timeout=FOLD_TIMEOUT_S)
+        out, _ = proc.communicate(timeout=fold_timeout_s)
         rc = proc.returncode
     except subprocess.TimeoutExpired:
         timed_out = True
@@ -133,7 +134,7 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS):
            "device": device, "n_samples": n_samples, "mps": mps}
     if timed_out:
         rec["status"] = "timed_out"
-        rec["stderr"] = f"killed after {FOLD_TIMEOUT_S}s (process group); tail: {(out or '')[-1500:]}"
+        rec["stderr"] = f"killed after {fold_timeout_s}s (process group); tail: {(out or '')[-1500:]}"
         return rec
     rjson = result_dir / "results.json"
     if rc != 0 or not rjson.exists():
@@ -193,6 +194,8 @@ def main():
     ap.add_argument("--device", type=int, default=0)
     ap.add_argument("--n_samples", type=int, default=N_SAMPLES)
     ap.add_argument("--mps", type=int, default=MPS)
+    ap.add_argument("--timeout", type=int, default=FOLD_TIMEOUT_S,
+                    help="per-fold wall-clock timeout in seconds (default %(default)d)")
     a = ap.parse_args()
     targets = a.targets.split(",") if a.targets else all_targets()
     models = a.models.split(",")
@@ -207,7 +210,8 @@ def main():
                 print(f"[skip] {target} {model} already ok", flush=True)
                 continue
             print(f"[start] {target} {model} {time.strftime('%H:%M:%S')}", flush=True)
-            rec = fold_one(target, model, a.device, a.n_samples, a.mps)
+            rec = fold_one(target, model, a.device, a.n_samples, a.mps,
+                           fold_timeout_s=a.timeout)
             with open(PROGRESS, "a") as fp:
                 fp.write(json.dumps(rec) + "\n")
             print(f"[done]  {target} {model} status={rec['status']} "
