@@ -26,6 +26,20 @@ import ttnn
 
 from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 
+# ttnn derives a `core_grid=` linear's matmul program config from M = batch * rows:
+# a larger per_core_M leaves less L1 for the in0 block, so in0_block_w -- the
+# K-blocking of the fp32 accumulation -- shrinks, and the same arithmetic is grouped
+# into a different number of partial sums and rounds differently in bf16. That made a
+# batched design forward diverge from the standalone one, and it is why a 200-step
+# batched trajectory used to drift. The linears that measurably lose batch invariance
+# pass `core_grid=BATCH_INVARIANT_GRID` instead: ttnn's default heuristic blocks by K
+# alone, so a batched forward stays bit-identical to the standalone one at any batch
+# size. Dropping the hint from every linear would cost 1.32x/1.59x at D=1/D=8;
+# confining it to the affected ones keeps the batching win.
+# scripts/rfd3_port/verify_batch_invariance.py is the gate;
+# scripts/rfd3_port/probe_callsites.py re-derives which linears need it.
+BATCH_INVARIANT_GRID = None
+
 
 # --- host-side feature helpers (pure torch; mirror upstream, deps stubbed) ----
 def _collapse(x, L):
@@ -114,9 +128,9 @@ class Transition(Module):
                             compute_kernel_config=self.compute_kernel_config)
         a = ttnn.linear(x, self.fc1_w, activation="silu",
                          compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         b = ttnn.linear(x, self.fc2_w, compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         ttnn.deallocate(x)
         m = ttnn.multiply(a, b)
         ttnn.deallocate(b)
@@ -746,10 +760,10 @@ class RFD3AtomBlock(Module):
         s = ttnn.rms_norm(s, weight=ln_s, epsilon=1e-6, compute_kernel_config=ckc)
         gain = ttnn.linear(
             s, gain_w, bias=gain_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         bias = ttnn.linear(
-            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
@@ -767,10 +781,10 @@ class RFD3AtomBlock(Module):
         norm = self._adaln(
             q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
-        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         qq = ttnn.rms_norm(qq, weight=self.q_ln, epsilon=1e-6, compute_kernel_config=ckc)
         kk = ttnn.rms_norm(kk, weight=self.k_ln, epsilon=1e-6, compute_kernel_config=ckc)
 
@@ -830,11 +844,11 @@ class RFD3AtomBlock(Module):
             out, (batch, length, self.n_head * self.head_dim)
         )
         out = ttnn.linear(
-            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN
+            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         gate = ttnn.linear(
             c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         upd = ttnn.multiply(out, ttnn.sigmoid(gate))
         if f32:
@@ -849,19 +863,19 @@ class RFD3AtomBlock(Module):
         )
         left = ttnn.linear(
             norm, self.t_fc1, activation="silu", compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         right = ttnn.linear(
             norm, self.t_fc2, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         update = ttnn.linear(
             ttnn.multiply(left, right), self.t_fc3, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         gate = ttnn.linear(
             c, self.t_out_w, bias=self.t_out_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         upd = ttnn.multiply(update, ttnn.sigmoid(gate))
         if f32:
@@ -1311,7 +1325,7 @@ class CompactStreamingDecoder(Module):
         )
         s = ttnn.linear(
             s, self.process_s_w, compute_kernel_config=ckc,
-            dtype=dt, core_grid=CORE_GRID_MAIN,
+            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         a_out = ttnn.add(ttnn.add(a, a_update), s)
         return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
@@ -1733,7 +1747,7 @@ class RFD3DiffusionModule(Module):
         emb = emb * (t_L > 0).float()[..., None]
         x = _tt(emb, dev, dt)
         x = ttnn.rms_norm(x, weight=self.process_n_n[i], epsilon=1e-6, compute_kernel_config=ckc)
-        out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        out = ttnn.linear(x, self.process_n_w[i], compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         return ttnn.to_torch(out).float()
 
     def _grouping_buffers(self, tok_idx, batch):
@@ -1800,7 +1814,7 @@ class RFD3DiffusionModule(Module):
         upd = ttnn.squeeze(self.downcast_q.run_device(ttnn.unsqueeze(a, 2), q_g, attn_mask_dev=mask_dev), 2)
         a = ttnn.add(a, upd)
         s = ttnn.rms_norm(s, weight=self.downcast_q_s_n, epsilon=1e-6, compute_kernel_config=ckc)
-        s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         return ttnn.add(a, s)
 
     def _downcast_q(self, Q_L, A_I, S_I, tok_idx):
@@ -1923,7 +1937,7 @@ class RFD3DiffusionModule(Module):
         S_I = S_I + self._process_time(t_I, 1)
         C_L = C_L + ttnn.to_torch(
             ttnn.linear(ttnn.rms_norm(_tt(C_L, dev, dt), weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
-                        self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)).float()
+                        self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)).float()
         if self._trace_encoder:
             B = A_I.shape[0] if A_I.ndim == 3 else 1
             valid, pack_idx_dev, downcast_mask_dev = self._grouping_buffers(tok_idx, B)

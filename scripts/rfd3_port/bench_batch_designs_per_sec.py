@@ -33,14 +33,6 @@ def parse_args() -> argparse.Namespace:
         "--spec", type=Path,
         help="JSON InputSpecification; overrides --pdb/--contig",
     )
-    parser.add_argument(
-        "--strip-breaking", action="store_true",
-        help="strip core_grid only on the shapes measured non-batch-invariant",
-    )
-    parser.add_argument(
-        "--no-core-grid", action="store_true",
-        help="strip core_grid= from every ttnn.linear (batch-invariance A/B)",
-    )
     args = parser.parse_args()
     if any(batch < 1 for batch in args.batches):
         parser.error("--batches values must be at least 1")
@@ -49,30 +41,6 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.no_core_grid or args.strip_breaking:
-        import ttnn
-
-        _linear = ttnn.linear
-        # (input tail shape, weight shape) of every core_grid linear that
-        # probe_linear_shapes.py measured as NOT batch-invariant on the IAI 40
-        # fixture. --strip-breaking drops core_grid on exactly these.
-        BREAKING = {
-            ((40, 384), (384, 1536)), ((40, 384), (384, 768)),
-            ((40, 768), (768, 768)), ((40, 768), (768, 1536)),
-            ((40, 1536), (1536, 768)), ((419, 128), (128, 128)),
-            ((419, 128), (128, 256)), ((419, 256), (256, 128)),
-            ((40, 40, 128), (128, 512)),
-        }
-        strip_all = args.no_core_grid
-
-        def linear_patched(a, b, *rest, **kw):
-            if kw.get("core_grid") is not None and (
-                strip_all or (tuple(a.shape)[1:], tuple(b.shape)) in BREAKING
-            ):
-                kw.pop("core_grid")
-            return _linear(a, b, *rest, **kw)
-
-        ttnn.linear = linear_patched
     from tt_bio.rfd3 import build_diffusion_module, build_token_initializer
     from tt_bio.rfd3_featurize import featurize
     from tt_bio.rfd3_input import InputSpecification
