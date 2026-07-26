@@ -71,7 +71,8 @@ def _map_chains(model_seqs, yaml_seqs):
     """Map model chain IDs to YAML roles {A, H, L} by exact sequence match.
 
     Falls back to length match if exact match fails (e.g., missing residues).
-    Returns (antigen_model_id, heavy_model_id, light_model_id).
+    Supports nanobody/VHH targets (no L chain in YAML) — light_id is None then.
+    Returns (antigen_model_id, heavy_model_id, light_model_id_or_None).
     """
     # Exact match first
     role_for_yaml = {}
@@ -94,11 +95,11 @@ def _map_chains(model_seqs, yaml_seqs):
                 best, best_diff = mid, d
         if best is not None:
             role_for_yaml[yid] = best
-    # Resolve roles: A=antigen, H=heavy, L=light (YAML convention)
+    # Resolve roles: A=antigen, H=heavy, L=light (YAML convention; L optional for VHH)
     ag = role_for_yaml.get("A")
     heavy = role_for_yaml.get("H")
-    light = role_for_yaml.get("L")
-    if None in (ag, heavy, light):
+    light = role_for_yaml.get("L")  # None for nanobody/VHH targets
+    if ag is None or heavy is None:
         raise RuntimeError(f"chain mapping incomplete: {role_for_yaml} "
                            f"model_seqs={ {k: len(v) for k,v in model_seqs.items()} } "
                            f"yaml_seqs={ {k: len(v) for k,v in yaml_seqs.items()} }")
@@ -208,8 +209,8 @@ def main():
     # 3. map model chain IDs (rank-0)
     model_seqs = _chain_sequences(cifs[0])
     ag_id, heavy_id, light_id = _map_chains(model_seqs, yaml_seqs)
-    print(f"[adapter] chain map: antigen={ag_id} heavy={heavy_id} light={light_id} "
-          f"(model_seqs={ {k: len(v) for k,v in model_seqs.items()} })")
+    print(f"[adapter] chain map: antigen={ag_id} heavy={heavy_id} "
+          f"light={light_id} (model_seqs={ {k: len(v) for k,v in model_seqs.items()} })")
 
     # 4. build shim
     work_dir = tempfile.mkdtemp(prefix=f"abagrank_shim_{args.target}_")
@@ -219,10 +220,12 @@ def main():
     try:
         # 5. preprocess
         pp = abag / "preprocess_inference.py"
+        # nanobody/VHH: single heavy chain (no light); else H,L
+        ab_chains = heavy_id if light_id is None else f"{heavy_id},{light_id}"
         cmd = [sys.executable, str(pp),
                "--input_dir", work_dir,
                "--output_h5", args.out_h5,
-               "--antibody_chains", f"{heavy_id},{light_id}",
+               "--antibody_chains", ab_chains,
                "--antigen_chains", ag_id,
                "--target_id", args.target,
                "--run_dirs", ""]
