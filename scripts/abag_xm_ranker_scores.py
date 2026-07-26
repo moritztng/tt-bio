@@ -128,52 +128,31 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
 
 
 def _run_deeprank(fold_dir, target, gen, deeprank_venv):
-    """Run deeprank-ab-predict on each sample CIF; return {rank: predicted_dockq}.
-
-    Loads ESM once per process invocation (one call per sample is wasteful —
-    TODO: batch all samples in one process). For now, per-sample is correct.
+    """Batched DeepRank-Ab: build one ensemble PDB from all 50 sample CIFs,
+    run `deeprank-ab-predict` ONCE (ESM loaded once via dedup), parse the
+    output CSV -> {rank: predicted_dockq}. ~2-4 min/fold vs ~30-50 min per-sample.
     """
-    from Bio.PDB.MMCIFParser import MMCIFParser
-    from Bio.PDB.PDBIO import PDBIO
-    sdir = Path(fold_dir) / "structures"
-    cifs = [sdir / f"{target}.cif"] + [sdir / f"{target}_model_{k}.cif"
-                                       for k in range(1, 50)]
-    # chain IDs differ per gen; detect from rank-0 by sequence length vs YAML
-    # (heavy=125, light=110, antigen=321 for 21av; generic: parse YAML)
-    # For the smoke driver, require chain ids via env or auto-detect (ANARCI).
-    scores = {}
-    parser = MMCIFParser(QUIET=True)
-    io = PDBIO()
-    tmp = tempfile.mkdtemp(prefix=f"deeprank_{target}_{gen}_")
+    wrapper = ROOT / "scripts" / "abag_xm_deeprank_batch.py"
     py = os.path.join(deeprank_venv, "bin", "python3")
-    cli = os.path.join(deeprank_venv, "bin", "deeprank-ab-predict")
-    for k, cif in enumerate(cifs):
-        if not cif.exists():
-            continue
-        # CIF -> PDB
-        pdb = os.path.join(tmp, f"{target}_{gen}_r{k}.pdb")
-        s = parser.get_structure("m", str(cif))
-        io.set_structure(s); io.save(pdb)
-        # auto-detect chains (let ANARCI do it) — no chain flags
-        r = subprocess.run([cli, pdb], capture_output=True, text=True,
-                           cwd=os.path.dirname(cli))
-        # parse predictions CSV
-        out = None
-        for line in r.stdout.splitlines():
-            if "Predictions saved" in line or "predictions.csv" in line:
-                out = line.split("→")[-1].strip() if "→" in line else None
-        # find the predictions csv in the workspace dir
-        import glob
-        csvs = glob.glob(os.path.join(tmp + "*", "**", "*predictions.csv"),
-                         recursive=True)
-        csvs += glob.glob(os.path.join("/tmp", f"{target}_{gen}_r{k}*", "**",
-                                       "*predictions.csv"), recursive=True)
-        if csvs:
-            with open(csvs[-1]) as f:
-                rr = list(csv.DictReader(f))
-            if rr:
-                scores[k] = float(rr[0].get("predicted_dockq", 0.0))
-    return scores
+    out_json = tempfile.mktemp(prefix=f"deeprank_{target}_{gen}_", suffix=".json")
+    r = subprocess.run([py, str(wrapper),
+                        "--fold_dir", str(fold_dir),
+                        "--target", target, "--gen", gen,
+                        "--out_json", out_json,
+                        "--deeprank_venv", deeprank_venv],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"[deeprank] {target}/{gen} batch wrapper failed rc={r.returncode}",
+              file=sys.stderr)
+        print(r.stderr[-1200:], file=sys.stderr)
+        return {}
+    try:
+        with open(out_json) as f:
+            scores = json.load(f)
+        return {int(k): float(v) for k, v in scores.items()}
+    except Exception as e:
+        print(f"[deeprank] {target}/{gen} parse failed: {e}", file=sys.stderr)
+        return {}
 
 
 def _run_abagrank(fold_dir, target, gen, abagrank_dir):
