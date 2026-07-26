@@ -38,6 +38,8 @@ def _per_sample_pss(pairwise):
     c = [0] * n
     for row in m:
         i, j, dq = row["i"], row["j"], row["dockq"]
+        if dq is None:
+            continue  # DockQ failed on this pair (e.g. chain mapping); skip, PSS uses available pairs
         s[i] += dq; c[i] += 1
         s[j] += dq; c[j] += 1
     return [s[i] / c[i] if c[i] else 0.0 for i in range(n)]
