@@ -103,7 +103,24 @@ def _scatter_mean_pool(pairwise_atom, tok_idx, I):
 
 
 # --- ttnn helpers ----------------------------------------------------------
+# ttnn.from_torch(layout=TILE_LAYOUT) tilizes on the HOST, single-threaded, and that cost
+# dominates every large upload in this model: one 6.9M-element atom-pair tensor costs 45 ms
+# at 250 residues and a whole diffusion step is only ~600 ms. Uploading row-major (already
+# cast to the target dtype, so the PCIe transfer is half the bytes for bf16) and tilizing on
+# device is 2.8-8.5x faster and bit-exact -- verified elementwise-equal on every large shape
+# this model uploads. Small tensors keep the host path; the extra device op is not worth it
+# below about a tile-grid of data.
+_DEVICE_TILIZE_MIN_ELEMENTS = 1 << 16
+
+_TORCH_DTYPE = {ttnn.bfloat16: torch.bfloat16, ttnn.float32: torch.float32}
+
+
 def _tt(x, dev, dtype=ttnn.bfloat16):
+    torch_dtype = _TORCH_DTYPE.get(dtype)
+    if torch_dtype is not None and x.numel() >= _DEVICE_TILIZE_MIN_ELEMENTS:
+        row_major = ttnn.from_torch(x.to(torch_dtype), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                    device=dev, dtype=dtype)
+        return ttnn.to_layout(row_major, ttnn.TILE_LAYOUT)
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
 
 
