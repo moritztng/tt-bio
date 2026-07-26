@@ -53,13 +53,17 @@ mkdir -p "$HOME/abag_xm/tier_a"
 log "START opendde resume: 4 cards, models=protenix-v2,boltz2,opendde-abag, timeout=${TIMEOUT}s, stall=${STALL}s"
 log "  (done_pairs skips the ~87 ok protenix+boltz2; runs opendde for all 164 + retries)"
 PIDS=(); for c in 0 1 2 3; do PIDS[$c]=$(launch_card $c); log "launched card $c pid=${PIDS[$c]}"; done
-last_prog=$(progress_mtime)
+# Stall clock starts at launch wall-clock, NOT file mtime: progress.jsonl already exists here
+# (qb1's protenix+boltz2 fanout wrote it), but if it is ever cleared the mtime=0 path would
+# make `now - 0` >= STALL and false-recover every tick. Wall-clock launch is robust to both.
+last_prog=$(date +%s)
 while true; do
   sleep 120
   alive=0; for c in 0 1 2 3; do [ -n "${PIDS[$c]}" ] && kill -0 "${PIDS[$c]}" 2>/dev/null && alive=$((alive+1)); done
   if [ "$alive" -eq 0 ]; then log "all 4 generate.py exited — campaign complete"; break; fi
-  now_prog=$(progress_mtime)
-  if [ "$now_prog" != "$last_prog" ]; then last_prog=$now_prog
-  elif [ $(( $(date +%s) - now_prog )) -ge "$STALL" ]; then recover_all; last_prog=$(progress_mtime); fi
+  pm=$(progress_mtime)
+  if [ "$pm" != "0" ] && [ "$pm" -gt "$last_prog" ]; then last_prog=$pm; fi
+  now=$(date +%s)
+  if [ $(( now - last_prog )) -ge "$STALL" ]; then recover_all; last_prog=$(date +%s); fi
 done
 log "DONE"
