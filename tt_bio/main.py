@@ -1878,6 +1878,15 @@ def _resolve_recycling_steps(recycling_steps, model):
     return 10 if model in ("protenix-v2", "opendde", "opendde-abag") else 3
 
 
+# The structure models that degrade sharply folded single-sequence, so `predict` resolves an
+# MSA source for them by default rather than silently folding without one (see
+# _resolve_msa_default). esmfold2 / esmfold2-fast are deliberately absent: esmfold2 is
+# single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
+# scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
+# actually used, instead of hand-listing the same set a second time.
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "opendde", "opendde-abag")
+
+
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                          single_sequence, cache, controller, msa_server_url):
     """Resolve the MSA source for MSA-dependent structure models.
@@ -1894,7 +1903,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
     """
-    if model not in ("boltz2", "protenix-v2", "opendde", "opendde-abag"):
+    if model not in MSA_DEFAULT_MODELS:
         return use_msa_server, msa_db_path
 
     explicit = use_msa_server or msa_db_path or msa_endpoint
