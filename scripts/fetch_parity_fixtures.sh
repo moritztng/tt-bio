@@ -15,18 +15,18 @@
 #   --repo  moritztng/tt-bio         (the GitHub repo hosting the release)
 #   --dest  docs/implementation-parity-data/ref-fixtures  (extract root)
 #
-# The release asset is a single tarball named parity-fixtures-<tag>.tar.gz plus a
-# parity-fixtures-<tag>.sha256 sidecar. The script downloads both, verifies the
+# The release asset is a single tarball named <tag>.tar.gz plus a
+# <tag>.sha256 sidecar. The script downloads both, verifies the
 # checksum, and extracts the tarball into --dest. It is idempotent: re-running
 # over an existing tree only overwrites files the tarball provides.
 #
 # To create the release (maintainer, once per parity pass):
 #   1. Harvest new fixtures:        python3 scripts/pharma_harvest_ref_fixtures.py ...
-#   2. Tar the binary fixtures:     tar czf parity-fixtures-<tag>.tar.gz \
+#   2. Tar the binary fixtures:     tar czf <tag>.tar.gz \
 #                                      -C docs/implementation-parity-data ref-fixtures \
 #                                      --include='*.cif' --include='*.a3m'  (or full tree)
-#   3. sha256sum parity-fixtures-<tag>.tar.gz > parity-fixtures-<tag>.sha256
-#   4. gh release create <tag> parity-fixtures-<tag>.tar.gz parity-fixtures-<tag>.sha256 \
+#   3. sha256sum <tag>.tar.gz > <tag>.sha256
+#   4. gh release create <tag> <tag>.tar.gz <tag>.sha256 \
 #         --repo moritztng/tt-bio --notes "Externalized parity reference fixtures"
 #   5. Commit the new provenance JSONs (meta.json/results.json) with the asset tag recorded.
 #
@@ -48,8 +48,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-ASSET="parity-fixtures-${TAG}.tar.gz"
-SHA_ASSET="parity-fixtures-${TAG}.sha256"
+ASSET="${TAG}.tar.gz"
+SHA_ASSET="${TAG}.sha256"
 API="https://api.github.com/repos/${REPO}/releases/tags/${TAG}"
 
 echo "Fetching parity fixtures: tag=${TAG} repo=${REPO} dest=${DEST}"
