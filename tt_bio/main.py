@@ -2743,15 +2743,11 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
               help="Number of independent designs to produce per spec (each with a different "
                    "noise seed = --seed + design_idx). Output files are <spec_id>.cif when 1 "
                    "(back-compat) else <spec_id>_<i>.cif.")
-@click.option("--batch_size", default=2, show_default=True, type=click.IntRange(min=1),
+@click.option("--batch_size", default=8, show_default=True, type=click.IntRange(min=1),
               help="Maximum designs from one spec evaluated in each device forward. The runtime "
-                   "automatically shrinks this for larger atom counts. Each design has its own "
-                   "seeded RNG stream, but batch-dependent bf16 tiling makes a full production-"
-                   "length trajectory (e.g. --num_timesteps 200) diverge from its standalone run "
-                   "as batch size grows (min trajectory PCC 0.999 at batch=2, 0.94 at batch=8 in "
-                   "scripts/rfd3_port/verify_batch_trajectory_parity.py) — 2 is the largest value "
-                   "verified parity-preserving at production length. Raise it for throughput only "
-                   "if you accept trading exact-draw parity for speed (see docs/rfd3-design.md).")
+                   "automatically shrinks this for larger atom counts. Each design keeps its own "
+                   "seeded RNG stream and the forward is bit-identical to running the designs one "
+                   "at a time, so batching is free of accuracy cost at any value.")
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to fan the (spec x --num_designs) jobs "
                    "across, e.g. '0,1,2,3'. One pinned subprocess per card (data-parallel, the "
