@@ -4,9 +4,11 @@
 Runs the Phase 4 label scripts over a completed (target, gen) fold dir and writes
 labels.json (one record per sample + fold-level PSS / basin clusters).
 
-Per-sample (rank r, CIF): DockQ, epitope Jaccard, interface lDDT, per-CDR RMSD.
-Per-fold: pairwise DockQ/TM matrix + PSS, basin clustering.
-PAE metrics are deferred to v2 (need per-sample pTM from results.json).
+Per-sample (rank r, CIF): DockQ, PAE metrics, epitope Jaccard, interface lDDT,
+per-CDR RMSD. Per-fold: pairwise DockQ/TM matrix + PSS, basin clustering.
+
+Per-sample pTM is read from results.json[0]["all_runs"][rank]["ptm"]; the PAE npz
+is <target>_model_<rank>_pae.npz (uniform across ranks, incl. rank 0).
 
 Usage:
     PYTHONPATH=<wt> python3 scripts/abag_xm_labels.py <results_dir> <native.cif> <fold.yaml> [--n_samples N] [--out labels.json]
@@ -51,6 +53,22 @@ def _samples(results_dir, target):
     return samples
 
 
+def _ptm_by_rank(results_dir):
+    """Read results.json[0]['all_runs'] -> {rank: ptm}."""
+    rj = results_dir / "results.json"
+    if not rj.exists():
+        return {}
+    try:
+        data = json.loads(rj.read_text())
+        if isinstance(data, list) and data:
+            data = data[0]
+        runs = data.get("all_runs", [])
+        return {rec.get("rank"): rec.get("ptm") for rec in runs
+                if isinstance(rec, dict) and rec.get("rank") is not None}
+    except Exception:
+        return {}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("results_dir")
@@ -65,6 +83,8 @@ def main():
     samples = _samples(rd, target)
     if a.n_samples and a.n_samples > 0:
         samples = samples[:a.n_samples]
+    st = rd / "structures"
+    ptm_map = _ptm_by_rank(rd)
 
     recs = []
     for rank, cif in samples:
@@ -73,6 +93,13 @@ def main():
         rec["epitope_jaccard"] = _run("abag_xm_epitope_jaccard", [str(cif), a.native, a.yaml])
         rec["interface_lddt"] = _run("abag_xm_interface_lddt", [str(cif), a.native, a.yaml])
         rec["cdr_rmsd"] = _run("abag_xm_cdr_rmsd", [str(cif), a.native, a.yaml])
+        pae_npz = st / f"{target}_model_{rank}_pae.npz"
+        ptm = ptm_map.get(rank)
+        if pae_npz.exists() and ptm is not None:
+            rec["pae_metrics"] = _run("abag_pae_metrics",
+                                       [str(cif), str(pae_npz), a.yaml, str(ptm)])
+        else:
+            rec["pae_metrics"] = {"_skipped": f"pae={pae_npz.exists()} ptm={ptm is not None}"}
         recs.append(rec)
 
     # per-fold: pairwise matrix + PSS, then basin clustering on that matrix
