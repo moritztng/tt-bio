@@ -124,6 +124,25 @@ def _tt(x, dev, dtype=ttnn.bfloat16):
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
 
 
+def _tt_host(x, dtype=ttnn.bfloat16):
+    """Host-side tiled tensor, for filling a persistent trace-input buffer.
+
+    Cannot use _tt: copy_host_to_device_tensor needs a host tensor whose spec already
+    matches the tiled device buffer the trace captured, so the tilize has to happen here.
+    Casting in torch first still avoids the expensive part -- letting ttnn convert fp32
+    while it tilizes costs 42.7 ms for a 6.9M-element bf16 tensor against 17.3 ms
+    pre-cast, and the result is bit-identical."""
+    torch_dtype = _TORCH_DTYPE.get(dtype)
+    if torch_dtype is not None:
+        x = x.to(torch_dtype)
+    return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=dtype)
+
+
+def _tt_refresh(x, dev_tensor, dtype=ttnn.bfloat16):
+    """Overwrite a persistent trace-input buffer with fresh host data."""
+    ttnn.copy_host_to_device_tensor(_tt_host(x, dtype), dev_tensor)
+
+
 def _tt_idx(indices, dev):
     """Upload a flat gather/scatter index tensor once (uint32, row-major)."""
     return ttnn.from_torch(indices.to(torch.int32).reshape(1, -1),
@@ -952,7 +971,7 @@ class LocalAtomTransformer(Module):
         return q
 
     def _persist(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
@@ -982,10 +1001,10 @@ class LocalAtomTransformer(Module):
                 ttnn.release_trace(dev, st["id"])
             self._capture_trace(q_host, c_host, p_host, mask_host, shape_key)
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(q_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(c_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(p_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
+            _tt_refresh(q_host, st["q"], dt)
+            _tt_refresh(c_host, st["c"], dt)
+            _tt_refresh(p_host, st["p"], dt)
+            _tt_refresh(mask_host, st["mask"], dt)
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
         return self._trace_state["output"]
 
@@ -1161,7 +1180,7 @@ class CompactStreamingDecoder(Module):
         return st["valid"], st["pack_idx_dev"], st["unpack_idx_dev"], st["upcast_mask_dev"]
 
     def _persist(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
@@ -1230,19 +1249,12 @@ class CompactStreamingDecoder(Module):
                 shape_key, step_key,
             )
         else:
-            ttnn.copy_host_to_device_tensor(
-                ttnn.from_torch(a_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"]
-            )
+            _tt_refresh(a_host, st["a"], dt)
             if st.get("step_key") != step_key:
                 for host, target in ((q_host, st["q"]), (c_host, st["c"]),
                                      (p_sparse, st["p"])):
-                    ttnn.copy_host_to_device_tensor(
-                        ttnn.from_torch(host, layout=ttnn.TILE_LAYOUT, dtype=dt), target
-                    )
-                ttnn.copy_host_to_device_tensor(
-                    ttnn.from_torch(attn_idx, layout=ttnn.TILE_LAYOUT,
-                                    dtype=ttnn.uint32), st["attn_idx"]
-                )
+                    _tt_refresh(host, target, dt)
+                _tt_refresh(attn_idx, st["attn_idx"], ttnn.uint32)
                 st["step_key"] = step_key
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
         return self._trace_state["output"]
@@ -1284,13 +1296,13 @@ class CompactStreamingDecoder(Module):
                                  upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length, shape_key)
             self._trace_state["step_key"] = step_key
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(a_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"])
+            _tt_refresh(a_host, st["a"], dt)
             if st.get("step_key") != step_key:
                 mask_host = _dense_attention_mask(indices)
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(q_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(c_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(p_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-                ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
+                _tt_refresh(q_host, st["q"], dt)
+                _tt_refresh(c_host, st["c"], dt)
+                _tt_refresh(p_host, st["p"], dt)
+                _tt_refresh(mask_host, st["mask"], dt)
                 st["step_key"] = step_key
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
         return self._trace_state["output"]
@@ -1855,7 +1867,7 @@ class RFD3DiffusionModule(Module):
         return q, a_out
 
     def _persist_ed(self, x_host):
-        host_t = ttnn.from_torch(x_host, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        host_t = _tt_host(x_host, self.dtype)
         dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
         ttnn.copy_host_to_device_tensor(host_t, dev_t)
         return dev_t
@@ -1899,12 +1911,12 @@ class RFD3DiffusionModule(Module):
                                                   A_I_host, S_I_host, pack_idx_dev,
                                                   downcast_mask_dev, valid, shape_key)
         else:
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(Q_L_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["q"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(C_L_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["c"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(P_LL_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["p"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(mask_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["mask"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(A_I_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["a"])
-            ttnn.copy_host_to_device_tensor(ttnn.from_torch(S_I_host, layout=ttnn.TILE_LAYOUT, dtype=dt), st["s"])
+            _tt_refresh(Q_L_host, st["q"], dt)
+            _tt_refresh(C_L_host, st["c"], dt)
+            _tt_refresh(P_LL_host, st["p"], dt)
+            _tt_refresh(mask_host, st["mask"], dt)
+            _tt_refresh(A_I_host, st["a"], dt)
+            _tt_refresh(S_I_host, st["s"], dt)
         st = self._encoder_trace_state
         ttnn.execute_trace(dev, st["id"], cq_id=0, blocking=True)
         return ttnn.to_torch(st["out_q"]).float(), ttnn.to_torch(st["out_a"]).float()
