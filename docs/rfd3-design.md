@@ -66,23 +66,24 @@ batch size, so a batched design reproduces its standalone run exactly (min
 trajectory PCC 1.000000, maxabs 0, at 200 timesteps and batch 8). Pick
 `--batch_size` on throughput alone.
 
-Throughput is where it's worth being careful, because batching only pays off on
-small designs. Measured on one Blackhole p150a at 200 timesteps:
+Throughput is where it's worth being careful, because batching pays off on
+smaller designs and stops paying on large ones. Measured on one Blackhole p150a
+at 200 timesteps:
 
 | design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
 |---|---:|---:|---:|---:|
-| 40 residues | 419 | 0.0834 designs/sec | 0.0982 | 1.18x |
-| 80 residues | 979 | 0.0469 | 0.0417 | 0.89x |
-| 150 residues | 1959 | 0.0193 | 0.0164 | 0.85x |
-| Mpro + nirmatrelvir | 2702 | 0.0099 | 0.0085 | 0.86x |
-| 250 residues | 3359 | 0.0084 | 0.0071 | 0.85x |
+| 40 residues | 419 | 0.0962 designs/sec | 0.1283 | 1.33x |
+| 80 residues | 979 | 0.0548 | 0.0597 | 1.09x |
+| 150 residues | 1959 | 0.0260 | 0.0241 | 0.93x |
+| Mpro + nirmatrelvir | 2702 | 0.0143 | 0.0130 | 0.91x |
+| 250 residues | 3359 | 0.0113 | 0.0107 | 0.95x |
 
-Above roughly 40 residues a batched forward is slower than running the designs
-one at a time, so `--batch_size 1` is the faster choice for most real targets.
-The reason is that the per-design pair stack grows as atoms squared and cannot be
-shared between designs, so past a small design size batching adds more memory
-traffic than it saves on shared work. `--devices` is the parallelism that keeps
-scaling with design size.
+Batch 8 wins up to about 80 residues. Above that a batched forward is a few
+percent slower than running the designs one at a time, because the per-design
+pair stack grows as atoms squared and cannot be shared between designs, so it
+eventually adds more memory traffic than batching saves on shared work. The
+difference is small enough either way that `--devices` is the parallelism that
+matters at large design sizes.
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
 physical TT cards, one pinned subprocess per card (data-parallel — the same
@@ -90,9 +91,9 @@ pattern `tt-bio embed`/`predict` use). Use in-forward batching on each card and
 `--devices` together when generating a larger set.
 
 ```bash
-# 32 designs per spec fanned across 4 cards, one design per forward:
+# 32 designs per spec fanned across 4 cards:
 tt-bio design specs.json --from_pdb --out_dir ./designs \
-  --num_designs 32 --batch_size 1 --devices 0,1,2,3
+  --num_designs 32 --devices 0,1,2,3
 ```
 
 ## Checkpoint
