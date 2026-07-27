@@ -1123,7 +1123,8 @@ def _public_join_url(bind_host: str, port: int) -> str:
 
 def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: int,
                 debug: bool, log: bool, results_path: Path | None = None,
-                struct_dir: Path | None = None, model: str | None = None) -> int:
+                struct_dir: Path | None = None, model: str | None = None,
+                workers_alive=None) -> int:
     """Stream events from a controller and render progress; return failed count.
 
     On every done event we fetch that job's output files from the controller
@@ -1147,6 +1148,7 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
     cap_fh = open(cap_path, "a") if cap_path else None
     after = 0
     failed = 0
+    dead_polls = 0
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
     rows_by_id: dict[str, dict] = {}
     if results_path is not None:
@@ -1184,6 +1186,25 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
             if snapshot.get("status") in ("ok", "failed", "canceled"):
                 failed = int(snapshot.get("failed") or 0)
                 break
+            # Every local worker gone while the run is still open means nothing can ever
+            # progress: unlike the serve path (_supervise_worker_processes), predict does not
+            # respawn a dead slot, so the scheduler blocks forever on a leased job. Not
+            # hypothetical -- a worker that died 4 s in (DeviceInUseError) left predict waiting
+            # 53 min, and inside a campaign that burns the whole per-fold timeout and is recorded
+            # as timed_out, which hides the real cause. Require the condition to hold for several
+            # consecutive polls so a healthy shutdown racing the controller's final status update
+            # cannot trip it.
+            if workers_alive is not None and not workers_alive():
+                dead_polls += 1
+                if dead_polls >= 20:  # ~10 s at the 0.5 s poll interval
+                    raise click.ClickException(
+                        "all local workers exited before the run finished -- no job can make "
+                        "progress. Re-run with --debug to see the worker's own error (the Rich "
+                        "display suppresses it); a common cause is another process already "
+                        "holding the card (DeviceInUseError)."
+                    )
+            else:
+                dead_polls = 0
             time.sleep(0.5)
     finally:
         display.stop()
@@ -1212,11 +1233,12 @@ def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
     path — keep it the one place so the paths can't drift apart. Returns the
     number of failed jobs.
     """
-    with _scheduler_session(listen, workers, debug) as (client, public_url):
+    with _scheduler_session(listen, workers, debug) as (client, public_url, procs):
         if public_url:
             click.echo(f"Workers may join: tt-bio worker --connect {public_url}")
         run_id = client.create_run(run_payload)["run_id"]
         failed = _stream_run(client, run_id, total=total, n_workers=len(workers),
+                             workers_alive=lambda: any(p.is_alive() for p in procs),
                              debug=debug, log=log, results_path=results_path,
                              struct_dir=struct_dir, model=model)
         _persist_run_results(client, run_id, results_path)
@@ -1294,7 +1316,7 @@ def _scheduler_session(listen: str | None, workers: list, debug: bool):
     public_url = _public_join_url(listen_host, server.port) if listen else None
     procs = _spawn_worker_processes(url, workers, debug)
     try:
-        yield ControllerClient(url), public_url
+        yield ControllerClient(url), public_url, procs
     finally:
         _stop_worker_processes(procs)
         server.shutdown()
