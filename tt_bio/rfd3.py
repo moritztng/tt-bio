@@ -57,6 +57,136 @@ def _grid_if_single_k_tile(a):
     return CORE_GRID_MAIN if a.shape[-1] <= 32 else BATCH_INVARIANT_GRID
 
 
+# --- batch-exact program-config tuning (p15) --------------------------------
+# ttnn runs `linear([B, .., M, K], [K, N])` as B independent M-row matmuls and its config
+# heuristic often leaves them on 16-64 of 130 cores (p13: matmul on 52.6 cores at 3.35% FPU
+# util). Folding the batch into M -- `fuse_batch=True` in the program config -- puts the same
+# work on the whole grid: 1.66-5.63x on this model's real per-step shapes.
+#
+# The catch is the one p14 hit with `core_grid=`: a different core distribution can regroup the
+# fp32 accumulation and change the answer. Reading tt-metal's config builders says exactly which
+# field does that -- `in0_block_w`, the K-blocking, and only it. `per_core_M/N`, `out_block_h/w`,
+# `out_subblock_h/w`, the grid and `fuse_batch` cannot: matmul output rows are independent and
+# the k-sum for one output tile is grouped purely by `in0_block_w`. The three builder branches
+# each derive it differently ((Kt%2)?1:2 / largest d<=4 dividing Kt / 2 demoted to 1) and the
+# branch predicate depends on M, batch, N and the grid -- which is why a hint is bit-exact when
+# Kt==1 (all branches give 1: `_grid_if_single_k_tile` above) and unsafe otherwise.
+#
+# So the right value is not a function of K -- the same K=128 needs 2 at N=512 and 1 at N=256 --
+# and a static table would be the trap p14 documented. Instead each shape is calibrated once
+# against ttnn's own default output: candidates that are not BITWISE identical are discarded, and
+# the fastest survivor is cached. Bit-exactness is a precondition of the choice, not an argument
+# about it, so an unseen input cannot silently pick a config that rounds differently. A grouping
+# mismatch is data-independent, so agreeing on one real activation tensor across thousands of
+# tiles means the groupings are the same; scripts/rfd3_port/probe_pinned_pair_linears.py has the
+# per-shape sweep and the cross-(I, D) evidence.
+_TUNED_MM_CACHE = {}
+_TUNE_MATMUL = os.environ.get("RFD3_TUNE_MATMUL") == "1"
+_TUNE_MIN_GAIN = 1.05  # ignore a candidate that is not at least 5% faster than the default
+_TUNE_REPS = 3
+
+
+def _mm_maxabs(a, b):
+    """Device-side max|a-b| (the outputs are up to 0.5 GB; do not download them).
+
+    `ttnn.max` without a `dim` is NOT reliably a global reduce, so take the host-side max of
+    whatever it returns -- reading element 0 of a per-row reduce checks one row and accepts a
+    config that differs everywhere else, which is exactly how the first landing of this helper
+    failed batch invariance at L=1959/D=8.
+    """
+    d = ttnn.abs(ttnn.subtract(a, b))
+    return float(ttnn.to_torch(ttnn.max(d)).float().abs().max())
+
+
+def _mm_time(fn):
+    import time
+    dev = get_device()
+    fn()
+    ttnn.synchronize_device(dev)
+    t0 = time.perf_counter()
+    for _ in range(_TUNE_REPS):
+        fn()
+    ttnn.synchronize_device(dev)
+    return (time.perf_counter() - t0) / _TUNE_REPS
+
+
+def _mm_candidates(x, w, grid):
+    """Batch-folded 1D configs, parameterised by the K-blocking `in0_block_w`.
+
+    `out_block_h=1` because every measured winner had it and a larger value only eats the L1
+    headroom `out_block_w` needs; `out_block_w` is swept because that is where the win lives
+    (1x1 is a 0.45x *regression* on one of these shapes where 1xNt is 2.04x).
+    """
+    xs, ws = list(x.padded_shape), list(w.padded_shape)
+    kt = xs[-1] // 32
+    nt = ws[-1] // 32
+    mt = 1
+    for d in xs[:-1]:
+        mt *= d
+    mt //= 32                                   # all leading dims folded into M, in tiles
+    per_core_m = -(-mt // (grid.x * grid.y))
+    for bw in (d for d in (1, 2, 3, 4, 6, 8) if kt % d == 0):
+        for obw in sorted({1, 2, nt}):
+            if nt % obw:
+                continue
+            osw = max(d for d in (1, 2, 4) if obw % d == 0 and d <= obw)
+            yield ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                compute_with_storage_grid_size=grid, in0_block_w=bw,
+                out_subblock_h=1, out_subblock_w=osw, out_block_h=1, out_block_w=obw,
+                per_core_M=per_core_m, per_core_N=nt, fuse_batch=True, mcast_in0=False)
+
+
+def _tunable(x, w):
+    """Only batched `[B, .., M, K] @ [K, N]` with a batch-1 in1 can fold its batch into M."""
+    xs, ws = list(x.padded_shape), list(w.padded_shape)
+    if len(xs) < 3 or len(ws) < 2:
+        return False
+    batch = 1
+    for d in xs[:-2]:
+        batch *= d
+    return batch > 1 and all(d == 1 for d in ws[:-2])
+
+
+def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID):
+    """`ttnn.linear` with a calibrated, bit-exact program config where one helps.
+
+    No `activation=`: ttnn wants a fused activation on the program config instead, so the two
+    silu-gated linears keep the default path (they are the cheap half of a Transition anyway).
+    """
+    kw = dict(compute_kernel_config=ckc, dtype=dtype)
+    if bias is not None:
+        kw["bias"] = bias
+    if not _TUNE_MATMUL or not _tunable(x, w):
+        return ttnn.linear(x, w, core_grid=core_grid, **kw)
+    key = (tuple(list(x.padded_shape)), tuple(list(w.padded_shape)), x.dtype, dtype,
+           bias is not None, core_grid)
+    if key not in _TUNED_MM_CACHE:
+        _TUNED_MM_CACHE[key] = _calibrate_linear(x, w, kw, core_grid)
+    pc = _TUNED_MM_CACHE[key]
+    if pc is None:
+        return ttnn.linear(x, w, core_grid=core_grid, **kw)
+    return ttnn.linear(x, w, program_config=pc, **kw)
+
+
+def _calibrate_linear(x, w, kw, core_grid):
+    """Pick the fastest program config whose output is BITWISE equal to ttnn's default."""
+    ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
+    budget = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw)) / _TUNE_MIN_GAIN
+    best = None
+    for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size()):
+        try:
+            out = ttnn.linear(x, w, program_config=pc, **kw)
+            if _mm_maxabs(out, ref) != 0.0:
+                continue
+            t = _mm_time(lambda: ttnn.linear(x, w, program_config=pc, **kw))
+        except Exception:
+            continue  # illegal L1 / subblock combinations are expected and simply skipped
+        if t < budget:
+            best, budget = pc, t
+    ttnn.deallocate(ref)
+    return best
+
+
 # --- host-side feature helpers (pure torch; mirror upstream, deps stubbed) ----
 def _collapse(x, L):
     return x.reshape((L, x.numel() // L))
@@ -185,13 +315,13 @@ class Transition(Module):
         a = ttnn.linear(x, self.fc1_w, activation="silu",
                          compute_kernel_config=self.compute_kernel_config,
                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
-        b = ttnn.linear(x, self.fc2_w, compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
+        b = _tuned_linear(x, self.fc2_w, ckc=self.compute_kernel_config,
+                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         ttnn.deallocate(x)
         m = ttnn.multiply(a, b)
         ttnn.deallocate(b)
-        out = ttnn.linear(m, self.fc3_w, compute_kernel_config=self.compute_kernel_config,
-                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
+                            dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(m)
         return out
 
@@ -243,8 +373,8 @@ class PairformerAttention(Module):
         # pair bias: [1,I,I,128] -> rms_norm -> linear -> [1,I,I,16] -> [1,16,I,I]
         z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6,
                            compute_kernel_config=self.compute_kernel_config)
-        bias = ttnn.linear(z, self.to_b_w, compute_kernel_config=self.compute_kernel_config,
-                            dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config,
+                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         bias = ttnn.permute(bias, (0, 3, 1, 2))  # [1,16,I,I]
         # Manual attention (SDPA forbids head_dim=24 padding); bf16 softmax matches the
         # reference (autocast bf16). softmax over keys (dim=-1).
@@ -846,12 +976,11 @@ class RFD3AtomBlock(Module):
         ckc, dt = self.compute_kernel_config, self.dtype
         a = ttnn.rms_norm(a, epsilon=1e-6, compute_kernel_config=ckc)
         s = ttnn.rms_norm(s, weight=ln_s, epsilon=1e-6, compute_kernel_config=ckc)
-        gain = ttnn.linear(
-            s, gain_w, bias=gain_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        gain = _tuned_linear(
+            s, gain_w, bias=gain_b, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        bias = ttnn.linear(
-            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
+        bias = _tuned_linear(
+            s, bias_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
@@ -869,10 +998,10 @@ class RFD3AtomBlock(Module):
         norm = self._adaln(
             q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
-        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
-        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
-        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
-        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        qq = _tuned_linear(norm, self.q_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        kk = _tuned_linear(norm, self.k_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        vv = _tuned_linear(norm, self.v_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        gg = _tuned_linear(norm, self.g_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         qq = ttnn.rms_norm(qq, weight=self.q_ln, epsilon=1e-6, compute_kernel_config=ckc)
         kk = ttnn.rms_norm(kk, weight=self.k_ln, epsilon=1e-6, compute_kernel_config=ckc)
 
@@ -884,9 +1013,8 @@ class RFD3AtomBlock(Module):
 
         qq, kk, vv, gg = map(heads, (qq, kk, vv, gg))
         if sparse_qk is None:
-            pair_bias = ttnn.linear(
-                p, self.b_w, compute_kernel_config=ckc, dtype=dt,
-                core_grid=CORE_GRID_MAIN,
+            pair_bias = _tuned_linear(
+                p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
             )
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
             bias = ttnn.add(pair_bias, additive_mask)
@@ -901,9 +1029,8 @@ class RFD3AtomBlock(Module):
             # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
             # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
             n_keys, attn_idx_dev, dense_bias = sparse_qk
-            pair_bias = ttnn.linear(
-                p, self.b_w, compute_kernel_config=ckc, dtype=dt,
-                core_grid=CORE_GRID_MAIN,
+            pair_bias = _tuned_linear(
+                p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
             )
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
             scores = ttnn.matmul(
@@ -931,8 +1058,8 @@ class RFD3AtomBlock(Module):
         out = ttnn.reshape(
             out, (batch, length, self.n_head * self.head_dim)
         )
-        out = ttnn.linear(
-            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
+        out = _tuned_linear(
+            out, self.o_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         gate = ttnn.linear(
             c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
@@ -953,12 +1080,11 @@ class RFD3AtomBlock(Module):
             norm, self.t_fc1, activation="silu", compute_kernel_config=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        right = ttnn.linear(
-            norm, self.t_fc2, compute_kernel_config=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        right = _tuned_linear(
+            norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        update = ttnn.linear(
-            ttnn.multiply(left, right), self.t_fc3, compute_kernel_config=ckc,
+        update = _tuned_linear(
+            ttnn.multiply(left, right), self.t_fc3, ckc=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         gate = ttnn.linear(
