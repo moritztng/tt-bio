@@ -8,3 +8,4 @@
 {"host":"qb2","leg":"L4c","card":3,"host_threads":"4","n":8,"rc":0,"wall_s":174.267145414}
 {"host":"qb2","leg":"L4c","card":1,"host_threads":"4","n":8,"rc":0,"wall_s":174.290960473}
 {"host":"qb2","leg":"L4c","card":0,"host_threads":"4","n":8,"rc":0,"wall_s":174.603367563}
+{"host":"qb2","leg":"L1u","card":0,"host_threads":"-","n":8,"wall_s":166.171646590}
