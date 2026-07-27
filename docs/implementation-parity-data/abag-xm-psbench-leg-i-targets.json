@@ -1,0 +1,79 @@
+[
+ {
+  "id": "9E89",
+  "iqr": 0.55,
+  "median": 0.434,
+  "H": "H",
+  "L": "L",
+  "A": "A",
+  "antigen": "Capsid protein",
+  "ag_len": 584,
+  "vhh_only": false
+ },
+ {
+  "id": "9OAO",
+  "iqr": 0.398,
+  "median": 0.796,
+  "H": "H",
+  "L": "L",
+  "A": "C",
+  "antigen": "Germline-targeting HIV-1 gp120 engineered outer domain eOD-GT8-mingly",
+  "ag_len": 183,
+  "vhh_only": false
+ },
+ {
+  "id": "9DM7",
+  "iqr": 0.337,
+  "median": 0.32,
+  "H": "H",
+  "L": "L",
+  "A": "A",
+  "antigen": "Mannosyltransferase",
+  "ag_len": 415,
+  "vhh_only": false
+ },
+ {
+  "id": "9JUB",
+  "iqr": 0.312,
+  "median": 0.51,
+  "H": "B",
+  "L": "C",
+  "A": "A",
+  "antigen": "Hyaluronidase PH-20",
+  "ag_len": 406,
+  "vhh_only": false
+ },
+ {
+  "id": "9JCY",
+  "iqr": 0.214,
+  "median": 0.544,
+  "H": "C",
+  "L": "B",
+  "A": "A",
+  "antigen": "Spike protein S1",
+  "ag_len": 308,
+  "vhh_only": false
+ },
+ {
+  "id": "9O54",
+  "iqr": 0.2,
+  "median": 0.586,
+  "H": "D",
+  "L": "C",
+  "A": "A",
+  "antigen": "Disintegrin and metalloproteinase domain-containing protein 17",
+  "ag_len": 483,
+  "vhh_only": false
+ },
+ {
+  "id": "9MQV",
+  "iqr": 0.198,
+  "median": 0.629,
+  "H": "H",
+  "L": "L",
+  "A": "A",
+  "antigen": "Neuraminidase",
+  "ag_len": 395,
+  "vhh_only": false
+ }
+]
