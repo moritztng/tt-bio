@@ -38,13 +38,30 @@ LABEL_VENV_PY = Path.home() / ".abag_xm_label_venv" / "bin" / "python3"
 SHARED_VENV = Path("/home/ttuser/tt-bio-dev/env")
 
 
-def _label_python_env():
+# Threads per label worker. Every numpy/BLAS pool in a label subprocess otherwise sizes
+# itself to ALL cores: measured 61 threads per subprocess, so two workers put ~122 threads
+# on a 32-core host that generation had already been carefully capped to fill exactly
+# (4 folds x 8). That is the same oversubscription the Phase-1 --host_threads work removed
+# from generation, and labelling alongside folds puts it straight back. Capped explicitly;
+# raise it with --host_threads once the box is no longer generating.
+#
+# Full CPU footprint of this campaign, so it can be reasoned about rather than discovered:
+# each label worker runs abag_xm_labels.py, which shells out to abag_xm_pairwise_matrix.py,
+# which itself opens a pool of --n_workers (default 4) processes for the C(50,2) pairs. So
+# the busy-process count is workers * 4 -- 8 at the defaults -- each now holding
+# host_threads BLAS threads rather than one per core.
+THREAD_CAP_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+                   "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")
+
+
+def _label_python_env(host_threads: int = 2):
     """Return (python, env) for invoking abag_xm_labels.py with all deps available."""
+    cap = {v: str(max(1, host_threads)) for v in THREAD_CAP_VARS}
     if LABEL_VENV_PY.exists():
         shared_sp = next(iter(SHARED_VENV.glob("lib/python*/site-packages")), None)
         pp = ":".join(str(x) for x in [shared_sp, ROOT] if x)
-        return str(LABEL_VENV_PY), {**os.environ, "PYTHONPATH": pp}
-    return sys.executable, {**os.environ, "PYTHONPATH": str(ROOT)}
+        return str(LABEL_VENV_PY), {**os.environ, **cap, "PYTHONPATH": pp}
+    return sys.executable, {**os.environ, **cap, "PYTHONPATH": str(ROOT)}
 
 
 def done_ok_pairs():
@@ -98,7 +115,7 @@ def label_one(task):
         return {"target": target, "model": model, "status": "missing_inputs",
                 "native": native.exists(), "yaml": yaml.exists(),
                 "result_dir": rd.exists()}
-    py, lenv = _label_python_env()
+    py, lenv = _label_python_env(task_host_threads)
     cmd = [py, str(SCRIPTS / "abag_xm_labels.py"),
            str(rd), str(native), str(yaml), "--out", str(out)]
     t0 = time.time()
@@ -127,23 +144,28 @@ def label_one(task):
 
 
 task_force = False
+task_host_threads = 2
 
 
 def main():
-    global task_force
+    global task_force, task_host_threads
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=2,
                     help="parallel label workers (CPU-bound; 2 is safe alongside folds)")
     ap.add_argument("--force", action="store_true",
                     help="re-label even if a labels JSON already exists")
+    ap.add_argument("--host_threads", type=int, default=2,
+                    help="thread cap per label worker; 2 is safe alongside generation, "
+                         "raise it once the host is no longer folding")
     a = ap.parse_args()
     task_force = a.force
+    task_host_threads = a.host_threads
     LABELS_DIR.mkdir(parents=True, exist_ok=True)
     pairs = done_ok_pairs()
     tasks = [(t, m, rec) for (t, m), rec in pairs.items()]
     tasks.sort()
     print(f"[campaign] {len(tasks)} ok pairs to label (workers={a.workers}, "
-          f"force={a.force})", flush=True)
+          f"host_threads={a.host_threads}, force={a.force})", flush=True)
     if not tasks:
         print("[campaign] nothing to do; no ok pairs yet", flush=True)
         return
