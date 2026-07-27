@@ -64,12 +64,24 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
                            f"samples={len(samples)} n={n}")
     pss = _per_sample_pss(labels["pairwise_matrix"])
 
+    # A learned ranker that fails returns {} and the fold is still written -- 50 complete-looking
+    # rows with one empty column, indistinguishable from "that ranker was not requested". ABAG-Rank
+    # did exactly this for want of h5py: the run reported success and the downstream signal script
+    # said "learned rankers: NOT run yet". Requested-but-empty is an error, and it says so.
     deeprank_scores = {}
     if with_deeprank:
         deeprank_scores = _run_deeprank(fold_dir, target, gen, deeprank_venv)
+        if not deeprank_scores:
+            _EMPTY_LEARNED.append((target, gen, "deeprank_ab"))
+            print(f"[ranker_scores] !! {target}/{gen}: deeprank_ab requested but produced NO "
+                  f"scores -- that column will be empty", file=sys.stderr, flush=True)
     abagrank_scores = {}
     if with_abagrank:
         abagrank_scores = _run_abagrank(fold_dir, target, gen, abagrank_dir)
+        if not abagrank_scores:
+            _EMPTY_LEARNED.append((target, gen, "abag_rank"))
+            print(f"[ranker_scores] !! {target}/{gen}: abag_rank requested but produced NO "
+                  f"scores -- that column will be empty", file=sys.stderr, flush=True)
 
     rows = []
     for k in range(n):
@@ -97,6 +109,8 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
 
 
 _FORCE_DEEPRANK = False
+# (target, gen, column) for every learned ranker that was asked for and returned nothing.
+_EMPTY_LEARNED = []
 
 
 def _device_folds_running():
@@ -291,6 +305,15 @@ def main():
             except Exception as e:
                 print(f"[ranker_scores] ERROR {target} {gen}: {e}", file=sys.stderr)
     print(f"[ranker_scores] wrote {args.out}")
+    if _EMPTY_LEARNED:
+        by_col = {}
+        for _t, _g, _c in _EMPTY_LEARNED:
+            by_col.setdefault(_c, []).append(f"{_t}/{_g}")
+        for _c, _folds in sorted(by_col.items()):
+            print(f"[ranker_scores] !! {_c}: EMPTY for {len(_folds)} fold(s) that requested it "
+                  f"-- e.g. {', '.join(_folds[:4])}", file=sys.stderr)
+        print("[ranker_scores] !! the CSV is complete in every other column, so this will look "
+              "like the ranker was simply never run. Fix before using it.", file=sys.stderr)
 
 
 if __name__ == "__main__":
