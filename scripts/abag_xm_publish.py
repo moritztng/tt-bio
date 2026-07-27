@@ -111,6 +111,16 @@ def preflight(out: Path, expect_samples: int) -> list[str]:
         n_folds = df.groupby(["target", "generator"]).ngroups
         if len(df) != n_folds * expect_samples:
             fail.append(f"labels rows {len(df)} != {n_folds} folds x {expect_samples}")
+        # The card promises every row traces to the exact code that produced it. A "-dirty"
+        # commit means the worktree had uncommitted changes when that fold ran, so it traces to
+        # nothing reproducible -- regenerate those folds rather than publish an untraceable row.
+        dirty = df[df.tt_bio_commit.astype(str).str.endswith("-dirty")]
+        if len(dirty):
+            folds = sorted({f"{t}/{g}" for t, g in zip(dirty.target, dirty.generator)})
+            fail.append(f"{len(dirty)} rows ({len(folds)} folds) ran from a DIRTY worktree and "
+                        f"cannot be traced to a commit: {folds[:6]}"
+                        + (" ..." if len(folds) > 6 else ""))
+
         tgt = out / "targets.parquet"
         if tgt.exists():
             # A targets table that does not cover every released target leaves rows with no
