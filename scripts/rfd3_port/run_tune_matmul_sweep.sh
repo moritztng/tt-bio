@@ -16,13 +16,16 @@
 # fixtures: iai40 iai80 iai150 mpro iai250
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd)
-PY=/home/moritz/tt-bio/env/bin/python3
+# Defaults are pc/card-0; PY, TT_VISIBLE_DEVICES and TT_BIO_LEASE_HOLDER are all overridable
+# because the measurement needs one free card and does not care which host it is on. p16 lost a
+# whole pass waiting on pc while three other cards sat idle.
+PY=${PY:-/home/moritz/tt-bio/env/bin/python3}
 LOG=$WT/scripts/rfd3_port/tune_matmul_sweep.log
 TIMESTEPS=${TIMESTEPS:-20}
 ROUNDS=1
 cd "$WT" || exit 1
-export TT_VISIBLE_DEVICES=0
-export TT_BIO_LEASE_HOLDER=worker:tt-bio-rfdiffusion3-batch-perf-p16
+export TT_VISIBLE_DEVICES=${TT_VISIBLE_DEVICES:-0}
+export TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:rfd3-tune-matmul-sweep}
 # RFD3_TRACE_DECODER is opt-in in tt_bio/rfd3.py and `tt-bio design` never sets it, so TRACE=0 is
 # the SHIPPED configuration and the one the default decision and the docs table must come from.
 # TRACE=1 is kept because p25/p26 measured the decoder trace a real 1.25x and it is the config the

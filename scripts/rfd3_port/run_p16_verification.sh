@@ -19,17 +19,22 @@
 #    transient neighbour used to cost the whole sweep.
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd)
-PY=/home/moritz/tt-bio/env/bin/python3
+# Defaults are pc/card-0; PY, TT_VISIBLE_DEVICES and TT_BIO_LEASE_HOLDER are all overridable
+# because the measurement needs one free card and does not care which host it is on. p16 lost a
+# whole pass waiting on pc while three other cards sat idle.
+PY=${PY:-/home/moritz/tt-bio/env/bin/python3}
 REPORT=$WT/scripts/rfd3_port/p16_verification_report.txt
 ROUNDS=2
 [ "${1:-}" = --rounds ] && { ROUNDS=$2; shift 2; }
 
 cd "$WT" || exit 1
-export TT_VISIBLE_DEVICES=0
-export TT_BIO_LEASE_HOLDER=worker:tt-bio-rfdiffusion3-batch-perf-p16
+export TT_VISIBLE_DEVICES=${TT_VISIBLE_DEVICES:-0}
+export TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:rfd3-tune-matmul-sweep}
 export TT_BIO_LEASE_TIMEOUT=${TT_BIO_LEASE_TIMEOUT:-3600}
 export TT_METAL_LOGGER_LEVEL=FATAL
 export LOGURU_LEVEL=WARNING
+
+export PY
 
 say() { echo "$*" | tee -a "$REPORT"; }
 
@@ -60,11 +65,18 @@ TRACE=0 "$WT/scripts/rfd3_port/run_tune_matmul_sweep.sh" --rounds "$ROUNDS" \
 say "sweep rc=$? (rows also appended to scripts/rfd3_port/tune_matmul_sweep.log)"
 
 # --- 2. trace-ON A/B, cross-check that the win is not one dispatch regime's artifact ---------
+# Not part of the decision rule -- [1] alone decides the default -- and it costs ~20 min of card,
+# so CROSSCHECK=0 skips it when the card is the scarce resource.
+if [ "${CROSSCHECK:-1}" = 1 ]; then
 say ""
 say "--- [2/4] trace-ON A/B cross-check (TRACE=1), $ROUNDS rounds x iai40 iai150 ---"
 TRACE=1 "$WT/scripts/rfd3_port/run_tune_matmul_sweep.sh" --rounds "$ROUNDS" \
     iai40 iai150 >>"$REPORT" 2>&1
 say "sweep rc=$?"
+else
+say ""
+say "--- [2/4] trace-ON A/B cross-check SKIPPED (CROSSCHECK=0) ---"
+fi
 
 # --- 3. first-design calibration overhead ----------------------------------------------------
 # bench_batch_designs_per_sec.py CANNOT see this: it warms up with a full 4-step sample, so the
@@ -83,7 +95,7 @@ for steps in 5 20; do
     for tune in $order; do
       out=$(mktemp -d); t0=$(date +%s.%N)
       RFD3_TUNE_MATMUL=$tune PYTHONPATH="$WT" "$PY" -m tt_bio.main design "$SPEC" \
-          --from_pdb --out_dir "$out" --num_designs 8 --num_timesteps "$steps" --devices 0 \
+          --from_pdb --out_dir "$out" --num_designs 8 --num_timesteps "$steps" --devices "$TT_VISIBLE_DEVICES" \
           >"$out/log" 2>&1
       rc=$?; t1=$(date +%s.%N)
       say "[calib steps=$steps r$round tune=$tune] wall=$(echo "$t1 - $t0" | bc)s rc=$rc \
