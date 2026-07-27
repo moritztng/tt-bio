@@ -59,6 +59,51 @@ except Exception:
 
 
 
+
+# --- fold interpreter -------------------------------------------------------------
+# NEVER use bare sys.executable here. This script's own usage line launches it as
+# `PYTHONPATH=$PWD python3 scripts/abag_xm_generate.py`, i.e. SYSTEM python, which cannot
+# import tt-bio's deps -- so every fold died instantly with
+# `ModuleNotFoundError: No module named 'click'` while still being recorded as a
+# progress.jsonl entry. That is how 270 of 438 Tier-A records became fold_failed while the
+# campaign looked like it was progressing (audit 2026-07-27). The shell wrappers
+# (abag_xm_tiera_watchdog.sh etc.) hardcode the venv python, which is why the folds launched
+# through them are the ones that worked.
+# Resolve a python that can actually import the deps, and VALIDATE ONCE up front so a bad
+# interpreter is a loud startup abort instead of N silent per-fold failures.
+def _resolve_fold_python():
+    """Pick an interpreter that can actually RUN a fold, preferring the tt-bio venvs.
+
+    Validation is `-m tt_bio.main --help`, not `import click, tt_bio`: the import check is too
+    weak -- on some hosts the SYSTEM python can import both yet still lack torch/ttnn, so it
+    would be selected and then fail at fold time, which is the exact silent-failure class this
+    guard exists to prevent. The venvs are tried BEFORE sys.executable for the same reason.
+    """
+    cands = [str(ROOT / "env" / "bin" / "python3"),
+             str(Path.home() / "tt-bio" / "env" / "bin" / "python3"),
+             str(Path.home() / "tt-bio-dev" / "env" / "bin" / "python3"),
+             sys.executable]
+    seen, tried = set(), []
+    for c in cands:
+        if not c or c in seen:
+            continue
+        seen.add(c)
+        if not Path(c).exists():
+            tried.append(f"{c} -> absent")
+            continue
+        r = subprocess.run([c, "-m", "tt_bio.main", "--help"], capture_output=True, text=True,
+                           cwd=str(ROOT), env={**os.environ, "PYTHONPATH": str(ROOT)},
+                           timeout=300)
+        last = (r.stderr or "").strip().splitlines()
+        tried.append(f"{c} -> rc={r.returncode}" + (f" ({last[-1][:110]})" if r.returncode and last else ""))
+        if r.returncode == 0:
+            return c
+    raise SystemExit("abag_xm_generate: no interpreter can run `-m tt_bio.main --help`. Tried:\n  "
+                     + "\n  ".join(tried))
+
+
+FOLD_PY = _resolve_fold_python()
+
 def all_targets():
     """164 target ids from the manifest, in manifest order (stable across relaunches)."""
     try:
@@ -119,7 +164,7 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
     except Exception as _e:
         return {"target": target, "model": model, "status": "bad_yaml",
                 "yaml": str(yaml), "reason": f"parse error: {_e}"}
-    cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(yaml),
+    cmd = [FOLD_PY, "-m", "tt_bio.main", "predict", str(yaml),
            "--model", model, "--out_dir", str(out_dir),
            "--diffusion_samples", str(n_samples), "--max_parallel_samples", str(mps),
            "--msa_dir", str(MSA_DIR), "--msa_db_path", str(MSA_DB_PATH),
