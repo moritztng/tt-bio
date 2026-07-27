@@ -124,6 +124,10 @@ SHAPES = [
     ("zpair [D,250,250,128]@[128,32]", lambda D: (D, 250, 250, 128), lambda D: (128, 32)),
     ("dit  [1,D,250,768]@[768,768]", lambda D: (1, D, 250, 768), lambda D: (768, 768)),
     ("dit  [1,D,250,384]@[384,768]", lambda D: (1, D, 250, 384), lambda D: (384, 768)),
+    # atom-encoder QK^T: K=head_dim=32, so the single-K-tile rule binds. Already at
+    # 120/130 cores in p13's profile, so this measures whether the rule is worth
+    # applying beyond the 1-core decoder sites or is a no-op there.
+    ("encqk [D,4,1959,32]@[D,4,32,1959]", lambda D: (D, 4, 1959, 32), lambda D: (D, 4, 32, 1959)),
 ]
 
 
