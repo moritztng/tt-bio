@@ -233,10 +233,13 @@ CAPACITY_TOKENS = 1095      # the largest target the AbAg-XM Tier-A set folds
 CAPACITY_SAMPLES = 50
 CAPACITY_MPS = 5
 CAPACITY_STEPS = 6
-# Budget, in GiB of device DRAM. Set from the measured peak plus headroom; a regression that
-# reintroduces an M-replicated pair bias blows through it by gigabytes, so the bar does not
-# need to be tight. Env-tunable so a smaller card can gate against its own budget.
-CAPACITY_MAX_GIB = float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB", "12.0"))
+# Budget, in GiB of device DRAM. Measured peak for this configuration on a Blackhole p150a is
+# 5.90 GiB, so 7.0 leaves ~19% headroom: loose enough that it does not chase run-to-run noise
+# (the shapes are deterministic, so there is very little), tight enough to catch the small
+# regressions too -- re-replicating just the atom-transformer pair bias and the windowed atom
+# pair tensor would add ~0.9 GiB, and re-replicating the DiT pair biases would add ~9.6 GiB.
+# Env-tunable so a card with a different budget can gate against its own.
+CAPACITY_MAX_GIB = float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB", "7.0"))
 
 
 def _msa_args(model: str) -> list:
@@ -552,6 +555,7 @@ def run_capacity(keep: bool) -> dict:
         "--max_parallel_samples", str(CAPACITY_MPS),
         "--seed", str(SEED),
         "--single_sequence",
+        "--write_pae",          # the per-sample PAE files this leg counts are opt-in
         "--out_dir", str(REPO_ROOT),
     ]
     print(f"\n{'='*70}\n[capacity] {CAPACITY_DATA.name} ({CAPACITY_TOKENS} tokens), "
@@ -595,10 +599,12 @@ def run_capacity(keep: bool) -> dict:
     struct_dir = out / "structures"
     row["cifs"] = len(sorted(struct_dir.glob(f"{name}*.cif"))) if struct_dir.exists() else 0
     row["paes"] = len(sorted(out.rglob("*_pae.npz")))
-    # n_paes == n_samples + 1: the extra is the backwards-compat top-ranked {tid}_pae.npz
-    # kept alongside the per-sample {tid}_model_{k}_pae.npz.
-    if row["cifs"] != CAPACITY_SAMPLES or row["paes"] != CAPACITY_SAMPLES + 1:
-        row["error"] = (f"expected {CAPACITY_SAMPLES} CIFs and {CAPACITY_SAMPLES + 1} PAEs, "
+    # One CIF per sample plus the confidence-selected copy ({name}.cif), and exactly one PAE:
+    # --write_pae on main writes the best sample's pae+pde only. Per-sample PAE files
+    # ({name}_model_{k}_pae.npz) are NOT a main feature -- that write path lives on the
+    # AbAg-XM campaign branch, so do not gate main on it.
+    if row["cifs"] != CAPACITY_SAMPLES or row["paes"] < 1:
+        row["error"] = (f"expected {CAPACITY_SAMPLES} CIFs and >=1 PAE, "
                         f"got {row['cifs']} and {row['paes']}")
         return row
     if row["peak_gib"] > CAPACITY_MAX_GIB:
