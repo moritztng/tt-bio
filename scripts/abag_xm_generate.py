@@ -44,6 +44,7 @@ N_SAMPLES = 50
 SEED = 42
 FOLD_TIMEOUT_S = 3600  # 50 samples on a 1095-res target can approach ~50 min; give 60.
 MPS = 5  # max_parallel_samples -- honours the cap after the 3b fix (boltz2) / always did (protenix)
+CONCURRENT_FOLDS = 4  # one harness per card on a 4-card QuietBox; sets the per-fold CPU share
 
 # D12 (per-model config fairness contract) — resolved-config fields recorded in
 # every progress.jsonl line so Phase 4 can assert constancy within a generator
@@ -136,7 +137,7 @@ def _dir_bytes(p):
 
 
 def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
-             fold_timeout_s=FOLD_TIMEOUT_S):
+             fold_timeout_s=FOLD_TIMEOUT_S, host_threads=None):
     out_dir = OUT_BASE / model.replace("-", "_")
     result_dir = out_dir / f"{RESULT_PREFIX[model]}_results_{target}"
     yaml = YAML_DIR / f"{target}.yaml"
@@ -169,6 +170,12 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
            "--diffusion_samples", str(n_samples), "--max_parallel_samples", str(mps),
            "--msa_dir", str(MSA_DIR), "--msa_db_path", str(MSA_DB_PATH),
            "--seed", str(SEED), "--override", "--write_pae"]
+    # One harness per card means N single-card predicts share this host. Each would
+    # otherwise size its torch/OMP/BLAS pools to every core, so N folds oversubscribe
+    # the CPU N-fold and the host-side work (featurization, layout conversion, output)
+    # collapses -- the reason 4 cards gave 2.4x instead of 4x. Hand each fold its share.
+    if host_threads:
+        cmd += ["--host_threads", str(host_threads)]
     t0 = time.time()
     proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True,
@@ -191,7 +198,7 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
     rec = {"target": target, "model": model, "wall_s": round(wall_s, 1),
            "device": device, "n_samples": n_samples, "mps": mps,
            "host": _HOST, "tt_bio_commit": _TT_BIO_COMMIT,
-           "paired_msa": False}
+           "paired_msa": False, "host_threads": host_threads}
     if timed_out:
         rec["status"] = "timed_out"
         rec["stderr"] = f"killed after {fold_timeout_s}s (process group); tail: {(out or '')[-1500:]}"
@@ -256,14 +263,22 @@ def main():
     ap.add_argument("--mps", type=int, default=MPS)
     ap.add_argument("--timeout", type=int, default=FOLD_TIMEOUT_S,
                     help="per-fold wall-clock timeout in seconds (default %(default)d)")
+    ap.add_argument("--concurrent_folds", type=int, default=CONCURRENT_FOLDS,
+                    help="how many of these harnesses run side by side on this host "
+                         "(default = one per card = %(default)d). Each fold gets "
+                         "cores//concurrent_folds CPU threads via predict --host_threads; "
+                         "without that split every fold sizes its thread pools to all "
+                         "cores and they thrash the host CPU.")
     a = ap.parse_args()
+    host_threads = max(1, (os.cpu_count() or 1) // max(1, a.concurrent_folds))
     targets = a.targets.split(",") if a.targets else all_targets()
     models = a.models.split(",")
     OUT_BASE.mkdir(parents=True, exist_ok=True)
     MSA_DIR.mkdir(parents=True, exist_ok=True)
     skip = done_pairs()
     print(f"[harness] device={a.device} targets={len(targets)} models={models} "
-          f"n_samples={a.n_samples} mps={a.mps} skip={len(skip)}", flush=True)
+          f"n_samples={a.n_samples} mps={a.mps} skip={len(skip)} "
+          f"host_threads={host_threads}", flush=True)
     for target in targets:
         for model in models:
             if (target, model) in skip:
@@ -271,7 +286,7 @@ def main():
                 continue
             print(f"[start] {target} {model} {time.strftime('%H:%M:%S')}", flush=True)
             rec = fold_one(target, model, a.device, a.n_samples, a.mps,
-                           fold_timeout_s=a.timeout)
+                           fold_timeout_s=a.timeout, host_threads=host_threads)
             with open(PROGRESS, "a") as fp:
                 fp.write(json.dumps(rec) + "\n")
             print(f"[done]  {target} {model} status={rec['status']} "
