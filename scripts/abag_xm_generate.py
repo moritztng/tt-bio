@@ -42,7 +42,14 @@ RESULT_PREFIX = {"protenix-v2": "protenix", "opendde-abag": "opendde",
 # chunking); protenix/opendde use their own (correct) sampler at the same mps=5.
 N_SAMPLES = 50
 SEED = 42
-FOLD_TIMEOUT_S = 3600  # 50 samples on a 1095-res target can approach ~50 min; give 60.
+# The parked pre-p4 slab measured the worst case directly: 9j4c (1095 tokens, the largest target)
+# took 3238 s = 54 min for 50 samples on the sequential path. Against the old 3600 s that is a 10%
+# margin, and 9j4c / 9i3p / 9ivj each appear BOTH ok and timed_out in that slab -- i.e. they sat on
+# the timeout boundary and flipped with host contention. That, not "slow targets", is why the three
+# largest protenix targets were recorded timed_out. s/token is stable at 2.7-3.4 across the top end,
+# so the ceiling is predictable rather than pathological. 7200 s is ~2.2x the observed worst case and
+# matches what abag_xm_resume_opendde.sh already uses.
+FOLD_TIMEOUT_S = 7200
 # max_parallel_samples. 3, not 5: at 5 the device OOMs on real campaign targets --
 # "Not enough space to allocate 1061683200 B DRAM buffer across 8 banks" on 21av (556 tokens),
 # and the same on 9dsg (656) and 9d73 (699), 3 of the first 3 folds of the 2026-07-27 launch, on
