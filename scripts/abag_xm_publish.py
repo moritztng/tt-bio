@@ -30,12 +30,58 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CARD_SRC = ROOT / "docs" / "abag-xm-dataset-card.md"
+# Assembly runs without --repo, and the card still has to name one.
+# This is the target the frozen design records; --repo overrides it.
+DEFAULT_REPO = "tt-moritz/abag-xm"
 SCRIPTS = ROOT / "scripts"
 
 
 def run(cmd, **kw):
     print(f"  $ {' '.join(str(c) for c in cmd)}")
     return subprocess.run(cmd, **kw)
+
+
+def _tt_bio_url():
+    """The tt-bio URL the card links to, derived from this checkout's own remote.
+
+    Derived rather than hardcoded so it cannot drift from where the code actually lives.
+    """
+    try:
+        r = subprocess.run(["git", "-C", str(ROOT), "remote", "get-url", "origin"],
+                           capture_output=True, text=True, timeout=15)
+        url = r.stdout.strip()
+    except Exception:
+        url = ""
+    if not url:
+        return "https://github.com/moritztng/tt-bio"
+    if url.startswith("git@"):                       # git@github.com:owner/repo.git
+        url = "https://" + url[4:].replace(":", "/", 1)
+    return url[:-4] if url.endswith(".git") else url
+
+
+def _fill_card(text, out: Path, repo):
+    """Substitute the card's {{placeholders}} from the tables just built.
+
+    The counts come from labels.parquet, never from a constant: the card states the size of the
+    release, and a hand-typed size is a claim about data rather than a description of it. Before
+    this, nothing filled these at all -- the preflight only detected them -- so a real publish
+    would have blocked until someone edited the card by hand.
+    """
+    vals = {"HF_REPO": repo or DEFAULT_REPO, "TT_BIO_URL": _tt_bio_url()}
+    lab = out / "labels.parquet"
+    if lab.exists():
+        import pandas as pd
+        df = pd.read_parquet(lab)
+        vals["N_TARGETS"] = str(df.target.nunique())
+        vals["N_SAMPLES_TOTAL"] = f"{len(df):,}"
+    filled = {}
+    for k, v in vals.items():
+        token = "{{%s}}" % k
+        if token in text:
+            text = text.replace(token, v)
+            filled[k] = v
+    missing = {w for w in text.split() if "{{" in w}
+    return text, filled, missing
 
 
 def preflight(out: Path, expect_samples: int) -> list[str]:
@@ -90,8 +136,13 @@ def main():
     run([sys.executable, str(SCRIPTS / "abag_xm_stage_release.py"), "--out_dir", str(out)])
     print("[3/4] dataset card")
     if CARD_SRC.exists():
-        (out / "README.md").write_text(CARD_SRC.read_text())
+        text, filled, missing = _fill_card(CARD_SRC.read_text(), out, a.repo)
+        (out / "README.md").write_text(text)
         print(f"  copied {CARD_SRC.name} -> README.md")
+        for k, v in sorted(filled.items()):
+            print(f"    {k} = {v}")
+        if missing:
+            print(f"    !! still unfilled: {sorted(missing)}")
 
     print("[4/4] preflight")
     fail = preflight(out, a.samples)
