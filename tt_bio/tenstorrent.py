@@ -2826,6 +2826,23 @@ class DiffusionModule(TorchWrapper):
     def _create_module(self, weights: WeightScope):
         return Diffusion(weights, self.compute_kernel_config)
 
+    def _cache_sample_conditioning(
+        self, q: torch.Tensor, c: torch.Tensor, r_batch: int, atom_pad: int
+    ) -> None:
+        """Cache ``q``/``c``, the only conditioning tensors carrying the sample dim.
+
+        They arrive un-batched and are expanded to the sample batch of ``r``, so a
+        later chunk with a different sample count needs them rebuilt -- everything
+        else in the cache is invariant across chunks.
+        """
+        for name, t in (("q", q), ("c", c)):
+            t_pt = t if r_batch == t.shape[0] else torch.repeat_interleave(t, r_batch, dim=0)
+            if atom_pad:
+                t_pt = torch.nn.functional.pad(t_pt, (0, 0, 0, atom_pad))
+            self._deallocate_tensor_like(self._cache_get(name))
+            self._cache_set(name, self._from_torch(t_pt))
+        self._cache_set("r_batch", r_batch)
+
     def _populate_diffusion_cache(
         self,
         r_batch: int,
@@ -2871,6 +2888,7 @@ class DiffusionModule(TorchWrapper):
             "atom_to_token",
             "atom_to_token_normed",
             "atom_pad",
+            "r_batch",
         )
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
             self._clear_runtime_cache()
@@ -2884,13 +2902,7 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("s_inputs", self._from_torch(s_inputs))
             self._cache_set("s_trunk", self._from_torch(s_trunk))
 
-            q_pt = q if r_batch == q.shape[0] else torch.repeat_interleave(q, r_batch, dim=0)
-            c_pt = c if r_batch == c.shape[0] else torch.repeat_interleave(c, r_batch, dim=0)
-            if atom_pad:
-                q_pt = torch.nn.functional.pad(q_pt, (0, 0, 0, atom_pad))
-                c_pt = torch.nn.functional.pad(c_pt, (0, 0, 0, atom_pad))
-            self._cache_set("q", self._from_torch(q_pt))
-            self._cache_set("c", self._from_torch(c_pt))
+            self._cache_sample_conditioning(q, c, r_batch, atom_pad)
 
             if atom_pad:
                 ki_pad_rows = 2 * NW_padded - keys_indexing.shape[0]
@@ -2956,6 +2968,11 @@ class DiffusionModule(TorchWrapper):
 
             self._cache_set("atom_pad", atom_pad)
             self._first_forward_pass = False
+        elif self._cache_get("r_batch") != r_batch:
+            # A chunk whose sample count differs from the first one -- which happens
+            # whenever ``max_parallel_samples`` does not divide ``diffusion_samples``
+            # and the final chunk comes up short. Only q/c carry that dimension.
+            self._cache_sample_conditioning(q, c, r_batch, atom_pad)
         return seq_len, N, N_padded
 
     def _run_diffusion_device(
