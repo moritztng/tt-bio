@@ -50,18 +50,18 @@ SEED = 42
 # so the ceiling is predictable rather than pathological. 7200 s is ~2.2x the observed worst case and
 # matches what abag_xm_resume_opendde.sh already uses.
 FOLD_TIMEOUT_S = 7200
-# max_parallel_samples. 3, not 5: at 5 the device OOMs on real campaign targets --
-# "Not enough space to allocate 1061683200 B DRAM buffer across 8 banks" on 21av (556 tokens),
-# and the same on 9dsg (656) and 9d73 (699), 3 of the first 3 folds of the 2026-07-27 launch, on
-# BOTH a p150a and a P300. It went unseen because every earlier probe used 9w14 (412 tokens) at
-# 8 samples, while the campaign runs up to 1095 tokens at 50. 67 of 164 targets are >550 tokens,
-# so ~41% of the slab would have failed.
-# 3 is the largest value verified against the WORST CASE: 9j4c (1095 tokens, the largest target)
-# at the real n_samples=50 allocated fine at mps=1, 2 and 3, where the failures above aborted
-# after ~200 s. mps=4 is untested.
-# This must stay CONSTANT for the whole slab: the batched path draws all mps samples from one RNG
-# stream, so a per-target mps would mix two sampling procedures in one dataset.
-MPS = 3
+# max_parallel_samples. BACK TO 5, the only value validated for boltz2.
+# 3 was set while chasing the protenix OOM, on a hypothesis that was then retracted: the
+# protenix batched path is entered on n_sample > 1 regardless of mps, so mps never affected that
+# OOM, and with supports_multiplicity=False protenix/opendde ignore mps entirely. So this knob now
+# only reaches boltz2 -- the one generator that genuinely chunks on it (boltz2.py:4074-4147).
+# At mps=3 boltz2 dies in ~68 s with
+#   TT_FATAL binary_ng_device_operation.cpp:346: a_dim == b_dim || a_dim == 1 || b_dim == 1
+#   Broadcasting rule violation
+# while the parked slab has 65 boltz2 ok records at mps=5 (its 130 failures were the
+# interpreter bug, not mps). The mechanism at 3 is NOT established; 5 is simply the validated
+# value and the campaign has no reason to deviate from it.
+MPS = 5
 CONCURRENT_FOLDS = 4  # one harness per card on a 4-card QuietBox; sets the per-fold CPU share
 
 # D12 (per-model config fairness contract) — resolved-config fields recorded in
