@@ -10,14 +10,29 @@
 # watchdog doesn't kill legitimate long folds. If the 13 still time out at
 # 7200s, accept the 8% protenix gap (boltz2+opendde cover those targets).
 set +u
-WT=/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p3
+WT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # this checkout, not a hardcoded slug
 PY=/home/ttuser/tt-bio/env/bin/python3
 PROG=$WT/scripts/abag_xm_generate.py
 PROGRESS=$HOME/abag_xm/tier_a/progress.jsonl
-LEASE=worker:abag-xm-crossmodel-ranking-dataset-p3
+LEASE="worker:$(basename "$WT")"
 TIMEOUT=7200
 STALL=9000
 TT_SMI=$HOME/.tenstorrent-venv/bin/tt-smi
+# Cards this supervisor OWNS. Everything destructive below is scoped to these, because a
+# QuietBox is shared with the rest of the fleet: `tt-smi -r $CARDS_CSV` on a stall would hard-reset
+# a sibling worker's in-flight card, and `rm -f .../leases/tt-quietbox-card*.json` would delete
+# its lease. Observed live 2026-07-27: worker tt-bio-rfdiffusion3-batch-perf-p17 held card 1
+# while this campaign was idle. Override with CARDS="0 2" for a partial box.
+CARDS="${CARDS:-0 1 2 3}"
+CARDS_CSV=$(echo "$CARDS" | tr " " ",")
+# Drop only OUR lease files, and only if we are still the recorded holder -- never a sibling's.
+release_own_leases(){ local c
+  for c in $CARDS; do
+    local f=$HOME/.coworker/state/leases/$(hostname)-card$c.json
+    [ -f "$f" ] || continue
+    grep -q "\"holder\": \"$LEASE\"" "$f" && rm -f "$f"
+  done; }
+
 
 T0="21av,9ck4,9d74,9gfr,9i5n,9j87,9kwy,9l9y,9lh2,9log,9lr1,9lxp,9ly6,9m0j,9m2o,9m40,9ma0,9mnt,9mz6,9mzf,9n1p,9n8i,9nkz,9nw4,9nzf,9pso,9q6y,9qqf,9rn6,9sbb,9th6,9u5r,9ugo,9ulp,9v0x,9vmo,9wb3,9x05,9xqc,9y0a,9yxd"
 T1="21du,9d3j,9dsg,9gvn,9iar,9jkr,9l1l,9lbw,9lme,9loz,9lsy,9ly2,9lz0,9m0x,9m2s,9m72,9mmj,9mnu,9mz7,9n05,9n1q,9n8n,9nl0,9nw7,9obn,9q1l,9q6z,9qrv,9rye,9ssm,9tmp,9ua5,9uk2,9uo0,9v1h,9vnp,9wb4,9x0j,9xqn,9y0e,9ynx"
@@ -32,18 +47,18 @@ launch_card(){ local card="$1"; local targets="${SUBSETS[$card]}"
     --timeout "$TIMEOUT" --models protenix-v2,boltz2,opendde-abag \
     >> /tmp/abag_tiera_card$card.log 2>&1 < /dev/null &
   echo "$!"; }
-kill_all(){ for c in $(pgrep -f "python3 -m tt_bio.main predict" 2>/dev/null); do kill -INT "$c" 2>/dev/null; done; sleep 6
-  for c in $(pgrep -f "python3 -m tt_bio.main predict" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
-  for c in $(pgrep -f "python3.*abag_xm_generate" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
+kill_all(){ for c in $(pgrep -f "$WT.*tt_bio.main predict" 2>/dev/null); do kill -INT "$c" 2>/dev/null; done; sleep 6
+  for c in $(pgrep -f "$WT.*tt_bio.main predict" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
+  for c in $(pgrep -f "$WT.*abag_xm_generate" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
   for c in $(pgrep -f "multiprocessing.spawn import spawn_main" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
-  sleep 2; rm -f ~/.coworker/state/leases/tt-quietbox-card*.json; }
-recover_all(){ log "RECOVER (stall): kill all + tt-smi -r 0,1,2,3 + relaunch"
-  kill_all; timeout 120 "$TT_SMI" -r 0,1,2,3 >/dev/null 2>&1; sleep 3
+  sleep 2; release_own_leases; }
+recover_all(){ log "RECOVER (stall): kill all + tt-smi -r $CARDS_CSV + relaunch"
+  kill_all; timeout 120 "$TT_SMI" -r "$CARDS_CSV" >/dev/null 2>&1; sleep 3
   PIDS=(); for c in 0 1 2 3; do PIDS[$c]=$(launch_card $c); log "relaunched card $c pid=${PIDS[$c]}"; done; }
 progress_mtime(){ stat -c %Y "$PROGRESS" 2>/dev/null || echo 0; }
 
 # sanity: don't start if a fanout is already running
-nrun=$(pgrep -f "python3.*abag_xm_generate" 2>/dev/null | wc -l)
+nrun=$(pgrep -f "$WT.*abag_xm_generate" 2>/dev/null | wc -l)
 if [ "$nrun" -gt 0 ]; then
   log "ABORT: $nrun generate.py already running — current fanout not done yet. Wait for the watchdog to exit."
   exit 1

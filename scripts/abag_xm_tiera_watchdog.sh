@@ -4,18 +4,33 @@
 # relaunch/lease-collide). Only acts on a genuine 90-min no-progress stall
 # (max ok fold = 54 min for protenix-v2 / 51 min for opendde, so 90 min of zero
 # progress.jsonl updates = real dirty-chip deadlock, NOT a slow fold). On stall:
-# kill all generate.py+predict+mp-trackers, tt-smi -r 0,1,2,3, clear leases,
+# kill all generate.py+predict+mp-trackers, tt-smi -r $CARDS_CSV, clear leases,
 # relaunch 4 fresh generate.py (skipping ok pairs). generate.py is otherwise
 # autonomous (loops its 41 targets x 3 models with --timeout 3600 per fold).
 set +u
-WT=/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p3
+WT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # this checkout, not a hardcoded slug
 PY=/home/ttuser/tt-bio/env/bin/python3
 PROG=$WT/scripts/abag_xm_generate.py
 PROGRESS=$HOME/abag_xm/tier_a/progress.jsonl
-LEASE=worker:abag-xm-crossmodel-ranking-dataset-p3
+LEASE="worker:$(basename "$WT")"
 TIMEOUT=3600
 STALL=5400          # 90 min — > max fold (54 min) so slow folds are never killed
 TT_SMI=$HOME/.tenstorrent-venv/bin/tt-smi
+# Cards this supervisor OWNS. Everything destructive below is scoped to these, because a
+# QuietBox is shared with the rest of the fleet: `tt-smi -r $CARDS_CSV` on a stall would hard-reset
+# a sibling worker's in-flight card, and `rm -f .../leases/tt-quietbox-card*.json` would delete
+# its lease. Observed live 2026-07-27: worker tt-bio-rfdiffusion3-batch-perf-p17 held card 1
+# while this campaign was idle. Override with CARDS="0 2" for a partial box.
+CARDS="${CARDS:-0 1 2 3}"
+CARDS_CSV=$(echo "$CARDS" | tr " " ",")
+# Drop only OUR lease files, and only if we are still the recorded holder -- never a sibling's.
+release_own_leases(){ local c
+  for c in $CARDS; do
+    local f=$HOME/.coworker/state/leases/$(hostname)-card$c.json
+    [ -f "$f" ] || continue
+    grep -q "\"holder\": \"$LEASE\"" "$f" && rm -f "$f"
+  done; }
+
 T0="21av,9ck4,9d74,9gfr,9i5n,9j87,9kwy,9l9y,9lh2,9log,9lr1,9lxp,9ly6,9m0j,9m2o,9m40,9ma0,9mnt,9mz6,9mzf,9n1p,9n8i,9nkz,9nw4,9nzf,9pso,9q6y,9qqf,9rn6,9sbb,9th6,9u5r,9ugo,9ulp,9v0x,9vmo,9wb3,9x05,9xqc,9y0a,9yxd"
 T1="21du,9d3j,9dsg,9gvn,9iar,9jkr,9l1l,9lbw,9lme,9loz,9lsy,9ly2,9lz0,9m0x,9m2s,9m72,9mmj,9mnu,9mz7,9n05,9n1q,9n8n,9nl0,9nw7,9obn,9q1l,9q6z,9qrv,9rye,9ssm,9tmp,9ua5,9uk2,9uo0,9v1h,9vnp,9wb4,9x0j,9xqn,9y0e,9ynx"
 T2="21tw,9d72,9fte,9hv9,9ivj,9jno,9l8z,9ldx,9loe,9lp1,9lsz,9ly3,9lz1,9m0z,9m3q,9m8k,9mnb,9msc,9mz8,9n09,9n2i,9ncd,9nl1,9nw8,9ppw,9q6h,9q7y,9rig,9ryf,9t3r,9u5p,9udq,9ull,9uoc,9ve0,9vo2,9wpm,9x3z,9xsx,9yc5,9zdu"
@@ -27,10 +42,10 @@ launch_card(){ local card="$1"; local targets="${SUBSETS[$card]}"
     PYTHONUNBUFFERED=1 nohup "$PY" -u "$PROG" --targets "$targets" --device "$card" \
     --timeout "$TIMEOUT" >> /tmp/abag_tiera_card$card.log 2>&1 < /dev/null &
   echo "$!"; }
-kill_all(){ for c in $(pgrep -f "python3 -m tt_bio.main predict" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
-  for c in $(pgrep -f "python3.*abag_xm_generate" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
+kill_all(){ for c in $(pgrep -f "$WT.*tt_bio.main predict" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
+  for c in $(pgrep -f "$WT.*abag_xm_generate" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
   for c in $(pgrep -f "multiprocessing.spawn import spawn_main" 2>/dev/null); do kill -KILL "$c" 2>/dev/null; done
-  sleep 3; rm -f ~/.coworker/state/leases/tt-quietbox-card*.json; }
+  sleep 3; release_own_leases; }
 progress_mtime(){ stat -c %Y "$PROGRESS" 2>/dev/null || echo 0; }
 
 # ADOPT existing generate.py if 4 are already running (don't lease-collide)
@@ -40,7 +55,7 @@ if [ "$nexist" -ge 4 ]; then
   log "ADOPT: $nexist generate.py already running — adopting, no relaunch"
 else
   log "START: only $nexist generate.py running — launching 4 fresh"
-  for c in 0 1 2 3; do launch_card $c >/dev/null; done
+  for c in $CARDS; do launch_card $c >/dev/null; done
   sleep 5
 fi
 # Stall clock starts at launch wall-clock, NOT file mtime. progress_mtime is 0 until the
@@ -64,9 +79,9 @@ while true; do
   pm=$(progress_mtime)
   if [ "$pm" != "0" ] && [ "$pm" -gt "$last_prog" ]; then last_prog=$pm; fi
   if [ $(( $(date +%s) - last_prog )) -ge "$STALL" ]; then
-    log "STALL: no progress for ${STALL}s — kill all + tt-smi -r 0,1,2,3 + relaunch"
-    kill_all; timeout 120 "$TT_SMI" -r 0,1,2,3 >/dev/null 2>&1; sleep 3
-    for c in 0 1 2 3; do launch_card $c >/dev/null; done
+    log "STALL: no progress for ${STALL}s — kill all + tt-smi -r $CARDS_CSV + relaunch"
+    kill_all; timeout 120 "$TT_SMI" -r "$CARDS_CSV" >/dev/null 2>&1; sleep 3
+    for c in $CARDS; do launch_card $c >/dev/null; done
     last_prog=$(date +%s); log "relaunched 4 generate.py"
   fi
 done
