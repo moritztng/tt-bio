@@ -377,6 +377,15 @@ def _open_device_locked(device_id, kwargs):
         return dev
 
 
+# How long the local-dispatch probe may take before the bring-up is called bad. Generous:
+# a healthy probe is seconds once the tiny kernel is cached, and a whole boltz2 fold runs
+# in 233-610 s, so 180 s cannot fire on a fold that is merely slow. Env override is a
+# dev escape hatch, matching TT_BIO_TRACE_REGION_SIZE.
+_LOCAL_DISPATCH_PROBE_TIMEOUT_S = int(
+    os.environ.get("TT_BIO_DISPATCH_PROBE_TIMEOUT_S", "180"))
+_PROBE_TIMEOUT_EXIT = 87
+
+
 def _assert_local_dispatch(dev):
     """Verify a freshly-opened chip can actually dispatch a program.
 
@@ -386,8 +395,34 @@ def _assert_local_dispatch(dev):
     HERE, at startup, and gets respawned with a serialized clean reopen — instead of
     silently accepting jobs it will fail. Runs unlocked: it's an ordinary compute
     dispatch on an already-open chip, not the UMD init path, so it needn't serialize
-    (the tiny kernel is cached after the first compile)."""
+    (the tiny kernel is cached after the first compile).
+
+    The probe is watchdogged because that bad bring-up has two forms, and this only
+    ever handled one. A chip can THROW on dispatch (caught below) or it can never
+    return from it. Three Tier-A folds hung in the second form: pinned at the
+    synchronize below for 11-36 minutes at 100% CPU with 497 MB RSS (weights never
+    loaded), deaf to SIGINT and SIGTERM. Unbounded, the guard against silently-bad
+    workers becomes the thing that hangs the worker, and it costs up to a full
+    per-fold timeout each time.
+
+    A watchdog thread is the only lever that works here: signals do not land while the
+    main thread sits in that native call — which is precisely why SIGTERM did not kill
+    these — so the timeout has to take the process down itself. The supervisor then
+    reports a dead worker (predict fails loudly since edeba4c2) and the fold is retried
+    on a clean reopen, which is what this function always intended to happen."""
+    import threading
     import torch
+
+    def _give_up():
+        os.write(2, (f"tt-bio: local-dispatch probe did not return in "
+                     f"{_LOCAL_DISPATCH_PROBE_TIMEOUT_S}s -- treating this chip bring-up "
+                     f"as bad and exiting so the fold is retried on a clean reopen\n"
+                     ).encode())
+        os._exit(_PROBE_TIMEOUT_EXIT)
+
+    watchdog = threading.Timer(_LOCAL_DISPATCH_PROBE_TIMEOUT_S, _give_up)
+    watchdog.daemon = True
+    watchdog.start()
     try:
         t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),
                             layout=ttnn.TILE_LAYOUT, device=dev)
@@ -401,6 +436,8 @@ def _assert_local_dispatch(dev):
                 pass
         raise RuntimeError(f"device bring-up failed the local-dispatch check "
                            f"(likely a remote-only init): {e}") from e
+    finally:
+        watchdog.cancel()
 
 
 def get_device(trace_region_size=0):
