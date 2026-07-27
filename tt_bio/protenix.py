@@ -123,13 +123,11 @@ def _window_kv(x, N, NP, nq=32, nk=128, pad_left=48):
 
 
 # ---------------------------------------------------------------------------
-# M-aware (multiplicity-batched) windowing helpers -- UNVERIFIED, gated.
+# M-aware (multiplicity-batched) windowing helpers.
 # Carries the multiplicity M as a real leading batch dim through the windowed
-# attention, mirroring boltz2.AtomDiffusion.sample. Gated behind
-# DiffusionModule.supports_multiplicity (default False); the M=1 path above is
-# bit-exact and untouched. The M>1 path is NEW and needs a stable card window to
-# verify the ttnn reshapes/tile padding before supports_multiplicity is flipped on
-# (see state/tt-bio-diffusion-multiplicity-batching.md). Design proven in pure
+# attention, mirroring boltz2.AtomDiffusion.sample. Selected by
+# DiffusionModule.supports_multiplicity; the M=1 path above is bit-exact and
+# untouched. Design proven in pure
 # torch by tests/test_windowing_multiplicity.py + tests/test_windowing_m_shapes.py:
 # fold M into the windowed-attention block dim B = M*nb via a LEADING-M 3D pad
 # (per-sample right-pad on dim 1 of (M,N,C), then reshape to (M*nb, ...)). Sample
@@ -349,7 +347,7 @@ class AtomTransformer(_KeyedWeights, Module):
             x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
         return x
 
-    # --- M-aware (multiplicity-batched) path -- UNVERIFIED, gated -----------------
+    # --- M-aware (multiplicity-batched) path --------------------------------------
     # Mirrors the M=1 _block/_attention but carries M as the leading batch dim. The
     # sample-invariant s (c_la) is replicated (AdaLN needs it elementwise); the
     # precomputed pair bias is NOT -- it stays (nb,H,nq,nk) and is broadcast over M in
