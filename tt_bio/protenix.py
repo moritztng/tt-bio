@@ -48,21 +48,31 @@ _DRAM_PEAK = {}   # tag -> high-water device DRAM bytes, when TT_BIO_DRAM_PEAK i
 def dram_peak(tag=None):
     """Record (and return) the device DRAM high-water mark, in bytes.
 
-    Off unless TT_BIO_DRAM_PEAK is set, so production folds pay nothing. The ttnn
-    allocator is host-side bookkeeping updated at op-dispatch time, so sampling it from
-    the calling thread is synchronous and cheap. This is what the release gate's capacity
-    leg reads: a memory-footprint change is invisible to a numerical parity fixture, so
+    Off unless TT_BIO_DRAM_PEAK names a file to append samples to, so production folds pay
+    nothing. A FILE and not stdout because `tt-bio predict` runs the fold in a spawned
+    worker whose stdout the live-progress view owns (and drops when it is not a TTY), so a
+    printed measurement is invisible exactly when it is being collected non-interactively.
+
+    The ttnn allocator is host-side bookkeeping updated at op-dispatch time, so sampling it
+    from the calling thread is synchronous and cheap. This is what the release gate's
+    capacity leg reads: a footprint change is invisible to a numerical parity fixture, so
     the footprint has to be measured directly at the largest supported input.
     Call with no tag to read the current peak across all tags."""
-    if not os.environ.get("TT_BIO_DRAM_PEAK"):
+    path = os.environ.get("TT_BIO_DRAM_PEAK")
+    if not path:
         return 0
     if tag is not None:
         mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
         used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks
         if used > _DRAM_PEAK.get(tag, 0):
             _DRAM_PEAK[tag] = used
-            print(f"[DRAM] {tag}: {used / 2**30:.3f} GiB used "
-                  f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB)", flush=True)
+            line = (f"[DRAM] {tag}: {used / 2**30:.3f} GiB used "
+                    f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB)\n")
+            try:
+                with open(path, "a") as fp:      # append: the worker is a separate process
+                    fp.write(line)
+            except OSError:
+                pass                            # a diagnostic must never break a fold
     return max(_DRAM_PEAK.values(), default=0)
 
 

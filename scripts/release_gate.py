@@ -561,12 +561,17 @@ def run_capacity(keep: bool) -> dict:
     row = {"model": "capacity", "seconds": None, "peak_gib": None, "cifs": None,
            "paes": None, "gate": False, "error": None}
     log = out.parent / f"{name}_capacity.log"
+    # tt_bio.protenix.dram_peak appends its samples to this file. It has to be a file:
+    # predict folds in a spawned worker whose stdout the live-progress view owns, so a
+    # printed measurement is lost exactly when the gate collects it non-interactively.
+    dram_log = out.parent / f"{name}_capacity_dram.log"
     out.parent.mkdir(parents=True, exist_ok=True)
+    dram_log.unlink(missing_ok=True)
     t0 = time.monotonic()
     with open(log, "w") as fp:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, stdout=fp,
                                   stderr=subprocess.STDOUT,
-                                  env={**os.environ, "TT_BIO_DRAM_PEAK": "1"})
+                                  env={**os.environ, "TT_BIO_DRAM_PEAK": str(dram_log)})
     row["seconds"] = time.monotonic() - t0
     text = log.read_text(errors="replace")
     if timed_out:
@@ -577,11 +582,13 @@ def run_capacity(keep: bool) -> dict:
         row["error"] = f"predict exited {rc}: {tail}"
         return row
 
-    # tt_bio.protenix.dram_peak prints "[DRAM] <tag>: <x> GiB used (of <y> GiB)"
-    peaks = re.findall(r"^\[DRAM\] .*?: ([0-9.]+) GiB used", text, re.M)
+    # dram_peak writes "[DRAM] <tag>: <x> GiB used (of <y> GiB)" per new high-water mark
+    dram_text = dram_log.read_text(errors="replace") if dram_log.exists() else ""
+    peaks = re.findall(r"^\[DRAM\] .*?: ([0-9.]+) GiB used", dram_text, re.M)
     if not peaks:
-        row["error"] = ("no [DRAM] samples in the fold log — the dram_peak probe did not run "
-                        "(TT_BIO_DRAM_PEAK not honoured?), so capacity was NOT measured")
+        row["error"] = (f"no [DRAM] samples in {dram_log.name} — the dram_peak probe did not "
+                        f"run, so capacity was NOT measured (an unmeasured leg is a FAIL, "
+                        f"never a pass by absence of evidence)")
         return row
     row["peak_gib"] = max(float(p) for p in peaks)
 
