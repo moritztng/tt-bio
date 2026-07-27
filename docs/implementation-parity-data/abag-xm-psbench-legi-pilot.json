@@ -1048,5 +1048,355 @@
   "dockq_wave": 0.498,
   "HA": 0.004467087670034489,
   "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_108.pdb",
+  "dockq_wave": 0.677,
+  "HA": 0.7498282088159677,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_11.pdb",
+  "dockq_wave": 0.917,
+  "HA": 0.9274889413359624,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_111.pdb",
+  "dockq_wave": 0.653,
+  "HA": 0.7222968422559018,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_112.pdb",
+  "dockq_wave": 0.677,
+  "HA": 0.7638001617185859,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_117.pdb",
+  "dockq_wave": 0.855,
+  "HA": 0.9076982832027097,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_126.pdb",
+  "dockq_wave": 0.665,
+  "HA": 0.7429829925147589,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_127.pdb",
+  "dockq_wave": 0.654,
+  "HA": 0.7242008613407984,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_135.pdb",
+  "dockq_wave": 0.881,
+  "HA": 0.9033291655364358,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_145.pdb",
+  "dockq_wave": 0.491,
+  "HA": 0.032114049218983164,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_155.pdb",
+  "dockq_wave": 0.462,
+  "HA": 0.0317091030610389,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_159.pdb",
+  "dockq_wave": 0.441,
+  "HA": 0.02950005503330144,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_16.pdb",
+  "dockq_wave": 0.897,
+  "HA": 0.9220016063747,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_162.pdb",
+  "dockq_wave": 0.466,
+  "HA": 0.031986772493970375,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_167.pdb",
+  "dockq_wave": 0.484,
+  "HA": 0.0430201107853734,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_17.pdb",
+  "dockq_wave": 0.884,
+  "HA": 0.9187372344819615,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_171.pdb",
+  "dockq_wave": 0.487,
+  "HA": 0.03434747163221661,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_174.pdb",
+  "dockq_wave": 0.334,
+  "HA": 0.026885966101073727,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_175.pdb",
+  "dockq_wave": 0.331,
+  "HA": 0.02618978760320231,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_177.pdb",
+  "dockq_wave": 0.498,
+  "HA": 0.028056747559040047,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_186.pdb",
+  "dockq_wave": 0.482,
+  "HA": 0.029858348556403642,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_189.pdb",
+  "dockq_wave": 0.473,
+  "HA": 0.029709823180297246,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_190.pdb",
+  "dockq_wave": 0.475,
+  "HA": 0.027371210424956785,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_198.pdb",
+  "dockq_wave": 0.45,
+  "HA": 0.03121181375768708,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_20.pdb",
+  "dockq_wave": 0.862,
+  "HA": 0.8589072458016193,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_24.pdb",
+  "dockq_wave": 0.904,
+  "HA": 0.9305046184349011,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_25.pdb",
+  "dockq_wave": 0.897,
+  "HA": 0.9276013130958939,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_26.pdb",
+  "dockq_wave": 0.917,
+  "HA": 0.944954419916764,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_27.pdb",
+  "dockq_wave": 0.9,
+  "HA": 0.9303816409176527,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_30.pdb",
+  "dockq_wave": 0.884,
+  "HA": 0.9084548119936627,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_36.pdb",
+  "dockq_wave": 0.896,
+  "HA": 0.9253978155389184,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_39.pdb",
+  "dockq_wave": 0.905,
+  "HA": 0.9373638895781383,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_4.pdb",
+  "dockq_wave": 0.869,
+  "HA": 0.9032276634030048,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_40.pdb",
+  "dockq_wave": 0.895,
+  "HA": 0.9117996278229975,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_41.pdb",
+  "dockq_wave": 0.906,
+  "HA": 0.9180718490997754,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_46.pdb",
+  "dockq_wave": 0.879,
+  "HA": 0.8789231539625769,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_5.pdb",
+  "dockq_wave": 0.908,
+  "HA": 0.9183724954116065,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_50.pdb",
+  "dockq_wave": 0.906,
+  "HA": 0.9260569874654171,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_58.pdb",
+  "dockq_wave": 0.876,
+  "HA": 0.8834768850247063,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_59.pdb",
+  "dockq_wave": 0.892,
+  "HA": 0.91362830489574,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_6.pdb",
+  "dockq_wave": 0.891,
+  "HA": 0.9162846420660659,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_61.pdb",
+  "dockq_wave": 0.87,
+  "HA": 0.8951052921453261,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_63.pdb",
+  "dockq_wave": 0.889,
+  "HA": 0.925900099567622,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_64.pdb",
+  "dockq_wave": 0.905,
+  "HA": 0.9170402778015113,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_67.pdb",
+  "dockq_wave": 0.887,
+  "HA": 0.9105089184228765,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_72.pdb",
+  "dockq_wave": 0.905,
+  "HA": 0.9293523810107979,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_78.pdb",
+  "dockq_wave": 0.892,
+  "HA": 0.9029754097810329,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_90.pdb",
+  "dockq_wave": 0.889,
+  "HA": 0.9068883830381106,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_94.pdb",
+  "dockq_wave": 0.688,
+  "HA": 0.7670274633857579,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_95.pdb",
+  "dockq_wave": 0.68,
+  "HA": 0.7522148265249743,
+  "HA_status": "ok"
+ },
+ {
+  "target": "9OAO",
+  "model": "ranked_99.pdb",
+  "dockq_wave": 0.868,
+  "HA": 0.8946780327404614,
+  "HA_status": "ok"
  }
 ]
