@@ -43,7 +43,18 @@ RESULT_PREFIX = {"protenix-v2": "protenix", "opendde-abag": "opendde",
 N_SAMPLES = 50
 SEED = 42
 FOLD_TIMEOUT_S = 3600  # 50 samples on a 1095-res target can approach ~50 min; give 60.
-MPS = 5  # max_parallel_samples -- honours the cap after the 3b fix (boltz2) / always did (protenix)
+# max_parallel_samples. 3, not 5: at 5 the device OOMs on real campaign targets --
+# "Not enough space to allocate 1061683200 B DRAM buffer across 8 banks" on 21av (556 tokens),
+# and the same on 9dsg (656) and 9d73 (699), 3 of the first 3 folds of the 2026-07-27 launch, on
+# BOTH a p150a and a P300. It went unseen because every earlier probe used 9w14 (412 tokens) at
+# 8 samples, while the campaign runs up to 1095 tokens at 50. 67 of 164 targets are >550 tokens,
+# so ~41% of the slab would have failed.
+# 3 is the largest value verified against the WORST CASE: 9j4c (1095 tokens, the largest target)
+# at the real n_samples=50 allocated fine at mps=1, 2 and 3, where the failures above aborted
+# after ~200 s. mps=4 is untested.
+# This must stay CONSTANT for the whole slab: the batched path draws all mps samples from one RNG
+# stream, so a per-target mps would mix two sampling procedures in one dataset.
+MPS = 3
 CONCURRENT_FOLDS = 4  # one harness per card on a 4-card QuietBox; sets the per-fold CPU share
 
 # D12 (per-model config fairness contract) — resolved-config fields recorded in
