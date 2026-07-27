@@ -5,6 +5,61 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-27
+
+Multi-sample folds are about 3x faster on Protenix-v2 and OpenDDE, which now draw every sample
+from one batched device trajectory instead of looping one sample at a time. The parity reference
+fixtures a clean checkout needs are published for the first time, so
+`scripts/fetch_parity_fixtures.sh` works and the eight structure legs 0.4.0 had to skip are back
+in the gate. RFdiffusion3 gains the parity, performance, and UX gate coverage it shipped without,
+and a few percent of throughput.
+
+**Release gate** (Blackhole P150a on `pc`, tt-bio 0.5.0): host suite 114 passed / 49 skipped;
+packaging guard 15/15 data files and 31/31 declared dependencies present in the wheel and sdist;
+UX gate PASS on every shipped surface, now including `tt-bio design`.
+
+**Parity gate** (`scripts/full_parity_gate.py`, 22 legs): **20 PASS, 2 GAP**, both GAPs
+reproducing a committed `GAP-evidenced` verdict rather than drifting. The eight envelope structure
+legs score for the first time since they were externalized, because the fixture asset they read is
+finally published: Boltz-2 trp-cage 0.074 Å against a 0.145 Å envelope (ratio 0.51), Boltz-2 HSA
+0.92 vs 1.33 (0.69), Protenix-v2 7ROA 0.049 vs 0.042 (1.16), Protenix-v2 HSA 0.050 vs 0.052 (0.96).
+ESMFold2 (4 targets), ESMC-300m/600m, SaProt-35m/650m, OpenDDE-abag, BoltzGen (scRMSD pass-rate
+100%, median 0.68 Å) and the RFD3 featurizer (43/43 keys bit-exact) all reproduce their recorded
+verdicts, as do five of six Boltz-2 affinity legs; the sixth improves on its recorded gap.
+
+Three of those legs pass on the absolute floor rather than a measured envelope, because their
+cached bf16 and fp32 references are identical, which collapses the envelope to zero: Protenix-v2
+ubiquitin (0.037 Å against the 0.05 Å floor) and both OpenDDE structure legs. The envelope test
+assumes a model with a torch CPU path to recompute in two dtypes, which a ttnn-only port does not
+have. Those OpenDDE legs are covered by the R/D/X device-vs-reference diagnostic instead, the right
+scorer for such a port, and `opendde-prot-prod` passes it (X 4.824 against a 1.499 floor).
+Restoring a meaningful envelope for ttnn-only legs is follow-up work, not a coverage hole.
+
+The two GAPs are Boltz-2 7ROA no-MSA structure (kabsch_rmsd ratio 2.04) and FKBP12+SB3 no-MSA
+affinity. Both are recorded `GAP-evidenced` in `docs/implementation-parity.md`. The 7ROA one was
+root-caused this release: the pinned envelope seed lands that target in an unusually chaotic
+reverse-diffusion trajectory in the *reference*, whose own bf16-vs-fp32 spread swings 3.45 Å, 2.16 Å
+and 0.81 Å across seeds 0, 1 and 2, and the leg passes cleanly at seeds 1 and 2. Two on-device fp32
+levers were tried and neither moves it, so it is a property of the reference trajectory, not a port
+defect.
+
+**Perf gate** (`scripts/perf_regression.py`, trpcage 20 aa single-sequence, warm 2+5, ±15%):
+boltz2 1.164 structures/s (-2.2%), esmfold2 1.586 (-7.0%), esmfold2-fast 2.167 (-5.4%),
+protenix-v2 2.192 (-8.0%), opendde 1.891 (-1.6%), esmc-300m 25.65 seq/s (+53.3%), esmc-600m 20.99
+(+0.3%), esmc-6b 4.429 (+39.7%), saprot-650m 239.2 (+7.4%), boltzgen 0.01708 designs/s (-0.8%),
+rfd3 0.1178 designs/s (-3.6%), boltz2-affinity 0.00909 affinities/s (-4.2%, median of three
+isolated runs). opendde-abag measures 1.789 structures/s and is seeding its first baseline. No
+model regressed beyond the threshold and nothing OOMed.
+
+### Added
+- **Per-sample chain-pair ipTM and per-chain pTM for OpenDDE** — `pair_chains_iptm` and
+  `chains_ptm` are now written for every sample in `all_runs`, like every other confidence
+  scalar, instead of for the top-ranked sample only. For antibody-antigen work the
+  antibody-vs-antigen chain-pair ipTM ranks candidates better than the global ipTM, and a
+  winner-only value cannot rank the rest.
+- **RFdiffusion3 gate coverage** — `tt-bio design` now has legs in the parity gate, the
+  performance regression gate, and the UX gate. It shipped in 0.4.0 with none.
+
 ### Changed
 - **Protenix-v2 / OpenDDE diffusion multiplicity batching** — `Protenix.fold` / `OpenDDE.fold`
   now draw `n_sample` samples from one batched device denoise trajectory instead of looping one
@@ -14,6 +69,31 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   within the seed-to-seed floor, not bit-exact, since diffusion is stochastic) on two hosts:
   Protenix X/floor 0.971-1.049, OpenDDE X/floor 0.995-1.003. Measured speedup at multiplicity 4:
   Protenix 3.19-3.57x, OpenDDE 3.15x.
+- **RFdiffusion3 is a few percent faster** — the design matmuls that read a single tile of K now
+  carry an explicit core-grid hint. It is bit-identical to the default and worth 5-15% depending
+  on size. On one Blackhole p150a at 40 residues, batch 8 goes from 0.1216 to 0.1352 designs/sec
+  and batch 1 from 0.0767 to 0.0807. The refreshed per-size table is in `docs/rfd3-design.md`.
+
+### Fixed
+- **OpenDDE re-ran a full offline MSA search on every multi-chain fold, and overwrote the MSAs
+  the other models read.** The paired-MSA helper had no cache check, unlike the unpaired path, so
+  each fold searched the whole database again. Worse, it wrote `{seq_hash}.a3m` into the shared
+  `msa_dir`, silently replacing the files Boltz-2 and Protenix-v2 read for the same chains.
+  Paired results now live in `msa_dir/paired/` and are only computed when absent, so a paired run
+  can neither clobber the unpaired cache nor be served an unpaired file as if it were paired.
+- **The parity reference fixtures were documented but never published.**
+  `docs/implementation-parity.md` and `scripts/fetch_parity_fixtures.sh` both pointed at a
+  `parity-fixtures-latest` release asset that did not exist, so on a clean checkout the eight
+  envelope structure legs had no references and reported `BLOCKED-REF-REGEN-NEEDED` instead of a
+  verdict. The asset is published and the fetch is verified end to end from a clean directory.
+  Two fetch bugs went with it: a doubled `parity-fixtures-` prefix in the asset name, and a
+  `grep -F` that treated the `$` end-anchor as a literal character.
+- **Regenerating envelope references destroyed the fixtures' other provenance.** The envelope
+  path and the legacy R/D/X path share one `meta.json` with incompatible schemas, and the
+  envelope regenerator overwrote the whole file, wiping the `settings_tag` and upstream-reference
+  provenance the R/D/X scorer needs. That is what made five legs flip between blocked and passing
+  every time either gate was regenerated. The regenerator now nests its own bookkeeping under an
+  `envelope` key and leaves harvested fields alone.
 
 ## [0.4.0] - 2026-07-26
 
