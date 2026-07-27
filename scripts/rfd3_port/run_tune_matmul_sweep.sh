@@ -40,12 +40,22 @@ args_for() {
 }
 
 run_one() {  # <variant> <round> <fixture>
-  local variant="$1" round="$2" fixture="$3"
+  local variant="$1" round="$2" fixture="$3" tag raw
+  tag="[$fixture r$round $variant]"
   local tune=0; [ "$variant" = fix ] && tune=1
+  raw=$(mktemp)
   RFD3_TUNE_MATMUL=$tune PYTHONPATH="$WT" "$PY" \
       "$WT/scripts/rfd3_port/bench_batch_designs_per_sec.py" \
-      --timesteps "$TIMESTEPS" --batches 1 8 $(args_for "$fixture") 2>&1 \
-    | grep -E "^[0-9]+ " | sed "s/^/[$fixture r$round $variant] /" | tee -a "$LOG"
+      --timesteps "$TIMESTEPS" --batches 1 8 $(args_for "$fixture") > "$raw" 2>&1
+  local rc=$?
+  # Filtering the run's output through grep and throwing the rest away makes a crashed run look
+  # exactly like a run that produced no rows. One iai40 round vanished that way. Keep the tail.
+  if [ $rc -ne 0 ] || ! grep -qE "^[0-9]+ " "$raw"; then
+    { echo "$tag FAILED rc=$rc -- last 20 lines:"; tail -20 "$raw"; } | tee -a "$LOG"
+  else
+    grep -E "^[0-9]+ " "$raw" | sed "s/^/$tag /" | tee -a "$LOG"
+  fi
+  rm -f "$raw"
 }
 
 echo "=== sweep start $(date -Is) timesteps=$TIMESTEPS rounds=$ROUNDS fixtures=$* ===" >> "$LOG"
