@@ -20,8 +20,10 @@
 # are APPENDED to the launched cards rather than dropped. Dropping them would silently lose ~20
 # targets per unavailable card, which is exactly the failure this note exists to prevent.
 #
-#   Usage:  scripts/abag_xm_tiera_launch.sh [cards]
-#           cards defaults to "0 1 2 3"; pass a subset when another worker holds a card.
+#   Usage:  scripts/abag_xm_tiera_launch.sh [cards] [slices]
+#           cards  defaults to "0 1 2 3"; pass a subset when another worker holds a card.
+#           slices defaults to this host's own four; pass a list to take over the other
+#                  host's share, which is ONLY safe while that host is not running.
 #
 # --concurrent_folds is always 4, not the number of cards launched: sizing as if the box were full
 # leaves headroom for a sibling worker instead of taking every core. It sets host_threads via
@@ -32,6 +34,13 @@ PY=/home/ttuser/tt-bio/env/bin/python3
 SLICES="$WT/docs/implementation-parity-data/abag-xm-tier-a-slices.json"
 LOGDIR=$HOME/abag_xm/logs
 CARDS="${1:-0 1 2 3}"
+# Optional explicit slice list, for taking over another host's share. The default is this
+# host's own four, which is what keeps the two hosts disjoint; pass a list ONLY when the
+# other host is not running, because progress.jsonl is host-local and cannot dedupe across
+# machines. Added when qb2 hard-hung mid-campaign (2026-07-27) and the documented failover
+# would otherwise have meant hand-editing this script under time pressure.
+#   scripts/abag_xm_tiera_launch.sh "0 1 2 3" "0 1 2 3 4 5 6 7"   # qb1 takes everything
+SLICE_LIST="${2:-}"
 LEASE="worker:$(basename "$WT")"
 
 case "$(hostname)" in
@@ -39,6 +48,12 @@ case "$(hostname)" in
   tt-quietbox)  BASE=4 ;;
   *) echo "unknown host $(hostname): no slice assignment defined" >&2; exit 1 ;;
 esac
+if [ -n "$SLICE_LIST" ]; then
+  MY_SLICES="$SLICE_LIST"
+  echo "!! slice override: this host takes slices [$MY_SLICES] -- only valid while the other host is idle"
+else
+  MY_SLICES="$((BASE + 0)) $((BASE + 1)) $((BASE + 2)) $((BASE + 3))"
+fi
 
 mkdir -p "$LOGDIR" "$HOME/abag_xm/tier_a"
 [ -f "$SLICES" ] || { echo "missing $SLICES" >&2; exit 1; }
@@ -48,9 +63,9 @@ ncards=$(echo "$CARDS" | wc -w)
 # the work instead of dropping slices.
 i=0
 declare -A ASSIGN=()
-for s in 0 1 2 3; do
+for s in $MY_SLICES; do
   card=$(echo "$CARDS" | cut -d' ' -f$(( i % ncards + 1 )))
-  ASSIGN[$card]="${ASSIGN[$card]:-}${ASSIGN[$card]:+,}$((BASE + s))"
+  ASSIGN[$card]="${ASSIGN[$card]:-}${ASSIGN[$card]:+,}${s}"
   i=$((i + 1))
 done
 
