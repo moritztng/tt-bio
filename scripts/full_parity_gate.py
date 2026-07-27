@@ -302,6 +302,13 @@ LEGS += [
     Leg("boltzgen", "boltzgen", "boltzgen", "examples/binder.yaml",
         committed_json="boltzgen.json", seeds=(0,),
         note="designability leg; reuses release_gate --model boltzgen"),
+    # Capacity, not accuracy: every leg above compares NUMBERS, so a change that grows the
+    # device-memory footprint is invisible to them until a real fold runs out of memory on a
+    # big target (which is exactly how multiplicity batching shipped). This leg folds the
+    # largest supported target at the largest sample count and gates the measured peak DRAM.
+    Leg("capacity", "protenix-v2", "capacity", "examples/abag_pilot_expansion/9j4c_abag.yaml",
+        seeds=(0,),
+        note="largest-input peak-DRAM budget; reuses release_gate --model capacity"),
     # --- RFD3 featurizer parity (card-free, in-process; reuses the committed
     # reference capture under scripts/rfd3_port/parity_artifacts/iai_protein/) ---
     # RFD3's correctness anchor is value parity of the host featurizer vs the
@@ -887,11 +894,12 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
                   fold_timeout: float | None = None) -> dict | None:
     """Run the dedicated harness for esmc/saprot/esmfold2 (subprocess) or the in-process
     designability/DockQ leg for boltzgen/abag. Persists the report to out_json (for --resume)."""
-    if leg.kind in ("boltzgen", "abag"):
+    if leg.kind in ("boltzgen", "abag", "capacity"):
         try:
             rg = _load_release_gate()
             row = (rg.run_boltzgen(rg._load_designability_harness(), keep=False)
-                   if leg.kind == "boltzgen" else rg.run_opendde_abag(keep=False))
+                   if leg.kind == "boltzgen" else rg.run_capacity(keep=False)
+                   if leg.kind == "capacity" else rg.run_opendde_abag(keep=False))
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}"}
         out_json.write_text(json.dumps(row, indent=2, default=str))
@@ -1039,6 +1047,20 @@ def _abag_verdict(report: dict) -> tuple[str, str]:
     return "NO-DATA", "no global_dockq in record"
 
 
+def _capacity_verdict(report: dict) -> tuple[str, str]:
+    """Capacity: PASS iff the largest-input fold stayed inside the DRAM budget AND wrote
+    every sample it was asked for. An ERROR here is a real device fatal, not a soft miss --
+    a harness that files an allocation failure as a per-item status is what let this class
+    of bug look like progress."""
+    if report.get("error"):
+        return "ERROR", str(report["error"])
+    peak = report.get("peak_gib")
+    if peak is None:
+        return "NO-DATA", "no peak DRAM measured"
+    detail = f"peak {peak:.2f} GiB, {report.get('cifs')} CIFs / {report.get('paes')} PAEs"
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
 def _rfd3_verdict(report: dict) -> tuple[str, str]:
     """RFD3 featurizer parity: PASS iff every comparable f key is bit-exact vs the
     committed foundry reference capture (the port's own 43/43-key bar, p12)."""
@@ -1090,6 +1112,8 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _boltzgen_verdict(report)
     if leg.kind == "abag":
         return _abag_verdict(report)
+    if leg.kind == "capacity":
+        return _capacity_verdict(report)
     if leg.kind == "rfd3":
         return _rfd3_verdict(report)
     if leg.kind == "esmfold2":

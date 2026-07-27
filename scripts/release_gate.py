@@ -70,6 +70,17 @@ eval-time requirement, not a project runtime dep, so the gate scores this leg by
 shelling out to ``OPENDDE_DOCKQ_PYTHON`` (defaults to the gate's own python; set it to
 a venv that has DockQ installed if the gate venv does not).
 
+Capacity is a separate leg because the legs above cannot see it. They compare NUMBERS, so
+a change that grows the device-memory footprint either still fits (identical numbers, PASS)
+or dies with an allocation error — nothing in a parity fixture reports "this now needs 10 GB
+more". That is how multiplicity batching shipped verified on small inputs and then ran out of
+memory on real antibody-antigen targets. The capacity leg folds the LARGEST supported target
+(``examples/abag_pilot_expansion/9j4c_abag.yaml``, 1095 tokens) at the largest sample count
+the campaigns use, measures the peak device DRAM via ``TT_BIO_DRAM_PEAK``, and checks it
+against a budget — plus the per-sample output contract, since a fold that quietly writes
+fewer structures than it was asked for is the other face of the same failure. Six sampling
+steps and single-sequence on purpose; see the constants for why.
+
     # gate everything (five fold models + BoltzGen designability + ESMC embed parity
     # + OpenDDE-abag docking) on card 1
     TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> ESM_ROOT=/path/to/esm \
@@ -80,6 +91,7 @@ a venv that has DockQ installed if the gate venv does not).
     python scripts/release_gate.py --model boltzgen
     python scripts/release_gate.py --model esmc-300m
     python scripts/release_gate.py --model opendde-abag
+    python scripts/release_gate.py --model capacity
 
 Exit code 0 iff every requested model PASSES its gate; 1 otherwise. Runs on the
 device serially (one card context per run); no CPU shortcut for the fold/design.
@@ -92,6 +104,7 @@ see RELEASING.md. The two are independent; both must exit 0 before a tag.
 import argparse
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -200,6 +213,33 @@ OPENDDE_DOCKQ_PYTHON = os.environ.get("OPENDDE_DOCKQ_PYTHON", sys.executable)
 # never touches the network. Both are env-tunable so a slow host can raise the timeout.
 FOLD_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_FOLD_TIMEOUT", "1800"))
 MSA_DIR = os.environ.get("RELEASE_GATE_MSA_DIR")
+
+# --- capacity leg ----------------------------------------------------------------------
+# The accuracy legs above compare NUMBERS, so a change that grows the device-memory
+# footprint is invisible to them: the fold either still fits (identical numbers, PASS) or
+# dies with an allocation error the harness reports as a per-item status. That is how
+# multiplicity batching shipped verified-on-small-inputs and then ran out of memory on real
+# antibody-antigen targets. So the gate also measures the footprint directly, at the
+# LARGEST supported input and the LARGEST sample count the campaigns use.
+#
+# Single-sequence on purpose: the sample-scaled footprint is what a batching change moves,
+# and folding single-sequence keeps the budget reproducible across hosts instead of drifting
+# with MSA depth and MSA-server state. Six sampling steps on purpose: peak DRAM is a
+# per-step high-water mark, not something that accumulates over the trajectory, so the
+# measurement is step-count-independent and there is no reason to pay for 200.
+CAPACITY_DATA = REPO_ROOT / "examples" / "abag_pilot_expansion" / "9j4c_abag.yaml"
+CAPACITY_MODEL = "protenix-v2"
+CAPACITY_TOKENS = 1095      # the largest target the AbAg-XM Tier-A set folds
+CAPACITY_SAMPLES = 50
+CAPACITY_MPS = 5
+CAPACITY_STEPS = 6
+# Budget, in GiB of device DRAM. Measured peak for this configuration on a Blackhole p150a is
+# 5.90 GiB, so 7.0 leaves ~19% headroom: loose enough that it does not chase run-to-run noise
+# (the shapes are deterministic, so there is very little), tight enough to catch the small
+# regressions too -- re-replicating just the atom-transformer pair bias and the windowed atom
+# pair tensor would add ~0.9 GiB, and re-replicating the DiT pair biases would add ~9.6 GiB.
+# Env-tunable so a card with a different budget can gate against its own.
+CAPACITY_MAX_GIB = float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB", "7.0"))
 
 
 def _msa_args(model: str) -> list:
@@ -496,10 +536,96 @@ def run_opendde_abag(keep: bool) -> dict:
     return row
 
 
+def run_capacity(keep: bool) -> dict:
+    """Fold the largest supported target at the largest sample count and check the peak
+    device DRAM against a budget. Also checks the per-sample output contract, since a fold
+    that quietly produces fewer structures than it was asked for is the other way this
+    class of failure shows up. Returns a row."""
+    from tt_bio.main import predict_results_dir_name
+    name = CAPACITY_DATA.stem
+    out = REPO_ROOT / predict_results_dir_name(CAPACITY_MODEL, name)
+    if out.exists():
+        shutil.rmtree(out)
+
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "predict", str(CAPACITY_DATA),
+        "--model", CAPACITY_MODEL,
+        "--sampling_steps", str(CAPACITY_STEPS),
+        "--diffusion_samples", str(CAPACITY_SAMPLES),
+        "--max_parallel_samples", str(CAPACITY_MPS),
+        "--seed", str(SEED),
+        "--single_sequence",
+        "--write_pae",          # the per-sample PAE files this leg counts are opt-in
+        "--out_dir", str(REPO_ROOT),
+    ]
+    print(f"\n{'='*70}\n[capacity] {CAPACITY_DATA.name} ({CAPACITY_TOKENS} tokens), "
+          f"{CAPACITY_SAMPLES} samples / {CAPACITY_MPS} per batch, "
+          f"budget {CAPACITY_MAX_GIB:.1f} GiB\n{'='*70}", flush=True)
+
+    row = {"model": "capacity", "seconds": None, "peak_gib": None, "cifs": None,
+           "paes": None, "gate": False, "error": None}
+    log = out.parent / f"{name}_capacity.log"
+    # tt_bio.protenix.dram_peak appends its samples to this file. It has to be a file:
+    # predict folds in a spawned worker whose stdout the live-progress view owns, so a
+    # printed measurement is lost exactly when the gate collects it non-interactively.
+    dram_log = out.parent / f"{name}_capacity_dram.log"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    dram_log.unlink(missing_ok=True)
+    t0 = time.monotonic()
+    with open(log, "w") as fp:
+        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, stdout=fp,
+                                  stderr=subprocess.STDOUT,
+                                  env={**os.environ, "TT_BIO_DRAM_PEAK": str(dram_log)})
+    row["seconds"] = time.monotonic() - t0
+    text = log.read_text(errors="replace")
+    if timed_out:
+        row["error"] = f"predict timed out after {FOLD_TIMEOUT_S}s"
+        return row
+    if rc != 0:
+        tail = " / ".join(text.strip().splitlines()[-3:])[:200]
+        row["error"] = f"predict exited {rc}: {tail}"
+        return row
+
+    # dram_peak writes "[DRAM] <tag>: <x> GiB used (of <y> GiB)" per new high-water mark
+    dram_text = dram_log.read_text(errors="replace") if dram_log.exists() else ""
+    peaks = re.findall(r"^\[DRAM\] .*?: ([0-9.]+) GiB used", dram_text, re.M)
+    if not peaks:
+        row["error"] = (f"no [DRAM] samples in {dram_log.name} — the dram_peak probe did not "
+                        f"run, so capacity was NOT measured (an unmeasured leg is a FAIL, "
+                        f"never a pass by absence of evidence)")
+        return row
+    row["peak_gib"] = max(float(p) for p in peaks)
+
+    struct_dir = out / "structures"
+    row["cifs"] = len(sorted(struct_dir.glob(f"{name}*.cif"))) if struct_dir.exists() else 0
+    row["paes"] = len(sorted(out.rglob("*_pae.npz")))
+    # One CIF per sample plus the confidence-selected copy ({name}.cif), and exactly one PAE:
+    # --write_pae on main writes the best sample's pae+pde only. Per-sample PAE files
+    # ({name}_model_{k}_pae.npz) are NOT a main feature -- that write path lives on the
+    # AbAg-XM campaign branch, so do not gate main on it.
+    if row["cifs"] != CAPACITY_SAMPLES or row["paes"] < 1:
+        row["error"] = (f"expected {CAPACITY_SAMPLES} CIFs and >=1 PAE, "
+                        f"got {row['cifs']} and {row['paes']}")
+        return row
+    if row["peak_gib"] > CAPACITY_MAX_GIB:
+        row["error"] = f"peak {row['peak_gib']:.2f} GiB over the {CAPACITY_MAX_GIB:.1f} GiB budget"
+        return row
+
+    row["gate"] = True
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+        # The two logs sit beside the results dir (predict owns everything inside it), so
+        # clear them here too rather than leaving them in the repo root after every release.
+        # --keep holds on to all three for debugging a failing leg.
+        log.unlink(missing_ok=True)
+        dram_log.unlink(missing_ok=True)
+    return row
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model",
-                    choices=list(MODELS) + ["boltzgen", "opendde-abag"]
+                    choices=list(MODELS) + ["boltzgen", "opendde-abag", "capacity"]
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
                     help="Gate only this model (repeatable). Default: the five fold "
@@ -529,10 +655,11 @@ def main() -> int:
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    models = args.model or list(MODELS) + ["boltzgen", "opendde-abag"] + ESMC_DEFAULT
+    models = args.model or list(MODELS) + ["boltzgen", "opendde-abag", "capacity"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
     want_opendde_abag = "opendde-abag" in models
+    want_capacity = "capacity" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
 
     rows = []
@@ -598,6 +725,27 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — opendde-abag cleared parse + DockQ floor" if ar["gate"]
               else "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)")
+
+    if want_capacity:
+        if not CAPACITY_DATA.exists():
+            sys.exit(f"missing capacity gate target {CAPACITY_DATA}")
+        cr = run_capacity(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {CAPACITY_DATA.name} capacity "
+              f"({CAPACITY_TOKENS} tokens, {CAPACITY_SAMPLES} samples / {CAPACITY_MPS} per "
+              f"batch, {CAPACITY_STEPS} steps)\n{'#'*78}")
+        print(f"{'leg':<15}{'peak DRAM':>11}{'CIFs':>7}{'PAEs':>7}{'budget':>11}{'wall':>9}  result")
+        pk = f"{cr['peak_gib']:.2f} GiB" if cr["peak_gib"] is not None else "  -  "
+        cf = str(cr["cifs"]) if cr["cifs"] is not None else "-"
+        pa = str(cr["paes"]) if cr["paes"] is not None else "-"
+        wall = f"{cr['seconds']:.0f}s" if cr["seconds"] is not None else "-"
+        verdict = "PASS" if cr["gate"] else f"FAIL ({cr['error']})" if cr["error"] else "FAIL"
+        all_pass &= cr["gate"]
+        print(f"{'capacity':<15}{pk:>11}{cf:>7}{pa:>7}{f'<={CAPACITY_MAX_GIB:.1f} GiB':>11}"
+              f"{wall:>9}  {verdict}")
+        print(f"{'#'*78}")
+        print("GATE PASS — largest-input fold fits the DRAM budget and wrote every sample"
+              if cr["gate"] else
+              "GATE FAIL — capacity regression at the largest supported input (see above)")
 
     if esmc_models:
         if "ESM_ROOT" not in os.environ:
