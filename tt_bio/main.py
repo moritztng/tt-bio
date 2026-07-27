@@ -972,15 +972,32 @@ def _local_workers(accelerator: str, num_devices: int, device_ids: str | None, m
     ]
 
 
-def _cap_worker_threads(n_workers: int) -> None:
+HOST_THREAD_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+                    "NUMEXPR_NUM_THREADS")
+
+
+def _cap_worker_threads(n_workers: int, host_threads: int | None = None) -> None:
     """Cap each worker's host thread pools. Each worker's torch/OMP/BLAS pools
     otherwise default to ALL cores, so N co-resident workers spawn N*cores threads
     that thrash the CPU and collapse throughput on the host-side work
     (featurization, output, layout conversion) -- the multi-card slowdown. Size to
-    cores/workers; an operator-set value wins. Spawned children inherit these."""
-    cap = max(1, (os.cpu_count() or 1) // max(1, n_workers))
-    for var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
-        os.environ.setdefault(var, str(cap))
+    host_threads/workers; spawned children inherit these.
+
+    ``host_threads`` is this PROCESS's share of the host CPU, defaulting to every
+    core. All-cores is right for one process driving the whole box, but wrong when an
+    external launcher runs one single-card ``predict`` per chip: each process then
+    sees n_workers == 1, sizes its pools to all cores, and N co-resident folds
+    oversubscribe the host N-fold. Such a launcher passes ``--host_threads
+    cores//concurrent_folds``. Explicit beats inherited: a passed value overrides a
+    pre-set env var (the launcher knows how many siblings it started), while the
+    default only fills in what the operator left unset."""
+    budget = host_threads if host_threads and host_threads > 0 else (os.cpu_count() or 1)
+    cap = max(1, budget // max(1, n_workers))
+    for var in HOST_THREAD_VARS:
+        if host_threads:
+            os.environ[var] = str(cap)
+        else:
+            os.environ.setdefault(var, str(cap))
 
 
 def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> list:
@@ -2012,6 +2029,12 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Comma-separated physical TT card ids to fan the folding jobs across, "
                    "e.g. '0,1,2,3' (data-parallel: one pinned worker per card, each an "
                    "untouched single-card fold). Matches `tt-bio embed`. Default: all detected cards.")
+@click.option("--host_threads", default=None, type=int,
+              help="CPU threads this process may use in total, split across its cards "
+                   "(default: all cores). Set this when you run several single-card "
+                   "predicts side by side on one host — each would otherwise size its "
+                   "thread pools to every core and they would fight for the CPU. Use "
+                   "cores//concurrent-predicts.")
 @click.option("--fast", is_flag=True, help="Use block-fp8 for some operations (slightly lower precision, faster)")
 @click.option("--debug", is_flag=True, help="Debug mode: no Rich display, no output suppression")
 @click.option("--log", is_flag=True, help="With --debug: print per-device stage progress")
@@ -2037,7 +2060,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
-            num_devices, device_ids, fast, debug, log,
+            num_devices, device_ids, host_threads, fast, debug, log,
             report_energy, energy_sample_hz, energy_metric, listen, controller, run_id, owner, model):
     """Run structure prediction.
 
@@ -2174,6 +2197,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                                     struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
             return
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
+        _cap_worker_threads(len(workers), host_threads)
         _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                       struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
         return
@@ -2307,6 +2331,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         num_devices, device_ids, max_workers=max(len(jobs), 1),
     )
     devices = [int(w.device_id) for w in workers if w.accelerator == "tenstorrent"]
+    _cap_worker_threads(len(workers), host_threads)
 
     energy_profiler = None
     if report_energy:

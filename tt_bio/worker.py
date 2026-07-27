@@ -49,6 +49,26 @@ def _apply_tt_environment(worker_info: dict[str, Any]) -> None:
         os.environ["TT_MESH_GRAPH_DESC_PATH"] = str(mgd)
 
 
+def _bind_host_threads() -> None:
+    """Bind torch's thread pools to the OMP_NUM_THREADS cap set by the launcher.
+
+    ``main._cap_worker_threads`` exports the cap before spawning, and a fresh torch
+    import honours it for the intra-op pool -- but not for the inter-op pool, which
+    always sizes itself to cores/2. Bind both explicitly so a capped worker really
+    holds its share of the CPU. Nothing to do when the launcher set no cap.
+    """
+    cap = os.environ.get("OMP_NUM_THREADS")
+    if not cap:
+        return
+    import torch
+
+    torch.set_num_threads(int(cap))
+    try:
+        torch.set_num_interop_threads(int(cap))
+    except RuntimeError:
+        pass  # already started (only settable before the first parallel op)
+
+
 def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     """Make sure model files and caches exist locally for this worker.
 
@@ -740,6 +760,7 @@ def run_worker_loop(
         _silence_subprocess_output()
     _install_signal_handlers()
     _apply_tt_environment(worker_info)
+    _bind_host_threads()
 
     client = ControllerClient(controller_url)
     worker_id = worker_info["worker_id"]
