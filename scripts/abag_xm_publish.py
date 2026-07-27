@@ -22,6 +22,7 @@ both, and never on the strength of having issued the command.
 """
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -33,6 +34,7 @@ CARD_SRC = ROOT / "docs" / "abag-xm-dataset-card.md"
 # Assembly runs without --repo, and the card still has to name one.
 # This is the target the frozen design records; --repo overrides it.
 DEFAULT_REPO = "tt-moritz/abag-xm"
+TARGETS_SRC = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
 SCRIPTS = ROOT / "scripts"
 
 
@@ -93,6 +95,10 @@ def preflight(out: Path, expect_samples: int) -> list[str]:
         holes = sorted({w for w in card.read_text().split() if "{{" in w})
         fail.append(f"dataset card has unfilled placeholders: {holes}")
 
+    for name in ("targets.parquet", "labels.parquet", "ensembles.parquet"):
+        if not (out / name).exists():
+            fail.append(f"{name} missing -- the dataset card documents all three tables")
+
     lab = out / "labels.parquet"
     if not lab.exists():
         fail.append("labels.parquet missing")
@@ -105,6 +111,15 @@ def preflight(out: Path, expect_samples: int) -> list[str]:
         n_folds = df.groupby(["target", "generator"]).ngroups
         if len(df) != n_folds * expect_samples:
             fail.append(f"labels rows {len(df)} != {n_folds} folds x {expect_samples}")
+        tgt = out / "targets.parquet"
+        if tgt.exists():
+            # A targets table that does not cover every released target leaves rows with no
+            # sequence or provenance to join against -- worse than an obviously missing file.
+            have = set(pd.read_parquet(tgt).pdb_id)
+            orphan = sorted(set(df.target) - have)
+            if orphan:
+                fail.append(f"{len(orphan)} released targets absent from targets.parquet "
+                            f"(e.g. {orphan[:3]})")
 
     sdir = out / "structures"
     if not sdir.is_dir():
@@ -132,6 +147,16 @@ def main():
 
     print("[1/4] parquet tables")
     run([sys.executable, str(SCRIPTS / "abag_xm_build_release_tables.py"), "--out_dir", str(out)])
+    # targets.parquet is the third table the card documents, and nothing was producing it: a
+    # release would have shipped a dataset whose own card describes a file that is not there.
+    # It is a Phase-1 artifact already committed to the repo -- copied, never rebuilt here,
+    # because abag_xm_build_manifest.py re-fetches every mmCIF from RCSB.
+    if TARGETS_SRC.exists():
+        shutil.copyfile(TARGETS_SRC, out / "targets.parquet")
+        print(f"  copied {TARGETS_SRC.name} -> targets.parquet")
+    else:
+        print(f"  !! {TARGETS_SRC} missing -- targets.parquet will not be in the release")
+
     print("[2/4] coordinates")
     run([sys.executable, str(SCRIPTS / "abag_xm_stage_release.py"), "--out_dir", str(out)])
     print("[3/4] dataset card")
