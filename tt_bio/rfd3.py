@@ -85,6 +85,8 @@ _TUNE_MATMUL = os.environ.get("RFD3_TUNE_MATMUL") == "1"
 # Debug: re-check every cached config against ttnn's default on every call and print any
 # divergence. Doubles the matmul work, so it is for locating a break, not for production.
 _TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
+# Debug: print what calibration decided per shape, and why.
+_TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"
 _TUNE_MIN_GAIN = 1.05  # ignore a candidate that is not at least 5% faster than the default
 _TUNE_REPS = 3
 
@@ -139,14 +141,21 @@ def _mm_candidates(x, w, grid):
 
 
 def _tunable(x, w):
-    """Only batched `[B, .., M, K] @ [K, N]` with a batch-1 in1 can fold its batch into M."""
+    """Only a multi-design `[D, .., M, K] @ [K, N]` with a batch-1 in1 can fold its batch into M.
+
+    Dim 0 is the design axis at every call site that routes through here, and `D > 1` is the
+    condition, not `prod(leading dims) > 1`: at D=1 a pair tensor is still `[1, I, I, C]`, so the
+    token axis alone would qualify it. Measured at D=1/I=40, tuning those leaves 0.02-0.13 ms
+    matmuls that calibration reads as 1.2-2.6x wins -- under 2% of the step even if real -- and
+    the end-to-end result is 6% SLOWER, over three paired rounds at 20 timesteps and two at 60.
+    An explicit program config costs something per call that timing the matmul on its own does
+    not see, and only a genuine design batch is worth that. So D=1 takes the p14 path exactly,
+    with no calibration compiles at all, and D=8 keeps its win.
+    """
     xs, ws = list(x.padded_shape), list(w.padded_shape)
     if len(xs) < 3 or len(ws) < 2:
         return False
-    batch = 1
-    for d in xs[:-2]:
-        batch *= d
-    return batch > 1 and all(d == 1 for d in ws[:-2])
+    return xs[0] > 1 and all(d == 1 for d in ws[:-2])
 
 
 def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID):
@@ -200,7 +209,8 @@ def _calibrate_linear(x, w, kw, core_grid):
     rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
     rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
     ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
-    budget = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw)) / _TUNE_MIN_GAIN
+    default_t = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw))
+    budget = default_t / _TUNE_MIN_GAIN
     best = None
     for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size()):
         try:
@@ -215,6 +225,12 @@ def _calibrate_linear(x, w, kw, core_grid):
             best, budget = pc, t
     for t in (rx, rw, rref, ref):
         ttnn.deallocate(t)
+    if _TUNE_LOG:
+        chosen = (f"bw={best.in0_block_w} obw={best.out_block_w} pcM={best.per_core_M}"
+                  if best is not None else "DEFAULT")
+        gain = default_t / budget if best is not None else 1.0
+        print(f"[tune] x={tuple(x.padded_shape)} w={tuple(w.padded_shape)} "
+              f"default={default_t * 1e3:8.3f} ms  gain={gain:5.2f}x  {chosen}", flush=True)
     return best
 
 
