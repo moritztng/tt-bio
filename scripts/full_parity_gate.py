@@ -340,12 +340,20 @@ def fixture_fingerprint(spec: str) -> str | None:
     if not meta_path.exists():
         return None
     meta = json.loads(meta_path.read_text())
+    # A fixture harvested from an external reference (e.g. official Aureka-OpenDDE /
+    # ByteDance-Protenix) keeps its own top-level provenance for the legacy R/D/X scorer
+    # (settings_tag etc, see pharma_parity.py) — the envelope's shared-draw identity for
+    # THAT fixture lives one level down under "envelope" so regen_envelope_refs never has
+    # to clobber the harvested provenance to update its own cache key. Fixtures with no
+    # external harvest (envelope-native, e.g. boltz2 no-MSA) keep the identity flat at the
+    # top level, same as before.
+    src = meta.get("envelope", meta)
     identity = {
-        "reference_impl": meta.get("reference_impl", ""),
-        "reference_version": meta.get("reference_version", ""),
-        "reference_commit": meta.get("reference_commit", ""),
-        "settings": meta.get("settings", {}),
-        "seeds": meta.get("seeds", []),
+        "reference_impl": src.get("reference_impl", ""),
+        "reference_version": src.get("reference_version", ""),
+        "reference_commit": src.get("reference_commit", ""),
+        "settings": src.get("settings", {}),
+        "seeds": src.get("seeds", []),
     }
     blob = json.dumps(identity, sort_keys=True, default=str).encode()
     return hashlib.sha256(blob).hexdigest()[:16]
@@ -819,10 +827,28 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
                   + ("" if ok else f" rc={rc} timed_out={timed_out} — see regen_{leg.id}_{dtype}.log"))
             leg_ok &= ok
         if leg_ok:
-            meta = {"reference_impl": "tt-bio-cpu-torch", "reference_version": _repo_commit(),
-                    "reference_commit": _repo_commit(), "settings": _ref_settings(leg),
-                    "seeds": [ENVELOPE_SEED]}
-            (base / "meta.json").write_text(json.dumps(meta, indent=2, sort_keys=True))
+            envelope_meta = {"reference_impl": "tt-bio-cpu-torch", "reference_version": _repo_commit(),
+                             "reference_commit": _repo_commit(), "settings": _ref_settings(leg),
+                             "seeds": [ENVELOPE_SEED]}
+            # MERGE, never clobber, a HARVESTED fixture's top-level meta.json: settings_tag,
+            # "official Aureka-OpenDDE"/"official ByteDance Protenix" provenance, command,
+            # date, invalidation_rule are read by the legacy R/D/X scorer (pharma_parity.py,
+            # --legacy-rdx) against the ALREADY-COMMITTED seed0-4 dirs -- unrelated to and
+            # unaffected by this envelope regen. Overwriting the whole file here previously
+            # destroyed that provenance every time the envelope refs were regenerated
+            # (root cause of the ff473d2ed / 88c14f3b2 / 025ef2479 back-and-forth). A fixture
+            # is "harvested" iff its meta.json carries settings_tag (the legacy scorer's own
+            # marker, see pharma_parity.py) -- only then do we preserve top-level and nest the
+            # envelope's own bookkeeping under "envelope". An envelope-native fixture (no
+            # settings_tag, e.g. boltz2 no-MSA) keeps the old flat replacement (no stale keys).
+            meta_path = base / "meta.json"
+            old_meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+            if "settings_tag" in old_meta:
+                old_meta["envelope"] = envelope_meta
+                meta = old_meta
+            else:
+                meta = envelope_meta
+            meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True))
             n_ok += 1
     # refresh the fingerprint index so a matching reference takes the fast (device-only) path
     idx = load_fingerprint_index()
