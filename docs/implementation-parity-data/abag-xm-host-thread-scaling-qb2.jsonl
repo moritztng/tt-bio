@@ -1,0 +1,10 @@
+{"host":"qb2","leg":"WARM","card":0,"host_threads":"4","n":8,"rc":0,"wall_s":218.258838711}
+{"host":"qb2","leg":"L1c","card":0,"host_threads":"4","n":8,"rc":0,"wall_s":164.614601897}
+{"host":"qb2","leg":"L4u","card":3,"host_threads":"-","n":8,"rc":0,"wall_s":237.344001729}
+{"host":"qb2","leg":"L4u","card":0,"host_threads":"-","n":8,"rc":0,"wall_s":238.705106276}
+{"host":"qb2","leg":"L4u","card":1,"host_threads":"-","n":8,"rc":0,"wall_s":238.705222459}
+{"host":"qb2","leg":"L4u","card":2,"host_threads":"-","n":8,"rc":0,"wall_s":238.705038032}
+{"host":"qb2","leg":"L4c","card":2,"host_threads":"4","n":8,"rc":0,"wall_s":174.231401995}
+{"host":"qb2","leg":"L4c","card":3,"host_threads":"4","n":8,"rc":0,"wall_s":174.267145414}
+{"host":"qb2","leg":"L4c","card":1,"host_threads":"4","n":8,"rc":0,"wall_s":174.290960473}
+{"host":"qb2","leg":"L4c","card":0,"host_threads":"4","n":8,"rc":0,"wall_s":174.603367563}
