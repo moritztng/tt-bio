@@ -397,7 +397,21 @@ def _ensure_offline_tools(install_tools: bool) -> None:
 
 
 def _find_mmseqs() -> str | None:
-    """Find mmseqs binary on PATH or at common install locations."""
+    """Find mmseqs, preferring the one installed alongside colabfold_search.
+
+    The two are a version-matched pair: colabfold_search emits flags for the mmseqs it
+    ships with, so an older mmseqs earlier on PATH silently wins and the search dies with
+    ``Unrecognized parameter "--prefilter-mode"`` (observed on qb1: distro mmseqs
+    13-45111 from /usr/bin shadowing the bundled 18.8cc5c). Resolving the sibling of
+    whichever colabfold_search we are actually going to run keeps the pair together,
+    whether it came from a bundled install or an activated environment.
+    """
+    try:
+        sibling = Path(_find_colabfold_search()).parent / "mmseqs"
+    except Exception:
+        sibling = None
+    if sibling is not None and sibling.is_file() and os.access(sibling, os.X_OK):
+        return str(sibling)
     found = shutil.which("mmseqs")
     if found:
         return found
