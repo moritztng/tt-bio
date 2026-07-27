@@ -405,11 +405,24 @@ def _assert_local_dispatch(dev):
     workers becomes the thing that hangs the worker, and it costs up to a full
     per-fold timeout each time.
 
-    A watchdog thread is the only lever that works here: signals do not land while the
-    main thread sits in that native call — which is precisely why SIGTERM did not kill
-    these — so the timeout has to take the process down itself. The supervisor then
-    reports a dead worker (predict fails loudly since edeba4c2) and the fold is retried
-    on a clean reopen, which is what this function always intended to happen."""
+    The watchdog below is a thread because signals do not land while the main thread sits
+    in that native call — which is why SIGTERM does not kill these either.
+
+    !! IT DOES NOT ACTUALLY FIRE AGAINST THE REAL SPIN. Measured 2026-07-27: a fold that
+    entered this probe at 20:24:16 was still in it 218 s later with the watchdog present
+    and set to 180 s (verified in the running process: correct module path, no env
+    override). The ttnn call appears to hold the GIL without ever returning to the
+    interpreter, so the Timer thread is never scheduled. No Python-level stub reproduces
+    that — time.sleep releases the GIL and even a big-int pow() checks for pending calls,
+    so both make the watchdog fire — which is exactly why the unit test passes and
+    production does not. Kept because it costs nothing and does bound any variant that
+    yields to the interpreter, but do NOT rely on it.
+
+    What actually bounds this failure is OUT of process, and both are in place: the
+    campaign's size-scaled per-fold timeout (scripts/abag_xm_generate.py) and
+    scripts/abag_xm_stall_scan.py, which flags a fold that is out of family for its target
+    size. Four stalls have been caught that way. A proper in-engine fix would have the
+    predict supervisor bound the worker's device-open phase from the parent process."""
     import threading
     import torch
 
