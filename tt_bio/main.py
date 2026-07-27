@@ -799,6 +799,20 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
     def _scalars(idx):
         return {k: round(pred[k][idx].item(), 6) if k in pred else 0.0 for k in scalar_keys}
 
+    def _pair_chains(idx):
+        """Per-sample chain-pair ipTM / per-chain pTM. Same source as the winner-only block
+        below; exposed per sample because for an antibody-antigen ranking dataset the
+        antibody-vs-antigen chain-pair ipTM is more informative than the global ipTM, and a
+        winner-only value cannot be used to rank the other samples (AbAg-XM audit 2026-07-27)."""
+        if "pair_chains_iptm" not in pred:
+            return {}
+        pci = pred["pair_chains_iptm"]
+        return {
+            "pair_chains_iptm": {i: {j: round(pci[i][j][idx].item(), 6) for j in pci[i]}
+                                 for i in pci},
+            "chains_ptm": {i: round(pci[i][i][idx].item(), 6) for i in pci if i in pci[i]},
+        }
+
     metrics.update(_scalars(best_idx))
 
     if "pair_chains_iptm" in pred:
@@ -813,7 +827,8 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
 
     if num_samples > 1:
         idx_by_rank = sorted(rank, key=rank.get)
-        metrics["all_runs"] = [{"rank": rank[i], **_scalars(i)} for i in idx_by_rank]
+        metrics["all_runs"] = [{"rank": rank[i], **_scalars(i), **_pair_chains(i)}
+                               for i in idx_by_rank]
 
     # Optional large outputs
     if write_pae and "pae" in pred:
@@ -1853,9 +1868,24 @@ def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
     Returns ``{seq_hash: a3m_text}`` parallel to the input ``seqs`` dict.
     """
     if msa_db_path:
-        compute_msa_offline(seqs, target_id, msa_dir, msa_db_path, use_env=use_envdb,
-                            pairing_strategy=msa_pairing_strategy, pair=True)
-        return {k: (msa_dir / f"{k}.a3m").read_text() for k in seqs}
+        # Cache into a DEDICATED subdir, and only search what is missing. Two bugs this fixes,
+        # both found auditing the AbAg-XM campaign (2026-07-27):
+        #  (1) PERF: this helper had no cache check at all (unlike prepare_features above, which
+        #      filters to_gen to the missing hashes), so EVERY multi-chain OpenDDE fold re-ran a
+        #      full offline ColabFold search against the ~279 GB uniref30 index -- pure waste on a
+        #      campaign that pre-warms one MSA per target and folds it many times.
+        #  (2) CORRECTNESS: it wrote `{seq_hash}.a3m` into the SHARED msa_dir, silently
+        #      overwriting the very files boltz2/protenix-v2 read for the same chains. Keeping
+        #      paired results in their own namespace means the "identical MSA input across
+        #      generators" fairness contract can no longer be clobbered by an OpenDDE run, and a
+        #      cached unpaired a3m can never be served as if it were paired.
+        paired_dir = msa_dir / "paired"
+        paired_dir.mkdir(parents=True, exist_ok=True)
+        to_gen = {k: s for k, s in seqs.items() if not (paired_dir / f"{k}.a3m").exists()}
+        if to_gen:
+            compute_msa_offline(to_gen, target_id, paired_dir, msa_db_path, use_env=use_envdb,
+                                pairing_strategy=msa_pairing_strategy, pair=True)
+        return {k: (paired_dir / f"{k}.a3m").read_text() for k in seqs}
     headers = {"Content-Type": "application/json", "X-API-Key": api_key_value} if api_key_value else None
     keys = list(seqs)
     res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{target_id}_paired_tmp",
