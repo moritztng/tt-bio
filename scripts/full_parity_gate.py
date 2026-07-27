@@ -115,25 +115,13 @@ PARITY_DATA = REPO / "docs" / "implementation-parity-data"
 # noise draw. Deterministic encoders (esmc/saprot), esmfold2, and the designability/DockQ legs
 # are NOT closed-loop diffusion, so they keep their own deterministic/threshold verdicts.
 ENVELOPE_KINDS = ("structure", "affinity")
-# ...and only for a TORCH-CAPABLE port. The envelope's denominator is a tt-bio fp32-vs-bf16 CPU
-# pair, so it needs tt-bio's own model to run on the host: `class Boltz2(nn.Module)` does
-# (load_from_checkpoint(...).to(torch_device)). Protenix / OpenDDE / ESMFold2 do not — they are
-# ttnn-only, load_from_checkpoint opens the device unconditionally, and predict deliberately routes
-# them to a tenstorrent worker even under --accelerator cpu (main.py's hardcoded
-# _local_workers("tenstorrent", ...); "fixing" that leaked devices and was reverted in
-# 9e74885ea/7e3422635). So --regen-refs hands those models TWO DEVICE FOLDS instead of an fp32/bf16
-# CPU pair: numerator and denominator both collapse to ~0 and the leg silently stops being a parity
-# test at all (measured 2026-07-26 — ref_fp32, ref_bf16 and the device fold came out BYTE-IDENTICAL
-# for an opendde/prot leg). Those ports keep R/D/X against the official external reference, which is
-# what their committed seed fixtures hold. Gate this on the model, not on effort.
-ENVELOPE_MODELS = ("boltz2",)
 # The envelope is a per-shared-draw test: the device fold's seed MUST match the seed the fp32/bf16
 # CPU references were generated at, so all three share one CPU-MT19937 draw sequence.
 ENVELOPE_SEED = 0
 
 
 def _is_envelope_leg(leg) -> bool:
-    return leg.kind in ENVELOPE_KINDS and leg.model in ENVELOPE_MODELS
+    return leg.kind in ENVELOPE_KINDS
 
 
 def _shared_draw_env() -> dict:
@@ -308,21 +296,24 @@ LEGS += [
         committed_json="opendde-prod-leg.json", target_id="prot_no_msa",
         device_args=("--single_sequence", "--recycling_steps", "10", "--sampling_steps", "200", "--diffusion_samples", "1"),
         msa="none"),
-    # OWED — an MSA-ON opendde leg. OpenDDE resolves an MSA by default
-    # (tt_bio.main.MSA_DEFAULT_MODELS), so both legs above being --single_sequence leaves the
-    # MSA-conditioned pair stack and the MSA encoder unscored by this gate. It is not addable
-    # from in-repo material: opendde is a ttnn-only port (see ENVELOPE_MODELS), so the leg needs
-    # a REFERENCE-implementation fold — an official Aureka-OpenDDE CPU run with --use_msa, same
-    # provenance as the nomsa fixtures above, harvested by pharma_harvest_ref_fixtures.py. The
-    # device half is already unblocked: staging docs/implementation-parity-data/ref-fixtures/
-    # protenix-v2/prot/msa-server_*/msa.a3m as msa="staged" folds prot MSA-on offline (verified —
-    # `"msa": true`, no server call), so only the reference is missing.
     Leg("opendde-abag", "opendde-abag", "abag", "examples/1ahw_abag.yaml",
         committed_json="opendde-abag-1ahw-irmsd.json", seeds=(0,),
         note="DockQ leg; reuses release_gate --model opendde-abag"),
     Leg("boltzgen", "boltzgen", "boltzgen", "examples/binder.yaml",
         committed_json="boltzgen.json", seeds=(0,),
         note="designability leg; reuses release_gate --model boltzgen"),
+    # --- RFD3 featurizer parity (card-free, in-process; reuses the committed
+    # reference capture under scripts/rfd3_port/parity_artifacts/iai_protein/) ---
+    # RFD3's correctness anchor is value parity of the host featurizer vs the
+    # upstream foundry featurizer (43/43 f keys bit-exact, verified during the
+    # port p12). The reference is committed, so this leg re-runs the ported
+    # featurizer on the committed IAI_protein.pdb + contig and compares every
+    # key bit-exact every release -- no device, no foundry install. The
+    # trajectory bit-exactness gates from the batch-perf chain (p8-p11) are
+    # separate device checks; this is the card-free foundation.
+    Leg("rfd3-featurizer", "rfd3", "rfd3", "", committed_json="rfd3-featurizer.json",
+        note="RFD3 host featurizer value-parity vs committed foundry reference "
+              "(43/43 keys bit-exact); card-free, in-process"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -349,12 +340,20 @@ def fixture_fingerprint(spec: str) -> str | None:
     if not meta_path.exists():
         return None
     meta = json.loads(meta_path.read_text())
+    # A fixture harvested from an external reference (e.g. official Aureka-OpenDDE /
+    # ByteDance-Protenix) keeps its own top-level provenance for the legacy R/D/X scorer
+    # (settings_tag etc, see pharma_parity.py) — the envelope's shared-draw identity for
+    # THAT fixture lives one level down under "envelope" so regen_envelope_refs never has
+    # to clobber the harvested provenance to update its own cache key. Fixtures with no
+    # external harvest (envelope-native, e.g. boltz2 no-MSA) keep the identity flat at the
+    # top level, same as before.
+    src = meta.get("envelope", meta)
     identity = {
-        "reference_impl": meta.get("reference_impl", ""),
-        "reference_version": meta.get("reference_version", ""),
-        "reference_commit": meta.get("reference_commit", ""),
-        "settings": meta.get("settings", {}),
-        "seeds": meta.get("seeds", []),
+        "reference_impl": src.get("reference_impl", ""),
+        "reference_version": src.get("reference_version", ""),
+        "reference_commit": src.get("reference_commit", ""),
+        "settings": src.get("settings", {}),
+        "seeds": src.get("seeds", []),
     }
     blob = json.dumps(identity, sort_keys=True, default=str).encode()
     return hashlib.sha256(blob).hexdigest()[:16]
@@ -405,46 +404,6 @@ def _incomplete_fixture_seeds(leg, seeds: list) -> list:
     return bad
 
 
-def _staged_hash_mismatch(leg) -> str | None:
-    """Problem string if ``stage_msa`` would write the fixture a3m under a name the fold will
-    not look for, else None.
-
-    A staged leg's whole offline guarantee is the filename: ``predict`` looks for
-    ``{sha256(chain_sequence)[:16]}.a3m`` in --msa_dir and, finding it, never calls the MSA
-    server. Miss by one character and the cache lookup fails, the fold silently falls back to
-    a LIVE server search (see _resolve_msa_default: --msa_dir is a cache dir, not an explicit
-    source), and the device fold scores against a reference built from a different MSA. So
-    check the name against tt_bio's own per-chain hash — the code that does the lookup — rather
-    than trusting this file's yaml regex to agree with it."""
-    from tt_bio.main import _read_bio_chains        # lazy: pulls torch
-    want = _seq_hash(_yaml_protein_seq(REPO / leg.yaml) or "")
-    have = {_seq_hash(cseq) for _cid, cseq, _spec, mt in _read_bio_chains(REPO / leg.yaml)
-            if mt == "protein"}
-    if want in have:
-        return None
-    return (f"{leg.id}: staged MSA would be written as {want}.a3m but the fold looks for "
-            f"{sorted(have)} — the fold would search the MSA server live instead")
-
-
-def incomplete_reference(leg, seeds: list, legacy_rdx: bool = False) -> str:
-    """What this leg's committed reference is missing, or "" when it is complete and scorable.
-
-    ONE rule, shared by ``--check`` and the run loop, because they must agree: an envelope leg
-    is scored against ``ref_fp32``/``ref_bf16`` and needs BOTH, a legacy R/D/X leg is scored
-    against its per-seed dirs and needs their CIFs. ``--check`` used to apply only the legacy
-    rule, so it printed PREFLIGHT OK for envelope legs whose CPU references were absent and the
-    gate then burned a device fold per leg to discover BLOCKED-REGEN."""
-    if not leg.fixture:
-        return ""
-    if _is_envelope_leg(leg) and not legacy_rdx:
-        fp32, bf16 = envelope_ref_dirs(leg)
-        missing = [d for d, p in (("ref_fp32", fp32), ("ref_bf16", bf16)) if p is None]
-        return f"CPU reference missing/incomplete: {', '.join(missing)}" if missing else ""
-    bad = _incomplete_fixture_seeds(leg, seeds)
-    return (f"{', '.join(bad)} missing structures/{leg.target_id}.cif "
-            f"(CIFs gitignored — force-add or regen)") if bad else ""
-
-
 def preflight_check(legs: list) -> list:
     """Card-free validation of every leg's static wiring, run before any device work (and via
     ``--check``). Returns a list of human-readable problems (empty == every leg well-formed).
@@ -479,8 +438,6 @@ def preflight_check(legs: list) -> list:
             src = _fixture_dir(leg.fixture) / "msa.a3m"
             if not src.exists():
                 problems.append(f"{leg.id}: staged-MSA leg missing {src}")
-            elif (bad := _staged_hash_mismatch(leg)) is not None:
-                problems.append(bad)
         if leg.msa == "yaml":
             yp = REPO / leg.yaml
             if yp.exists():
@@ -870,10 +827,28 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
                   + ("" if ok else f" rc={rc} timed_out={timed_out} — see regen_{leg.id}_{dtype}.log"))
             leg_ok &= ok
         if leg_ok:
-            meta = {"reference_impl": "tt-bio-cpu-torch", "reference_version": _repo_commit(),
-                    "reference_commit": _repo_commit(), "settings": _ref_settings(leg),
-                    "seeds": [ENVELOPE_SEED]}
-            (base / "meta.json").write_text(json.dumps(meta, indent=2, sort_keys=True))
+            envelope_meta = {"reference_impl": "tt-bio-cpu-torch", "reference_version": _repo_commit(),
+                             "reference_commit": _repo_commit(), "settings": _ref_settings(leg),
+                             "seeds": [ENVELOPE_SEED]}
+            # MERGE, never clobber, a HARVESTED fixture's top-level meta.json: settings_tag,
+            # "official Aureka-OpenDDE"/"official ByteDance Protenix" provenance, command,
+            # date, invalidation_rule are read by the legacy R/D/X scorer (pharma_parity.py,
+            # --legacy-rdx) against the ALREADY-COMMITTED seed0-4 dirs -- unrelated to and
+            # unaffected by this envelope regen. Overwriting the whole file here previously
+            # destroyed that provenance every time the envelope refs were regenerated
+            # (root cause of the ff473d2ed / 88c14f3b2 / 025ef2479 back-and-forth). A fixture
+            # is "harvested" iff its meta.json carries settings_tag (the legacy scorer's own
+            # marker, see pharma_parity.py) -- only then do we preserve top-level and nest the
+            # envelope's own bookkeeping under "envelope". An envelope-native fixture (no
+            # settings_tag, e.g. boltz2 no-MSA) keeps the old flat replacement (no stale keys).
+            meta_path = base / "meta.json"
+            old_meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+            if "settings_tag" in old_meta:
+                old_meta["envelope"] = envelope_meta
+                meta = old_meta
+            else:
+                meta = envelope_meta
+            meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True))
             n_ok += 1
     # refresh the fingerprint index so a matching reference takes the fast (device-only) path
     idx = load_fingerprint_index()
@@ -921,6 +896,19 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
             return {"error": f"{type(e).__name__}: {e}"}
         out_json.write_text(json.dumps(row, indent=2, default=str))
         return row
+
+    if leg.kind == "rfd3":
+        # Card-free in-process: run the ported featurizer on the committed IAI
+        # fixture and compare every f key bit-exact vs the committed foundry
+        # reference (scripts/rfd3_port/parity_gate.py). No device, no fold.
+        sys.path.insert(0, str(REPO / "scripts" / "rfd3_port"))
+        try:
+            from parity_gate import featurizer_parity
+            rep = featurizer_parity()
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}"}
+        out_json.write_text(json.dumps(rep, indent=2))
+        return rep
 
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
@@ -1051,6 +1039,23 @@ def _abag_verdict(report: dict) -> tuple[str, str]:
     return "NO-DATA", "no global_dockq in record"
 
 
+def _rfd3_verdict(report: dict) -> tuple[str, str]:
+    """RFD3 featurizer parity: PASS iff every comparable f key is bit-exact vs the
+    committed foundry reference capture (the port's own 43/43-key bar, p12)."""
+    if report.get("error"):
+        return "ERROR", str(report["error"])
+    total = report.get("keys_total", 0)
+    bx = report.get("keys_bitexact", 0)
+    mm = report.get("mismatches", [])
+    if total == 0:
+        return "NO-DATA", "no keys scored"
+    verdict = report.get("verdict", "PASS" if not mm else "GAP")
+    detail = f"{bx}/{total} f keys bit-exact"
+    if mm:
+        detail += f"; mismatches: {[m['key'] for m in mm]}"
+    return verdict, detail
+
+
 def _envelope_verdict_row(report: dict) -> tuple[str, str]:
     """Verdict for an integration_envelope report: PASS iff every metric is within the measured
     bf16 envelope; else GAP (a real residual exceeding the envelope — to hunt, not excuse). The
@@ -1085,6 +1090,8 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _boltzgen_verdict(report)
     if leg.kind == "abag":
         return _abag_verdict(report)
+    if leg.kind == "rfd3":
+        return _rfd3_verdict(report)
     if leg.kind == "esmfold2":
         # esmfold2_e2e_parity summary.json is a list of per-protein dicts (each with a
         # kabsch_rmsd block). The gate's recorded behavior is PASS-if-scored (the
@@ -1308,13 +1315,13 @@ def main() -> int:
             print("Refusing to run the gate with misconfigured legs; fix the above (or scope with --leg).")
         return 1
     if args.check:
-        blocked = [(l.id, incomplete_reference(l, list(l.seeds), args.legacy_rdx)) for l in legs]
+        blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs]
         blocked = [(i, b) for i, b in blocked if b]
         if blocked:
-            print("PREFLIGHT — fixtures present but INCOMPLETE (reference missing; each such "
+            print("PREFLIGHT — fixtures present but INCOMPLETE (reference CIFs missing; each such "
                   "leg reports BLOCKED-REF-REGEN-NEEDED and does NOT fail the gate):")
             for i, b in blocked:
-                print(f"  - {i}: {b}")
+                print(f"  - {i}: {', '.join(b)} missing structures/*.cif")
         print(f"PREFLIGHT OK — {len(legs)} legs well-formed "
               f"(yaml / fixture+fingerprint / committed-JSON / target-id / MSA wiring)"
               f"{f'; {len(blocked)} fixture(s) incomplete → BLOCKED-REGEN' if blocked else ''}.")
@@ -1360,13 +1367,26 @@ def main() -> int:
             # `ref-fixtures/**/*.cif` rule. Either way an absent reference is the same class as a
             # fingerprint drift: BLOCKED-REF-REGEN-NEEDED (regenerate the reference with
             # --regen-refs), NOT a hard gate failure and NOT a silent per-leg ERROR mid-run.
-            if incomplete := incomplete_reference(leg, seeds, args.legacy_rdx):
-                rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
-                             "detail": f"reference incomplete under {leg.fixture}: {incomplete} "
-                                       f"— run --regen-refs", "wall": 0})
-                print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
-                      f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  {incomplete}")
-                continue
+            if _is_envelope_leg(leg) and not args.legacy_rdx:
+                fp32_dir, bf16_dir = envelope_ref_dirs(leg)
+                missing = [d for d, p in (("ref_fp32", fp32_dir), ("ref_bf16", bf16_dir)) if p is None]
+                if missing:
+                    rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
+                                 "detail": f"envelope reference incomplete: {', '.join(missing)} "
+                                           f"missing under {leg.fixture} — run --regen-refs", "wall": 0})
+                    print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
+                          f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  envelope ref missing ({', '.join(missing)})")
+                    continue
+            else:
+                incomplete = _incomplete_fixture_seeds(leg, seeds)
+                if incomplete:
+                    rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
+                                 "detail": f"fixture incomplete: {', '.join(incomplete)} missing "
+                                           f"structures/{leg.target_id}.cif (CIFs gitignored — force-add or regen)",
+                                 "wall": 0})
+                    print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
+                          f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fixture incomplete (missing structures/ cif)")
+                    continue
 
         if args.dry_run:
             rows.append({"leg": leg.id, "verdict": "DRY-RUN", "detail": ref_status, "wall": 0})

@@ -41,6 +41,22 @@ from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 BATCH_INVARIANT_GRID = None
 
 
+def _grid_if_single_k_tile(a):
+    """`core_grid=` for matmuls whose K is one tile, `BATCH_INVARIANT_GRID` otherwise.
+
+    The blocking that breaks batch invariance above is purely the K-blocking: matmul
+    output rows are independent, so how M is spread over cores cannot change a row's
+    value, while a different `in0_block_w` regroups the fp32 accumulation. With K
+    inside a single tile there is only one possible K-blocking, so the hint is
+    bit-exact at any batch size and costs nothing to take.
+
+    This matters most in the decoder's [D*I, n_head, n_query, head_dim] attention
+    pair, which p13 profiled running on 1 of 130 cores (177.6 ms of 2537 ms total
+    device time at D=8). Hinted, it is 58.9x faster and bit-identical.
+    """
+    return CORE_GRID_MAIN if a.shape[-1] <= 32 else BATCH_INVARIANT_GRID
+
+
 # --- host-side feature helpers (pure torch; mirror upstream, deps stubbed) ----
 def _collapse(x, L):
     return x.reshape((L, x.numel() // L))
@@ -457,7 +473,8 @@ class TokenInitializer(Module):
         kk = ttnn.reshape(kk, (I, n_head, A, hd))                                    # [I,4,A,32]
         vv = ttnn.reshape(vv, (I, n_head, A, hd))
         kt = ttnn.permute(kk, (0, 1, 3, 2))                                        # [I,4,32,A]
-        sc = ttnn.matmul(qq, kt, compute_kernel_config=ckc)                          # [I,4,1,A]
+        sc = ttnn.matmul(qq, kt, compute_kernel_config=ckc,
+                         core_grid=_grid_if_single_k_tile(qq))                       # [I,4,1,A]
         ttnn.deallocate(qq); ttnn.deallocate(kt)
         sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
         sc = ttnn.multiply(sc, hd ** -0.5)
@@ -467,7 +484,8 @@ class TokenInitializer(Module):
         ttnn.deallocate(mask)
         attn = ttnn.softmax(sc, dim=-1)
         attn = ttnn.typecast(attn, dt, memory_config=attn.memory_config())
-        o = ttnn.matmul(attn, vv, compute_kernel_config=ckc, dtype=dt)                       # [I,4,1,32]
+        o = ttnn.matmul(attn, vv, compute_kernel_config=ckc, dtype=dt,
+                        core_grid=_grid_if_single_k_tile(attn))                      # [I,4,1,32]
         ttnn.deallocate(attn); ttnn.deallocate(vv)
         o = ttnn.multiply(o, ttnn.sigmoid(gg))
         ttnn.deallocate(gg)
@@ -748,7 +766,8 @@ class GatedCrossAttention(Module):
         vv = split(vv, n_key)
         gg = split(gg, n_query)
         scores = ttnn.matmul(
-            qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc
+            qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
+            core_grid=_grid_if_single_k_tile(qq),
         )
         scores = ttnn.multiply(scores, self.head_dim**-0.5)
         if attn_mask_dev is not None:
@@ -756,7 +775,8 @@ class GatedCrossAttention(Module):
         elif attn_mask is not None:
             scores = ttnn.add(scores, self._prepare_additive_mask(attn_mask, batch, tokens, n_query, n_key))
         attention = ttnn.softmax(scores, dim=-1)
-        out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt)
+        out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt,
+                          core_grid=_grid_if_single_k_tile(attention))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
         out = ttnn.permute(out, (0, 2, 1, 3))
         out = ttnn.reshape(

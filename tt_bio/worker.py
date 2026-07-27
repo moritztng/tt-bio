@@ -218,11 +218,17 @@ class _WorkerState:
             self._tokenizer, self._featurizer = Boltz2Tokenizer(), Boltz2Featurizer()
             self._mol_dir = Path(cfg["mol_dir"])
             self._ccd = load_canonicals(self._mol_dir)
-            self.model = (
-                Boltz2.load_from_checkpoint(cfg["conf_ckpt"], **cfg["conf_kwargs"])
-                .eval()
-                .to(self.torch_device)
+            from tt_bio.tenstorrent import diffusion_fp32_device
+
+            struct_fp32_device = (
+                os.environ.get("BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE", "0") == "1"
             )
+            with diffusion_fp32_device(struct_fp32_device):
+                self.model = (
+                    Boltz2.load_from_checkpoint(cfg["conf_ckpt"], **cfg["conf_kwargs"])
+                    .eval()
+                    .to(self.torch_device)
+                )
         self.config_hash = _hash_run_config(cfg)
         self.model_id = model_id
 
@@ -253,10 +259,10 @@ class _WorkerState:
         this is the CPU/host reference (NOT tenstorrent), run the model forward under a bf16
         autocast so its closed-loop divergence from the fp32 reference measures the intrinsic
         bf16 cost of the full sampler trajectory (chaotic amplification included). Applied at
-        every forward the device runs in bf16 — the structure ``predict_step`` AND the affinity
-        ``aff_model.predict_step`` (the device runs the affinity head in bf16 too, unless
-        BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1) — so the bf16 reference mirrors the device's
-        dtype boundary rather than leaving the affinity scalar in fp32. Shared draws are
+        every forward the device runs in bf16 — the structure ``predict_step`` (bf16 unless
+        BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE=1) AND the affinity ``aff_model.predict_step``
+        (bf16 unless BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1) — so the bf16 reference mirrors
+        the device's dtype boundary rather than leaving the scalar in fp32. Shared draws are
         preserved: the diffusion ``torch.randn`` draws (boltz2.py:4092/4127) run on CPU MT19937
         from the one seed, unaffected by autocast, so fp32 and bf16 references differ only in
         arithmetic dtype, nothing stochastic. Default off — device runs and the fp32 reference
@@ -667,12 +673,12 @@ class _WorkerState:
         from tt_bio.main import to_batch
 
         if self.aff_model is None:
-            from tt_bio.tenstorrent import affinity_diffusion_fp32_device
+            from tt_bio.tenstorrent import diffusion_fp32_device
 
             fp32_device = (
                 os.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE", "0") == "1"
             )
-            with affinity_diffusion_fp32_device(fp32_device):
+            with diffusion_fp32_device(fp32_device):
                 self.aff_model = (
                     Boltz2.load_from_checkpoint(cfg["aff_ckpt"], **cfg["aff_kwargs"])
                     .eval()

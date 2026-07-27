@@ -68,19 +68,24 @@ trajectory PCC 1.000000, maxabs 0, at 200 timesteps and batch 8). Pick
 
 Throughput is where it's worth being careful, because batching pays off on
 smaller designs and stops paying on large ones. Measured on one Blackhole p150a
-at 200 timesteps:
+with shipped defaults, from 20-step runs projected to 200 timesteps:
 
 | design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
 |---|---:|---:|---:|---:|
-| 40 residues | 419 | 0.0767 designs/sec | 0.1216 | 1.59x |
-| 80 residues | 979 | 0.0500 | 0.0605 | 1.21x |
-| 150 residues | 1959 | 0.0265 | 0.0249 | 0.94x |
-| Mpro + nirmatrelvir | 2702 | 0.0149 | 0.0140 | 0.94x |
-| 250 residues | 3359 | 0.0119 | 0.0117 | 0.98x |
+| 40 residues | 419 | 0.0807 designs/sec | 0.1352 | 1.68x |
+| 80 residues | 979 | 0.0539 | 0.0611 | 1.13x |
+| 150 residues | 1959 | 0.0271 | 0.0257 | 0.95x |
+| Mpro + nirmatrelvir | 2702 | 0.0163 | 0.0146 | 0.90x |
+| 250 residues | 3359 | 0.0129 | 0.0120 | 0.93x |
 
-Batch 8 wins clearly up to about 80 residues and is within a few percent of batch
+Expect a few percent of run-to-run spread on these; a warm card reads faster than
+a cold one.
+
+Batch 8 wins clearly up to about 80 residues and is within about 10% of batch
 1 above that, so the default suits every size and `--batch_size` is worth changing
-only if you are chasing the last few percent on a single large spec. The
+only if you are chasing the last few percent on a single large spec. Raising it to
+16 does not help at either end (0.1352 vs 0.1299 designs/sec at 419 atoms, and no
+change at 3359). The
 size-dependence is a memory-traffic one: batching shares the work that does not
 depend on the design, and the per-design attention tensors it cannot share grow
 with atom count. `--devices` is the parallelism that matters at large design sizes
