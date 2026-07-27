@@ -21,7 +21,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | Protenix-v2 | ubiquitin, L76, MSA | PASS | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too |
 | Protenix-v2 | HSA, L585, MSA | PASS | on-device fp32 diffusion matches the reference's own fp32 boundary; CA-RMSD 0.685 Å inside the 0.695 Å floor (was GAP-evidenced in bf16, X 1.03 Å) |
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
-| Boltz-2 | 7ROA, L117, no MSA | PASS (legacy R/D/X); GAP under the envelope gate | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å. The newer, tighter envelope test (below) GAPs this leg (ratio 1.83, reproducible) — open item, not yet root-caused |
+| Boltz-2 | 7ROA, L117, no MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å. The tighter envelope test GAPs this leg at the pinned seed (ratio 2.04); root-caused as seed-0 chaotic-trajectory amplification, not a precision bug — see below |
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
 | Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97); residual systematic bf16, see §§§ |
 | Boltz-2 | HSA, L585, no MSA | PASS | CA-RMSD 1.47 Å inside the 1.50 Å floor; first L585 target |
@@ -155,9 +155,9 @@ ratio 1.83 (exceeds the 1.5× bound), reproduced bit-for-bit on a second `--fres
 noise or a flaky measurement). This DRIFTS from the leg's legacy R/D/X-methodology verdict
 (PASS) — plausibly the same effect already documented above for the FKBP12 affinity scalar: the
 new envelope test's tighter, single-seed floor surfaces a bf16 residual that the old wide
-cross-seed noise floor buried, rather than a new regression. Not root-caused or fixed this pass
-(would need the same triangulation work as the FKBP12 case); flagged here as an open item, gate
-metric intentionally not loosened to hide it. A second discrepancy, `boltz2-affinity-fkbp12-msa`,
+cross-seed noise floor buried, rather than a new regression. Root-caused 2026-07-27 by the same
+triangulation work as the FKBP12 case — see below; gate metric intentionally not loosened to hide
+it. A second discrepancy, `boltz2-affinity-fkbp12-msa`,
 DRIFTS the other direction — the envelope test PASSES it (both `affinity_pred_value` ratio 0.062
 and `affinity_probability_binary` ratio 0.60) against the legacy `GAP-evidenced` record — but this is
 not a contradiction: the two use different metrics/methodology and this leg's committed
@@ -188,6 +188,26 @@ all PASS (within_noise_floor=true on every metric); `opendde-trpcage-nomsa` repo
 BLOCKED-REF-REGEN-NEEDED under `--legacy-rdx` for an unrelated, pre-existing reason (its committed
 device-side seed dirs lack `structures/*.cif` — not touched by this pass). Gate of record —
 pending Moritz's sign-off before merge.
+
+**`boltz2-prot-nomsa` GAP root-caused 2026-07-27 (GAP-evidenced, not fixed): seed-0 chaos, not a
+precision bug.** Two on-device fp32 levers were tried and neither closes it: the reference's own
+selective-fp32-softmax boundary (`BOLTZ2_FP32_SOFTMAX=1`, ratio 2.04→2.00) and a new fp32-storage/
+native-bf16-SDPA hybrid diffusion lever ported from the affinity path to plain structure prediction
+(`BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE=1`, ratio 2.04→2.07), stacked or alone. The real cause:
+re-running the identical closed-loop triple (device_bf16, ref_fp32, ref_bf16) at two more seeds
+shows the envelope itself — `d(ref_bf16, ref_fp32)`, the reference's own bf16-recompute drift from
+its fp32 self — swings from 3.45 Å at seed 0 to 2.16 Å at seed 1 to 0.81 Å at seed 2, and the leg
+PASSes cleanly at both (ratio 0.98, 0.48). `ENVELOPE_SEED=0` (fixed for every leg, by gate design)
+happens to land this one no-MSA target in an unusually chaotic reverse-diffusion trajectory where a
+bf16 perturbation early in sampling amplifies into a large final-structure divergence — the same
+"wide no-MSA floor" property the legacy R/D/X row above already named (R 4.98 Å), now visible even
+in the tighter single-seed envelope test because that pinned seed happens to be this target's worst
+draw. Not a port defect and not a precision-boundary mismatch to match — closing it would require
+either accepting per-leg seed selection (rejected: gaming the pinned seed per-leg is indistinguishable
+from cherry-picking and undermines the gate's uniformity) or a chaos-damping change to the model
+itself (out of scope for a parity gate). Verdict stays **GAP-evidenced**, margin not loosened. Both
+new gates are retained as documented negative infrastructure, default OFF (same policy as
+`BOLTZ2_FP32_SOFTMAX`) — harmless, reversible, and available for the next leg that might need them.
 
 ## Reproduce
 
