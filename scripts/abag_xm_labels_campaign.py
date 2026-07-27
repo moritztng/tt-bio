@@ -13,7 +13,7 @@ Output layout (persistent, not /tmp):
     ~/abag_xm/tier_a/labels/<model>_<target>.json   (full per-fold label block)
     ~/abag_xm/tier_a/labels/labels.jsonl            (one index line per fold)
 """
-import argparse, hashlib, json, os, subprocess, sys, time
+import argparse, hashlib, json, os, shutil, subprocess, sys, time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -54,14 +54,44 @@ THREAD_CAP_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
                    "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")
 
 
+def _user_bin_path():
+    """PATH with ~/.local/bin ahead of it.
+
+    CDR RMSD goes through ANARCI, which shells out to `hmmscan`. A non-interactive ssh PATH does
+    not include ~/.local/bin, so on a host where HMMER is user-installed rather than in /usr/bin
+    the binary is present and still not found -- and the failure surfaces only as a truncated
+    multiprocessing traceback buried in a label record. That silently nulled CDR RMSD for every
+    fold on qb2 while the other three metrics looked perfectly healthy.
+    """
+    local_bin = str(Path.home() / ".local" / "bin")
+    cur = os.environ.get("PATH", "")
+    return local_bin + (os.pathsep + cur if cur else "")
+
+
 def _label_python_env(host_threads: int = 2):
     """Return (python, env) for invoking abag_xm_labels.py with all deps available."""
     cap = {v: str(max(1, host_threads)) for v in THREAD_CAP_VARS}
+    cap["PATH"] = _user_bin_path()
     if LABEL_VENV_PY.exists():
         shared_sp = next(iter(SHARED_VENV.glob("lib/python*/site-packages")), None)
         pp = ":".join(str(x) for x in [shared_sp, ROOT] if x)
         return str(LABEL_VENV_PY), {**os.environ, **cap, "PYTHONPATH": pp}
     return sys.executable, {**os.environ, **cap, "PYTHONPATH": str(ROOT)}
+
+
+def _preflight_hmmscan():
+    """Warn loudly if hmmscan is unreachable: CDR RMSD would be null for the entire run.
+
+    Deliberately a warning and not an abort -- DockQ, epitope Jaccard and interface lDDT do not
+    need it, and losing three working metrics to protect one is the wrong trade. The point is
+    that it must not be SILENT, which is how it went unnoticed for a whole host.
+    """
+    if shutil.which("hmmscan", path=_user_bin_path()) is None:
+        print("!! hmmscan NOT FOUND on PATH (incl. ~/.local/bin) -- ANARCI cannot run, so "
+              "cdr_rmsd will be null for EVERY fold in this run. Install HMMER "
+              "(qb1 and qb2 both use 3.3.2) to fix.", flush=True)
+        return False
+    return True
 
 
 def done_ok_pairs():
@@ -166,6 +196,7 @@ def main():
     tasks.sort()
     print(f"[campaign] {len(tasks)} ok pairs to label (workers={a.workers}, "
           f"host_threads={a.host_threads}, force={a.force})", flush=True)
+    _preflight_hmmscan()
     if not tasks:
         print("[campaign] nothing to do; no ok pairs yet", flush=True)
         return
