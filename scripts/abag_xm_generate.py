@@ -50,6 +50,22 @@ SEED = 42
 # so the ceiling is predictable rather than pathological. 7200 s is ~2.2x the observed worst case and
 # matches what abag_xm_resume_opendde.sh already uses.
 FOLD_TIMEOUT_S = 7200
+# Per-fold timeout scaled to the target instead of a flat cap. Measured ceilings in
+# s/residue on qb1 (the slower host): the MAX observed across completed folds, not the
+# median -- protenix 2.5-4.0, opendde 2.8-4.0, boltz2 0.76-0.88. A flat 7200 s is ~20x a
+# boltz2 fold's real cost, which is why a stalled fold burns two card-hours before anything
+# notices; three have (22ps protenix, 9i5n boltz2, 9iar boltz2 -- one spinning dispatch
+# thread at 100% CPU, no output written, deaf to SIGINT and SIGTERM). Scaling catches the
+# same stall in minutes. The result is clamped to FOLD_TIMEOUT_S so it can only ever be
+# TIGHTER than today, never looser, and the floor keeps small targets generous.
+RATE_CEILING_S_PER_RES = {"protenix-v2": 4.0, "opendde-abag": 4.0, "boltz2": 0.9}
+# boltz2 only: when max_parallel_samples does not divide diffusion_samples the chunk split is
+# ragged, which issues ~1.7x the per-step dispatch and measured 2.23 s/res against 0.88
+# uniform. Using the uniform ceiling there leaves 1.4x headroom -- tight enough to kill a
+# healthy fold -- and qb2 is still running that configuration.
+BOLTZ2_RAGGED_CEILING_S_PER_RES = 2.6
+TIMEOUT_MARGIN = 3.5           # >=3.4x headroom over the slowest fold ever observed at size
+FOLD_TIMEOUT_FLOOR_S = 900
 # max_parallel_samples. BACK TO 5, the only value validated for boltz2.
 # 3 was set while chasing the protenix OOM, on a hypothesis that was then retracted: the
 # protenix batched path is entered on n_sample > 1 regardless of mps, so mps never affected that
@@ -177,6 +193,34 @@ def _dir_bytes(p):
     return sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
 
 
+_RESIDUES = {}
+
+
+def target_residues(target):
+    """Total protein residues in a target's YAML, cached. 0 if it cannot be read."""
+    if target not in _RESIDUES:
+        import yaml as _yaml
+        try:
+            d = _yaml.safe_load((YAML_DIR / f"{target}.yaml").open())
+            _RESIDUES[target] = sum(
+                len(v.get("sequence", ""))
+                for e in d.get("sequences", []) for k, v in e.items() if k == "protein")
+        except Exception:
+            _RESIDUES[target] = 0
+    return _RESIDUES[target]
+
+
+def fold_timeout_for(target, model, cap=FOLD_TIMEOUT_S, mps=MPS, n_samples=N_SAMPLES):
+    """Size-scaled timeout, clamped so it is never looser than ``cap``."""
+    n = target_residues(target)
+    rate = RATE_CEILING_S_PER_RES.get(model)
+    if not n or rate is None:
+        return cap
+    if model == "boltz2" and mps and n_samples % mps:
+        rate = BOLTZ2_RAGGED_CEILING_S_PER_RES
+    return int(min(cap, max(FOLD_TIMEOUT_FLOOR_S, TIMEOUT_MARGIN * rate * n)))
+
+
 def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
              fold_timeout_s=FOLD_TIMEOUT_S, host_threads=None):
     out_dir = OUT_BASE / model.replace("-", "_")
@@ -240,7 +284,8 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
     rec = {"target": target, "model": model, "wall_s": round(wall_s, 1),
            "device": device, "n_samples": n_samples, "mps": mps,
            "host": _HOST, "tt_bio_commit": commit,
-           "paired_msa": False, "host_threads": host_threads}
+           "paired_msa": False, "host_threads": host_threads,
+           "timeout_s": fold_timeout_s}
     if timed_out:
         rec["status"] = "timed_out"
         rec["stderr"] = f"killed after {fold_timeout_s}s (process group); tail: {(out or '')[-1500:]}"
@@ -328,7 +373,9 @@ def main():
                 continue
             print(f"[start] {target} {model} {time.strftime('%H:%M:%S')}", flush=True)
             rec = fold_one(target, model, a.device, a.n_samples, a.mps,
-                           fold_timeout_s=a.timeout, host_threads=host_threads)
+                           fold_timeout_s=fold_timeout_for(target, model, a.timeout,
+                                                           a.mps, a.n_samples),
+                           host_threads=host_threads)
             with open(PROGRESS, "a") as fp:
                 fp.write(json.dumps(rec) + "\n")
             print(f"[done]  {target} {model} status={rec['status']} "
