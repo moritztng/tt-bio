@@ -44,13 +44,16 @@ progress_mtime(){ stat -c %Y "$PROGRESS" 2>/dev/null || echo 0; }
 mkdir -p "$HOME/abag_xm/tier_a"
 log "START Tier-A runner v3: 4 cards, timeout=${TIMEOUT}s, stall=${STALL}s (conservative)"
 PIDS=(); for c in 0 1 2 3; do PIDS[$c]=$(launch_card $c); log "launched card $c pid=${PIDS[$c]}"; done
-last_prog=$(progress_mtime)
+# Wall-clock, not file mtime: progress_mtime is 0 before the first fold completes and
+# `now - 0` >= STALL, so seeding from the mtime false-recovers on the first tick of a fresh
+# campaign. Same fix as abag_xm_resume_opendde.sh (42ef721a), missed here.
+last_prog=$(date +%s)
 while true; do
   sleep 120
   alive=0; for c in 0 1 2 3; do [ -n "${PIDS[$c]}" ] && kill -0 "${PIDS[$c]}" 2>/dev/null && alive=$((alive+1)); done
   if [ "$alive" -eq 0 ]; then log "all 4 generate.py exited — campaign slice complete"; break; fi
-  now_prog=$(progress_mtime)
-  if [ "$now_prog" != "$last_prog" ]; then last_prog=$now_prog
-  elif [ $(( $(date +%s) - now_prog )) -ge "$STALL" ]; then recover_all; last_prog=$(progress_mtime); fi
+  pm=$(progress_mtime)
+  if [ "$pm" != "0" ] && [ "$pm" -gt "$last_prog" ]; then last_prog=$pm; fi
+  if [ $(( $(date +%s) - last_prog )) -ge "$STALL" ]; then recover_all; last_prog=$(date +%s); fi
 done
 log "DONE"

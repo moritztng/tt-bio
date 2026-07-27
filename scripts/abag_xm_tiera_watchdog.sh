@@ -43,7 +43,13 @@ else
   for c in 0 1 2 3; do launch_card $c >/dev/null; done
   sleep 5
 fi
-last_prog=$(progress_mtime)
+# Stall clock starts at launch wall-clock, NOT file mtime. progress_mtime is 0 until the
+# first fold completes, and `now - 0` is the epoch, which is >= any STALL -- so seeding from
+# the mtime makes a FRESH campaign (no progress.jsonl yet) kill+reset+relaunch on the very
+# first tick, forever, destroying every fold before one can finish. Same fix as
+# abag_xm_resume_opendde.sh / abag_xm_opendde_qb2.sh (70961944, 42ef721a); these two scripts
+# were missed there and matter now that Phase 3 starts from an empty tier_a.
+last_prog=$(date +%s)
 zero_streak=0
 log "WATCHDOG active: stall=${STALL}s (90min), timeout=${TIMEOUT}s. generate.py runs autonomously."
 while true; do
@@ -55,13 +61,13 @@ while true; do
     log "ngen=0 (check $zero_streak/2) — re-checking next cycle before exiting"; continue
   fi
   zero_streak=0
-  now_prog=$(progress_mtime)
-  if [ "$now_prog" != "$last_prog" ]; then last_prog=$now_prog
-  elif [ $(( $(date +%s) - now_prog )) -ge "$STALL" ]; then
+  pm=$(progress_mtime)
+  if [ "$pm" != "0" ] && [ "$pm" -gt "$last_prog" ]; then last_prog=$pm; fi
+  if [ $(( $(date +%s) - last_prog )) -ge "$STALL" ]; then
     log "STALL: no progress for ${STALL}s — kill all + tt-smi -r 0,1,2,3 + relaunch"
     kill_all; timeout 120 "$TT_SMI" -r 0,1,2,3 >/dev/null 2>&1; sleep 3
     for c in 0 1 2 3; do launch_card $c >/dev/null; done
-    last_prog=$(progress_mtime); log "relaunched 4 generate.py"
+    last_prog=$(date +%s); log "relaunched 4 generate.py"
   fi
 done
 log "DONE"
