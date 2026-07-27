@@ -1,8 +1,15 @@
 """Measure RFD3 in-forward batching throughput.
 
-Uses the parity fixture and production decoder-trace setting. Each shape gets a
-short warmup before a timed sampler run; the 200-timestep rate is derived from
-the measured per-step time when another step count is requested.
+Uses the parity fixture and whatever ``RFD3_TRACE_DECODER`` the caller exports
+(printed in the header). That flag is opt-in and ``tt-bio design`` never sets it,
+so leaving it unset is the shipped configuration; this docstring used to call
+``RFD3_TRACE_DECODER=1`` the "production" setting, which is what let the sweep
+scripts label trace-on numbers as shipped defaults.
+
+Each shape gets a short warmup before a timed sampler run, so a first-call
+calibration compile lands in the warmup and is NOT in the timed region. The
+200-timestep rate is derived from the measured per-step time when another step
+count is requested.
 """
 
 from __future__ import annotations
