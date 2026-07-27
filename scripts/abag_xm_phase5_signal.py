@@ -7,8 +7,10 @@ Computes per generator:
   - per-target Spearman (median across targets) vs global Spearman
     (the 0.80-vs-0.28 pathology diagnostic from D9)
 
-This is a PARTIAL signal (95 of 328 planned pairs, protenix+boltz2 only, no
-opendde, no learned rankers). Numbers are preliminary and will change.
+This is a PARTIAL signal while Tier A is still generating. Coverage is computed
+from the CSV and reported at the end -- never hardcoded, because a stale
+"95 of 328" printed under a run that actually covered something else is exactly
+how a preliminary number gets quoted as a final one.
 """
 import csv, json, sys, os, math
 from collections import defaultdict
@@ -53,13 +55,23 @@ for r in csv.DictReader(open(CSV)):
 
 print("=" * 80)
 print("PARTIAL Phase 5 signal — %d (gen,target) pairs, %d rows" % (len(folds), sum(len(v) for v in folds.values())))
-print("  protenix-v2: %d targets, boltz2: %d targets, opendde: 0 (not yet run)" % (
-    sum(1 for (g,t) in folds if g=="protenix-v2"),
-    sum(1 for (g,t) in folds if g=="boltz2")))
-print("  learned rankers (DeepRank-Ab, ABAG-Rank): NOT run yet")
+# Generator coverage is read from the CSV, never assumed. The previous version hardcoded both
+# this line and the analysis loop to protenix-v2 and boltz2 while announcing "opendde: 0 (not yet
+# run)" -- so once opendde-abag started completing, 11 folds / 550 rows of the strongest generator
+# by DockQ were dropped from every number below while the header insisted they did not exist.
+GEN_ORDER = ["protenix-v2", "opendde-abag", "boltz2"]
+_counts = {g: sum(1 for (gg, _) in folds if gg == g) for g in GEN_ORDER}
+for _g in sorted({g for g, _ in folds} - set(GEN_ORDER)):   # anything new shows up rather than vanishing
+    GEN_ORDER.append(_g)
+    _counts[_g] = sum(1 for (gg, _) in folds if gg == _g)
+print("  " + ", ".join("%s: %d targets" % (g, _counts[g]) for g in GEN_ORDER))
+_learned_hdr = [c for c in ("deeprank_ab", "abag_rank")
+                if any(r.get(c) not in (None, "") for v in folds.values() for r in v)]
+print("  learned rankers (DeepRank-Ab, ABAG-Rank): %s"
+      % (", ".join(_learned_hdr) if _learned_hdr else "NOT run yet"))
 print("=" * 80)
 
-for gen in ["protenix-v2", "boltz2"]:
+for gen in GEN_ORDER:
     gen_folds = {k: v for k, v in folds.items() if k[0] == gen}
     if not gen_folds:
         continue
@@ -123,7 +135,16 @@ for gen in ["protenix-v2", "boltz2"]:
             print("  %-16s median=%.4f  (n=%d, q25=%.3f, q75=%.3f)" % (ranker, med, len(pts), pts[len(pts)//4], pts[3*len(pts)//4]))
 
 print("\n" + "=" * 80)
-print("NOTE: partial data — 95 of 328 planned pairs. No opendde, no learned rankers.")
+_planned = 164 * 3
+_have = len(folds)
+_gens_missing = sorted({"protenix-v2", "boltz2", "opendde-abag"} - {g for g, _ in folds})
+_learned = [c for c in ("deeprank_ab", "abag_rank")
+            if any(r.get(c) not in (None, "") for v in folds.values() for r in v)]
+print("NOTE: partial data — %d of %d planned (target,generator) pairs (%.0f%%)."
+      % (_have, _planned, 100.0 * _have / _planned))
+if _gens_missing:
+    print("      generators with no data yet: %s" % ", ".join(_gens_missing))
+print("      learned rankers present: %s" % (", ".join(_learned) if _learned else "none"))
 print("Numbers are preliminary. The per-target-vs-global Spearman gap (the 0.80-vs-0.28")
 print("pathology from btag136) is the headline diagnostic — watch whether global Spearman")
 print("is high while per-target median is near zero.")
