@@ -165,8 +165,29 @@ not a contradiction: the two use different metrics/methodology and this leg's co
 superseded by one envelope pass; it stays documented as-is pending its own re-review.
 
 Prior state: a 2026-07-23/24 pass first wired the automated gate end-to-end but had only 9 of the
-21 legs' CPU references generated (9 PASS, 12 BLOCKED-REF-REGEN-NEEDED). This pass closed every
-remaining reference gap. Gate of record — pending Moritz's sign-off before merge.
+21 legs' CPU references generated (9 PASS, 12 BLOCKED-REF-REGEN-NEEDED). That pass closed every
+remaining reference gap, but this claim went stale two days later without being corrected here:
+`regen_envelope_refs` wholesale-overwrote each fixture's root `meta.json`, which for 5 legs
+(`opendde-{trpcage,prot}`, `protenix-v2-{prot,ubq,hsa}-msa`) destroyed the harvested "official
+Aureka-OpenDDE/ByteDance-Protenix" provenance + `settings_tag` the separate legacy R/D/X scorer
+needs — so a 2026-07-26 fix restored that provenance, which silently put those 5 legs back to
+`BLOCKED-REF-REGEN-NEEDED` under this (envelope) gate. Root-caused and fixed 2026-07-27:
+`regen_envelope_refs` now nests its own cache-key bookkeeping under `meta["envelope"]` instead of
+replacing the file, so a fixture can carry both an envelope reference and legacy R/D/X provenance
+at once — regenerating one can no longer break the other. All 8 previously-BLOCKED legs
+(`boltz2-{trpcage,prot,hsa}-nomsa`, `protenix-v2-{prot,ubq,hsa}-msa`, `opendde-{trpcage,prot}`)
+were regenerated and re-verified against this fix:
+
+    Tally (8 re-verified legs): 7 PASS, 1 GAP — boltz2-prot-nomsa, envelope worst kabsch_rmsd
+    ratio 2.04 (same pre-existing open item above, not a new regression)
+
+The legacy R/D/X path (`--legacy-rdx`) was independently re-verified for the 5 "ttnn-only" legs
+whose provenance the fix preserves: `opendde-prot-prod` PASS (X=4.824 R=1.499 D=6.319, matching
+the 2026-07-26 verified number X=4.678 R=1.499 D=6.103 within noise), `protenix-v2-{prot,ubq,hsa}`
+all PASS (within_noise_floor=true on every metric); `opendde-trpcage-nomsa` reports
+BLOCKED-REF-REGEN-NEEDED under `--legacy-rdx` for an unrelated, pre-existing reason (its committed
+device-side seed dirs lack `structures/*.cif` — not touched by this pass). Gate of record —
+pending Moritz's sign-off before merge.
 
 ## Reproduce
 
