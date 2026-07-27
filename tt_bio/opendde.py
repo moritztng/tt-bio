@@ -374,7 +374,7 @@ class OpenDDE:
         import torch
         from .opendde_data import build_structural_token_features
         from .tenstorrent import get_device
-        from .protenix import edm_sample
+        from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, edm_sample
 
         if trace:
             import tt_bio.tenstorrent as _TTd
@@ -440,7 +440,7 @@ class OpenDDE:
         # Multiplicity batching (see Protenix.fold): one batched trajectory when
         # P.diffusion.supports_multiplicity is on; else the per-sample loop (bit-exact).
         if n_sample > 1 and getattr(P.diffusion, "supports_multiplicity", False):
-            _mps = n_sample if max_parallel_samples is None else max_parallel_samples
+            _mps = DEFAULT_MAX_PARALLEL_SAMPLES if max_parallel_samples is None else max_parallel_samples
             _df = (lambda step, x: dump_fn(step, step, x)) if dump_fn is not None else None
             coords = edm_sample(P.diffusion, cond, N, n_step=n_step, multiplicity=n_sample,
                                  max_parallel_samples=_mps, seed=seed, trace=trace,

@@ -1986,7 +1986,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Trunk recycling iterations. Default: protenix-v2 uses its spec of 10; boltz2/esmfold2 use 3.")
 @click.option("--sampling_steps", default=200, type=int)
 @click.option("--diffusion_samples", default=1, type=int)
-@click.option("--max_parallel_samples", default=5, type=int)
+@click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
+              help="Diffusion samples denoised in one batched forward. Higher is faster but "
+                   "costs device memory linearly; lower it if a large target runs out.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
