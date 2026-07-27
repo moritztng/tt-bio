@@ -62,6 +62,11 @@ FOLD_TIMEOUT_S = 7200
 # interpreter bug, not mps). The mechanism at 3 is NOT established; 5 is simply the validated
 # value and the campaign has no reason to deviate from it.
 MPS = 5
+# Root-caused and fixed in 151400b8 (the device conditioning cache kept the first chunk's
+# sample batch, so a short final chunk mismatched it) -- but that fix is NOT yet verified on
+# a card, so MPS stays at the validated value and the guard below keeps any fold generated
+# under a different one out of the slab.
+MPS_SENSITIVE_MODELS = {"boltz2"}  # the others ignore mps (supports_multiplicity=False)
 CONCURRENT_FOLDS = 4  # one harness per card on a 4-card QuietBox; sets the per-fold CPU share
 
 # D12 (per-model config fairness contract) — resolved-config fields recorded in
@@ -143,8 +148,13 @@ def done_pairs():
                 continue
             try:
                 r = json.loads(line)
-                if r.get("status") == "ok":
-                    seen.add((r["target"], r["model"]))
+                if r.get("status") != "ok":
+                    continue
+                if r["model"] in MPS_SENSITIVE_MODELS and r.get("mps") != MPS:
+                    # Generated under a different sampling configuration -- a different
+                    # procedure, so not done. The resume pass regenerates it with --override.
+                    continue
+                seen.add((r["target"], r["model"]))
             except Exception:
                 pass
     return seen
