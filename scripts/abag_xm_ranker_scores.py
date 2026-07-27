@@ -53,7 +53,7 @@ def _native_confidences(fold_dir):
 
 
 def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abagrank,
-                    deeprank_venv, abagrank_dir):
+                    deeprank_venv, abagrank_dir, deeprank_cpus=0):
     with open(labels_path) as f:
         labels = json.load(f)
     all_runs = _native_confidences(Path(fold_dir))
@@ -66,7 +66,8 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
 
     deeprank_scores = {}
     if with_deeprank:
-        deeprank_scores = _run_deeprank(fold_dir, target, gen, deeprank_venv)
+        deeprank_scores = _run_deeprank(fold_dir, target, gen, deeprank_venv,
+                                        cpus=deeprank_cpus)
     abagrank_scores = {}
     if with_abagrank:
         abagrank_scores = _run_abagrank(fold_dir, target, gen, abagrank_dir)
@@ -96,16 +97,26 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
     return rows
 
 
-def _run_deeprank(fold_dir, target, gen, deeprank_venv):
+def _run_deeprank(fold_dir, target, gen, deeprank_venv, cpus=0):
+    """Score a fold with DeepRank-Ab, optionally pinned to a CPU budget.
+
+    ``deeprank-ab-predict`` exposes no worker or thread knob -- only chain IDs -- and its
+    DataLoader pool ignores OMP/MKL caps, so scoring one fold alongside generation took
+    this 32-core host from load 15.6 to 29.7 with ~38 processes and starved the folds.
+    Since the pool size cannot be asked for, bound it from outside: taskset constrains the
+    whole process tree however many workers it decides to spawn.
+    """
     wrapper = ROOT / "scripts" / "abag_xm_deeprank_batch.py"
     py = os.path.join(deeprank_venv, "bin", "python3")
     out_json = tempfile.mktemp(prefix=f"deeprank_{target}_{gen}_", suffix=".json")
-    r = subprocess.run([py, str(wrapper),
-                        "--fold_dir", str(fold_dir),
-                        "--target", target, "--gen", gen,
-                        "--out_json", out_json,
-                        "--deeprank_venv", deeprank_venv],
-                       capture_output=True, text=True)
+    cmd = [py, str(wrapper),
+           "--fold_dir", str(fold_dir),
+           "--target", target, "--gen", gen,
+           "--out_json", out_json,
+           "--deeprank_venv", deeprank_venv]
+    if cpus and cpus > 0:
+        cmd = ["taskset", "-c", f"0-{cpus - 1}"] + cmd
+    r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         print(f"[deeprank] {target}/{gen} batch wrapper failed rc={r.returncode}",
               file=sys.stderr)
@@ -180,6 +191,10 @@ def main():
                     default=os.path.expanduser("~/.deeprank_ab_venv"))
     ap.add_argument("--abagrank_dir",
                     default=os.path.expanduser("~/ABAG-Rank"))
+    ap.add_argument("--deeprank_cpus", type=int, default=0,
+                    help="pin DeepRank-Ab to this many CPUs via taskset (0 = unrestricted). "
+                         "It has no worker flag and ignores OMP caps, so this is the only "
+                         "way to run it without starving a host that is still folding.")
     ap.add_argument("--clean", action="store_true",
                     help="delete the CSV before scoring (full rebuild)")
     args = ap.parse_args()
@@ -242,7 +257,8 @@ def main():
             try:
                 rows = _score_one_fold(fold_dir, target, gen, labels_path,
                                        args.with_deeprank, args.with_abagrank,
-                                       args.deeprank_venv, args.abagrank_dir)
+                                       args.deeprank_venv, args.abagrank_dir,
+                                       deeprank_cpus=args.deeprank_cpus)
                 for r in rows:
                     w.writerow(r)
                 f.flush()
