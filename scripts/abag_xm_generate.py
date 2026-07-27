@@ -291,6 +291,23 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
         rec["stderr"] = f"killed after {fold_timeout_s}s (process group); tail: {(out or '')[-1500:]}"
         return rec
     rjson = result_dir / "results.json"
+    if rc < 0:
+        # A negative returncode means death by signal, which is not a model failure --
+        # and the child is terminated before its Rich display flushes, so `stderr` comes
+        # out EMPTY. Recorded as a bare "fold_failed" that reads as an unexplained crash,
+        # which is how four device-3 folds (one of them 45 min in) went undiagnosed after
+        # an external SIGTERM on 2026-07-27. Name the signal so the next one is obvious.
+        try:
+            sig = signal.Signals(-rc).name
+        except ValueError:
+            sig = f"signal {-rc}"
+        rec["status"] = "killed"
+        rec["rc"] = rc
+        rec["signal"] = sig
+        rec["stderr"] = (f"killed by {sig} from outside the harness -- this campaign only "
+                         f"ever sends SIGKILL, and only on the {fold_timeout_s}s timeout "
+                         f"(recorded as timed_out); tail: {(out or '')[-1500:]}")
+        return rec
     if rc != 0 or not rjson.exists():
         rec["status"] = "fold_failed"
         rec["rc"] = rc
