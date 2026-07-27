@@ -40,10 +40,22 @@ def _load(path):
 
 
 def _find_chain(chains, want_seq):
+    """Return (chain_name, offset): where want_seq starts in that chain, or (None, None).
+
+    Same reason as in abag_xm_interface_lddt: the native routinely resolves residues the YAML
+    construct does not, so requiring exact equality matched the model and never the native, and
+    every CDR came back null for those targets. The offset matters here rather than being a
+    formality -- it feeds _cdr_cas's query_start, so the IMGT numbering lands on the right
+    residues instead of being shifted off the CDR.
+    """
     for name, ch in chains.items():
         if _seq_of(ch) == want_seq:
-            return name
-    return None
+            return name, 0
+    for name, ch in chains.items():
+        off = _seq_of(ch).find(want_seq)
+        if off >= 0:
+            return name, off
+    return None, None
 
 
 def _imgt_numbers(seq, chain_type):
@@ -118,8 +130,8 @@ def main():
         seq = yseqs.get(yid)
         if not seq:
             continue
-        mc = _find_chain(m_chains, seq)
-        nc = _find_chain(n_chains, seq)
+        mc, m_off = _find_chain(m_chains, seq)
+        nc, n_off = _find_chain(n_chains, seq)
         if not mc or not nc:
             continue
         imgt_list, qs = _imgt_numbers(seq, yid)
@@ -129,8 +141,11 @@ def main():
         for cdr_name, (lo, hi) in CDR_RANGES.items():
             if not cdr_name.startswith(yid):
                 continue
-            m_cas = _cdr_cas(m_chains[mc], imgt_list, qs, lo, hi)
-            n_cas = _cdr_cas(n_chains[nc], imgt_list, qs, lo, hi)
+            # qs is where the IMGT-numbered region starts inside the YAML sequence; m_off/n_off
+            # are where that YAML sequence starts inside each actual chain. Both are needed, or
+            # a native with extra leading residues gets its CDRs read at the wrong offset.
+            m_cas = _cdr_cas(m_chains[mc], imgt_list, qs + m_off, lo, hi)
+            n_cas = _cdr_cas(n_chains[nc], imgt_list, qs + n_off, lo, hi)
             rmsd = _kabsch_rmsd(m_cas, n_cas) if len(m_cas) >= 3 and len(m_cas) == len(n_cas) else None
             out["cdrs"][cdr_name] = round(rmsd, 6) if rmsd is not None else None
     print(json.dumps(out, indent=2))

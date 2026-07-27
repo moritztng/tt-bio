@@ -56,10 +56,27 @@ def _load(path):
 
 
 def _find_chain(chains, want_seq):
+    """Return (chain_name, offset): where want_seq starts in that chain, or (None, None).
+
+    Exact equality is too strict for the native. A deposited structure routinely resolves
+    residues the YAML construct does not carry -- 9k6j's antigen is 181 residues in the YAML
+    and the model, 224 in the native -- so the antigen matched the model and could never match
+    the native, and interface lDDT was skipped for the whole target. Seven of 48 labelled
+    targets failed exactly this way.
+
+    Every observed case is an exact CONTIGUOUS substring (extra residues at the C-terminus,
+    offset 0), so a substring search is sufficient and stays unambiguous; anything needing gapped
+    alignment is deliberately still a miss rather than a guess. The offset is returned rather
+    than assumed zero so residue indices can be shifted instead of taken as identical.
+    """
     for name, ch in chains.items():
         if _seq_of(ch) == want_seq:
-            return name
-    return None
+            return name, 0
+    for name, ch in chains.items():
+        off = _seq_of(ch).find(want_seq)
+        if off >= 0:
+            return name, off
+    return None, None
 
 
 def _lddt_per_residue(model_residues, native_residues, model_to_native_idx):
@@ -126,16 +143,16 @@ def main():
     # identify each YAML chain in model and native by exact sequence match
     chain_map = {}  # yaml_id -> (model_chain_name, native_chain_name)
     for yid, seq in yseqs.items():
-        mc = _find_chain(m_chains, seq)
-        nc = _find_chain(n_chains, seq)
+        mc, m_off = _find_chain(m_chains, seq)
+        nc, n_off = _find_chain(n_chains, seq)
         if mc and nc:
-            chain_map[yid] = (mc, nc)
+            chain_map[yid] = (mc, nc, m_off, n_off)
     if "A" not in chain_map:
         raise SystemExit("antigen (YAML A) not found in model/native by sequence")
 
     # per-chain residue lists + index mapping (model idx -> native idx, identity since same seq)
-    m_res = {yid: _atoms_by_residue(m_chains[mn]) for yid, (mn, nn) in chain_map.items()}
-    n_res = {yid: _atoms_by_residue(n_chains[nn]) for yid, (mn, nn) in chain_map.items()}
+    m_res = {yid: _atoms_by_residue(m_chains[v[0]]) for yid, v in chain_map.items()}
+    n_res = {yid: _atoms_by_residue(n_chains[v[1]]) for yid, v in chain_map.items()}
 
     # interface antigen residues (CA-CA < CONTACT_A to any antibody chain)
     ag_name = chain_map["A"][0]
@@ -161,7 +178,13 @@ def main():
 
     # lDDT over the antigen chain (A), restricted to interface residues for interface lDDT
     # residue mapping: identity within the antigen chain (same sequence)
-    ag_lddt = _lddt_per_residue(m_res["A"], n_res["A"], {i: i for i in range(len(m_res["A"]))})
+    # Model index -> native index. Identity only holds when both matched the YAML sequence at
+    # the same offset; when the native carries extra leading residues the shift is essential,
+    # or every residue would be scored against the wrong one.
+    _, _, m_off_a, n_off_a = chain_map["A"]
+    ag_lddt = _lddt_per_residue(
+        m_res["A"], n_res["A"],
+        {i: i - m_off_a + n_off_a for i in range(len(m_res["A"]))})
     iface_lddt = [v for i, v in ag_lddt.items() if i in interface and v is not None]
     mean_iface = sum(iface_lddt) / len(iface_lddt) if iface_lddt else None
     all_lddt = [v for v in ag_lddt.values() if v is not None]
