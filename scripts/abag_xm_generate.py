@@ -75,11 +75,24 @@ CONCURRENT_FOLDS = 4  # one harness per card on a 4-card QuietBox; sets the per-
 # receives a species-paired MSA in this campaign (offline pairing is not available
 # without a `:`-joined complex query; see opendde-abag-paired-msa-offline-gap).
 _HOST = socket.gethostname()
-try:
-    _TT_BIO_COMMIT = subprocess.check_output(
-        ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True).strip()
-except Exception:
-    _TT_BIO_COMMIT = "unknown"
+
+
+def _head_commit():
+    """The worktree's HEAD right now, suffixed ``-dirty`` if it has uncommitted changes.
+
+    Read per fold, not once at import: each fold is a fresh interpreter that loads
+    whatever is in the worktree when it launches, so a value captured at startup
+    misdescribes every fold started after a commit -- and commits do land mid-campaign.
+    """
+    try:
+        head = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True, timeout=30).strip()
+        dirty = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=ROOT, text=True, timeout=30).strip()
+        return f"{head}-dirty" if dirty else head
+    except Exception:
+        return "unknown"
 
 
 
@@ -205,6 +218,7 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
     if host_threads:
         cmd += ["--host_threads", str(host_threads)]
     t0 = time.time()
+    commit = _head_commit()
     proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True,
                             env={**os.environ, "TT_VISIBLE_DEVICES": str(device),
@@ -225,7 +239,7 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
     wall_s = time.time() - t0
     rec = {"target": target, "model": model, "wall_s": round(wall_s, 1),
            "device": device, "n_samples": n_samples, "mps": mps,
-           "host": _HOST, "tt_bio_commit": _TT_BIO_COMMIT,
+           "host": _HOST, "tt_bio_commit": commit,
            "paired_msa": False, "host_threads": host_threads}
     if timed_out:
         rec["status"] = "timed_out"
