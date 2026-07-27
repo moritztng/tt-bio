@@ -23,7 +23,12 @@ ROUNDS=1
 cd "$WT" || exit 1
 export TT_VISIBLE_DEVICES=0
 export TT_BIO_LEASE_HOLDER=worker:tt-bio-rfdiffusion3-batch-perf-p16
-export RFD3_TRACE_DECODER=1
+# RFD3_TRACE_DECODER is opt-in in tt_bio/rfd3.py and `tt-bio design` never sets it, so TRACE=0 is
+# the SHIPPED configuration and the one the default decision and the docs table must come from.
+# TRACE=1 is kept because p25/p26 measured the decoder trace a real 1.25x and it is the config the
+# earlier p16 rounds in this log used -- useful as a cross-check that the flag's win is not an
+# artifact of one dispatch regime, not as a shipped number.
+export RFD3_TRACE_DECODER=${TRACE:-0}
 export TT_BIO_TRACE_REGION_SIZE=268435456
 
 if [ "${1:-}" = --rounds ]; then ROUNDS=$2; shift 2; fi
@@ -58,7 +63,7 @@ run_one() {  # <variant> <round> <fixture>
   rm -f "$raw"
 }
 
-echo "=== sweep start $(date -Is) timesteps=$TIMESTEPS rounds=$ROUNDS fixtures=$* ===" >> "$LOG"
+echo "=== sweep start $(date -Is) timesteps=$TIMESTEPS rounds=$ROUNDS trace=$RFD3_TRACE_DECODER fixtures=$*" >> "$LOG"
 for round in $(seq 1 "$ROUNDS"); do
   for fixture in "$@"; do
     if [ $((round % 2)) -eq 1 ]; then

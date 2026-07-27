@@ -68,7 +68,10 @@ trajectory PCC 1.000000, maxabs 0, at 200 timesteps and batch 8). Pick
 
 Throughput is where it's worth being careful, because batching pays off on
 smaller designs and stops paying on large ones. Measured on one Blackhole p150a
-with shipped defaults, from 20-step runs projected to 200 timesteps:
+from 20-step runs projected to 200 timesteps, with the decoder-trace lever
+`RFD3_TRACE_DECODER=1` set. That lever is opt-in and `tt-bio design` does not set
+it, so a plain run reads lower than the table; the ratios between rows are what
+the batch-size guidance below rests on:
 
 | design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
 |---|---:|---:|---:|---:|
