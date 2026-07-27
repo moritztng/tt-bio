@@ -13,7 +13,7 @@ Output layout (persistent, not /tmp):
     ~/abag_xm/tier_a/labels/<model>_<target>.json   (full per-fold label block)
     ~/abag_xm/tier_a/labels/labels.jsonl            (one index line per fold)
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, hashlib, json, os, subprocess, sys, time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -63,16 +63,33 @@ def done_ok_pairs():
     return seen
 
 
+def fold_fingerprint(result_dir: Path) -> str:
+    """sha256 over the fold's structure bytes.
+
+    Labels are only reusable for the exact structures they were computed from. The sample
+    count is not enough of a key: a regenerated fold has the same 50 CIFs by count, so
+    labels computed from the superseded ones would be silently kept -- and this campaign
+    regenerates folds by design (the resume pass, and any config correction). Hashing 50
+    CIFs costs a fraction of a second against the minutes the labelling itself takes.
+    """
+    h = hashlib.sha256()
+    for f in sorted((result_dir / "structures").glob("*.cif")):
+        h.update(f.name.encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()
+
+
 def label_one(task):
     target, model, rec = task
     rd = Path(rec["result_dir"])
     native = GT / f"{target}.cif"
     yaml = YAML_DIR / f"{target}.yaml"
     out = LABELS_DIR / f"{MODEL_DIR[model]}_{target}.json"
+    fp = fold_fingerprint(rd) if rd.exists() else None
     if out.exists() and not task_force:
         try:
             d = json.loads(out.read_text())
-            if d.get("n_samples") == rec.get("n_cifs"):
+            if d.get("n_samples") == rec.get("n_cifs") and d.get("source_sha256") == fp:
                 return {"target": target, "model": model, "status": "skipped",
                         "n_samples": d.get("n_samples")}
         except Exception:
@@ -96,6 +113,10 @@ def label_one(task):
     except Exception as e:
         return {"target": target, "model": model, "status": "bad_json",
                 "wall_s": round(wall, 1), "error": str(e)}
+    # Stamp the structures these labels describe, so a later regeneration of this fold
+    # invalidates them instead of being skipped.
+    d["source_sha256"] = fp
+    out.write_text(json.dumps(d))
     n = d.get("n_samples", 0)
     # sanity: every per-sample record must have a non-None dockq
     bad = [s.get("rank") for s in d.get("samples", [])
