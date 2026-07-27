@@ -87,8 +87,15 @@ _TUNE_REPS = 3
 
 
 def _mm_maxabs(a, b):
-    """Device-side max|a-b| (the outputs are up to 0.5 GB; do not download them)."""
-    return float(ttnn.to_torch(ttnn.max(ttnn.abs(ttnn.subtract(a, b)))).reshape(-1)[0])
+    """Device-side max|a-b| (the outputs are up to 0.5 GB; do not download them).
+
+    `ttnn.max` without a `dim` is NOT reliably a global reduce, so take the host-side max of
+    whatever it returns -- reading element 0 of a per-row reduce checks one row and accepts a
+    config that differs everywhere else, which is exactly how the first landing of this helper
+    failed batch invariance at L=1959/D=8.
+    """
+    d = ttnn.abs(ttnn.subtract(a, b))
+    return float(ttnn.to_torch(ttnn.max(d)).float().abs().max())
 
 
 def _mm_time(fn):
