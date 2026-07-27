@@ -20,7 +20,7 @@ TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
-_AFFINITY_DIFFUSION_FP32_DEVICE = False
+_DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
 # on device, matching the Boltz-2 reference's autocast-disabled fp32-softmax-then-
 # cast-back-to-bf16 recipe (src/boltz/model/layers/attention.py:119-127 and
@@ -274,15 +274,18 @@ def device_dtype_override(dtype):
 
 
 @contextlib.contextmanager
-def affinity_diffusion_fp32_device(enabled: bool):
-    """Scope the default-off fp32 token-diffusion experiment to affinity load."""
-    global _AFFINITY_DIFFUSION_FP32_DEVICE
-    old = _AFFINITY_DIFFUSION_FP32_DEVICE
-    _AFFINITY_DIFFUSION_FP32_DEVICE = bool(enabled)
+def diffusion_fp32_device(enabled: bool):
+    """Scope the default-off fp32 token-diffusion hybrid (fp32 storage, native bf16
+    SDPA) to one model load — used for both the affinity diffusion (BOLTZ2_AFFINITY_
+    DIFFUSION_FP32_DEVICE) and the plain structure diffusion (BOLTZ2_STRUCTURE_
+    DIFFUSION_FP32_DEVICE); see worker.py load_model/predict_affinity."""
+    global _DIFFUSION_FP32_DEVICE
+    old = _DIFFUSION_FP32_DEVICE
+    _DIFFUSION_FP32_DEVICE = bool(enabled)
     try:
         yield
     finally:
-        _AFFINITY_DIFFUSION_FP32_DEVICE = old
+        _DIFFUSION_FP32_DEVICE = old
 
 
 @lru_cache(maxsize=1)
@@ -2355,7 +2358,7 @@ class Diffusion(Module):
         self.s_to_a_norm_weight = self.torch_to_tt("s_to_a_linear.0.weight")
         self.s_to_a_norm_bias = self.torch_to_tt("s_to_a_linear.0.bias")
         self.s_to_a_linear_weight = self.torch_to_tt("s_to_a_linear.1.weight")
-        self.token_transformer_fp32 = _AFFINITY_DIFFUSION_FP32_DEVICE
+        self.token_transformer_fp32 = _DIFFUSION_FP32_DEVICE
         token_dtype = ttnn.float32 if self.token_transformer_fp32 else None
         with device_dtype_override(token_dtype):
             self.token_transformer = DiffusionTransformer(
