@@ -82,6 +82,9 @@ def _grid_if_single_k_tile(a):
 # per-shape sweep and the cross-(I, D) evidence.
 _TUNED_MM_CACHE = {}
 _TUNE_MATMUL = os.environ.get("RFD3_TUNE_MATMUL") == "1"
+# Debug: re-check every cached config against ttnn's default on every call and print any
+# divergence. Doubles the matmul work, so it is for locating a break, not for production.
+_TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
 _TUNE_MIN_GAIN = 1.05  # ignore a candidate that is not at least 5% faster than the default
 _TUNE_REPS = 3
 
@@ -89,10 +92,9 @@ _TUNE_REPS = 3
 def _mm_maxabs(a, b):
     """Device-side max|a-b| (the outputs are up to 0.5 GB; do not download them).
 
-    `ttnn.max` without a `dim` is NOT reliably a global reduce, so take the host-side max of
-    whatever it returns -- reading element 0 of a per-row reduce checks one row and accepts a
-    config that differs everywhere else, which is exactly how the first landing of this helper
-    failed batch invariance at L=1959/D=8.
+    `ttnn.max` with no `dim` does reduce globally, to a 0-d tensor
+    (scripts/rfd3_port/probe_mm_maxabs_guard.py plants one outlier at the far corner of each real
+    shape and finds it). The exactness hole was never here -- see `_calibrate_linear`.
     """
     d = ttnn.abs(ttnn.subtract(a, b))
     return float(ttnn.to_torch(ttnn.max(d)).float().abs().max())
@@ -165,25 +167,54 @@ def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVA
     pc = _TUNED_MM_CACHE[key]
     if pc is None:
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
-    return ttnn.linear(x, w, program_config=pc, **kw)
+    out = ttnn.linear(x, w, program_config=pc, **kw)
+    if _TUNE_AUDIT:
+        ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
+        m = _mm_maxabs(out, ref)
+        ttnn.deallocate(ref)
+        if m != 0.0:
+            print(f"[tune-audit] DIVERGES {m:.6e}  x={key[0]} w={key[1]} bw={pc.in0_block_w} "
+                  f"obw={pc.out_block_w} pcM={pc.per_core_M} pcN={pc.per_core_N}", flush=True)
+    return out
+
+
+def _mm_random_like(t, seed):
+    """A random tensor with t's exact logical shape, dtype and layout."""
+    g = torch.Generator().manual_seed(seed)
+    return ttnn.from_torch(torch.randn(*list(t.shape), generator=g), dtype=t.dtype,
+                           layout=ttnn.TILE_LAYOUT, device=get_device())
 
 
 def _calibrate_linear(x, w, kw, core_grid):
-    """Pick the fastest program config whose output is BITWISE equal to ttnn's default."""
+    """Pick the fastest program config whose output is BITWISE equal to ttnn's default.
+
+    Exactness is checked on RANDOM operands as well as the live ones, and the random check comes
+    first. One cache entry is keyed on shapes, so it serves every weight of that shape -- all 24
+    DiT blocks' `gain_w` and `bias_w` share one entry, for instance. A live activation/weight
+    pair can be degenerate enough to hide a K-regrouping that other weights of the same shape do
+    expose: p16 measured `in0_block_w=4` on `[8,160,384] @ [384,768]` reading bit-exact on the
+    calibrating weight and then diverging by up to 3e-2 on its siblings, which is what failed
+    batch invariance at L=1959/D=8. Random operands exercise every grouping across the whole
+    output, so surviving them makes exactness a property of the shape rather than of one tensor.
+    """
+    rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
+    rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
     ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
     budget = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw)) / _TUNE_MIN_GAIN
     best = None
     for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size()):
         try:
-            out = ttnn.linear(x, w, program_config=pc, **kw)
-            if _mm_maxabs(out, ref) != 0.0:
+            if _mm_maxabs(ttnn.linear(rx, rw, program_config=pc, **kw), rref) != 0.0:
+                continue
+            if _mm_maxabs(ttnn.linear(x, w, program_config=pc, **kw), ref) != 0.0:
                 continue
             t = _mm_time(lambda: ttnn.linear(x, w, program_config=pc, **kw))
         except Exception:
             continue  # illegal L1 / subblock combinations are expected and simply skipped
         if t < budget:
             best, budget = pc, t
-    ttnn.deallocate(ref)
+    for t in (rx, rw, rref, ref):
+        ttnn.deallocate(t)
     return best
 
 
