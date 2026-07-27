@@ -14,6 +14,7 @@ Usage: python3 scripts/abag_xm_status.py
 import collections
 import importlib.util
 import json
+import subprocess
 import pathlib
 import statistics
 
@@ -88,3 +89,29 @@ for field in ("host_threads", "mps", "paired_msa"):
                       + ("" if m in checked else " (ignored by this model)")
                       for m, v in by_model.items() if v)
     print(f"   {field:13s} per model: {shown}{flag}")
+
+# Coverage: is anything outstanding not assigned to a live driver? A driver only ever works
+# the --targets list it was launched with, so losing one (a dead card, a kill, a crash)
+# silently strands its share -- the campaign then finishes the remaining slices and stops
+# short, with every other check still green. Card 3's driver was removed on 2026-07-27 for
+# producing 0 ok folds in 5 attempts, which stranded its slice exactly this way.
+running = []
+try:
+    ps = subprocess.run(["ps", "-eo", "args"], capture_output=True, text=True).stdout
+    for line in ps.splitlines():
+        if "abag_xm_generate.py" in line and "--targets" in line:
+            running += line.split("--targets", 1)[1].split()[0].split(",")
+except Exception:
+    running = []
+assigned = set(running)
+if not assigned:
+    print("   driver coverage: no drivers running (nothing is being folded)")
+else:
+    stranded = sorted({t for t, _ in outstanding} - assigned)
+    print(f"   driver coverage: {len(assigned)} targets assigned across live drivers | "
+          f"STRANDED on this host {len(stranded)}"
+          + ("   <-- no driver on THIS host (includes the other host's share)" if stranded else ""))
+    if stranded:
+        print(f"     {' '.join(stranded[:20])}{' ...' if len(stranded) > 20 else ''}")
+        print("     fix: scripts/abag_xm_tiera_launch.sh \"<free cards>\" \"<all slices>\" "
+              "once the current drivers exit")
