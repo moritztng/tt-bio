@@ -2175,6 +2175,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
             "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
+            # Without this key --max_parallel_samples is a silent no-op for every model that
+            # rides this config (protenix-v2 / opendde / esmfold2): the worker reads it with
+            # cfg.get(), so it saw None on every fold and fell back to the engine default.
+            # boltz2 carries it separately, via conf_kwargs["predict_args"], which is why the
+            # flag looked plumbed. Lowering it to fit a large target did nothing.
+            "max_parallel_samples": max_parallel_samples,
             "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
             "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
             "msa_endpoint": msa_endpoint, "single_sequence": single_sequence,
