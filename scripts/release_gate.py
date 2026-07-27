@@ -614,6 +614,11 @@ def run_capacity(keep: bool) -> dict:
     row["gate"] = True
     if not keep:
         shutil.rmtree(out, ignore_errors=True)
+        # The two logs sit beside the results dir (predict owns everything inside it), so
+        # clear them here too rather than leaving them in the repo root after every release.
+        # --keep holds on to all three for debugging a failing leg.
+        log.unlink(missing_ok=True)
+        dram_log.unlink(missing_ok=True)
     return row
 
 
