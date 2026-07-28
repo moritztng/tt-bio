@@ -41,10 +41,22 @@ log(){ echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 # live on 2026-07-28).
 n_drivers(){ pgrep -cf "abag_xm_generat[e].py" 2>/dev/null || echo 0; }
 n_predicts(){ pgrep -cf "tt_bio.mai[n] predict" 2>/dev/null || echo 0; }
+n_labelloop(){ pgrep -cf "abag_xm_labels_loo[p].sh" 2>/dev/null || echo 0; }
 
 relaunched=0
 log "supervisor up on $(hostname), cards [$CARDS], poll ${POLL}s, max ${MAX_RELAUNCH} relaunches"
 while :; do
+  # Labelling is CPU-only and must overlap generation; its own loop script exists so ~30 h of it
+  # does not pile up at the end. It died in the same 2026-07-28 00:16 event that killed the folding
+  # drivers and nothing noticed for ten hours, by which point 113 of 181 completed folds were
+  # unlabelled. It is cheap to restart and safe to have exactly one, so keep one alive. Started, never
+  # killed -- same rule as the drivers.
+  if [ "$(n_labelloop)" -eq 0 ]; then
+    log "labels loop absent -- starting one (2 workers, 2 threads: safe while folding)"
+    setsid bash "$WT/scripts/abag_xm_labels_loop.sh" 2 2 \
+      >> "$LOGDIR/labels_loop.log" 2>&1 < /dev/null &
+  fi
+
   d=$(n_drivers); p=$(n_predicts)
   if [ "$d" -eq 0 ] && [ "$p" -eq 0 ]; then
     if [ "$relaunched" -ge "$MAX_RELAUNCH" ]; then
