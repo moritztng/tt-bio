@@ -900,16 +900,89 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     return entry[1]
 
 
+_PAIR_TABLE_SLOTS = 2
+
+
+def _pair_gather_table(cache, p_host, device, dtype):
+    """Resident (L*L, C) gather table for the step-invariant pair features.
+
+    P_LL is built once by the TokenInitializer (see build_initializer_outputs) and is
+    the same data for all 200 diffusion steps and every recycle of each, so the table
+    the per-step neighbour gather reads can live on the card: the gather becomes one
+    ttnn.embedding instead of a host advanced-index plus an upload of the result
+    (13.8 MB per step at 3359 atoms, 110 MB at batch 8).
+
+    Keyed on the storage address, not id() -- the diffusion module normalizes P_LL to
+    4-D on entry, so every step hands this a fresh view of the same data. The entry
+    holds its own reference to that view, so no other tensor can take the address
+    while the table is alive. Two slots because a classifier-free-guidance run
+    alternates between the conditional and unconditional P_LL every step and one slot
+    would rebuild both; a third distinct table (the next design shape) evicts the
+    oldest.
+    """
+    key = (p_host.data_ptr(), tuple(p_host.shape), dtype)
+    tables = cache.setdefault("tables", {})
+    entry = tables.get(key)
+    if entry is None:
+        while len(tables) >= _PAIR_TABLE_SLOTS:
+            ttnn.deallocate(tables.pop(next(iter(tables)))[1])
+        entry = (p_host, ttnn.from_torch(
+            p_host.reshape(-1, p_host.shape[-1]).contiguous(),
+            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=dtype))
+        tables[key] = entry
+    return entry[1]
+
+
+def _sparse_pair_gather(cache, p_host, indices, device, dtype):
+    """[B,L,K,C] neighbour pair features, gathered on device off the resident table.
+
+    Only the flat row index crosses the host boundary (a quarter of the bytes the
+    gathered features would be, and it is uint32 rather than the wider pair channel).
+    """
+    table = _pair_gather_table(cache, p_host, device, dtype)
+    batch, length, n_keys = indices.shape
+    row_offset = (torch.arange(length, dtype=torch.int64) * length).reshape(1, length, 1)
+    flat = (indices.long().cpu() + row_offset).reshape(1, batch * length * n_keys)
+    idx = ttnn.from_torch(flat.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
+                          device=device, dtype=ttnn.uint32)
+    rows = ttnn.embedding(idx, table, layout=ttnn.ROW_MAJOR_LAYOUT,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    ttnn.deallocate(idx)
+    out = ttnn.to_layout(
+        ttnn.reshape(rows, (batch, length, n_keys, p_host.shape[-1])), ttnn.TILE_LAYOUT)
+    ttnn.deallocate(rows)
+    return out
+
+
+def _sparse_attn_index(indices, device, n_heads):
+    """[B,H,L,K] uint32 scatter index, replicated over heads on device.
+
+    Every head scatters to the same columns, so only a quarter of these bytes need to
+    cross the host boundary.
+    """
+    up = _tt(indices.cpu().unsqueeze(1).to(torch.int32).contiguous(), device, ttnn.uint32)
+    if n_heads == 1:
+        return up
+    out = ttnn.concat([up] * n_heads, dim=1)
+    ttnn.deallocate(up)
+    return out
+
+
 def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
     """Gather local pair features and build the scatter index for one step.
 
     A diffusion step calls this three times -- once from the encoder and once per
     recycle from the decoder -- and all three get the SAME P_LL and the SAME
-    f["attn_indices"], so all three produce identical tensors. At 3359 atoms each
-    build is a 13.8 MB host gather plus a 20.6 MB upload, together 10.3% of the
-    step, so the two repeats are pure waste. Callers that share one cache dict
-    (RFD3DiffusionModule hands the encoder and the decoder the same one) get one
-    build per step.
+    f["attn_indices"], so all three produce identical tensors. Callers that share one
+    cache dict (RFD3DiffusionModule hands the encoder and the decoder the same one)
+    get one build per step.
+
+    That one build is a device gather off a resident P_LL table when the cache makes
+    the table worth holding and the pair features are bf16 (ttnn.embedding takes a
+    bf16 table only, the same constraint protenix.py:_window_kv documents). Otherwise
+    -- an fp32 pair stream, a cacheless isolated test, or a p_host already expanded
+    over the batch -- it falls back to the host gather, which is bit-identical: a
+    gather is a copy, so bf16(P_LL)[idx] == bf16(P_LL[idx]).
 
     Keyed on the identity of p_host and indices, with the entry holding its own
     references to both so their ids cannot be recycled underneath it while it
@@ -925,10 +998,22 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
         # Drop the stale entry before building the replacement so the old 20.6 MB
         # of device tensors is freed first rather than held alongside the new ones.
         mask_cache.pop("step", None)
-    p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
-    attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
     length = indices.shape[-2]
     batch = indices.shape[0]
+    on_device = (
+        mask_cache is not None
+        and dtype == ttnn.bfloat16
+        and p_host.ndim == 4
+        and p_host.shape[:3] == (1, length, length)
+    )
+    if on_device:
+        n_keys = indices.shape[-1]
+        p_dev = _sparse_pair_gather(mask_cache, p_host, indices, device, dtype)
+        attn_idx_dev = _sparse_attn_index(indices, device, n_heads)
+    else:
+        p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
+        p_dev = _tt(p_sparse, device, dtype)
+        attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
     if mask_cache is None:
         dense_bias = ttnn.full(
             (batch, n_heads, length, _align_tile(length)), -1e4,
@@ -937,7 +1022,7 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
         dense_bias = _mask_template(
             mask_cache, device, dtype, batch, n_heads, length
         )
-    out = (_tt(p_sparse, device, dtype), n_keys, attn_idx_dev, dense_bias)
+    out = (p_dev, n_keys, attn_idx_dev, dense_bias)
     if mask_cache is not None:
         mask_cache["step"] = (key, p_host, indices, out)
     return out
@@ -1551,6 +1636,10 @@ class CompactStreamingDecoder(Module):
             # pair gather (6.5 ms at 250 residues) would be thrown away. Skip it.
             _tt_refresh(a_host, st["a"], dt)
         else:
+            # The traced decoder stages p_sparse in a persistent buffer that
+            # ttnn.embedding cannot write into, so this path keeps the host gather
+            # _sparse_qk_inputs no longer needs. RFD3_TRACE_DECODER is opt-in and off
+            # in production, so the gather lever above is what a shipped run takes.
             p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices)
             shape_key = (
                 "sparse_qk", tuple(a_host.shape), tuple(q_host.shape),
