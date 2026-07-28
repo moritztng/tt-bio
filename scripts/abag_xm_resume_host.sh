@@ -42,7 +42,10 @@ say "$ndev Tenstorrent device node(s) under /dev/tenstorrent"
 # script would refuse to start on a host with none actually running.
 n_supervisors(){ pgrep -af "abag_xm_tiera_superviso[r].sh" 2>/dev/null | grep -vc "bash -c" || true; }
 running=$(n_supervisors)
-drivers=$(pgrep -cf "abag_xm_generat[e].py" 2>/dev/null || echo 0)
+# `pgrep -c` prints its count AND exits 1 when the count is zero, so `|| echo 0` appended a
+# second zero and this printed "0\n0 driver(s)" on an idle host -- and would have failed an
+# integer test the moment anyone compared it numerically. Same miscount class as the two above.
+drivers=$(pgrep -cf "abag_xm_generat[e].py" 2>/dev/null || true)
 say "already running: $running supervisor(s), $drivers driver(s)"
 
 if [ "$CHECK" = 1 ]; then
