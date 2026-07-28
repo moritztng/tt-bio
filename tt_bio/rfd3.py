@@ -481,16 +481,12 @@ class PairformerAttention(Module):
         ttnn.deallocate(attn)
         o = ttnn.matmul(attn_bf, v, compute_kernel_config=ckc, dtype=self.dtype)  # [1,16,I,24]
         ttnn.deallocate(attn_bf)
-        # gate
+        # merge heads: [1,16,I,24] -> [1,I,384], then gate. The gate is elementwise, so
+        # applying it after the merge is bit-identical and saves splitting `g` into heads.
+        o = _merge_heads(o, (B, I, self.n_head * self.head_dim))
         g = ttnn.linear(a, self.to_g_w, compute_kernel_config=self.compute_kernel_config,
                          dtype=self.dtype, core_grid=CORE_GRID_MAIN)
-        g = ttnn.reshape(g, (B, I, self.n_head, self.head_dim))
-        g = ttnn.permute(g, (0, 2, 1, 3))
-        g = ttnn.sigmoid(g)
-        o = ttnn.multiply(o, g)
-        # merge heads: [1,16,I,24] -> [1,I,384]
-        o = ttnn.permute(o, (0, 2, 1, 3))
-        o = ttnn.reshape(o, (B, I, self.n_head * self.head_dim))
+        o = ttnn.multiply(o, ttnn.sigmoid(g))
         out = ttnn.linear(o, self.to_a_w, compute_kernel_config=self.compute_kernel_config,
                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         return out
@@ -873,6 +869,22 @@ def _pad_key_axis(x, width, axis, value):
     return ttnn.pad(x, pad, value)
 
 
+def _merge_heads(x, shape):
+    """[..., n_head, rows, head_dim] -> `shape` (the heads folded back into channels).
+
+    The obvious `permute(0,2,1,3) + reshape` retiles twice through a 4D intermediate whose
+    head axis is tile-padded (16 heads occupy a 32-row tile), and measures 4-9 GB/s.
+    `nlp_concat_heads` does the same movement in one kernel at 55-63 GB/s -- but it assumes
+    head_dim is a tile multiple and silently reads 64-wide heads out of a 48-wide tensor when
+    it is not (p31: bit-exact at head_dim=32, maxabs 6.2 at 48 and 24). So it is used only
+    where head_dim is aligned, and the two-op form stays for the DiT (48) and the pairformer
+    (24). Both branches are pure data movement, and both are bit-exact.
+    """
+    if x.shape[-1] % TILE == 0:
+        return ttnn.reshape(ttnn.experimental.nlp_concat_heads(x), shape)
+    return ttnn.reshape(ttnn.permute(x, (0, 2, 1, 3)), shape)
+
+
 def _dense_attention_mask(indices):
     """Convert [B,L,K] neighbour indices to the equivalent dense additive mask."""
     indices = indices.long()
@@ -1120,10 +1132,11 @@ class GatedCrossAttention(Module):
                 x, (batch * tokens, self.n_head, count, self.head_dim)
             )
 
+        # `gg` stays unsplit -- see _merge_heads / AttentionPairBias: an elementwise gate
+        # commutes with the head merge exactly, so one split per call disappears.
         qq = split(qq, n_query)
         kk = split(kk, n_key)
         vv = split(vv, n_key)
-        gg = split(gg, n_query)
         scores = ttnn.matmul(
             qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
             core_grid=_grid_if_single_k_tile(qq),
@@ -1136,11 +1149,8 @@ class GatedCrossAttention(Module):
         attention = ttnn.softmax(scores, dim=-1)
         out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt,
                           core_grid=_grid_if_single_k_tile(attention))
+        out = _merge_heads(out, (batch, tokens, n_query, self.c_model))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
-        out = ttnn.permute(out, (0, 2, 1, 3))
-        out = ttnn.reshape(
-            out, (batch, tokens, n_query, self.c_model)
-        )
         out = ttnn.linear(
             out,
             self.to_out_w,
@@ -1279,7 +1289,11 @@ class RFD3AtomBlock(Module):
             )
             return ttnn.permute(x, (0, 2, 1, 3))
 
-        qq, kk, vv, gg = map(heads, (qq, kk, vv, gg))
+        # `gg` is NOT split: the gate is elementwise, so multiplying it before or after the
+        # merge touches the same pairs of values in the same order. Gating after the merge
+        # deletes one head split per block -- 36 of the DiT's 144 per step -- and is
+        # bit-exact by construction rather than by measurement.
+        qq, kk, vv = map(heads, (qq, kk, vv))
         # Attention reduces over the key axis, and a ttnn softmax over a last dim that is
         # not a tile multiple reads that axis' tile padding -- which no op guarantees to
         # have written. So extend the key axis logically: zero keys (contributing a score
@@ -1323,11 +1337,8 @@ class RFD3AtomBlock(Module):
             attention, dt, memory_config=attention.memory_config()
         )
         out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt)
+        out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
-        out = ttnn.permute(out, (0, 2, 1, 3))
-        out = ttnn.reshape(
-            out, (batch, length, self.n_head * self.head_dim)
-        )
         out = _tuned_linear(
             out, self.o_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
