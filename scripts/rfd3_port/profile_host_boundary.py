@@ -121,13 +121,26 @@ def main() -> None:
         _wrap(R, name, key, lambda a, o: 0)
 
     # --- components (wall clock, inclusive; they nest, reported separately) ---
+    # The token encoder is wrapped on run_device, NOT __call__: since p19 kept z on the card
+    # the per-step path calls run_device directly, and wrapping __call__ silently dropped the
+    # component from the table.
     for obj, attr, key in (
         (type(dm.encoder), "__call__", "comp.encoder"),
         (type(dm.decoder), "__call__", "comp.decoder"),
         (type(dm.diffusion_transformer), "__call__", "comp.dit"),
-        (type(dm.diffusion_token_encoder), "__call__", "comp.token_encoder"),
+        (type(dm.diffusion_token_encoder), "run_device", "comp.token_encoder"),
     ):
         _wrap(obj, attr, key, lambda a, o: 0)
+
+    # --- inside the decoder, now the largest single component (p19 s7) ---
+    _wrap(R, "_sparse_qk_inputs", "dec.sparse_qk_inputs", lambda a, o: 0)
+    for attr, key in (
+        ("run_device", "dec.core_loop"),
+        ("_pack_atoms_device", "dec.pack"),
+        ("_unpack_atoms_device", "dec.unpack"),
+    ):
+        _wrap(type(dm.decoder), attr, key, lambda a, o: 0)
+    _wrap(type(dm.decoder.downcast), "run_device", "dec.downcast", lambda a, o: 0)
     _wrap(dm, "_downcast_c", "comp.downcast_c", lambda a, o: 0)
     _wrap(dm, "_downcast_q", "comp.downcast_q", lambda a, o: 0)
 
