@@ -269,6 +269,15 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
         cmd += ["--host_threads", str(host_threads)]
     t0 = time.time()
     commit = _head_commit()
+    # Say so AT FOLD TIME when the worktree is dirty. The record already carries "<sha>-dirty" and the
+    # publish preflight blocks the release on it (3fe96e16), but that is the LAST gate -- 8 folds
+    # reached it before anyone noticed, all of them started while a script was edited and being tested
+    # before the commit landed. A fold that cannot be traced to a commit costs ~20 min of card time to
+    # produce and the same again to redo, so the moment to hear about it is now, not at assembly.
+    if str(commit).endswith("-dirty"):
+        print(f"[dirty] {target} {model} is being folded from an UNCOMMITTED worktree ({commit}). "
+              f"This fold cannot be traced to a commit and the publish preflight will reject it -- "
+              f"commit the worktree and it will have to be refolded.", flush=True)
     proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True,
                             env={**os.environ, "TT_VISIBLE_DEVICES": str(device),
