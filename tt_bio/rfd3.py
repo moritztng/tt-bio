@@ -869,7 +869,30 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
 
 
 def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
-    # Gather local pair features and build the scatter index for one step.
+    """Gather local pair features and build the scatter index for one step.
+
+    A diffusion step calls this three times -- once from the encoder and once per
+    recycle from the decoder -- and all three get the SAME P_LL and the SAME
+    f["attn_indices"], so all three produce identical tensors. At 3359 atoms each
+    build is a 13.8 MB host gather plus a 20.6 MB upload, together 10.3% of the
+    step, so the two repeats are pure waste. Callers that share one cache dict
+    (RFD3DiffusionModule hands the encoder and the decoder the same one) get one
+    build per step.
+
+    Keyed on the identity of p_host and indices, with the entry holding its own
+    references to both so their ids cannot be recycled underneath it while it
+    lives -- the same idiom _attention_index_prefix uses. The cached device
+    tensors are read-only downstream: the pair features feed a linear, the index
+    feeds ttnn.scatter (out-of-place, see _mask_template).
+    """
+    key = (id(p_host), id(indices), id(device), dtype, n_heads)
+    if mask_cache is not None:
+        hit = mask_cache.get("step")
+        if hit is not None and hit[0] == key and hit[1] is p_host and hit[2] is indices:
+            return hit[3]
+        # Drop the stale entry before building the replacement so the old 20.6 MB
+        # of device tensors is freed first rather than held alongside the new ones.
+        mask_cache.pop("step", None)
     p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
     attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
     length = indices.shape[-2]
@@ -883,7 +906,10 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
         dense_bias = _mask_template(
             mask_cache, device, dtype, batch, n_heads, length
         )
-    return _tt(p_sparse, device, dtype), n_keys, attn_idx_dev, dense_bias
+    out = (_tt(p_sparse, device, dtype), n_keys, attn_idx_dev, dense_bias)
+    if mask_cache is not None:
+        mask_cache["step"] = (key, p_host, indices, out)
+    return out
 
 
 class GatedCrossAttention(Module):
@@ -2144,6 +2170,11 @@ class RFD3DiffusionModule(Module):
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
                                                fp32_residual=self._dit_fp32_residual,
                                                trace=os.environ.get("RFD3_TRACE_DECODER") == "1")
+        # One sparse-QK cache for both: they are handed the same P_LL and the same
+        # attn_indices every step, so sharing collapses three identical builds into
+        # one (see _sparse_qk_inputs) and leaves one -1e4 scatter template alive
+        # instead of two.
+        self.decoder._mask_cache = self.encoder._mask_cache
         self.sequence_head = LinearSequenceHead(self.scope("sequence_head"), ckc, dtype=dt)
 
     def scale_positions_in(self, X, t):
