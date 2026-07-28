@@ -15,11 +15,15 @@ PROVENANCE is the delicate part, and getting it wrong in either direction is exp
 worktree's engine tree for a fold some earlier driver ran and the claim may be false. Leave it null
 and the fold is unpublishable, so the resume refolds it and this script has saved nothing -- which
 is exactly what it did before: it wrote `tt_bio_commit: null`, and once "done" was tightened to mean
-"defensible", every record it produced was rejected. So establish provenance when it can be
-established, which takes TWO conditions: the launcher's own stamp must say this worktree launched
-these folds (a fold loads `tt_bio/` from whichever worktree its driver ran in, and that is not
-necessarily this one), and nothing under `tt_bio/` may have changed since the fold wrote its first
-artifact. Otherwise say so and let it be refolded.
+"defensible", every record it produced was rejected.
+
+The answer is not to infer it better. The driver knows the engine tree exactly at the moment it
+launches a fold, so it writes `.fold_provenance.json` into the result directory BEFORE the fold
+runs, and this script reads it. Two earlier attempts inferred it instead and both were subtly wrong:
+a fold's tree lives in whichever worktree its DRIVER ran in, more than one worktree can fold into
+the same campaign directory, and neither a directory-level "who launched this" stamp nor file mtimes
+can tell two concurrent owners apart. A per-fold file can, because the fold that wrote it is the
+fold it describes. No sidecar means no provenance, which costs a refold and never a false claim.
 
     python3 scripts/abag_xm_reconcile_orphans.py            # report only
     python3 scripts/abag_xm_reconcile_orphans.py --write     # append the records
@@ -90,17 +94,18 @@ def main():
                               f"INCOMPLETE (results={entry.get('status')} runs={n_runs}) "
                               f"- not recorded"))
                 continue
-            # Oldest artifact: the fold had already loaded tt_bio/ before this was written.
-            oldest = min(cifs + paes, key=lambda p: p.stat().st_mtime)
-            tree = g.provenance_for_orphan(oldest)
+            # Provenance the driver wrote beside the output before the fold ran. Nothing is
+            # inferred here: the fold that wrote this file is the fold it describes.
+            prov = g.read_fold_provenance(rd, cifs + paes) or {}
+            tree = prov.get("tt_bio_tree")
             rec = {
                 "target": target, "model": model,
                 "wall_s": None, "device": None, "host_threads": None,
                 "n_samples": g.N_SAMPLES, "mps": g.MPS,
                 "host": g._HOST,
-                "tt_bio_commit": g._head_commit() if tree else None,
+                "tt_bio_commit": prov.get("tt_bio_commit"),
                 "tt_bio_tree": tree,
-                "msa_sha": g._msa_sha(target)[0],
+                "msa_sha": prov.get("msa_sha") or g._msa_sha(target)[0],
                 "paired_msa": False, "status": "ok",
                 "n_cifs": len(cifs), "n_paes": len(paes),
                 "result_dir": str(rd),
@@ -129,9 +134,8 @@ def main():
           f"{f' -- {n_written} WRITTEN' if a.write else ' -- report only, pass --write to append'}")
     if n_unprovenanced:
         print(f"the {n_unprovenanced} without provenance are recorded so their artifacts and "
-              f"labels are not lost, but the resume will refold them: either a different worktree "
-              f"launched them or tt_bio/ has changed since, so this tree cannot honestly be "
-              f"attributed to them.")
+              f"labels are not lost, but the resume will refold them: they ran before the driver "
+              f"started writing .fold_provenance.json, so their engine tree is not recoverable.")
     return 0
 
 

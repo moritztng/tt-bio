@@ -40,9 +40,9 @@ PROGRESS = OUT_BASE / "progress.jsonl"
 # Local mirror of the OTHER host's progress file, refreshed by abag_xm_peer_mirror.sh. Scheduling
 # input only -- never a record, never evidence. See peer_done_pairs().
 PEER_PROGRESS = OUT_BASE / "peer_progress.jsonl"
-# Which worktree and engine tree launched the folds in this campaign directory. The ONLY thing that
-# makes an orphaned fold's provenance recoverable -- see provenance_for_orphan().
-LAUNCH_OWNER = OUT_BASE / ".launched_from"
+# Per-fold provenance, written beside the output BEFORE the fold runs. The orphan reconciler
+# reads this rather than inferring a dead fold's engine tree -- see write_fold_provenance().
+FOLD_PROVENANCE = ".fold_provenance.json"
 MANIFEST = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
 
 MODELS = ["protenix-v2", "opendde-abag", "boltz2"]
@@ -431,66 +431,56 @@ def results_entry(result_dir):
         return None
 
 
-def record_launch_owner():
-    """Stamp which worktree and engine tree launched the folds in this campaign directory.
+def write_fold_provenance(result_dir, target, tree, commit, msa_sha, mps, n_samples):
+    """Write the fold's provenance beside its output, BEFORE the fold runs.
 
-    Without it, provenance cannot be recovered for an orphaned fold -- see
-    ``provenance_for_orphan()``. Written by the launcher, cheap, overwritten every launch.
+    This replaces inferring provenance after the fact, which the previous two attempts here both
+    did and both got subtly wrong. A fold's engine tree is known exactly at the moment the driver
+    launches it -- so write it down then, next to the artifacts, and there is nothing left to
+    reconstruct if the driver dies. The orphan reconciler reads this file instead of reasoning
+    about mtimes and worktree ownership.
+
+    Why the reasoning it replaces could not be made sound: the tree lives in whichever worktree the
+    DRIVER ran in, and more than one worktree can fold into the same campaign directory -- exactly
+    what happened moving this campaign from p4 to p6, where p4's drivers kept folding tree
+    3dc9db33 while p6 on disk was 871c8992. A directory-level "who launched this" stamp cannot
+    distinguish two concurrent owners, and file mtimes cannot either. A per-fold file can, because
+    the fold that wrote it is the fold it describes.
     """
-    tree = _head_tree()
-    LAUNCH_OWNER.parent.mkdir(parents=True, exist_ok=True)
-    LAUNCH_OWNER.write_text(json.dumps(
-        {"worktree": str(ROOT), "tt_bio_tree": tree, "tt_bio_commit": _head_commit(),
-         "host": _HOST}) + "\n")
-    return tree
+    result_dir.mkdir(parents=True, exist_ok=True)
+    (result_dir / FOLD_PROVENANCE).write_text(json.dumps(
+        {"target": target, "tt_bio_tree": tree, "tt_bio_commit": commit, "msa_sha": msa_sha,
+         "worktree": str(ROOT), "host": _HOST, "mps": mps, "n_samples": n_samples}) + "\n")
 
 
-def _tt_bio_sources():
-    """Tracked source under ``tt_bio/``. ``__pycache__`` is deliberately excluded: a .pyc is
-    rewritten on import, so it records when a fold RAN rather than when the code changed, and
-    including it makes the mtime test below refuse at random."""
-    for f in (ROOT / "tt_bio").rglob("*"):
-        if f.is_file() and "__pycache__" not in f.parts and f.suffix != ".pyc":
-            yield f
+def read_fold_provenance(result_dir, artifacts=()):
+    """The provenance the driver wrote for this fold, or None if there is none to trust.
 
+    None means "cannot be stated", which costs a refold and never a false claim. Folds that ran
+    before this file existed have none, which is correct: their tree genuinely is not recoverable.
 
-def provenance_for_orphan(artifact):
-    """The engine tree that can HONESTLY be attributed to a fold this process did not run.
-
-    Two conditions, and both are needed:
-
-    1. **This worktree launched these folds.** A fold loads ``tt_bio/`` from whichever worktree
-       its driver ran in, and that is not necessarily this one. Concretely: while the campaign
-       was moved from the p4 worktree to p6, p4's drivers kept folding under engine tree
-       ``3dc9db33`` while p6 on disk was ``871c8992`` -- and since p6's files were checked out
-       *before* those folds wrote their artifacts, a pure mtime test says "unchanged" and would
-       stamp p6's tree onto p4's folds. So require the launcher's own stamp to name this
-       worktree and the tree it recorded to still match.
-    2. **Nothing changed here since the fold wrote its first artifact.** A fold loads
-       ``tt_bio/`` at startup and writes strictly later, so if no tracked source under
-       ``tt_bio/`` is newer than that artifact, the tree on disk is the tree it loaded.
-
-    Returns the tree hash, or None meaning "cannot be stated" -- which costs a refold and never
-    a false claim. A file touched and reverted has a new mtime and identical content, and this
-    refuses; that is the right direction to be wrong in.
+    ``artifacts`` closes a hole found by accident: the driver writes this file and then launches the
+    fold, so a fold that is interrupted *before* producing anything leaves the sidecar behind next
+    to whatever a PREVIOUS run left in the same directory. Read naively, the new tree would then be
+    attributed to old output. The design guarantees one ordering -- sidecar first, artifacts after --
+    so an artifact older than the sidecar means the sidecar is not describing it. Observed live:
+    a 21tw sidecar written 2026-07-28 13:02 beside a structures/ directory from 07-27 22:28.
     """
-    tree = _head_tree()
-    if not tree:
-        return None
+    f = result_dir / FOLD_PROVENANCE
     try:
-        owner = json.loads(LAUNCH_OWNER.read_text())
+        d = json.loads(f.read_text())
+        written = f.stat().st_mtime
     except Exception:
         return None
-    if owner.get("worktree") != str(ROOT) or owner.get("tt_bio_tree") != tree:
+    if not d.get("tt_bio_tree"):
         return None
-    try:
-        cutoff = artifact.stat().st_mtime
-    except OSError:
-        return None
-    for f in _tt_bio_sources():
-        if f.stat().st_mtime > cutoff:
+    for art in artifacts:
+        try:
+            if art.stat().st_mtime < written:
+                return None
+        except OSError:
             return None
-    return tree
+    return d
 
 
 def _dir_bytes(p):
@@ -569,6 +559,9 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
     commit = _head_commit()
     tree = _head_tree()
     msa_sha, msa_missing = _msa_sha(target)
+    # Before the fold, not after: if this driver dies mid-fold the fold keeps running and
+    # completes, and this is the only thing that lets its provenance be stated afterwards.
+    write_fold_provenance(result_dir, target, tree, commit, msa_sha, mps, n_samples)
     proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True,
                             env={**os.environ, "TT_VISIBLE_DEVICES": str(device),
@@ -694,7 +687,6 @@ def main():
                          "result -- 37 records in the pre-p6 slab were this, not a model bug.")
     a = ap.parse_args()
     tree = provenance_or_die()
-    record_launch_owner()
     host_threads = max(1, (os.cpu_count() or 1) // max(1, a.concurrent_folds))
     targets = a.targets.split(",") if a.targets else all_targets()
     models = a.models.split(",")

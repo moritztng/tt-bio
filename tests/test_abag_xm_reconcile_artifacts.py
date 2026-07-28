@@ -107,57 +107,69 @@ def test_harness_and_reconciler_agree_on_completeness(gen, tmp_path):
     assert len(gen.results_entry(dropped)["all_runs"]) != n
 
 
-def test_orphan_provenance_needs_the_launch_stamp(gen, tmp_path, monkeypatch):
-    """A fold loads tt_bio/ from whichever worktree its DRIVER ran in, which is not necessarily
-    this one. While this campaign was moved from the p4 worktree to p6, p4's drivers kept folding
-    under engine tree 3dc9db33 while p6 on disk was 871c8992 -- and because p6's files were checked
-    out BEFORE those folds wrote their artifacts, a pure mtime test says "unchanged" and would
-    stamp p6's tree onto p4's folds. The launcher's stamp is what rules that out."""
-    artifact = tmp_path / "art"
-    artifact.write_text("x")
-    os.utime(artifact, (time.time() + 86400, time.time() + 86400))   # newer than all sources
-    stamp = tmp_path / "launched_from"
-    monkeypatch.setattr(gen, "LAUNCH_OWNER", stamp)
+def test_provenance_comes_from_the_sidecar_not_from_inference(gen, tmp_path):
+    """The driver knows the engine tree exactly when it launches a fold, so it writes it down then.
+    Two earlier attempts inferred it after the fact and both were subtly wrong: a fold's tree lives
+    in whichever worktree its DRIVER ran in, more than one worktree can fold into the same campaign
+    directory (p4's drivers folded tree 3dc9db33 while p6 on disk was 871c8992), and neither a
+    directory-level stamp nor file mtimes can tell two concurrent owners apart."""
+    rd = _fold_dir(tmp_path, "T5", 4)
+    assert gen.read_fold_provenance(rd) is None          # nothing written -> not stateable
 
-    # no stamp at all -> cannot state
-    assert gen.provenance_for_orphan(artifact) is None
-
-    # a stamp from a DIFFERENT worktree -> cannot state, even though mtimes look fine
-    stamp.write_text(json.dumps({"worktree": "/some/other/worktree",
-                                 "tt_bio_tree": gen._head_tree()}))
-    assert gen.provenance_for_orphan(artifact) is None
-
-    # this worktree but a different tree than is checked out now -> cannot state
-    stamp.write_text(json.dumps({"worktree": str(gen.ROOT), "tt_bio_tree": "f" * 40}))
-    assert gen.provenance_for_orphan(artifact) is None
-
-    # this worktree, this tree, artifact newer than every source -> stateable
-    stamp.write_text(json.dumps({"worktree": str(gen.ROOT), "tt_bio_tree": gen._head_tree()}))
-    assert gen.provenance_for_orphan(artifact) == gen._head_tree()
+    gen.write_fold_provenance(rd, "T5", "a" * 40, "abc1234", "deadbeef00000000", 5, 50)
+    prov = gen.read_fold_provenance(rd)
+    assert prov["tt_bio_tree"] == "a" * 40
+    assert prov["tt_bio_commit"] == "abc1234"
+    assert prov["msa_sha"] == "deadbeef00000000"
+    assert prov["worktree"] == str(gen.ROOT)
+    assert prov["mps"] == 5 and prov["n_samples"] == 50
 
 
-def test_orphan_provenance_refuses_when_sources_moved_after_the_fold(gen, tmp_path, monkeypatch):
-    """Condition 2: an artifact OLDER than a tt_bio source means the code changed after the fold."""
-    old = tmp_path / "old"
-    old.write_text("x")
-    os.utime(old, (0, 0))
-    stamp = tmp_path / "launched_from"
-    stamp.write_text(json.dumps({"worktree": str(gen.ROOT), "tt_bio_tree": gen._head_tree()}))
-    monkeypatch.setattr(gen, "LAUNCH_OWNER", stamp)
-    assert gen.provenance_for_orphan(old) is None
+def test_a_sidecar_without_a_tree_is_not_provenance(gen, tmp_path):
+    """A dirty worktree makes _head_tree() None, and the driver still writes the file. A record
+    built from that must not be treated as defensible."""
+    rd = _fold_dir(tmp_path, "T6", 4)
+    gen.write_fold_provenance(rd, "T6", None, "abc1234-dirty", "x" * 16, 5, 50)
+    assert gen.read_fold_provenance(rd) is None
 
 
-def test_pycache_is_not_treated_as_a_source_change(gen):
-    """A .pyc is rewritten on import, so it records when a fold RAN rather than when the code
-    changed. Counting it would make the mtime test refuse at random."""
-    srcs = list(gen._tt_bio_sources())
-    assert srcs, "no tt_bio sources found"
-    assert not any("__pycache__" in p.parts or p.suffix == ".pyc" for p in srcs)
+def test_a_corrupt_sidecar_is_not_provenance(gen, tmp_path):
+    rd = _fold_dir(tmp_path, "T7", 4)
+    (rd / gen.FOLD_PROVENANCE).write_text("{truncated")
+    assert gen.read_fold_provenance(rd) is None
 
 
-def test_record_launch_owner_round_trips(gen, tmp_path, monkeypatch):
-    stamp = tmp_path / "launched_from"
-    monkeypatch.setattr(gen, "LAUNCH_OWNER", stamp)
-    tree = gen.record_launch_owner()
-    d = json.loads(stamp.read_text())
-    assert d["worktree"] == str(gen.ROOT) and d["tt_bio_tree"] == tree == gen._head_tree()
+def test_the_sidecar_does_not_pollute_the_artifact_counts(gen, tmp_path):
+    """It lives in the result dir, not in structures/, and must not be mistaken for output."""
+    rd = _fold_dir(tmp_path, "T8", 6)
+    gen.write_fold_provenance(rd, "T8", "b" * 40, "abc", "y" * 16, 5, 50)
+    cifs, paes = gen.count_artifacts(rd, "T8")
+    assert len(cifs) == 6 and len(paes) == 6
+
+
+def test_a_sidecar_older_than_the_artifacts_it_would_describe_is_refused(gen, tmp_path):
+    """Found by accident, live. The driver writes the sidecar and THEN launches the fold, so a fold
+    interrupted before producing anything leaves the sidecar next to whatever a previous run left in
+    the same directory -- a 21tw sidecar written 07-28 13:02 sat beside a structures/ from 07-27
+    22:28. Read naively, the new tree gets attributed to the old output."""
+    rd = _fold_dir(tmp_path, "T9", 5)
+    cifs, paes = gen.count_artifacts(rd, "T9")
+    for a in cifs + paes:                      # artifacts from a previous run
+        os.utime(a, (1000, 1000))
+    gen.write_fold_provenance(rd, "T9", "c" * 40, "abc", "z" * 16, 5, 50)   # sidecar written after
+    assert gen.read_fold_provenance(rd, cifs + paes) is None
+    # ignoring the ordering is what made it look fine
+    assert gen.read_fold_provenance(rd)["tt_bio_tree"] == "c" * 40
+
+
+def test_a_sidecar_written_before_its_artifacts_is_trusted(gen, tmp_path):
+    """The normal case: driver writes the sidecar, the fold then writes its output."""
+    rd = tmp_path / "boltz2_results_TA"
+    (rd / "structures").mkdir(parents=True)
+    gen.write_fold_provenance(rd, "TA", "d" * 40, "abc", "w" * 16, 5, 50)
+    time.sleep(0.01)
+    rd2 = _fold_dir(tmp_path, "TA2", 4)
+    for a in gen.count_artifacts(rd2, "TA2")[0]:
+        (rd / "structures" / a.name.replace("TA2", "TA")).write_text("x")
+    cifs, paes = gen.count_artifacts(rd, "TA")
+    assert gen.read_fold_provenance(rd, cifs + paes)["tt_bio_tree"] == "d" * 40
