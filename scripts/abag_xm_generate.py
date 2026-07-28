@@ -37,6 +37,9 @@ YAML_DIR = ROOT / "examples" / "abag_xm"
 GT_HOST = Path.home() / "abag_xm" / "ground_truth"
 GT = GT_HOST if GT_HOST.is_dir() else ROOT / "examples" / "ground_truth_structures"
 PROGRESS = OUT_BASE / "progress.jsonl"
+# Local mirror of the OTHER host's progress file, refreshed by abag_xm_peer_mirror.sh. Scheduling
+# input only -- never a record, never evidence. See peer_done_pairs().
+PEER_PROGRESS = OUT_BASE / "peer_progress.jsonl"
 MANIFEST = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
 
 MODELS = ["protenix-v2", "opendde-abag", "boltz2"]
@@ -315,6 +318,64 @@ def all_targets():
         return sorted(p.stem for p in YAML_DIR.glob("*.yaml"))
 
 
+def _is_done_record(r):
+    """Is this `ok` record an accepted fold? Must match `abag_xm_acceptance.py` exactly.
+
+    The resume filter and the release gate had drifted apart, so a pair could be skipped as done
+    and rejected as unpublishable at the same time -- which is how 21 pairs deadlocked. Keep the
+    two definitions in step; the tests pin every way they can diverge.
+    """
+    if r.get("status") != "ok":
+        return False
+    if r["model"] in MPS_SENSITIVE_MODELS and r.get("mps") != MPS:
+        # Generated under a different sampling configuration -- a different procedure, so not
+        # done. The resume pass regenerates it with --override.
+        return False
+    c, t = r.get("tt_bio_commit"), r.get("tt_bio_tree")
+    if not t and (not c or c.endswith("-dirty")):
+        # Provenance cannot be stated, so the fold cannot go in a published slab: the release
+        # preflight blocks on exactly these records. Treating them as done is a deadlock -- the
+        # resume skips them forever while the gate waits for them.
+        return False
+    # The artifact counts too, for the same reason: a record claiming ok with n_samples+1 PAEs
+    # was not written by this harness (its glob excludes the aggregate <target>_pae.npz) and
+    # carries no provenance either.
+    if r.get("n_cifs") != N_SAMPLES or r.get("n_paes") != N_SAMPLES:
+        return False
+    return True
+
+
+def peer_done_pairs():
+    """Pairs the OTHER host has already folded, from the local mirror of its progress file.
+
+    Why a mirror and not an ssh read: the case that needs this is precisely the case where the
+    peer is unreachable. When qb2 hung on 2026-07-28 its 169 records became unreadable, so
+    failing its four slices over to qb1 meant either leaving half the slab stalled or refolding
+    the ~125 pairs it had already completed. Neither is acceptable, and the only reason the
+    choice existed is that nothing kept a local copy of the peer's pair list.
+
+    This is a SCHEDULING input only. It never becomes a local record: the artifacts, labels and
+    provenance still live on the peer, and moving them is `abag_xm_merge_hosts.py`'s job at
+    release time. `abag_xm_acceptance.py` reads each host's real `progress.jsonl` directly, so a
+    pair that exists only in a mirror still shows as outstanding -- the mirror can make the
+    campaign skip work, never make the gate pass.
+    """
+    if not PEER_PROGRESS.exists():
+        return set()
+    seen = set()
+    for line in open(PEER_PROGRESS):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+            if _is_done_record(r):
+                seen.add((r["target"], r["model"]))
+        except Exception:
+            pass
+    return seen
+
+
 def done_pairs():
     seen = set()
     if PROGRESS.exists():
@@ -324,28 +385,7 @@ def done_pairs():
                 continue
             try:
                 r = json.loads(line)
-                if r.get("status") != "ok":
-                    continue
-                if r["model"] in MPS_SENSITIVE_MODELS and r.get("mps") != MPS:
-                    # Generated under a different sampling configuration -- a different
-                    # procedure, so not done. The resume pass regenerates it with --override.
-                    continue
-                c, t = r.get("tt_bio_commit"), r.get("tt_bio_tree")
-                if not t and (not c or c.endswith("-dirty")):
-                    # Provenance cannot be stated, so the fold cannot go in a published slab:
-                    # the release preflight blocks on exactly these records. Treating them as
-                    # done is a deadlock -- the resume skips them forever while the gate waits
-                    # for them. 21 such pairs exist across both hosts (dirty worktrees, plus
-                    # records with no commit at all, reconstructed post-hoc by the orphan
-                    # reconciler). Not done.
-                    continue
-                # The artifact counts too, for the same reason: a record claiming ok with 51
-                # PAEs was not written by this harness (its glob excludes the aggregate
-                # <target>_pae.npz) and carries no provenance either. "Done" here MUST mean
-                # exactly what abag_xm_acceptance.py accepts, or a pair is skipped by the
-                # resume and rejected by the gate at the same time -- which is how the slab
-                # deadlocked before. Keep the two definitions in step.
-                if r.get("n_cifs") != N_SAMPLES or r.get("n_paes") != N_SAMPLES:
+                if not _is_done_record(r):
                     continue
                 seen.add((r["target"], r["model"]))
             except Exception:
@@ -548,6 +588,11 @@ def main():
                          "cores//concurrent_folds CPU threads via predict --host_threads; "
                          "without that split every fold sizes its thread pools to all "
                          "cores and they thrash the host CPU.")
+    ap.add_argument("--use_peer_mirror", action=argparse.BooleanOptionalAction, default=True,
+                    help="also skip pairs the other host has already folded, read from the local "
+                         "mirror of its progress file (default on). Only matters when this host "
+                         "has taken over the peer's slices; without it a takeover refolds "
+                         "everything the peer already did.")
     ap.add_argument("--infra_retries", type=int, default=INFRA_RETRIES,
                     help="how many times a fold that never reached the model (card held by "
                          "another process, or a chip that would not initialise) is retried "
@@ -562,10 +607,18 @@ def main():
     OUT_BASE.mkdir(parents=True, exist_ok=True)
     MSA_DIR.mkdir(parents=True, exist_ok=True)
     skip = done_pairs()
+    peer = peer_done_pairs() if a.use_peer_mirror else set()
+    peer_new = peer - skip
+    skip |= peer
     print(f"[harness] device={a.device} targets={len(targets)} models={models} "
           f"n_samples={a.n_samples} mps={a.mps} skip={len(skip)} "
           f"host_threads={host_threads} tt_bio_tree={tree[:12]} "
-          f"lease_timeout={LEASE_TIMEOUT_S}s infra_retries={a.infra_retries}", flush=True)
+          f"lease_timeout={LEASE_TIMEOUT_S}s infra_retries={a.infra_retries}"
+          + (f" peer_skip={len(peer_new)}" if peer_new else ""), flush=True)
+    if peer_new:
+        print(f"[harness] {len(peer_new)} pair(s) skipped because the peer host already folded "
+              f"them ({PEER_PROGRESS}). Their artifacts live on the peer -- "
+              f"abag_xm_merge_hosts.py must run before any release table is built.", flush=True)
     dead_card = 0
     resets_used = 0
     for target in targets:

@@ -31,6 +31,15 @@ CARDS="${1:-0 1 2 3}"
 LOGDIR=$HOME/abag_xm/logs
 POLL="${POLL:-300}"          # 5 min: a fold is 5-35 min, so this notices an idle host quickly
 MAX_RELAUNCH="${MAX_RELAUNCH:-12}"
+# Label workers, derived from cores. Labelling is the LONGEST phase of this campaign, not a
+# background task: the full 492-fold slab is ~72 h at 2 workers on one host against ~10 h of
+# remaining generation, and per-label cost has grown ~3x as the remaining targets get larger (qb1
+# median 378 s over 80 labels historically, 1050 s over the last 10). The cost of more workers is
+# bounded and measured -- ~20% of fold throughput on the 16-core host, nothing detectable on the
+# 32-core one -- so slowing generation ~20% costs about 2 h and halving the label phase saves more
+# than ten. Spend the idle cores: nproc/8, i.e. 4 on a 32-core host and 2 on 16.
+LABEL_WORKERS="${LABEL_WORKERS:-$(( $(nproc) / 8 ))}"
+[ "$LABEL_WORKERS" -lt 1 ] && LABEL_WORKERS=1
 mkdir -p "$LOGDIR"
 
 log(){ echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
@@ -41,6 +50,7 @@ log(){ echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 # live on 2026-07-28).
 n_drivers(){ pgrep -cf "abag_xm_generat[e].py" 2>/dev/null || echo 0; }
 n_predicts(){ pgrep -cf "tt_bio.mai[n] predict" 2>/dev/null || echo 0; }
+n_labelloop(){ pgrep -f "abag_xm_labels_loo[p].sh" 2>/dev/null | wc -l; }
 
 relaunched=0
 log "supervisor up on $(hostname), cards [$CARDS], poll ${POLL}s, max ${MAX_RELAUNCH} relaunches"
@@ -61,6 +71,21 @@ trap release_hold EXIT
 while :; do
   bash "$WT/scripts/abag_xm_host_hold.sh" refresh >/dev/null 2>&1 \
     || log "WARNING: host hold not refreshed -- the fleet may take a card between folds"
+  # Copy the peer's progress file while the peer is still up. A few hundred KB per poll, and it is
+  # the difference between a free failover and refolding everything the peer already did -- the
+  # choice qb2's hang forced on 2026-07-28, when its 169 records became unreadable.
+  bash "$WT/scripts/abag_xm_peer_mirror.sh" >/dev/null 2>&1 \
+    || log "note: peer progress mirror not refreshed (peer down?)"
+  # Labelling is CPU-only and must overlap generation; its own loop script exists so ~72 h of it
+  # does not pile up at the end. It died in the same 2026-07-28 00:16 event that killed the folding
+  # drivers and nothing noticed for ten hours, by which point 113 of 181 completed folds were
+  # unlabelled. Cheap to restart and safe to have exactly one, so keep one alive. Started, never
+  # killed -- same rule as the drivers.
+  if [ "$(n_labelloop)" -eq 0 ]; then
+    log "labels loop absent -- starting one ($LABEL_WORKERS workers, 2 threads)"
+    setsid bash "$WT/scripts/abag_xm_labels_loop.sh" "$LABEL_WORKERS" 2 \
+      >> "$LOGDIR/labels_loop.log" 2>&1 < /dev/null &
+  fi
   d=$(n_drivers); p=$(n_predicts)
   if [ "$d" -eq 0 ] && [ "$p" -eq 0 ]; then
     if [ "$relaunched" -ge "$MAX_RELAUNCH" ]; then
