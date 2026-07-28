@@ -102,6 +102,9 @@ def main():
     ap.add_argument("--chain2", default=None,
                     help="override manifest fold_auth_chain_id_2 (antigen side)")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--pair_workers", type=int, default=4,
+                    help="parallel workers inside the pairwise DockQ matrix, which is 62%% of a "
+                         "fold's label cost. Total processes are (label workers) x this.")
     a = ap.parse_args()
     rd = Path(a.results_dir)
     target = rd.name.split("results_")[1]
@@ -144,8 +147,15 @@ def main():
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         matrix_out = td / "matrix.json"
+        # Pass the pairwise worker count explicitly. It was defaulting to 4 inside
+        # abag_xm_pairwise_matrix, so the real process count was label_workers x 4 -- 16 on a host
+        # running 4 label workers, which nobody chose and which no budget bounded. It happens to fit
+        # 32 cores next to 4 folds; it would not fit a host where label workers were raised further.
+        # Default preserved at 4 so this changes nothing today, but the knob now exists and the
+        # resulting total is printed rather than implied.
         pm = _run("abag_xm_pairwise_matrix", [str(rd), target,
-                   f"--n_samples={len(samples)}"], out_path=matrix_out)
+                   f"--n_samples={len(samples)}",
+                   f"--n_workers={a.pair_workers}"], out_path=matrix_out)
         bc_out = td / "basin.json"
         bc = _run("abag_xm_basin_clust", [str(matrix_out)], out_path=bc_out)
 

@@ -200,6 +200,9 @@ def label_one(task):
             "null_dockq_ranks": bad[:5]}
 
 
+# Mirrors abag_xm_labels.py's --pair_workers default; used only to report the peak process
+# count, which was previously invisible.
+PAIR_WORKERS = 4
 task_force = False
 task_host_threads = 2
 
@@ -221,6 +224,9 @@ def main():
     pairs = done_ok_pairs()
     tasks = [(t, m, rec) for (t, m), rec in pairs.items()]
     tasks.sort()
+    print(f"[campaign] pairwise matrix runs {PAIR_WORKERS} workers inside EACH label worker, so "
+          f"{a.workers} x {PAIR_WORKERS} = {a.workers * PAIR_WORKERS} processes at peak on "
+          f"{os.cpu_count()} cores (folding uses ~4 more)", flush=True)
     print(f"[campaign] {len(tasks)} ok pairs to label (workers={a.workers}, "
           f"host_threads={a.host_threads}, force={a.force})", flush=True)
     _preflight_hmmscan()
