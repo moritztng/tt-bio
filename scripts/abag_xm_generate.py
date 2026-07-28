@@ -126,7 +126,7 @@ def _head_commit():
 # `ModuleNotFoundError: No module named 'click'` while still being recorded as a
 # progress.jsonl entry. That is how 270 of 438 Tier-A records became fold_failed while the
 # campaign looked like it was progressing (audit 2026-07-27). The shell wrappers
-# (abag_xm_tiera_watchdog.sh etc.) hardcode the venv python, which is why the folds launched
+# (abag_xm_tiera_launch.sh) hardcodes the venv python, which is why the folds launched
 # through them are the ones that worked.
 # Resolve a python that can actually import the deps, and VALIDATE ONCE up front so a bad
 # interpreter is a loud startup abort instead of N silent per-fold failures.
