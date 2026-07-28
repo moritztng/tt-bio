@@ -846,13 +846,21 @@ def _sparse_qk_host(p_host, indices, n_heads=4):
 def _mask_template(cache, device, dtype, batch, n_heads, length):
     """The -1e4 dense attention-mask template the pair bias is scattered into.
 
-    It is a pure constant of (batch, n_heads, length), but `ttnn.full` on the
-    (1,4,3359,3359) bf16 form costs 38 ms -- ~60x the ~0.6 ms a bandwidth-bound
-    write of the same 90 MB takes -- so re-creating it every step was 9% of a
-    diffusion step. Keeping one template alive per shape removes that entirely and
-    is bit-exact because `ttnn.scatter` is out-of-place: verify_scatter_aliasing.py
+    It is a pure constant of (batch, n_heads, length). Re-creating it every step was
+    9% of a diffusion step, so one template is kept alive per shape; that is
+    bit-exact because `ttnn.scatter` is out-of-place (verify_scatter_aliasing.py
     replays a captured scatter against a single persistent template with two
-    different index sets and gets results identical to a fresh template each time.
+    different index sets and gets results identical to a fresh template each time).
+
+    It is built by uploading a materialized host tensor rather than by `ttnn.full`,
+    which is slower but correct. `length` is generally not a multiple of the 32-wide
+    tile (2702 = 84*32 + 14), and `ttnn.full` leaves the tile padding holding
+    whatever the previous owner of that DRAM wrote instead of -1e4, which the
+    softmax then reads. That is not hypothetical: on the pre-fix code a 2702-atom
+    ligand design folded in a process that had already folded a batch-8 3359-atom
+    design came out 3.4e-1 away from the same design folded alone, deterministically,
+    and switching this one allocation to a host upload made it exact. The cost is
+    one upload per (batch, n_heads, length, dtype) per design, not per step.
 
     One slot on purpose -- a run folds one design shape at a time, and holding the
     90 MB template is not extra peak memory (the old code allocated it anyway).
@@ -860,10 +868,8 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     key = (batch, n_heads, length, dtype)
     entry = cache.get("mask")
     if entry is None or entry[0] != key:
-        entry = (key, ttnn.full(
-            (batch, n_heads, length, length), -1e4, dtype=dtype,
-            layout=ttnn.TILE_LAYOUT, device=device,
-        ))
+        entry = (key, _tt(
+            torch.full((batch, n_heads, length, length), -1e4), device, dtype))
         cache["mask"] = entry
     return entry[1]
 
@@ -898,10 +904,8 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
     length = indices.shape[-2]
     batch = indices.shape[0]
     if mask_cache is None:
-        dense_bias = ttnn.full(
-            (batch, n_heads, length, length), -1e4, dtype=dtype,
-            layout=ttnn.TILE_LAYOUT, device=device,
-        )
+        dense_bias = _tt(
+            torch.full((batch, n_heads, length, length), -1e4), device, dtype)
     else:
         dense_bias = _mask_template(
             mask_cache, device, dtype, batch, n_heads, length
@@ -1472,10 +1476,9 @@ class CompactStreamingDecoder(Module):
         attn_p = self._persist_index(attn_idx_host, ttnn.TILE_LAYOUT)
         batch = q_host.shape[0]
         n_heads = self.atom_blocks[0].n_head
-        dense_bias = ttnn.full(
-            (batch, n_heads, length, length), -1e4, dtype=self.dtype,
-            layout=ttnn.TILE_LAYOUT, device=dev,
-        )
+        # host upload, not ttnn.full -- see _mask_template on the tile-padding hazard
+        dense_bias = _tt(
+            torch.full((batch, n_heads, length, length), -1e4), dev, self.dtype)
         sparse_qk = (n_keys, attn_p, dense_bias)
         for _ in range(2):
             _ = self.run_device(
