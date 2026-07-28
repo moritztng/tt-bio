@@ -58,6 +58,15 @@ fi
 mkdir -p "$LOGDIR" "$HOME/abag_xm/tier_a"
 [ -f "$SLICES" ] || { echo "missing $SLICES" >&2; exit 1; }
 
+# Recover folds that finished after their driver died before relaunching. A driver writes the
+# progress.jsonl record when a fold returns, so if the driver dies mid-fold the fold keeps running
+# (own session), completes, writes its CIFs + results.json, and is never recorded -- done_pairs()
+# then hands it to a card a second time. That happened to 8 folds across both hosts on 2026-07-28
+# and cost ~3.1 card-hours of recomputation to notice by hand. Reconciling here makes every resume
+# self-healing: it only ever appends records derived from artifacts already on disk (flagged
+# `recovered: true`), and it is a no-op when there is nothing orphaned.
+"$PY" "$WT/scripts/abag_xm_reconcile_orphans.py" --write 2>&1 | tail -1
+
 ncards=$(echo "$CARDS" | wc -w)
 # Deal this host's 4 slices round-robin onto the available cards, so a card subset redistributes
 # the work instead of dropping slices.
