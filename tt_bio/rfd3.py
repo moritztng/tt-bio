@@ -852,15 +852,23 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     replays a captured scatter against a single persistent template with two
     different index sets and gets results identical to a fresh template each time).
 
-    It is built by uploading a materialized host tensor rather than by `ttnn.full`,
-    which is slower but correct. `length` is generally not a multiple of the 32-wide
-    tile (2702 = 84*32 + 14), and `ttnn.full` leaves the tile padding holding
-    whatever the previous owner of that DRAM wrote instead of -1e4, which the
-    softmax then reads. That is not hypothetical: on the pre-fix code a 2702-atom
-    ligand design folded in a process that had already folded a batch-8 3359-atom
-    design came out 3.4e-1 away from the same design folded alone, deterministically,
-    and switching this one allocation to a host upload made it exact. The cost is
-    one upload per (batch, n_heads, length, dtype) per design, not per step.
+    It is built by uploading a materialized host tensor rather than by `ttnn.full`.
+    That is NOT for the reason p21 gave. p21 read the swap as fixing uninitialized
+    tile padding; p22 measured the ops directly (probe_tile_padding_semantics.py) and
+    `ttnn.full` in fact fills the whole padded buffer, the host upload is the one that
+    writes 0 into the padding, and neither `ttnn.matmul` nor `ttnn.softmax` reads the
+    padding at all. The padding is irrelevant here.
+
+    What the swap does is mask a real defect that is still open: folding several
+    designs of increasing size in one process makes a later 2702-atom ligand design
+    come out 3.4e-1 away from the same design folded alone, deterministically, and
+    perturbing this allocation happens to avoid it. p22 localised it to a wrong ttnn
+    program-cache hit inside RFD3AtomBlock in the decoder (clearing the program cache
+    between designs makes it exact; 512 MB of DRAM churn does not move it by one bit)
+    and it affects the dense path too, which builds no template. So keep the upload
+    until the op is named -- but do not trust the padding story, and revisit this once
+    it is fixed, because `ttnn.full` is the cheaper construction. The cost today is one
+    upload per (batch, n_heads, length, dtype) per design, not per step.
 
     One slot on purpose -- a run folds one design shape at a time, and holding the
     90 MB template is not extra peak memory (the old code allocated it anyway).
@@ -1476,7 +1484,7 @@ class CompactStreamingDecoder(Module):
         attn_p = self._persist_index(attn_idx_host, ttnn.TILE_LAYOUT)
         batch = q_host.shape[0]
         n_heads = self.atom_blocks[0].n_head
-        # host upload, not ttnn.full -- see _mask_template on the tile-padding hazard
+        # host upload, not ttnn.full -- see _mask_template (masks an open decoder bug)
         dense_bias = _tt(
             torch.full((batch, n_heads, length, length), -1e4), dev, self.dtype)
         sparse_qk = (n_keys, attn_p, dense_bias)
