@@ -59,12 +59,21 @@ _softmax = ttnn.softmax
 
 
 def classify(scope, shape):
-    """Name a softmax site by something stable across design sizes."""
-    if scope.endswith("pairformer"):
-        return "pairformer:square" if shape[-1] == shape[-2] else "pairformer:other"
-    if scope.endswith("gca"):
-        return "gca:query-major" if shape[-2] <= shape[-1] else "gca:key-major"
-    return scope
+    """Name a softmax site by the two axes that identify it, not by the call scope.
+
+    Scope is unreliable -- the decoder reaches GatedCrossAttention through a traced path that
+    does not go through the wrapped `run_device` -- and the (query, key) pair is both stable
+    across design sizes and specific. 14 and 3 are the model's token-group sizes; if either
+    ever changes, this gate stops recognising the site and fails, which is the intent.
+    """
+    q, k = shape[-2], shape[-1]
+    if (q, k) == (1, 14):
+        return "gca:query-major"
+    if (q, k) == (14, 3):
+        return "gca:key-major"
+    if q == k:
+        return "pairformer:square"
+    return scope or "(unscoped)"
 
 
 def patched(x, *a, **kw):
