@@ -42,6 +42,27 @@ def _cif_to_pdb_lines(cif_path, target):
     return out
 
 
+def _declared_chains(target):
+    """{"A": antigen, "H": heavy, "L": light} as declared in this target's campaign YAML.
+
+    Returns {} if the YAML cannot be read, so the caller falls back to auto-detection rather
+    than failing -- a missing chain hint should degrade, not break.
+    """
+    y = Path(__file__).resolve().parent.parent / "examples" / "abag_xm" / f"{target}.yaml"
+    try:
+        import yaml as _yaml
+        doc = _yaml.safe_load(y.read_text())
+    except Exception:
+        return {}
+    out = {}
+    for s in doc.get("sequences", []) or []:
+        for _k, v in (s or {}).items():
+            cid = (v or {}).get("id")
+            if cid in ("A", "H", "L"):
+                out[cid] = cid
+    return out
+
+
 def build_ensemble_pdb(fold_dir, target, out_pdb):
     """Concatenate all 50 sample CIFs into one ensemble PDB with REMARK names."""
     sdir = Path(fold_dir) / "structures"
@@ -106,9 +127,28 @@ def main():
 
     # deeprank-ab-predict auto-detects chains via ANARCI, which needs hmmscan/hmmsearch
     # (HMMER3 built from source into ~/.local/bin). Prepend it to PATH so the subprocess
-    # works regardless of the parent env.
+    # works regardless of the parent env -- auto-detection is still the fallback below.
     _env = {**os.environ, "PATH": os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")}
-    r = subprocess.run([str(cli), str(ensemble)], capture_output=True,
+
+    # Pass the chains this dataset declares rather than letting ANARCI guess them. Every other
+    # label -- DockQ, epitope Jaccard, interface lDDT, CDR RMSD -- is computed on the DECLARED
+    # antibody-antigen interface, so a learned ranker scoring a different chain pair would not be
+    # measuring the same thing. Auto-detection is also a known failure mode here: the DockQ
+    # auto-mapper once picked a non-contacting pair and returned a confident zero.
+    # Safe because the CIF->PDB conversion preserves the YAML's chain IDs verbatim (verified:
+    # 9k6j converts to chains A/H/L), and every target declares exactly A+H or A+H+L.
+    cmd = [str(cli), str(ensemble)]
+    ids = _declared_chains(args.target)
+    if ids.get("A") and ids.get("H"):
+        cmd += ["--antigen_chain_id", ids["A"], "--heavy_chain_id", ids["H"]]
+        if ids.get("L"):
+            cmd += ["--light_chain_id", ids["L"]]
+        print(f"[deeprank-batch] declared chains: {ids}", flush=True)
+    else:
+        print(f"[deeprank-batch] {args.target}: no declared chains found, "
+              f"falling back to ANARCI auto-detection", flush=True)
+
+    r = subprocess.run(cmd, capture_output=True,
                        text=True, cwd=str(Path(work)), env=_env)
     print(r.stdout[-1500:])
     if r.returncode != 0:
