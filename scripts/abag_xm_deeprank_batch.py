@@ -7,7 +7,8 @@ output CSV, and writes {rank: predicted_dockq} JSON.
 Two modes:
 
     --fold_dir/--target/--gen/--out_json   one fold, 50 models in one CLI call
-    --manifest folds.json                  SEVERAL folds in one CLI call
+    --manifest folds.json                  many folds, grouped by chain signature and chunked
+                                           into batched CLI calls (--max_batch, default 5)
 
 The single-fold mode replaced a per-sample driver path (50 CLI calls x ~30-60 s ESM reload each =
 ~30-50 min/fold). The manifest mode goes one step further, because measurement showed the
@@ -16,9 +17,11 @@ T(n) = 79.3 s + 1.88 s/model (fit over n = 5/25/50, residuals within 3.2 s), so 
 fold is overhead paid again for every fold. Scoring 5 folds per invocation cuts 173 s/fold to
 110 s/fold, which over the 492-fold slab is 23.7 h -> 15.0 h.
 
-Every fold in one manifest must declare the same chains, because the chain IDs are flags on the
-invocation rather than per-model; the caller groups by signature and the script refuses a mixed
-manifest instead of scoring half the models against the wrong interface.
+The chain IDs are flags on the invocation rather than per-model, and the generators disagree about
+them (boltz2 labels chains A/H/L; protenix-v2 and opendde-abag label them A/B/C), so a batch must
+not mix signatures. The manifest mode resolves each fold's chains by sequence and groups on the
+result itself, rather than asking callers to pre-group -- spreading that knowledge into every caller
+is what let 53 of 76 folds be scored against a chain that did not exist.
 """
 import argparse
 import json
@@ -298,7 +301,13 @@ def main():
     # {"target", "gen", "fold_dir", "out_json"}. Every fold in one manifest must declare the same
     # chains, because the chain IDs are per-invocation flags, not per-model -- the caller groups.
     ap.add_argument("--manifest",
-                    help="JSON list of folds to score in ONE invocation (see --help notes)")
+                    help="JSON list of folds to score, grouped by chain signature and chunked "
+                         "into batched CLI calls (see --help notes)")
+    # 5 measured 81.9 s/fold against 173 s alone. Larger batches keep improving but only slightly
+    # (the fixed cost is already amortised), while one failed invocation costs the whole chunk --
+    # so 5 is where the curve flattens and the blast radius is still small.
+    ap.add_argument("--max_batch", type=int, default=5,
+                    help="folds per CLI invocation (default 5)")
     ap.add_argument("--deeprank_venv",
                     default=os.path.expanduser("~/.deeprank_ab_venv"))
     args = ap.parse_args()
@@ -308,7 +317,7 @@ def main():
     if args.manifest:
         if any((args.fold_dir, args.target, args.gen, args.out_json)):
             sys.exit("--manifest is exclusive with --fold_dir/--target/--gen/--out_json")
-        return _main_multi(cli, json.load(open(args.manifest)))
+        return _main_multi(cli, json.load(open(args.manifest)), args.max_batch)
     missing = [f for f in ("fold_dir", "target", "gen", "out_json") if not getattr(args, f)]
     if missing:
         sys.exit(f"need --{' --'.join(missing)} (or --manifest)")
@@ -343,44 +352,19 @@ def _main_single(cli, args):
     print(f"[deeprank-batch] wrote {len(scores)} scores -> {args.out_json}", flush=True)
 
 
-def _main_multi(cli, folds):
-    if not folds:
-        sys.exit("--manifest is empty")
-    for fd in folds:
-        for k in ("target", "gen", "fold_dir", "out_json"):
-            if not fd.get(k):
-                sys.exit(f"manifest entry missing {k!r}: {fd}")
-
-    # The chain IDs are flags on the invocation, so a manifest mixing an A+H target with an
-    # A+H+L one would score half its models against the wrong interface. Refuse rather than
-    # silently produce labels that are not comparable to every other label in the dataset.
-    sigs = {}
-    for fd in folds:
-        flags, ids = _chain_args(fd["target"], fd["fold_dir"])
-        sigs.setdefault(tuple(flags), []).append(fd["target"])
-    if len(sigs) != 1:
-        lines = "\n".join(f"  {list(v)} -> {list(k)}" for k, v in sigs.items())
-        sys.exit("manifest mixes RESOLVED chain signatures (generators label chains "
-                 "differently -- boltz2 uses A/H/L, protenix/opendde use A/B/C, so a mixed-"
-                 "generator manifest lands here); group the folds by signature and run one "
-                 f"invocation per group:\n{lines}")
-    flags = list(next(iter(sigs)))
-    if not flags:
-        sys.exit("no declared chains for these targets -- run them singly so ANARCI "
-                 "auto-detection stays per-target")
-
+def _score_chunk(cli, folds, flags):
+    """Score one chunk of same-signature folds in a single CLI call. Returns exit status."""
     tag = f"{folds[0]['target']}_x{len(folds)}"
     work = tempfile.mkdtemp(prefix=f"deeprank_multi_{tag}_")
     ensemble = Path(work) / f"{tag}_ensemble.pdb"
     per_fold = build_multi_ensemble_pdb(folds, ensemble)
     total = sum(len(r) for r in per_fold)
-    print(f"[deeprank-batch] {len(folds)} folds, {total} models -> {ensemble.name}", flush=True)
-    print(f"[deeprank-batch] shared declared chains: {list(flags)}", flush=True)
+    print(f"[deeprank-batch] {len(folds)} folds, {total} models, chains {flags[1::2]} "
+          f"-> {ensemble.name}", flush=True)
 
     csv_path = _run_cli(cli, ensemble, flags, work)
-    got = _read_csv_scores(csv_path, r"f(\d+)r(\d+)$")
     split = {}
-    for (fi, rk), v in got:
+    for (fi, rk), v in _read_csv_scores(csv_path, r"f(\d+)r(\d+)$"):
         split.setdefault(int(fi), {})[str(int(rk))] = v
 
     rc = 0
@@ -398,6 +382,55 @@ def _main_multi(cli, folds):
             json.dump(scores, f)
         print(f"[deeprank-batch] {fd['target']}/{fd['gen']}: wrote {len(scores)} scores -> "
               f"{fd['out_json']}", flush=True)
+    return rc
+
+
+def _main_multi(cli, folds, max_batch):
+    """Score a whole manifest, grouping by resolved chain signature and chunking each group.
+
+    The caller hands over every fold it wants scored and this does the grouping, because the chain
+    IDs are flags on the invocation and the resolved ids differ by generator (boltz2 -> A/H/L,
+    protenix-v2 and opendde-abag -> A/B/C). Making the caller pre-group would spread that knowledge
+    into every caller and invite exactly the mismatch that killed 53 of 76 folds.
+    """
+    if not folds:
+        sys.exit("--manifest is empty")
+    for fd in folds:
+        for k in ("target", "gen", "fold_dir", "out_json"):
+            if not fd.get(k):
+                sys.exit(f"manifest entry missing {k!r}: {fd}")
+
+    groups, unresolved = {}, []
+    for fd in folds:
+        flags, _ids = _chain_args(fd["target"], fd["fold_dir"])
+        if not flags:
+            unresolved.append(fd)
+            continue
+        groups.setdefault(tuple(flags), []).append(fd)
+
+    print(f"[deeprank-batch] {len(folds)} folds -> {len(groups)} chain-signature group(s), "
+          f"max {max_batch} folds per invocation", flush=True)
+    for flags, items in sorted(groups.items(), key=lambda kv: -len(kv[1])):
+        print(f"[deeprank-batch]   chains {list(flags)[1::2]}: {len(items)} folds", flush=True)
+    if unresolved:
+        # Not fatal: the rest of the manifest is still worth scoring. But these are holes, and a
+        # hole that is not announced reads as "the ranker produced nothing", which has already
+        # happened once on this campaign.
+        print(f"[deeprank-batch] !! {len(unresolved)} fold(s) have no resolvable chain map and "
+              f"were SKIPPED (run them singly if ANARCI should guess): "
+              f"{[(f['target'], f['gen']) for f in unresolved][:6]}", file=sys.stderr)
+
+    rc = 0
+    done = 0
+    for flags, items in groups.items():
+        for i in range(0, len(items), max_batch):
+            chunk = items[i:i + max_batch]
+            rc = _score_chunk(cli, chunk, list(flags)) or rc
+            done += len(chunk)
+            print(f"[deeprank-batch] progress {done}/{len(folds) - len(unresolved)} folds scored",
+                  flush=True)
+    if unresolved:
+        rc = rc or 4
     if rc:
         sys.exit(rc)
 

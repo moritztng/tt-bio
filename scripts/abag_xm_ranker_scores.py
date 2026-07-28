@@ -53,7 +53,7 @@ def _native_confidences(fold_dir):
 
 
 def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abagrank,
-                    deeprank_venv, abagrank_dir):
+                    deeprank_venv, abagrank_dir, deeprank_precomputed=None):
     with open(labels_path) as f:
         labels = json.load(f)
     all_runs = _native_confidences(Path(fold_dir))
@@ -70,7 +70,9 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
     # said "learned rankers: NOT run yet". Requested-but-empty is an error, and it says so.
     deeprank_scores = {}
     if with_deeprank:
-        deeprank_scores = _run_deeprank(fold_dir, target, gen, deeprank_venv)
+        # Scored up front for the whole work list, batched -- see _run_deeprank_batched. A fold
+        # missing from that dict is a real hole and falls through to the empty-column error below.
+        deeprank_scores = (deeprank_precomputed or {}).get((target, gen), {})
         if not deeprank_scores:
             _EMPTY_LEARNED.append((target, gen, "deeprank_ab"))
             print(f"[ranker_scores] !! {target}/{gen}: deeprank_ab requested but produced NO "
@@ -123,50 +125,70 @@ def _device_folds_running():
         return False
 
 
-def _run_deeprank(fold_dir, target, gen, deeprank_venv):
-    """Score a fold with DeepRank-Ab. Run this ONLY when the host is not folding.
+# DeepRank-Ab cannot be confined from the outside, which is why the guard below schedules it away
+# from the folding window instead of throttling it. Measured on qb1 (32 cores, 4 folds in flight):
+# scoring one fold took the load average from 15.6 to 29.7 with ~38 processes, and past 45 on a
+# second attempt with ~70. Every containment route was tried and none held: deeprank-ab-predict
+# exposes only chain IDs (no worker/thread/batch flag), its pool ignores OMP/MKL/OpenBLAS caps, and
+# `taskset` is discarded exactly where it matters -- the wrapper inherits the mask (verified:
+# affinity 0-3) but the deeprank-ab-predict grandchild comes up 0-31, resetting its own affinity as
+# it spawns the workers. An unprivileged `systemd-run --user --scope -p AllowedCPUs=0-3` was not
+# enforced either. A delegated cpuset cgroup would hold, but that needs root.
+def _run_deeprank_batched(folds, deeprank_venv, max_batch=5):
+    """Score EVERY fold's DeepRank-Ab column in batched CLI calls. {(target, gen): {rank: score}}.
 
-    Measured on qb1 (32 cores, 4 folds in flight): scoring one fold took the load average
-    from 15.6 to 29.7 with ~38 processes, and to >45 on a second attempt with ~70. It
-    starves generation.
+    One invocation per fold pays the model-load cost 492 times. Measured on qb1:
+    T(n) = 79.3 s + 1.88 s/model over n = 5/25/50 models, so 46% of a 50-model fold is fixed
+    overhead. Handing the wrapper the whole work list instead drops 173 s/fold to a measured
+    81.9 s/fold at 5 folds per call -- the slab goes from 23.7 h to 11.2 h on one host.
 
-    There is no way to contain it from the outside, which is why this takes no budget
-    argument:
-      * ``deeprank-ab-predict`` exposes only chain IDs -- no worker, thread or batch flag;
-      * its pool ignores OMP/MKL/OpenBLAS caps;
-      * ``taskset`` does not hold. The wrapper does inherit the mask (verified: affinity
-        0-3), but the ``deeprank-ab-predict`` grandchild comes up with 0-31 -- it resets
-        its own affinity, so the pin is discarded exactly where the workers are spawned;
-      * an unprivileged ``systemd-run --user --scope -p AllowedCPUs=0-3`` was likewise not
-        enforced on this host (the scope started, affinity inside was still 0-31).
-    A delegated cpuset cgroup would hold, but that needs root. Schedule it instead.
+    The wrapper does the chain-signature grouping, because the generators label chains differently
+    and getting that wrong scores models against a chain that does not exist. Callers just say what
+    they want scored.
     """
+    if not folds:
+        return {}
     wrapper = ROOT / "scripts" / "abag_xm_deeprank_batch.py"
     py = os.path.join(deeprank_venv, "bin", "python3")
-    out_json = tempfile.mktemp(prefix=f"deeprank_{target}_{gen}_", suffix=".json")
     if _device_folds_running() and not _FORCE_DEEPRANK:
         print("[deeprank] REFUSING: device folds are in flight on this host and DeepRank-Ab "
-              "cannot be contained (see _run_deeprank). Score after the cards go idle, or "
-              "pass --force_deeprank if you accept starving them.", file=sys.stderr)
+              "cannot be contained (see _deeprank_containment_notes). Score after the cards go "
+              "idle, or pass --force_deeprank if you accept starving them.", file=sys.stderr)
         return {}
-    r = subprocess.run([py, str(wrapper),
-                        "--fold_dir", str(fold_dir),
-                        "--target", target, "--gen", gen,
-                        "--out_json", out_json,
+
+    work = tempfile.mkdtemp(prefix="deeprank_manifest_")
+    manifest = []
+    for fold_dir, target, gen in folds:
+        manifest.append({"target": target, "gen": gen, "fold_dir": str(fold_dir),
+                         "out_json": os.path.join(work, f"{target}__{gen}.json")})
+    man_path = os.path.join(work, "manifest.json")
+    with open(man_path, "w") as f:
+        json.dump(manifest, f)
+
+    print(f"[deeprank] scoring {len(manifest)} folds in batches of {max_batch}", flush=True)
+    r = subprocess.run([py, str(wrapper), "--manifest", man_path,
+                        "--max_batch", str(max_batch),
                         "--deeprank_venv", deeprank_venv],
                        capture_output=True, text=True)
+    for ln in (r.stdout or "").splitlines():
+        if ln.startswith("[deeprank-batch]"):
+            print("  " + ln, flush=True)
     if r.returncode != 0:
-        print(f"[deeprank] {target}/{gen} batch wrapper failed rc={r.returncode}",
+        # Partial output is still usable: the wrapper writes per-fold and only skips the folds it
+        # could not complete. Read what landed and let the per-fold empty check name the holes.
+        print(f"[deeprank] wrapper exited rc={r.returncode} -- reading whatever landed",
               file=sys.stderr)
-        print(r.stderr[-1200:], file=sys.stderr)
-        return {}
-    try:
-        with open(out_json) as f:
-            scores = json.load(f)
-        return {int(k): float(v) for k, v in scores.items()}
-    except Exception as e:
-        print(f"[deeprank] {target}/{gen} parse failed: {e}", file=sys.stderr)
-        return {}
+        print((r.stderr or "")[-1200:], file=sys.stderr)
+
+    out = {}
+    for m in manifest:
+        try:
+            with open(m["out_json"]) as f:
+                out[(m["target"], m["gen"])] = {int(k): float(v) for k, v in json.load(f).items()}
+        except Exception:
+            continue
+    print(f"[deeprank] got scores for {len(out)}/{len(manifest)} folds", flush=True)
+    return out
 
 
 def _run_abagrank(fold_dir, target, gen, abagrank_dir):
@@ -233,6 +255,9 @@ def main():
                     help="score with DeepRank-Ab even while this host is folding. It cannot "
                          "be contained (no worker flag, ignores OMP caps, resets its own "
                          "taskset affinity) and will starve the folds.")
+    ap.add_argument("--deeprank_batch", type=int, default=5,
+                    help="folds per DeepRank-Ab CLI invocation (default 5; measured 81.9 s/fold "
+                         "against 173 s one-at-a-time)")
     ap.add_argument("--clean", action="store_true",
                     help="delete the CSV before scoring (full rebuild)")
     args = ap.parse_args()
@@ -278,6 +303,13 @@ def main():
         msg += "; --clean (full rebuild)"
     print(msg + f"; deeprank={args.with_deeprank} abagrank={args.with_abagrank}")
 
+    # DeepRank-Ab up front for every fold that needs it, in batched CLI calls. Doing it inside the
+    # per-fold loop paid the model-load cost once per fold, which is 46% of each invocation.
+    deeprank_precomputed = {}
+    if args.with_deeprank and new_folds:
+        deeprank_precomputed = _run_deeprank_batched(
+            [(fd[0], fd[1], fd[2]) for fd in new_folds], args.deeprank_venv, args.deeprank_batch)
+
     # --all mode: overwrite with surviving + new. single-fold: append.
     if args.all or args.clean:
         mode = "w"
@@ -297,7 +329,8 @@ def main():
             try:
                 rows = _score_one_fold(fold_dir, target, gen, labels_path,
                                        args.with_deeprank, args.with_abagrank,
-                                       args.deeprank_venv, args.abagrank_dir)
+                                       args.deeprank_venv, args.abagrank_dir,
+                                       deeprank_precomputed)
                 for r in rows:
                     w.writerow(r)
                 f.flush()
