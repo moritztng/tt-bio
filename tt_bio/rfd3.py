@@ -906,7 +906,7 @@ _PAIR_TABLE_SLOTS = 2
 def _pair_gather_table(cache, p_host, device, dtype):
     """Resident (L*L, C) gather table for the step-invariant pair features.
 
-    P_LL is built once by the TokenInitializer (see build_initializer_outputs) and is
+    P_LL is built once by TokenInitializer._init_atoms and is
     the same data for all 200 diffusion steps and every recycle of each, so the table
     the per-step neighbour gather reads can live on the card: the gather becomes one
     ttnn.embedding instead of a host advanced-index plus an upload of the result
