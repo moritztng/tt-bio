@@ -94,6 +94,33 @@ def _preflight_hmmscan():
     return True
 
 
+def _preflight_imports():
+    """Abort if the label interpreter cannot import what the label stages import.
+
+    hmmscan got a preflight because it once went missing; DockQ did not, and so a missing DockQ on
+    qb2 burned four cores for three passes failing every fold at ~20 minutes each while the run
+    reported only "status=failed". Checking the one dependency that failed before is how the next
+    one gets through, so check them all.
+
+    An abort rather than a warning, unlike hmmscan: without DockQ there is no dockq, no pairwise
+    matrix and no basin clustering, which is most of the label. There is nothing worth spending
+    twenty minutes a fold to produce.
+    """
+    py, env = _label_python_env()
+    need = ("DockQ.DockQ", "numpy", "Bio.PDB")
+    probe = ";".join(f"import {m}" for m in need)
+    r = subprocess.run([py, "-c", probe], capture_output=True, text=True, env=env)
+    if r.returncode == 0:
+        return True
+    last = [ln for ln in (r.stderr or "").splitlines() if ln.strip()]
+    raise SystemExit(
+        f"!! label interpreter {py} cannot import {', '.join(need)}:\n"
+        f"   {last[-1] if last else 'unknown import error'}\n"
+        "   Every fold would burn its full runtime and then fail. Install the missing package "
+        "into that interpreter (qb1 and qb2 both use DockQ==2.1.3 -- the iRMSD key casing is "
+        "version-dependent, so match it exactly) and re-run.")
+
+
 def done_ok_pairs():
     seen = {}
     if PROGRESS.exists():
@@ -197,6 +224,7 @@ def main():
     print(f"[campaign] {len(tasks)} ok pairs to label (workers={a.workers}, "
           f"host_threads={a.host_threads}, force={a.force})", flush=True)
     _preflight_hmmscan()
+    _preflight_imports()
     if not tasks:
         print("[campaign] nothing to do; no ok pairs yet", flush=True)
         return
