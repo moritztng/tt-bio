@@ -189,6 +189,14 @@ def done_pairs():
                     # Generated under a different sampling configuration -- a different
                     # procedure, so not done. The resume pass regenerates it with --override.
                     continue
+                c = r.get("tt_bio_commit")
+                if not c or c.endswith("-dirty"):
+                    # Provenance cannot be stated, so the fold cannot go in a published slab:
+                    # the release preflight blocks on exactly these records. Treating them as
+                    # done is a deadlock -- the resume skips them forever while the gate waits
+                    # for them. 19 such folds exist (7 dirty on qb1, 8 with no commit at all,
+                    # the latter reconstructed post-hoc by the orphan reconciler). Not done.
+                    continue
                 seen.add((r["target"], r["model"]))
             except Exception:
                 pass
