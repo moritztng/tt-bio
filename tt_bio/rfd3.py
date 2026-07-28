@@ -26,6 +26,16 @@ import ttnn
 
 from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 
+# This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
+# tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
+# run, so every `core_grid=CORE_GRID_MAIN` below pins 11x10 -- 110 of the 130 available
+# cores. That looks like a bug; it is measurably not one. p28 timed both grids on all seven
+# pinned call sites (scripts/rfd3_port/p28_pinned_grid_exactness.py): 13x10 is bit-exact
+# against 11x10 everywhere (maxabs 0.0, 14/14 cells at D=1 and D=8), and it is 14.28 ms/step
+# SLOWER at D=8 -- DiffusionTokenEncoder.process_z alone goes 1.967 -> 6.353 ms. So grid
+# width here carries no numerics, only performance, and the narrower grid wins. Re-resolving
+# this lazily would be a ~0.7% regression at D=8.
+
 # ttnn derives a `core_grid=` linear's matmul program config from M = batch * rows:
 # a larger per_core_M leaves less L1 for the in0 block, so in0_block_w -- the
 # K-blocking of the fp32 accumulation -- shrinks, and the same arithmetic is grouped
@@ -39,14 +49,18 @@ from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 # scripts/rfd3_port/verify_batch_invariance.py is the gate;
 # scripts/rfd3_port/probe_callsites.py re-derives which linears need it.
 #
-# RFD3_FAST_GRID=1 pins the full compute grid on those linears anyway. It is a
-# MEASUREMENT LEVER, not a shipping option: it reinstates exactly the divergence the
-# paragraph above describes, so a batched forward stops being bit-identical to the
-# standalone one and a long trajectory drifts. It exists so the size of the upside can be
-# quoted from a measurement instead of from the 1.32x/1.59x estimate above, per Moritz's
-# 2026-07-28 instruction to measure a batching lever's benefit even when it is not
-# accurate. scripts/rfd3_port/p28_grid_trajectory_parity.py measures the cost.
-# Default OFF -- the shipped path is unchanged.
+# RFD3_FAST_GRID=1 pins the grid on those linears anyway. It is a MEASUREMENT LEVER and it
+# is NOT a shipping option, now that both halves of its tradeoff are measured:
+#   * worth -5.09% per step at D=1 and -5.19% at D=8 (3359 atoms, interleaved one-tree A/B);
+#     a real 200-timestep design goes 54.07 s -> 50.13 s.
+#   * costs 6.525 A RMSD / 6.380 A after Kabsch / PCC 0.920 against the shipped path at the
+#     SAME seed over a full 200-step trajectory, where a seed change is 25.305 A. It returns
+#     a different design, silently, still reporting finite.
+# The decisive number is that RFD3_TUNE_MATMUL=1 -- which searches explicit program configs
+# and keeps only bitwise-identical ones -- measures -4.96% at 3359/D=8 with maxabs exactly
+# 0.0 over a D=8 trajectory. Breaking bit-exactness here buys 0.2 percentage points. So there
+# is no accuracy-for-speed trade to make: take the exact path.
+# scripts/rfd3_port/p28_grid_trajectory_parity.py is the instrument. Default OFF.
 FAST_GRID = os.environ.get("RFD3_FAST_GRID") == "1"
 BATCH_INVARIANT_GRID = CORE_GRID_MAIN if FAST_GRID else None
 
