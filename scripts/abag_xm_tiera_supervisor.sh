@@ -49,7 +49,15 @@ log "supervisor up on $(hostname), cards [$CARDS], poll ${POLL}s, max ${MAX_RELA
 # waiting on its own lease -- 25 records on qb1 with a constant 133 s wall clock. The hold
 # expires on its own within the hour, so a supervisor that dies does not block the fleet.
 bash "$WT/scripts/abag_xm_host_hold.sh" refresh 2>&1 | sed 's/^/    /'
-trap 'log "supervisor exiting -- releasing the host hold"; bash "$WT/scripts/abag_xm_host_hold.sh" release 2>&1 | sed "s/^/    /"' EXIT INT TERM
+release_hold(){ log "releasing the host hold"
+  bash "$WT/scripts/abag_xm_host_hold.sh" release 2>&1 | sed 's/^/    /'; }
+# INT and TERM must EXIT, not just run the handler: a bash trap on a signal returns to where it
+# was interrupted, so a handler without an exit makes this loop unkillable by anything short of
+# SIGKILL -- and SIGKILL skips the release entirely. Observed live on qb2 while swapping
+# supervisors: `kill -TERM` ran the handler and the supervisor carried on.
+trap 'release_hold; exit 130' INT
+trap 'release_hold; exit 143' TERM
+trap release_hold EXIT
 while :; do
   bash "$WT/scripts/abag_xm_host_hold.sh" refresh >/dev/null 2>&1 \
     || log "WARNING: host hold not refreshed -- the fleet may take a card between folds"
