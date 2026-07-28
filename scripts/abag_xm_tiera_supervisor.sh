@@ -31,15 +31,19 @@ CARDS="${1:-0 1 2 3}"
 LOGDIR=$HOME/abag_xm/logs
 POLL="${POLL:-300}"          # 5 min: a fold is 5-35 min, so this notices an idle host quickly
 MAX_RELAUNCH="${MAX_RELAUNCH:-12}"
-# Label workers, derived from cores rather than fixed at 2, because the cost of labelling alongside
-# folding is host-dependent and was measured on 2026-07-28. Normalising fold cost by target token
-# count (raw wall_s is confounded -- fold cost scales with size and the slices are walked in order):
-#   qb1, 32 cores:  +3% / +3%   s/token after labelling restarted -- no measurable cost
-#   qb2, 16 cores: +19% / +24%  s/token, and load sat at ~nproc
-# So 2 workers is right where there are cores to spare and costs ~20% of fold throughput where there
-# are not. Labelling has slack (a few hours against ~11 h of generation left) and generation is the
-# bottleneck, so trade label speed for fold speed on the smaller host. Override with LABEL_WORKERS.
-LABEL_WORKERS="${LABEL_WORKERS:-$([ "$(nproc)" -ge 32 ] && echo 2 || echo 1)}"
+# Label workers, derived from cores. This was 2-or-1 on 2026-07-28 on the reasoning that labelling had
+# slack and fold throughput was the bottleneck. Measurement has since inverted that:
+#   * per-label cost has grown ~3x as the remaining targets get larger -- qb1 median 378 s over 80
+#     labels historically, but 1050 s over the last 10;
+#   * the full 492-fold slab is ~72 h of labelling on one host at 2 workers, against ~10 h of
+#     remaining generation and ~5.6 h of DeepRank-Ab. Labelling is the longest phase, not a background
+#     task;
+#   * the cost of more label workers is bounded and measured: ~20% of fold throughput on the
+#     16-core host, nothing detectable on the 32-core one.
+# Slowing generation ~20% costs about 2 h; halving the label phase saves more than ten. So spend the
+# idle cores: nproc/8, i.e. 4 on a 32-core host and 2 on 16. Override with LABEL_WORKERS.
+LABEL_WORKERS="${LABEL_WORKERS:-$(( $(nproc) / 8 ))}"
+[ "$LABEL_WORKERS" -lt 1 ] && LABEL_WORKERS=1
 mkdir -p "$LOGDIR"
 
 log(){ echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
