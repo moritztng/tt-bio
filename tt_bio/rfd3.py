@@ -1728,7 +1728,19 @@ class DiffusionTokenEncoder(Module):
         """R_L_ca: [B, I, 3] (scaled C-alpha positions), S_init_I: [B, I, c_s],
         Z_init_II: [I, I, c_z] or [1, I, I, c_z] (batch 1 -- replicated on device),
         D_II_self: int32 [B, I, I] distogram bin indices or None.
-        Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host."""
+        Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host.
+
+        The host-boundary wrapper the component parity scripts call. The per-step path
+        uses run_device instead and keeps z on the card -- see run_device."""
+        s, z = self.run_device(R_L_ca, S_init_I, Z_init_II, D_II_self=D_II_self)
+        return ttnn.to_torch(s).float(), ttnn.to_torch(z).float()
+
+    def run_device(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
+        """Same computation as __call__, returning the ttnn tensors instead of host copies.
+
+        z is [B,I,I,c_z]: O(I^2) and by far the largest tensor the step moves. Handing it
+        to the DiT as a device tensor removes one D->H untilize plus one H->D upload per
+        recycle, four crossings of an I^2 tensor per step."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         B, I = R_L_ca.shape[0], R_L_ca.shape[1]
@@ -1762,7 +1774,7 @@ class DiffusionTokenEncoder(Module):
                 else ttnn.add(z, upd)
         for blk in self.pairformer_stack:
             s, z = blk(s, z)
-        return ttnn.to_torch(s).float(), ttnn.to_torch(z).float()
+        return s, z
 
 
 class LocalTokenTransformer(Module):
@@ -1785,11 +1797,17 @@ class LocalTokenTransformer(Module):
             a = block(a, s, z, additive_mask)
         return a
 
-    def __call__(self, a_host, s_host, z_host, indices):
+    def __call__(self, a_host, s_host, z, indices):
+        """z may be a host tensor (the parity-script path) or an already-resident ttnn
+        tensor handed straight over by DiffusionTokenEncoder.run_device."""
         dev, dt = self.device, self.dtype
         a = _tt(a_host, dev, dt)
         s = _tt(s_host, dev, dt)
-        z = _tt(z_host.unsqueeze(0) if z_host.ndim == 2 else z_host, dev, dt)
+        if isinstance(z, ttnn.Tensor):
+            if z.dtype != dt:
+                z = ttnn.typecast(z, dt)
+        else:
+            z = _tt(z.unsqueeze(0) if z.ndim == 2 else z, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
         return ttnn.to_torch(self.run_device(a, s, z, mask)).float()
 
@@ -1879,36 +1897,91 @@ def _build_index_mask(tok_idx, n_seq_neighbours, k_max, chain_id=None, base_mask
     return allowed[tok_idx[:, None], tok_idx[None, :]]
 
 
-def _extend_with_neighbours(mask, D_LL, k):
+def _extend_with_neighbours(mask, seq_idx, D_LL, k):
+    """Fill the sequence-neighbour index list out to k with the nearest non-neighbours.
+
+    ``mask`` and ``seq_idx`` are the coordinate-independent half and come from
+    _attention_index_prefix; only the distance topk below reads the coordinates.
+    """
     if D_LL.ndim == 2:
         D_LL = D_LL.unsqueeze(0)
     _, length, _ = D_LL.shape
     k = min(k, length)
-    device = D_LL.device
-    rows = torch.arange(length, device=device).unsqueeze(0).expand(length, length)
-    idx = torch.where(mask.contiguous(), rows, length).topk(
-        k, dim=1, largest=False, sorted=True
-    ).values
-    inf = torch.tensor(float("inf"), dtype=D_LL.dtype, device=device)
-    masked_distances = torch.where(mask.contiguous(), inf, D_LL)
+    inf = torch.tensor(float("inf"), dtype=D_LL.dtype, device=D_LL.device)
+    masked_distances = torch.where(mask, inf, D_LL)
     fill = torch.topk(masked_distances, k, dim=-1, largest=False).indices.flip(
         dims=[-1]
     )
-    idx = torch.where((idx == length).expand_as(fill), fill, idx.expand_as(fill))
+    idx = torch.where((seq_idx == length).expand_as(fill), fill, seq_idx.expand_as(fill))
     return idx.long()
+
+
+def _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, length):
+    mask = _build_index_mask(tok_idx, n_seq_neighbours, k, chain, base_mask).contiguous()
+    rows = torch.arange(length, device=tok_idx.device).unsqueeze(0).expand(length, length)
+    seq_idx = torch.where(mask, rows, length).topk(k, dim=1, largest=False, sorted=True).values
+    return mask, seq_idx
+
+
+_ATTN_INDEX_CACHE: dict = {}
+_ATTN_INDEX_CACHE_MAX = 8
+
+
+def _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
+    """Memoize the coordinate-independent half of _create_attention_indices.
+
+    Everything built here reads only the token layout -- tok_idx, asym_id,
+    unindexing_pair_mask -- and the two k values, all of which are fixed for a whole
+    design. The sampler nevertheless rebuilt it on every one of ~200 diffusion steps,
+    and it is O(L^2): 12.3% of the step at 3359 atoms, 7.0% at batch 8 (p19 step 0).
+    Only cdist and the distance topk in _extend_with_neighbours genuinely move with the
+    coordinates. Pure memoization of a deterministic function, so it is exact.
+
+    Keyed on the identity of the design-level tensors, then re-validated against tok_idx
+    by value, because the DiT passes a freshly built arange on every call: an id() key
+    alone would always miss, and once a gc cycle reused an address it could hit stale.
+    The entry holds its own references to what it keys on so those ids cannot be reused
+    while the entry lives.
+    """
+    asym = f.get("asym_id")
+    upm = f["unindexing_pair_mask"]
+    L = len(tok_idx)
+    key = (L, n_keys, n_seq_neighbours, id(asym), id(upm))
+    hit = _ATTN_INDEX_CACHE.get(key)
+    if hit is not None and hit[0] is asym and hit[1] is upm and torch.equal(hit[2], tok_idx):
+        return hit[3]
+
+    base_mask = ~upm
+    k = min(n_keys, L)
+    chain = asym[tok_idx] if asym is not None else None
+    parts = {"k": k}
+    if chain is not None and len(torch.unique(chain)) > 3:
+        ki, kc = max(32, k // 4), k - max(32, k // 4)
+        parts.update(ki=ki, kc=kc, chain=chain,
+                     intra=_mask_and_seq_idx(tok_idx, n_seq_neighbours, kc, chain, base_mask, L),
+                     atom_base_mask=base_mask[tok_idx[None, :], tok_idx[:, None]])
+    else:
+        parts["single"] = _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, L)
+
+    if len(_ATTN_INDEX_CACHE) >= _ATTN_INDEX_CACHE_MAX:
+        _ATTN_INDEX_CACHE.pop(next(iter(_ATTN_INDEX_CACHE)))
+    _ATTN_INDEX_CACHE[key] = (asym, upm, tok_idx, parts)
+    return parts
 
 
 def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
     device = X_L.device; L = len(tok_idx)
     D_LL = torch.cdist(X_L, X_L, p=2)
-    base_mask = ~f["unindexing_pair_mask"]
-    k = min(n_keys, L)
-    chain = f["asym_id"][tok_idx] if "asym_id" in f else None
-    if chain is not None and len(torch.unique(chain)) > 3:
-        ki, kc = max(32, k // 4), k - max(32, k // 4)
-        intra = _extend_with_neighbours(_build_index_mask(tok_idx, n_seq_neighbours, kc, chain, base_mask), D_LL, kc)
+    parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
+    if "single" in parts:
+        mask, seq_idx = parts["single"]
+        idx = _extend_with_neighbours(mask, seq_idx, D_LL, parts["k"])
+    else:
+        ki, kc, chain = parts["ki"], parts["kc"], parts["chain"]
+        mask, seq_idx = parts["intra"]
+        intra = _extend_with_neighbours(mask, seq_idx, D_LL, kc)
+        atom_base_mask = parts["atom_base_mask"]
         inter = torch.zeros(D_LL.shape[0], L, ki, dtype=torch.long, device=device)
-        atom_base_mask = base_mask[tok_idx[None, :], tok_idx[:, None]]
         for b in range(D_LL.shape[0]):
             for c in torch.unique(chain):
                 ci = chain[c]; other = (chain != ci) & atom_base_mask[c, :]
@@ -1916,8 +1989,6 @@ def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
                 if ns > 0:
                     inter[b, c, :ns] = oi[torch.topk(D_LL[b, c, oi], ns, largest=False).indices]
         idx = torch.cat([intra, inter], dim=-1)
-    else:
-        idx = _extend_with_neighbours(_build_index_mask(tok_idx, n_seq_neighbours, k, chain, base_mask), D_LL, k)
     return torch.sort(idx, dim=-1)[0].detach()
 
 
@@ -2309,11 +2380,18 @@ class RFD3DiffusionModule(Module):
     def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II):
         is_ca = f["is_ca"]
         R_L_ca = R_L_uniform[..., is_ca, :]
-        S_I, Z_II = self.diffusion_token_encoder(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        # z stays on the card between these two: it is [B,I,I,128], the only O(I^2)
+        # tensor in the step, and the round trip through host fp32 was 58.8% of the step
+        # at 3359 atoms against 13.9% at 419 (p19 step 0) -- the size-dependent cost the
+        # GPU does not pay. s is O(I*c_s) and still crosses, because the decoder wants it
+        # on host anyway.
+        s_dev, z_dev = self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        S_I = ttnn.to_torch(s_dev).float()
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
         dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(I := S_I.shape[1], device=X_L_ca.device),
                                             self.DIT_KEYS, self.DIT_SEQ)
-        A_I = self.diffusion_transformer(A_I, S_I, Z_II, dit_idx)
+        A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx)
+        ttnn.deallocate(z_dev)
         A_I, Q_L = self.decoder(A_I, S_I, Q_L, C_L, P_LL, tok_idx=f["atom_to_token_map"], indices=f["attn_indices"])
         R_upd = ttnn.to_torch(ttnn.linear(ttnn.rms_norm(_tt(Q_L, self.device, self.dtype),
                                                         weight=self.to_r_n, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config),
