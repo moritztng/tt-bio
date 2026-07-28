@@ -2413,25 +2413,45 @@ class RFD3DiffusionModule(Module):
         # The fp32-residual lever threads through the DiT and the encoder (the two pure
         # atom-block stacks); the decoder accepts the flag but ignores it (see its ctor).
         # Default off keeps the verified bf16 behavior.
-        # ttnn trace-capture lever (p25, opt-in via RFD3_TRACE_ENCODER=1 / RFD3_TRACE_DECODER=1):
-        # per rfd3-trace-viability-submodule-granularity, both the 3-block encoder and the
-        # decoder's core upcast/atom-block loop are narrow-channel/few-head stacks that measured
-        # a real isolated trace speedup (the 18-block DiT does not -- never traced). Requires the
-        # device to be opened with a trace region (get_device(trace_region_size=1 << 28)+).
-        # Default off keeps the verified eager path unchanged.
-        # RFD3_TRACE_DECODER=1 is verified safe end-to-end (p25, reconfirmed p26: real 1.25x
-        # on pc). RFD3_TRACE_ENCODER=1 (p26: encoder-alone traced this way hung on the
-        # immediately-following _downcast_q's eager alloc -- root cause found p27: run_device's
-        # internal host-mask upload hard-errors ("Writes are not supported during trace capture")
-        # when it runs inside an open capture region; fixed by precomputing the mask + folding
-        # encoder + _downcast_q into ONE combined trace -- see _encoder_downcast_traced) has the
-        # capture-time bug FIXED and isolated component PCC clean (p27), but the full multi-step
-        # trajectory PCC + real end-to-end ms/step are NOT YET verified this pass (blocked by
-        # fleet device contention on qb1, all 4 cards busy) -- do not flip to default-on until
-        # that two-gate verification completes (p28). self.encoder itself is always built with
-        # trace=False -- production tracing of the encoder now lives in the wider
-        # _encoder_downcast_traced capture below, not in LocalAtomTransformer's own
-        # (still isolated-test-only) trace mechanism.
+        # ttnn trace-capture lever (p25, opt-in via RFD3_TRACE_ENCODER=1 / RFD3_TRACE_DECODER=1).
+        # BOTH ARE MEASURED NEGATIVE AND STAY DEFAULT-OFF. p32 ran the two-gate check p25-p28
+        # never got to (scripts/rfd3_port/p32_trace_ab.py, all four combinations alternated in
+        # one process on one hot card, 3359 atoms, 3 alternations): every leg is BIT-EXACT
+        # (trajectory maxabs 0.0 against the eager leg -- the correctness gate passes), and
+        # every leg is SLOWER. Decoder -12.3% (246.3 -> 280.8 ms/step), encoder -74.5%
+        # (-> 967.5), both -75.5%.
+        #
+        # The reason is structural, not a tuning miss (p32_trace_attribution.py, same shape):
+        # the decoder's `run_device` -- exactly the graph the trace replaces -- costs
+        # 9.66 ms/step of HOST DISPATCH, 3.9% of the step. That is the ceiling on what tracing
+        # it can ever save. Against it the traced path pays 26.5 ms/step refreshing its
+        # persistent input buffers plus 6.0 ms/step of host pair gather, because a trace can
+        # only read inputs at fixed addresses: the gathered pair features and the
+        # head-replicated scatter index (20.7 of 22.8 MB per step) are precisely the two
+        # tensors p26 had already made device-resident (_pair_gather_table,
+        # _sparse_attn_index's device concat), and staging them for a trace pushes them back
+        # across the host boundary. Tracing here undoes a residency win to buy a 3.9% one, so
+        # the two levers are mutually exclusive rather than compounding -- and even free
+        # staging would leave a wash, not a win. p25/p26's isolated 1.25x measured `run_device`
+        # in a tight loop where those 9.66 ms were nearly all the wall time; in the real step
+        # they are 3.9%. The encoder is worse for the same reason plus one more: its traced
+        # form (_encoder_downcast_device) takes the DENSE pair-bias path, so it re-stages
+        # P_LL ([1,L,L,16], 361 MB at 3359 atoms) and a dense [1,1,L,L] mask every step where
+        # the eager sparse path moves a [1,L,128,16] gather (13.8 MB) off a resident table.
+        #
+        # Kept, not deleted: both paths are correct and bit-exact, the ceiling is
+        # size-dependent (dispatch is a larger share of a 419-atom step), and the flags are the
+        # only way to re-measure if ttnn ever grows a device-side way to stage a trace input.
+        # Requires get_device(trace_region_size=1 << 28) or larger; nothing in production opens
+        # the device that way, which is consistent with both flags being off.
+        #
+        # History: RFD3_TRACE_ENCODER's capture-time hang was root-caused in p27 (run_device's
+        # internal host-mask upload hard-errors inside an open capture region; fixed by
+        # precomputing the mask and folding encoder + _downcast_q into ONE trace, see
+        # _encoder_downcast_traced). RFD3_TRACE_DECODER's own crash-after-one-step was
+        # root-caused in p32 (see _trace_output_copy). self.encoder itself is always built with
+        # trace=False -- production tracing of the encoder lives in _encoder_downcast_traced,
+        # not in LocalAtomTransformer's own (isolated-test-only) trace mechanism.
         self._trace_encoder = os.environ.get("RFD3_TRACE_ENCODER") == "1"
         self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
         self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
@@ -2490,9 +2510,9 @@ class RFD3DiffusionModule(Module):
         happens here at all -- only a python-side cache hit -- so nothing can race with an
         open trace region on steady-state steps. Combined with folding the remaining first-call
         interleaving into the encoder+downcast_q trace itself (_encoder_downcast_traced), this
-        is expected to close the hang -- isolated component PCC is clean post-fix (p27), but
-        the multi-step trajectory replay that would confirm it end-to-end has not run yet
-        (blocked by device contention, see RFD3DiffusionModule.__init__ comment)."""
+        closed the hang: p32 ran the multi-step trajectory replay end-to-end and it is
+        bit-exact (maxabs 0.0). The encoder trace is still default-off, on perf grounds
+        rather than correctness -- see the RFD3DiffusionModule.__init__ comment."""
         dev = self.device
         # One slot PER BATCH SIZE, not one slot total: _downcast_c is called with the
         # batch-1 S_I while the encoder downcast is called with the batch-D A_I, so a
