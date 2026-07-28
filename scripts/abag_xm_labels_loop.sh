@@ -12,7 +12,9 @@
 #
 #   Usage: scripts/abag_xm_labels_loop.sh [workers] [host_threads]
 #          defaults 2 and 2, which is what is safe while this host is still folding.
-#          Once the cards go idle, raise both (e.g. "8 4") to clear the backlog fast.
+#          Once the cards go idle the loop raises itself to IDLE_WORKERS x
+#          IDLE_HOST_THREADS (default nproc/2 x 2) and drops back if folding resumes, so
+#          neither setting has to be changed by hand mid-campaign.
 #
 # CPU-only: never touches a device.
 set -u
@@ -24,6 +26,13 @@ PY=/home/ttuser/.abag_xm_label_venv/bin/python3
 [ -x "$PY" ] || PY=/home/ttuser/tt-bio/env/bin/python3
 WORKERS="${1:-2}"
 HOST_THREADS="${2:-2}"
+# Concurrency to use once the cards go idle. The header used to say "raise both by hand once the
+# cards go idle", and that is a schedule improvement nobody is present to make: measured on qb2,
+# its 113-fold backlog is 11.7 core-hours = 5.8 h at 2 workers, against ~4 h of generation left,
+# so labelling becomes the critical path and then runs ~2 h past the last fold at the timid
+# setting. Sized to the box rather than hardcoded, and re-evaluated every iteration below.
+IDLE_WORKERS="${IDLE_WORKERS:-$(( $(nproc) / 2 ))}"
+IDLE_HOST_THREADS="${IDLE_HOST_THREADS:-2}"
 RUN_TIMEOUT="${RUN_TIMEOUT:-5400}"
 LOGDIR="$HOME/abag_xm/logs"
 PROGRESS="$HOME/abag_xm/tier_a/progress.jsonl"
@@ -38,10 +47,17 @@ try: print(sum(1 for l in open(p) if json.loads(l).get('status')=='ok'))
 except Exception: print(0)
 " "$PROGRESS" 2>/dev/null || echo 0; }
 
-log "START labels loop: wt=$WT workers=$WORKERS host_threads=$HOST_THREADS timeout=${RUN_TIMEOUT}s"
+log "START labels loop: wt=$WT busy=${WORKERS}x${HOST_THREADS} idle=${IDLE_WORKERS}x${IDLE_HOST_THREADS} timeout=${RUN_TIMEOUT}s"
 while true; do
   nlab=$(ls "$LABELS"/*.json 2>/dev/null | wc -l); nok=$(count_ok)
-  log "labels=$nlab ok_folds=$nok — running campaign"
+  # Re-checked every iteration, not once at startup: the whole point is to notice the cards
+  # draining hours after this loop began. Same predicate the endgame uses to gate DeepRank-Ab.
+  if pgrep -f "tt_bio.mai[n] predict" >/dev/null 2>&1; then
+    w="$WORKERS"; ht="$HOST_THREADS"; regime="cards busy"
+  else
+    w="$IDLE_WORKERS"; ht="$IDLE_HOST_THREADS"; regime="cards IDLE"
+  fi
+  log "labels=$nlab ok_folds=$nok — running campaign ($regime: workers=$w host_threads=$ht)"
   # PYTHONUNBUFFERED + -u because the campaign log is the only live signal for a stage whose
   # items take 6-21 minutes. Block-buffered, the log sits stale for a quarter of an hour while
   # work proceeds normally, which is indistinguishable from a hang -- on 2026-07-28 that cost a
@@ -49,7 +65,7 @@ while true; do
   # this; the label loop did not.
   timeout "$RUN_TIMEOUT" env PYTHONPATH="$WT" PYTHONUNBUFFERED=1 "$PY" -u \
       "$WT/scripts/abag_xm_labels_campaign.py" \
-      --workers "$WORKERS" --host_threads "$HOST_THREADS" >> "$LOGDIR/labels_campaign.log" 2>&1
+      --workers "$w" --host_threads "$ht" >> "$LOGDIR/labels_campaign.log" 2>&1
   rc=$?
   nlab2=$(ls "$LABELS"/*.json 2>/dev/null | wc -l); nok2=$(count_ok)
   log "run exited rc=$rc labels $nlab->$nlab2 ok_folds $nok->$nok2"
