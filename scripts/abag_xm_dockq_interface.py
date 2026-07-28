@@ -150,6 +150,27 @@ def main():
                           getattr(native_chains[1], "is_het", False))
     info = run_on_chains(tuple(model_chains), tuple(native_chains),
                          small_molecule=small_molecule)
+    if info is None:
+        # DockQ returns None when it finds no interface between the two chains it was given,
+        # and `info.get` then raised AttributeError -- so an unscorable target produced a
+        # traceback in the label field instead of a status, for all 50 samples x 3 generators.
+        # It happens when the whole contact is carried by residues DockQ's loader discards:
+        # 9ly2/9ly3/9lz2 are anti-phosphoepitope antibodies whose antigen side is two SEP
+        # (phosphoserine) residues and nothing else. Report it as the structured verdict it is;
+        # scripts/abag_xm_native_interface_audit.py finds these before folding.
+        result = {"model": a.model, "native": a.native, "chain1": a.chain1,
+                  "chain2": a.chain2, "chain_map": cmap,
+                  "model_chain1": m1, "model_chain2": m2,
+                  "native_chain1": n1, "native_chain2": n2,
+                  "status": "no_scorable_interface",
+                  "error": (f"DockQ found no scorable interface between native chains "
+                            f"{n1}/{n2}; the contact is carried by residues its loader "
+                            f"discards (see abag_xm_native_interface_audit.py)")}
+        print(json.dumps(result, indent=2, default=str))
+        if a.out:
+            with open(a.out, "w") as fp:
+                json.dump(result, fp, indent=2, default=str)
+        return 3
     # DockQ 2.1.3 returns a dict; copy the load-bearing fields. Key casing in
     # DockQ==2.1.3: capital `DockQ`, `iRMSD`, `LRMSD`; lowercase `fnat`,
     # `fnonnat`. Assert iRMSD non-None (tt-bio-dockq-irmsd-key-casing-bug).
