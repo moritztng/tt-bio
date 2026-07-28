@@ -35,9 +35,22 @@ HOSTS = ("tt-quietbox", "tt-quietbox2")
 MPS_SENSITIVE = {"boltz2"}   # the others ignore max_parallel_samples entirely
 
 
-def _read(host):
-    """Records from one host, local read if it is us, ssh otherwise. An unreachable host is
-    fatal here (unlike in the status view): a partial slab cannot be accepted."""
+def _read(host, overrides=None):
+    """Records from one host: an explicit path if given, else a local read if it is us, else ssh.
+
+    An unreachable host is FATAL here, unlike in the status view -- a slab cannot be accepted from
+    a subset of its hosts, and a gate that quietly reports on half the data is worse than one that
+    stops.
+
+    `overrides` maps host -> local file, for auditing a slab that is not live on its own hosts (a
+    parked directory, a copy pulled off a machine that has since gone down) and for testing this
+    gate's own verdict, which is otherwise only exercisable by finishing a 492-fold campaign.
+    """
+    if overrides and host in overrides:
+        p = pathlib.Path(overrides[host])
+        if not p.exists():
+            raise SystemExit(f"acceptance: --progress {host}={p} does not exist")
+        return p.read_text().splitlines()
     if host == socket.gethostname():
         p = pathlib.Path.home() / PROGRESS
         return p.read_text().splitlines() if p.exists() else []
@@ -81,14 +94,39 @@ def main():
     ap.add_argument("--n_samples", type=int, default=50)
     ap.add_argument("--mps", type=int, default=5)
     ap.add_argument("--json", default=None, help="write the machine-readable verdict here")
+    ap.add_argument("--progress", action="append", default=None, metavar="HOST=PATH",
+                    help="read HOST's records from a local file instead of the host itself. For "
+                         "auditing a parked or copied slab, and for testing this gate's verdict "
+                         "without finishing a 492-fold campaign. Repeatable.")
+    ap.add_argument("--targets_from", default=None, metavar="PATH",
+                    help="read the target id list from a newline-delimited file instead of the "
+                         "manifest (testing, and auditing a subset)")
     a = ap.parse_args()
-    hosts = a.host or list(HOSTS)
+    overrides = {}
+    for spec in a.progress or []:
+        if "=" not in spec:
+            raise SystemExit(f"acceptance: --progress wants HOST=PATH, got {spec!r}")
+        h, _, p = spec.partition("=")
+        overrides[h] = p
+    # --progress names the slab exhaustively: adding its hosts to the default pair would still
+    # try to ssh the real machines, so auditing a copied slab would fail on whichever host
+    # happens to be unreachable -- which is the whole reason you have a copy. An explicit
+    # --host still wins, so the two can be combined deliberately.
+    hosts = a.host or (list(overrides) if overrides else list(HOSTS))
+    # Never let a subset of the slab be read as the whole thing without saying so. That mistake
+    # is the reason abag_xm_status_xhost.py exists: qb1 alone reported 44 of 492 pairs done when
+    # the true figure was 84, with nothing in the output hinting at the other host.
+    absent = [h for h in HOSTS if h not in hosts]
+    if absent:
+        print(f"!! NOT the full campaign: {', '.join(absent)} not included. The denominator below "
+              f"is still the full target set, so every pair only that host folded reads as "
+              f"outstanding.\n")
 
     # last record per pair (why a pair is still outstanding) + the best ok record per pair
     last, accepted, rejected_ok = {}, {}, collections.defaultdict(list)
     n_records = collections.Counter()
     for h in hosts:
-        for line in _read(h):
+        for line in _read(h, overrides):
             line = line.strip()
             if not line:
                 continue
@@ -109,7 +147,7 @@ def main():
             else:
                 accepted[key] = r
 
-    pairs = {(t, m) for t in _targets(hosts) for m in MODELS}
+    pairs = {(t, m) for t in _targets(a.targets_from) for m in MODELS}
     outstanding = sorted(pairs - set(accepted))
 
     print(f"records read     : " + "  ".join(f"{h}={n_records[h]}" for h in hosts)
@@ -173,8 +211,10 @@ def main():
     return 0 if not outstanding else 1
 
 
-def _targets(hosts):
+def _targets(from_file=None):
     """The manifest's 164 ids. Read from the local checkout; fall back to the fold YAMLs."""
+    if from_file:
+        return [l.strip() for l in pathlib.Path(from_file).read_text().splitlines() if l.strip()]
     root = pathlib.Path(__file__).resolve().parent.parent
     try:
         import pandas as pd
