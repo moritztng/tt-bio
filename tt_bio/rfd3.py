@@ -821,6 +821,31 @@ class TokenInitializer(Module):
         return {"Q_L_init": Q_L_init, "C_L": C_L, "P_LL": P_LL, "S_I": S_init_I, "Z_II": Z_II}
 
 
+TILE = 32
+
+
+def _align_tile(n):
+    return -(-n // TILE) * TILE
+
+
+def _pad_key_axis(x, width, axis, value):
+    """Extend `axis` of a TILE tensor out to `width`, filling the new region with `value`.
+
+    Attention reduces over the key axis, and a ttnn reduction over a last dim that is not a
+    tile multiple reads the tile padding along with the data (p23: measured end to end -- the
+    same logical scores give two different softmax answers when the 18 pad columns differ).
+    Tile padding is not written by every op -- `ttnn.scatter` leaves whatever the freshly
+    allocated buffer held -- so the fix is to leave no tile padding on that axis: pad it out
+    logically, with -1e4 on the mask (weight exactly 0 after exp) and 0 on the values.
+    `ttnn.pad` writes the value, so the result is defined by construction rather than by luck.
+    """
+    if x.shape[axis] == width:
+        return x
+    pad = [(0, 0)] * len(x.shape)
+    pad[axis] = (0, width - x.shape[axis])
+    return ttnn.pad(x, pad, value)
+
+
 def _dense_attention_mask(indices):
     """Convert [B,L,K] neighbour indices to the equivalent dense additive mask."""
     indices = indices.long()
@@ -852,23 +877,12 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     replays a captured scatter against a single persistent template with two
     different index sets and gets results identical to a fresh template each time).
 
-    It is built by uploading a materialized host tensor rather than by `ttnn.full`.
-    That is NOT for the reason p21 gave. p21 read the swap as fixing uninitialized
-    tile padding; p22 measured the ops directly (probe_tile_padding_semantics.py) and
-    `ttnn.full` in fact fills the whole padded buffer, the host upload is the one that
-    writes 0 into the padding, and neither `ttnn.matmul` nor `ttnn.softmax` reads the
-    padding at all. The padding is irrelevant here.
-
-    What the swap does is mask a real defect that is still open: folding several
-    designs of increasing size in one process makes a later 2702-atom ligand design
-    come out 3.4e-1 away from the same design folded alone, deterministically, and
-    perturbing this allocation happens to avoid it. p22 localised it to a wrong ttnn
-    program-cache hit inside RFD3AtomBlock in the decoder (clearing the program cache
-    between designs makes it exact; 512 MB of DRAM churn does not move it by one bit)
-    and it affects the dense path too, which builds no template. So keep the upload
-    until the op is named -- but do not trust the padding story, and revisit this once
-    it is fixed, because `ttnn.full` is the cheaper construction. The cost today is one
-    upload per (batch, n_heads, length, dtype) per design, not per step.
+    The key axis is padded out to a tile multiple (`_pad_key_axis`): the scatter that
+    writes the pair bias into this template does not write the output's tile padding, so
+    a non-tile-multiple key axis would leave the softmax reducing over undefined DRAM.
+    Making the axis a tile multiple costs no device memory -- the buffer was tile-padded
+    to the same size either way -- and the extra keys stay at -1e4, whose weight after
+    exp is exactly 0.
 
     One slot on purpose -- a run folds one design shape at a time, and holding the
     90 MB template is not extra peak memory (the old code allocated it anyway).
@@ -876,8 +890,9 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     key = (batch, n_heads, length, dtype)
     entry = cache.get("mask")
     if entry is None or entry[0] != key:
-        entry = (key, _tt(
-            torch.full((batch, n_heads, length, length), -1e4), device, dtype))
+        entry = (key, ttnn.full(
+            (batch, n_heads, length, _align_tile(length)), -1e4,
+            dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device))
         cache["mask"] = entry
     return entry[1]
 
@@ -912,8 +927,9 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
     length = indices.shape[-2]
     batch = indices.shape[0]
     if mask_cache is None:
-        dense_bias = _tt(
-            torch.full((batch, n_heads, length, length), -1e4), device, dtype)
+        dense_bias = ttnn.full(
+            (batch, n_heads, length, _align_tile(length)), -1e4,
+            dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
     else:
         dense_bias = _mask_template(
             mask_cache, device, dtype, batch, n_heads, length
@@ -1113,12 +1129,21 @@ class RFD3AtomBlock(Module):
             return ttnn.permute(x, (0, 2, 1, 3))
 
         qq, kk, vv, gg = map(heads, (qq, kk, vv, gg))
+        # Attention reduces over the key axis, and a ttnn softmax over a last dim that is
+        # not a tile multiple reads that axis' tile padding -- which no op guarantees to
+        # have written. So extend the key axis logically: zero keys (contributing a score
+        # of 0, masked to -1e4) instead of 18 columns of whatever DRAM held. Free at these
+        # shapes -- the buffers were tile-padded to the same size already.
+        n_key = _align_tile(length)
+        kk = _pad_key_axis(kk, n_key, 2, 0.0)
+        vv = _pad_key_axis(vv, n_key, 2, 0.0)
         if sparse_qk is None:
             pair_bias = _tuned_linear(
                 p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
             )
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
-            bias = ttnn.add(pair_bias, additive_mask)
+            bias = _pad_key_axis(
+                ttnn.add(pair_bias, additive_mask), n_key, 3, -1e4)
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)),
                 compute_kernel_config=ckc,
@@ -1484,9 +1509,10 @@ class CompactStreamingDecoder(Module):
         attn_p = self._persist_index(attn_idx_host, ttnn.TILE_LAYOUT)
         batch = q_host.shape[0]
         n_heads = self.atom_blocks[0].n_head
-        # host upload, not ttnn.full -- see _mask_template (masks an open decoder bug)
-        dense_bias = _tt(
-            torch.full((batch, n_heads, length, length), -1e4), dev, self.dtype)
+        # tile-multiple key axis, see _mask_template
+        dense_bias = ttnn.full(
+            (batch, n_heads, length, _align_tile(length)), -1e4,
+            dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
         sparse_qk = (n_keys, attn_p, dense_bias)
         for _ in range(2):
             _ = self.run_device(
