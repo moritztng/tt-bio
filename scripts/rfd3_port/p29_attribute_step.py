@@ -119,16 +119,75 @@ def _section(obj, name, key, *, enqueues=True, tag=None):
             return orig(*a, **kw)
         k = f"{key}{tag(a) if tag else ''}"
         _flush(f"pre@{_callsite(2)}")
-        u0 = _used
+        u0, outer = _used, _REGION[0]
+        _REGION[0] = k  # so --ops attributes each op to the region that issued it
         t0 = time.perf_counter()
-        out = orig(*a, **kw)
-        if enqueues:
-            _flush(k)  # inside `wall` on purpose: `_used` subtracts it back out
+        try:
+            out = orig(*a, **kw)
+            if enqueues:
+                _flush(k)  # inside `wall` on purpose: `_used` subtracts it back out
+        finally:
+            _REGION[0] = outer
         wall = time.perf_counter() - t0
         _charge(f"cpu.{k}", wall - (_used - u0))
         return out
 
     setattr(obj, name, wrapped)
+
+
+_REGION = ["step"]
+
+# Every ttnn entry point the per-step path issues. Sync-bracketing each one turns the
+# script into a per-op device profiler that measures the REAL in-loop op, not an isolated
+# micro-benchmark (p25: an isolated sparse_qk read 21.5 ms and was 3.9% in the real loop).
+_OPS = ("linear", "matmul", "rms_norm", "layer_norm", "softmax", "add", "multiply",
+        "subtract", "sigmoid", "silu", "typecast", "reshape", "permute", "transpose",
+        "concat", "pad", "scatter", "embedding", "to_layout", "unsqueeze", "squeeze",
+        "clone", "repeat", "tilize", "untilize")
+
+
+def _op_bytes(args, kw, out):
+    """DRAM traffic an op must move at minimum: every ttnn input read once, output
+    written once. A lower bound -- multi-pass kernels move more -- so an achieved
+    bandwidth computed from it is a lower bound too."""
+    n = 0
+    for v in list(args) + list(kw.values()):
+        if isinstance(v, _TTNN[0].Tensor):
+            n += _tensor_bytes(v)
+    if isinstance(out, _TTNN[0].Tensor):
+        n += _tensor_bytes(out)
+    return n
+
+
+def _wrap_ops(ttnn):
+    """Sync-bracket every ttnn op, keyed by enclosing region + op + output shape/dtype."""
+    for name in _OPS:
+        orig = getattr(ttnn, name, None)
+        if orig is None:
+            continue
+
+        def make(orig=orig, name=name):
+            def wrapped(*a, **kw):
+                if not _on:
+                    return orig(*a, **kw)
+                u0 = _used
+                t0 = time.perf_counter()
+                out = orig(*a, **kw)
+                k = f"op:{_REGION[0]}|{name}|{_shape_key(out)}"
+                _flush(k)
+                wall = time.perf_counter() - t0
+                _charge(f"cpu.{k}", wall - (_used - u0), _op_bytes(a, kw, out))
+                return out
+            return wrapped
+
+        setattr(ttnn, name, make())
+
+
+def _shape_key(t):
+    try:
+        return f"{list(t.shape)}{str(t.dtype).split('.')[-1][:4]}"
+    except Exception:
+        return "?"
 
 
 def _tensor_bytes(t):
@@ -179,7 +238,7 @@ def _wrap_transfers(ttnn):
     ttnn.to_torch, ttnn.from_torch = rd, wr
 
 
-def instrument(R, dm, ttnn, blocks=False):
+def instrument(R, dm, ttnn, ops=False):
     """Sync-bracket every region of a step, derived from tt_bio/rfd3.py's call graph.
 
     Region list follows RFD3DiffusionModule.__call__ -> _forward_with_recycle ->
@@ -187,6 +246,8 @@ def instrument(R, dm, ttnn, blocks=False):
     """
     _DEV[0], _TTNN[0] = dm.device, ttnn
     _wrap_transfers(ttnn)
+    if ops:
+        _wrap_ops(ttnn)
 
     # --- pure-host torch kernels (enqueue nothing) ---
     # attn_indices is called at two very different scales in one step: once over all
@@ -227,12 +288,12 @@ def instrument(R, dm, ttnn, blocks=False):
     _section(dm.downcast_c, "run_device", "gca.downcast_c")
     _section(dm.downcast_q, "run_device", "gca.downcast_q")
 
-    if blocks:
-        # 18 DiT + 3 encoder + decoder blocks all share RFD3AtomBlock; one drain per
-        # block is a big perturbation, so this is opt-in. Splits attention vs transition.
-        _section(R.RFD3AtomBlock, "__call__", "atom_block")
-        _section(R.RFD3AtomBlock, "_adaln", "atom_block.adaln")
-        _section(R.PairformerBlock, "__call__", "pairformer_block")
+    # RFD3AtomBlock is shared by the 3-block encoder, the decoder's core loop and the
+    # 18-block DiT. Tagging by sequence length is what separates the 3359-atom blocks from
+    # the 250-token ones -- the whole size-dependence question lives in that split.
+    # (a[0] is `self`: these wrap the unbound class function.)
+    _section(R.RFD3AtomBlock, "__call__", "atom_block", tag=lambda a: f"(n={a[1].shape[1]})")
+    _section(R.PairformerBlock, "__call__", "pairformer_block")
 
 
 def main() -> None:
@@ -245,7 +306,8 @@ def main() -> None:
     ap.add_argument("--warmup", type=int, default=2, help="steps excluded from the accounting")
     ap.add_argument("--mode", choices=("attributed", "baseline"), default="attributed",
                     help="baseline = zero instrumentation, for the perturbation figure")
-    ap.add_argument("--blocks", action="store_true", help="also bracket every RFD3AtomBlock")
+    ap.add_argument("--ops", action="store_true",
+                    help="also bracket every ttnn op: per-op device time and bytes, in the real loop")
     ap.add_argument("--json_out", type=Path)
     args = ap.parse_args()
 
@@ -274,7 +336,7 @@ def main() -> None:
     dm = R.build_diffusion_module(dm_w)
 
     if args.mode == "attributed":
-        instrument(R, dm, ttnn, blocks=args.blocks)
+        instrument(R, dm, ttnn, ops=args.ops)
 
     coord0 = f["motif_pos"].float().unsqueeze(0)
     global _on
@@ -327,17 +389,30 @@ def main() -> None:
     print(f"unaccounted       {step_ms - dev_raw - cpu_tot:7.2f} ms/step   "
           f"({(step_ms - dev_raw - cpu_tot) / step_ms * 100:5.1f}%)\n")
 
-    print(f"{'region':<40}{'dev ms':>9}{'dev %':>7}{'cpu ms':>9}{'cpu %':>7}{'calls':>7}{'MB':>8}")
-    rows = sorted(set(dev) | set(cpu), key=lambda k: -(dev.get(k, 0) + cpu.get(k, 0)))
-    for k in rows:
-        d, c = dev.get(k, 0.0), cpu.get(k, 0.0)
-        if d + c < 0.02:
-            continue
-        mb = (_b[f"cpu.{k}"]) / steps / 1e6
-        print(f"{k:<40}{d:>9.2f}{d / dev_tot * 100 if dev_tot else 0:>6.1f}%"
-              f"{c:>9.2f}{c / cpu_tot * 100 if cpu_tot else 0:>6.1f}%"
-              f"{_n.get(f'dev.{k}', _n.get(f'cpu.{k}', 0)) / steps:>7.1f}"
-              f"{mb if mb else 0:>8.2f}")
+    def table(keys, label, width, bw=False):
+        print(f"{label:<{width}}{'dev ms':>9}{'dev %':>7}{'cpu ms':>9}{'cpu %':>7}{'calls':>7}"
+              f"{'MB':>9}" + (f"{'GB/s':>8}" if bw else ""))
+        for k in sorted(keys, key=lambda k: -(dev.get(k, 0) + cpu.get(k, 0))):
+            d, c = dev.get(k, 0.0), cpu.get(k, 0.0)
+            if d + c < 0.02:
+                continue
+            mb = _b[f"cpu.{k}"] / steps / 1e6
+            line = (f"{k:<{width}}{d:>9.2f}{d / dev_tot * 100 if dev_tot else 0:>6.1f}%"
+                    f"{c:>9.2f}{c / cpu_tot * 100 if cpu_tot else 0:>6.1f}%"
+                    f"{_n.get(f'dev.{k}', _n.get(f'cpu.{k}', 0)) / steps:>7.1f}{mb:>9.2f}")
+            if bw:
+                line += f"{mb / 1e3 / (d / 1e3) if d > 0.01 else 0:>8.0f}"
+            print(line)
+
+    keys = set(dev) | set(cpu)
+    table({k for k in keys if not k.startswith("op:")}, "region", 40)
+    ops = {k for k in keys if k.startswith("op:")}
+    if ops:
+        # GB/s uses the lower-bound byte count (inputs once + output once), so it is a
+        # LOWER bound on achieved bandwidth -- the compute-vs-bandwidth verdict has to
+        # survive that direction of error.
+        print(f"\nper-op, real in-loop, {len(ops)} distinct (region|op|out-shape):")
+        table(ops, "op", 66, bw=True)
 
     if args.json_out:
         args.json_out.write_text(json.dumps(
