@@ -208,6 +208,22 @@ def main():
             results.append(res)
             print(f"[label] {res['target']} {res['model']} status={res['status']} "
                   f"n={res.get('n_samples')} wall={res.get('wall_s')}s", flush=True)
+            # Say WHY on failure, here and now. label_one already captures the child's stderr, but
+            # it only reached the index written after the whole run finishes -- so a run that fails
+            # every fold for 20 minutes each reports nothing diagnosable until it ends, which on
+            # 2026-07-28 hid a plain `ModuleNotFoundError: No module named 'DockQ'` on qb2 through
+            # several passes and cost a probe to find. A one-line summary of a failure is not a
+            # report of a failure.
+            if res["status"] in ("failed", "bad_json", "missing_inputs", "null_dockq"):
+                detail = (res.get("stderr") or res.get("error") or "")
+                if res["status"] == "missing_inputs":
+                    detail = (f"native={res.get('native')} yaml={res.get('yaml')} "
+                              f"result_dir={res.get('result_dir')}")
+                elif res["status"] == "null_dockq":
+                    detail = f"ranks with no dockq: {res.get('null_dockq_ranks')}"
+                last = [ln for ln in str(detail).splitlines() if ln.strip()]
+                print(f"[label]   ^ {res['status']}: "
+                      f"{last[-1][:300] if last else '(no detail captured)'}", flush=True)
     # append-new index: only write ok/failed lines, dedup by (target,model) keeping last
     results.sort(key=lambda r: (r["target"], r["model"]))
     with open(LABELS_INDEX, "a") as fp:
