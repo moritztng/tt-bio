@@ -62,6 +62,29 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
     if not (len(all_runs) == len(samples) == n):
         raise RuntimeError(f"length mismatch: all_runs={len(all_runs)} "
                            f"samples={len(samples)} n={n}")
+    # Index the labels by their OWN rank, never by list position. Every other per-sample source
+    # here is rank-ordered -- all_runs is written rank 0..N-1, pairwise_matrix builds its cifs with
+    # `for k in range(1, n)`, deeprank_batch returns {rank: score} -- but labels.py::_samples()
+    # sorts the model files by FILENAME, so its list runs 0, 1, 10, 11, ..., 19, 2, 20, ... The old
+    # code paired all_runs[k] with samples[k], which is only correct for ranks 0 and 1 and pairs
+    # every other confidence with a different structure's labels.
+    #
+    # It hid because it damages exactly the quantity nobody had computed yet. Between-target signal
+    # survives a within-target permutation untouched, so global Spearman stayed a healthy 0.79 while
+    # the per-target median -- the number this dataset exists to report -- collapsed to 0.06, which
+    # reads as "confidence cannot rank samples" rather than as a join bug.
+    # all_runs is written rank-ordered, but keyed by its own `rank` field it does not have to be.
+    runs_by_rank = {r.get("rank", i): r for i, r in enumerate(all_runs)}
+    by_rank = {}
+    for i, s in enumerate(samples):
+        r = s.get("rank")
+        if r is None:
+            raise RuntimeError(f"{target}/{gen}: label sample {i} has no rank; cannot join by rank")
+        by_rank[r] = s
+    missing = [k for k in range(n) if k not in by_rank]
+    if missing:
+        raise RuntimeError(f"{target}/{gen}: label samples missing ranks {missing[:5]} "
+                           f"(have {len(by_rank)} of {n})")
     pss = _per_sample_pss(labels["pairwise_matrix"])
 
     # A learned ranker that fails returns {} and the fold is still written -- 50 complete-looking
@@ -87,8 +110,8 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
 
     rows = []
     for k in range(n):
-        run = all_runs[k]
-        s = samples[k]
+        run = runs_by_rank.get(k, {})
+        s = by_rank[k]
         pm = s.get("pae_metrics", {}) or {}
         dq = s.get("dockq", {}) or {}
         cdr = (s.get("cdr_rmsd", {}) or {}).get("cdrs", {}) or {}
