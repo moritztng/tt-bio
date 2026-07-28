@@ -36,6 +36,7 @@ _t = defaultdict(float)
 _n = defaultdict(int)
 _b = defaultdict(int)
 _on = False
+_DEV = [None]
 
 
 def _acc(key, dt, nbytes=0):
@@ -46,16 +47,58 @@ def _acc(key, dt, nbytes=0):
 
 
 def _wrap(mod, name, key, bytes_of):
+    """Wrap mod.name to accumulate time+bytes under `key`.
+
+    `key` may be a callable taking no arguments, so a crossing can be attributed to
+    its CALL SITE rather than to one aggregate bucket. p26: the aggregate
+    ``xfer.to_torch`` bucket is 61-75% of a large step, and which of the ~13 crossings
+    per step it lives in decides whether residency work can recover it.
+    """
     orig = getattr(mod, name)
 
     def wrapped(*a, **kw):
         t0 = time.perf_counter()
         out = orig(*a, **kw)
-        _acc(key, time.perf_counter() - t0, bytes_of(a, out))
+        k = key() if callable(key) else key
+        _acc(k, time.perf_counter() - t0, bytes_of(a, out))
         return out
 
     setattr(mod, name, wrapped)
     return orig
+
+
+def _callsite(depth=2):
+    """`file:line` of the frame that called the wrapped op."""
+    try:
+        f = sys._getframe(depth)
+        return f"{Path(f.f_code.co_filename).name}:{f.f_lineno}"
+    except Exception:
+        return "?"
+
+
+def _wrap_to_torch_by_site(ttnn, sync_first):
+    """Attribute every ``ttnn.to_torch`` to its call site.
+
+    With `sync_first`, a full device sync runs BEFORE the timed read, so the device
+    work enqueued ahead of the crossing is charged to ``sync.drain`` instead of to the
+    crossing. The split answers whether the D->H bucket is absorbed queue drain (fix =
+    fewer syncs, bounded by host-torch time) or real transfer/untilize cost (fix =
+    fewer/smaller crossings, most of the bucket recoverable).
+    """
+    orig = ttnn.to_torch
+
+    def wrapped(*a, **kw):
+        if sync_first:
+            t0 = time.perf_counter()
+            ttnn.synchronize_device(_DEV[0])
+            _acc("sync.drain(before to_torch)", time.perf_counter() - t0)
+        t0 = time.perf_counter()
+        out = orig(*a, **kw)
+        _acc(f"xfer.to_torch @ {_callsite(2)}", time.perf_counter() - t0,
+             _tensor_bytes(out))
+        return out
+
+    ttnn.to_torch = wrapped
 
 
 def _tensor_bytes(t):
@@ -79,6 +122,10 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=1)
     ap.add_argument("--timesteps", type=int, default=4)
     ap.add_argument("--warmup", type=int, default=2, help="steps excluded from the accounting")
+    ap.add_argument("--by_site", action="store_true",
+                    help="attribute each D->H read to its call site instead of one bucket")
+    ap.add_argument("--sync_first", action="store_true",
+                    help="with --by_site, sync before each read so absorbed device time is split out")
     args = ap.parse_args()
 
     import ttnn
@@ -106,7 +153,13 @@ def main() -> None:
     dm = R.build_diffusion_module(dm_w)
 
     # --- transfers: every host<->device crossing, by direction ---
-    _wrap(ttnn, "to_torch", "xfer.to_torch(D->H)", lambda a, o: _tensor_bytes(o))
+    # --by_site attributes each D->H read to its call site; --sync_first additionally
+    # charges the queue drain ahead of the read to its own bucket.
+    _DEV[0] = dm.device
+    if args.by_site:
+        _wrap_to_torch_by_site(ttnn, args.sync_first)
+    else:
+        _wrap(ttnn, "to_torch", "xfer.to_torch(D->H)", lambda a, o: _tensor_bytes(o))
     _wrap(ttnn, "from_torch", "xfer.from_torch(H->D)", lambda a, o: _tensor_bytes(a[0]) if a else 0)
     _wrap(ttnn, "copy_host_to_device_tensor", "xfer.copy_h2d", lambda a, o: _tensor_bytes(a[0]) if a else 0)
 
