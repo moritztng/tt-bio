@@ -383,6 +383,26 @@ def _tt_refresh(x, dev_tensor, dtype=ttnn.bfloat16):
     ttnn.copy_host_to_device_tensor(_tt_host(x, dtype), dev_tensor)
 
 
+def _trace_output_copy(out):
+    """Hand a trace's result to a caller that owns what it is given.
+
+    A replay writes into the buffer the capture allocated, and that buffer has to stay
+    alive for every later replay -- so returning it directly hands the caller a tensor it
+    must not free. The eager paths return per-call intermediates, and RFD3's consumers
+    deallocate accordingly: `RFD3DiffusionModule._process_` does `ttnn.deallocate(Q_L)`
+    on the decoder's output once the R update is read back (6985b2f37, "keep the decoder's
+    two outputs on the card"). That freed the traced decoder's own output buffer, so
+    `RFD3_TRACE_DECODER=1` produced correct coordinates for exactly one step and then
+    replayed into freed memory: the third call raised "Buffer is not allocated" out of the
+    first op that touched the result. p25/p26 measured the path before the residency change
+    landed, and it is opt-in and default-off, so nothing caught the regression (p32).
+
+    Copying keeps both contracts intact and is not worth avoiding: the decoder's output is
+    [B, L, C_ATOM] -- 0.86 MB at 3359 atoms against the ~250 ms step that produced it.
+    """
+    return ttnn.clone(out)
+
+
 def _tt_idx(indices, dev):
     """Upload a flat gather/scatter index tensor once (uint32, row-major)."""
     return ttnn.from_torch(indices.to(torch.int32).reshape(1, -1),
@@ -1637,7 +1657,7 @@ class CompactStreamingDecoder(Module):
             self._design_state = st
             if self._trace_state is not None:
                 # a design change can change L/I shapes -- any captured trace is stale.
-                ttnn.release_trace(dev, self._trace_state["id"])
+                self._release_sparse_trace(self._trace_state)
                 self._trace_state = None
         return st["valid"], st["pack_idx_dev"], st["unpack_idx_dev"], st["upcast_mask_dev"]
 
@@ -1676,15 +1696,41 @@ class CompactStreamingDecoder(Module):
                 unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
             )
         ttnn.synchronize_device(dev)
+        # TWO traces, so p30's dense-bias reuse survives tracing instead of being traded
+        # for it. A trace has no branches: whatever `run_device` issued at capture time it
+        # re-issues on every replay, so a single trace containing the pair-bias scatter pays
+        # it on BOTH of a step's recycle calls -- exactly the six-scatter cost the eager
+        # `_bias_cache` removes (p30, +7%). Capturing the loop twice against ONE cache dict
+        # splits it: the first capture misses on every block and bakes in the scatter,
+        # writing each block's fp32 bias into a buffer the dict now holds; the second
+        # capture hits on every block and bakes in only the reads of those buffers. So
+        # replaying `id` for recycle 1 and `id_reuse` for recycle >= 2 issues three
+        # scatters per step, not six, and trace and cache compound (p32).
+        #
+        # The bias buffers are ordinary live device tensors -- the dict's reference keeps
+        # them allocated, so the second capture's own intermediates cannot land on them,
+        # and the two traces are only ever replayed in order (build then reuse) within a
+        # step. Their CONTENTS at capture time are irrelevant: capture records commands
+        # without executing them.
+        bias_cache = {}
         tid = ttnn.begin_trace_capture(dev, cq_id=0)
         out = self.run_device(
             a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
             unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+            bias_cache=bias_cache,
         )
         ttnn.end_trace_capture(dev, tid, cq_id=0)
+        tid_reuse = ttnn.begin_trace_capture(dev, cq_id=0)
+        out_reuse = self.run_device(
+            a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
+            unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+            bias_cache=bias_cache,
+        )
+        ttnn.end_trace_capture(dev, tid_reuse, cq_id=0)
         self._trace_state = dict(
-            id=tid, shape=shape_key, step_key=step_key, a=a_p, q=q_p, c=c_p,
-            p=p_p, attn_idx=attn_p, dense_bias=dense_bias, output=out,
+            id=tid, id_reuse=tid_reuse, shape=shape_key, step_key=step_key,
+            a=a_p, q=q_p, c=c_p, p=p_p, attn_idx=attn_p, dense_bias=dense_bias,
+            bias_cache=bias_cache, output=out, output_reuse=out_reuse,
         )
 
     def _run_device_sparse_traced(
@@ -1697,11 +1743,14 @@ class CompactStreamingDecoder(Module):
         dev, dt = self.device, self.dtype
         step_key = (id(q_host), id(c_host), id(p_host), id(indices))
         st = self._trace_state
-        if (st is not None and st.get("step_key") == step_key
-                and st["shape"][1] == tuple(a_host.shape)):
+        reuse = (st is not None and st.get("step_key") == step_key
+                 and st["shape"][1] == tuple(a_host.shape))
+        if reuse:
             # The decoder's second recycle call within a step: q/c/p and the
             # neighbour index are already staged and only `a` differs, so the host
-            # pair gather (6.5 ms at 250 residues) would be thrown away. Skip it.
+            # pair gather (6.5 ms at 250 residues) would be thrown away. Skip it --
+            # and replay the trace that reuses the bias the previous call built
+            # (see _capture_sparse_trace) rather than rebuilding it.
             _tt_refresh(a_host, st["a"], dt)
         else:
             # The traced decoder stages p_sparse in a persistent buffer that
@@ -1715,7 +1764,7 @@ class CompactStreamingDecoder(Module):
             )
             if st is None or st["shape"] != shape_key:
                 if st is not None:
-                    ttnn.release_trace(dev, st["id"])
+                    self._release_sparse_trace(st)
                 self._capture_sparse_trace(
                     a_host, q_host, c_host, p_sparse, attn_idx, n_keys,
                     upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length,
@@ -1728,8 +1777,15 @@ class CompactStreamingDecoder(Module):
                     _tt_refresh(host, target, dt)
                 _tt_refresh(attn_idx, st["attn_idx"], ttnn.uint32)
                 st["step_key"] = step_key
-        ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
-        return self._trace_state["output"]
+        st = self._trace_state
+        key = "id_reuse" if reuse else "id"
+        ttnn.execute_trace(dev, st[key], cq_id=0, blocking=True)
+        return _trace_output_copy(st["output_reuse" if reuse else "output"])
+
+    def _release_sparse_trace(self, st):
+        for key in ("id", "id_reuse"):
+            if st.get(key) is not None:
+                ttnn.release_trace(self.device, st[key])
 
     def _capture_trace(self, a_host, q_host, c_host, p_host, mask_host,
                         upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length, shape_key):
@@ -1777,7 +1833,7 @@ class CompactStreamingDecoder(Module):
                 _tt_refresh(mask_host, st["mask"], dt)
                 st["step_key"] = step_key
         ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
-        return self._trace_state["output"]
+        return _trace_output_copy(self._trace_state["output"])
 
     def __call__(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices):
         """Host-in/host-out, for the component parity scripts. The per-step path calls
