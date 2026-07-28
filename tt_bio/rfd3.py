@@ -1969,7 +1969,7 @@ def _build_index_mask(tok_idx, n_seq_neighbours, k_max, chain_id=None, base_mask
     return allowed[tok_idx[:, None], tok_idx[None, :]]
 
 
-def _extend_with_neighbours(mask, seq_idx, D_LL, k):
+def _extend_with_neighbours(mask, seq_idx, D_LL, k, inplace=False):
     """Fill the sequence-neighbour index list out to k with the nearest non-neighbours.
 
     ``mask`` and ``seq_idx`` are the coordinate-independent half and come from
@@ -1980,7 +1980,11 @@ def _extend_with_neighbours(mask, seq_idx, D_LL, k):
     _, length, _ = D_LL.shape
     k = min(k, length)
     inf = torch.tensor(float("inf"), dtype=D_LL.dtype, device=D_LL.device)
-    masked_distances = torch.where(mask, inf, D_LL)
+    # where() allocates and writes a second (D,L,L) -- 361 MB at 3359 atoms and D=8, which
+    # is 42.5 ms of the 211.5 ms this build costs. masked_fill_ substitutes exactly the same
+    # values into the positions where() would have changed, so it is exact; callers pass
+    # inplace only where nothing reads D_LL afterwards.
+    masked_distances = D_LL.masked_fill_(mask, inf) if inplace else torch.where(mask, inf, D_LL)
     fill = torch.topk(masked_distances, k, dim=-1, largest=False).indices.flip(
         dims=[-1]
     )
@@ -2043,12 +2047,22 @@ def _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
 
 def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
     device = X_L.device; L = len(tok_idx)
-    D_LL = torch.cdist(X_L, X_L, p=2)
     parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
+    if X_L.ndim == 2:
+        X_L = X_L.unsqueeze(0)
     if "single" in parts:
         mask, seq_idx = parts["single"]
-        idx = _extend_with_neighbours(mask, seq_idx, D_LL, parts["k"])
+        # One design at a time. The designs are independent, so this is the same
+        # arithmetic, but a (1,L,L) distance slice is 45 MB at 3359 atoms and stays
+        # resident, where the batched form streams three (D,L,L) tensors of 361 MB each.
+        # Measured bit-identical indices and 220.7 -> 152.5 ms at 3359 atoms D=8,
+        # 142.5 -> 68.9 ms at 2702 (scripts/rfd3_port/p24_attn_indices_variants.py).
+        idx = torch.cat([
+            _extend_with_neighbours(mask, seq_idx, torch.cdist(x, x, p=2), parts["k"],
+                                    inplace=True)
+            for x in X_L.unsqueeze(1)], dim=0)
     else:
+        D_LL = torch.cdist(X_L, X_L, p=2)   # the inter-chain pass below reads it again
         ki, kc, chain = parts["ki"], parts["kc"], parts["chain"]
         mask, seq_idx = parts["intra"]
         intra = _extend_with_neighbours(mask, seq_idx, D_LL, kc)

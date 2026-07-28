@@ -60,8 +60,8 @@ for name, pdb_path, spec_data in cases:
     f = featurize(pdb_path, s)
     f = {k: (v.float() if torch.is_tensor(v) and v.is_floating_point() else v)
          for k, v in f.items()}
-    L = f["ref_pos"].shape[0]
-    tok_idx = torch.arange(L)
+    tok_idx = f["atom_to_token_map"].long()      # atoms -> tokens, as the sampler passes it
+    L = len(tok_idx)
     N_KEYS, N_SEQ = R.RFD3DiffusionModule.N_ATTN_KEYS, R.RFD3DiffusionModule.N_ATTN_SEQ
     parts = R._attention_index_prefix(f, tok_idx, N_KEYS, N_SEQ)
     torch.manual_seed(0)
