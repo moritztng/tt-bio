@@ -7,11 +7,18 @@ left behind. The fix is structural -- the key axis is padded out to a tile multi
 regression test is structural too: fold a design whose atom count is deliberately NOT a multiple
 of 32 and assert every softmax inside RFD3AtomBlock has shape[-1] == padded_shape[-1].
 
+Three softmax calls outside RFD3AtomBlock still reduce over a tile-padded axis. p24 showed
+they cannot pick up heap garbage -- every op in their producer chains writes its own output
+padding, and a real fold on a DRAM heap deliberately primed with +/-inf leaves their pad
+region exactly 0 (scripts/rfd3_port/p24_pad_origination.py, p24_dirty_heap_taint.py). They
+are listed in KNOWN_UNALIGNED rather than fixed, so this gate still FAILS on a fourth one:
+the argument for leaving them alone is evidence about today's producer chains, and a refactor
+that changes those chains has to come back through here.
+
   TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_HOLDER=worker:<slug> \
     python3 scripts/rfd3_port/verify_softmax_reduction_axis.py
 
-Exits non-zero on the first violation. GatedCrossAttention is reported but not gated: its key
-axis is 3 (padded to 32) and it is a separate, still-open question (p23 §8).
+Exits non-zero on the first violation.
 """
 from __future__ import annotations
 
@@ -36,23 +43,41 @@ import tt_bio.rfd3 as R  # noqa: E402
 from tt_bio.rfd3_featurize import featurize  # noqa: E402
 from tt_bio.rfd3_input import InputSpecification  # noqa: E402
 
+# The three sites p24 measured as unable to reach heap garbage, keyed by the innermost scope
+# and the ratio of the two axes that identifies them independently of design size.
+KNOWN_UNALIGNED = {
+    "gca:query-major",    # GatedCrossAttention upcast, (I,4,1,14)
+    "gca:key-major",      # GatedCrossAttention decoder downcast, (I,4,14,3)
+    "pairformer:square",  # PairformerAttention in the token initializer, (1,16,I,I)
+}
+
 SCOPE = []
 VIOLATIONS = []
-OTHER = {}
+ALLOWED = {}
 CHECKED = [0]
 _softmax = ttnn.softmax
 
 
+def classify(scope, shape):
+    """Name a softmax site by something stable across design sizes."""
+    if scope.endswith("pairformer"):
+        return "pairformer:square" if shape[-1] == shape[-2] else "pairformer:other"
+    if scope.endswith("gca"):
+        return "gca:query-major" if shape[-2] <= shape[-1] else "gca:key-major"
+    return scope
+
+
 def patched(x, *a, **kw):
     where = "/".join(SCOPE)
-    aligned = tuple(x.shape)[-1] == tuple(x.padded_shape)[-1]
-    if "atomblock" in SCOPE:
-        CHECKED[0] += 1
-        if not aligned:
-            VIOLATIONS.append((where, tuple(x.shape), tuple(x.padded_shape)))
-    elif not aligned:
-        OTHER.setdefault((where, tuple(x.shape), tuple(x.padded_shape)), 0)
-        OTHER[(where, tuple(x.shape), tuple(x.padded_shape))] += 1
+    shape, padded = tuple(x.shape), tuple(x.padded_shape)
+    CHECKED[0] += 1
+    if shape[-1] == padded[-1]:
+        return _softmax(x, *a, **kw)
+    site = classify(where, shape)
+    if site in KNOWN_UNALIGNED:
+        ALLOWED[(site, where, shape, padded)] = ALLOWED.get((site, where, shape, padded), 0) + 1
+    else:
+        VIOLATIONS.append((site, where, shape, padded))
     return _softmax(x, *a, **kw)
 
 
@@ -73,6 +98,7 @@ def wrap(cls, meth, label):
 
 wrap(R.RFD3AtomBlock, "__call__", "atomblock")
 wrap(R.GatedCrossAttention, "run_device", "gca")
+wrap(R.PairformerAttention, "__call__", "pairformer")
 wrap(R.CompactStreamingDecoder, "run_device", "decoder")
 wrap(R.LocalAtomTransformer, "run_device", "encoder")
 wrap(R.LocalTokenTransformer, "run_device", "dit")
@@ -98,11 +124,17 @@ for D in args.batches:
         dm(X_noisy_L=X1.expand(D, -1, -1).contiguous(), t=torch.full((D,), 8.0), f=f, **init)
     print(f"folded L={L} (L % 32 == {L % 32}) D={D}", flush=True)
 
-print(f"checked {CHECKED[0]} atom-block softmax calls")
-for k, n in OTHER.items():
-    print(f"  note (not gated): {k[0]} shape={k[1]} padded={k[2]} x{n}")
+print(f"checked {CHECKED[0]} softmax calls")
+for (site, where, s, p), n in ALLOWED.items():
+    print(f"  known-unaligned (p24: cannot reach heap garbage): {site} at {where} "
+          f"shape={s} padded={p} x{n}")
+missing = KNOWN_UNALIGNED - {k[0] for k in ALLOWED}
+if missing:
+    print(f"  note: allowlisted site(s) not exercised by this fold: {sorted(missing)}")
 if VIOLATIONS:
-    for w, s, p in VIOLATIONS:
-        print(f"FAIL {w}: shape {s} padded {p} -- reduction axis carries tile padding")
+    for site, w, s, p in VIOLATIONS:
+        print(f"FAIL {w} [{site}]: shape {s} padded {p} -- reduction axis carries tile "
+              f"padding and is not in KNOWN_UNALIGNED")
     raise SystemExit(1)
-print("PASS: every atom-block softmax reduces over a tile-multiple axis")
+print(f"PASS: every softmax reduces over a tile-multiple axis, except the "
+      f"{len(ALLOWED)} allowlisted shape(s)")
