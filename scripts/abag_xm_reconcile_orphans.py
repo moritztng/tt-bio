@@ -16,9 +16,10 @@ worktree's engine tree for a fold some earlier driver ran and the claim may be f
 and the fold is unpublishable, so the resume refolds it and this script has saved nothing -- which
 is exactly what it did before: it wrote `tt_bio_commit: null`, and once "done" was tightened to mean
 "defensible", every record it produced was rejected. So establish provenance when it can be
-established: a fold loads `tt_bio/` at startup and writes its first artifact strictly later, so if
-no file under `tt_bio/` has changed since that artifact appeared, the tree on disk now IS the tree
-the fold ran. Otherwise say so and let it be refolded.
+established, which takes TWO conditions: the launcher's own stamp must say this worktree launched
+these folds (a fold loads `tt_bio/` from whichever worktree its driver ran in, and that is not
+necessarily this one), and nothing under `tt_bio/` may have changed since the fold wrote its first
+artifact. Otherwise say so and let it be refolded.
 
     python3 scripts/abag_xm_reconcile_orphans.py            # report only
     python3 scripts/abag_xm_reconcile_orphans.py --write     # append the records
@@ -91,7 +92,7 @@ def main():
                 continue
             # Oldest artifact: the fold had already loaded tt_bio/ before this was written.
             oldest = min(cifs + paes, key=lambda p: p.stat().st_mtime)
-            tree = g._head_tree() if g.tree_unchanged_since(oldest) else None
+            tree = g.provenance_for_orphan(oldest)
             rec = {
                 "target": target, "model": model,
                 "wall_s": None, "device": None, "host_threads": None,
@@ -128,8 +129,9 @@ def main():
           f"{f' -- {n_written} WRITTEN' if a.write else ' -- report only, pass --write to append'}")
     if n_unprovenanced:
         print(f"the {n_unprovenanced} without provenance are recorded so their artifacts and "
-              f"labels are not lost, but the resume will refold them: tt_bio/ has changed since "
-              f"they ran, so this worktree's tree cannot honestly be attributed to them.")
+              f"labels are not lost, but the resume will refold them: either a different worktree "
+              f"launched them or tt_bio/ has changed since, so this tree cannot honestly be "
+              f"attributed to them.")
     return 0
 
 

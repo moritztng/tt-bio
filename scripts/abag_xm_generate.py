@@ -40,6 +40,9 @@ PROGRESS = OUT_BASE / "progress.jsonl"
 # Local mirror of the OTHER host's progress file, refreshed by abag_xm_peer_mirror.sh. Scheduling
 # input only -- never a record, never evidence. See peer_done_pairs().
 PEER_PROGRESS = OUT_BASE / "peer_progress.jsonl"
+# Which worktree and engine tree launched the folds in this campaign directory. The ONLY thing that
+# makes an orphaned fold's provenance recoverable -- see provenance_for_orphan().
+LAUNCH_OWNER = OUT_BASE / ".launched_from"
 MANIFEST = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
 
 MODELS = ["protenix-v2", "opendde-abag", "boltz2"]
@@ -428,25 +431,66 @@ def results_entry(result_dir):
         return None
 
 
-def tree_unchanged_since(path):
-    """Was every file under ``tt_bio/`` already in place before ``path`` was written?
+def record_launch_owner():
+    """Stamp which worktree and engine tree launched the folds in this campaign directory.
 
-    Used to decide whether this worktree's engine tree can honestly be attributed to a fold
-    that some earlier, now-dead driver ran. A fold loads ``tt_bio/`` at startup and writes its
-    first artifact strictly later, so if no tracked file under ``tt_bio/`` has been modified
-    since that artifact appeared, the tree the fold loaded is the tree on disk now.
-
-    Conservative in the right direction: a file touched and reverted has a new mtime and the
-    same content, and this refuses -- costing a refold, never a false provenance claim.
+    Without it, provenance cannot be recovered for an orphaned fold -- see
+    ``provenance_for_orphan()``. Written by the launcher, cheap, overwritten every launch.
     """
-    try:
-        cutoff = path.stat().st_mtime
-    except OSError:
-        return False
+    tree = _head_tree()
+    LAUNCH_OWNER.parent.mkdir(parents=True, exist_ok=True)
+    LAUNCH_OWNER.write_text(json.dumps(
+        {"worktree": str(ROOT), "tt_bio_tree": tree, "tt_bio_commit": _head_commit(),
+         "host": _HOST}) + "\n")
+    return tree
+
+
+def _tt_bio_sources():
+    """Tracked source under ``tt_bio/``. ``__pycache__`` is deliberately excluded: a .pyc is
+    rewritten on import, so it records when a fold RAN rather than when the code changed, and
+    including it makes the mtime test below refuse at random."""
     for f in (ROOT / "tt_bio").rglob("*"):
-        if f.is_file() and f.stat().st_mtime > cutoff:
-            return False
-    return True
+        if f.is_file() and "__pycache__" not in f.parts and f.suffix != ".pyc":
+            yield f
+
+
+def provenance_for_orphan(artifact):
+    """The engine tree that can HONESTLY be attributed to a fold this process did not run.
+
+    Two conditions, and both are needed:
+
+    1. **This worktree launched these folds.** A fold loads ``tt_bio/`` from whichever worktree
+       its driver ran in, and that is not necessarily this one. Concretely: while the campaign
+       was moved from the p4 worktree to p6, p4's drivers kept folding under engine tree
+       ``3dc9db33`` while p6 on disk was ``871c8992`` -- and since p6's files were checked out
+       *before* those folds wrote their artifacts, a pure mtime test says "unchanged" and would
+       stamp p6's tree onto p4's folds. So require the launcher's own stamp to name this
+       worktree and the tree it recorded to still match.
+    2. **Nothing changed here since the fold wrote its first artifact.** A fold loads
+       ``tt_bio/`` at startup and writes strictly later, so if no tracked source under
+       ``tt_bio/`` is newer than that artifact, the tree on disk is the tree it loaded.
+
+    Returns the tree hash, or None meaning "cannot be stated" -- which costs a refold and never
+    a false claim. A file touched and reverted has a new mtime and identical content, and this
+    refuses; that is the right direction to be wrong in.
+    """
+    tree = _head_tree()
+    if not tree:
+        return None
+    try:
+        owner = json.loads(LAUNCH_OWNER.read_text())
+    except Exception:
+        return None
+    if owner.get("worktree") != str(ROOT) or owner.get("tt_bio_tree") != tree:
+        return None
+    try:
+        cutoff = artifact.stat().st_mtime
+    except OSError:
+        return None
+    for f in _tt_bio_sources():
+        if f.stat().st_mtime > cutoff:
+            return None
+    return tree
 
 
 def _dir_bytes(p):
@@ -650,6 +694,7 @@ def main():
                          "result -- 37 records in the pre-p6 slab were this, not a model bug.")
     a = ap.parse_args()
     tree = provenance_or_die()
+    record_launch_owner()
     host_threads = max(1, (os.cpu_count() or 1) // max(1, a.concurrent_folds))
     targets = a.targets.split(",") if a.targets else all_targets()
     models = a.models.split(",")

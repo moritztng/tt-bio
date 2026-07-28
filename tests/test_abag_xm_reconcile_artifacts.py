@@ -90,22 +90,6 @@ def test_results_entry_reads_list_and_dict_and_survives_junk(gen, tmp_path):
     assert gen.results_entry(rd) is None
 
 
-def test_tree_unchanged_since_is_conservative(gen, tmp_path):
-    """A fold loads tt_bio/ before it writes anything, so an artifact NEWER than every tt_bio
-    file means this tree is the tree that ran. Older means we must not claim it."""
-    newer = tmp_path / "newer"
-    newer.write_text("x")
-    os.utime(newer, (time.time() + 86400, time.time() + 86400))
-    assert gen.tree_unchanged_since(newer) is True
-
-    older = tmp_path / "older"
-    older.write_text("x")
-    os.utime(older, (0, 0))
-    assert gen.tree_unchanged_since(older) is False
-
-    assert gen.tree_unchanged_since(tmp_path / "absent") is False
-
-
 def test_harness_and_reconciler_agree_on_completeness(gen, tmp_path):
     """The reconciler's completeness rule must be the harness's, including the cross-check it
     used to skip: a fold whose results.json says failed is not a recoverable ok fold."""
@@ -121,3 +105,59 @@ def test_harness_and_reconciler_agree_on_completeness(gen, tmp_path):
 
     dropped = _fold_dir(tmp_path / "c", "D", n, n_runs=n - 2)
     assert len(gen.results_entry(dropped)["all_runs"]) != n
+
+
+def test_orphan_provenance_needs_the_launch_stamp(gen, tmp_path, monkeypatch):
+    """A fold loads tt_bio/ from whichever worktree its DRIVER ran in, which is not necessarily
+    this one. While this campaign was moved from the p4 worktree to p6, p4's drivers kept folding
+    under engine tree 3dc9db33 while p6 on disk was 871c8992 -- and because p6's files were checked
+    out BEFORE those folds wrote their artifacts, a pure mtime test says "unchanged" and would
+    stamp p6's tree onto p4's folds. The launcher's stamp is what rules that out."""
+    artifact = tmp_path / "art"
+    artifact.write_text("x")
+    os.utime(artifact, (time.time() + 86400, time.time() + 86400))   # newer than all sources
+    stamp = tmp_path / "launched_from"
+    monkeypatch.setattr(gen, "LAUNCH_OWNER", stamp)
+
+    # no stamp at all -> cannot state
+    assert gen.provenance_for_orphan(artifact) is None
+
+    # a stamp from a DIFFERENT worktree -> cannot state, even though mtimes look fine
+    stamp.write_text(json.dumps({"worktree": "/some/other/worktree",
+                                 "tt_bio_tree": gen._head_tree()}))
+    assert gen.provenance_for_orphan(artifact) is None
+
+    # this worktree but a different tree than is checked out now -> cannot state
+    stamp.write_text(json.dumps({"worktree": str(gen.ROOT), "tt_bio_tree": "f" * 40}))
+    assert gen.provenance_for_orphan(artifact) is None
+
+    # this worktree, this tree, artifact newer than every source -> stateable
+    stamp.write_text(json.dumps({"worktree": str(gen.ROOT), "tt_bio_tree": gen._head_tree()}))
+    assert gen.provenance_for_orphan(artifact) == gen._head_tree()
+
+
+def test_orphan_provenance_refuses_when_sources_moved_after_the_fold(gen, tmp_path, monkeypatch):
+    """Condition 2: an artifact OLDER than a tt_bio source means the code changed after the fold."""
+    old = tmp_path / "old"
+    old.write_text("x")
+    os.utime(old, (0, 0))
+    stamp = tmp_path / "launched_from"
+    stamp.write_text(json.dumps({"worktree": str(gen.ROOT), "tt_bio_tree": gen._head_tree()}))
+    monkeypatch.setattr(gen, "LAUNCH_OWNER", stamp)
+    assert gen.provenance_for_orphan(old) is None
+
+
+def test_pycache_is_not_treated_as_a_source_change(gen):
+    """A .pyc is rewritten on import, so it records when a fold RAN rather than when the code
+    changed. Counting it would make the mtime test refuse at random."""
+    srcs = list(gen._tt_bio_sources())
+    assert srcs, "no tt_bio sources found"
+    assert not any("__pycache__" in p.parts or p.suffix == ".pyc" for p in srcs)
+
+
+def test_record_launch_owner_round_trips(gen, tmp_path, monkeypatch):
+    stamp = tmp_path / "launched_from"
+    monkeypatch.setattr(gen, "LAUNCH_OWNER", stamp)
+    tree = gen.record_launch_owner()
+    d = json.loads(stamp.read_text())
+    assert d["worktree"] == str(gen.ROOT) and d["tt_bio_tree"] == tree == gen._head_tree()
