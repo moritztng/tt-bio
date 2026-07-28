@@ -44,7 +44,15 @@ n_predicts(){ pgrep -cf "tt_bio.mai[n] predict" 2>/dev/null || echo 0; }
 
 relaunched=0
 log "supervisor up on $(hostname), cards [$CARDS], poll ${POLL}s, max ${MAX_RELAUNCH} relaunches"
+# Claim the host from the fleet dispatcher for as long as this supervisor lives. Without it the
+# dispatcher samples the gap between two folds as a free card, takes it, and the next fold dies
+# waiting on its own lease -- 25 records on qb1 with a constant 133 s wall clock. The hold
+# expires on its own within the hour, so a supervisor that dies does not block the fleet.
+bash "$WT/scripts/abag_xm_host_hold.sh" refresh 2>&1 | sed 's/^/    /'
+trap 'log "supervisor exiting -- releasing the host hold"; bash "$WT/scripts/abag_xm_host_hold.sh" release 2>&1 | sed "s/^/    /"' EXIT INT TERM
 while :; do
+  bash "$WT/scripts/abag_xm_host_hold.sh" refresh >/dev/null 2>&1 \
+    || log "WARNING: host hold not refreshed -- the fleet may take a card between folds"
   d=$(n_drivers); p=$(n_predicts)
   if [ "$d" -eq 0 ] && [ "$p" -eq 0 ]; then
     if [ "$relaunched" -ge "$MAX_RELAUNCH" ]; then

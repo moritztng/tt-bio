@@ -31,7 +31,11 @@ OUT_BASE = Path.home() / "abag_xm" / "tier_a"
 MSA_DIR = Path.home() / "abag_xm" / "msa_cache"
 MSA_DB_PATH = Path.home() / ".boltz" / "msa_db"
 YAML_DIR = ROOT / "examples" / "abag_xm"
-GT = ROOT / "examples" / "ground_truth_structures"
+# Ground-truth reference structures. 143.8 MiB of append-only mmCIF has no business in git
+# (they ship as a Release asset), so prefer the host data directory and fall back to whatever
+# the checkout happens to carry.
+GT_HOST = Path.home() / "abag_xm" / "ground_truth"
+GT = GT_HOST if GT_HOST.is_dir() else ROOT / "examples" / "ground_truth_structures"
 PROGRESS = OUT_BASE / "progress.jsonl"
 MANIFEST = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
 
@@ -90,6 +94,10 @@ MPS = 5
 # under a different one out of the slab.
 MPS_SENSITIVE_MODELS = {"boltz2"}  # the others ignore mps (supports_multiplicity=False)
 CONCURRENT_FOLDS = 4  # one harness per card on a 4-card QuietBox; sets the per-fold CPU share
+# How long a fold waits for its own card before giving up (tt_bio's TT_BIO_LEASE_TIMEOUT,
+# default 120 s). 900 s is about the longest fold this campaign runs, so a card taken
+# legitimately by a sibling is waited out rather than turned into a failed record.
+LEASE_TIMEOUT_S = 900
 
 # D12 (per-model config fairness contract) — resolved-config fields recorded in
 # every progress.jsonl line so Phase 4 can assert constancy within a generator
@@ -117,6 +125,139 @@ def _head_commit():
         return "unknown"
 
 
+def _head_tree():
+    """Hash of the ``tt_bio/`` subtree at HEAD -- the only thing that can move a fold number.
+
+    ``tt_bio_commit`` counts commits to anything in the repo, including this harness and the
+    label scripts, neither of which the folding interpreter loads. Over the pre-p6 slab that
+    made 34 commit strings look like 34 procedures when they were 5 engine trees differing
+    only in device-open and CLI code. Record the subtree and engine constancy becomes a
+    one-line assertion instead of archaeology.
+
+    Returns None when it cannot be stated (dirty worktree, detached rev-parse failure). A
+    None here means the fold must not run -- see ``provenance_or_die``.
+    """
+    try:
+        dirty = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no", "--", "tt_bio"],
+            cwd=ROOT, text=True, timeout=30).strip()
+        if dirty:
+            return None
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD:tt_bio"], cwd=ROOT, text=True, timeout=30).strip()
+    except Exception:
+        return None
+
+
+def _msa_sha(target):
+    """sha256 over the cached MSA bytes this target's fold will actually consume.
+
+    The engine picks the MSA for a chain by ``sha256(seq)[:16] + ".a3m"`` in ``--msa_dir``, and
+    falls through to building one with whichever ``mmseqs`` it can find when the file is absent.
+    That fall-through is the one path in the harness that can change a fold's *input*, so
+    argue about it with bytes: hash the a3m files in cache order and record the digest. Two
+    folds with the same engine tree and the same digest consumed the same input, full stop.
+
+    Returns (digest, n_chains_missing). A missing chain is not fatal here -- it is the MSA
+    cache miss that produced six ``incomplete`` records, and it is recorded so a resume can
+    see it rather than rediscovering it from a traceback.
+    """
+    import hashlib
+    try:
+        import yaml as _yaml
+        doc = _yaml.safe_load((YAML_DIR / f"{target}.yaml").read_text()) or {}
+    except Exception:
+        return None, -1
+    h, missing = hashlib.sha256(), 0
+    for s in doc.get("sequences", []) or []:
+        p = s.get("protein", {}) if isinstance(s, dict) else {}
+        seq = p.get("sequence") or ""
+        if not seq:
+            continue
+        f = MSA_DIR / f"{hashlib.sha256(seq.encode()).hexdigest()[:16]}.a3m"
+        if f.exists():
+            h.update(f.read_bytes())
+        else:
+            missing += 1
+            h.update(b"\0MISSING\0")
+    return h.hexdigest()[:16], missing
+
+
+def provenance_or_die():
+    """Abort before folding anything if this slice's numbers could not be defended later.
+
+    Fold-then-record-``unknown`` is worse than not folding: the record is indistinguishable
+    from a good one in every downstream table, and 19 folds in the pre-p6 slab reached exactly
+    that state (7 ``-dirty``, 12 ``None``) where the release preflight blocks on them and the
+    resume filter skipped them forever. Fail loudly at startup instead -- a dirty ``tt_bio/``
+    is a one-command fix and the operator is right there.
+    """
+    tree = _head_tree()
+    if tree:
+        return tree
+    raise SystemExit(
+        "abag_xm_generate: refusing to fold -- the tt_bio/ engine tree cannot be stated.\n"
+        f"  worktree: {ROOT}\n"
+        "  Either tt_bio/ has uncommitted changes (commit or stash them) or `git rev-parse\n"
+        "  HEAD:tt_bio` failed. Every record this slice wrote would carry unstateable\n"
+        "  provenance, which the release preflight rejects and the resume filter cannot skip.")
+
+
+# --- infrastructure failures are not fold results ---------------------------------
+# A fold that never reached the model because the card was unavailable is a scheduling
+# event, not a measurement. Writing it as `fold_failed` is what made 37 records look like a
+# model regression: two distinct mechanisms, both ending at device-open.
+#
+#   A1  another process holds the card. tt_bio's DeviceLease polls flock for
+#       TT_BIO_LEASE_TIMEOUT (120 s by default) and then raises DeviceInUseError, so the
+#       fold dies at a near-constant 133 s = 120 + startup. The fleet dispatcher samples a
+#       multi-card campaign's brief inter-fold gap as a free card and takes it.
+#   A2  the chip will not initialise. No lease wait at all -- device-open fails outright in
+#       ~23 s. One wedged card silently eats its whole slice.
+#
+# Both are retryable, and retrying is the only way the campaign reaches zero failures: the
+# card comes back (A1 after the thief finishes, A2 after a reset), and the same fold then
+# produces a real number. Only an exhausted retry budget is a record.
+INFRA_SIGNATURES = (
+    "DeviceInUseError",
+    "another process already holding the card",
+    "all local workers exited before the run finished",
+    "Failed to open device",
+    "Device is in use",
+)
+INFRA_RETRIES = 4           # 4 retries x 300 s backoff covers a ~20 min steal
+INFRA_BACKOFF_S = 300
+DEAD_CARD_RESETS = 2        # per slice; beyond this the chip needs a human, not another reset
+
+
+def _is_infra_failure(rec):
+    """True iff this record is a card-availability event rather than a fold result."""
+    if rec.get("status") not in ("fold_failed", "killed"):
+        return False
+    err = rec.get("stderr") or ""
+    return any(s in err for s in INFRA_SIGNATURES)
+
+
+def _reset_card(device):
+    """tt-smi -r on ONE card. Scoped deliberately: a QuietBox is shared with the fleet and
+    resetting the whole board would hard-reset a sibling worker's in-flight card."""
+    tt_smi = Path.home() / ".tenstorrent-venv" / "bin" / "tt-smi"
+    if not tt_smi.exists():
+        tt_smi = Path.home() / ".local" / "bin" / "tt-smi"
+    if not tt_smi.exists():
+        print(f"[reset] no tt-smi found -- card {device} needs a manual reset", flush=True)
+        return False
+    print(f"[reset] tt-smi -r {device}", flush=True)
+    try:
+        r = subprocess.run([str(tt_smi), "-r", str(device)], capture_output=True,
+                           text=True, timeout=180)
+        ok = r.returncode == 0
+        print(f"[reset] card {device} rc={r.returncode}", flush=True)
+        time.sleep(10)
+        return ok
+    except Exception as e:
+        print(f"[reset] card {device} failed: {e}", flush=True)
+        return False
 
 
 # --- fold interpreter -------------------------------------------------------------
@@ -189,13 +330,22 @@ def done_pairs():
                     # Generated under a different sampling configuration -- a different
                     # procedure, so not done. The resume pass regenerates it with --override.
                     continue
-                c = r.get("tt_bio_commit")
-                if not c or c.endswith("-dirty"):
+                c, t = r.get("tt_bio_commit"), r.get("tt_bio_tree")
+                if not t and (not c or c.endswith("-dirty")):
                     # Provenance cannot be stated, so the fold cannot go in a published slab:
                     # the release preflight blocks on exactly these records. Treating them as
                     # done is a deadlock -- the resume skips them forever while the gate waits
-                    # for them. 19 such folds exist (7 dirty on qb1, 8 with no commit at all,
-                    # the latter reconstructed post-hoc by the orphan reconciler). Not done.
+                    # for them. 21 such pairs exist across both hosts (dirty worktrees, plus
+                    # records with no commit at all, reconstructed post-hoc by the orphan
+                    # reconciler). Not done.
+                    continue
+                # The artifact counts too, for the same reason: a record claiming ok with 51
+                # PAEs was not written by this harness (its glob excludes the aggregate
+                # <target>_pae.npz) and carries no provenance either. "Done" here MUST mean
+                # exactly what abag_xm_acceptance.py accepts, or a pair is skipped by the
+                # resume and rejected by the gate at the same time -- which is how the slab
+                # deadlocked before. Keep the two definitions in step.
+                if r.get("n_cifs") != N_SAMPLES or r.get("n_paes") != N_SAMPLES:
                     continue
                 seen.add((r["target"], r["model"]))
             except Exception:
@@ -277,10 +427,20 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
         cmd += ["--host_threads", str(host_threads)]
     t0 = time.time()
     commit = _head_commit()
+    tree = _head_tree()
+    msa_sha, msa_missing = _msa_sha(target)
     proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True,
                             env={**os.environ, "TT_VISIBLE_DEVICES": str(device),
                                  "PYTHONPATH": str(ROOT),
+                                 # A card briefly stolen by the fleet dispatcher must delay
+                                 # this fold, not fail it. tt_bio's default is 120 s, which is
+                                 # shorter than a single fold -- so a thief that took the card
+                                 # legitimately always won the race and the fold recorded
+                                 # fold_failed at a constant 133 s. Wait roughly one long fold
+                                 # instead; the retry loop covers anything past that.
+                                 "TT_BIO_LEASE_TIMEOUT": os.environ.get(
+                                     "TT_BIO_LEASE_TIMEOUT", str(LEASE_TIMEOUT_S)),
                                  "TT_BIO_LEASE_HOLDER": os.environ.get(
                                      "TT_BIO_LEASE_HOLDER",
                                      "worker:abag-xm-crossmodel-ranking-dataset-p3")},
@@ -297,7 +457,8 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
     wall_s = time.time() - t0
     rec = {"target": target, "model": model, "wall_s": round(wall_s, 1),
            "device": device, "n_samples": n_samples, "mps": mps,
-           "host": _HOST, "tt_bio_commit": commit,
+           "host": _HOST, "tt_bio_commit": commit, "tt_bio_tree": tree,
+           "msa_sha": msa_sha, "msa_chains_missing": msa_missing,
            "paired_msa": False, "host_threads": host_threads,
            "timeout_s": fold_timeout_s}
     if timed_out:
@@ -387,7 +548,14 @@ def main():
                          "cores//concurrent_folds CPU threads via predict --host_threads; "
                          "without that split every fold sizes its thread pools to all "
                          "cores and they thrash the host CPU.")
+    ap.add_argument("--infra_retries", type=int, default=INFRA_RETRIES,
+                    help="how many times a fold that never reached the model (card held by "
+                         "another process, or a chip that would not initialise) is retried "
+                         "before it is recorded as a failure (default %(default)d). A "
+                         "card-availability event is a scheduling condition, not a fold "
+                         "result -- 37 records in the pre-p6 slab were this, not a model bug.")
     a = ap.parse_args()
+    tree = provenance_or_die()
     host_threads = max(1, (os.cpu_count() or 1) // max(1, a.concurrent_folds))
     targets = a.targets.split(",") if a.targets else all_targets()
     models = a.models.split(",")
@@ -396,18 +564,42 @@ def main():
     skip = done_pairs()
     print(f"[harness] device={a.device} targets={len(targets)} models={models} "
           f"n_samples={a.n_samples} mps={a.mps} skip={len(skip)} "
-          f"host_threads={host_threads}", flush=True)
+          f"host_threads={host_threads} tt_bio_tree={tree[:12]} "
+          f"lease_timeout={LEASE_TIMEOUT_S}s infra_retries={a.infra_retries}", flush=True)
     dead_card = 0
+    resets_used = 0
     for target in targets:
         for model in models:
             if (target, model) in skip:
                 print(f"[skip] {target} {model} already ok", flush=True)
                 continue
-            print(f"[start] {target} {model} {time.strftime('%H:%M:%S')}", flush=True)
-            rec = fold_one(target, model, a.device, a.n_samples, a.mps,
-                           fold_timeout_s=fold_timeout_for(target, model, a.timeout,
-                                                           a.mps, a.n_samples),
-                           host_threads=host_threads)
+            timeout_s = fold_timeout_for(target, model, a.timeout, a.mps, a.n_samples)
+            # Retry loop over infrastructure failures ONLY. A model failure (incomplete, a
+            # TT_FATAL, a bad results.json) is recorded on the first attempt: retrying it
+            # would burn a card re-deriving the same number and hide a real defect.
+            for attempt in range(a.infra_retries + 1):
+                print(f"[start] {target} {model} {time.strftime('%H:%M:%S')}"
+                      + (f" (infra retry {attempt}/{a.infra_retries})" if attempt else ""),
+                      flush=True)
+                rec = fold_one(target, model, a.device, a.n_samples, a.mps,
+                               fold_timeout_s=timeout_s, host_threads=host_threads)
+                if not _is_infra_failure(rec) or attempt == a.infra_retries:
+                    break
+                fast = (rec.get("wall_s") or 0) < DEAD_CARD_MAX_S
+                if fast and resets_used < DEAD_CARD_RESETS:
+                    # A2: device-open failed outright, so the chip did not initialise. A
+                    # reset is the fix and it is cheap; wait for the card otherwise.
+                    resets_used += 1
+                    print(f"[infra] {target} {model} failed at device-open in "
+                          f"{rec.get('wall_s')}s -- resetting card {a.device} "
+                          f"({resets_used}/{DEAD_CARD_RESETS} this slice)", flush=True)
+                    _reset_card(a.device)
+                else:
+                    # A1: something else holds the card. Back off and let it finish.
+                    print(f"[infra] {target} {model}: card {a.device} unavailable after "
+                          f"{rec.get('wall_s')}s -- waiting {INFRA_BACKOFF_S}s", flush=True)
+                    time.sleep(INFRA_BACKOFF_S)
+            rec["infra_attempts"] = attempt
             with open(PROGRESS, "a") as fp:
                 fp.write(json.dumps(rec) + "\n")
             print(f"[done]  {target} {model} status={rec['status']} "
@@ -418,15 +610,17 @@ def main():
             # 2026-07-28, where a chip that needed `tt-smi -r 2` burned 9 folds before anyone
             # looked. The signature is unambiguous: the device never initialises, so the fold
             # never reaches the model, and no real fold is remotely this fast (the quickest
-            # observed boltz2 fold is ~300 s). Stop and leave the rest of the slice untouched so
-            # a relaunch after the reset picks it up, instead of poisoning it with failures.
+            # observed boltz2 fold is ~300 s). The retry loop above now resets the card and
+            # tries again, so reaching here means the reset did not take: stop and leave the
+            # rest of the slice untouched so a relaunch picks it up after a human looks,
+            # instead of poisoning it with failures.
             if rec["status"] == "fold_failed" and (rec.get("wall_s") or 0) < DEAD_CARD_MAX_S:
                 dead_card += 1
                 if dead_card >= DEAD_CARD_STREAK:
                     print(f"[abort] card {a.device}: {dead_card} consecutive folds failed in "
-                          f"<{DEAD_CARD_MAX_S}s -- the card is not initialising, this is not a "
-                          f"model failure. Reset it (tt-smi -r {a.device}) and relaunch; the "
-                          f"rest of the slice is left untouched.", flush=True)
+                          f"<{DEAD_CARD_MAX_S}s and {resets_used} reset(s) did not fix it -- "
+                          f"the card is not initialising and this is not a model failure. "
+                          f"The rest of the slice is left untouched for a relaunch.", flush=True)
                     sys.exit(3)
             else:
                 dead_card = 0
