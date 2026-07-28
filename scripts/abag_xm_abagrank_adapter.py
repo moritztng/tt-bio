@@ -40,17 +40,64 @@ from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.PDBIO import PDBIO
 from Bio.PDB.Polypeptide import PPBuilder
 
-# ABAG-Rank needs py3.11 + its own deps (torch/lightning/esm/biotite/h5py/DockQ/tmtools/etc.)
-# in ~/.abagrank_venv, plus hmmer (hmmscan) on PATH for its ANARCI-based chain handling.
-# When the venv exists, run preprocess_inference.py / run_inference.py with its python and
-# ~/.local/bin on PATH; else fall back to sys.executable + inherited env.
+# ABAG-Rank needs its own deps (torch/h5py/omegaconf/pandas/numpy/tqdm/yaml), plus hmmer
+# (hmmscan) on PATH for its ANARCI-based chain handling.
+#
+# This used to prefer ~/.abagrank_venv and otherwise fall back to sys.executable, i.e. to whatever
+# interpreter happened to run the caller. That made the ranker work or not depending on the caller:
+# `h5py` was installed into the label venv on 2026-07-27 and 21av/boltz2 scored fine from there,
+# but the same fold run through abag_xm_ranker_scores.py under the tt-bio python still died with
+# `ModuleNotFoundError: No module named 'h5py'` and produced an empty column. Probe for an
+# interpreter that can actually import what ABAG-Rank imports, the way _resolve_fold_python does
+# for folds, and fail at startup instead of once per fold.
 ABAGRANK_VENV_PY = Path.home() / ".abagrank_venv" / "bin" / "python3"
+# Exactly what ABAG-Rank's preprocess_inference.py / run_inference.py import. h5py is the one that
+# has actually been missing, but checking only h5py would just move the next gap somewhere else.
+ABAGRANK_IMPORTS = ("h5py", "numpy", "torch", "omegaconf", "pandas", "tqdm", "yaml")
+_ABAGRANK_ENV = {**os.environ,
+                 "PATH": os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")}
+
+
+def _resolve_abagrank_python():
+    """Pick an interpreter that can import every module ABAG-Rank needs.
+
+    Import-checked rather than existence-checked: a venv that exists but lacks h5py is exactly the
+    case that produced a complete-looking CSV with one empty column.
+    """
+    cands = [str(ABAGRANK_VENV_PY),
+             str(Path.home() / ".abag_xm_label_venv" / "bin" / "python3"),
+             sys.executable,
+             str(Path.home() / "tt-bio" / "env" / "bin" / "python3")]
+    seen, tried = set(), []
+    for c in cands:
+        if not c or c in seen:
+            continue
+        seen.add(c)
+        if not Path(c).exists():
+            tried.append(f"{c} -> absent")
+            continue
+        probe = ";".join(f"import {m}" for m in ABAGRANK_IMPORTS)
+        r = subprocess.run([c, "-c", probe], capture_output=True, text=True, timeout=300)
+        if r.returncode == 0:
+            return c
+        last = (r.stderr or "").strip().splitlines()
+        tried.append(f"{c} -> {last[-1][:90] if last else 'failed'}")
+    raise SystemExit(
+        "abag_xm_abagrank_adapter: no interpreter can import "
+        f"{', '.join(ABAGRANK_IMPORTS)}. ABAG-Rank would produce an EMPTY column rather than "
+        "fail, so this is fatal up front. Tried:\n  " + "\n  ".join(tried))
+
+
+_ABAGRANK_PY = None
+
 
 def _abagrank_python_env():
-    if ABAGRANK_VENV_PY.exists():
-        env = {**os.environ, "PATH": os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")}
-        return str(ABAGRANK_VENV_PY), env
-    return sys.executable, None
+    # Resolved once: the probe is a subprocess and this is called per stage, per fold.
+    global _ABAGRANK_PY
+    if _ABAGRANK_PY is None:
+        _ABAGRANK_PY = _resolve_abagrank_python()
+        print(f"[adapter] ABAG-Rank interpreter: {_ABAGRANK_PY}", flush=True)
+    return _ABAGRANK_PY, _ABAGRANK_ENV
 
 
 def _yaml_sequences(yaml_path):
