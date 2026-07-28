@@ -4,7 +4,10 @@ Generalizes scripts/rfd3_port/spike_batch_invariance.py beyond B=2: verifies the
 RFD3 device forward is batch-invariant and that a full stochastic trajectory
 with per-element generators reproduces each element's standalone seeded
 trajectory, at batch size D and any contig/spec fixture. Required before raising
-the production batch default above 8.
+the production batch default above 8, or the atom-count clamp that decides which
+batch a large design actually gets (`_BATCH_ATOM_PAIR_BUDGET`, rfd3_design.py) --
+batch exactness is a property of the whole (M, K, N, D) tuple, so clearing it at
+419 atoms says nothing about 3359.
 
 Checks:
   1. Single-forward batch invariance: B=1 vs B=D elem0 PCC (cross-batch numerics).
@@ -14,9 +17,10 @@ Checks:
 
 Usage:
   TT_VISIBLE_DEVICES=0 python3 scripts/rfd3_port/verify_batch_trajectory_parity.py \
-      [--batch 16] [--contig "A1-10,20,A31-40"] [--timesteps 8]
+      [--batch 16] [--contig "A1-10,20,A31-40" | --spec fixture.json] [--timesteps 8]
 """
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -34,6 +38,8 @@ def parse_args():
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--pdb", type=Path, default=PDB)
     ap.add_argument("--contig", default="A1-10,20,A31-40")
+    ap.add_argument("--spec", type=Path,
+                    help="JSON InputSpecification; overrides --pdb/--contig")
     ap.add_argument("--timesteps", type=int, default=8)
     ap.add_argument("--seeds", type=int, nargs="+", default=None)
     return ap.parse_args()
@@ -56,9 +62,17 @@ def main():
     from tt_bio.rfd3_input import InputSpecification
     from tt_bio.rfd3_sampler import RFD3Sampler
 
-    spec = InputSpecification.from_dict({"input": str(args.pdb), "contig": args.contig})
+    if args.spec:
+        data = json.loads(args.spec.read_text())
+        path = Path(data["input"])
+        data["input"] = str(path if path.is_absolute() else (args.spec.parent / path).resolve())
+        fixture = f"spec={args.spec}"
+    else:
+        data = {"input": str(args.pdb), "contig": args.contig}
+        fixture = f"pdb={args.pdb} contig={args.contig!r}"
+    spec = InputSpecification.from_dict(data)
     spec.validate()
-    f = featurize(str(args.pdb), spec)
+    f = featurize(data["input"], spec)
     f = {
         k: (v.float() if torch.is_tensor(v) and v.is_floating_point() else v)
         for k, v in f.items()
@@ -74,7 +88,7 @@ def main():
     seeds = args.seeds if args.seeds else list(range(42, 42 + D))
     assert len(seeds) == D, f"--seeds must provide exactly {D} seeds"
 
-    print(f"fixture: pdb={args.pdb} contig={args.contig!r} L={L} D={D} timesteps={args.timesteps}")
+    print(f"fixture: {fixture} L={L} D={D} timesteps={args.timesteps}")
 
     # 1 + 2. Single-forward batch invariance + identical-input isolation
     with torch.no_grad():
