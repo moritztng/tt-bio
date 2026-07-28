@@ -93,34 +93,41 @@ def _lddt_per_residue(model_residues, native_residues, model_to_native_idx):
         nres_idx = model_to_native_idx.get(mres_idx, mres_idx)
         # considered atom pairs: atoms b in OTHER model residues within CUTOFF_RADIUS of any atom a of mres
         # collect candidate neighbor residues first (by any atom within cutoff)
-        considered = []  # (a_name, a_pos, b_name, b_pos, nres_b_idx)
+        # The cutoff test already computes d_model, and |d_model - d_native| does not depend on the
+        # threshold -- so keep the distance from the test and reduce each pair to a single delta,
+        # once. The previous form recomputed both distances and both native lookups for every one of
+        # the four thresholds, i.e. 8 distance evaluations and 8 dict lookups per pair instead of 2
+        # and 2. This stage measured 4.35 s/sample against 0.28-0.46 s for its sibling per-sample
+        # stages, which is 39% of a fold's label cost.
+        #
+        # Bit-identical, not merely close: the same two gemmi .dist() calls on the same inputs, and
+        # the same abs() and comparison. Nothing is reordered or approximated -- only stopped from
+        # being repeated.
+        deltas = []
         for a_name, a_pos in atoms:
+            na = native_atoms.get((nres_idx, a_name))
             for other_mres_idx, other_atoms in model_residues:
                 if other_mres_idx == mres_idx:
                     continue
+                other_nres_idx = model_to_native_idx.get(other_mres_idx, other_mres_idx)
                 for b_name, b_pos in other_atoms:
-                    if a_pos.dist(b_pos) <= CUTOFF_RADIUS:
-                        considered.append((a_name, a_pos, b_name, b_pos, other_mres_idx))
-        if not considered:
+                    d_model = a_pos.dist(b_pos)
+                    if d_model > CUTOFF_RADIUS:
+                        continue
+                    # A pair whose native counterpart is missing was counted as "considered" but
+                    # never scored, so it must still gate the None result below the same way.
+                    nb = native_atoms.get((other_nres_idx, b_name))
+                    if na is None or nb is None:
+                        deltas.append(None)
+                        continue
+                    deltas.append(abs(d_model - na.dist(nb)))
+        if not deltas:
             lddt[mres_idx] = None
             continue
-        # for each considered pair, need native (nres_a, a_name) and (nres_b, b_name)
-        per_thr = []
-        for thr in THRESHOLDS:
-            passing = 0
-            total = 0
-            for a_name, a_pos, b_name, b_pos, other_mres_idx in considered:
-                other_nres_idx = model_to_native_idx.get(other_mres_idx, other_mres_idx)
-                na = native_atoms.get((nres_idx, a_name))
-                nb = native_atoms.get((other_nres_idx, b_name))
-                if na is None or nb is None:
-                    continue  # atom not present in native -> not scored
-                total += 1
-                d_model = a_pos.dist(b_pos)
-                d_native = na.dist(nb)
-                if abs(d_model - d_native) < thr:
-                    passing += 1
-            per_thr.append(passing / total if total else 0.0)
+        scored = [d for d in deltas if d is not None]
+        total = len(scored)
+        per_thr = [sum(1 for d in scored if d < thr) / total if total else 0.0
+                   for thr in THRESHOLDS]
         lddt[mres_idx] = sum(per_thr) / len(per_thr)
     return lddt
 
