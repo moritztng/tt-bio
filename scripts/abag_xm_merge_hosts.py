@@ -101,7 +101,8 @@ def main():
         else:
             dest.mkdir(parents=True, exist_ok=True)
         rr = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
-        print(f"[{gen}] rsync {len(want)} result dirs -> rc={rr.returncode}"
+        print(f"[{gen}] {'would rsync' if a.dry_run else 'rsync'} {len(want)} result dirs "
+              f"-> rc={rr.returncode}"
               + (f"  {rr.stderr.strip()[:200]}" if rr.returncode else ""))
 
     # ---- label JSONs, same skip rule so a label always matches its coordinates
@@ -118,7 +119,8 @@ def main():
         else:
             dest.mkdir(parents=True, exist_ok=True)
         rr = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
-        print(f"[labels] rsync up to {len(labs)} label files -> rc={rr.returncode}"
+        print(f"[labels] {'would rsync' if a.dry_run else 'rsync'} up to {len(labs)} label "
+              f"files -> rc={rr.returncode}"
               + (f"  {rr.stderr.strip()[:200]}" if rr.returncode else ""))
 
     # ---- progress records last: only after the artifacts they describe are present, so an
@@ -126,7 +128,12 @@ def main():
     new = []
     for k, rec in sorted(incoming.items()):
         rec = dict(rec)
-        rec["host"] = a.peer      # truthful per-record; D12 records host per row
+        # Keep the host the FOLD recorded for itself; --peer is only a fallback. --peer is an ssh
+        # target, so it can legitimately be an alias or an IP, and overwriting with it would make
+        # every merged row claim a provenance that is not a hostname. Verified for this campaign:
+        # every qb2 record already carries host="tt-quietbox2".
+        if not rec.get("host"):
+            rec["host"] = a.peer
         new.append(rec)
     if a.dry_run:
         print(f"[progress] would append {len(new)} records to {prog}")
