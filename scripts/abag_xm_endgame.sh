@@ -13,13 +13,32 @@
 #
 # Stops before uploading. Publishing is Moritz's gate and this script never crosses it.
 #
-#   Usage:  scripts/abag_xm_endgame.sh <peer-host> [--force-incomplete]
+#   Usage:  scripts/abag_xm_endgame.sh <peer-host> [--force-incomplete] [--skip-merge]
+#
+#           --force-incomplete  run everything except the learned rankers while the cards fold
+#           --skip-merge        skip step 4 and run steps 5-7 anyway. Those three are read-only
+#                               (a cost model, a signal report, and an assemble-and-check that
+#                               needs --go to upload), so this exercises the tail of the chain
+#                               without mutating the campaign. Added because the tail was
+#                               UNREACHABLE in any safe run: step 4 refuses to merge without
+#                               explicit consent and then exits, so steps 5, 6 and 7 had never
+#                               executed in sequence and a break in them would first appear on
+#                               the one run that matters.
 #
 # Idempotent: every step skips work already done, so re-running after a failure resumes.
 set -u
 WT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PEER="${1:?usage: abag_xm_endgame.sh <peer-host> [--force-incomplete]}"
-FORCE="${2:-}"
+PEER="${1:?usage: abag_xm_endgame.sh <peer-host> [--force-incomplete] [--skip-merge]}"
+# Scan every argument for the flags rather than reading $2 positionally, so the two can be given
+# in either order and neither silently disables the other.
+FORCE=""; SKIP_MERGE=0
+for arg in "${@:2}"; do
+  case "$arg" in
+    --force-incomplete) FORCE="--force-incomplete" ;;
+    --skip-merge)       SKIP_MERGE=1 ;;
+    *) echo "unknown argument $arg" >&2; exit 2 ;;
+  esac
+done
 PY=/home/ttuser/.abag_xm_label_venv/bin/python3
 [ -x "$PY" ] || PY=/home/ttuser/tt-bio/env/bin/python3
 TIER=$HOME/abag_xm/tier_a
@@ -96,6 +115,10 @@ else
 fi
 
 step "4. merge the peer in (coordinates, PAEs, labels, progress, ranker rows)"
+if [ "$SKIP_MERGE" = "1" ]; then
+  echo "  SKIPPED (--skip-merge). Steps 5-7 below run against this host's data as it stands."
+  echo "  The merge is the only mutating step, so skipping it is what makes the tail testable."
+else
 "$PY" "$WT/scripts/abag_xm_merge_hosts.py" --peer "$PEER" --dry-run | tail -12
 # Interactive confirmation when there is a terminal; otherwise require ENDGAME_MERGE=yes, so running
 # this from a non-interactive context cannot merge by reading EOF as consent.
@@ -108,6 +131,7 @@ else
 fi
 [ "$a" = "y" ] || die "stopped before merging (set ENDGAME_MERGE=yes to merge non-interactively)"
 "$PY" "$WT/scripts/abag_xm_merge_hosts.py" --peer "$PEER" 2>&1 | tail -14
+fi
 
 step "5. label anything the merge brought in unlabelled"
 "$PY" "$WT/scripts/abag_xm_label_cost_model.py" || true
