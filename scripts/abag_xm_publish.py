@@ -121,6 +121,21 @@ def preflight(out: Path, expect_samples: int) -> list[str]:
                         f"cannot be traced to a commit: {folds[:6]}"
                         + (" ..." if len(folds) > 6 else ""))
 
+        # Two of the tools this campaign uses may not be redistributed, and the release is
+        # CC-BY-4.0: ABAG-Rank's weights and bundled examples are CC BY-NC 4.0, and PSBench's
+        # models are AF3 outputs we do not own. Both were only ever meant to be internal scoring
+        # tools. They are excluded structurally today -- labels.parquet is built from the per-fold
+        # label JSONs and never from ranker_scores.csv -- but "structurally" is one refactor away
+        # from "accidentally", and a licence breach is not the kind of thing to notice after
+        # upload. Assert it instead of trusting the data flow.
+        banned = {c: t for c in df.columns
+                  for t, pats in (("ABAG-Rank (weights CC BY-NC 4.0)", ("abag_rank", "abagrank")),
+                                  ("PSBench (AF3 outputs, not ours)", ("psbench", "dockq_wave")))
+                  if any(p in c.lower() for p in pats)}
+        if banned:
+            fail.append("labels.parquet carries non-redistributable columns -- "
+                        + "; ".join(f"{c!r} from {t}" for c, t in sorted(banned.items())))
+
         tgt = out / "targets.parquet"
         if tgt.exists():
             # A targets table that does not cover every released target leaves rows with no
