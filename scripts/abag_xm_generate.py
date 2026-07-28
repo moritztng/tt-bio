@@ -50,6 +50,12 @@ SEED = 42
 # so the ceiling is predictable rather than pathological. 7200 s is ~2.2x the observed worst case and
 # matches what abag_xm_resume_opendde.sh already uses.
 FOLD_TIMEOUT_S = 7200
+# A card whose firmware will not initialise fails every fold at device-open, long before any
+# model work runs. 25 s was the measured cost of such a fold; the fastest real fold is ~300 s,
+# so 120 s separates the two by a wide margin and cannot misfire on a genuinely quick fold.
+DEAD_CARD_MAX_S = 120
+# One fast failure is a transient (a sibling briefly holding the card); three in a row is a chip.
+DEAD_CARD_STREAK = 3
 # Per-fold timeout scaled to the target instead of a flat cap. Measured ceilings in
 # s/residue on qb1 (the slower host): the MAX observed across completed folds, not the
 # median -- protenix 2.5-4.0, opendde 2.8-4.0, boltz2 0.76-0.88. A flat 7200 s is ~20x a
@@ -383,6 +389,7 @@ def main():
     print(f"[harness] device={a.device} targets={len(targets)} models={models} "
           f"n_samples={a.n_samples} mps={a.mps} skip={len(skip)} "
           f"host_threads={host_threads}", flush=True)
+    dead_card = 0
     for target in targets:
         for model in models:
             if (target, model) in skip:
@@ -398,6 +405,23 @@ def main():
             print(f"[done]  {target} {model} status={rec['status']} "
                   f"wall_s={rec.get('wall_s')} n_cifs={rec.get('n_cifs')} "
                   f"n_paes={rec.get('n_paes')}", flush=True)
+            # A wedged card fails every fold in ~25 s, and the driver would otherwise walk its
+            # whole slice marking 60+ folds fold_failed in minutes -- observed on qb2 card 2 on
+            # 2026-07-28, where a chip that needed `tt-smi -r 2` burned 9 folds before anyone
+            # looked. The signature is unambiguous: the device never initialises, so the fold
+            # never reaches the model, and no real fold is remotely this fast (the quickest
+            # observed boltz2 fold is ~300 s). Stop and leave the rest of the slice untouched so
+            # a relaunch after the reset picks it up, instead of poisoning it with failures.
+            if rec["status"] == "fold_failed" and (rec.get("wall_s") or 0) < DEAD_CARD_MAX_S:
+                dead_card += 1
+                if dead_card >= DEAD_CARD_STREAK:
+                    print(f"[abort] card {a.device}: {dead_card} consecutive folds failed in "
+                          f"<{DEAD_CARD_MAX_S}s -- the card is not initialising, this is not a "
+                          f"model failure. Reset it (tt-smi -r {a.device}) and relaunch; the "
+                          f"rest of the slice is left untouched.", flush=True)
+                    sys.exit(3)
+            else:
+                dead_card = 0
     print("CAMPAIGN SLICE COMPLETE", flush=True)
 
 
