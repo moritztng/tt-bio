@@ -67,8 +67,11 @@ the average and is modelled well either way.
 
 A ranking method tuned on wave-averaged labels is being tuned on the wrong signal.
 
-For the same reason the native-confidence baseline in `labels.parquet` is the per-sample
-**declared-chain-pair ipTM**, not global ipTM.
+For the same reason, the per-sample baselines restricted to the **declared chain pair** are the
+PAE-derived `pae_ipsae` and `pae_pdockq2`. Use those when you want an interface-level baseline. The
+native confidences in the same table (`conf_iptm`, `conf_ptm`, `conf_confidence_score`,
+`conf_complex_plddt`) are whole-complex quantities, because that is all any of the three generators
+reports per sample, so they are a global-confidence baseline and not an interface one.
 
 ## Limitations worth knowing before you use it
 

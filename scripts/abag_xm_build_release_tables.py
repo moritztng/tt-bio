@@ -50,6 +50,32 @@ def _fold_provenance():
     return out
 
 
+def _native_confidences(results_dir):
+    """{rank: per-sample confidence dict} from a fold's results.json.
+
+    Keyed by each entry's OWN `rank` field, never by list position. That is not defensive style,
+    it is the bug this table nearly shipped: abag_xm_ranker_scores.py paired all_runs[k] with
+    samples[k], and because labels.py sorts sample files by FILENAME (0, 1, 10, 11, ..., 2, ...)
+    while all_runs is rank-ordered, 48 of every 50 rows carried another structure's numbers.
+    `sample` in this table is the label record's rank, so looking confidence up by that rank is
+    the only join that cannot drift.
+
+    The card promised "native confidences" in labels.parquet from the beginning and nothing wrote
+    them, so the release shipped a ranking benchmark whose ipTM baseline was not reproducible from
+    the released files.
+    """
+    try:
+        doc = json.loads((Path(results_dir) / "results.json").read_text())
+    except Exception:
+        return {}
+    entry = doc[0] if isinstance(doc, list) else doc
+    out = {}
+    for i, r in enumerate(entry.get("all_runs") or []):
+        if isinstance(r, dict):
+            out[r.get("rank", i)] = r
+    return out
+
+
 def _flat(prefix, d):
     """Flatten one nested label block into prefix_key columns, skipping paths and raws."""
     if not isinstance(d, dict):
@@ -66,7 +92,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     prov = _fold_provenance()
-    label_rows, ens_rows = [], []
+    label_rows, ens_rows, no_conf = [], [], []
     for f in sorted(LABELS_DIR.glob("*.json")):
         stem = f.stem
         gen_dir = next((d for d in DIR_TO_GEN if stem.startswith(d + "_")), None)
@@ -77,9 +103,20 @@ def main():
         target = stem[len(gen_dir) + 1:]
         o = json.loads(f.read_text())
         p = prov.get((target, gen), {})
+        conf = _native_confidences(o.get("results_dir") or "")
+        if not conf:
+            no_conf.append(f"{target}/{gen}")
         for s in o.get("samples", []):
             row = {"target": target, "generator": gen, "sample": s.get("rank"),
                    "source_sha256": o.get("source_sha256")}
+            # Only scalars survive _flat, so boltz2's pair_chains_iptm / chains_ptm matrices are
+            # deliberately NOT flattened here: they are keyed by chain INDEX and asymmetric, so
+            # reducing them to "the declared pair's ipTM" needs an index-to-chain-id convention
+            # and an orientation choice, and protenix-v2/opendde-abag do not emit them at all.
+            # The declared-pair-aware scores that DO span all three generators are the PAE-derived
+            # pae_ipsae / pae_pdockq2 columns.
+            row.update(_flat("conf", {k: v for k, v in conf.get(s.get("rank"), {}).items()
+                                      if k != "rank"}))
             row.update(_flat("dockq", s.get("dockq")))
             row.update(_flat("pae", s.get("pae_metrics")))
             row["epitope_jaccard"] = s.get("epitope_jaccard")
@@ -121,9 +158,15 @@ def main():
             if c in lab.columns and lab[c].isna().all()]
     if miss:
         print(f"  WARNING: entirely null in every row: {miss}")
-    for c in ("dockq_dockq", "interface_lddt", "cdr_h3_rmsd"):
+    for c in ("dockq_dockq", "interface_lddt", "cdr_h3_rmsd", "conf_iptm"):
         if c in lab.columns:
             print(f"  {c:18s} non-null {lab[c].notna().sum():5d}/{len(lab)}")
+    # A fold whose results.json is unreadable yields labels with no confidence at all, which is a
+    # ranking benchmark row that cannot be ranked. Named, not silently blank.
+    if no_conf:
+        print(f"  WARNING: {len(no_conf)} fold(s) have NO native confidence "
+              f"(results.json unreadable): {sorted(no_conf)[:6]}"
+              + (" ..." if len(no_conf) > 6 else ""))
     return 0
 
 
