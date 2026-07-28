@@ -1,0 +1,117 @@
+"""Campaign status, with `generate.py` as the single source of truth for what counts as done.
+
+This script used to carry its own provenance rule ("a record is CURRENT only if mps == 3").
+That duplicated `done_pairs()` and then drifted from it: after qb1 was relaunched at mps=5 the
+rule inverted, so the live records were reported as stale and five superseded failures were
+reported as current. A second copy of an acceptance predicate is a second thing to get wrong,
+so there is only one now -- `done_pairs()` -- and everything here is derived from it.
+
+Acceptance for Tier A: OUTSTANDING is empty on both hosts, i.e. every (target, model) pair
+counts as done.
+
+Usage: python3 scripts/abag_xm_status.py
+"""
+import collections
+import importlib.util
+import json
+import subprocess
+import pathlib
+import statistics
+
+_spec = importlib.util.spec_from_file_location(
+    "abag_xm_generate", pathlib.Path(__file__).resolve().parent / "abag_xm_generate.py")
+gen = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(gen)
+
+records = []
+if gen.PROGRESS.exists():
+    for line in open(gen.PROGRESS):
+        try:
+            records.append(json.loads(line))
+        except Exception:
+            continue
+
+done = gen.done_pairs()
+targets = gen.all_targets()
+expected = {(t, m) for t in targets for m in gen.MODELS}
+outstanding = sorted(expected - done)
+
+# The record that made a pair done -- superseded attempts on the same pair are not failures.
+accepted = {}
+for r in records:
+    key = (r["target"], r["model"])
+    if key in done and r.get("status") == "ok":
+        accepted[key] = r
+
+print(f"targets {len(targets)} x models {len(gen.MODELS)} = {len(expected)} pairs "
+      f"| done {len(done)} | OUTSTANDING {len(outstanding)}")
+print(f"records on disk: {len(records)} (superseded attempts are kept, not counted)")
+
+for m in gen.MODELS:
+    w = [r["wall_s"] for k, r in accepted.items() if k[1] == m and r.get("wall_s")]
+    n_out = sum(1 for t, mm in outstanding if mm == m)
+    if w:
+        print(f"   {m:14s} done={len(w):3d} outstanding={n_out:3d}  "
+              f"wall_s median {statistics.median(w):.0f}  min {min(w):.0f}  max {max(w):.0f}")
+    else:
+        print(f"   {m:14s} done=  0 outstanding={n_out:3d}")
+
+# Why each outstanding pair is outstanding: its most recent record, or never attempted.
+last = {}
+for r in records:
+    last[(r["target"], r["model"])] = r
+reasons = collections.Counter()
+for key in outstanding:
+    r = last.get(key)
+    if r is None:
+        reasons["never attempted"] += 1
+    elif r.get("status") == "ok":
+        reasons[f"ok but mps={r.get('mps')} (regenerating at mps={gen.MPS})"] += 1
+    else:
+        reasons[r.get("status", "?")] += 1
+print("   OUTSTANDING by reason:", dict(reasons) or "NONE")
+if 0 < len(outstanding) <= 12:
+    print("   OUTSTANDING pairs:", outstanding)
+
+odd = [(k[0], k[1], r.get("n_cifs"), r.get("n_paes")) for k, r in sorted(accepted.items())
+       if r.get("n_cifs") != gen.N_SAMPLES or r.get("n_paes") != gen.N_SAMPLES]
+print("   done but wrong artifact count:", odd or "NONE")
+
+# D12 (per-model config fairness contract): the resolved config must be constant WITHIN a
+# generator. mps is exempt for the generators that ignore it (supports_multiplicity=False) --
+# the same model-aware rule done_pairs() uses, so the two cannot drift apart.
+for field in ("host_threads", "mps", "paired_msa"):
+    by_model = {m: {r.get(field) for k, r in accepted.items() if k[1] == m} for m in gen.MODELS}
+    checked = {m: v for m, v in by_model.items()
+               if field != "mps" or m in gen.MPS_SENSITIVE_MODELS}
+    flag = "" if all(len(v) <= 1 for v in checked.values()) else "   <-- NOT CONSTANT (D12)"
+    shown = "  ".join(f"{m}={sorted(v, key=str)}"
+                      + ("" if m in checked else " (ignored by this model)")
+                      for m, v in by_model.items() if v)
+    print(f"   {field:13s} per model: {shown}{flag}")
+
+# Coverage: is anything outstanding not assigned to a live driver? A driver only ever works
+# the --targets list it was launched with, so losing one (a dead card, a kill, a crash)
+# silently strands its share -- the campaign then finishes the remaining slices and stops
+# short, with every other check still green. Card 3's driver was removed on 2026-07-27 for
+# producing 0 ok folds in 5 attempts, which stranded its slice exactly this way.
+running = []
+try:
+    ps = subprocess.run(["ps", "-eo", "args"], capture_output=True, text=True).stdout
+    for line in ps.splitlines():
+        if "abag_xm_generate.py" in line and "--targets" in line:
+            running += line.split("--targets", 1)[1].split()[0].split(",")
+except Exception:
+    running = []
+assigned = set(running)
+if not assigned:
+    print("   driver coverage: no drivers running (nothing is being folded)")
+else:
+    stranded = sorted({t for t, _ in outstanding} - assigned)
+    print(f"   driver coverage: {len(assigned)} targets assigned across live drivers | "
+          f"STRANDED on this host {len(stranded)}"
+          + ("   <-- no driver on THIS host (includes the other host's share)" if stranded else ""))
+    if stranded:
+        print(f"     {' '.join(stranded[:20])}{' ...' if len(stranded) > 20 else ''}")
+        print("     fix: scripts/abag_xm_tiera_launch.sh \"<free cards>\" \"<all slices>\" "
+              "once the current drivers exit")

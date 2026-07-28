@@ -425,7 +425,7 @@ class _WorkerState:
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m,
-                                 _generate_opendde_paired_a3m, _read_bio_chains,
+                                 _read_bio_chains,
                                  _read_bio_constraints, _resolve_a3m_text,
                                  _write_protenix_structure)
         from tt_bio.protenix_data import build_complex_features
@@ -465,27 +465,18 @@ class _WorkerState:
         chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
                        for _cid, cseq, spec, mt in chains]
 
-        # Paired (species-pairing) MSA for multi-chain complexes -- the cross-chain
-        # co-evolution signal the reference OpenDDE pipeline injects via
-        # MSAPairingEngine.pair_chains_by_species and this port otherwise lacks
-        # (unpaired block-diagonal MSA carries no cross-chain signal). Best-effort:
-        # a failed paired search falls back to unpaired-only so the fold still runs.
+        # Offline species-pairing is DISABLED for OpenDDE (plan review 2026-07-26,
+        # opendde-abag-paired-msa-offline-gap). localcolabfold sets is_complex=True
+        # only for a `:`-joined complex query; with one record per chain the paired
+        # search is a silent no-op that returns the unpaired per-chain a3m, which
+        # build_complex_features then row-index-aligns into a fabricated cross-chain
+        # block (not real species pairing), and the helper overwrites the shared
+        # unpaired cache once per fold. The honest, D12/A.5-uniform fix is to fold
+        # OpenDDE unpaired-only -- the same MSA supply protenix-v2 and boltz2 receive.
+        # Real offline pairing (`:`-joined query + separate {hash}.paired.a3m cache
+        # key) is a separate gated tt-bio PR that must be parity-checked before it
+        # touches a campaign; see _generate_opendde_paired_a3m in main.py.
         paired_a3ms = None
-        n_prot = sum(1 for _c, _s, _sp, mt in chains if mt == "protein")
-        if n_prot > 1 and want_msa:
-            paired_seqs = {hashlib.sha256(cseq.encode()).hexdigest()[:16]: cseq
-                           for _cid, cseq, _spec, mt in chains if mt == "protein"}
-            try:
-                paired = _generate_opendde_paired_a3m(
-                    paired_seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
-                    cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                    cfg.get("msa_server_password"), cfg.get("api_key_value"),
-                    msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
-                paired_a3ms = [paired.get(hashlib.sha256(cseq.encode()).hexdigest()[:16])
-                               for _cid, cseq, _spec, mt in chains if mt == "protein"]
-            except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
-                print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
-                paired_a3ms = None
 
         report_progress("prep")
         feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt in chains],
@@ -541,8 +532,12 @@ class _WorkerState:
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
-        if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
+        if cfg.get("write_pae"):                       # per-sample PAE (float16) + top-ranked (float32)
             import numpy as np
+            for _k in range(len(confs)):
+                _r = rank_of[_k]
+                np.savez_compressed(struct_dir / f"{stem}_model_{_r}_pae.npz",
+                                    pae=confs[_k]["pae"].numpy().astype(np.float16))
             np.savez(struct_dir / f"{stem}_pae.npz",
                      pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
@@ -651,8 +646,12 @@ class _WorkerState:
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
-        if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
+        if cfg.get("write_pae"):                       # per-sample PAE (float16) + top-ranked (float32)
             import numpy as np
+            for _k in range(len(confs)):
+                _r = rank_of[_k]
+                np.savez_compressed(struct_dir / f"{stem}_model_{_r}_pae.npz",
+                                    pae=confs[_k]["pae"].numpy().astype(np.float16))
             np.savez(struct_dir / f"{stem}_pae.npz",
                      pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}

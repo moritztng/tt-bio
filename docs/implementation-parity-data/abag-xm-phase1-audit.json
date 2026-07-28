@@ -1,0 +1,1753 @@
+{
+  "total": 164,
+  "ok": 164,
+  "mismatch": 0,
+  "error": 0,
+  "results": [
+    {
+      "pdb_id": "21av",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "21du",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "21tw",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "22ps",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "D",
+      "ag_chain": "F"
+    },
+    {
+      "pdb_id": "9ck4",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "W",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9d3j",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9d72",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9d73",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9d74",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "L"
+    },
+    {
+      "pdb_id": "9dsg",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9fte",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9gei",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9gfr",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9gvn",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9hv9",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9i3p",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9i5n",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9iar",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9ivj",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9j4c",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9j87",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9jkr",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "I"
+    },
+    {
+      "pdb_id": "9jno",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9k6j",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9kwy",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9l1l",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9l8z",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9l9o",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9l9y",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9lbw",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "L"
+    },
+    {
+      "pdb_id": "9ldx",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "S"
+    },
+    {
+      "pdb_id": "9le0",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "S"
+    },
+    {
+      "pdb_id": "9lh2",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9lme",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "F"
+    },
+    {
+      "pdb_id": "9loe",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9lof",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9log",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9loz",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9lp1",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9lqw",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9lr1",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "R"
+    },
+    {
+      "pdb_id": "9lsy",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "D",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9lsz",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9lwc",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9lxp",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9ly2",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "E",
+      "ag_chain": "R"
+    },
+    {
+      "pdb_id": "9ly3",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "E",
+      "ag_chain": "R"
+    },
+    {
+      "pdb_id": "9ly5",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9ly6",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9lz0",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9lz1",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9lz2",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "R"
+    },
+    {
+      "pdb_id": "9m0j",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9m0x",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9m0z",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9m1p",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9m2o",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9m2s",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9m3q",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9m3s",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9m40",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9m72",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9m8k",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9m8l",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9ma0",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9mmj",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9mnb",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9mns",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9mnt",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9mnu",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "E",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9msc",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9mxu",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9mz6",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9mz7",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9mz8",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9mze",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9mzf",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9n05",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9n09",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9n0e",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9n1p",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9n1q",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9n2i",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "N"
+    },
+    {
+      "pdb_id": "9n38",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9n8i",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9n8n",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "I"
+    },
+    {
+      "pdb_id": "9ncd",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9ncy",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9nkz",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9nl0",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "L"
+    },
+    {
+      "pdb_id": "9nl1",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9np0",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9nw4",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9nw7",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9nw8",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9nw9",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9nzf",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9obn",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "G"
+    },
+    {
+      "pdb_id": "9ppw",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9ppy",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9pso",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "E",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9q1l",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "E",
+      "ag_chain": "F"
+    },
+    {
+      "pdb_id": "9q6h",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9q6n",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9q6y",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9q6z",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9q7y",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9qqe",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9qqf",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9qrv",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "D",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9rig",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9rih",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9rn6",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9rye",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9ryf",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9sat",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "R"
+    },
+    {
+      "pdb_id": "9sbb",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "R"
+    },
+    {
+      "pdb_id": "9ssm",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "R"
+    },
+    {
+      "pdb_id": "9t3r",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9t3s",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9th6",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9tmp",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9u5p",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9u5q",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9u5r",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "O",
+      "ag_chain": "P"
+    },
+    {
+      "pdb_id": "9ua5",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "G"
+    },
+    {
+      "pdb_id": "9udq",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "I"
+    },
+    {
+      "pdb_id": "9ue0",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9ugo",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9uk2",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9ull",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "K"
+    },
+    {
+      "pdb_id": "9ulm",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "Y"
+    },
+    {
+      "pdb_id": "9ulp",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9uo0",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "M",
+      "ag_chain": "3"
+    },
+    {
+      "pdb_id": "9uoc",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9uoi",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9v0x",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9v1h",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9ve0",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9vmn",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "S"
+    },
+    {
+      "pdb_id": "9vmo",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "S"
+    },
+    {
+      "pdb_id": "9vnp",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "L",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9vo2",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "S"
+    },
+    {
+      "pdb_id": "9w14",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "G",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9wb3",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9wb4",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9wpm",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "N",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9wwh",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "H",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9x05",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9x0j",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "F"
+    },
+    {
+      "pdb_id": "9x3z",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "S"
+    },
+    {
+      "pdb_id": "9xqb",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9xqc",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "E"
+    },
+    {
+      "pdb_id": "9xqn",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "C"
+    },
+    {
+      "pdb_id": "9xsx",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "B"
+    },
+    {
+      "pdb_id": "9xth",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9y0a",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9y0e",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "A"
+    },
+    {
+      "pdb_id": "9yc5",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9yio",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "B",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9yxd",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "D"
+    },
+    {
+      "pdb_id": "9ynx",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "F"
+    },
+    {
+      "pdb_id": "9zdu",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H",
+        "L"
+      ],
+      "ab_chain": "A",
+      "ag_chain": "H"
+    },
+    {
+      "pdb_id": "9zen",
+      "status": "ok",
+      "yaml_chains": [
+        "A",
+        "H"
+      ],
+      "ab_chain": "C",
+      "ag_chain": "L"
+    }
+  ]
+}

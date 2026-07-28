@@ -377,6 +377,15 @@ def _open_device_locked(device_id, kwargs):
         return dev
 
 
+# How long the local-dispatch probe may take before the bring-up is called bad. Generous:
+# a healthy probe is seconds once the tiny kernel is cached, and a whole boltz2 fold runs
+# in 233-610 s, so 180 s cannot fire on a fold that is merely slow. Env override is a
+# dev escape hatch, matching TT_BIO_TRACE_REGION_SIZE.
+_LOCAL_DISPATCH_PROBE_TIMEOUT_S = int(
+    os.environ.get("TT_BIO_DISPATCH_PROBE_TIMEOUT_S", "180"))
+_PROBE_TIMEOUT_EXIT = 87
+
+
 def _assert_local_dispatch(dev):
     """Verify a freshly-opened chip can actually dispatch a program.
 
@@ -386,8 +395,47 @@ def _assert_local_dispatch(dev):
     HERE, at startup, and gets respawned with a serialized clean reopen — instead of
     silently accepting jobs it will fail. Runs unlocked: it's an ordinary compute
     dispatch on an already-open chip, not the UMD init path, so it needn't serialize
-    (the tiny kernel is cached after the first compile)."""
+    (the tiny kernel is cached after the first compile).
+
+    The probe is watchdogged because that bad bring-up has two forms, and this only
+    ever handled one. A chip can THROW on dispatch (caught below) or it can never
+    return from it. Three Tier-A folds hung in the second form: pinned at the
+    synchronize below for 11-36 minutes at 100% CPU with 497 MB RSS (weights never
+    loaded), deaf to SIGINT and SIGTERM. Unbounded, the guard against silently-bad
+    workers becomes the thing that hangs the worker, and it costs up to a full
+    per-fold timeout each time.
+
+    The watchdog below is a thread because signals do not land while the main thread sits
+    in that native call — which is why SIGTERM does not kill these either.
+
+    !! IT DOES NOT ACTUALLY FIRE AGAINST THE REAL SPIN. Measured 2026-07-27: a fold that
+    entered this probe at 20:24:16 was still in it 218 s later with the watchdog present
+    and set to 180 s (verified in the running process: correct module path, no env
+    override). The ttnn call appears to hold the GIL without ever returning to the
+    interpreter, so the Timer thread is never scheduled. No Python-level stub reproduces
+    that — time.sleep releases the GIL and even a big-int pow() checks for pending calls,
+    so both make the watchdog fire — which is exactly why the unit test passes and
+    production does not. Kept because it costs nothing and does bound any variant that
+    yields to the interpreter, but do NOT rely on it.
+
+    What actually bounds this failure is OUT of process, and both are in place: the
+    campaign's size-scaled per-fold timeout (scripts/abag_xm_generate.py) and
+    scripts/abag_xm_stall_scan.py, which flags a fold that is out of family for its target
+    size. Four stalls have been caught that way. A proper in-engine fix would have the
+    predict supervisor bound the worker's device-open phase from the parent process."""
+    import threading
     import torch
+
+    def _give_up():
+        os.write(2, (f"tt-bio: local-dispatch probe did not return in "
+                     f"{_LOCAL_DISPATCH_PROBE_TIMEOUT_S}s -- treating this chip bring-up "
+                     f"as bad and exiting so the fold is retried on a clean reopen\n"
+                     ).encode())
+        os._exit(_PROBE_TIMEOUT_EXIT)
+
+    watchdog = threading.Timer(_LOCAL_DISPATCH_PROBE_TIMEOUT_S, _give_up)
+    watchdog.daemon = True
+    watchdog.start()
     try:
         t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),
                             layout=ttnn.TILE_LAYOUT, device=dev)
@@ -401,6 +449,8 @@ def _assert_local_dispatch(dev):
                 pass
         raise RuntimeError(f"device bring-up failed the local-dispatch check "
                            f"(likely a remote-only init): {e}") from e
+    finally:
+        watchdog.cancel()
 
 
 def get_device(trace_region_size=0):
@@ -2871,10 +2921,19 @@ class DiffusionModule(TorchWrapper):
             "atom_to_token",
             "atom_to_token_normed",
             "atom_pad",
+            "r_batch",
         )
-        if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
-            self._clear_runtime_cache()
-            self._first_forward_pass = True
+        # Cached conditioning is reusable only at the sample batch it was built for. q/c carry
+        # that dimension here, and so do ``_c_reshaped`` and the per-layer ``s_o`` inside the
+        # module -- ``reset_static_cache`` is the one path that clears all of them, so use it
+        # rather than enumerating. ``Tensor.chunk`` equalises chunk sizes instead of capping
+        # them at ``max_parallel_samples``, so any sample count that mps does not divide ends
+        # in a short final chunk and invalidates the lot at once.
+        if (not self._first_forward_pass) and (
+            (not self._cache_has_all(required_cache_keys))
+            or self._cache_get("r_batch") != r_batch
+        ):
+            self.reset_static_cache()
 
         # Compute all static data once (everything except r and times is constant across diffusion steps)
         if self._first_forward_pass:
@@ -2891,6 +2950,7 @@ class DiffusionModule(TorchWrapper):
                 c_pt = torch.nn.functional.pad(c_pt, (0, 0, 0, atom_pad))
             self._cache_set("q", self._from_torch(q_pt))
             self._cache_set("c", self._from_torch(c_pt))
+            self._cache_set("r_batch", r_batch)
 
             if atom_pad:
                 ki_pad_rows = 2 * NW_padded - keys_indexing.shape[0]
