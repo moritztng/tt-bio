@@ -152,7 +152,7 @@ def _run_deeprank_batched(folds, deeprank_venv, max_batch=5):
     py = os.path.join(deeprank_venv, "bin", "python3")
     if _device_folds_running() and not _FORCE_DEEPRANK:
         print("[deeprank] REFUSING: device folds are in flight on this host and DeepRank-Ab "
-              "cannot be contained (see _deeprank_containment_notes). Score after the cards go "
+              "cannot be contained (see the comment above _run_deeprank_batched). Score after the cards "
               "idle, or pass --force_deeprank if you accept starving them.", file=sys.stderr)
         return {}
 

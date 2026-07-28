@@ -38,9 +38,14 @@ def spearman(a, b):
     denom = math.sqrt((da**2).sum() * (db**2).sum())
     return float((da*db).sum() / denom) if denom else float("nan")
 
-CSV = Path.home() / "abag_xm" / "tier_a" / "ranker_scores.csv"
+# An optional path argument, because this used to hardcode the campaign CSV and silently ignore
+# argv: pointing it at another table printed numbers -- and a coverage line -- computed from the
+# campaign file instead. That is the exact "stale number quoted as final" failure this script's own
+# docstring warns about, so the path it actually read is now echoed with the numbers.
+CSV = Path(sys.argv[1]) if len(sys.argv) > 1 else \
+    Path.home() / "abag_xm" / "tier_a" / "ranker_scores.csv"
 if not CSV.exists():
-    print("ranker_scores.csv not found at", CSV)
+    print("ranker score table not found at", CSV)
     sys.exit(1)
 
 # rankers to evaluate (columns that are score-like, higher=better)
@@ -54,6 +59,7 @@ for r in csv.DictReader(open(CSV)):
     folds[(r["gen"], r["target"])].append(r)
 
 print("=" * 80)
+print(f"source: {CSV}")
 print("PARTIAL Phase 5 signal — %d (gen,target) pairs, %d rows" % (len(folds), sum(len(v) for v in folds.values())))
 # Generator coverage is read from the CSV, never assumed. The previous version hardcoded both
 # this line and the analysis loop to protenix-v2 and boltz2 while announcing "opendde: 0 (not yet
