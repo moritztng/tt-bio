@@ -81,6 +81,9 @@ reports per sample, so they are a global-confidence baseline and not an interfac
 - **Three generators, not a survey.** Chosen for permissive licensing so their outputs can be
   redistributed.
 - **50 samples per fold** bounds how well the oracle gap can be estimated for any single target.
+- **`fold_seq_light` is null for 59 of the targets**, which is a fact about the construct and not
+  missing data: those are heavy-only or single-chain antibodies. It is null exactly when `has_HL`
+  is false. `fold_seq_antigen` and `fold_seq_heavy` are populated for every target.
 - Per-sample provenance (`host`, `tt_bio_commit`, `host_threads`, `paired_msa`, sampling path) is
   recorded in `labels.parquet`. Rows produced under a recovered or non-standard configuration are
   flagged; filter on provenance if your analysis is sensitive to it.

@@ -38,6 +38,61 @@ TARGETS_SRC = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.pa
 SCRIPTS = ROOT / "scripts"
 
 
+YAML_DIR = ROOT / "examples" / "abag_xm"
+
+# The YAML chain ids this campaign folds: A antigen, H heavy, L light.
+FOLD_SEQ_COLS = {"A": "fold_seq_antigen", "H": "fold_seq_heavy", "L": "fold_seq_light"}
+
+
+def _add_fold_sequences(targets_parquet):
+    """Add each target's folded chain sequences to the released targets.parquet.
+
+    The card's file table says targets.parquet carries "sequences". It did not: the committed
+    manifest has cdrh3_sequences and fold_resolved_seq_length_1/2, i.e. one CDR loop and two
+    integers. So a downloader could not reconstruct what was actually folded, could not map a
+    model chain to a YAML chain, and could not re-run a fold without going back to the PDB --
+    for a dataset whose whole premise is comparing predictions of a known input.
+
+    Taken from the fold YAMLs, which ARE the model input, rather than from the mmCIF: the
+    deposited sequence is not always what was folded (constructs differ, and the mmCIF carries
+    modified residues the YAML declares as standard ones). Added here rather than in
+    abag_xm_build_manifest.py because that script re-fetches all 164 mmCIFs from RCSB, and
+    regenerating a committed Phase-1 artifact to append derived columns is the wrong trade.
+    """
+    import pandas as pd
+    import yaml as _yaml
+
+    df = pd.read_parquet(targets_parquet)
+    got = {c: [] for c in FOLD_SEQ_COLS.values()}
+    missing = []
+    for pdb in df.pdb_id:
+        path = YAML_DIR / f"{pdb}.yaml"
+        seqs = {}
+        if path.exists():
+            try:
+                doc = _yaml.safe_load(path.read_text())
+                for entry in doc.get("sequences", []):
+                    prot = entry.get("protein") or {}
+                    if prot.get("id") in FOLD_SEQ_COLS:
+                        seqs[prot["id"]] = prot.get("sequence")
+            except Exception:
+                pass
+        if not seqs:
+            missing.append(pdb)
+        for cid, col in FOLD_SEQ_COLS.items():
+            got[col].append(seqs.get(cid))
+    for col, vals in got.items():
+        df[col] = vals
+    df.to_parquet(targets_parquet, index=False)
+    have = int(df[FOLD_SEQ_COLS["A"]].notna().sum())
+    print(f"  + fold sequences: antigen {have}/{len(df)}, "
+          f"heavy {int(df[FOLD_SEQ_COLS['H']].notna().sum())}/{len(df)}, "
+          f"light {int(df[FOLD_SEQ_COLS['L']].notna().sum())}/{len(df)}")
+    if missing:
+        print(f"  !! {len(missing)} target(s) have NO fold YAML, so no sequences: "
+              f"{sorted(missing)[:6]}" + (" ..." if len(missing) > 6 else ""))
+
+
 def run(cmd, **kw):
     print(f"  $ {' '.join(str(c) for c in cmd)}")
     return subprocess.run(cmd, **kw)
@@ -201,6 +256,7 @@ def main():
     if TARGETS_SRC.exists():
         shutil.copyfile(TARGETS_SRC, out / "targets.parquet")
         print(f"  copied {TARGETS_SRC.name} -> targets.parquet")
+        _add_fold_sequences(out / "targets.parquet")
     else:
         print(f"  !! {TARGETS_SRC} missing -- targets.parquet will not be in the release")
 
