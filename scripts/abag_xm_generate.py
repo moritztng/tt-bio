@@ -393,6 +393,62 @@ def done_pairs():
     return seen
 
 
+def count_artifacts(result_dir, target):
+    """The CIFs and per-sample PAEs a completed fold wrote, counted the ONE right way.
+
+    Naming: the top-ranked sample (rank 0) is written as ``<tid>.cif`` (the "winner", no
+    ``_model_0`` suffix); ranks >= 1 are ``<tid>_model_<i>.cif``. Per-sample PAEs are
+    ``<tid>_model_<i>_pae.npz`` for ALL ranks including 0, plus a backwards-compat
+    ``<tid>_pae.npz`` for the top-ranked sample which is deliberately EXCLUDED so the count
+    equals n_samples.
+
+    This exists as a function because it was re-implemented loosely elsewhere and the loose
+    version is what produced the 8 records claiming ``n_paes: 51`` on a 50-sample campaign:
+    ``glob("*_pae.npz")`` also matches the aggregate. Those records then failed the release
+    preflight and could not be explained without going back to the disk. One implementation,
+    one count.
+    """
+    struct_dir = result_dir / "structures"
+    winner = struct_dir / f"{target}.cif"
+    cifs = ([winner] if winner.exists() else []) + \
+        sorted(struct_dir.glob(f"{target}_model_*.cif"))
+    paes = sorted(struct_dir.glob(f"{target}_model_*_pae.npz"))
+    return cifs, paes
+
+
+def results_entry(result_dir):
+    """The results.json entry for a fold, or None if it is absent or unreadable."""
+    rjson = result_dir / "results.json"
+    if not rjson.exists():
+        return None
+    try:
+        results = json.load(open(rjson))
+        return results[0] if isinstance(results, list) else results
+    except Exception:
+        return None
+
+
+def tree_unchanged_since(path):
+    """Was every file under ``tt_bio/`` already in place before ``path`` was written?
+
+    Used to decide whether this worktree's engine tree can honestly be attributed to a fold
+    that some earlier, now-dead driver ran. A fold loads ``tt_bio/`` at startup and writes its
+    first artifact strictly later, so if no tracked file under ``tt_bio/`` has been modified
+    since that artifact appeared, the tree the fold loaded is the tree on disk now.
+
+    Conservative in the right direction: a file touched and reverted has a new mtime and the
+    same content, and this refuses -- costing a refold, never a false provenance claim.
+    """
+    try:
+        cutoff = path.stat().st_mtime
+    except OSError:
+        return False
+    for f in (ROOT / "tt_bio").rglob("*"):
+        if f.is_file() and f.stat().st_mtime > cutoff:
+            return False
+    return True
+
+
 def _dir_bytes(p):
     return sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
 
@@ -536,14 +592,7 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
         rec["stderr"] = f"{e}; tail: {(out or '')[-1000:]}"
         return rec
     struct_dir = result_dir / "structures"
-    # Naming: the top-ranked sample (rank 0) is written as <tid>.cif (the "winner", no
-    # _model_0 suffix); ranks >= 1 are <tid>_model_<i>.cif. Per-sample PAEs are
-    # <tid>_model_<i>_pae.npz for ALL ranks (incl. 0) + a backwards-compat <tid>_pae.npz
-    # (top-ranked) which the glob below deliberately excludes so paes == n_samples.
-    cif_winner = struct_dir / f"{target}.cif"
-    cifs = ([cif_winner] if cif_winner.exists() else []) + \
-        sorted(struct_dir.glob(f"{target}_model_*.cif"))
-    paes = sorted(struct_dir.glob(f"{target}_model_*_pae.npz"))
+    cifs, paes = count_artifacts(result_dir, target)
     # FAILED-RESULTS CROSS-CHECK: results.json status must be "ok" and the sample
     # count must match on both all_runs and the written CIF/PAE artifacts. A job
     # whose results.json says failed (or silently dropped samples) is never "ok".
