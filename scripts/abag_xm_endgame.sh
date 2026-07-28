@@ -51,6 +51,26 @@ else
   echo "  cards idle -- learned rankers can run"
 fi
 
+step "0b. harness selftests"
+# These existed and nothing ran them, which is how the ranker table shipped a positional join for
+# weeks: `all_runs[k]` was paired with `samples[k]`, and since labels.py sorts model files by
+# FILENAME (0, 1, 10, 11, ..., 2, ...) that put another structure's DockQ on 48 of every 50 rows.
+# It is invisible downstream -- a within-target permutation leaves global Spearman at 0.79 while
+# the per-target median collapses -- so it has to be caught here, before steps 2, 6 and 7 compute
+# numbers on top of it. Hard failure: every quantity below inherits the join.
+for t in abag_xm_ranker_join_selftest.py \
+         abag_xm_merge_hosts_selftest.py \
+         abag_xm_merge_ranker_selftest.py; do
+  printf '  %-40s ' "$t"
+  if out=$(PYTHONPATH="$WT" "$PY" "$WT/scripts/$t" 2>&1); then
+    echo PASS
+  else
+    echo FAIL
+    echo "$out" | tail -10
+    die "$t failed -- fix it before assembling anything; every number below inherits this"
+  fi
+done
+
 step "1. gaps across BOTH hosts (a per-host count is misleading)"
 "$PY" "$WT/scripts/abag_xm_union_gaps.py" || echo "  (union check unavailable; continuing)"
 
