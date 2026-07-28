@@ -38,7 +38,17 @@ from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 # confining it to the affected ones keeps the batching win.
 # scripts/rfd3_port/verify_batch_invariance.py is the gate;
 # scripts/rfd3_port/probe_callsites.py re-derives which linears need it.
-BATCH_INVARIANT_GRID = None
+#
+# RFD3_FAST_GRID=1 pins the full compute grid on those linears anyway. It is a
+# MEASUREMENT LEVER, not a shipping option: it reinstates exactly the divergence the
+# paragraph above describes, so a batched forward stops being bit-identical to the
+# standalone one and a long trajectory drifts. It exists so the size of the upside can be
+# quoted from a measurement instead of from the 1.32x/1.59x estimate above, per Moritz's
+# 2026-07-28 instruction to measure a batching lever's benefit even when it is not
+# accurate. scripts/rfd3_port/p28_grid_trajectory_parity.py measures the cost.
+# Default OFF -- the shipped path is unchanged.
+FAST_GRID = os.environ.get("RFD3_FAST_GRID") == "1"
+BATCH_INVARIANT_GRID = CORE_GRID_MAIN if FAST_GRID else None
 
 
 def _grid_if_single_k_tile(a):
