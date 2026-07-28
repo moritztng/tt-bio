@@ -20,6 +20,12 @@ from one host onto coordinates from another is how a row stops being auditable.
 
     python3 scripts/abag_xm_merge_hosts.py --peer tt-quietbox2 [--dry-run]
 
+Also brings the peer's ranker_scores.csv rows across, which is what lets DeepRank-Ab run on BOTH
+hosts concurrently: at ~82 s/fold it is ~11 h for 492 folds on one host, and scoring each host's own
+half first halves that. Without this the peer's scored rows are lost in the merge and the merged host
+has to redo them, so the second host's work counts for nothing. ranker_scores.py --all already skips
+any (target, gen) present in the CSV, so carrying the rows over is all that is required.
+
 Idempotent: re-running merges only what is still missing.
 """
 import argparse
@@ -31,6 +37,7 @@ from collections import Counter
 from pathlib import Path
 
 TIERA = Path.home() / "abag_xm" / "tier_a"
+RANKER_CSV = "ranker_scores.csv"
 # generator -> (output subdirectory, the result-dir prefix inside it, label-file prefix)
 GENS = {
     "protenix-v2":  ("protenix_v2", "protenix_results", "protenix_v2"),
@@ -122,6 +129,49 @@ def main():
         print(f"[labels] {'would rsync' if a.dry_run else 'rsync'} up to {len(labs)} label "
               f"files -> rc={rr.returncode}"
               + (f"  {rr.stderr.strip()[:200]}" if rr.returncode else ""))
+
+    # ---- ranker_scores.csv rows for the merged folds
+    # Why this is here at all: DeepRank-Ab is the longest post-generation phase (~82 s/fold, so
+    # ~11 h for 492 folds on one host) and the plan is to run it on BOTH hosts concurrently, which
+    # halves it. That only works if the peer's scored rows survive the merge -- otherwise the merged
+    # host has to rescore everything and the second host's work is thrown away. ranker_scores.py
+    # --all already skips any (target, gen) already present in the CSV, so bringing the peer's rows
+    # across is all that is needed to make its half count.
+    #
+    # Same local-wins rule as everything else: a pair scored on both hosts keeps the local row, so
+    # the scores stay consistent with the coordinates and labels the merge kept.
+    peer_csv = f"abag_xm/tier_a/{RANKER_CSV}"
+    local_csv = TIERA / RANKER_CSV
+    rr = _ssh(a.peer, f"cat {peer_csv} 2>/dev/null")
+    if rr.returncode != 0 or not (rr.stdout or "").strip():
+        print(f"[ranker] peer has no {RANKER_CSV} -- nothing to merge")
+    else:
+        import csv as _csv
+        import io as _io
+        peer_rows = list(_csv.DictReader(_io.StringIO(rr.stdout)))
+        local_rows, header = [], None
+        if local_csv.exists() and local_csv.stat().st_size:
+            with open(local_csv, newline="") as fh:
+                rd = _csv.DictReader(fh)
+                header = rd.fieldnames
+                local_rows = list(rd)
+        header = header or (list(peer_rows[0].keys()) if peer_rows else None)
+        have = {(r.get("target"), r.get("gen")) for r in local_rows}
+        add = [r for r in peer_rows if (r.get("target"), r.get("gen")) not in have]
+        if a.dry_run:
+            print(f"[ranker] would append {len(add)} of {len(peer_rows)} peer rows to "
+                  f"{local_csv} ({len(peer_rows) - len(add)} already local)")
+        elif add and header:
+            write_header = not local_csv.exists() or not local_csv.stat().st_size
+            with open(local_csv, "a", newline="") as fh:
+                w = _csv.DictWriter(fh, fieldnames=header, extrasaction="ignore")
+                if write_header:
+                    w.writeheader()
+                for r in add:
+                    w.writerow(r)
+            print(f"[ranker] appended {len(add)} peer rows to {local_csv}")
+        else:
+            print(f"[ranker] nothing to append ({len(peer_rows)} peer rows all present locally)")
 
     # ---- progress records last: only after the artifacts they describe are present, so an
     # interrupted merge never leaves a record pointing at coordinates that were not copied.
