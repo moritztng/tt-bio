@@ -530,11 +530,31 @@
               "tt_bio_version": "0.3.2",
               "date": "2026-07-20",
               "note": "seed tt-quietbox p150a boltz2-affinity perf baseline: the leg was only baselined on machine pc, so the full perf gate FAILed loudly with NO BASELINE on tt-quietbox (a gate-config gap, not a regression -- all 10 real perf models PASS within +/-15%). Seed the machine-specific entry from this warm run so the full all-models perf gate goes green on qb1."
+            },
+            "rfd3": {
+              "unit": "designs/s",
+              "direction": "higher",
+              "value": 0.112511,
+              "latency_ms": 8888.05,
+              "input": "iai_inputs.yaml (IAI motif-scaffold, I40/L419, from_pdb, 4 steps)",
+              "sampling_steps": null,
+              "diffusion_samples": null,
+              "recycling_steps": null,
+              "num_timesteps": 4,
+              "num_designs": 1,
+              "warmup": 0,
+              "repeat": 1,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "tt-quietbox",
+              "tt_bio_version": "0.5.0",
+              "date": "2026-07-28",
+              "note": "seed rfd3 perf baseline on qb1 (tt-quietbox) p150a card 1, matching pc convention: 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. First invocation on this device measured 101s (one-time TTNN kernel-build-cache population, not representative -- discarded); this run is with a populated kernel cache, matching pc's own baseline character (pc's 8.18s implies its kernel cache was already warm too, despite being labeled COLD for page cache). owed by tt-bio-rfdiffusion3-largedesign-gap-p19 (merged be8274449)"
             }
           },
-          "date": "2026-07-20",
-          "tt_bio_version": "0.3.2",
-          "note": "seed tt-quietbox p150a boltz2-affinity perf baseline: the leg was only baselined on machine pc, so the full perf gate FAILed loudly with NO BASELINE on tt-quietbox (a gate-config gap, not a regression -- all 10 real perf models PASS within +/-15%). Seed the machine-specific entry from this warm run so the full all-models perf gate goes green on qb1."
+          "date": "2026-07-28",
+          "tt_bio_version": "0.5.0",
+          "note": "seed rfd3 perf baseline on qb1 (tt-quietbox) p150a card 1, matching pc convention: 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. First invocation on this device measured 101s (one-time TTNN kernel-build-cache population, not representative -- discarded); this run is with a populated kernel cache, matching pc's own baseline character (pc's 8.18s implies its kernel cache was already warm too, despite being labeled COLD for page cache). owed by tt-bio-rfdiffusion3-largedesign-gap-p19 (merged be8274449)"
         },
         "pc": {
           "models": {
