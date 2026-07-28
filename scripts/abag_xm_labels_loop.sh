@@ -42,7 +42,13 @@ log "START labels loop: wt=$WT workers=$WORKERS host_threads=$HOST_THREADS timeo
 while true; do
   nlab=$(ls "$LABELS"/*.json 2>/dev/null | wc -l); nok=$(count_ok)
   log "labels=$nlab ok_folds=$nok — running campaign"
-  timeout "$RUN_TIMEOUT" env PYTHONPATH="$WT" "$PY" "$WT/scripts/abag_xm_labels_campaign.py" \
+  # PYTHONUNBUFFERED + -u because the campaign log is the only live signal for a stage whose
+  # items take 6-21 minutes. Block-buffered, the log sits stale for a quarter of an hour while
+  # work proceeds normally, which is indistinguishable from a hang -- on 2026-07-28 that cost a
+  # pass trying to tell whether qb2 was stalled or just slow. The generate driver already does
+  # this; the label loop did not.
+  timeout "$RUN_TIMEOUT" env PYTHONPATH="$WT" PYTHONUNBUFFERED=1 "$PY" -u \
+      "$WT/scripts/abag_xm_labels_campaign.py" \
       --workers "$WORKERS" --host_threads "$HOST_THREADS" >> "$LOGDIR/labels_campaign.log" 2>&1
   rc=$?
   nlab2=$(ls "$LABELS"/*.json 2>/dev/null | wc -l); nok2=$(count_ok)
