@@ -125,14 +125,19 @@ def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list
         n_folds = df.groupby(["target", "generator"]).ngroups
         if len(df) != n_folds * expect_samples:
             fail.append(f"labels rows {len(df)} != {n_folds} folds x {expect_samples}")
-        # The card promises every row traces to the exact code that produced it. A "-dirty"
-        # commit means the worktree had uncommitted changes when that fold ran, so it traces to
-        # nothing reproducible -- regenerate those folds rather than publish an untraceable row.
-        dirty = df[df.tt_bio_commit.astype(str).str.endswith("-dirty")]
-        if len(dirty):
-            folds = sorted({f"{t}/{g}" for t, g in zip(dirty.target, dirty.generator)})
-            fail.append(f"{len(dirty)} rows ({len(folds)} folds) ran from a DIRTY worktree and "
-                        f"cannot be traced to a commit: {folds[:6]}"
+        # The card promises every row traces to the exact code that produced it. Three values
+        # break that promise, not one: a "-dirty" suffix (uncommitted edits on top of a real
+        # sha), a null commit (a fold recovered from artifacts, whose driver knew the commit and
+        # died with it), and "unknown" (git unreadable at fold time). Blocking only on "-dirty"
+        # let the other two through, and they are strictly worse -- they name no sha at all.
+        # Regenerate those folds rather than publish an untraceable row.
+        commit = df.tt_bio_commit
+        untraceable = df[commit.isna() | commit.astype(str).str.endswith("-dirty")
+                         | commit.astype(str).isin(["unknown", "None", ""])]
+        if len(untraceable):
+            folds = sorted({f"{t}/{g}" for t, g in zip(untraceable.target, untraceable.generator)})
+            fail.append(f"{len(untraceable)} rows ({len(folds)} folds) cannot be traced to a "
+                        f"commit (dirty worktree, or recovered with the commit lost): {folds[:6]}"
                         + (" ..." if len(folds) > 6 else ""))
 
         # Two of the tools this campaign uses may not be redistributed, and the release is

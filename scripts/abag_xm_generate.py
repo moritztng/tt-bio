@@ -117,6 +117,18 @@ def _head_commit():
         return "unknown"
 
 
+def _traceable(commit):
+    """True when this commit value identifies the exact code that produced a fold.
+
+    Three ways it does not, and all three are recorded honestly rather than papered over:
+    ``None`` (a fold recovered from artifacts by reconcile_orphans -- the driver that knew
+    the commit is gone), ``"unknown"`` (git itself was unreadable), and a ``-dirty`` suffix
+    (a real sha, but the worktree carried uncommitted edits on top of it, so the sha does
+    not describe what ran).
+    """
+    return bool(commit) and commit != "unknown" and not str(commit).endswith("-dirty")
+
+
 
 
 # --- fold interpreter -------------------------------------------------------------
@@ -188,6 +200,14 @@ def done_pairs():
                 if r["model"] in MPS_SENSITIVE_MODELS and r.get("mps") != MPS:
                     # Generated under a different sampling configuration -- a different
                     # procedure, so not done. The resume pass regenerates it with --override.
+                    continue
+                if not _traceable(r.get("tt_bio_commit")):
+                    # The release card promises every row traces to the commit that produced
+                    # it, and the publish preflight refuses to ship a fold that does not. A
+                    # fold whose provenance is untraceable is therefore not done in the only
+                    # sense that matters -- it can never leave this host -- so a resume
+                    # refolds it instead of quietly keeping it forever. Same reasoning as the
+                    # mps check above: the artifacts exist, the procedure behind them does not.
                     continue
                 seen.add((r["target"], r["model"]))
             except Exception:
