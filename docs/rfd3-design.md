@@ -51,7 +51,10 @@ per-atom fixing, symmetry, and the rest of the InputSelection mini-language).
 
 Each design writes one `<id>.cif` to `--out_dir`. `--num_timesteps` controls
 the diffusion sampling steps (default 4, a fast smoke setting; the upstream
-default is 200 for production-quality designs).
+default is 200 for production-quality designs). A design sets up per-step device
+state once before sampling, which on the largest designs costs about a second —
+so the 4-step smoke setting spends most of its time on setup, and only a real
+run reflects the per-step rate the table below quotes.
 
 ### Generating multiple designs per spec
 
@@ -67,16 +70,16 @@ trajectory PCC 1.000000, maxabs 0, at 200 timesteps and batch 8), so
 `--batch_size` is a throughput and memory knob only.
 
 Throughput: batching pays off most on small designs and still pays on large ones.
-Measured on one Blackhole p150a in the default configuration, from 20-step runs
-projected to 200 timesteps, three interleaved rounds per point:
+Measured on one Blackhole p150a in the default configuration for a 200-timestep
+design, two interleaved rounds per point:
 
 | design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
 |---|---:|---:|---:|---:|
-| 40 residues | 419 | 0.0591 designs/sec | 0.1595 | 2.70x |
-| 80 residues | 979 | 0.0512 | 0.0798 | 1.56x |
-| 150 residues | 1959 | 0.0322 | 0.0372 | 1.16x |
-| Mpro + nirmatrelvir | 2702 | 0.0211 | 0.0216 | 1.02x |
-| 250 residues | 3359 | 0.0172 | 0.0181 | 1.05x |
+| 40 residues | 419 | 0.0919 designs/sec | 0.1905 | 2.07x |
+| 80 residues | 979 | 0.0686 | 0.0988 | 1.44x |
+| 150 residues | 1959 | 0.0383 | 0.0439 | 1.15x |
+| Mpro + nirmatrelvir | 2702 | 0.0228 | 0.0246 | 1.08x |
+| 250 residues | 3359 | 0.0182 | 0.0203 | 1.12x |
 
 Expect several percent of run-to-run spread on these. A warmer card reads slower,
 so comparing two settings back to back needs an even number of runs with the order
@@ -86,7 +89,7 @@ alternating, or the second one is penalised.
 batch down by atom count so a batch cannot exhaust device memory. The default 8
 is reachable up to 3359 atoms, batch 4 up to 4750, batch 2 up to 6718, and past
 that a design runs on its own — so every row above is what the CLI actually does.
-Batch 8 at 3359 atoms, the largest of them, peaks at 7.0 GiB of the card's 31.9.
+Batch 8 at 3359 atoms, the largest of them, peaks at 7.6 GiB of the card's 31.9.
 Lower `--batch_size` only to cut memory further; raising it above 8 does not help.
 `--devices` is still the parallelism that matters at large design sizes.
 
