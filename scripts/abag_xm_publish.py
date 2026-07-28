@@ -86,7 +86,7 @@ def _fill_card(text, out: Path, repo):
     return text, filled, missing
 
 
-def preflight(out: Path, expect_samples: int) -> list[str]:
+def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list[str]:
     fail = []
     card = out / "README.md"
     if not card.exists():
@@ -108,6 +108,20 @@ def preflight(out: Path, expect_samples: int) -> list[str]:
         per_gen = Counter(df.generator)
         if len(set(per_gen.values())) > 1:
             fail.append(f"generators have unequal fold counts: {dict(per_gen)}")
+
+        # Balanced is not the same as complete, and the existing checks only test balance. A slab with
+        # 100 of 164 targets folded by all three generators is internally consistent: generator counts
+        # match, rows == folds x samples, targets.parquet covers what is present. It would pass every
+        # check above and publish as if it were the dataset the card describes.
+        #
+        # So assert the target count too. --expect_targets 0 releases a deliberate subset, which then
+        # has to be an explicit decision rather than an accident.
+        n_targets = df.target.nunique()
+        if expect_targets and n_targets != expect_targets:
+            fail.append(
+                f"labels.parquet covers {n_targets} targets, expected {expect_targets} -- the slab is "
+                f"INCOMPLETE, not merely unbalanced. Pass --expect_targets 0 to publish a subset on "
+                f"purpose.")
         n_folds = df.groupby(["target", "generator"]).ngroups
         if len(df) != n_folds * expect_samples:
             fail.append(f"labels rows {len(df)} != {n_folds} folds x {expect_samples}")
@@ -162,6 +176,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out_dir", default=str(Path.home() / "abag_xm" / "release"))
     ap.add_argument("--repo", help="HuggingFace dataset repo, ORG/NAME")
+    ap.add_argument("--expect_targets", type=int, default=164,
+                    help="target count the release must cover (0 = allow a subset, "
+                         "deliberately)")
     ap.add_argument("--samples", type=int, default=50)
     ap.add_argument("--go", action="store_true",
                     help="actually upload. Requires Moritz's explicit approval; without this "
@@ -195,7 +212,7 @@ def main():
             print(f"    !! still unfilled: {sorted(missing)}")
 
     print("[4/4] preflight")
-    fail = preflight(out, a.samples)
+    fail = preflight(out, a.samples, a.expect_targets)
     for f in fail:
         print(f"  FAIL: {f}")
     if fail:
