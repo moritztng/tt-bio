@@ -195,6 +195,34 @@ def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list
                         f"commit (dirty worktree, or recovered with the commit lost): {folds[:6]}"
                         + (" ..." if len(folds) > 6 else ""))
 
+        # Does every released target actually have an interface a scorer can see? Written at
+        # turn 77, wired here at turn 97: it had no caller for twenty passes, which is the same
+        # way a positional join survived for weeks -- a check nobody runs is a comment.
+        #
+        # It belongs in the PREFLIGHT and not in the endgame's selftest step: 9ly2/9ly3/9lz2 have a
+        # phosphoserine-mediated interface that DockQ cannot score, and whether to drop them is an
+        # open decision. Blocking the whole chain on an undecided question would strand every other
+        # step; blocking only the upload is exactly right, and means the question cannot be
+        # forgotten at the moment it matters.
+        #
+        # Scoped to the targets actually present, so a deliberate subset release is not failed by a
+        # target it does not contain.
+        released = set(df.target.unique())
+        audit_json = out / "_native_interface_audit.json"
+        r = run([sys.executable, str(SCRIPTS / "abag_xm_native_interface_audit.py"),
+                 "--json", str(audit_json)], capture_output=True, text=True)
+        if not audit_json.exists():
+            fail.append("native-interface audit did not run; cannot confirm the released targets "
+                        f"have a scorable interface (rc={r.returncode})")
+        else:
+            bad = [a for a in json.loads(audit_json.read_text())
+                   if a.get("status") != "ok" and a.get("target") in released]
+            if bad:
+                named = ", ".join(f"{a['target']}({a['status']})" for a in bad[:6])
+                fail.append(f"{len(bad)} released target(s) have no scorable interface: {named}"
+                            + (" ..." if len(bad) > 6 else "")
+                            + " -- their DockQ/epitope/lDDT labels have no referent")
+
         # Two of the tools this campaign uses may not be redistributed, and the release is
         # CC-BY-4.0: ABAG-Rank's weights and bundled examples are CC BY-NC 4.0, and PSBench's
         # models are AF3 outputs we do not own. Both were only ever meant to be internal scoring
