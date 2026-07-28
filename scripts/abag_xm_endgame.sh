@@ -59,6 +59,7 @@ step "0b. harness selftests"
 # the per-target median collapses -- so it has to be caught here, before steps 2, 6 and 7 compute
 # numbers on top of it. Hard failure: every quantity below inherits the join.
 for t in abag_xm_ranker_join_selftest.py \
+         abag_xm_card_claims_selftest.py \
          abag_xm_merge_hosts_selftest.py \
          abag_xm_merge_ranker_selftest.py; do
   printf '  %-40s ' "$t"

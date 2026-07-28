@@ -57,13 +57,15 @@ accuracy labels usable as a ranking benchmark rather than a recall test.
 DockQ is computed for the **declared antibody-antigen interface**, with an explicit chain map, not
 averaged over all interfaces in the assembly. This matters more than it sounds.
 
-We measured it against wave-averaged scoring on the same 200 models, across four antigens from
-PSBench's `Multimer_7_2024_8_2025` set. **Wave-averaged DockQ calls 200 of 200 models
-CAPRI-acceptable (>= 0.23); per-interface DockQ calls 106 of 200.** Across those four targets the
-per-interface median spans 0.006 to 0.899, a factor of 151, while the wave-averaged median spans
-0.517 to 0.873, a factor of 1.7. It cannot separate a target whose models are mostly right from one
-whose models are essentially all wrong, because the near-rigid intra-antibody interface dominates
-the average and is modelled well either way.
+We measured it against wave-averaged scoring on the same 350 models: seven antigens from PSBench's
+`Multimer_7_2024_8_2025` set, 50 of each target's 200 AF3 models sampled with seed 42.
+**Wave-averaged DockQ calls 350 of 350 models CAPRI-acceptable (>= 0.23); per-interface DockQ calls
+216 of 350.** Across those seven targets the per-interface median spans 0.006 to 0.899, a factor of
+152, while the wave-averaged median spans 0.339 to 0.873, a factor of 2.6. Wave-averaging cannot
+separate a target whose models are mostly right from one whose models are essentially all wrong,
+because the near-rigid intra-antibody interface dominates the average and is modelled well either
+way. The two labels agree on rank (pooled Spearman +0.888); they disagree on scale, and scale is
+what a threshold reads.
 
 A ranking method tuned on wave-averaged labels is being tuned on the wrong signal.
 
