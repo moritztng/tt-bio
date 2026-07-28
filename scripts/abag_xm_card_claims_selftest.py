@@ -30,6 +30,8 @@ ROOT = Path(__file__).resolve().parent.parent
 CARD = ROOT / "docs" / "abag-xm-dataset-card.md"
 ARTIFACT = ROOT / "docs" / "implementation-parity-data" / "abag-xm-psbench-legi-pilot.json"
 ACCEPTABLE = 0.23
+# The heading of the section whose numbers this guard owns.
+SECTION = "## Accuracy labels are per-interface, never wave-averaged"
 
 
 def main():
@@ -70,10 +72,22 @@ def main():
           f"({facts['ours_ratio']:.0f}x), wave {facts['wave_lo']:.3f}-{facts['wave_hi']:.3f} "
           f"({facts['wave_ratio']:.1f}x)")
 
-    # Collapse whitespace before matching: the card is hard-wrapped prose, so a required phrase
-    # legitimately spans a line break ("a factor of\n152,"). Matching raw text made this fail on a
-    # card that was correct, which is the failure mode that gets a guard deleted rather than fixed.
-    text = " ".join(CARD.read_text().split())
+    # Check the SECTION that makes the claim, not the whole card. Both of this guard's checks were
+    # scoped to the entire file at first, and the stale-sample check then failed on any unrelated
+    # true sentence elsewhere in the card: adding "3 of 164 targets have a phosphoserine-mediated
+    # interface" -- a real pending edit -- reported "card quotes 'x of 164' but the artifact has 350
+    # rows". Demonstrated, not hypothesised. A guard that fires on correct edits gets deleted rather
+    # than fixed, so it only reads the section whose numbers it owns.
+    raw = CARD.read_text()
+    start = raw.find(SECTION)
+    if start < 0:
+        print(f"FAIL: card has no {SECTION!r} section; this guard cannot find the claim it checks")
+        return 1
+    end = raw.find("\n## ", start + len(SECTION))
+    section = raw[start:end if end > 0 else len(raw)]
+    # Collapse whitespace: the card is hard-wrapped prose, so a required phrase legitimately spans a
+    # line break ("a factor of\n152,"). Matching raw text failed on a card that was correct.
+    text = " ".join(section.split())
     # Numbers the card must state. Written as the exact substrings the card uses, because a card
     # that states the right value in the wrong sentence is still a card someone will misread.
     required = [
@@ -88,7 +102,7 @@ def main():
     fails = [f"card does not state the {what}: expected {want!r}"
              for want, what in required if want not in text]
 
-    # And it must not still claim a smaller sample than the artifact holds.
+    # And this section must not still quote a smaller sample than the artifact holds.
     for stale in re.findall(r"\b(\d+) of (\d+)\b", text):
         if int(stale[1]) != n:
             fails.append(f"card quotes 'x of {stale[1]}' but the artifact has {n} rows")
