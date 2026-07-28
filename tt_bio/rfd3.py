@@ -89,10 +89,13 @@ _TUNED_MM_CACHE = {}
 #     identical at 5 and at 20 timesteps, so it is one-time and not per-step). At 419 atoms one
 #     batch of 8 designs at 200 timesteps only saves ~5.4s, so a single-batch run is net NEGATIVE.
 #     It turns positive from the second batch on, i.e. --num_designs > --batch_size.
-#   * `tt-bio design` clamps the design batch by atom count (`_BATCH_ATOM_PAIR_BUDGET`, see
-#     rfd3_design.py), to 1 for anything past ~1185 atoms. `_tunable` needs xs[0] > 1, so in the
-#     real pipeline this lever only ever engages on designs of <=838 atoms -- exactly the sizes
-#     whose absolute per-batch saving is too small to cover the 5.9s.
+#   * `_tunable` needs xs[0] > 1, so the lever only engages on a batched forward. p25 raised
+#     the atom-count clamp (`_BATCH_ATOM_PAIR_BUDGET`, see rfd3_design.py) to the measured
+#     memory bound, so that is now every design up to 3359 atoms rather than only <=838 --
+#     but the sizes it newly reaches are also the slow ones, where a single batch takes long
+#     enough that the 5.9s is a smaller share. Whether that flips the end-to-end sign at
+#     large sizes is unmeasured; p17's numbers are per-step, and the decision below rests on
+#     the whole-invocation wall clock.
 # So default-on would trade ~-1% on the common single-batch invocation for ~+2% on a rarer one,
 # inside a noise floor the D=1 null control puts at +-7%. Flip it once calibration is cheap: the
 # dominant cost is compiling candidates that then fail L1 validation, and `_mm_candidates` can

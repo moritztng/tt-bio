@@ -40,7 +40,20 @@ from .rfd3_input import InputSpecification, parse_contig
 from .rfd3_sampler import RFD3Sampler
 
 
-_BATCH_ATOM_PAIR_BUDGET = 8 * 419 * 419
+# What a design batch costs in device DRAM, measured per op with the allocator
+# instrumented (scripts/rfd3_port/p25_dram_headroom.py) rather than assumed: the peak grows
+# linearly in the batch and about L^1.7 in atoms, so two bounds cover both ends of the
+# (batch, atoms) space on a 32 GiB card.
+#   * The atom-pair budget binds on large designs. 8 designs x 3359 atoms -- the largest
+#     fixture the port is measured on -- peaks at 7.0 GiB of 31.9, and the cost per atom
+#     pair keeps falling as designs grow (80 B at 3359 atoms, 86 B at 2702).
+#   * The design ceiling binds on small ones, where an L^2 budget alone is permissive:
+#     the budget would allow 514 designs of 419 atoms, which peaks at 11.9 GiB.
+# Both bounds only ever shrink `batch_size`, and batching is bit-exact (identical
+# trajectories at every size, scripts/rfd3_port/verify_batch_trajectory_parity.py), so
+# these are memory numbers with no accuracy tradeoff hiding behind them.
+_BATCH_ATOM_PAIR_BUDGET = 8 * 3359 * 3359
+_BATCH_DESIGN_CEILING = 512
 
 
 @dataclass
@@ -306,6 +319,7 @@ def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timestep
         sp_t = spec.partial_t if spec.partial_t is not None else partial_t
         effective_batch = min(
             batch_size,
+            _BATCH_DESIGN_CEILING,
             max(1, _BATCH_ATOM_PAIR_BUDGET // max(1, L * L)),
         )
         for start in range(0, len(spec_jobs), effective_batch):

@@ -2830,9 +2830,10 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                    "(back-compat) else <spec_id>_<i>.cif.")
 @click.option("--batch_size", default=8, show_default=True, type=click.IntRange(min=1),
               help="Maximum designs from one spec evaluated in each device forward. The runtime "
-                   "automatically shrinks this for larger atom counts. Each design keeps its own "
-                   "seeded RNG stream and the forward is bit-identical to running the designs one "
-                   "at a time, so batching is free of accuracy cost at any value.")
+                   "shrinks it so a batch cannot exhaust device memory (8 is reachable up to 3359 "
+                   "atoms). Each design keeps its own seeded RNG stream and the forward is "
+                   "bit-identical to running the designs one at a time, so batching is free of "
+                   "accuracy cost at any value.")
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to fan the (spec x --num_designs) jobs "
                    "across, e.g. '0,1,2,3'. One pinned subprocess per card (data-parallel, the "

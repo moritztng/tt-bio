@@ -66,34 +66,29 @@ batch size, so a batched design reproduces its standalone run exactly (min
 trajectory PCC 1.000000, maxabs 0, at 200 timesteps and batch 8), so
 `--batch_size` is a throughput and memory knob only.
 
-Throughput: batching pays off most on small designs, and still pays a little on
-large ones. Measured on one Blackhole p150a in the default configuration, from
-20-step runs projected to 200 timesteps, two interleaved rounds per point:
+Throughput: batching pays off most on small designs and still pays on large ones.
+Measured on one Blackhole p150a in the default configuration, from 20-step runs
+projected to 200 timesteps, three interleaved rounds per point:
 
 | design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
 |---|---:|---:|---:|---:|
-| 40 residues | 419 | 0.0602 designs/sec | 0.1569 | 2.61x |
-| 80 residues | 979 | 0.0522 | 0.0805 | 1.54x |
-| 150 residues | 1959 | 0.0325 | 0.0363 | 1.12x |
-| Mpro + nirmatrelvir | 2702 | 0.0212 | 0.0208 | 0.98x |
-| 250 residues | 3359 | 0.0167 | 0.0174 | 1.04x |
+| 40 residues | 419 | 0.0591 designs/sec | 0.1595 | 2.70x |
+| 80 residues | 979 | 0.0512 | 0.0798 | 1.56x |
+| 150 residues | 1959 | 0.0322 | 0.0372 | 1.16x |
+| Mpro + nirmatrelvir | 2702 | 0.0211 | 0.0216 | 1.02x |
+| 250 residues | 3359 | 0.0172 | 0.0181 | 1.05x |
 
 Expect several percent of run-to-run spread on these. A warmer card reads slower,
 so comparing two settings back to back needs an even number of runs with the order
 alternating, or the second one is penalised.
 
 `--batch_size` is an upper bound, not the batch you get: the runtime scales the
-batch down by atom count so a large design cannot exhaust memory. In practice
-batch 8 needs 419 atoms or fewer, batch 4 up to 592, batch 2 up to 838, and
-anything past about 1185 atoms runs one design at a time. So the batch-8 column
-above is only reachable through the CLI on the first row; the rest of it measures
-the module directly and is there to show what the clamp is costing. It used to
-cost nothing — batching was a 4-11% loss past about 1000 atoms — but the per-step
-host work has since shrunk enough that batching is roughly break-even at 2702
-atoms and a small win at 1959 and 3359, so the clamp is now purely a memory bound.
-Lower `--batch_size` only to cut memory further; raising it above 8 does not help
-even where it is reachable. `--devices` is still the parallelism that matters at
-large design sizes.
+batch down by atom count so a batch cannot exhaust device memory. The default 8
+is reachable up to 3359 atoms, batch 4 up to 4750, batch 2 up to 6718, and past
+that a design runs on its own — so every row above is what the CLI actually does.
+Batch 8 at 3359 atoms, the largest of them, peaks at 7.0 GiB of the card's 31.9.
+Lower `--batch_size` only to cut memory further; raising it above 8 does not help.
+`--devices` is still the parallelism that matters at large design sizes.
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
 physical TT cards, one pinned subprocess per card (data-parallel — the same
