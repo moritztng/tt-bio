@@ -64,6 +64,11 @@ PAIRFORMER_PAD_MULTIPLE = 64  # Pad token dim to this multiple to avoid kernel r
 MSA_PAD_MULTIPLE = 1024  # Pad MSA dim to this multiple to avoid kernel recompilation
 MAX_ATOMS_PER_TOKEN = 14  # Upper bound on atoms per residue (Trp=14); ties atom bucket to seq_len bucket
 
+# Sample the ttnn allocator inside the diffusion transformer. Read once at import so a
+# production fold pays nothing; TT_BIO_DRAM_PEAK names the file the samples land in
+# (tt_bio.protenix.dram_peak).
+_DRAM_PROBE = bool(os.environ.get("TT_BIO_DRAM_PEAK"))
+
 ATOM_WINDOW = 32
 ATOM_DIM = 128
 ATOM_N_HEADS = 4
@@ -1974,6 +1979,7 @@ class DiffusionTransformer(Module):
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
         dim = z.shape[1] // len(self.layers)
+        level = "atom" if self.layers[0].atom_level else "token"
         for i, layer in enumerate(self.layers):
             a = layer(
                 a,
@@ -1982,6 +1988,10 @@ class DiffusionTransformer(Module):
                 keys_indexing,
                 large_seq_len=large_seq_len,
             )
+            if _DRAM_PROBE:
+                from .protenix import dram_peak
+
+                dram_peak(f"diffusion {level}[W={a.shape[0]}] layer {i}")
         return a
 
 

@@ -3871,6 +3871,89 @@ class TemplateV2Module(nn.Module):
         return u
 
 
+# What one diffusion sample costs in device DRAM, measured with the ttnn allocator
+# (scripts/boltz2_sample_chunk_dram.py) rather than assumed. The peak splits cleanly into
+# a sample-invariant base (trunk conditioning, pair bias, weights) and a term linear in
+# the sample chunk, and the linear term is dominated by the token DiT's attention scores
+# (chunk x heads x T_pad^2) with an atom-level contribution linear in the padded atom
+# count. Both are filled in by the measurement; see docs/ for the fit.
+_SAMPLE_TOKEN_SQ_BYTES = 0.0   # bytes per sample per padded-token^2
+_SAMPLE_ATOM_BYTES = 0.0       # bytes per sample per padded atom
+_DIFFUSION_BASE_BYTES = 0.0    # sample-invariant floor
+# Fraction of the card's DRAM the diffusion chunk may occupy. Measured headroom, not a
+# guess: see the state doc for what the remainder is holding.
+_SAMPLE_CHUNK_DRAM_FRACTION = 0.55
+_SAMPLE_CHUNK_CEILING = 64     # hard ceiling, so a pathological request cannot run away
+
+
+def resolve_sample_chunk_width(multiplicity, max_parallel_samples, n_tokens):
+    """The single sample-chunk width the whole trajectory is denoised at.
+
+    Every chunk runs at exactly this width -- a short tail is padded up to it and the
+    padding discarded -- because the device conditioning is cached per sample batch, and
+    not only in the runtime cache: the DiT also keeps the reshaped atom conditioning and
+    the atom layers' output gate as module state. A second width meets those stale caches
+    and dies with a broadcasting TT_FATAL mid-trajectory (measured 2026-07-29 at
+    multiplicity=5, mps=3, and again with the runtime-cache-only refresh applied). One
+    width makes that unreachable, and costs at most ``n_chunks - 1`` extra sample-steps
+    out of ``multiplicity`` -- zero whenever the width divides it.
+
+    ``max_parallel_samples`` is a CAP, not a target: omit it (None) and the width is the
+    largest that fits the measured DRAM budget, so a small target runs one chunk and only
+    a large one chunks down. Pass it and the width never exceeds it.
+    """
+    m = max(1, int(multiplicity))
+    width = m
+    if max_parallel_samples is not None:
+        width = min(width, max(1, int(max_parallel_samples)))
+    width = min(width, _SAMPLE_CHUNK_CEILING, _dram_bound_chunk_width(n_tokens))
+    width = max(1, width)
+    # Rebalance: given the number of chunks the bound forces, the widest chunk only needs
+    # to be ceil(m / n_chunks). Narrower chunks mean less padding and less peak memory at
+    # identical chunk count, so this is free.
+    n_chunks = -(-m // width)
+    return -(-m // n_chunks)
+
+
+def _dram_bound_chunk_width(n_tokens):
+    """Largest chunk whose measured footprint fits the DRAM budget. Unbounded (a large
+    int) until the footprint fit is filled in, and unbounded off-device."""
+    per_sample = (
+        _SAMPLE_TOKEN_SQ_BYTES * _padded_tokens(n_tokens) ** 2
+        + _SAMPLE_ATOM_BYTES * _padded_atoms(n_tokens)
+    )
+    if per_sample <= 0:
+        return _SAMPLE_CHUNK_CEILING
+    budget = _device_dram_bytes() * _SAMPLE_CHUNK_DRAM_FRACTION - _DIFFUSION_BASE_BYTES
+    return max(1, int(budget // per_sample))
+
+
+def _padded_tokens(n_tokens):
+    from .tenstorrent import PAIRFORMER_PAD_MULTIPLE
+
+    return n_tokens + (-n_tokens) % PAIRFORMER_PAD_MULTIPLE
+
+
+def _padded_atoms(n_tokens):
+    from .tenstorrent import MAX_ATOMS_PER_TOKEN
+
+    return _padded_tokens(n_tokens) * MAX_ATOMS_PER_TOKEN
+
+
+def _device_dram_bytes():
+    """Total device DRAM, or a Blackhole p150 card's 32 GiB when no device is open (host
+    tests, and the CPU reference path, which never allocates on a card anyway)."""
+    try:
+        import ttnn
+
+        from .tenstorrent import get_device
+
+        mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+        return mv.total_bytes_per_bank * mv.num_banks
+    except Exception:
+        return 32 * 2**30
+
+
 class AtomDiffusion(Module):
     def __init__(
         self,
@@ -4071,8 +4154,11 @@ class AtomDiffusion(Module):
                 dtype=torch.float32,
                 device=self.device,
             )
-        if max_parallel_samples is None:
-            max_parallel_samples = multiplicity
+        chunk_width = resolve_sample_chunk_width(
+            multiplicity,
+            max_parallel_samples,
+            n_tokens=network_condition_kwargs["s_trunk"].shape[1],
+        )
 
         num_sampling_steps = default(num_sampling_steps, self.num_sampling_steps)
         atom_mask = atom_mask.repeat_interleave(multiplicity, 0)
@@ -4143,21 +4229,26 @@ class AtomDiffusion(Module):
 
             with torch.no_grad():
                 atom_coords_denoised = torch.zeros_like(atom_coords_noisy)
-                sample_ids = torch.arange(multiplicity).to(atom_coords_noisy.device)
-                sample_ids_chunks = sample_ids.chunk(
-                    multiplicity % max_parallel_samples + 1
-                )
-
-                for sample_ids_chunk in sample_ids_chunks:
+                for start in range(0, multiplicity, chunk_width):
+                    r_chunk = atom_coords_noisy[start : start + chunk_width]
+                    n_real = r_chunk.shape[0]
+                    if n_real < chunk_width:
+                        # Pad the short tail up to the one width (see chunk_width above).
+                        # Repeating a real sample keeps the padded rows in distribution.
+                        r_chunk = torch.cat(
+                            [r_chunk, r_chunk[-1:].expand(chunk_width - n_real, -1, -1)]
+                        )
                     atom_coords_denoised_chunk = self.preconditioned_network_forward(
-                        atom_coords_noisy[sample_ids_chunk],
+                        r_chunk,
                         t_hat,
                         network_condition_kwargs=dict(
-                            multiplicity=sample_ids_chunk.numel(),
+                            multiplicity=chunk_width,
                             **network_condition_kwargs,
                         ),
                     )
-                    atom_coords_denoised[sample_ids_chunk] = atom_coords_denoised_chunk
+                    atom_coords_denoised[start : start + n_real] = (
+                        atom_coords_denoised_chunk[:n_real]
+                    )
 
                 if steering_args["fk_steering"] and (
                     (
