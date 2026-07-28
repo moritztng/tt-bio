@@ -1213,7 +1213,46 @@ class RFD3AtomBlock(Module):
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
-    def __call__(self, q, c, p, additive_mask=None, sparse_qk=None):
+    def _sparse_bias_f32(self, p, dense_bias, attn_idx_dev, cache):
+        """The dense fp32 attention bias for one atom block, built once per pair stream.
+
+        The decoder runs its three atom blocks twice per diffusion step (n_recycle=2) and
+        `_sparse_qk_inputs` hands both calls the SAME gathered pair features and the SAME
+        neighbour index, so the second recycle rebuilds a bit-identical bias -- one
+        `ttnn.scatter` plus one fp32 typecast per block, thrown away. That scatter cannot
+        be made cheaper, only rarer: it is per-ELEMENT limited at ~9.7 G elem/s where
+        `ttnn.add` over the identical tensor reaches 69.5 (p30 measured a bfloat8_b dense
+        of HALF the bytes at the same 4.66 ms, and every reformulation -- gather with an
+        inverted index, scatter_add, tosa_scatter, the scale_mask_softmax family -- either
+        loses or rejects a per-row bias). So callers whose pair stream repeats pass a dict
+        and pay for it once.
+
+        The entry keeps its own reference to `p`, so its id cannot be recycled underneath
+        the key while the entry lives -- the idiom `_sparse_qk_inputs` uses. A key miss
+        overwrites the slot, which drops the previous bias; there is nothing to clear at a
+        step boundary.
+        """
+        ckc, dt = self.compute_kernel_config, self.dtype
+        key = (id(p), id(attn_idx_dev))
+        if cache is not None:
+            hit = cache.get(id(self))
+            if hit is not None and hit[0] == key and hit[1] is p:
+                return hit[2]
+        pair_bias = _tuned_linear(
+            p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
+        )
+        pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+        # dense_bias carries the -1e4 mask, so scattering the local pair bias into it
+        # gives pair_bias at neighbours (as the dense path does) and leaves -1e4, whose
+        # exp underflows to zero, everywhere else.
+        bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
+        bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+        ttnn.deallocate(bias)
+        if cache is not None:
+            cache[id(self)] = (key, p, bias_f)
+        return bias_f
+
+    def __call__(self, q, c, p, additive_mask=None, sparse_qk=None, bias_cache=None):
         ckc, dt = self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         if f32 and q.dtype != ttnn.float32:
@@ -1260,6 +1299,9 @@ class RFD3AtomBlock(Module):
                 qq, ttnn.permute(kk, (0, 1, 3, 2)),
                 compute_kernel_config=ckc,
             )
+            bias_f = ttnn.typecast(
+                bias, ttnn.float32, memory_config=bias.memory_config()
+            )
         else:
             # Only the pair-bias projection is sparsified. QK stays dense: it
             # reduces over head_dim (a single tile deep), so its dot-product tree
@@ -1267,24 +1309,14 @@ class RFD3AtomBlock(Module):
             # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
             # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
             n_keys, attn_idx_dev, dense_bias = sparse_qk
-            pair_bias = _tuned_linear(
-                p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
-            )
-            pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+            bias_f = self._sparse_bias_f32(p, dense_bias, attn_idx_dev, bias_cache)
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
             )
-            # dense_bias carries the -1e4 mask, so scattering the local pair bias
-            # into it gives pair_bias at neighbours (as the dense path does) and
-            # leaves -1e4, whose exp underflows to zero, everywhere else.
-            bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
         scores = ttnn.typecast(
             scores, ttnn.float32, memory_config=scores.memory_config()
         )
         scores = ttnn.multiply(scores, self.head_dim**-0.5)
-        bias_f = ttnn.typecast(
-            bias, ttnn.float32, memory_config=bias.memory_config()
-        )
         scores = ttnn.add(scores, bias_f)
         attention = ttnn.softmax(scores, dim=-1)
         attention = ttnn.typecast(
@@ -1477,6 +1509,7 @@ class CompactStreamingDecoder(Module):
         self._design_state = None  # {"key", "valid", "pack_idx_dev", "unpack_idx_dev", "upcast_mask_dev"}
         self._trace_state = None   # {"id", "shape", "a", "q", "c", "p", "mask", "output"}
         self._mask_cache = {}      # one -1e4 scatter template, see _mask_template
+        self._bias_cache = {}      # one dense bias per atom block, see _sparse_bias_f32
         self.upcast = [
             GatedCrossAttention(
                 self.scope(f"upcast.{i}.gca"), ckc,
@@ -1561,7 +1594,7 @@ class CompactStreamingDecoder(Module):
 
     def run_device(
         self, a, q, c, p, mask, upcast_mask_dev, pack_idx_dev,
-        unpack_idx_dev, valid, length, sparse_qk=None,
+        unpack_idx_dev, valid, length, sparse_qk=None, bias_cache=None,
     ):
         """Pure-device core loop (pack -> upcast -> unpack -> atom_block, x3).
         `a` is the FLAT (not pre-split) atom-pair stream; the reshape to
@@ -1574,7 +1607,7 @@ class CompactStreamingDecoder(Module):
                 q_grouped, upcast.run_device(q_grouped, a_split, attn_mask_dev=upcast_mask_dev)
             )
             q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
-            q = atom_block(q, c, p, mask, sparse_qk=sparse_qk)
+            q = atom_block(q, c, p, mask, sparse_qk=sparse_qk, bias_cache=bias_cache)
         return q
 
     def _design_buffers(self, tok_idx, batch):
@@ -1760,9 +1793,13 @@ class CompactStreamingDecoder(Module):
                 )
                 sparse_qk = (n_keys, attn_idx_dev, dense_bias)
                 a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
+                # The two recycle calls in a step share p and the neighbour index, so
+                # each atom block's dense bias is bit-identical between them; build it
+                # on the first call only (see GatedCrossAttention._sparse_bias_f32).
                 q = self.run_device(
                     a, q, c, p, None, upcast_mask_dev, pack_idx_dev,
                     unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+                    bias_cache=self._bias_cache,
                 )
         elif self.trace:
             q = self._run_device_traced(a_host, q_host, c_host, p_host, indices,
