@@ -31,6 +31,15 @@ CARDS="${1:-0 1 2 3}"
 LOGDIR=$HOME/abag_xm/logs
 POLL="${POLL:-300}"          # 5 min: a fold is 5-35 min, so this notices an idle host quickly
 MAX_RELAUNCH="${MAX_RELAUNCH:-12}"
+# Label workers, derived from cores rather than fixed at 2, because the cost of labelling alongside
+# folding is host-dependent and was measured on 2026-07-28. Normalising fold cost by target token
+# count (raw wall_s is confounded -- fold cost scales with size and the slices are walked in order):
+#   qb1, 32 cores:  +3% / +3%   s/token after labelling restarted -- no measurable cost
+#   qb2, 16 cores: +19% / +24%  s/token, and load sat at ~nproc
+# So 2 workers is right where there are cores to spare and costs ~20% of fold throughput where there
+# are not. Labelling has slack (a few hours against ~11 h of generation left) and generation is the
+# bottleneck, so trade label speed for fold speed on the smaller host. Override with LABEL_WORKERS.
+LABEL_WORKERS="${LABEL_WORKERS:-$([ "$(nproc)" -ge 32 ] && echo 2 || echo 1)}"
 mkdir -p "$LOGDIR"
 
 log(){ echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
@@ -52,8 +61,8 @@ while :; do
   # unlabelled. It is cheap to restart and safe to have exactly one, so keep one alive. Started, never
   # killed -- same rule as the drivers.
   if [ "$(n_labelloop)" -eq 0 ]; then
-    log "labels loop absent -- starting one (2 workers, 2 threads: safe while folding)"
-    setsid bash "$WT/scripts/abag_xm_labels_loop.sh" 2 2 \
+    log "labels loop absent -- starting one ($LABEL_WORKERS workers, 2 threads)"
+    setsid bash "$WT/scripts/abag_xm_labels_loop.sh" "$LABEL_WORKERS" 2 \
       >> "$LOGDIR/labels_loop.log" 2>&1 < /dev/null &
   fi
 
