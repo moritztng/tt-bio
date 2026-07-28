@@ -52,9 +52,20 @@ log(){ echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 # `pgrep -f abag_xm_generate.py` inside this script matches the script itself, and the supervisor
 # concludes a driver is alive forever (and a kill-based version would shoot itself -- observed
 # live on 2026-07-28).
-n_drivers(){ pgrep -cf "abag_xm_generat[e].py" 2>/dev/null || echo 0; }
-n_predicts(){ pgrep -cf "tt_bio.mai[n] predict" 2>/dev/null || echo 0; }
-n_labelloop(){ pgrep -cf "abag_xm_labels_loo[p].sh" 2>/dev/null || echo 0; }
+# Count with `pgrep -f | wc -l`, NOT `pgrep -cf ... || echo 0`. On no match `pgrep -c` prints "0" AND
+# exits 1, so the `|| echo 0` fired as well and the function returned TWO lines -- "0\n0". Every
+# `[ "$d" -eq 0 ]` below then failed with "integer expression expected" and evaluated FALSE, so the
+# idle branch could never fire and the labels-loop keepalive could never start one: the supervisor was
+# broken in exactly the condition it exists to detect, and silently.
+#
+# It survived its own test because that test stubbed these functions (n_drivers(){ echo 0; }) to reach
+# the idle branch -- replacing the broken code with working code and then verifying the branch. A probe
+# must be exercised, not substituted.
+#
+# `wc -l` always prints one integer and exits 0, so the arithmetic below is safe.
+n_drivers(){ pgrep -f "abag_xm_generat[e].py" 2>/dev/null | wc -l; }
+n_predicts(){ pgrep -f "tt_bio.mai[n] predict" 2>/dev/null | wc -l; }
+n_labelloop(){ pgrep -f "abag_xm_labels_loo[p].sh" 2>/dev/null | wc -l; }
 
 relaunched=0
 log "supervisor up on $(hostname), cards [$CARDS], poll ${POLL}s, max ${MAX_RELAUNCH} relaunches"
