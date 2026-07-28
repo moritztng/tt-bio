@@ -68,15 +68,16 @@ trajectory PCC 1.000000, maxabs 0, at 200 timesteps and batch 8), so
 
 Throughput is where it's worth being careful, because batching pays off on
 smaller designs and stops paying on large ones. Measured on one Blackhole p150a
-in the default configuration, from 20-step runs projected to 200 timesteps:
+in the default configuration, from 26-step runs projected to 200 timesteps, two
+interleaved rounds per point:
 
 | design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
 |---|---:|---:|---:|---:|
-| 40 residues | 419 | 0.0537 designs/sec | 0.1363 | 2.54x |
-| 80 residues | 979 | 0.0427 | 0.0592 | 1.39x |
-| 150 residues | 1959 | 0.0249 | 0.0222 | 0.89x |
-| Mpro + nirmatrelvir | 2702 | 0.0156 | 0.0126 | 0.80x |
-| 250 residues | 3359 | 0.0127 | 0.0106 | 0.84x |
+| 40 residues | 419 | 0.0573 designs/sec | 0.1352 | 2.36x |
+| 80 residues | 979 | 0.0464 | 0.0622 | 1.34x |
+| 150 residues | 1959 | 0.0285 | 0.0272 | 0.96x |
+| Mpro + nirmatrelvir | 2702 | 0.0186 | 0.0164 | 0.89x |
+| 250 residues | 3359 | 0.0147 | 0.0135 | 0.92x |
 
 Expect several percent of run-to-run spread on these. A warmer card reads slower,
 so comparing two settings back to back needs an even number of runs with the order
@@ -86,12 +87,11 @@ alternating, or the second one is penalised.
 batch down by atom count so a large design cannot exhaust memory. In practice
 batch 8 needs 419 atoms or fewer, batch 4 up to 592, batch 2 up to 838, and
 anything past about 1185 atoms runs one design at a time. That is why the table
-turns over — past 419 atoms batching costs 11-20%, and the clamp has already opted
-out on your behalf. Lower `--batch_size` only to cut memory further; raising it
-above 8 does not help even where it is reachable (0.1312 vs 0.1245 designs/sec at
-419 atoms for batch 8 vs 16, 0.0107 vs 0.0102 at 3359). The size-dependence is a
-memory-traffic one: batching shares the work that does not depend on the design,
-and the per-design attention tensors it cannot share grow with atom count.
+turns over — past about 1000 atoms batching costs 4-11%, and the clamp has already
+opted out on your behalf. Lower `--batch_size` only to cut memory further; raising
+it above 8 does not help even where it is reachable. The size-dependence is a
+host-boundary one: batching shares the device work, which amortizes well, but not
+the per-design tensors that cross to the host, which grow with atom count.
 `--devices` is the parallelism that matters at large design sizes either way.
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
