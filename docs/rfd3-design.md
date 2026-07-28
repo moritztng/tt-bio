@@ -89,7 +89,7 @@ alternating, or the second one is penalised.
 batch down by atom count so a batch cannot exhaust device memory. The default 8
 is reachable up to 3359 atoms, batch 4 up to 4750, batch 2 up to 6718, and past
 that a design runs on its own — so every row above is what the CLI actually does.
-Batch 8 at 3359 atoms, the largest of them, peaks at 7.6 GiB of the card's 31.9.
+Batch 8 at 3359 atoms, the largest of them, peaks at 11.1 GiB of the card's 31.9.
 Lower `--batch_size` only to cut memory further; raising it above 8 does not help.
 `--devices` is still the parallelism that matters at large design sizes.
 
