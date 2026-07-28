@@ -424,7 +424,12 @@ def main():
             if (target, model) in skip:
                 print(f"[skip] {target} {model} already ok", flush=True)
                 continue
-            print(f"[start] {target} {model} {time.strftime('%H:%M:%S')}", flush=True)
+            # ISO8601 with the UTC offset, not a bare wall clock. The hosts run UTC and the
+            # orchestrating side runs CEST, so a bare "23:29:38" read against a local clock makes a
+            # 20-minute fold look like a 2h19m wedge -- which is exactly how it was read, one step
+            # short of "recovering" four healthy folds. A timestamp that cannot be compared to the
+            # reader's clock should say so itself.
+            print(f"[start] {target} {model} {time.strftime('%Y-%m-%dT%H:%M:%S%z')}", flush=True)
             rec = fold_one(target, model, a.device, a.n_samples, a.mps,
                            fold_timeout_s=fold_timeout_for(target, model, a.timeout,
                                                            a.mps, a.n_samples),

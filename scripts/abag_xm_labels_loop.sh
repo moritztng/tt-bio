@@ -39,7 +39,9 @@ PROGRESS="$HOME/abag_xm/tier_a/progress.jsonl"
 LABELS="$HOME/abag_xm/tier_a/labels"
 
 mkdir -p "$LABELS" "$LOGDIR"
-log(){ echo "[$(date +%H:%M:%S)] $*"; }
+# ISO8601 with the offset: these hosts are UTC and the orchestrating side is not, so a bare
+# wall clock here is two hours out of step with whoever reads it.
+log(){ echo "[$(date +%Y-%m-%dT%H:%M:%S%z)] $*"; }
 count_ok(){ "$PY" -c "
 import json,sys
 p=sys.argv[1]
