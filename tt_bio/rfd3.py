@@ -1557,6 +1557,12 @@ class CompactStreamingDecoder(Module):
         return self._trace_state["output"]
 
     def __call__(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices):
+        """Host-in/host-out, for the component parity scripts. The per-step path calls
+        `run_full_device` and keeps both outputs on the card."""
+        a_out, q = self.run_full_device(a_host, s_host, q_host, c_host, p_host, tok_idx, indices)
+        return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
+
+    def run_full_device(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         batch, length, _ = q_host.shape
         valid, pack_idx_dev, unpack_idx_dev, upcast_mask_dev = self._design_buffers(tok_idx, batch)
@@ -1605,8 +1611,7 @@ class CompactStreamingDecoder(Module):
             s, self.process_s_w, compute_kernel_config=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        a_out = ttnn.add(ttnn.add(a, a_update), s)
-        return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
+        return ttnn.add(ttnn.add(a, a_update), s), q
 
 
 class LinearSequenceHead(Module):
@@ -1617,9 +1622,13 @@ class LinearSequenceHead(Module):
         self.bias = self.torch_to_tt("linear.bias", dtype=self.dtype)
         self.valid_out_mask = self.weights["valid_out_mask"].bool()
 
-    def __call__(self, a_host):
+    def __call__(self, a):
+        """`a` may be a host tensor (the parity-script path) or an already-resident ttnn
+        one handed over by the decoder."""
+        if not isinstance(a, ttnn.Tensor):
+            a = _tt(a, self.device, self.dtype)
         logits = ttnn.linear(
-            _tt(a_host, self.device, self.dtype),
+            a,
             self.weight,
             bias=self.bias,
             compute_kernel_config=self.compute_kernel_config,
@@ -2392,13 +2401,20 @@ class RFD3DiffusionModule(Module):
                                             self.DIT_KEYS, self.DIT_SEQ)
         A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx)
         ttnn.deallocate(z_dev)
-        A_I, Q_L = self.decoder(A_I, S_I, Q_L, C_L, P_LL, tok_idx=f["atom_to_token_map"], indices=f["attn_indices"])
-        R_upd = ttnn.to_torch(ttnn.linear(ttnn.rms_norm(_tt(Q_L, self.device, self.dtype),
+        # Both of the decoder's outputs feed device consumers only -- q the R update below,
+        # a the sequence head -- so neither crosses. Each ttnn.to_torch is a blocking drain,
+        # and at 3359 atoms the fifteen of them in a step cost 129 ms for 9.8 MB (p20 s2):
+        # the sync count is what this removes, not the bytes.
+        A_I, Q_L = self.decoder.run_full_device(A_I, S_I, Q_L, C_L, P_LL,
+                                                tok_idx=f["atom_to_token_map"], indices=f["attn_indices"])
+        R_upd = ttnn.to_torch(ttnn.linear(ttnn.rms_norm(Q_L,
                                                         weight=self.to_r_n, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config),
                                           self.to_r_w, compute_kernel_config=self.compute_kernel_config,
                                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
+        ttnn.deallocate(Q_L)
         X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
         logits, _ = self.sequence_head(A_I)
+        ttnn.deallocate(A_I)
         D_II_self = _scaled_distogram_bins(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
         return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits}
 
