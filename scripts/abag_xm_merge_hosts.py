@@ -43,6 +43,7 @@ GENS = {
     "protenix-v2":  ("protenix_v2", "protenix_results", "protenix_v2"),
     "opendde-abag": ("opendde_abag", "opendde_results", "opendde_abag"),
     "boltz2":       ("boltz2", "boltz2_results", "boltz2"),
+    "esmfold2":     ("esmfold2", "esmfold2_results", "esmfold2"),
 }
 
 

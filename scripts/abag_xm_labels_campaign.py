@@ -27,9 +27,9 @@ GT = ROOT / "examples" / "ground_truth_structures"
 YAML_DIR = ROOT / "examples" / "abag_xm"
 
 RESULT_PREFIX = {"protenix-v2": "protenix", "opendde-abag": "opendde",
-                 "opendde": "opendde", "boltz2": "boltz2"}
+                 "opendde": "opendde", "boltz2": "boltz2", "esmfold2": "esmfold2"}
 MODEL_DIR = {"protenix-v2": "protenix_v2", "opendde-abag": "opendde_abag",
-             "opendde": "opendde_abag", "boltz2": "boltz2"}
+             "opendde": "opendde_abag", "boltz2": "boltz2", "esmfold2": "esmfold2"}
 
 # Label-venv: tmtools/anarci/pyarrow live here (not in the shared venv). When present,
 # label sub-scripts run with this python + PYTHONPATH including the shared venv site-

@@ -463,7 +463,7 @@ def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
 
 
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
-                 num_diffusion_samples=1, seed=0):
+                 num_diffusion_samples=1, seed=0, collapse=True):
     """Fold one (possibly multi-chain) protein complex on an already-patched model.
 
     `chains` is a list of ``(chain_id, sequence)`` or ``(chain_id, sequence,
@@ -473,8 +473,8 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
 
     With ``num_diffusion_samples > 1`` the diffusion head emits one structure per
     sample (distinct seeds); the reference ``fold`` returns them as a list. This
-    is best-of-N folding, so we return the single highest-confidence sample,
-    ranked by mean pLDDT (ESMFold's confidence metric) — not sample 0.
+    is best-of-N folding, so by default (``collapse=True``) we return the single
+    highest-confidence sample, ranked by mean pLDDT (ESMFold's confidence metric) — not sample 0.
     """
     from tt_bio._vendor.esm.models.esmfold2 import (
         ESMFold2InputBuilder, ProteinInput, StructurePredictionInput)
@@ -490,6 +490,6 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     res = ESMFold2InputBuilder().fold(
         model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
         num_diffusion_samples=num_diffusion_samples, seed=seed)
-    if isinstance(res, list):
+    if isinstance(res, list) and collapse:
         return max(res, key=lambda r: float(r.plddt.mean()))
     return res

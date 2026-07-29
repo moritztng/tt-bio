@@ -26,7 +26,8 @@ TIERA = Path.home() / "abag_xm" / "tier_a"
 PROGRESS = TIERA / "progress.jsonl"
 GEN_DIR = {"protenix-v2": ("protenix_v2", "protenix"),
            "opendde-abag": ("opendde_abag", "opendde"),
-           "boltz2": ("boltz2", "boltz2")}
+           "boltz2": ("boltz2", "boltz2"),
+           "esmfold2": ("esmfold2", "esmfold2")}
 
 
 def ok_folds():

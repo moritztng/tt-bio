@@ -35,9 +35,9 @@ GT = ROOT / "examples" / "ground_truth_structures"
 PROGRESS = OUT_BASE / "progress.jsonl"
 MANIFEST = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
 
-MODELS = ["protenix-v2", "opendde-abag", "boltz2"]
+MODELS = ["protenix-v2", "opendde-abag", "boltz2", "esmfold2"]
 RESULT_PREFIX = {"protenix-v2": "protenix", "opendde-abag": "opendde",
-                 "opendde": "opendde", "boltz2": "boltz2"}
+                 "opendde": "opendde", "boltz2": "boltz2", "esmfold2": "esmfold2"}
 # Tier-A config: 50 samples, seed grid. boltz2 uses mps=5 (the fixed, memory-bounded
 # chunking); protenix/opendde use their own (correct) sampler at the same mps=5.
 N_SAMPLES = 50
@@ -276,11 +276,27 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
     except Exception as _e:
         return {"target": target, "model": model, "status": "bad_yaml",
                 "yaml": str(yaml), "reason": f"parse error: {_e}"}
-    cmd = [FOLD_PY, "-m", "tt_bio.main", "predict", str(yaml),
-           "--model", model, "--out_dir", str(out_dir),
-           "--diffusion_samples", str(n_samples), "--max_parallel_samples", str(mps),
-           "--msa_dir", str(MSA_DIR), "--msa_db_path", str(MSA_DB_PATH),
-           "--seed", str(SEED), "--override", "--write_pae"]
+    if model == "esmfold2":
+        # Single-sequence by design (D12/A.5): no --msa_* flags, and --single_sequence so
+        # the worker also skips resolve_msa's SHARED-cache lookup -- the cache is warm with
+        # these exact sequences from the other three generators, and a cache hit would
+        # silently MSA-condition a fold whose leg exists to measure the no-MSA regime.
+        # 10 loops / 100 requested steps (68 executed after the sigma-clip) is the ESMFold2
+        # paper benchmark protocol; passed explicitly per the task mandate even though the
+        # resolver already defaults to it. No --max_parallel_samples: the runtime chunks
+        # the sample batch by TT_ESMFOLD2_DIFFUSION_BUDGET (recorded as mps="auto").
+        cmd = [FOLD_PY, "-m", "tt_bio.main", "predict", str(yaml),
+               "--model", model, "--out_dir", str(out_dir),
+               "--diffusion_samples", str(n_samples),
+               "--recycling_steps", "10", "--sampling_steps", "100",
+               "--single_sequence",
+               "--seed", str(SEED), "--override", "--write_pae"]
+    else:
+        cmd = [FOLD_PY, "-m", "tt_bio.main", "predict", str(yaml),
+               "--model", model, "--out_dir", str(out_dir),
+               "--diffusion_samples", str(n_samples), "--max_parallel_samples", str(mps),
+               "--msa_dir", str(MSA_DIR), "--msa_db_path", str(MSA_DB_PATH),
+               "--seed", str(SEED), "--override", "--write_pae"]
     # One harness per card means N single-card predicts share this host. Each would
     # otherwise size its torch/OMP/BLAS pools to every core, so N folds oversubscribe
     # the CPU N-fold and the host-side work (featurization, layout conversion, output)
@@ -321,6 +337,16 @@ def fold_one(target, model, device, n_samples=N_SAMPLES, mps=MPS,
            "host": _HOST, "tt_bio_commit": commit,
            "paired_msa": False, "host_threads": host_threads,
            "timeout_s": fold_timeout_s}
+    if model == "esmfold2":
+        # D12 resolved-config provenance for the 4th generator: the paper protocol this
+        # leg runs at, so Phase 4 can assert constancy within the generator. mps is "auto"
+        # because the runtime chunks by diffusion budget, not --max_parallel_samples.
+        rec.update({"mps": "auto", "loops": 10, "requested_steps": 100,
+                    "executed_steps": 68, "diffusion_budget": 300000,
+                    "checkpoint_sha256":
+                        "138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e",
+                    "seed_protocol": "one private RNG stream, batch-row samples; chunk bases seed+done",
+                    "msa": "none"})
     if timed_out:
         rec["status"] = "timed_out"
         rec["stderr"] = f"killed after {fold_timeout_s}s (process group); tail: {(out or '')[-1500:]}"

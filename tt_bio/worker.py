@@ -364,7 +364,12 @@ class _WorkerState:
         # has one; ESMFold2-Fast does not (model.msa_encoder is None), so there's
         # nothing to consume an alignment — skip the search and fold single-seq
         # rather than do wasted work and falsely report msa=true.
-        uses_msa = getattr(self.model, "msa_encoder", None) is not None
+        # --single_sequence is an explicit opt-out of the whole MSA stage: skip the
+        # search AND resolve_msa's shared-cache lookup. The campaign's shared cache is
+        # warm with these exact sequences from the other generators, so a cache lookup
+        # would silently MSA-condition a fold that must run single-sequence.
+        uses_msa = (getattr(self.model, "msa_encoder", None) is not None
+                    and not cfg.get("single_sequence"))
 
         # MSA phase — rendered as the "MSA" stage, exactly like Boltz-2 (which
         # generates worker-side in prepare_features). When a source is given we
@@ -393,17 +398,64 @@ class _WorkerState:
             self.model, chains,
             num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],
             num_diffusion_samples=cfg["diffusion_samples"], seed=cfg.get("seed") or 0,
+            collapse=False,
         )
-        out = Path(cfg["struct_dir"]) / f"{path.stem}.{cfg['output_format']}"
-        _write_structure(res.complex, out, cfg["output_format"])
+        samples = res if isinstance(res, list) else [res]
+
+        def _conf_of(r):
+            ptm, iptm = getattr(r, "ptm", None), getattr(r, "iptm", None)
+            return {"plddt": float(r.plddt.mean()),
+                    "ptm": float(ptm) if ptm is not None else 0.0,
+                    "iptm": float(iptm) if iptm is not None else 0.0}
+
+        # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers,
+        # falling back to pLDDT only if neither is available -- identical to
+        # Protenix-v2's and OpenDDE's ranking.
+        def _score(c):
+            if c["iptm"] > 0.0:
+                return 0.8 * c["iptm"] + 0.2 * c["ptm"]
+            return c["ptm"] if c["ptm"] > 0.0 else c["plddt"]
+
+        confs = [_conf_of(r) for r in samples]
+        order = sorted(range(len(samples)), key=lambda k: _score(confs[k]), reverse=True)
+        rank_of = {k: r for r, k in enumerate(order)}
+
+        struct_dir = Path(cfg["struct_dir"])
+        stem, fmt = path.stem, cfg["output_format"]
+        for k in range(len(samples)):
+            r = rank_of[k]
+            name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
+            _write_structure(samples[k].complex, struct_dir / name, fmt)
+
+        def _row(c):
+            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
+                    "ptm": round(c["ptm"], 6), "iptm": round(c["iptm"], 6),
+                    "confidence_score": round(_score(c), 6)}
+
+        best = confs[order[0]]
         metrics = {
-            "plddt": round(float(res.plddt.mean()), 4),
+            **_row(best),
             "n_residues": sum(len(c[1]) for c in chains), "n_chains": len(chains),
             "msa": any(c[2] is not None for c in chains),
-            "samples": cfg["diffusion_samples"],  # best-of-N: report N (plddt is the winner's)
+            "samples": len(samples),
         }
-        if getattr(res, "ptm", None) is not None:
-            metrics["ptm"] = round(float(res.ptm), 4)
+        if len(samples) > 1:
+            metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
+        if cfg.get("write_pae"):                   # per-sample PAE (float16) + top-ranked (float32)
+            import numpy as np
+
+            def _np(x):
+                return x.detach().cpu().numpy() if hasattr(x, "detach") else np.asarray(x)
+
+            for _k in range(len(samples)):
+                _pae = getattr(samples[_k], "pae", None)
+                if _pae is None:
+                    continue
+                np.savez_compressed(struct_dir / f"{stem}_model_{rank_of[_k]}_pae.npz",
+                                    pae=_np(_pae).astype(np.float16))
+            _bpae = getattr(samples[order[0]], "pae", None)
+            if _bpae is not None:
+                np.savez(struct_dir / f"{stem}_pae.npz", pae=_np(_bpae))
         # _execute_job inspects feats["record"].affinity; ESMFold2 has no affinity.
         feats = {"record": types.SimpleNamespace(affinity=False)}
         return metrics, None, feats

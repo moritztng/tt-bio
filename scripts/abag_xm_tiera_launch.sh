@@ -41,6 +41,9 @@ CARDS="${1:-0 1 2 3}"
 # would otherwise have meant hand-editing this script under time pressure.
 #   scripts/abag_xm_tiera_launch.sh "0 1 2 3" "0 1 2 3 4 5 6 7"   # qb1 takes everything
 SLICE_LIST="${2:-}"
+# Optional 3rd arg: comma-separated model list (default: generate.py's own default, the
+# three MSA-fed generators). The esmfold2 leg launches as: <script> "<cards>" "" esmfold2
+MODELS="${3:-}"
 LEASE="worker:$(basename "$WT")"
 
 case "$(hostname)" in
@@ -94,7 +97,7 @@ PY
   setsid nohup env TT_VISIBLE_DEVICES="$card" TT_BIO_LEASE_HOLDER="$LEASE" \
     PYTHONPATH="$WT" PYTHONUNBUFFERED=1 \
     "$PY" -u "$WT/scripts/abag_xm_generate.py" \
-      --device "$card" --concurrent_folds 4 --targets "$targets" \
+      --device "$card" --concurrent_folds 4 ${MODELS:+--models "$MODELS"} --targets "$targets" \
     > "$LOGDIR/gen_card$card.log" 2>&1 < /dev/null &
   echo "card $card <- slices $slices ($(echo "$targets" | tr ',' '\n' | wc -l) targets)"
 done

@@ -31,7 +31,8 @@ ROOT = Path(__file__).resolve().parent.parent
 TIERA = Path.home() / "abag_xm" / "tier_a"
 LABELS_DIR = TIERA / "labels"
 PROGRESS = TIERA / "progress.jsonl"
-DIR_TO_GEN = {"protenix_v2": "protenix-v2", "opendde_abag": "opendde-abag", "boltz2": "boltz2"}
+DIR_TO_GEN = {"protenix_v2": "protenix-v2", "opendde_abag": "opendde-abag", "boltz2": "boltz2",
+              "esmfold2": "esmfold2"}
 PROVENANCE = ("host", "tt_bio_commit", "host_threads", "paired_msa", "mps", "n_samples",
               "wall_s", "device", "timeout_s", "recovered")
 

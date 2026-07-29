@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent
 LABELS_DIR = Path.home() / "abag_xm" / "tier_a" / "labels"
 TIERA_DIR = Path.home() / "abag_xm" / "tier_a"
 
-GEN_DIRS = {"protenix_v2": "protenix-v2", "boltz2": "boltz2", "opendde_abag": "opendde-abag"}
+GEN_DIRS = {"protenix_v2": "protenix-v2", "boltz2": "boltz2", "opendde_abag": "opendde-abag",
+            "esmfold2": "esmfold2"}
 
 COLUMNS = [
     "target", "gen", "rank",
