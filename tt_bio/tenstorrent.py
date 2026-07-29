@@ -90,10 +90,25 @@ def _dtype():
     return ttnn.bfloat8_b if _FAST_MODE else ttnn.bfloat16
 
 
-def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryConfig | None:
+def _adaln_memory_config(
+    atom_level: bool, large_seq_len: bool, rows: int = 0
+) -> ttnn.MemoryConfig | None:
+    """Where the atom-level AdaLN activations live.
+
+    ``large_seq_len`` alone answers this only at one sample per forward. The tensor is
+    ``(batch, N_padded, ATOM_DIM)`` and its L1 cost is linear in BOTH, so a sample batch
+    overflows L1 at a sequence length that is nowhere near the cutoff -- measured, a
+    25-sample chunk of a 1100-token target asks for a 103 MB L1 buffer. Read the same
+    cutoff as what it always was in disguise, a budget on total rows: at one sample
+    ``rows == N_padded <= SEQ_LEN_MORE_CHUNKING * MAX_ATOMS_PER_TOKEN`` exactly when
+    ``large_seq_len`` is false, so this is bit-identical there and only ever moves a
+    batched chunk to DRAM.
+    """
     if not atom_level:
         return None
-    return ttnn.DRAM_MEMORY_CONFIG if large_seq_len else ttnn.L1_MEMORY_CONFIG
+    if large_seq_len or rows > SEQ_LEN_MORE_CHUNKING * MAX_ATOMS_PER_TOKEN:
+        return ttnn.DRAM_MEMORY_CONFIG
+    return ttnn.L1_MEMORY_CONFIG
 
 
 def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
@@ -1360,8 +1375,21 @@ class Transition(Module):
                 if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
                 else TRANSITION_BATCH_CHUNKING_THRESHOLD
             )
-            if x.shape[1] > batch_chunking_threshold:
-                return ttnn.concat([swiglu(x[b:b+1, :, :]) for b in range(x.shape[0])], dim=0)
+            # The threshold is a budget on the rows swiglu holds in L1 at once, and the
+            # tensor is (batch, seq, channel) -- so it is batch*seq rows, not seq. Testing
+            # seq while chunking batch meant the relief valve never opened for a sample
+            # batch: measured, a 20-sample chunk of a 640-token target clashes L1 here at
+            # the widest of the three thresholds. At one sample this is the same
+            # comparison it always was, so nothing outside the sample batch moves.
+            group = max(1, batch_chunking_threshold // max(1, x.shape[1]))
+            if x.shape[0] * x.shape[1] > batch_chunking_threshold and group < x.shape[0]:
+                return ttnn.concat(
+                    [
+                        swiglu(x[b:min(b + group, x.shape[0]), :, :])
+                        for b in range(0, x.shape[0], group)
+                    ],
+                    dim=0,
+                )
             return swiglu(x)
 
         H, W = x.shape[1], x.shape[2]
@@ -1779,7 +1807,9 @@ class AdaLN(Module):
         self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False) -> ttnn.Tensor:
-        memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
+        memory_config = _adaln_memory_config(
+            self.atom_level, large_seq_len, rows=a.shape[0] * a.shape[1] * a.shape[2]
+        )
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
             s = ttnn.to_memory_config(s, memory_config=memory_config)
