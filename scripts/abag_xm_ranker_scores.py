@@ -315,11 +315,32 @@ def main():
             surviving_rows = []
         pruned = total - len(surviving_rows)
 
-    already = {(r.get("target"), r.get("gen")) for r in surviving_rows}
-    new_folds = [fd for fd in folds if (fd[1], fd[2]) not in already]
+    rows_by_pair = {}
+    for r in surviving_rows:
+        rows_by_pair.setdefault((r.get("target"), r.get("gen")), []).append(r)
+
+    def _needs_score(pair):
+        rows = rows_by_pair.get(pair)
+        if not rows:
+            return True
+        # Rows from a physics-only pass (or a ranker run whose env was broken, cf. qb2's
+        # missing pyyaml leaving every learned cell empty) are holes, not scores. Without
+        # this, "already-scored" locked the requested column empty forever.
+        if args.with_deeprank and any(not r.get("deeprank_ab") for r in rows):
+            return True
+        if args.with_abagrank and any(not r.get("abag_rank") for r in rows):
+            return True
+        return False
+
+    new_folds = [fd for fd in folds if _needs_score((fd[1], fd[2]))]
+    rescored = {(fd[1], fd[2]) for fd in new_folds} & set(rows_by_pair)
+    if rescored:
+        surviving_rows = [r for r in surviving_rows
+                          if (r.get("target"), r.get("gen")) not in rescored]
     skipped = len(folds) - len(new_folds)
 
-    msg = f"[ranker_scores] scoring {len(new_folds)} folds (skipped {skipped} already-scored)"
+    msg = (f"[ranker_scores] scoring {len(new_folds)} folds (skipped {skipped} fully-scored"
+           f", re-scoring {len(rescored)} with missing requested columns)")
     if pruned:
         msg += f"; pruned {pruned} orphaned rows"
     if args.clean:
