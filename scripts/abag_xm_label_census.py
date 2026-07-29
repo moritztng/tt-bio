@@ -70,9 +70,12 @@ def _native_match(gt_cif, yaml_path, role):
                     continue
                 if not yseq or not s:
                     continue
+                # short antigens (peptides): a single mismatch is >5%, so
+                # allow <=2 mismatches under 30 aa
+                bar = 0.95 if len(yseq) >= 30 else 1.0 - 2.0 / max(len(yseq), 1)
                 if (s == yseq or s in yseq or yseq in s or
                         (len(s) == len(yseq) and
-                         sum(a == b for a, b in zip(s, yseq)) / len(s) >= 0.95)):
+                         sum(a == b for a, b in zip(s, yseq)) / len(s) >= bar)):
                     matched = True
                     n_ca = sum(1 for r in ch for at in r if at.name == "CA")
                     resolved_ca = max(resolved_ca, n_ca)
@@ -99,6 +102,9 @@ def _evidence(rec):
     for k in ("_error", "error", "status"):
         if rec.get(k):
             return str(rec[k])[:200]
+    if rec.get("n_interface_residues") == 0:
+        return "n_interface_residues: 0 (model pose docked away from the " \
+               "antigen -- correct null)"
     if rec.get("_raw"):
         return "raw: " + str(rec["_raw"])[:180]
     if not rec:
@@ -147,6 +153,9 @@ def main():
                 cause = ("anti-phosphoepitope: the native interface is carried by "
                          "SEP (phosphoserine) residues that DockQ's loader "
                          "discards -- no scorable interface atoms")
+            elif "n_interface_residues: 0" in ev:
+                cause = ("model pose docked away from the antigen "
+                         "(n_interface_residues: 0) -- correct null")
             elif "bitscore" in ev or "hmmer" in ev.lower():
                 cause = ("harness: ANARCI species-limit warning on stdout broke "
                          "JSON parsing (record truncated); recoverable by "
