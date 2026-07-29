@@ -241,6 +241,24 @@ def _run_cli(cli, ensemble, chain_flags, work, stdout_tail=1500):
     # works regardless of the parent env -- auto-detection is still the fallback.
     env = {**os.environ,
            "PATH": os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")}
+    # fetch_weights() resolves the 2.6 GB ESM-2 weights relative to the CWD -- a fresh work dir
+    # per invocation -- so every batch re-downloads from dl.fbaipublicfiles.com, and one CDN
+    # read-timeout kills the whole run (qb2 lost 224/234 folds that way). Point the CLI at the
+    # campaign's stable cache instead, but only when the package's own checksum agrees, so a
+    # truncated copy is never handed over. Any failure here keeps the old behavior.
+    try:
+        from scripts.inference import ESM_MODEL, EXPECTED_CHECKSUMS, calculate_checksum
+        cache = Path.home() / "abag_xm" / "esm_weights"
+        for env_var, fname, want in (("WEIGHT_PATH", f"{ESM_MODEL}.pt", EXPECTED_CHECKSUMS[0]),
+                                     ("REG_WEIGHT_PATH", f"{ESM_MODEL}-contact-regression.pt",
+                                      EXPECTED_CHECKSUMS[1])):
+            f = cache / fname
+            if f.exists() and calculate_checksum(str(f)) == want:
+                env[env_var] = str(f)
+        if "WEIGHT_PATH" in env:
+            print(f"[deeprank-batch] ESM-2 weights from stable cache {cache}", flush=True)
+    except Exception:
+        pass
     r = subprocess.run([str(cli), str(ensemble)] + chain_flags, capture_output=True,
                        text=True, cwd=str(Path(work)), env=env)
     print(r.stdout[-stdout_tail:])
