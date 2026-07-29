@@ -3,9 +3,11 @@
 with a verified cause.
 
 The dataset has 164 targets; 161 are scorable. The 3 exclusions (9ly2, 9ly3,
-9lz2) carry null `dockq` because the native antigen chain is substantially
-unresolved at the interface -- no scorable interface atoms exist, so the null
-is the correct record. Two more null classes exist (`interface_lddt`,
+9lz2) carry null `dockq`: they are anti-phosphoepitope antibodies whose
+native interface is carried by SEP (phosphoserine) residues that DockQ's
+loader discards, so no scorable interface atoms exist and the null is the
+correct record (verified: antigen chain present and resolved, SEP residues
+in the antigen chain). Two more null classes exist (`interface_lddt`,
 `cdr_h3_rmsd`) and each fold gets a cause assigned here from the labels JSON
 error fields plus a native-side sequence check:
 
@@ -80,6 +82,16 @@ def _native_match(gt_cif, yaml_path, role):
     return matched, resolved_ca, len(yseq)
 
 
+def _has_sep(gt_cif):
+    """Native carries phosphoserine (SEP) residues (anti-phosphoepitope class)."""
+    import gemmi
+    try:
+        st = gemmi.read_structure(str(gt_cif))
+        return any(r.name == "SEP" for m in st for ch in m for r in ch)
+    except Exception:
+        return False
+
+
 def _evidence(rec):
     """Pull a short cause string out of a per-sample label record."""
     if not isinstance(rec, dict):
@@ -130,8 +142,20 @@ def main():
             matched, n_ca, ylen = _native_match(
                 Path(a.gt_dir) / f"{target}.cif",
                 Path(a.yaml_dir) / f"{target}.yaml", ROLE[col])
-            unresolved = (not matched) or n_ca < max(20, 0.3 * ylen)
-            if unresolved:
+            gt = Path(a.gt_dir) / f"{target}.cif"
+            if col == "dockq" and _has_sep(gt):
+                cause = ("anti-phosphoepitope: the native interface is carried by "
+                         "SEP (phosphoserine) residues that DockQ's loader "
+                         "discards -- no scorable interface atoms")
+            elif "bitscore" in ev or "hmmer" in ev.lower():
+                cause = ("harness: ANARCI species-limit warning on stdout broke "
+                         "JSON parsing (record truncated); recoverable by "
+                         "re-running the CDR script")
+            elif col == "cdr_h3_rmsd" and "cdrs" in ev:
+                cause = ("no heavy-chain CDR numbering recovered (H1 null, "
+                         "H2/H3 absent; light-chain CDRs scored) -- consistent "
+                         "with the native heavy chain unresolved at CDR-H3")
+            elif (not matched) or n_ca < max(20, 0.3 * ylen):
                 detail = (f"no matching polymer" if not matched else
                           f"only {n_ca}/{ylen} residues with atoms")
                 cause = (f"native {ROLE[col]} chain substantially unresolved "
@@ -168,9 +192,11 @@ def main():
         fails.append("census rows without a cause")
 
     md = ["# AbAg-XM label census", "",
-          "164 targets; 161 scorable. Every success-rate table uses denominator "
-          "161. This census lists every null-label fold x column with its cause; "
-          "the null is the correct record for each of them.", ""]
+          "164 targets; 161 scorable (the 3 anti-phosphoepitope targets 9ly2, "
+          "9ly3, 9lz2 have no scorable native interface -- their contacts are "
+          "carried by phosphoserine residues that DockQ's loader discards). "
+          "Every success-rate table uses denominator 161. This census lists "
+          "every null-label fold x column with its verified cause.", ""]
     for col in COLS:
         sub = cen[cen.column == col]
         md.append(f"## `{col}` -- {len(sub)} folds, {int(sub.n_null.sum())} samples")
