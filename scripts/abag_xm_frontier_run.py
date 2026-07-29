@@ -16,6 +16,13 @@ seed-block j) -> card j % 8. Seeds: Arm A 42; Arm B 1000+10*j, disjoint.
 
 Resume: a job whose out_dir holds a complete fold (results.json status ok
 with exactly n_samples CIFs) is skipped.
+
+Spawn-deadlock watchdog: the predict spawns its device worker with
+mp "spawn" from a multi-threaded parent; the forked child can deadlock
+before exec (observed 2026-07-29: child forked, zero syscalls, parent
+parked in do_select forever, zero log output). Signature: whole process
+tree at ~0 CPU, no tenstorrent fds, no results.json. Killed and retried
+in-place (up to 3 attempts per job).
 """
 import argparse, json, os, signal, socket, subprocess, sys, time
 from pathlib import Path
@@ -33,6 +40,7 @@ MSA_DB = Path.home() / ".boltz" / "msa_db"
 CKPT_SHA256 = "5cf37441ddef2a2f148b81dd4a218ad274f996fecaf17dec901ab6cf1351713d"
 RECYCLING_STEPS, SAMPLING_STEPS = 10, 200  # resolved tt-bio defaults (D4a), unset on cmdline
 WT = Path(__file__).resolve().parent.parent
+MAX_DEADLOCK_RETRIES = 2  # 3 attempts total per job
 
 
 def fold_python():
@@ -67,8 +75,8 @@ def plan(out_dir):
     for i in range(8):
         (out_dir / f"jobs_card{i}.json").write_text(json.dumps(jobs[i], indent=1))
         print(f"card {i}: {len(jobs[i])} jobs "
-              f"({sum(1 for x in jobs[i] if x['arm'] == 'A')} A + "
-              f"{sum(1 for x in jobs[i] if x['arm'] == 'B')} B)")
+              f"{sum(1 for x in jobs[i] if x['arm'] == 'A')} A + "
+              f"{sum(1 for x in jobs[i] if x['arm'] == 'B')} B")
 
 
 def result_dir(job):
@@ -108,6 +116,41 @@ def record(job, card, wall_s, status):
     return rec
 
 
+def _proc_tree(root):
+    """Descendant pids of root (inclusive) plus summed utime+stime jiffies."""
+    kids, jiffies = {}, {}
+    for pid_s in os.listdir("/proc"):
+        if not pid_s.isdigit():
+            continue
+        try:
+            fields = Path(f"/proc/{pid_s}/stat").read_text().rsplit(")", 1)[1].split()
+            ppid, ut, stt = int(fields[1]), int(fields[11]), int(fields[12])
+        except Exception:
+            continue
+        kids.setdefault(ppid, []).append(int(pid_s))
+        jiffies[int(pid_s)] = ut + stt
+    tree, stack = [], [root]
+    while stack:
+        pid = stack.pop()
+        tree.append(pid)
+        stack.extend(kids.get(pid, ()))
+    return tree, sum(jiffies.get(p, 0) for p in tree)
+
+
+def _tree_has_device(tree):
+    for pid in tree:
+        try:
+            for fd in os.listdir(f"/proc/{pid}/fd"):
+                try:
+                    if "tenstorrent" in os.readlink(f"/proc/{pid}/fd/{fd}"):
+                        return True
+                except OSError:
+                    pass
+        except OSError:
+            pass
+    return False
+
+
 def run_job(job, card, py, timeout, host_threads, log):
     yaml = WT / "examples" / "abag_xm" / f"{job['target']}.yaml"
     cmd = [py, "-m", "tt_bio.main", "predict", str(yaml),
@@ -122,13 +165,35 @@ def run_job(job, card, py, timeout, host_threads, log):
     with open(log, "a") as lf:
         p = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT,
                              env=env, start_new_session=True)
-        try:
-            rc = p.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            os.killpg(p.pid, signal.SIGKILL)
-            p.wait()
-            return time.time() - t0, "timeout"
-    wall = time.time() - t0
+        idle_snaps, last_j = 0, None
+        status = None
+        while True:
+            rc = p.poll()
+            if rc is not None:
+                break
+            time.sleep(30)
+            if time.time() - t0 > timeout:
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait()
+                return time.time() - t0, "timeout"
+            if complete(job):
+                continue
+            tree, j = _proc_tree(p.pid)
+            if _tree_has_device(tree):
+                idle_snaps, last_j = 0, None
+                continue
+            # a deadlocked tree still burns ~1% in the parent's select loop;
+            # a healthy no-device phase (featurization) saturates cores.
+            if last_j is not None and j - last_j < 300:
+                idle_snaps += 1
+            else:
+                idle_snaps = 0
+            last_j = j
+            if idle_snaps >= 6:
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait()
+                return time.time() - t0, "spawn-deadlock"
+        wall = time.time() - t0
     if rc != 0:
         return wall, f"failed:rc{rc}"
     st = fold_status(job)
@@ -160,10 +225,16 @@ def main():
             continue
         log = Path(job["out_dir"]).with_suffix(".log")
         Path(job["out_dir"]).mkdir(parents=True, exist_ok=True)
-        wall, status = run_job(job, a.card, py, a.timeout, a.host_threads, log)
-        rec = record(job, a.card, wall, status)
-        print(f"[{k+1}/{len(jobs)}] {tag} {status} wall={rec['wall_s']}s "
-              f"n_cifs={rec['n_cifs']}", flush=True)
+        attempt = 0
+        while True:
+            wall, status = run_job(job, a.card, py, a.timeout, a.host_threads, log)
+            rec = record(job, a.card, wall, status)
+            print(f"[{k+1}/{len(jobs)}] {tag} {status} wall={rec['wall_s']}s "
+                  f"n_cifs={rec['n_cifs']}", flush=True)
+            if status != "spawn-deadlock" or attempt >= MAX_DEADLOCK_RETRIES:
+                break
+            attempt += 1
+            print(f"[{k+1}/{len(jobs)}] {tag} retry {attempt} after spawn-deadlock", flush=True)
 
 
 if __name__ == "__main__":
