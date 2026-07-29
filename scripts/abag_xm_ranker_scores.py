@@ -134,6 +134,8 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
 
 
 _FORCE_DEEPRANK = False
+# Selftests point this at a temp dir; production uses TIERA_DIR / "deeprank_json_cache".
+_DEEPRANK_CACHE_DIR = None
 # (target, gen, column) for every learned ranker that was asked for and returned nothing.
 _EMPTY_LEARNED = []
 
@@ -179,38 +181,73 @@ def _run_deeprank_batched(folds, deeprank_venv, max_batch=5):
               "idle, or pass --force_deeprank if you accept starving them.", file=sys.stderr)
         return {}
 
-    work = tempfile.mkdtemp(prefix="deeprank_manifest_")
-    manifest = []
-    for fold_dir, target, gen in folds:
-        manifest.append({"target": target, "gen": gen, "fold_dir": str(fold_dir),
-                         "out_json": os.path.join(work, f"{target}__{gen}.json")})
-    man_path = os.path.join(work, "manifest.json")
-    with open(man_path, "w") as f:
-        json.dump(manifest, f)
+    # Per-fold JSONs go to a STABLE cache, not a per-run temp dir. The DeepRank phase holds every
+    # score in memory and the CSV is only rewritten after it completes, so a crash/reboot mid-phase
+    # (qb1 lost one to unattended-upgrades) used to orphan hours of scoring: the JSONs survived in
+    # /tmp but the relaunch built a fresh work dir and recomputed everything. A cached JSON is
+    # reused only when it parses to a non-empty dict (a kill mid-write leaves a truncated file,
+    # which just re-scores) AND is newer than every fold input (results.json + CIFs), so a refold
+    # is never served a stale score.
+    cache = Path(_DEEPRANK_CACHE_DIR) if _DEEPRANK_CACHE_DIR else \
+        TIERA_DIR / "deeprank_json_cache"
+    cache.mkdir(parents=True, exist_ok=True)
 
-    print(f"[deeprank] scoring {len(manifest)} folds in batches of {max_batch}", flush=True)
-    r = subprocess.run([py, str(wrapper), "--manifest", man_path,
-                        "--max_batch", str(max_batch),
-                        "--deeprank_venv", deeprank_venv],
-                       capture_output=True, text=True)
-    for ln in (r.stdout or "").splitlines():
-        if ln.startswith("[deeprank-batch]"):
-            print("  " + ln, flush=True)
-    if r.returncode != 0:
-        # Partial output is still usable: the wrapper writes per-fold and only skips the folds it
-        # could not complete. Read what landed and let the per-fold empty check name the holes.
-        print(f"[deeprank] wrapper exited rc={r.returncode} -- reading whatever landed",
-              file=sys.stderr)
-        print((r.stderr or "")[-1200:], file=sys.stderr)
+    def _cache_hit(path, fold_dir):
+        try:
+            with open(path) as f:
+                scores = {int(k): float(v) for k, v in json.load(f).items()}
+            if not scores:
+                return None
+            inputs = [Path(fold_dir) / "results.json"] + \
+                list((Path(fold_dir) / "structures").glob("*.cif"))
+            newest_in = max(os.path.getmtime(p) for p in inputs if p.exists())
+            return scores if os.path.getmtime(path) >= newest_in else None
+        except Exception:
+            return None
 
     out = {}
-    for m in manifest:
-        try:
-            with open(m["out_json"]) as f:
-                out[(m["target"], m["gen"])] = {int(k): float(v) for k, v in json.load(f).items()}
-        except Exception:
-            continue
-    print(f"[deeprank] got scores for {len(out)}/{len(manifest)} folds", flush=True)
+    manifest = []
+    for fold_dir, target, gen in folds:
+        cj = cache / f"{target}__{gen}.json"
+        hit = _cache_hit(cj, fold_dir)
+        if hit is not None:
+            out[(target, gen)] = hit
+        else:
+            manifest.append({"target": target, "gen": gen, "fold_dir": str(fold_dir),
+                             "out_json": str(cj)})
+    cached = len(out)
+    if cached:
+        print(f"[deeprank] {cached}/{len(folds)} folds reused from {cache}", flush=True)
+
+    if manifest:
+        work = tempfile.mkdtemp(prefix="deeprank_manifest_")
+        man_path = os.path.join(work, "manifest.json")
+        with open(man_path, "w") as f:
+            json.dump(manifest, f)
+
+        print(f"[deeprank] scoring {len(manifest)} folds in batches of {max_batch}", flush=True)
+        r = subprocess.run([py, str(wrapper), "--manifest", man_path,
+                            "--max_batch", str(max_batch),
+                            "--deeprank_venv", deeprank_venv],
+                           capture_output=True, text=True)
+        for ln in (r.stdout or "").splitlines():
+            if ln.startswith("[deeprank-batch]"):
+                print("  " + ln, flush=True)
+        if r.returncode != 0:
+            # Partial output is still usable: the wrapper writes per-fold and only skips the folds
+            # it could not complete. Read what landed and let the empty check name the holes.
+            print(f"[deeprank] wrapper exited rc={r.returncode} -- reading whatever landed",
+                  file=sys.stderr)
+            print((r.stderr or "")[-1200:], file=sys.stderr)
+
+        for m in manifest:
+            try:
+                with open(m["out_json"]) as f:
+                    out[(m["target"], m["gen"])] = \
+                        {int(k): float(v) for k, v in json.load(f).items()}
+            except Exception:
+                continue
+    print(f"[deeprank] got scores for {len(out)}/{len(folds)} folds", flush=True)
     return out
 
 
