@@ -106,17 +106,26 @@ def _yaml_seqs(yaml_path):
     return out  # e.g. {"A": antigen, "H": heavy, "L": light}
 
 
+def _sanitize(seq):
+    """Strip gap chars (unresolved residues in natives) and map non-AA to X."""
+    return "".join(c if c in "ACDEFGHIKLMNPQRSTVWY" else "X"
+                   for c in seq.replace("-", ""))
+
+
 def _match_role(auth_seq, yaml_by_role):
     """Classify a native chain sequence against the fold's yaml sequences.
 
     Returns 'antigen' | 'H' | 'L' | 'HL_ambiguous' | None. Exact match first,
     then containment either way (prefix-match class), then >=0.95 identity at
-    equal length.
+    equal length. Both sides are sanitized first (natives carry '-' gaps for
+    unresolved residues; the yaml sequences are gap-free).
     """
+    auth_seq = _sanitize(auth_seq or "")
     if not auth_seq:
         return None
     hits = []
     for role, ys in yaml_by_role.items():
+        ys = _sanitize(ys or "")
         if not ys:
             continue
         if auth_seq == ys or auth_seq in ys or (len(auth_seq) >= 20 and ys in auth_seq):
@@ -189,7 +198,7 @@ def _score_fold(task):
 
     result = {"target": target, "gen": gen,
               "declared": {"d1": declared[0], "d2": declared[1]},
-              "rows": [], "fab": {"status": fab_chains["status"]}, "errors": []}
+              "rows": [], "fab": dict(fab_chains), "errors": []}
     try:
         labels = json.loads(Path(labels_path).read_text())
         samples = labels["samples"]
@@ -201,14 +210,21 @@ def _score_fold(task):
         per_rank_rows = {r["row_id"]: {} for r in rows}
         per_rank_fab = {}
         declared_recomp = {}  # rank -> dockq of the declared-pair row
+        # Chain maps are sequence-only and the model chain ids/sequences are
+        # identical across a fold's 50 samples (only coordinates differ), so
+        # build them once per fold; rebuild only if a sample's id set differs.
+        maps = None
         for s in samples:
             rank = s["rank"]
             ms = load_PDB(s["cif"])
             mc = [c.id for c in ms]
-            clusters, rev = group_chains(ms, ns, mc, nc, allowed_mismatches=0)
-            cmap = next(get_all_chain_maps(clusters, {}, rev, mc, nc))
-            inv = {n: m for m, n in cmap.items()}
-            seq_map = _build_seq_map(s["cif"], str(gt_path))
+            if maps is None or maps[0] != set(mc):
+                clusters, rev = group_chains(ms, ns, mc, nc, allowed_mismatches=0)
+                cmap = next(get_all_chain_maps(clusters, {}, rev, mc, nc))
+                inv = {n: m for m, n in cmap.items()}
+                seq_map = _build_seq_map(s["cif"], str(gt_path))
+                maps = (set(mc), cmap, inv, seq_map)
+            _mc_set, cmap, inv, seq_map = maps
 
             def resolve(auth_id):
                 return _resolve(auth_id, mc, nc, cmap, inv, seq_map)
