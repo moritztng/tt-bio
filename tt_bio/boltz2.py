@@ -3886,6 +3886,32 @@ _SAMPLE_CHUNK_DRAM_FRACTION = 0.55
 _SAMPLE_CHUNK_CEILING = 64     # hard ceiling, so a pathological request cannot run away
 
 
+def _write_sample_digest(atom_coords, chunk_width):
+    """Append a per-sample SHA of the final diffusion coordinates, one line per sample.
+
+    Chunking regroups the sample batch and must not move a single bit of any sample, so
+    the acceptance check for every chunking change is "same seed, different width, same
+    digests". Per sample and not over the whole tensor, because sample i stays sample i
+    at every width -- a per-sample digest says WHICH sample moved, and survives a run
+    that folds a different number of samples. Off unless TT_BIO_SAMPLE_DIGEST names a
+    file, so a production fold pays nothing; a file and not stdout because the fold runs
+    in a spawned worker whose stdout the progress view owns.
+    """
+    path = os.environ.get("TT_BIO_SAMPLE_DIGEST")
+    if not path:
+        return
+    import hashlib
+
+    coords = atom_coords.detach().to(torch.float32).cpu().contiguous()
+    try:
+        with open(path, "a") as fp:
+            for i in range(coords.shape[0]):
+                digest = hashlib.sha256(coords[i].numpy().tobytes()).hexdigest()[:16]
+                fp.write(f"width={chunk_width} sample={i} {digest}\n")
+    except OSError:
+        pass                                 # a diagnostic must never break a fold
+
+
 def resolve_sample_chunk_width(multiplicity, max_parallel_samples, n_tokens):
     """The single sample-chunk width the whole trajectory is denoised at.
 
@@ -4384,6 +4410,7 @@ class AtomDiffusion(Module):
 
             atom_coords = atom_coords_next
 
+        _write_sample_digest(atom_coords, chunk_width)
         return dict(sample_atom_coords=atom_coords, diff_token_repr=token_repr)
 
     def loss_weight(self, sigma):
