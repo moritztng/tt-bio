@@ -44,15 +44,20 @@ def _sanitize(seq):
 
 
 def _native_match(gt_cif, yaml_path, role):
-    """Does a native chain match the yaml chain for `role`? Returns
-    (matched: bool, best_resolved_len, yaml_len)."""
+    """Match the yaml chain for `role` against native polymer sequences.
+
+    Returns (matched, resolved_ca, yaml_len) where resolved_ca counts CA atoms
+    in the best-matching native chain -- the polymer SEQUENCE exists in the
+    mmCIF even where every residue is unresolved, so only the atom count
+    distinguishes "substantially unresolved" from "present".
+    """
     import gemmi
     import yaml
     ys = {e["protein"]["id"]: e["protein"]["sequence"]
           for e in yaml.safe_load(Path(yaml_path).read_text())["sequences"]}
     yseq = _sanitize(ys.get(role if role != "antigen" else "A", ""))
-    best = 0
     matched = False
+    resolved_ca = 0
     try:
         st = gemmi.read_structure(str(gt_cif))
         for m in st:
@@ -61,17 +66,18 @@ def _native_match(gt_cif, yaml_path, role):
                     s = _sanitize(ch.get_polymer().make_one_letter_sequence())
                 except Exception:
                     continue
-                best = max(best, len(s))
                 if not yseq or not s:
                     continue
                 if (s == yseq or s in yseq or yseq in s or
                         (len(s) == len(yseq) and
                          sum(a == b for a, b in zip(s, yseq)) / len(s) >= 0.95)):
                     matched = True
+                    n_ca = sum(1 for r in ch for at in r if at.name == "CA")
+                    resolved_ca = max(resolved_ca, n_ca)
             break
     except Exception:
         pass
-    return matched, best, len(yseq)
+    return matched, resolved_ca, len(yseq)
 
 
 def _evidence(rec):
@@ -83,7 +89,12 @@ def _evidence(rec):
             return str(rec[k])[:200]
     if rec.get("_raw"):
         return "raw: " + str(rec["_raw"])[:180]
-    return ""
+    if not rec:
+        return "empty record"
+    scalars = {k: v for k, v in rec.items()
+               if not isinstance(v, (list, dict)) and v is None}
+    return "null fields: " + ",".join(sorted(scalars)) if scalars else \
+        "keys: " + ",".join(sorted(rec)[:8])
 
 
 def main():
@@ -116,17 +127,22 @@ def main():
                         ev = _evidence(rec)
                         if ev:
                             break
-            matched, best_len, ylen = _native_match(
+            matched, n_ca, ylen = _native_match(
                 Path(a.gt_dir) / f"{target}.cif",
                 Path(a.yaml_dir) / f"{target}.yaml", ROLE[col])
-            if "not found" in ev and matched:
+            unresolved = (not matched) or n_ca < max(20, 0.3 * ylen)
+            if unresolved:
+                detail = (f"no matching polymer" if not matched else
+                          f"only {n_ca}/{ylen} residues with atoms")
+                cause = (f"native {ROLE[col]} chain substantially unresolved "
+                         f"({detail}) -- no scorable interface" if col == "dockq"
+                         else f"native {ROLE[col]} chain substantially unresolved "
+                              f"({detail})")
+            elif "not found" in ev:
                 cause = "recoverable: exact-match chain-resolution bug " \
-                        "(prefix/identical native chain exists)"
-            elif matched:
-                cause = "native chain resolved; label pipeline null (see evidence)"
+                        f"(native chain present, {n_ca}/{ylen} residues with atoms)"
             else:
-                cause = f"native {ROLE[col]} chain (substantially) unresolved " \
-                        f"(best resolved chain {best_len} aa vs yaml {ylen} aa)"
+                cause = "native chain resolved; label pipeline null (see evidence)"
             rows.append({"target": target, "gen": gen, "column": col,
                          "n_null": n_null, "n_samples": len(g), "cause": cause,
                          "evidence": ev})

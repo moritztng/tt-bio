@@ -49,8 +49,11 @@ def main():
 
     rows = []
     for p in sorted(Path(a.labels_dir).glob("*.json")):
-        prefix, target = p.stem.split("_", 1)
-        gen = GEN_PREFIX.get(prefix)
+        gen = target = None
+        for prefix, g in GEN_PREFIX.items():
+            if p.stem.startswith(prefix + "_"):
+                gen, target = g, p.stem[len(prefix) + 1:]
+                break
         if gen is None:
             continue
         d = json.loads(p.read_text())
