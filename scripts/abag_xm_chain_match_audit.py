@@ -73,8 +73,7 @@ def main():
             stat["a chain matches NEITHER -- needs alignment"] += 1
             losers.append((yf.stem, kind))
         else:
-            stat["exact-or-prefix -- recoverable by prefix match"] += 1
-            losers.append((yf.stem, kind))
+            stat["exact-or-prefix -- matched by the substring matcher"] += 1
 
     total = sum(stat.values())
     print(f"targets: {total}")
@@ -82,7 +81,18 @@ def main():
         print(f"  {k}: {v} ({100 * v / total:.0f}%)")
     print(f"\nstart-offset over every prefix match: {dict(offsets)}"
           f"{'  <- all zero: truncation suffices, no realignment' if set(offsets) <= {0} else ''}")
-    print(f"\ntargets losing interface_lddt + cdr_rmsd today: {len(losers)}")
+    # This reports UNRESOLVED CHAINS, which is not the same as lost labels, and the difference has
+    # bitten twice. It used to count exact-or-prefix targets as losers -- true when _find_chain
+    # needed exact equality, false once it gained the substring pass -- and reported "73 targets
+    # losing interface_lddt + cdr_rmsd" while 9dsg/9gvn/9k6j/9kwy were all labelled 50/50.
+    #
+    # Even restricted to a chain matching NEITHER, the label consequence does not follow: 9mnu has
+    # H unresolved and still scores interface_lddt 47-50/50, because interface_lddt only REQUIRES
+    # chain A; and 9ly2 has A unresolved yet keeps cdr_rmsd 50/50, because cdr_rmsd matches
+    # independently. So do NOT wire this as a release gate -- its unit is chain resolution, not
+    # label loss. `abag_xm_label_qc.py` reads the produced labels and is the instrument for that.
+    print(f"\ntargets with a chain the matcher cannot resolve (NOT necessarily lost labels -- "
+          f"verify against the label JSONs): {len(losers)}")
     for name, kind in losers[:10]:
         print(f"  {name}: {kind}")
     if len(losers) > 10:
