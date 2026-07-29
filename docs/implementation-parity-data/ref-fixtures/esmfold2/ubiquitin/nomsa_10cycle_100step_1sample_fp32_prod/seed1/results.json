@@ -1,0 +1,14 @@
+[
+  {
+    "id": "ubiquitin",
+    "status": "ok",
+    "plddt": 0.8105625510215759,
+    "complex_plddt": 0.8105625510215759,
+    "ptm": 0.7545455694198608,
+    "iptm": 0.0,
+    "confidence_score": 0.15090911388397218,
+    "n_residues": 76,
+    "n_atoms": 601,
+    "samples": 1
+  }
+]

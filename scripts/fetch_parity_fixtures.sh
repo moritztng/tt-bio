@@ -24,7 +24,8 @@
 #   1. Harvest new fixtures:        python3 scripts/pharma_harvest_ref_fixtures.py ...
 #   2. Tar the binary fixtures:     tar czf <tag>.tar.gz \
 #                                      -C docs/implementation-parity-data ref-fixtures \
-#                                      --include='*.cif' --include='*.a3m'  (or full tree)
+#                                      --include='*.cif' --include='*.a3m' \
+#                                      --include='*.npz'  (or full tree)
 #   3. sha256sum <tag>.tar.gz > <tag>.sha256
 #   4. gh release create <tag> <tag>.tar.gz <tag>.sha256 \
 #         --repo moritztng/tt-bio --notes "Externalized parity reference fixtures"

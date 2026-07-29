@@ -1916,13 +1916,30 @@ def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 def _resolve_recycling_steps(recycling_steps, model):
     """Per-model default trunk-recycling count when --recycling_steps is unset (None).
 
-    protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); boltz2/esmfold2 use the
-    Boltz-2/AF3 convention of 3. An explicit --recycling_steps is honored verbatim for every
-    model. Running protenix-v2 at 3 under-recycles its trunk.
+    protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); opendde/opendde-abag keep 10;
+    esmfold2/esmfold2-fast use 10, the ESMFold2 paper's benchmark protocol (A.2.10: "For all
+    benchmark results ... ESMFold2 uses 10 loops"); boltz2 uses the Boltz-2/AF3 convention
+    of 3. An explicit --recycling_steps is honored verbatim for every model. Running
+    protenix-v2 at 3 under-recycles its trunk.
     """
     if recycling_steps is not None:
         return recycling_steps
-    return 10 if model in ("protenix-v2", "opendde", "opendde-abag") else 3
+    return 10 if model in ("protenix-v2", "opendde", "opendde-abag", "esmfold2",
+                           "esmfold2-fast") else 3
+
+
+def _resolve_sampling_steps(sampling_steps, model):
+    """Per-model default REQUESTED diffusion-sampling steps when --sampling_steps is unset.
+
+    esmfold2/esmfold2-fast request 100, the ESMFold2 paper's benchmark protocol (A.2.11:
+    "We use N = 100 which reduces to 68 sampling steps"): the sampler clips the Karras
+    schedule at sigma_max=256, so requesting 100 executes 68 denoise steps. Every other
+    model keeps 200. Requested is not executed for esmfold2 — passing 68 literally would
+    execute only 46. An explicit --sampling_steps is honored verbatim for every model.
+    """
+    if sampling_steps is not None:
+        return sampling_steps
+    return 100 if model in ("esmfold2", "esmfold2-fast") else 200
 
 
 # The structure models that degrade sharply folded single-sequence, so `predict` resolves an
@@ -1983,8 +2000,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
-              help="Trunk recycling iterations. Default: protenix-v2 uses its spec of 10; boltz2/esmfold2 use 3.")
-@click.option("--sampling_steps", default=200, type=int)
+              help="Trunk recycling iterations. Default: protenix-v2/opendde/esmfold2 use 10; boltz2 uses 3.")
+@click.option("--sampling_steps", default=None, type=int,
+              help="Requested diffusion sampling steps. Default: esmfold2/esmfold2-fast request "
+                   "100 (executes 68 after the sigma_max=256 schedule clip); every other model "
+                   "200. Explicit values are honored verbatim.")
 @click.option("--diffusion_samples", default=1, type=int)
 @click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
               help="Diffusion samples denoised in one batched forward. Higher is faster but "
@@ -2097,9 +2117,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
 
-    # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2 -> its
-    # spec 10, boltz2/esmfold2 -> 3; an explicit --recycling_steps overrides either.
+    # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2/opendde/
+    # esmfold2 -> 10, boltz2 -> 3; an explicit --recycling_steps overrides either.
     recycling_steps = _resolve_recycling_steps(recycling_steps, model)
+    # Per-model requested diffusion steps (see _resolve_sampling_steps): esmfold2 requests
+    # 100 (68 executed after the sigma-clip), everything else 200.
+    sampling_steps = _resolve_sampling_steps(sampling_steps, model)
 
     use_tt = accelerator == "tenstorrent"
     if fast and not use_tt:

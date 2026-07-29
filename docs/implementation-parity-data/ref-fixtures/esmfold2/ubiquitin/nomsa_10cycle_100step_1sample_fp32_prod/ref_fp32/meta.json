@@ -1,0 +1,10 @@
+{
+  "reference_impl": "tt-bio vendored torch reference (Biohub/transformers fork f9a5a37, CPU fp32)",
+  "dtype": "fp32",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "note": "shared ESMC hidden states: computed once with the ttnn ESMC-6B and injected into both forwards (lm_hidden_states=), so this leg isolates the ESMFold2 port"
+}

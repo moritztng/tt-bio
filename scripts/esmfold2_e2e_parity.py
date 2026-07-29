@@ -27,7 +27,13 @@ Usage:
   PYTHONPATH=<worktree> TT_VISIBLE_DEVICES=1 \
     /home/ttuser/tt-bio-dev/env/bin/python scripts/esmfold2_e2e_parity.py \
       [--fast] [--proteins trpcage,gb1] [--steps 20] [--loops 3] \
-      [--seeds 0,1,2] [--out /tmp/x.json]
+      [--seeds 0,1,2] [--out /tmp/x.json] [--fixture_dir <dir>]
+
+With ``--fixture_dir`` (requires exactly one --proteins entry) the run also dumps a
+committed reference-fixture tree (opendde schema): ``meta.json`` +
+``ref_fp32/seed<N>.npz`` reference outputs + ``seed<N>/{meta.json,results.json,
+structures/<target>.cif,device_seed<N>.npz}`` device outputs, and asserts the executed
+sampler step count (requested 100 -> 68 after the sigma_max=256 schedule clip).
 """
 
 from __future__ import annotations
@@ -75,8 +81,9 @@ def build_features(seq, seed, device):
     from tt_bio._vendor.esm.models.esmfold2 import (
         ESMFold2InputBuilder, ProteinInput, StructurePredictionInput)
     spi = StructurePredictionInput(sequences=[ProteinInput(id="A", sequence=seq)])
-    feats, _chain = ESMFold2InputBuilder().prepare_input(spi, seed=seed, device=device)
-    return feats
+    builder = ESMFold2InputBuilder()
+    feats, chain_infos = builder.prepare_input(spi, seed=seed, device=device)
+    return feats, chain_infos, builder
 
 
 def run_forward(model, feats, lm_hs, *, loops, steps, samples, seed=0):
@@ -145,6 +152,132 @@ def compare_multiseed(ref_runs: dict, tt_runs: dict, atom_mask, seeds):
     }
 
 
+def executed_step_count(ref_model, requested, cap=256.0):
+    """Denoise steps the sampler actually runs for a requested count, computed with the
+    vendored reference's own schedule code: karras(requested) clipped to sigma<=cap with the
+    cap re-prepended (identical logic in the ttnn sampler, tt_bio/esmfold2.py). Requested 100
+    -> 68 executed; requested 68 -> 46 (never pass 68 literally)."""
+    import torch.nn.functional as F
+    sampler = next(m for m in ref_model.modules() if hasattr(m, "inference_noise_schedule"))
+    sched = sampler.inference_noise_schedule(requested)
+    sched = sched[sched <= cap]
+    sched = F.pad(sched, (1, 0), value=cap)
+    return len(sched) - 1
+
+
+def _seed_result(name, seq, run, atom_mask):
+    ptm = float(run["ptm"].float().mean())
+    iptm_t = run.get("iptm")
+    iptm = float(iptm_t.float().mean()) if iptm_t is not None else 0.0
+    plddt = float(run["plddt"].float().mean())
+    return {"id": name, "status": "ok", "plddt": plddt, "complex_plddt": plddt,
+            "ptm": ptm, "iptm": iptm, "confidence_score": 0.8 * iptm + 0.2 * ptm,
+            "n_residues": len(seq), "n_atoms": int(atom_mask.sum()), "samples": 1}
+
+
+def dump_fixture(fixture_dir, name, seq, feats, chain_infos, builder, ref_runs, tt_runs,
+                 atom_mask, seeds, args, parity, n_steps_code, n_steps_device):
+    """Dump the opendde-schema fixture tree: meta.json + ref_fp32/ + seed<N>/ device legs."""
+    import os
+    from pathlib import Path
+    import numpy as np
+    root = Path(fixture_dir)
+    if root.exists() and any(root.iterdir()):
+        raise SystemExit(f"fixture dir {root} exists and is non-empty; refusing to overwrite")
+    (root / "ref_fp32").mkdir(parents=True)
+
+    def _npz(run):
+        return dict(
+            sample_atom_coords=run["sample_atom_coords"].float().cpu().numpy(),
+            plddt=run["plddt"].float().cpu().numpy(),
+            distogram_logits=run["distogram_logits"].float().cpu().numpy(),
+            ptm=run["ptm"].float().cpu().numpy(),
+            atom_mask=atom_mask.float().cpu().numpy(),
+        )
+
+    for s in seeds:
+        np.savez(root / "ref_fp32" / f"seed{s}.npz", **_npz(ref_runs[s]))
+    (root / "ref_fp32" / "results.json").write_text(json.dumps(
+        [_seed_result(name, seq, ref_runs[s], atom_mask) for s in seeds], indent=2))
+    (root / "ref_fp32" / "meta.json").write_text(json.dumps({
+        "reference_impl": "tt-bio vendored torch reference (Biohub/transformers fork f9a5a37, CPU fp32)",
+        "dtype": "fp32", "seeds": seeds,
+        "note": "shared ESMC hidden states: computed once with the ttnn ESMC-6B and injected "
+                "into both forwards (lm_hidden_states=), so this leg isolates the ESMFold2 port",
+    }, indent=2))
+
+    for s in seeds:
+        d = root / f"seed{s}"
+        (d / "structures").mkdir(parents=True)
+        np.savez(d / f"device_seed{s}.npz", **_npz(tt_runs[s]))
+        res = builder.decode(tt_runs[s], feats, chain_infos,
+                             num_diffusion_samples=1, complex_id=name)
+        if isinstance(res, list):
+            res = res[0]
+        (d / "structures" / f"{name}.cif").write_text(res.complex.to_mmcif())
+        (d / "results.json").write_text(json.dumps(
+            [_seed_result(name, seq, tt_runs[s], atom_mask)], indent=2))
+        (d / "meta.json").write_text(json.dumps({
+            "seed": s, "backend": "ttnn (Tenstorrent Blackhole), production sampler path",
+            "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 — device sampler draws "
+                          "from the global CPU torch stream, seeded per seed before each "
+                          "forward on both paths (paired shared-draw comparison)",
+        }, indent=2))
+
+    cmd = ("TT_VISIBLE_DEVICES=1 TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 PYTHONPATH=$PWD "
+           f"python3 scripts/esmfold2_e2e_parity.py --proteins {name} --loops {args.loops} "
+           f"--steps {args.steps} --seeds {','.join(map(str, seeds))} "
+           f"--fixture_dir {fixture_dir} --out <summary.json>")
+    meta = {
+        "command": cmd,
+        "date": "2026-07-29",
+        "model": "esmfold2",
+        "msa": "none (single-sequence; ESMFold2 is single-sequence by design, its MSA is optional)",
+        "envelope": {
+            "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
+            "reference_impl": "tt-bio vendored torch reference (CPU fp32)",
+            "reference_version": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e (48-block release trunk), dtype fp32",
+            "seeds": seeds,
+            "settings": {
+                "device_args": ["--single_sequence", "--recycling_steps", str(args.loops),
+                                "--sampling_steps", str(args.steps), "--diffusion_samples", "1"],
+                "model": "esmfold2", "msa": "none", "target_id": name,
+            },
+        },
+        "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
+        "reference_impl": "tt-bio vendored torch reference (Biohub/transformers fork f9a5a37, CPU fp32)",
+        "reference_version": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e (48-block release trunk)",
+        "seeds": seeds,
+        "settings": {
+            "recycling_cycles": args.loops,
+            "requested_steps": args.steps,
+            "executed_steps": n_steps_code,
+            "executed_steps_device_empirical": n_steps_device,
+            "diffusion_samples": 1,
+            "seeds": seeds,
+            "single_sequence": True,
+            "dtype": "fp32",
+            "checkpoint": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e",
+            "target": f"{name} (PDB 1UBQ, {len(seq)} res)",
+            "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 (global CPU torch stream seeded per seed on both paths)",
+            "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",
+            "rationale": "sample=1 isolates convergence (loops/steps) from best-of-N selection",
+        },
+        "parity": parity,
+        "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference "
+                             "commit/checkpoint or the settings above change. For any other "
+                             "change (device seeds, device code, release tag) the fixture is "
+                             "reused as-is and only the device side re-runs.",
+        "provenance": "Built 2026-07-29 on qb1 (Blackhole p150 card 1) at the ESMFold2 paper "
+                      "benchmark protocol (10 loops, 100 requested = 68 executed steps, 1 "
+                      "sample, seeds 0-2, single-sequence) — the D4a reference leg esmfold2 "
+                      "never got. Parity numbers in the parity field are the output of this "
+                      "harness's noise-floor verdict (X within max(R,D)).",
+    }
+    (root / "meta.json").write_text(json.dumps(meta, indent=2))
+    print(f"wrote fixture tree to {root}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true")
@@ -156,6 +289,8 @@ def main():
     ap.add_argument("--esmfold2_repo", default="biohub/ESMFold2")
     ap.add_argument("--esmc_repo", default="biohub/ESMC-6B")
     ap.add_argument("--out", default="/tmp/ef2_parity/summary.json")
+    ap.add_argument("--fixture_dir", default=None,
+                    help="dump a committed fixture tree here (requires exactly one protein)")
     args = ap.parse_args()
 
     torch.set_grad_enabled(False)
@@ -166,6 +301,19 @@ def main():
 
     names = [n.strip() for n in args.proteins.split(",") if n.strip()]
     seeds = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
+    if args.fixture_dir and len(names) != 1:
+        raise SystemExit("--fixture_dir requires exactly one --proteins entry")
+
+    # Empirical device-side executed-step counter: capture the sampler's own n_steps via
+    # its progress hook on the first device forward.
+    import tt_bio.esmfold2 as E
+    _seen, _orig_report = {}, E.report_progress
+
+    def _report(stage, step=0, total=0):
+        if stage == "diffusion" and total and "n_steps" not in _seen:
+            _seen["n_steps"] = total
+        return _orig_report(stage, step, total)
+    E.report_progress = _report
 
     # Shared ttnn ESMC-6B (loaded once): produces the LM hidden states fed to BOTH paths.
     esmc = _ESMCAdapter(args.esmc_repo, persistent=True)
@@ -175,6 +323,10 @@ def main():
     # inject shared LM states instead).
     print("loading torch reference model ...", flush=True)
     ref_model = ESMFold2Model.from_pretrained(args.esmfold2_repo, load_esmc=False).eval()
+
+    n_steps_code = executed_step_count(ref_model, args.steps)
+    print(f"requested steps={args.steps} -> executed={n_steps_code} (sigma_max=256 clip)",
+          flush=True)
 
     # ttnn model: same weights, every submodule swapped to ttnn.
     print(f"loading ttnn model (fast={args.fast}) ...", flush=True)
@@ -187,7 +339,7 @@ def main():
     for name in names:
         seq = PROTEINS[name]
         print(f"\n=== {name} (L={len(seq)}), seeds={seeds} ===", flush=True)
-        feats = build_features(seq, args.feature_seed, ref_model.device)
+        feats, chain_infos, builder = build_features(seq, args.feature_seed, ref_model.device)
         lm_hs = compute_lm_hidden_states(
             esmc, feats["input_ids"], feats["asym_id"], feats["residue_index"],
             feats["mol_type"], feats["token_attention_mask"])
@@ -214,6 +366,16 @@ def main():
         )
         results.append(m)
         print(json.dumps(m, indent=2), flush=True)
+
+        if args.fixture_dir:
+            n_steps_device = _seen.get("n_steps")
+            assert n_steps_device == n_steps_code, (
+                f"device executed {n_steps_device} steps, schedule says {n_steps_code}")
+            if args.steps == 100:
+                assert n_steps_code == 68, f"requested 100 must execute 68, got {n_steps_code}"
+            dump_fixture(args.fixture_dir, name, seq, feats, chain_infos, builder,
+                         ref_runs, tt_runs, atom_mask, seeds, args, m,
+                         n_steps_code, n_steps_device)
 
     import os
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
