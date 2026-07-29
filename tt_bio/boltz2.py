@@ -4144,9 +4144,14 @@ class AtomDiffusion(Module):
             with torch.no_grad():
                 atom_coords_denoised = torch.zeros_like(atom_coords_noisy)
                 sample_ids = torch.arange(multiplicity).to(atom_coords_noisy.device)
-                sample_ids_chunks = sample_ids.chunk(
-                    multiplicity % max_parallel_samples + 1
-                )
+                # Honour the max_parallel_samples cap: ceil(multiplicity / mps) chunks of
+                # <= mps samples each. The prior formula (multiplicity % mps + 1) did not bound the
+                # chunk size (e.g. mult=50,mps=5 -> 1 chunk of 50; mult=16,mps=10 -> 7 chunks
+                # of ~3). Chunking only regroups the batch, never the per-sample math, so this
+                # is numerically inert (bit-identical PAE multiset across chunk sizes, verified
+                # for protenix-v2; same sampler class, same invariant).
+                n_chunks = (multiplicity + max_parallel_samples - 1) // max_parallel_samples
+                sample_ids_chunks = sample_ids.chunk(n_chunks)
 
                 for sample_ids_chunk in sample_ids_chunks:
                     atom_coords_denoised_chunk = self.preconditioned_network_forward(

@@ -1,0 +1,16 @@
+{"leg":"L1","card":0,"host_threads":"-","n":8,"rc":0,"wall_s":211.382219050}
+{"leg":"L4u","card":0,"host_threads":"-","n":8,"rc":0,"wall_s":292.522602012}
+{"leg":"L4u","card":1,"host_threads":"-","n":8,"rc":0,"wall_s":292.547450180}
+{"leg":"L4u","card":3,"host_threads":"-","n":8,"rc":0,"wall_s":292.564829984}
+{"leg":"L4u","card":2,"host_threads":"-","n":8,"rc":0,"wall_s":293.035160721}
+{"leg":"L4c","card":2,"host_threads":"8","n":8,"rc":0,"wall_s":188.218223170}
+{"leg":"L4c","card":3,"host_threads":"8","n":8,"rc":0,"wall_s":188.253464907}
+{"leg":"L4c","card":0,"host_threads":"8","n":8,"rc":0,"wall_s":190.199301025}
+{"leg":"L4c","card":1,"host_threads":"8","n":8,"rc":0,"wall_s":190.256617414}
+{"leg":"L1c","card":0,"host_threads":"8","n":8,"rc":0,"wall_s":185.305147062}
+{"leg":"L1uw","card":0,"host_threads":"-","n":8,"rc":0,"wall_s":187.268784507}
+{"leg":"L1c2","card":0,"host_threads":"8","n":8,"rc":0,"wall_s":185.221275911}
+{"leg":"L2u","card":0,"host_threads":"-","n":8,"rc":0,"wall_s":230.321189484}
+{"leg":"L2u","card":1,"host_threads":"-","n":8,"rc":0,"wall_s":230.804110414}
+{"leg":"L2c","card":0,"host_threads":"16","n":8,"rc":0,"wall_s":184.610452992}
+{"leg":"L2c","card":1,"host_threads":"16","n":8,"rc":0,"wall_s":184.653797457}
