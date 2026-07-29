@@ -473,8 +473,8 @@ Model-specific options are labelled below.
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | **(Boltz-2)** model cache directory; ESMFold2 uses the Hugging Face cache |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
-| `--recycling_steps` | model-specific | 3 for Boltz-2/ESMFold2; 10 for Protenix-v2/OpenDDE |
-| `--sampling_steps` | `200` | Diffusion sampling steps |
+| `--recycling_steps` | model-specific | 3 for Boltz-2; 10 for Protenix-v2/OpenDDE/ESMFold2 (the ESMFold2 paper's benchmark setting) |
+| `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v2/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
 | `--diffusion_samples` | `1` | Number of structure samples |
 | `--output_format` | `cif` | `cif` or `pdb` |
 | `--override` | `False` | Re-run from scratch |

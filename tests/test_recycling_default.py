@@ -6,6 +6,9 @@ under-recycled the trunk into a bimodal ensemble the confidence head then mis-ra
 delivered structure on hard targets was much worse than a sample already in the ensemble
 (7ROA delivered 3.47 A versus 2.35 A at 10).
 
+ESMFold2/ESMFold2-Fast likewise default to 10, the ESMFold2 paper's benchmark protocol
+(A.2.10: "For all benchmark results ... ESMFold2 uses 10 loops").
+
 ``predict`` now resolves the count per-model via ``_resolve_recycling_steps``; these tests pin
 the contract so the fix can't silently revert. Host-only — no device, no network.
 """
@@ -23,10 +26,15 @@ def test_protenix_default_is_the_spec():
     assert _resolve(None, "protenix-v2") == Trunk.N_CYCLES  # stays in lockstep with the model
 
 
-@pytest.mark.parametrize("model", ["boltz2", "esmfold2", "esmfold2-fast"])
-def test_non_protenix_keep_the_af3_default(model):
-    """Unset -> every non-protenix model keeps the historical Boltz-2/AF3 count of 3
-    (unchanged behavior)."""
+@pytest.mark.parametrize("model", ["esmfold2", "esmfold2-fast"])
+def test_esmfold2_default_is_the_paper_protocol(model):
+    """Unset -> esmfold2/esmfold2-fast use the ESMFold2 paper's 10 loops (A.2.10)."""
+    assert _resolve(None, model) == 10
+
+
+@pytest.mark.parametrize("model", ["boltz2"])
+def test_boltz2_keeps_the_af3_default(model):
+    """Unset -> boltz2 keeps the historical Boltz-2/AF3 count of 3 (unchanged behavior)."""
     assert _resolve(None, model) == 3
 
 
