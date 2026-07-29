@@ -164,7 +164,7 @@ def main():
                 cause = ("no heavy-chain CDR numbering recovered (H1 null, "
                          "H2/H3 absent; light-chain CDRs scored) -- consistent "
                          "with the native heavy chain unresolved at CDR-H3")
-            elif (not matched) or n_ca < max(20, 0.3 * ylen):
+            elif (not matched) or n_ca < max(min(20, ylen), 0.3 * ylen):
                 detail = (f"no matching polymer" if not matched else
                           f"only {n_ca}/{ylen} residues with atoms")
                 cause = (f"native {ROLE[col]} chain substantially unresolved "
