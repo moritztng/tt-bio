@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+"""AbAg-XM seeds-vs-samples frontier driver (state doc §6 Step 2).
+
+Runs one card's static share of the campaign: its Arm-A jobs (200-sample
+predicts) first, then its Arm-B units (10-sample predicts, one per
+(target, seed-block)). One JSON record per finished job is appended to
+~/abag_xm/frontier/progress.jsonl (host-local).
+
+  --plan DIR                      write jobs_card{0..7}.json into DIR, exit
+  --jobs FILE --card N            run the jobs in FILE sequentially
+    [--timeout 7200] [--host_threads T]
+
+Card assignment (frozen runbook): cards 0..7 = qb1:0-3, qb2:0-3. Arm A:
+target index i -> card i % 8 (cards 0-3 get two). Arm B: unit (target,
+seed-block j) -> card j % 8. Seeds: Arm A 42; Arm B 1000+10*j, disjoint.
+
+Resume: a job whose out_dir holds a complete fold (results.json status ok
+with exactly n_samples CIFs) is skipped.
+"""
+import argparse, json, os, signal, socket, subprocess, sys, time
+from pathlib import Path
+
+TARGETS = ["9q6y", "9tmp", "9gei", "9fte", "9wpm", "9qrv",
+           "9ma0", "9q6z", "9j4c", "9uoi", "9m8l", "9ldx"]
+ARM_A_SAMPLES, ARM_A_SEED = 200, 42
+ARM_B_SAMPLES = 10
+ARM_B_J = list(range(20))
+MPS = 5
+BASE = Path.home() / "abag_xm" / "frontier"
+PROGRESS = BASE / "progress.jsonl"
+MSA_DIR = Path.home() / "abag_xm" / "msa_cache"
+MSA_DB = Path.home() / ".boltz" / "msa_db"
+CKPT_SHA256 = "5cf37441ddef2a2f148b81dd4a218ad274f996fecaf17dec901ab6cf1351713d"
+RECYCLING_STEPS, SAMPLING_STEPS = 10, 200  # resolved tt-bio defaults (D4a), unset on cmdline
+WT = Path(__file__).resolve().parent.parent
+
+
+def fold_python():
+    """Interpreter that can run `-m tt_bio.main` (same candidates as abag_xm_generate.py)."""
+    cands = [str(WT / "env" / "bin" / "python3"),
+             str(Path.home() / "tt-bio" / "env" / "bin" / "python3"),
+             sys.executable]
+    for c in cands:
+        if not Path(c).exists():
+            continue
+        r = subprocess.run([c, "-m", "tt_bio.main", "--help"],
+                           capture_output=True, text=True,
+                           env={**os.environ, "PYTHONPATH": str(WT)})
+        if r.returncode == 0:
+            return c
+    raise SystemExit("no interpreter can run `-m tt_bio.main --help`: " + ", ".join(cands))
+
+
+def plan(out_dir):
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    jobs = {i: [] for i in range(8)}
+    for i, t in enumerate(TARGETS):
+        jobs[i % 8].append({"arm": "A", "target": t, "seed": ARM_A_SEED,
+                            "n_samples": ARM_A_SAMPLES,
+                            "out_dir": str(BASE / "A" / t)})
+    for j in ARM_B_J:
+        for t in TARGETS:
+            jobs[j % 8].append({"arm": "B", "target": t, "seed": 1000 + 10 * j,
+                                "seed_j": j, "n_samples": ARM_B_SAMPLES,
+                                "out_dir": str(BASE / "B" / f"{t}_seed{j}")})
+    for i in range(8):
+        (out_dir / f"jobs_card{i}.json").write_text(json.dumps(jobs[i], indent=1))
+        print(f"card {i}: {len(jobs[i])} jobs "
+              f"({sum(1 for x in jobs[i] if x['arm'] == 'A')} A + "
+              f"{sum(1 for x in jobs[i] if x['arm'] == 'B')} B)")
+
+
+def result_dir(job):
+    return Path(job["out_dir"]) / f"opendde_results_{job['target']}"
+
+
+def count_cifs(job):
+    st = result_dir(job) / "structures"
+    return len(list(st.glob("*.cif"))) if st.is_dir() else 0
+
+
+def fold_status(job):
+    rj = result_dir(job) / "results.json"
+    try:
+        data = json.loads(rj.read_text())
+        rec = data[0] if isinstance(data, list) else data
+        return rec.get("status")
+    except Exception:
+        return None
+
+
+def complete(job):
+    return fold_status(job) == "ok" and count_cifs(job) == job["n_samples"]
+
+
+def record(job, card, wall_s, status):
+    rec = {"ts": time.time(), "arm": job["arm"], "target": job["target"],
+           "seed": job["seed"], "seed_j": job.get("seed_j"),
+           "host": socket.gethostname(), "card": card,
+           "wall_s": round(wall_s, 1), "tt_bio_commit": GIT_HEAD,
+           "checkpoint_sha256": CKPT_SHA256,
+           "recycling_steps": RECYCLING_STEPS, "sampling_steps": SAMPLING_STEPS,
+           "mps": MPS, "n_cifs": count_cifs(job), "status": status,
+           "out_dir": job["out_dir"]}
+    with open(PROGRESS, "a") as f:
+        f.write(json.dumps(rec) + "\n")
+    return rec
+
+
+def run_job(job, card, py, timeout, host_threads, log):
+    yaml = WT / "examples" / "abag_xm" / f"{job['target']}.yaml"
+    cmd = [py, "-m", "tt_bio.main", "predict", str(yaml),
+           "--model", "opendde-abag", "--out_dir", job["out_dir"],
+           "--diffusion_samples", str(job["n_samples"]),
+           "--max_parallel_samples", str(MPS),
+           "--msa_dir", str(MSA_DIR), "--msa_db_path", str(MSA_DB),
+           "--seed", str(job["seed"]), "--override", "--write_pae",
+           "--host_threads", str(host_threads)]
+    env = {**os.environ, "PYTHONPATH": str(WT), "PYTHONUNBUFFERED": "1"}
+    t0 = time.time()
+    with open(log, "a") as lf:
+        p = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT,
+                             env=env, start_new_session=True)
+        try:
+            rc = p.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL)
+            p.wait()
+            return time.time() - t0, "timeout"
+    wall = time.time() - t0
+    if rc != 0:
+        return wall, f"failed:rc{rc}"
+    st = fold_status(job)
+    return wall, st if st in ("ok",) else f"failed:{st}"
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--plan", default=None, metavar="DIR")
+    ap.add_argument("--jobs", default=None, metavar="FILE")
+    ap.add_argument("--card", type=int, default=None)
+    ap.add_argument("--timeout", type=int, default=7200)
+    ap.add_argument("--host_threads", type=int, default=8)
+    a = ap.parse_args()
+    if a.plan:
+        plan(a.plan)
+        return
+    if not a.jobs or a.card is None:
+        ap.error("--jobs and --card are required without --plan")
+    jobs = json.loads(Path(a.jobs).read_text())
+    py = fold_python()
+    BASE.mkdir(parents=True, exist_ok=True)
+    print(f"driver card {a.card}: {len(jobs)} jobs, python={py}, "
+          f"timeout={a.timeout}, host_threads={a.host_threads}", flush=True)
+    for k, job in enumerate(jobs):
+        tag = f"{job['arm']}/{job['target']}" + (f"/j{job['seed_j']}" if job["arm"] == "B" else "")
+        if complete(job):
+            print(f"[{k+1}/{len(jobs)}] {tag} already complete, skip", flush=True)
+            continue
+        log = Path(job["out_dir"]).with_suffix(".log")
+        Path(job["out_dir"]).mkdir(parents=True, exist_ok=True)
+        wall, status = run_job(job, a.card, py, a.timeout, a.host_threads, log)
+        rec = record(job, a.card, wall, status)
+        print(f"[{k+1}/{len(jobs)}] {tag} {status} wall={rec['wall_s']}s "
+              f"n_cifs={rec['n_cifs']}", flush=True)
+
+
+if __name__ == "__main__":
+    GIT_HEAD = subprocess.run(["git", "rev-parse", "HEAD"], cwd=WT,
+                              capture_output=True, text=True).stdout.strip()
+    main()
