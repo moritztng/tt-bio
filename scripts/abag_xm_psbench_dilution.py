@@ -12,7 +12,7 @@ import subprocess
 
 import numpy as np
 
-WT = pathlib.Path("/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4")
+WT = pathlib.Path(__file__).resolve().parent.parent  # this checkout, not a torn-down slug worktree
 PSB = pathlib.Path("/home/ttuser/abag_xm/psbench")
 PM = PSB / "Multimer_7_2024_8_2025_dataset/Predicted_Models"
 PY = "/home/ttuser/tt-bio/env/bin/python3"

@@ -14,7 +14,7 @@ import sys
 
 import yaml
 
-WT = pathlib.Path("/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4")
+WT = pathlib.Path(__file__).resolve().parent.parent  # this checkout, not a torn-down slug worktree
 YAMLS = WT / "examples/abag_xm"
 
 tokens = {}

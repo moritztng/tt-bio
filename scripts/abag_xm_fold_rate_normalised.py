@@ -21,7 +21,7 @@ if len(sys.argv) < 2:
     sys.exit("usage: abag_xm_fold_rate2.py <split_record_count>")
 CUT = int(sys.argv[1])
 
-WT = Path("/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4")
+WT = Path(__file__).resolve().parent.parent  # this checkout, not a torn-down slug worktree
 SLICES = WT / "docs" / "implementation-parity-data" / "abag-xm-tier-a-slices.json"
 tokens = json.load(open(SLICES))["tokens"]
 P = Path.home() / "abag_xm" / "tier_a" / "progress.jsonl"

@@ -31,7 +31,7 @@ for h in HOSTS:
     attempted[h] = {(t, m) for t, m, _ in rows}
 
 r = subprocess.run(["ssh", "-n", "-o", "BatchMode=yes", "ttuser@tt-quietbox",
-                    "cat /home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4/"
+                    "cat /home/ttuser/.coworker/wt/abag-xm-benchmark-release-closeout/"
                     "docs/implementation-parity-data/abag-xm-tier-a-slices.json"],
                    capture_output=True, text=True, timeout=120)
 d = json.loads(r.stdout)

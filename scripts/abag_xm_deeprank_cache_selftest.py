@@ -15,7 +15,9 @@ import sys
 import time
 from pathlib import Path
 
-WT = Path("/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4")
+# This script's own checkout, never a hardcoded slug worktree -- fleet hygiene tears those down
+# (same fix as abag_xm_merge_hosts_selftest.py).
+WT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("rs", WT / "scripts" / "abag_xm_ranker_scores.py")
 rs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rs)
