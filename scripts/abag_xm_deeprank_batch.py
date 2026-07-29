@@ -255,6 +255,12 @@ def _run_cli(cli, ensemble, chain_flags, work, stdout_tail=1500):
             f = cache / fname
             if f.exists() and calculate_checksum(str(f)) == want:
                 env[env_var] = str(f)
+                # The env var only steers fetch_weights' download/check -- get_embedding still
+                # torch.load()s the BARE filename from the CWD, so the file must also exist in
+                # the work dir. Symlink: free, instant, and reads through for the checksum.
+                link = Path(work) / fname
+                if not link.exists():
+                    os.symlink(f, link)
         if "WEIGHT_PATH" in env:
             print(f"[deeprank-batch] ESM-2 weights from stable cache {cache}", flush=True)
     except Exception:
