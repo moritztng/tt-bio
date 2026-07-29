@@ -73,6 +73,15 @@ runner never silently overwrites `docs/implementation-parity.md`: a leg that
 reproduces within its recorded noise floor is marked `REPRODUCES`; a leg that
 drifts outside the floor is flagged `DRIFT — investigate` and exits non-zero.
 
+The gate also carries a **capacity** leg, which is about device memory rather
+than accuracy. Every other leg compares numbers, so a change that grows the
+footprint is invisible to it: the fold either still fits and the numbers match,
+or it runs out of memory on a target the gate never folds. The capacity leg folds
+the largest supported target (`examples/abag_pilot_expansion/9j4c_abag.yaml`,
+1095 tokens) at 50 diffusion samples, measures the peak device DRAM, and fails if
+it exceeds the budget or if the run writes fewer structures than it was asked
+for. Set `RELEASE_GATE_CAPACITY_MAX_GIB` to gate a card with a different budget.
+
 `scripts/release_gate.py` remains as a fast single-target smoke proxy (one
 7ROA fold per model + a BoltzGen/OpenDDE-abag/ESMC quick check) for a quick
 sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`

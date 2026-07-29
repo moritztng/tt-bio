@@ -189,6 +189,24 @@ BLOCKED-REF-REGEN-NEEDED under `--legacy-rdx` for an unrelated, pre-existing rea
 device-side seed dirs lack `structures/*.cif` — not touched by this pass). Gate of record —
 pending Moritz's sign-off before merge.
 
+**Three envelope legs are collapsed, found during the v0.5.0 release run (2026-07-27).** For
+`opendde-trpcage-nomsa`, `opendde-prot-prod` and `protenix-v2-ubq-msa` the published fixture's
+`ref_fp32` and `ref_bf16` structures are BYTE-IDENTICAL, so the envelope denominator
+`d(ref_bf16, ref_fp32)` is exactly 0 and the leg can only pass on the `abs_floor`. For the two
+OpenDDE legs the device fold is byte-identical to both references as well (numerator = envelope =
+~4e-15, and the freshly-folded device CIF has the same md5 as the cached reference), so those two
+legs currently compare a fold against itself and measure nothing. `protenix-v2-ubq-msa` still
+discriminates (numerator 0.0374 Å, nonzero) but only against the 0.05 Å floor, not a measured
+envelope. Cause: the envelope test needs a torch CPU path that can be recomputed in fp32 and in
+bf16, and these are ttnn-only ports — the same "envelope methodology is torch-capable-only"
+constraint recorded above, which `--regen-refs` does not detect, so it emits a device fold labelled
+as a CPU reference. This is NOT a coverage hole: OpenDDE and Protenix-v2 are scored by the legacy
+R/D/X device-vs-reference diagnostic against their official upstream implementations, which is the
+correct scorer for a ttnn-only port and which passes (see the paragraph above). Fix owed:
+`--regen-refs` should refuse to write an envelope reference pair for a leg whose two references
+come out identical, and `finalize_leg` should report a zero envelope as `NO-DATA` rather than
+`PASS`, so this can never again read as a green verdict.
+
 **`boltz2-prot-nomsa` GAP root-caused 2026-07-27 (GAP-evidenced, not fixed): seed-0 chaos, not a
 precision bug.** Two on-device fp32 levers were tried and neither closes it: the reference's own
 selective-fp32-softmax boundary (`BOLTZ2_FP32_SOFTMAX=1`, ratio 2.04→2.00) and a new fp32-storage/

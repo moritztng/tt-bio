@@ -2030,7 +2030,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Trunk recycling iterations. Default: protenix-v2 uses its spec of 10; boltz2/esmfold2 use 3.")
 @click.option("--sampling_steps", default=200, type=int)
 @click.option("--diffusion_samples", default=1, type=int)
-@click.option("--max_parallel_samples", default=5, type=int)
+@click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
+              help="Diffusion samples denoised in one batched forward. Higher is faster but "
+                   "costs device memory linearly; lower it if a large target runs out.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
@@ -2217,6 +2219,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
             "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
+            # Without this key --max_parallel_samples is a silent no-op for every model that
+            # rides this config (protenix-v2 / opendde / esmfold2): the worker reads it with
+            # cfg.get(), so it saw None on every fold and fell back to the engine default.
+            # boltz2 carries it separately, via conf_kwargs["predict_args"], which is why the
+            # flag looked plumbed. Lowering it to fit a large target did nothing.
+            "max_parallel_samples": max_parallel_samples,
             "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
             "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
             "msa_endpoint": msa_endpoint, "single_sequence": single_sequence,
@@ -2866,9 +2874,10 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                    "(back-compat) else <spec_id>_<i>.cif.")
 @click.option("--batch_size", default=8, show_default=True, type=click.IntRange(min=1),
               help="Maximum designs from one spec evaluated in each device forward. The runtime "
-                   "automatically shrinks this for larger atom counts. Each design keeps its own "
-                   "seeded RNG stream and the forward is bit-identical to running the designs one "
-                   "at a time, so batching is free of accuracy cost at any value.")
+                   "shrinks it so a batch cannot exhaust device memory (8 is reachable up to 3359 "
+                   "atoms). Each design keeps its own seeded RNG stream and the forward is "
+                   "bit-identical to running the designs one at a time, so batching is free of "
+                   "accuracy cost at any value.")
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to fan the (spec x --num_designs) jobs "
                    "across, e.g. '0,1,2,3'. One pinned subprocess per card (data-parallel, the "

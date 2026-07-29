@@ -16,20 +16,41 @@ import subprocess
 import sys
 from pathlib import Path
 
-WT = Path("/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4")
+# This script's own checkout, never a hardcoded slug. The path here used to name the p4 worktree,
+# which fleet hygiene tears down once that slug concludes -- at which point this selftest fails with
+# a confusing import error about a directory that no longer exists.
+WT = Path(__file__).resolve().parent.parent
 SCRATCH = Path("/tmp/merge_test/tier_a")
-PEER = "tt-quietbox2"
+import socket
+PEER = "tt-quietbox" if socket.gethostname() == "tt-quietbox2" else "tt-quietbox2"
+MIRROR = Path.home() / "abag_xm" / "tier_a" / "peer_progress.jsonl"
 
-# Peer's ok pairs, straight from the peer.
-r = subprocess.run(["ssh", "-o", "BatchMode=yes", f"ttuser@{PEER}",
-                    "python3 -c \"import json;"
-                    "rs=[json.loads(l) for l in open('/home/ttuser/abag_xm/tier_a/progress.jsonl')"
-                    " if l.strip()];"
-                    "print(json.dumps([r for r in rs if r.get('status')=='ok']))\""],
-                   capture_output=True, text=True, timeout=120)
-if r.returncode != 0:
-    sys.exit(f"could not read peer progress: {r.stderr[-300:]}")
-peer_ok = json.loads(r.stdout)
+# Peer's ok pairs, straight from the peer -- or from the local mirror when the peer is down, which
+# is the case this whole merge exists to survive. Without ConnectTimeout an unreachable peer takes
+# the full subprocess timeout and then raises TimeoutExpired as a traceback rather than saying what
+# is wrong (observed on 2026-07-28 while qb2 was hung: 120 s of nothing, then a stack trace).
+peer_ok = None
+try:
+    r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+                        f"ttuser@{PEER}",
+                        "python3 -c \"import json;"
+                        "rs=[json.loads(l) for l in open('/home/ttuser/abag_xm/tier_a/progress.jsonl')"
+                        " if l.strip()];"
+                        "print(json.dumps([r for r in rs if r.get('status')=='ok']))\""],
+                       capture_output=True, text=True, timeout=120)
+    if r.returncode == 0:
+        peer_ok = json.loads(r.stdout)
+    else:
+        print(f"peer {PEER} unreachable: {r.stderr.strip()[-200:]}")
+except subprocess.TimeoutExpired:
+    print(f"peer {PEER} did not answer within 120 s")
+if peer_ok is None:
+    if not MIRROR.exists():
+        sys.exit(f"{PEER} is unreachable and there is no local mirror at {MIRROR} -- nothing to "
+                 f"test the merge against. Run scripts/abag_xm_peer_mirror.sh while the peer is up.")
+    print(f"falling back to the local mirror {MIRROR}")
+    peer_ok = [r for r in (json.loads(l) for l in MIRROR.read_text().splitlines() if l.strip())
+               if r.get("status") == "ok"]
 pairs = sorted({(x["target"], x["model"]) for x in peer_ok})
 print(f"peer has {len(pairs)} ok pairs")
 

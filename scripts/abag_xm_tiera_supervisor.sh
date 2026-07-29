@@ -69,11 +69,41 @@ n_labelloop(){ pgrep -f "abag_xm_labels_loo[p].sh" 2>/dev/null | wc -l; }
 
 relaunched=0
 log "supervisor up on $(hostname), cards [$CARDS], poll ${POLL}s, max ${MAX_RELAUNCH} relaunches"
+# Claim the host from the fleet dispatcher for as long as this supervisor lives. Without it the
+# dispatcher samples the gap between two folds as a free card, takes it, and the next fold dies
+# waiting on its own lease -- 25 records on qb1 with a constant 133 s wall clock. The hold
+# expires on its own within the hour, so a supervisor that dies does not block the fleet.
+bash "$WT/scripts/abag_xm_host_hold.sh" refresh 2>&1 | sed 's/^/    /'
+release_hold(){ log "releasing the host hold"
+  bash "$WT/scripts/abag_xm_host_hold.sh" release 2>&1 | sed 's/^/    /'; }
+# INT and TERM must EXIT, not just run the handler: a bash trap on a signal returns to where it
+# was interrupted, so a handler without an exit makes this loop unkillable by anything short of
+# SIGKILL -- and SIGKILL skips the release entirely. Observed live on qb2 while swapping
+# supervisors: `kill -TERM` ran the handler and the supervisor carried on.
+trap 'release_hold; exit 130' INT
+trap 'release_hold; exit 143' TERM
+trap release_hold EXIT
+# Interruptible sleep. Two separate things make a naive `trap ... TERM` + `sleep 300` supervisor
+# effectively unkillable, and both were observed live on 2026-07-28 while swapping supervisors:
+#   1. bash defers a trap until the current foreground command finishes, so a signal arriving
+#      during `sleep 300` is not acted on for up to five minutes;
+#   2. a handler that does not `exit` returns to the loop, so the signal changes nothing at all.
+# (2) is fixed above. This fixes (1): backgrounding the sleep and `wait`ing on it makes bash run
+# the handler immediately. A supervisor that takes five minutes to give the fleet its cards back
+# is a hazard during exactly the operation you reach for it in.
+nap(){ sleep "$1" & wait $! 2>/dev/null; }
 while :; do
-  # Labelling is CPU-only and must overlap generation; its own loop script exists so ~30 h of it
+  bash "$WT/scripts/abag_xm_host_hold.sh" refresh >/dev/null 2>&1 \
+    || log "WARNING: host hold not refreshed -- the fleet may take a card between folds"
+  # Copy the peer's progress file while the peer is still up. A few hundred KB per poll, and it is
+  # the difference between a free failover and refolding everything the peer already did -- the
+  # choice qb2's hang forced on 2026-07-28, when its 169 records became unreadable.
+  bash "$WT/scripts/abag_xm_peer_mirror.sh" >/dev/null 2>&1 \
+    || log "note: peer progress mirror not refreshed (peer down?)"
+  # Labelling is CPU-only and must overlap generation; its own loop script exists so ~72 h of it
   # does not pile up at the end. It died in the same 2026-07-28 00:16 event that killed the folding
   # drivers and nothing noticed for ten hours, by which point 113 of 181 completed folds were
-  # unlabelled. It is cheap to restart and safe to have exactly one, so keep one alive. Started, never
+  # unlabelled. Cheap to restart and safe to have exactly one, so keep one alive. Started, never
   # killed -- same rule as the drivers.
   if [ "$(n_labelloop)" -eq 0 ]; then
     log "labels loop absent -- starting one ($LABEL_WORKERS workers, 2 threads)"
@@ -86,11 +116,11 @@ while :; do
     if [ "$relaunched" -ge "$MAX_RELAUNCH" ]; then
       log "IDLE but relaunch cap ${MAX_RELAUNCH} reached -- not relaunching again. Something is"
       log "  wrong that a relaunch does not fix; look at gen_card*.log before restarting me."
-      sleep "$POLL"; continue
+      nap "$POLL"; continue
     fi
     # Confirm across two polls before acting, so the gap between one driver exiting and the next
     # being launched by hand is never mistaken for an idle host.
-    sleep 20
+    nap 20
     d=$(n_drivers); p=$(n_predicts)
     if [ "$d" -eq 0 ] && [ "$p" -eq 0 ]; then
       relaunched=$((relaunched + 1))
@@ -98,5 +128,5 @@ while :; do
       bash "$WT/scripts/abag_xm_tiera_launch.sh" "$CARDS" 2>&1 | sed 's/^/    /'
     fi
   fi
-  sleep "$POLL"
+  nap "$POLL"
 done

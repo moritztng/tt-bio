@@ -57,6 +57,202 @@ def _grid_if_single_k_tile(a):
     return CORE_GRID_MAIN if a.shape[-1] <= 32 else BATCH_INVARIANT_GRID
 
 
+# --- batch-exact program-config tuning (p15) --------------------------------
+# ttnn runs `linear([B, .., M, K], [K, N])` as B independent M-row matmuls and its config
+# heuristic often leaves them on 16-64 of 130 cores (p13: matmul on 52.6 cores at 3.35% FPU
+# util). Folding the batch into M -- `fuse_batch=True` in the program config -- puts the same
+# work on the whole grid: 1.66-5.63x on this model's real per-step shapes.
+#
+# The catch is the one p14 hit with `core_grid=`: a different core distribution can regroup the
+# fp32 accumulation and change the answer. Reading tt-metal's config builders says exactly which
+# field does that -- `in0_block_w`, the K-blocking, and only it. `per_core_M/N`, `out_block_h/w`,
+# `out_subblock_h/w`, the grid and `fuse_batch` cannot: matmul output rows are independent and
+# the k-sum for one output tile is grouped purely by `in0_block_w`. The three builder branches
+# each derive it differently ((Kt%2)?1:2 / largest d<=4 dividing Kt / 2 demoted to 1) and the
+# branch predicate depends on M, batch, N and the grid -- which is why a hint is bit-exact when
+# Kt==1 (all branches give 1: `_grid_if_single_k_tile` above) and unsafe otherwise.
+#
+# So the right value is not a function of K -- the same K=128 needs 2 at N=512 and 1 at N=256 --
+# and a static table would be the trap p14 documented. Instead each shape is calibrated once
+# against ttnn's own default output: candidates that are not BITWISE identical are discarded, and
+# the fastest survivor is cached. Bit-exactness is a precondition of the choice, not an argument
+# about it, so an unseen input cannot silently pick a config that rounds differently. A grouping
+# mismatch is data-independent, so agreeing on one real activation tensor across thousands of
+# tiles means the groupings are the same; scripts/rfd3_port/probe_pinned_pair_linears.py has the
+# per-shape sweep and the cross-(I, D) evidence.
+_TUNED_MM_CACHE = {}
+# Stays OPT-IN, and p17 measured why rather than assuming it. The per-step win is real and
+# reproduces in the shipped (trace-OFF) configuration -- +10.0% at 419 atoms and +1.4% to +4.0%
+# from 979 to 3359, favouring the tuned path in 9 of 10 fixture-rounds (sign test p=0.02). Two
+# things cancel it end to end:
+#   * Calibration costs a fixed ~5.9s per process (measured as whole `tt-bio design` wall clock,
+#     identical at 5 and at 20 timesteps, so it is one-time and not per-step). At 419 atoms one
+#     batch of 8 designs at 200 timesteps only saves ~5.4s, so a single-batch run is net NEGATIVE.
+#     It turns positive from the second batch on, i.e. --num_designs > --batch_size.
+#   * `_tunable` needs xs[0] > 1, so the lever only engages on a batched forward. p25 raised
+#     the atom-count clamp (`_BATCH_ATOM_PAIR_BUDGET`, see rfd3_design.py) to the measured
+#     memory bound, so that is now every design up to 3359 atoms rather than only <=838 --
+#     but the sizes it newly reaches are also the slow ones, where a single batch takes long
+#     enough that the 5.9s is a smaller share. Whether that flips the end-to-end sign at
+#     large sizes is unmeasured; p17's numbers are per-step, and the decision below rests on
+#     the whole-invocation wall clock.
+# So default-on would trade ~-1% on the common single-batch invocation for ~+2% on a rarer one,
+# inside a noise floor the D=1 null control puts at +-7%. Flip it once calibration is cheap: the
+# dominant cost is compiling candidates that then fail L1 validation, and `_mm_candidates` can
+# reject those arithmetically instead of via try/except.
+_TUNE_MATMUL = os.environ.get("RFD3_TUNE_MATMUL") == "1"
+# Debug: re-check every cached config against ttnn's default on every call and print any
+# divergence. Doubles the matmul work, so it is for locating a break, not for production.
+_TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
+# Debug: print what calibration decided per shape, and why.
+_TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"
+_TUNE_MIN_GAIN = 1.05  # ignore a candidate that is not at least 5% faster than the default
+_TUNE_REPS = 3
+
+
+def _mm_maxabs(a, b):
+    """Device-side max|a-b| (the outputs are up to 0.5 GB; do not download them).
+
+    `ttnn.max` with no `dim` does reduce globally, to a 0-d tensor
+    (scripts/rfd3_port/probe_mm_maxabs_guard.py plants one outlier at the far corner of each real
+    shape and finds it). The exactness hole was never here -- see `_calibrate_linear`.
+    """
+    d = ttnn.abs(ttnn.subtract(a, b))
+    return float(ttnn.to_torch(ttnn.max(d)).float().abs().max())
+
+
+def _mm_time(fn):
+    import time
+    dev = get_device()
+    fn()
+    ttnn.synchronize_device(dev)
+    t0 = time.perf_counter()
+    for _ in range(_TUNE_REPS):
+        fn()
+    ttnn.synchronize_device(dev)
+    return (time.perf_counter() - t0) / _TUNE_REPS
+
+
+def _mm_candidates(x, w, grid):
+    """Batch-folded 1D configs, parameterised by the K-blocking `in0_block_w`.
+
+    `out_block_h=1` because every measured winner had it and a larger value only eats the L1
+    headroom `out_block_w` needs; `out_block_w` is swept because that is where the win lives
+    (1x1 is a 0.45x *regression* on one of these shapes where 1xNt is 2.04x).
+    """
+    xs, ws = list(x.padded_shape), list(w.padded_shape)
+    kt = xs[-1] // 32
+    nt = ws[-1] // 32
+    mt = 1
+    for d in xs[:-1]:
+        mt *= d
+    mt //= 32                                   # all leading dims folded into M, in tiles
+    per_core_m = -(-mt // (grid.x * grid.y))
+    for bw in (d for d in (1, 2, 3, 4, 6, 8) if kt % d == 0):
+        for obw in sorted({1, 2, nt}):
+            if nt % obw:
+                continue
+            osw = max(d for d in (1, 2, 4) if obw % d == 0 and d <= obw)
+            yield ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                compute_with_storage_grid_size=grid, in0_block_w=bw,
+                out_subblock_h=1, out_subblock_w=osw, out_block_h=1, out_block_w=obw,
+                per_core_M=per_core_m, per_core_N=nt, fuse_batch=True, mcast_in0=False)
+
+
+def _tunable(x, w):
+    """Only a multi-design `[D, .., M, K] @ [K, N]` with a batch-1 in1 can fold its batch into M.
+
+    Dim 0 is the design axis at every call site that routes through here, and `D > 1` is the
+    condition, not `prod(leading dims) > 1`: at D=1 a pair tensor is still `[1, I, I, C]`, so the
+    token axis alone would qualify it. Measured at D=1/I=40, tuning those leaves 0.02-0.13 ms
+    matmuls that calibration reads as 1.2-2.6x wins -- under 2% of the step even if real -- and
+    the end-to-end result is 6% SLOWER, over three paired rounds at 20 timesteps and two at 60.
+    An explicit program config costs something per call that timing the matmul on its own does
+    not see, and only a genuine design batch is worth that. So D=1 takes the p14 path exactly,
+    with no calibration compiles at all, and D=8 keeps its win.
+    """
+    xs, ws = list(x.padded_shape), list(w.padded_shape)
+    if len(xs) < 3 or len(ws) < 2:
+        return False
+    return xs[0] > 1 and all(d == 1 for d in ws[:-2])
+
+
+def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID):
+    """`ttnn.linear` with a calibrated, bit-exact program config where one helps.
+
+    No `activation=`: ttnn wants a fused activation on the program config instead, so the two
+    silu-gated linears keep the default path (they are the cheap half of a Transition anyway).
+    """
+    kw = dict(compute_kernel_config=ckc, dtype=dtype)
+    if bias is not None:
+        kw["bias"] = bias
+    if not _TUNE_MATMUL or not _tunable(x, w):
+        return ttnn.linear(x, w, core_grid=core_grid, **kw)
+    key = (tuple(list(x.padded_shape)), tuple(list(w.padded_shape)), x.dtype, dtype,
+           bias is not None, core_grid)
+    if key not in _TUNED_MM_CACHE:
+        _TUNED_MM_CACHE[key] = _calibrate_linear(x, w, kw, core_grid)
+    pc = _TUNED_MM_CACHE[key]
+    if pc is None:
+        return ttnn.linear(x, w, core_grid=core_grid, **kw)
+    out = ttnn.linear(x, w, program_config=pc, **kw)
+    if _TUNE_AUDIT:
+        ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
+        m = _mm_maxabs(out, ref)
+        ttnn.deallocate(ref)
+        if m != 0.0:
+            print(f"[tune-audit] DIVERGES {m:.6e}  x={key[0]} w={key[1]} bw={pc.in0_block_w} "
+                  f"obw={pc.out_block_w} pcM={pc.per_core_M} pcN={pc.per_core_N}", flush=True)
+    return out
+
+
+def _mm_random_like(t, seed):
+    """A random tensor with t's exact logical shape, dtype and layout."""
+    g = torch.Generator().manual_seed(seed)
+    return ttnn.from_torch(torch.randn(*list(t.shape), generator=g), dtype=t.dtype,
+                           layout=ttnn.TILE_LAYOUT, device=get_device())
+
+
+def _calibrate_linear(x, w, kw, core_grid):
+    """Pick the fastest program config whose output is BITWISE equal to ttnn's default.
+
+    Exactness is checked on RANDOM operands as well as the live ones, and the random check comes
+    first. One cache entry is keyed on shapes, so it serves every weight of that shape -- all 24
+    DiT blocks' `gain_w` and `bias_w` share one entry, for instance. A live activation/weight
+    pair can be degenerate enough to hide a K-regrouping that other weights of the same shape do
+    expose: p16 measured `in0_block_w=4` on `[8,160,384] @ [384,768]` reading bit-exact on the
+    calibrating weight and then diverging by up to 3e-2 on its siblings, which is what failed
+    batch invariance at L=1959/D=8. Random operands exercise every grouping across the whole
+    output, so surviving them makes exactness a property of the shape rather than of one tensor.
+    """
+    rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
+    rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
+    ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
+    default_t = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw))
+    budget = default_t / _TUNE_MIN_GAIN
+    best = None
+    for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size()):
+        try:
+            if _mm_maxabs(ttnn.linear(rx, rw, program_config=pc, **kw), rref) != 0.0:
+                continue
+            if _mm_maxabs(ttnn.linear(x, w, program_config=pc, **kw), ref) != 0.0:
+                continue
+            t = _mm_time(lambda: ttnn.linear(x, w, program_config=pc, **kw))
+        except Exception:
+            continue  # illegal L1 / subblock combinations are expected and simply skipped
+        if t < budget:
+            best, budget = pc, t
+    for t in (rx, rw, rref, ref):
+        ttnn.deallocate(t)
+    if _TUNE_LOG:
+        chosen = (f"bw={best.in0_block_w} obw={best.out_block_w} pcM={best.per_core_M}"
+                  if best is not None else "DEFAULT")
+        gain = default_t / budget if best is not None else 1.0
+        print(f"[tune] x={tuple(x.padded_shape)} w={tuple(w.padded_shape)} "
+              f"default={default_t * 1e3:8.3f} ms  gain={gain:5.2f}x  {chosen}", flush=True)
+    return best
+
+
 # --- host-side feature helpers (pure torch; mirror upstream, deps stubbed) ----
 def _collapse(x, L):
     return x.reshape((L, x.numel() // L))
@@ -185,13 +381,13 @@ class Transition(Module):
         a = ttnn.linear(x, self.fc1_w, activation="silu",
                          compute_kernel_config=self.compute_kernel_config,
                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
-        b = ttnn.linear(x, self.fc2_w, compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
+        b = _tuned_linear(x, self.fc2_w, ckc=self.compute_kernel_config,
+                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         ttnn.deallocate(x)
         m = ttnn.multiply(a, b)
         ttnn.deallocate(b)
-        out = ttnn.linear(m, self.fc3_w, compute_kernel_config=self.compute_kernel_config,
-                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
+                            dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(m)
         return out
 
@@ -243,8 +439,8 @@ class PairformerAttention(Module):
         # pair bias: [1,I,I,128] -> rms_norm -> linear -> [1,I,I,16] -> [1,16,I,I]
         z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6,
                            compute_kernel_config=self.compute_kernel_config)
-        bias = ttnn.linear(z, self.to_b_w, compute_kernel_config=self.compute_kernel_config,
-                            dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config,
+                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         bias = ttnn.permute(bias, (0, 3, 1, 2))  # [1,16,I,I]
         # Manual attention (SDPA forbids head_dim=24 padding); bf16 softmax matches the
         # reference (autocast bf16). softmax over keys (dim=-1).
@@ -628,6 +824,31 @@ class TokenInitializer(Module):
         return {"Q_L_init": Q_L_init, "C_L": C_L, "P_LL": P_LL, "S_I": S_init_I, "Z_II": Z_II}
 
 
+TILE = 32
+
+
+def _align_tile(n):
+    return -(-n // TILE) * TILE
+
+
+def _pad_key_axis(x, width, axis, value):
+    """Extend `axis` of a TILE tensor out to `width`, filling the new region with `value`.
+
+    Attention reduces over the key axis, and a ttnn reduction over a last dim that is not a
+    tile multiple reads the tile padding along with the data (p23: measured end to end -- the
+    same logical scores give two different softmax answers when the 18 pad columns differ).
+    Tile padding is not written by every op -- `ttnn.scatter` leaves whatever the freshly
+    allocated buffer held -- so the fix is to leave no tile padding on that axis: pad it out
+    logically, with -1e4 on the mask (weight exactly 0 after exp) and 0 on the values.
+    `ttnn.pad` writes the value, so the result is defined by construction rather than by luck.
+    """
+    if x.shape[axis] == width:
+        return x
+    pad = [(0, 0)] * len(x.shape)
+    pad[axis] = (0, width - x.shape[axis])
+    return ttnn.pad(x, pad, value)
+
+
 def _dense_attention_mask(indices):
     """Convert [B,L,K] neighbour indices to the equivalent dense additive mask."""
     indices = indices.long()
@@ -653,13 +874,18 @@ def _sparse_qk_host(p_host, indices, n_heads=4):
 def _mask_template(cache, device, dtype, batch, n_heads, length):
     """The -1e4 dense attention-mask template the pair bias is scattered into.
 
-    It is a pure constant of (batch, n_heads, length), but `ttnn.full` on the
-    (1,4,3359,3359) bf16 form costs 38 ms -- ~60x the ~0.6 ms a bandwidth-bound
-    write of the same 90 MB takes -- so re-creating it every step was 9% of a
-    diffusion step. Keeping one template alive per shape removes that entirely and
-    is bit-exact because `ttnn.scatter` is out-of-place: verify_scatter_aliasing.py
+    It is a pure constant of (batch, n_heads, length). Re-creating it every step was
+    9% of a diffusion step, so one template is kept alive per shape; that is
+    bit-exact because `ttnn.scatter` is out-of-place (verify_scatter_aliasing.py
     replays a captured scatter against a single persistent template with two
-    different index sets and gets results identical to a fresh template each time.
+    different index sets and gets results identical to a fresh template each time).
+
+    The key axis is padded out to a tile multiple (`_pad_key_axis`): the scatter that
+    writes the pair bias into this template does not write the output's tile padding, so
+    a non-tile-multiple key axis would leave the softmax reducing over undefined DRAM.
+    Making the axis a tile multiple costs no device memory -- the buffer was tile-padded
+    to the same size either way -- and the extra keys stay at -1e4, whose weight after
+    exp is exactly 0.
 
     One slot on purpose -- a run folds one design shape at a time, and holding the
     90 MB template is not extra peak memory (the old code allocated it anyway).
@@ -668,29 +894,138 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     entry = cache.get("mask")
     if entry is None or entry[0] != key:
         entry = (key, ttnn.full(
-            (batch, n_heads, length, length), -1e4, dtype=dtype,
-            layout=ttnn.TILE_LAYOUT, device=device,
-        ))
+            (batch, n_heads, length, _align_tile(length)), -1e4,
+            dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device))
         cache["mask"] = entry
     return entry[1]
 
 
+_PAIR_TABLE_SLOTS = 2
+
+
+def _pair_gather_table(cache, p_host, device, dtype):
+    """Resident (L*L, C) gather table for the step-invariant pair features.
+
+    P_LL is built once by TokenInitializer._init_atoms and is
+    the same data for all 200 diffusion steps and every recycle of each, so the table
+    the per-step neighbour gather reads can live on the card: the gather becomes one
+    ttnn.embedding instead of a host advanced-index plus an upload of the result
+    (13.8 MB per step at 3359 atoms, 110 MB at batch 8).
+
+    Keyed on the storage address, not id() -- the diffusion module normalizes P_LL to
+    4-D on entry, so every step hands this a fresh view of the same data. The entry
+    holds its own reference to that view, so no other tensor can take the address
+    while the table is alive. Two slots because a classifier-free-guidance run
+    alternates between the conditional and unconditional P_LL every step and one slot
+    would rebuild both; a third distinct table (the next design shape) evicts the
+    oldest.
+    """
+    key = (p_host.data_ptr(), tuple(p_host.shape), dtype)
+    tables = cache.setdefault("tables", {})
+    entry = tables.get(key)
+    if entry is None:
+        while len(tables) >= _PAIR_TABLE_SLOTS:
+            ttnn.deallocate(tables.pop(next(iter(tables)))[1])
+        entry = (p_host, ttnn.from_torch(
+            p_host.reshape(-1, p_host.shape[-1]).contiguous(),
+            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=dtype))
+        tables[key] = entry
+    return entry[1]
+
+
+def _sparse_pair_gather(cache, p_host, indices, device, dtype):
+    """[B,L,K,C] neighbour pair features, gathered on device off the resident table.
+
+    Only the flat row index crosses the host boundary (a quarter of the bytes the
+    gathered features would be, and it is uint32 rather than the wider pair channel).
+    """
+    table = _pair_gather_table(cache, p_host, device, dtype)
+    batch, length, n_keys = indices.shape
+    row_offset = (torch.arange(length, dtype=torch.int64) * length).reshape(1, length, 1)
+    flat = (indices.long().cpu() + row_offset).reshape(1, batch * length * n_keys)
+    idx = ttnn.from_torch(flat.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
+                          device=device, dtype=ttnn.uint32)
+    rows = ttnn.embedding(idx, table, layout=ttnn.ROW_MAJOR_LAYOUT,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    ttnn.deallocate(idx)
+    out = ttnn.to_layout(
+        ttnn.reshape(rows, (batch, length, n_keys, p_host.shape[-1])), ttnn.TILE_LAYOUT)
+    ttnn.deallocate(rows)
+    return out
+
+
+def _sparse_attn_index(indices, device, n_heads):
+    """[B,H,L,K] uint32 scatter index, replicated over heads on device.
+
+    Every head scatters to the same columns, so only a quarter of these bytes need to
+    cross the host boundary.
+    """
+    up = _tt(indices.cpu().unsqueeze(1).to(torch.int32).contiguous(), device, ttnn.uint32)
+    if n_heads == 1:
+        return up
+    out = ttnn.concat([up] * n_heads, dim=1)
+    ttnn.deallocate(up)
+    return out
+
+
 def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
-    # Gather local pair features and build the scatter index for one step.
-    p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
-    attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
+    """Gather local pair features and build the scatter index for one step.
+
+    A diffusion step calls this three times -- once from the encoder and once per
+    recycle from the decoder -- and all three get the SAME P_LL and the SAME
+    f["attn_indices"], so all three produce identical tensors. Callers that share one
+    cache dict (RFD3DiffusionModule hands the encoder and the decoder the same one)
+    get one build per step.
+
+    That one build is a device gather off a resident P_LL table when the cache makes
+    the table worth holding and the pair features are bf16 (ttnn.embedding takes a
+    bf16 table only, the same constraint protenix.py:_window_kv documents). Otherwise
+    -- an fp32 pair stream, a cacheless isolated test, or a p_host already expanded
+    over the batch -- it falls back to the host gather, which is bit-identical: a
+    gather is a copy, so bf16(P_LL)[idx] == bf16(P_LL[idx]).
+
+    Keyed on the identity of p_host and indices, with the entry holding its own
+    references to both so their ids cannot be recycled underneath it while it
+    lives -- the same idiom _attention_index_prefix uses. The cached device
+    tensors are read-only downstream: the pair features feed a linear, the index
+    feeds ttnn.scatter (out-of-place, see _mask_template).
+    """
+    key = (id(p_host), id(indices), id(device), dtype, n_heads)
+    if mask_cache is not None:
+        hit = mask_cache.get("step")
+        if hit is not None and hit[0] == key and hit[1] is p_host and hit[2] is indices:
+            return hit[3]
+        # Drop the stale entry before building the replacement so the old 20.6 MB
+        # of device tensors is freed first rather than held alongside the new ones.
+        mask_cache.pop("step", None)
     length = indices.shape[-2]
     batch = indices.shape[0]
+    on_device = (
+        mask_cache is not None
+        and dtype == ttnn.bfloat16
+        and p_host.ndim == 4
+        and p_host.shape[:3] == (1, length, length)
+    )
+    if on_device:
+        n_keys = indices.shape[-1]
+        p_dev = _sparse_pair_gather(mask_cache, p_host, indices, device, dtype)
+        attn_idx_dev = _sparse_attn_index(indices, device, n_heads)
+    else:
+        p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
+        p_dev = _tt(p_sparse, device, dtype)
+        attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
     if mask_cache is None:
         dense_bias = ttnn.full(
-            (batch, n_heads, length, length), -1e4, dtype=dtype,
-            layout=ttnn.TILE_LAYOUT, device=device,
-        )
+            (batch, n_heads, length, _align_tile(length)), -1e4,
+            dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
     else:
         dense_bias = _mask_template(
             mask_cache, device, dtype, batch, n_heads, length
         )
-    return _tt(p_sparse, device, dtype), n_keys, attn_idx_dev, dense_bias
+    out = (p_dev, n_keys, attn_idx_dev, dense_bias)
+    if mask_cache is not None:
+        mask_cache["step"] = (key, p_host, indices, out)
+    return out
 
 
 class GatedCrossAttention(Module):
@@ -846,12 +1181,11 @@ class RFD3AtomBlock(Module):
         ckc, dt = self.compute_kernel_config, self.dtype
         a = ttnn.rms_norm(a, epsilon=1e-6, compute_kernel_config=ckc)
         s = ttnn.rms_norm(s, weight=ln_s, epsilon=1e-6, compute_kernel_config=ckc)
-        gain = ttnn.linear(
-            s, gain_w, bias=gain_b, compute_kernel_config=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        gain = _tuned_linear(
+            s, gain_w, bias=gain_b, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        bias = ttnn.linear(
-            s, bias_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
+        bias = _tuned_linear(
+            s, bias_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
@@ -869,10 +1203,10 @@ class RFD3AtomBlock(Module):
         norm = self._adaln(
             q_compute, c, self.a_ln_s, self.a_gain_w, self.a_gain_b, self.a_bias_w
         )
-        qq = ttnn.linear(norm, self.q_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
-        kk = ttnn.linear(norm, self.k_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
-        vv = ttnn.linear(norm, self.v_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
-        gg = ttnn.linear(norm, self.g_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        qq = _tuned_linear(norm, self.q_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        kk = _tuned_linear(norm, self.k_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        vv = _tuned_linear(norm, self.v_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
+        gg = _tuned_linear(norm, self.g_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         qq = ttnn.rms_norm(qq, weight=self.q_ln, epsilon=1e-6, compute_kernel_config=ckc)
         kk = ttnn.rms_norm(kk, weight=self.k_ln, epsilon=1e-6, compute_kernel_config=ckc)
 
@@ -883,13 +1217,21 @@ class RFD3AtomBlock(Module):
             return ttnn.permute(x, (0, 2, 1, 3))
 
         qq, kk, vv, gg = map(heads, (qq, kk, vv, gg))
+        # Attention reduces over the key axis, and a ttnn softmax over a last dim that is
+        # not a tile multiple reads that axis' tile padding -- which no op guarantees to
+        # have written. So extend the key axis logically: zero keys (contributing a score
+        # of 0, masked to -1e4) instead of 18 columns of whatever DRAM held. Free at these
+        # shapes -- the buffers were tile-padded to the same size already.
+        n_key = _align_tile(length)
+        kk = _pad_key_axis(kk, n_key, 2, 0.0)
+        vv = _pad_key_axis(vv, n_key, 2, 0.0)
         if sparse_qk is None:
-            pair_bias = ttnn.linear(
-                p, self.b_w, compute_kernel_config=ckc, dtype=dt,
-                core_grid=CORE_GRID_MAIN,
+            pair_bias = _tuned_linear(
+                p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
             )
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
-            bias = ttnn.add(pair_bias, additive_mask)
+            bias = _pad_key_axis(
+                ttnn.add(pair_bias, additive_mask), n_key, 3, -1e4)
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)),
                 compute_kernel_config=ckc,
@@ -901,9 +1243,8 @@ class RFD3AtomBlock(Module):
             # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
             # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
             n_keys, attn_idx_dev, dense_bias = sparse_qk
-            pair_bias = ttnn.linear(
-                p, self.b_w, compute_kernel_config=ckc, dtype=dt,
-                core_grid=CORE_GRID_MAIN,
+            pair_bias = _tuned_linear(
+                p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
             )
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
             scores = ttnn.matmul(
@@ -931,8 +1272,8 @@ class RFD3AtomBlock(Module):
         out = ttnn.reshape(
             out, (batch, length, self.n_head * self.head_dim)
         )
-        out = ttnn.linear(
-            out, self.o_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
+        out = _tuned_linear(
+            out, self.o_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
         gate = ttnn.linear(
             c, self.a_out_w, bias=self.a_out_b, compute_kernel_config=ckc,
@@ -953,12 +1294,11 @@ class RFD3AtomBlock(Module):
             norm, self.t_fc1, activation="silu", compute_kernel_config=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        right = ttnn.linear(
-            norm, self.t_fc2, compute_kernel_config=ckc,
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+        right = _tuned_linear(
+            norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        update = ttnn.linear(
-            ttnn.multiply(left, right), self.t_fc3, compute_kernel_config=ckc,
+        update = _tuned_linear(
+            ttnn.multiply(left, right), self.t_fc3, ckc=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         gate = ttnn.linear(
@@ -1257,10 +1597,10 @@ class CompactStreamingDecoder(Module):
         attn_p = self._persist_index(attn_idx_host, ttnn.TILE_LAYOUT)
         batch = q_host.shape[0]
         n_heads = self.atom_blocks[0].n_head
+        # tile-multiple key axis, see _mask_template
         dense_bias = ttnn.full(
-            (batch, n_heads, length, length), -1e4, dtype=self.dtype,
-            layout=ttnn.TILE_LAYOUT, device=dev,
-        )
+            (batch, n_heads, length, _align_tile(length)), -1e4,
+            dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
         sparse_qk = (n_keys, attn_p, dense_bias)
         for _ in range(2):
             _ = self.run_device(
@@ -1296,6 +1636,10 @@ class CompactStreamingDecoder(Module):
             # pair gather (6.5 ms at 250 residues) would be thrown away. Skip it.
             _tt_refresh(a_host, st["a"], dt)
         else:
+            # The traced decoder stages p_sparse in a persistent buffer that
+            # ttnn.embedding cannot write into, so this path keeps the host gather
+            # _sparse_qk_inputs no longer needs. RFD3_TRACE_DECODER is opt-in and off
+            # in production, so the gather lever above is what a shipped run takes.
             p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices)
             shape_key = (
                 "sparse_qk", tuple(a_host.shape), tuple(q_host.shape),
@@ -1368,6 +1712,12 @@ class CompactStreamingDecoder(Module):
         return self._trace_state["output"]
 
     def __call__(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices):
+        """Host-in/host-out, for the component parity scripts. The per-step path calls
+        `run_full_device` and keeps both outputs on the card."""
+        a_out, q = self.run_full_device(a_host, s_host, q_host, c_host, p_host, tok_idx, indices)
+        return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
+
+    def run_full_device(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         batch, length, _ = q_host.shape
         valid, pack_idx_dev, unpack_idx_dev, upcast_mask_dev = self._design_buffers(tok_idx, batch)
@@ -1416,8 +1766,7 @@ class CompactStreamingDecoder(Module):
             s, self.process_s_w, compute_kernel_config=ckc,
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
-        a_out = ttnn.add(ttnn.add(a, a_update), s)
-        return ttnn.to_torch(a_out).float(), ttnn.to_torch(q).float()
+        return ttnn.add(ttnn.add(a, a_update), s), q
 
 
 class LinearSequenceHead(Module):
@@ -1428,9 +1777,13 @@ class LinearSequenceHead(Module):
         self.bias = self.torch_to_tt("linear.bias", dtype=self.dtype)
         self.valid_out_mask = self.weights["valid_out_mask"].bool()
 
-    def __call__(self, a_host):
+    def __call__(self, a):
+        """`a` may be a host tensor (the parity-script path) or an already-resident ttnn
+        one handed over by the decoder."""
+        if not isinstance(a, ttnn.Tensor):
+            a = _tt(a, self.device, self.dtype)
         logits = ttnn.linear(
-            _tt(a_host, self.device, self.dtype),
+            a,
             self.weight,
             bias=self.bias,
             compute_kernel_config=self.compute_kernel_config,
@@ -1539,7 +1892,19 @@ class DiffusionTokenEncoder(Module):
         """R_L_ca: [B, I, 3] (scaled C-alpha positions), S_init_I: [B, I, c_s],
         Z_init_II: [I, I, c_z] or [1, I, I, c_z] (batch 1 -- replicated on device),
         D_II_self: int32 [B, I, I] distogram bin indices or None.
-        Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host."""
+        Returns (S_I [B,I,c_s], Z_II [B,I,I,c_z]) on host.
+
+        The host-boundary wrapper the component parity scripts call. The per-step path
+        uses run_device instead and keeps z on the card -- see run_device."""
+        s, z = self.run_device(R_L_ca, S_init_I, Z_init_II, D_II_self=D_II_self)
+        return ttnn.to_torch(s).float(), ttnn.to_torch(z).float()
+
+    def run_device(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
+        """Same computation as __call__, returning the ttnn tensors instead of host copies.
+
+        z is [B,I,I,c_z]: O(I^2) and by far the largest tensor the step moves. Handing it
+        to the DiT as a device tensor removes one D->H untilize plus one H->D upload per
+        recycle, four crossings of an I^2 tensor per step."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         B, I = R_L_ca.shape[0], R_L_ca.shape[1]
@@ -1573,7 +1938,7 @@ class DiffusionTokenEncoder(Module):
                 else ttnn.add(z, upd)
         for blk in self.pairformer_stack:
             s, z = blk(s, z)
-        return ttnn.to_torch(s).float(), ttnn.to_torch(z).float()
+        return s, z
 
 
 class LocalTokenTransformer(Module):
@@ -1596,11 +1961,17 @@ class LocalTokenTransformer(Module):
             a = block(a, s, z, additive_mask)
         return a
 
-    def __call__(self, a_host, s_host, z_host, indices):
+    def __call__(self, a_host, s_host, z, indices):
+        """z may be a host tensor (the parity-script path) or an already-resident ttnn
+        tensor handed straight over by DiffusionTokenEncoder.run_device."""
         dev, dt = self.device, self.dtype
         a = _tt(a_host, dev, dt)
         s = _tt(s_host, dev, dt)
-        z = _tt(z_host.unsqueeze(0) if z_host.ndim == 2 else z_host, dev, dt)
+        if isinstance(z, ttnn.Tensor):
+            if z.dtype != dt:
+                z = ttnn.typecast(z, dt)
+        else:
+            z = _tt(z.unsqueeze(0) if z.ndim == 2 else z, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
         return ttnn.to_torch(self.run_device(a, s, z, mask)).float()
 
@@ -1690,36 +2061,105 @@ def _build_index_mask(tok_idx, n_seq_neighbours, k_max, chain_id=None, base_mask
     return allowed[tok_idx[:, None], tok_idx[None, :]]
 
 
-def _extend_with_neighbours(mask, D_LL, k):
+def _extend_with_neighbours(mask, seq_idx, D_LL, k, inplace=False):
+    """Fill the sequence-neighbour index list out to k with the nearest non-neighbours.
+
+    ``mask`` and ``seq_idx`` are the coordinate-independent half and come from
+    _attention_index_prefix; only the distance topk below reads the coordinates.
+    """
     if D_LL.ndim == 2:
         D_LL = D_LL.unsqueeze(0)
     _, length, _ = D_LL.shape
     k = min(k, length)
-    device = D_LL.device
-    rows = torch.arange(length, device=device).unsqueeze(0).expand(length, length)
-    idx = torch.where(mask.contiguous(), rows, length).topk(
-        k, dim=1, largest=False, sorted=True
-    ).values
-    inf = torch.tensor(float("inf"), dtype=D_LL.dtype, device=device)
-    masked_distances = torch.where(mask.contiguous(), inf, D_LL)
+    inf = torch.tensor(float("inf"), dtype=D_LL.dtype, device=D_LL.device)
+    # where() allocates and writes a second (D,L,L) -- 361 MB at 3359 atoms and D=8, which
+    # is 42.5 ms of the 211.5 ms this build costs. masked_fill_ substitutes exactly the same
+    # values into the positions where() would have changed, so it is exact; callers pass
+    # inplace only where nothing reads D_LL afterwards.
+    masked_distances = D_LL.masked_fill_(mask, inf) if inplace else torch.where(mask, inf, D_LL)
     fill = torch.topk(masked_distances, k, dim=-1, largest=False).indices.flip(
         dims=[-1]
     )
-    idx = torch.where((idx == length).expand_as(fill), fill, idx.expand_as(fill))
+    idx = torch.where((seq_idx == length).expand_as(fill), fill, seq_idx.expand_as(fill))
     return idx.long()
+
+
+def _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, length):
+    mask = _build_index_mask(tok_idx, n_seq_neighbours, k, chain, base_mask).contiguous()
+    rows = torch.arange(length, device=tok_idx.device).unsqueeze(0).expand(length, length)
+    seq_idx = torch.where(mask, rows, length).topk(k, dim=1, largest=False, sorted=True).values
+    return mask, seq_idx
+
+
+_ATTN_INDEX_CACHE: dict = {}
+_ATTN_INDEX_CACHE_MAX = 8
+
+
+def _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
+    """Memoize the coordinate-independent half of _create_attention_indices.
+
+    Everything built here reads only the token layout -- tok_idx, asym_id,
+    unindexing_pair_mask -- and the two k values, all of which are fixed for a whole
+    design. The sampler nevertheless rebuilt it on every one of ~200 diffusion steps,
+    and it is O(L^2): 12.3% of the step at 3359 atoms, 7.0% at batch 8 (p19 step 0).
+    Only cdist and the distance topk in _extend_with_neighbours genuinely move with the
+    coordinates. Pure memoization of a deterministic function, so it is exact.
+
+    Keyed on the identity of the design-level tensors, then re-validated against tok_idx
+    by value, because the DiT passes a freshly built arange on every call: an id() key
+    alone would always miss, and once a gc cycle reused an address it could hit stale.
+    The entry holds its own references to what it keys on so those ids cannot be reused
+    while the entry lives.
+    """
+    asym = f.get("asym_id")
+    upm = f["unindexing_pair_mask"]
+    L = len(tok_idx)
+    key = (L, n_keys, n_seq_neighbours, id(asym), id(upm))
+    hit = _ATTN_INDEX_CACHE.get(key)
+    if hit is not None and hit[0] is asym and hit[1] is upm and torch.equal(hit[2], tok_idx):
+        return hit[3]
+
+    base_mask = ~upm
+    k = min(n_keys, L)
+    chain = asym[tok_idx] if asym is not None else None
+    parts = {"k": k}
+    if chain is not None and len(torch.unique(chain)) > 3:
+        ki, kc = max(32, k // 4), k - max(32, k // 4)
+        parts.update(ki=ki, kc=kc, chain=chain,
+                     intra=_mask_and_seq_idx(tok_idx, n_seq_neighbours, kc, chain, base_mask, L),
+                     atom_base_mask=base_mask[tok_idx[None, :], tok_idx[:, None]])
+    else:
+        parts["single"] = _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, L)
+
+    if len(_ATTN_INDEX_CACHE) >= _ATTN_INDEX_CACHE_MAX:
+        _ATTN_INDEX_CACHE.pop(next(iter(_ATTN_INDEX_CACHE)))
+    _ATTN_INDEX_CACHE[key] = (asym, upm, tok_idx, parts)
+    return parts
 
 
 def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
     device = X_L.device; L = len(tok_idx)
-    D_LL = torch.cdist(X_L, X_L, p=2)
-    base_mask = ~f["unindexing_pair_mask"]
-    k = min(n_keys, L)
-    chain = f["asym_id"][tok_idx] if "asym_id" in f else None
-    if chain is not None and len(torch.unique(chain)) > 3:
-        ki, kc = max(32, k // 4), k - max(32, k // 4)
-        intra = _extend_with_neighbours(_build_index_mask(tok_idx, n_seq_neighbours, kc, chain, base_mask), D_LL, kc)
+    parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
+    if X_L.ndim == 2:
+        X_L = X_L.unsqueeze(0)
+    if "single" in parts:
+        mask, seq_idx = parts["single"]
+        # One design at a time. The designs are independent, so this is the same
+        # arithmetic, but a (1,L,L) distance slice is 45 MB at 3359 atoms and stays
+        # resident, where the batched form streams three (D,L,L) tensors of 361 MB each.
+        # Measured bit-identical indices and 220.7 -> 152.5 ms at 3359 atoms D=8,
+        # 142.5 -> 68.9 ms at 2702 (scripts/rfd3_port/p24_attn_indices_variants.py).
+        idx = torch.cat([
+            _extend_with_neighbours(mask, seq_idx, torch.cdist(x, x, p=2), parts["k"],
+                                    inplace=True)
+            for x in X_L.unsqueeze(1)], dim=0)
+    else:
+        D_LL = torch.cdist(X_L, X_L, p=2)   # the inter-chain pass below reads it again
+        ki, kc, chain = parts["ki"], parts["kc"], parts["chain"]
+        mask, seq_idx = parts["intra"]
+        intra = _extend_with_neighbours(mask, seq_idx, D_LL, kc)
+        atom_base_mask = parts["atom_base_mask"]
         inter = torch.zeros(D_LL.shape[0], L, ki, dtype=torch.long, device=device)
-        atom_base_mask = base_mask[tok_idx[None, :], tok_idx[:, None]]
         for b in range(D_LL.shape[0]):
             for c in torch.unique(chain):
                 ci = chain[c]; other = (chain != ci) & atom_base_mask[c, :]
@@ -1727,8 +2167,6 @@ def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
                 if ns > 0:
                     inter[b, c, :ns] = oi[torch.topk(D_LL[b, c, oi], ns, largest=False).indices]
         idx = torch.cat([intra, inter], dim=-1)
-    else:
-        idx = _extend_with_neighbours(_build_index_mask(tok_idx, n_seq_neighbours, k, chain, base_mask), D_LL, k)
     return torch.sort(idx, dim=-1)[0].detach()
 
 
@@ -1875,6 +2313,11 @@ class RFD3DiffusionModule(Module):
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
                                                fp32_residual=self._dit_fp32_residual,
                                                trace=os.environ.get("RFD3_TRACE_DECODER") == "1")
+        # One sparse-QK cache for both: they are handed the same P_LL and the same
+        # attn_indices every step, so sharing collapses three identical builds into
+        # one (see _sparse_qk_inputs) and leaves one -1e4 scatter template alive
+        # instead of two.
+        self.decoder._mask_cache = self.encoder._mask_cache
         self.sequence_head = LinearSequenceHead(self.scope("sequence_head"), ckc, dtype=dt)
 
     def scale_positions_in(self, X, t):
@@ -2120,18 +2563,32 @@ class RFD3DiffusionModule(Module):
     def _process_(self, D_II_self, X_L_self, *, R_L_uniform, X_noisy_L, t_L, f, Q_L, C_L, P_LL, A_I, S_I, Z_II):
         is_ca = f["is_ca"]
         R_L_ca = R_L_uniform[..., is_ca, :]
-        S_I, Z_II = self.diffusion_token_encoder(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        # z stays on the card between these two: it is [B,I,I,128], the only O(I^2)
+        # tensor in the step, and the round trip through host fp32 was 58.8% of the step
+        # at 3359 atoms against 13.9% at 419 (p19 step 0) -- the size-dependent cost the
+        # GPU does not pay. s is O(I*c_s) and still crosses, because the decoder wants it
+        # on host anyway.
+        s_dev, z_dev = self.diffusion_token_encoder.run_device(R_L_ca, S_I, Z_II, D_II_self=D_II_self)
+        S_I = ttnn.to_torch(s_dev).float()
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
         dit_idx = _create_attention_indices(f, X_L_ca, torch.arange(I := S_I.shape[1], device=X_L_ca.device),
                                             self.DIT_KEYS, self.DIT_SEQ)
-        A_I = self.diffusion_transformer(A_I, S_I, Z_II, dit_idx)
-        A_I, Q_L = self.decoder(A_I, S_I, Q_L, C_L, P_LL, tok_idx=f["atom_to_token_map"], indices=f["attn_indices"])
-        R_upd = ttnn.to_torch(ttnn.linear(ttnn.rms_norm(_tt(Q_L, self.device, self.dtype),
+        A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx)
+        ttnn.deallocate(z_dev)
+        # Both of the decoder's outputs feed device consumers only -- q the R update below,
+        # a the sequence head -- so neither crosses. Each ttnn.to_torch is a blocking drain,
+        # and at 3359 atoms the fifteen of them in a step cost 129 ms for 9.8 MB (p20 s2):
+        # the sync count is what this removes, not the bytes.
+        A_I, Q_L = self.decoder.run_full_device(A_I, S_I, Q_L, C_L, P_LL,
+                                                tok_idx=f["atom_to_token_map"], indices=f["attn_indices"])
+        R_upd = ttnn.to_torch(ttnn.linear(ttnn.rms_norm(Q_L,
                                                         weight=self.to_r_n, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config),
                                           self.to_r_w, compute_kernel_config=self.compute_kernel_config,
                                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
+        ttnn.deallocate(Q_L)
         X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
         logits, _ = self.sequence_head(A_I)
+        ttnn.deallocate(A_I)
         D_II_self = _scaled_distogram_bins(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
         return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits}
 

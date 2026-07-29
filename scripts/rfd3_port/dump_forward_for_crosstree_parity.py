@@ -13,6 +13,7 @@ bit-exactness must produce maxabs 0.0.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -27,10 +28,12 @@ GOLDEN_DIR = Path("~/.coworker/artifacts/rfd3-goldens/capture").expanduser()
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--contigs", nargs="+",
+    ap.add_argument("--contigs", nargs="*",
                     default=["A1-10,20,A31-40", "A1-10,130,A31-40"])
     ap.add_argument("--batches", type=int, nargs="+", default=[1, 8])
     ap.add_argument("--pdb", type=Path, default=PDB)
+    ap.add_argument("--specs", type=Path, nargs="*", default=[],
+                    help="JSON InputSpecification files, folded in alongside --contigs")
     args = ap.parse_args()
 
     from tt_bio.rfd3 import build_diffusion_module, build_token_initializer
@@ -44,11 +47,21 @@ def main():
     dev_ti = build_token_initializer(ti)
     dm = build_diffusion_module(dmw)
 
+    cases = [(contig, str(args.pdb),
+              {"input": str(args.pdb), "contig": contig}) for contig in args.contigs]
+    for spec_path in args.specs:
+        data = json.loads(Path(spec_path).read_text())
+        src = Path(data["input"])
+        if not src.is_absolute():
+            src = Path(spec_path).parent / src
+        data = dict(data, input=str(src))
+        cases.append((Path(spec_path).parent.name, str(src), data))
+
     dump = {}
-    for contig in args.contigs:
-        spec = InputSpecification.from_dict({"input": str(args.pdb), "contig": contig})
+    for contig, pdb_path, spec_data in cases:
+        spec = InputSpecification.from_dict(spec_data)
         spec.validate()
-        f = featurize(str(args.pdb), spec)
+        f = featurize(pdb_path, spec)
         f = {k: (v.float() if torch.is_tensor(v) and v.is_floating_point() else v)
              for k, v in f.items()}
         L = f["ref_pos"].shape[0]

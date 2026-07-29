@@ -23,7 +23,10 @@ OUT_BASE = Path.home() / "abag_xm" / "tier_a"
 PROGRESS = OUT_BASE / "progress.jsonl"
 LABELS_DIR = OUT_BASE / "labels"
 LABELS_INDEX = LABELS_DIR / "labels.jsonl"
-GT = ROOT / "examples" / "ground_truth_structures"
+# Ground-truth reference structures. 143.8 MiB of append-only mmCIF ships as a Release
+# asset, not as git blobs, so prefer the host data directory and fall back to the checkout.
+_GT_HOST = Path.home() / "abag_xm" / "ground_truth"
+GT = _GT_HOST if _GT_HOST.is_dir() else ROOT / "examples" / "ground_truth_structures"
 YAML_DIR = ROOT / "examples" / "abag_xm"
 
 RESULT_PREFIX = {"protenix-v2": "protenix", "opendde-abag": "opendde",
