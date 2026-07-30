@@ -36,6 +36,7 @@ PROGRESS = OUT_BASE / "progress.jsonl"
 MANIFEST = ROOT / "docs" / "implementation-parity-data" / "abag-xm-targets.parquet"
 
 MODELS = ["protenix-v2", "opendde-abag", "boltz2", "esmfold2"]
+DEFAULT_MODELS = ["protenix-v2", "opendde-abag", "boltz2"]  # MSA-fed; esmfold2 is opt-in
 RESULT_PREFIX = {"protenix-v2": "protenix", "opendde-abag": "opendde",
                  "opendde": "opendde", "boltz2": "boltz2", "esmfold2": "esmfold2"}
 # Tier-A config: 50 samples, seed grid. boltz2 uses mps=5 (the fixed, memory-bounded
@@ -422,7 +423,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--targets", default=None,
                     help="comma-separated subset; default = all 164 from the manifest")
-    ap.add_argument("--models", default=",".join(MODELS))
+    # Default is the three MSA-fed generators, NOT all of MODELS: a no-arg resume of the
+    # MSA leg must never silently queue the single-sequence esmfold2 leg (done_pairs skips
+    # only status=ok, so all 164 esmfold2 pairs would be pending). The esmfold2 leg is always
+    # launched explicitly (--models esmfold2, via tiera_launch.sh's 3rd arg). MODELS itself
+    # keeps all four because reconcile_orphans and the discovery maps ride it.
+    ap.add_argument("--models", default=",".join(DEFAULT_MODELS))
     ap.add_argument("--device", type=int, default=0)
     ap.add_argument("--n_samples", type=int, default=N_SAMPLES)
     ap.add_argument("--mps", type=int, default=MPS)

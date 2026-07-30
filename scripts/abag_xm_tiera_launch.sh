@@ -41,8 +41,9 @@ CARDS="${1:-0 1 2 3}"
 # would otherwise have meant hand-editing this script under time pressure.
 #   scripts/abag_xm_tiera_launch.sh "0 1 2 3" "0 1 2 3 4 5 6 7"   # qb1 takes everything
 SLICE_LIST="${2:-}"
-# Optional 3rd arg: comma-separated model list (default: generate.py's own default, the
-# three MSA-fed generators). The esmfold2 leg launches as: <script> "<cards>" "" esmfold2
+# Optional 3rd arg: comma-separated model list (default: generate.py's DEFAULT_MODELS, the
+# three MSA-fed generators -- esmfold2 is deliberately NOT in the default so an MSA-leg resume
+# cannot silently queue it). The esmfold2 leg launches as: <script> "<cards>" "" esmfold2
 MODELS="${3:-}"
 LEASE="worker:$(basename "$WT")"
 
