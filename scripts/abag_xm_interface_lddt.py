@@ -71,9 +71,10 @@ def _find_chain(chains, want_seq):
 
     Third pass (closeout census class): the deposited native can carry a few point
     differences from the YAML construct (9ly2/9ly3/9lz2: ~5 mismatches on 283-344 aa;
-    9mz8: 1 on a 16-mer). Accept an equal-length near-identity match -- mismatches
-    <= max(1, 5% of length) -- ONLY when it is unique across chains; a wrong-chain
-    guess is worse than a null.
+    9mz8: NLE->X at one position of a 16-mer plus a 9-residue X tail). Slide the YAML
+    sequence along each chain and accept a near-identity window -- mismatches
+    <= max(1, 5% of length) -- ONLY when the matching chain is unique; a wrong-chain
+    guess is worse than a null. The window offset is the returned offset.
     """
     for name, ch in chains.items():
         if _seq_of(ch) == want_seq:
@@ -83,11 +84,15 @@ def _find_chain(chains, want_seq):
         if off >= 0:
             return name, off
     max_mm = max(1, int(0.05 * len(want_seq)))
-    hits = [name for name, ch in chains.items()
-            if len(_seq_of(ch)) == len(want_seq)
-            and sum(a != b for a, b in zip(_seq_of(ch), want_seq)) <= max_mm]
+    hits = []
+    for name, ch in chains.items():
+        s = _seq_of(ch)
+        for off in range(0, len(s) - len(want_seq) + 1):
+            if sum(a != b for a, b in zip(s[off:off + len(want_seq)], want_seq)) <= max_mm:
+                hits.append((name, off))
+                break
     if len(hits) == 1:
-        return hits[0], 0
+        return hits[0]
     return None, None
 
 

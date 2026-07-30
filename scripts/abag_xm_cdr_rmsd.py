@@ -48,9 +48,10 @@ def _find_chain(chains, want_seq):
     formality -- it feeds _cdr_cas's query_start, so the IMGT numbering lands on the right
     residues instead of being shifted off the CDR.
 
-    Third pass (closeout census class): equal-length near-identity unique match for
+    Third pass (closeout census class): near-identity sliding-window match for
     natives carrying a few point differences from the YAML construct; same rule as
-    abag_xm_interface_lddt._find_chain (mismatches <= max(1, 5% of length), unique).
+    abag_xm_interface_lddt._find_chain (mismatches <= max(1, 5% of length), unique
+    chain; window offset returned so the IMGT mapping shifts correctly).
     """
     for name, ch in chains.items():
         if _seq_of(ch) == want_seq:
@@ -60,11 +61,15 @@ def _find_chain(chains, want_seq):
         if off >= 0:
             return name, off
     max_mm = max(1, int(0.05 * len(want_seq)))
-    hits = [name for name, ch in chains.items()
-            if len(_seq_of(ch)) == len(want_seq)
-            and sum(a != b for a, b in zip(_seq_of(ch), want_seq)) <= max_mm]
+    hits = []
+    for name, ch in chains.items():
+        s = _seq_of(ch)
+        for off in range(0, len(s) - len(want_seq) + 1):
+            if sum(a != b for a, b in zip(s[off:off + len(want_seq)], want_seq)) <= max_mm:
+                hits.append((name, off))
+                break
     if len(hits) == 1:
-        return hits[0], 0
+        return hits[0]
     return None, None
 
 
