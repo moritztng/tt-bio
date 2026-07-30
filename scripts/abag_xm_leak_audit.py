@@ -320,7 +320,7 @@ def main():
     for name in CUTOFFS:
         fl = out[out[f"flag_{name}"] != ""]
         md.append(f"flagged ({name}): {len(fl)} targets"
-                  + (": " + ", ".join(f"{r.target} [{r[f'flag_{name}']}]"
+                  + (": " + ", ".join(f"{r.target} [{getattr(r, 'flag_' + name)}]"
                                       for r in fl.itertuples()) if len(fl) else ""))
     Path(a.out_md).write_text("\n".join(md) + "\n")
     print("\n".join(md))
