@@ -196,6 +196,19 @@ def _ch(struct, cid):
     raise KeyError(f"chain {cid!r} not in structure")
 
 
+def _clear_dockq_caches():
+    """DockQ 2.1.3 lru_caches its scoring functions keyed on chain/residue
+    OBJECT identity. The zero-copy Fab merge reuses native residue objects
+    across a fold's samples; DockQ's caches then serve stale cross-sample
+    results for later samples (verified pass 5: with caches bypassed the
+    zero-copy merge is bit-identical to the old deepcopy merge; with caches
+    on, ranks > 0 are corrupted). Clear per sample."""
+    import DockQ.DockQ as DQ
+    for fn in ("get_residue_distances", "subset_atoms", "get_aligned_residues",
+               "align_chains", "list_atoms_per_residue", "run_on_chains"):
+        getattr(DQ, fn).cache_clear()
+
+
 def _score_fold(task):
     (target, gen, labels_path, gt_path, yaml_path, rows, declared,
      fab_chains, out_path, max_samples) = task
@@ -221,6 +234,7 @@ def _score_fold(task):
         maps = None
         for s in samples:
             rank = s["rank"]
+            _clear_dockq_caches()
             ms = load_PDB(s["cif"])
             mc = [c.id for c in ms]
             if maps is None or maps[0] != set(mc):
