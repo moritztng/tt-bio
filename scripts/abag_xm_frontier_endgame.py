@@ -31,8 +31,8 @@ LOG = BASE / "logs" / "endgame.log"
 DONE_MARKER = BASE / "ENDGAME_DONE"
 TARGETS = ["9q6y", "9tmp", "9gei", "9fte", "9wpm", "9qrv",
            "9ma0", "9q6z", "9j4c", "9uoi", "9m8l", "9ldx"]
-A_PW, POOL_PW = 8, 6
-MAX_WORKERS = 30          # qb1 has 32 threads; ~2 in use by another worker's job
+A_PW, POOL_PW = 14, 14
+MAX_WORKERS = 30          # qb1 has 32 threads; only the two 9j4c jobs remain
 POLL_S = 30
 LABEL_VENV_PY = Path.home() / ".abag_xm_label_venv" / "bin" / "python3"
 SHARED_VENV = Path("/home/ttuser/tt-bio-dev/env")
