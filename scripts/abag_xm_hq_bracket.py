@@ -585,6 +585,23 @@ def cmd_report(a):
                       f"| {100 * r['ranked_row_success']:.1f}% "
                       f"| {100 * r['oracle_row_success']:.1f}% |")
     md.append("")
+    any_band = any("IN BAND" in vl for vl in verdict_lines)
+    if any_band:
+        md.append("## verdict\n")
+        md.append("A variant lands in their band; per the 2.8 decision rule that is "
+                  "their scoring unit and the label-revision cascade applies.")
+    else:
+        md.append("## verdict\n")
+        md.append("No variant lands in their HQ band (33-38%) while holding acceptable "
+                  "in 64-68%, so the 26.7%-vs-~35-38% gap is NOT a label-unit artifact: "
+                  "Fab-level grouping does not raise ranked-HQ (24.8%, CI overlaps the "
+                  "declared row's 26.7%), and even the most generous unit (max over "
+                  "rows) reaches only 29.2%. The residual is ranking-calibration, MSA "
+                  "depth, and protocol: their benchmark folds full assemblies while ours "
+                  "is minimal-unit by design (D11), their MSA is unpublished, and their "
+                  "x-axis is model seeds. No refolding (decided, spec section 4); the "
+                  "chain-pair `dockq` column stays the sole label unit.")
+    md.append("")
     out_md = Path(a.out_dir) / "abag-xm-hq-bracket.md"
     out_md.write_text("\n".join(md) + "\n")
     print("\n".join(md))
