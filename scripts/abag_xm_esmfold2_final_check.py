@@ -13,8 +13,11 @@ Hard checks:
   2. Log has no "!! EMPTY" (requested-but-empty scorer trap). Guardian relaunch lines are
      printed for review; the CSV integrity checks below are the real corruption detector.
   3. CSV: 4 gens x 8200 rows; esmfold2 = 164 targets x 50 ranks (0..49 each).
-  4. esmfold2 deeprank_ab + abag_rank: ZERO blank cells (the other three gens have zero
-     blanks in these columns, so there is no legitimate-blank precedent for this leg).
+  4. Learned-ranker columns: abag_rank ZERO blank cells; deeprank_ab blanks EXACTLY the
+     audited degenerate-sample set {(9jno,14), (9msc,40), (9xqc,49)} — esmfold2 sampled a
+     dissociated pose (9msc r40, 9xqc r49: zero interface contacts, DeepRank-Ab cannot
+     featurize an empty interface graph) or a VDW-clashing pose (9jno r14: clash filter
+     zeroes the score). DockQ ~0 for all three; the other 49 samples per fold are scored.
   5. esmfold2 blank sets in the other columns match the audited legit set exactly:
        dockq:              {9ly2, 9ly3, 9lz2} (no native interface, blank for all gens)
        interface_lddt:     {9gei, 9ly2, 9ly3, 9lz2, 9mnu, 9msc, 9mz8, 9xqc} (audited)
@@ -42,6 +45,11 @@ EXPECTED_BLANKS = {
     "cdr_h3_rmsd": {"9l9y", "9lwc", "9mnu", "9msc", "9udq"},
 }
 LEARNED_COLS = ("deeprank_ab", "abag_rank")
+# Audited genuinely-unscorable cells: (target, rank) per learned column.
+EXPECTED_BLANK_CELLS = {
+    "deeprank_ab": {("9jno", "14"), ("9msc", "40"), ("9xqc", "49")},
+    "abag_rank": set(),
+}
 ALL_COLS = ["iptm", "ptm", "ranking_score", "complex_plddt", "pdockq2", "ipsae", "anticonf",
             "pss", "deeprank_ab", "abag_rank", "dockq", "epitope_jaccard", "interface_lddt",
             "cdr_h3_rmsd"]
@@ -88,9 +96,11 @@ def main():
     for col in ALL_COLS:
         blank_targets = sorted({r["target"] for r in esm if r[col] == ""})
         if col in LEARNED_COLS:
-            if blank_targets:
-                fail(f"esmfold2 {col}: {len(blank_targets)} targets with blanks "
-                     f"(want zero — no legit-blank precedent): {blank_targets[:10]}", failures)
+            blank_cells = sorted({(r["target"], r["rank"]) for r in esm if r[col] == ""})
+            want_cells = sorted(EXPECTED_BLANK_CELLS[col])
+            if blank_cells != want_cells:
+                fail(f"esmfold2 {col}: blank cells {blank_cells} != audited {want_cells}",
+                     failures)
         else:
             want = sorted(EXPECTED_BLANKS.get(col, set()))
             if blank_targets != want:
@@ -113,8 +123,9 @@ def main():
         return 1
 
     for col in LEARNED_COLS:
-        vals = [float(r[col]) for r in esm]
-        print(f"esmfold2 {col}: n={len(vals)} min={min(vals):.4f} "
+        vals = [float(r[col]) for r in esm if r[col] != ""]
+        n_blank = len(esm) - len(vals)
+        print(f"esmfold2 {col}: n={len(vals)} (+{n_blank} audited blanks) min={min(vals):.4f} "
               f"mean={sum(vals)/len(vals):.4f} max={max(vals):.4f}")
     print("FINAL CHECK PASS")
     return 0
