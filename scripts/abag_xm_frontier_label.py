@@ -4,8 +4,10 @@
 Loop: (1) rsync qb2's frontier fold tree into qb1's (disjoint dirs; qb2's
 progress.jsonl comes over as progress_qb2.jsonl), (2) label every complete,
 unlabeled fold with the unmodified p4 pipeline (abag_xm_labels.py), at most
-NWORK concurrent processes, (3) sleep. Exits when the CAMPAIGN_DONE marker
-exists and a full scan finds nothing left to label.
+NWORK concurrent processes, (3) build any Arm-B 200-sample pool whose 20
+per-seed labels all exist (abag_xm_frontier_pool.py, after the folds), (4)
+sleep. Exits when the CAMPAIGN_DONE marker exists and a full scan finds
+nothing left to label.
 
 labels.json lands in the fold's out_dir (~/abag_xm/frontier/<arm>/<T>[_seed<j>]/).
 Label env mirrors abag_xm_labels_campaign.py: label venv python + shared
@@ -19,7 +21,7 @@ WT = Path("/home/ttuser/.coworker/wt/abag-xm-seeds-vs-samples-oracle-frontier-p2
 BASE = Path.home() / "abag_xm" / "frontier"
 GT = Path.home() / "abag_xm" / "ground_truth"
 DONE_MARKER = BASE / "CAMPAIGN_DONE"
-NWORK = 3
+NWORK = 4
 PAIR_WORKERS = 4
 SLEEP_S = 120
 LABEL_VENV_PY = Path.home() / ".abag_xm_label_venv" / "bin" / "python3"
@@ -113,15 +115,62 @@ def label_one(out_dir, rd):
         lock.unlink(missing_ok=True)
 
 
+POOL = BASE / "B_pool"
+POOL_SCRIPT = WT / "scripts" / "abag_xm_frontier_pool.py"
+N_SEEDS = 20
+
+
+def pending_pools():
+    """Targets whose 20 per-seed B labels all exist but the 200-sample pool is
+    not built/locked yet. Runs LAST in each scan (folds first)."""
+    bdir = BASE / "B"
+    if not bdir.is_dir():
+        return []
+    targets = sorted({d.name.split("_seed")[0] for d in bdir.iterdir()
+                      if d.is_dir() and "_seed" in d.name})
+    out = []
+    for t in targets:
+        if (POOL / t / "labels.json").exists() or (POOL / t / ".pool_lock").exists():
+            continue
+        if all((bdir / f"{t}_seed{j}" / "labels.json").exists() for j in range(N_SEEDS)):
+            out.append(t)
+    return out
+
+
+def pool_one(target):
+    lock = POOL / target / ".pool_lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text(str(os.getpid()))
+    t0 = time.time()
+    try:
+        env = label_env()
+        env["POOL_PAIR_WORKERS"] = str(PAIR_WORKERS)
+        try:
+            r = subprocess.run([sys.executable, str(POOL_SCRIPT), target],
+                               capture_output=True, text=True, env=env, timeout=25200)
+            ok = r.returncode == 0 and (POOL / target / "labels.json").exists()
+            if not ok:
+                print(f"  pool stderr tail: {r.stderr.strip()[-300:]}", flush=True)
+        except subprocess.TimeoutExpired:
+            ok = False
+        print(f"pool {target} {'ok' if ok else 'FAILED'} wall={round(time.time()-t0)}s",
+              flush=True)
+    finally:
+        lock.unlink(missing_ok=True)
+
+
 def main():
     print(f"labeler start: base={BASE} workers={NWORK} pair_workers={PAIR_WORKERS}", flush=True)
     while True:
         qb2_up = sync_qb2()
         todo = pending_folds()
-        if todo:
-            print(f"scan: {len(todo)} folds to label (qb2_up={qb2_up})", flush=True)
+        pools = pending_pools()
+        if todo or pools:
+            print(f"scan: {len(todo)} folds + {len(pools)} pools to label (qb2_up={qb2_up})",
+                  flush=True)
             with ThreadPoolExecutor(max_workers=NWORK) as ex:
                 list(ex.map(lambda t: label_one(*t), todo))
+                list(ex.map(pool_one, pools))
         elif DONE_MARKER.exists():
             print("campaign done + nothing to label: labeler exits", flush=True)
             return
