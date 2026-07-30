@@ -21,7 +21,8 @@ targets, B=1,000, seed 20260729). Self-tests (exit 1 on failure):
   * ranked@1 == random@1 within Monte-Carlo noise (both are the per-sample mean)
   * ranked@50 == plain rank-0 success EXACTLY (the full pool is the N=50 subsample)
   * the estimator-free rank-0 success at 0.23 for opendde-abag reproduces the
-    harness-validation number 107/161 = 66.5% (their paper: 66.4%)
+    harness-validation number 108/161 = 67.1% (their paper: 66.4%; 107/161 =
+    66.5% before the 9q1l chain-map label correction)
 
     python3 scripts/abag_xm_ncurve.py [--csv ranker_scores.csv] [--out_dir docs]
 
@@ -117,9 +118,9 @@ def main():
             if not np.allclose(r50, rank0_hit[(gen, thr)], atol=0.0):
                 fails.append(f"{gen} thr={thr}: ranked@50 != plain rank-0 success exactly")
     op = rank0_hit[("opendde-abag", 0.23)].sum()
-    if op != 107:
-        fails.append(f"opendde rank-0 acceptable success {int(op)}/161 != 107/161 "
-                     f"(the 66.5% harness-validation number)")
+    if op != 108:
+        fails.append(f"opendde rank-0 acceptable success {int(op)}/161 != 108/161 "
+                     f"(the 67.1% harness-validation number, post-9q1l-correction)")
     if fails:
         for f in fails:
             print("FAIL:", f)
