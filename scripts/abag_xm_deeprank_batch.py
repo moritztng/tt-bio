@@ -367,9 +367,19 @@ def _main_single(cli, args):
     if len(scores) != len(ranks):
         # Previously this path fell back to mapping rows onto ranks by position. The CSV is not
         # rank-ordered, so that fallback would have handed every sample a confidently wrong
-        # label; a short read is a hole to rescore, not something to fill in.
-        print(f"[deeprank-batch] {args.target}/{args.gen}: got {len(scores)}/{len(ranks)} "
-              f"scores -- NOT written", file=sys.stderr)
+        # label; a short read is a hole to rescore, not something to fill in. Persist the
+        # partial map though: a deterministically unscorable sample (dissociated or clashing
+        # pose -- DeepRank-Ab cannot featurize an empty interface graph) would otherwise throw
+        # away the fold's real scores on every rescore. Still exits 3 so the hole stays loud.
+        if scores:
+            missing = sorted(set(range(len(ranks))) - {int(k) for k in scores})
+            with open(args.out_json, "w") as f:
+                json.dump(scores, f)
+            print(f"[deeprank-batch] {args.target}/{args.gen}: got {len(scores)}/{len(ranks)} "
+                  f"scores -- wrote PARTIAL map, unscored ranks {missing}", file=sys.stderr)
+        else:
+            print(f"[deeprank-batch] {args.target}/{args.gen}: got 0/{len(ranks)} "
+                  f"scores -- NOT written", file=sys.stderr)
         sys.exit(3)
     with open(args.out_json, "w") as f:
         json.dump(scores, f)
@@ -396,10 +406,19 @@ def _score_chunk(cli, folds, flags):
         scores = split.get(i, {})
         want = len(per_fold[i])
         if len(scores) != want:
-            # A short fold is a hole in the dataset, not something to paper over -- write nothing
-            # for it so a later pass rescores it, and make the invocation fail loudly.
-            print(f"[deeprank-batch] {fd['target']}/{fd['gen']}: got {len(scores)}/{want} "
-                  f"scores -- NOT written", file=sys.stderr)
+            # Holes stay loud (rc=3), but persist the partial map: a deterministically
+            # unscorable sample (dissociated or clashing pose -- DeepRank-Ab cannot featurize
+            # an empty interface graph) would otherwise discard the fold's real scores on
+            # every rescore. The missing rank becomes one audited blank cell downstream.
+            missing = sorted(set(range(want)) - {int(k) for k in scores})
+            if scores:
+                with open(fd["out_json"], "w") as f:
+                    json.dump(scores, f)
+                print(f"[deeprank-batch] {fd['target']}/{fd['gen']}: got {len(scores)}/{want} "
+                      f"scores -- wrote PARTIAL map, unscored ranks {missing}", file=sys.stderr)
+            else:
+                print(f"[deeprank-batch] {fd['target']}/{fd['gen']}: got 0/{want} "
+                      f"scores -- NOT written", file=sys.stderr)
             rc = 3
             continue
         with open(fd["out_json"], "w") as f:
