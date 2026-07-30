@@ -37,6 +37,11 @@ docs/implementation-parity-data/ref-fixtures/**/*.cif
 docs/implementation-parity-data/ref-fixtures/**/*.a3m
 docs/implementation-parity-data/ref-fixtures/**/*.npz
 
+# Same rationale: the AbAg-XM seeds-vs-samples-oracle-frontier research merge (07-31)
+# added ~25MB of ground-truth CIFs here in a second, previously-unguarded location.
+# Already-committed ones stay tracked (no history rewrite); block further growth.
+examples/ground_truth_structures/*.cif
+
 # ...but keep the vendored ESM MSA package (the msa/ rule above would hide it)
 !tt_bio/_vendor/esm/utils/msa/
 !tt_bio/_vendor/esm/utils/msa/*.py
