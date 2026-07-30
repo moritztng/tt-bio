@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """AbAg-XM HQ bracket (closeout spec 2.8): which scoring unit reproduces
-OpenDDE's ranked high-quality number (ours 26.7% vs their ~35-38% at DockQ>0.8).
+OpenDDE's ranked high-quality number (ours 27.3% vs their ~35-38% at DockQ>0.8,
+post 9q1l chain-map fix).
 
 Our primary label scores DockQ on ONE declared chain pair (antigen x heavy).
 ARK's interface rows pair the antigen with INDIVIDUAL antibody chains (the 100
@@ -539,8 +540,9 @@ def cmd_report(a):
     # self-tests: variant i must reproduce the shipped labels exactly
     fails = []
     op = lines[("i", "opendde-abag", 0.23, "rank0")]
-    if abs(op[0] - 107 / 161) > 1e-9:
-        fails.append(f"variant (i) opendde rank-0 acceptable {op[0]:.4f} != 107/161")
+    if abs(op[0] - 108 / 161) > 1e-9:
+        fails.append(f"variant (i) opendde rank-0 acceptable {op[0]:.4f} != 108/161 "
+                     f"(post 9q1l chain-map fix)")
     if n_declared_bad:
         fails.append(f"{n_declared_bad} folds have recomputed-declared != labels "
                      f"(max_abs_diff > 1e-6)")
@@ -586,21 +588,25 @@ def cmd_report(a):
                       f"| {100 * r['oracle_row_success']:.1f}% |")
     md.append("")
     any_band = any("IN BAND" in vl for vl in verdict_lines)
+    hq_i = 100 * lines[("i", "opendde-abag", 0.8, "rank0")][0]
+    hq_ii = 100 * lines[("ii", "opendde-abag", 0.8, "rank0")][0]
+    hq_iv = 100 * lines[("iv", "opendde-abag", 0.8, "rank0")][0]
     if any_band:
         md.append("## verdict\n")
         md.append("A variant lands in their band; per the 2.8 decision rule that is "
                   "their scoring unit and the label-revision cascade applies.")
     else:
         md.append("## verdict\n")
-        md.append("No variant lands in their HQ band (33-38%) while holding acceptable "
-                  "in 64-68%, so the 26.7%-vs-~35-38% gap is NOT a label-unit artifact: "
-                  "Fab-level grouping does not raise ranked-HQ (24.8%, CI overlaps the "
-                  "declared row's 26.7%), and even the most generous unit (max over "
-                  "rows) reaches only 29.2%. The residual is ranking-calibration, MSA "
-                  "depth, and protocol: their benchmark folds full assemblies while ours "
-                  "is minimal-unit by design (D11), their MSA is unpublished, and their "
-                  "x-axis is model seeds. No refolding (decided, spec section 4); the "
-                  "chain-pair `dockq` column stays the sole label unit.")
+        md.append(f"No variant lands in their HQ band (33-38%) while holding acceptable "
+                  f"in 64-68%, so the {hq_i:.1f}%-vs-~35-38% gap is NOT a label-unit "
+                  f"artifact: Fab-level grouping does not raise ranked-HQ ({hq_iv:.1f}%, "
+                  f"CI overlaps the declared row's {hq_i:.1f}%), and even the most "
+                  f"generous unit (max over rows) reaches only {hq_ii:.1f}%. The "
+                  f"residual is ranking-calibration, MSA depth, and protocol: their "
+                  f"benchmark folds full assemblies while ours is minimal-unit by "
+                  f"design (D11), their MSA is unpublished, and their x-axis is model "
+                  f"seeds. No refolding (decided, spec section 4); the chain-pair "
+                  f"`dockq` column stays the sole label unit.")
     md.append("")
     out_md = Path(a.out_dir) / "abag-xm-hq-bracket.md"
     out_md.write_text("\n".join(md) + "\n")
