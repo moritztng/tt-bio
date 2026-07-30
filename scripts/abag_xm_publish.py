@@ -245,13 +245,25 @@ def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list
             fail.append("native-interface audit did not run; cannot confirm the released targets "
                         f"have a scorable interface (rc={r.returncode})")
         else:
+            # §1.1 report-with-exclusion: the anti-phosphoepitope targets stay IN the
+            # release with null DockQ (their interface is carried by SEP residues the
+            # DockQ loader discards -- abag-xm-label-census.md). Exempt exactly them,
+            # and only while their released dockq really is all-null; any other
+            # unscorable native fails the gate as before.
+            KNOWN_UNSCORABLE = {"9ly2", "9ly3", "9lz2"}
             bad = [a for a in json.loads(audit_json.read_text())
-                   if a.get("status") != "ok" and a.get("target") in released]
+                   if a.get("status") != "ok" and a.get("target") in released
+                   and a.get("target") not in KNOWN_UNSCORABLE]
             if bad:
                 named = ", ".join(f"{a['target']}({a['status']})" for a in bad[:6])
                 fail.append(f"{len(bad)} released target(s) have no scorable interface: {named}"
                             + (" ..." if len(bad) > 6 else "")
                             + " -- their DockQ/epitope/lDDT labels have no referent")
+            leaked = [t for t in KNOWN_UNSCORABLE & released
+                      if df.loc[df.target == t, "dockq_dockq"].notna().any()]
+            if leaked:
+                fail.append(f"exempt unscorable target(s) {sorted(leaked)} carry non-null "
+                            f"dockq -- the §1.1 exemption is stale; re-run the census")
 
         # Two of the tools this campaign uses may not be redistributed, and the release is
         # CC-BY-4.0: ABAG-Rank's weights and bundled examples are CC BY-NC 4.0, and PSBench's
