@@ -31,12 +31,11 @@ ids; `fold_auth_chain_id_1/2` are AUTH ids; DockQ's load_PDB keys chains by
 AUTH id (Bio.PDB auth_chains=True); the chain_map in the labels JSONs is
 {native_auth: model}. label->auth comes from the native mmCIF's atom_site
 columns (gemmi). DockQ 2.1.3 calc_DockQ scores exactly chains[0] vs chains[1],
-so variant (iv) merges H+L residues into one chain (L numbering offset
-+10000, both sides) and carries the concatenated `.sequence` attr that
+so variant (iv) merges H+L residues into one chain (L child-dict key offset
++10000, zero-copy) and carries the concatenated `.sequence` attr that
 DockQ's align_chains reads.
 """
 import argparse
-import copy
 import json
 import sys
 import zlib
@@ -153,20 +152,26 @@ def _anarci_types(id_seq_pairs):
 
 
 def _merge_fab(chain_h, chain_l, offset=FAB_OFFSET):
-    """One DockQ chain object = H residues + L residues (L numbering +offset).
+    """One DockQ chain object = H residues + L residues, zero-copy.
 
-    Deep-copies an existing DockQ-loaded chain so the merged object is the
-    parser's own class; `.sequence` (read by DockQ.align_chains) is the
-    concatenation. Residue deep-copies keep atoms/coords.
+    The merged Chain REUSES the source residue objects: DockQ only reads
+    (the `.sequence` attr align_chains consumes, get_residues/get_atoms
+    iteration, atom coords) and never mutates or matches on residue ids
+    (alignment is sequence-based; use_numbering defaults False). The
+    +offset therefore lives only in the child_dict KEYS to keep H/L resseq
+    keys unique; the residues keep their original ids. A deepcopy of the
+    ~4k-atom chains here was the entire compute bottleneck (qb1 pass-5
+    profile: 16/16 py-spy samples in copy.deepcopy, ~zero in DockQ).
     """
-    merged = copy.deepcopy(chain_h)
-    merged.id = f"{chain_h.id}{chain_l.id}m"
+    merged = type(chain_h)(f"{chain_h.id}{chain_l.id}m")
     merged.sequence = chain_h.sequence + chain_l.sequence
+    for res in chain_h.get_residues():
+        merged.child_dict[res.id] = res
+        merged.child_list.append(res)
     for res in chain_l.get_residues():
-        r = copy.deepcopy(res)
-        het, resseq, icode = r.id
-        r.id = (het, resseq + offset, icode)
-        merged.add(r)
+        het, resseq, icode = res.id
+        merged.child_dict[(het, resseq + offset, icode)] = res
+        merged.child_list.append(res)
     if hasattr(merged, "is_het"):
         merged.is_het = False
     return merged
