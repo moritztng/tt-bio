@@ -22,9 +22,11 @@ mp "spawn" from a multi-threaded parent; the forked child can deadlock
 before exec (observed 2026-07-29: child forked, zero syscalls, parent
 parked in do_select forever, zero log output). Signature: whole process
 tree at ~0 CPU, no tenstorrent fds, no results.json. Killed and retried
-in-place (up to 3 attempts per job).
+in-place (up to 3 attempts per job). Exemption: while a sibling worker
+holds the card's lease flock our predict is parked in the acquire loop
+(observed 2026-07-30 on card7: misread as deadlock) — waiting, never killed.
 """
-import argparse, json, os, signal, socket, subprocess, sys, time
+import argparse, fcntl, json, os, signal, socket, subprocess, sys, time
 from pathlib import Path
 
 TARGETS = ["9q6y", "9tmp", "9gei", "9fte", "9wpm", "9qrv",
@@ -151,6 +153,32 @@ def _tree_has_device(tree):
     return False
 
 
+def _card_held_elsewhere():
+    """True when this host's device-lease lock for our TT_VISIBLE_DEVICES card is
+    flock-held at all. Reachable from the watchdog only when OUR tree has no
+    tenstorrent fds (checked first), so a held lock means a sibling worker owns
+    the card and our predict is blocked in the lease acquire loop — waiting,
+    not deadlocked. flock is kernel-released on death, so held == live holder.
+    """
+    visible = os.environ.get("TT_VISIBLE_DEVICES", "")
+    phys = visible.split(",")[0] if visible else "0"
+    lock = (Path.home() / ".coworker" / "state" / "leases"
+            / f"{socket.gethostname()}-card{phys}.json")
+    try:
+        fd = os.open(lock, os.O_RDWR)
+    except OSError:
+        return False
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return True
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return False
+    finally:
+        os.close(fd)
+
+
 def run_job(job, card, py, timeout, host_threads, log):
     yaml = WT / "examples" / "abag_xm" / f"{job['target']}.yaml"
     cmd = [py, "-m", "tt_bio.main", "predict", str(yaml),
@@ -185,7 +213,9 @@ def run_job(job, card, py, timeout, host_threads, log):
             # a deadlocked tree still burns ~1% in the parent's select loop;
             # a healthy no-device phase (featurization) saturates cores.
             if last_j is not None and j - last_j < 300:
-                idle_snaps += 1
+                # a sibling worker holding the card lease means we are parked
+                # in the flock acquire loop, not deadlocked — don't kill.
+                idle_snaps = 0 if _card_held_elsewhere() else idle_snaps + 1
             else:
                 idle_snaps = 0
             last_j = j
