@@ -72,7 +72,10 @@ def cmd_recompute(a):
     jobs = []  # (labels_path, sample_idx, column, cif, native, yaml)
     for f in sorted(LABELS_DIR.glob("*.json")):
         d = json.loads(f.read_text())
-        _, target = _split_stem(f.stem)
+        try:
+            _, target = _split_stem(f.stem)
+        except ValueError:
+            continue  # sibling-workstream generators (esmfold2) are out of release scope
         try:
             native, yaml_ = _resolve_native_yaml(d, target)
         except FileNotFoundError:
@@ -124,7 +127,10 @@ def cmd_sync_csv(a):
     proj = {}  # (target, gen, rank) -> {interface_lddt, cdr_h3_rmsd}
     for f in sorted(LABELS_DIR.glob("*.json")):
         d = json.loads(f.read_text())
-        gen_dir, target = _split_stem(f.stem)
+        try:
+            gen_dir, target = _split_stem(f.stem)
+        except ValueError:
+            continue  # sibling-workstream generators (esmfold2) are out of release scope
         gen = DIR_TO_GEN[gen_dir]
         for s in d.get("samples", []):
             cdrs = (s.get("cdr_rmsd") or {}).get("cdrs") or {}

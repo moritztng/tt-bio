@@ -180,9 +180,9 @@ def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list
         fail.append(f"dataset card has unfilled placeholders: {holes}")
 
     for name in ("targets.parquet", "labels.parquet", "ensembles.parquet",
-                 "leak_audit.parquet"):
+                 "leak_audit.parquet", "antigen_dedup.parquet"):
         if not (out / name).exists():
-            fail.append(f"{name} missing -- the dataset card documents all four tables")
+            fail.append(f"{name} missing -- the dataset card documents all five tables")
 
     lab = out / "labels.parquet"
     if not lab.exists():
@@ -340,6 +340,9 @@ def main():
     if leak_src.exists() and (out / "targets.parquet").exists():
         shutil.copyfile(leak_src, out / "leak_audit.parquet")
         _add_leak_flags(out / "targets.parquet", out / "leak_audit.parquet")
+    dedup_src = ROOT / "docs" / "abag-xm-antigen-dedup.parquet"
+    if dedup_src.exists():
+        shutil.copyfile(dedup_src, out / "antigen_dedup.parquet")
 
     print("[2/4] coordinates")
     run([sys.executable, str(SCRIPTS / "abag_xm_stage_release.py"), "--out_dir", str(out)])
