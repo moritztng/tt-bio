@@ -18,8 +18,15 @@ Monte-Carlo-on-Monte-Carlo.
 
     python3 scripts/abag_xm_ranker_bootstrap.py [--csv ranker_scores.csv]
                                                 [--boot 10000] [--out docs/abag-xm-ranker-cis]
+                                                [--no-rank-ranges]
 
-Outputs <out>.md (the table) and <out>.csv (machine-readable).
+Outputs <out>.md (the table) and <out>.csv (machine-readable). With rank ranges
+on (default; CoFold Arena method, addendum A1) it additionally ranks the 10
+ranker columns within every (generator, threshold, N) cell on EACH resample --
+gap-recovered and ranked-success metrics -- and writes per-ranker rank ranges
+([2.5, 97.5] percentiles of the rank distribution) to
+<out-dir>/abag-xm-ranker-rankranges.{md,csv}. Oracle and random are reference
+lines and are NOT ranked competitors.
 """
 import argparse
 import sys
@@ -70,6 +77,8 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "docs" / "abag-xm-ranker-cis"))
     ap.add_argument("--global_rankers", default="ranking_score,deeprank_ab,abag_rank",
                     help="rankers getting the (slower) global pooled Spearman CI")
+    ap.add_argument("--no-rank-ranges", dest="rank_ranges", action="store_false",
+                    help="skip the per-cell rank-range computation (addendum A1)")
     a = ap.parse_args()
 
     df = pd.read_csv(a.csv)
@@ -116,6 +125,7 @@ def main():
     rows = []
     ci = lambda v: (float(np.percentile(v, 2.5)), float(np.percentile(v, 97.5)))
     gap_by = {}     # (gen, thr, N) -> ranker -> B-array of gap-recovered
+    ranked_by = {}  # (gen, thr, N) -> ranker -> B-array of ranked success
     for gen in GENS:
         for thr in THRESHOLDS:
             for N in NS:
@@ -127,11 +137,13 @@ def main():
                                     (per[rk][idx].mean(axis=1) - random) / denom, np.nan)
                        for rk in RANKERS}
                 gap_by[(gen, thr, N)] = gap
+                ranked = {rk: per[rk][idx].mean(axis=1) for rk in RANKERS}
+                ranked_by[(gen, thr, N)] = ranked
                 for rk in RANKERS:
                     lo, hi = ci(gap[rk][~np.isnan(gap[rk])])
                     rows.append(dict(generator=gen, threshold=thr, N=N, ranker=rk,
                                      oracle=ci(oracle), random=ci(random),
-                                     ranked=ci(per[rk][idx].mean(axis=1)),
+                                     ranked=ci(ranked[rk]),
                                      gap_recovered=float(np.nanmean(gap[rk])),
                                      gap_lo=lo, gap_hi=hi))
 
@@ -195,20 +207,74 @@ def main():
     dif.to_csv(Path(a.out + "-diffs").with_suffix(".csv"), index=False)
     spr.to_csv(Path(a.out + "-spearman").with_suffix(".csv"), index=False)
 
+    # ---- per-cell rank ranges (addendum A1, CoFold Arena paired method) --------
+    # Every ranker is re-scored on the SAME target resample (the paired matrix
+    # above); within each cell the 10 ranker columns are then ranked per
+    # resample. The [2.5, 97.5] percentiles of a ranker's rank distribution are
+    # its rank range -- the uncertainty statement for any ordering claim.
+    rr = pd.DataFrame()
+    rr_gap = {}     # (gen, thr, N) -> ("gap_recovered"|"ranked_success", rk) -> (med, lo, hi)
+    if a.rank_ranges:
+        rr_rows = []
+        for gen in GENS:
+            for thr in THRESHOLDS:
+                for N in NS:
+                    cell = {}
+                    for metric, mby in (("gap_recovered", gap_by[(gen, thr, N)]),
+                                        ("ranked_success", ranked_by[(gen, thr, N)])):
+                        M = np.stack([mby[rk] for rk in RANKERS], axis=1)
+                        okrows = ~np.isnan(M).any(axis=1)
+                        # average ranks for ties (discrete ties from identical
+                        # argmax picks are real here); rank 1 = best
+                        ranks = rankdata(-M[okrows], axis=1)
+                        for j, rk in enumerate(RANKERS):
+                            r = ranks[:, j]
+                            med = float(np.median(r))
+                            rlo = float(np.percentile(r, 2.5))
+                            rhi = float(np.percentile(r, 97.5))
+                            assert 1.0 <= rlo <= med <= rhi <= float(len(RANKERS)), \
+                                f"rank range violated: {gen} {thr} {N} {metric} {rk}"
+                            v = mby[rk][okrows] if metric == "gap_recovered" else mby[rk]
+                            vlo, vhi = ci(v)
+                            cell[(metric, rk)] = (med, rlo, rhi)
+                            rr_rows.append(dict(generator=gen, threshold=thr, N=N,
+                                                metric=metric, ranker=rk,
+                                                median_rank=med, rank_lo=rlo,
+                                                rank_hi=rhi,
+                                                metric_value=float(np.mean(v)),
+                                                ci_lo=vlo, ci_hi=vhi))
+                    rr_gap[(gen, thr, N)] = cell
+        rr = pd.DataFrame(rr_rows)
+        rr.to_csv(Path(a.out).parent / "abag-xm-ranker-rankranges.csv", index=False)
+
+    def fmt_rank(x):
+        return f"{round(x, 1):g}"
+
+    def rr_str(gen, thr, N, rk, metric="gap_recovered"):
+        if not rr_gap:
+            return "n/a"
+        med, rlo, rhi = rr_gap[(gen, thr, N)][(metric, rk)]
+        return f"{fmt_rank(med)} [{fmt_rank(rlo)}, {fmt_rank(rhi)}]"
+
     # ---- report ---------------------------------------------------------------
     lines = ["# AbAg-XM ranker bootstrap CIs",
              "",
              f"161 scorable targets resampled with replacement, B={B:,}, seed {SEED}. "
              f"Budget-N estimator: mean over {a.subsamples} without-replacement subsamples "
              "per fold (seeded per fold). Gap-recovered = (ranked - random)/(oracle - "
-             "random). 95% percentile CIs; a difference is significant iff its CI excludes 0.",
+             "random). 95% percentile CIs; a difference is significant iff its CI excludes 0. "
+             "The bootstrap is PAIRED: every ranker is re-scored on the same target resample, "
+             "so per-resample ranks are well-defined. Rank range = [2.5, 97.5] percentiles "
+             "of a ranker's per-resample rank within its cell (10 rankers, average ranks for "
+             "ties, rank 1 = best; oracle/random are reference lines, not ranked). Full "
+             "rank-range tables: abag-xm-ranker-rankranges.md/.csv.",
              ""]
     for thr in THRESHOLDS:
         for N in NS:
             lines.append(f"## DockQ >= {thr}, N={N}: gap-recovered by ranker")
             lines.append("")
-            lines.append("| generator | ranker | gap-recovered | 95% CI | vs ranking_score |")
-            lines.append("|---|---|---|---|---|")
+            lines.append("| generator | ranker | gap-recovered | 95% CI | rank range | vs ranking_score |")
+            lines.append("|---|---|---|---|---|---|")
             for gen in GENS:
                 for rk in RANKERS:
                     r = rep[(rep.generator == gen) & (rep.threshold == thr)
@@ -220,7 +286,8 @@ def main():
                         f"{d.iloc[0]['mean']:+.3f} [{d.iloc[0]['lo']:+.3f}, "
                         f"{d.iloc[0]['hi']:+.3f}]" + (" **sig**" if d.iloc[0]["significant"] else ""))
                     lines.append(f"| {gen} | {rk} | {r.gap_recovered:.3f} "
-                                 f"[{r.gap_lo:.3f}, {r.gap_hi:.3f}] | {vs} |")
+                                 f"[{r.gap_lo:.3f}, {r.gap_hi:.3f}] | "
+                                 f"{rr_str(gen, thr, N, rk)} | {vs} |")
                 lines.append("")
     lines.append("## Spearman (per-target mean and global pooled, bootstrap over targets)")
     lines.append("")
@@ -251,18 +318,25 @@ def main():
         "point estimates are " + ", ".join(f"{g} {m:.1%} [{lo:.1%}, {hi:.1%}]"
                                            for g, (m, lo, hi) in zip(GENS, m1)) +
         ". Significant (CI excludes 0) on protenix-v2 and boltz2 only; on opendde-abag it "
-        "is consistent with noise.")
+        "is consistent with noise. deeprank_ab rank ranges (gap-recovered): " +
+        "; ".join(f"{g} N=50 {rr_str(g, 0.23, 50, 'deeprank_ab')}, "
+                  f"N=5 {rr_str(g, 0.23, 5, 'deeprank_ab')}" for g in GENS) + ".")
     m2 = [dv(g, "deeprank_ab - iptm", 0.23, 50) for g in GENS]
     verdicts.append(
         "- \"DeepRank-Ab beats ranking by native ipTM\": paired gap-recovered difference "
         "deeprank_ab - iptm at 0.23/N=50 is " + ", ".join(
             f"{g} {m:+.3f} [{lo:+.3f}, {hi:+.3f}]" + (" (significant)" if s else " (includes 0)")
-            for g, (m, lo, hi, s) in zip(GENS, m2)) + ".")
+            for g, (m, lo, hi, s) in zip(GENS, m2)) +
+        ". Rank ranges at 0.23/N=50: " + "; ".join(
+            f"{g} deeprank_ab {rr_str(g, 0.23, 50, 'deeprank_ab')} vs "
+            f"iptm {rr_str(g, 0.23, 50, 'iptm')}" for g in GENS) + ".")
     m3 = [gv("protenix-v2", "abag_rank", 0.23, N) for N in NS]
     verdicts.append(
         "- \"ABAG-Rank does not transfer\": abag_rank gap-recovered on protenix-v2 is "
         + "; ".join(f"N={N}: {m:.1%} [{lo:.1%}, {hi:.1%}]" for (m, lo, hi), N in zip(m3, NS))
-        + " -- negative, CI excludes 0 at N=50. Verdict stands.")
+        + " -- negative, CI excludes 0 at N=50. Verdict stands. abag_rank rank ranges on "
+        "protenix-v2 (gap-recovered): "
+        + "; ".join(f"N={N} {rr_str('protenix-v2', 0.23, N, 'abag_rank')}" for N in NS) + ".")
     m4 = [dv(g, "abag_rank - ranking_score", 0.23, 50) for g in GENS]
     verdicts.append(
         "- abag_rank vs native ranking_score at 0.23/N=50: " + ", ".join(
@@ -272,11 +346,44 @@ def main():
     rmax = top.loc[top.gap_recovered.idxmax()]
     verdicts.append(
         f"- Largest gap-recovered any ranker achieves at 0.23/N=50: {rmax.gap_recovered:.1%} "
-        f"[{rmax.gap_lo:.1%}, {rmax.gap_hi:.1%}] ({rmax.ranker} on {rmax.generator}). The "
+        f"[{rmax.gap_lo:.1%}, {rmax.gap_hi:.1%}] ({rmax.ranker} on {rmax.generator}, "
+        f"rank range {rr_str(rmax.generator, 0.23, 50, rmax.ranker)}). The "
         "earlier session claim \"no ranker exceeds ~22%\" is REVISED upward by this table.")
     lines += verdicts
     Path(a.out).with_suffix(".md").write_text("\n".join(lines) + "\n")
     print(f"wrote {a.out}.md / .csv / -diffs.csv / -spearman.csv")
+
+    # ---- rank-range report (addendum A1) ---------------------------------------
+    if a.rank_ranges:
+        rl = ["# AbAg-XM ranker rank ranges (paired bootstrap)",
+              "",
+              f"Same paired bootstrap as abag-xm-ranker-cis.md: {len(rr_gap)} cells "
+              f"(3 generators x N in {NS} x DockQ thresholds {THRESHOLDS}), B={B:,} target "
+              f"resamples, seed {SEED}. Per resample the 10 ranker columns are ranked "
+              "within each cell (average ranks for ties, rank 1 = best; oracle/random are "
+              "reference lines, not ranked). Rank range = [2.5, 97.5] percentiles of the "
+              "rank distribution. Overlapping rank ranges mean the ordering is not "
+              "resolvable at this panel size.",
+              ""]
+        for metric, title in (("gap_recovered", "gap-recovered (primary)"),
+                              ("ranked_success", "ranked success (secondary)")):
+            for thr in THRESHOLDS:
+                for N in NS:
+                    rl.append(f"## {title}, DockQ >= {thr}, N={N}")
+                    rl.append("")
+                    rl.append("| generator | ranker | median rank | rank range | metric [95% CI] |")
+                    rl.append("|---|---|---|---|---|")
+                    sub = rr[(rr.metric == metric) & (rr.threshold == thr) & (rr.N == N)]
+                    for gen in GENS:
+                        for rk in RANKERS:
+                            r = sub[(sub.generator == gen) & (sub.ranker == rk)].iloc[0]
+                            rl.append(f"| {gen} | {rk} | {fmt_rank(r.median_rank)} | "
+                                      f"[{fmt_rank(r.rank_lo)}, {fmt_rank(r.rank_hi)}] | "
+                                      f"{r.metric_value:.3f} [{r.ci_lo:.3f}, {r.ci_hi:.3f}] |")
+                        rl.append("")
+        rpath = Path(a.out).parent / "abag-xm-ranker-rankranges"
+        rpath.with_suffix(".md").write_text("\n".join(rl) + "\n")
+        print(f"wrote {rpath}.md / .csv")
 
     # ---- claim verdicts (spec 2.7 accept) --------------------------------------
     def gap_at(gen, rk, thr, N):
