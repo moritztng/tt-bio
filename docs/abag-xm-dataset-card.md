@@ -80,6 +80,12 @@ reports per sample, so they are a global-confidence baseline and not an interfac
 - **MSAs are uniref30-only and unpaired.** No paired MSA, no environmental database. Absolute
   accuracy is therefore *not* comparable to published numbers produced with full ColabFold search;
   comparisons within this dataset are valid because every generator received byte-identical input.
+- **The esmfold2 leg is single-sequence by design.** Boltz-2, Protenix-v2 and OpenDDE received
+  the unpaired uniref30 MSA; esmfold2 was run with  (no MSA at all), although
+  the model supports optional MSA conditioning. esmfold2 rows are therefore a sequence-only
+  reference point: any cross-generator comparison confounds the MSA-vs-no-MSA effect with the
+  architecture and must be read as a method comparison, not an ablation. The choice is recorded
+  per fold -- esmfold2 provenance carries  and .
 - **Three generators, not a survey.** Chosen for permissive licensing so their outputs can be
   redistributed.
 - **50 samples per fold** bounds how well the oracle gap can be estimated for any single target.
