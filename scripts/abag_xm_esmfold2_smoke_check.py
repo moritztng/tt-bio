@@ -12,7 +12,7 @@ Hard checks (exit 1 on any failure — DO NOT LAUNCH the leg):
   3. results.json[0]: status ok; all_runs 50 rows; every ptm/iptm in [0,1]; AT LEAST ONE iptm > 0
      (all-zero iptm = the fold result does not expose .ptm/.iptm where the plumbing reads them,
      ranking silently fell back to pLDDT — fix the attr mapping before launching).
-  4. Winner CIF: 2 chains; residue count within 15% of the YAML protein total; b-factors present
+  4. Winner CIF: chains == YAML protein ids (Fab-Ag targets are typically 3: A,H,L); residue count within 15% of the YAML protein total; b-factors present
      and non-constant. The b-factor SCALE (0-1 vs 0-100) is recorded, not asserted.
 Soft outputs: wall_s, r = wall_s / n_res (s/res), and the per-host --timeout values for the launch:
   T_host = ceil(3.5 * r * host_max_res / 300) * 300   (qb1 host_max 814, qb2 host_max 1095)
@@ -119,8 +119,10 @@ def main():
         chains = sorted(set(arr.chain_id.tolist()))
         n_res_cif = len(set(zip(arr.chain_id.tolist(), arr.res_id.tolist())))
         bf = arr.b_factor
-        if len(chains) != 2:
-            fail(f"winner CIF chains {chains} != 2", failures)
+        want = sorted(str(e["protein"].get("id")) for e in doc.get("sequences", [])
+                      if "protein" in e)
+        if chains != want:
+            fail(f"winner CIF chains {chains} != YAML protein ids {want}", failures)
         if abs(n_res_cif - n_res) > 0.15 * n_res:
             fail(f"winner CIF residues {n_res_cif} vs YAML {n_res} (>15% off)", failures)
         if float(bf.min()) == float(bf.max()):
