@@ -31,7 +31,7 @@ method can be tested against ground truth rather than against another prediction
 | file | one row per | contents |
 |---|---|---|
 | `targets.parquet` | target | sequences, declared interface chains, release date, provenance, leak flags |
-| `labels.parquet` | (target, generator, sample) | DockQ, epitope Jaccard, interface lDDT, CDR RMSD, PAE-derived scores, native confidences |
+| `labels.parquet` | (target, generator, sample) | DockQ, epitope Jaccard, interface lDDT, CDR RMSD, PAE-derived scores, native confidences, DeepRank-Ab |
 | `ensembles.parquet` | (target, generator) | condensed 1225-pair similarity matrix, pairwise structural similarity (PSS), basin clustering |
 | `leak_audit.parquet` | target | pre-cutoff homology identities (CDR-H3, antigen), best-hit entries, flags |
 | `structures/<generator>/<target>/` | sample | gzipped mmCIF coordinates |

@@ -268,10 +268,11 @@ def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list
         # Two of the tools this campaign uses may not be redistributed, and the release is
         # CC-BY-4.0: ABAG-Rank's weights and bundled examples are CC BY-NC 4.0, and PSBench's
         # models are AF3 outputs we do not own. Both were only ever meant to be internal scoring
-        # tools. They are excluded structurally today -- labels.parquet is built from the per-fold
-        # label JSONs and never from ranker_scores.csv -- but "structurally" is one refactor away
-        # from "accidentally", and a licence breach is not the kind of thing to notice after
-        # upload. Assert it instead of trusting the data flow.
+        # tools. The licence gate has two halves: the banned columns must be ABSENT (asserted
+        # here, not trusted to the data flow -- a breach is not the kind of thing to notice
+        # after upload), and the one cleared learned ranker must be PRESENT -- DeepRank-Ab is
+        # Apache-2.0 and Moritz's 2026-07-30 decision keeps it as the shipped learned-ranker
+        # column, so an empty or missing deeprank_ab is as much a defect as a leak.
         banned = {c: t for c in df.columns
                   for t, pats in (("ABAG-Rank (weights CC BY-NC 4.0)", ("abag_rank", "abagrank")),
                                   ("PSBench (AF3 outputs, not ours)", ("psbench", "dockq_wave")))
@@ -279,6 +280,12 @@ def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list
         if banned:
             fail.append("labels.parquet carries non-redistributable columns -- "
                         + "; ".join(f"{c!r} from {t}" for c, t in sorted(banned.items())))
+        if "deeprank_ab" not in df.columns:
+            fail.append("deeprank_ab missing from labels.parquet -- the release ships no "
+                        "learned-ranker column (DeepRank-Ab, Apache-2.0, is the cleared one)")
+        elif df.deeprank_ab.isna().any():
+            fail.append(f"deeprank_ab null in {int(df.deeprank_ab.isna().sum())}/{len(df)} "
+                        f"rows -- the keyed join to ranker_scores.csv did not cover every sample")
 
         tgt = out / "targets.parquet"
         if tgt.exists():

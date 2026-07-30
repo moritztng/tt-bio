@@ -31,9 +31,32 @@ ROOT = Path(__file__).resolve().parent.parent
 TIERA = Path.home() / "abag_xm" / "tier_a"
 LABELS_DIR = TIERA / "labels"
 PROGRESS = TIERA / "progress.jsonl"
+RANKER_CSV = TIERA / "ranker_scores.csv"
 DIR_TO_GEN = {"protenix_v2": "protenix-v2", "opendde_abag": "opendde-abag", "boltz2": "boltz2"}
 PROVENANCE = ("host", "tt_bio_commit", "host_threads", "paired_msa", "mps", "n_samples",
               "wall_s", "device", "timeout_s", "recovered")
+
+
+def _deeprank_scores(csv_path):
+    """(target, gen, rank) -> deeprank_ab, from the merged ranker table.
+
+    DeepRank-Ab (Apache-2.0) is the one learned ranker cleared for the public release
+    (Moritz 2026-07-30: ABAG-Rank's CC BY-NC weights drop its column; aggregate stats
+    only in the writeup). The join is keyed, never positional -- the campaign already
+    burned one table on a positional learned-ranker join. Only the deeprank_ab column
+    is read; abag_rank is never touched.
+    """
+    if not csv_path.exists():
+        print(f"  !! {csv_path} missing -- deeprank_ab will be absent from labels.parquet")
+        return {}
+    out = {}
+    with open(csv_path, newline="") as fh:
+        import csv
+        for r in csv.DictReader(fh):
+            v = r.get("deeprank_ab")
+            if v:
+                out[(r["target"], r["gen"], int(r["rank"]))] = float(v)
+    return out
 
 
 def _fold_provenance():
@@ -87,11 +110,14 @@ def _flat(prefix, d):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out_dir", default=str(Path.home() / "abag_xm" / "release"))
+    ap.add_argument("--ranker_csv", default=str(RANKER_CSV),
+                    help="merged ranker table; only the deeprank_ab column is read")
     a = ap.parse_args()
     out_dir = Path(a.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     prov = _fold_provenance()
+    deeprank = _deeprank_scores(Path(a.ranker_csv))
     label_rows, ens_rows, no_conf = [], [], []
     for f in sorted(LABELS_DIR.glob("*.json")):
         stem = f.stem
@@ -117,6 +143,7 @@ def main():
             # pae_ipsae / pae_pdockq2 columns.
             row.update(_flat("conf", {k: v for k, v in conf.get(s.get("rank"), {}).items()
                                       if k != "rank"}))
+            row["deeprank_ab"] = deeprank.get((target, gen, s.get("rank")))
             row.update(_flat("dockq", s.get("dockq")))
             row.update(_flat("pae", s.get("pae_metrics")))
             row["epitope_jaccard"] = s.get("epitope_jaccard")
@@ -158,7 +185,7 @@ def main():
             if c in lab.columns and lab[c].isna().all()]
     if miss:
         print(f"  WARNING: entirely null in every row: {miss}")
-    for c in ("dockq_dockq", "interface_lddt", "cdr_h3_rmsd", "conf_iptm"):
+    for c in ("dockq_dockq", "interface_lddt", "cdr_h3_rmsd", "conf_iptm", "deeprank_ab"):
         if c in lab.columns:
             print(f"  {c:18s} non-null {lab[c].notna().sum():5d}/{len(lab)}")
     # A fold whose results.json is unreadable yields labels with no confidence at all, which is a
