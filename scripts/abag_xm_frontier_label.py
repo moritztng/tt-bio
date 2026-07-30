@@ -99,12 +99,16 @@ def label_one(out_dir, rd):
         cmd = [str(LABEL_VENV_PY), str(WT / "scripts" / "abag_xm_labels.py"), str(rd),
                str(GT / f"{target}.cif"), str(WT / "examples" / "abag_xm" / f"{target}.yaml"),
                "--out", str(out_dir / "labels.json"), "--pair_workers", str(PAIR_WORKERS)]
-        r = subprocess.run(cmd, capture_output=True, text=True, env=label_env(), timeout=7200)
-        ok = r.returncode == 0 and (out_dir / "labels.json").exists()
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, env=label_env(),
+                               timeout=21600)
+            ok = r.returncode == 0 and (out_dir / "labels.json").exists()
+            if not ok:
+                print(f"  stderr tail: {r.stderr.strip()[-300:]}", flush=True)
+        except subprocess.TimeoutExpired:
+            ok = False
         print(f"label {out_dir.parent.name}/{out_dir.name} {'ok' if ok else 'FAILED'} "
               f"wall={round(time.time()-t0)}s", flush=True)
-        if not ok:
-            print(f"  stderr tail: {r.stderr.strip()[-300:]}", flush=True)
     finally:
         lock.unlink(missing_ok=True)
 
