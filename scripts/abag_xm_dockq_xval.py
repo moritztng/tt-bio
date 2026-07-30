@@ -21,6 +21,7 @@ _atom_site directly (same pattern as Structure.from_single_chain_mmcif) and
 works uniformly on natives and all three generators' outputs.
 """
 import argparse, gzip, json, sys
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import numpy as np
@@ -156,6 +157,12 @@ def load_chains(path, model_num="1"):
         atom = atom[atom["pdbx_PDB_model_num"].astype(str) == str(model_num)]
     atom = atom.copy()
     atom["label_seq_id"] = pd.to_numeric(atom["label_seq_id"], errors="coerce")
+    if atom["label_seq_id"].notna().sum() == 0 and "auth_seq_id" in atom:
+        # PDB-sourced conversion without label numbering (e.g. gemmi on the
+        # DockQ 1A2K example): fall back to auth numbering + auth chain ids.
+        atom["label_seq_id"] = pd.to_numeric(atom["auth_seq_id"],
+                                             errors="coerce")
+        atom["label_asym_id"] = atom["auth_asym_id"].astype(str)
     cif["_atom_site"] = atom
     auth2label = {}
     for auth, label in (atom[["auth_asym_id", "label_asym_id"]]
@@ -174,27 +181,42 @@ def load_chains(path, model_num="1"):
     return chains, auth2label
 
 
+def _correspondence(ref_rname, pred_rname):
+    """(ref_pos, pred_pos) pairs with equal rname, by sequence alignment.
+
+    ridx (label_seq_id) is NOT a valid correspondence key: natives keep the
+    deposited entity numbering (9mz8 antigen: 12..27) while generators renumber
+    from 1. DockQ v2 establishes the residue universe by sequence alignment;
+    SequenceMatcher matching blocks do the same here (monotonic, gap-aware,
+    mismatch positions excluded by construction).
+    """
+    sm = SequenceMatcher(a=[str(r) for r in ref_rname],
+                         b=[str(r) for r in pred_rname], autojunk=False)
+    pairs = []
+    for blk in sm.get_matching_blocks():
+        pairs.extend((blk.a + k, blk.b + k) for k in range(blk.size))
+    return pairs
+
+
 def make_compatible(ref_chain, pred_chain):
     """Residue-intersect ref/pred to identical grids for tinyprot's aname assert.
 
-    Keep positions present on both sides (by ridx = label_seq_id), standard on
-    both sides, with equal rname. Equal rname per position implies equal CCD
-    atom grids, so the dockQ() aname assert passes by construction. Mirrors
-    DockQ v2's common-residue-universe semantics (its alignment path resolves
-    point mismatches; tinyprot cannot, so mismatched positions are dropped --
-    at most a handful of residues, recorded as n_dropped).
+    Keep aligned positions standard on both sides (equal rname is guaranteed by
+    the alignment). Equal rname per position implies equal CCD atom grids, so
+    the dockQ() aname assert passes by construction. Mirrors DockQ v2's
+    common-residue-universe semantics (its alignment path also resolves point
+    mismatches by exclusion). n_dropped counts standard residues lost on the
+    shorter side (mismatches + non-standard + gapped).
     """
     rs, ps = ref_chain.get_std_mask(), pred_chain.get_std_mask()
-    rmap = {int(r): i for i, r in enumerate(ref_chain.ridx) if rs[i]}
-    pmap = {int(r): i for i, r in enumerate(pred_chain.ridx) if ps[i]}
-    common = sorted(set(rmap) & set(pmap))
-    keep = [r for r in common
-            if ref_chain.rname[rmap[r]] == pred_chain.rname[pmap[r]]]
+    pairs = [(i, j) for i, j in _correspondence(ref_chain.rname, pred_chain.rname)
+             if rs[i] and ps[j]]
     rmask = np.zeros(len(ref_chain.rname), bool)
     pmask = np.zeros(len(pred_chain.rname), bool)
-    rmask[[rmap[r] for r in keep]] = True
-    pmask[[pmap[r] for r in keep]] = True
-    n_dropped = min(int(rs.sum()), int(ps.sum())) - len(keep)
+    if pairs:
+        rmask[[i for i, _ in pairs]] = True
+        pmask[[j for _, j in pairs]] = True
+    n_dropped = min(int(rs.sum()), int(ps.sum())) - len(pairs)
     return ref_chain.residue_slice(rmask), pred_chain.residue_slice(pmask), n_dropped
 
 
@@ -229,6 +251,15 @@ def score_triple(target, gen, rank, labels_dir=LABELS_DIR, gt_dir=GT_DIR):
         ref.chains[rl], pred.chains[pl] = rc, pc
         mapping[rl] = pl
         dropped[rl] = nd
+
+    empty = next((rl for rl in mapping if len(ref.chains[rl].rname) == 0), None)
+    if empty is not None:
+        res = {"target": target, "gen": gen, "rank": rank,
+               "model": str(model_path),
+               "v2_dockq": blk["dockq"], "v2_fnat": blk["fnat"],
+               "v2_irmsd": blk["iRMSD"], "v2_lrmsd": blk["LRMSD"],
+               "status": f"no_common_residues chain {empty}"}
+        return res
 
     out = dockQ(ref, pred, mapping=mapping)
     pair = tuple(sorted(mapping))
