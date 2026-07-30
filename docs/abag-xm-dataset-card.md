@@ -34,6 +34,7 @@ method can be tested against ground truth rather than against another prediction
 | `labels.parquet` | (target, generator, sample) | DockQ, epitope Jaccard, interface lDDT, CDR RMSD, PAE-derived scores, native confidences, DeepRank-Ab |
 | `ensembles.parquet` | (target, generator) | condensed 1225-pair similarity matrix, pairwise structural similarity (PSS), basin clustering |
 | `leak_audit.parquet` | target | pre-cutoff homology identities (CDR-H3, antigen), best-hit entries, flags |
+| `antigen_dedup.parquet` | target | antigen UniProt accession(s), accession multiplicity, duplicate-group and dedup keep flags |
 | `structures/<generator>/<target>/` | sample | gzipped mmCIF coordinates |
 | `pae/<generator>/<target>/` | sample | predicted aligned error, float16 |
 
@@ -93,6 +94,41 @@ native confidences in the same table (`conf_iptm`, `conf_ptm`, `conf_confidence_
 `conf_complex_plddt`) are whole-complex quantities, because that is all any of the three generators
 reports per sample, so they are a global-confidence baseline and not an interface one.
 
+## Labels check out against a second DockQ implementation
+
+Every label is DockQ 2.1.3 on the declared interface, and every number in this dataset rests on
+that one quantity, so the labels were re-scored with tinyprot, an independent DockQ
+implementation: 120 stratified (target, generator, sample) triples spanning the full score range,
+Pearson r = 0.99968, median absolute deviation 2.8e-8, and zero disagreements that flip a sample
+across the 0.23 or 0.8 thresholds. The cross-validation did expose one real bug, a
+chain-assignment error on a single target (9q1l, two generator folds). Those labels were
+recomputed and the full-panel re-audit is clean. Full report in `docs/abag-xm-dockq-xval.md` of
+the tt-bio repo.
+
+## Validated against the published baseline
+
+The 164 targets are set-identical to OpenDDE's ARK benchmark panel, so their published result is
+a direct check on the whole pipeline. Ranked success at N=5 for opendde-abag is 67.1% here
+against OpenDDE's published 66.4% on the same targets at their published configuration. The
++0.7pp gap is one target's worth (1/161 = 0.62pp), the 9q1l label correction above, plus
+sub-rounding.
+
+## Some targets share antigens
+
+Not every antigen is a distinct protein. 138 of the 164 antigens map to at least one UniProt
+accession (the 26 null-mapping ones are engineered constructs, a reported class of their own, not
+auto-duplicates), and 24 of those accessions are shared by more than one target, covering 78 of
+the 164 targets. The largest group is the SARS-CoV-2 spike (P0DTC2) with 12 targets. Per-target
+averages are therefore not fully independent, and popular antigens pull the headline numbers
+toward themselves.
+
+Headline metrics are accordingly reported both ways. Ranked success at N=5 for opendde-abag is
+0.671 on the full panel, 0.656 with one target per accession (109 scorable targets), and 0.631
+under the stricter sequence-level dedup (80 scorable). The full panel stays primary, because
+panel identity with ARK is what the baseline validation above rests on; the deduplicated view is
+the sensitivity analysis. Per-target accessions, multiplicities and keep flags are in
+`antigen_dedup.parquet`; the full audit is `docs/abag-xm-antigen-dedup.md` in the tt-bio repo.
+
 ## Limitations worth knowing before you use it
 
 - **MSAs are uniref30-only and unpaired.** No paired MSA, no environmental database. Absolute
@@ -103,6 +139,13 @@ reports per sample, so they are a global-confidence baseline and not an interfac
   training-era SAbDab targets); it studies the same oracle-selection gap at larger scale.
   AbAg-XM's targets all postdate every generator's training cutoff and carry a homology
   audit, which is what a generalization claim needs.
+- **CoFold Arena is complementary, not comparable.** CoFold Arena (cofoldarena.ai, weekly
+  PDB-synced) scores a 5-sample / top-1 / single-seed operating point with each model's own
+  confidence ranker; AbAg-XM measures the full oracle-vs-N curve to N=50 and ranker transfer
+  on a date-purity-audited panel. Its stricter methodology is adopted here: their paired
+  bootstrap with rank ranges is how the ranker intervals are computed, their
+  one-antibody-per-antigen panel rule is the dedup audit above, and their scorer (tinyprot)
+  is the label cross-validator above. Percentages are not comparable across the two.
 - **50 samples per fold** bounds how well the oracle gap can be estimated for any single target.
 - **`fold_seq_light` is null for 59 of the targets**, which is a fact about the construct and not
   missing data: those are heavy-only or single-chain antibodies. It is null exactly when `has_HL`
