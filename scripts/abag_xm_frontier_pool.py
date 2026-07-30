@@ -88,10 +88,16 @@ def main():
         t0 = time.time()
         with tempfile.TemporaryDirectory() as td:
             matrix = Path(td) / "matrix.json"
-            r = subprocess.run([str(LABEL_VENV_PY), str(WT / "scripts" / "abag_xm_pairwise_matrix.py"),
-                                str(rd), target, "--n_samples", "200",
-                                "--n_workers", str(PAIR_WORKERS), "--out", str(matrix)],
-                               capture_output=True, text=True, env=label_env(), timeout=10800)
+            try:
+                r = subprocess.run([str(LABEL_VENV_PY), str(WT / "scripts" / "abag_xm_pairwise_matrix.py"),
+                                    str(rd), target, "--n_samples", "200",
+                                    "--n_workers", str(PAIR_WORKERS), "--out", str(matrix)],
+                                   capture_output=True, text=True, env=label_env(), timeout=21600)
+            except subprocess.TimeoutExpired:
+                # p13 lesson: one slow target must not kill the loop; 9j4c-class
+                # matrices exceed 3 h at low worker counts (hit 10800 s first).
+                print(f"{target}: pairwise TIMEOUT, skipped", flush=True)
+                continue
             if r.returncode != 0:
                 print(f"{target}: pairwise FAILED: {r.stderr.strip()[-300:]}", flush=True)
                 continue
