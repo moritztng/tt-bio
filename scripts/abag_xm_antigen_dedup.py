@@ -9,7 +9,7 @@ mapped to UniProt accession(s) via the RCSB GraphQL API (batched, cached),
 accession multiplicity across the panel is reported, and -- if any accession
 maps to >1 target -- headline metrics are recomputed BOTH ways (full 164 panel
 and earliest-release deduplicated panel). PRIMARY stays the full panel: panel
-identity with ARK-164 anchors the 67.2%/66.4% harness validation.
+identity with ARK-164 anchors the 67.1%/66.4% harness validation.
 
 Null-mapping antigens (short peptides, engineered chains) are a reported class,
 NOT auto-duplicates of each other; an all-vs-all MMseqs2 search at 90% identity
@@ -330,7 +330,7 @@ def main():
              "interface rows do not put the antigen on a consistent side) and mapped to "
              "UniProt via the RCSB GraphQL API (cached). PRIMARY "
              "reporting stays the full 164-target panel: panel identity with ARK-164 "
-             "anchors the 67.2%/66.4% harness validation. The deduplicated view is the "
+             "anchors the 67.1%/66.4% harness validation. The deduplicated view is the "
              "sensitivity analysis.",
              "",
              "## Accession mapping",
