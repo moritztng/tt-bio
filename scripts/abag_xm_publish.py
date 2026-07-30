@@ -116,6 +116,27 @@ def _tt_bio_url():
     return url[:-4] if url.endswith(".git") else url
 
 
+def _add_leak_flags(targets_parquet, leak_parquet):
+    """Join the pre-cutoff homology flags onto targets.parquet as booleans.
+
+    The strict subset the card offers (130 targets) must be selectable from one table;
+    the full evidence table (per-target identities and best-hit entries) ships alongside
+    as leak_audit.parquet.
+    """
+    import pandas as pd
+    if not leak_parquet.exists():
+        print(f"  !! {leak_parquet} missing -- leak flags will not be in targets.parquet")
+        return
+    df = pd.read_parquet(targets_parquet)
+    lk = pd.read_parquet(leak_parquet)
+    for cutoff in ("pre2021", "pre2023"):
+        m = dict(zip(lk.target, lk[f"flag_{cutoff}"] != ""))
+        df[f"leak_flag_{cutoff}"] = df.pdb_id.map(m).fillna(False)
+    df.to_parquet(targets_parquet, index=False)
+    print(f"  leak flags joined: {int(df.leak_flag_pre2021.sum())} pre-2021, "
+          f"{int(df.leak_flag_pre2023.sum())} pre-2023")
+
+
 def _fill_card(text, out: Path, repo):
     """Substitute the card's {{placeholders}} from the tables just built.
 
@@ -131,6 +152,14 @@ def _fill_card(text, out: Path, repo):
         df = pd.read_parquet(lab)
         vals["N_TARGETS"] = str(df.target.nunique())
         vals["N_SAMPLES_TOTAL"] = f"{len(df):,}"
+        if "dockq_dockq" in df.columns:
+            vals["N_SCORABLE"] = str(df.loc[df.dockq_dockq.notna(), "target"].nunique())
+    lk = out / "leak_audit.parquet"
+    if lk.exists():
+        import pandas as pd
+        lf = pd.read_parquet(lk)
+        vals["LEAK_FLAGGED_PRE2023"] = ", ".join(
+            sorted(lf.loc[lf.flag_pre2023 != "", "target"]))
     filled = {}
     for k, v in vals.items():
         token = "{{%s}}" % k
@@ -150,9 +179,10 @@ def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list
         holes = sorted({w for w in card.read_text().split() if "{{" in w})
         fail.append(f"dataset card has unfilled placeholders: {holes}")
 
-    for name in ("targets.parquet", "labels.parquet", "ensembles.parquet"):
+    for name in ("targets.parquet", "labels.parquet", "ensembles.parquet",
+                 "leak_audit.parquet"):
         if not (out / name).exists():
-            fail.append(f"{name} missing -- the dataset card documents all three tables")
+            fail.append(f"{name} missing -- the dataset card documents all four tables")
 
     lab = out / "labels.parquet"
     if not lab.exists():
@@ -287,6 +317,10 @@ def main():
         _add_fold_sequences(out / "targets.parquet")
     else:
         print(f"  !! {TARGETS_SRC} missing -- targets.parquet will not be in the release")
+    leak_src = ROOT / "docs" / "abag-xm-leak-audit.parquet"
+    if leak_src.exists() and (out / "targets.parquet").exists():
+        shutil.copyfile(leak_src, out / "leak_audit.parquet")
+        _add_leak_flags(out / "targets.parquet", out / "leak_audit.parquet")
 
     print("[2/4] coordinates")
     run([sys.executable, str(SCRIPTS / "abag_xm_stage_release.py"), "--out_dir", str(out)])

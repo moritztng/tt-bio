@@ -23,16 +23,17 @@ can you tell which one is right?** Each target is folded 50 times by each of thr
 and every sample carries both its predicted confidence and its measured accuracy, so a ranking
 method can be tested against ground truth rather than against another prediction.
 
-{{N_TARGETS}} antibody-antigen complexes x 3 generators x 50 samples =
-{{N_SAMPLES_TOTAL}} scored structures.
+{{N_TARGETS}} antibody-antigen complexes ({{N_SCORABLE}} DockQ-scorable) x 3 generators x
+50 samples = {{N_SAMPLES_TOTAL}} scored structures.
 
 ## What is in it
 
 | file | one row per | contents |
 |---|---|---|
-| `targets.parquet` | target | sequences, declared interface chains, release date, provenance |
+| `targets.parquet` | target | sequences, declared interface chains, release date, provenance, leak flags |
 | `labels.parquet` | (target, generator, sample) | DockQ, epitope Jaccard, interface lDDT, CDR RMSD, PAE-derived scores, native confidences |
 | `ensembles.parquet` | (target, generator) | condensed 1225-pair similarity matrix, pairwise structural similarity (PSS), basin clustering |
+| `leak_audit.parquet` | target | pre-cutoff homology identities (CDR-H3, antigen), best-hit entries, flags |
 | `structures/<generator>/<target>/` | sample | gzipped mmCIF coordinates |
 | `pae/<generator>/<target>/` | sample | predicted aligned error, float16 |
 
@@ -51,6 +52,23 @@ allow_patterns="structures/boltz2/9abc/*")` rather than cloning the whole repo.
 Every target was released after the training cutoff of every generator (2021 and 2023 cutoffs
 against 2026 target releases). Nothing here can have been memorised, which is what makes the
 accuracy labels usable as a ranking benchmark rather than a recall test.
+
+Date purity is not homology purity, so we audited that too: every target's CDR-H3 against
+ANARCI-numbered SAbDab chains released before each cutoff, and every antigen against all
+pre-cutoff PDB protein chains (MMseqs2). 34 of the 164 targets have a pre-2023 complex (16 of
+them pre-2021) carrying a full-length 100%-identity CDR-H3 together with a >=92%-identity
+antigen: {{LEAK_FLAGGED_PRE2023}}. A generator can have seen those homologs, so read those
+targets' numbers as recall-adjacent. For a strict subset, drop them: 130 targets remain
+(`leak_flag_pre2023` in `targets.parquet`; per-target identities in `leak_audit.parquet`).
+Zero of the 164 targets appear in ABAG-Rank's training set.
+
+## Scorable subset: 161 of 164
+
+9ly2, 9ly3 and 9lz2 are anti-phosphoepitope antibodies: their native interface is carried by
+phosphoserine residues, which the DockQ parser discards, so no scorable interface atoms exist.
+Their structures, confidences and ranker scores ship normally, but their DockQ labels are
+null. Every success-rate table uses the 161 DockQ-scorable targets as its denominator and
+says so.
 
 ## Accuracy labels are per-interface, never wave-averaged
 
