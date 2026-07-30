@@ -84,6 +84,7 @@ def main():
     a = ap.parse_args()
 
     df = pd.read_csv(a.csv)
+    df = df[df.gen.isin(GENS)]  # release generators only; sibling campaigns share the csv
     scorable = df.groupby("target")["dockq"].apply(lambda s: s.notna().any())
     targets = sorted(scorable[scorable].index)
     df = df[df.target.isin(targets)]
