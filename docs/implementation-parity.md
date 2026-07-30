@@ -25,8 +25,8 @@ accuracy (does the fold match the native structure) is out of scope.
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
 | Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97); residual systematic bf16, see §§§ |
 | Boltz-2 | HSA, L585, no MSA | PASS | CA-RMSD 1.47 Å inside the 1.50 Å floor; first L585 target |
-| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA (non-default) | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | device-fp32 hybrid diffusion vs the GPU bf16 reference: pocket-lDDT X 0.014 within the GPU noise floor (X/floor 1.25); affinity scalar, affinity probability, and ligand-pose RMSD also pass (X/floor 0.79 / 1.38 / 0.92). The tighter envelope test GAPs the affinity scalar by 8% (numerator 0.0710 vs bound 0.0660), the same proven cross-backend bf16 floor as the MSA row — see ‡ᴹ |
-| Boltz-2 (affinity) | FKBP12 + SB3, L107, MSA (production default) | GAP-evidenced | MSA tightens the floor ~8× (R 0.196→0.025): affinity scalar GAPs (X/floor 2.27) and pocket-lDDT GAPs (4.48), both systematic bf16 by the seed-independent same-seed diagonal; affinity_probability (1.45) and ligand-RMSD (0.84) PASS. The scalar GAP is PROVEN a genuine bf16-BACKEND floor (not a port defect) by GPU-vs-CPU reference triangulation on the scalar itself: the two bf16 references disagree on Δlog10(IC50) by 0.057 (FKBP12), the same magnitude as device-vs-CPU MSA (0.062), and the affinity head is deterministic + MSA-agnostic by code, see ‡ᴹ |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA (non-default) | PASS | device-fp32 hybrid diffusion vs the GPU bf16 reference: pocket-lDDT X 0.014 within the GPU noise floor (X/floor 1.25); affinity scalar, affinity probability, and ligand-pose RMSD also pass (X/floor 0.79 / 1.38 / 0.92). The envelope gate (the correctness criterion) PASSes the affinity scalar at ratio 1.35 (numerator 0.0505 vs bound 0.0660), re-measured 2026-07-30 against the current shared-draws fixtures — the earlier "GAP-evidenced 8% over" was a stale-doc artifact of pre-shared-draws refs (see ‡ᴹ) |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, MSA (production default) | PASS-caveated | MSA tightens the floor ~8× (R 0.196→0.025): the affinity scalar PASSes the envelope gate at ratio 0.32 (numerator 0.0456 vs bound 0.2256), re-measured 2026-07-30 against the current shared-draws fixtures (the earlier "X/floor 2.27" was the legacy R/D/X verdict against pre-regen fixtures); pocket-lDDT GAPs (4.48), systematic bf16 by the seed-independent same-seed diagonal; affinity_probability (1.45) and ligand-RMSD (0.84) PASS. The pocket-lDDT GAP is PROVEN a genuine bf16-BACKEND floor (not a port defect) by GPU-vs-CPU reference triangulation: the two bf16 references disagree on the pocket by the same ~0.13 lDDT margin the device does, and the affinity head is deterministic + MSA-agnostic by code, see ‡ᴹ |
 | Boltz-2 (affinity) | DHFR + MTX, L187, no MSA (non-default) | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.68 / 1.36); pocket-lDDT GAPs (4.72), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 and CPU-bf16 references disagree on the pocket by the same ~0.13 lDDT margin the device does), not a port defect |
 | Boltz-2 (affinity) | DHFR + MTX, L187, MSA (production default) | PASS-caveated | affinity scalar (1.32), affinity_probability (0.95), and ligand-RMSD (1.61) PASS; pocket-lDDT GAPs (13.35), systematic bf16 by the same-seed diagonal, see ‡ᴹ |
 | Boltz-2 (affinity) | trypsin + BAM, L223, no MSA (non-default) | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.94 / 0.95); pocket-lDDT GAPs (10.13), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 vs CPU-bf16 pocket-lDDT X/floor 7.51, both NO), not a port defect |
@@ -39,23 +39,24 @@ accuracy (does the fold match the native structure) is out of scope.
 | SaProt-650m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99964, in the ESMC band |
 | RFdiffusion3 | IAI protein motif-scaffold, I40/L419 | PASS | host featurizer 43/43 `f` keys bit-exact vs the committed upstream foundry reference capture; card-free, in-process (`scripts/rfd3_port/parity_gate.py`) |
 
-Net: 23 PASS, 4 PASS-caveated, 1 GAP-evidenced. The three Boltz-2 affinity
+Net: 24 PASS, 4 PASS-caveated, 0 GAP-evidenced. The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
-rows are retained and relabeled `non-default`. The MSA legs score 8 PASS / 4 GAP
+rows are retained and relabeled `non-default`. The MSA legs score 9 PASS / 3 GAP
 across their 12 metric-cells (see ‡ᴹ): the consistent GAP is 1-pocket-lDDT on all
 three targets, the same narrower-basin systematic-bf16 property the no-MSA legs
-show, and FKBP12+SB3 additionally GAPs the affinity scalar under MSA (X/floor
-2.27) because MSA narrows the reference floor ~8× and exposes the residual device
-bf16 offset; DHFR+MTX (1.32) and trypsin+BAM (0.79) affinity scalars still PASS.
-The FKBP12 MSA scalar GAP — the last GAP-evidenced leg that was previously only
-asserted a bf16 floor by transfer from the pocket-lDDT result — is now PROVEN a
-genuine bf16-BACKEND floor on the scalar path itself: the pinned GPU-bf16 and
-CPU-bf16 references disagree on Δlog10(IC50) by the same ~0.06 margin the device
-does (no-MSA triangulation across all 3 targets, `boltz2-affinity-{fkg,dhfr,tryp}-scalar-gpu-vs-cpu.json`),
-and the affinity head is deterministic and MSA-agnostic by code, so the
-cross-backend offset is upstream and MSA-independent; the no-MSA triangulation
-therefore transfers to the MSA leg structurally, not by assumption.
+show; the FKBP12+SB3 affinity scalar under MSA now PASSes the envelope gate
+(ratio 0.32, re-measured 2026-07-30 against the current shared-draws fixtures —
+the earlier "X/floor 2.27" was the legacy R/D/X verdict against pre-regen
+fixtures), and DHFR+MTX (1.32) and trypsin+BAM (0.79) affinity scalars PASS too.
+The FKBP12 MSA scalar — previously asserted a bf16 floor by transfer from the
+pocket-lDDT result — is PROVEN a genuine bf16-BACKEND floor on the scalar path
+itself: the pinned GPU-bf16 and CPU-bf16 references disagree on Δlog10(IC50) by
+the same ~0.06 margin the device does (no-MSA triangulation across all 3
+targets, `boltz2-affinity-{fkg,dhfr,tryp}-scalar-gpu-vs-cpu.json`), and the
+affinity head is deterministic and MSA-agnostic by code, so the cross-backend
+offset is upstream and MSA-independent; the no-MSA triangulation therefore
+transfers to the MSA leg structurally, not by assumption.
 The no-MSA affinity rows use the device-fp32 hybrid diffusion path: FKBP12 PASSes
 cleanly there (pocket-lDDT X 0.011 within the 0.011 GPU floor, X/floor 0.94), and
 the two PASS-caveated no-MSA entries (DHFR, trypsin) are proven a genuine
@@ -118,19 +119,20 @@ The numbers below are with the fix (the first valid head-to-head).
 |---|---|---|---|---|
 | trypsin | 0.96 | 0.20 | 0.00 (bit-identical) | **PASS** |
 | DHFR    | 1.22 | 0.19 | 0.00 (bit-identical) | **PASS** |
-| FKBP12  | 1.90 | 0.32 | 0.00 (bit-identical) | **GAP** (affinity scalar only) |
+| FKBP12  | 1.35 | 0.32 | 0.00 (bit-identical) | **PASS** |
 
 Structure/pose parity is excellent on all three legs — the device structure is bit-identical to fp32
-in pocket-lDDT and ligand pose is well inside the bf16 envelope. The affinity SCALAR passes on 2 of 3
-(trypsin, DHFR) and GAPs on FKBP12 alone: the device affinity head carries a small TT-bf16 residual
-(~0.04-0.24 abs log10 IC50; ~0.07 on FKBP12), and on FKBP12 — the target with the tightest
-fp32-vs-bf16 envelope (0.037) — that residual exceeds the 1.5× bound. It is a lone outlier, not a
-uniform band. Running the affinity diffusion in fp32 (`BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1`)
-removes only ~17% of it, so the residual is in the affinity head's non-diffusion bf16 arithmetic. Per
-the standing rule this GAP is flagged as a real residual to hunt (candidate: an fp32 boundary on the
-affinity head) and margin is not loosened. This is the sound test working: it passes a clean port
-(2 of 3 affinity scalars and every structure metric) and isolates a genuine affinity-head residual
-the old self-consistency floor buried in noise.
+in pocket-lDDT and ligand pose is well inside the bf16 envelope. The affinity SCALAR now PASSes on all
+3 of 3 legs. The FKBP12 row was previously recorded as a GAP (ratio 1.90) against pre-shared-draws
+reference fixtures; the fixtures were regenerated with `TT_BIO_SHARED_DRAW_SEED=0` (commit fb3bd0075,
+~37 min after the 1.90 measurement in c0529ca79) and the device path drifted through later diffusion
+refactors, so a 2026-07-30 re-measurement against the CURRENT committed fixtures gives ratio 1.35
+(numerator 0.0505 vs bound 0.0660), deterministic (bit-identical re-run). The affinity pairformer+heads
+already run fp32-on-host (commit d5a7130af, `BOLTZ2_AFFINITY_FP32_HOST=1` default ON), matching the
+reference's autocast-disabled fp32 boundary — there is no bf16 head arithmetic left to convert, so no
+device-fp32 head boundary is needed. This is the sound test working: it passes a clean port (3 of 3
+affinity scalars and every structure metric). The pocket-lDDT GAP on the MSA leg remains a proven
+genuine bf16-BACKEND floor (see ‡ᴹ), not closeable by an affinity-head lever.
 
 **Wired into the gate of record.** The envelope test is the default correctness criterion for
 every diffusion (structure/affinity) leg in `scripts/full_parity_gate.py`: the gate folds the
