@@ -12,7 +12,7 @@ CA sets are paired by sequence index, no alignment step.
 Usage:
     PYTHONPATH=<worktree> python3 scripts/abag_xm_cdr_rmsd.py <model.cif> <native.cif> <fold.yaml> [--out json]
 """
-import argparse, json, math, sys
+import argparse, contextlib, json, math, sys
 from pathlib import Path
 import gemmi
 import numpy as np
@@ -47,6 +47,10 @@ def _find_chain(chains, want_seq):
     every CDR came back null for those targets. The offset matters here rather than being a
     formality -- it feeds _cdr_cas's query_start, so the IMGT numbering lands on the right
     residues instead of being shifted off the CDR.
+
+    Third pass (closeout census class): equal-length near-identity unique match for
+    natives carrying a few point differences from the YAML construct; same rule as
+    abag_xm_interface_lddt._find_chain (mismatches <= max(1, 5% of length), unique).
     """
     for name, ch in chains.items():
         if _seq_of(ch) == want_seq:
@@ -55,6 +59,12 @@ def _find_chain(chains, want_seq):
         off = _seq_of(ch).find(want_seq)
         if off >= 0:
             return name, off
+    max_mm = max(1, int(0.05 * len(want_seq)))
+    hits = [name for name, ch in chains.items()
+            if len(_seq_of(ch)) == len(want_seq)
+            and sum(a != b for a, b in zip(_seq_of(ch), want_seq)) <= max_mm]
+    if len(hits) == 1:
+        return hits[0], 0
     return None, None
 
 
@@ -63,8 +73,11 @@ def _imgt_numbers(seq, chain_type):
     chain residue (query_start + k), for the variable region anarci numbered.
     Returns (None, 0) if anarci found no hit."""
     from anarci import run_anarci
-    r0, r1, r2, r3 = run_anarci([(chain_type, seq)], scheme="imgt",
-                                  ncpu=2, bit_score_threshold=40)
+    # ANARCI prints species-limit warnings to stdout; callers parse this
+    # script's stdout as JSON, so keep the channel clean (9lwc census class).
+    with contextlib.redirect_stdout(sys.stderr):
+        r0, r1, r2, r3 = run_anarci([(chain_type, seq)], scheme="imgt",
+                                    ncpu=2, bit_score_threshold=40)
     if not r1 or not r1[0] or not r1[0][0]:
         return None, 0
     numbering = r1[0][0][0]

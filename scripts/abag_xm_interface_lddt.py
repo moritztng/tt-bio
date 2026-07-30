@@ -68,6 +68,12 @@ def _find_chain(chains, want_seq):
     offset 0), so a substring search is sufficient and stays unambiguous; anything needing gapped
     alignment is deliberately still a miss rather than a guess. The offset is returned rather
     than assumed zero so residue indices can be shifted instead of taken as identical.
+
+    Third pass (closeout census class): the deposited native can carry a few point
+    differences from the YAML construct (9ly2/9ly3/9lz2: ~5 mismatches on 283-344 aa;
+    9mz8: 1 on a 16-mer). Accept an equal-length near-identity match -- mismatches
+    <= max(1, 5% of length) -- ONLY when it is unique across chains; a wrong-chain
+    guess is worse than a null.
     """
     for name, ch in chains.items():
         if _seq_of(ch) == want_seq:
@@ -76,6 +82,12 @@ def _find_chain(chains, want_seq):
         off = _seq_of(ch).find(want_seq)
         if off >= 0:
             return name, off
+    max_mm = max(1, int(0.05 * len(want_seq)))
+    hits = [name for name, ch in chains.items()
+            if len(_seq_of(ch)) == len(want_seq)
+            and sum(a != b for a, b in zip(_seq_of(ch), want_seq)) <= max_mm]
+    if len(hits) == 1:
+        return hits[0], 0
     return None, None
 
 
