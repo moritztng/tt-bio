@@ -23,12 +23,25 @@ S50 = {"9q6y": 0, "9tmp": 0, "9gei": 0, "9fte": 0, "9wpm": 0, "9qrv": 0,
 SLAB = Path.home() / "abag_xm" / "tier_a" / "labels"
 
 per = {}
+missing = []
 for t in ana.TARGETS:
-    dq, d = ana.dockq_list(SLAB / f"opendde_abag_{t}.json")
-    per[t] = dq
-    s = sum(1 for x in dq if x is not None and x >= 0.23)
-    assert s == S50[t], f"{t}: recomputed s50={s} != frozen {S50[t]}"
-print("per-target s50 recomputation: exact match on all 12")
+    p = SLAB / f"opendde_abag_{t}.json"
+    if p.exists():
+        dq, d = ana.dockq_list(p)
+        s = sum(1 for x in dq if x is not None and x >= 0.23)
+        assert s == S50[t], f"{t}: recomputed s50={s} != frozen {S50[t]}"
+        per[t] = dq
+    else:
+        # qb1 unreachable (since 2026-07-30 ~02:30 UTC) — substitute the frozen
+        # count (exact at thr 0.23, see ana.FROZEN_S50); mark as not file-verified.
+        missing.append(t)
+        per[t] = [1.0] * S50[t] + [0.0] * (50 - S50[t])
+if missing:
+    print(f"NOTE: {len(missing)} slab labels unreachable (qb1 down): {missing} — "
+          f"their frozen s50 counts substituted (exact at thr 0.23); "
+          f"{12 - len(missing)}/12 targets file-verified")
+else:
+    print("per-target s50 recomputation: exact match on all 12")
 
 o50 = ana.mean_oracle(per, [50], 0.23)[50][0]
 o1 = ana.mean_oracle(per, [1], 0.23)[1][0]

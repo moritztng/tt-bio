@@ -183,16 +183,32 @@ def spread_table(a_labels, pools, thr=0.23):
     return rows
 
 
+# Frozen slab s50 counts (state doc §4): measured and verified by p1 from the full
+# 161-target label set on qb1. qb1 has been unreachable since 2026-07-30 ~02:30 UTC
+# and 4 of the 12 targets' slab label files live only there (9q6y, 9gei, 9qrv, 9q6z).
+# At thr 0.23 substituting the frozen count is mathematically identical to the
+# file-derived one (the hypergeometric uses only S and N, and p1 recomputed these
+# exact S values from the files). At other thresholds no frozen counts exist, so
+# slab continuity is omitted while any file is unreachable.
+FROZEN_S50 = {"9q6y": 0, "9tmp": 0, "9gei": 0, "9fte": 0, "9wpm": 0, "9qrv": 0,
+              "9ma0": 1, "9q6z": 1, "9j4c": 7, "9uoi": 7, "9m8l": 48, "9ldx": 47}
+
+
 def slab_continuity(thr):
+    missing = [t for t in TARGETS if not (SLAB / f"opendde_abag_{t}.json").exists()]
+    if missing and thr != 0.23:
+        return {"omitted": f"slab labels unreachable for {missing} (qb1 down); "
+                           f"continuity is exact only at thr 0.23 via FROZEN_S50"}
     per = {}
     for t in TARGETS:
         p = SLAB / f"opendde_abag_{t}.json"
         if p.exists():
             dq, _ = dockq_list(p)
             per[t] = dq
+        else:
+            s = FROZEN_S50[t]
+            per[t] = [1.0] * s + [0.0] * (50 - s)
     grid = [1, 2, 4, 8, 16, 32, 50]
-    if not per:
-        return {}
     return {m: round(mean_oracle(per, [m], thr)[m][0], 4) for m in grid}
 
 
