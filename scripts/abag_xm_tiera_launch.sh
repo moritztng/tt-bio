@@ -45,6 +45,12 @@ SLICE_LIST="${2:-}"
 # three MSA-fed generators -- esmfold2 is deliberately NOT in the default so an MSA-leg resume
 # cannot silently queue it). The esmfold2 leg launches as: <script> "<cards>" "" esmfold2
 MODELS="${3:-}"
+# Optional 4th arg: per-fold timeout in seconds, forwarded to generate.py --timeout (default:
+# FOLD_TIMEOUT_S=7200). The esmfold2 leg derives the value from the smoke measurement:
+# ceil(3.5 * smoke_s_per_res * this_host_max_res / 300) * 300. The default cap KILLS any fold
+# whose size-scaled timeout exceeds it (fold_timeout_for clamps with min(cap, ...)), and
+# esmfold2's s/res is unmeasured until the smoke -- do not launch the leg without this.
+TIMEOUT="${4:-}"
 LEASE="worker:$(basename "$WT")"
 
 case "$(hostname)" in
@@ -98,7 +104,8 @@ PY
   setsid nohup env TT_VISIBLE_DEVICES="$card" TT_BIO_LEASE_HOLDER="$LEASE" \
     PYTHONPATH="$WT" PYTHONUNBUFFERED=1 \
     "$PY" -u "$WT/scripts/abag_xm_generate.py" \
-      --device "$card" --concurrent_folds 4 ${MODELS:+--models "$MODELS"} --targets "$targets" \
+      --device "$card" --concurrent_folds 4 ${MODELS:+--models "$MODELS"} \
+      ${TIMEOUT:+--timeout "$TIMEOUT"} --targets "$targets" \
     > "$LOGDIR/gen_card$card.log" 2>&1 < /dev/null &
   echo "card $card <- slices $slices ($(echo "$targets" | tr ',' '\n' | wc -l) targets)"
 done
