@@ -99,7 +99,10 @@ reports per sample, so they are a global-confidence baseline and not an interfac
   accuracy is therefore *not* comparable to published numbers produced with full ColabFold search;
   comparisons within this dataset are valid because every generator received byte-identical input.
 - **Three generators, not a survey.** Chosen for permissive licensing so their outputs can be
-  redistributed.
+  redistributed. The closest sibling set is SCALE (~200k scFv-antigen predictions over
+  training-era SAbDab targets); it studies the same oracle-selection gap at larger scale.
+  AbAg-XM's targets all postdate every generator's training cutoff and carry a homology
+  audit, which is what a generalization claim needs.
 - **50 samples per fold** bounds how well the oracle gap can be estimated for any single target.
 - **`fold_seq_light` is null for 59 of the targets**, which is a fact about the construct and not
   missing data: those are heavy-only or single-chain antibodies. It is null exactly when `has_HL`
