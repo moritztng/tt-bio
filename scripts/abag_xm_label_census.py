@@ -17,10 +17,10 @@ error fields plus a native-side sequence check:
     chain-resolution bug class (recoverable by prefix-match); otherwise the
     native chain is genuinely (substantially) unresolved.
 
-Counts are asserted against the merged ranker table: 9 dockq-null folds (450
-samples), 13 interface_lddt-null folds (603 samples: the 3 dockq-null targets
-x3 gens, 9mz8 x3 gens, 9mnu/boltz2 ranks 6/18/30), 15 cdr_h3_rmsd-null folds
-(750 samples).
+Counts are asserted against the merged ranker table (post-label-patch): 9
+dockq-null folds (450 samples: the anti-phosphoepitope targets x3 gens), 1
+interface_lddt-null fold (3 samples: 9mnu/boltz2 ranks 6/18/30, pose docked
+away), 15 cdr_h3_rmsd-null folds (750 samples).
 
     python3 scripts/abag_xm_label_census.py \
         --csv ~/abag_xm/tier_a/ranker_scores.csv --out_dir docs
@@ -193,12 +193,16 @@ def main():
     n_lddt = cen[cen.column == "interface_lddt"]
     n_cdr = cen[cen.column == "cdr_h3_rmsd"]
     fails = []
+    # Post-label-patch expectation: the 12 recoverable interface_lddt folds
+    # (9ly2/9ly3/9lz2/9mz8 class) are filled; the only true lddt null left is
+    # 9mnu/boltz2's pose docked away from the antigen (3 samples). 9lwc's cdr
+    # block is repaired (H1 scored) but its H3 stays null, so cdr counts stand.
     if len(n_dockq) != 9 or n_dockq.n_null.sum() != 450:
         fails.append(f"dockq null folds {len(n_dockq)} != 9 "
                      f"({n_dockq.n_null.sum()} samples != 450)")
-    if len(n_lddt) != 13 or n_lddt.n_null.sum() != 603:
-        fails.append(f"interface_lddt null folds {len(n_lddt)} != 13 "
-                     f"({n_lddt.n_null.sum()} samples != 603)")
+    if len(n_lddt) != 1 or n_lddt.n_null.sum() != 3:
+        fails.append(f"interface_lddt null folds {len(n_lddt)} != 1 "
+                     f"({n_lddt.n_null.sum()} samples != 3)")
     if len(n_cdr) != 15 or n_cdr.n_null.sum() != 750:
         fails.append(f"cdr_h3_rmsd null folds {len(n_cdr)} != 15 "
                      f"({n_cdr.n_null.sum()} samples != 750)")
@@ -229,7 +233,7 @@ def main():
         for f in fails:
             print("FAIL:", f)
         sys.exit(1)
-    print("census accept criteria pass: 9/13/15 folds, 450/603/750 samples, "
+    print("census accept criteria pass: 9/1/15 folds, 450/3/750 samples, "
           "every row has a cause")
 
 
