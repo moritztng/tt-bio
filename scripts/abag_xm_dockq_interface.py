@@ -37,29 +37,83 @@ def _chain_by_id(struct, cid):
 
 
 
+_THREE2ONE = {
+    "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C", "GLN": "Q",
+    "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I", "LEU": "L", "LYS": "K",
+    "MET": "M", "PHE": "F", "PRO": "P", "SER": "S", "THR": "T", "TRP": "W",
+    "TYR": "Y", "VAL": "V", "MSE": "M", "SEC": "U", "PYL": "O",
+}
+
+
+def _atom_site_seqs(path):
+    """Per-chain one-letter sequences built from _atom_site rows.
+
+    Model CIFs from OpenDDE/Protenix carry no _entity_poly, so gemmi's
+    get_polymer() is empty for them. _atom_site is always present; keying on
+    (asym, label_seq_id) with first-residue-wins mirrors how the other
+    label-pipeline loaders (abag_xm_dockq_xval.load_chains) derive sequences
+    from the same files, so both stages see the same chain identities.
+    """
+    import gemmi
+    seqs = {}
+    st = gemmi.read_structure(str(path))
+    for m in st:
+        for ch in m:
+            if ch.name in seqs:
+                continue
+            # keep only known amino-acid residues (drops waters/ligands, which
+            # sit in the chain when _entity_poly is absent and gemmi cannot
+            # tell polymer from solvent)
+            seqs[ch.name] = "".join(
+                _THREE2ONE[r.name.upper()] for r in ch
+                if r.name.upper() in _THREE2ONE)
+    return seqs
+
+
+def _align_identity(a, b):
+    """Matching-block residues / min(len) — content-based identity that works
+    across unequal lengths (construct/isoform differences), unlike a pure
+    length proxy which cannot tell a 214-aa light chain from a 221-aa heavy."""
+    from difflib import SequenceMatcher
+    if not a or not b:
+        return 0.0
+    sm = SequenceMatcher(a=a, b=b, autojunk=False)
+    matched = sum(blk.size for blk in sm.get_matching_blocks())
+    return matched / max(1, min(len(a), len(b)))
+
+
 def _build_seq_map(model_path, native_path):
-    """Many-to-one {native_chain_id: model_chain_id} by best sequence identity,
-    with residue-count fallback for models lacking _entity_poly (e.g. some
-    OpenDDE/Protenix CIFs where gemmi returns empty polymer sequences).
+    """Many-to-one {native_chain_id: model_chain_id} by best sequence identity.
 
     Handles multicopy natives (2+ chains with the same entity/length) where
     DockQ's one-to-one group_chains leaves the second copy unmapped. For each
     native chain, pick the model chain with the highest sequence identity
-    (allowing multiple native chains to map to the same model chain). When
-    model sequences are unavailable (no _entity_poly), fall back to matching
-    by residue (CA-atom) count.
+    (allowing multiple native chains to map to the same model chain).
+
+    Sequence sources, in order: gemmi _entity_poly, then _atom_site-derived
+    (_atom_site_seqs). The pre-2026-07-30 fallback matched by raw CA-atom
+    count when sequences were unavailable; on sequence-less OpenDDE/Protenix
+    CIFs that length-only proxy maps light chains to heavy chains (214 vs 221
+    CA, ~3% apart, below native CA-count noise) and produced cross-type
+    assignments — the 9q1l false-failure labels found by the addendum-A3
+    DockQ cross-validation.
     """
     import gemmi
 
     def _info(path):
         st = gemmi.read_structure(str(path))
         out = {}
+        atom_seqs = None
         for m in st:
             for ch in m:
                 try:
                     s = ch.get_polymer().make_one_letter_sequence()
                 except Exception:
                     s = ""
+                if not s:
+                    if atom_seqs is None:
+                        atom_seqs = _atom_site_seqs(path)
+                    s = atom_seqs.get(ch.name, "")
                 n_ca = sum(1 for r in ch for a in r if a.name == "CA")
                 out[ch.name] = (s, n_ca)
         return out
@@ -67,15 +121,14 @@ def _build_seq_map(model_path, native_path):
     ms = _info(model_path)
     ns = _info(native_path)
     smap = {}
-    have_seq = any(s for s, _ in ms.values())
     for n_id, (n_seq, n_ca) in ns.items():
         best, best_id = -1.0, None
         for m_id, (m_seq, m_ca) in ms.items():
-            if have_seq and n_seq and m_seq:
+            if n_seq and m_seq:
                 if len(n_seq) == len(m_seq):
                     ident = sum(a == b for a, b in zip(n_seq, m_seq)) / max(len(n_seq), 1)
                 else:
-                    ident = 1.0 - abs(len(n_seq) - len(m_seq)) / max(len(n_seq), len(m_seq), 1)
+                    ident = _align_identity(n_seq, m_seq)
             else:
                 denom = max(n_ca, m_ca, 1)
                 ident = 1.0 - abs(n_ca - m_ca) / denom

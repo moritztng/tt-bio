@@ -154,27 +154,27 @@ Same paired bootstrap as abag-xm-ranker-cis.md: 12 cells (3 generators x N in (5
 
 | generator | ranker | median rank | rank range | metric [95% CI] |
 |---|---|---|---|---|
-| opendde-abag | iptm | 3 | [1, 6.5] | 0.666 [0.593, 0.737] |
-| opendde-abag | ptm | 5 | [3, 8] | 0.665 [0.592, 0.737] |
-| opendde-abag | ranking_score | 4 | [1.5, 7] | 0.666 [0.593, 0.737] |
-| opendde-abag | complex_plddt | 4 | [1, 8] | 0.666 [0.593, 0.738] |
-| opendde-abag | pdockq2 | 10 | [7, 10] | 0.657 [0.585, 0.728] |
-| opendde-abag | ipsae | 9 | [4, 10] | 0.658 [0.586, 0.729] |
-| opendde-abag | anticonf | 7 | [4, 9] | 0.663 [0.591, 0.735] |
-| opendde-abag | pss | 3 | [1, 10] | 0.668 [0.595, 0.740] |
-| opendde-abag | deeprank_ab | 7 | [2, 10] | 0.663 [0.591, 0.734] |
-| opendde-abag | abag_rank | 2 | [1, 8] | 0.668 [0.595, 0.739] |
+| opendde-abag | iptm | 3 | [1, 6.5] | 0.672 [0.600, 0.743] |
+| opendde-abag | ptm | 5 | [3, 8] | 0.671 [0.599, 0.742] |
+| opendde-abag | ranking_score | 4 | [1.5, 7] | 0.672 [0.599, 0.743] |
+| opendde-abag | complex_plddt | 4 | [1, 8] | 0.673 [0.600, 0.743] |
+| opendde-abag | pdockq2 | 10 | [7, 10] | 0.663 [0.591, 0.734] |
+| opendde-abag | ipsae | 9 | [4, 10] | 0.665 [0.593, 0.736] |
+| opendde-abag | anticonf | 7 | [4, 9] | 0.669 [0.597, 0.741] |
+| opendde-abag | pss | 3 | [1, 10] | 0.674 [0.600, 0.745] |
+| opendde-abag | deeprank_ab | 7 | [2, 10] | 0.669 [0.598, 0.740] |
+| opendde-abag | abag_rank | 2 | [1, 8] | 0.674 [0.602, 0.745] |
 
-| protenix-v2 | iptm | 2 | [1, 4] | 0.447 [0.374, 0.520] |
-| protenix-v2 | ptm | 7 | [6, 8] | 0.431 [0.359, 0.504] |
-| protenix-v2 | ranking_score | 3 | [2, 5] | 0.446 [0.373, 0.519] |
-| protenix-v2 | complex_plddt | 10 | [10, 10] | 0.373 [0.305, 0.443] |
-| protenix-v2 | pdockq2 | 3 | [1, 5] | 0.446 [0.375, 0.519] |
-| protenix-v2 | ipsae | 8 | [6, 9] | 0.426 [0.355, 0.497] |
-| protenix-v2 | anticonf | 6 | [4, 6] | 0.438 [0.366, 0.511] |
-| protenix-v2 | pss | 5 | [1, 8] | 0.439 [0.366, 0.513] |
-| protenix-v2 | deeprank_ab | 1 | [1, 6] | 0.450 [0.381, 0.521] |
-| protenix-v2 | abag_rank | 9 | [8, 9] | 0.411 [0.340, 0.481] |
+| protenix-v2 | iptm | 2 | [1, 4] | 0.453 [0.380, 0.527] |
+| protenix-v2 | ptm | 7 | [6, 8] | 0.437 [0.366, 0.510] |
+| protenix-v2 | ranking_score | 3 | [2, 5] | 0.452 [0.379, 0.526] |
+| protenix-v2 | complex_plddt | 10 | [10, 10] | 0.379 [0.311, 0.449] |
+| protenix-v2 | pdockq2 | 3 | [1, 5] | 0.452 [0.381, 0.525] |
+| protenix-v2 | ipsae | 8 | [6, 9] | 0.432 [0.361, 0.503] |
+| protenix-v2 | anticonf | 6 | [4, 6] | 0.444 [0.372, 0.518] |
+| protenix-v2 | pss | 5 | [1, 8] | 0.445 [0.372, 0.520] |
+| protenix-v2 | deeprank_ab | 1 | [1, 6] | 0.457 [0.386, 0.528] |
+| protenix-v2 | abag_rank | 9 | [8, 9] | 0.417 [0.347, 0.488] |
 
 | boltz2 | iptm | 8 | [6, 9] | 0.287 [0.224, 0.354] |
 | boltz2 | ptm | 10 | [9, 10] | 0.283 [0.220, 0.349] |
@@ -191,27 +191,27 @@ Same paired bootstrap as abag-xm-ranker-cis.md: 12 cells (3 generators x N in (5
 
 | generator | ranker | median rank | rank range | metric [95% CI] |
 |---|---|---|---|---|
-| opendde-abag | iptm | 4 | [2.5, 6.5] | 0.666 [0.590, 0.739] |
-| opendde-abag | ptm | 4 | [2.5, 6.5] | 0.666 [0.590, 0.739] |
-| opendde-abag | ranking_score | 4 | [2.5, 6.5] | 0.666 [0.590, 0.739] |
-| opendde-abag | complex_plddt | 4 | [2.5, 6.5] | 0.666 [0.590, 0.739] |
-| opendde-abag | pdockq2 | 8 | [1.5, 9] | 0.653 [0.578, 0.727] |
-| opendde-abag | ipsae | 10 | [9, 10] | 0.622 [0.547, 0.696] |
-| opendde-abag | anticonf | 6.5 | [3.5, 9] | 0.659 [0.584, 0.733] |
-| opendde-abag | pss | 7.5 | [2, 9] | 0.659 [0.584, 0.733] |
-| opendde-abag | deeprank_ab | 6.5 | [1, 9.5] | 0.659 [0.584, 0.733] |
-| opendde-abag | abag_rank | 1 | [1, 7.5] | 0.672 [0.596, 0.745] |
+| opendde-abag | iptm | 4 | [2.5, 6.5] | 0.672 [0.596, 0.745] |
+| opendde-abag | ptm | 4 | [2.5, 6.5] | 0.672 [0.596, 0.745] |
+| opendde-abag | ranking_score | 4 | [2.5, 6.5] | 0.672 [0.596, 0.745] |
+| opendde-abag | complex_plddt | 4 | [2.5, 6.5] | 0.672 [0.596, 0.745] |
+| opendde-abag | pdockq2 | 8 | [1.5, 9] | 0.659 [0.584, 0.733] |
+| opendde-abag | ipsae | 10 | [9, 10] | 0.628 [0.553, 0.702] |
+| opendde-abag | anticonf | 6.5 | [3.5, 9] | 0.666 [0.590, 0.739] |
+| opendde-abag | pss | 7.5 | [2, 9] | 0.665 [0.590, 0.739] |
+| opendde-abag | deeprank_ab | 6.5 | [1, 9.5] | 0.666 [0.590, 0.739] |
+| opendde-abag | abag_rank | 1 | [1, 7.5] | 0.678 [0.602, 0.752] |
 
-| protenix-v2 | iptm | 3.5 | [2.5, 5.5] | 0.442 [0.366, 0.522] |
-| protenix-v2 | ptm | 6 | [4, 7] | 0.423 [0.348, 0.503] |
-| protenix-v2 | ranking_score | 3.5 | [2.5, 5.5] | 0.442 [0.366, 0.522] |
-| protenix-v2 | complex_plddt | 10 | [9, 10] | 0.323 [0.255, 0.398] |
-| protenix-v2 | pdockq2 | 2 | [1, 6.5] | 0.448 [0.373, 0.528] |
-| protenix-v2 | ipsae | 8 | [8, 9] | 0.369 [0.299, 0.443] |
-| protenix-v2 | anticonf | 5 | [3, 7] | 0.429 [0.354, 0.509] |
-| protenix-v2 | pss | 6 | [2, 7] | 0.426 [0.351, 0.501] |
-| protenix-v2 | deeprank_ab | 1 | [1, 2] | 0.479 [0.404, 0.559] |
-| protenix-v2 | abag_rank | 9 | [8, 10] | 0.367 [0.292, 0.441] |
+| protenix-v2 | iptm | 3.5 | [2.5, 5.5] | 0.448 [0.373, 0.528] |
+| protenix-v2 | ptm | 6 | [4, 7] | 0.429 [0.354, 0.509] |
+| protenix-v2 | ranking_score | 3.5 | [2.5, 5.5] | 0.448 [0.373, 0.528] |
+| protenix-v2 | complex_plddt | 10 | [9, 10] | 0.329 [0.261, 0.404] |
+| protenix-v2 | pdockq2 | 2 | [1, 6.5] | 0.454 [0.379, 0.528] |
+| protenix-v2 | ipsae | 8 | [8, 9] | 0.375 [0.304, 0.449] |
+| protenix-v2 | anticonf | 5 | [3, 7] | 0.435 [0.360, 0.516] |
+| protenix-v2 | pss | 6 | [2, 7] | 0.432 [0.357, 0.508] |
+| protenix-v2 | deeprank_ab | 1 | [1, 2] | 0.485 [0.410, 0.565] |
+| protenix-v2 | abag_rank | 9 | [8, 10] | 0.374 [0.298, 0.447] |
 
 | boltz2 | iptm | 8 | [6, 9] | 0.274 [0.205, 0.342] |
 | boltz2 | ptm | 10 | [9, 10] | 0.249 [0.186, 0.317] |
@@ -228,27 +228,27 @@ Same paired bootstrap as abag-xm-ranker-cis.md: 12 cells (3 generators x N in (5
 
 | generator | ranker | median rank | rank range | metric [95% CI] |
 |---|---|---|---|---|
-| opendde-abag | iptm | 7 | [4, 10] | 0.267 [0.205, 0.331] |
-| opendde-abag | ptm | 4 | [1, 7] | 0.272 [0.209, 0.338] |
-| opendde-abag | ranking_score | 5 | [2, 7] | 0.272 [0.209, 0.336] |
-| opendde-abag | complex_plddt | 1 | [1, 6] | 0.277 [0.214, 0.343] |
-| opendde-abag | pdockq2 | 3 | [1, 6] | 0.274 [0.211, 0.340] |
-| opendde-abag | ipsae | 10 | [7, 10] | 0.258 [0.196, 0.321] |
-| opendde-abag | anticonf | 2 | [1, 5] | 0.276 [0.213, 0.341] |
-| opendde-abag | pss | 5 | [1, 8] | 0.271 [0.206, 0.339] |
-| opendde-abag | deeprank_ab | 8 | [5, 10] | 0.263 [0.202, 0.328] |
-| opendde-abag | abag_rank | 9 | [6, 10] | 0.263 [0.200, 0.329] |
+| opendde-abag | iptm | 7 | [4, 10] | 0.273 [0.211, 0.338] |
+| opendde-abag | ptm | 4 | [1, 7] | 0.279 [0.215, 0.345] |
+| opendde-abag | ranking_score | 5 | [2, 7] | 0.278 [0.214, 0.343] |
+| opendde-abag | complex_plddt | 1 | [1, 6] | 0.283 [0.219, 0.349] |
+| opendde-abag | pdockq2 | 3 | [1, 6] | 0.280 [0.217, 0.346] |
+| opendde-abag | ipsae | 10 | [7, 10] | 0.264 [0.202, 0.328] |
+| opendde-abag | anticonf | 2 | [1, 5] | 0.282 [0.218, 0.348] |
+| opendde-abag | pss | 5 | [1, 8] | 0.277 [0.212, 0.345] |
+| opendde-abag | deeprank_ab | 8 | [5, 10] | 0.270 [0.207, 0.335] |
+| opendde-abag | abag_rank | 9 | [6, 10] | 0.269 [0.205, 0.336] |
 
-| protenix-v2 | iptm | 8 | [4, 9] | 0.128 [0.083, 0.177] |
-| protenix-v2 | ptm | 8 | [3, 9] | 0.128 [0.084, 0.177] |
-| protenix-v2 | ranking_score | 7 | [3, 8] | 0.128 [0.084, 0.177] |
-| protenix-v2 | complex_plddt | 3 | [1, 9] | 0.136 [0.092, 0.186] |
-| protenix-v2 | pdockq2 | 4 | [2, 8] | 0.134 [0.090, 0.183] |
-| protenix-v2 | ipsae | 2 | [1, 7] | 0.138 [0.092, 0.190] |
-| protenix-v2 | anticonf | 6 | [3, 9] | 0.131 [0.087, 0.179] |
-| protenix-v2 | pss | 1 | [1, 4] | 0.144 [0.095, 0.198] |
-| protenix-v2 | deeprank_ab | 4 | [2, 7] | 0.134 [0.089, 0.182] |
-| protenix-v2 | abag_rank | 10 | [9, 10] | 0.121 [0.078, 0.169] |
+| protenix-v2 | iptm | 8 | [4, 9] | 0.134 [0.088, 0.184] |
+| protenix-v2 | ptm | 8 | [3, 9] | 0.134 [0.088, 0.184] |
+| protenix-v2 | ranking_score | 7 | [3, 8] | 0.135 [0.089, 0.185] |
+| protenix-v2 | complex_plddt | 3 | [1, 9] | 0.142 [0.097, 0.193] |
+| protenix-v2 | pdockq2 | 4 | [2, 8] | 0.140 [0.096, 0.190] |
+| protenix-v2 | ipsae | 2 | [1, 7] | 0.144 [0.097, 0.197] |
+| protenix-v2 | anticonf | 6 | [3, 9] | 0.137 [0.092, 0.186] |
+| protenix-v2 | pss | 1 | [1, 4] | 0.150 [0.100, 0.206] |
+| protenix-v2 | deeprank_ab | 4 | [2, 7] | 0.140 [0.095, 0.191] |
+| protenix-v2 | abag_rank | 10 | [9, 10] | 0.127 [0.083, 0.176] |
 
 | boltz2 | iptm | 7 | [5, 9] | 0.114 [0.071, 0.162] |
 | boltz2 | ptm | 8 | [6, 10] | 0.114 [0.071, 0.162] |
@@ -265,27 +265,27 @@ Same paired bootstrap as abag-xm-ranker-cis.md: 12 cells (3 generators x N in (5
 
 | generator | ranker | median rank | rank range | metric [95% CI] |
 |---|---|---|---|---|
-| opendde-abag | iptm | 8 | [3, 10] | 0.249 [0.186, 0.317] |
-| opendde-abag | ptm | 1 | [1, 4.5] | 0.287 [0.217, 0.354] |
-| opendde-abag | ranking_score | 4 | [1, 8] | 0.268 [0.199, 0.335] |
-| opendde-abag | complex_plddt | 4 | [2, 7.5] | 0.268 [0.199, 0.335] |
-| opendde-abag | pdockq2 | 5.5 | [1, 9] | 0.261 [0.193, 0.329] |
-| opendde-abag | ipsae | 10 | [4, 10] | 0.233 [0.170, 0.297] |
-| opendde-abag | anticonf | 7 | [2.5, 10] | 0.255 [0.193, 0.323] |
-| opendde-abag | pss | 4 | [1, 8] | 0.268 [0.199, 0.335] |
-| opendde-abag | deeprank_ab | 4 | [1, 9] | 0.268 [0.199, 0.335] |
-| opendde-abag | abag_rank | 8.5 | [4, 10] | 0.243 [0.180, 0.311] |
+| opendde-abag | iptm | 8 | [3, 10] | 0.255 [0.193, 0.323] |
+| opendde-abag | ptm | 1 | [1, 4.5] | 0.293 [0.224, 0.366] |
+| opendde-abag | ranking_score | 4 | [1, 8] | 0.274 [0.205, 0.342] |
+| opendde-abag | complex_plddt | 4 | [2, 7.5] | 0.274 [0.205, 0.342] |
+| opendde-abag | pdockq2 | 5.5 | [1, 9] | 0.268 [0.199, 0.335] |
+| opendde-abag | ipsae | 10 | [4, 10] | 0.239 [0.175, 0.303] |
+| opendde-abag | anticonf | 7 | [2.5, 10] | 0.261 [0.193, 0.329] |
+| opendde-abag | pss | 4 | [1, 8] | 0.274 [0.205, 0.342] |
+| opendde-abag | deeprank_ab | 4 | [1, 9] | 0.274 [0.205, 0.348] |
+| opendde-abag | abag_rank | 8.5 | [4, 10] | 0.249 [0.186, 0.317] |
 
-| protenix-v2 | iptm | 6 | [3, 8.5] | 0.124 [0.075, 0.180] |
-| protenix-v2 | ptm | 6 | [1, 9] | 0.125 [0.075, 0.174] |
-| protenix-v2 | ranking_score | 6 | [2, 9] | 0.125 [0.075, 0.180] |
-| protenix-v2 | complex_plddt | 6 | [1.5, 9] | 0.124 [0.075, 0.180] |
-| protenix-v2 | pdockq2 | 9 | [4, 10] | 0.106 [0.062, 0.155] |
-| protenix-v2 | ipsae | 3 | [1, 6] | 0.143 [0.093, 0.199] |
-| protenix-v2 | anticonf | 7 | [2.5, 9.5] | 0.118 [0.068, 0.168] |
-| protenix-v2 | pss | 1 | [1, 4] | 0.150 [0.099, 0.206] |
-| protenix-v2 | deeprank_ab | 3 | [1, 7.5] | 0.143 [0.093, 0.199] |
-| protenix-v2 | abag_rank | 10 | [8, 10] | 0.087 [0.050, 0.130] |
+| protenix-v2 | iptm | 6 | [3, 8.5] | 0.130 [0.081, 0.186] |
+| protenix-v2 | ptm | 6 | [1, 9] | 0.131 [0.081, 0.186] |
+| protenix-v2 | ranking_score | 6 | [2, 9] | 0.131 [0.081, 0.186] |
+| protenix-v2 | complex_plddt | 6 | [1.5, 9] | 0.130 [0.081, 0.186] |
+| protenix-v2 | pdockq2 | 9 | [4, 10] | 0.112 [0.068, 0.161] |
+| protenix-v2 | ipsae | 3 | [1, 6] | 0.149 [0.098, 0.206] |
+| protenix-v2 | anticonf | 7 | [2.5, 9.5] | 0.124 [0.075, 0.180] |
+| protenix-v2 | pss | 1 | [1, 4] | 0.156 [0.106, 0.213] |
+| protenix-v2 | deeprank_ab | 3 | [1, 7.5] | 0.149 [0.099, 0.205] |
+| protenix-v2 | abag_rank | 10 | [8, 10] | 0.093 [0.050, 0.143] |
 
 | boltz2 | iptm | 8.5 | [5.5, 9.5] | 0.093 [0.050, 0.143] |
 | boltz2 | ptm | 9.5 | [7, 10] | 0.087 [0.043, 0.130] |

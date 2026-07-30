@@ -154,26 +154,26 @@
 
 | generator | ranker | per-target mean [CI] | global [CI] |
 |---|---|---|---|
-| opendde-abag | iptm | -0.008 [-0.065, 0.050] | n/a |
-| opendde-abag | ptm | 0.031 [-0.026, 0.090] | n/a |
-| opendde-abag | ranking_score | 0.017 [-0.042, 0.076] | 0.760 [0.683, 0.822] |
-| opendde-abag | complex_plddt | 0.008 [-0.048, 0.064] | n/a |
-| opendde-abag | pdockq2 | 0.026 [-0.024, 0.077] | n/a |
-| opendde-abag | ipsae | -0.045 [-0.102, 0.010] | n/a |
-| opendde-abag | anticonf | 0.037 [-0.016, 0.092] | n/a |
+| opendde-abag | iptm | -0.002 [-0.059, 0.056] | n/a |
+| opendde-abag | ptm | 0.036 [-0.021, 0.095] | n/a |
+| opendde-abag | ranking_score | 0.023 [-0.036, 0.081] | 0.768 [0.695, 0.829] |
+| opendde-abag | complex_plddt | 0.010 [-0.046, 0.067] | n/a |
+| opendde-abag | pdockq2 | 0.021 [-0.030, 0.072] | n/a |
+| opendde-abag | ipsae | -0.040 [-0.098, 0.015] | n/a |
+| opendde-abag | anticonf | 0.033 [-0.020, 0.087] | n/a |
 | opendde-abag | pss | 0.153 [0.097, 0.207] | n/a |
-| opendde-abag | deeprank_ab | 0.035 [0.005, 0.064] | 0.573 [0.467, 0.668] |
-| opendde-abag | abag_rank | -0.000 [-0.044, 0.043] | 0.493 [0.418, 0.560] |
-| protenix-v2 | iptm | 0.131 [0.066, 0.196] | n/a |
-| protenix-v2 | ptm | 0.105 [0.046, 0.164] | n/a |
-| protenix-v2 | ranking_score | 0.133 [0.069, 0.198] | 0.719 [0.651, 0.777] |
-| protenix-v2 | complex_plddt | -0.001 [-0.060, 0.059] | n/a |
-| protenix-v2 | pdockq2 | 0.126 [0.065, 0.188] | n/a |
-| protenix-v2 | ipsae | 0.187 [0.118, 0.256] | n/a |
-| protenix-v2 | anticonf | 0.109 [0.050, 0.168] | n/a |
+| opendde-abag | deeprank_ab | 0.035 [0.005, 0.064] | 0.585 [0.483, 0.678] |
+| opendde-abag | abag_rank | 0.000 [-0.044, 0.044] | 0.501 [0.429, 0.566] |
+| protenix-v2 | iptm | 0.132 [0.067, 0.197] | n/a |
+| protenix-v2 | ptm | 0.107 [0.048, 0.165] | n/a |
+| protenix-v2 | ranking_score | 0.134 [0.070, 0.199] | 0.728 [0.660, 0.784] |
+| protenix-v2 | complex_plddt | -0.004 [-0.063, 0.056] | n/a |
+| protenix-v2 | pdockq2 | 0.127 [0.066, 0.189] | n/a |
+| protenix-v2 | ipsae | 0.184 [0.115, 0.253] | n/a |
+| protenix-v2 | anticonf | 0.110 [0.052, 0.170] | n/a |
 | protenix-v2 | pss | 0.217 [0.151, 0.284] | n/a |
-| protenix-v2 | deeprank_ab | 0.106 [0.063, 0.149] | 0.614 [0.537, 0.680] |
-| protenix-v2 | abag_rank | 0.051 [0.003, 0.099] | 0.428 [0.341, 0.506] |
+| protenix-v2 | deeprank_ab | 0.106 [0.064, 0.149] | 0.624 [0.547, 0.691] |
+| protenix-v2 | abag_rank | 0.051 [0.003, 0.099] | 0.433 [0.346, 0.511] |
 | boltz2 | iptm | 0.009 [-0.030, 0.048] | n/a |
 | boltz2 | ptm | 0.004 [-0.035, 0.043] | n/a |
 | boltz2 | ranking_score | 0.021 [-0.022, 0.062] | 0.622 [0.534, 0.698] |
