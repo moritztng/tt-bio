@@ -134,6 +134,7 @@ def main():
                 continue
             lp = Path(a.labels_dir) / f"{GEN_PREFIX[gen]}_{target}.json"
             ev = ""
+            cdrs_seen = None
             if lp.exists():
                 d = json.loads(lp.read_text())
                 key = {"dockq": "dockq", "interface_lddt": "interface_lddt",
@@ -143,6 +144,8 @@ def main():
                     val = rec.get(col) if key != "cdr_rmsd" else None
                     if val is None:
                         ev = _evidence(rec)
+                        if key == "cdr_rmsd" and isinstance(rec.get("cdrs"), dict):
+                            cdrs_seen = rec["cdrs"]
                         if ev:
                             break
             matched, n_ca, ylen = _native_match(
@@ -160,10 +163,12 @@ def main():
                 cause = ("harness: ANARCI species-limit warning on stdout broke "
                          "JSON parsing (record truncated); recoverable by "
                          "re-running the CDR script")
-            elif col == "cdr_h3_rmsd" and "cdrs" in ev:
-                cause = ("no heavy-chain CDR numbering recovered (H1 null, "
-                         "H2/H3 absent; light-chain CDRs scored) -- consistent "
-                         "with the native heavy chain unresolved at CDR-H3")
+            elif col == "cdr_h3_rmsd" and cdrs_seen is not None:
+                have = [k for k, v in cdrs_seen.items() if v is not None]
+                missing = [k for k, v in cdrs_seen.items() if v is None]
+                cause = (f"partial CDR numbering ({','.join(have) or 'none'} scored; "
+                         f"{','.join(missing) or 'none'} absent) -- consistent with "
+                         f"the native heavy chain unresolved at CDR-H3")
             elif (not matched) or n_ca < max(min(20, ylen), 0.3 * ylen):
                 detail = (f"no matching polymer" if not matched else
                           f"only {n_ca}/{ylen} residues with atoms")
