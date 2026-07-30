@@ -1,6 +1,6 @@
 # AbAg-XM antigen de-duplication audit (addendum A2)
 
-CoFold Arena panel rules applied as an AUDIT of the 164-target panel: one entry per antibody, at most one antibody per antigen UniProt accession, one physical copy per mmCIF. Antigen entities were resolved by SEQUENCE (the fold yaml's A chain matched by containment against every RCSB entity; ARK's interface rows do not put the antigen on a consistent side) and mapped to UniProt via the RCSB GraphQL API (cached). PRIMARY reporting stays the full 164-target panel: panel identity with ARK-164 anchors the 66.5%/66.4% harness validation. The deduplicated view is the sensitivity analysis.
+CoFold Arena panel rules applied as an AUDIT of the 164-target panel: one entry per antibody, at most one antibody per antigen UniProt accession, one physical copy per mmCIF. Antigen entities were resolved by SEQUENCE (the fold yaml's A chain matched by containment against every RCSB entity; ARK's interface rows do not put the antigen on a consistent side) and mapped to UniProt via the RCSB GraphQL API (cached). PRIMARY reporting stays the full 164-target panel: panel identity with ARK-164 anchors the 67.1%/66.4% harness validation. The deduplicated view is the sensitivity analysis.
 
 ## Accession mapping
 
@@ -183,45 +183,45 @@ Full panel: 161 scorable targets. Accession-deduplicated: 109 scorable (110 tota
 
 | generator | N | thr | metric | full | acc-dedup | seq-dedup |
 |---|---|---|---|---|---|---|
-| opendde-abag | 5 | 0.23 | oracle | 0.689 | 0.679 (-1.0) | 0.660 (-2.9) |
-| opendde-abag | 5 | 0.23 | random | 0.657 | 0.639 (-1.8) | 0.609 (-4.8) |
-| opendde-abag | 5 | 0.23 | ranked (ranking_score) | 0.665 | 0.647 (-1.8) | 0.618 (-4.6) |
-| opendde-abag | 5 | 0.23 | ranked (deeprank_ab) | 0.662 | 0.645 (-1.8) | 0.615 (-4.7) |
+| opendde-abag | 5 | 0.23 | oracle | 0.695 | 0.689 (-0.7) | 0.672 (-2.3) |
+| opendde-abag | 5 | 0.23 | random | 0.663 | 0.648 (-1.5) | 0.621 (-4.2) |
+| opendde-abag | 5 | 0.23 | ranked (ranking_score) | 0.671 | 0.656 (-1.5) | 0.631 (-4.0) |
+| opendde-abag | 5 | 0.23 | ranked (deeprank_ab) | 0.668 | 0.654 (-1.5) | 0.628 (-4.1) |
 | opendde-abag | 5 | 0.23 | deeprank_ab gap-recovered | 0.169 | 0.143 (-2.6) | 0.121 (-4.8) |
-| opendde-abag | 5 | 0.8 | oracle | 0.322 | 0.244 (-7.8) | 0.268 (-5.4) |
-| opendde-abag | 5 | 0.8 | random | 0.264 | 0.196 (-6.9) | 0.236 (-2.9) |
-| opendde-abag | 5 | 0.8 | ranked (ranking_score) | 0.271 | 0.199 (-7.2) | 0.230 (-4.1) |
-| opendde-abag | 5 | 0.8 | ranked (deeprank_ab) | 0.263 | 0.191 (-7.2) | 0.232 (-3.1) |
+| opendde-abag | 5 | 0.8 | oracle | 0.328 | 0.253 (-7.5) | 0.280 (-4.7) |
+| opendde-abag | 5 | 0.8 | random | 0.271 | 0.205 (-6.6) | 0.248 (-2.2) |
+| opendde-abag | 5 | 0.8 | ranked (ranking_score) | 0.277 | 0.208 (-6.9) | 0.242 (-3.4) |
+| opendde-abag | 5 | 0.8 | ranked (deeprank_ab) | 0.269 | 0.200 (-6.9) | 0.245 (-2.4) |
 | opendde-abag | 5 | 0.8 | deeprank_ab gap-recovered | -0.031 | -0.101 (-7.0) | -0.119 (-8.8) |
-| opendde-abag | 50 | 0.23 | oracle | 0.739 | 0.725 (-1.4) | 0.700 (-3.9) |
-| opendde-abag | 50 | 0.23 | random | 0.658 | 0.639 (-1.9) | 0.609 (-4.9) |
-| opendde-abag | 50 | 0.23 | ranked (ranking_score) | 0.665 | 0.642 (-2.2) | 0.613 (-5.2) |
-| opendde-abag | 50 | 0.23 | ranked (deeprank_ab) | 0.658 | 0.633 (-2.5) | 0.600 (-5.8) |
+| opendde-abag | 50 | 0.23 | oracle | 0.745 | 0.734 (-1.1) | 0.713 (-3.3) |
+| opendde-abag | 50 | 0.23 | random | 0.664 | 0.648 (-1.6) | 0.621 (-4.2) |
+| opendde-abag | 50 | 0.23 | ranked (ranking_score) | 0.671 | 0.651 (-1.9) | 0.625 (-4.6) |
+| opendde-abag | 50 | 0.23 | ranked (deeprank_ab) | 0.665 | 0.642 (-2.2) | 0.613 (-5.2) |
 | opendde-abag | 50 | 0.23 | deeprank_ab gap-recovered | 0.011 | -0.066 (-7.7) | -0.098 (-10.9) |
-| opendde-abag | 50 | 0.8 | oracle | 0.429 | 0.358 (-7.1) | 0.325 (-10.4) |
-| opendde-abag | 50 | 0.8 | random | 0.264 | 0.195 (-6.9) | 0.236 (-2.8) |
-| opendde-abag | 50 | 0.8 | ranked (ranking_score) | 0.267 | 0.193 (-7.4) | 0.212 (-5.5) |
-| opendde-abag | 50 | 0.8 | ranked (deeprank_ab) | 0.267 | 0.193 (-7.4) | 0.225 (-4.2) |
+| opendde-abag | 50 | 0.8 | oracle | 0.435 | 0.367 (-6.8) | 0.338 (-9.7) |
+| opendde-abag | 50 | 0.8 | random | 0.270 | 0.204 (-6.6) | 0.248 (-2.2) |
+| opendde-abag | 50 | 0.8 | ranked (ranking_score) | 0.273 | 0.202 (-7.1) | 0.225 (-4.8) |
+| opendde-abag | 50 | 0.8 | ranked (deeprank_ab) | 0.273 | 0.202 (-7.1) | 0.237 (-3.6) |
 | opendde-abag | 50 | 0.8 | deeprank_ab gap-recovered | 0.021 | -0.014 (-3.5) | -0.122 (-14.3) |
-| protenix-v2 | 5 | 0.23 | oracle | 0.517 | 0.472 (-4.5) | 0.489 (-2.8) |
-| protenix-v2 | 5 | 0.23 | random | 0.407 | 0.356 (-5.2) | 0.392 (-1.6) |
-| protenix-v2 | 5 | 0.23 | ranked (ranking_score) | 0.445 | 0.400 (-4.5) | 0.425 (-2.0) |
-| protenix-v2 | 5 | 0.23 | ranked (deeprank_ab) | 0.450 | 0.405 (-4.4) | 0.426 (-2.4) |
+| protenix-v2 | 5 | 0.23 | oracle | 0.523 | 0.481 (-4.2) | 0.502 (-2.2) |
+| protenix-v2 | 5 | 0.23 | random | 0.413 | 0.365 (-4.9) | 0.404 (-0.9) |
+| protenix-v2 | 5 | 0.23 | ranked (ranking_score) | 0.452 | 0.410 (-4.2) | 0.438 (-1.4) |
+| protenix-v2 | 5 | 0.23 | ranked (deeprank_ab) | 0.456 | 0.415 (-4.1) | 0.438 (-1.8) |
 | protenix-v2 | 5 | 0.23 | deeprank_ab gap-recovered | 0.386 | 0.428 (+4.1) | 0.349 (-3.7) |
-| protenix-v2 | 5 | 0.8 | oracle | 0.180 | 0.122 (-5.8) | 0.153 (-2.7) |
-| protenix-v2 | 5 | 0.8 | random | 0.132 | 0.081 (-5.1) | 0.106 (-2.6) |
-| protenix-v2 | 5 | 0.8 | ranked (ranking_score) | 0.128 | 0.078 (-5.0) | 0.104 (-2.4) |
-| protenix-v2 | 5 | 0.8 | ranked (deeprank_ab) | 0.133 | 0.085 (-4.9) | 0.112 (-2.1) |
+| protenix-v2 | 5 | 0.8 | oracle | 0.186 | 0.132 (-5.5) | 0.166 (-2.0) |
+| protenix-v2 | 5 | 0.8 | random | 0.138 | 0.090 (-4.8) | 0.119 (-1.9) |
+| protenix-v2 | 5 | 0.8 | ranked (ranking_score) | 0.134 | 0.087 (-4.7) | 0.117 (-1.8) |
+| protenix-v2 | 5 | 0.8 | ranked (deeprank_ab) | 0.140 | 0.094 (-4.6) | 0.125 (-1.5) |
 | protenix-v2 | 5 | 0.8 | deeprank_ab gap-recovered | 0.036 | 0.099 (+6.3) | 0.128 (+9.2) |
-| protenix-v2 | 50 | 0.23 | oracle | 0.646 | 0.596 (-5.0) | 0.613 (-3.3) |
-| protenix-v2 | 50 | 0.23 | random | 0.405 | 0.353 (-5.2) | 0.393 (-1.2) |
-| protenix-v2 | 50 | 0.23 | ranked (ranking_score) | 0.441 | 0.404 (-3.7) | 0.425 (-1.6) |
-| protenix-v2 | 50 | 0.23 | ranked (deeprank_ab) | 0.478 | 0.450 (-2.9) | 0.450 (-2.8) |
+| protenix-v2 | 50 | 0.23 | oracle | 0.652 | 0.606 (-4.7) | 0.625 (-2.7) |
+| protenix-v2 | 50 | 0.23 | random | 0.411 | 0.362 (-4.9) | 0.406 (-0.5) |
+| protenix-v2 | 50 | 0.23 | ranked (ranking_score) | 0.447 | 0.413 (-3.4) | 0.438 (-1.0) |
+| protenix-v2 | 50 | 0.23 | ranked (deeprank_ab) | 0.484 | 0.459 (-2.6) | 0.463 (-2.2) |
 | protenix-v2 | 50 | 0.23 | deeprank_ab gap-recovered | 0.304 | 0.396 (+9.2) | 0.259 (-4.5) |
-| protenix-v2 | 50 | 0.8 | oracle | 0.248 | 0.193 (-5.6) | 0.200 (-4.8) |
-| protenix-v2 | 50 | 0.8 | random | 0.130 | 0.080 (-5.1) | 0.106 (-2.4) |
-| protenix-v2 | 50 | 0.8 | ranked (ranking_score) | 0.124 | 0.083 (-4.2) | 0.113 (-1.2) |
-| protenix-v2 | 50 | 0.8 | ranked (deeprank_ab) | 0.143 | 0.083 (-6.0) | 0.113 (-3.0) |
+| protenix-v2 | 50 | 0.8 | oracle | 0.255 | 0.202 (-5.3) | 0.212 (-4.2) |
+| protenix-v2 | 50 | 0.8 | random | 0.137 | 0.089 (-4.8) | 0.119 (-1.8) |
+| protenix-v2 | 50 | 0.8 | ranked (ranking_score) | 0.130 | 0.092 (-3.9) | 0.125 (-0.5) |
+| protenix-v2 | 50 | 0.8 | ranked (deeprank_ab) | 0.149 | 0.092 (-5.7) | 0.125 (-2.4) |
 | protenix-v2 | 50 | 0.8 | deeprank_ab gap-recovered | 0.105 | 0.025 (-8.0) | 0.066 (-3.9) |
 | boltz2 | 5 | 0.23 | oracle | 0.376 | 0.360 (-1.7) | 0.364 (-1.2) |
 | boltz2 | 5 | 0.23 | random | 0.287 | 0.253 (-3.4) | 0.283 (-0.5) |
@@ -248,12 +248,12 @@ Per-target Spearman (mean across panel; the diagnostic whose independence assump
 
 | generator | ranker | full | acc-dedup | seq-dedup |
 |---|---|---|---|---|
-| opendde-abag | ranking_score | 0.017 | 0.033 | -0.010 |
-| opendde-abag | deeprank_ab | 0.035 | 0.035 | 0.043 |
-| opendde-abag | abag_rank | -0.000 | -0.013 | 0.005 |
-| protenix-v2 | ranking_score | 0.133 | 0.146 | 0.087 |
-| protenix-v2 | deeprank_ab | 0.106 | 0.111 | 0.060 |
-| protenix-v2 | abag_rank | 0.051 | 0.044 | 0.031 |
+| opendde-abag | ranking_score | 0.023 | 0.041 | 0.002 |
+| opendde-abag | deeprank_ab | 0.035 | 0.034 | 0.043 |
+| opendde-abag | abag_rank | 0.000 | -0.013 | 0.006 |
+| protenix-v2 | ranking_score | 0.134 | 0.147 | 0.089 |
+| protenix-v2 | deeprank_ab | 0.106 | 0.112 | 0.060 |
+| protenix-v2 | abag_rank | 0.051 | 0.043 | 0.031 |
 | boltz2 | ranking_score | 0.021 | -0.005 | 0.049 |
 | boltz2 | deeprank_ab | 0.079 | 0.065 | 0.076 |
 | boltz2 | abag_rank | 0.025 | 0.005 | 0.057 |

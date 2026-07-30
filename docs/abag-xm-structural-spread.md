@@ -4,19 +4,19 @@ Per-fold structural convergence of the 50-sample ensemble (mean pairwise TM over
 
 | generator | n fail | n succ | median mean-TM fail (sd) | median mean-TM succ (sd) | MWU p | Cliff's d |
 |---|---|---|---|---|---|---|
-| opendde-abag | 42 | 119 | 0.837 (0.094) | 0.976 (0.022) | 2.59e-07 | -0.54 |
-| protenix-v2 | 57 | 104 | 0.765 (0.111) | 0.878 (0.083) | 6.26e-04 | -0.33 |
+| opendde-abag | 41 | 120 | 0.828 (0.094) | 0.976 (0.022) | 6.07e-08 | -0.57 |
+| protenix-v2 | 56 | 105 | 0.761 (0.111) | 0.881 (0.083) | 2.31e-04 | -0.35 |
 | boltz2 | 81 | 80 | 0.796 (0.103) | 0.912 (0.070) | 3.32e-05 | -0.38 |
 
 ## Failure class per generator (split at the generator median mean-TM)
 
 | generator | multi-basin wrong (seeds might help) | converged-wrong (seeds won't help) | dominant class |
 |---|---|---|---|
-| opendde-abag | 34 | 8 | multi-basin |
-| protenix-v2 | 38 | 19 | multi-basin |
+| opendde-abag | 34 | 7 | multi-basin |
+| protenix-v2 | 38 | 18 | multi-basin |
 | boltz2 | 51 | 30 | multi-basin |
 
-- opendde-abag: failing ensembles mostly sample several wrong basins (8/42 converged-wrong, 34/42 multi-basin).
-- protenix-v2: failing ensembles mostly sample several wrong basins (19/57 converged-wrong, 38/57 multi-basin).
+- opendde-abag: failing ensembles mostly sample several wrong basins (7/41 converged-wrong, 34/41 multi-basin).
+- protenix-v2: failing ensembles mostly sample several wrong basins (18/56 converged-wrong, 38/56 multi-basin).
 - boltz2: failing ensembles mostly sample several wrong basins (30/81 converged-wrong, 51/81 multi-basin).
 
