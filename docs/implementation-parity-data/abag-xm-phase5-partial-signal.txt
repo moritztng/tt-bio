@@ -1,0 +1,75 @@
+================================================================================
+PARTIAL Phase 5 signal — 95 (gen,target) pairs, 4750 rows
+  protenix-v2: 46 targets, boltz2: 49 targets, opendde: 0 (not yet run)
+  learned rankers (DeepRank-Ab, ABAG-Rank): NOT run yet
+================================================================================
+
+### protenix-v2 (46 targets, 50 samples each) ###
+
+  ranker            top1_dq   oracle   random  gap_rec
+  iptm               0.3316   0.4392   0.3132   0.1457
+  ptm                0.3300   0.4392   0.3132   0.1334
+  ranking_score      0.3317   0.4392   0.3132   0.1465
+  complex_plddt      0.3321   0.4392   0.3132   0.1502
+  pdockq2            0.3180   0.4392   0.3132   0.0381
+  ipsae              0.3005   0.4392   0.3132  -0.1010
+  anticonf           0.3190   0.4392   0.3132   0.0465
+  pss                0.3358   0.4488   0.3215   0.1120
+
+  ranker           global_sp
+  iptm               0.6981
+  ptm                0.5968
+  ranking_score      0.7045
+  complex_plddt      0.4189
+  pdockq2            0.7511
+  ipsae              0.6782
+  anticonf           0.6310
+  pss                0.6685
+
+  per-target Spearman (median across targets):
+  iptm             median=0.0344  (n=46, q25=-0.172, q75=0.331)
+  ptm              median=0.1108  (n=46, q25=-0.173, q75=0.288)
+  ranking_score    median=0.0453  (n=46, q25=-0.177, q75=0.330)
+  complex_plddt    median=-0.0277  (n=46, q25=-0.167, q75=0.116)
+  pdockq2          median=0.0043  (n=46, q25=-0.365, q75=0.478)
+  ipsae            median=0.2161  (n=34, q25=-0.197, q75=0.528)
+  anticonf         median=0.0694  (n=46, q25=-0.345, q75=0.393)
+  pss              median=0.0019  (n=44, q25=-0.141, q75=0.225)
+
+### boltz2 (49 targets, 50 samples each) ###
+
+  ranker            top1_dq   oracle   random  gap_rec
+  iptm               0.2433   0.3604   0.2135   0.2030
+  ptm                0.2396   0.3604   0.2135   0.1773
+  ranking_score      0.2334   0.3604   0.2135   0.1355
+  complex_plddt      0.2413   0.3604   0.2135   0.1888
+  pdockq2            0.2102   0.3604   0.2135  -0.0228
+  ipsae              0.2155   0.3604   0.2135   0.0133
+  anticonf           0.2211   0.3604   0.2135   0.0513
+  pss                0.2258   0.3650   0.2180   0.0532
+
+  ranker           global_sp
+  iptm               0.5176
+  ptm                0.5249
+  ranking_score      0.5842
+  complex_plddt      0.5623
+  pdockq2            0.5564
+  ipsae              0.5336
+  anticonf           0.5686
+  pss                0.6113
+
+  per-target Spearman (median across targets):
+  iptm             median=0.0036  (n=48, q25=-0.143, q75=0.161)
+  ptm              median=0.0026  (n=48, q25=-0.152, q75=0.161)
+  ranking_score    median=-0.0167  (n=48, q25=-0.124, q75=0.184)
+  complex_plddt    median=-0.0046  (n=48, q25=-0.099, q75=0.118)
+  pdockq2          median=0.0198  (n=48, q25=-0.224, q75=0.210)
+  ipsae            median=0.0153  (n=48, q25=-0.165, q75=0.197)
+  anticonf         median=0.0181  (n=48, q25=-0.142, q75=0.161)
+  pss              median=-0.0206  (n=45, q25=-0.103, q75=0.076)
+
+================================================================================
+NOTE: partial data — 95 of 328 planned pairs. No opendde, no learned rankers.
+Numbers are preliminary. The per-target-vs-global Spearman gap (the 0.80-vs-0.28
+pathology from btag136) is the headline diagnostic — watch whether global Spearman
+is high while per-target median is near zero.

@@ -1,0 +1,44 @@
+target,gen,column,n_null,n_samples,cause,evidence
+9l9y,boltz2,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9l9y,opendde-abag,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9l9y,protenix-v2,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9lwc,boltz2,cdr_h3_rmsd,50,50,"partial CDR numbering (H1 scored; H2,H3 absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9lwc,opendde-abag,cdr_h3_rmsd,50,50,"partial CDR numbering (H1 scored; H2,H3 absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9lwc,protenix-v2,cdr_h3_rmsd,50,50,"partial CDR numbering (H1 scored; H2,H3 absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9mnu,boltz2,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9mnu,opendde-abag,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9mnu,protenix-v2,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9msc,boltz2,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9msc,opendde-abag,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9msc,protenix-v2,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; none absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9udq,boltz2,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; H1 absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9udq,opendde-abag,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; H1 absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9udq,protenix-v2,cdr_h3_rmsd,50,50,"partial CDR numbering (L1,L2,L3 scored; H1 absent) -- consistent with the native heavy chain unresolved at CDR-H3","keys: cdrs,model,native,yaml"
+9ly2,boltz2,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,"Traceback (most recent call last):
+  File ""/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4/scripts/abag_xm_dockq_interface.py"", line 185, in <module>
+    sys.exit(main())
+  File ""/home"
+9ly2,opendde-abag,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,"Traceback (most recent call last):
+  File ""/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4/scripts/abag_xm_dockq_interface.py"", line 185, in <module>
+    sys.exit(main())
+  File ""/home"
+9ly2,protenix-v2,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,"Traceback (most recent call last):
+  File ""/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4/scripts/abag_xm_dockq_interface.py"", line 185, in <module>
+    sys.exit(main())
+  File ""/home"
+9ly3,boltz2,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,keys: _error
+9ly3,opendde-abag,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,keys: _error
+9ly3,protenix-v2,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,keys: _error
+9lz2,boltz2,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,"Traceback (most recent call last):
+  File ""/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4/scripts/abag_xm_dockq_interface.py"", line 185, in <module>
+    sys.exit(main())
+  File ""/home"
+9lz2,opendde-abag,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,"Traceback (most recent call last):
+  File ""/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4/scripts/abag_xm_dockq_interface.py"", line 185, in <module>
+    sys.exit(main())
+  File ""/home"
+9lz2,protenix-v2,dockq,50,50,anti-phosphoepitope: the native interface is carried by SEP (phosphoserine) residues that DockQ's loader discards -- no scorable interface atoms,"Traceback (most recent call last):
+  File ""/home/ttuser/.coworker/wt/abag-xm-crossmodel-ranking-dataset-p4/scripts/abag_xm_dockq_interface.py"", line 185, in <module>
+    sys.exit(main())
+  File ""/home"
+9mnu,boltz2,interface_lddt,3,50,model pose docked away from the antigen (n_interface_residues: 0) -- correct null,n_interface_residues: 0 (model pose docked away from the antigen -- correct null)

@@ -588,7 +588,15 @@ class DiffusionModule(_KeyedWeights):
     SIGMA_DATA = 16.0
     NQ, NK, PAD_LEFT = 32, 128, 48
     DIT_BLOCKS, DIT_HEAD_DIM, DIT_N_HEADS = 24, 48, 16
-    supports_multiplicity = True   # ON: verified on qb2 card0
+    # OFF for the AbAg-XM campaign. "Verified on qb2 card0" was verified at small size: the
+    # batched path is entered whenever n_sample > 1 (fold(), see the n_sample>1 guard), i.e.
+    # always at the campaign's 50 samples, and it then asks for a ~3400 B x tokens^2 DRAM buffer
+    # that does not fit above ~550 tokens -- 4,014,080,000 B at 1095 tokens, identically at
+    # mps=1 and mps=2, which is why lowering max_parallel_samples changed nothing. The parked
+    # pre-batching slab folded that same 1095-token target to 50 CIFs, so this is a regression in
+    # the batched path, not a hardware ceiling. Sequential costs ~1.9x per sample; a slab that
+    # exists beats a faster one that OOMs on 41% of its targets.
+    supports_multiplicity = False
 
     def __init__(self, diffusion_state_dict, device, compute_kernel_config, diffusion_fp32=None):
         """diffusion_state_dict: {key: tensor} for diffusion_module.* (prefix stripped).
