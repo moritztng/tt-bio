@@ -6,7 +6,7 @@ Token-level keys (I=40 for both) are compared value-by-value (bit-exact + PCC).
 Atom-level keys differ structurally (ported L=560 fixed-14 vs ref L=419 variable)
 and are reported as structural mismatches with the per-token atom-count breakdown.
 """
-import os, sys, json
+import sys
 import torch
 
 PDB = "/tmp/IAI_protein.pdb"

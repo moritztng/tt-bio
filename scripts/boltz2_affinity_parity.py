@@ -49,7 +49,7 @@ import numpy as np
 import gemmi
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pharma_parity import noise_floor_verdict, summarize  # noqa: E402
+from pharma_parity import noise_floor_verdict
 
 
 # standard amino-acid three-letter codes (for ligand / pocket separation)

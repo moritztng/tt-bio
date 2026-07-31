@@ -1,6 +1,5 @@
 from collections.abc import Mapping
-from dataclasses import dataclass
-from dataclasses import replace, astuple
+from dataclasses import dataclass, replace
 from collections import defaultdict
 from pathlib import Path
 import random
@@ -37,8 +36,6 @@ from tt_bio.boltzgen.data.data import (
     Tokenized,
 )
 from tt_bio.boltzgen.data.parse.pdb_parser import parse_pdb
-from tt_bio.boltzgen.data.tokenizer import TokenData
-from dataclasses import replace
 
 ####################################################################################################
 # CONSTRAINTS (design-spec `constraints:` block)

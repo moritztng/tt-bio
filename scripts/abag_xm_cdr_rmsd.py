@@ -12,7 +12,7 @@ CA sets are paired by sequence index, no alignment step.
 Usage:
     PYTHONPATH=<worktree> python3 scripts/abag_xm_cdr_rmsd.py <model.cif> <native.cif> <fold.yaml> [--out json]
 """
-import argparse, json, math, sys
+import argparse, json
 from pathlib import Path
 import gemmi
 import numpy as np

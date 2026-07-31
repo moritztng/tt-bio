@@ -18,7 +18,7 @@ index k of the SAME chain (identified by exact sequence match). No alignment ste
 Usage:
     PYTHONPATH=<worktree> python3 scripts/abag_xm_interface_lddt.py <model.cif> <native.cif> <fold.yaml> [--out json]
 """
-import argparse, json, math, sys
+import argparse, json
 from pathlib import Path
 import gemmi
 

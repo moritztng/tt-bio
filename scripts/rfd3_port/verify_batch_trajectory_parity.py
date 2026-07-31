@@ -1,6 +1,6 @@
 """Batched trajectory parity at arbitrary D and fixture.
 
-Generalizes scripts/rfd3_port/spike_batch_invariance.py beyond B=2: verifies the
+Generalizes the original B=2 batch-invariance spike: verifies the
 RFD3 device forward is batch-invariant and that a full stochastic trajectory
 with per-element generators reproduces each element's standalone seeded
 trajectory, at batch size D and any contig/spec fixture. Required before raising
@@ -21,7 +21,6 @@ Usage:
 """
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 

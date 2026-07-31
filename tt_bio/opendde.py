@@ -17,7 +17,7 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights
-from .tenstorrent import get_device, CORE_GRID_MAIN
+from .tenstorrent import get_device
 
 # opendde/data/tokenizer.py
 STRUCTURAL_TOKEN_ROLES = {

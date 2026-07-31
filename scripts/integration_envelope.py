@@ -40,7 +40,6 @@ tiny, and justified from the observed metric quantization (see MARGIN / ABS_FLOO
 """
 from __future__ import annotations
 
-import itertools
 import json
 import os
 import sys

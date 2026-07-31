@@ -16,7 +16,7 @@ not match the native (A,H,L here) -- the antigen is identified by matching its s
 the fold YAML's chain A sequence. Antibody chains = the YAML's H and L chains (matched into
 the CIF by sequence). Sanity: raises if the matched antigen residue count != len(YAML A seq).
 """
-import argparse, json, sys
+import argparse, json
 from pathlib import Path
 import gemmi
 

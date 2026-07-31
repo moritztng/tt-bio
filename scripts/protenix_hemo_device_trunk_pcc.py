@@ -4,7 +4,7 @@
 # reference's own per-cycle (s,z) capture. Answers: does on-device trunk recycling drift
 # more at hemoglobin's size (574 tok, tetramer) than at the validated 38-tok case (PCC
 # s=0.991/z=0.990 @ 10 cycles, scripts/protenix_trunk_assembly.py)?
-import os, sys
+import os
 os.environ.setdefault('TT_VISIBLE_DEVICES', '0'); os.environ.setdefault('TT_LOGGER_LEVEL', 'FATAL')
 import pickle, torch, ttnn
 from tt_bio.tenstorrent import get_device

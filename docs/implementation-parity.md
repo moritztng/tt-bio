@@ -16,21 +16,21 @@ accuracy (does the fold match the native structure) is out of scope.
 | ESMFold2 | trp-cage, L20 | PASS | CA-RMSD 0.61 Å inside the 0.51 Å floor |
 | ESMFold2 | GB1, L56 | PASS | CA-RMSD 0.33 Å inside the 0.29 Å floor |
 | ESMFold2 | ubiquitin, L76 | PASS | CA-RMSD 0.75 Å inside the 0.92 Å floor; device closer to ref than ref to itself |
-| ESMFold2 | lysozyme, L129 | PASS | CA-RMSD 0.136 Å inside the 0.139 Å floor (X/floor 0.98); seed-wiring fix applied (details doc) |
+| ESMFold2 | lysozyme, L129 | PASS | CA-RMSD 0.136 Å inside the 0.139 Å floor (X/floor 0.98); seed-wiring fix applied ([per-leg evidence](implementation-parity-details.md#per-leg-evidence)) |
 | Protenix-v2 | 7ROA, L117, MSA | PASS | CA-RMSD 2.63 Å inside the 2.94 Å floor; confidence-head under-ranking shared with reference (model property) |
 | Protenix-v2 | ubiquitin, L76, MSA | PASS | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too |
 | Protenix-v2 | HSA, L585, MSA | PASS | on-device fp32 diffusion matches the reference's own fp32 boundary; CA-RMSD 0.685 Å inside the 0.695 Å floor (was GAP-evidenced in bf16, X 1.03 Å) |
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
 | Boltz-2 | 7ROA, L117, no MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å. The tighter envelope test GAPs this leg at the pinned seed (ratio 2.04); root-caused as seed-0 chaotic-trajectory amplification, not a precision bug — see below |
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
-| Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97); residual systematic bf16 (details doc) |
+| Boltz-2 | ubiquitin, L76, MSA (production default) | PASS | all 4 metrics within the tight MSA-backed GPU-reference floor (CA-RMSD X/floor 1.03, 1-lDDT X/floor 0.97); residual systematic bf16 ([same-seed diagonal](implementation-parity-details.md#1-same-seed-diagonal-shared-rng-proof)) |
 | Boltz-2 | HSA, L585, no MSA | PASS | CA-RMSD 1.47 Å inside the 1.50 Å floor; first L585 target |
-| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA (non-default) | PASS (legacy R/D/X); PASS under the envelope gate | device-fp32 hybrid diffusion vs the GPU bf16 reference: pocket-lDDT X 0.014 within the GPU noise floor (X/floor 1.25); affinity scalar, affinity probability, and ligand-pose RMSD also pass (X/floor 0.79 / 1.38 / 0.92). Under the envelope gate (gate of record) the affinity scalar passes at ratio 1.35 (numerator 0.0505 vs bound 0.0660) and affinity_probability at 3.65  (details doc) |
-| Boltz-2 (affinity) | FKBP12 + SB3, L107, MSA (production default) | PASS-caveated | Under the envelope gate (gate of record) the affinity scalar passes at ratio 0.32 (numerator 0.0456 vs bound 0.226) and affinity_probability at 0.18; pocket-lDDT GAPs under legacy R/D/X (X/floor 4.48), the same narrower-basin systematic-bf16 property as the other affinity legs (seed-independent same-seed diagonal) (details doc). The legacy R/D/X scalar "GAP" (X/floor 2.27) was a stale-fixture artifact, measured against pre-shared-draws refs before the fixture regen, and is superseded by the envelope pass |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, no MSA (non-default) | PASS (legacy R/D/X); PASS under the envelope gate | device-fp32 hybrid diffusion vs the GPU bf16 reference: pocket-lDDT X 0.014 within the GPU noise floor (X/floor 1.25); affinity scalar, affinity probability, and ligand-pose RMSD also pass (X/floor 0.79 / 1.38 / 0.92). Under the envelope gate (gate of record) the affinity scalar passes at ratio 1.35 (numerator 0.0505 vs bound 0.0660) and affinity_probability at 3.65 ([bf16-floor evidence](implementation-parity-details.md#why-every-non-pass-is-a-bf16-backend-floor-not-a-port-defect)) |
+| Boltz-2 (affinity) | FKBP12 + SB3, L107, MSA (production default) | PASS-caveated | Under the envelope gate (gate of record) the affinity scalar passes at ratio 0.32 (numerator 0.0456 vs bound 0.226) and affinity_probability at 0.18; pocket-lDDT GAPs under legacy R/D/X (X/floor 4.48), the same narrower-basin systematic-bf16 property as the other affinity legs (seed-independent [same-seed diagonal](implementation-parity-details.md#1-same-seed-diagonal-shared-rng-proof)). The legacy R/D/X scalar "GAP" (X/floor 2.27) was a stale-fixture artifact, measured against pre-shared-draws refs before the fixture regen, and is superseded by the envelope pass |
 | Boltz-2 (affinity) | DHFR + MTX, L187, no MSA (non-default) | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.68 / 1.36); pocket-lDDT GAPs (4.72), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 and CPU-bf16 references disagree on the pocket by the same ~0.13 lDDT margin the device does), not a port defect |
-| Boltz-2 (affinity) | DHFR + MTX, L187, MSA (production default) | PASS-caveated | affinity scalar (1.32), affinity_probability (0.95), and ligand-RMSD (1.61) PASS; pocket-lDDT GAPs (13.35), systematic bf16 by the same-seed diagonal (details doc) |
+| Boltz-2 (affinity) | DHFR + MTX, L187, MSA (production default) | PASS-caveated | affinity scalar (1.32), affinity_probability (0.95), and ligand-RMSD (1.61) PASS; pocket-lDDT GAPs (13.35), systematic bf16 by the [same-seed diagonal](implementation-parity-details.md#1-same-seed-diagonal-shared-rng-proof) |
 | Boltz-2 (affinity) | trypsin + BAM, L223, no MSA (non-default) | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.94 / 0.95); pocket-lDDT GAPs (10.13), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 vs CPU-bf16 pocket-lDDT X/floor 7.51, both NO), not a port defect |
-| Boltz-2 (affinity) | trypsin + BAM, L223, MSA (production default) | PASS-caveated | affinity scalar (0.79), affinity_probability (0.92), and ligand-RMSD (0.78) PASS; pocket-lDDT GAPs (2.75), systematic bf16 by the same-seed diagonal (details doc) |
+| Boltz-2 (affinity) | trypsin + BAM, L223, MSA (production default) | PASS-caveated | affinity scalar (0.79), affinity_probability (0.92), and ligand-RMSD (0.78) PASS; pocket-lDDT GAPs (2.75), systematic bf16 by the [same-seed diagonal](implementation-parity-details.md#1-same-seed-diagonal-shared-rng-proof) |
 | OpenDDE | trp-cage, L20, no MSA | PASS | CA-RMSD 0.51 Å inside the 0.52 Å floor |
 | OpenDDE | 7ROA, production | PASS | wide device-dominated floor (D 6.04 Å); absolute X 4.67 Å |
 | OpenDDE-abag | 1AHW Ab–Ag | PASS | global DockQ 0.864; per-interface iRMSD 0.65/0.70/1.20 Å, all sub-Å-to-low-Å |
@@ -43,7 +43,7 @@ Net: 23 PASS, 5 PASS-caveated, 0 GAP-evidenced. The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
 rows are retained and relabeled `non-default`. The MSA legs score 9 PASS / 3 GAP
-across their 12 metric-cells (details doc): the consistent GAP is 1-pocket-lDDT on all
+across their 12 metric-cells ([bf16-floor evidence](implementation-parity-details.md#why-every-non-pass-is-a-bf16-backend-floor-not-a-port-defect)): the consistent GAP is 1-pocket-lDDT on all
 three targets, the same narrower-basin systematic-bf16 property the no-MSA legs
 show; all three MSA affinity scalars PASS the envelope gate (FKBP12 0.32, DHFR
 1.32, trypsin 0.79). The FKBP12 MSA affinity scalar — previously recorded
@@ -53,7 +53,8 @@ on the current committed fixtures; the legacy 2.27 was a stale-fixture artifact
 (measured against pre-shared-draws refs before the fixture regen, never
 re-measured after), and the scalar triangulation that was built on it is moot as
 a verdict justification (the cross-backend bf16 divergence it measured is real
-but is absorbed by the envelope gate's measured bf16 denominator; details doc).
+but is absorbed by the envelope gate's measured bf16 denominator; see the
+[affinity-scalar triangulation](implementation-parity-details.md#2b-three-backend-triangulation-on-the-affinity-scalar-cross-backend-divergence-absorbed-by-the-envelope-gate)).
 The no-MSA affinity rows use the device-fp32 hybrid diffusion path: FKBP12 PASSes
 cleanly there (pocket-lDDT X 0.011 within the 0.011 GPU floor, X/floor 0.94), and
 the two PASS-caveated no-MSA entries (DHFR, trypsin) are proven a genuine
@@ -158,7 +159,8 @@ R/D/X verdict table (scalar X/floor 2.27); the envelope test (gate of record) PA
 cleanly (ratio 0.32) against the current committed fixtures. That is not a drift or a
 contradiction: the legacy 2.27 was a stale-fixture artifact, measured against pre-shared-draws
 refs before the fixture regen and never re-measured after, so the envelope pass is the live verdict
-and the legacy `GAP-evidenced` row is corrected above and in the details doc.
+and the legacy `GAP-evidenced` row is corrected above and in the
+[affinity-scalar triangulation](implementation-parity-details.md#2b-three-backend-triangulation-on-the-affinity-scalar-cross-backend-divergence-absorbed-by-the-envelope-gate).
 
 Prior state: a 2026-07-23/24 pass first wired the automated gate end-to-end but had only 9 of the
 21 legs' CPU references generated (9 PASS, 12 BLOCKED-REF-REGEN-NEEDED). That pass closed every

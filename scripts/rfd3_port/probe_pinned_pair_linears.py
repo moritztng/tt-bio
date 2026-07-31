@@ -1,6 +1,6 @@
 """p15 part 2: the same pinned-in0_block_w lever on the [D,I,I,C] @ [C,N] PAIR linears.
 
-probe_pinned_in0_block_w.py established the rule on the DiT token linears
+Part 1 established the rule on the DiT token linears
 ([1,D,I,C] @ [C,N]): an explicit program config with in0_block_w pinned to the default's
 value is bit-exact while moving the work from 24 to the full grid (1.66-2.83x). On the pair
 linears every candidate FAILED there, because folding the batch into M gives M = D*I*ceil(I/32)

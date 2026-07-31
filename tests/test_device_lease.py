@@ -18,7 +18,7 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from tt_bio.device_lease import DeviceLease, DeviceInUseError, lease_dir  # noqa: E402
+from tt_bio.device_lease import DeviceLease, DeviceInUseError
 
 try:
     import pytest

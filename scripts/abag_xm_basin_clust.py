@@ -14,7 +14,7 @@ means multiple basins / diverse ensemble).
 Usage:
     python3 scripts/abag_xm_basin_clust.py <pairwise_matrix.json> [--eps 0.1] [--min_samples 2] [--out json]
 """
-import argparse, json, sys
+import argparse, json
 from pathlib import Path
 
 

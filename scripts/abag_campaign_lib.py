@@ -90,7 +90,7 @@ def run_predict(tid, yaml, model, out_dir, msa_dir, device, extra_args=(),
         os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
         out, _ = proc.communicate()
         returncode = -9
-    wall_s = time.time() - t0
+    wall_s = round(time.time() - t0, 1)
     rjson = f"{out_dir}/{RESULT_DIR_PREFIX[model]}_results_{tid}/results.json"
     if timed_out:
         return "timed_out", f"killed after {timeout}s (process group); tail: {(out or '')[-1000:]}", wall_s

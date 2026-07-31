@@ -36,7 +36,7 @@ from typing import Mapping, Sequence
 import torch
 
 from .rfd3 import build_diffusion_module, build_token_initializer
-from .rfd3_input import InputSpecification, parse_contig
+from .rfd3_input import InputSpecification
 from .rfd3_sampler import RFD3Sampler
 
 

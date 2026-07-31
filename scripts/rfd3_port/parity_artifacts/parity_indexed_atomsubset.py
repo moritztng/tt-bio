@@ -15,7 +15,7 @@ different mechanism than unindexed atom-SUBSETTING (see
 `_indexed_fixed_atom_names` in `tt_bio/rfd3_featurize.py`).
 
 Fixture: `IAI_protein.pdb` (the same real p10-p13 F1/F6 fixture), contig
-"A1-10,20,A31-40" (the same real p12/verify_trajectory_from_pdb.py contig),
+"A1-10,20,A31-40" (the same real p12 contig),
 select_fixed_atoms: {"A5": "CB,CG,CD"} -- ARG5 has 11 real atoms
 (N,CA,C,O,CB,CG,CD,NE,CZ,NH1,NH2); only CB/CG/CD are named, so the other 8
 (including its own backbone N/CA/C/O) should NOT be fixed-coord.

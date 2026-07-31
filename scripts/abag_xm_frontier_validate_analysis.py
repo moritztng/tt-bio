@@ -10,7 +10,7 @@ Therefore, from slab labels via the analysis functions:
 Any deviation = a bug in the analysis code path (dockq extraction or
 hypergeometric), caught before real frontier data exists.
 """
-import importlib.util, statistics, sys
+import importlib.util
 from pathlib import Path
 
 WT = Path("/home/ttuser/.coworker/wt/abag-xm-seeds-vs-samples-oracle-frontier-p2")

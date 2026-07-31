@@ -33,7 +33,6 @@ except (ImportError, ModuleNotFoundError, FileNotFoundError) as exc:
     pytest.skip(f"ESMFold2 Biohub reference unavailable: {exc}", allow_module_level=True)
 
 from tt_bio import esmfold2 as tt_ef2  # noqa: E402
-from tt_bio.tenstorrent import get_device  # noqa: E402
 
 torch.set_grad_enabled(False)
 torch.manual_seed(893)

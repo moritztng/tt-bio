@@ -29,7 +29,6 @@ Run (OpenDDE):
     scripts/protenix_opendde_multiplicity_parity.py opendde
 """
 import os
-import sys
 
 os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
 os.environ.setdefault("TT_LOGGER_LEVEL", "FATAL")

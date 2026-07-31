@@ -1,6 +1,5 @@
 import os
 from Bio.PDB import PDBParser
-from Bio.PDB.Polypeptide import three_to_index, index_to_one
 
 AA3TO1 = {
     'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLN':'Q','GLU':'E',

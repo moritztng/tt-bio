@@ -17,7 +17,6 @@ Run: TT_VISIBLE_DEVICES=0 TT_MESH_GRAPH_DESC_PATH=<...> PYTHONPATH=<worktree> \
 import os
 os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
 os.environ.setdefault("TT_LOGGER_LEVEL", "FATAL")
-import sys
 import time
 
 import torch

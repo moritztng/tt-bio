@@ -6,7 +6,6 @@ runs ContigJsonDataset.__getitem__, and dumps every tensor under data["f"] plus 
 meta.json describing shapes/dtypes.  Output goes to --out_dir.
 """
 import argparse, os, sys, json, traceback
-from pathlib import Path
 
 import torch
 

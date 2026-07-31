@@ -29,8 +29,8 @@ from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
 # run, so every `core_grid=CORE_GRID_MAIN` below pins 11x10 -- 110 of the 130 available
-# cores. That looks like a bug; it is measurably not one. p28 timed both grids on all seven
-# pinned call sites (scripts/rfd3_port/p28_pinned_grid_exactness.py): 13x10 is bit-exact
+# cores. That looks like a bug; it is measurably not one. Both grids were timed on all seven
+# pinned call sites: 13x10 is bit-exact
 # against 11x10 everywhere (maxabs 0.0, 14/14 cells at D=1 and D=8), and it is 14.28 ms/step
 # SLOWER at D=8 -- DiffusionTokenEncoder.process_z alone goes 1.967 -> 6.353 ms. So grid
 # width here carries no numerics, only performance, and the narrower grid wins. Re-resolving
@@ -59,8 +59,7 @@ from .tenstorrent import Module, get_device, CORE_GRID_MAIN
 # The decisive number is that RFD3_TUNE_MATMUL=1 -- which searches explicit program configs
 # and keeps only bitwise-identical ones -- measures -4.96% at 3359/D=8 with maxabs exactly
 # 0.0 over a D=8 trajectory. Breaking bit-exactness here buys 0.2 percentage points. So there
-# is no accuracy-for-speed trade to make: take the exact path.
-# scripts/rfd3_port/p28_grid_trajectory_parity.py is the instrument. Default OFF.
+# is no accuracy-for-speed trade to make: take the exact path. Default OFF.
 FAST_GRID = os.environ.get("RFD3_FAST_GRID") == "1"
 BATCH_INVARIANT_GRID = CORE_GRID_MAIN if FAST_GRID else None
 
