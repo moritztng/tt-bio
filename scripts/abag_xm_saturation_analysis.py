@@ -41,7 +41,7 @@ RANKED_REPS = 1000
 KNEE_PP = 1.0  # pre-registered per-doubling gain threshold, percentage points
 # §0 label-derived Arm-A oracle @0.23 (n=11), the G3 continuity reference.
 S0_CONT = {50: 42.8, 100: 53.4, 200: 63.6}
-FIXED_FIT_FALLBACK = 342.0
+TRUNK_FIXED_S = 342.0  # measured trunk-pass cost (frontier cost fit); not refitted here
 
 
 def comb(n, k):
@@ -262,67 +262,64 @@ def progress_records():
     return recs
 
 
-def _lstsq_fit(ok):
-    """(fixed_s, marginal_s_per_sample) from wall ~ fixed + marginal * n_samples."""
-    xs = [r["n_samples"] for r in ok]
-    ys = [r["wall_s"] for r in ok]
-    n = len(ok)
-    sx, sy = sum(xs), sum(ys)
-    sxx = sum(x * x for x in xs)
-    sxy = sum(x * y for x, y in zip(xs, ys))
-    denom = n * sxx - sx * sx
-    if denom and len(set(xs)) > 1:
-        marg = (n * sxy - sx * sy) / denom
-        return (sy - marg * sx) / n, marg
-    return FIXED_FIT_FALLBACK, (statistics.mean(ys) - FIXED_FIT_FALLBACK) / statistics.mean(xs)
-
-
 def cost_fit(recs, model_dir):
-    """fixed + marginal least-squares over ok records of one model; per-target marginals
-    from measured total walls (chunk invocations included, fixed counted per invocation).
+    """Per-target cost of 1000 samples, from measured walls and a measured trunk cost.
 
-    Also fit each host separately. qb1 ran these folds alongside a sibling task's 14-core
-    labeler and came in 1.39-1.56x its projection while qb2 did not, so a pooled fit
-    describes neither machine; a reader choosing a budget needs to know which regime the
-    card-seconds are in.
+    Deliberately NOT a regression. Two fits were tried and both are unsound here:
+      * wall ~ n_samples ACROSS targets is confounded — only the 716-residue targets were
+        chunked to 500, so sample count tracks target size and the slope collapses (it
+        produced a 8234 s intercept on qb2 and a NEGATIVE marginal for 9zen);
+      * a two-point solve against the frontier's 200-sample walls is invalid across
+        campaigns — 9tmp cost 3005 s at 200 samples and 20309 s at 1000, i.e. 6.8x the
+        wall for 5x the samples, because the two ran at different host contention. It
+        implies a negative fixed cost.
+    So take the trunk pass as the measured constant it is (TRUNK_FIXED_S, the frontier's own
+    cost fit) and derive each target's marginal from its measured total. The trunk is
+    342 s against 4k-21k s totals, so the marginal is insensitive to it; a chunked target
+    pays the trunk once per invocation.
     """
-    prefix = MODELS[model_dir]
     model_id = {"opendde": "opendde-abag", "protenix": "protenix-v2",
                 "boltz2": "boltz2"}[model_dir]
-    ok = [r for r in recs if r.get("status") == "ok" and r.get("model") == model_id]
+    # Campaign folds only. The G2 determinism smoke wrote three 10-sample opendde records
+    # (and any future smoke would too); they are ok-status records of the right model, so
+    # without this filter they enter the model and inflate 9zen to 4 "invocations".
+    ok = [r for r in recs if r.get("status") == "ok" and r.get("model") == model_id
+          and r.get("n_samples", 0) >= 500 and "/smoke/" not in (r.get("out_dir") or "")]
+    seen, dedup = set(), []
+    for r in ok:  # a record can arrive twice if a progress file is mirrored twice
+        key = (r.get("host"), r.get("out_dir"), r.get("ts"))
+        if key not in seen:
+            seen.add(key)
+            dedup.append(r)
+    ok = dedup
     if not ok:
         return None
-    by_host = {}
-    for h in sorted({r.get("host") for r in ok if r.get("host")}):
-        hr = [r for r in ok if r.get("host") == h]
-        f, m_ = _lstsq_fit(hr)
-        by_host[h] = {"fixed_s": round(f, 1), "marginal_s_per_sample": round(m_, 3),
-                      "n_records": len(hr),
-                      "total_card_s": round(sum(r["wall_s"] for r in hr), 1)}
-    xs = [r["n_samples"] for r in ok]
-    ys = [r["wall_s"] for r in ok]
-    n = len(ok)
-    sx, sy = sum(xs), sum(ys)
-    sxx = sum(x * x for x in xs)
-    sxy = sum(x * y for x, y in zip(xs, ys))
-    denom = n * sxx - sx * sx
-    if denom and len(set(xs)) > 1:
-        marg = (n * sxy - sx * sy) / denom
-        fixed = (sy - marg * sx) / n
-    else:
-        fixed, marg = FIXED_FIT_FALLBACK, (statistics.mean(ys) - FIXED_FIT_FALLBACK) / statistics.mean(xs)
-    per_t = {}
+    per_t, hosts = {}, {}
     for t in TARGETS:
         rs = [r for r in ok if r["target"] == t]
-        if not rs:
-            continue
+        if not rs or sum(r["n_samples"] for r in rs) != 1000:
+            continue  # partial target: no cost claim until all its samples are in
         total = sum(r["wall_s"] for r in rs)
-        n_inv = len(rs)
-        per_t[t] = {"wall_s": round(total, 1), "invocations": n_inv,
-                    "marg_s_per_sample": round((total - fixed * n_inv) / 1000.0, 3)}
-    return {"fixed_s": round(fixed, 1), "marginal_s_per_sample": round(marg, 3),
-            "n_records": n, "total_card_s": round(sy, 1), "per_target": per_t,
-            "by_host": by_host}
+        marg = (total - TRUNK_FIXED_S * len(rs)) / 1000.0
+        per_t[t] = {"wall_s": round(total, 1), "invocations": len(rs),
+                    "marg_s_per_sample": round(marg, 3),
+                    "hosts": sorted({r.get("host") for r in rs})}
+        for h in per_t[t]["hosts"]:
+            hosts.setdefault(h, []).append(marg)
+    if not per_t:
+        return None
+    margs = [v["marg_s_per_sample"] for v in per_t.values()]
+    return {"fixed_s": TRUNK_FIXED_S,
+            "fixed_s_source": "frontier measured cost fit (not refitted here)",
+            "marginal_s_per_sample": round(statistics.mean(margs), 3),
+            "marginal_range": [round(min(margs), 3), round(max(margs), 3)],
+            "n_records": len(ok), "n_targets_costed": len(per_t),
+            "total_card_s": round(sum(r["wall_s"] for r in ok), 1),
+            "per_target": per_t,
+            "by_host_mean_marginal": {h: round(statistics.mean(v), 3)
+                                      for h, v in sorted(hosts.items())},
+            "negative_marginals": [t for t, v in per_t.items()
+                                   if v["marg_s_per_sample"] <= 0]}
 
 
 def cost_block(per, fit, thr):
