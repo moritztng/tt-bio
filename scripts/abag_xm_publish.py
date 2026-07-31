@@ -241,8 +241,11 @@ def preflight(out: Path, expect_samples: int, expect_targets: int = 164) -> list
         # target it does not contain.
         released = set(df.target.unique())
         audit_json = out / "_native_interface_audit.json"
+        # check=False: the audit exits 1 BY DESIGN when it finds unscorable interfaces
+        # (the exempted anti-phosphoepitope targets always trip that) -- its verdict is
+        # read from the JSON below, not the returncode.
         r = run([sys.executable, str(SCRIPTS / "abag_xm_native_interface_audit.py"),
-                 "--json", str(audit_json)], capture_output=True, text=True)
+                 "--json", str(audit_json)], capture_output=True, text=True, check=False)
         if not audit_json.exists():
             fail.append("native-interface audit did not run; cannot confirm the released targets "
                         f"have a scorable interface (rc={r.returncode})")
