@@ -35,6 +35,7 @@ MSA_DB = Path.home() / ".boltz" / "msa_db"
 RECYCLING_STEPS, SAMPLING_STEPS = 10, 200  # resolved tt-bio defaults (D4a), unset on cmdline
 WT = Path(__file__).resolve().parent.parent
 MAX_DEADLOCK_RETRIES = 2  # 3 attempts total per job
+OOM_SIG = "Out of Memory: Not enough space to allocate"  # tt-metal L1 allocator
 
 # tt_bio model id -> (results-dir prefix per tt_bio/main.py predict_results_dir_name,
 # output parent dir per state doc §6, base seed per §3 — disjoint per model and from
@@ -85,7 +86,8 @@ def measured_walls():
     equivalent is the sum of its chunk walls minus the duplicated fixed trunk passes.
     """
     per = {}
-    for f in (PROGRESS, PROGRESS.with_name("progress_qb2.jsonl")):
+    for f in (PROGRESS, PROGRESS.with_name("progress_qb2.jsonl"),
+              PROGRESS.with_name("progress_qb1.jsonl")):
         if not f.exists():
             continue
         for line in f.read_text().splitlines():
@@ -150,6 +152,60 @@ def plan(out_dir, model, targets, scale=1.0):
         print(f"card {i}: {len(cards[i])} jobs, projected {loads[i]/3600:.2f} h: "
               + ",".join(j["target"] + (f"_c{j['chunk']}" if j["chunk"] is not None else "")
                          for j in cards[i]))
+
+
+# Measured per-fold capacity ratio qb2/qb1 (9l9y 572 res on qb2 13383 s vs 9m8l 571 res
+# on qb1 21120 s): qb1 carries a sibling 14-core labeler, so a fold there costs ~1.58x.
+HOST_CAPACITY = {"tt-quietbox": 1.0, "tt-quietbox2": 1.58}
+
+
+def plan_queue(out_root, models, scales):
+    """Split all Q2 jobs into one CLAIM QUEUE per host (the hosts share no filesystem).
+
+    Within a host the four card drivers pull longest-first from the queue, so a card that
+    frees early takes the next-biggest job instead of idling on a static assignment.
+    Across hosts the split is capacity-weighted LPT, which is the only balancing decision
+    that cannot be made at claim time.
+    """
+    out_root = Path(out_root)
+    jobs = []
+    for model in models:
+        jobs += jobs_for_model(model, sorted(PROJ), scales.get(model, 1.0))
+    jobs.sort(key=lambda j: -j["proj_s"])
+    hosts = sorted(HOST_CAPACITY)
+    load = {h: 0.0 for h in hosts}
+    bins = {h: [] for h in hosts}
+    for job in jobs:  # LPT on load/capacity
+        h = min(hosts, key=lambda x: load[x] / HOST_CAPACITY[x])
+        bins[h].append(job)
+        load[h] += job["proj_s"]
+    for h in hosts:
+        qdir = out_root / f"queue_{h}"
+        qdir.mkdir(parents=True, exist_ok=True)
+        for rank, job in enumerate(bins[h]):
+            (qdir / f"job_{rank:03d}_{job['model']}_{job['target']}"
+                    f"{'' if job['chunk'] is None else '_c%d' % job['chunk']}.json"
+             ).write_text(json.dumps(job, indent=1))
+        print(f"{h}: {len(bins[h])} jobs, {load[h]/3600:.1f} projected card-h "
+              f"({load[h]/3600/4:.1f} h wall on 4 cards)")
+
+
+def oom(log):
+    try:
+        return OOM_SIG in Path(log).read_text()[-200000:]
+    except Exception:
+        return False
+
+
+def claim(jf):
+    """Atomically take a queue job for this driver. Returns False if someone else has it."""
+    try:
+        fd = os.open(str(jf) + ".claim", os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return False
+    os.write(fd, f"{socket.gethostname()} pid {os.getpid()}\n".encode())
+    os.close(fd)
+    return True
 
 
 def result_dir(job):
@@ -310,7 +366,14 @@ def main():
                     help="'all' (16, §3) or 'cheap8' (Q2 fallback set, §3)")
     ap.add_argument("--scale", type=float, default=1.0,
                     help="multiply §3 opendde projections (Q2 models, from their canary)")
+    ap.add_argument("--plan_queue", default=None, metavar="DIR",
+                    help="write the Q2 per-host claim queues into DIR, exit")
     ap.add_argument("--jobs", default=None, metavar="FILE")
+    ap.add_argument("--queue", default=None, metavar="DIR",
+                    help="pull jobs longest-first from a claim queue until it is empty")
+    ap.add_argument("--wait_card", action="store_true",
+                    help="with --queue: before each job, wait for this card's device lease "
+                         "to be free, so a Q2 driver can be launched behind a running arm")
     ap.add_argument("--card", type=int, default=None)
     ap.add_argument("--timeout", type=int, default=7200,
                     help="fallback; a job's own timeout_s wins (per-job bound, §3)")
@@ -320,19 +383,24 @@ def main():
         targets = sorted(PROJ) if a.targets == "all" else CHEAP8
         plan(a.plan, a.model, targets, a.scale)
         return
-    if not a.jobs or a.card is None:
-        ap.error("--jobs and --card are required without --plan")
-    jobs = json.loads(Path(a.jobs).read_text())
+    if a.plan_queue:
+        # Q2 canary scales at 9zen: protenix-v2 5701/4261, boltz2 2881/4261.
+        plan_queue(a.plan_queue, ["protenix-v2", "boltz2"],
+                   {"protenix-v2": 1.34, "boltz2": 0.68})
+        return
+    if a.card is None or not (a.jobs or a.queue):
+        ap.error("--card plus one of --jobs/--queue is required without --plan")
+    jobs = json.loads(Path(a.jobs).read_text()) if a.jobs else None
     py = fold_python()
     BASE.mkdir(parents=True, exist_ok=True)
-    print(f"driver card {a.card}: {len(jobs)} jobs, python={py}, "
-          f"host_threads={a.host_threads}", flush=True)
-    for k, job in enumerate(jobs):
+    print(f"driver card {a.card}: {len(jobs) if jobs is not None else 'queue ' + a.queue}"
+          f", python={py}, host_threads={a.host_threads}", flush=True)
+    def do(job, pos):
         tag = f"{job['model']}/{job['target']}" + (
             f"/c{job['chunk']}" if job.get("chunk") is not None else "")
         if complete(job):
-            print(f"[{k+1}/{len(jobs)}] {tag} already complete, skip", flush=True)
-            continue
+            print(f"[{pos}] {tag} already complete, skip", flush=True)
+            return
         log = Path(job["out_dir"]).with_suffix(".log")
         Path(job["out_dir"]).mkdir(parents=True, exist_ok=True)
         timeout = job.get("timeout_s") or a.timeout
@@ -340,12 +408,40 @@ def main():
         while True:
             wall, status = run_job(job, a.card, py, timeout, a.host_threads, log)
             rec = record(job, a.card, wall, status)
-            print(f"[{k+1}/{len(jobs)}] {tag} {status} wall={rec['wall_s']}s "
+            print(f"[{pos}] {tag} {status} wall={rec['wall_s']}s "
                   f"n_cifs={rec['n_cifs']}", flush=True)
+            if status.startswith("failed") and job.get("mps", MPS) > 2 and oom(log):
+                # The task mandates: on an OOM, narrow the chunk, record it, keep going.
+                job["mps"] = max(2, job.get("mps", MPS) // 2)
+                print(f"[{pos}] {tag} L1 OOM -> retry at mps {job['mps']}", flush=True)
+                continue
             if status != "spawn-deadlock" or attempt >= MAX_DEADLOCK_RETRIES:
                 break
             attempt += 1
-            print(f"[{k+1}/{len(jobs)}] {tag} retry {attempt} after spawn-deadlock", flush=True)
+            print(f"[{pos}] {tag} retry {attempt} after spawn-deadlock", flush=True)
+
+    if jobs is not None:
+        for k, job in enumerate(jobs):
+            do(job, f"{k+1}/{len(jobs)}")
+        return
+    qdir = Path(a.queue)
+    while True:
+        pending = [f for f in sorted(qdir.glob("job_*.json"))
+                   if not Path(str(f) + ".claim").exists()]
+        if not pending:
+            print("queue empty", flush=True)
+            return
+        # Claim only once the card is actually ours: a job's timeout runs from launch, so a
+        # fold must never sit parked in tt_bio's flock acquire loop burning its own budget.
+        if a.wait_card and _card_held_elsewhere():
+            time.sleep(60)
+            continue
+        for jf in pending:
+            if claim(jf):
+                do(json.loads(jf.read_text()), jf.stem)
+                break
+        else:
+            time.sleep(30)
 
 
 if __name__ == "__main__":
