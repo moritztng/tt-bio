@@ -25,7 +25,7 @@ marginal from measured total walls; cost_t(m) = fixed + m*marg_t. Marginal-oracl
 dO/dc (pp per 1000 card-s) per grid interval, and O at budgets {5,10,20,40,80} card-ks
 per target.
 """
-import json, math, random, statistics
+import argparse, json, math, random, statistics
 from functools import lru_cache
 from pathlib import Path
 
@@ -44,6 +44,10 @@ Q2_TIE_PP = 0.01  # leads below this are ties: no leader named, no crossover cou
 # §0 label-derived Arm-A oracle @0.23 (n=11), the G3 continuity reference.
 S0_CONT = {50: 42.8, 100: 53.4, 200: 63.6}
 TRUNK_FIXED_S = 342.0  # measured trunk-pass cost (frontier cost fit); not refitted here
+# Set by --strict_cost_coverage: turn a budget/curve target-set mismatch from a recorded
+# warning into a hard error. Off by default so the analysis still runs mid-campaign, on for
+# the final release run where an optimistic budget figure would ship.
+STRICT_COST_COVERAGE = False
 
 
 def comb(n, k):
@@ -421,10 +425,33 @@ def cost_block(per, fit, thr):
         # A clamped target's oracle is the N=1000 value, not a measurement at this budget.
         budget_m[b_ks] = {"mean_m": round(statistics.mean(ms), 1),
                           "n_clamped": clamped, "n_targets": len(targets)}
+    # Coverage guard (§5.4). Every number above is computed over `targets` = the labeled
+    # targets that ALSO have a cost record. The headline oracle curve is computed over all
+    # labeled targets. When those two sets differ, the budget figures describe a different,
+    # usually cheaper, panel than the curve they get read next to -- an earlier pass costed
+    # 9 targets while its curve covered 15 and every budget number came out optimistic.
+    # This is not a hard assert on purpose: the analysis is run mid-campaign, where partial
+    # cost coverage is the normal state and crashing would make the tool useless exactly
+    # when it is most needed. Instead the mismatch is recorded explicitly and loudly, and
+    # --strict_cost_coverage turns it into a hard error for the final release run.
+    uncosted = [t for t in sorted(per) if t not in fit["per_target"]]
+    coverage = {"n_targets_costed": len(targets),
+                "n_targets_labeled": len(per),
+                "same_target_set": not uncosted,
+                "uncosted_targets": uncosted}
+    if uncosted:
+        coverage["WARNING"] = (
+            f"budget covers {len(targets)} of {len(per)} labeled targets; these have labels "
+            f"but no cost record and are EXCLUDED from every budget figure here: "
+            f"{', '.join(uncosted)}. Do not compare these numbers with the oracle curve "
+            f"above, which covers all {len(per)}.")
+        if STRICT_COST_COVERAGE:
+            raise SystemExit("cost coverage: " + coverage["WARNING"])
     return {"cost_at_m": {m: round(cost_mean(m), 1) for m in GRID},
             "intervals": intervals,
             "oracle_at_budget_card_ks": budgets,
             "m_at_budget": budget_m,
+            "coverage": coverage,
             "budget_note": "budget is card-s per target; m(B) = (B - fixed)/marg_t, clamped to 1000"}
 
 
@@ -503,6 +530,12 @@ def duplicate_groups(labeled):
 
 
 def main():
+    global STRICT_COST_COVERAGE
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0] if __doc__ else None)
+    ap.add_argument("--strict_cost_coverage", action="store_true",
+                    help="fail instead of warn when the budget block and the oracle curve "
+                         "cover different target sets (use for the final release run)")
+    STRICT_COST_COVERAGE = ap.parse_args().strict_cost_coverage
     recs = progress_records()
     res = {"targets": TARGETS, "grid": GRID, "thresholds": THRESHOLDS}
     models = {}
