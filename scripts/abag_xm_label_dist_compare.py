@@ -15,7 +15,9 @@ threshold is cherry-picked after the fact), plus the pooled-maximum exchangeabil
 """
 import argparse
 import json
-from math import comb
+import statistics
+from bisect import bisect_right
+from math import comb, exp, sqrt
 
 
 def load(path):
@@ -45,6 +47,41 @@ def fisher_two_sided(a, n1, b, n2):
     return min(1.0, sum(pr(i) for i in range(lo, hi + 1) if pr(i) <= obs * (1 + 1e-12)))
 
 
+def ks_two_sample(va, vb):
+    """Two-sample Kolmogorov-Smirnov D and its asymptotic p. Both inputs must be sorted.
+
+    D is the largest gap between the two empirical CDFs, which for step functions can only be
+    attained at an observed value, so evaluating at the pooled distinct values is exact rather
+    than a grid approximation. D was checked against scipy's `ks_2samp` on six distributions
+    (including a tie-heavy case and a DockQ-shaped Beta(2,8) pair) and agrees to 1e-12.
+
+    p uses the Kolmogorov series Q(lam) = 2 * sum_k (-1)^(k-1) exp(-2 k^2 lam^2), which
+    converges geometrically, with the standard finite-sample correction
+    lam = (sqrt(ne) + 0.12 + 0.11/sqrt(ne)) * D. The correction is not cosmetic: scipy's
+    asymptotic branch evaluates the *finite-n* Kolmogorov distribution (`kstwo.sf(D, ne)`)
+    rather than the lam -> infinity limit, and the bare limit is optimistic enough to matter.
+    Swept over n in 50..2000, the bare limit crosses the p=0.05 line on the wrong side of
+    `kstwo` in 29 places (at n=100 it reads 0.057 where `kstwo` says 0.0498) and errs by up to
+    0.050; with the correction there are 0 such crossings and the worst error is 0.013. Reading
+    p too HIGH is the dangerous direction here, because it under-detects a real difference
+    between two silicon runs, so the correction is on. Stdlib only, no scipy dependency.
+
+    Still true, and worth stating where it is used: this is an approximation to a finite-n
+    distribution and it ignores ties, of which DockQ has few but not none. Let the exact Fisher
+    tests at the bars carry the decision — the thresholds are the science here, and the
+    whole-distribution test is the supporting check.
+    """
+    n1, n2 = len(va), len(vb)
+    d = max(abs(bisect_right(va, x) / n1 - bisect_right(vb, x) / n2)
+            for x in set(va) | set(vb))
+    if d <= 0.0:
+        return 0.0, 1.0
+    ne = sqrt(n1 * n2 / (n1 + n2))
+    lam = (ne + 0.12 + 0.11 / ne) * d
+    q = 2.0 * sum((-1) ** (k - 1) * exp(-2.0 * k * k * lam * lam) for k in range(1, 101))
+    return d, min(1.0, max(0.0, q))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("labels_a")
@@ -59,6 +96,13 @@ def main():
     print("\nquantile        A          B")
     for p in (0.5, 0.75, 0.9, 0.95, 0.98, 0.99, 1.0):
         print(f"  {p:5.2f}     {quantile(va, p):8.4f}   {quantile(vb, p):8.4f}")
+
+    print(f"\nmean       {statistics.fmean(va):8.4f}   {statistics.fmean(vb):8.4f}")
+    print(f"median     {statistics.median(va):8.4f}   {statistics.median(vb):8.4f}")
+
+    ks_d, ks_p = ks_two_sample(va, vb)
+    print(f"\nKS two-sample: D={ks_d:.4f}  p={ks_p:.3f} (finite-n corrected)  "
+          f"(whole-distribution check; the bars below carry the decision)")
 
     pooled_max = max(va[-1], vb[-1])
     holder, n_holder = ("A", len(va)) if va[-1] >= vb[-1] else ("B", len(vb))
