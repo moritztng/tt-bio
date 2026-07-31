@@ -87,6 +87,41 @@ def budget_tables(entry, label):
     return out
 
 
+def duplicate_block(models, order, thr="0.23"):
+    """Disclose duplicate-input groups and show the treatments side by side."""
+    out = []
+    for md in order:
+        e = models[md]
+        groups = e.get("duplicate_input_groups") or []
+        if not groups:
+            continue
+        b = e.get(f"thr{thr}", {}).get("oracle", {})
+        if not b:
+            continue
+        names = "; ".join("/".join(g) for g in groups)
+        out.append(
+            f"\n**{MODEL_LABEL[md]}: duplicate-input disclosure (DockQ >= {thr})** — "
+            f"{len(groups)} group(s) fold a byte-identical input ({names}), so the panel's "
+            f"{b.get('n_targets')} labeled targets carry "
+            f"{b.get('n_distinct_inputs', e.get('n_distinct_inputs'))} distinct inputs. The plain "
+            f"panel counts a duplicated curve twice; the variants below do not.\n")
+        dist = b.get("mean_distinct_inputs") or {}
+        clus = b.get("ci95_clustered") or {}
+        out.append(head(["N", "plain mean", "mean over distinct inputs",
+                         "95% CI (per target)", "95% CI (clustered)"]))
+        for m in SHOW:
+            k = str(m)
+            ci = b.get("ci95", {}).get(k)
+            cc = clus.get(k)
+            out.append(row(k, [
+                pct(b["mean"].get(k)),
+                pct(dist.get(k)) if dist.get(k) is not None else "",
+                f"{pct(ci[0])} - {pct(ci[1])}" if ci else "",
+                f"{pct(cc[0])} - {pct(cc[1])}" if cc else "",
+            ]))
+    return out
+
+
 def verdicts(models, order):
     out = ["\n**Saturation verdict (pre-registered criterion: per-doubling gain < 1.0 pp AND "
            "the next doubling's bootstrap CI lower bound < 1.0 pp). The grid stops at 1000, so "
@@ -166,6 +201,7 @@ def main():
         lines += ranked_table(models, order, thr)
     for md in order:
         lines += budget_tables(models[md], MODEL_LABEL[md])
+    lines += duplicate_block(models, order)
     lines += verdicts(models, order)
     lines += q2_block(res)
     lines += gates(models)
