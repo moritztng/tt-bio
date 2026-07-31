@@ -165,10 +165,14 @@ def measured_walls():
 def jobs_for_model(model, targets, scale=1.0, n_samples=1000, mps_override=None):
     prefix, out_parent, base_seed, extra, (recyc, samp) = MODELS[model]
     walls = measured_walls()
-    # MPS/MPS_BOLTZ2 are Blackhole (32 GB) values. Wormhole has 12 GB and opendde-abag at
-    # 5 parallel samples asks for a single 2,178,744,320 B DRAM buffer, which does not fit --
-    # measured on UF-EV-A13-GWH02, reproducibly, in a clean single-owner parity run. So the
-    # width has to be selectable per host rather than baked in; --mps sets it.
+    # MPS/MPS_BOLTZ2 are Blackhole (32 GB) values, so the width needs to be selectable per
+    # host rather than baked in; --mps sets it.
+    #
+    # Do NOT expect --mps to rescue opendde-abag on 12 GB Wormhole. Measured on
+    # UF-EV-A13-GWH02: 1ahw (628 residues) fails with a single 2,178,744,320 B DRAM buffer
+    # request at mps 3, 4 AND 5 -- byte-identical every time. The failing allocation does not
+    # scale with the parallel-sample width, so it is not the denoise chunk; lowering mps
+    # changes nothing about it. That wall needs a different lever (or 32 GB silicon).
     mps = mps_override if mps_override else (MPS_BOLTZ2 if model == "boltz2" else MPS)
     jobs = []
     common = {"model": model, "mps": mps, "extra_args": list(extra),
