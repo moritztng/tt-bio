@@ -309,7 +309,10 @@ def _card_held_elsewhere():
 
 def run_job(job, card, py, timeout, host_threads, log):
     yaml = WT / "examples" / "abag_xm" / f"{job['target']}.yaml"
-    cmd = [py, "-m", "tt_bio.main", "predict", str(yaml),
+    # -u: without it the fold stdout is block-buffered into the log file and a SIGKILL from
+    # the deadlock watchdog discards the buffer, leaving a 0-byte log for precisely the runs
+    # that need explaining -- and oom() then reads that empty log and never fires.
+    cmd = [py, "-u", "-m", "tt_bio.main", "predict", str(yaml),
            "--model", job["model"], "--out_dir", job["out_dir"],
            "--diffusion_samples", str(job["n_samples"]),
            "--max_parallel_samples", str(job.get("mps", MPS)),
@@ -414,6 +417,17 @@ def main():
                 # The task mandates: on an OOM, narrow the chunk, record it, keep going.
                 job["mps"] = max(2, job.get("mps", MPS) // 2)
                 print(f"[{pos}] {tag} L1 OOM -> retry at mps {job['mps']}", flush=True)
+                continue
+            if status == "spawn-deadlock" and attempt >= MAX_DEADLOCK_RETRIES \
+                    and job.get("mps", MPS) > 2:
+                # Retries at an unchanged width are exhausted and the log cannot tell a real
+                # L1 OOM from a true deadlock, so treat it as the width problem it may well
+                # be -- the task mandates narrowing and continuing rather than dropping a
+                # target. Same escape as the OOM path, one step, then give up for real.
+                job["mps"] = max(2, job.get("mps", MPS) // 2)
+                attempt = 0
+                print(f"[{pos}] {tag} deadlock retries exhausted -> "
+                      f"narrowing to mps {job['mps']}", flush=True)
                 continue
             if status != "spawn-deadlock" or attempt >= MAX_DEADLOCK_RETRIES:
                 break
