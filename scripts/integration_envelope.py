@@ -92,9 +92,7 @@ def _ca_coords(cif: Path):
     return pts
 
 
-def _ca_rmsd(dA: Path, dB: Path, tid: str):
-    a = _ca_coords(dA / "structures" / f"{tid}.cif")
-    b = _ca_coords(dB / "structures" / f"{tid}.cif")
+def _pair_rmsd(a: dict, b: dict):
     keys = [k for k in a if k in b]
     if len(keys) < 3:
         return None
@@ -103,7 +101,66 @@ def _ca_rmsd(dA: Path, dB: Path, tid: str):
     return _kabsch_rmsd(A, B)
 
 
-def divergence(kind: str, dA: Path, dB: Path, target_id: str) -> dict:
+def _sample_cifs(d: Path, tid: str):
+    """Every sample a multi-sample model wrote, in CONFIDENCE-RANK order.
+
+    tt-bio names structure output by rank, not by sample index: rank 0 is ``<tid>.cif`` and
+    ranks 1..K-1 are ``<tid>_model_<rank>.cif`` (worker.py:655). Single-sample models (Boltz-2
+    here) write only rank 0, so this returns a 1-element list and every rank-invariant step
+    below collapses to the plain rank-0 comparison.
+    """
+    struct = d / "structures"
+    out = [struct / f"{tid}.cif"]
+    r = 1
+    while (struct / f"{tid}_model_{r}.cif").exists():
+        out.append(struct / f"{tid}_model_{r}.cif")
+        r += 1
+    return out
+
+
+# A sample is accepted as the counterpart of the reference's top structure only if it is this
+# many times closer than the next-best candidate. The samples of a diffusion ensemble sit ~1-3 A
+# apart while a reproduced trajectory lands ~0.1 A away, so the true counterpart wins by 10x+;
+# anything under this is not a safe identification and falls back to the strict rank-0 compare.
+MATCH_AMBIGUITY_MIN = 3.0
+
+
+def _ca_rmsd(dA: Path, dB: Path, tid: str, detail: dict | None = None):
+    """CA Kabsch RMSD from run B's top structure to its COUNTERPART in run A.
+
+    Both runs draw the same noise, so each of A's samples is the same trajectory as one of B's
+    (see the shared-draws argument in the module docstring). But the file a sample lands in is
+    named by CONFIDENCE RANK, and rank is ``argmax`` over per-sample confidence -- a discrete
+    function of near-tied continuous values. Comparing ``<tid>.cif`` to ``<tid>.cif`` therefore
+    measures a coin flip whenever the top confidences are tied more tightly than the arithmetic
+    difference under test: protenix-v2 on 7ROA ties its top two within 3e-4 (3e-6 on Wormhole),
+    so its rank order permutes between two CPU fp32 runs of the same code and seed on different
+    hosts, and the leg reported 2.403 A -- the distance between two DIFFERENT, both correctly
+    reproduced samples -- where the actual counterpart was 0.139 A away.
+
+    So anchor on B's top structure and find A's counterpart. For a single-sample run this is
+    exactly the old rank-0 comparison; for a multi-sample run it is the same number whenever the
+    ranking did not permute, and the honest one when it did. ``detail`` (optional) receives the
+    matched rank, the ambiguity margin, and whether the ranking flipped.
+    """
+    b0 = _ca_coords(dB / "structures" / f"{tid}.cif")
+    cands = [(_pair_rmsd(_ca_coords(c), b0), i) for i, c in enumerate(_sample_cifs(dA, tid))]
+    cands = [(v, i) for v, i in cands if v is not None]
+    if not cands:
+        return None
+    cands.sort()
+    best, rank = cands[0]
+    strict = next((v for v, i in cands if i == 0), None)
+    ambiguity = (cands[1][0] / best) if len(cands) > 1 and best > 1e-12 else float("inf")
+    safe = ambiguity >= MATCH_AMBIGUITY_MIN
+    if detail is not None:
+        detail.update({"n_samples": len(cands), "matched_rank": rank, "rank0_rmsd": strict,
+                       "ambiguity": ambiguity, "rank_flip": rank != 0,
+                       "identification_safe": safe})
+    return best if safe else strict
+
+
+def divergence(kind: str, dA: Path, dB: Path, target_id: str, detail: dict | None = None) -> dict:
     """The per-leg structural distance between two shared-draw runs A and B.
 
     Returns {metric: value}. ``kind`` selects which natural metrics apply:
@@ -122,7 +179,7 @@ def divergence(kind: str, dA: Path, dB: Path, target_id: str) -> dict:
         if pm:
             out.update(pm)
     if kind == "structure":
-        r = _ca_rmsd(dA, dB, target_id)
+        r = _ca_rmsd(dA, dB, target_id, detail)
         if r is not None:
             out["kabsch_rmsd"] = r
     return out
@@ -137,8 +194,9 @@ def envelope_verdict(dev_dir, ref_fp32_dir, ref_bf16_dir, kind: str, target_id: 
     otherwise 'GAP' (a real residual exceeding the measured bf16 envelope — to hunt, not excuse).
     """
     dev_dir, ref_fp32_dir, ref_bf16_dir = map(Path, (dev_dir, ref_fp32_dir, ref_bf16_dir))
-    num = divergence(kind, dev_dir, ref_fp32_dir, target_id)      # device_bf16 vs ref_fp32
-    env = divergence(kind, ref_bf16_dir, ref_fp32_dir, target_id) # ref_bf16   vs ref_fp32
+    num_match, env_match = {}, {}
+    num = divergence(kind, dev_dir, ref_fp32_dir, target_id, num_match)      # device_bf16 vs ref_fp32
+    env = divergence(kind, ref_bf16_dir, ref_fp32_dir, target_id, env_match) # ref_bf16   vs ref_fp32
     metrics = {}
     verdict = "PASS"
     for k in sorted(set(num) | set(env)):
@@ -154,8 +212,11 @@ def envelope_verdict(dev_dir, ref_fp32_dir, ref_bf16_dir, kind: str, target_id: 
                       "ratio": ratio, "margin": margin, "abs_floor": floor, "pass": ok}
         if not ok:
             verdict = "GAP"
-    return {"mode": "integration_envelope", "kind": kind, "target": target_id,
-            "margin": margin, "verdict": verdict, "metrics": metrics}
+    rep = {"mode": "integration_envelope", "kind": kind, "target": target_id,
+           "margin": margin, "verdict": verdict, "metrics": metrics}
+    if num_match or env_match:
+        rep["sample_match"] = {"numerator": num_match, "envelope": env_match}
+    return rep
 
 
 def _print_report(rep: dict) -> None:
@@ -165,6 +226,13 @@ def _print_report(rep: dict) -> None:
     for k, m in rep["metrics"].items():
         print(f"| {k} | {m['numerator']:.5f} | {m['envelope']:.5f} | {m['bound']:.5f} "
               f"| {m['ratio']:.2f} | {'yes' if m['pass'] else 'NO'} |")
+    sm = rep.get("sample_match", {}).get("numerator") or {}
+    if sm.get("n_samples", 1) > 1:
+        print(f"\nsample match: device rank {sm['matched_rank']} is the counterpart of the "
+              f"reference's rank 0 (ambiguity {sm['ambiguity']:.1f}x, strict rank-0 compare would "
+              f"read {sm['rank0_rmsd']:.4f})"
+              + ("  — RANKING FLIPPED" if sm.get("rank_flip") else "")
+              + ("" if sm.get("identification_safe") else "  — AMBIGUOUS, fell back to rank 0"))
     print(f"\n**verdict: {rep['verdict']}**")
 
 
