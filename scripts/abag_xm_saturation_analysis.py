@@ -35,6 +35,7 @@ TARGETS = ["9q6y", "9tmp", "9gei", "9fte", "9wpm", "9qrv", "9ma0", "9q6z", "9uoi
 CONT11 = TARGETS[:11]  # frontier continuity panel (9j4c excluded by design, §3)
 THRESHOLDS = [0.23, 0.49, 0.80]
 GRID = [1, 2, 4, 8, 16, 32, 50, 64, 100, 128, 200, 256, 400, 512, 640, 800, 1000]
+N_TARGET = GRID[-1]  # samples a target must have merged before it is quotable
 MODELS = {"opendde": "opendde", "protenix": "protenix", "boltz2": "boltz2"}  # dir -> prefix
 BOOT_REPS = 10000
 RANKED_REPS = 1000
@@ -62,7 +63,14 @@ def hyper_oracle(n, s, m):
 def load_target(model_dir, prefix, target):
     """Merged (dockq, conf) sample lists over the target's chunk dirs. None on missing/
     incomplete labeling — G4: never quote a target with any sample dockq None."""
-    chunks = sorted(BASE.glob(f"{model_dir}/{target}_c*")) or [BASE / model_dir / target]
+    # Directories only: the driver writes its per-job log NEXT TO the out_dir as
+    # `<target>_c<j>.log`, which this glob also matches. Those files are not directories, so
+    # the old `all(is_dir)` guard returned None and silently dropped every chunked target
+    # from the panel -- 9q6y, 9q6z and 9ma0 all had complete, valid labels and still counted
+    # zero, which read as "labeling incomplete" rather than as a glob bug.
+    chunks = sorted(p for p in BASE.glob(f"{model_dir}/{target}_c*") if p.is_dir())
+    if not chunks:
+        chunks = [BASE / model_dir / target]
     if not all(c.is_dir() for c in chunks):
         return None
     out = []
@@ -87,7 +95,10 @@ def load_target(model_dir, prefix, target):
             if dq is None:
                 return None
             out.append((float(dq), conf.get(s.get("rank"))))
-    return out
+    # A half-finished target is not a small target. Chunked folds land one chunk at a time,
+    # and admitting one at n=500 would both understate its curve and ask the hypergeometric
+    # for comb(500, 1000) -- zero, so the oracle divided by zero. Quotable at full N only.
+    return out if len(out) == N_TARGET else None
 
 
 _LOADED = {}
