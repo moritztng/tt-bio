@@ -126,6 +126,27 @@ def _resolve_msa_dir(requested: str | None, cache: Path) -> str:
     return str(fallback)
 
 
+def _err_text(exc: BaseException, limit: int = 400) -> str:
+    """Bounded error text for a job row that never loses the tail.
+
+    TT_FATAL messages put the diagnostic payload LAST. An allocator OOM reads
+    `TT_FATAL @ ...bank_manager.cpp:439 ... Out of Memory: Not enough space to
+    allocate N B DRAM buffer across 12 banks, where each bank needs to store N B,
+    but bank size is N B (allocated: N B, free: N B, largest free block: N B)` --
+    the leading 78 chars are a fixed file/line prefix and the closing parenthetical
+    is the only part that says how full the chip actually was. A plain
+    `str(exc)[:200]` lands mid-number just before it, so every recorded OOM in the
+    AbAg-XM Wormhole campaign was indistinguishable between a genuinely full chip
+    and one oversized request. Keep both ends instead of just the head.
+    """
+    s = str(exc)
+    if len(s) <= limit:
+        return s
+    keep = limit - 5                       # room for the " ... " elision marker
+    head = keep // 2
+    return s[:head] + " ... " + s[-(keep - head):]
+
+
 def _is_esmc_model(model_id: str) -> bool:
     """True for any ESMC embedding model name (esmc-300m/600m/6b).
 
@@ -871,7 +892,7 @@ def run_worker_loop(
                     _E.set_progress(pfn)  # esmfold2 + protenix report via this module
             except Exception as exc:
                 traceback.print_exc()
-                _complete_failure(client, run_id, worker_id, meta, jobs, str(exc)[:200])
+                _complete_failure(client, run_id, worker_id, meta, jobs, _err_text(exc))
                 state.reset()
                 continue
 
@@ -938,7 +959,7 @@ def _execute_job(
         outputs = _read_outputs(output_dir)
     except Exception as exc:
         traceback.print_exc()
-        row["error"] = str(exc)[:200]
+        row["error"] = _err_text(exc)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
@@ -1039,7 +1060,7 @@ def _execute_design_job_inprocess(
                     "runtime_s": round(time.time() - t0, 1)})
     except Exception as exc:
         traceback.print_exc()
-        row["error"] = str(exc)[:200]
+        row["error"] = _err_text(exc)
     finally:
         stop.set()
         pos[0] = _forward_design_progress(progress_file, pos[0], emit)  # flush the tail
