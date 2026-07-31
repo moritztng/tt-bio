@@ -56,13 +56,13 @@ def ci_table(entry):
     return out
 
 
-def ranked_table(models, order):
-    out = ["\n**Ranked top-1 (confidence_score winner) at DockQ >= 0.23 vs N**\n",
+def ranked_table(models, order, thr):
+    out = [f"\n**Ranked top-1 (confidence_score winner) at DockQ >= {thr} vs N**\n",
            head(["N"] + [MODEL_LABEL[m] for m in order])]
     for m in SHOW:
         cells = []
         for md in order:
-            blk = models[md].get("thr0.23", {}).get("ranked_top1")
+            blk = models[md].get(f"thr{thr}", {}).get("ranked_top1")
             cells.append(pct(blk["mean"].get(str(m), blk["mean"].get(m))) if blk else "")
         out.append(row(str(m), cells))
     return out
@@ -89,17 +89,22 @@ def budget_tables(entry, label):
 
 def verdicts(models, order):
     out = ["\n**Saturation verdict (pre-registered criterion: per-doubling gain < 1.0 pp AND "
-           "the next doubling's bootstrap CI lower bound < 1.0 pp)**\n"]
-    for md in order:
-        k = models[md].get("thr0.23", {}).get("knee")
-        if not k:
-            continue
-        a, bb, g = k["final_interval"]
-        out.append(f"- **{MODEL_LABEL[md]}: {k['verdict']}.** Final measured interval "
-                   f"{a} -> {bb} gains {g:.2f} pp "
-                   f"({k['final_interval_per_doubling_pp']:.2f} pp per doubling). "
-                   f"Per-doubling gains: "
-                   + ", ".join(f"{m}->{m2} {gg:.2f} pp" for m, m2, gg in k["doubling_gains_pp"]))
+           "the next doubling's bootstrap CI lower bound < 1.0 pp). The grid stops at 1000, so "
+           "the largest N the criterion can CONFIRM is 200 (confirmed by the 400->800 doubling); "
+           "a curve that flattens later is reported as such, not as no-saturation.**\n"]
+    for thr in ("0.23", "0.49", "0.8"):
+        out.append(f"\n*DockQ >= {thr}*\n")
+        for md in order:
+            k = models[md].get(f"thr{thr}", {}).get("knee")
+            if not k:
+                continue
+            a, bb, g = k["final_interval"]
+            out.append(f"- **{MODEL_LABEL[md]}: {k['verdict']}.** Final measured interval "
+                       f"{a} -> {bb} gains {g:.2f} pp "
+                       f"({k['final_interval_per_doubling_pp']:.2f} pp per doubling). "
+                       f"Per-doubling gains: "
+                       + ", ".join(f"{m}->{m2} {gg:.2f} pp"
+                                   for m, m2, gg in k["doubling_gains_pp"]))
     return out
 
 
@@ -157,7 +162,8 @@ def main():
     lines += oracle_tables(models, order, note)
     if "opendde" in models:
         lines += ci_table(models["opendde"])
-    lines += ranked_table(models, order)
+    for thr in ("0.23", "0.49", "0.8"):
+        lines += ranked_table(models, order, thr)
     for md in order:
         lines += budget_tables(models[md], MODEL_LABEL[md])
     lines += verdicts(models, order)

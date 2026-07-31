@@ -205,17 +205,36 @@ def knee_verdict(per, thr):
         if g < KNEE_PP and nxt is not None and gain_ci[m2][1] < KNEE_PP:
             mstar = m
             break
+    # Grid-edge hole in the pre-registered criterion: confirming m* needs the NEXT doubling
+    # [2m, 4m] to exist on the grid, and the grid stops at 1000. So the last confirmable
+    # candidate is m=200 (confirmed by [400, 800]); m=256 and m=400 can satisfy the
+    # gain < 1 pp test yet never be confirmable. Reporting those as "no saturation" would be
+    # false when the measured curve has visibly flattened, so they get their own state: the
+    # smallest m whose own doubling gain is under the bar but whose confirmation is off-grid.
+    edge = None
+    if mstar is None:
+        edge = next((m for m, m2, g in pairs
+                     if g < KNEE_PP
+                     and not any(a == m2 for a, _, _ in pairs)), None)
     last = means[GRID[-1]] - means[GRID[-2]]
     last_pp = 100.0 * last
     return {"m_star": mstar,
+            "m_star_edge_unconfirmable": edge,
+            "last_confirmable_m": max((m for m, m2, _ in pairs
+                                       if any(a == m2 for a, _, _ in pairs)), default=None),
             "doubling_gains_pp": [[m, m2, round(g, 2)] for m, m2, g in pairs],
             "gain_ci95_pp": {m: [round(x, 2) for x in gain_ci[m]] for m, _, _ in pairs},
             "final_interval": [GRID[-2], GRID[-1], round(last_pp, 2)],
             "final_interval_per_doubling_pp": round(
                 last_pp / math.log2(GRID[-1] / GRID[-2]), 2),
-            "verdict": (f"saturation at m*={mstar}" if mstar is not None else
-                        f"no saturation found by N=1000 (final interval "
-                        f"{GRID[-2]}->{GRID[-1]} gain {last_pp:.2f} pp)")}
+            "verdict": (
+                f"saturation at m*={mstar}" if mstar is not None else
+                (f"flattens at m={edge} but the pre-registered confirmation is off-grid "
+                 f"(needs the {2 * edge}->{4 * edge} doubling; grid stops at {GRID[-1]}); "
+                 f"final interval {GRID[-2]}->{GRID[-1]} gain {last_pp:.2f} pp"
+                 if edge is not None else
+                 f"no saturation found by N=1000 (final interval "
+                 f"{GRID[-2]}->{GRID[-1]} gain {last_pp:.2f} pp)"))}
 
 
 def ranked_block(per, thr):
@@ -409,11 +428,13 @@ def main():
                  "cost": fit}
         for thr in THRESHOLDS:
             key = f"thr{thr}"
+            # Every block is threshold-generic (thr is a parameter), so all three get the
+            # full treatment: the deliverable asks for the knee verdict at 0.23/0.49/0.80,
+            # and a ranked/budget curve at one threshold cannot answer it for the others.
             entry[key] = {"oracle": oracle_block(per, thr, dup),
-                          "ranked_top1": ranked_block(per, thr) if thr == 0.23 else None,
-                          "budget": cost_block(per, fit, thr) if thr == 0.23 else None}
-            if thr == 0.23:
-                entry[key]["knee"] = knee_verdict(per, thr)
+                          "ranked_top1": ranked_block(per, thr),
+                          "budget": cost_block(per, fit, thr),
+                          "knee": knee_verdict(per, thr)}
         entry["duplicate_input_groups"] = dup
         entry["n_distinct_inputs"] = len(per) - sum(len(g) - 1 for g in dup)
         if model_dir == "opendde":
