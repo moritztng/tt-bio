@@ -49,9 +49,15 @@ PROJ = {"9q6y": 21252, "9q6z": 18922, "9m8l": 15202, "9ma0": 14282, "9tmp": 1365
         "9qrv": 11497, "9ldx": 10502, "9wpm": 8582, "9gei": 8427, "9fte": 6802,
         "9uoi": 5712, "9nl0": 10853, "9l9y": 13498, "9gfr": 12233, "9mnu": 13774,
         "9zen": 5632}
-CHUNK = {"9q6y", "9q6z"}  # projection > ~5h -> two 500-sample chunks (§3), seeds base/base+1000
+CHUNK = {"9q6y", "9q6z", "9ma0"}  # >~5h projected -> two 500-sample chunks, seeds base/base+1000
 CHEAP8 = ["9zen", "9uoi", "9fte", "9gei", "9wpm", "9ldx", "9nl0", "9qrv"]  # §3 fallback set
-TIMEOUT_FACTOR = 1.6
+# The batched-multiplicity path writes every CIF only at fold END, so a wall-clock
+# timeout at 99% destroys the whole fold (9ma0 lost 6.35 card-h at 1.6x). Real hangs are
+# caught by the no-device/no-jiffies deadlock watchdog in run_job, which fires in ~3 min;
+# the wall-clock bound only has to be loose enough to survive host contention (qb1 folds
+# ran 1.39-1.56x their projection under 4 concurrent folds + a sibling 14-core labeler).
+TIMEOUT_FACTOR = 3.0
+QB1_CONTENTION = 1.45  # measured qb1 wall / projection, used only where no wall exists yet
 FIXED_S = 342.0  # frontier cost fit (contended, mps 5); used only for chunk split
 
 
@@ -71,12 +77,44 @@ def fold_python():
     raise SystemExit("no interpreter can run `-m tt_bio.main --help`: " + ", ".join(cands))
 
 
+def measured_walls():
+    """Measured opendde 1000-sample walls from the campaign's own progress records.
+
+    More accurate than the projections (which under-predicted by up to 1.56x), so Q2
+    planning and the chunk decision run off real data. A chunked target's single-run
+    equivalent is the sum of its chunk walls minus the duplicated fixed trunk passes.
+    """
+    per = {}
+    for f in (PROGRESS, PROGRESS.with_name("progress_qb2.jsonl")):
+        if not f.exists():
+            continue
+        for line in f.read_text().splitlines():
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            if (r.get("model") != "opendde-abag" or r.get("status") != "ok"
+                    or r.get("n_samples", 0) < 500):
+                continue
+            d = per.setdefault(r["target"], {})
+            k = r.get("chunk")
+            d[k] = max(d.get(k, 0.0), r["wall_s"])
+    walls = {}
+    for t, d in per.items():
+        if None in d:
+            walls[t] = d[None]
+        elif len(d) >= 2:
+            walls[t] = sum(d.values()) - FIXED_S * (len(d) - 1)
+    return walls
+
+
 def jobs_for_model(model, targets, scale=1.0):
     prefix, out_parent, base_seed = MODELS[model]
+    walls = measured_walls()
     mps = MPS_BOLTZ2 if model == "boltz2" else MPS
     jobs = []
     for t in targets:
-        proj = round(PROJ[t] * scale)
+        proj = round(walls.get(t, PROJ[t] * QB1_CONTENTION) * scale)
         # opendde keeps the frozen §3 chunk set; Q2 models chunk on the §3 rule
         # (>4h scaled projection) since their costs differ.
         chunk = t in CHUNK if model == "opendde-abag" else proj > 4 * 3600
