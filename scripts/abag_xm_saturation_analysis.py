@@ -174,7 +174,10 @@ def ranked_block(per, thr):
             samples = per[t]
             n = len(samples)
             if m >= n:
-                best = max(samples, key=lambda x: (x[1] is not None, x[1]))
+                scored = [x for x in samples if x[1] is not None]
+                if not scored:
+                    continue
+                best = max(scored, key=lambda x: x[1])
                 probs.append(1.0 if best[0] >= thr else 0.0)
                 continue
             rng = random.Random(f"12345|{t}|{m}")
