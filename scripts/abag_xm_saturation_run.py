@@ -39,10 +39,20 @@ OOM_SIG = "Out of Memory: Not enough space to allocate"  # tt-metal L1 allocator
 
 # tt_bio model id -> (results-dir prefix per tt_bio/main.py predict_results_dir_name,
 # output parent dir per state doc §6, base seed per §3 — disjoint per model and from
-# the frontier's 42/1000-1199).
-MODELS = {"opendde-abag": ("opendde", "opendde", 5000),
-          "protenix-v2": ("protenix", "protenix", 7000),
-          "boltz2": ("boltz2", "boltz2", 9000)}
+# the frontier's 42/1000-1199 — extra predict args, recycling/sampling actually used).
+#
+# The extra-args field exists because the models genuinely disagree here and a single
+# global constant cannot express it: opendde-abag and protenix-v2 deliberately leave
+# recycling/sampling UNSET on the command line so tt-bio's resolved defaults (10/200)
+# apply, whereas esmfold2's own default is 3/200 and is wrong in both directions, so it
+# must pass 10/100 explicitly. esmfold2 also runs single-sequence (no MSA), which is a
+# real asymmetry versus the other three and must be stated in the datasheet, not hidden.
+MODELS = {"opendde-abag": ("opendde", "opendde", 5000, (), (10, 200)),
+          "protenix-v2": ("protenix", "protenix", 7000, (), (10, 200)),
+          "boltz2": ("boltz2", "boltz2", 9000, (), (10, 200)),
+          "esmfold2": ("esmfold2", "esmfold2", 11000,
+                       ("--recycling_steps", "10", "--sampling_steps", "100",
+                        "--single_sequence"), (10, 100))}
 
 # Projected 1000-sample wall_s per target, state doc §3 (known 11: 342 + 5*(wall_200
 # - 342) from measured frontier walls; new 5: 2.3 s/sample/100 residues).
@@ -60,6 +70,48 @@ CHEAP8 = ["9zen", "9uoi", "9fte", "9gei", "9wpm", "9ldx", "9nl0", "9qrv"]  # §3
 TIMEOUT_FACTOR = 3.0
 QB1_CONTENTION = 1.45  # measured qb1 wall / projection, used only where no wall exists yet
 FIXED_S = 342.0  # frontier cost fit (contended, mps 5); used only for chunk split
+
+PANEL_DIR = Path(__file__).resolve().parent.parent / "examples" / "abag_xm"
+_RES_CACHE = {}
+
+
+def residues(target):
+    """Total residue count across a target's chains, from its panel YAML.
+
+    Only needed for the 148 panel targets with no measured wall. Parsed with a regex
+    rather than a YAML load so this stays dependency-free; verified to parse all 164
+    panel files with zero misses (every one is 2 or 3 single-line protein chains)."""
+    if target not in _RES_CACHE:
+        import re
+        txt = (PANEL_DIR / f"{target}.yaml").read_text()
+        seqs = re.findall(r"^\s*sequence:\s*([A-Za-z]+)\s*$", txt, re.M)
+        if not seqs:
+            raise SystemExit(f"{target}: no sequences parsed from its panel YAML")
+        _RES_CACHE[target] = sum(len(s) for s in seqs)
+    return _RES_CACHE[target]
+
+
+def projection(target):
+    """Projected 1000-sample wall_s. Measured entries in PROJ win; everything else uses
+    the panel's own residue count via the rule PROJ = FIXED_S + 23*residues (i.e. the
+    2.3 s/sample/100-residue marginal at 1000 samples).
+
+    The rule reproduces PROJ's five rule-derived entries (9nl0 9l9y 9gfr 9mnu 9zen)
+    EXACTLY, so it is the same rule, not a re-fit. Against the eleven entries that have
+    measured walls it spans 0.74-1.26x (median 0.93) and the miss is structured -- it
+    over-predicts small targets and under-predicts the largest -- so it is used only to
+    set a loose per-job timeout (TIMEOUT_FACTOR on top) and must NOT be quoted as a cost
+    estimate for the panel."""
+    if target in PROJ:
+        return PROJ[target]
+    return round(FIXED_S + 23 * residues(target))
+
+
+def panel_targets():
+    """All 164 AbAg-XM panel targets, from the YAMLs themselves rather than a copied list
+    (161 are scorable; the 3 without a scorable Ab-Ag interface still fold and simply
+    yield no DockQ -- they must render as blanks, never as zeros)."""
+    return sorted(p.stem for p in PANEL_DIR.glob("*.yaml"))
 
 
 def fold_python():
@@ -110,38 +162,42 @@ def measured_walls():
     return walls
 
 
-def jobs_for_model(model, targets, scale=1.0):
-    prefix, out_parent, base_seed = MODELS[model]
+def jobs_for_model(model, targets, scale=1.0, n_samples=1000):
+    prefix, out_parent, base_seed, extra, (recyc, samp) = MODELS[model]
     walls = measured_walls()
     mps = MPS_BOLTZ2 if model == "boltz2" else MPS
     jobs = []
+    common = {"model": model, "mps": mps, "extra_args": list(extra),
+              "recycling_steps": recyc, "sampling_steps": samp}
     for t in targets:
-        proj = round(walls.get(t, PROJ[t] * QB1_CONTENTION) * scale)
-        # opendde keeps the frozen §3 chunk set; Q2 models chunk on the §3 rule
-        # (>4h scaled projection) since their costs differ.
-        chunk = t in CHUNK if model == "opendde-abag" else proj > 4 * 3600
+        # PROJ/measured walls are 1000-sample figures; rescale to the requested depth
+        # through the marginal only, since the fixed trunk pass does not scale with N.
+        full = walls.get(t, projection(t) * QB1_CONTENTION)
+        proj = round((FIXED_S + (full - FIXED_S) * n_samples / 1000.0) * scale)
+        # The frozen-16 opendde arm keeps its hand-checked §3 chunk set verbatim so the
+        # in-flight campaign's job identities do not shift; every other (model, target)
+        # -- including all 148 panel targets -- derives chunking from the >4h rule.
+        chunk = (t in CHUNK) if (model == "opendde-abag" and t in PROJ) else proj > 4 * 3600
         if chunk:
             chunk_proj = FIXED_S + (proj - FIXED_S) / 2.0
             for j in (0, 1):
-                jobs.append({"target": t, "chunk": j, "model": model,
-                             "seed": base_seed + 1000 * j, "n_samples": 500,
+                jobs.append({**common, "target": t, "chunk": j,
+                             "seed": base_seed + 1000 * j, "n_samples": n_samples // 2,
                              "proj_s": round(chunk_proj),
                              "timeout_s": round(TIMEOUT_FACTOR * chunk_proj),
-                             "mps": mps,
                              "out_dir": str(BASE / out_parent / f"{t}_c{j}")})
         else:
-            jobs.append({"target": t, "chunk": None, "model": model,
-                         "seed": base_seed, "n_samples": 1000,
+            jobs.append({**common, "target": t, "chunk": None,
+                         "seed": base_seed, "n_samples": n_samples,
                          "proj_s": proj, "timeout_s": round(TIMEOUT_FACTOR * proj),
-                         "mps": mps,
                          "out_dir": str(BASE / out_parent / t)})
     return jobs
 
 
-def plan(out_dir, model, targets, scale=1.0):
+def plan(out_dir, model, targets, scale=1.0, n_samples=1000):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    jobs = sorted(jobs_for_model(model, targets, scale), key=lambda j: -j["proj_s"])
+    jobs = sorted(jobs_for_model(model, targets, scale, n_samples), key=lambda j: -j["proj_s"])
     loads, cards = [0.0] * 8, [[] for _ in range(8)]
     for job in jobs:  # LPT: longest first onto the currently least-loaded card
         c = min(range(8), key=lambda i: loads[i])
@@ -238,7 +294,12 @@ def record(job, card, wall_s, status):
            "host": socket.gethostname(), "card": card,
            "wall_s": round(wall_s, 1), "tt_bio_commit": GIT_HEAD,
            "checkpoint_sha256": job.get("ckpt_sha256"),
-           "recycling_steps": RECYCLING_STEPS, "sampling_steps": SAMPLING_STEPS,
+           # per-model, not the old global constants: esmfold2 runs 10/100 while the
+           # other three run the resolved 10/200, so a single pair would have written a
+           # provenance block that was simply false for one of the four arms.
+           "recycling_steps": job.get("recycling_steps", RECYCLING_STEPS),
+           "sampling_steps": job.get("sampling_steps", SAMPLING_STEPS),
+           "single_sequence": "--single_sequence" in job.get("extra_args", []),
            "mps": job.get("mps", MPS), "n_samples": job["n_samples"],
            "n_cifs": count_cifs(job), "status": status,
            "out_dir": job["out_dir"]}
@@ -318,7 +379,7 @@ def run_job(job, card, py, timeout, host_threads, log):
            "--max_parallel_samples", str(job.get("mps", MPS)),
            "--msa_dir", str(MSA_DIR), "--msa_db_path", str(MSA_DB),
            "--seed", str(job["seed"]), "--override", "--write_pae",
-           "--host_threads", str(host_threads)]
+           "--host_threads", str(host_threads)] + list(job.get("extra_args", []))
     env = {**os.environ, "PYTHONPATH": str(WT), "PYTHONUNBUFFERED": "1"}
     t0 = time.time()
     with open(log, "a") as lf:
@@ -366,7 +427,11 @@ def main():
     ap.add_argument("--plan", default=None, metavar="DIR")
     ap.add_argument("--model", default="opendde-abag", choices=sorted(MODELS))
     ap.add_argument("--targets", default="all",
-                    help="'all' (16, §3) or 'cheap8' (Q2 fallback set, §3)")
+                    help="'all' (frozen 16, §3), 'cheap8' (Q2 fallback set, §3), or "
+                         "'panel164' (the full AbAg-XM panel read from examples/abag_xm)")
+    ap.add_argument("--n_samples", type=int, default=1000,
+                    help="samples per (target, model); chunked halves split it. Oracle at "
+                         "any m <= n_samples comes free by subsampling, so this sets depth")
     ap.add_argument("--scale", type=float, default=1.0,
                     help="multiply §3 opendde projections (Q2 models, from their canary)")
     ap.add_argument("--plan_queue", default=None, metavar="DIR",
@@ -383,8 +448,11 @@ def main():
     ap.add_argument("--host_threads", type=int, default=8)
     a = ap.parse_args()
     if a.plan:
-        targets = sorted(PROJ) if a.targets == "all" else CHEAP8
-        plan(a.plan, a.model, targets, a.scale)
+        targets = ({"all": sorted(PROJ), "cheap8": CHEAP8}.get(a.targets)
+                   or (panel_targets() if a.targets == "panel164" else None))
+        if targets is None:
+            ap.error(f"--targets {a.targets!r}: expected all | cheap8 | panel164")
+        plan(a.plan, a.model, targets, a.scale, a.n_samples)
         return
     if a.plan_queue:
         # Q2 canary scales at 9zen: protenix-v2 5701/4261, boltz2 2881/4261.
