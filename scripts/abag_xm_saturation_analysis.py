@@ -26,6 +26,7 @@ dO/dc (pp per 1000 card-s) per grid interval, and O at budgets {5,10,20,40,80} c
 per target.
 """
 import json, math, random, statistics
+from functools import lru_cache
 from pathlib import Path
 
 BASE = Path.home() / "abag_xm" / "saturation"
@@ -47,7 +48,14 @@ def comb(n, k):
     return math.comb(n, k) if 0 <= k <= n else 0
 
 
+@lru_cache(maxsize=None)
 def hyper_oracle(n, s, m):
+    """P(at least one success among m draws without replacement).
+
+    Cached: the bootstrap resamples targets, not samples, so it asks for the same
+    (n, s, m) tens of thousands of times, and each miss is a ratio of ~300-digit
+    binomials. Pure function of its arguments, so the cache cannot change a result.
+    """
     return 1.0 - comb(n - s, m) / comb(n, m) if n > 0 else 0.0
 
 
@@ -92,12 +100,19 @@ def load_model(model_dir):
     return per
 
 
-def mean_oracle(per, targets, m, thr):
-    vals = []
-    for t in targets:
+_SUCC = {}
+
+
+def successes(per, t, thr):
+    key = (id(per), t, thr)
+    if key not in _SUCC:
         dq = [x[0] for x in per[t]]
-        s = sum(1 for x in dq if x >= thr)
-        vals.append(hyper_oracle(len(dq), s, m))
+        _SUCC[key] = (len(dq), sum(1 for v in dq if v >= thr))
+    return _SUCC[key]
+
+
+def mean_oracle(per, targets, m, thr):
+    vals = [hyper_oracle(*successes(per, t, thr), m) for t in targets]
     return statistics.mean(vals), vals
 
 
@@ -269,7 +284,7 @@ def cost_block(per, fit, thr):
         os_ = []
         for t in targets:
             marg_t = fit["per_target"][t]["marg_s_per_sample"]
-            m = min(1000.0, max(0.0, (B - fixed) / marg_t)) if marg_t > 0 else 0.0
+            m = int(min(1000, max(0, (B - fixed) // marg_t))) if marg_t > 0 else 0
             dq = [x[0] for x in per[t]]
             s = sum(1 for x in dq if x >= thr)
             os_.append(hyper_oracle(len(dq), s, m))
