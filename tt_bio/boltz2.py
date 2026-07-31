@@ -4144,9 +4144,11 @@ class AtomDiffusion(Module):
             with torch.no_grad():
                 atom_coords_denoised = torch.zeros_like(atom_coords_noisy)
                 sample_ids = torch.arange(multiplicity).to(atom_coords_noisy.device)
-                sample_ids_chunks = sample_ids.chunk(
-                    multiplicity % max_parallel_samples + 1
-                )
+                # Width-based chunking (ceil): upstream's N % mps + 1 count formula yields
+                # one 1000-sample chunk at N=1000/mps=5 -> ~0.9 GB L1 forward buffers -> OOM.
+                # Match protenix.edm_sample: chunk width <= max_parallel_samples.
+                _n_chunks = max(1, (multiplicity + max_parallel_samples - 1) // max_parallel_samples)
+                sample_ids_chunks = sample_ids.chunk(_n_chunks)
 
                 for sample_ids_chunk in sample_ids_chunks:
                     atom_coords_denoised_chunk = self.preconditioned_network_forward(
