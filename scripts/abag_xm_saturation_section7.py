@@ -65,6 +65,19 @@ def ranked_table(models, order, thr):
             blk = models[md].get(f"thr{thr}", {}).get("ranked_top1")
             cells.append(pct(blk["mean"].get(str(m), blk["mean"].get(m))) if blk else "")
         out.append(row(str(m), cells))
+    # Ranking is undefined without a ranker, so any target dropped for that reason is named
+    # here rather than quietly shrinking the panel behind the table.
+    for md in order:
+        blk = models[md].get(f"thr{thr}", {}).get("ranked_top1") or {}
+        ex, pa = blk.get("excluded_no_confidence"), blk.get("partial_confidence_counts")
+        if ex:
+            out.append(f"\n{MODEL_LABEL[md]}: EXCLUDED from ranked top-1 for having no "
+                       f"confidence_score at all: {', '.join(ex)} "
+                       f"({blk.get('n_targets')} targets remain).\n")
+        if pa:
+            out.append(f"\n{MODEL_LABEL[md]}: partial confidence_score coverage on "
+                       + ", ".join(f"{k} ({v} samples unscored)" for k, v in pa.items())
+                       + " — those samples drop out of a subsample, shrinking the effective N.\n")
     return out
 
 

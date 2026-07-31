@@ -262,7 +262,17 @@ def knee_verdict(per, thr):
 
 
 def ranked_block(per, thr):
-    targets = sorted(per)
+    """Ranked top-1 vs N (§4 item 2). Targets with NO confidence data are excluded, not
+    scored zero: ranking is undefined without a ranker, and a silent 0.0 would understate
+    the very quantity this deliverable measures. Exclusions are returned so they cannot be
+    silent, and partial-confidence targets are counted too (their unscored samples drop out
+    of a subsample, which shrinks the effective m)."""
+    excluded = [t for t in sorted(per)
+                if not any(x[1] is not None for x in per[t])]
+    partial = {t: sum(1 for x in per[t] if x[1] is None)
+               for t in sorted(per)
+               if t not in excluded and any(x[1] is None for x in per[t])}
+    targets = [t for t in sorted(per) if t not in excluded]
     res = {}
     for m in GRID:
         probs = []
@@ -271,8 +281,6 @@ def ranked_block(per, thr):
             n = len(samples)
             if m >= n:
                 scored = [x for x in samples if x[1] is not None]
-                if not scored:
-                    continue
                 best = max(scored, key=lambda x: x[1])
                 probs.append(1.0 if best[0] >= thr else 0.0)
                 continue
@@ -287,9 +295,12 @@ def ranked_block(per, thr):
                 valid += 1
                 best = max(sub, key=lambda x: x[1])
                 hits += 1.0 if best[0] >= thr else 0.0
-            probs.append(hits / valid if valid else 0.0)
-        res[m] = round(statistics.mean(probs), 4)
-    return {"mean": res, "n_targets": len(targets), "reps": RANKED_REPS}
+            if valid:
+                probs.append(hits / valid)
+        res[m] = round(statistics.mean(probs), 4) if probs else None
+    return {"mean": res, "n_targets": len(targets), "reps": RANKED_REPS,
+            "excluded_no_confidence": excluded,
+            "partial_confidence_counts": partial}
 
 
 def progress_records():
