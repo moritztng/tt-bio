@@ -78,12 +78,17 @@ def fold_python():
     raise SystemExit("no interpreter can run `-m tt_bio.main --help`: " + ", ".join(cands))
 
 
-def measured_walls():
+def measured_walls(as_of=None):
     """Measured opendde 1000-sample walls from the campaign's own progress records.
 
     More accurate than the projections (which under-predicted by up to 1.56x), so Q2
     planning and the chunk decision run off real data. A chunked target's single-run
     equivalent is the sum of its chunk walls minus the duplicated fixed trunk passes.
+
+    `as_of` (epoch seconds) ignores records that landed later, which reproduces the walls a
+    past plan was built on. The set grows as the campaign runs, so a target's projection --
+    and with it the >4h chunk decision -- moves over time; anything reconstructing an
+    existing plan must pin the snapshot or it will disagree with the plan it is extending.
     """
     per = {}
     for f in (PROGRESS, PROGRESS.with_name("progress_qb2.jsonl"),
@@ -96,7 +101,8 @@ def measured_walls():
             except Exception:
                 continue
             if (r.get("model") != "opendde-abag" or r.get("status") != "ok"
-                    or r.get("n_samples", 0) < 500):
+                    or r.get("n_samples", 0) < 500
+                    or (as_of is not None and r.get("ts", 0) > as_of)):
                 continue
             d = per.setdefault(r["target"], {})
             k = r.get("chunk")
@@ -110,9 +116,9 @@ def measured_walls():
     return walls
 
 
-def jobs_for_model(model, targets, scale=1.0):
+def jobs_for_model(model, targets, scale=1.0, as_of=None):
     prefix, out_parent, base_seed = MODELS[model]
-    walls = measured_walls()
+    walls = measured_walls(as_of)
     mps = MPS_BOLTZ2 if model == "boltz2" else MPS
     jobs = []
     for t in targets:
