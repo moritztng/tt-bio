@@ -41,7 +41,7 @@ right to use it for the targets that have no local trace at all.
 Pass the same `--scales` `plan_queue` was called with: the per-model cost ratios are what put a
 target on its side of the 4h threshold.
 """
-import argparse, json, sys, time
+import argparse, json, re, sys, time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -90,6 +90,35 @@ def planned_arity(model, target, have):
     return "WHOLE" if chunks == {None} else "CHUNKED"
 
 
+def check_two_chunk_assumption(qdir, models):
+    """Fail loudly if any target is split into more than two chunks.
+
+    Three places here assume a chunked target has exactly chunks {0, 1}: the sibling lookup
+    (`1 - chunk`), the arity scan over (None, 0, 1), and the emit loop over (0, 1). That holds
+    for the plan as frozen -- `jobs_for_model` only ever emits 2 -- but if the boltz2 arm is
+    ever re-chunked for host memory (the OOM finding), a chunk 2 would make the sibling lookup
+    ask for chunk -1 and silently rescue a job with the WRONG seed and out_dir, i.e. quietly
+    corrupt a target's sample set rather than fail. An assumption that would fail silently is
+    worth an explicit check even while it still holds.
+    """
+    bad = set()
+    for jf in qdir.glob("job_*.json"):
+        c = json.loads(jf.read_text()).get("chunk")
+        if c not in (None, 0, 1):
+            bad.add(f"{jf.name} (chunk {c})")
+    for model in models:
+        parent = BASE / MODELS[model][1]
+        for d in parent.glob("*_c*"):
+            m = re.fullmatch(r".+_c(\d+)", d.name)
+            if m and int(m.group(1)) > 1:
+                bad.add(f"{model}/{d.name}")
+    if bad:
+        raise SystemExit(
+            "this script assumes at most two chunks per target and would silently derive a "
+            "wrong sibling seed otherwise; generalise sibling_rescue/planned_arity first. "
+            "Found: " + ", ".join(sorted(bad)))
+
+
 def sibling_rescue(sib_path, sib_job, chunk):
     """The other chunk of a queued job, derived from it so both chunks share one plan."""
     job = dict(sib_job)
@@ -120,8 +149,9 @@ def main():
     qdir = Path(a.queue)
     if not qdir.is_dir():
         raise SystemExit(f"no such queue dir: {qdir}")
-    have = queue_jobs(qdir)
     models = a.models.split(",")
+    check_two_chunk_assumption(qdir, models)
+    have = queue_jobs(qdir)
 
     scales = {}
     for part in filter(None, a.scales.split(",")):
