@@ -33,6 +33,12 @@ BASE = Path.home() / "abag_xm" / "saturation"
 TARGETS = ["9q6y", "9tmp", "9gei", "9fte", "9wpm", "9qrv", "9ma0", "9q6z", "9uoi",
            "9m8l", "9ldx", "9nl0", "9l9y", "9mnu", "9gfr", "9zen"]
 CONT11 = TARGETS[:11]  # frontier continuity panel (9j4c excluded by design, §3)
+# Of the 164-target panel, 3 have no scorable Ab-Ag interface (native antigen chain
+# substantially unresolved), so they fold fine and stay in the released dataset but can
+# never yield a DockQ. They must read as BLANKS, never as zeros: scoring them 0 would
+# drag every mean down and misreport a panel property as model failure.
+# Source: state/abag-xm-benchmark-release-closeout.md:35,160 ("164 targets, 161 scorable").
+UNSCORABLE = {"9ly2", "9ly3", "9lz2"}
 THRESHOLDS = [0.23, 0.49, 0.80]
 GRID = [1, 2, 4, 8, 16, 32, 50, 64, 100, 128, 200, 256, 400, 512, 640, 800, 1000]
 N_TARGET = GRID[-1]  # samples a target must have merged before it is quotable
@@ -107,6 +113,7 @@ def load_target(model_dir, prefix, target):
 
 
 _LOADED = {}
+_EXCLUDED = {}  # model_dir -> {target: reason} for targets that produced no curve
 
 
 def load_model(model_dir):
@@ -119,12 +126,21 @@ def load_model(model_dir):
     """
     if model_dir not in _LOADED:
         prefix = MODELS[model_dir]
-        per = {}
+        per, excluded = {}, {}
         for t in TARGETS:
             samples = load_target(model_dir, prefix, t)
             if samples is not None:
                 per[t] = samples
+            else:
+                # Two very different reasons land on the same None, and conflating them
+                # hides real breakage: an UNSCORABLE target has no Ab-Ag interface to score
+                # and is a permanent, expected blank, whereas any other target is missing
+                # because its labeling is absent or incomplete -- which is a fault to chase,
+                # not a property of the panel. Record which, so a silent labeling failure
+                # can never be read as "that one just isn't scorable".
+                excluded[t] = "unscorable" if t in UNSCORABLE else "labels_missing_or_incomplete"
         _LOADED[model_dir] = per
+        _EXCLUDED[model_dir] = excluded
     return _LOADED[model_dir]
 
 
@@ -545,7 +561,13 @@ def main():
             continue
         fit = cost_fit(recs, model_dir)
         dup = duplicate_groups(sorted(per))
+        exc = _EXCLUDED.get(model_dir, {})
         entry = {"g4_n_targets_labeled": len(per), "labeled_targets": sorted(per),
+                 # Blanks, not zeros, and the two kinds of blank kept apart (§ unscorable).
+                 "excluded_targets": exc,
+                 "n_unscorable": sum(1 for v in exc.values() if v == "unscorable"),
+                 "n_labels_missing": sum(1 for v in exc.values()
+                                         if v == "labels_missing_or_incomplete"),
                  "cost": fit}
         for thr in THRESHOLDS:
             key = f"thr{thr}"
