@@ -1,11 +1,21 @@
-"""Report the projected opendde ``m_feat`` DRAM footprint across the AbAg-XM panel.
+"""Size up the AbAg-XM panel against a Wormhole chip's DRAM, on both axes.
 
-Reads the per-target projection written by ``project_mfeat.py`` and answers the
-question the Wormhole campaign turns on: how much of the 164-target benchmark
-exceeds a Wormhole chip's DRAM budget, and what MSA depth cap brings it inside.
+Reads the per-target projection written by ``project_mfeat.py``.
 
-Footprint model (p1 s24.1, validated to 0.006-0.044% against four measured
-failures):  ``m_feat_bytes = depth * pad32(tokens) * c_m(128) * 2``.
+Two axes matter and only one of them is fixable by configuration:
+
+* ``m_feat``, the c_m=128 MSA projection, scales as ``depth * pad32(tokens)``.
+  An MSA depth cap shrinks it. Model: ``depth * pad32(tokens) * 128 * 2``.
+* the pair representation and every trimul intermediate scale as
+  ``pad32(tokens)**2 * c``. **No MSA cap touches this**, and there is no
+  precision or trunk-chunking flag in ``predict``'s surface either.
+
+Measured on the JapanFold Galaxy at a fixed MSA cap of 4096, one run per target
+on a worker confirmed fresh: 514 tokens folds, 853 and 1095 tokens run out of
+DRAM. So the binding limit is the token count, not the MSA depth, and the
+``m_feat`` column below is an upper-bound diagnostic rather than the thing that
+decides whether a target runs. Report both; rank by tokens when choosing what
+is runnable.
 """
 
 from __future__ import annotations
@@ -19,11 +29,22 @@ import statistics as st
 WORMHOLE_DRAM_GIB = 12.00
 BLACKHOLE_DRAM_GIB = 31.88
 
-# Measured device outcomes on Wormhole, used to bracket the empirical ceiling.
+# Measured Wormhole outcomes. m_feat GiB is the size of the allocation the
+# allocator refused, which is NOT the same as the chip being that full -- a
+# reused worker refused 0.531 GiB after an earlier failure, so a failed fold
+# does not release its device DRAM. Only runs on a confirmed-fresh worker are
+# usable as capacity evidence.
 MEASURED = {
-    "9yio": ("OOM", 1.708),   # allocator refused 1_833_828_352 B
+    "9yio": ("OOM uncapped / folds at cap 4096", 1.708),
     "9jkr": ("folded", 0.87),
 }
+
+# Token-axis ladder at a fixed MSA cap of 4096, fresh worker each time.
+TOKEN_LADDER = [
+    (514, "9yio", "folds"),
+    (853, "9q7y", "OOM (1.133 GiB refused, 138.6 s)"),
+    (1095, "9j4c", "OOM (1.576 GiB refused)"),
+]
 
 
 def capped_depth(row: dict, cap: int | None) -> int:
@@ -78,7 +99,17 @@ def main() -> None:
               % (r["target"], r["tokens"], r["pad"], r["depth"], r["paired"], r["mfeat_gib"]))
 
     print()
-    print("=== targets over a %.2f GiB budget, by MSA depth cap ===" % args.budget)
+    print("=== token axis: measured ladder at MSA cap 4096 (fresh worker each) ===")
+    for tokens, target, outcome in TOKEN_LADDER:
+        print("  %5d tok  %-6s  %s" % (tokens, target, outcome))
+    tok = sorted(r["tokens"] for r in rows)
+    print("  panel tokens: min %d  median %d  max %d" % (tok[0], st.median(tok), tok[-1]))
+    for edge in (514, 728, 853):
+        n = sum(1 for t in tok if t <= edge)
+        print("  <= %4d tok : %3d / %d  (%.1f%%)" % (edge, n, len(tok), 100 * n / len(tok)))
+
+    print()
+    print("=== depth axis: targets over a %.2f GiB m_feat budget, by MSA depth cap ===" % args.budget)
     print("  %-10s %-14s %10s %10s %10s" % ("cap", "over budget", "max GiB", "median", "n capped"))
     for cap in (None, 16384, 12288, 8192, 6144, 4096, 2048):
         vals = [mfeat_gib(r, cap) for r in rows]
