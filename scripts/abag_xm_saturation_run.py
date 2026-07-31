@@ -162,10 +162,14 @@ def measured_walls():
     return walls
 
 
-def jobs_for_model(model, targets, scale=1.0, n_samples=1000):
+def jobs_for_model(model, targets, scale=1.0, n_samples=1000, mps_override=None):
     prefix, out_parent, base_seed, extra, (recyc, samp) = MODELS[model]
     walls = measured_walls()
-    mps = MPS_BOLTZ2 if model == "boltz2" else MPS
+    # MPS/MPS_BOLTZ2 are Blackhole (32 GB) values. Wormhole has 12 GB and opendde-abag at
+    # 5 parallel samples asks for a single 2,178,744,320 B DRAM buffer, which does not fit --
+    # measured on UF-EV-A13-GWH02, reproducibly, in a clean single-owner parity run. So the
+    # width has to be selectable per host rather than baked in; --mps sets it.
+    mps = mps_override if mps_override else (MPS_BOLTZ2 if model == "boltz2" else MPS)
     jobs = []
     common = {"model": model, "mps": mps, "extra_args": list(extra),
               "recycling_steps": recyc, "sampling_steps": samp}
@@ -194,10 +198,11 @@ def jobs_for_model(model, targets, scale=1.0, n_samples=1000):
     return jobs
 
 
-def plan(out_dir, model, targets, scale=1.0, n_samples=1000):
+def plan(out_dir, model, targets, scale=1.0, n_samples=1000, mps_override=None):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    jobs = sorted(jobs_for_model(model, targets, scale, n_samples), key=lambda j: -j["proj_s"])
+    jobs = sorted(jobs_for_model(model, targets, scale, n_samples, mps_override),
+                  key=lambda j: -j["proj_s"])
     loads, cards = [0.0] * 8, [[] for _ in range(8)]
     for job in jobs:  # LPT: longest first onto the currently least-loaded card
         c = min(range(8), key=lambda i: loads[i])
@@ -429,6 +434,10 @@ def main():
     ap.add_argument("--targets", default="all",
                     help="'all' (frozen 16, §3), 'cheap8' (Q2 fallback set, §3), or "
                          "'panel164' (the full AbAg-XM panel read from examples/abag_xm)")
+    ap.add_argument("--mps", type=int, default=None,
+                    help="max_parallel_samples override (denoise chunk width). The built-in "
+                         "defaults are Blackhole 32 GB values; Wormhole has 12 GB and opendde-abag "
+                         "at 5 does not fit (measured). Set explicitly on 12 GB hosts.")
     ap.add_argument("--n_samples", type=int, default=1000,
                     help="samples per (target, model); chunked halves split it. Oracle at "
                          "any m <= n_samples comes free by subsampling, so this sets depth")
@@ -452,7 +461,7 @@ def main():
                    or (panel_targets() if a.targets == "panel164" else None))
         if targets is None:
             ap.error(f"--targets {a.targets!r}: expected all | cheap8 | panel164")
-        plan(a.plan, a.model, targets, a.scale, a.n_samples)
+        plan(a.plan, a.model, targets, a.scale, a.n_samples, a.mps)
         return
     if a.plan_queue:
         # Q2 canary scales at 9zen: protenix-v2 5701/4261, boltz2 2881/4261.
