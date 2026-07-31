@@ -292,9 +292,16 @@ def ranked_block(per, thr):
 
 
 def progress_records():
+    """This host own records plus EVERY gathered peer file.
+
+    The peer file is named after the peer, so it is progress_qb1.jsonl when the analysis
+    runs on qb2 and progress_qb2.jsonl when it runs on qb1. Hard-coding one name meant the
+    cost model silently saw a single host whenever it ran on the other one -- and the two
+    hosts differ by ~1.7x in marginal s/sample, so half the panel would have been costed
+    at the wrong host rate. Glob instead; cost_fit already de-duplicates records.
+    """
     recs = []
-    for name in ("progress.jsonl", "progress_qb2.jsonl"):
-        p = BASE / name
+    for p in [BASE / "progress.jsonl"] + sorted(BASE.glob("progress_*.jsonl")):
         if p.exists():
             for line in p.read_text().splitlines():
                 try:
@@ -384,20 +391,28 @@ def cost_block(per, fit, thr):
         intervals.append({"m": [a, b], "dO_pp": round(do, 2),
                           "d_cost_card_s": round(dc, 1),
                           "pp_per_1000_card_s": round(1000.0 * do / dc, 2) if dc else None})
-    budgets = {}
+    budgets, budget_m = {}, {}
     for b_ks in (5, 10, 20, 40, 80):
         B = b_ks * 1000.0
-        os_ = []
+        os_, ms, clamped = [], [], 0
         for t in targets:
             marg_t = fit["per_target"][t]["marg_s_per_sample"]
-            m = int(min(1000, max(0, (B - fixed) // marg_t))) if marg_t > 0 else 0
+            m_raw = int(max(0, (B - fixed) // marg_t)) if marg_t > 0 else 0
+            m = min(N_TARGET, m_raw)
+            if m_raw > N_TARGET:
+                clamped += 1
+            ms.append(m)
             dq = [x[0] for x in per[t]]
             s = sum(1 for x in dq if x >= thr)
             os_.append(hyper_oracle(len(dq), s, m))
         budgets[b_ks] = round(statistics.mean(os_), 4)
+        # A clamped target's oracle is the N=1000 value, not a measurement at this budget.
+        budget_m[b_ks] = {"mean_m": round(statistics.mean(ms), 1),
+                          "n_clamped": clamped, "n_targets": len(targets)}
     return {"cost_at_m": {m: round(cost_mean(m), 1) for m in GRID},
             "intervals": intervals,
             "oracle_at_budget_card_ks": budgets,
+            "m_at_budget": budget_m,
             "budget_note": "budget is card-s per target; m(B) = (B - fixed)/marg_t, clamped to 1000"}
 
 

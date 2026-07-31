@@ -80,9 +80,17 @@ def budget_tables(entry, label):
                         "" if iv["pp_per_1000_card_s"] is None
                         else f"{iv['pp_per_1000_card_s']:.2f}"]))
     out += [f"\n**Oracle at a fixed per-target budget ({label}, thr 0.23)**\n",
-            head(["budget (card-ks/target)", "oracle"])]
+            head(["budget (card-ks/target)", "mean N bought", "oracle", "note"])]
+    mb = b.get("m_at_budget") or {}
     for ks, v in sorted(b["oracle_at_budget_card_ks"].items(), key=lambda kv: float(kv[0])):
-        out.append(row(str(ks), [pct(v)]))
+        info = mb.get(str(ks)) or mb.get(ks) or {}
+        n_cl, n_t = info.get("n_clamped"), info.get("n_targets")
+        note = ""
+        if n_cl:
+            note = (f"{n_cl}/{n_t} targets exceed the measured range and are held at N=1000"
+                    if n_cl < n_t else
+                    "budget exceeds the measured range; every target held at N=1000")
+        out.append(row(str(ks), [str(info.get("mean_m", "")), pct(v), note]))
     out.append(f"\n{b['budget_note']}\n")
     return out
 
