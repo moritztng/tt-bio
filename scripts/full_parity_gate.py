@@ -99,6 +99,7 @@ import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -549,7 +550,12 @@ def parse_workers(spec: str) -> list[Worker]:
     remote whose checkout/env don't live at the same absolute paths as the local worktree
     (e.g. a different user/home on that host)."""
     out = []
-    local_host = os.environ.get("HOSTNAME", "pc").split(".")[0]
+    # Locality must come from the real hostname. $HOSTNAME is a bash-only variable and is
+    # NOT exported to non-interactive shells, so it is unset under ssh/systemd on every host —
+    # the old "pc" fallback therefore made any non-pc host classify ITSELF as remote and ssh
+    # to its own hostname ("Host key verification failed", every device leg exiting 255 in
+    # under a second). It only ever worked on pc, by accident of the default matching.
+    local_host = (os.environ.get("HOSTNAME") or socket.gethostname()).split(".")[0]
     for part in spec.split(","):
         part = part.strip()
         if not part:
@@ -558,10 +564,12 @@ def parse_workers(spec: str) -> list[Worker]:
         card_str, _, rest2 = rest.partition(":")
         remote_cwd, _, remote_python = rest2.partition(":")
         out.append(Worker(host=host, card=int(card_str or 0),
-                           is_local=(host == "pc" or host == local_host),
+                           is_local=(host in ("localhost", "127.0.0.1", local_host)),
                            remote_cwd=remote_cwd or None,
                            remote_python=remote_python or None))
-    return out or [Worker(host="pc", card=0, is_local=True)]
+    # Default worker names the host we are actually on — report.json records these as
+    # provenance, so "pc:0" on a different box would be a false record.
+    return out or [Worker(host=local_host, card=0, is_local=True)]
 
 
 def _find_results_dir(out_dir: Path) -> Path | None:
