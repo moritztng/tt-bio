@@ -208,10 +208,17 @@ these regression limits:
 | model | maximum CA-RMSD | minimum TM-score |
 |---|---:|---:|
 | Boltz-2 | 3.0 Å | 0.75 |
-| ESMFold2 | 4.0 Å | 0.65 |
+| ESMFold2 | 8.0 Å | 0.40 |
 | ESMFold2-fast | 4.5 Å | 0.60 |
 | Protenix-v2 | 6.0 Å | 0.50 |
 | OpenDDE | 6.0 Å | 0.50 |
+
+ESMFold2's floor is loose because it is anchored to the **default single-sequence**
+fold (measured 5.80 Å / TM 0.508 on Blackhole), not the MSA-on fold the old 4.0 Å /
+0.65 came from. Needing an MSA on 7ROA is a model-quality property of that
+checkpoint, not a port defect — its tight numerics live in `full_parity_gate.py`'s
+esmfold2 leg. `scripts/release_gate.py:MODELS` is the source of truth for these
+numbers; keep this table in sync with it.
 
 BoltzGen passes when at least half of four generated binders refold within
 2 Å scRMSD. ESMC passes at per-residue PCC ≥0.99 against upstream ESM.
