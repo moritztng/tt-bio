@@ -3,13 +3,12 @@
 # UNCAPPED, UNPAIRED. Reads the per-stage [DRAM] trace that tt_bio.tenstorrent.dram_peak
 # writes, so the peak can be decomposed into floor + k*m_feat + pair_copies*z.
 #
-# Why no --use_msa_server / --msa_db_path / --msa_endpoint: worker.py sets
-#   want_msa = use_msa_server or msa_db_path or msa_endpoint
-# and gates BOTH the unpaired search and the multi-chain paired (species-pairing) search on
-# it. With only --msa_dir the fold reads the cached {sha256(seq)[:16]}.a3m files and never
-# reaches the network. That matters twice over: an online paired search previously ran probes
-# 35-45% deeper than their nominal cap, and the shipped Blackhole benchmark is unpaired on
-# every row, so pairing here would make the two datasets non-comparable.
+# --msa_cache_only is what makes the depth reproducible: --msa_dir alone is NOT a source, so
+# the run would fall through to the online-server fallback, which also switches on the
+# multi-chain paired search (both gated on want_msa) and lands 35-45% deeper than intended.
+# With the flag nothing is searched and an uncached chain is an error, not a silent
+# single-sequence fold. Unpaired also matches the shipped Blackhole benchmark, which is
+# unpaired on every row -- pairing here would make the two datasets non-comparable.
 #
 # Usage: galaxy_trunk_profile.sh <target> <chip> [extra predict args...]
 set -u
@@ -32,5 +31,5 @@ TT_VISIBLE_DEVICES=$CHIP /usr/bin/python3.10 -u -m tt_bio.main predict \
   --out_dir "$OUT/$T" --override \
   --diffusion_samples 1 --max_parallel_samples 1 --seed 42 \
   --host_threads "${PROFILE_THREADS:-8}" \
-  --msa_dir "$MSA" "$@"
+  --msa_dir "$MSA" --msa_cache_only "$@"
 echo "EXIT=$? target=$T chip=$CHIP"

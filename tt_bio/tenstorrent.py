@@ -3246,11 +3246,22 @@ class MSAModule(TorchWrapper):
                 self._cache_set("n_msa", None)
             self._first_forward_pass = False
 
+        # Hoisted (same left-to-right order as the call that follows) so the uploads can be
+        # tagged individually: the MSA one-hot `m` is the trunk's first large device tensor
+        # and is what a deep-MSA target actually OOMs on, which is invisible if the whole
+        # upload happens inside the argument list. Tags are no-ops unless TT_BIO_DRAM_PEAK.
+        dram_peak(f"msamodule pre-upload [m={tuple(m.shape)} {m.dtype}]")
+        z_tt = self._from_torch(z)
+        dram_peak("msamodule uploaded z")
+        m_tt = self._from_torch(m)
+        dram_peak(f"msamodule uploaded m [{tuple(m.shape)} {m.dtype}]")
+        emb_tt = self._from_torch(emb)
+        dram_peak("msamodule uploaded emb")
         z_out = self._to_torch(
             self.module(
-                self._from_torch(z),
-                self._from_torch(m),
-                self._from_torch(emb),
+                z_tt,
+                m_tt,
+                emb_tt,
                 self._cache_get("mask_tt"),
                 self._cache_get("attn_mask_tt"),
                 self._cache_get("msa_mask_tt"),

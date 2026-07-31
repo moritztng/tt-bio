@@ -1750,20 +1750,27 @@ class Trunk(_KeyedWeights):
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
+            # Each ttnn.add is out-of-place, so the input and the result are both live for
+            # the duration: at c_m=128 and full MSA depth that is two ~2.5 GiB buffers per
+            # add on a 12 GiB part. This is where a deep-MSA target actually runs out.
             m = ttnn.add(m, ttnn.reshape(
                 pwa(m, ttnn.clone(z)), tuple(m.shape)))
+            dram_peak("trunk msa block: after pwa add")
             return ttnn.add(
                 m, ttnn.reshape(transition(m), tuple(m.shape)))
 
-        for (opm, pwa, tm, pl) in self.MSA:
+        for _bi, (opm, pwa, tm, pl) in enumerate(self.MSA):
+            dram_peak(f"trunk msa block {_bi} enter")
             # OpenDDE refreshes the MSA before OPM. Protenix-v2 retains the
             # ordering its checkpoint was trained with.
             if self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = ttnn.add(z3, opm(m_feat, None, None))
+            dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = pl(None, z3)[1]
+            dram_peak(f"trunk msa block {_bi} done")
         return z3
 
     def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None):
@@ -1792,8 +1799,20 @@ class Trunk(_KeyedWeights):
         # msa feature
         msa = F.one_hot(feat["msa"].long(), 32).float()
         ms = torch.cat([msa, feat["has_deletion"].unsqueeze(-1), feat["deletion_value"].unsqueeze(-1)], -1).unsqueeze(0)
+        # The MSA representation is this trunk's DRAM limiter on a 12 GiB part: it scales as
+        # depth * tokens, and a deep-MSA target OOMs right here. Tag the upload and the
+        # projection SEPARATELY, with shape and dtype, because the two are the same number of
+        # bytes under different readings (34->64 padded channels in fp32 vs c_m channels in
+        # bf16) and only the tensor's own dtype tells them apart. No-op without TT_BIO_DRAM_PEAK.
+        # Tag WITHOUT binding the intermediates to locals. Naming them measurably changes what
+        # is measured: ttnn frees a buffer when its last Python reference drops, so hoisting
+        # `_up(ms)` and the projection into locals kept ~3.7 GiB alive past the point the
+        # original expression frees it, and moved the OOM to a different allocation.
+        dram_peak(f"trunk msa pre-upload [ms={tuple(ms.shape)} {ms.dtype}"
+                  f" -> dtype={getattr(self, 'dtype', ttnn.bfloat16)}]")
         m_feat = ttnn.add(self._lin(self._up(ms), "msa_module.linear_no_bias_m.weight"),
                           self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight"))
+        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
