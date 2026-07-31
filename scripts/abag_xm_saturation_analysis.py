@@ -116,14 +116,39 @@ def mean_oracle(per, targets, m, thr):
     return statistics.mean(vals), vals
 
 
-def boot_ci(fn, targets, rng_seed=7, reps=BOOT_REPS):
+def boot_ci(fn, targets, rng_seed=7, reps=BOOT_REPS, clusters=None):
+    """Bootstrap over targets, or over CLUSTERS of targets when given.
+
+    Two targets that fold a byte-identical input (9q6y/9q6z) share every prediction, so
+    resampling them independently counts one piece of evidence twice and narrows the CI.
+    Passing `clusters` (a list of target lists) resamples whole clusters instead.
+    """
     rng = random.Random(rng_seed)
     point = fn(targets)
-    boot = sorted(fn([rng.choice(targets) for _ in targets]) for _ in range(reps))
+    units = clusters if clusters is not None else [[t] for t in targets]
+    boot = []
+    for _ in range(reps):
+        draw = []
+        for _ in range(len(units)):
+            draw += rng.choice(units)
+        boot.append(fn(draw))
+    boot.sort()
     return point, boot[int(0.025 * reps)], boot[int(0.975 * reps) - 1]
 
 
-def oracle_block(per, thr):
+def clusters_of(labeled, groups):
+    """Partition `labeled` into evidence units: each duplicate group is one unit."""
+    dup = {t: tuple(g) for g in groups for t in g}
+    seen, units = set(), []
+    for t in labeled:
+        key = dup.get(t, (t,))
+        if key not in seen:
+            seen.add(key)
+            units.append(list(key))
+    return units
+
+
+def oracle_block(per, thr, groups=()):
     targets = sorted(per)
     curve, per_target = {}, {}
     for m in GRID:
@@ -132,11 +157,24 @@ def oracle_block(per, thr):
         per_target[m] = dict(zip(targets, vals))
     ci = {m: boot_ci(lambda ts, m=m: mean_oracle(per, ts, m, thr)[0], targets)[1:]
           for m in GRID}
-    return {"mean": {m: round(curve[m], 4) for m in GRID},
-            "ci95": {m: [round(x, 4) for x in ci[m]] for m in GRID},
-            "per_target": {m: {t: round(v, 4) for t, v in per_target[m].items()}
-                           for m in GRID},
-            "n_targets": len(targets)}
+    out = {"mean": {m: round(curve[m], 4) for m in GRID},
+           "ci95": {m: [round(x, 4) for x in ci[m]] for m in GRID},
+           "per_target": {m: {t: round(v, 4) for t, v in per_target[m].items()}
+                          for m in GRID},
+           "n_targets": len(targets)}
+    if groups:
+        # Duplicate-input-aware variants, so §7 can quote either treatment without a re-run.
+        units = clusters_of(targets, groups)
+        reps_ = [u[0] for u in units]
+        out["ci95_clustered"] = {
+            m: [round(x, 4) for x in
+                boot_ci(lambda ts, m=m: mean_oracle(per, ts, m, thr)[0], targets,
+                        clusters=units)[1:]]
+            for m in GRID}
+        out["mean_distinct_inputs"] = {
+            m: round(mean_oracle(per, reps_, m, thr)[0], 4) for m in GRID}
+        out["n_distinct_inputs"] = len(units)
+    return out
 
 
 def doubling_gains(curve_mean):
@@ -340,18 +378,18 @@ def main():
         if not per:
             continue
         fit = cost_fit(recs, model_dir)
+        dup = duplicate_groups(sorted(per))
         entry = {"g4_n_targets_labeled": len(per), "labeled_targets": sorted(per),
                  "cost": fit}
         for thr in THRESHOLDS:
             key = f"thr{thr}"
-            entry[key] = {"oracle": oracle_block(per, thr),
+            entry[key] = {"oracle": oracle_block(per, thr, dup),
                           "ranked_top1": ranked_block(per, thr) if thr == 0.23 else None,
                           "budget": cost_block(per, fit, thr) if thr == 0.23 else None}
             if thr == 0.23:
                 entry[key]["knee"] = knee_verdict(per, thr)
-        entry["duplicate_input_groups"] = duplicate_groups(sorted(per))
-        entry["n_distinct_inputs"] = len(per) - sum(
-            len(g) - 1 for g in entry["duplicate_input_groups"])
+        entry["duplicate_input_groups"] = dup
+        entry["n_distinct_inputs"] = len(per) - sum(len(g) - 1 for g in dup)
         if model_dir == "opendde":
             entry["g3_continuity"] = continuity_block(per)
         models[model_dir] = entry
