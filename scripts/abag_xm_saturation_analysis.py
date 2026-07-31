@@ -428,6 +428,44 @@ def cost_block(per, fit, thr):
             "budget_note": "budget is card-s per target; m(B) = (B - fixed)/marg_t, clamped to 1000"}
 
 
+def crossover_block(curves):
+    """Which generator leads at each N, and where the ranking flips (§4 item 4).
+
+    `curves` maps model -> {m: oracle}. A lead below Q2_TIE_PP is a tie: it names no leader
+    and cannot be a crossover, and a tie does not break the incumbent's run -- otherwise two
+    models saturating together would read as a flip back and forth. Extracted from main() so
+    the multi-generator behaviour can be tested; with one real shared target it never ran.
+    """
+    leaders, flips = {}, []
+    prev, prev_m = None, None
+    for m in GRID:
+        ranked = sorted(curves, key=lambda md: -curves[md][m])
+        best, second = ranked[0], (ranked[1] if len(ranked) > 1 else None)
+        margin = (curves[best][m] - curves[second][m]) if second else None
+        tied = margin is not None and margin < Q2_TIE_PP / 100.0
+        leaders[m] = {"leader": None if tied else best,
+                      "tied_among": [md for md in ranked
+                                     if curves[best][m] - curves[md][m] < Q2_TIE_PP / 100.0]
+                      if tied else None,
+                      "margin_pp": round(100.0 * margin, 2) if margin is not None else None}
+        if prev is not None and not tied and best != prev:
+            flips.append({"between": [prev_m, m], "from": prev, "to": best,
+                          "margin_pp": round(100.0 * margin, 2)})
+        if not tied:
+            prev, prev_m = best, m
+    led = [v["leader"] for v in leaders.values() if v["leader"]]
+    verdict = (
+        ("no crossover: " + (led[0] if led else "no single generator")
+         + f" leads at every N on the shared subset where the gap exceeds {Q2_TIE_PP} pp"
+         + ("; generators tie at the top for the largest N"
+            if led and not leaders[GRID[-1]]["leader"] else ""))
+        if not flips else
+        "crossover(s): " + "; ".join(
+            f"{f['from']} -> {f['to']} between N={f['between'][0]} and {f['between'][1]}"
+            for f in flips))
+    return {"leader_by_n": leaders, "crossovers": flips, "crossover_verdict": verdict}
+
+
 def continuity_block(per):
     """G3: saturation-panel O(m) on the 11 continuity targets vs the §0 label-derived
     values (independent draws, same targets/checkpoint)."""
@@ -518,34 +556,7 @@ def main():
         # One bar for both jobs: a lead this small is a tie, so it neither names a leader
         # nor counts as a crossover. Without a shared bar a 0.001 pp lead would be recorded
         # as a ranking flip while displaying as 0.00 pp.
-        leaders, flips = {}, []
-        prev, prev_m = None, None
-        for m in GRID:
-            ranked = sorted(curves, key=lambda md: -curves[md][m])
-            best, second = ranked[0], (ranked[1] if len(ranked) > 1 else None)
-            margin = (curves[best][m] - curves[second][m]) if second else None
-            tied = margin is not None and margin < Q2_TIE_PP / 100.0
-            leaders[m] = {"leader": None if tied else best,
-                          "tied_among": [md for md in ranked
-                                         if curves[best][m] - curves[md][m] < Q2_TIE_PP / 100.0]
-                          if tied else None,
-                          "margin_pp": round(100.0 * margin, 2) if margin is not None else None}
-            if prev is not None and not tied and best != prev:
-                flips.append({"between": [prev_m, m], "from": prev, "to": best,
-                              "margin_pp": round(100.0 * margin, 2)})
-            if not tied:
-                prev, prev_m = best, m
-        q2["leader_by_n"] = leaders
-        q2["crossovers"] = flips
-        led = [v["leader"] for v in leaders.values() if v["leader"]]
-        q2["crossover_verdict"] = (
-            ("no crossover: " + (led[0] if led else "no single generator")
-             + f" leads at every N on the shared subset where the gap exceeds {Q2_TIE_PP} pp"
-             + ("; generators tie at the top for the largest N" if led and not leaders[GRID[-1]]["leader"] else ""))
-            if not flips else
-            "crossover(s): " + "; ".join(
-                f"{f['from']} -> {f['to']} between N={f['between'][0]} and {f['between'][1]}"
-                for f in flips))
+        q2.update(crossover_block(curves))
         res["q2_generators"] = q2
 
     (BASE / "analysis.json").write_text(json.dumps(res, indent=1))
