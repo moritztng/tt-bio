@@ -215,6 +215,23 @@ def knee_verdict(per, thr):
     """Pre-registered criterion (§4). Returns dict with m* or no-saturation statement."""
     targets = sorted(per)
     means = {m: mean_oracle(per, targets, m, thr)[0] for m in GRID}
+    # A curve with no successes anywhere is flat at zero, so every doubling gain is 0 pp and
+    # the criterion "confirms" m*=1 -- which would print "saturation at m*=1" for a generator
+    # that simply never cleared the threshold. That inverts the finding: it reads as "depth
+    # stops helping immediately" when the truth is "there is no signal to saturate". Report
+    # the degenerate case as its own state, and always carry the number of targets actually
+    # carrying a success so a genuine m*=1 can be told from a near-empty panel.
+    n_hit = sum(1 for t in targets if successes(per, t, thr)[1] > 0)
+    if n_hit == 0:
+        return {"m_star": None, "m_star_edge_unconfirmable": None,
+                "degenerate_no_successes": True,
+                "n_targets_with_success": 0, "n_targets": len(targets),
+                "doubling_gains_pp": [], "gain_ci95_pp": {},
+                "final_interval": [GRID[-2], GRID[-1], 0.0],
+                "final_interval_per_doubling_pp": 0.0,
+                "verdict": (f"no sample reaches DockQ >= {thr} on any of the {len(targets)} "
+                            "labeled target(s): the curve is identically zero, so saturation "
+                            "is undefined -- this is an absent signal, not a knee")}
     pairs = doubling_gains(means)
     # bootstrap CI of each doubling's gain over target resamples
     def gain_fn(ts, m):
@@ -244,6 +261,9 @@ def knee_verdict(per, thr):
     last_pp = 100.0 * last
     return {"m_star": mstar,
             "m_star_edge_unconfirmable": edge,
+            "degenerate_no_successes": False,
+            "n_targets_with_success": n_hit,
+            "n_targets": len(targets),
             "last_confirmable_m": max((m for m, m2, _ in pairs
                                        if any(a == m2 for a, _, _ in pairs)), default=None),
             "doubling_gains_pp": [[m, m2, round(g, 2)] for m, m2, g in pairs],
@@ -252,13 +272,19 @@ def knee_verdict(per, thr):
             "final_interval_per_doubling_pp": round(
                 last_pp / math.log2(GRID[-1] / GRID[-2]), 2),
             "verdict": (
-                f"saturation at m*={mstar}" if mstar is not None else
+                f"saturation at m*={mstar} ({n_hit}/{len(targets)} labeled targets carry any "
+                f"success at this threshold)" if mstar is not None else
                 (f"flattens at m={edge} but the pre-registered confirmation is off-grid "
                  f"(needs the {2 * edge}->{4 * edge} doubling; grid stops at {GRID[-1]}); "
                  f"final interval {GRID[-2]}->{GRID[-1]} gain {last_pp:.2f} pp"
                  if edge is not None else
-                 f"no saturation found by N=1000 (final interval "
-                 f"{GRID[-2]}->{GRID[-1]} gain {last_pp:.2f} pp)"))}
+                 # The criterion is defined per DOUBLING, but the top grid step is only
+                 # 800->1000 (1.25x), so quoting its raw gain alone reads as a flat curve
+                 # being called unsaturated. Give the normalised figure alongside it.
+                 f"no saturation found by N={GRID[-1]}: no on-grid doubling met the "
+                 f"< {KNEE_PP} pp bar (final {GRID[-2]}->{GRID[-1]} step gains "
+                 f"{last_pp:.2f} pp = {last_pp / math.log2(GRID[-1] / GRID[-2]):.2f} pp "
+                 f"per doubling)"))}
 
 
 def ranked_block(per, thr):

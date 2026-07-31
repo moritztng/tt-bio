@@ -154,6 +154,11 @@ def verdicts(models, order):
             k = models[md].get(f"thr{thr}", {}).get("knee")
             if not k:
                 continue
+            if k.get("degenerate_no_successes"):
+                # Nothing to report per doubling: the curve is flat at zero, and printing a
+                # row of "0.00 pp" gains next to it invites reading it as a saturated curve.
+                out.append(f"- **{MODEL_LABEL[md]}: {k['verdict']}.**")
+                continue
             a, bb, g = k["final_interval"]
             out.append(f"- **{MODEL_LABEL[md]}: {k['verdict']}.** Final measured interval "
                        f"{a} -> {bb} gains {g:.2f} pp "
