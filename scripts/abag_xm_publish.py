@@ -93,9 +93,11 @@ def _add_fold_sequences(targets_parquet):
               f"{sorted(missing)[:6]}" + (" ..." if len(missing) > 6 else ""))
 
 
-def run(cmd, **kw):
+def run(cmd, check=True, **kw):
+    # check defaults on: an assembly step that crashes must abort the publish, not leave
+    # preflight to pass against the previous run's stale files.
     print(f"  $ {' '.join(str(c) for c in cmd)}")
-    return subprocess.run(cmd, **kw)
+    return subprocess.run(cmd, check=check, **kw)
 
 
 def _tt_bio_url():
@@ -374,7 +376,8 @@ def main():
         return 2
 
     print(f"\nuploading to {a.repo}")
-    r = run(["hf", "upload-large-folder", a.repo, str(out), "--repo-type", "dataset"])
+    r = run(["hf", "upload-large-folder", a.repo, str(out), "--repo-type", "dataset"],
+            check=False)
     if r.returncode != 0:
         print(f"upload failed rc={r.returncode}; NOT published.")
         return 1

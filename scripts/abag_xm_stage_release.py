@@ -51,6 +51,12 @@ def main():
     out = Path(a.out_dir)
 
     folds = sorted(ok_folds())
+    non_release = sorted({g for _, g in folds} - GEN_DIR.keys())
+    if non_release:
+        # The shared progress log also carries sibling-campaign rows (esmfold2 Tier-A2);
+        # this release is exactly the three generators in GEN_DIR.
+        print(f"non-release generators in progress log, skipped: {non_release}")
+        folds = [(t, g) for t, g in folds if g in GEN_DIR]
     if a.limit:
         folds = folds[:a.limit]
     n_cif = n_pae = 0
