@@ -12,6 +12,10 @@ TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
 TRIANGLE_ATT_CHUNK_SIZE = 512
 OPM_CHUNK_SIZE = 256
 MSA_CHUNK_SIZE = 512
+# Chunk OuterProductMean's norm+projection stage once the MSA representation exceeds this.
+# Same threshold and the same bit-exactness argument as protenix's MSA row chunking, so a
+# target small enough to fit keeps the exact unchunked path. See OuterProductMean.__call__.
+OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
@@ -2133,28 +2137,57 @@ class OuterProductMean(Module):
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None, n_msa: int | None = None) -> ttnn.Tensor:
         x = ttnn.reshape(x, tuple(x.shape)[1:])
-        m = ttnn.layer_norm(
-            x,
-            weight=self.norm_weight,
-            bias=self.norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
-        a = ttnn.linear(
-            m,
-            self.a_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
-        b = ttnn.linear(
-            m,
-            self.b_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
-        ttnn.deallocate(m)
-        if msa_mask is not None:
-            a = ttnn.multiply_(a, msa_mask)
+
+        def project_ab(xc, maskc):
+            """layer_norm + the two c=32 projections. Every op here is per MSA row (norm over
+            channels, linear over channels, mask multiply per row), so this may be applied to a
+            slice of the depth axis and concatenated without changing a single number."""
+            mc = ttnn.layer_norm(
+                xc,
+                weight=self.norm_weight,
+                bias=self.norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            ac = ttnn.linear(
+                mc,
+                self.a_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            bc = ttnn.linear(
+                mc,
+                self.b_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(mc)
+            if maskc is not None:
+                ac = ttnn.multiply_(ac, maskc)
+            return ac, bc
+
+        # The layer_norm above is out-of-place, so unchunked it materialises a SECOND full-depth
+        # c_m tensor beside `x` (2.494 GiB each for a 682-token/14860-deep target) purely to feed
+        # two c=32 projections that are 1/4 the size. Chunking the depth axis keeps only the
+        # projections at full depth. Measured: this is the allocation a deep-MSA target dies on
+        # once the MSA-update path is chunked (refused 669,532,160 B = 32 channels x 2 B).
+        #
+        # The matmul below is deliberately NOT chunked: its contraction runs along S, the MSA
+        # depth axis, so splitting it into partial sums would change bf16 accumulation order and
+        # would not be bit-exact. Concatenating a and b first keeps it one matmul over full depth.
+        if x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
+            a, b = project_ab(x, msa_mask)
+        else:
+            a_parts, b_parts = [], []
+            for s in range(0, x.shape[0], MSA_CHUNK_SIZE):
+                e = min(s + MSA_CHUNK_SIZE, x.shape[0])
+                ac, bc = project_ab(x[s:e], None if msa_mask is None else msa_mask[s:e])
+                a_parts.append(ac)
+                b_parts.append(bc)
+            a = ttnn.concat(a_parts, dim=0)
+            b = ttnn.concat(b_parts, dim=0)
+            for p in a_parts + b_parts:
+                ttnn.deallocate(p)
         S, I, C = a.shape
         _, J, D = b.shape
         a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)

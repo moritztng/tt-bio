@@ -1801,10 +1801,14 @@ class Trunk(_KeyedWeights):
             parts = []
             for s in range(0, D, MSA_CHUNK_SIZE):
                 mc = m[:, s:min(s + MSA_CHUNK_SIZE, D), :, :]     # slice => private copy
-                # In-place adds are safe here precisely because `mc` is that private copy;
-                # the caller's m_feat is only ever read. See the cross-cycle note below.
-                mc = ttnn.add_(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
-                mc = ttnn.add_(mc, ttnn.reshape(transition(mc), tuple(mc.shape)))
+                # Deliberately the SAME out-of-place ttnn.add as the unchunked branch above.
+                # An in-place add_ here would be safe for aliasing (mc is a private copy) and
+                # would save a chunk-sized buffer, but it is a second change riding along with
+                # the chunking, and the acceptance test cannot then attribute a difference to
+                # one or the other. Keep the arithmetic identical to the whole path; the memory
+                # win comes from the chunk being small, not from mutating it.
+                mc = ttnn.add(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
+                mc = ttnn.add(mc, ttnn.reshape(transition(mc), tuple(mc.shape)))
                 parts.append(mc)
                 dram_peak("trunk msa block: after pwa add")
             ttnn.deallocate(zc)
