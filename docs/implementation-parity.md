@@ -225,6 +225,37 @@ itself (out of scope for a parity gate). Verdict stays **GAP-evidenced**, margin
 new gates are retained as documented negative infrastructure, default OFF (same policy as
 `BOLTZ2_FP32_SOFTMAX`) — harmless, reversible, and available for the next leg that might need them.
 
+**`protenix-v2-prot-msa` on Wormhole root-caused 2026-07-31: the structure metric was scoring a
+confidence-rank coin flip, and the metric is now rank-invariant.** The leg read 2.403 Å against a
+0.042 Å envelope (ratio 56.7) on a Wormhole Galaxy while passing on Blackhole. Cause: tt-bio names
+structure output by confidence rank, so `<tid>.cif` is whichever of the five diffusion samples has
+the highest pTM, and on 7ROA the top two pTM values are tied to within 3.1e-4 (1.3e-4 on Blackhole,
+3.0e-6 on Wormhole) — far below the resolution of the arithmetic being tested. The scorer compared
+rank 0 to rank 0, so a reordering read as a 2.4 Å structural error. Measured with the full 5×5
+CA-Kabsch matrix between every pair of samples: the device reproduces the reference's five samples
+at 0.076–0.63 Å, and its counterpart of the reference's top structure is **0.139 Å** away, not
+2.403 Å. The reordering is not a device property at all — two tt-bio CPU fp32 folds of the same
+code, seed and MSA on different hosts also come out reordered, with the swapped pair *bitwise
+identical* (`prot_model_2` of one equals `prot_model_1` of the other, sha256).
+
+`integration_envelope.py` now anchors on the reference's top structure and compares it to its
+counterpart in the run under test, requiring the match to be at least 3× closer than the next
+candidate (a diffusion ensemble's samples sit 1–3 Å apart, a reproduced trajectory lands ~0.1 Å
+away, so a true counterpart wins by 10×+; below the threshold it falls back to the strict rank-0
+compare). Single-sample legs are unaffected bit-for-bit. Across the protenix-v2 legs it changes
+exactly one number — `prot` 2.4033 → 0.1399 — leaving `hsa` at 0.0506 (PASS) and `ubq` at 0.1008
+(GAP, the collapsed-envelope leg above). Every report now carries a `sample_match` block naming
+the matched rank and flagging a flip.
+
+Rank-corrected, the leg reads numerator 0.139 Å against a 0.042 Å envelope (ratio 3.28, bound
+0.114) — still GAP, by 22%, and the Blackhole control on the identical fixture and seed reads
+0.082 Å (PASS). Both sit inside the leg's honest noise: refolding the fp32 reference itself with
+the same code and seed on a different host moves the top structure by **0.044 Å**, i.e. a
+same-dtype cross-host recompute already spends the whole measured bf16 envelope, and the device
+side is compared against a fixture generated on a different machine. So the residual is a bf16 +
+cross-host floor at ~0.1 Å on a 117-residue target, not a Wormhole port defect. It has not been
+driven under the bound; no fp32-boundary lever has been tried for it yet.
+
 ## Reproduce
 
 Each leg's reproduce command is in [Implementation parity — details](implementation-parity-details.md#reproducing-a-comparison).
