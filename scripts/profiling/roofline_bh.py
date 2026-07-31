@@ -62,11 +62,11 @@ def bandwidth(device, iters, warmup):
     return rows
 
 
-def flops(device, iters, warmup):
+def flops(device, iters, warmup, sizes=(512, 1024, 2048, 4096)):
     print("\n=== BF16 square matmul FLOP/s ===")
     print(f"{'N':<7} {'fidelity':<9} {'GFLOP':>10} {'ms/iter':>10} {'TFLOP/s':>9}")
     rows = []
-    for n in [512, 1024, 2048, 4096]:
+    for n in sizes:
         a = ttnn.ones((1, 1, n, n), dtype=BF16, layout=ttnn.TILE_LAYOUT, device=device,
                       memory_config=ttnn.DRAM_MEMORY_CONFIG)
         b = ttnn.ones((1, 1, n, n), dtype=BF16, layout=ttnn.TILE_LAYOUT, device=device,
@@ -123,17 +123,22 @@ def main():
     p.add_argument("--iters", type=int, default=20)
     p.add_argument("--warmup", type=int, default=5)
     p.add_argument("--only", choices=["bw", "flops", "sync"], default=None)
+    p.add_argument("--mm_sizes", type=int, nargs="+", default=[512, 1024, 2048, 4096],
+                   help="square matmul N values; extend upward until TFLOP/s saturates")
     args = p.parse_args()
 
     device = ttnn.open_device(device_id=args.device_id)
     try:
         g = device.compute_with_storage_grid_size()
+        dg = device.dram_grid_size()
+        # ttnn.open_device returns a MeshDevice on recent tt-metal; it exposes neither
+        # num_dram_channels() nor l1_size_per_core(), so report the grids it does expose.
         print(f"DEVICE arch={device.arch()} compute_grid={g.x}x{g.y} "
-              f"dram_channels={device.num_dram_channels()} l1_per_core={device.l1_size_per_core()}")
+              f"dram_grid={dg.x}x{dg.y} num_devices={device.get_num_devices()}")
         if args.only in (None, "bw"):
             bandwidth(device, args.iters, args.warmup)
         if args.only in (None, "flops"):
-            flops(device, args.iters, args.warmup)
+            flops(device, args.iters, args.warmup, sizes=args.mm_sizes)
         if args.only in (None, "sync"):
             unsynced_demo(device, args.iters, args.warmup)
     finally:

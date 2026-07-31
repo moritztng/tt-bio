@@ -47,7 +47,9 @@ def main():
         t0 = time.perf_counter()
         for i in range(args.ops):
             a, b = operands[i % len(operands)]
-            ttnn.add(a, b)
+            # deallocate the result: at 100k ops the leaked outputs otherwise exhaust DRAM.
+            # Same cost in the bare and profiled legs, so the overhead ratio stays honest.
+            ttnn.deallocate(ttnn.add(a, b))
         ttnn.synchronize_device(device)
         dt = time.perf_counter() - t0
         print(f"OPS {args.ops} SHAPES {len(shapes)} WALL_S {dt:.4f} US_PER_OP {dt/args.ops*1e6:.2f}")
