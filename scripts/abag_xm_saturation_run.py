@@ -25,6 +25,9 @@ import argparse, fcntl, json, os, signal, socket, subprocess, sys, time
 from pathlib import Path
 
 MPS = 5
+# boltz2: width-capped after the ceil-chunking fix (b62301f5) + p3 L1 budget rule
+# (917504 B/sample at 256 tok, tokens^2 scaling, 80 MB chunk budget -> all 16 targets <= 8).
+MPS_BOLTZ2 = 8
 BASE = Path.home() / "abag_xm" / "saturation"
 PROGRESS = BASE / "progress.jsonl"
 MSA_DIR = Path.home() / "abag_xm" / "msa_cache"
@@ -70,6 +73,7 @@ def fold_python():
 
 def jobs_for_model(model, targets, scale=1.0):
     prefix, out_parent, base_seed = MODELS[model]
+    mps = MPS_BOLTZ2 if model == "boltz2" else MPS
     jobs = []
     for t in targets:
         proj = round(PROJ[t] * scale)
@@ -83,13 +87,13 @@ def jobs_for_model(model, targets, scale=1.0):
                              "seed": base_seed + 1000 * j, "n_samples": 500,
                              "proj_s": round(chunk_proj),
                              "timeout_s": round(TIMEOUT_FACTOR * chunk_proj),
-                             "mps": MPS,
+                             "mps": mps,
                              "out_dir": str(BASE / out_parent / f"{t}_c{j}")})
         else:
             jobs.append({"target": t, "chunk": None, "model": model,
                          "seed": base_seed, "n_samples": 1000,
                          "proj_s": proj, "timeout_s": round(TIMEOUT_FACTOR * proj),
-                         "mps": MPS,
+                         "mps": mps,
                          "out_dir": str(BASE / out_parent / t)})
     return jobs
 
