@@ -109,6 +109,19 @@ def _score_one_fold(fold_dir, target, gen, labels_path, with_deeprank, with_abag
             print(f"[ranker_scores] !! {target}/{gen}: abag_rank requested but produced NO "
                   f"scores -- that column will be empty", file=sys.stderr, flush=True)
 
+    # An all-empty column is loud (above); a PARTIAL one used to be silent. Under CPU contention
+    # ABAG-Rank returned a short score map and the missing ranks became blank cells that look
+    # exactly like "not requested" -- 153 of 164 folds landed that way on 2026-07-30 and were only
+    # noticed because _needs_score re-queued them. Coverage is checked, so a hole names itself.
+    for _col, _sc in (("deeprank_ab", deeprank_scores), ("abag_rank", abagrank_scores)):
+        if not _sc:
+            continue
+        _missing = [k for k in range(n) if k not in _sc]
+        if _missing:
+            _PARTIAL_LEARNED.append((target, gen, _col, tuple(_missing)))
+            print(f"[ranker_scores] !! {target}/{gen}: {_col} covered {len(_sc)}/{n} samples -- "
+                  f"ranks {_missing[:6]} will be EMPTY", file=sys.stderr, flush=True)
+
     rows = []
     for k in range(n):
         run = runs_by_rank.get(k, {})
@@ -139,6 +152,8 @@ _FORCE_DEEPRANK = False
 _DEEPRANK_CACHE_DIR = None
 # (target, gen, column) for every learned ranker that was asked for and returned nothing.
 _EMPTY_LEARNED = []
+# (target, gen, column, missing_ranks) where a learned ranker scored SOME samples but not all.
+_PARTIAL_LEARNED = []
 
 
 def _device_folds_running():
@@ -176,12 +191,6 @@ def _run_deeprank_batched(folds, deeprank_venv, max_batch=5):
         return {}
     wrapper = ROOT / "scripts" / "abag_xm_deeprank_batch.py"
     py = os.path.join(deeprank_venv, "bin", "python3")
-    if _device_folds_running() and not _FORCE_DEEPRANK:
-        print("[deeprank] REFUSING: device folds are in flight on this host and DeepRank-Ab "
-              "cannot be contained (see the comment above _run_deeprank_batched). Score after the cards "
-              "idle, or pass --force_deeprank if you accept starving them.", file=sys.stderr)
-        return {}
-
     # Per-fold JSONs go to a STABLE cache, not a per-run temp dir. The DeepRank phase holds every
     # score in memory and the CSV is only rewritten after it completes, so a crash/reboot mid-phase
     # (qb1 lost one to unattended-upgrades) used to orphan hours of scoring: the JSONs survived in
@@ -219,6 +228,18 @@ def _run_deeprank_batched(folds, deeprank_venv, max_batch=5):
     cached = len(out)
     if cached:
         print(f"[deeprank] {cached}/{len(folds)} folds reused from {cache}", flush=True)
+
+    # The guard belongs HERE, not ahead of the cache pass. A cache hit is a file read and cannot
+    # starve a folding card, but the old placement returned {} for the WHOLE work list the moment
+    # any device fold appeared -- blanking 153 already-cached columns and leaving a CSV that looks
+    # like the ranker was never run. Only uncached folds are real DeepRank-Ab work, so only they
+    # wait for the cards.
+    if manifest and _device_folds_running() and not _FORCE_DEEPRANK:
+        print(f"[deeprank] REFUSING to score {len(manifest)} uncached fold(s): device folds are in "
+              "flight on this host and DeepRank-Ab cannot be contained (see the comment above "
+              "_run_deeprank_batched). Score after the cards idle, or pass --force_deeprank if you "
+              "accept starving them. Cached folds are unaffected.", file=sys.stderr)
+        manifest = []
 
     if manifest:
         work = tempfile.mkdtemp(prefix="deeprank_manifest_")
@@ -429,6 +450,13 @@ def main():
                   f"-- e.g. {', '.join(_folds[:4])}", file=sys.stderr)
         print("[ranker_scores] !! the CSV is complete in every other column, so this will look "
               "like the ranker was simply never run. Fix before using it.", file=sys.stderr)
+    if _PARTIAL_LEARNED:
+        _by_col = {}
+        for _t, _g, _c, _mr in _PARTIAL_LEARNED:
+            _by_col.setdefault(_c, []).append(f"{_t}/{_g}({len(_mr)})")
+        for _c, _f in sorted(_by_col.items()):
+            print(f"[ranker_scores] !! {_c}: PARTIAL for {len(_f)} fold(s) -- blank cells at the "
+                  f"unscored ranks. e.g. {', '.join(_f[:4])}", file=sys.stderr)
 
 
 if __name__ == "__main__":
