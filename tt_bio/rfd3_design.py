@@ -97,7 +97,7 @@ def extract_rfd3_weights(ckpt_path: str | Path, out_dir: str | Path) -> Path:
 
 def _load_golden_f(cap_dir: str) -> dict:
     """Reconstruct the `f` feature dict from a captured golden (the parity
-    fixture). Mirrors scripts/rfd3_port/verify_sampler.reconstruct_f."""
+    fixture)."""
     import glob
     cap = Path(cap_dir)
     f = {}

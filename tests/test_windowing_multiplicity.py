@@ -2,8 +2,7 @@
 windowing that the Protenix/OpenDDE device-denoise batch will need.
 
 This is a SPEC for the upcoming ttnn port, not the port itself. It proves the
-structural insight (recorded in state/tt-bio-diffusion-multiplicity-batching.md)
-that folding the multiplicity M into the windowed-attention block dim B (= M*nb)
+structural insight that folding the multiplicity M into the windowed-attention block dim B (= M*nb)
 via a LEADING-M 3D pad produces per-sample-correct windows with NO cross-sample
 bleed -- the trap to avoid is a single trailing pad on a flattened (M*N, C) tensor,
 which puts all padding at the end and makes the last sample's windows all-pad while

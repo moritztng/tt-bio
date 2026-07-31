@@ -413,9 +413,9 @@ def get_device(trace_region_size=0):
     size (e.g. 1 << 30) to enable the Protenix denoise trace via fold(trace=True)
     or BoltzGen's diffusion trace (Boltz.__init__(diffusion_trace=True)); the
     default 0 leaves the device layout unchanged. If the arg is 0,
-    ``TT_BIO_TRACE_REGION_SIZE`` is consulted as a dev-only escape hatch (used by
-    the parity harness in perf/boltzgen_trace_step_parity/) so a single-BH open
-    can reserve a trace region without the caller threading the kwarg.
+    ``TT_BIO_TRACE_REGION_SIZE`` is consulted as a dev-only escape hatch so a
+    single-BH open can reserve a trace region without the caller threading the
+    kwarg.
     """
     global _device, _trace_region_size, _device_lease
     if _device is None:

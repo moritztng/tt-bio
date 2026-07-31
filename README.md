@@ -32,7 +32,7 @@ tt-bio install-deps
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.3.4"   # pinned release, see Releases for the latest
+pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.5.0"   # pinned release, see Releases for the latest
 pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -209,7 +209,7 @@ scoring. Output layout matches `tt-bio embed` (`<id>.npz` / `embeddings.parquet`
 shards the input across cards data-parallel (one pinned subprocess each, results reassembled in
 input order) — bit-exact vs single-card with `--batch_size 1`. Parity vs the reference HuggingFace
 checkpoint, the multi-card bit-exactness check, and warm throughput are in
-[`docs/saprot-parity.md`](docs/saprot-parity.md). The 35M port is deferred; use 650M.
+[`docs/saprot-parity.md`](docs/saprot-parity.md).
 
 Python:
 

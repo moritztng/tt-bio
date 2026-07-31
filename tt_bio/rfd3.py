@@ -1430,8 +1430,8 @@ class LocalAtomTransformer(Module):
     allocation ever runs while that trace is open) and uses a cached packing-index
     buffer (RFD3DiffusionModule._grouping_buffers) instead of re-uploading it every call.
     This class's own trace=True path is kept only for isolated-component testing
-    (verify_encoder_trace_isolated.py) -- do not wire it directly into a production
-    pipeline without the same combined-trace treatment."""
+    -- do not wire it directly into a production pipeline without the same
+    combined-trace treatment."""
 
     def __init__(self, state_dict, ckc, n_blocks=3, dtype=None, fp32_residual=False, trace=False):
         super().__init__(state_dict, ckc)
