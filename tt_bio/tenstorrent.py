@@ -435,6 +435,43 @@ def get_device(trace_region_size=0):
     return _device
 
 
+_DRAM_PEAK = {}   # tag -> high-water device DRAM bytes, when TT_BIO_DRAM_PEAK is set
+
+
+def dram_peak(tag=None):
+    """Record (and return) the device DRAM high-water mark, in bytes.
+
+    Off unless TT_BIO_DRAM_PEAK names a file to append samples to, so production folds pay
+    nothing. A FILE and not stdout because `tt-bio predict` runs the fold in a spawned
+    worker whose stdout the live-progress view owns (and drops when it is not a TTY), so a
+    printed measurement is invisible exactly when it is being collected non-interactively.
+
+    The ttnn allocator is host-side bookkeeping updated at op-dispatch time, so sampling it
+    from the calling thread is synchronous and cheap. This is what the release gate's
+    capacity leg reads: a footprint change is invisible to a numerical parity fixture, so
+    the footprint has to be measured directly at the largest supported input.
+    Call with no tag to read the current peak across all tags.
+
+    Lives here rather than in a model module because the trunk (MSA/Pairformer, below) is
+    the largest DRAM consumer and cannot import a model module without a cycle."""
+    path = os.environ.get("TT_BIO_DRAM_PEAK")
+    if not path:
+        return 0
+    if tag is not None:
+        mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+        used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks
+        if used > _DRAM_PEAK.get(tag, 0):
+            _DRAM_PEAK[tag] = used
+            line = (f"[DRAM] {tag}: {used / 2**30:.3f} GiB used "
+                    f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB)\n")
+            try:
+                with open(path, "a") as fp:      # append: the worker is a separate process
+                    fp.write(line)
+            except OSError:
+                pass                            # a diagnostic must never break a fold
+    return max(_DRAM_PEAK.values(), default=0)
+
+
 def _open_and_init_device(trace_region_size):
     """Open + configure TT device 0 (the physical card is already leased by the caller)."""
     global _trace_region_size
@@ -1523,8 +1560,13 @@ class Pairformer(Module):
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
         extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
-        for block in self.blocks:
+        # Tagged so the pair term (z copies) can be read off a real trace instead of assumed:
+        # the MSA trunk's peak is floor + k*m_feat + pair_copies*z, and only a measurement
+        # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
+        dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
+        for i, block in enumerate(self.blocks):
             s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
+            dram_peak(f"pairformer block {i} done")
         return s, z
 
 
@@ -2225,18 +2267,25 @@ class MSALayer(Module):
                     m_acc = ttnn.concat([m_old, mc], dim=1)
                     ttnn.deallocate(m_old)
                     ttnn.deallocate(mc)
+                dram_peak("msalayer chunked: row loop")
             ttnn.deallocate(m)
             m = m_acc
             m = ttnn.reallocate(m)
+            dram_peak("msalayer chunked: rows joined")
             z = ttnn.add_(z, self.outer_product_mean(m, msa_mask, n_msa))
+            dram_peak("msalayer chunked: opm")
         else:
             m = ttnn.add_(m, self.pair_weighted_averaging(m, z, attn_mask))
+            dram_peak("msalayer whole: pwa")
             m = ttnn.add_(m, self.msa_transition(m))
+            dram_peak("msalayer whole: transition")
             z = ttnn.add_(z, self.outer_product_mean(m, msa_mask, n_msa))
+            dram_peak("msalayer whole: opm")
 
         z = self.pairformer_layer(
             None, z, mask=mask, attn_mask_start=attn_mask, attn_mask_end=attn_mask,
         )[1]
+        dram_peak("msalayer: pairformer layer")
 
         return z, m
 
@@ -2277,6 +2326,12 @@ class MSA(Module):
         msa_mask: ttnn.Tensor | None,
         n_msa: int | None,
     ) -> ttnn.Tensor:
+        # The MSA trunk is the campaign's DRAM limiter: `m` is (1, depth, tokens, c_m) and
+        # deep-MSA targets carry several full copies of it at once. Tag the floor (weights +
+        # z + the one-hot input, before the c_m projection exists) so a measured peak can be
+        # decomposed into floor + k*m_feat rather than guessed at. No-op unless
+        # TT_BIO_DRAM_PEAK is set.
+        dram_peak(f"msa floor [depth={m.shape[1]} tokens={m.shape[2]}]")
         m = ttnn.linear(
             m,
             self.msa_weight,
@@ -2292,8 +2347,10 @@ class MSA(Module):
                 core_grid=CORE_GRID_MAIN,
             ),
         )
-        for block in self.blocks:
+        dram_peak(f"msa m_feat projected [c_m={m.shape[-1]}]")
+        for i, block in enumerate(self.blocks):
             z, m = block(z, m, mask, attn_mask, msa_mask, n_msa)
+            dram_peak(f"msa block {i} done")
         return z
 
 
