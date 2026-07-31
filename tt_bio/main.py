@@ -1952,17 +1952,27 @@ MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "opendde", "opendde-abag")
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
-                         single_sequence, cache, controller, msa_server_url):
+                         single_sequence, cache, controller, msa_server_url,
+                         msa_cache_only=False):
     """Resolve the MSA source for MSA-dependent structure models.
 
     These models degrade sharply folded single-sequence, so ``predict`` must
     never do so silently. Precedence:
       1. ``--single_sequence``: explicit opt-out — fold single-seq, no network.
-      2. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
+      2. ``--msa_cache_only``: ``--msa_dir``'s cache is the source; never search.
+      3. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
          ``--msa_endpoint``): use it as given.
-      3. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
-      4. Otherwise enable the online MSA server, with a one-line notice naming the
+      4. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
+      5. Otherwise enable the online MSA server, with a one-line notice naming the
          server the sequences are sent to (a privacy concern for e.g. pharma).
+
+    Note on (2): a populated ``--msa_dir`` is NOT by itself a source here, and cannot be
+    one — this runs before any input is parsed, so whether every chain is cached is not yet
+    knowable. Without the explicit flag a fully-cached offline run therefore falls through
+    to (5) and enables the online server, which in turn switches on the multi-chain paired
+    search in ``worker.py`` (gated on the same ``want_msa``). That silently deepened a
+    benchmark run's MSA by 35-45% over its nominal depth, and made it network-dependent.
+    The flag exists so a reproducible run can say "the cache, or fail".
 
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
@@ -1971,6 +1981,16 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
         return use_msa_server, msa_db_path
 
     explicit = use_msa_server or msa_db_path or msa_endpoint
+    if msa_cache_only:
+        if explicit:
+            raise click.BadParameter(
+                "--msa_cache_only cannot be combined with --use_msa_server / "
+                "--msa_db_path / --msa_endpoint: it means the --msa_dir cache is the "
+                "only source and nothing is searched.")
+        if single_sequence:
+            raise click.BadParameter(
+                "--msa_cache_only cannot be combined with --single_sequence")
+        return False, None
     if single_sequence:
         if explicit:
             raise click.BadParameter(
@@ -2018,6 +2038,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
               help="MSA cache directory (default: <out_dir>/msa). Point at a persistent shared "
                    "path to reuse {seq_hash}.a3m across runs and hosts (never re-search a sequence).")
+@click.option("--msa_cache_only", is_flag=True,
+              help="Treat --msa_dir as the ONLY MSA source: never search (online or local), and "
+                   "fail rather than fold a chain single-sequence when its a3m is not cached. Use "
+                   "for reproducible benchmark runs, where an unnoticed search changes MSA depth.")
 @click.option("--use_envdb", is_flag=True, help="Also search ColabFold environmental database (requires envdb)")
 @click.option("--single_sequence", is_flag=True,
               help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2 (no local DB, "
@@ -2077,7 +2101,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
@@ -2143,7 +2167,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # esmfold2-fast are single-sequence by design and pass through untouched.
     use_msa_server, msa_db_path = _resolve_msa_default(
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
-        controller, msa_server_url)
+        controller, msa_server_url, msa_cache_only)
 
     if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"):
         # ESMFold2, Protenix-v2 and OpenDDE ride the SAME scheduler / worker / progress path
@@ -2210,6 +2234,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
+            "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
         }
         results_path = out / "results.json"

@@ -486,6 +486,18 @@ class _WorkerState:
         chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
                        for _cid, cseq, spec, mt in chains]
 
+        # --msa_cache_only: the cache is the only source, so a miss is an error. Without this
+        # _resolve_a3m_text returns None for an uncached chain and the fold quietly proceeds
+        # single-sequence for it -- a large, invisible accuracy loss in a benchmark run.
+        if cfg.get("msa_cache_only"):
+            uncached = [cid for (cid, _s, _sp, mt), (_q, a3m, _m)
+                        in zip(chains, chain_specs) if mt == "protein" and not a3m]
+            if uncached:
+                raise RuntimeError(
+                    f"--msa_cache_only: no cached a3m in {msa_dir} for protein chain(s) "
+                    f"{uncached}. Folding them single-sequence would silently change MSA "
+                    "depth; search them first, or drop --msa_cache_only.")
+
         # Paired (species-pairing) MSA for multi-chain complexes -- the cross-chain
         # co-evolution signal the reference OpenDDE pipeline injects via
         # MSAPairingEngine.pair_chains_by_species and this port otherwise lacks
