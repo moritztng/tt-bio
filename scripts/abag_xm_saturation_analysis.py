@@ -262,15 +262,43 @@ def progress_records():
     return recs
 
 
+def _lstsq_fit(ok):
+    """(fixed_s, marginal_s_per_sample) from wall ~ fixed + marginal * n_samples."""
+    xs = [r["n_samples"] for r in ok]
+    ys = [r["wall_s"] for r in ok]
+    n = len(ok)
+    sx, sy = sum(xs), sum(ys)
+    sxx = sum(x * x for x in xs)
+    sxy = sum(x * y for x, y in zip(xs, ys))
+    denom = n * sxx - sx * sx
+    if denom and len(set(xs)) > 1:
+        marg = (n * sxy - sx * sy) / denom
+        return (sy - marg * sx) / n, marg
+    return FIXED_FIT_FALLBACK, (statistics.mean(ys) - FIXED_FIT_FALLBACK) / statistics.mean(xs)
+
+
 def cost_fit(recs, model_dir):
     """fixed + marginal least-squares over ok records of one model; per-target marginals
-    from measured total walls (chunk invocations included, fixed counted per invocation)."""
+    from measured total walls (chunk invocations included, fixed counted per invocation).
+
+    Also fit each host separately. qb1 ran these folds alongside a sibling task's 14-core
+    labeler and came in 1.39-1.56x its projection while qb2 did not, so a pooled fit
+    describes neither machine; a reader choosing a budget needs to know which regime the
+    card-seconds are in.
+    """
     prefix = MODELS[model_dir]
     model_id = {"opendde": "opendde-abag", "protenix": "protenix-v2",
                 "boltz2": "boltz2"}[model_dir]
     ok = [r for r in recs if r.get("status") == "ok" and r.get("model") == model_id]
     if not ok:
         return None
+    by_host = {}
+    for h in sorted({r.get("host") for r in ok if r.get("host")}):
+        hr = [r for r in ok if r.get("host") == h]
+        f, m_ = _lstsq_fit(hr)
+        by_host[h] = {"fixed_s": round(f, 1), "marginal_s_per_sample": round(m_, 3),
+                      "n_records": len(hr),
+                      "total_card_s": round(sum(r["wall_s"] for r in hr), 1)}
     xs = [r["n_samples"] for r in ok]
     ys = [r["wall_s"] for r in ok]
     n = len(ok)
@@ -293,7 +321,8 @@ def cost_fit(recs, model_dir):
         per_t[t] = {"wall_s": round(total, 1), "invocations": n_inv,
                     "marg_s_per_sample": round((total - fixed * n_inv) / 1000.0, 3)}
     return {"fixed_s": round(fixed, 1), "marginal_s_per_sample": round(marg, 3),
-            "n_records": n, "total_card_s": round(sy, 1), "per_target": per_t}
+            "n_records": n, "total_card_s": round(sy, 1), "per_target": per_t,
+            "by_host": by_host}
 
 
 def cost_block(per, fit, thr):
