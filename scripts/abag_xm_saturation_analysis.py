@@ -40,6 +40,7 @@ MODELS = {"opendde": "opendde", "protenix": "protenix", "boltz2": "boltz2"}  # d
 BOOT_REPS = 10000
 RANKED_REPS = 1000
 KNEE_PP = 1.0  # pre-registered per-doubling gain threshold, percentage points
+Q2_TIE_PP = 0.01  # leads below this are ties: no leader named, no crossover counted
 # §0 label-derived Arm-A oracle @0.23 (n=11), the G3 continuity reference.
 S0_CONT = {50: 42.8, 100: 53.4, 200: 63.6}
 TRUNK_FIXED_S = 342.0  # measured trunk-pass cost (frontier cost fit); not refitted here
@@ -488,13 +489,52 @@ def main():
     if shared and len(models) > 1:
         shared = sorted(shared)
         q2 = {"shared_targets": shared, "n_shared": len(shared)}
+        curves = {}
         for md, entry in models.items():
             per = load_model(md)
-            o50 = mean_oracle(per, shared, 50, 0.23)[0]
-            o1000 = mean_oracle(per, shared, 1000, 0.23)[0]
+            # Full grid on the SHARED subset: the per-model tables above each use that
+            # model's own labeled set, which is not a like-for-like comparison.
+            curve = {m: mean_oracle(per, shared, m, 0.23)[0] for m in GRID}
+            curves[md] = curve
+            o50, o1000 = curve[50], curve[GRID[-1]]
             q2[md] = {"oracle_50": round(o50, 4), "oracle_1000": round(o1000, 4),
                       "pp_per_doubling_50_1000": round(
-                          100.0 * (o1000 - o50) / math.log2(1000.0 / 50.0), 2)}
+                          100.0 * (o1000 - o50) / math.log2(1000.0 / 50.0), 2),
+                      "curve_shared": {m: round(v, 4) for m, v in curve.items()}}
+        # Crossover: does the ranking flip with budget? Report the leader at every grid
+        # point and each N where it changes. A tie is not a crossover, so require the new
+        # leader to be ahead by more than a rounding artefact.
+        # One bar for both jobs: a lead this small is a tie, so it neither names a leader
+        # nor counts as a crossover. Without a shared bar a 0.001 pp lead would be recorded
+        # as a ranking flip while displaying as 0.00 pp.
+        leaders, flips = {}, []
+        prev, prev_m = None, None
+        for m in GRID:
+            ranked = sorted(curves, key=lambda md: -curves[md][m])
+            best, second = ranked[0], (ranked[1] if len(ranked) > 1 else None)
+            margin = (curves[best][m] - curves[second][m]) if second else None
+            tied = margin is not None and margin < Q2_TIE_PP / 100.0
+            leaders[m] = {"leader": None if tied else best,
+                          "tied_among": [md for md in ranked
+                                         if curves[best][m] - curves[md][m] < Q2_TIE_PP / 100.0]
+                          if tied else None,
+                          "margin_pp": round(100.0 * margin, 2) if margin is not None else None}
+            if prev is not None and not tied and best != prev:
+                flips.append({"between": [prev_m, m], "from": prev, "to": best,
+                              "margin_pp": round(100.0 * margin, 2)})
+            if not tied:
+                prev, prev_m = best, m
+        q2["leader_by_n"] = leaders
+        q2["crossovers"] = flips
+        led = [v["leader"] for v in leaders.values() if v["leader"]]
+        q2["crossover_verdict"] = (
+            ("no crossover: " + (led[0] if led else "no single generator")
+             + f" leads at every N on the shared subset where the gap exceeds {Q2_TIE_PP} pp"
+             + ("; generators tie at the top for the largest N" if led and not leaders[GRID[-1]]["leader"] else ""))
+            if not flips else
+            "crossover(s): " + "; ".join(
+                f"{f['from']} -> {f['to']} between N={f['between'][0]} and {f['between'][1]}"
+                for f in flips))
         res["q2_generators"] = q2
 
     (BASE / "analysis.json").write_text(json.dumps(res, indent=1))

@@ -151,6 +151,38 @@ def verdicts(models, order):
     return out
 
 
+def q2_crossover(res):
+    """Shared-subset curves side by side, plus the crossover verdict (section 4 item 4)."""
+    q2 = res.get("q2_generators")
+    if not q2 or "leader_by_n" not in q2:
+        return []
+    mds = [m for m in MODEL_LABEL if m in q2 and isinstance(q2.get(m), dict)
+           and q2[m].get("curve_shared")]
+    if not mds:
+        return []
+    out = [f"\n**Does depth pay equally across generators? Oracle at DockQ >= 0.23 on the "
+           f"shared subset (n={q2['n_shared']}), like for like**\n",
+           head(["N"] + [MODEL_LABEL[m] for m in mds] + ["leader", "margin"])]
+    for m in SHOW:
+        k = str(m)
+        cells = []
+        for md in mds:
+            cv = q2[md]["curve_shared"]
+            cells.append(pct(cv.get(k, cv.get(m))))
+        ld = q2["leader_by_n"].get(k) or q2["leader_by_n"].get(m) or {}
+        margin = ld.get("margin_pp")
+        if ld.get("leader"):
+            who = MODEL_LABEL[ld["leader"]]
+        elif ld.get("tied_among"):
+            who = "tie: " + ", ".join(MODEL_LABEL.get(x, x) for x in ld["tied_among"])
+        else:
+            who = ""
+        cells += [who, "" if margin is None else f"{margin:.2f} pp"]
+        out.append(row(k, cells))
+    out.append(f"\n{q2['crossover_verdict']}\n")
+    return out
+
+
 def q2_block(res):
     q2 = res.get("q2_generators")
     if not q2:
@@ -212,6 +244,7 @@ def main():
     lines += duplicate_block(models, order)
     lines += verdicts(models, order)
     lines += q2_block(res)
+    lines += q2_crossover(res)
     lines += gates(models)
     print("\n".join(lines))
 
