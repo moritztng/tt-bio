@@ -31,7 +31,8 @@ import ttnn
 
 from . import protenix_weights as PW
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
-from .tenstorrent import Module, CORE_GRID_MAIN, get_device, dram_peak
+from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
+                          MSA_CHUNK_SIZE)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -41,6 +42,29 @@ from .tenstorrent import Module, CORE_GRID_MAIN, get_device, dram_peak
 # 50-sample fold of a 1095-token target ask for 4 GB in one allocation. Callers that
 # know their headroom can raise it; `tt-bio predict --max_parallel_samples` exposes it.
 DEFAULT_MAX_PARALLEL_SAMPLES = 5
+
+# Row-chunk the trunk's MSA representation once it exceeds this many bytes. Sized so the
+# targets that already fit keep the exact unchunked code path (an AbAg-XM target at 285
+# tokens / depth 8998 is 0.618 GiB and stays whole; at 682 tokens / depth 14860 it is
+# 2.494 GiB and chunks). Chunking is bit-exact either way -- see Trunk._msa.update_msa --
+# so this threshold trades only speed, never numbers: below it, nothing about any existing
+# fold changes; above it, a fold that previously OOMed now runs.
+# A Blackhole part has 32 GiB and has never needed this, but deep-MSA targets there will now
+# chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
+MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
+
+
+def _msa_row_chunk_budget():
+    """The chunking threshold, with a test-only env override.
+
+    An env var rather than an argument (which this codebase otherwise prefers) because the
+    only caller that needs to move it is the bit-exactness check, and `predict` runs the fold
+    in a SPAWNED worker: a value set on the parent's module object would not reach it. Forcing
+    the budget to 0 makes a small target take the chunked path so its output can be compared
+    byte-for-byte against the same target folded whole -- which is the acceptance test for a
+    change that claims to be numerically inert."""
+    v = os.environ.get("TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES")
+    return int(v) if v else MSA_ROW_CHUNK_BUDGET_BYTES
 
 def _window_q(x, N, NP, nq=32):
     """Window the query axis into local blocks: (N,C)|(1,N,C) -> (NP//nq, nq, C), right-padded
@@ -1750,15 +1774,51 @@ class Trunk(_KeyedWeights):
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
-            # Each ttnn.add is out-of-place, so the input and the result are both live for
-            # the duration: at c_m=128 and full MSA depth that is two ~2.5 GiB buffers per
-            # add on a 12 GiB part. This is where a deep-MSA target actually runs out.
-            m = ttnn.add(m, ttnn.reshape(
-                pwa(m, ttnn.clone(z)), tuple(m.shape)))
-            dram_peak("trunk msa block: after pwa add")
-            return ttnn.add(
-                m, ttnn.reshape(transition(m), tuple(m.shape)))
+            D = m.shape[1]                                  # MSA depth
+            # Row-chunk the MSA depth axis when the representation is too big to hold several
+            # copies of. Unchunked, PairWeightedAveraging's FIRST op is an out-of-place
+            # layer_norm over the whole tensor, so a second full copy has to exist alongside
+            # the input; measured on a 12 GiB Wormhole part, that allocation is exactly what
+            # a deep-MSA target dies on (9qqf refused 2.494 GiB with m_feat = 2.494 GiB).
+            #
+            # This is bit-exact, not an approximation: nothing in this path reduces along the
+            # depth axis. PWA's weights come from `z` alone (linear(z,...) then softmax), its
+            # matmul contracts the TOKEN axis, its head accumulation is over heads, and
+            # layer_norm/Transition are per-row over channels. So each output row depends only
+            # on its own input row and on z, and partitioning the rows cannot change any
+            # accumulation order. (OuterProductMean is the opposite case -- its reduction IS
+            # over depth -- which is why it stays full-depth below and must not be chunked.)
+            if D * m.shape[2] * m.shape[3] * 2 <= _msa_row_chunk_budget():
+                m = ttnn.add(m, ttnn.reshape(
+                    pwa(m, ttnn.clone(z)), tuple(m.shape)))
+                dram_peak("trunk msa block: after pwa add")
+                return ttnn.add(
+                    m, ttnn.reshape(transition(m), tuple(m.shape)))
+            # One clone of z for the whole loop, not one per chunk: PWA only reads z (it
+            # rebinds its own local through reshape/layer_norm and never deallocates it), and
+            # at c_z=384 a per-chunk clone would cost ~0.9 GiB each for a 1120-token target.
+            zc = ttnn.clone(z)
+            parts = []
+            for s in range(0, D, MSA_CHUNK_SIZE):
+                mc = m[:, s:min(s + MSA_CHUNK_SIZE, D), :, :]     # slice => private copy
+                # In-place adds are safe here precisely because `mc` is that private copy;
+                # the caller's m_feat is only ever read. See the cross-cycle note below.
+                mc = ttnn.add_(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
+                mc = ttnn.add_(mc, ttnn.reshape(transition(mc), tuple(mc.shape)))
+                parts.append(mc)
+                dram_peak("trunk msa block: after pwa add")
+            ttnn.deallocate(zc)
+            out = ttnn.concat(parts, dim=1)                        # single terminal concat
+            for p in parts:
+                ttnn.deallocate(p)
+            return out
 
+        # DO NOT make update_msa's first add in-place on the tensor passed in. `m_feat` is
+        # built ONCE outside the recycling loop in __call__ and this method is re-entered for
+        # every cycle, so the caller's buffer has to survive intact; mutating it would corrupt
+        # cycles 2..n_cycles. That is a numerical change, not an allocation change, and it
+        # would not show up as an OOM -- only as wrong coordinates. The chunked path above is
+        # safe because it slices (a copy) and mutates only the slice.
         for _bi, (opm, pwa, tm, pl) in enumerate(self.MSA):
             dram_peak(f"trunk msa block {_bi} enter")
             # OpenDDE refreshes the MSA before OPM. Protenix-v2 retains the
