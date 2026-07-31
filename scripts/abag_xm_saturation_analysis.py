@@ -90,14 +90,26 @@ def load_target(model_dir, prefix, target):
     return out
 
 
+_LOADED = {}
+
+
 def load_model(model_dir):
-    prefix = MODELS[model_dir]
-    per = {}
-    for t in TARGETS:
-        samples = load_target(model_dir, prefix, t)
-        if samples is not None:
-            per[t] = samples
-    return per
+    """Cached: the returned dict is reused for the process lifetime.
+
+    The success cache below keys on id(per), which is only sound while every `per` dict
+    stays alive — a freed dict's address can be handed to the next allocation, and the
+    Q2 block reloads each model in a loop. Keeping one dict per model makes the address
+    stable and unique, and saves the reload.
+    """
+    if model_dir not in _LOADED:
+        prefix = MODELS[model_dir]
+        per = {}
+        for t in TARGETS:
+            samples = load_target(model_dir, prefix, t)
+            if samples is not None:
+                per[t] = samples
+        _LOADED[model_dir] = per
+    return _LOADED[model_dir]
 
 
 _SUCC = {}
