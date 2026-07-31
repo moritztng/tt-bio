@@ -310,6 +310,27 @@ def continuity_block(per):
     return out
 
 
+def duplicate_groups(labeled):
+    """Targets among `labeled` whose fold INPUT is byte-identical (comments stripped).
+
+    9q6y/9q6z are one such pair: same antigen+nanobody, different native. Their oracle
+    curves therefore share every prediction and are not independent evidence for the panel
+    mean or the bootstrap CI. Reported, not corrected — the treatment is a judgement call
+    recorded in the state doc, and silently collapsing them would hide it.
+    """
+    import hashlib
+    yaml_dir = Path(__file__).resolve().parent.parent / "examples" / "abag_xm"
+    by_hash = {}
+    for t in labeled:
+        f = yaml_dir / f"{t}.yaml"
+        if not f.exists():
+            continue
+        body = "\n".join(l for l in f.read_text().splitlines()
+                          if not l.strip().startswith("#"))
+        by_hash.setdefault(hashlib.md5(body.encode()).hexdigest(), []).append(t)
+    return [sorted(v) for v in by_hash.values() if len(v) > 1]
+
+
 def main():
     recs = progress_records()
     res = {"targets": TARGETS, "grid": GRID, "thresholds": THRESHOLDS}
@@ -328,6 +349,9 @@ def main():
                           "budget": cost_block(per, fit, thr) if thr == 0.23 else None}
             if thr == 0.23:
                 entry[key]["knee"] = knee_verdict(per, thr)
+        entry["duplicate_input_groups"] = duplicate_groups(sorted(per))
+        entry["n_distinct_inputs"] = len(per) - sum(
+            len(g) - 1 for g in entry["duplicate_input_groups"])
         if model_dir == "opendde":
             entry["g3_continuity"] = continuity_block(per)
         models[model_dir] = entry
