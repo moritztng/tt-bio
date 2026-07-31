@@ -21,7 +21,7 @@ Resume: a job whose out_dir holds a complete fold (results.json status ok with
 exactly n_samples CIFs) is skipped. Spawn-deadlock watchdog + lease-exemption
 identical to abag_xm_frontier_run.py (proven in the frontier campaign).
 """
-import argparse, fcntl, json, os, signal, socket, subprocess, sys, time
+import argparse, fcntl, json, os, re, signal, socket, subprocess, sys, time
 from pathlib import Path
 
 MPS = 5
@@ -274,6 +274,63 @@ def _proc_tree(root):
     return tree, sum(jiffies.get(p, 0) for p in tree)
 
 
+def _host_oom_since(t0, pids):
+    """The kernel's oom-kill line for one of `pids`, if the host OOM-killer fired since t0.
+
+    A worker killed by the global OOM-killer looks EXACTLY like a spawn deadlock from the
+    outside: the tree loses its device fds and goes idle because the parent is blocked in a
+    join that will never return, and the fold log is empty because SIGKILL discards whatever
+    the child had buffered. Three passes of this campaign read that signature as a spawn
+    deadlock and concluded retry was the right response -- but the OOM is a deterministic
+    consequence of the job's own host-memory growth, so every retry reproduced it, and
+    boltz2/9m8l burned 5.5 card-h over two attempts before this was traced. Report the real
+    cause: it is a job-sizing problem, not a flake.
+    """
+    # Unprivileged `dmesg` is denied on these hosts (kernel.dmesg_restrict), and it fails by
+    # printing to stderr with rc 0 -- so an empty stdout is the only tell. Try each reader and
+    # keep the first that actually yields kernel lines.
+    out = ""
+    for cmd in (["journalctl", "-k", "--since", "-6h", "--no-pager"],
+                ["sudo", "-n", "dmesg", "-T"],
+                ["dmesg", "-T"]):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        except Exception:
+            continue
+        if r.stdout.strip():
+            out = r.stdout
+            break
+    if not out:
+        return None
+    want = {str(p) for p in pids}
+    for line in reversed(out.splitlines()):
+        if "Killed process" not in line and "oom-kill:" not in line:
+            continue
+        if any(re.search(rf"\b{p}\b", line) for p in want):
+            return line.strip()[:300]
+    return None
+
+
+def _tree_rss_gb(tree):
+    total = 0
+    for pid in tree:
+        try:
+            total += int(Path(f"/proc/{pid}/statm").read_text().split()[1])
+        except Exception:
+            continue
+    return total * os.sysconf("SC_PAGE_SIZE") / 1024 ** 3
+
+
+def _avail_gb():
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) / 1048576
+    except Exception:
+        pass
+    return float("nan")
+
+
 def _tree_has_device(tree):
     for pid in tree:
         try:
@@ -331,6 +388,7 @@ def run_job(job, card, py, timeout, host_threads, log):
         p = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT,
                              env=env, start_new_session=True)
         idle_snaps, last_j = 0, None
+        seen_pids, peak_rss = {p.pid}, 0.0
         status = None
         while True:
             rc = p.poll()
@@ -345,8 +403,10 @@ def run_job(job, card, py, timeout, host_threads, log):
                 continue
             tree, j = _proc_tree(p.pid)
             if _tree_has_device(tree):
-                idle_snaps, last_j = 0, None
+                idle_snaps, last_j, seen_pids = 0, None, set(tree)
+                peak_rss = max(peak_rss, _tree_rss_gb(tree))
                 continue
+            seen_pids |= set(tree)
             # a deadlocked tree still burns ~1% in the parent's select loop;
             # a healthy no-device phase (featurization) saturates cores.
             if last_j is not None and j - last_j < 300:
@@ -357,8 +417,14 @@ def run_job(job, card, py, timeout, host_threads, log):
                 idle_snaps = 0
             last_j = j
             if idle_snaps >= 6:
+                oom = _host_oom_since(t0, seen_pids)
                 os.killpg(p.pid, signal.SIGKILL)
                 p.wait()
+                if oom:
+                    print(f"  host OOM-killer took a worker (peak tree RSS "
+                          f"{peak_rss:.0f} GB, {_avail_gb():.0f} GB avail now): {oom}",
+                          flush=True)
+                    return time.time() - t0, "host-oom"
                 return time.time() - t0, "spawn-deadlock"
         wall = time.time() - t0
     if rc != 0:
