@@ -16,7 +16,11 @@ The declared interface chains (fold_auth_chain_id_1/2) are resolved from the
 manifest by pdb_id; if --chain1/--chain2 are passed they override the lookup.
 
 Usage:
-    PYTHONPATH=<wt> python3 scripts/abag_xm_labels.py <results_dir> <native.cif> <fold.yaml> [--n_samples N] [--out labels.json]
+    PYTHONPATH=<wt> python3 scripts/abag_xm_labels.py <results_dir> <native.cif> <fold.yaml> [--n_samples N] [--out labels.json] [--per_sample_only]
+
+--per_sample_only skips the pairwise matrix + basin clustering stages (quadratic
+in N); labels.json keeps both keys with a "_skipped" marker so the schema is
+otherwise unchanged.
 """
 import argparse, json, subprocess, sys, tempfile
 from pathlib import Path
@@ -105,6 +109,8 @@ def main():
     ap.add_argument("--pair_workers", type=int, default=4,
                     help="parallel workers inside the pairwise DockQ matrix, which is 62%% of a "
                          "fold's label cost. Total processes are (label workers) x this.")
+    ap.add_argument("--per_sample_only", action="store_true",
+                    help="skip pairwise matrix + basin clustering (quadratic in N)")
     a = ap.parse_args()
     rd = Path(a.results_dir)
     target = rd.name.split("results_")[1]
@@ -144,20 +150,24 @@ def main():
         recs.append(rec)
 
     # per-fold: pairwise matrix + PSS, then basin clustering on that matrix
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        matrix_out = td / "matrix.json"
-        # Pass the pairwise worker count explicitly. It was defaulting to 4 inside
-        # abag_xm_pairwise_matrix, so the real process count was label_workers x 4 -- 16 on a host
-        # running 4 label workers, which nobody chose and which no budget bounded. It happens to fit
-        # 32 cores next to 4 folds; it would not fit a host where label workers were raised further.
-        # Default preserved at 4 so this changes nothing today, but the knob now exists and the
-        # resulting total is printed rather than implied.
-        pm = _run("abag_xm_pairwise_matrix", [str(rd), target,
-                   f"--n_samples={len(samples)}",
-                   f"--n_workers={a.pair_workers}"], out_path=matrix_out)
-        bc_out = td / "basin.json"
-        bc = _run("abag_xm_basin_clust", [str(matrix_out)], out_path=bc_out)
+    if a.per_sample_only:
+        pm = {"_skipped": "per_sample_only"}
+        bc = {"_skipped": "per_sample_only"}
+    else:
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            matrix_out = td / "matrix.json"
+            # Pass the pairwise worker count explicitly. It was defaulting to 4 inside
+            # abag_xm_pairwise_matrix, so the real process count was label_workers x 4 -- 16 on a
+            # host running 4 label workers, which nobody chose and which no budget bounded. It
+            # happens to fit 32 cores next to 4 folds; it would not fit a host where label workers
+            # were raised further. Default preserved at 4 so this changes nothing today, but the
+            # knob now exists and the resulting total is printed rather than implied.
+            pm = _run("abag_xm_pairwise_matrix", [str(rd), target,
+                       f"--n_samples={len(samples)}",
+                       f"--n_workers={a.pair_workers}"], out_path=matrix_out)
+            bc_out = td / "basin.json"
+            bc = _run("abag_xm_basin_clust", [str(matrix_out)], out_path=bc_out)
 
     out = {"target": target, "results_dir": str(rd), "native": a.native,
            "yaml": a.yaml, "n_samples": len(samples),
