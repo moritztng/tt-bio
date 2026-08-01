@@ -192,9 +192,13 @@ def probe_full_update_msa():
 
     # Positive control FIRST: prove the comparator can actually see a difference. Omitting this is
     # what let a broken comparison report vacuous "SAME" for two whole passes.
+    # Perturb scale-aware: these are bf16, so "+1.0" on an element of magnitude ~1000 rounds
+    # straight back to the same value and the control would fire spuriously (it did, first try).
     ctrl = chunked_t.clone()
-    ctrl[0, 0, 0, 0] = ctrl[0, 0, 0, 0] + 1.0
+    v = ctrl[0, 0, 0, 0].to(torch.float32).item()
+    ctrl[0, 0, 0, 0] = v * 2.0 + 1.0 if v != 0.0 else 1.0
     assert not torch.equal(chunked_t, ctrl), "comparator is blind -- fix before trusting any verdict"
+    assert not torch.equal(chunked_t, torch.zeros_like(chunked_t)), "output is all zeros"
     print("  [control] comparator detects a 1-element change   OK")
 
     report("full update_msa (PWA+Transition)", whole_t, chunked_t)
