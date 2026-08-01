@@ -22,8 +22,7 @@ import os
 import torch
 import ttnn
 
-from tt_bio.tenstorrent import (get_device, MSA_CHUNK_SIZE, Transition, _dtype,
-                                CORE_GRID_MAIN)
+from tt_bio.tenstorrent import get_device, MSA_CHUNK_SIZE, Transition, _dtype
 
 D = int(os.environ.get("PROBE_DEPTH", 2048))     # smaller than the real 8722: still >1 chunk, faster
 C_M = 128
@@ -69,47 +68,6 @@ def sweep_widths(dev):
         verdict(f"D={Dv:5d} rem={rem:3d} (rem%32={rem % 32:2d})  W={W:4d} (W%32={W % 32:2d})",
                 whole, chunked)
         ttnn.deallocate(x)
-
-
-def inner_ops(dev, W):
-    """The ops swiglu is built from, chunked over dim=1 exactly as Transition chunks its H axis.
-
-    Names the guilty op without having to read tt-metal: whichever line flips from BIT-EXACT to
-    DIFFERS at a non-tile-multiple W is the one that mishandles the pad columns.
-    """
-    print(f"\n=== inner ops at W={W} (W%32={W % 32}), chunked over dim=1 ===")
-    torch.manual_seed(0)
-    H = 4 * C_M
-    x = up(torch.randn(1, D, W, C_M), dev)
-    lnw, lnb = up(torch.randn(C_M), dev), up(torch.randn(C_M), dev)
-    w1 = up(torch.randn(C_M, H), dev)
-    w3 = up(torch.randn(H, C_M), dev)
-    kc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4,
-                                          fp32_dest_acc_en=True, packer_l1_acc=True)
-
-    def chunks(t):
-        return [t[:, s:min(s + CHUNK, D), :, :] for s in range(0, D, CHUNK)]
-
-    ln = lambda t: ttnn.layer_norm(t, weight=lnw, bias=lnb, epsilon=1e-5,
-                                  compute_kernel_config=kc, memory_config=ttnn.L1_MEMORY_CONFIG)
-    verdict("layer_norm", ttnn.to_torch(ln(x)),
-            ttnn.to_torch(ttnn.concat([ln(c) for c in chunks(x)], dim=1)))
-
-    lin1 = lambda t: ttnn.linear(t, w1, activation="silu", compute_kernel_config=kc,
-                                 dtype=_dtype(), core_grid=CORE_GRID_MAIN,
-                                 memory_config=ttnn.L1_MEMORY_CONFIG)
-    verdict("linear C->4C (silu, L1)", ttnn.to_torch(lin1(x)),
-            ttnn.to_torch(ttnn.concat([lin1(c) for c in chunks(x)], dim=1)))
-
-    xh = up(torch.randn(1, D, W, H), dev)
-    lin3 = lambda t: ttnn.linear(t, w3, compute_kernel_config=kc, dtype=_dtype(),
-                                 core_grid=CORE_GRID_MAIN,
-                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
-    verdict("linear 4C->C (DRAM out)", ttnn.to_torch(lin3(xh)),
-            ttnn.to_torch(ttnn.concat([lin3(c) for c in chunks(xh)], dim=1)))
-
-    verdict("ttnn.chunk+concat round-trip only", ttnn.to_torch(x),
-            ttnn.to_torch(ttnn.concat(chunks(x), dim=1)))
 
 
 def main():

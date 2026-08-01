@@ -93,11 +93,11 @@ def main():
 
     if torch.equal(whole_t, chunked_t):
         print("  wrapper(PWA only, reused clone)   BIT-EXACT"
-              "  -> wrapper is fine; suspect Transition's internal re-split")
+              "  -> the wrapper reproduces the whole path exactly")
     else:
         d = (whole_t.float() - chunked_t.float()).abs()
         print(f"  wrapper(PWA only, reused clone)   DIFFERS  maxabs {d.max():.3e} "
-              f" frac {(d > 0).float().mean():.4f}  -> the wrapper is the culprit")
+              f" frac {(d > 0).float().mean():.4f}  -> the wrapper itself differs")
 
         # Narrow it: clone z per call, the way the whole branch does.
         m2 = up(m_host)
@@ -119,11 +119,14 @@ def main():
 
 
 def probe_transition():
-    """Transition alone under depth chunking -- the remaining suspect after PWA came out exact.
+    """Transition alone under depth chunking.
 
     Transition splits its own H axis internally (ttnn.chunk into ceil(H/transition_h_chunk_size)
-    parts, then concat). Handing it H=512 instead of H=8998 changes that internal split, so this
-    asks directly whether swiglu-over-rows is invariant to the height it is called with.
+    parts, then concat), so handing it H=512 instead of H=8998 changes that internal split. Whether
+    it differs depends on the (depth, width) pair -- see probe_transition_width.py for the matrix.
+
+    A DIFFERS here is NOT a defect: probe_transition_vs_torch.py measured both paths equally close
+    to an fp32 reference, one bf16 mantissa step apart.
     """
     dev = get_device()
     torch.manual_seed(0)
@@ -145,7 +148,7 @@ def probe_transition():
     else:
         d = (whole_t.float() - chunked_t.float()).abs()
         print(f"  Transition(depth-chunked)         DIFFERS  maxabs {d.max():.3e} "
-              f" frac {(d > 0).float().mean():.4f}  <-- THE CULPRIT")
+              f" frac {(d > 0).float().mean():.4f}  (one bf16 step; not a defect)")
 
 
 
@@ -153,10 +156,11 @@ def probe_transition():
 def probe_full_update_msa():
     """The untested unit: PWA **and** Transition together, per chunk, exactly as update_msa runs.
 
-    The earlier probes tested PWA alone and Transition alone, and each came out bit-exact. But the
-    real fold's first divergence is `block0:m_feat`, the direct output of update_msa in cycle 0's
-    first MSA block -- so the difference lives in the COMPOSITION, which neither probe exercised.
-    This reproduces both branches verbatim.
+    The real fold's first divergence is `block0:m_feat`, the direct output of update_msa in cycle 0's
+    first MSA block, so this reproduces both branches verbatim rather than testing a component.
+    It tracks whatever Transition does: identical where Transition is identical.
+
+    The positive control below is load-bearing -- see the module docstring.
     """
     dev = get_device()
     torch.manual_seed(0)
