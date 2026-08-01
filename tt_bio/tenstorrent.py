@@ -2179,31 +2179,50 @@ class OuterProductMean(Module):
         # projections at full depth. Measured: this is the allocation a deep-MSA target dies on
         # once the MSA-update path is chunked (refused 669,532,160 B = 32 channels x 2 B).
         #
-        # The matmul below is deliberately NOT chunked: its contraction runs along S, the MSA
-        # depth axis, so splitting it into partial sums would change bf16 accumulation order and
-        # would not be bit-exact. Concatenating a and b first keeps it one matmul over full depth.
+        # For a chunk-list input the matmul's contraction along S (the depth axis) is accumulated
+        # per chunk instead; every other path below keeps the single full-depth matmul. See
+        # `depth_parts` and `z_rows`.
+        depth_parts = None
         if x_chunks is not None:
             if msa_mask is not None:
                 raise NotImplementedError(
                     "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
                     "trunk that uses the list path passes mask=None.")
-            a_parts, b_parts = [], []
+            # Never materialise contiguous a/b at all.
+            #
+            # Joining them cannot be made to fit, and not for want of a better free order:
+            # project_ab derives ac AND bc from one layer_norm, so both part lists are already
+            # complete before any join could run. The FIRST concat therefore needs
+            # a_parts + b_parts + a live at once -- ~1.96 GiB at 768 tokens x depth 14208, which
+            # is the 698351616 B allocation 9lof dies on -- with nothing yet freeable. Freeing
+            # per-side (tried, bit-exact, kept below for the non-list branch) relieves only the
+            # SECOND concat, which was never the binding one. Two passes over project_ab do not
+            # help either: the second still needs a + b_parts + b, and pays layer_norm twice.
+            #
+            # So the join is removed. `sum_c (a_c @ b_c^T)` is the same sum over the same depth
+            # rows, and peak drops to a_parts + b_parts plus one z accumulator.
+            #
+            # This is NOT bit-exact, deliberately: it reassociates a bf16 accumulation that used
+            # to be one matmul over full depth. The same question was settled for Transition --
+            # scripts/abag_xm/probe_transition_vs_torch.py measured chunked and whole equally
+            # close to an fp32 reference, one mantissa step apart -- but it does move the last
+            # bit, so the acceptance test here is DockQ against the reference fold, NOT an md5.
+            depth_parts = []
+            S = 0
             for c in x_chunks:
                 ac, bc = project_ab(ttnn.reshape(c, tuple(c.shape)[1:]), None)
-                a_parts.append(ac)
-                b_parts.append(bc)
-            # Free each side's parts as soon as that side is joined, NOT both at the end. The
-            # order matters more than it looks: deferring both frees leaves a_parts, b_parts, a
-            # and b all live across the second concat -- four full-depth buffers, ~2.6 GiB at
-            # 768 tokens x depth 14208. Freeing a_parts first drops the peak to three (~1.95
-            # GiB), which is exactly the 699924480 B allocation 9lof used to die on. Bit-exact:
-            # the same concats of the same tensors, only the deallocation order changes.
-            a = ttnn.concat(a_parts, dim=0)
-            for t in a_parts:
-                ttnn.deallocate(t)
-            b = ttnn.concat(b_parts, dim=0)
-            for t in b_parts:
-                ttnn.deallocate(t)
+                Sc, I, C = ac.shape
+                _, J, D = bc.shape
+                S += Sc
+                acp = ttnn.permute(ac, (1, 2, 0))           # (I, C, Sc)
+                ttnn.deallocate(ac)
+                bcp = ttnn.permute(bc, (2, 1, 0))           # (D, J, Sc)
+                ttnn.deallocate(bc)
+                bcp = ttnn.to_layout(bcp, ttnn.ROW_MAJOR_LAYOUT)
+                bcp = ttnn.reshape(bcp, (-1, Sc))           # (D*J, Sc)
+                bcp = ttnn.to_layout(bcp, ttnn.TILE_LAYOUT)
+                depth_parts.append((acp, bcp, Sc))
+            a = b = None
         elif x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
             a, b = project_ab(x, msa_mask)
         else:
@@ -2220,22 +2239,57 @@ class OuterProductMean(Module):
             b = ttnn.concat(b_parts, dim=0)
             for p in b_parts:
                 ttnn.deallocate(p)
-        S, I, C = a.shape
-        _, J, D = b.shape
-        a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
-        b = ttnn.permute(b, (2, 1, 0))
-        b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
-        b = ttnn.reshape(b, (-1, S))
-        b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
-        if I > SEQ_LEN_MORE_CHUNKING:
-            # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
-            a = ttnn.reallocate(a)
-            b = ttnn.reallocate(b)
-        def outer_product_mean(a_in):
-            rows = a_in.shape[0]
-            a_flat = ttnn.reshape(a_in, (rows * C, S))
-            z = ttnn.matmul(a_flat, b, transpose_b=True, compute_kernel_config=self.compute_kernel_config)
-            ttnn.deallocate(a_flat)
+        if depth_parts is None:
+            S, I, C = a.shape
+            _, J, D = b.shape
+            a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
+            b = ttnn.permute(b, (2, 1, 0))
+            b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
+            b = ttnn.reshape(b, (-1, S))
+            b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
+            if I > SEQ_LEN_MORE_CHUNKING:
+                # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
+                a = ttnn.reallocate(a)
+                b = ttnn.reallocate(b)
+
+        def z_rows(i0, i1):
+            """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
+
+            One matmul when a/b are contiguous; a running sum over depth chunks when they are
+            not. Both compute the same contraction over the same rows -- the chunked form just
+            reassociates it, so it lands within a bf16 step rather than bit-exactly.
+            """
+            rows = i1 - i0
+
+            def rows_of(t):
+                """Slice the token axis, but not when the slice is the whole tensor -- a ttnn
+                slice copies, and `a` is 0.65 GiB at the sizes this path exists for."""
+                return t if i0 == 0 and i1 == t.shape[0] else t[i0:i1, :, :]
+
+            if depth_parts is None:
+                a_flat = ttnn.reshape(rows_of(a), (rows * C, S))
+                z = ttnn.matmul(a_flat, b, transpose_b=True,
+                                compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(a_flat)
+                return z
+            z = None
+            for acp, bcp, Sc in depth_parts:
+                a_flat = ttnn.reshape(rows_of(acp), (rows * C, Sc))
+                zp = ttnn.matmul(a_flat, bcp, transpose_b=True,
+                                 compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(a_flat)
+                if z is None:
+                    z = zp
+                else:
+                    # In place: z is (rows*C, D*J) -- ~400 MB at rows=256, J=768 -- so an
+                    # out-of-place add would hold three of them at the peak.
+                    ttnn.add_(z, zp)
+                    ttnn.deallocate(zp)
+            return z
+
+        def outer_product_mean(i0, i1):
+            rows = i1 - i0
+            z = z_rows(i0, i1)
             z = ttnn.to_layout(z, ttnn.ROW_MAJOR_LAYOUT)
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
@@ -2254,7 +2308,7 @@ class OuterProductMean(Module):
         if I > SEQ_LEN_MORE_CHUNKING:
             z_acc = None
             for i in range(0, I, OPM_CHUNK_SIZE):
-                part = outer_product_mean(a[i : min(i + OPM_CHUNK_SIZE, I), :, :])
+                part = outer_product_mean(i, min(i + OPM_CHUNK_SIZE, I))
                 if z_acc is None:
                     z_acc = part
                 else:
@@ -2262,13 +2316,16 @@ class OuterProductMean(Module):
                     z_acc = ttnn.concat([z_old, part], dim=0)
                     ttnn.deallocate(z_old)
                     ttnn.deallocate(part)
-            ttnn.deallocate(a)
-            ttnn.deallocate(b)
             z = z_acc
         else:
-            z = outer_product_mean(a)
+            z = outer_product_mean(0, I)
+        if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)
+        else:
+            for acp, bcp, _ in depth_parts:
+                ttnn.deallocate(acp)
+                ttnn.deallocate(bcp)
         z = ttnn.reshape(z, (1, *z.shape))
         return z
 
