@@ -2136,7 +2136,14 @@ class OuterProductMean(Module):
         self.o_bias = self.torch_to_tt("proj_o.bias")
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None, n_msa: int | None = None) -> ttnn.Tensor:
-        x = ttnn.reshape(x, tuple(x.shape)[1:])
+        # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
+        # so it never has to exist contiguously: materialising it costs a full extra copy at the
+        # join, which is what made a 1.78 GiB m_feat OOM on a 12 GiB part even WITH chunking. This
+        # path consumes the chunks directly, and since only the c=32 projections are concatenated
+        # the join costs 1/4 of what joining the c_m tensor would.
+        x_chunks = x if isinstance(x, list) else None
+        if x_chunks is None:
+            x = ttnn.reshape(x, tuple(x.shape)[1:])
 
         def project_ab(xc, maskc):
             """layer_norm + the two c=32 projections. Every op here is per MSA row (norm over
@@ -2175,7 +2182,21 @@ class OuterProductMean(Module):
         # The matmul below is deliberately NOT chunked: its contraction runs along S, the MSA
         # depth axis, so splitting it into partial sums would change bf16 accumulation order and
         # would not be bit-exact. Concatenating a and b first keeps it one matmul over full depth.
-        if x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
+        if x_chunks is not None:
+            if msa_mask is not None:
+                raise NotImplementedError(
+                    "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
+                    "trunk that uses the list path passes mask=None.")
+            a_parts, b_parts = [], []
+            for c in x_chunks:
+                ac, bc = project_ab(ttnn.reshape(c, tuple(c.shape)[1:]), None)
+                a_parts.append(ac)
+                b_parts.append(bc)
+            a = ttnn.concat(a_parts, dim=0)
+            b = ttnn.concat(b_parts, dim=0)
+            for t in a_parts + b_parts:
+                ttnn.deallocate(t)
+        elif x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
             a, b = project_ab(x, msa_mask)
         else:
             a_parts, b_parts = [], []

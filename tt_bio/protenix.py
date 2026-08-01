@@ -99,14 +99,21 @@ def trunk_tap(tag, t, always=False):
     if not always and _TRUNK_TAP_CALL >= int(os.environ.get("TT_BIO_TRUNK_TAP_CYCLES", "2")):
         return
     import hashlib
+    # The MSA representation is a LIST of depth chunks on the chunked path. Hash the chunks in
+    # order, which gives the same fingerprint the concatenated tensor would.
+    parts = t if isinstance(t, list) else [t]
+    shape = (f"list[{len(parts)}]{tuple(parts[0].shape)}" if isinstance(t, list)
+             else tuple(t.shape))
     # Upcast before hashing: to_torch hands back bfloat16 for a bf16 device tensor and numpy has no
     # bfloat16 dtype, so .numpy() raises. float32 is a lossless widening of bf16, so the hash is
     # still an exact fingerprint of the device bytes.
-    h = hashlib.sha256(
-        ttnn.to_torch(t).to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
+    _h = hashlib.sha256()
+    for _p in parts:
+        _h.update(ttnn.to_torch(_p).to(torch.float32).contiguous().numpy().tobytes())
+    h = _h.hexdigest()[:16]
     try:
         with open(path, "a") as fp:
-            fp.write(f"cycle{_TRUNK_TAP_CALL}|{tag}|{tuple(t.shape)}|{h}\n")
+            fp.write(f"cycle{_TRUNK_TAP_CALL}|{tag}|{shape}|{h}\n")
     except OSError:
         pass
 
@@ -1851,6 +1858,21 @@ class Trunk(_KeyedWeights):
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
+            if isinstance(m, list):
+                # Already chunked: transform each chunk in place of the list, freeing the old
+                # chunk as soon as its replacement exists, so the peak stays ~2 chunks over the
+                # list rather than a second full copy.
+                zc = ttnn.clone(z)
+                out = []
+                for mc in m:
+                    t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
+                    ttnn.deallocate(mc)
+                    t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
+                    ttnn.deallocate(t1)
+                    out.append(t2)
+                    dram_peak("trunk msa block: after pwa add (list)")
+                ttnn.deallocate(zc)
+                return out
             D = m.shape[1]                                  # MSA depth
             # Row-chunk the MSA depth axis when the representation is too big to hold several
             # copies of. Unchunked, PairWeightedAveraging's FIRST op is an out-of-place
@@ -1893,11 +1915,12 @@ class Trunk(_KeyedWeights):
                 parts.append(mc)
                 dram_peak("trunk msa block: after pwa add")
             ttnn.deallocate(zc)
-            out = ttnn.concat(parts, dim=1)                        # single terminal concat
-            trunk_tap("chunked:after_transition", out)
-            for p in parts:
-                ttnn.deallocate(p)
-            return out
+            # Return the CHUNKS, not a concatenation of them. The terminal concat used to need a
+            # third full-size buffer (source + parts + destination) and that 3x peak is what made
+            # 9d72 OOM at 1.78 GiB m_feat even with chunking on. Every downstream consumer is
+            # chunk-wise -- PWA and Transition are per-row, and OuterProductMean now takes the
+            # list and joins only its c=32 projections -- so the contiguous tensor is never needed.
+            return parts
 
         # DO NOT make update_msa's first add in-place on the tensor passed in. `m_feat` is
         # built ONCE outside the recycling loop in __call__ and this method is re-entered for
@@ -1922,6 +1945,12 @@ class Trunk(_KeyedWeights):
             dram_peak(f"trunk msa block {_bi} done")
             trunk_tap(f"block{_bi}:m_feat", m_feat)
             trunk_tap(f"block{_bi}:z3", z3)
+        # The per-cycle chunk list is dead once the blocks are done: __call__ keeps the original
+        # contiguous m_feat and re-derives the chunks next cycle (§34.1 -- the caller's copy must
+        # stay pristine, so it is never freed here).
+        if isinstance(m_feat, list):
+            for _c in m_feat:
+                ttnn.deallocate(_c)
         _TRUNK_TAP_CALL += 1
         return z3
 
