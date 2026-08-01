@@ -29,6 +29,7 @@ C = 128
 H = 4 * C
 CHUNK = int(os.environ.get("PROBE_CHUNK", MSA_CHUNK_SIZE))
 NROWS = int(os.environ.get("PROBE_NROWS", 8))     # differing rows to reference-check
+REALISTIC = os.environ.get("PROBE_REALISTIC", "0") == "1"
 
 
 def swiglu_ref(x, w):
@@ -46,9 +47,18 @@ def swiglu_ref(x, w):
 def main():
     dev = get_device()
     torch.manual_seed(0)
-    w = {"norm.weight": torch.randn(C), "norm.bias": torch.randn(C),
-         "fc1.weight": torch.randn(H, C), "fc2.weight": torch.randn(H, C),
-         "fc3.weight": torch.randn(C, H)}
+    if REALISTIC:
+        # randn weights drive the output to ~4e4, nothing like a trained model, and the whole
+        # "is this just rounding" question is scale-dependent. Fan-in scaling plus a unit-gain
+        # norm gives activations in the range a real checkpoint produces.
+        w = {"norm.weight": torch.ones(C), "norm.bias": torch.zeros(C),
+             "fc1.weight": torch.randn(H, C) / C ** 0.5,
+             "fc2.weight": torch.randn(H, C) / C ** 0.5,
+             "fc3.weight": torch.randn(C, H) / H ** 0.5}
+    else:
+        w = {"norm.weight": torch.randn(C), "norm.bias": torch.randn(C),
+             "fc1.weight": torch.randn(H, C), "fc2.weight": torch.randn(H, C),
+             "fc3.weight": torch.randn(C, H)}
     kc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4,
                                           fp32_dest_acc_en=True, packer_l1_acc=True)
     tr = Transition(w, kc)
@@ -91,6 +101,16 @@ def main():
           f"  rel {ew.max().item() / max(rmag, 1e-30):.3e}")
     print(f"  |chunked - torch_ref|  max {ec.max():.4e}  mean {ec.mean():.4e}"
           f"  rel {ec.max().item() / max(rmag, 1e-30):.3e}")
+    # Relative error evaluated ON THE DIFFERING ELEMENTS. The earlier version divided by the
+    # tensor's global max magnitude, which flatters the number whenever the differing elements are
+    # small -- the specific weakness I flagged in my own interpretation.
+    dsel = (whole[:, rows, :, :] - chunked[:, rows, :, :]).abs()
+    msk = dsel > 0
+    if msk.any():
+        local = ref.abs()[msk]
+        rel_local = (dsel[msk] / local.clamp_min(1e-30))
+        print(f"  at the {int(msk.sum())} differing elements: |ref| median {local.median():.3e}"
+              f"   rel diff median {rel_local.median():.3e}  max {rel_local.max():.3e}")
     if ew.max() > 10 * ec.max():
         print("  VERDICT: the UNCHUNKED path is wrong (chunked matches torch)")
     elif ec.max() > 10 * ew.max():
