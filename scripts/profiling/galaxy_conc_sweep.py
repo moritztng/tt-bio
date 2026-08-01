@@ -152,9 +152,29 @@ class CpuSampler(threading.Thread):
         idle = vals[3] + (vals[4] if len(vals) > 4 else 0.0)
         return sum(vals), idle
 
+    @staticmethod
+    def _descendants(roots: list[int]) -> list[int]:
+        """Every pid in the launched processes' trees.
+
+        A fold is not one process: `predict` forks a child that owns the device and
+        spawns further multiprocessing children, and essentially all of the host CPU
+        lives in those. Sampling only the pid we Popen'd reports ~0.01 cores per fold
+        instead of ~1 and turns a core-starvation ceiling into an invisible one.
+        """
+        out, stack = [], list(roots)
+        while stack:
+            pid = stack.pop()
+            out.append(pid)
+            try:
+                kids = Path(f"/proc/{pid}/task/{pid}/children").read_text().split()
+            except OSError:
+                continue
+            stack.extend(int(k) for k in kids)
+        return out
+
     def _proc_ticks(self) -> float:
         total = 0.0
-        for pid in self.pids:
+        for pid in self._descendants(self.pids):
             try:
                 fields = Path(f"/proc/{pid}/stat").read_text().rsplit(") ", 1)[1].split()
             except (OSError, IndexError):
@@ -173,7 +193,9 @@ class CpuSampler(threading.Thread):
             if d_tot > 0 and dt > 0:
                 self.busy_cores.append((d_tot - d_idle) / d_tot * os.cpu_count())
                 self.idle_frac.append(d_idle / d_tot)
-                self.proc_cores.append((proc - prev_proc) / dt)
+                # a child exiting mid-cell drops its ticks out of the tree sum; that is a
+                # bookkeeping artefact, not negative CPU
+                self.proc_cores.append(max(0.0, (proc - prev_proc) / dt))
             prev_tot, prev_idle, prev_proc, prev_t = tot, idle, proc, now
 
 
@@ -260,7 +282,13 @@ def main() -> int:
     ap.add_argument("--level", type=int, default=32, help="fixed concurrency for --pin-sweep")
     ap.add_argument("--pin", default=None, help="single 'pack:M' applied to every cell")
     ap.add_argument("--chip-order", choices=["spread", "linear"], default="spread")
+    ap.add_argument("--chips", default=None,
+                    help="explicit comma-separated chip ids, used in the given order; overrides "
+                         "--chip-order/--n-chips. Needed when another job owns part of the box.")
     ap.add_argument("--n-chips", type=int, default=32)
+    ap.add_argument("--msa-dir", default=None,
+                    help="MSA cache; implies --msa_cache_only so no cell can silently pay an "
+                         "MSA search and stop being comparable to the others")
     ap.add_argument("--host-threads", type=int, default=2)
     ap.add_argument("--diffusion-samples", type=int, default=1)
     ap.add_argument("--recycling-steps", type=int, default=None)
@@ -277,7 +305,10 @@ def main() -> int:
     if not shutil.which("taskset") and (a.pin or a.pin_sweep):
         raise SystemExit("taskset not found but pinning was requested")
 
-    chips = chip_order(a.n_chips, a.chip_order)
+    if a.chips:
+        chips = [int(x) for x in a.chips.split(",")]
+    else:
+        chips = chip_order(a.n_chips, a.chip_order)
     cores = physical_cores()
     print(f"host: {len(cores)} physical cores / {os.cpu_count()} logical, "
           f"{a.n_chips} chips, order={a.chip_order}", flush=True)
