@@ -476,6 +476,7 @@ Model-specific options are labelled below.
 | `--recycling_steps` | model-specific | 3 for Boltz-2; 10 for Protenix-v2/OpenDDE/ESMFold2 (the ESMFold2 paper's benchmark setting) |
 | `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v2/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
 | `--diffusion_samples` | `1` | Number of structure samples |
+| `--max_parallel_samples` | `5` | Diffusion samples denoised in one batched forward. Higher is faster but costs device memory linearly; lower it if a large target runs out of memory |
 | `--output_format` | `cif` | `cif` or `pdb` |
 | `--override` | `False` | Re-run from scratch |
 | `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v2/OpenDDE when no local DB is found |
