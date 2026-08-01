@@ -31,8 +31,10 @@ random subsets): under exchangeability the answer is that order carries no infor
 
 CAVEAT worth stating in the paper: this measures scaling of the SELECTION metric (confidence),
 which is what a user without ground truth can actually act on. It is not the same as scaling of
-true accuracy. DockQ requires a reference structure, and only 38 of the 164 panel targets ship one
-(`examples/ground_truth_structures/`), so true-accuracy scaling is available on that subset only.
+true accuracy, and the two come apart: measured across 7 targets, Spearman(confidence, DockQ) is
+-0.137 (negative in 5 of 7), so the confidence curve is NOT a proxy for the accuracy curve. DockQ
+needs a reference structure and 34 of the 164 panel targets have one (`ground_truth_structures/`
+intersected with `examples/abag_xm/`), so true-accuracy scaling is a 34-target subset.
 
 Usage:
     python3 scripts/abag_xm/build_scaling_dataset.py <folds_dir> --model opendde-abag \
@@ -50,7 +52,7 @@ from math import comb
 # The metrics worth a scaling curve. confidence_score is the model's own ranking key, so it is the
 # one a sample-selection strategy would actually use; iptm is the interface-specific signal and the
 # one the Ab-Ag trust-signal work found predictive (AUC 0.73-0.84).
-CURVE_METRICS = ("confidence_score", "iptm", "ptm", "plddt")
+CURVE_METRICS = ("confidence_score", "iptm", "ptm", "plddt", "global_dockq")
 
 
 def best_of_k(values: list[float], k: int) -> float:
@@ -147,6 +149,10 @@ def main() -> int:
     ap.add_argument("--model", required=True)
     ap.add_argument("--out", required=True, help="path prefix; _samples.parquet/_curve.parquet appended")
     ap.add_argument("--repo", default=str(pathlib.Path(__file__).resolve().parents[2]))
+    ap.add_argument("--dockq-tsv", action="append", default=[],
+                    help="target<TAB>rank<TAB>global_dockq, from scripts/opendde_dockq.py. "
+                         "Repeatable. Only 34 of 164 panel targets have a reference structure, so "
+                         "this column is populated for a subset by construction.")
     args = ap.parse_args()
 
     _selftest()
@@ -155,6 +161,16 @@ def main() -> int:
 
     sha = code_version(pathlib.Path(args.repo))
     rows = read_folds(pathlib.Path(args.folds_dir), args.model, sha)
+    dockq = {}
+    for tsv in args.dockq_tsv:
+        for line in pathlib.Path(tsv).read_text().splitlines():
+            f = line.split("\t")
+            if len(f) == 3 and f[2] not in ("ERR", ""):
+                dockq[(f[0], int(f[1]))] = float(f[2])
+    for r in rows:
+        r["global_dockq"] = dockq.get((r["target"], r["rank"]))
+    n_dq = sum(1 for r in rows if r["global_dockq"] is not None)
+    print(f"dockq joined    {n_dq}/{len(rows)} sample rows")
     if not rows:
         print("no sample rows found -- refusing to write an empty manifest", file=sys.stderr)
         return 1
