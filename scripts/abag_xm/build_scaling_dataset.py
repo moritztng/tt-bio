@@ -37,11 +37,15 @@ Spearman(confidence, DockQ) = +0.093 (median +0.053, 95% CI -0.050 .. +0.237, ne
 statistically indistinguishable from zero. An earlier reading of -0.137 from only 7 targets was
 small-sample noise and is retracted -- do not reintroduce it.
 
-Weak positive correlation still buys something real. Selecting the highest-confidence of k samples
-gains +0.0196 DockQ at k=16 over a single sample, against +0.0445 for an oracle -- so confidence
-recovers ~44% of the available gain, and both curves are still rising at k=16. The user-realised
-curve uses the SAME order statistic with the ranking done by confidence and the value carried being
-DockQ (see the campaign doc, and brute-force it before trusting it).
+What that buys, stated with the distribution and not just its mean. Selecting the highest-confidence
+of k=16 samples gains a MEAN of +0.0196 DockQ over a single sample -- but the median target gains
++0.0013, the gain is negative on 12 of 32 targets, and one outlier (9uoi, +0.3864) supplies 60% of
+the mean; drop it and the mean is +0.0078. Split by difficulty, hard targets (baseline < 0.40) gain
+median +0.0091 while easy ones gain nothing. An oracle would gain +0.0445, so the ceiling is real and
+it is the SELECTOR, not the sampling, that fails to reach it. Quote the median alongside the mean.
+
+The user-realised curve uses the SAME order statistic with the ranking done by confidence and the
+value carried being DockQ (see the campaign doc, and brute-force it before trusting it).
 
 DockQ needs a reference structure; 34 of the 164 panel targets have one (`ground_truth_structures/`
 intersected with `examples/abag_xm/`), so true-accuracy scaling is a 34-target subset.
