@@ -88,7 +88,11 @@ def trunk_tap(tag, t):
     if not path or _TRUNK_TAP_CALL >= int(os.environ.get("TT_BIO_TRUNK_TAP_CYCLES", "2")):
         return
     import hashlib
-    h = hashlib.sha256(ttnn.to_torch(t).contiguous().numpy().tobytes()).hexdigest()[:16]
+    # Upcast before hashing: to_torch hands back bfloat16 for a bf16 device tensor and numpy has no
+    # bfloat16 dtype, so .numpy() raises. float32 is a lossless widening of bf16, so the hash is
+    # still an exact fingerprint of the device bytes.
+    h = hashlib.sha256(
+        ttnn.to_torch(t).to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
     try:
         with open(path, "a") as fp:
             fp.write(f"cycle{_TRUNK_TAP_CALL} {tag} shape={tuple(t.shape)} sha={h}\n")
