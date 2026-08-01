@@ -1975,6 +1975,11 @@ class Trunk(_KeyedWeights):
             s = ttnn.add(s_init, sc)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3)
             s = ttnn.reshape(s, (N, 384))
+            # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
+            # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
+            # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
+            trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
+            trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
         # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the
         # divergence is born in a later cycle; if this matches too, the trunk is fully exonerated
         # and only the diffusion path (and the allocator state it inherits) can explain the fold.
