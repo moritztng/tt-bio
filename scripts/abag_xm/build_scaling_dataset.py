@@ -29,11 +29,21 @@ This also settles the sample-ORDER question the campaign plan left open (contigu
 random subsets): under exchangeability the answer is that order carries no information, so
 `all_runs` being rank-ordered rather than generation-ordered costs nothing.
 
-CAVEAT worth stating in the paper: this measures scaling of the SELECTION metric (confidence),
-which is what a user without ground truth can actually act on. It is not the same as scaling of
-true accuracy, and the two come apart: measured across 7 targets, Spearman(confidence, DockQ) is
--0.137 (negative in 5 of 7), so the confidence curve is NOT a proxy for the accuracy curve. DockQ
-needs a reference structure and 34 of the 164 panel targets have one (`ground_truth_structures/`
+CONFIDENCE IS NOT A PROXY FOR ACCURACY -- but it is not perverse either
+----------------------------------------------------------------------
+A curve over `confidence_score` measures the SELECTION metric, which is what a user without a
+reference structure can act on. It is not the accuracy curve. Measured on 33 ground-truth targets,
+Spearman(confidence, DockQ) = +0.093 (median +0.053, 95% CI -0.050 .. +0.237, negative in 16 of 33):
+statistically indistinguishable from zero. An earlier reading of -0.137 from only 7 targets was
+small-sample noise and is retracted -- do not reintroduce it.
+
+Weak positive correlation still buys something real. Selecting the highest-confidence of k samples
+gains +0.0196 DockQ at k=16 over a single sample, against +0.0445 for an oracle -- so confidence
+recovers ~44% of the available gain, and both curves are still rising at k=16. The user-realised
+curve uses the SAME order statistic with the ranking done by confidence and the value carried being
+DockQ (see the campaign doc, and brute-force it before trusting it).
+
+DockQ needs a reference structure; 34 of the 164 panel targets have one (`ground_truth_structures/`
 intersected with `examples/abag_xm/`), so true-accuracy scaling is a 34-target subset.
 
 Usage:
