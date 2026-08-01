@@ -2192,9 +2192,17 @@ class OuterProductMean(Module):
                 ac, bc = project_ab(ttnn.reshape(c, tuple(c.shape)[1:]), None)
                 a_parts.append(ac)
                 b_parts.append(bc)
+            # Free each side's parts as soon as that side is joined, NOT both at the end. The
+            # order matters more than it looks: deferring both frees leaves a_parts, b_parts, a
+            # and b all live across the second concat -- four full-depth buffers, ~2.6 GiB at
+            # 768 tokens x depth 14208. Freeing a_parts first drops the peak to three (~1.95
+            # GiB), which is exactly the 699924480 B allocation 9lof used to die on. Bit-exact:
+            # the same concats of the same tensors, only the deallocation order changes.
             a = ttnn.concat(a_parts, dim=0)
+            for t in a_parts:
+                ttnn.deallocate(t)
             b = ttnn.concat(b_parts, dim=0)
-            for t in a_parts + b_parts:
+            for t in b_parts:
                 ttnn.deallocate(t)
         elif x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
             a, b = project_ab(x, msa_mask)
@@ -2205,9 +2213,12 @@ class OuterProductMean(Module):
                 ac, bc = project_ab(x[s:e], None if msa_mask is None else msa_mask[s:e])
                 a_parts.append(ac)
                 b_parts.append(bc)
+            # Same per-side free as the chunk-list branch above, for the same reason.
             a = ttnn.concat(a_parts, dim=0)
+            for p in a_parts:
+                ttnn.deallocate(p)
             b = ttnn.concat(b_parts, dim=0)
-            for p in a_parts + b_parts:
+            for p in b_parts:
                 ttnn.deallocate(p)
         S, I, C = a.shape
         _, J, D = b.shape
