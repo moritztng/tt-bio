@@ -1,13 +1,17 @@
-"""Which op loses bit-exactness when the MSA depth axis is chunked, and can it be pinned?
+"""Op-by-op: is each ttnn op in the MSA path invariant to chunking the depth axis?
 
-Folding 9lwc whole vs chunked diverges by 0.738 A on the same chip, so depth chunking is not
-numerically inert. The suspected mechanism is that a ttnn matmul's per-core K-blocking is chosen
-from the tensor SHAPE, so PairWeightedAveraging's reduction over the TOKEN axis gets re-blocked
-when the depth extent changes -- even though no reduction runs along depth. This isolates each op
-in PWA's inner loop at PWA's real shapes and reports, per op, whether
-    op(whole)  ==  concat([op(chunk) for chunk in chunks])
-holds bit-for-bit. Seconds per op, versus ~4 minutes for a fold, and it names the culprit instead
-of inferring it.
+Result: layer_norm, linear, the token-axis matmul, and a concat-built tensor (data AND memory_config)
+are all BIT-EXACT under depth chunking, at the shapes tried here.
+
+Read that carefully -- it is a narrower statement than it looks, and over-reading it cost several
+passes. Component-level bit-exactness does NOT compose into fold-level bit-exactness: every op here
+passed while the full fold still differed, because the difference lives in shapes these isolated
+cases did not reproduce. Probe shapes must match production shapes, non-alignment included.
+
+The hypothesis this file was written to test -- that a ttnn matmul's per-core K-blocking is re-planned
+when the shape changes, so PWA's token-axis reduction gets re-blocked -- is REFUTED by check 3: the
+matmul is bit-exact depth-chunked with the auto-selected config. The pinned-program_config path is
+kept because it is the tool if that question ever comes back, not because it was needed.
 
 Run on the Galaxy with one chip free:
     TT_VISIBLE_DEVICES=<n> python3 -u scripts/abag_xm/probe_chunk_bitexactness.py

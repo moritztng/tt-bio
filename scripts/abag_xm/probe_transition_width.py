@@ -1,15 +1,19 @@
-"""Pin down Transition's chunk-invariance failure: which widths break it, and which op inside it.
+"""Map which (depth, width) combinations make Transition's output depend on how it was chunked.
 
-Established: `Transition` depth-chunked is bit-exact at 288 tokens and DIFFERS at 285 (maxabs 1.28e2),
-so the trigger is the token (W) axis not being a tile multiple, not the depth chunking itself. Two
-things are still unknown and both are pure measurement:
+RESULT (see the campaign doc's consolidated section): the difference this maps out is **not a defect**.
+`probe_transition_vs_torch.py` later showed the chunked and unchunked paths are equally close to an
+fp32 reference and differ by exactly one bf16 mantissa step. What varies across this matrix is only
+*whether* that last-bit difference shows up at a given shape.
 
-  1. the exact trigger condition -- every non-multiple-of-32, or only some residues?
-  2. which op inside swiglu does it -- layer_norm, one of the three linears, the multiply, or the
-     ttnn.chunk/concat around them.
+Two earlier readings of this data were wrong and are recorded here so they are not re-derived:
+  * "the trigger is a token width that is not a tile multiple" -- REFUTED. W=29 is non-aligned and
+    exact at every depth tried.
+  * "the trigger is a final depth-chunk smaller than one tile" -- REFUTED. Forcing an exact division
+    (D=8722, chunk=623, zero remainder) still differs, with a LARGER affected fraction.
 
-Both are answered by sweeping W and by running the inner ops directly, chunked the same way
-Transition chunks (over dim=1, its H axis). Seconds per case on one chip.
+Both came from comparing two hand-picked points that differed in more than one variable. Hence the
+matrix: sweep depth and width together, never two points. Measured so far, the only combination that
+differs is large depth AND large-ish width -- which is the real fold's shape.
 
 Run on the Galaxy with one chip free:
     TT_VISIBLE_DEVICES=<n> python3 -u scripts/abag_xm/probe_transition_width.py

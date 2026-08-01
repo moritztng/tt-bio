@@ -1,21 +1,29 @@
-"""Which Transition path is WRONG -- the whole one or the chunked one?
+"""Is either Transition path WRONG -- the whole one or the chunked one? ANSWER: neither.
 
-Every test so far assumed whole = correct and chunked = divergent. That is an assumption. Unchunked,
-Transition splits its own H axis into ceil(8722/16) = 546 internal pieces and concatenates them,
-which is a far more extreme operation than the chunked path's 32-per-chunk -- so the unchunked path
-being the broken one fits the evidence equally well. If it is, this campaign's framing inverts: the
-divergence is a pre-existing defect that affects production folds today, not something chunking
-introduced.
+This is the probe that ended a long hunt. Every pass before it asked *which path broke*; none asked
+whether either was wrong at all. Measured at the real fold's shape (D=8722, W=285), on the rows that
+actually differ:
 
-Method: swiglu is row-wise over the MSA-depth axis, so a single row's output depends only on that
-row. Find the rows where the two device paths disagree, compute a torch fp32 CPU reference for JUST
-those rows, and see which device path matches it. Comparing error magnitudes (not bit-exactness) is
-the right instrument here because device bf16 vs host fp32 will never be bit-identical -- but the
-observed gap between paths is maxabs 1.28e+02, orders of magnitude above any bf16 rounding floor, so
-the broken path will be obvious.
+    |whole   - torch fp32 ref|   max 2.5882e-02
+    |chunked - torch fp32 ref|   max 2.5882e-02      <- identical to 5 significant figures
+
+Neither path is more correct. The whole-vs-chunked difference is **exactly one bf16 mantissa step**:
+relative 3.906e-03, and 2^-8 = 0.00390625. It is confined to the final partial chunk, and it scales
+with the data (128 at magnitude 4e4, 0.0156 at magnitude 4.0), which is the signature of rounding
+rather than corruption. Changing how an op is decomposed moves the last bit; that is all this is.
+
+Method note, because it is what made the answer trustworthy: swiglu is row-wise over the MSA depth
+axis, so a single row's output depends only on that row -- the fp32 reference is computed for JUST
+the differing rows rather than the whole 0.6 GiB tensor.
+
+Two reporting rules learned here, both the hard way:
+  * An absolute maxabs is meaningless without the scale next to it. `PROBE_REALISTIC=1` uses fan-in
+    scaled weights so the output sits at a trained-model magnitude instead of ~4e4.
+  * Quote the MEDIAN relative difference at the differing elements, not the max -- the max is taken
+    where |ref| is near zero, so it reads 2.3e+02 while the median is 6.4e-03.
 
 Run on the Galaxy with one chip free:
-    TT_VISIBLE_DEVICES=<n> python3 -u scripts/abag_xm/probe_transition_vs_torch.py
+    TT_VISIBLE_DEVICES=<n> [PROBE_REALISTIC=1] python3 -u scripts/abag_xm/probe_transition_vs_torch.py
 """
 import os
 import torch

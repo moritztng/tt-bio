@@ -1,17 +1,22 @@
-"""Bisect the 0.738 A divergence: is it my chunked wrapper, or Transition's internal re-split?
+"""Reproduce update_msa's two branches directly, with the real modules and synthetic weights.
 
-probe_chunk_bitexactness.py showed every individual op (layer_norm, linear, the token-axis matmul,
-concat) is bit-exact under depth chunking, so the divergence is NOT the split arithmetic. It has to
-be in Trunk._msa.update_msa's chunked branch. That branch differs from the whole branch in exactly
-three ways: it slices, it reuses ONE ttnn.clone(z) across all chunks instead of cloning per call,
-and it feeds Transition a smaller H (which re-splits internally via its own ttnn.chunk).
+Runs in seconds instead of loading a checkpoint and folding, which is why the whole chunking question
+was eventually settled here rather than by more 4-minute folds.
 
-This reproduces update_msa's two branches directly, with the REAL PairWeightedAveraging module and
-synthetic weights, so it runs in seconds instead of loading a checkpoint and folding. PWA only --
-Transition is deliberately excluded, which makes the result a clean two-way split:
+What it established, in order:
+  * PWA alone, including the single reused ttnn.clone(z) shared across chunks -- BIT-EXACT.
+  * Transition alone -- bit-exact at some shapes, not at others (see probe_transition_width.py).
+  * PWA and Transition composed per chunk, exactly as update_msa runs them -- differs only where
+    Transition does.
 
-  DIFFERS  -> the wrapper (slice / reshape / reused zc / add) is the culprit
-  BIT-EXACT -> the wrapper is fine and Transition's internal re-split at a different H is the culprit
+And the conclusion that supersedes all of it: the difference is **one bf16 mantissa step, not a
+defect** -- probe_transition_vs_torch.py shows both paths equally close to an fp32 reference.
+
+The positive control in probe_full_update_msa is load-bearing and should not be removed. It asserts
+the comparator can see a known-different input BEFORE any verdict is reported. It fired on its first
+run -- perturbing a bf16 element of magnitude ~1000 by +1.0 rounds back to the same value, so the
+"known-different" input was not different -- and an earlier missing control let a broken comparison
+report vacuous "identical" for two whole passes.
 
 Run on the Galaxy with one chip free:
     TT_VISIBLE_DEVICES=<n> python3 -u scripts/abag_xm/probe_update_msa_wrapper.py
