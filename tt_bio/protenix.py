@@ -67,6 +67,35 @@ def _msa_row_chunk_budget():
     return int(v) if v else MSA_ROW_CHUNK_BUDGET_BYTES
 
 
+_TRUNK_TAP_CALL = 0     # one increment per Trunk._msa call, i.e. per recycling cycle
+
+
+def trunk_tap(tag, t):
+    """Fingerprint a trunk tensor, when TT_BIO_TRUNK_TAP names a file to append to.
+
+    Six probes each proved a component of the chunked MSA path bit-exact while the full fold kept
+    diverging, which is the signature of a difference that only exists in the composition. Guessing
+    at components cannot find that; comparing the trunk's own intermediates between two runs can.
+
+    Records a sha256 of the tensor's exact bytes rather than the tensor itself: m_feat is ~0.7 GiB
+    for a small target, so dumping it per block per cycle would be hundreds of GB, while a hash
+    localises the FIRST differing tensor just as precisely. Costs one device->host transfer per tap,
+    so it is gated behind the env var and further limited by TT_BIO_TRUNK_TAP_CYCLES (default 2).
+
+    Enable it in BOTH arms of a comparison: then whatever it perturbs, it perturbs identically, and
+    the comparison stays honest (see the observer effect that invalidated an earlier measurement)."""
+    path = os.environ.get("TT_BIO_TRUNK_TAP")
+    if not path or _TRUNK_TAP_CALL >= int(os.environ.get("TT_BIO_TRUNK_TAP_CYCLES", "2")):
+        return
+    import hashlib
+    h = hashlib.sha256(ttnn.to_torch(t).contiguous().numpy().tobytes()).hexdigest()[:16]
+    try:
+        with open(path, "a") as fp:
+            fp.write(f"cycle{_TRUNK_TAP_CALL} {tag} shape={tuple(t.shape)} sha={h}\n")
+    except OSError:
+        pass
+
+
 def _msa_row_chunk_size():
     """Chunk width, with a test-only env override (same rationale as the budget above).
 
@@ -1803,8 +1832,11 @@ class Trunk(_KeyedWeights):
                 m = ttnn.add(m, ttnn.reshape(
                     pwa(m, ttnn.clone(z)), tuple(m.shape)))
                 dram_peak("trunk msa block: after pwa add")
-                return ttnn.add(
+                trunk_tap("whole:after_pwa", m)
+                out = ttnn.add(
                     m, ttnn.reshape(transition(m), tuple(m.shape)))
+                trunk_tap("whole:after_transition", out)
+                return out
             # One clone of z for the whole loop, not one per chunk: PWA only reads z (it
             # rebinds its own local through reshape/layer_norm and never deallocates it), and
             # at c_z=384 a per-chunk clone would cost ~0.9 GiB each for a 1120-token target.
@@ -1825,6 +1857,7 @@ class Trunk(_KeyedWeights):
                 dram_peak("trunk msa block: after pwa add")
             ttnn.deallocate(zc)
             out = ttnn.concat(parts, dim=1)                        # single terminal concat
+            trunk_tap("chunked:after_transition", out)
             for p in parts:
                 ttnn.deallocate(p)
             return out
@@ -1835,6 +1868,9 @@ class Trunk(_KeyedWeights):
         # cycles 2..n_cycles. That is a numerical change, not an allocation change, and it
         # would not show up as an OOM -- only as wrong coordinates. The chunked path above is
         # safe because it slices (a copy) and mutates only the slice.
+        global _TRUNK_TAP_CALL
+        trunk_tap("msa_enter:m_feat", m_feat)
+        trunk_tap("msa_enter:z3", z3)
         for _bi, (opm, pwa, tm, pl) in enumerate(self.MSA):
             dram_peak(f"trunk msa block {_bi} enter")
             # OpenDDE refreshes the MSA before OPM. Protenix-v2 retains the
@@ -1847,6 +1883,9 @@ class Trunk(_KeyedWeights):
                 m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = pl(None, z3)[1]
             dram_peak(f"trunk msa block {_bi} done")
+            trunk_tap(f"block{_bi}:m_feat", m_feat)
+            trunk_tap(f"block{_bi}:z3", z3)
+        _TRUNK_TAP_CALL += 1
         return z3
 
     def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None):
