@@ -68,9 +68,10 @@ def _msa_row_chunk_budget():
 
 
 _TRUNK_TAP_CALL = 0     # one increment per Trunk._msa call, i.e. per recycling cycle
+_HOST_TAP_SEEN = {}     # tag prefix -> how many host taps written, to bound a 200-step sampler
 
 
-def trunk_tap(tag, t):
+def trunk_tap(tag, t, always=False):
     """Fingerprint a trunk tensor, when TT_BIO_TRUNK_TAP names a file to append to.
 
     Six probes each proved a component of the chunked MSA path bit-exact while the full fold kept
@@ -85,7 +86,12 @@ def trunk_tap(tag, t):
     Enable it in BOTH arms of a comparison: then whatever it perturbs, it perturbs identically, and
     the comparison stays honest (see the observer effect that invalidated an earlier measurement)."""
     path = os.environ.get("TT_BIO_TRUNK_TAP")
-    if not path or _TRUNK_TAP_CALL >= int(os.environ.get("TT_BIO_TRUNK_TAP_CYCLES", "2")):
+    if not path:
+        return
+    # `always` taps ignore the per-cycle budget: the trunk's exit and the first diffusion steps are
+    # a handful of tensors, and they are the ones that say whether a divergence that is absent from
+    # cycle 0's MSA blocks has appeared by the time diffusion starts.
+    if not always and _TRUNK_TAP_CALL >= int(os.environ.get("TT_BIO_TRUNK_TAP_CYCLES", "2")):
         return
     import hashlib
     # Upcast before hashing: to_torch hands back bfloat16 for a bf16 device tensor and numpy has no
@@ -96,6 +102,28 @@ def trunk_tap(tag, t):
     try:
         with open(path, "a") as fp:
             fp.write(f"cycle{_TRUNK_TAP_CALL} {tag} shape={tuple(t.shape)} sha={h}\n")
+    except OSError:
+        pass
+
+
+def trunk_tap_host(tag, t, limit=2):
+    """Same fingerprint as trunk_tap, for a HOST torch tensor.
+
+    The EDM sampler keeps its coordinate stream on the host between steps (denoise takes and returns
+    host tensors), so the diffusion side cannot be tapped with the device helper. Bounded to the
+    first `limit` calls per tag prefix so a 200-step sampler does not write 200 lines."""
+    path = os.environ.get("TT_BIO_TRUNK_TAP")
+    if not path:
+        return
+    import hashlib
+    n = _HOST_TAP_SEEN.get(tag.split("[")[0], 0)
+    if n >= limit:
+        return
+    _HOST_TAP_SEEN[tag.split("[")[0]] = n + 1
+    h = hashlib.sha256(t.detach().to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
+    try:
+        with open(path, "a") as fp:
+            fp.write(f"host {tag} shape={tuple(t.shape)} sha={h}\n")
     except OSError:
         pass
 
@@ -1947,6 +1975,11 @@ class Trunk(_KeyedWeights):
             s = ttnn.add(s_init, sc)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3)
             s = ttnn.reshape(s, (N, 384))
+        # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the
+        # divergence is born in a later cycle; if this matches too, the trunk is fully exonerated
+        # and only the diffusion path (and the allocator state it inherits) can explain the fold.
+        trunk_tap("trunk_exit:s_trunk", s, always=True)
+        trunk_tap("trunk_exit:z_trunk", z3, always=True)
         return s, z3
 
 
@@ -2046,8 +2079,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         for _chunk in chunks:
             denoised[_chunk] = _denoise(x_noisy[_chunk], torch.tensor([t_hat], dtype=torch.float32), cond)
         dram_peak(f"edm step {k}")
+        trunk_tap_host(f"edm_denoised[step{k}]", denoised)
         d = (x_noisy - denoised) / t_hat
         x = x_noisy + step_scale * (sigma_t - t_hat) * d
+        trunk_tap_host(f"edm_x[step{k}]", x)
         if dump_fn is not None:                      # per-step coords (noise -> structure)
             for _m in range(M):
                 dump_fn(k, x[_m:_m+1].detach().cpu())
