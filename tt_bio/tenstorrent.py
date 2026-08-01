@@ -22,6 +22,9 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # dies on. So the row block has to be derived from the token width instead of being a constant.
 # Numerically inert: the I axis indexes independent token rows (the matmul contracts depth, not I,
 # and each block gets its own full depth accumulation), so regrouping rows cannot change a value.
+# The blocked path this guards is entered at I > SEQ_LEN_MORE_CHUNKING, which reads as 1536 here but
+# is retuned to ~640 on a small grid (_apply_grid_thresholds), so on Wormhole it is live from ~640
+# tokens up -- don't conclude from the 1536 baseline that a 992-token target never reaches it.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
