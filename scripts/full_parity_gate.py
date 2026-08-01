@@ -86,6 +86,32 @@ instead of a wasted device turn on a mysterious "no common targets" scorer error
     # one leg, local card only (smoke / measure)
     python3 scripts/full_parity_gate.py --workers pc:0 --leg boltz2-trpcage-nomsa --seeds 0,1
 
+SCORER PREREQUISITES (two legs need host packages the runtime does not):
+
+  * ``opendde-abag`` scores with **DockQ==2.1.3** (see ``scripts/opendde_dockq.py``). Without it the
+    leg ERRORs at import with ``ModuleNotFoundError: No module named 'DockQ'`` AFTER paying for the
+    full fold, so install it before a long run, not after.
+  * ``esmfold2-*`` pulls in **torchvision** through its dependency chain. torchvision is compiled
+    against one specific torch; a mismatched pair raises ``operator torchvision::nms does not
+    exist`` before the device is ever touched.
+
+The mismatch is easy to hit on a host where torch and torchvision come from DIFFERENT site-package
+trees. On the japanfold Galaxy, ``/usr/bin/python3.10`` takes torch 2.12 from the tt-bio venv (via a
+prepending ``.pth``) but torchvision 0.23 — built for torch 2.8 — from system site-packages. Check
+with::
+
+    python3 -c "import torch, torchvision; print(torch.__version__, torchvision.__version__)"
+
+Rather than mutate a shared (possibly production) environment, install both into a private directory
+and put it FIRST on PYTHONPATH for the gate run only::
+
+    pip install --target ~/gatedeps "DockQ==2.1.3"
+    pip install --target ~/gatedeps --no-deps "torchvision==<match for your torch>"
+    PYTHONPATH=~/gatedeps:$PWD python3 scripts/full_parity_gate.py ...
+
+Verify the isolation held (the service's own interpreter must NOT see it) before relying on it, and
+undo with a single ``rm -rf ~/gatedeps``.
+
 See ``~/.coworker/state/tt-bio-fast-full-parity-runner.md`` for the leg
 inventory (cached vs live-ref vs in-process), the measured achieved runtime,
 and the fingerprint/cache design rationale.
