@@ -24,8 +24,11 @@ from tt_bio.tenstorrent import (get_device, MSA_CHUNK_SIZE, Transition, _dtype,
 D = int(os.environ.get("PROBE_DEPTH", 2048))     # smaller than the real 8722: still >1 chunk, faster
 C_M = 128
 CHUNK = int(os.environ.get("PROBE_CHUNK", MSA_CHUNK_SIZE))
-WIDTHS = [int(x) for x in os.environ.get(
-    "PROBE_WIDTHS", "256,284,285,286,287,288,289,300,320,505").split(",")]
+WIDTHS = [int(x) for x in os.environ.get("PROBE_WIDTHS", "285,288").split(",")]
+# Depths chosen for their REMAINDER mod the chunk width: D=2048 divides evenly, D=8722 leaves 18
+# rows (less than one 32-row tile), D=8998 leaves 294 (more than a tile). The first failing case
+# changed depth AND width together, so this separates them.
+DEPTHS = [int(x) for x in os.environ.get("PROBE_DEPTHS", "2048,8722,8998,8736").split(",")]
 
 
 def up(t, dev):
@@ -42,22 +45,26 @@ def verdict(name, a, b):
 
 
 def sweep_widths(dev):
-    """Transition, whole vs depth-chunked, across token widths."""
-    print(f"\n=== Transition width sweep (D={D}, chunk={CHUNK}) ===")
+    """Transition, whole vs depth-chunked, over a (depth, width) matrix."""
+    print(f"\n=== Transition (depth x width) sweep, chunk={CHUNK} ===")
     H = 4 * C_M
     kc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4,
                                           fp32_dest_acc_en=True, packer_l1_acc=True)
-    for W in WIDTHS:
+    for Dv in DEPTHS:
+      for W in WIDTHS:
         torch.manual_seed(0)
         w = {"norm.weight": torch.randn(C_M), "norm.bias": torch.randn(C_M),
              "fc1.weight": torch.randn(H, C_M), "fc2.weight": torch.randn(H, C_M),
              "fc3.weight": torch.randn(C_M, H)}
         tr = Transition(w, kc)
-        x = up(torch.randn(1, D, W, C_M), dev)
+        x = up(torch.randn(1, Dv, W, C_M), dev)
         whole = ttnn.to_torch(tr(x))
-        parts = [tr(x[:, s:min(s + CHUNK, D), :, :]) for s in range(0, D, CHUNK)]
+        parts = [tr(x[:, s:min(s + CHUNK, Dv), :, :]) for s in range(0, Dv, CHUNK)]
         chunked = ttnn.to_torch(ttnn.concat(parts, dim=1))
-        verdict(f"W={W:4d}  (W%32={W % 32:2d})", whole, chunked)
+        rem = Dv % CHUNK
+        verdict(f"D={Dv:5d} rem={rem:3d} (rem%32={rem % 32:2d})  W={W:4d} (W%32={W % 32:2d})",
+                whole, chunked)
+        ttnn.deallocate(x)
 
 
 def inner_ops(dev, W):
@@ -104,8 +111,6 @@ def inner_ops(dev, W):
 def main():
     dev = get_device()
     sweep_widths(dev)
-    inner_ops(dev, 285)
-    inner_ops(dev, 288)
     print("done")
 
 
