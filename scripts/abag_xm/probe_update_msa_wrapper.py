@@ -31,6 +31,15 @@ HD, NH = 8, 8
 CHUNK = int(os.environ.get("PROBE_CHUNK", MSA_CHUNK_SIZE))
 
 
+def report(name, a, b):
+    if torch.equal(a, b):
+        print(f"  {name:38s} BIT-EXACT")
+        return True
+    d = (a.float() - b.float()).abs()
+    print(f"  {name:38s} DIFFERS  maxabs {d.max():.3e}  frac {(d > 0).float().mean():.4f}")
+    return False
+
+
 def main():
     dev = get_device()
     torch.manual_seed(0)
@@ -98,6 +107,7 @@ def main():
               if torch.equal(whole_t, c2) else "still DIFFERS -> not the clone")
 
     probe_transition()
+    probe_full_update_msa()
     print("done")
 
 
@@ -131,6 +141,63 @@ def probe_transition():
         d = (whole_t.float() - chunked_t.float()).abs()
         print(f"  Transition(depth-chunked)         DIFFERS  maxabs {d.max():.3e} "
               f" frac {(d > 0).float().mean():.4f}  <-- THE CULPRIT")
+
+
+
+
+def probe_full_update_msa():
+    """The untested unit: PWA **and** Transition together, per chunk, exactly as update_msa runs.
+
+    The earlier probes tested PWA alone and Transition alone, and each came out bit-exact. But the
+    real fold's first divergence is `block0:m_feat`, the direct output of update_msa in cycle 0's
+    first MSA block -- so the difference lives in the COMPOSITION, which neither probe exercised.
+    This reproduces both branches verbatim.
+    """
+    dev = get_device()
+    torch.manual_seed(0)
+    H = 4 * C_M
+    wp = {"norm_m.weight": torch.randn(C_M), "norm_m.bias": torch.randn(C_M),
+          "norm_z.weight": torch.randn(C_Z), "norm_z.bias": torch.randn(C_Z),
+          "proj_m.weight": torch.randn(NH * HD, C_M), "proj_g.weight": torch.randn(NH * HD, C_M),
+          "proj_z.weight": torch.randn(NH, C_Z), "proj_o.weight": torch.randn(C_M, NH * HD)}
+    wt = {"norm.weight": torch.randn(C_M), "norm.bias": torch.randn(C_M),
+          "fc1.weight": torch.randn(H, C_M), "fc2.weight": torch.randn(H, C_M),
+          "fc3.weight": torch.randn(C_M, H)}
+    kc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4,
+                                          fp32_dest_acc_en=True, packer_l1_acc=True)
+    pwa, tr = PairWeightedAveraging(HD, NH, wp, kc), Transition(wt, kc)
+    print(f"\nfull update_msa probe: m=(1,{D},{S},{C_M}) chunk={CHUNK}")
+
+    m_host = torch.randn(1, D, S, C_M)
+    z_host = torch.randn(1, S, S, C_Z)
+
+    def up(t):
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=_dtype())
+
+    z = up(z_host)
+
+    m = up(m_host)                                    # --- whole branch
+    m = ttnn.add(m, ttnn.reshape(pwa(m, ttnn.clone(z)), tuple(m.shape)))
+    whole_t = ttnn.to_torch(ttnn.add(m, ttnn.reshape(tr(m), tuple(m.shape))))
+
+    m = up(m_host)                                    # --- chunked branch
+    zc = ttnn.clone(z)
+    parts = []
+    for s in range(0, D, CHUNK):
+        mc = m[:, s:min(s + CHUNK, D), :, :]
+        mc = ttnn.add(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
+        mc = ttnn.add(mc, ttnn.reshape(tr(mc), tuple(mc.shape)))
+        parts.append(mc)
+    chunked_t = ttnn.to_torch(ttnn.concat(parts, dim=1))
+
+    # Positive control FIRST: prove the comparator can actually see a difference. Omitting this is
+    # what let a broken comparison report vacuous "SAME" for two whole passes.
+    ctrl = chunked_t.clone()
+    ctrl[0, 0, 0, 0] = ctrl[0, 0, 0, 0] + 1.0
+    assert not torch.equal(chunked_t, ctrl), "comparator is blind -- fix before trusting any verdict"
+    print("  [control] comparator detects a 1-element change   OK")
+
+    report("full update_msa (PWA+Transition)", whole_t, chunked_t)
 
 
 if __name__ == "__main__":

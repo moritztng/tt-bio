@@ -78,6 +78,11 @@ def trunk_tap(tag, t, always=False):
     diverging, which is the signature of a difference that only exists in the composition. Guessing
     at components cannot find that; comparing the trunk's own intermediates between two runs can.
 
+    Fields are pipe-delimited on purpose. The first version wrote `shape=(1, 8722, 285, 128)` in a
+    space-separated line, a reader split on whitespace and indexed a fixed field, and so compared
+    shape fragments instead of hashes -- reporting vacuous "identical" for two entire passes. A
+    delimiter that cannot occur inside a value removes that failure mode at the source.
+
     Records a sha256 of the tensor's exact bytes rather than the tensor itself: m_feat is ~0.7 GiB
     for a small target, so dumping it per block per cycle would be hundreds of GB, while a hash
     localises the FIRST differing tensor just as precisely. Costs one device->host transfer per tap,
@@ -101,7 +106,7 @@ def trunk_tap(tag, t, always=False):
         ttnn.to_torch(t).to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
     try:
         with open(path, "a") as fp:
-            fp.write(f"cycle{_TRUNK_TAP_CALL} {tag} shape={tuple(t.shape)} sha={h}\n")
+            fp.write(f"cycle{_TRUNK_TAP_CALL}|{tag}|{tuple(t.shape)}|{h}\n")
     except OSError:
         pass
 
@@ -123,7 +128,7 @@ def trunk_tap_host(tag, t, limit=2):
     h = hashlib.sha256(t.detach().to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
     try:
         with open(path, "a") as fp:
-            fp.write(f"host {tag} shape={tuple(t.shape)} sha={h}\n")
+            fp.write(f"host|{tag}|{tuple(t.shape)}|{h}\n")
     except OSError:
         pass
 
