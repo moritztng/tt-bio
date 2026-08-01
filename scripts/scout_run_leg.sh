@@ -7,7 +7,7 @@
 set -u
 VER="$1"; SCRIPT="$2"; shift 2; ARGS="$*"
 WT=/home/ttuser/.coworker/wt/tt-bio-ttnn-0-75-upgrade-scout
-COMMON="PYTHONNOUSERSITE=1 TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_HOLDER=worker:tt-bio-ttnn-0-75-upgrade-scout"
+COMMON="PYTHONNOUSERSITE=1 TT_VISIBLE_DEVICES=${SCOUT_CARD:-1} TT_BIO_LEASE_HOLDER=worker:tt-bio-ttnn-0-75-upgrade-scout"
 
 if [ "$VER" = "68" ]; then
   cd "$WT" || exit 1
