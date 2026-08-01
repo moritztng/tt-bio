@@ -90,8 +90,17 @@ def _selftest() -> None:
 
 
 def code_version(repo: pathlib.Path) -> str:
-    """The git SHA that produced the folds. A dataset without it cannot be reproduced, and this
-    campaign has already had two numerics changes land mid-flight."""
+    """The git SHA of the working tree AT BUILD TIME -- NOT the sha that produced each fold.
+
+    Named `dataset_built_sha` in the output for exactly that reason. It used to be called
+    `code_sha` and documented as "the sha that produced the folds", which was false: it is read
+    when the parquet is assembled, so every row got one identical value regardless of when its
+    fold actually ran. That is a dangerous thing for a dataset to assert, because this campaign
+    landed a deliberately NON-bit-exact numerics change mid-flight (the depth-accumulated
+    OuterProductMean), so rows from either side of it are not interchangeable.
+
+    Real per-fold provenance is `fold_mtime` below, taken from the fold's own results.json.
+    """
     try:
         out = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"],
                              capture_output=True, text=True, timeout=30)
@@ -135,7 +144,11 @@ def read_folds(folds_dir: pathlib.Path, model: str, sha: str) -> list[dict]:
                     "n_atoms": rec.get("n_atoms"),
                     "msa": bool(rec.get("msa")),
                     "fold_runtime_s": rec.get("runtime_s"),
-                    "code_sha": sha,
+                    "dataset_built_sha": sha,
+                    # When this fold's results.json was written. Unlike the build sha this is
+                    # per-fold, so it orders rows against the commit timeline and reveals a
+                    # dataset accidentally pooling two numerics regimes.
+                    "fold_mtime": rj.stat().st_mtime,
                 })
     return rows
 
