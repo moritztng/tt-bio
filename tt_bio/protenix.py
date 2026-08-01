@@ -43,28 +43,46 @@ from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
 # know their headroom can raise it; `tt-bio predict --max_parallel_samples` exposes it.
 DEFAULT_MAX_PARALLEL_SAMPLES = 5
 
-# Row-chunk the trunk's MSA representation once it exceeds this many bytes. Sized so the
-# targets that already fit keep the exact unchunked code path (an AbAg-XM target at 285
-# tokens / depth 8998 is 0.618 GiB and stays whole; at 682 tokens / depth 14860 it is
-# 2.494 GiB and chunks). Chunking is bit-exact either way -- see Trunk._msa.update_msa --
-# so this threshold trades only speed, never numbers: below it, nothing about any existing
-# fold changes; above it, a fold that previously OOMed now runs.
-# A Blackhole part has 32 GiB and has never needed this, but deep-MSA targets there will now
-# chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
-MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
+# How much DRAM the full-depth MSA path needs, as a multiple of the MSA representation
+# itself. PWA's first op is an out-of-place layer_norm over the whole tensor, and the
+# residual add produces a third: source + norm + add are all live at once. Measured, not
+# assumed -- 9lof's 0.650 GiB representation died on a 698351616 B request, which is
+# exactly one more copy of itself.
+MSA_WHOLE_PATH_HEADROOM = 3
+
+# Absolute floor for the whole path, kept as a fast accept so a small target never pays a
+# device query. Anything above it is decided against real free DRAM (see below).
+MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 
 
-def _msa_row_chunk_budget():
-    """The chunking threshold, with a test-only env override.
+def _msa_take_whole_path(nbytes):
+    """Can the full-depth MSA path afford `nbytes`, or must it row-chunk?
 
-    An env var rather than an argument (which this codebase otherwise prefers) because the
-    only caller that needs to move it is the bit-exactness check, and `predict` runs the fold
-    in a SPAWNED worker: a value set on the parent's module object would not reach it. Forcing
-    the budget to 0 makes a small target take the chunked path so its output can be compared
-    byte-for-byte against the same target folded whole -- which is the acceptance test for a
-    change that claims to be numerically inert."""
+    Decided from ACTUAL free DRAM rather than a fixed threshold. A fixed threshold cannot be
+    right: it has to be low enough for the largest target on the smallest part and high enough
+    that a target which fits is not slowed down, and those two constraints conflict. A 1.0 GiB
+    constant put 9lof's 0.650 GiB representation on the whole path, where it OOMed -- under the
+    threshold and still too big, because what matters is not the tensor's size but the size of
+    the peak it implies against whatever is free at that moment.
+
+    This also keeps the chunked path off the targets that do not need it, which is worth real
+    time: the chunked path's fixed cost is ~8x the whole path's (865 s vs 109 s per fold,
+    measured), so chunking everything unconditionally would multiply the campaign's cost.
+
+    The env override is retained and still wins, because it is the acceptance test for the
+    chunked path: forcing the budget to 0 makes a SMALL target chunk so its output can be
+    compared byte-for-byte against the same target folded whole. `predict` runs the fold in a
+    spawned worker, so this has to be an env var -- a value set on the parent's module object
+    would not reach it.
+    """
     v = os.environ.get("TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES")
-    return int(v) if v else MSA_ROW_CHUNK_BUDGET_BYTES
+    if v:
+        return nbytes <= int(v)
+    if nbytes <= MSA_ROW_CHUNK_BUDGET_BYTES:
+        return True
+    mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+    free = mv.total_bytes_free_per_bank * mv.num_banks
+    return nbytes * MSA_WHOLE_PATH_HEADROOM <= free
 
 
 _TRUNK_TAP_CALL = 0     # one increment per Trunk._msa call, i.e. per recycling cycle
@@ -1887,7 +1905,7 @@ class Trunk(_KeyedWeights):
             # on its own input row and on z, and partitioning the rows cannot change any
             # accumulation order. (OuterProductMean is the opposite case -- its reduction IS
             # over depth -- which is why it stays full-depth below and must not be chunked.)
-            if D * m.shape[2] * m.shape[3] * 2 <= _msa_row_chunk_budget():
+            if _msa_take_whole_path(D * m.shape[2] * m.shape[3] * 2):
                 m = ttnn.add(m, ttnn.reshape(
                     pwa(m, ttnn.clone(z)), tuple(m.shape)))
                 dram_peak("trunk msa block: after pwa add")
