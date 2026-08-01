@@ -81,11 +81,19 @@ def physical_cores() -> list[list[int]]:
     return [v for _, v in sorted(seen.items())]
 
 
-def tt_pci_bus(dev: int) -> str | None:
+def tt_pci_root(dev: int) -> str | None:
+    """The chip's PCIe ROOT complex, not its own bus.
+
+    Every chip sits on its own bus (0000:c1, 0000:c2, ... one per device), so grouping
+    by bus gives 32 groups of one and any "spread across root complexes" ordering
+    silently degenerates into "sorted by bus" -- which packs a small cell onto a single
+    root complex, the exact confound the spread is there to avoid. The root complex is
+    the bus's high nibble (0x01-0x08 -> 0, 0x41-0x48 -> 4, ...).
+    """
     p = Path(f"/sys/class/tenstorrent/tenstorrent!{dev}/device")
     if not p.exists():
         return None
-    return os.path.basename(os.path.realpath(p)).split(":")[1]
+    return os.path.basename(os.path.realpath(p)).split(":")[1][0]
 
 
 def chip_order(n_chips: int, mode: str) -> list[int]:
@@ -100,7 +108,7 @@ def chip_order(n_chips: int, mode: str) -> list[int]:
         return ids
     by_bus: dict[str, list[int]] = {}
     for d in ids:
-        by_bus.setdefault(tt_pci_bus(d) or "?", []).append(d)
+        by_bus.setdefault(tt_pci_root(d) or "?", []).append(d)
     buses = [by_bus[k] for k in sorted(by_bus)]
     out: list[int] = []
     i = 0
