@@ -43,46 +43,53 @@ from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
 # know their headroom can raise it; `tt-bio predict --max_parallel_samples` exposes it.
 DEFAULT_MAX_PARALLEL_SAMPLES = 5
 
-# How much DRAM the full-depth MSA path needs, as a multiple of the MSA representation
-# itself. PWA's first op is an out-of-place layer_norm over the whole tensor, and the
-# residual add produces a third: source + norm + add are all live at once. Measured, not
-# assumed -- 9lof's 0.650 GiB representation died on a 698351616 B request, which is
-# exactly one more copy of itself.
-MSA_WHOLE_PATH_HEADROOM = 3
-
-# Absolute floor for the whole path, kept as a fast accept so a small target never pays a
-# device query. Anything above it is decided against real free DRAM (see below).
+# Row-chunk the trunk's MSA representation once it exceeds this many bytes.
+#
+# The value is set by the largest representation MEASURED to survive the whole path, not by a
+# model of the peak. Two folds bound it from above, both dying on a request for exactly one more
+# copy of their own representation:
+#     9lof   0.650 GiB  -> refused 698351616 B
+#     9d72   1.778 GiB  -> refused 1909293056 B
+# so the threshold has to sit below 0.650 GiB; 0.25 GiB leaves 2.6x margin.
+#
+# Deciding this from *free DRAM at the start of the block* was tried and REVERTED -- see
+# _msa_take_whole_path. Chunking is bit-exact either way (see Trunk._msa.update_msa and the
+# 9lwc md5 check), so this threshold trades only speed, never numbers.
+#
+# Cost of being conservative: 125 of 164 AbAg-XM targets already exceeded the old 1.0 GiB gate
+# and chunked regardless, so lowering it to 0.25 GiB newly chunks only part of the remaining 39,
+# each paying the chunked path's ~8x fixed cost (865 s vs 109 s). That is the right trade -- a
+# target that chunks is slow, a target that OOMs produces nothing.
+#
+# A Blackhole part has 32 GiB and has never needed this, but deep-MSA targets there will now
+# chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
 MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 
 
 def _msa_take_whole_path(nbytes):
     """Can the full-depth MSA path afford `nbytes`, or must it row-chunk?
 
-    Decided from ACTUAL free DRAM rather than a fixed threshold. A fixed threshold cannot be
-    right: it has to be low enough for the largest target on the smallest part and high enough
-    that a target which fits is not slowed down, and those two constraints conflict. A 1.0 GiB
-    constant put 9lof's 0.650 GiB representation on the whole path, where it OOMed -- under the
-    threshold and still too big, because what matters is not the tensor's size but the size of
-    the peak it implies against whatever is free at that moment.
+    A plain threshold, deliberately, after the alternative was measured and failed.
 
-    This also keeps the chunked path off the targets that do not need it, which is worth real
-    time: the chunked path's fixed cost is ~8x the whole path's (865 s vs 109 s per fold,
-    measured), so chunking everything unconditionally would multiply the campaign's cost.
+    Deciding from real free DRAM -- `get_memory_view(...).total_bytes_free_per_bank * num_banks`
+    at the top of the block, requiring some multiple of `nbytes` to be free -- looks strictly
+    better and is not. The check point and the allocation point are far apart: PWA allocates its
+    own projections and per-head weights in between, so free-at-check-time overstates
+    free-at-allocation-time by more than the margin. Measured, with a 3x requirement: 9d72's
+    1.778 GiB representation saw ~10 GiB free, passed the test, took the whole path, and died on
+    the next 1.778 GiB request -- a fold that the fixed 1.0 GiB threshold had been completing in
+    882 s. The free-DRAM gate made a working target fail.
 
-    The env override is retained and still wins, because it is the acceptance test for the
-    chunked path: forcing the budget to 0 makes a SMALL target chunk so its output can be
-    compared byte-for-byte against the same target folded whole. `predict` runs the fold in a
-    spawned worker, so this has to be an env var -- a value set on the parent's module object
-    would not reach it.
+    Predicting the peak correctly would mean modelling every intervening allocation, which is a
+    model that rots the moment PWA changes. A measured constant does not.
+
+    The env override still wins, because it is the acceptance test for the chunked path: forcing
+    the budget to 0 makes a SMALL target chunk so its output can be compared byte-for-byte
+    against the same target folded whole. `predict` runs the fold in a spawned worker, so this
+    has to be an env var -- a value set on the parent's module object would not reach it.
     """
     v = os.environ.get("TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES")
-    if v:
-        return nbytes <= int(v)
-    if nbytes <= MSA_ROW_CHUNK_BUDGET_BYTES:
-        return True
-    mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
-    free = mv.total_bytes_free_per_bank * mv.num_banks
-    return nbytes * MSA_WHOLE_PATH_HEADROOM <= free
+    return nbytes <= (int(v) if v else MSA_ROW_CHUNK_BUDGET_BYTES)
 
 
 _TRUNK_TAP_CALL = 0     # one increment per Trunk._msa call, i.e. per recycling cycle
