@@ -2392,22 +2392,27 @@ class MSALayer(Module):
         S = m.shape[2]
         if S > SEQ_LEN_MORE_CHUNKING:
             z = ttnn.reallocate(z)
-            m_acc = None
+            # Collect the row chunks and join them once, AFTER the source is freed. Joining
+            # pairwise inside the loop kept three copies of the MSA representation live at the
+            # last step -- `m`, the accumulator, and the concat's output -- and that third copy
+            # is what decides whether the largest targets fit. Freeing `m` first costs nothing:
+            # every slice has already been taken by then. Bit-exact: concat copies rows, so one
+            # N-way join writes the same bytes in the same order as N-1 pairwise ones.
+            parts = []
             N = m.shape[1]
             for s in range(0, N, MSA_CHUNK_SIZE):
                 mc = m[:, s:min(s + MSA_CHUNK_SIZE, N), :]
                 mc = ttnn.add_(mc, self.pair_weighted_averaging(mc, z, attn_mask))
                 mc = ttnn.add_(mc, self.msa_transition(mc))
-                if m_acc is None:
-                    m_acc = mc
-                else:
-                    m_old = m_acc
-                    m_acc = ttnn.concat([m_old, mc], dim=1)
-                    ttnn.deallocate(m_old)
-                    ttnn.deallocate(mc)
+                parts.append(mc)
                 dram_peak("msalayer chunked: row loop")
             ttnn.deallocate(m)
-            m = m_acc
+            if len(parts) == 1:
+                m = parts[0]
+            else:
+                m = ttnn.concat(parts, dim=1)
+                for p in parts:
+                    ttnn.deallocate(p)
             m = ttnn.reallocate(m)
             dram_peak("msalayer chunked: rows joined")
             z = ttnn.add_(z, self.outer_product_mean(m, msa_mask, n_msa))
