@@ -16,6 +16,13 @@ MSA_CHUNK_SIZE = 512
 # Same threshold and the same bit-exactness argument as protenix's MSA row chunking, so a
 # target small enough to fit keeps the exact unchunked path. See OuterProductMean.__call__.
 OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
+# Cap on OPM's per-I-block matmul result, which is (rows*c_a, c_b*tokens) in bf16 and therefore
+# grows with the SQUARE of the token count at fixed `rows`. At OPM_CHUNK_SIZE=256 and 992 padded
+# tokens that single tensor is 520093696 B -- which is exactly, to the byte, the allocation 9i3p
+# dies on. So the row block has to be derived from the token width instead of being a constant.
+# Numerically inert: the I axis indexes independent token rows (the matmul contracts depth, not I,
+# and each block gets its own full depth accumulation), so regrouping rows cannot change a value.
+OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
@@ -2306,9 +2313,15 @@ class OuterProductMean(Module):
             return out
 
         if I > SEQ_LEN_MORE_CHUNKING:
+            # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
+            # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
+            # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
+            per_row = C * D * J * 2
+            rows_blk = max(32, min(OPM_CHUNK_SIZE,
+                                   (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
             z_acc = None
-            for i in range(0, I, OPM_CHUNK_SIZE):
-                part = outer_product_mean(i, min(i + OPM_CHUNK_SIZE, I))
+            for i in range(0, I, rows_blk):
+                part = outer_product_mean(i, min(i + rows_blk, I))
                 if z_acc is None:
                     z_acc = part
                 else:
