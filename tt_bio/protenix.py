@@ -66,6 +66,17 @@ def _msa_row_chunk_budget():
     v = os.environ.get("TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES")
     return int(v) if v else MSA_ROW_CHUNK_BUDGET_BYTES
 
+
+def _msa_row_chunk_size():
+    """Chunk width, with a test-only env override (same rationale as the budget above).
+
+    Set it larger than the MSA depth to force the chunked branch to emit exactly ONE chunk.
+    That is the bisect that separates "chunking granularity changes the numbers" from "the
+    chunk-path plumbing changes the numbers": with one chunk the arithmetic is the whole
+    path's, so any remaining difference is the slice/reshape/concat wrapper, not the split."""
+    v = os.environ.get("TT_BIO_MSA_ROW_CHUNK_SIZE")
+    return int(v) if v else MSA_CHUNK_SIZE
+
 def _window_q(x, N, NP, nq=32):
     """Window the query axis into local blocks: (N,C)|(1,N,C) -> (NP//nq, nq, C), right-padded
     to NP. Shared by the atom-encoder and diffusion atom-cache windowing."""
@@ -1799,8 +1810,9 @@ class Trunk(_KeyedWeights):
             # at c_z=384 a per-chunk clone would cost ~0.9 GiB each for a 1120-token target.
             zc = ttnn.clone(z)
             parts = []
-            for s in range(0, D, MSA_CHUNK_SIZE):
-                mc = m[:, s:min(s + MSA_CHUNK_SIZE, D), :, :]     # slice => private copy
+            cw = _msa_row_chunk_size()
+            for s in range(0, D, cw):
+                mc = m[:, s:min(s + cw, D), :, :]                 # slice => private copy
                 # Deliberately the SAME out-of-place ttnn.add as the unchunked branch above.
                 # An in-place add_ here would be safe for aliasing (mc is a private copy) and
                 # would save a chunk-sized buffer, but it is a second change riding along with
