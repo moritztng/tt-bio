@@ -45,21 +45,26 @@ DEFAULT_MAX_PARALLEL_SAMPLES = 5
 
 # Row-chunk the trunk's MSA representation once it exceeds this many bytes.
 #
-# The value is set by the largest representation MEASURED to survive the whole path, not by a
-# model of the peak. Two folds bound it from above, both dying on a request for exactly one more
-# copy of their own representation:
-#     9lof   0.650 GiB  -> refused 698351616 B
-#     9d72   1.778 GiB  -> refused 1909293056 B
-# so the threshold has to sit below 0.650 GiB; 0.25 GiB leaves 2.6x margin.
+# Set so that no target is left near the whole path's OOM boundary, because that boundary cannot
+# be predicted from this tensor's size. Measured on AbAg-XM:
+#     9lwc  0.618 GiB, 285 tokens  -> folds on the whole path
+#     9d72  1.783 GiB, 682 tokens  -> refused 1909293056 B on the whole path
+# The whole path's peak is driven by PairWeightedAveraging's intermediates, which scale with
+# tokens^2; `m_feat` only correlates with that. So a size threshold near the boundary is tuning a
+# variable that is not the cause. 0.25 GiB is below the panel's smallest target (0.618 GiB), which
+# means every AbAg-XM target chunks and none of them sits near the edge.
 #
 # Deciding this from *free DRAM at the start of the block* was tried and REVERTED -- see
-# _msa_take_whole_path. Chunking is bit-exact either way (see Trunk._msa.update_msa and the
-# 9lwc md5 check), so this threshold trades only speed, never numbers.
+# _msa_take_whole_path. Chunking m_feat is bit-exact either way (Trunk._msa.update_msa, verified
+# by the 9lwc md5 check), so this threshold trades only speed, never numbers.
 #
-# Cost of being conservative: 125 of 164 AbAg-XM targets already exceeded the old 1.0 GiB gate
-# and chunked regardless, so lowering it to 0.25 GiB newly chunks only part of the remaining 39,
-# each paying the chunked path's ~8x fixed cost (865 s vs 109 s). That is the right trade -- a
-# target that chunks is slow, a target that OOMs produces nothing.
+# Cost, measured, and NOT a flat multiplier -- the chunked path's fixed cost scales with the
+# target: 9lwc 194 s, 9d72 836 s. 125 of 164 targets already exceeded the old 1.0 GiB gate, and
+# the remaining 39 (0.618-0.999 GiB) now chunk too. Chunking all 164 also makes the dataset
+# uniform: one code path for every target rather than a mix differing by one bf16 step.
+#
+# NOTE this threshold does NOT make every target fit. 9lof (2.603 GiB, 754 tokens) chunks and
+# still OOMs, in OuterProductMean rather than here -- see OuterProductMean in tenstorrent.py.
 #
 # A Blackhole part has 32 GiB and has never needed this, but deep-MSA targets there will now
 # chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
