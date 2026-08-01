@@ -550,11 +550,31 @@
               "tt_bio_version": "0.5.0",
               "date": "2026-07-28",
               "note": "seed rfd3 perf baseline on qb1 (tt-quietbox) p150a card 1, matching pc convention: 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. First invocation on this device measured 101s (one-time TTNN kernel-build-cache population, not representative -- discarded); this run is with a populated kernel cache, matching pc's own baseline character (pc's 8.18s implies its kernel cache was already warm too, despite being labeled COLD for page cache). owed by tt-bio-rfdiffusion3-largedesign-gap-p19 (merged be8274449)"
+            },
+            "opendde-abag": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 1.208666,
+              "latency_ms": 827.36,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "tt-quietbox",
+              "tt_bio_version": "0.5.0",
+              "date": "2026-08-01",
+              "note": "seed qb1 (tt-quietbox) p150a opendde-abag baseline \u2014 first ever committed; v0.5.0 measured 1.789 structures/s and said it was seeding one, but the JSON edit was never committed (git log -S over docs/perf_baselines.json is empty), so the model motivating the perf-coverage assert has been un-judgeable for two releases. Measured on card 2; card 1 is ARC-wedged on this host."
             }
           },
-          "date": "2026-07-28",
+          "date": "2026-08-01",
           "tt_bio_version": "0.5.0",
-          "note": "seed rfd3 perf baseline on qb1 (tt-quietbox) p150a card 1, matching pc convention: 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. First invocation on this device measured 101s (one-time TTNN kernel-build-cache population, not representative -- discarded); this run is with a populated kernel cache, matching pc's own baseline character (pc's 8.18s implies its kernel cache was already warm too, despite being labeled COLD for page cache). owed by tt-bio-rfdiffusion3-largedesign-gap-p19 (merged be8274449)"
+          "note": "seed qb1 (tt-quietbox) p150a opendde-abag baseline \u2014 first ever committed; v0.5.0 measured 1.789 structures/s and said it was seeding one, but the JSON edit was never committed (git log -S over docs/perf_baselines.json is empty), so the model motivating the perf-coverage assert has been un-judgeable for two releases. Measured on card 2; card 1 is ARC-wedged on this host."
         },
         "pc": {
           "models": {
