@@ -25,6 +25,10 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # The blocked path this guards is entered at I > SEQ_LEN_MORE_CHUNKING, which reads as 1536 here but
 # is retuned to ~640 on a small grid (_apply_grid_thresholds), so on Wormhole it is live from ~640
 # tokens up -- don't conclude from the 1536 baseline that a 992-token target never reaches it.
+# Verified on a Wormhole Galaxy: 9i3p's 520093696 B refusal is gone with this in place and still
+# present without it, and 9d72 reproduces all 15 structure md5s bit-for-bit despite going from 3
+# row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
+# (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
@@ -2394,10 +2398,13 @@ class MSALayer(Module):
             z = ttnn.reallocate(z)
             # Collect the row chunks and join them once, AFTER the source is freed. Joining
             # pairwise inside the loop kept three copies of the MSA representation live at the
-            # last step -- `m`, the accumulator, and the concat's output -- and that third copy
-            # is what decides whether the largest targets fit. Freeing `m` first costs nothing:
-            # every slice has already been taken by then. Bit-exact: concat copies rows, so one
-            # N-way join writes the same bytes in the same order as N-1 pairwise ones.
+            # last step -- `m`, the accumulator, and the concat's output. Freeing `m` first costs
+            # nothing: every slice has already been taken by then. Bit-exact: concat copies rows,
+            # so one N-way join writes the same bytes in the same order as N-1 pairwise ones, and
+            # 9d72's 15 structure md5s reproduce exactly with this active.
+            # Measured, so it is not oversold: this buys nothing on any target the AbAg-XM panel
+            # is blocked on. 9i3p fails at the identical byte count with and without it, because
+            # what blocks the large targets is the pair representation, not MSA occupancy.
             parts = []
             N = m.shape[1]
             for s in range(0, N, MSA_CHUNK_SIZE):
