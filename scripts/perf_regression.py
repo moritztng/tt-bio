@@ -18,6 +18,12 @@ What it measures, per model:
     ``scripts/release_gate.py``'s job).
   * esmc-300m / esmc-600m embed — seq/s on a fixed batch of 8 ubiquitin-length
     sequences (batch_size 8). Same warmup-then-time protocol.
+  * esmc-300m-single embed — seq/s on the same 8 sequences at batch_size 1,
+    i.e. the single-sequence path whose forward is replayed via ttnn trace
+    capture (tt_bio.esmc.ESMC auto-traces repeated B=1 shapes). The measurement
+    child opens the device with a trace region so the traced path is the one
+    measured. Gated separately so a trace-path regression can't hide behind
+    the batch-8 number.
   * esmc-6b embed — seq/s on 8 ubiquitin-length sequences. The 6B backbone
     (sharded TransformerEngine, ~13 GB resident) runs one-sequence-at-a-time
     (embed_sequences ignores batch_size for the 6B -- no room to widen the batch),
@@ -25,7 +31,8 @@ What it measures, per model:
     Same warmup-then-time protocol; a different runtime shape than 300m/600m,
     gated separately so a 6B dispatch/throughput regression can't ship silently.
   * boltzgen — designs/s on ``examples/binder.yaml`` (protein-anything, 4
-    designs). A single end-to-end ``tt-bio gen run`` subprocess (design +
+    designs). A single end-to-end ``tt-bio design --model boltzgen``
+    subprocess (design +
     inverse-fold + refold + analysis + filter); the first design's first-kernel
     compile is included in the timed region, so this is a conservative
     cold-inflated warm-throughput proxy. Reuses the SAME fixture/protocol the
@@ -133,7 +140,8 @@ BASELINE_FILE = REPO_ROOT / "docs" / "perf_baselines.json"
 # canonical fast fold target; the embed batch is 8x ubiquitin (76 aa).
 TRPCAGE = REPO_ROOT / "examples" / "trpcage.yaml"
 # BoltzGen's canonical binder-design fixture (de-novo binder vs chain A of 7ROA,
-# protein-anything protocol) — the SAME target README documents for `tt-bio gen run`
+# protein-anything protocol) — the SAME target README documents for
+# `tt-bio design --model boltzgen`
 # and the designability accuracy leg (scripts/release_gate.py) gates. Reused here
 # for the perf leg so the two legs share one fixture, not two.
 BINDER = REPO_ROOT / "examples" / "binder.yaml"
@@ -189,6 +197,16 @@ SPECS: dict[str, dict] = {
     "opendde-abag":   dict(kind="fold", unit="structures/s", direction="higher"),
     "esmc-300m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
+    # Single-sequence ESMC-300M embed (batch_size=1): the path the ttnn trace
+    # capture replays (ESMC forward auto-traces B=1 repeated shapes — see
+    # tt_bio.esmc.ESMC). Gated separately from the batch-8 leg above so a
+    # regression in the traced single-seq path can't hide behind the batched
+    # number. trace_region_size mirrors tt_bio.esmc._ESMC_TRACE_REGION_SIZE —
+    # the measurement child must open the device WITH a trace region or the
+    # forward stays eager and the leg measures the wrong thing.
+    "esmc-300m-single": dict(kind="embed", unit="seq/s", direction="higher",
+                             embed_model="esmc-300m",
+                             batch_size=1, n_seqs=8, trace_region_size=1 << 28),
     "esmc-600m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
     # ESMC-6B is the sharded-TransformerEngine LM backbone (~13 GB resident
@@ -230,14 +248,15 @@ SPECS: dict[str, dict] = {
     # as the boltzgen leg. Shipped-default fp32 host gates stay ON (no env
     # overrides) so the timed call matches the shipped config.
     "boltz2-affinity": dict(kind="affinity", unit="affinities/s", direction="higher"),
-    # RFdiffusion3 (RFD3) is a design pipeline reached via `tt-bio design` (its
-    # own CLI command, not a `--model` choice), so it is not in
+    # RFdiffusion3 (RFD3) is a design pipeline reached via
+    # `tt-bio design --model rfd3` (the design verb, not a predict `--model`
+    # choice), so it is not in
     # tt_bio.main.PREDICT_MODELS/EMBED_MODELS and _assert_full_model_coverage
     # does not enforce it -- it is covered here voluntarily, the same way the
     # gate covers every shipped user-facing CLI surface. Like boltzgen, RFD3
     # has no warm steady-state loop (one design = featurize -> on-device
     # TokenInitializer -> sampler -> CIF), so kind="design" is a single
-    # end-to-end `tt-bio design --from_pdb` subprocess timed wall-to-wall;
+    # end-to-end `tt-bio design --model rfd3 --from_pdb` subprocess timed wall-to-wall;
     # designs/s = num_designs / wall. Reuses the SAME IAI motif-scaffold fixture
     # the parity leg (scripts/rfd3_port/parity_gate.py) and the UX leg use --
     # no new fixture invented. num_timesteps=4 is the shipped CLI default (a
@@ -516,7 +535,10 @@ def _boltz_conf_kwargs() -> tuple[dict, dict]:
 
 def _build_cfg(model: str, spec: dict, struct_dir: Path, msa_dir: Path) -> dict:
     cfg = dict(
-        model=model,
+        # ``embed_model`` lets a SPECS key differ from the shipped model id it
+        # loads (esmc-300m-single measures the esmc-300m model at batch_size 1;
+        # the worker's load path only knows real model ids).
+        model=spec.get("embed_model", model),
         fast=False,
         output_format="cif",
         recycling_steps=RECYCLING_STEPS,
@@ -603,11 +625,11 @@ def _run_cli(cmd: list[str], env: dict, log_path: Path, timeout: int, label: str
 
 
 def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
-    """Time one ``tt-bio gen run`` design job end-to-end and write a JSON result.
+    """Time one ``tt-bio design --model boltzgen`` job end-to-end and write a JSON result.
 
     BoltzGen is a *design* pipeline, not a fold loop: it has no warm steady-state
-    ``predict_one`` to repeat. So this leg spawns the shipping ``tt-bio gen run``
-    CLI as a subprocess (the pipeline owns its own device lifecycle — no device is
+    ``predict_one`` to repeat. So this leg spawns the shipping design CLI as a
+    subprocess (the pipeline owns its own device lifecycle — no device is
     opened in this measure process) and times the full design + inverse-fold +
     refold + analysis + filter pipeline on the canonical binder fixture. The
     gated metric is ``designs/s = num_designs / wall-clock``.
@@ -628,12 +650,16 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
     work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
     out_dir = work / "gen"
     log_path = work / "gen.log"
+    # The unified design command's --devices takes physical card ids (not a
+    # count) — same convention as the rfd3 leg below.
+    visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     cmd = [
-        sys.executable, "-m", "tt_bio.main", "gen", "run", str(spec_path),
-        "--output", str(out_dir),
+        sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
+        "--model", "boltzgen",
+        "--out_dir", str(out_dir),
         "--num_designs", str(n),
         "--protocol", protocol,
-        "--devices", "1",
+        "--devices", visible,
         "--budget", str(n),
         "--debug",  # headless: no Rich live view, no-op reporter
     ]
@@ -643,7 +669,7 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    wall = _run_cli(cmd, env, log_path, GEN_TIMEOUT_S, f"gen run [{model}]")
+    wall = _run_cli(cmd, env, log_path, GEN_TIMEOUT_S, f"design boltzgen [{model}]")
     throughput = n / wall
     latency_ms = wall / n * 1000.0
     card = detect_card_type()
@@ -680,11 +706,13 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
 
 
 def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
-    """Time one ``tt-bio design --from_pdb`` job end-to-end and write a JSON result.
+    """Time one ``tt-bio design --model rfd3 --from_pdb`` job end-to-end and write a
+    JSON result.
 
     RFD3 is a design pipeline (like BoltzGen), not a fold loop: it has no warm
     steady-state ``predict_one`` to repeat. So this leg spawns the shipping
-    ``tt-bio design --from_pdb`` CLI as a subprocess (the pipeline owns its own
+    ``tt-bio design --model rfd3 --from_pdb`` CLI as a subprocess (the pipeline owns
+    its own
     device lifecycle -- no device is opened in this measure process) and times
     the full featurize -> on-device TokenInitializer -> EDM sampler -> CIF write
     on the canonical IAI motif-scaffold fixture (the SAME fixture the parity leg
@@ -715,6 +743,7 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
     visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     cmd = [
         sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
+        "--model", "rfd3",
         "--from_pdb",
         "--out_dir", str(out_dir),
         "--num_designs", str(n),
@@ -879,7 +908,10 @@ def measure(model: str, out_path: Path) -> dict:
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    get_device()  # open the chip once for this process
+    # Open the chip once for this process. Legs whose shipped path uses ttnn
+    # trace capture (esmc-300m-single) must reserve the trace region HERE —
+    # get_device caches the first open, so a later load_esmc cannot add one.
+    get_device(trace_region_size=spec.get("trace_region_size", 0))
     hw = arch_name()
     card = detect_card_type()
 

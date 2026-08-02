@@ -2,7 +2,7 @@
 """Gate-ready RFD3 featurizer value-parity scorer (card-free, CPU-only).
 
 The RFD3 port's correctness anchor is value parity of the host featurizer
-(``tt_bio.rfd3_featurize.featurize``) against a captured reference `f` from
+(``tt_bio.rfd3.featurize.featurize``) against a captured reference `f` from
 the upstream RosettaCommons/foundry featurizer. The reference is COMMITTED
 (``scripts/rfd3_port/parity_artifacts/iai_protein/ref_f.pt``), so this scorer
 runs the ported featurizer on the committed ``IAI_protein.pdb`` + contig and
@@ -72,8 +72,8 @@ def featurizer_parity() -> dict:
     `f` key bit-exact vs the committed reference capture. Card-free, CPU-only."""
     import torch
     sys.path.insert(0, str(REPO))
-    from tt_bio.rfd3_featurize import featurize
-    from tt_bio.rfd3_input import InputSpecification
+    from tt_bio.rfd3.featurize import featurize
+    from tt_bio.rfd3.input import InputSpecification
 
     if not PDB.exists():
         return {"mode": "rfd3_featurizer", "verdict": "ERROR",

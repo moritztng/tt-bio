@@ -5,6 +5,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **Unified design CLI** — `tt-bio design INPUT --model boltzgen|rfd3` is now the single design
+  command, mirroring `tt-bio predict --model ...`. BoltzGen's pipeline options (`--steps`,
+  `--config STEP key=val`, `--num_designs`, `--budget`, `--devices`, `--out_dir`) moved onto the
+  shared command as boltzgen-scoped flags (`boltzgen` is the default model, so existing
+  single-model invocations need only swap the verb). The RFD3 checkpoint flag is renamed
+  `--golden_dir` → `--checkpoint` (the old spelling stays as a hidden deprecated alias for one
+  release). The RFD3 engine modules moved from flat `tt_bio/rfd3*.py` files into a self-contained
+  `tt_bio/rfd3/` package mirroring `tt_bio/boltzgen/`; `import tt_bio.rfd3` resolves to the
+  package. Numerics are bit-identical — this is a CLI, layout, and docs change only. BoltzGen's
+  user documentation moved from the README to `docs/boltzgen-design.md`; the README now has one
+  Design section covering both models.
+
+### Deprecated
+- **`tt-bio gen`** — hidden from `--help` and prints a deprecation warning on stderr, then
+  forwards every argument to BoltzGen unchanged. It will be removed in a future release; use
+  `tt-bio design INPUT --model boltzgen` instead (`gen run X --output out` becomes
+  `design X --model boltzgen --out_dir out`).
+
 ## [0.5.0] - 2026-07-27
 
 Multi-sample folds are about 3x faster on Protenix-v2 and OpenDDE, which now draw every sample

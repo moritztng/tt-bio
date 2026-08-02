@@ -50,23 +50,11 @@ def _apply_tt_environment(worker_info: dict[str, Any]) -> None:
 
 
 def _bind_host_threads() -> None:
-    """Bind torch's thread pools to the OMP_NUM_THREADS cap set by the launcher.
+    """Bind torch's thread pools to the cap ``main._cap_worker_threads`` exported
+    before spawning. See ``runtime.bind_host_threads``."""
+    from . import runtime
 
-    ``main._cap_worker_threads`` exports the cap before spawning, and a fresh torch
-    import honours it for the intra-op pool -- but not for the inter-op pool, which
-    always sizes itself to cores/2. Bind both explicitly so a capped worker really
-    holds its share of the CPU. Nothing to do when the launcher set no cap.
-    """
-    cap = os.environ.get("OMP_NUM_THREADS")
-    if not cap:
-        return
-    import torch
-
-    torch.set_num_threads(int(cap))
-    try:
-        torch.set_num_interop_threads(int(cap))
-    except RuntimeError:
-        pass  # already started (only settable before the first parallel op)
+    runtime.bind_host_threads()
 
 
 def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
@@ -819,6 +807,13 @@ def run_worker_loop(
     _apply_tt_environment(worker_info)
     _bind_host_threads()
 
+    # A locally-spawned worker (CLI fan-out / serve pool) records its dispatcher
+    # here; a dispatcher killed with SIGTERM skips its finally-block and would
+    # otherwise orphan us holding the chip open indefinitely (observed: a stray
+    # worker pinned /dev/tenstorrent/3 for 2h, silently blocking later runs on
+    # that card). Remote `worker --connect` processes leave the var unset.
+    _dispatcher_pid = int(os.environ.get("TT_BIO_PARENT_PID") or 0)
+
     client = ControllerClient(controller_url)
     worker_id = worker_info["worker_id"]
     meta = {
@@ -870,6 +865,8 @@ def run_worker_loop(
             return
     try:
         while True:
+            if _dispatcher_pid and os.getppid() != _dispatcher_pid:
+                return
             # Tolerate a controller that's briefly unreachable (restart, network
             # blip): retry leasing instead of crashing the worker. This makes the
             # fleet self-healing — a worker reconnects on its own when the
