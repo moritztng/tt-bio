@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>JapanFold — Biomolecular AI at the lowest cost per prediction</title>
+<title>JapanFold — Biomolecular AI on Tenstorrent</title>
 <link rel="icon" type="image/svg+xml" href="/japanfold-mark.svg">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="canonical" href="https://japanfold.com/">
 <meta name="theme-color" content="#f6f6f7">
-<meta name="description" content="Structure prediction, binding affinity, de-novo design, and embeddings. ~5x higher throughput per dollar on Tenstorrent AI processors. 100% Japan-hosted.">
-<meta property="og:title" content="JapanFold — Biomolecular AI at the lowest cost per prediction">
+<meta name="description" content="Structure prediction, binding affinity, de-novo design, and embeddings on Tenstorrent AI processors. ~5x more predictions per dollar than GPU. 100% Japan-hosted.">
+<meta property="og:title" content="JapanFold — Biomolecular AI on Tenstorrent">
 <meta property="og:site_name" content="JapanFold">
-<meta property="og:description" content="Structure prediction, binding affinity, de-novo design, and embeddings. ~5x higher throughput per dollar on Tenstorrent AI processors. 100% Japan-hosted.">
+<meta property="og:description" content="Structure prediction, binding affinity, de-novo design, and embeddings on Tenstorrent AI processors. ~5x more predictions per dollar than GPU. 100% Japan-hosted.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://japanfold.com/">
 <meta property="og:image" content="https://japanfold.com/apple-touch-icon.png">
@@ -74,6 +74,15 @@ a { color: inherit; text-decoration: none; }
   display: grid; grid-template-columns: 1.25fr 1fr; align-items: center;
   gap: 48px; padding: 96px 0 88px;
 }
+.powered-top {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 22px;
+}
+.powered-top a { display: inline-flex; align-items: center; }
+.powered-top img.aiand { height: 19px; }
+.powered-top img.tt { height: 16px; }
+.powered-top .dot { color: var(--muted-2); }
 .eyebrow {
   font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--muted); margin-bottom: 22px;
@@ -111,7 +120,7 @@ h1 {
 
 /* ---------- figures ---------- */
 .figures {
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(3, 1fr);
   border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
 }
 .figure { padding: 40px 28px 44px; border-left: 1px solid var(--border); }
@@ -185,10 +194,9 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
   .hero { grid-template-columns: 1fr; gap: 40px; padding: 64px 0 64px; }
   .hero-mark { order: -1; justify-content: flex-start; }
   .hero-mark svg { width: 200px; }
-  .figures { grid-template-columns: 1fr 1fr; }
-  .figure { padding: 28px 20px 32px; }
-  .figure:nth-child(odd) { border-left: none; padding-left: 0; }
-  .figure:nth-child(n+3) { border-top: 1px solid var(--border); }
+  .figures { grid-template-columns: 1fr; }
+  .figure { padding: 28px 0 32px; border-left: none; border-top: 1px solid var(--border); }
+  .figure:first-child { border-top: none; }
   .models { grid-template-columns: 1fr 1fr; }
   .dev { flex-direction: column; align-items: flex-start; padding: 36px; }
   .dev .actions { flex-direction: row; flex-wrap: wrap; }
@@ -222,11 +230,17 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 
   <div class="hero">
     <div>
-      <p class="eyebrow">100% Japan-hosted &middot; Sovereign compute</p>
-      <h1>Biomolecular AI at the lowest cost per prediction.</h1>
-      <p class="lede">Structure prediction, binding affinity, de-novo design, and embeddings.
-        A single job parallelizes across Tenstorrent Galaxy servers, 32 AI chips each,
-        for incredible throughput at a fraction of GPU cost.</p>
+      <p class="powered-top">
+        Powered by
+        <a href="https://aiand.com" target="_blank" rel="noopener noreferrer" title="ai&amp;"><img class="aiand" src="/aiand-logo.svg" alt="ai&amp;"></a>
+        on
+        <a href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer" title="Tenstorrent"><img class="tt" src="/tenstorrent-logo.svg" alt="Tenstorrent"></a>
+        AI processors
+        <span class="dot">&middot;</span> 100% Japan-hosted
+      </p>
+      <h1>Biomolecular AI on Tenstorrent.</h1>
+      <p class="lede">Structure prediction, binding affinity, de-novo design, and embeddings —
+        one job parallelizes across Tenstorrent Galaxy servers for incredible throughput.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://demo.japanfold.com">Start free demo &rarr;</a>
         <a class="btn btn-ghost" href="https://aiand.com/contact">Contact us</a>
@@ -252,24 +266,16 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
   <div class="figures">
     <div class="figure">
       <span class="num">~5&times;</span>
-      <p>higher throughput per dollar on Tenstorrent AI processors. Kernels, compiler, and
-        serving built as one vertically integrated stack, so nothing sits between the model
-        and the metal.</p>
-    </div>
-    <div class="figure">
-      <span class="num">32</span>
-      <p>AI chips in every Tenstorrent Galaxy. A single job parallelizes across all of them,
-        and scales out across Galaxies.</p>
+      <p>more predictions per dollar than GPU.</p>
     </div>
     <div class="figure">
       <span class="num">0</span>
-      <p>cross-border data egress. 100% Japan-hosted; your sequences never leave the
-        country.</p>
+      <p>cross-border data egress. 100% Japan-hosted.</p>
     </div>
     <div class="figure">
       <span class="num">1:1</span>
-      <p>output parity with the original reference implementations. See the
-        <a href="https://docs.japanfold.com/accuracy/">measured accuracy</a>.</p>
+      <p>accuracy parity with the reference implementations &mdash;
+        <a href="https://docs.japanfold.com/accuracy/">measured</a>.</p>
     </div>
   </div>
 
