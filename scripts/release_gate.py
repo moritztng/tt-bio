@@ -158,7 +158,8 @@ MODELS = {
 }
 
 # BoltzGen designability leg — see module docstring. Small n and the target the
-# README already documents for `tt-bio gen run`; kept fast enough for a release gate
+# README already documents for `tt-bio design --model boltzgen`; kept fast enough for a
+# release gate
 # while still statistically meaningful (docs/boltzgen-designability.md's n=4 run on
 # this exact target/protocol measured 1.00 A median / 75% <=2A; a fresh n=4
 # reproduction on 2026-07-10 main HEAD measured 0.85 A median / 100% <=2A in 271s).
@@ -288,7 +289,7 @@ def _load_structure_harness():
 
 
 def _load_designability_harness():
-    """Import scripts/boltzgen_designability.py by path — reuse its _run_gen/score,
+    """Import scripts/boltzgen_designability.py by path — reuse its _run_design/score,
     do not re-derive the design-pipeline invocation or the scRMSD harvest."""
     path = REPO_ROOT / "scripts" / "boltzgen_designability.py"
     spec = importlib.util.spec_from_file_location("tt_bio_boltzgen_designability", path)
@@ -390,7 +391,7 @@ def run_boltzgen(bg, keep: bool) -> dict:
     """Design, parse, and designability-score BoltzGen. Returns a result row."""
     out = REPO_ROOT / "boltzgen_gate_binder"
     if out.exists():
-        shutil.rmtree(out)  # never score a stale run if this gen crashes
+        shutil.rmtree(out)  # never score a stale run if this design run crashes
 
     print(f"\n{'='*70}\n[boltzgen] designing {BOLTZGEN_SPEC.name} "
           f"({BOLTZGEN_NUM_DESIGNS} designs, {BOLTZGEN_PROTOCOL})\n{'='*70}", flush=True)
@@ -399,8 +400,8 @@ def run_boltzgen(bg, keep: bool) -> dict:
            "pass_rate": None, "parse": False, "gate": False, "error": None}
     t0 = time.monotonic()
     try:
-        bg._run_gen(BOLTZGEN_SPEC, out, BOLTZGEN_NUM_DESIGNS, BOLTZGEN_PROTOCOL,
-                    devices=1, budget=BOLTZGEN_NUM_DESIGNS, reuse=False)
+        bg._run_design(BOLTZGEN_SPEC, out, BOLTZGEN_NUM_DESIGNS, BOLTZGEN_PROTOCOL,
+                       devices=None, budget=BOLTZGEN_NUM_DESIGNS, reuse=False)
     except SystemExit as e:
         row["error"] = str(e)
         return row

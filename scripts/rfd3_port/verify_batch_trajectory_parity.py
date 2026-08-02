@@ -5,7 +5,7 @@ RFD3 device forward is batch-invariant and that a full stochastic trajectory
 with per-element generators reproduces each element's standalone seeded
 trajectory, at batch size D and any contig/spec fixture. Required before raising
 the production batch default above 8, or the atom-count clamp that decides which
-batch a large design actually gets (`_BATCH_ATOM_PAIR_BUDGET`, rfd3_design.py) --
+batch a large design actually gets (`_BATCH_ATOM_PAIR_BUDGET`, tt_bio/rfd3/design.py) --
 batch exactness is a property of the whole (M, K, N, D) tuple, so clearing it at
 419 atoms says nothing about 3359.
 
@@ -56,10 +56,10 @@ def pcc(a, b):
 def main():
     args = parse_args()
     D = args.batch
-    from tt_bio.rfd3 import build_diffusion_module, build_token_initializer
-    from tt_bio.rfd3_featurize import featurize
-    from tt_bio.rfd3_input import InputSpecification
-    from tt_bio.rfd3_sampler import RFD3Sampler
+    from tt_bio.rfd3.model import build_diffusion_module, build_token_initializer
+    from tt_bio.rfd3.featurize import featurize
+    from tt_bio.rfd3.input import InputSpecification
+    from tt_bio.rfd3.sampler import RFD3Sampler
 
     if args.spec:
         data = json.loads(args.spec.read_text())

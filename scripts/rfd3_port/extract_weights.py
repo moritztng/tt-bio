@@ -1,4 +1,4 @@
-"""CLI wrapper for tt_bio.rfd3_design.extract_rfd3_weights (dev/manual use).
+"""CLI wrapper for tt_bio.rfd3.design.extract_rfd3_weights (dev/manual use).
 
     python extract_weights.py /root/work/ckpt/rfd3_latest.ckpt /root/work/capture
 
@@ -12,7 +12,7 @@ the checkpoint and runs the same extraction via tt_bio.main.ensure_rfd3_weights.
 """
 import sys
 
-from tt_bio.rfd3_design import extract_rfd3_weights
+from tt_bio.rfd3.design import extract_rfd3_weights
 
 if __name__ == "__main__":
     extract_rfd3_weights(sys.argv[1], sys.argv[2])
