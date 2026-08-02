@@ -40,8 +40,16 @@ The remaining 13% is not host CPU, not chip placement, and not thread count:
 Host CPU per fold is constant across the whole range (381 core-seconds at N=1, 394 at N=32, +3.4%)
 while the wall grows 15.2%, so the extra time at high N is time folds spend waiting rather than
 computing — and not on any host resource above. What remains is on the device side or in the
-host-device interconnect, which this box cannot see: the pip ttnn wheel has no Tracy build, so there
-is no device profiler.
+host-device interconnect.
+
+That is still open, and the experiment to close it is: capture device-op time for the same fold at
+N=1 and N=32 and ask whether *kernel* time grows with concurrency (a shared device-side resource) or
+stays flat while the *gaps between ops* grow (dispatch latency under load). The pip ttnn wheel does
+ship Tracy (`ttnn.libs/libtracy*.so`, a `tracy` Python package, and `ReadDeviceProfiler` exported
+from `_ttnn.so`, driven by `TT_METAL_DEVICE_PROFILER=1` + `TT_METAL_PROFILER_MID_RUN_DUMP=1` +
+`TT_METAL_PROFILER_CPP_POST_PROCESS=1`), so the tooling is present — whether this build actually
+emits device timestamps is untested and wants a one-chip smoke test first. Profile a subset of the
+folds, not all 32, or the instrumentation perturbs what you are measuring.
 
 ## The other fanout path: `tt-bio embed` through the serve pool
 
