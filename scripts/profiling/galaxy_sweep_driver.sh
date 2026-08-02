@@ -5,9 +5,13 @@
 # line per cell so a dropped connection never costs a cell, and keeps every cell at
 # identical work (one target, one diffusion sample) so cross-cell comparison is valid.
 #
-#   E1  concurrency curve 1..32, chips spread across the four PCIe root buses
+#   E1  concurrency curve 1..32, chips spread across the four PCIe root complexes
 #   E2  fixed N=32, all folds packed into M physical cores -- the discriminator between
 #       "the host cores are spinning on dispatch back-pressure" and "the host is busy"
+#
+# Ignore INT/HUP: setsid+nohup alone does not survive the launching session going away on this
+# host, and a sweep that dies mid-cell costs the whole cell.
+trap "" INT HUP
 set -u
 SRC=/home/cust-team/mthuening/parity-src
 BASE=/home/cust-team/mthuening/g32
