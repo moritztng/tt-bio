@@ -315,6 +315,10 @@ def main():
         return _orig_report(stage, step, total)
     E.report_progress = _report
 
+    # Fast mode must be set BEFORE the ESMC preload: otherwise the 6B LM loads in
+    # default (non-fast) bf16 (~12.8 GB) and the later fast-mode trunk construction
+    # OOMs on Wormhole. Production sets fast mode before any load; mirror it.
+    tenstorrent.set_fast_mode(args.fast)
     # Shared ttnn ESMC-6B (loaded once): produces the LM hidden states fed to BOTH paths.
     esmc = _ESMCAdapter(args.esmc_repo, persistent=True)
     esmc.preload()
@@ -330,7 +334,6 @@ def main():
 
     # ttnn model: same weights, every submodule swapped to ttnn.
     print(f"loading ttnn model (fast={args.fast}) ...", flush=True)
-    tenstorrent.set_fast_mode(args.fast)
     tt_model = ESMFold2Model.from_pretrained(args.esmfold2_repo, load_esmc=False).eval()
     patch_esmfold2(tt_model, esmc_repo=args.esmc_repo)
     tt_model._esmc = esmc  # reuse the already-loaded ESMC (LM states are passed in anyway)

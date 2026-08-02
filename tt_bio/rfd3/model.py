@@ -24,7 +24,7 @@ import torch.nn.functional as F
 
 import ttnn
 
-from .tenstorrent import Module, get_device, CORE_GRID_MAIN
+from ..tenstorrent import Module, get_device, CORE_GRID_MAIN
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -113,7 +113,7 @@ _TUNED_MM_CACHE = {}
 #     batch of 8 designs at 200 timesteps only saves ~5.4s, so a single-batch run is net NEGATIVE.
 #     It turns positive from the second batch on, i.e. --num_designs > --batch_size.
 #   * `_tunable` needs xs[0] > 1, so the lever only engages on a batched forward. p25 raised
-#     the atom-count clamp (`_BATCH_ATOM_PAIR_BUDGET`, see rfd3_design.py) to the measured
+#     the atom-count clamp (`_BATCH_ATOM_PAIR_BUDGET`, see design.py) to the measured
 #     memory bound, so that is now every design up to 3359 atoms rather than only <=838 --
 #     but the sizes it newly reaches are also the slow ones, where a single batch takes long
 #     enough that the 5.9s is a smaller share. Whether that flips the end-to-end sign at

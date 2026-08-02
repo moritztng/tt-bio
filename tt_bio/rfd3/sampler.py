@@ -100,7 +100,7 @@ def strip_X(X_L: torch.Tensor, f_ref: dict[str, torch.Tensor]) -> torch.Tensor:
 # every step, since their per-replica coordinate was already baked in once at
 # feature-build time) or excluded from symmetrization entirely via
 # `is_unsym_motif` -- reachable since p19's F5+motif combination (see
-# tt_bio.rfd3_featurize's F5+motif grounding), verified device-vs-reference
+# tt_bio.rfd3.featurize's F5+motif grounding), verified device-vs-reference
 # on real `unsym_C3_6t8h`/`unindexed_C2_1j79` fixtures.
 _FIXED_ENTITY_ID = -1
 
@@ -173,7 +173,7 @@ class RFD3Sampler:
         traj = []
         # F5: symmetrize the denoised output while c_t > gamma_min_sym (the last
         # ~10% of steps run unconstrained, per upstream's SampleDiffusionWithSymmetry
-        # default sym_step_frac=0.9 -- see tt_bio.rfd3_featurize's F5 grounding).
+        # default sym_step_frac=0.9 -- see tt_bio.rfd3.featurize's F5 grounding).
         sym_feats = {k: f[k] for k in ("sym_transform", "sym_transform_id", "sym_entity_id", "is_sym_asu")
                      if k in f} or None
         gamma_min_sym = sched[min(int(len(sched) * sym_step_frac), len(sched) - 1)] if sym_feats else None

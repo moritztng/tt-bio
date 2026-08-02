@@ -31,7 +31,8 @@ import ttnn
 
 from . import protenix_weights as PW
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
-from .tenstorrent import Module, CORE_GRID_MAIN, get_device
+from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
+                          MSA_CHUNK_SIZE)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -42,39 +43,142 @@ from .tenstorrent import Module, CORE_GRID_MAIN, get_device
 # know their headroom can raise it; `tt-bio predict --max_parallel_samples` exposes it.
 DEFAULT_MAX_PARALLEL_SAMPLES = 5
 
-_DRAM_PEAK = {}   # tag -> high-water device DRAM bytes, when TT_BIO_DRAM_PEAK is set
+# Row-chunk the trunk's MSA representation once it exceeds this many bytes.
+#
+# Set so that no target is left near the whole path's OOM boundary, because that boundary cannot
+# be predicted from this tensor's size. Measured on AbAg-XM:
+#     9lwc  0.618 GiB, 285 tokens  -> folds on the whole path
+#     9d72  1.783 GiB, 682 tokens  -> refused 1909293056 B on the whole path
+# The whole path's peak is driven by PairWeightedAveraging's intermediates, which scale with
+# tokens^2; `m_feat` only correlates with that. So a size threshold near the boundary is tuning a
+# variable that is not the cause. 0.25 GiB is below the panel's smallest target (0.618 GiB), which
+# means every AbAg-XM target chunks and none of them sits near the edge.
+#
+# Deciding this from *free DRAM at the start of the block* was tried and REVERTED -- see
+# _msa_take_whole_path. Chunking m_feat is bit-exact either way (Trunk._msa.update_msa, verified
+# by the 9lwc md5 check), so this threshold trades only speed, never numbers.
+#
+# Cost, measured, and NOT a flat multiplier -- the chunked path's fixed cost scales with the
+# target: 9lwc 194 s, 9d72 836 s. 125 of 164 targets already exceeded the old 1.0 GiB gate, and
+# the remaining 39 (0.618-0.999 GiB) now chunk too. Chunking all 164 also makes the dataset
+# uniform: one code path for every target rather than a mix differing by one bf16 step.
+#
+# NOTE this threshold does NOT make every target fit. 9lof (2.603 GiB, 754 tokens) chunks and
+# still OOMs, in OuterProductMean rather than here -- see OuterProductMean in tenstorrent.py.
+#
+# A Blackhole part has 32 GiB and has never needed this, but deep-MSA targets there will now
+# chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
+MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 
 
-def dram_peak(tag=None):
-    """Record (and return) the device DRAM high-water mark, in bytes.
+def _msa_take_whole_path(nbytes):
+    """Can the full-depth MSA path afford `nbytes`, or must it row-chunk?
 
-    Off unless TT_BIO_DRAM_PEAK names a file to append samples to, so production folds pay
-    nothing. A FILE and not stdout because `tt-bio predict` runs the fold in a spawned
-    worker whose stdout the live-progress view owns (and drops when it is not a TTY), so a
-    printed measurement is invisible exactly when it is being collected non-interactively.
+    A plain threshold, deliberately, after the alternative was measured and failed.
 
-    The ttnn allocator is host-side bookkeeping updated at op-dispatch time, so sampling it
-    from the calling thread is synchronous and cheap. This is what the release gate's
-    capacity leg reads: a footprint change is invisible to a numerical parity fixture, so
-    the footprint has to be measured directly at the largest supported input.
-    Call with no tag to read the current peak across all tags."""
-    path = os.environ.get("TT_BIO_DRAM_PEAK")
+    Deciding from real free DRAM -- `get_memory_view(...).total_bytes_free_per_bank * num_banks`
+    at the top of the block, requiring some multiple of `nbytes` to be free -- looks strictly
+    better and is not. The check point and the allocation point are far apart: PWA allocates its
+    own projections and per-head weights in between, so free-at-check-time overstates
+    free-at-allocation-time by more than the margin. Measured, with a 3x requirement: 9d72's
+    1.778 GiB representation saw ~10 GiB free, passed the test, took the whole path, and died on
+    the next 1.778 GiB request -- a fold that the fixed 1.0 GiB threshold had been completing in
+    882 s. The free-DRAM gate made a working target fail.
+
+    Predicting the peak correctly would mean modelling every intervening allocation, which is a
+    model that rots the moment PWA changes. A measured constant does not.
+
+    The env override still wins, because it is the acceptance test for the chunked path: forcing
+    the budget to 0 makes a SMALL target chunk so its output can be compared byte-for-byte
+    against the same target folded whole. `predict` runs the fold in a spawned worker, so this
+    has to be an env var -- a value set on the parent's module object would not reach it.
+    """
+    v = os.environ.get("TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES")
+    return nbytes <= (int(v) if v else MSA_ROW_CHUNK_BUDGET_BYTES)
+
+
+_TRUNK_TAP_CALL = 0     # one increment per Trunk._msa call, i.e. per recycling cycle
+_HOST_TAP_SEEN = {}     # tag prefix -> how many host taps written, to bound a 200-step sampler
+
+
+def trunk_tap(tag, t, always=False):
+    """Fingerprint a trunk tensor, when TT_BIO_TRUNK_TAP names a file to append to.
+
+    Six probes each proved a component of the chunked MSA path bit-exact while the full fold kept
+    diverging, which is the signature of a difference that only exists in the composition. Guessing
+    at components cannot find that; comparing the trunk's own intermediates between two runs can.
+
+    Fields are pipe-delimited on purpose. The first version wrote `shape=(1, 8722, 285, 128)` in a
+    space-separated line, a reader split on whitespace and indexed a fixed field, and so compared
+    shape fragments instead of hashes -- reporting vacuous "identical" for two entire passes. A
+    delimiter that cannot occur inside a value removes that failure mode at the source.
+
+    Records a sha256 of the tensor's exact bytes rather than the tensor itself: m_feat is ~0.7 GiB
+    for a small target, so dumping it per block per cycle would be hundreds of GB, while a hash
+    localises the FIRST differing tensor just as precisely. Costs one device->host transfer per tap,
+    so it is gated behind the env var and further limited by TT_BIO_TRUNK_TAP_CYCLES (default 2).
+
+    Enable it in BOTH arms of a comparison: then whatever it perturbs, it perturbs identically, and
+    the comparison stays honest (see the observer effect that invalidated an earlier measurement)."""
+    path = os.environ.get("TT_BIO_TRUNK_TAP")
     if not path:
-        return 0
-    if tag is not None:
-        mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
-        used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks
-        if used > _DRAM_PEAK.get(tag, 0):
-            _DRAM_PEAK[tag] = used
-            line = (f"[DRAM] {tag}: {used / 2**30:.3f} GiB used "
-                    f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB)\n")
-            try:
-                with open(path, "a") as fp:      # append: the worker is a separate process
-                    fp.write(line)
-            except OSError:
-                pass                            # a diagnostic must never break a fold
-    return max(_DRAM_PEAK.values(), default=0)
+        return
+    # `always` taps ignore the per-cycle budget: the trunk's exit and the first diffusion steps are
+    # a handful of tensors, and they are the ones that say whether a divergence that is absent from
+    # cycle 0's MSA blocks has appeared by the time diffusion starts.
+    if not always and _TRUNK_TAP_CALL >= int(os.environ.get("TT_BIO_TRUNK_TAP_CYCLES", "2")):
+        return
+    import hashlib
+    # The MSA representation is a LIST of depth chunks on the chunked path. Hash the chunks in
+    # order, which gives the same fingerprint the concatenated tensor would.
+    parts = t if isinstance(t, list) else [t]
+    shape = (f"list[{len(parts)}]{tuple(parts[0].shape)}" if isinstance(t, list)
+             else tuple(t.shape))
+    # Upcast before hashing: to_torch hands back bfloat16 for a bf16 device tensor and numpy has no
+    # bfloat16 dtype, so .numpy() raises. float32 is a lossless widening of bf16, so the hash is
+    # still an exact fingerprint of the device bytes.
+    _h = hashlib.sha256()
+    for _p in parts:
+        _h.update(ttnn.to_torch(_p).to(torch.float32).contiguous().numpy().tobytes())
+    h = _h.hexdigest()[:16]
+    try:
+        with open(path, "a") as fp:
+            fp.write(f"cycle{_TRUNK_TAP_CALL}|{tag}|{shape}|{h}\n")
+    except OSError:
+        pass
 
+
+def trunk_tap_host(tag, t, limit=2):
+    """Same fingerprint as trunk_tap, for a HOST torch tensor.
+
+    The EDM sampler keeps its coordinate stream on the host between steps (denoise takes and returns
+    host tensors), so the diffusion side cannot be tapped with the device helper. Bounded to the
+    first `limit` calls per tag prefix so a 200-step sampler does not write 200 lines."""
+    path = os.environ.get("TT_BIO_TRUNK_TAP")
+    if not path:
+        return
+    import hashlib
+    n = _HOST_TAP_SEEN.get(tag.split("[")[0], 0)
+    if n >= limit:
+        return
+    _HOST_TAP_SEEN[tag.split("[")[0]] = n + 1
+    h = hashlib.sha256(t.detach().to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
+    try:
+        with open(path, "a") as fp:
+            fp.write(f"host|{tag}|{tuple(t.shape)}|{h}\n")
+    except OSError:
+        pass
+
+
+def _msa_row_chunk_size():
+    """Chunk width, with a test-only env override (same rationale as the budget above).
+
+    Set it larger than the MSA depth to force the chunked branch to emit exactly ONE chunk.
+    That is the bisect that separates "chunking granularity changes the numbers" from "the
+    chunk-path plumbing changes the numbers": with one chunk the arithmetic is the whole
+    path's, so any remaining difference is the slice/reshape/concat wrapper, not the split."""
+    v = os.environ.get("TT_BIO_MSA_ROW_CHUNK_SIZE")
+    return int(v) if v else MSA_CHUNK_SIZE
 
 def _window_q(x, N, NP, nq=32):
     """Window the query axis into local blocks: (N,C)|(1,N,C) -> (NP//nq, nq, C), right-padded
@@ -1264,8 +1368,14 @@ class ConfidenceHead:
         plddt heads run on device (bf16) and only the final logits are
         downloaded -- the (N,N,256) z never round-trips per sample."""
         import torch, ttnn
+        # Tapped because the trunk and the diffusion stream are, and this was not: three AbAg-XM
+        # targets fail ~1300 s in, long after the trunk, at refused sizes that match no trunk
+        # tensor. Without a tag here the last thing TT_BIO_DRAM_PEAK reports is the final edm
+        # step, which cannot distinguish "died in confidence" from "died after it".
+        dram_peak("confidence: enter")
         rc = self._device_resident(s_inputs, s_trunk, z_base_dev, feats)
         N = rc["N"]
+        dram_peak(f"confidence: resident built [N={N}]")
         # ---- per-sample distance-embed on device ----
         coords_tbl = ttnn.from_torch(coords.float().reshape(coords.shape[0], 3), layout=ttnn.ROW_MAJOR_LAYOUT,
                                      device=self.dev, dtype=ttnn.bfloat16)        # (N_atom,3) gather table
@@ -1320,6 +1430,7 @@ class ConfidenceHead:
         # einsum nc,ncb->nb  ==  batched (N_atom,1,384) @ (N_atom,384,50) -> (N_atom,1,50)
         aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
         plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
+        dram_peak("confidence: heads done, before download")
         # ---- download the small finals; post-process on host (small, exact) ----
         pae_h = torch.Tensor(ttnn.to_torch(pae_logits)).float().reshape(N, N, -1)
         pde_h = torch.Tensor(ttnn.to_torch(pde_logits)).float().reshape(N, N, -1)
@@ -1784,20 +1895,100 @@ class Trunk(_KeyedWeights):
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
-            m = ttnn.add(m, ttnn.reshape(
-                pwa(m, ttnn.clone(z)), tuple(m.shape)))
-            return ttnn.add(
-                m, ttnn.reshape(transition(m), tuple(m.shape)))
+            if isinstance(m, list):
+                # Already chunked: transform each chunk in place of the list, freeing the old
+                # chunk as soon as its replacement exists, so the peak stays ~2 chunks over the
+                # list rather than a second full copy.
+                zc = ttnn.clone(z)
+                out = []
+                for mc in m:
+                    t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
+                    ttnn.deallocate(mc)
+                    t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
+                    ttnn.deallocate(t1)
+                    out.append(t2)
+                    dram_peak("trunk msa block: after pwa add (list)")
+                ttnn.deallocate(zc)
+                return out
+            D = m.shape[1]                                  # MSA depth
+            # Row-chunk the MSA depth axis when the representation is too big to hold several
+            # copies of. Unchunked, PairWeightedAveraging's FIRST op is an out-of-place
+            # layer_norm over the whole tensor, so a second full copy has to exist alongside
+            # the input; measured on a 12 GiB Wormhole part, that allocation is exactly what
+            # a deep-MSA target dies on (9qqf refused 2.494 GiB with m_feat = 2.494 GiB).
+            #
+            # This is bit-exact, not an approximation: nothing in this path reduces along the
+            # depth axis. PWA's weights come from `z` alone (linear(z,...) then softmax), its
+            # matmul contracts the TOKEN axis, its head accumulation is over heads, and
+            # layer_norm/Transition are per-row over channels. So each output row depends only
+            # on its own input row and on z, and partitioning the rows cannot change any
+            # accumulation order. (OuterProductMean is the opposite case -- its reduction IS
+            # over depth -- which is why it stays full-depth below and must not be chunked.)
+            if _msa_take_whole_path(D * m.shape[2] * m.shape[3] * 2):
+                m = ttnn.add(m, ttnn.reshape(
+                    pwa(m, ttnn.clone(z)), tuple(m.shape)))
+                dram_peak("trunk msa block: after pwa add")
+                trunk_tap("whole:after_pwa", m)
+                out = ttnn.add(
+                    m, ttnn.reshape(transition(m), tuple(m.shape)))
+                trunk_tap("whole:after_transition", out)
+                return out
+            # One clone of z for the whole loop, not one per chunk: PWA only reads z (it
+            # rebinds its own local through reshape/layer_norm and never deallocates it), and
+            # at c_z=384 a per-chunk clone would cost ~0.9 GiB each for a 1120-token target.
+            zc = ttnn.clone(z)
+            parts = []
+            cw = _msa_row_chunk_size()
+            for s in range(0, D, cw):
+                mc = m[:, s:min(s + cw, D), :, :]                 # slice => private copy
+                # Deliberately the SAME out-of-place ttnn.add as the unchunked branch above.
+                # An in-place add_ here would be safe for aliasing (mc is a private copy) and
+                # would save a chunk-sized buffer, but it is a second change riding along with
+                # the chunking, and the acceptance test cannot then attribute a difference to
+                # one or the other. Keep the arithmetic identical to the whole path; the memory
+                # win comes from the chunk being small, not from mutating it.
+                mc = ttnn.add(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
+                mc = ttnn.add(mc, ttnn.reshape(transition(mc), tuple(mc.shape)))
+                parts.append(mc)
+                dram_peak("trunk msa block: after pwa add")
+            ttnn.deallocate(zc)
+            # Return the CHUNKS, not a concatenation of them. The terminal concat used to need a
+            # third full-size buffer (source + parts + destination) and that 3x peak is what made
+            # 9d72 OOM at 1.78 GiB m_feat even with chunking on. Every downstream consumer is
+            # chunk-wise -- PWA and Transition are per-row, and OuterProductMean now takes the
+            # list and joins only its c=32 projections -- so the contiguous tensor is never needed.
+            return parts
 
-        for (opm, pwa, tm, pl) in self.MSA:
+        # DO NOT make update_msa's first add in-place on the tensor passed in. `m_feat` is
+        # built ONCE outside the recycling loop in __call__ and this method is re-entered for
+        # every cycle, so the caller's buffer has to survive intact; mutating it would corrupt
+        # cycles 2..n_cycles. That is a numerical change, not an allocation change, and it
+        # would not show up as an OOM -- only as wrong coordinates. The chunked path above is
+        # safe because it slices (a copy) and mutates only the slice.
+        global _TRUNK_TAP_CALL
+        trunk_tap("msa_enter:m_feat", m_feat)
+        trunk_tap("msa_enter:z3", z3)
+        for _bi, (opm, pwa, tm, pl) in enumerate(self.MSA):
+            dram_peak(f"trunk msa block {_bi} enter")
             # OpenDDE refreshes the MSA before OPM. Protenix-v2 retains the
             # ordering its checkpoint was trained with.
             if self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = ttnn.add(z3, opm(m_feat, None, None))
+            dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = pl(None, z3)[1]
+            dram_peak(f"trunk msa block {_bi} done")
+            trunk_tap(f"block{_bi}:m_feat", m_feat)
+            trunk_tap(f"block{_bi}:z3", z3)
+        # The per-cycle chunk list is dead once the blocks are done: __call__ keeps the original
+        # contiguous m_feat and re-derives the chunks next cycle (§34.1 -- the caller's copy must
+        # stay pristine, so it is never freed here).
+        if isinstance(m_feat, list):
+            for _c in m_feat:
+                ttnn.deallocate(_c)
+        _TRUNK_TAP_CALL += 1
         return z3
 
     def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None):
@@ -1826,8 +2017,20 @@ class Trunk(_KeyedWeights):
         # msa feature
         msa = F.one_hot(feat["msa"].long(), 32).float()
         ms = torch.cat([msa, feat["has_deletion"].unsqueeze(-1), feat["deletion_value"].unsqueeze(-1)], -1).unsqueeze(0)
+        # The MSA representation is this trunk's DRAM limiter on a 12 GiB part: it scales as
+        # depth * tokens, and a deep-MSA target OOMs right here. Tag the upload and the
+        # projection SEPARATELY, with shape and dtype, because the two are the same number of
+        # bytes under different readings (34->64 padded channels in fp32 vs c_m channels in
+        # bf16) and only the tensor's own dtype tells them apart. No-op without TT_BIO_DRAM_PEAK.
+        # Tag WITHOUT binding the intermediates to locals. Naming them measurably changes what
+        # is measured: ttnn frees a buffer when its last Python reference drops, so hoisting
+        # `_up(ms)` and the projection into locals kept ~3.7 GiB alive past the point the
+        # original expression frees it, and moved the OOM to a different allocation.
+        dram_peak(f"trunk msa pre-upload [ms={tuple(ms.shape)} {ms.dtype}"
+                  f" -> dtype={getattr(self, 'dtype', ttnn.bfloat16)}]")
         m_feat = ttnn.add(self._lin(self._up(ms), "msa_module.linear_no_bias_m.weight"),
                           self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight"))
+        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
@@ -1843,6 +2046,16 @@ class Trunk(_KeyedWeights):
             s = ttnn.add(s_init, sc)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3)
             s = ttnn.reshape(s, (N, 384))
+            # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
+            # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
+            # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
+            trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
+            trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
+        # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the
+        # divergence is born in a later cycle; if this matches too, the trunk is fully exonerated
+        # and only the diffusion path (and the allocator state it inherits) can explain the fold.
+        trunk_tap("trunk_exit:s_trunk", s, always=True)
+        trunk_tap("trunk_exit:z_trunk", z3, always=True)
         return s, z3
 
 
@@ -1942,8 +2155,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         for _chunk in chunks:
             denoised[_chunk] = _denoise(x_noisy[_chunk], torch.tensor([t_hat], dtype=torch.float32), cond)
         dram_peak(f"edm step {k}")
+        trunk_tap_host(f"edm_denoised[step{k}]", denoised)
         d = (x_noisy - denoised) / t_hat
         x = x_noisy + step_scale * (sigma_t - t_hat) * d
+        trunk_tap_host(f"edm_x[step{k}]", x)
         if dump_fn is not None:                      # per-step coords (noise -> structure)
             for _m in range(M):
                 dump_fn(k, x[_m:_m+1].detach().cpu())

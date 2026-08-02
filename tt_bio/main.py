@@ -186,6 +186,13 @@ PREDICT_MODELS = tuple(_MODEL_RESULTS_PREFIX)
 EMBED_MODELS = ("esmc-300m", "esmc-600m", "esmc-6b")
 SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
 
+# Single source of truth for the `design --model` choice, for the same reason
+# as PREDICT_MODELS above: gates and docs derive the shipped design models from
+# here instead of re-typing the list. boltzgen is the default (the full
+# production binder-design pipeline, mirroring predict's boltz2 default); rfd3
+# is the lighter single-shot all-atom diffusion designer.
+DESIGN_MODELS = ("boltzgen", "rfd3")
+
 
 def predict_results_dir_name(model: str, stem: str) -> str:
     """Predict output folder name: <model>_results_<stem> (e.g.
@@ -213,7 +220,7 @@ def ensure_rfd3_weights(cache: Path) -> Path:
     """Fetch the RFD3 checkpoint from files.ipd.uw.edu on first use and extract
     the TokenInitializer/DiffusionModule weights `tt-bio design` loads. Cached
     under cache/rfd3 thereafter."""
-    from tt_bio.rfd3_design import extract_rfd3_weights
+    from tt_bio.rfd3.design import extract_rfd3_weights
     weights_dir = cache / "rfd3" / "weights"
     if (weights_dir / "diffusion_module.real_weights.pt").exists():
         return weights_dir
@@ -1398,19 +1405,14 @@ def cli():
     """Run biomolecular prediction, design, and embedding on Tenstorrent."""
 
 
-@cli.command(
-    "gen",
-    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True),
-    help=(
-        "Run the BoltzGen binder-design pipeline. All remaining arguments are "
-        "forwarded to BoltzGen's CLI; see `tt-bio gen run --help` for the "
-        "design pipeline, `tt-bio gen download` for model artifacts, etc."
-    ),
-)
-@click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def gen(args):
+def _run_boltzgen_cli(prog: str, args) -> None:
+    """Forward args to the vendored BoltzGen pipeline CLI. The single shared
+    path for `tt-bio design --model boltzgen` and the deprecated `tt-bio gen`
+    alias. sys.argv is rewritten BEFORE the boltzgen module imports so its
+    import-time --device_ids -> TT_VISIBLE_DEVICES scan sees the final argv."""
     import sys
 
+    sys.argv = [prog, *args]
     from tt_bio.boltzgen.cli.boltzgen import main as _bg_main
 
     # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open
@@ -1423,8 +1425,27 @@ def gen(args):
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    sys.argv = ["tt-bio gen", *args]
     _bg_main()
+
+
+@cli.command(
+    "gen",
+    hidden=True,
+    add_help_option=False,
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True),
+    help=(
+        "Deprecated alias for `tt-bio design --model boltzgen`. All remaining "
+        "arguments are forwarded to BoltzGen's CLI."
+    ),
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def gen(args):
+    click.secho(
+        "Deprecation warning: `tt-bio gen` is deprecated and will be removed in a "
+        "future release. Use `tt-bio design --model boltzgen` instead (same "
+        "pipeline; `gen run X --output out` becomes `design X --model boltzgen "
+        "--out_dir out`).", fg="yellow", err=True)
+    _run_boltzgen_cli("tt-bio gen", args)
 
 
 @cli.command("install-deps")
@@ -2037,17 +2058,27 @@ MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "opendde", "opendde-abag")
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
-                         single_sequence, cache, controller, msa_server_url):
+                         single_sequence, cache, controller, msa_server_url,
+                         msa_cache_only=False):
     """Resolve the MSA source for MSA-dependent structure models.
 
     These models degrade sharply folded single-sequence, so ``predict`` must
     never do so silently. Precedence:
       1. ``--single_sequence``: explicit opt-out — fold single-seq, no network.
-      2. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
+      2. ``--msa_cache_only``: ``--msa_dir``'s cache is the source; never search.
+      3. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
          ``--msa_endpoint``): use it as given.
-      3. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
-      4. Otherwise enable the online MSA server, with a one-line notice naming the
+      4. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
+      5. Otherwise enable the online MSA server, with a one-line notice naming the
          server the sequences are sent to (a privacy concern for e.g. pharma).
+
+    Note on (2): a populated ``--msa_dir`` is NOT by itself a source here, and cannot be
+    one — this runs before any input is parsed, so whether every chain is cached is not yet
+    knowable. Without the explicit flag a fully-cached offline run therefore falls through
+    to (5) and enables the online server, which in turn switches on the multi-chain paired
+    search in ``worker.py`` (gated on the same ``want_msa``). That silently deepened a
+    benchmark run's MSA by 35-45% over its nominal depth, and made it network-dependent.
+    The flag exists so a reproducible run can say "the cache, or fail".
 
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
@@ -2056,6 +2087,16 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
         return use_msa_server, msa_db_path
 
     explicit = use_msa_server or msa_db_path or msa_endpoint
+    if msa_cache_only:
+        if explicit:
+            raise click.BadParameter(
+                "--msa_cache_only cannot be combined with --use_msa_server / "
+                "--msa_db_path / --msa_endpoint: it means the --msa_dir cache is the "
+                "only source and nothing is searched.")
+        if single_sequence:
+            raise click.BadParameter(
+                "--msa_cache_only cannot be combined with --single_sequence")
+        return False, None
     if single_sequence:
         if explicit:
             raise click.BadParameter(
@@ -2103,6 +2144,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
               help="MSA cache directory (default: <out_dir>/msa). Point at a persistent shared "
                    "path to reuse {seq_hash}.a3m across runs and hosts (never re-search a sequence).")
+@click.option("--msa_cache_only", is_flag=True,
+              help="Treat --msa_dir as the ONLY MSA source: never search (online or local), and "
+                   "fail rather than fold a chain single-sequence when its a3m is not cached. Use "
+                   "for reproducible benchmark runs, where an unnoticed search changes MSA depth.")
 @click.option("--use_envdb", is_flag=True, help="Also search ColabFold environmental database (requires envdb)")
 @click.option("--single_sequence", is_flag=True,
               help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2 (no local DB, "
@@ -2162,7 +2207,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
@@ -2228,7 +2273,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # esmfold2-fast are single-sequence by design and pass through untouched.
     use_msa_server, msa_db_path = _resolve_msa_default(
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
-        controller, msa_server_url)
+        controller, msa_server_url, msa_cache_only)
 
     if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"):
         # ESMFold2, Protenix-v2 and OpenDDE ride the SAME scheduler / worker / progress path
@@ -2295,6 +2340,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
+            "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
         }
         results_path = out / "results.json"
@@ -2914,58 +2960,107 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
 
 @cli.command("design")
 @click.argument("inputs", type=click.Path(exists=True, dir_okay=False))
-@click.option("--out_dir", default="./designs", show_default=True,
-              help="Output directory (one <spec_id>.cif per design).")
-@click.option("--golden_dir", default=None,
-              help="Path to the RFD3 device ckpt weights. Default: auto-download the "
-                   "checkpoint from files.ipd.uw.edu and extract it into --cache (first "
-                   "run only, ~2.5 GiB). Pass an explicit path to use an internal captured "
-                   "golden `f` bridge fixture instead (also supplies the feature source when "
-                   "--from_pdb is not set; dev/test only).")
+@click.option("--model", type=click.Choice(list(DESIGN_MODELS)), default="boltzgen", show_default=True,
+              help="Design model. boltzgen: the full BoltzGen binder-design pipeline "
+                   "(design → inverse folding → refolding → analysis → filtering; mirrors "
+                   "predict's boltz2 default). rfd3: RFdiffusion3, a lighter single-shot "
+                   "all-atom diffusion designer (one CIF per spec). Options marked "
+                   "boltzgen/rfd3 apply to that model only.")
+@click.option("--out_dir", default=None,
+              help="Output directory. Default: ./<input name>/ (boltzgen, writes "
+                   "final_ranked_designs/ under it) or ./designs (rfd3, one "
+                   "<spec_id>.cif per design).")
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())),
-              show_default=False, help="Weight cache directory (default: $BOLTZ_CACHE or ~/.boltz).")
+              show_default=False, help="Weight cache directory (default: $BOLTZ_CACHE or ~/.boltz). "
+                   "Both models auto-download their checkpoints here on first use.")
+@click.option("--num_designs", default=None, type=int,
+              help="Designs to generate. Default: 10000 in total (boltzgen) or 1 per spec "
+                   "(rfd3; each design gets noise seed --seed + design_idx, written as "
+                   "<spec_id>.cif when 1 else <spec_id>_<i>.cif).")
+@click.option("--devices", "--device_ids", "devices", default=None,
+              help="Comma-separated physical TT card ids to fan the designs across, e.g. "
+                   "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
+                   "Default: all detected cards (boltzgen) or this machine's single card (rfd3).")
+# ---- rfd3-scoped options ----
+@click.option("--checkpoint", "checkpoint", default=None, metavar="DIR",
+              help="rfd3 only. Directory of extracted RFD3 device weights. Default: "
+                   "auto-download the checkpoint and extract it into --cache on first "
+                   "run (~2.5 GiB download).")
+@click.option("--golden_dir", "golden_dir", default=None, hidden=True)
 @click.option("--num_timesteps", default=4, show_default=True,
-              help="Diffusion denoising timesteps (low for a fast smoke; upstream default 200).")
-@click.option("--seed", default=42, show_default=True)
+              help="rfd3 only. Diffusion denoising timesteps (low for a fast smoke; "
+                   "upstream default 200).")
+@click.option("--seed", default=42, show_default=True, help="rfd3 only.")
 @click.option("--partial_t", default=None, type=float,
-              help="Partial-diffusion noise in Angstroms (per-spec partial_t overrides this).")
+              help="rfd3 only. Partial-diffusion noise in Angstroms (per-spec partial_t "
+                   "overrides this).")
 @click.option("--fp32_residual", is_flag=True,
-              help="Opt in the RFD3_FP32_RESIDUAL precision lever (fp32 residual stream across "
-                   "the DiT + encoder + DiffusionTokenEncoder; default off = bf16).")
+              help="rfd3 only. Opt in the RFD3_FP32_RESIDUAL precision lever (fp32 residual "
+                   "stream across the DiT + encoder + DiffusionTokenEncoder; default off = bf16).")
 @click.option("--spec", "spec_subset", default=None,
-              help="Comma-separated subset of spec ids from the inputs file to run.")
+              help="rfd3 only. Comma-separated subset of spec ids from the inputs file to run.")
 @click.option("--from_pdb", is_flag=True,
-              help="Build `f` from each spec's `input` PDB + contig via the host featurizer "
-                   "(the real from-PDB path) instead of the captured golden bridge. Value-parity "
-                   "verified for protein-binder (F1) / motif-scaffold (F6) AND nucleic-acid-binder "
-                   "(F2/F8, a fixed DNA/RNA target chain) inputs. This is what real inputs should "
-                   "use. Ligand/enzyme (F3/F4) inputs and symmetry (F5) raise NotImplementedError.")
-@click.option("--num_designs", default=1, show_default=True,
-              help="Number of independent designs to produce per spec (each with a different "
-                   "noise seed = --seed + design_idx). Output files are <spec_id>.cif when 1 "
-                   "(back-compat) else <spec_id>_<i>.cif.")
+              help="rfd3 only. Featurize each spec's `input` PDB + contig on the host — the "
+                   "standard path for real inputs (protein-binder, motif-scaffolding, and "
+                   "nucleic-acid-binder specs; ligand/enzyme and symmetry specs raise "
+                   "NotImplementedError). Without it, features come from a captured fixture "
+                   "in --checkpoint (dev/test only).")
 @click.option("--batch_size", default=8, show_default=True, type=click.IntRange(min=1),
-              help="Maximum designs from one spec evaluated in each device forward. The runtime "
-                   "shrinks it so a batch cannot exhaust device memory (8 is reachable up to 3359 "
-                   "atoms). Each design keeps its own seeded RNG stream and the forward is "
-                   "bit-identical to running the designs one at a time, so batching is free of "
-                   "accuracy cost at any value.")
-@click.option("--devices", default=None,
-              help="Comma-separated physical TT card ids to fan the (spec x --num_designs) jobs "
-                   "across, e.g. '0,1,2,3'. One pinned subprocess per card (data-parallel, the "
-                   "same pattern `tt-bio embed`/`predict` use). Per-design seeded random streams "
-                   "are preserved across sharding. Default: this machine's single card.")
+              help="rfd3 only. Maximum designs from one spec evaluated in each device forward. "
+                   "The runtime shrinks it so a batch cannot exhaust device memory; each design "
+                   "keeps its own seeded RNG stream and the forward is bit-identical to running "
+                   "the designs one at a time.")
 @click.option("--host_threads", default=None, type=int,
-              help="Total host CPU threads this process may use, split across its cards. "
-                   "Defaults to every core, which is right when this is the only tt-bio process "
-                   "on the box. Pass cores//concurrent_processes when an external launcher runs "
-                   "several designs side by side, so they do not oversubscribe the host.")
-def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed, partial_t,
-               fp32_residual, spec_subset, num_designs, batch_size, devices, host_threads):
-    """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
+              help="rfd3 only. Total host CPU threads this process may use, split across its "
+                   "cards. Defaults to every core, which is right when this is the only tt-bio "
+                   "process on the box. Pass cores//concurrent_processes when an external "
+                   "launcher runs several designs side by side, so they do not oversubscribe "
+                   "the host.")
+# ---- boltzgen-scoped options ----
+@click.option("--protocol", default=None,
+              help="boltzgen only. Protocol for the binder type (protein-anything, "
+                   "peptide-anything, nanobody-anything, antibody-anything, "
+                   "protein-small_molecule, protein-redesign). Default: protein-anything.")
+@click.option("--steps", default=None, metavar="LIST",
+              help="boltzgen only. Comma-separated pipeline steps to run instead of the full "
+                   "pipeline (design,inverse_folding,design_folding,folding,affinity,analysis,"
+                   "filtering), e.g. --steps design or --steps analysis,filtering.")
+@click.option("--config", "configs", nargs=2, multiple=True, metavar="STEP KEY=VAL",
+              help="boltzgen only. Override a pipeline step's configuration, e.g. "
+                   "--config design sampling_steps=200. Repeatable.")
+@click.option("--budget", default=None, type=int,
+              help="boltzgen only. How many designs the filtering step keeps in the final "
+                   "diversity-optimized set. Default: 30.")
+@click.option("--reuse", is_flag=True,
+              help="boltzgen only. Reuse existing results in --out_dir and generate only as "
+                   "many new designs as --num_designs still needs.")
+@click.option("--fast", is_flag=True,
+              help="boltzgen only. Use block-fp8 for some operations (slightly lower "
+                   "precision, faster).")
+@click.option("--diffusion_trace", is_flag=True,
+              help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
+                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in — "
+                   "reserves a 1 GiB trace region on the device.")
+@click.option("--debug", is_flag=True,
+              help="boltzgen only. Debug mode: no Rich display, no output suppression.")
+@click.option("--log", is_flag=True,
+              help="boltzgen only. With --debug: print per-stage progress lines.")
+def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
+               checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
+               spec_subset, from_pdb, batch_size, host_threads,
+               protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log):
+    """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
+    or sequences from a specification instead of folding an existing one.
 
-    INPUTS is a JSON or YAML file of InputSpecifications (each top-level key is
-    one independent design), e.g.:
+    \b
+    --model boltzgen (default): the BoltzGen binder-design pipeline. INPUTS is a
+    design-spec YAML (a designed chain plus a target structure). Runs design →
+    inverse folding → refolding → analysis → filtering and writes the top-ranked
+    binders to <out_dir>/final_ranked_designs/. See docs/boltzgen-designability.md.
+
+    \b
+    --model rfd3: RFdiffusion3 all-atom diffusion design. INPUTS is a JSON or YAML
+    file of InputSpecifications (each top-level key is one independent design), e.g.:
 
     \b
     {
@@ -2973,26 +3068,73 @@ def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed
       "scaffold-1": {"input": "motif.pdb", "contig": "A10-20,40,A30-40"}
     }
 
-    Each spec is parsed and validated against the RFD3 InputSelection /
-    contig-string grammar (see `tt-bio design --help` and the RFD3 input docs)
-    before any device work. The on-device TokenInitializer + DiffusionModule +
-    EDM sampler produce one CIF per spec.
+    Writes one CIF per spec to --out_dir. Protein-binder, motif-scaffolding, and
+    nucleic-acid-binder specs are supported end to end from a real input structure
+    (pass --from_pdb). See docs/rfd3-design.md for the contig grammar and current
+    limitations.
 
-    \b
-    NOTE (p15): the host featurizer (tt_bio.rfd3_featurize) is value-parity
-    verified for protein-binder (F1) / motif-scaffolding (F6) (43/43 `f` keys
-    bit-exact) AND nucleic-acid-binder design (F2/F8: a fixed DNA/RNA target
-    chain + a designed protein binder, e.g. a dsDNA duplex) (42/43 keys
-    bit-exact; the lone gap, `ref_pos`'s real reference-conformer geometry,
-    is a documented, irrelevant-to-the-trajectory simplification — see
-    scripts/rfd3_port/parity_artifacts/). `--from_pdb` runs the real
-    end-to-end path (featurize → on-device TokenInitializer → sampler → CIF)
-    and is what real inputs should use. Ligand/enzyme (F3/F4) inputs and
-    symmetry (F5) are not yet supported by the featurizer (NotImplementedError).
+    Both models auto-download their checkpoints on first use.
     """
+    ctx = click.get_current_context()
+    from click.core import ParameterSource
+
+    def _explicit(name: str) -> bool:
+        return ctx.get_parameter_source(name) == ParameterSource.COMMANDLINE
+
+    if model == "boltzgen":
+        for flag, name in (("--checkpoint", "checkpoint"), ("--golden_dir", "golden_dir"),
+                           ("--num_timesteps", "num_timesteps"), ("--seed", "seed"),
+                           ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
+                           ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
+                           ("--batch_size", "batch_size"), ("--host_threads", "host_threads")):
+            if _explicit(name):
+                click.secho(f"Note: --model boltzgen does not use {flag}; ignoring.", fg="yellow")
+        argv = ["run", str(inputs)]
+        if out_dir:
+            argv += ["--output", out_dir]
+        if num_designs is not None:
+            argv += ["--num_designs", str(num_designs)]
+        if devices:
+            argv += ["--device_ids", devices]
+        if protocol:
+            argv += ["--protocol", protocol]
+        if steps:
+            argv += ["--steps", *[s.strip() for s in steps.split(",") if s.strip()]]
+        for step, kv in configs:
+            argv += ["--config", step, kv]
+        if budget is not None:
+            argv += ["--budget", str(budget)]
+        if _explicit("cache"):
+            argv += ["--cache", cache]
+        for flag, on in (("--reuse", reuse), ("--fast", fast),
+                         ("--diffusion_trace", diffusion_trace), ("--debug", debug),
+                         ("--log", log)):
+            if on:
+                argv.append(flag)
+        _run_boltzgen_cli("tt-bio design", argv)
+        return
+
+    # --model rfd3
+    for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
+                       ("--config", "configs"), ("--budget", "budget"),
+                       ("--reuse", "reuse"), ("--fast", "fast"),
+                       ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
+                       ("--log", "log")):
+        if _explicit(name):
+            click.secho(f"Note: --model rfd3 does not use {flag}; ignoring.", fg="yellow")
+    if golden_dir is not None:
+        click.secho("Deprecation warning: --golden_dir is deprecated; use --checkpoint.",
+                    fg="yellow", err=True)
+        if checkpoint is not None:
+            raise click.UsageError("--checkpoint and --golden_dir are the same option; pass one.")
+        checkpoint = golden_dir
+
     import json as _json
     import yaml as _yaml
-    from tt_bio import rfd3_design
+    from tt_bio.rfd3 import design as _rfd3
+
+    num_designs = num_designs if num_designs is not None else 1
+    out_dir = out_dir or "./designs"
 
     torch.set_grad_enabled(False)
     src = Path(inputs).expanduser()
@@ -3012,12 +3154,12 @@ def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed
         if not specs:
             raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
 
-    if golden_dir is None:
+    if checkpoint is None:
         gdir = str(ensure_rfd3_weights(Path(cache).expanduser()))
     else:
-        gdir = golden_dir
+        gdir = checkpoint
         if not Path(gdir).exists():
-            raise click.ClickException(f"golden_dir not found: {gdir}")
+            raise click.ClickException(f"checkpoint not found: {gdir}")
 
     device_list = None
     if devices:
@@ -3034,11 +3176,11 @@ def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
     click.echo(f"Designing {len(specs)} spec(s) × {num_designs} design(s) → {out_dir} "
-               f"(golden={gdir}, from_pdb={from_pdb}, {num_timesteps} steps, batch={batch_size}"
+               f"(checkpoint={gdir}, from_pdb={from_pdb}, {num_timesteps} steps, batch={batch_size}"
                f"{f', devices={device_list}' if device_list and len(device_list) > 1 else ''})")
     try:
-        results = rfd3_design.run_design(
-            specs, out_dir, golden_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
+        results = _rfd3.run_design(
+            specs, out_dir, checkpoint_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
             seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, num_designs=num_designs,
             batch_size=batch_size, devices=device_list, host_threads=host_threads,
             verbose=True,

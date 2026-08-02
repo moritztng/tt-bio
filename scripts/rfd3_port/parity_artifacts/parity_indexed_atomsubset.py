@@ -12,7 +12,7 @@ regardless of `select_fixed_atoms`, but atoms NOT named in the selection are
 simply not fixed-coord (present, known identity, diffused position) --
 genuine PER-ATOM partial-fixing bookkeeping on a still-full atom set, a
 different mechanism than unindexed atom-SUBSETTING (see
-`_indexed_fixed_atom_names` in `tt_bio/rfd3_featurize.py`).
+`_indexed_fixed_atom_names` in `tt_bio/rfd3/featurize.py`).
 
 Fixture: `IAI_protein.pdb` (the same real p10-p13 F1/F6 fixture), contig
 "A1-10,20,A31-40" (the same real p12 contig),
@@ -54,8 +54,8 @@ def pcc(a, b):
 
 def main():
     sys.path.insert(0, os.path.abspath(os.path.join(DIR, "..", "..", "..")))
-    from tt_bio.rfd3_featurize import featurize
-    from tt_bio.rfd3_input import InputSpecification
+    from tt_bio.rfd3.featurize import featurize
+    from tt_bio.rfd3.input import InputSpecification
     if not os.path.exists(REF_PT):
         print(f"SKIPPED: no reference capture at {REF_PT} (see module docstring to reproduce)")
         return
