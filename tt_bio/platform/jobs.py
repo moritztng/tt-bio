@@ -134,6 +134,20 @@ class Job:
         return None  # indeterminate
 
 
+def _writable_dir(path: str) -> bool:
+    """Probe a cache dir once at startup. The shared MSA cache lives next to the
+    DB on /data — an NFS mount that is the empty, root-owned rootfs dir when the
+    mount is down. An unwritable --msa_dir turns every MSA job into a
+    PermissionError crash, so in that state fall back to per-job caching; the
+    next serve restart re-probes and re-enables the shared cache automatically."""
+    try:
+        p = Path(path)
+        p.mkdir(parents=True, exist_ok=True)
+        return os.access(p, os.W_OK | os.X_OK)
+    except OSError:
+        return False
+
+
 class JobManager:
     def __init__(self, workspace: str | Path, *, cluster=None, max_concurrent: int = 32,
                  msa_db_path: str | None = "/data/colabfold_db", msa_mode: str = "auto"):
@@ -148,6 +162,10 @@ class JobManager:
         # safe via the per-seq_hash lock + atomic write in the engine.
         self.msa_cache_dir = (str(Path(self.msa_db_path).parent / "msa_cache")
                               if self.msa_db_path else None)
+        if self.msa_cache_dir and not _writable_dir(self.msa_cache_dir):
+            print(f"[jobs] shared MSA cache {self.msa_cache_dir} is not writable — "
+                  "MSA jobs use per-job caching until it is back", file=sys.stderr)
+            self.msa_cache_dir = None
         self.workspace = Path(workspace).expanduser().resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.jobs: dict[str, Job] = {}
