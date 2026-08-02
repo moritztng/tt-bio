@@ -1,0 +1,13 @@
+#!/bin/bash
+# tt-smi shim for shared-host optimize run (worker:tt-hw-planner-optimize-stress).
+# Read-only subcommands pass through. Resets: only "-r 1" (my physical card) is forwarded
+# to the real tt-smi; anything else (bare -r, -r 0, -r 0,1, -glx_reset) is blocked.
+LOG=/home/ttuser/.coworker/wt/tt-hw-planner-optimize-stress/logs/ttsmi_shim.log
+echo "$(date -u) tt-smi $*" >> "$LOG"
+args="$*"
+case "$args" in
+  "-r 1"|"--reset 1") exec /home/ttuser/.local/bin/tt-smi "$@" ;;
+  "-r"|"--reset"|"-r "|*"-r 0"*|*"-r 2"*|*"-r 3"*|*"glx_reset"*)
+    echo "shim: BLOCKED dangerous reset: tt-smi $*" >> "$LOG"; exit 1 ;;
+  *) exec /home/ttuser/.tenstorrent-venv/bin/tt-smi "$@" ;;
+esac
