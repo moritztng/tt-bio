@@ -1175,7 +1175,7 @@ def write_npz_many(embeddings, out_dir, max_workers: int | None = None) -> None:
     """
     from concurrent.futures import ThreadPoolExecutor
 
-    workers = max(1, min(16, os.cpu_count() or 8))
+    workers = max(1, min(32, os.cpu_count() or 8))
     with ThreadPoolExecutor(max_workers=workers) as ex:
         list(ex.map(lambda e: write_npz(e, out_dir / f"{e.id}.npz"), embeddings))
 
