@@ -789,7 +789,11 @@ class JobManager:
     # -- progress / results parsing ---------------------------------------
     def _results_dir(self, job: Job) -> Path | None:
         if job.kind == "predict":
-            hits = sorted(self._out_dir(job.id).glob("boltz_results_*"))
+            # Derive the folder name from the engine's single source of truth —
+            # <model>_results_<stem> per model, not a hardcoded boltz_ prefix.
+            from tt_bio.main import predict_results_dir_name
+            hits = sorted(self._out_dir(job.id).glob(
+                predict_results_dir_name(job.model or "boltz2", "*")))
             return hits[0] if hits else None
         return self._out_dir(job.id)
 
