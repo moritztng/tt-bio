@@ -101,19 +101,7 @@ h1 .hl-line:nth-child(1) .hl-word { animation-delay: 0.08s; }
 h1 .hl-line:nth-child(2) .hl-word { animation-delay: 0.24s; }
 h1 .hl-line:nth-child(3) .hl-word { animation-delay: 0.40s; }
 @keyframes hl-rise { to { transform: translateY(0); } }
-h1 .hl-accent {
-  background-image: linear-gradient(105deg, var(--ink) 38%, #8b8e97 50%, var(--ink) 62%);
-  background-size: 260% 100%;
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent; -webkit-text-fill-color: transparent;
-  animation: hl-rise 0.85s cubic-bezier(0.16, 0.75, 0.2, 1) forwards,
-             hl-sheen 5.5s ease-in-out 1.4s infinite;
-}
-@keyframes hl-sheen {
-  0% { background-position: 110% 0; }
-  55% { background-position: -60% 0; }
-  100% { background-position: -60% 0; }
-}
+h1 .hl-accent { color: var(--ink); }
 .lede { font-size: 17px; color: var(--ink-soft); max-width: 30em; margin-bottom: 36px; }
 .cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .cta-row .btn { font-size: 15px; padding: 14px 26px; }
@@ -137,10 +125,7 @@ h1 .hl-accent {
 .fold-node:nth-of-type(5) { animation-delay: 1.58s; }
 .fold-node:nth-of-type(6) { animation-delay: 1.90s; }
 @media (prefers-reduced-motion: reduce) {
-  h1 .hl-word, h1 .hl-accent {
-    animation: none; transform: none;
-    background: none; color: var(--ink); -webkit-text-fill-color: var(--ink);
-  }
+  h1 .hl-word { animation: none; transform: none; }
   .fold-line { animation: none; stroke-dashoffset: 0; }
   .fold-node { animation: none; opacity: 1; }
 }
@@ -307,8 +292,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
   <div class="figures">
     <div class="figure">
       <span class="num">~5&times;</span>
-      <p>more predictions per dollar than GPU. Every model runs on Tenstorrent AI
-        processors instead of GPUs, and that is what makes predictions this cheap.</p>
+      <p>more predictions per dollar than on GPUs.</p>
     </div>
     <div class="figure">
       <span class="num">0</span>
@@ -316,18 +300,17 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
     </div>
     <div class="figure">
       <span class="num">1:1</span>
-      <p>accuracy parity with the reference implementations,
+      <p>accuracy parity with reference implementations,
         <a href="https://docs.japanfold.com/accuracy/">measured</a>.</p>
     </div>
   </div>
 
   <section id="why">
     <p class="eyebrow">Why it is fast and cheap</p>
-    <p class="why-statement">No GPUs here. Every model runs on
+    <p class="why-statement">Every model runs on
       <a href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer"><img class="inline-tt" src="/tenstorrent-logo.svg" alt="Tenstorrent"></a>
-      AI processors, with the whole stack vertically integrated from silicon to kernels
-      to serving. <span class="soft">That is where the throughput comes from, and why a
-      prediction costs less.</span></p>
+      AI processors instead of GPUs, with the whole stack built as one,
+      <span class="soft">from silicon to serving.</span></p>
   </section>
 
   <section id="models" style="padding-top:0;">
