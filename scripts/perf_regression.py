@@ -18,6 +18,12 @@ What it measures, per model:
     ``scripts/release_gate.py``'s job).
   * esmc-300m / esmc-600m embed — seq/s on a fixed batch of 8 ubiquitin-length
     sequences (batch_size 8). Same warmup-then-time protocol.
+  * esmc-300m-single embed — seq/s on the same 8 sequences at batch_size 1,
+    i.e. the single-sequence path whose forward is replayed via ttnn trace
+    capture (tt_bio.esmc.ESMC auto-traces repeated B=1 shapes). The measurement
+    child opens the device with a trace region so the traced path is the one
+    measured. Gated separately so a trace-path regression can't hide behind
+    the batch-8 number.
   * esmc-6b embed — seq/s on 8 ubiquitin-length sequences. The 6B backbone
     (sharded TransformerEngine, ~13 GB resident) runs one-sequence-at-a-time
     (embed_sequences ignores batch_size for the 6B -- no room to widen the batch),
@@ -191,6 +197,16 @@ SPECS: dict[str, dict] = {
     "opendde-abag":   dict(kind="fold", unit="structures/s", direction="higher"),
     "esmc-300m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
+    # Single-sequence ESMC-300M embed (batch_size=1): the path the ttnn trace
+    # capture replays (ESMC forward auto-traces B=1 repeated shapes — see
+    # tt_bio.esmc.ESMC). Gated separately from the batch-8 leg above so a
+    # regression in the traced single-seq path can't hide behind the batched
+    # number. trace_region_size mirrors tt_bio.esmc._ESMC_TRACE_REGION_SIZE —
+    # the measurement child must open the device WITH a trace region or the
+    # forward stays eager and the leg measures the wrong thing.
+    "esmc-300m-single": dict(kind="embed", unit="seq/s", direction="higher",
+                             embed_model="esmc-300m",
+                             batch_size=1, n_seqs=8, trace_region_size=1 << 28),
     "esmc-600m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
     # ESMC-6B is the sharded-TransformerEngine LM backbone (~13 GB resident
@@ -519,7 +535,10 @@ def _boltz_conf_kwargs() -> tuple[dict, dict]:
 
 def _build_cfg(model: str, spec: dict, struct_dir: Path, msa_dir: Path) -> dict:
     cfg = dict(
-        model=model,
+        # ``embed_model`` lets a SPECS key differ from the shipped model id it
+        # loads (esmc-300m-single measures the esmc-300m model at batch_size 1;
+        # the worker's load path only knows real model ids).
+        model=spec.get("embed_model", model),
         fast=False,
         output_format="cif",
         recycling_steps=RECYCLING_STEPS,
@@ -889,7 +908,10 @@ def measure(model: str, out_path: Path) -> dict:
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    get_device()  # open the chip once for this process
+    # Open the chip once for this process. Legs whose shipped path uses ttnn
+    # trace capture (esmc-300m-single) must reserve the trace region HERE —
+    # get_device caches the first open, so a later load_esmc cannot add one.
+    get_device(trace_region_size=spec.get("trace_region_size", 0))
     hw = arch_name()
     card = detect_card_type()
 

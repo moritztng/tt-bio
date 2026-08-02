@@ -144,7 +144,10 @@ first use.
 
 Sequences batch automatically on 300M/600M (`--batch_size`, default 8): a
 padded, length-bucketed device forward per batch, masked so results are
-identical to running each sequence alone.
+identical to running each sequence alone. Single-sequence calls
+(`--batch_size 1`, e.g. serving one sequence at a time) replay through a
+captured device trace once a length bucket repeats — up to ~1.5x faster per
+call on QuietBox-class hosts, bit-identical, no flags needed.
 
 To embed a large batch faster, shard it across several cards with
 `--devices 0,1,2,3`: one worker per card, results reassembled in input order
