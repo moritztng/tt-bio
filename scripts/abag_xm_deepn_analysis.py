@@ -21,6 +21,12 @@ BASE = Path.home() / "abag_xm" / "deepn"
 TIER_A = Path.home() / "abag_xm" / "tier_a"
 FRONTIER_A = Path.home() / "abag_xm" / "frontier" / "A"      # opendde, m=200, 11 targets
 SATURATION = Path.home() / "abag_xm" / "saturation"          # 3 models, N=1000, 16 targets
+PHASE0 = BASE / "phase0"                                     # galaxy p2 parquets (N=16)
+# PHASE 0 verdict: galaxy overlay is statistically consistent for boltz2 + opendde ONLY.
+GALAXY_OK = {"boltz2": "_boltz2", "opendde-abag": ""}
+GALAXY_NOTE = "galaxy N=16 uses global_dockq (mean over native interfaces), not the " \
+              "ARK-interface DockQ of the qb1 arms; PHASE 0 measured the flavors " \
+              "statistically equivalent for these two models."
 THR = (0.23, 0.49, 0.80)
 THR_KEY = {t: str(t).replace(".", "") for t in THR}
 MODELS = {"opendde-abag": ("opendde", "opendde_abag", "confidence_score"),
@@ -127,6 +133,28 @@ def overlay_pools(model: str):
                 continue
             per_target.setdefault(t, []).extend(pool)
         for t, pool in per_target.items():
+            out[(t, len(pool))] = {"pool": pool, "wall_s": None}
+    return out
+
+
+def galaxy_pools(model: str):
+    """WH-Galaxy p2 N=16 overlay for the PHASE-0-consistent models (GT-overlap targets)."""
+    if model not in GALAXY_OK or not (PHASE0 / f"abag_xm_scaling{GALAXY_OK[model]}_samples.parquet").exists():
+        return {}
+    import pandas as pd
+    _prefix, _md, sel = MODELS[model]
+    df = pd.read_parquet(PHASE0 / f"abag_xm_scaling{GALAXY_OK[model]}_samples.parquet")
+    df = df[(df.status == "ok") & (df.n_samples == 16)]
+    out = {}
+    for t, g in df.groupby("target"):
+        g = g.sort_values("rank")
+        pool = []
+        for _i, r in g.iterrows():
+            c = r["plddt"] if sel == "plddt" else r["confidence_score"]
+            d = r["global_dockq"]
+            if c is not None and d is not None and d == d:
+                pool.append((float(c), float(d)))
+        if pool:
             out[(t, len(pool))] = {"pool": pool, "wall_s": None}
     return out
 
@@ -247,7 +275,8 @@ def main():
     models = [a.model] if a.model else sorted(MODELS)
     report = {}
     for model in models:
-        pools = tiera_pools(model) | deepn_pools(model) | overlay_pools(model)
+        pools = tiera_pools(model) | deepn_pools(model) | overlay_pools(model) \
+            | galaxy_pools(model)
         pts = curve_points(pools)
         report[model] = pts
         print(f"\n=== {model} ===")
