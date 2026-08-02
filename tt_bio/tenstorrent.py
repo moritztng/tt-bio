@@ -12,6 +12,24 @@ TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
 TRIANGLE_ATT_CHUNK_SIZE = 512
 OPM_CHUNK_SIZE = 256
 MSA_CHUNK_SIZE = 512
+# Chunk OuterProductMean's norm+projection stage once the MSA representation exceeds this.
+# Same threshold and the same bit-exactness argument as protenix's MSA row chunking, so a
+# target small enough to fit keeps the exact unchunked path. See OuterProductMean.__call__.
+OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
+# Cap on OPM's per-I-block matmul result, which is (rows*c_a, c_b*tokens) in bf16 and therefore
+# grows with the SQUARE of the token count at fixed `rows`. At OPM_CHUNK_SIZE=256 and 992 padded
+# tokens that single tensor is 520093696 B -- which is exactly, to the byte, the allocation 9i3p
+# dies on. So the row block has to be derived from the token width instead of being a constant.
+# Numerically inert: the I axis indexes independent token rows (the matmul contracts depth, not I,
+# and each block gets its own full depth accumulation), so regrouping rows cannot change a value.
+# The blocked path this guards is entered at I > SEQ_LEN_MORE_CHUNKING, which reads as 1536 here but
+# is retuned to ~640 on a small grid (_apply_grid_thresholds), so on Wormhole it is live from ~640
+# tokens up -- don't conclude from the 1536 baseline that a 992-token target never reaches it.
+# Verified on a Wormhole Galaxy: 9i3p's 520093696 B refusal is gone with this in place and still
+# present without it, and 9d72 reproduces all 15 structure md5s bit-for-bit despite going from 3
+# row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
+# (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
+OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
@@ -79,9 +97,14 @@ COMPUTE_GRID_Y = 10
 CORE_GRID_MAIN = ttnn.CoreGrid(y=COMPUTE_GRID_Y, x=COMPUTE_GRID_X_11)
 COMPUTE_GRID_MAIN = (CORE_GRID_MAIN.x, CORE_GRID_MAIN.y)
 
-def _dtype():
+def _dtype(default=None):
+    # Call sites that were hardcoded ttnn.bfloat16 before the fp32-affinity gate pass
+    # their former constant as `default`: fast mode must NOT silently demote stored
+    # weights/projections to bfloat8_b (regressed esmfold2 confidence to NaN on WH).
     if _DTYPE_OVERRIDE is not None:
         return _DTYPE_OVERRIDE
+    if default is not None:
+        return default
     return ttnn.bfloat8_b if _FAST_MODE else ttnn.bfloat16
 
 
@@ -435,6 +458,43 @@ def get_device(trace_region_size=0):
     return _device
 
 
+_DRAM_PEAK = {}   # tag -> high-water device DRAM bytes, when TT_BIO_DRAM_PEAK is set
+
+
+def dram_peak(tag=None):
+    """Record (and return) the device DRAM high-water mark, in bytes.
+
+    Off unless TT_BIO_DRAM_PEAK names a file to append samples to, so production folds pay
+    nothing. A FILE and not stdout because `tt-bio predict` runs the fold in a spawned
+    worker whose stdout the live-progress view owns (and drops when it is not a TTY), so a
+    printed measurement is invisible exactly when it is being collected non-interactively.
+
+    The ttnn allocator is host-side bookkeeping updated at op-dispatch time, so sampling it
+    from the calling thread is synchronous and cheap. This is what the release gate's
+    capacity leg reads: a footprint change is invisible to a numerical parity fixture, so
+    the footprint has to be measured directly at the largest supported input.
+    Call with no tag to read the current peak across all tags.
+
+    Lives here rather than in a model module because the trunk (MSA/Pairformer, below) is
+    the largest DRAM consumer and cannot import a model module without a cycle."""
+    path = os.environ.get("TT_BIO_DRAM_PEAK")
+    if not path:
+        return 0
+    if tag is not None:
+        mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+        used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks
+        if used > _DRAM_PEAK.get(tag, 0):
+            _DRAM_PEAK[tag] = used
+            line = (f"[DRAM] {tag}: {used / 2**30:.3f} GiB used "
+                    f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB)\n")
+            try:
+                with open(path, "a") as fp:      # append: the worker is a separate process
+                    fp.write(line)
+            except OSError:
+                pass                            # a diagnostic must never break a fold
+    return max(_DRAM_PEAK.values(), default=0)
+
+
 def _open_and_init_device(trace_region_size):
     """Open + configure TT device 0 (the physical card is already leased by the caller)."""
     global _trace_region_size
@@ -582,7 +642,7 @@ class Module:
         dtype=None,
     ) -> ttnn.Tensor:
         if dtype is None:
-            dtype = _dtype()
+            dtype = _dtype(ttnn.bfloat16)
         wc = _weight_cache
         if wc is None:
             return ttnn.from_torch(
@@ -612,7 +672,7 @@ class Module:
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
         if dtype is None:
-            dtype = _dtype()
+            dtype = _dtype(ttnn.bfloat16)
         return ttnn.linear(
             x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
             dtype=dtype, core_grid=CORE_GRID_MAIN, **kw,
@@ -1032,7 +1092,7 @@ class AttentionPairBias(Module):
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
-        self.dtype = dtype if dtype is not None else _dtype()
+        self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
@@ -1523,8 +1583,13 @@ class Pairformer(Module):
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
         extra_attn_bias: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
-        for block in self.blocks:
+        # Tagged so the pair term (z copies) can be read off a real trace instead of assumed:
+        # the MSA trunk's peak is floor + k*m_feat + pair_copies*z, and only a measurement
+        # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
+        dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
+        for i, block in enumerate(self.blocks):
             s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
+            dram_peak(f"pairformer block {i} done")
         return s, z
 
 
@@ -1824,7 +1889,7 @@ class ConditionedTransitionBlock(Module):
         )
         swish_chunk, gates_chunk = torch.chunk(self.weights["swish_gate.0.weight"], chunks=2, dim=0)
         self.swish_weight, self.gates_weight = [
-            ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype())
+            ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16))
             for chunk in [swish_chunk, gates_chunk]
         ]
         self.a_to_b_weight = self.torch_to_tt("a_to_b.weight")
@@ -2090,45 +2155,160 @@ class OuterProductMean(Module):
         self.o_bias = self.torch_to_tt("proj_o.bias")
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None, n_msa: int | None = None) -> ttnn.Tensor:
-        x = ttnn.reshape(x, tuple(x.shape)[1:])
-        m = ttnn.layer_norm(
-            x,
-            weight=self.norm_weight,
-            bias=self.norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
-        a = ttnn.linear(
-            m,
-            self.a_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
-        b = ttnn.linear(
-            m,
-            self.b_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
-        ttnn.deallocate(m)
-        if msa_mask is not None:
-            a = ttnn.multiply_(a, msa_mask)
-        S, I, C = a.shape
-        _, J, D = b.shape
-        a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
-        b = ttnn.permute(b, (2, 1, 0))
-        b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
-        b = ttnn.reshape(b, (-1, S))
-        b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
-        if I > SEQ_LEN_MORE_CHUNKING:
-            # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
-            a = ttnn.reallocate(a)
-            b = ttnn.reallocate(b)
-        def outer_product_mean(a_in):
-            rows = a_in.shape[0]
-            a_flat = ttnn.reshape(a_in, (rows * C, S))
-            z = ttnn.matmul(a_flat, b, transpose_b=True, compute_kernel_config=self.compute_kernel_config)
-            ttnn.deallocate(a_flat)
+        # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
+        # so it never has to exist contiguously: materialising it costs a full extra copy at the
+        # join, which is what made a 1.78 GiB m_feat OOM on a 12 GiB part even WITH chunking. This
+        # path consumes the chunks directly, and since only the c=32 projections are concatenated
+        # the join costs 1/4 of what joining the c_m tensor would.
+        x_chunks = x if isinstance(x, list) else None
+        if x_chunks is None:
+            x = ttnn.reshape(x, tuple(x.shape)[1:])
+
+        def project_ab(xc, maskc):
+            """layer_norm + the two c=32 projections. Every op here is per MSA row (norm over
+            channels, linear over channels, mask multiply per row), so this may be applied to a
+            slice of the depth axis and concatenated without changing a single number."""
+            mc = ttnn.layer_norm(
+                xc,
+                weight=self.norm_weight,
+                bias=self.norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            ac = ttnn.linear(
+                mc,
+                self.a_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            bc = ttnn.linear(
+                mc,
+                self.b_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(mc)
+            if maskc is not None:
+                ac = ttnn.multiply_(ac, maskc)
+            return ac, bc
+
+        # The layer_norm above is out-of-place, so unchunked it materialises a SECOND full-depth
+        # c_m tensor beside `x` (2.494 GiB each for a 682-token/14860-deep target) purely to feed
+        # two c=32 projections that are 1/4 the size. Chunking the depth axis keeps only the
+        # projections at full depth. Measured: this is the allocation a deep-MSA target dies on
+        # once the MSA-update path is chunked (refused 669,532,160 B = 32 channels x 2 B).
+        #
+        # For a chunk-list input the matmul's contraction along S (the depth axis) is accumulated
+        # per chunk instead; every other path below keeps the single full-depth matmul. See
+        # `depth_parts` and `z_rows`.
+        depth_parts = None
+        if x_chunks is not None:
+            if msa_mask is not None:
+                raise NotImplementedError(
+                    "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
+                    "trunk that uses the list path passes mask=None.")
+            # Never materialise contiguous a/b at all.
+            #
+            # Joining them cannot be made to fit, and not for want of a better free order:
+            # project_ab derives ac AND bc from one layer_norm, so both part lists are already
+            # complete before any join could run. The FIRST concat therefore needs
+            # a_parts + b_parts + a live at once -- ~1.96 GiB at 768 tokens x depth 14208, which
+            # is the 698351616 B allocation 9lof dies on -- with nothing yet freeable. Freeing
+            # per-side (tried, bit-exact, kept below for the non-list branch) relieves only the
+            # SECOND concat, which was never the binding one. Two passes over project_ab do not
+            # help either: the second still needs a + b_parts + b, and pays layer_norm twice.
+            #
+            # So the join is removed. `sum_c (a_c @ b_c^T)` is the same sum over the same depth
+            # rows, and peak drops to a_parts + b_parts plus one z accumulator.
+            #
+            # This is NOT bit-exact, deliberately: it reassociates a bf16 accumulation that used
+            # to be one matmul over full depth. The same question was settled for Transition --
+            # scripts/abag_xm/probe_transition_vs_torch.py measured chunked and whole equally
+            # close to an fp32 reference, one mantissa step apart -- but it does move the last
+            # bit, so the acceptance test here is DockQ against the reference fold, NOT an md5.
+            depth_parts = []
+            S = 0
+            for c in x_chunks:
+                ac, bc = project_ab(ttnn.reshape(c, tuple(c.shape)[1:]), None)
+                Sc, I, C = ac.shape
+                _, J, D = bc.shape
+                S += Sc
+                acp = ttnn.permute(ac, (1, 2, 0))           # (I, C, Sc)
+                ttnn.deallocate(ac)
+                bcp = ttnn.permute(bc, (2, 1, 0))           # (D, J, Sc)
+                ttnn.deallocate(bc)
+                bcp = ttnn.to_layout(bcp, ttnn.ROW_MAJOR_LAYOUT)
+                bcp = ttnn.reshape(bcp, (-1, Sc))           # (D*J, Sc)
+                bcp = ttnn.to_layout(bcp, ttnn.TILE_LAYOUT)
+                depth_parts.append((acp, bcp, Sc))
+            a = b = None
+        elif x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
+            a, b = project_ab(x, msa_mask)
+        else:
+            a_parts, b_parts = [], []
+            for s in range(0, x.shape[0], MSA_CHUNK_SIZE):
+                e = min(s + MSA_CHUNK_SIZE, x.shape[0])
+                ac, bc = project_ab(x[s:e], None if msa_mask is None else msa_mask[s:e])
+                a_parts.append(ac)
+                b_parts.append(bc)
+            # Same per-side free as the chunk-list branch above, for the same reason.
+            a = ttnn.concat(a_parts, dim=0)
+            for p in a_parts:
+                ttnn.deallocate(p)
+            b = ttnn.concat(b_parts, dim=0)
+            for p in b_parts:
+                ttnn.deallocate(p)
+        if depth_parts is None:
+            S, I, C = a.shape
+            _, J, D = b.shape
+            a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
+            b = ttnn.permute(b, (2, 1, 0))
+            b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
+            b = ttnn.reshape(b, (-1, S))
+            b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
+            if I > SEQ_LEN_MORE_CHUNKING:
+                # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
+                a = ttnn.reallocate(a)
+                b = ttnn.reallocate(b)
+
+        def z_rows(i0, i1):
+            """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
+
+            One matmul when a/b are contiguous; a running sum over depth chunks when they are
+            not. Both compute the same contraction over the same rows -- the chunked form just
+            reassociates it, so it lands within a bf16 step rather than bit-exactly.
+            """
+            rows = i1 - i0
+
+            def rows_of(t):
+                """Slice the token axis, but not when the slice is the whole tensor -- a ttnn
+                slice copies, and `a` is 0.65 GiB at the sizes this path exists for."""
+                return t if i0 == 0 and i1 == t.shape[0] else t[i0:i1, :, :]
+
+            if depth_parts is None:
+                a_flat = ttnn.reshape(rows_of(a), (rows * C, S))
+                z = ttnn.matmul(a_flat, b, transpose_b=True,
+                                compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(a_flat)
+                return z
+            z = None
+            for acp, bcp, Sc in depth_parts:
+                a_flat = ttnn.reshape(rows_of(acp), (rows * C, Sc))
+                zp = ttnn.matmul(a_flat, bcp, transpose_b=True,
+                                 compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(a_flat)
+                if z is None:
+                    z = zp
+                else:
+                    # In place: z is (rows*C, D*J) -- ~400 MB at rows=256, J=768 -- so an
+                    # out-of-place add would hold three of them at the peak.
+                    ttnn.add_(z, zp)
+                    ttnn.deallocate(zp)
+            return z
+
+        def outer_product_mean(i0, i1):
+            rows = i1 - i0
+            z = z_rows(i0, i1)
             z = ttnn.to_layout(z, ttnn.ROW_MAJOR_LAYOUT)
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
@@ -2145,9 +2325,15 @@ class OuterProductMean(Module):
             return out
 
         if I > SEQ_LEN_MORE_CHUNKING:
+            # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
+            # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
+            # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
+            per_row = C * D * J * 2
+            rows_blk = max(32, min(OPM_CHUNK_SIZE,
+                                   (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
             z_acc = None
-            for i in range(0, I, OPM_CHUNK_SIZE):
-                part = outer_product_mean(a[i : min(i + OPM_CHUNK_SIZE, I), :, :])
+            for i in range(0, I, rows_blk):
+                part = outer_product_mean(i, min(i + rows_blk, I))
                 if z_acc is None:
                     z_acc = part
                 else:
@@ -2155,13 +2341,16 @@ class OuterProductMean(Module):
                     z_acc = ttnn.concat([z_old, part], dim=0)
                     ttnn.deallocate(z_old)
                     ttnn.deallocate(part)
-            ttnn.deallocate(a)
-            ttnn.deallocate(b)
             z = z_acc
         else:
-            z = outer_product_mean(a)
+            z = outer_product_mean(0, I)
+        if depth_parts is None:
             ttnn.deallocate(a)
             ttnn.deallocate(b)
+        else:
+            for acp, bcp, _ in depth_parts:
+                ttnn.deallocate(acp)
+                ttnn.deallocate(bcp)
         z = ttnn.reshape(z, (1, *z.shape))
         return z
 
@@ -2212,31 +2401,46 @@ class MSALayer(Module):
         S = m.shape[2]
         if S > SEQ_LEN_MORE_CHUNKING:
             z = ttnn.reallocate(z)
-            m_acc = None
+            # Collect the row chunks and join them once, AFTER the source is freed. Joining
+            # pairwise inside the loop kept three copies of the MSA representation live at the
+            # last step -- `m`, the accumulator, and the concat's output. Freeing `m` first costs
+            # nothing: every slice has already been taken by then. Bit-exact: concat copies rows,
+            # so one N-way join writes the same bytes in the same order as N-1 pairwise ones, and
+            # 9d72's 15 structure md5s reproduce exactly with this active.
+            # Measured, so it is not oversold: this buys nothing on any target the AbAg-XM panel
+            # is blocked on. 9i3p fails at the identical byte count with and without it, because
+            # what blocks the large targets is the pair representation, not MSA occupancy.
+            parts = []
             N = m.shape[1]
             for s in range(0, N, MSA_CHUNK_SIZE):
                 mc = m[:, s:min(s + MSA_CHUNK_SIZE, N), :]
                 mc = ttnn.add_(mc, self.pair_weighted_averaging(mc, z, attn_mask))
                 mc = ttnn.add_(mc, self.msa_transition(mc))
-                if m_acc is None:
-                    m_acc = mc
-                else:
-                    m_old = m_acc
-                    m_acc = ttnn.concat([m_old, mc], dim=1)
-                    ttnn.deallocate(m_old)
-                    ttnn.deallocate(mc)
+                parts.append(mc)
+                dram_peak("msalayer chunked: row loop")
             ttnn.deallocate(m)
-            m = m_acc
+            if len(parts) == 1:
+                m = parts[0]
+            else:
+                m = ttnn.concat(parts, dim=1)
+                for p in parts:
+                    ttnn.deallocate(p)
             m = ttnn.reallocate(m)
+            dram_peak("msalayer chunked: rows joined")
             z = ttnn.add_(z, self.outer_product_mean(m, msa_mask, n_msa))
+            dram_peak("msalayer chunked: opm")
         else:
             m = ttnn.add_(m, self.pair_weighted_averaging(m, z, attn_mask))
+            dram_peak("msalayer whole: pwa")
             m = ttnn.add_(m, self.msa_transition(m))
+            dram_peak("msalayer whole: transition")
             z = ttnn.add_(z, self.outer_product_mean(m, msa_mask, n_msa))
+            dram_peak("msalayer whole: opm")
 
         z = self.pairformer_layer(
             None, z, mask=mask, attn_mask_start=attn_mask, attn_mask_end=attn_mask,
         )[1]
+        dram_peak("msalayer: pairformer layer")
 
         return z, m
 
@@ -2277,6 +2481,12 @@ class MSA(Module):
         msa_mask: ttnn.Tensor | None,
         n_msa: int | None,
     ) -> ttnn.Tensor:
+        # The MSA trunk is the campaign's DRAM limiter: `m` is (1, depth, tokens, c_m) and
+        # deep-MSA targets carry several full copies of it at once. Tag the floor (weights +
+        # z + the one-hot input, before the c_m projection exists) so a measured peak can be
+        # decomposed into floor + k*m_feat rather than guessed at. No-op unless
+        # TT_BIO_DRAM_PEAK is set.
+        dram_peak(f"msa floor [depth={m.shape[1]} tokens={m.shape[2]}]")
         m = ttnn.linear(
             m,
             self.msa_weight,
@@ -2292,8 +2502,10 @@ class MSA(Module):
                 core_grid=CORE_GRID_MAIN,
             ),
         )
-        for block in self.blocks:
+        dram_peak(f"msa m_feat projected [c_m={m.shape[-1]}]")
+        for i, block in enumerate(self.blocks):
             z, m = block(z, m, mask, attn_mask, msa_mask, n_msa)
+            dram_peak(f"msa block {i} done")
         return z
 
 
@@ -3189,11 +3401,22 @@ class MSAModule(TorchWrapper):
                 self._cache_set("n_msa", None)
             self._first_forward_pass = False
 
+        # Hoisted (same left-to-right order as the call that follows) so the uploads can be
+        # tagged individually: the MSA one-hot `m` is the trunk's first large device tensor
+        # and is what a deep-MSA target actually OOMs on, which is invisible if the whole
+        # upload happens inside the argument list. Tags are no-ops unless TT_BIO_DRAM_PEAK.
+        dram_peak(f"msamodule pre-upload [m={tuple(m.shape)} {m.dtype}]")
+        z_tt = self._from_torch(z)
+        dram_peak("msamodule uploaded z")
+        m_tt = self._from_torch(m)
+        dram_peak(f"msamodule uploaded m [{tuple(m.shape)} {m.dtype}]")
+        emb_tt = self._from_torch(emb)
+        dram_peak("msamodule uploaded emb")
         z_out = self._to_torch(
             self.module(
-                self._from_torch(z),
-                self._from_torch(m),
-                self._from_torch(emb),
+                z_tt,
+                m_tt,
+                emb_tt,
                 self._cache_get("mask_tt"),
                 self._cache_get("attn_mask_tt"),
                 self._cache_get("msa_mask_tt"),

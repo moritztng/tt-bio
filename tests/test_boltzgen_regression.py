@@ -164,14 +164,18 @@ def test_designed_structure_bond_geometry_matches_gpu(
     shutil.copy(regression_data / "input/target.cif", work / "1g13.cif")
 
     out_dir = tmp_path / "regression_out"
+    # --devices takes physical card ids (not a count) on the unified design
+    # command: use the TT_VISIBLE_DEVICES pin (first entry), else card 0.
+    visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     cmd = [
-        tt_bio_bin, "gen", "run", str(spec_yaml),
-        "--output", str(out_dir),
+        tt_bio_bin, "design", str(spec_yaml),
+        "--model", "boltzgen",
+        "--out_dir", str(out_dir),
         "--num_designs", "1",
         # Pin to one card: this asserts the single-device output layout
         # (intermediate_designs/<stem>.cif), and on a multi-card box the default
         # all-cards fan-out would split one design across workers.
-        "--devices", "1",
+        "--devices", visible,
         "--config", "design", f"sampling_steps={sampling_steps}",
     ]
     subprocess.check_call(cmd)

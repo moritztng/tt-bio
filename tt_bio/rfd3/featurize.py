@@ -127,7 +127,7 @@ atom_array,frames}.py``, via a real local CPU capture of the doc's own
   (`rfd3.model.inference_sampler`) re-derives every non-ASU replica's
   coordinates from the ASU's own (COM-recentered) denoised output at every
   step via `apply_symmetry_to_xyz_atomwise` (ported to
-  :mod:`tt_bio.rfd3_sampler`) — it does NOT rely on the network alone to keep
+  :mod:`tt_bio.rfd3.sampler`) — it does NOT rely on the network alone to keep
   the design symmetric. Gated by `sym_step_frac` (default 0.9, unchanged from
   upstream): symmetrization is skipped once `c_t <= noise_schedule[floor(
   len(schedule)*sym_step_frac)]` (the last ~10% of steps, letting the network
@@ -484,7 +484,7 @@ from typing import Mapping, Sequence
 import numpy as np
 import torch
 
-from .rfd3_input import (
+from .input import (
     InputSpecification, parse_contig, ChainBreak, Indexed, Designed, DesignedRange,
     AtomSelection, _parse_atom_spec,
 )
@@ -1410,7 +1410,7 @@ def _token_kind(tk: "_Token") -> str:
 # RDKit conformer, so any valid one folds correctly"); the same principle is
 # applied here rather than re-derived.
 def _ligand_template(ccd_code: str, mol_dir: str | None = None) -> dict:
-    from .data.mol import load_molecules
+    from ..data.mol import load_molecules
     mol_dir = mol_dir or _os.path.expanduser("~/.boltz/mols")
     mols = load_molecules(mol_dir, [ccd_code])
     mol = mols[ccd_code]
@@ -2217,7 +2217,7 @@ def featurize(structure_path: str | Path | None, spec: InputSpecification) -> di
     # F5 symmetry: broadcast each token's transform id to its atoms, plus the
     # ASU mask + the raw (R,t) transform dict the sampler needs to actually
     # re-derive every replica's coordinates from the ASU each step (see
-    # module docstring's F5 grounding + tt_bio.rfd3_sampler). sym_entity_id is
+    # module docstring's F5 grounding + tt_bio.rfd3.sampler). sym_entity_id is
     # 0 for every REPLICATED atom (this pass's single symmetric protein
     # group); a token forced to transform_id=-1 (is_unsym_motif, or an
     # unindexed motif regardless of which replica it came from — see the

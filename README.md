@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) and [RFdiffusion3](#rfdiffusion3) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#design) and [RFdiffusion3](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 ## Accuracy
 
@@ -144,7 +144,10 @@ first use.
 
 Sequences batch automatically on 300M/600M (`--batch_size`, default 8): a
 padded, length-bucketed device forward per batch, masked so results are
-identical to running each sequence alone.
+identical to running each sequence alone. Single-sequence calls
+(`--batch_size 1`, e.g. serving one sequence at a time) replay through a
+captured device trace once a length bucket repeats — up to ~1.5x faster per
+call on QuietBox-class hosts, bit-identical, no flags needed.
 
 To embed a large batch faster, shard it across several cards with
 `--devices 0,1,2,3`: one worker per card, results reassembled in input order
@@ -578,85 +581,25 @@ Behavior:
   - `power_profile.csv`
   - `power_profile.png`
 
-## BoltzGen
+## Design
 
-[BoltzGen](https://github.com/HannesStark/boltzgen) designs protein binders against a target. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<output>/final_ranked_designs/`.
-
-```bash
-tt-bio gen run examples/binder.yaml --num_designs 10
-```
-
-This automatically uses every available card (splitting the designs across them and merging the results) and writes to `./binder/`. Add `--device_ids 0,2` to run on specific cards only.
-
-### Input Format
-
-```yaml
-entities:
-  - protein:
-      id: B
-      sequence: 80..120         # designed chain, sampled length per design
-  - file:
-      path: target.cif          # target structure (path relative to this yaml)
-      include:
-        - chain:
-            id: A
-```
-
-`80..120` randomises the binder length per design; a fixed integer pins it. Ligand, DNA, and RNA targets use the same YAML grammar as `tt-bio predict`. See the [BoltzGen examples](https://github.com/HannesStark/boltzgen/tree/main/example) for binding sites, scaffolds, and residue constraints.
-
-### Protocols
-
-`--protocol` sets defaults appropriate for the binder type.
-
-| Protocol | Use for |
-|----------|---------|
-| `protein-anything` (default) | de-novo protein binder |
-| `peptide-anything` | peptide binder |
-| `nanobody-anything` | nanobody / VHH |
-| `antibody-anything` | antibody |
-| `protein-small_molecule` | binder against a small-molecule target (adds affinity step) |
-| `protein-redesign` | re-design existing residues (e.g. symmetric dimers) |
-
-### Running a Subset
-
-`--steps` restricts the pipeline.
+Design new binders and protein structures from a target or motif specification — one command, two models:
 
 ```bash
-tt-bio gen run examples/binder.yaml --steps design --num_designs 10
-tt-bio gen run examples/binder.yaml --output existing/ --steps analysis filtering
+tt-bio design examples/binder.yaml --model boltzgen --num_designs 10
+tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 ```
 
-### Command-Line Options
+| Model | Designs | Input |
+|-------|---------|-------|
+| `boltzgen` (default) | protein / peptide / nanobody / antibody binders against a target | design YAML — same entity grammar as `predict` |
+| `rfd3` | all-atom structures: binders, motif scaffolding, nucleic-acid binders | JSON spec with contig strings |
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--protocol` | `protein-anything` | Protocol; sets defaults appropriate for the binder type |
-| `--num_designs` | `10000` | Number of binders to generate |
-| `--budget` | `30` | Number of top designs kept after filtering |
-| `--output` | `./<basename>/` | Output directory |
-| `--steps` | (all) | Run only specific stages |
-| `--config STEP key=val` | — | Override per-stage config (e.g. `--config design sampling_steps=200`) |
-| `--device_ids` | all cards | Restrict to specific cards (e.g. `0,2`) |
-| `--fast` | `False` | Use a lower-precision path for some ops (slightly lower precision, faster) |
-| `--cache` | `~/.boltz/boltzgen` | Cache for downloaded weights |
-| `--debug` | `False` | Disable live display; show raw stage output |
-| `--debug --log` | `False` | Add per-stage progress markers |
+**[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).
 
-## RFdiffusion3
+**[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and current limitations: [`docs/rfd3-design.md`](docs/rfd3-design.md).
 
-[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967) (RFD3) is an all-atom
-generative model that designs new protein structures and sequences from a specification, rather
-than folding an existing one. `tt-bio` runs protein-binder design, motif scaffolding, and
-nucleic-acid-binder design end to end from a real input structure, with batched multi-design
-generation on one or more cards.
-
-```bash
-tt-bio design specs.json --from_pdb --out_dir ./designs
-```
-
-The checkpoint downloads automatically on first use (no `rc-foundry` install needed). See
-[`docs/rfd3-design.md`](docs/rfd3-design.md) for the design modes, the contig-string input
-grammar, and current limitations.
+Each model downloads its weights automatically on first use and fans out across every available card (`--devices 0,2` restricts). `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
 ## Cite
 

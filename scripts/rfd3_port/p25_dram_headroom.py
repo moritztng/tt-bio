@@ -1,6 +1,6 @@
 """p25: peak device DRAM per design batch size, to decide the batch clamp.
 
-`_BATCH_ATOM_PAIR_BUDGET` (rfd3_design.py) is the only thing stopping `tt-bio design`
+`_BATCH_ATOM_PAIR_BUDGET` (tt_bio/rfd3/design.py) is the only thing stopping `tt-bio design`
 from honouring `--batch_size` on a large design. Its value (8*419*419) is the largest
 configuration the batching commit happened to measure, not a memory measurement, so it
 pins D=1 for anything past ~1185 atoms. This script measures the thing the constant is
@@ -9,7 +9,7 @@ supposed to encode: the peak DRAM a real sampler step actually occupies at a giv
 
 Instrumentation: the ttnn allocator is host-side bookkeeping updated at op-dispatch time,
 so reading `ttnn.get_memory_view` from the calling thread is synchronous and does not
-sync the device (same instrument as `tt_bio.protenix._dram_peak`). Sampling only at step
+sync the device (same instrument as `tt_bio.tenstorrent.dram_peak`). Sampling only at step
 boundaries would miss the intra-step transients that are what actually OOMs, so every
 allocating ttnn op used by the RFD3 path is wrapped and the peak is sampled after each
 call. That costs wall clock, so this script measures memory only -- throughput is a
@@ -52,10 +52,10 @@ args = ap.parse_args()
 
 import ttnn  # noqa: E402
 from tt_bio.tenstorrent import get_device  # noqa: E402
-from tt_bio.rfd3 import build_diffusion_module, build_token_initializer  # noqa: E402
-from tt_bio.rfd3_featurize import featurize  # noqa: E402
-from tt_bio.rfd3_input import InputSpecification  # noqa: E402
-from tt_bio.rfd3_sampler import RFD3Sampler  # noqa: E402
+from tt_bio.rfd3.model import build_diffusion_module, build_token_initializer  # noqa: E402
+from tt_bio.rfd3.featurize import featurize  # noqa: E402
+from tt_bio.rfd3.input import InputSpecification  # noqa: E402
+from tt_bio.rfd3.sampler import RFD3Sampler  # noqa: E402
 
 # Every ttnn entry point the RFD3 diffusion path allocates through (p24's op survey
 # enumerated the producer chains; this is that list plus the allocating helpers).

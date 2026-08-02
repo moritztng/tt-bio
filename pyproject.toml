@@ -84,7 +84,7 @@ include = ["tt_bio*"]
 # runtime data files the package loads by path at import/featurize time — these
 # MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization
-#   - tt_bio/boltzgen/resources/**: every `tt-bio gen` design (config yamls, splits, metrics)
+#   - tt_bio/boltzgen/resources/**: every `tt-bio design --model boltzgen` run (config yamls, splits, metrics)
 "tt_bio.data" = ["*.json"]
 "tt_bio.boltzgen" = ["LICENSE"]
 "tt_bio.boltzgen.resources" = ["*.json"]

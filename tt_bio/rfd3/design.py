@@ -2,16 +2,16 @@
 + RFD3Sampler into a `tt-bio design` run that writes a CIF per design.
 
 This is the user-facing entry point for RFD3 (a *design* model, not a folder):
-it parses an InputSpecification (JSON/YAML) via :mod:`tt_bio.rfd3_input`,
+it parses an InputSpecification (JSON/YAML) via :mod:`tt_bio.rfd3.input`,
 validates it, runs the on-device diffusion sampler, and writes the designed
 structure to disk.
 
-Status (p12): the host featurizer (:mod:`tt_bio.rfd3_featurize`) is
+Status (p12): the host featurizer (:mod:`tt_bio.rfd3.featurize`) is
 value-parity-verified (43/43 `f` keys bit-exact vs a real reference capture,
 see ``scripts/rfd3_port/parity_artifacts/``) for the protein-binder (F1) /
 motif-scaffolding (F6) case. ``--from_pdb`` runs the real end-to-end path
 (featurize → on-device TokenInitializer → sampler → CIF) without a captured
-golden for the features; ``--golden_dir`` is still required for the device
+golden for the features; ``--checkpoint`` is still required for the device
 ckpt weights (both paths need it). The fixed-motif atoms are seeded at their
 real (centered) ground-truth position via ``f["motif_pos"]`` — the sampler
 never moves them, so this is what actually appears in the output structure.
@@ -38,9 +38,9 @@ from typing import Mapping, Sequence
 
 import torch
 
-from .rfd3 import build_diffusion_module, build_token_initializer
-from .rfd3_input import InputSpecification
-from .rfd3_sampler import RFD3Sampler
+from .model import build_diffusion_module, build_token_initializer
+from .input import InputSpecification
+from .sampler import RFD3Sampler
 
 
 # What a design batch costs in device DRAM, measured per op with the allocator
@@ -122,7 +122,7 @@ def _write_cif(coords, f, out_path: Path, b_factors=None):
 
     a2t = f["atom_to_token_map"].tolist()
     # ref_element: [N_atom, 128] one-hot over element, index 0 = unknown/padding,
-    # index N (N>=1) = atomic number N directly (see rfd3_featurize.py's
+    # index N (N>=1) = atomic number N directly (see featurize.py's
     # `ref_element[i, _ELEMENT_TO_ATOMIC_NUMBER[elem]] = 1.0` -- NOT "index =
     # atomic number - 1" as a stale comment here previously claimed; the extra
     # "+1" below used to shift every element by one row, e.g. real N/C/O/Zn were
@@ -183,7 +183,7 @@ def run_design(
     specs: Mapping[str, Mapping],
     out_dir: str | Path,
     *,
-    golden_dir: str | None = None,
+    checkpoint_dir: str | None = None,
     from_pdb: bool = False,
     num_timesteps: int = 4,
     seed: int = 42,
@@ -193,6 +193,7 @@ def run_design(
     num_designs: int = 1,
     batch_size: int = 8,
     devices: Sequence[int] | None = None,
+    host_threads: int | None = None,
     device_visible: str = "0",
     verbose: bool = True,
 ) -> list[DesignResult]:
@@ -204,11 +205,11 @@ def run_design(
         The parsed JSON/YAML InputSpecification file (each top-level key is one
         design). Each spec is validated via :class:`InputSpecification`.
     out_dir : output directory (created if missing).
-    golden_dir : path to the captured RFD3 device ckpt weights (always required —
+    checkpoint_dir : path to the extracted RFD3 device ckpt weights (always required —
         this holds the TokenInitializer/DiffusionModule weights regardless of
         the feature source).
     from_pdb : if True, build `f` from each spec's real `input` PDB + contig via
-        :mod:`tt_bio.rfd3_featurize` (parity-verified for the F1/F6
+        :mod:`tt_bio.rfd3.featurize` (parity-verified for the F1/F6
         protein-binder/motif-scaffold case, see scripts/rfd3_port/parity_artifacts/).
         If False, fall back to the captured golden `f` bridge (p9).
     num_timesteps, seed, partial_t, cfg_scale, fp32_residual : sampler knobs.
@@ -233,8 +234,8 @@ def run_design(
         raise ValueError("batch_size must be at least 1")
     if fp32_residual:
         os.environ["RFD3_FP32_RESIDUAL"] = "1"
-    if golden_dir is None:
-        raise ValueError("golden_dir is required (it holds the device ckpt weights)")
+    if checkpoint_dir is None:
+        raise ValueError("checkpoint_dir is required (it holds the device ckpt weights)")
 
     # Build the flat job list: (spec_id, design_idx, seed). Each spec is parsed
     # and validated up front so a bad input fails fast before any device work.
@@ -246,13 +247,19 @@ def run_design(
     jobs = [(sid, i, seed + i) for sid, _ in parsed for i in range(num_designs)]
 
     if devices and len(devices) > 1:
-        return _run_design_fanout(jobs, specs, out_dir, golden_dir=golden_dir,
+        return _run_design_fanout(jobs, specs, out_dir, checkpoint_dir=checkpoint_dir,
                                  from_pdb=from_pdb, num_timesteps=num_timesteps,
                                  partial_t=partial_t, cfg_scale=cfg_scale,
                                  fp32_residual=fp32_residual, batch_size=batch_size,
                                  multi_designs=num_designs > 1, devices=devices,
+                                 host_threads=host_threads,
                                  verbose=verbose)
-    return _run_design_jobs(jobs, specs, out_dir, golden_dir=golden_dir,
+    if devices and "TT_VISIBLE_DEVICES" not in os.environ:
+        # Single card, in-process path: get_device() opens TT_BIO_LOGICAL_DEVICE_ID
+        # (default 0), so without this --devices 2 would silently run on card 0.
+        # An explicit TT_VISIBLE_DEVICES already pins visibility and wins.
+        os.environ.setdefault("TT_BIO_LOGICAL_DEVICE_ID", str(devices[0]))
+    return _run_design_jobs(jobs, specs, out_dir, checkpoint_dir=checkpoint_dir,
                             from_pdb=from_pdb, num_timesteps=num_timesteps,
                             partial_t=partial_t, cfg_scale=cfg_scale,
                             fp32_residual=fp32_residual, batch_size=batch_size,
@@ -411,7 +418,7 @@ def run_design_via_controller(
     return results
 
 
-def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timesteps,
+def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_timesteps,
                      partial_t, cfg_scale, fp32_residual, batch_size,
                      multi_designs,
                      verbose=True) -> list[DesignResult]:
@@ -419,7 +426,7 @@ def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timestep
     sequentially on this card. Featurize + TokenInitializer run once per spec and
     are reused across that spec's design_idx draws (they don't depend on the
     noise seed); only the sampler re-runs per design."""
-    cap = Path(golden_dir)
+    cap = Path(checkpoint_dir)
     dm_weights = torch.load(cap / "diffusion_module.real_weights.pt", map_location="cpu", weights_only=True)
     ti_weights = torch.load(cap / "token_initializer.real_weights.pt", map_location="cpu", weights_only=True)
     dev_ti = build_token_initializer(ti_weights)
@@ -458,7 +465,7 @@ def _run_design_jobs(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timestep
                 print(f"[design:{spec_id}] contig={spec.contig!r} length={spec.length!r} "
                       f"ligand={spec.ligand!r} partial_t={spec.partial_t} from_pdb={from_pdb}")
             if from_pdb:
-                from .rfd3_featurize import featurize
+                from .featurize import featurize
                 if spec.input is None:
                     raise ValueError(f"spec {spec_id!r} has no `input` PDB (required for --from_pdb)")
                 f = featurize(spec.input, spec)
@@ -526,14 +533,21 @@ def _design_out_path(out_dir, spec_id, design_idx, *, multi: bool) -> Path:
     return Path(out_dir) / (f"{spec_id}_{design_idx}.cif" if multi else f"{spec_id}.cif")
 
 
-def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timesteps,
+def _run_design_fanout(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_timesteps,
                        partial_t, cfg_scale, fp32_residual, batch_size,
-                       multi_designs, devices, verbose) -> list[DesignResult]:
+                       multi_designs, devices, verbose,
+                       host_threads=None) -> list[DesignResult]:
     """Data-parallel fan-out: one pinned subprocess per physical card, sharding
     the (spec_id, design_idx) jobs round-robin. Reuses the embed/predict
     subprocess-per-card pattern. Each child runs ``_run_design_shard``."""
-    from .main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    from .. import runtime
+    from ..main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
     devices = list(devices)[:max(1, len(jobs))]
+    # Without this every shard's torch/OMP/BLAS pools claim all host cores, so N
+    # co-resident shards oversubscribe the host N-fold and 4-card aggregate throughput
+    # lands *below* one card. Measured on qb1 (16 physical cores, 4 cards, 3 designs
+    # each): 633s uncapped vs 122s capped, i.e. 0.68x vs 3.51x of linear.
+    thread_cap = runtime.host_thread_cap_env(len(devices), host_threads)
     workdir = tempfile.mkdtemp(prefix="tt-bio-design-fanout-")
     try:
         handles = []
@@ -546,13 +560,13 @@ def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timest
             log_path = os.path.join(workdir, f"shard{idx}.log")
             with open(in_path, "wb") as fp:
                 pickle.dump(dict(jobs=shard, specs=dict(specs), out_dir=str(out_dir),
-                                 golden_dir=str(golden_dir), from_pdb=from_pdb,
+                                 checkpoint_dir=str(checkpoint_dir), from_pdb=from_pdb,
                                  num_timesteps=num_timesteps, partial_t=partial_t,
                                  cfg_scale=cfg_scale, fp32_residual=fp32_residual,
                                  batch_size=batch_size,
                                  multi_designs=multi_designs), fp)
-            env = {**os.environ, "TT_VISIBLE_DEVICES": str(dev), "TT_BIO_LEASE_HOLDER":
-                   f"worker:design-fanout-{dev}"}
+            env = {**os.environ, **thread_cap, "TT_VISIBLE_DEVICES": str(dev),
+                   "TT_BIO_LEASE_HOLDER": f"worker:design-fanout-{dev}"}
             if dev in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
                 mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
                 if mgd:
@@ -560,7 +574,7 @@ def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timest
             logf = open(log_path, "w")
             proc = subprocess.Popen(
                 [sys.executable, "-c",
-                 "import sys; from tt_bio.rfd3_design import _run_design_shard; "
+                 "import sys; from tt_bio.rfd3.design import _run_design_shard; "
                  "_run_design_shard(sys.argv[1], sys.argv[2])",
                  in_path, out_path], env=env, stdout=logf, stderr=subprocess.STDOUT)
             handles.append((proc, out_path, dev, log_path, logf))
@@ -584,9 +598,12 @@ def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timest
 def _run_design_shard(in_path: str, out_path: str) -> None:
     """Subprocess entry: load the pickled shard, run its jobs in-process on this
     card, pickle the DesignResult list back."""
+    from .. import runtime
+
+    runtime.bind_host_threads()
     with open(in_path, "rb") as fp:
         cfg = pickle.load(fp)
-    res = _run_design_jobs(cfg["jobs"], cfg["specs"], cfg["out_dir"], golden_dir=cfg["golden_dir"],
+    res = _run_design_jobs(cfg["jobs"], cfg["specs"], cfg["out_dir"], checkpoint_dir=cfg["checkpoint_dir"],
                            from_pdb=cfg["from_pdb"], num_timesteps=cfg["num_timesteps"],
                            partial_t=cfg["partial_t"], cfg_scale=cfg["cfg_scale"],
                            fp32_residual=cfg["fp32_residual"],

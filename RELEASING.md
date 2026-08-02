@@ -224,8 +224,9 @@ gate venv does not carry it. The 1AHW implementation-parity detail stays in
 `docs/implementation-parity.md`.
 
 The performance gate measures warm throughput for every shipped architecture
-— the fold models, the ESMC embed path, and the BoltzGen design pipeline
-(`tt-bio gen run` on `examples/binder.yaml`, reported as designs/s) — and
+— the fold models, the ESMC embed path, and both design pipelines
+(BoltzGen via `tt-bio design --model boltzgen` on `examples/binder.yaml` and
+RFD3 via `tt-bio design --model rfd3`, each reported as designs/s) — and
 compares each with the matching card-type baseline in
 `docs/perf_baselines.json`. A slowdown beyond 15% fails.
 
@@ -253,10 +254,11 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
 
 The UX gate checks CLI help, live progress phase ordering, strict output parsing,
 and results or manifest shape for every user-facing architecture — the fold
-models, ESMC embed, and BoltzGen (exercised via `tt-bio gen run`, whose progress
-is the gen pipeline's own stdout stage stream under `--debug --log`). BoltzGen
-therefore has full three-leg coverage: designability accuracy, designs/s perf,
-and gen-run UX plumbing.
+models, ESMC embed, and both design models (BoltzGen via
+`tt-bio design --model boltzgen`, whose progress is the pipeline's own stdout
+stage stream under `--debug --log`, and RFD3 via `tt-bio design --model rfd3`).
+BoltzGen therefore has full three-leg coverage: designability accuracy,
+designs/s perf, and design UX plumbing.
 
 Also run the documented supported-size and multi-card smoke cases for the target
 hardware. Record hard limits in the changelog; do not infer OOM safety from the

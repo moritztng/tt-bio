@@ -21,7 +21,7 @@ Contig string (comma-separated components):
   - ``A11,0,A12`` / ``A11,3,A12``   documented, but VERIFIED BROKEN in the real
                                     reference itself (`rc-foundry==0.2.0`, both
                                     input dialects — p22, see
-                                    ``rfd3_featurize._plan_unindexed_tokens``);
+                                    ``featurize._plan_unindexed_tokens``);
                                     parsed here as ``UnindexedOffset`` for
                                     completeness, the featurizer intentionally
                                     still raises NotImplementedError rather
@@ -42,7 +42,7 @@ InputSelection (boolean | contig string | dict):
     (p22): its own dict value additionally subsets which real atoms enter the
     unindexed token, composed as an intersection with any `select_fixed_atoms`
     restriction on the same residue — see
-    ``rfd3_featurize._unindex_dict_atom_names``.
+    ``featurize._unindex_dict_atom_names``.
 
 Only the grammar lives here. Resolving ``TIP``/``BKBN`` to concrete atom names,
 building atom14, RASA, hbond, hotspot, ori_token, symmetry and the rest of the
