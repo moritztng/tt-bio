@@ -20,9 +20,11 @@ baseline:
 | 16 | 353.4 s | 163.01 | 10.188 | 15.38x | 96.1% | 1.044 |
 | 24 | 371.5 s | 232.58 | 9.691  | 21.94x | 91.4% | 1.019 |
 | 28 | 378.8 s | 266.12 | 9.504  | 25.11x | 89.7% | 1.013 |
-| 32 | 391.5 s | 294.28 | 9.196  | **27.76x** | **86.8%** | 1.006 |
+| 32 | 391.5 / 391.8 s | 294.28 | 9.196  | **27.7x** | **86.8%** | 1.006 |
 
-**32 chips deliver 27.8x.** The curve is smooth — no knee, no collapse.
+**32 chips deliver 27.7x.** The curve is smooth — no knee, no collapse. The N=32 row is
+the two unconstrained cells of the core-packing sweep (391.5 and 391.8 s, 0.08% apart);
+every other row is a single cell of the concurrency sweep.
 
 The remaining 13% is not host CPU, not chip placement, and not thread count:
 
