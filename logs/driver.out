@@ -1,0 +1,5 @@
+=== STEP 0 submodules Sun Aug  2 04:56:14 PM UTC 2026 ===
+=== STEP 1 PCC direct demo run Sun Aug  2 04:56:23 PM UTC 2026 ===
+=== STEP 2 perf test as-shipped Sun Aug  2 05:00:05 PM UTC 2026 ===
+=== STEP 3 perf test with one-line probe fix Sun Aug  2 05:00:10 PM UTC 2026 ===
+=== STEP 4 source build Sun Aug  2 05:00:14 PM UTC 2026 ===
