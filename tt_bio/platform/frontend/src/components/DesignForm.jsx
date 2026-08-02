@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { api } from "../api.js";
 import ParamControls, { defaultsFor } from "./ParamControls.jsx";
 import { yq } from "../yaml.js";
@@ -59,6 +59,12 @@ const RFD3_CONTIG_HELP = {
 };
 
 export default function DesignForm({ catalog, onSubmitted, onError }) {
+  // Model-first, exactly like the Fold tab: pick the design model up front,
+  // then see only its protocols, params, help and examples — never a mixed list.
+  const designModels = catalog.design_models || [];
+  const engineOf = (pid) => catalog.protocols.find((p) => p.id === pid)?.engine || "boltzgen";
+  const [model, setModel] = useState(designModels[0]?.id || "boltzgen");
+  const protocols = catalog.protocols.filter((p) => (p.engine || "boltzgen") === model);
   const [protocol, setProtocol] = useState("protein-anything");
   const [name, setName] = useState("");
   const [params, setParams] = useState(() => defaultsFor(catalog.design_params));
@@ -80,16 +86,25 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
   const [binderId, setBinderId] = useState("B");
   const [lengthRange, setLengthRange] = useState(DEFAULT_LEN["protein-anything"]);
 
-  const protoInfo = useMemo(() => catalog.protocols.find((p) => p.id === protocol), [catalog, protocol]);
   const setParam = (k, v) => setParams((p) => ({ ...p, [k]: v }));
   const setRfd3Param = (k, v) => setRfd3Params((p) => ({ ...p, [k]: v }));
   const isLigand = isLigandProtocol(protocol);
-  const isRfd3 = protoInfo?.engine === "rfd3";
+  const isRfd3 = model === "rfd3";
   const contigHelp = RFD3_CONTIG_HELP[protocol] || RFD3_CONTIG_HELP["rfd3-binder"];
 
   const onProtocol = (id) => {
     setProtocol(id);
     setLengthRange(DEFAULT_LEN[id] || "80..120");
+  };
+
+  // Switching models re-anchors the protocol to that model's first one; the
+  // rest of the per-model state (structure/contig vs. spec/builder) is kept,
+  // so toggling back and forth loses nothing.
+  const onModel = (id) => {
+    if (id === model) return;
+    setModel(id);
+    const first = catalog.protocols.find((p) => (p.engine || "boltzgen") === id);
+    if (first) onProtocol(first.id);
   };
 
   const builderArgs = { isLigand, target, ligand, ligandMode, targetId, binderId, lengthRange };
@@ -138,7 +153,7 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
     setStructure(""); setContig("");
   };
 
-  const designExamples = catalog.examples.filter((e) => e.kind === "design");
+  const designExamples = catalog.examples.filter((e) => e.kind === "design" && engineOf(e.protocol) === model);
   // The simple form always builds the right target type for the protocol, so a
   // mismatch is only possible if someone hand-edits the YAML into a protein
   // target under the small-molecule protocol.
@@ -160,7 +175,7 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
       if (!contig.trim()) return onError("Enter a contig string first.");
       setSubmitting(true);
       try {
-        const job = await api.submit({ kind: "design", name: name.trim(), protocol,
+        const job = await api.submit({ kind: "design", name: name.trim(), model, protocol,
                                        structure, contig: contig.trim(), params: rfd3Params });
         onSubmitted(job);
       } catch (e) {
@@ -184,7 +199,7 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
     }
     setSubmitting(true);
     try {
-      const job = await api.submit({ kind: "design", name: name.trim(), protocol, spec: body, params });
+      const job = await api.submit({ kind: "design", name: name.trim(), model, protocol, spec: body, params });
       onSubmitted(job);
     } catch (e) {
       onError(e.message);
@@ -196,9 +211,22 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
   return (
     <>
       <div className="panel">
+        <p className="section-title">Design model</p>
+        <p className="section-sub">BoltzGen ranks and filters binders against any target. RFdiffusion3 diffuses directly around a target structure.</p>
+        <div className="cardgrid models">
+          {designModels.map((m) => (
+            <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`} title={m.blurb} onClick={() => onModel(m.id)}>
+              <div className="t">{m.name}</div>
+              <div className="s">{m.tagline}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
         <p className="section-title">What to design</p>
         <div className="cardgrid">
-          {catalog.protocols.map((p) => (
+          {protocols.map((p) => (
             <button key={p.id} className={`selcard ${protocol === p.id ? "active" : ""}`} onClick={() => onProtocol(p.id)}>
               <div className="t">{p.name}</div>
               <div className="s">{p.blurb}</div>

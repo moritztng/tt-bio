@@ -66,7 +66,8 @@ export default function ResultsDesign({ jobId, results }) {
   return (
     <div>
       <p className="hint" style={{ marginTop: 0 }}>
-        {designs.length} candidate binders, ranked by predicted interface confidence. Sequences are ready to order.
+        {designs.length} candidate binders from the BoltzGen pipeline, ranked by predicted interface confidence.
+        Sequences are ready to order.
       </p>
       <details className="collapse">
         <summary>What do these scores mean?</summary>
