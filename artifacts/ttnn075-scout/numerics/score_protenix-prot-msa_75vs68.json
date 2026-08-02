@@ -1,0 +1,95 @@
+{
+  "mode": "structures",
+  "targets": {
+    "prot": {
+      "kabsch_rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 1,
+          "mean": 1.9235618415262974,
+          "std": 0.0,
+          "min": 1.9235618415262974,
+          "max": 1.9235618415262974
+        },
+        "ref_floor": {
+          "n": 0
+        },
+        "dev_floor": {
+          "n": 0
+        },
+        "floor_mean": 0.0,
+        "cross_over_floor": Infinity,
+        "dev_over_ref_floor": null,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": false
+      },
+      "coord_pcc": {
+        "metric": "1-coord_pcc",
+        "cross": {
+          "n": 1,
+          "mean": 0.01071980447351506,
+          "std": 0.0,
+          "min": 0.01071980447351506,
+          "max": 0.01071980447351506
+        },
+        "ref_floor": {
+          "n": 0
+        },
+        "dev_floor": {
+          "n": 0
+        },
+        "floor_mean": 0.0,
+        "cross_over_floor": Infinity,
+        "dev_over_ref_floor": null,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": false
+      },
+      "tm_score": {
+        "metric": "1-tm_score",
+        "cross": {
+          "n": 1,
+          "mean": 0.03010337365640381,
+          "std": 0.0,
+          "min": 0.03010337365640381,
+          "max": 0.03010337365640381
+        },
+        "ref_floor": {
+          "n": 0
+        },
+        "dev_floor": {
+          "n": 0
+        },
+        "floor_mean": 0.0,
+        "cross_over_floor": Infinity,
+        "dev_over_ref_floor": null,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": false
+      },
+      "lddt": {
+        "metric": "1-lddt",
+        "cross": {
+          "n": 1,
+          "mean": 0.21670127984577903,
+          "std": 0.0,
+          "min": 0.21670127984577903,
+          "max": 0.21670127984577903
+        },
+        "ref_floor": {
+          "n": 0
+        },
+        "dev_floor": {
+          "n": 0
+        },
+        "floor_mean": 0.0,
+        "cross_over_floor": Infinity,
+        "dev_over_ref_floor": null,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": false
+      }
+    }
+  }
+}
