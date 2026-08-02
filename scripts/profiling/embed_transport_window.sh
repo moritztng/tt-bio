@@ -70,6 +70,29 @@ bash "$M/maint-deploy.sh" >> "$LOG" 2>&1
 sleep 20
 curl -s -o /dev/null -w "public site during window: %{http_code}\n" -m 25 https://japanfold.com/ >> "$LOG"
 
+# maint-deploy stopping the unit does NOT mean the chips came free: the pool's workers survive the
+# stop (leaked multiprocessing children, seen on every batch of this campaign), and maint-deploy
+# says so and leaves them. Starting a pool anyway is how the first attempt at this window burned
+# ten minutes of maintenance page for nothing -- every worker blocked on device open. Verify the
+# box is actually ours, and hand it straight back if it is not.
+say "verify the window actually freed the box"
+held=$(/usr/bin/python3.10 -c '
+import os, glob
+h = set()
+for p in glob.glob("/proc/[0-9]*/fd/*"):
+    try: t = os.readlink(p)
+    except OSError: continue
+    if "tenstorrent/" in t: h.add(int(t.rsplit("/", 1)[1]))
+print(len(h))')
+echo "  japanfold=$(systemctl is-active japanfold)  chips still held=$held" >> "$LOG"
+if [ "$(systemctl is-active japanfold)" = "active" ] || [ "$held" != "0" ]; then
+  echo "ABORT: the window did not free the box ($held chips still held) -- restoring, nothing started" >> "$LOG"
+  bash "$M/maint-restore.sh" >> "$LOG" 2>&1
+  sleep 60
+  curl -s -o /dev/null -w "public site after early restore: %{http_code}\n" -m 30 https://japanfold.com/ >> "$LOG"
+  exit 1
+fi
+
 # ---------------------------------------------------------------- private pool
 say "start a private controller + $NW workers from $SRC"
 export PYTHONPATH=$SRC HF_HUB_CACHE=/home/cust-team/mthuening/models TT_METAL_LOGGER_LEVEL=FATAL
