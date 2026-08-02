@@ -65,16 +65,26 @@ say "arm the restore watchdog BEFORE taking anything down"
 setsid nohup /home/cust-team/mthuening/g32_restore_watchdog.sh 10 60 >/dev/null 2>&1 < /dev/null &
 sleep 2
 
-say "deploy maintenance page"
+# maint-deploy.sh SELF-DETACHES -- it restarts cloudflared, and ssh.japanfold.com is an ingress of
+# that same tunnel, so it forks to survive losing the session that launched it. `bash maint-deploy.sh`
+# therefore returns in milliseconds while the deploy is still running. The first attempt at this
+# window slept 20 s, started its pool mid-deploy, and the deploy's own "are the cards free?" step
+# then found those very workers holding chips and warned about an unknown actor. Wait for the
+# script's completion line instead of guessing at a duration.
+say "deploy maintenance page, then WAIT for it to finish (it self-detaches)"
+: > "$M/maint-deploy.log"
 bash "$M/maint-deploy.sh" >> "$LOG" 2>&1
-sleep 20
+deployed=0
+for _ in $(seq 1 60); do          # up to 5 minutes
+  if grep -q "MAINTENANCE MODE ACTIVE" "$M/maint-deploy.log" 2>/dev/null; then deployed=1; break; fi
+  sleep 5
+done
+grep -E "MAINTENANCE MODE ACTIVE|cards are free" "$M/maint-deploy.log" >> "$LOG" 2>/dev/null
 curl -s -o /dev/null -w "public site during window: %{http_code}\n" -m 25 https://japanfold.com/ >> "$LOG"
 
-# maint-deploy stopping the unit does NOT mean the chips came free: the pool's workers survive the
-# stop (leaked multiprocessing children, seen on every batch of this campaign), and maint-deploy
-# says so and leaves them. Starting a pool anyway is how the first attempt at this window burned
-# ten minutes of maintenance page for nothing -- every worker blocked on device open. Verify the
-# box is actually ours, and hand it straight back if it is not.
+# Belt and braces: the deploy can finish and still leave chips held, because the pool's workers can
+# outlive `systemctl stop` as leaked multiprocessing children. Only proceed on a box that is
+# provably ours, and hand it straight back otherwise -- a benchmark is never worth a half-held box.
 say "verify the window actually freed the box"
 held=$(/usr/bin/python3.10 -c '
 import os, glob
@@ -84,9 +94,9 @@ for p in glob.glob("/proc/[0-9]*/fd/*"):
     except OSError: continue
     if "tenstorrent/" in t: h.add(int(t.rsplit("/", 1)[1]))
 print(len(h))')
-echo "  japanfold=$(systemctl is-active japanfold)  chips still held=$held" >> "$LOG"
-if [ "$(systemctl is-active japanfold)" = "active" ] || [ "$held" != "0" ]; then
-  echo "ABORT: the window did not free the box ($held chips still held) -- restoring, nothing started" >> "$LOG"
+echo "  deploy_completed=$deployed  japanfold=$(systemctl is-active japanfold)  chips held=$held" >> "$LOG"
+if [ "$deployed" != "1" ] || [ "$(systemctl is-active japanfold)" = "active" ] || [ "$held" != "0" ]; then
+  echo "ABORT: box not free (deploy_completed=$deployed, $held chips held) -- restoring, nothing started" >> "$LOG"
   bash "$M/maint-restore.sh" >> "$LOG" 2>&1
   sleep 60
   curl -s -o /dev/null -w "public site after early restore: %{http_code}\n" -m 30 https://japanfold.com/ >> "$LOG"
