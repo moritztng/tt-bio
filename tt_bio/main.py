@@ -2704,6 +2704,16 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
         embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
         manifest.json       # model/pool/shapes/dtype + which file holds each sequence
     """
+    if devices and "TT_VISIBLE_DEVICES" not in os.environ:
+        _ids = [x for x in str(devices).split(",") if x.strip()]
+        if len(_ids) == 1:
+            # Pin visibility BEFORE importing esmc (ttnn binds TT_VISIBLE_DEVICES
+            # at import, and esmc imports ttnn at module scope). Without this,
+            # ``embed --devices 2`` silently runs on card 0 (get_device defaults
+            # to logical 0); setting TT_BIO_LOGICAL_DEVICE_ID instead would leave
+            # the full cluster visible, and two concurrent single-card embeds
+            # deadlock on UMD CHIP_IN_USE mutexes during cluster discovery.
+            os.environ["TT_VISIBLE_DEVICES"] = _ids[0]
     from tt_bio import esmc
 
     torch.set_grad_enabled(False)
@@ -2744,12 +2754,6 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             # This process opens its TT device in-process (no fanout subprocess),
             # so it needs the same P300-board-misdetection workaround the fanout
             # path applies per-shard (see esmc._spawn_shard).
-            if device_list and len(device_list) == 1 and "TT_VISIBLE_DEVICES" not in os.environ:
-                # get_device() opens TT_BIO_LOGICAL_DEVICE_ID (default 0), so without
-                # this ``--devices 2`` would silently run on card 0 (same bug class
-                # as rfd3's ef0265ef). An explicit TT_VISIBLE_DEVICES already pins
-                # visibility and wins.
-                os.environ.setdefault("TT_BIO_LOGICAL_DEVICE_ID", str(device_list[0]))
             if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
                 mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
                 if mgd:
@@ -2763,8 +2767,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
         raise click.ClickException(str(e))
 
     if out_format == "npz":
-        for emb in results:
-            esmc.write_npz(emb, out / f"{emb.id}.npz")
+        esmc.write_npz_many(results, out)
     if out_format == "parquet":
         esmc.write_parquet(results, out / "embeddings.parquet")
         click.echo(f"Wrote {out / 'embeddings.parquet'}")
@@ -2857,8 +2860,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
         raise click.ClickException(str(e))
 
     if out_format == "npz":
-        for emb in results:
-            esmc.write_npz(emb, out / f"{emb.id}.npz")
+        esmc.write_npz_many(results, out)
     if out_format == "parquet":
         esmc.write_parquet(results, out / "embeddings.parquet")
         click.echo(f"Wrote {out / 'embeddings.parquet'}")

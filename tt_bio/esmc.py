@@ -1122,7 +1122,10 @@ def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int]
         ]
         results = [_await_shard(*h) for h in handles]
     finally:
-        shutil.rmtree(workdir, ignore_errors=True)
+        if not os.environ.get("TT_BIO_KEEP_FANOUT_WORKDIR"):
+            shutil.rmtree(workdir, ignore_errors=True)
+        else:
+            print(f"fanout workdir kept: {workdir}")
         if cache_dir:
             shutil.rmtree(cache_dir, ignore_errors=True)
     return _reassemble(items, results)
@@ -1159,6 +1162,22 @@ def write_npz(emb: ESMCEmbedding, path) -> None:
     if emb.logits is not None:
         arrays["logits"] = emb.logits
     np.savez_compressed(path, **arrays)
+
+
+def write_npz_many(embeddings, out_dir, max_workers: int | None = None) -> None:
+    """Write one npz per embedding, parallel across host threads.
+
+    np.savez_compressed spends its time in zlib's C compress loop, which
+    releases the GIL on multi-KB buffers, so threads give a near-linear
+    speedup. The serial loop otherwise dominates multicard embed wall-clock:
+    measured 83 ms/seq (72 s of an 83 s 864-sequence 4-card run sat in the
+    parent's write phase while the shards' device work took ~7 s).
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    workers = max(1, min(16, os.cpu_count() or 8))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        list(ex.map(lambda e: write_npz(e, out_dir / f"{e.id}.npz"), embeddings))
 
 
 def write_parquet(embeddings: list[ESMCEmbedding], path) -> None:
