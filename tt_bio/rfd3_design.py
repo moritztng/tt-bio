@@ -251,6 +251,11 @@ def run_design(
                                  multi_designs=num_designs > 1, devices=devices,
                                  host_threads=host_threads,
                                  verbose=verbose)
+    if devices and "TT_VISIBLE_DEVICES" not in os.environ:
+        # Single card, in-process path: get_device() opens TT_BIO_LOGICAL_DEVICE_ID
+        # (default 0), so without this --devices 2 would silently run on card 0.
+        # An explicit TT_VISIBLE_DEVICES already pins visibility and wins.
+        os.environ.setdefault("TT_BIO_LOGICAL_DEVICE_ID", str(devices[0]))
     return _run_design_jobs(jobs, specs, out_dir, golden_dir=golden_dir,
                             from_pdb=from_pdb, num_timesteps=num_timesteps,
                             partial_t=partial_t, cfg_scale=cfg_scale,
