@@ -44,9 +44,20 @@ def _install_nanobind_leak_stderr_filter() -> None:
     try:
         read_fd, write_fd = _os.pipe()
         original_stderr_fd = _os.dup(2)
+        ppid = _os.getpid()
         pid = _os.fork()
         if pid == 0:
             try:
+                # Die with the parent: a surviving filter grandchild keeps the
+                # dup of fd 2 open, and when fd 2 is a dispatchers shard pipe
+                # the dispatcher never sees EOF and hangs after the run ends.
+                try:
+                    import ctypes
+                    ctypes.CDLL(None).prctl(1, 9)  # PR_SET_PDEATHSIG, SIGKILL
+                    if _os.getppid() != ppid:
+                        _os._exit(0)
+                except Exception:
+                    pass
                 _os.close(write_fd)
                 suppressing_nanobind_leak = False
                 with _os.fdopen(read_fd, "rb", closefd=True) as pipe:
