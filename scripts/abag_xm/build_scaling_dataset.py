@@ -142,7 +142,9 @@ def read_folds(folds_dir: pathlib.Path, model: str, sha: str) -> list[dict]:
                     "n_chains": rec.get("n_chains"),
                     "n_residues": rec.get("n_residues"),
                     "n_atoms": rec.get("n_atoms"),
-                    "msa": bool(rec.get("msa")),
+                    # None when the model's record schema has no msa key (boltz2's does not) --
+                    # coercing to False would assert the fold ran WITHOUT an MSA, which is false.
+                    "msa": (None if rec.get("msa") is None else bool(rec.get("msa"))),
                     "fold_runtime_s": rec.get("runtime_s"),
                     "dataset_built_sha": sha,
                     # When this fold's results.json was written. Unlike the build sha this is
