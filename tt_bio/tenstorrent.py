@@ -97,9 +97,14 @@ COMPUTE_GRID_Y = 10
 CORE_GRID_MAIN = ttnn.CoreGrid(y=COMPUTE_GRID_Y, x=COMPUTE_GRID_X_11)
 COMPUTE_GRID_MAIN = (CORE_GRID_MAIN.x, CORE_GRID_MAIN.y)
 
-def _dtype():
+def _dtype(default=None):
+    # Call sites that were hardcoded ttnn.bfloat16 before the fp32-affinity gate pass
+    # their former constant as `default`: fast mode must NOT silently demote stored
+    # weights/projections to bfloat8_b (regressed esmfold2 confidence to NaN on WH).
     if _DTYPE_OVERRIDE is not None:
         return _DTYPE_OVERRIDE
+    if default is not None:
+        return default
     return ttnn.bfloat8_b if _FAST_MODE else ttnn.bfloat16
 
 
@@ -637,7 +642,7 @@ class Module:
         dtype=None,
     ) -> ttnn.Tensor:
         if dtype is None:
-            dtype = _dtype()
+            dtype = _dtype(ttnn.bfloat16)
         wc = _weight_cache
         if wc is None:
             return ttnn.from_torch(
@@ -667,7 +672,7 @@ class Module:
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
         if dtype is None:
-            dtype = _dtype()
+            dtype = _dtype(ttnn.bfloat16)
         return ttnn.linear(
             x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
             dtype=dtype, core_grid=CORE_GRID_MAIN, **kw,
@@ -1087,7 +1092,7 @@ class AttentionPairBias(Module):
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
-        self.dtype = dtype if dtype is not None else _dtype()
+        self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
@@ -1884,7 +1889,7 @@ class ConditionedTransitionBlock(Module):
         )
         swish_chunk, gates_chunk = torch.chunk(self.weights["swish_gate.0.weight"], chunks=2, dim=0)
         self.swish_weight, self.gates_weight = [
-            ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype())
+            ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16))
             for chunk in [swish_chunk, gates_chunk]
         ]
         self.a_to_b_weight = self.torch_to_tt("a_to_b.weight")
