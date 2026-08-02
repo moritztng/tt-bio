@@ -8,6 +8,9 @@ the engine without hand-editing HTML.
 
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
+
 # --- Free-demo limits -------------------------------------------------------
 # This platform runs as a free public demo on shared sovereign compute, so every
 # input is bounded to keep one user from blocking everyone else. The limits are
@@ -55,6 +58,12 @@ LIMITS = {
     "max_stall_embed_s": 120,         # 2 min with no log progress
     "max_embed_sequences": 50,        # sequences per embed submission
     "max_embed_sequence_residues": 2000,  # residues per sequence (LM only, no folding: higher cap than max_residues is safe)
+    # RFdiffusion3 design: all-atom diffusion is heavy per design, and the
+    # target is a pasted structure (PDB/mmCIF text), which is far bulkier than
+    # a sequence — hence its own size cap (fits a ~1024-residue PDB).
+    "max_rfd3_designs": 5,            # designs per spec (batched bit-identically)
+    "max_rfd3_timesteps": 200,        # diffusion steps (upstream production default)
+    "max_structure_chars": 700_000,   # raw size of one pasted target structure
 }
 DEMO_NOTE = (
     "This is a free public demo on shared compute, so inputs are capped "
@@ -198,17 +207,47 @@ EMBED_MODELS = [
         "blurb": "The full-size ESMC model — the strongest embeddings, at higher "
                  "compute cost per sequence.",
     },
+    # SaProt is a structure-aware protein LM (AA + Foldseek-3Di vocabulary).
+    # The demo's embed surface takes sequences only, so it runs in sequence-only
+    # mode (3Di tokens masked) — say so plainly rather than oversell it.
+    {
+        "id": "saprot-650m",
+        "name": "SaProt 650M",
+        "tagline": "Structure-aware (sequence-only here).",
+        "blurb": "SaProt trained on sequence + structure tokens, run sequence-only in this "
+                 "demo. A strong alternative representation to ESMC, especially for "
+                 "stability/function prediction.",
+    },
+    {
+        "id": "saprot-1.3b",
+        "name": "SaProt 1.3B",
+        "tagline": "Largest SaProt.",
+        "blurb": "The largest SaProt variant — unlike the smaller ones it is trained to work "
+                 "sequence-only, so nothing is lost without a structure input.",
+    },
 ]
 
-# --- BoltzGen design protocols (the `gen run` path) ---
+# --- Design protocols ---
+# Two engines share the design surface: BoltzGen (`gen run`; the target is a
+# sequence/ligand and the pipeline folds, refolds and ranks) and RFdiffusion3
+# (`design`; the target is a pasted structure plus a contig string, and the
+# output is unranked all-atom designs). `engine` selects the dispatch path;
+# it defaults to boltzgen for the long-standing protocols.
 PROTOCOLS = [
-    {"id": "protein-anything", "name": "Protein binder", "blurb": "De-novo mini-protein binder against any target."},
-    {"id": "peptide-anything", "name": "Peptide binder", "blurb": "Short peptide binder."},
-    {"id": "nanobody-anything", "name": "Nanobody (VHH)", "blurb": "Single-domain antibody / nanobody binder."},
-    {"id": "antibody-anything", "name": "Antibody", "blurb": "Antibody binder design."},
-    {"id": "protein-small_molecule", "name": "Binder + affinity", "blurb": "Protein binder with a binding-affinity step."},
-    {"id": "protein-redesign", "name": "Redesign", "blurb": "Re-design residues of an existing binder."},
+    {"id": "protein-anything", "engine": "boltzgen", "name": "Protein binder", "blurb": "De-novo mini-protein binder against any target."},
+    {"id": "peptide-anything", "engine": "boltzgen", "name": "Peptide binder", "blurb": "Short peptide binder."},
+    {"id": "nanobody-anything", "engine": "boltzgen", "name": "Nanobody (VHH)", "blurb": "Single-domain antibody / nanobody binder."},
+    {"id": "antibody-anything", "engine": "boltzgen", "name": "Antibody", "blurb": "Antibody binder design."},
+    {"id": "protein-small_molecule", "engine": "boltzgen", "name": "Binder + affinity", "blurb": "Protein binder with a binding-affinity step."},
+    {"id": "protein-redesign", "engine": "boltzgen", "name": "Redesign", "blurb": "Re-design residues of an existing binder."},
+    {"id": "rfd3-binder", "engine": "rfd3", "name": "Protein binder (RFdiffusion3)",
+     "blurb": "All-atom diffusion binder design against a target structure (PDB) + contig."},
+    {"id": "rfd3-scaffold", "engine": "rfd3", "name": "Motif scaffolding (RFdiffusion3)",
+     "blurb": "Build a scaffold around a fixed functional motif in a structure."},
+    {"id": "rfd3-na-binder", "engine": "rfd3", "name": "DNA/RNA binder (RFdiffusion3)",
+     "blurb": "Design a protein binder against a fixed DNA or RNA structure."},
 ]
+PROTOCOL_ENGINES = {p["id"]: p.get("engine", "boltzgen") for p in PROTOCOLS}
 
 # Coarse pipeline stages a BoltzGen design run moves through, in order. Single
 # source of truth — the job engine imports this for progress/stage detection.
@@ -237,6 +276,17 @@ DESIGN_PARAMS = [
      "min": 1, "max": LIMITS["max_budget"],
      "help": "How many ranked designs to report after filtering."},
     {"key": "fast", "label": "Fast mode", "type": "bool", "default": True, "help": "Higher throughput — may be slightly less accurate."},
+]
+
+# RFdiffusion3 knobs (engine: rfd3 protocols). No budget/fast: RFD3 has no
+# refold-and-filter pipeline, and no bf8 fast mode.
+RFD3_DESIGN_PARAMS = [
+    {"key": "num_designs", "label": "Designs to generate", "type": "int", "default": 4,
+     "min": 1, "max": LIMITS["max_rfd3_designs"],
+     "help": "Independent designs for the same spec (each its own noise draw; batched on-device)."},
+    {"key": "num_timesteps", "label": "Diffusion steps", "type": "int", "default": 100,
+     "min": 4, "max": LIMITS["max_rfd3_timesteps"],
+     "help": "Sampling steps per design. 200 (the upstream default) gives the cleanest structures; fewer is faster."},
 ]
 
 EMBED_PARAMS = [
@@ -440,7 +490,33 @@ sequences:
       smiles: 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
 """,
     },
+    # --- Design / RFdiffusion3: structure + contig examples (the structure
+    # loads from tt_bio/platform/examples/ at request time, not import time) ---
+    {
+        "id": "rfd3_binder",
+        "kind": "design",
+        "protocol": "rfd3-binder",
+        "name": "Protein binder (RFD3)",
+        "blurb": "Design an all-atom binder against the IAI protein (150 aa) — contig fixes the target, then designs 60–80 residues.",
+        "builder": {"structureFile": "iai_protein.pdb", "contig": "A1-150,60-80"},
+    },
+    {
+        "id": "rfd3_scaffold",
+        "kind": "design",
+        "protocol": "rfd3-scaffold",
+        "name": "Motif scaffolding (RFD3)",
+        "blurb": "Scaffold the IAI protein's two terminal motifs — keep residues 1–10 and 31–40 fixed, design the 20 between.",
+        "builder": {"structureFile": "iai_protein.pdb", "contig": "A1-10,20,A31-40"},
+    },
 ]
+
+
+@lru_cache(maxsize=None)
+def _example_structure(filename: str) -> str:
+    """Read a bundled example structure (PDB/mmCIF text) from
+    tt_bio/platform/examples/. Name-only containment: no path traversal."""
+    path = Path(__file__).parent / "examples" / Path(filename).name
+    return path.read_text()
 
 
 # --- Presentation shape for the web UI's main model selection ---------------
@@ -519,14 +595,24 @@ def _presentation_models() -> list[dict]:
 
 def catalog() -> dict:
     """The full catalog payload served to the frontend."""
+    examples = []
+    for ex in EXAMPLES:
+        builder = ex.get("builder")
+        if builder and builder.get("structureFile"):
+            # Resolve the bundled structure now (cached) so the frontend gets
+            # one self-contained example object.
+            ex = {**ex, "builder": {**builder,
+                                    "structure": _example_structure(builder["structureFile"])}}
+        examples.append(ex)
     return {
         "models": _presentation_models(),
         "protocols": PROTOCOLS,
         "predict_params": PREDICT_PARAMS,
         "design_params": DESIGN_PARAMS,
+        "rfd3_design_params": RFD3_DESIGN_PARAMS,
         "embed_models": EMBED_MODELS,
         "embed_params": EMBED_PARAMS,
-        "examples": EXAMPLES,
+        "examples": examples,
         "limits": LIMITS,
         "demo_note": DEMO_NOTE,
     }

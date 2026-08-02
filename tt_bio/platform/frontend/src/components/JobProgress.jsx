@@ -43,6 +43,15 @@ const DESIGN_STAGE_KEY = {
   analysis: "analysis", filtering: "filtering",
 };
 
+// RFdiffusion3 designs in one all-atom diffusion pass — no inverse-folding /
+// re-fold / ranking pipeline, so the BoltzGen stepper doesn't apply.
+const RFD3_PHASES = [
+  { key: "design", label: "Diffuse", activity: "Running all-atom diffusion — this is the heavy step…" },
+  { key: "save", label: "Finish", activity: "Writing the designs…" },
+];
+const RFD3_STAGE_KEY = { design: "design", writing: "save", saving: "save" };
+const isRfd3Job = (job) => (job.protocol || "").startsWith("rfd3");
+
 // Embed (ESMC) is just a language-model forward pass — load -> embed -> write,
 // no MSA/fold/diffusion steps to show (see JobManager._embed_stage).
 const EMBED_PHASES = [
@@ -55,10 +64,11 @@ const EMBED_STAGE_KEY = { loading: "load", sharding: "load", embedding: "embed",
 function phaseModel(job) {
   const isDesign = job.kind === "design";
   const isEmbed = job.kind === "embed";
-  let phases = isDesign ? DESIGN_PHASES : isEmbed ? EMBED_PHASES.slice() : PREDICT_PHASES.slice();
+  const isRfd3 = isDesign && isRfd3Job(job);
+  let phases = isRfd3 ? RFD3_PHASES : isDesign ? DESIGN_PHASES : isEmbed ? EMBED_PHASES.slice() : PREDICT_PHASES.slice();
   // ESMFold-2 Fast folds single-sequence — no MSA step to show.
   if (!isDesign && !isEmbed && job.model === "esmfold2-fast") phases = phases.filter((p) => p.key !== "msa");
-  const keyMap = isDesign ? DESIGN_STAGE_KEY : isEmbed ? EMBED_STAGE_KEY : PREDICT_STAGE_KEY;
+  const keyMap = isRfd3 ? RFD3_STAGE_KEY : isDesign ? DESIGN_STAGE_KEY : isEmbed ? EMBED_STAGE_KEY : PREDICT_STAGE_KEY;
   const curKey = job.stage != null ? keyMap[job.stage] : null;
   let index = curKey ? Math.max(0, phases.findIndex((p) => p.key === curKey)) : 0;
   if (job.status === "succeeded") index = phases.length; // everything done

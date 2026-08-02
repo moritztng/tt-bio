@@ -356,6 +356,7 @@ def run_design_via_controller(
     failures: dict[str, str] = {}
     after = 0
     announced = False
+    last_beat = 0.0
     multi = num_designs > 1
     while True:
         snap = client.events(run_id, after)
@@ -367,6 +368,14 @@ def run_design_via_controller(
                 # Echo the stage word so log-tailing progress (e.g. the platform)
                 # advances — mirrors the BoltzGen client's "stage:" lines.
                 print("stage: design", flush=True)
+            elif etype == "progress":
+                # Worker liveness relay — keep the log growing (throttled) so a
+                # long silent diffusion run doesn't look wedged.
+                now = time.time()
+                if verbose and now - last_beat >= 30:
+                    last_beat = now
+                    print(f"[design:{ev.get('name', '?')}] diffusing… "
+                          f"{int(ev.get('elapsed_s') or 0)}s elapsed", flush=True)
             elif etype == "done":
                 row = ev.get("row") or {}
                 sid = str(row.get("name") or row.get("id", "")).removeprefix("rfd3_")

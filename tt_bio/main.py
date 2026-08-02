@@ -2878,9 +2878,17 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
-                   "results are reassembled in input order. Default: this machine's single card.")
+                   "results are reassembled in input order. Default: this machine's single card. "
+                   "Ignored with --controller.")
+@click.option("--controller", default=None,
+              help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
+                   "worker --connect`) instead of spawning local subprocess shards. Sequence-only "
+                   "in this path (structures never leave the submitting client).")
+@click.option("--owner", default=None,
+              help="Opaque fairness key the controller uses to fair-share workers across users. "
+                   "Requires --controller.")
 def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast,
-               batch_size, devices):
+               batch_size, devices, controller, owner):
     """Compute SaProt structure-aware protein-language-model embeddings.
 
     SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
@@ -2898,6 +2906,10 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
     from tt_bio import saprot, esmc
 
     torch.set_grad_enabled(False)
+    if controller and structure:
+        raise click.ClickException(
+            "--controller runs are sequence-only (structures stay on the submitting "
+            "client and are never shipped to workers). Drop --structure or run locally.")
     try:
         seqs = saprot.load_sequences_with_structure(data, structure)
     except ValueError as e:
@@ -2905,6 +2917,26 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
 
     out = Path(out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
+
+    if controller:
+        if devices:
+            click.secho("Note: --devices is ignored with --controller (device topology comes "
+                        "from connected workers).", fg="yellow")
+        # Sequence-only fleet path: strip the (empty) 3Di strings to bare
+        # sequences — the worker's saprot branch embeds {id: aa} directly.
+        bare = {sid: (v[0] if isinstance(v, (list, tuple)) else v) for sid, v in seqs.items()}
+        _dispatch_embed_to_controller(controller, bare, model=model, out=out,
+                                      out_format=out_format, pool=pool,
+                                      return_logits=return_logits, fast=fast,
+                                      batch_size=batch_size, owner=owner)
+        if return_logits:
+            # SaProt logits are over the 446-token fused vocab, not ESMC's 64-dim head.
+            import json as _json
+            _mf = out / "manifest.json"
+            _m = _json.load(open(_mf))
+            _m["shapes"]["logits"] = "[length, 446] float32 (per-residue MLM logits over the fused AA+3Di vocab)"
+            _json.dump(_m, open(_mf, "w"), indent=2)
+        return
 
     device_list = None
     if devices:

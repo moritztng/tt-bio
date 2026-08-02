@@ -78,8 +78,9 @@ include = ["tt_bio*"]
 "tt_bio._vendor.esm" = ["LICENSE"]
 "tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
 "tt_bio._vendor.openfold3" = ["LICENSE"]
-# ship the built ai& Bio frontend so `tt-bio serve` works without a Node build
-"tt_bio.platform" = ["static/**/*"]
+# ship the built ai& Bio frontend so `tt-bio serve` works without a Node build,
+# plus the bundled example structures the design catalog serves
+"tt_bio.platform" = ["static/**/*", "examples/*"]
 # runtime data files the package loads by path at import/featurize time — these
 # MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization

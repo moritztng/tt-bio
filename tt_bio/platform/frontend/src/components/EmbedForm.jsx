@@ -79,7 +79,7 @@ export default function EmbedForm({ catalog, onSubmitted, onError }) {
     <>
       <div className="panel">
         <p className="section-title">Model</p>
-        <p className="section-sub">ESMC protein-language-model embeddings — no folding, no MSA.</p>
+        <p className="section-sub">Protein-language-model embeddings (ESMC, SaProt) — no folding, no MSA.</p>
         <div className="cardgrid models">
           {catalog.embed_models.map((m) => (
             <button key={m.id} className={`selcard ${model === m.id ? "active" : ""}`}

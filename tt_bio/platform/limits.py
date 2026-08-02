@@ -18,7 +18,7 @@ import re
 
 import yaml
 
-from .catalog import EMBED_MODELS, LIMITS, MODELS, PROTOCOLS
+from .catalog import EMBED_MODELS, LIMITS, MODELS, PROTOCOL_ENGINES, PROTOCOLS
 
 # Model id -> the set of capabilities it supports (the catalog is the authority).
 _MODEL_CAPS = {m["id"]: set(m.get("caps", [])) for m in MODELS}
@@ -27,6 +27,11 @@ MODEL_IDS = set(_MODEL_CAPS)                                   # valid predict m
 PROTOCOL_IDS = {p["id"] for p in PROTOCOLS}                    # valid design protocol ids
 EMBED_MODEL_IDS = {m["id"] for m in EMBED_MODELS}              # valid embed (ESMC) model ids
 _MODEL_NEEDS_MSA = {m["id"]: bool(m.get("needs_msa")) for m in MODELS}
+
+
+def protocol_engine(protocol: str | None) -> str:
+    """The design engine behind a protocol id ('boltzgen' or 'rfd3')."""
+    return PROTOCOL_ENGINES.get(protocol or "", "boltzgen")
 
 
 def model_needs_msa(model: str | None) -> bool:
@@ -280,6 +285,45 @@ def check_design(spec: str) -> None:
     _check_one(spec or "", where="Design spec")
 
 
+# --- RFdiffusion3 design ----------------------------------------------------
+# An RFD3 submission is a pasted target structure (PDB/mmCIF text) plus a
+# contig string, not a BoltzGen YAML spec — so it gets its own validator. The
+# structure is written verbatim into the job dir and referenced by path from
+# the generated spec JSON, so the checks here are about size, shape and
+# keeping the contig grammar honest (the engine re-parses it anyway).
+_PDB_RECORD = re.compile(r"^(ATOM|HETATM)\s", re.M)
+_MAX_CONTIG_CHARS = 1000
+
+
+def check_rfd3_design(structure: str, contig: str) -> None:
+    """Validate an RFD3 design submission (structure text + contig string)."""
+    s = structure or ""
+    if not s.strip():
+        raise InputError("Paste the target structure (PDB or mmCIF text).")
+    if len(s) > LIMITS["max_structure_chars"]:
+        raise InputError(
+            f"The target structure is too large for the free demo "
+            f"(limit {LIMITS['max_structure_chars']:,} characters — about a 1,000-residue PDB).")
+    # Shape check: a PDB has ATOM/HETATM records; an mmCIF starts with data_.
+    # Anything else (a FASTA, a YAML spec, prose) would fail deep in the
+    # featurizer with an opaque error — reject it here with a clear message.
+    if not (_PDB_RECORD.search(s) or s.lstrip().startswith("data_")):
+        raise InputError("The target doesn't look like a structure — paste PDB or mmCIF text "
+                         "(it should contain ATOM records or start with 'data_').")
+    c = (contig or "").strip()
+    if not c:
+        raise InputError("Provide a contig string (e.g. 'A1-150,60-80').")
+    if len(c) > _MAX_CONTIG_CHARS:
+        raise InputError(f"The contig is too long (limit {_MAX_CONTIG_CHARS:,} characters).")
+    # Grammar check via the engine's own parser — one source of truth for what
+    # a legal contig is. ValueError/TypeError surface as a clean 400.
+    from tt_bio.rfd3_input import parse_contig
+    try:
+        parse_contig(c)
+    except (ValueError, TypeError) as e:
+        raise InputError(f"Invalid contig: {e}")
+
+
 def parse_embed_blob(content: str) -> list[tuple[str, str]]:
     """Parse an embed submission's raw FASTA or flat-YAML blob into (id, sequence)
     pairs, for validation ahead of the tt-bio embed subprocess (which re-parses the
@@ -337,7 +381,7 @@ def check_sequences(records: list, model: str | None = None) -> None:
                              f"{LIMITS['max_embed_sequence_residues']} per sequence.")
 
 
-def clamp_params(params: dict, kind: str) -> dict:
+def clamp_params(params: dict, kind: str, protocol: str | None = None) -> dict:
     """Clamp every numeric knob into its allowed demo range — the client is never
     trusted. Returns a sanitised copy (the allow-listed command builder already
     drops unknown keys; this bounds the known ones)."""
@@ -354,6 +398,11 @@ def clamp_params(params: dict, kind: str) -> dict:
         clamp("sampling_steps", 10, LIMITS["max_sampling_steps"])
         clamp("diffusion_samples", 1, LIMITS["max_diffusion_samples"])
     elif kind == "design":
-        clamp("num_designs", 1, LIMITS["max_designs"])
-        clamp("budget", 1, LIMITS["max_budget"])
+        if protocol_engine(protocol) == "rfd3":
+            clamp("num_designs", 1, LIMITS["max_rfd3_designs"])
+            clamp("num_timesteps", 4, LIMITS["max_rfd3_timesteps"])
+            clamp("seed", 0, 2**31 - 1)
+        else:
+            clamp("num_designs", 1, LIMITS["max_designs"])
+            clamp("budget", 1, LIMITS["max_budget"])
     return p

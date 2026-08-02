@@ -28,6 +28,7 @@ from flask import Blueprint, current_app, g, jsonify, request
 
 from . import apikeys
 from . import catalog
+from . import limits
 from .http_common import client_ip, serve_archive, serve_artifact, serve_log, submit_job
 from .jobs import CANCELED, CapacityError, FAILED, SUCCEEDED
 
@@ -207,7 +208,8 @@ def models():
     # collapsed "main model selection" lives at /api/catalog, a separate surface.
     c = catalog.catalog()
     return jsonify({**{k: c[k] for k in ("protocols", "predict_params",
-                                         "design_params", "embed_models", "embed_params",
+                                         "design_params", "rfd3_design_params",
+                                         "embed_models", "embed_params",
                                          "limits")},
                     "models": catalog.MODELS,
                     "notes": c.get("demo_note")})
@@ -331,11 +333,25 @@ def create_design():
         body = _json_body()
     except ValueError as e:
         return _problem(400, "Invalid request", str(e), type_="https://japanfold.com/errors/invalid-input")
+    protocol = body.get("protocol")
+    if limits.protocol_engine(str(protocol) if protocol is not None else None) == "rfd3":
+        # RFD3: a pasted target structure + contig string, not a YAML spec.
+        structure, contig = body.get("structure"), body.get("contig")
+        if not isinstance(structure, str) or not structure.strip():
+            return _problem(400, "Invalid request",
+                            "Provide a 'structure' (PDB or mmCIF text) string.",
+                            type_="https://japanfold.com/errors/invalid-input")
+        if not isinstance(contig, str) or not contig.strip():
+            return _problem(400, "Invalid request", "Provide a 'contig' string.",
+                            type_="https://japanfold.com/errors/invalid-input")
+        return _submit({"kind": "design", "protocol": protocol, "name": body.get("name"),
+                        "structure": structure, "contig": contig,
+                        "params": body.get("params") or {}})
     spec = body.get("spec") if isinstance(body.get("spec"), str) else body.get("input")
     if not isinstance(spec, str) or not spec.strip():
         return _problem(400, "Invalid request", "Provide a 'spec' (YAML design spec) string.",
                         type_="https://japanfold.com/errors/invalid-input")
-    return _submit({"kind": "design", "protocol": body.get("protocol"),
+    return _submit({"kind": "design", "protocol": protocol,
                     "name": body.get("name"), "spec": spec, "params": body.get("params") or {}})
 
 

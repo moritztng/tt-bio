@@ -100,9 +100,9 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
         return
-    # ESMC embedding: weights come straight from the HF cache (load_esmc), no
-    # Boltz-2 checkpoints/molecule library/MSA dir needed.
-    if _is_esmc_model(cfg.get("model", "boltz2")):
+    # ESMC/SaProt embedding: weights come straight from the HF cache
+    # (load_esmc/load_saprot), no Boltz-2 checkpoints/molecule library/MSA dir needed.
+    if _is_esmc_model(cfg.get("model", "boltz2")) or _is_saprot_model(cfg.get("model", "boltz2")):
         return
     from tt_bio.main import download_all
 
@@ -154,6 +154,14 @@ def _is_esmc_model(model_id: str) -> bool:
     worker that never handles embed jobs never pays that import cost.
     """
     from tt_bio.esmc import MODELS
+
+    return model_id in MODELS
+
+
+def _is_saprot_model(model_id: str) -> bool:
+    """True for any SaProt embedding model name (saprot-35m/650m/1.3b). Same
+    lazy-import rationale as _is_esmc_model."""
+    from tt_bio.saprot import MODELS
 
     return model_id in MODELS
 
@@ -250,6 +258,10 @@ class _WorkerState:
             from tt_bio.esmc import load_esmc
 
             self.model = load_esmc(model_id, fast=cfg.get("fast", False))
+        elif _is_saprot_model(model_id):
+            from tt_bio.saprot import load_saprot
+
+            self.model = load_saprot(model_id, fast=cfg.get("fast", False))
         else:
             from tt_bio.boltz2 import Boltz2
             from tt_bio.data.featurizer import Boltz2Featurizer
@@ -321,7 +333,7 @@ class _WorkerState:
             return self._predict_protenix_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
             return self._predict_esmfold2_one(path, cfg)
-        if _is_esmc_model(cfg.get("model", "boltz2")):
+        if _is_esmc_model(cfg.get("model", "boltz2")) or _is_saprot_model(cfg.get("model", "boltz2")):
             return self._predict_embed_one(path, cfg)
 
         from tt_bio.main import to_batch, write_result
@@ -685,7 +697,9 @@ class _WorkerState:
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_embed_one(self, path: Path, cfg: dict[str, Any]):
-        """Embed one job's shard of sequences with the resident ESMC model.
+        """Embed one job's shard of sequences with the resident LM (ESMC or
+        SaProt — both expose the same embed_sequences(model, seqs, ...) call
+        and embedding record shape, so the output writers are shared).
 
         ``path`` is a YAML ``{id: sequence}`` mapping (one shard of a larger
         --controller embed run). Writes per-sequence ``.npz`` (or one shard
@@ -695,7 +709,14 @@ class _WorkerState:
         """
         import types
 
-        from tt_bio.esmc import embed_sequences, load_sequences, write_npz, write_parquet
+        from tt_bio.esmc import load_sequences, write_npz, write_parquet
+
+        if _is_saprot_model(cfg.get("model", "")):
+            # Fleet embeds are sequence-only (3Di = '#') — structure input never
+            # leaves the submitting client in this path.
+            from tt_bio.saprot import embed_sequences
+        else:
+            from tt_bio.esmc import embed_sequences
 
         sequences = load_sequences(path)
         results = embed_sequences(
@@ -1106,6 +1127,7 @@ def _execute_rfd3_job_inprocess(
     shard payload is just {spec_id, num_designs}; the spec JSON and the input
     structure's content ride in cfg (fleet-safe, no shared filesystem needed).
     """
+    import threading
     job_id = job["id"]
     t0 = time.time()
 
@@ -1120,6 +1142,18 @@ def _execute_rfd3_job_inprocess(
     row: dict[str, Any] = {"id": job_id, "status": "failed"}
     outputs: dict[str, str] = {}
     emit("start", name=job_id)
+
+    # The sampler has no step hook, so while the shard runs silently, relay a
+    # periodic liveness event — the orchestrator's log keeps growing (its stall
+    # watchdog stays fed) and the UI sees the job is alive.
+    stop = threading.Event()
+
+    def _beat():
+        while not stop.wait(15.0):
+            emit("progress", name=job_id, elapsed_s=round(time.time() - t0, 1))
+
+    beat = threading.Thread(target=_beat, daemon=True)
+    beat.start()
     try:
         data = json.loads(base64.b64decode(job.get("input_b64", "")).decode("utf-8"))
         spec_id = str(data["spec_id"])
@@ -1170,6 +1204,7 @@ def _execute_rfd3_job_inprocess(
         traceback.print_exc()
         row["error"] = _err_text(exc)
     finally:
+        stop.set()
         shutil.rmtree(workdir, ignore_errors=True)
         gc.collect()  # drop the design modules' host refs; the chip stays open
 

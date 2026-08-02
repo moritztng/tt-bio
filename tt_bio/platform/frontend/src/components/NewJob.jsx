@@ -5,7 +5,7 @@ import EmbedForm from "./EmbedForm.jsx";
 
 const TASKS = [
   { id: "predict", t: "Fold & Affinity", s: "Predict 3D structure and binding affinity." },
-  { id: "design", t: "Drug Design", s: "Generate de-novo binders, nanobodies & antibodies with BoltzGen." },
+  { id: "design", t: "Drug Design", s: "Generate de-novo binders, nanobodies & antibodies with BoltzGen or RFdiffusion3." },
   { id: "embed", t: "Protein Embeddings", s: "Compute ESMC language-model embeddings for search, clustering & ML features." },
 ];
 

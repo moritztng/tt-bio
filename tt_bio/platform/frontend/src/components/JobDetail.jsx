@@ -48,7 +48,7 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
             </div>
             <div className="ji-meta mt8">
               <span className="tag">{job.kind === "design" ? job.protocol : job.model}</span>
-              <span>{_kindLabel(job.kind)}</span>
+              <span>{_kindLabel(job.kind, job)}</span>
               <span className="sep">·</span>
               <span>submitted {timeAgo(job.created_at)}</span>
               {job.started_at && <><span className="sep">·</span><span>{duration(job)}</span></>}
@@ -106,7 +106,10 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
 }
 
 const _KIND_LABEL = { predict: "Structure prediction", design: "BoltzGen design", embed: "Protein-language-model embedding" };
-function _kindLabel(kind) { return _KIND_LABEL[kind] || kind; }
+function _kindLabel(kind, job) {
+  if (kind === "design" && (job?.protocol || "").startsWith("rfd3")) return "RFdiffusion3 design";
+  return _KIND_LABEL[kind] || kind;
+}
 
 // Translate the most common engine failures into one plain sentence a biologist
 // can act on; otherwise fall back to the first line of the raw error.
