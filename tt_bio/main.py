@@ -2744,6 +2744,12 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             # This process opens its TT device in-process (no fanout subprocess),
             # so it needs the same P300-board-misdetection workaround the fanout
             # path applies per-shard (see esmc._spawn_shard).
+            if device_list and len(device_list) == 1 and "TT_VISIBLE_DEVICES" not in os.environ:
+                # get_device() opens TT_BIO_LOGICAL_DEVICE_ID (default 0), so without
+                # this ``--devices 2`` would silently run on card 0 (same bug class
+                # as rfd3's ef0265ef). An explicit TT_VISIBLE_DEVICES already pins
+                # visibility and wins.
+                os.environ.setdefault("TT_BIO_LOGICAL_DEVICE_ID", str(device_list[0]))
             if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
                 mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
                 if mgd:
