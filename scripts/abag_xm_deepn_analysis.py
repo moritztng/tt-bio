@@ -123,9 +123,94 @@ def curve_points(pools):
     return pts
 
 
+def oracle_of(pool):
+    return max(v for _c, v in pool)
+
+
+def subsample_oracle_curve(pool, ms, rng, b=200):
+    """E[max dockq over an m-subset] per m -- the within-fold i.i.d. saturation curve."""
+    import numpy as np
+    vals = np.array([v for _c, v in pool])
+    out = {}
+    for m in ms:
+        if m > len(vals):
+            continue
+        out[m] = float(np.mean([vals[rng.choice(len(vals), m, replace=False)].max()
+                                for _ in range(b)]))
+    return out
+
+
+def seed_noise_floor(pool, n, rng, b=200):
+    """Median |oracle(A) - oracle(B)| over b disjoint n+n splits of the pool.
+
+    The pre-registered stop-rule floor: the gain per doubling is compared against the
+    oracle difference two same-size disjoint draws produce from seed noise alone.
+    """
+    import numpy as np
+    if len(pool) < 2 * n:
+        return None
+    vals = np.array([v for _c, v in pool])
+    ds = []
+    for _ in range(b):
+        i = rng.choice(len(vals), 2 * n, replace=False)
+        ds.append(abs(vals[i[:n]].max() - vals[i[n:]].max()))
+    return float(np.median(ds))
+
+
+def paired_boot(ci_rows, b=20000, seed=20260802):
+    """Paired bootstrap over targets: mean oracle/user per N with 95 pct CIs.
+
+    ci_rows: {N: [(oracle, user), ...]} over a COMMON target set; one resample index
+    vector serves every N (and every model caller shares the seed), keeping comparisons
+    paired across rungs and models.
+    """
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    out = {}
+    for n, rows in sorted(ci_rows.items()):
+        arr = np.array(rows)
+        nt = len(arr)
+        idx = rng.integers(0, nt, (b, nt))
+        om = arr[idx, 0].mean(axis=1)
+        um = arr[idx, 1].mean(axis=1)
+        out[n] = {"oracle_mean": [float(np.quantile(om, q)) for q in (0.025, 0.5, 0.975)],
+                  "user_mean": [float(np.quantile(um, q)) for q in (0.025, 0.5, 0.975)]}
+    return out
+
+
+def deep_stats(pools, model):
+    """Stop-rule + exhaustion inputs from each target's LARGEST pool."""
+    import numpy as np
+    rng = np.random.default_rng(20260802)
+    biggest = {}
+    for (t, n), d in pools.items():
+        if t not in biggest or n > biggest[t][0]:
+            biggest[t] = (n, d["pool"])
+    per_m, per_floor, solvable = {}, {}, {str(thr): 0 for thr in THR}
+    for t, (n, pool) in sorted(biggest.items()):
+        for m, v in subsample_oracle_curve(pool, (16, 32, 50, 64, 100, 128, 200, 256,
+                                                  400, 512), rng).items():
+            per_m.setdefault(m, []).append(v)
+        for k in (16, 25, 32, 64, 128, 256):
+            f = seed_noise_floor(pool, k, rng)
+            if f is not None:
+                per_floor.setdefault(k, []).append(f)
+        o = oracle_of(pool)
+        for thr in THR:
+            if o >= thr:
+                solvable[str(thr)] += 1
+    return {"top_rung": max(n for _t, n in pools), "n_targets": len(biggest),
+            "within_fold_oracle_curve": {m: float(np.mean(v)) for m, v in sorted(per_m.items())},
+            "within_fold_nt": {m: len(v) for m, v in sorted(per_m.items())},
+            "seed_noise_floor_med": {k: float(np.median(v)) for k, v in sorted(per_floor.items())},
+            "solvable_at_top": solvable}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default=None, choices=sorted(MODELS))
+    ap.add_argument("--deep", action="store_true",
+                    help="add stop-rule floors, within-fold curves, paired-bootstrap CIs")
     ap.add_argument("--out", default=str(BASE / "analysis_curves.json"))
     a = ap.parse_args()
     models = [a.model] if a.model else sorted(MODELS)
@@ -142,6 +227,27 @@ def main():
                            f"{p['user_ge_' + THR_KEY[t]]:>8.3f}" for t in THR)
             print(f"{n:>5} {p['n_targets']:>4} {p['oracle_mean']:>7.4f} {p['user_mean']:>7.4f} "
                   + row + f" {p['card_h']:>8.1f}")
+        if a.deep:
+            ns = sorted(pts)
+            common = sorted(t for t, _n in pools if all((t, n) in pools for n in ns))
+            if len(ns) >= 2 and common:
+                ci = paired_boot({n: [(max(v for _c, v in pools[(t, n)]["pool"]),
+                                       max(pools[(t, n)]["pool"], key=lambda x: x[0])[1])
+                                      for t in common] for n in ns})
+                report[model + "__paired_ci"] = {"common_targets": len(common), "ci": ci}
+                print(f"  paired CI over {len(common)} common targets:")
+                for n in ns:
+                    o, u = ci[n]["oracle_mean"], ci[n]["user_mean"]
+                    print(f"    N={n:<5} oracle {o[1]:.4f} [{o[0]:.4f},{o[2]:.4f}] "
+                          f"user {u[1]:.4f} [{u[0]:.4f},{u[2]:.4f}]")
+            ds = deep_stats(pools, model)
+            report[model + "__deep"] = ds
+            print(f"  within-fold oracle curve (top rung N={ds['top_rung']}, "
+                  f"{ds['n_targets']} targets):")
+            for m, v in ds["within_fold_oracle_curve"].items():
+                fl = ds["seed_noise_floor_med"].get(str(m)) or ds["seed_noise_floor_med"].get(m)
+                print(f"    m={m:<4} E[oracle]={v:.4f}" + (f"  floor={fl:.4f}" if fl else ""))
+            print(f"  solvable at top rung: {ds['solvable_at_top']}")
     Path(a.out).write_text(json.dumps(report, indent=1))
     print(f"\nwrote {a.out}")
     return 0
