@@ -1233,6 +1233,21 @@ def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
         finally:
             # a run that dies must not leave its scaffolding in the user's results
             _clear_shared_outputs(run_payload, struct_dir)
+        # A shard that loses its device-open race (lease held by another run,
+        # wedged card) exits its worker loop and the scheduler simply serves
+        # every job to the survivors: the run completes "ok" on fewer cards
+        # than --devices asked for, with the DeviceInUseError visible only
+        # under --debug. Say so loudly — silent degradation turned a 4-card
+        # scaling measurement into a 2-worker run twice in the audit.
+        try:
+            online = int(client.cluster().get("online_workers") or 0)
+        except Exception:
+            online = -1
+        if 0 <= online < len(workers):
+            click.echo(f"  ! run completed with only {online} of {len(workers)} requested "
+                       f"workers online — results came from FEWER CARDS than --devices "
+                       f"requested (shard device-open failures are visible with --debug).",
+                       err=True)
     click.echo(f"\nDone: {total - failed} ok, {failed} failed — {results_path}")
     return failed
 
