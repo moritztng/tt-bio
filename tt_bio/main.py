@@ -973,10 +973,6 @@ def _local_workers(accelerator: str, num_devices: int, device_ids: str | None, m
     ]
 
 
-HOST_THREAD_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-                    "NUMEXPR_NUM_THREADS")
-
-
 def _cap_worker_threads(n_workers: int, host_threads: int | None = None) -> None:
     """Cap each worker's host thread pools. Each worker's torch/OMP/BLAS pools
     otherwise default to ALL cores, so N co-resident workers spawn N*cores threads
@@ -992,13 +988,9 @@ def _cap_worker_threads(n_workers: int, host_threads: int | None = None) -> None
     cores//concurrent_folds``. Explicit beats inherited: a passed value overrides a
     pre-set env var (the launcher knows how many siblings it started), while the
     default only fills in what the operator left unset."""
-    budget = host_threads if host_threads and host_threads > 0 else (os.cpu_count() or 1)
-    cap = max(1, budget // max(1, n_workers))
-    for var in HOST_THREAD_VARS:
-        if host_threads:
-            os.environ[var] = str(cap)
-        else:
-            os.environ.setdefault(var, str(cap))
+    from . import runtime
+
+    os.environ.update(runtime.host_thread_cap_env(n_workers, host_threads))
 
 
 def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> list:
@@ -2919,8 +2911,13 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                    "across, e.g. '0,1,2,3'. One pinned subprocess per card (data-parallel, the "
                    "same pattern `tt-bio embed`/`predict` use). Per-design seeded random streams "
                    "are preserved across sharding. Default: this machine's single card.")
+@click.option("--host_threads", default=None, type=int,
+              help="Total host CPU threads this process may use, split across its cards. "
+                   "Defaults to every core, which is right when this is the only tt-bio process "
+                   "on the box. Pass cores//concurrent_processes when an external launcher runs "
+                   "several designs side by side, so they do not oversubscribe the host.")
 def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed, partial_t,
-               fp32_residual, spec_subset, num_designs, batch_size, devices):
+               fp32_residual, spec_subset, num_designs, batch_size, devices, host_threads):
     """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
 
     INPUTS is a JSON or YAML file of InputSpecifications (each top-level key is
@@ -2999,7 +2996,8 @@ def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed
         results = rfd3_design.run_design(
             specs, out_dir, golden_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
             seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, num_designs=num_designs,
-            batch_size=batch_size, devices=device_list, verbose=True,
+            batch_size=batch_size, devices=device_list, host_threads=host_threads,
+            verbose=True,
         )
     except (ValueError, TypeError) as e:
         raise click.ClickException(str(e))

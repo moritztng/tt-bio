@@ -1024,10 +1024,9 @@ def _thread_cap_env(n_workers: int) -> dict:
     the identical fix already applied to the fleet worker pool in
     ``main._cap_worker_threads``; an operator-set value wins.
     """
-    cap = max(1, (os.cpu_count() or 1) // max(1, n_workers))
-    return {var: str(cap) for var in
-            ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
-            if var not in os.environ}
+    from . import runtime
+
+    return runtime.host_thread_cap_env(n_workers)
 
 
 def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: str, *,

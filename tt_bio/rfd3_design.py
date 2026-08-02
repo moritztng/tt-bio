@@ -190,6 +190,7 @@ def run_design(
     num_designs: int = 1,
     batch_size: int = 8,
     devices: Sequence[int] | None = None,
+    host_threads: int | None = None,
     device_visible: str = "0",
     verbose: bool = True,
 ) -> list[DesignResult]:
@@ -248,6 +249,7 @@ def run_design(
                                  partial_t=partial_t, cfg_scale=cfg_scale,
                                  fp32_residual=fp32_residual, batch_size=batch_size,
                                  multi_designs=num_designs > 1, devices=devices,
+                                 host_threads=host_threads,
                                  verbose=verbose)
     return _run_design_jobs(jobs, specs, out_dir, golden_dir=golden_dir,
                             from_pdb=from_pdb, num_timesteps=num_timesteps,
@@ -373,12 +375,19 @@ def _design_out_path(out_dir, spec_id, design_idx, *, multi: bool) -> Path:
 
 def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timesteps,
                        partial_t, cfg_scale, fp32_residual, batch_size,
-                       multi_designs, devices, verbose) -> list[DesignResult]:
+                       multi_designs, devices, verbose,
+                       host_threads=None) -> list[DesignResult]:
     """Data-parallel fan-out: one pinned subprocess per physical card, sharding
     the (spec_id, design_idx) jobs round-robin. Reuses the embed/predict
     subprocess-per-card pattern. Each child runs ``_run_design_shard``."""
+    from . import runtime
     from .main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
     devices = list(devices)[:max(1, len(jobs))]
+    # Without this every shard's torch/OMP/BLAS pools claim all host cores, so N
+    # co-resident shards oversubscribe the host N-fold and 4-card aggregate throughput
+    # lands *below* one card. Measured on qb1 (16 physical cores, 4 cards, 3 designs
+    # each): 633s uncapped vs 122s capped, i.e. 0.68x vs 3.51x of linear.
+    thread_cap = runtime.host_thread_cap_env(len(devices), host_threads)
     workdir = tempfile.mkdtemp(prefix="tt-bio-design-fanout-")
     try:
         handles = []
@@ -396,8 +405,8 @@ def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timest
                                  cfg_scale=cfg_scale, fp32_residual=fp32_residual,
                                  batch_size=batch_size,
                                  multi_designs=multi_designs), fp)
-            env = {**os.environ, "TT_VISIBLE_DEVICES": str(dev), "TT_BIO_LEASE_HOLDER":
-                   f"worker:design-fanout-{dev}"}
+            env = {**os.environ, **thread_cap, "TT_VISIBLE_DEVICES": str(dev),
+                   "TT_BIO_LEASE_HOLDER": f"worker:design-fanout-{dev}"}
             if dev in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
                 mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
                 if mgd:
@@ -429,6 +438,9 @@ def _run_design_fanout(jobs, specs, out_dir, *, golden_dir, from_pdb, num_timest
 def _run_design_shard(in_path: str, out_path: str) -> None:
     """Subprocess entry: load the pickled shard, run its jobs in-process on this
     card, pickle the DesignResult list back."""
+    from . import runtime
+
+    runtime.bind_host_threads()
     with open(in_path, "rb") as fp:
         cfg = pickle.load(fp)
     res = _run_design_jobs(cfg["jobs"], cfg["specs"], cfg["out_dir"], golden_dir=cfg["golden_dir"],
