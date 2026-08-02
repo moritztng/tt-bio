@@ -104,6 +104,7 @@ import subprocess
 import tarfile
 import time
 import urllib.request
+import uuid
 import warnings
 import fcntl
 from contextlib import contextmanager
@@ -134,7 +135,7 @@ from tt_bio.runtime import (
     detect_tenstorrent_devices,
     discover_jobs,
 )
-from tt_bio.worker import run_worker_loop
+from tt_bio.worker import SHARED_OUTPUT_PREFIX, run_worker_loop
 
 # Model weights and data live on the Hugging Face Hub and are fetched with
 # huggingface_hub — the single download path shared by every tt-bio model.
@@ -1216,6 +1217,39 @@ def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
     return failed
 
 
+def _clear_shared_outputs(run_payload: dict, struct_dir: Path) -> None:
+    """Remove the co-location nonce; it is scaffolding, not a result."""
+    token = ((run_payload.get("config") or {}).get("shared_outputs") or {}).get("token")
+    if token:
+        try:
+            (struct_dir / str(token)).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def _offer_shared_outputs(run_payload: dict, struct_dir: Path) -> None:
+    """Tell workers they may write results straight into ``struct_dir``, if they can.
+
+    Results otherwise travel back as base64 inside JSON through the single controller
+    process: a 1024-sequence esmc embed ships ~635 MB of per-residue arrays that way and
+    the controller spends ~15 of the run's 27 seconds on it while every card idles.
+    Workers that share this filesystem can skip the round trip entirely.
+
+    Co-location has to be proven, not assumed -- a worker on another machine could
+    create this same path locally and write into the void. So drop a nonce here and name
+    it; only a worker that can see that exact file is really looking at this directory.
+    A worker that cannot stays on base64, which is what every older worker does anyway.
+    """
+    try:
+        struct_dir.mkdir(parents=True, exist_ok=True)
+        token = f".tt-bio-share-{uuid.uuid4().hex[:16]}"
+        (struct_dir / token).write_text("")
+    except Exception:
+        return  # can't prove anything -> leave every worker on base64
+    cfg = run_payload.setdefault("config", {})
+    cfg["shared_outputs"] = {"dir": str(struct_dir.resolve()), "token": token}
+
+
 def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: int,
                             results_path: Path, struct_dir: Path, model: str,
                             debug: bool, log: bool, run_id: str | None = None) -> int:
@@ -1236,11 +1270,13 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     # cancelled later via the controller; otherwise the controller assigns one.
     if run_id:
         run_payload["run_id"] = run_id
+    _offer_shared_outputs(run_payload, struct_dir)
     run_id = client.create_run(run_payload)["run_id"]
     failed = _stream_run(client, run_id, total=total, n_workers=n_workers,
                          debug=debug, log=log, results_path=results_path,
                          struct_dir=struct_dir, model=model)
     _persist_run_results(client, run_id, results_path)
+    _clear_shared_outputs(run_payload, struct_dir)
     click.echo(f"\nDone: {total - failed} ok, {failed} failed — {results_path}")
     return failed
 
@@ -1260,6 +1296,12 @@ def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
             continue
         target = struct_dir / rel
         target.parent.mkdir(parents=True, exist_ok=True)
+        if content_b64.startswith(SHARED_OUTPUT_PREFIX):
+            # A co-located worker wrote the file straight into struct_dir, so there is
+            # nothing to decode — the value is a path, never bytes. It is only ever a
+            # path this client named, so anything pointing elsewhere is dropped rather
+            # than followed.
+            continue
         try:
             target.write_bytes(base64.b64decode(content_b64))
         except Exception:

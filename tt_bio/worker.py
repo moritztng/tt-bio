@@ -956,7 +956,7 @@ def _execute_job(
                     row.update(aff)
                 except Exception:
                     traceback.print_exc()
-        outputs = _read_outputs(output_dir)
+        outputs = _read_outputs(output_dir, _shared_outputs_dir(cfg))
     except Exception as exc:
         traceback.print_exc()
         row["error"] = _err_text(exc)
@@ -1055,7 +1055,7 @@ def _execute_design_job_inprocess(
 
         from tt_bio.boltzgen.cli.boltzgen import build_parser, run_command
         run_command(build_parser().parse_args(argv))  # reuses get_device(); no cold-open
-        outputs = _read_outputs(out_dir)
+        outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
         row.update({"status": "ok", "num_designs": num_designs,
                     "runtime_s": round(time.time() - t0, 1)})
     except Exception as exc:
@@ -1101,8 +1101,42 @@ def _forward_design_progress(path: Path, pos: int, emit) -> int:
         return pos
 
 
-def _read_outputs(output_dir: Path) -> dict[str, str]:
-    """Read every file in output_dir and return name -> base64 bytes."""
+# Marks an output value as "the file is already where the client wants it" rather than
+# base64 bytes. Only ever emitted after _shared_outputs_dir proves co-location.
+SHARED_OUTPUT_PREFIX = "tt-bio-shared-path:"
+
+
+def _shared_outputs_dir(cfg: dict[str, Any]) -> Path | None:
+    """The client's own results directory, when this worker provably shares it.
+
+    Routing bulk results back as base64 inside JSON costs more than the compute for
+    embeddings: a 1024-sequence esmc run ships ~635 MB of per-residue arrays, inflated
+    33% by base64, through one controller process while every card sits idle. When the
+    worker and the client are the same filesystem the copy is pure waste.
+
+    "Provably" matters. A worker on another machine can happily create the client's
+    path and write into it, and the client would then find nothing -- so writability is
+    not proof of sharing. The client leaves a nonce file in its results directory and
+    names it here; seeing that exact file is what makes co-location certain.
+    """
+    share = cfg.get("shared_outputs")
+    if not isinstance(share, dict):
+        return None
+    directory, token = share.get("dir"), share.get("token")
+    if not directory or not token or os.sep in str(token):
+        return None
+    d = Path(directory)
+    return d if (d / str(token)).is_file() else None
+
+
+def _read_outputs(output_dir: Path, share_dir: Path | None = None) -> dict[str, str]:
+    """Read every file in output_dir and return name -> base64 bytes.
+
+    With ``share_dir`` set (see _shared_outputs_dir) each file is moved there instead
+    and reported as a path, so the bytes never enter the controller. Any file that
+    cannot be moved falls back to base64 individually, so a partial failure degrades
+    to the old behaviour rather than losing an output.
+    """
     outputs: dict[str, str] = {}
     if not output_dir.exists():
         return outputs
@@ -1110,6 +1144,15 @@ def _read_outputs(output_dir: Path) -> dict[str, str]:
         if not path.is_file():
             continue
         rel = path.relative_to(output_dir).as_posix()
+        if share_dir is not None:
+            target = share_dir / rel
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(path), str(target))
+                outputs[rel] = SHARED_OUTPUT_PREFIX + str(target)
+                continue
+            except Exception:
+                pass  # fall through to base64 for this one file
         outputs[rel] = base64.b64encode(path.read_bytes()).decode("ascii")
     return outputs
 
