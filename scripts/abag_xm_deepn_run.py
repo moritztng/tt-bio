@@ -36,7 +36,9 @@ PILOT_JSON = BASE / "pilot_targets.json"
 MSA_DIR = Path.home() / "abag_xm" / "msa_cache"  # cache-only: never paired with --msa_db_path
 WT = Path(__file__).resolve().parent.parent
 MAX_DEADLOCK_RETRIES = 2  # 3 attempts total per job
-OOM_SIG = "Out of Memory: Not enough space to allocate"  # tt-metal L1 allocator
+# tt-metal OOM families: DRAM/L1 allocator exhaustion and static L1 circular-buffer
+# clashes (the latter never contains the allocator's wording).
+OOM_SIGS = ("Out of Memory: Not enough space to allocate", "clash with L1 buffers")
 
 # tt_bio model id -> (results-dir prefix, out_parent, base seed). Resolved defaults at this
 # HEAD (recorded in every progress record): recycling 10/10/3/10, sampling 200/200/200/100.
@@ -139,7 +141,8 @@ def plan_queue(out_root, rung, targets_sel):
 
 def oom(log):
     try:
-        return OOM_SIG in Path(log).read_text()[-200000:]
+        tail = Path(log).read_text()[-200000:]
+        return any(sig in tail for sig in OOM_SIGS)
     except Exception:
         return False
 
@@ -412,17 +415,19 @@ def main():
             rec = record(job, a.card, wall, status)
             print(f"[{pos}] {tag} {status} wall={rec['wall_s']}s "
                   f"n_cifs={rec['n_cifs']}", flush=True)
-            if status.startswith("failed") and job.get("mps", MPS) > 2 and oom(log):
+            if status.startswith("failed") and job.get("mps", MPS) > 1 and oom(log):
                 # The task mandates: on an OOM, narrow the chunk, record it, keep going.
-                job["mps"] = max(2, job.get("mps", MPS) // 2)
+                # Floor is mps=1: the largest targets OOM even at mps=2, and tier_a
+                # proves they fold when the device holds a single pipeline.
+                job["mps"] = max(1, job.get("mps", MPS) // 2)
                 print(f"[{pos}] {tag} L1 OOM -> retry at mps {job['mps']}", flush=True)
                 continue
             if status == "spawn-deadlock" and attempt >= MAX_DEADLOCK_RETRIES \
-                    and job.get("mps", MPS) > 2:
+                    and job.get("mps", MPS) > 1:
                 # Retries at an unchanged width are exhausted and the log cannot tell a real
                 # L1 OOM from a true deadlock, so treat it as the width problem it may well
                 # be. Same escape as the OOM path, one step, then give up for real.
-                job["mps"] = max(2, job.get("mps", MPS) // 2)
+                job["mps"] = max(1, job.get("mps", MPS) // 2)
                 attempt = 0
                 print(f"[{pos}] {tag} deadlock retries exhausted -> "
                       f"narrowing to mps {job['mps']}", flush=True)
