@@ -19,6 +19,8 @@ from pathlib import Path
 
 BASE = Path.home() / "abag_xm" / "deepn"
 TIER_A = Path.home() / "abag_xm" / "tier_a"
+FRONTIER_A = Path.home() / "abag_xm" / "frontier" / "A"      # opendde, m=200, 11 targets
+SATURATION = Path.home() / "abag_xm" / "saturation"          # 3 models, N=1000, 16 targets
 THR = (0.23, 0.49, 0.80)
 THR_KEY = {t: str(t).replace(".", "") for t in THR}
 MODELS = {"opendde-abag": ("opendde", "opendde_abag", "confidence_score"),
@@ -97,6 +99,35 @@ def tiera_pools(model: str):
         pool = pool_fold(rj, lab_dir / f"{md}_{t}.json", sel)
         if pool:
             out[(t, 50)] = {"pool": pool, "wall_s": None}
+    return out
+
+
+def overlay_pools(model: str):
+    """frontier A (N=200, opendde) + saturation-depth (N=1000, 3 models), chunks pooled.
+
+    The two arms stay SEPARATE (they are different N points); within an arm, a chunked
+    target's pieces pool together. N keys are the MEASURED pool sizes per arm."""
+    prefix, _md, sel = MODELS[model]
+    out = {}
+    arms = []
+    if model == "opendde-abag" and FRONTIER_A.is_dir():
+        arms.append(FRONTIER_A)
+    sat_dir = SATURATION / prefix
+    if sat_dir.is_dir():
+        arms.append(sat_dir)
+    for root in arms:
+        per_target = {}
+        for d in sorted(root.iterdir()):
+            if not d.is_dir():
+                continue
+            t = d.name.split("_c")[0]
+            pool = pool_fold(d / f"{prefix}_results_{t}" / "results.json",
+                             d / "labels.json", sel)
+            if pool is None:
+                continue
+            per_target.setdefault(t, []).extend(pool)
+        for t, pool in per_target.items():
+            out[(t, len(pool))] = {"pool": pool, "wall_s": None}
     return out
 
 
@@ -216,7 +247,7 @@ def main():
     models = [a.model] if a.model else sorted(MODELS)
     report = {}
     for model in models:
-        pools = tiera_pools(model) | deepn_pools(model)
+        pools = tiera_pools(model) | deepn_pools(model) | overlay_pools(model)
         pts = curve_points(pools)
         report[model] = pts
         print(f"\n=== {model} ===")
