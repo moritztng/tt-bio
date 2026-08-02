@@ -62,9 +62,9 @@ def make_seqs(n, seed=7):
             for i in range(n)}
 
 
-def run(n, model="esmc-600m", batch_size=8):
+def run(n, model="esmc-600m", batch_size=8, out_format="npz"):
     import yaml
-    d = Path(f"/home/cust-team/mthuening/embedprobe/n{n}")
+    d = Path(f"/home/cust-team/mthuening/embedprobe/n{n}_{out_format}")
     d.mkdir(parents=True, exist_ok=True)
     src = d / "seqs.yaml"
     src.write_text(yaml.safe_dump(make_seqs(n)))
@@ -74,7 +74,7 @@ def run(n, model="esmc-600m", batch_size=8):
     t0 = time.monotonic()
     p = subprocess.run([f"{ENV}/tt-bio", "embed", str(src), "--model", model,
                         "--out_dir", str(d / "out"), "--controller", CTRL,
-                        "--batch_size", str(batch_size)],
+                        "--batch_size", str(batch_size), "--format", out_format],
                        capture_output=True, text=True)
     wall = time.monotonic() - t0
     tr.stop.set(); tr.join(timeout=3)
@@ -85,7 +85,7 @@ def run(n, model="esmc-600m", batch_size=8):
     # from "cards idle"
     hi = sum(1 for r in rows if r[1] >= 0.9 * len(pids))
     npz = len(list((d / "out").glob("*.npz")))
-    rec = {"n": n, "model": model, "batch_size": batch_size, "rc": p.returncode,
+    rec = {"n": n, "model": model, "batch_size": batch_size, "format": out_format, "rc": p.returncode,
            "wall_s": round(wall, 2), "seq_per_s": round(n / wall, 2),
            "workers": len(pids), "peak_busy": peak,
            "frac_samples_full_pool": round(hi / max(1, len(rows)), 3),
@@ -100,8 +100,9 @@ def run(n, model="esmc-600m", batch_size=8):
 if __name__ == "__main__":
     out = Path("/home/cust-team/mthuening/embedprobe/cells.jsonl")
     out.parent.mkdir(parents=True, exist_ok=True)
-    for n in [int(x) for x in sys.argv[1:]] or [1024]:
-        r = run(n)
+    for spec in sys.argv[1:] or ["1024:npz"]:
+        n, _, fmt = spec.partition(":")
+        r = run(int(n), out_format=fmt or "npz")
         with out.open("a") as fh:
             fh.write(json.dumps(r) + "\n")
         print(json.dumps(r), flush=True)

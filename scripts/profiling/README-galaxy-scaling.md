@@ -39,6 +39,28 @@ while the wall grows 15.2%, so the extra time at high N is time folds spend wait
 computing on the host. What is left to test is host DRAM/IO bandwidth, or a device-side effect this
 box cannot profile (the pip ttnn wheel has no Tracy build).
 
+## The other fanout path: `tt-bio embed` through the serve pool
+
+`embed_pool_probe.py` dispatches an embed through a live controller and samples at 4 Hz how many of
+the resident pool workers are actually burning CPU, so "are the cards slow or idle" is answered by a
+trace instead of inferred from the throughput gap.
+
+They are idle. At N=2048 only 8.1 of 26 workers are busy on average (31%), and the busy trace shows
+compute and result handling strictly serialized — a compute burst in the middle with the pool idle
+before and after it.
+
+The cause is the result payload, not the cards. Each sequence returns ~651 KB of per-residue
+embeddings. Same N, same warm pool, A/B/A/B:
+
+| format | wall | seq/s | output |
+|---|---|---|---|
+| npz (per-residue) | 27.92 / 27.83 s | 36.68 / 36.80 | 635 MB |
+| parquet (pooled only) | 7.30 / 6.83 s | 140.32 / 149.97 | 7.7 MB |
+
+**82x less result data, 4.1x faster, identical compute.** The parquet cells also put a floor under
+the real compute ceiling: 150 seq/s across 26 workers is 5.8 seq/s per card, so any "per-card
+seq/s" figure derived from the npz path was already transfer-limited rather than a compute number.
+
 ## Running it
 
 ```
