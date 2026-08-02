@@ -397,14 +397,21 @@ def _ensure_offline_tools(install_tools: bool) -> None:
             )
 
 
-def _find_mmseqs() -> str | None:
-    """Find mmseqs binary on PATH or at common install locations."""
-    found = shutil.which("mmseqs")
-    if found:
-        return found
+def _find_mmseqs(colabfold_bin: str | None = None) -> str | None:
+    """Find an mmseqs binary, preferring the one bundled with the colabfold_search
+    in use. colabfold invokes mmseqs with flags a mismatched system build rejects
+    (e.g. Debian 13-45111 has no --prefilter-mode, breaking every offline MSA).
+    """
+    if colabfold_bin:
+        sibling = Path(colabfold_bin).parent / "mmseqs"
+        if sibling.is_file() and os.access(sibling, os.X_OK):
+            return str(sibling)
     for p in _MMSEQS_SEARCH_PATHS:
         if p.is_file() and os.access(p, os.X_OK):
             return str(p)
+    found = shutil.which("mmseqs")
+    if found:
+        return found
     return None
 
 
@@ -502,7 +509,7 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, "
                f"pairing={pairing_strategy if pair else 'none'})")
     colabfold_bin = _find_colabfold_search()
-    mmseqs_bin = _find_mmseqs()
+    mmseqs_bin = _find_mmseqs(colabfold_bin)
     strategy_map = {"greedy": "0", "complete": "1"}
     strategy_val = strategy_map.get(pairing_strategy, pairing_strategy)
     # Unique per process AND thread so concurrent searches in one process (e.g.
