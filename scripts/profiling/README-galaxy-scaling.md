@@ -89,6 +89,13 @@ per-residue embeddings per sequence, inflated 33% by base64 — and the cards id
 Removing the tail would take N=1024 from 27 s to ~12 s (~2.2x). Workers and client share a
 filesystem here, so handing back a path instead of an 868 KB string is the obvious lever.
 
+`controller_transport_ab.py` costs that lever without needing a device, driving a real
+`ControllerServer` over HTTP with the shape of an N=1024 run. Warm, the base64 transport takes ~22 s
+of controller work and grows the store by 925 MB; path handback takes ~0.8 s and 0.1 MB — about 27x.
+Report the base64 leg as a range: it is bimodal (48–58 s on the first run in a process, 15–22 s
+after) because its cost tracks page-cache state rather than the work, and two agreeing runs will
+fool you. The path leg is stable at 0.71–1.10 s across every run.
+
 ## Running it
 
 ```
