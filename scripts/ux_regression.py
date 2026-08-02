@@ -17,19 +17,32 @@ release ships with still works, headlessly and fast, on a tiny input:
      load under a strict standard parser (``Bio.PDB.MMCIFParser`` /
      ``numpy.load``), catching the malformed-output class (e.g. the historical
      missing ``_atom_site.occupancy`` fixed in 17aeab9e).
-  3. CLI behaves — ``tt-bio predict --help`` / ``tt-bio embed --help`` exit 0
-     and list the core flags, and each surface's results/manifest file has the
-     shape the downstream reader expects.
+  3. CLI behaves — ``tt-bio predict --help`` / ``tt-bio embed --help`` /
+     ``tt-bio saprot --help`` / ``tt-bio gen run --help``
+     exit 0 and list the core flags, and each surface's results/manifest file
+     has the shape the downstream reader expects.
 
-Coverage: the five fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
-opendde) for legs 1–3, plus esmc-600m embed for legs 2–3 (embed has no fold
-phases; its user-facing progress is the load → embed → done stdout lines).
+Coverage: the six fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
+opendde, opendde-abag) for legs 1–3 (opendde-abag is gated on the Ab-Ag fixture
+examples/1ahw_abag.yaml; the other fold models use examples/trpcage.yaml), plus
+the embed-leg models (esmc-600m via `tt-bio embed`, saprot-650m via `tt-bio
+saprot`) for legs 2–3 (embed has no fold phases; its user-facing progress is the
+load → embed → done stdout lines), plus boltzgen for legs 1–3 exercised via
+`tt-bio gen run` (a tiny 1-design binder job on examples/binder.yaml; its
+progress is the gen pipeline's own stdout stage stream under --debug --log),
+plus boltz2-affinity for legs 1–3 exercised via `tt-bio predict
+examples/affinity_fkg.yaml --model boltz2 --affinity_mw_correction` (Boltz-2
+binding-affinity mode; its progress event stream is the same shape as a
+structure fold — the affinity model's own trunk+diffusion re-run is silent — so
+the leg reuses _check_progress on the affinity path plus an affinity_pred_value
+results check).
 
-Fast + deterministic: folds ``examples/trpcage.yaml`` (20 residues) with
-``recycling_steps=2``, ``sampling_steps=4``, ``diffusion_samples=1``,
-``--single_sequence`` for the MSA-dependent models. This checks UX plumbing,
-not accuracy — it does not need full folds. Exit 0 iff every requested leg
-PASSES; 1 otherwise. Runs on the device serially (one card context per predict).
+Fast + deterministic: folds ``examples/trpcage.yaml`` (20 residues; opendde-abag
+uses the larger 1ahw_abag Ab-Ag complex) with ``recycling_steps=2``,
+``sampling_steps=4``, ``diffusion_samples=1``, ``--single_sequence`` for the
+MSA-dependent models. This checks UX plumbing, not accuracy — it does not need
+full folds. Exit 0 iff every requested leg PASSES; 1 otherwise. Runs on the
+device serially (one card context per predict).
 
     # gate every surface on card 0 (run with the project venv, like release_gate)
     TT_VISIBLE_DEVICES=0 /path/to/env/bin/python scripts/ux_regression.py
@@ -55,7 +68,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # trpcage (20 residues) is the canonical tiny fold target — small enough that
 # even the ESMC-6B ESMFold2 load dominates wall-clock, so the gate stays fast.
 DATA = REPO_ROOT / "examples" / "trpcage.yaml"
-NAME = DATA.stem  # "trpcage" -> predict writes boltz_results_trpcage/
+NAME = DATA.stem  # "trpcage" -> predict writes <model>_results_trpcage/
 
 # Minimal step counts: enough to prove the trunk and diffusion phases each tick
 # (≥1 event with total>0), not enough to matter for accuracy. UX plumbing only.
@@ -65,16 +78,68 @@ DIFFUSION_SAMPLES = 1
 SEED = 0
 # Per-model wall-clock budget. Load dominates; trpcage is tiny, but ESMFold2
 # (ESMC-6B ~12.8 GB) and Protenix-v2 (~1.9 GB ckpt) take a few minutes to load.
+# opendde-abag folds the larger Ab-Ag fixture (1ahw_abag, ~440 residues), so it
+# gets a looser budget than the trpcage fold models.
 PER_MODEL_TIMEOUT_S = 900
+ABAG_MODEL_TIMEOUT_S = 1800
 
-FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde"]
+FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde",
+               "opendde-abag"]
 # MSA-dependent models get --single_sequence so the gate is offline + deterministic
 # (no ColabFold server round-trip). esmfold2 / esmfold2-fast are single-seq by design.
-MSA_DEPENDENT = {"boltz2", "protenix-v2", "opendde"}
-EMBED_MODEL = "esmc-600m"
+# opendde-abag rides the same MSA-dependent path as opendde (only the checkpoint
+# differs — opendde_abag.pt vs opendde.pt), so it gets --single_sequence too.
+MSA_DEPENDENT = {"boltz2", "protenix-v2", "opendde", "opendde-abag"}
+# opendde-abag is the antibody-antigen checkpoint, so it is gated on the canonical
+# Ab-Ag fixture 1ahw_abag.yaml (the same SAbDab/PDB 1ahw target the benchmark uses
+# elsewhere) instead of trpcage. Every other fold model uses trpcage.
+ABAG_DATA = REPO_ROOT / "examples" / "1ahw_abag.yaml"
+# Embed-leg models — a list (not a single constant) so every shipped embed CLI's
+# load→embed→done stdout UX is gated. esmc-600m via `tt-bio embed`; saprot-650m
+# via `tt-bio saprot` (its own subcommand — SaProt has its own CLI entry, not the
+# esmc embed command). Both write the same npz + manifest.json shape, so the
+# parse/manifest checks are shared.
+EMBED_MODELS = ["esmc-600m", "saprot-650m"]
 
-# esmc embed input: trpcage's 20-mer as a one-sequence FASTA, written into the
-# per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
+# BoltzGen (binder design) — exercised via `tt-bio gen run` on the canonical
+# binder fixture (same target the designability accuracy leg + the perf leg use).
+# A tiny 1-design job is enough to gate the UX plumbing (progress phases, output
+# parses, CLI shape); it is not an accuracy or perf measurement.
+GEN_MODEL = "boltzgen"
+GEN_SPEC = REPO_ROOT / "examples" / "binder.yaml"
+GEN_PROTOCOL = "protein-anything"
+GEN_NUM_DESIGNS = 1
+GEN_TIMEOUT_S = 1200  # design + refold + analysis for 1 design; load dominates
+
+# Boltz-2 binding-affinity prediction mode (README "Binding Affinity Prediction")
+# — exercised via `tt-bio predict examples/affinity_fkg.yaml --model boltz2
+# --affinity_mw_correction`. A real customer-facing CLI mode that had ZERO UX-gate
+# coverage. The affinity path's progress event stream is the SAME shape as a
+# structure fold (loading → msa → prep → trunk → diffusion → confidence → saving
+# → done): the affinity model re-runs its OWN 64-block trunk + AtomDiffusion
+# after the structure fold, but that re-run is silent (no progress_fn is wired to
+# the affinity model), so the live view advances through the structure phases
+# then completes. Verified by capturing a real affinity run's event stream. So
+# this leg reuses the fold leg's _check_progress (the must-never-recur bug class
+# — a progress bar jumping past a phase instead of advancing phase-by-phase) on
+# the affinity path specifically, plus an affinity-specific results check: the
+# user-facing affinity_pred_value scalar must be present in results.json.
+AFFINITY_MODEL = "boltz2-affinity"
+AFFINITY_SPEC = REPO_ROOT / "examples" / "affinity_fkg.yaml"  # FKBP12+SB3, L107, msa: empty
+AFFINITY_TIMEOUT_S = 900  # affinity trunk fp32 (5 recycles, 64 blocks) ~140s + fold; load dominates
+
+# RFdiffusion3 (RFD3) structure design — exercised via `tt-bio design --from_pdb`
+# on the canonical IAI motif-scaffold fixture (the SAME fixture the parity leg
+# and the perf leg use — scripts/rfd3_port/parity_artifacts/iai_protein/
+# iai_inputs.yaml). A tiny 1-design job at the shipped default 4 timesteps is
+# enough to gate the UX plumbing (progress lines, output CIF parses, CLI
+# shape); it is not an accuracy or perf measurement.
+DESIGN_MODEL = "rfd3"
+DESIGN_SPEC = REPO_ROOT / "scripts" / "rfd3_port" / "parity_artifacts" / "iai_protein" / "iai_inputs.yaml"
+DESIGN_TIMEOUT_S = 1200  # load ~0.65 GiB ckpt + first-kernel compile + 1 design; load dominates
+
+# esmc/saprot embed input: trpcage's 20-mer as a one-sequence FASTA, written into
+# the per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
 EMBED_SEQ = "NLYIQWLKDGGPSSGRPPPS"
 
 
@@ -93,17 +158,22 @@ def _subprocess_env(extra: dict | None = None) -> dict:
     return env
 
 
-def _run(cmd: list[str], *, env: dict | None = None, timeout: int | None = None,
+def _run(cmd: list[str], *, env: dict | None = None, timeout: int | None = PER_MODEL_TIMEOUT_S,
          cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess:
-    """Run a command, capturing stdout+stderr. Raises TimeoutExpired on timeout."""
+    """Run a command, capturing stdout+stderr. Raises TimeoutExpired on timeout.
+
+    Defaults to ``PER_MODEL_TIMEOUT_S`` rather than ``None`` so a caller that
+    forgets an explicit timeout still can't hang the gate forever on a wedged
+    device or a flaky dependency (standing gate rule). Every current caller
+    passes an explicit timeout, so this only hardens future ones."""
     return subprocess.run(cmd, cwd=str(cwd), env=env, timeout=timeout,
                           capture_output=True, text=True)
 
 
-def _cli_predict(model: str, out_dir: Path, cap_path: Path) -> list[str]:
+def _cli_predict(model: str, out_dir: Path, data: Path) -> list[str]:
     """Build the predict command for one fold model."""
     cmd = [
-        sys.executable, "-m", "tt_bio.main", "predict", str(DATA),
+        sys.executable, "-m", "tt_bio.main", "predict", str(data),
         "--model", model,
         "--recycling_steps", str(RECYCLING_STEPS),
         "--sampling_steps", str(SAMPLING_STEPS),
@@ -132,7 +202,7 @@ def _load_events(cap_path: Path) -> list[dict]:
     return events
 
 
-def _check_progress(events: list[dict], model: str) -> list[str]:
+def _check_progress(events: list[dict]) -> list[str]:
     """Assert the event stream advances through trunk → diffusion → done with
     no phase skipped. Returns a list of problem strings (empty == pass)."""
     problems = []
@@ -208,7 +278,7 @@ def _check_cif(cif: Path) -> list[str]:
     return []
 
 
-def _check_npz(npz: Path, seq_id: str, seq: str) -> list[str]:
+def _check_npz(npz: Path, seq: str) -> list[str]:
     try:
         import numpy as np
     except ImportError:
@@ -310,6 +380,22 @@ def _check_cli() -> list[str]:
                 if flag not in r.stdout:
                     problems.append(f"embed --help missing flag {flag}")
 
+    # SaProt ships under its own `tt-bio saprot` subcommand (not `tt-bio embed`),
+    # so its flag surface is gated separately -- a regression that drops one of
+    # its core flags would otherwise ship silently.
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "saprot", "--help"],
+                 env=_subprocess_env(), timeout=60)
+    except Exception as e:
+        problems.append(f"saprot --help failed to run: {e}")
+    else:
+        if r.returncode != 0:
+            problems.append(f"saprot --help exited {r.returncode}")
+        else:
+            for flag in ("--model", "--format", "--out_dir", "--pool", "--structure"):
+                if flag not in r.stdout:
+                    problems.append(f"saprot --help missing flag {flag}")
+
     try:
         r = _run([sys.executable, "-m", "tt_bio.main", "--help"],
                  env=_subprocess_env(), timeout=60)
@@ -317,34 +403,85 @@ def _check_cli() -> list[str]:
             problems.append(f"tt-bio --help exited {r.returncode}")
     except Exception as e:
         problems.append(f"tt-bio --help failed to run: {e}")
+
+    # `tt-bio gen run` is a click subcommand that forwards its args to BoltzGen's
+    # own argparse parser (tt_bio/boltzgen/cli/boltzgen.py). Click intercepts
+    # `--help` at the `gen` wrapper level, so `tt-bio gen run --help` shows the
+    # wrapper's short help rather than the run flags — the real flag surface is
+    # the forwarded parser's help. Assert the wrapper responds to --help cleanly
+    # AND the forwarded parser lists the core design flags a user would reach for.
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "gen", "run", "--help"],
+                 env=_subprocess_env(), timeout=60)
+        if r.returncode != 0:
+            problems.append(f"gen run --help exited {r.returncode}")
+    except Exception as e:
+        problems.append(f"gen run --help failed to run: {e}")
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.boltzgen.cli.boltzgen",
+                  "run", "--help"], env=_subprocess_env(), timeout=60)
+    except Exception as e:
+        problems.append(f"boltzgen run --help failed to run: {e}")
+    else:
+        if r.returncode != 0:
+            problems.append(f"boltzgen run --help exited {r.returncode}")
+        else:
+            for flag in ("--num_designs", "--protocol", "--output", "--devices",
+                         "--budget"):
+                if flag not in r.stdout:
+                    problems.append(f"boltzgen run --help missing flag {flag}")
+
+    # `tt-bio design` is a separate click command (not a --model choice) — gate
+    # its flag surface so a regression that drops one of its core flags ships
+    # loudly. Click intercepts --help at the command level, so this asserts the
+    # wrapper responds cleanly AND lists the core design flags.
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "design", "--help"],
+                 env=_subprocess_env(), timeout=60)
+        if r.returncode != 0:
+            problems.append(f"design --help exited {r.returncode}")
+    except Exception as e:
+        problems.append(f"design --help failed to run: {e}")
+    else:
+        for flag in ("--from_pdb", "--out_dir", "--num_designs", "--num_timesteps",
+                     "--batch_size", "--devices", "--seed"):
+            if flag not in r.stdout:
+                problems.append(f"design --help missing flag {flag}")
     return problems
 
 
 # ── per-model runners ──────────────────────────────────────────────────────
 
-def run_fold(model: str, keep: bool, base: Path) -> dict:
-    """Fold one model on trpcage, capture its progress stream, and gate the
-    three UX legs. Returns a result row."""
+def run_fold(model: str, base: Path) -> dict:
+    """Fold one model on its canonical tiny fixture, capture its progress stream,
+    and gate the three UX legs. Returns a result row."""
+    # opendde-abag is the antibody-antigen checkpoint and is gated on the Ab-Ag
+    # fixture 1ahw_abag.yaml; every other fold model uses trpcage. The CLI path
+    # is identical — only --model and the input file differ.
+    data = ABAG_DATA if model == "opendde-abag" else DATA
+    name = data.stem
+    timeout = ABAG_MODEL_TIMEOUT_S if model == "opendde-abag" else PER_MODEL_TIMEOUT_S
+    from tt_bio.main import predict_results_dir_name
     out_dir = base / f"out_{model}"
     out_dir.mkdir(parents=True, exist_ok=True)
     cap_path = base / f"events_{model}.jsonl"
     cap_path.unlink(missing_ok=True)
-    results_path = out_dir / f"boltz_results_{NAME}" / "results.json"
-    struct_dir = out_dir / f"boltz_results_{NAME}" / "structures"
+    results_path = out_dir / predict_results_dir_name(model, name) / "results.json"
+    struct_dir = out_dir / predict_results_dir_name(model, name) / "structures"
 
     env = _subprocess_env({"TT_BIO_PROGRESS_CAPTURE": str(cap_path)})
 
-    cmd = _cli_predict(model, out_dir, cap_path)
-    print(f"\n{'='*70}\n[{model}] predict trpcage (recyc={RECYCLING_STEPS}, "
+    cmd = _cli_predict(model, out_dir, data)
+    print(f"\n{'='*70}\n[{model}] predict {data.name} (recyc={RECYCLING_STEPS}, "
           f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES})\n{'='*70}", flush=True)
 
     row = {"model": model, "seconds": None, "progress": False, "parse": False,
            "results": False, "gate": False, "error": None, "checks": []}
     t0 = time.monotonic()
     try:
-        proc = _run(cmd, env=env, timeout=PER_MODEL_TIMEOUT_S)
+        proc = _run(cmd, env=env, timeout=timeout)
     except subprocess.TimeoutExpired:
-        row["error"] = f"predict timed out after {PER_MODEL_TIMEOUT_S}s"
+        row["error"] = f"predict timed out after {timeout}s"
         return row
     row["seconds"] = time.monotonic() - t0
     if proc.returncode != 0:
@@ -355,7 +492,7 @@ def run_fold(model: str, keep: bool, base: Path) -> dict:
 
     # Leg 1: live progress view
     events = _load_events(cap_path) if cap_path.exists() else []
-    prog_problems = _check_progress(events, model)
+    prog_problems = _check_progress(events)
     row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
     if prog_problems:
         row["checks"].extend(f"  • {p}" for p in prog_problems)
@@ -363,7 +500,7 @@ def run_fold(model: str, keep: bool, base: Path) -> dict:
             row["error"] = "progress: " + "; ".join(prog_problems)
 
     # Leg 2: output CIF parses
-    cifs = sorted(struct_dir.glob(f"{NAME}*.cif")) if struct_dir.exists() else []
+    cifs = sorted(struct_dir.glob(f"{name}*.cif")) if struct_dir.exists() else []
     if not cifs:
         parse_problems = [f"predict wrote no CIF under {struct_dir}"]
     else:
@@ -394,9 +531,18 @@ def run_fold(model: str, keep: bool, base: Path) -> dict:
     return row
 
 
-def run_embed(model: str, keep: bool, base: Path) -> dict:
-    """Run esmc embed on a tiny sequence and gate the UX legs (embed has no fold
-    phases — its user-facing progress is the load → embed → done stdout lines)."""
+def _embed_subcommand(model: str) -> str:
+    """The tt-bio CLI subcommand an embed model ships under. esmc-* use `embed`;
+    saprot-* use their own `saprot` subcommand (SaProt has its own CLI entry, not
+    the esmc embed command). Both accept the same --model/--out_dir/--format/--pool
+    flags and write the same npz + manifest.json shape."""
+    return "saprot" if model.startswith("saprot") else "embed"
+
+
+def run_embed(model: str, base: Path) -> dict:
+    """Run an embed model (esmc-* via `tt-bio embed`, saprot-* via `tt-bio saprot`)
+    on a tiny sequence and gate the UX legs (embed has no fold phases — its
+    user-facing progress is the load → embed → done stdout lines)."""
     out_dir = base / f"out_{model}"
     out_dir.mkdir(parents=True, exist_ok=True)
     seq_id = "tiny"
@@ -404,7 +550,7 @@ def run_embed(model: str, keep: bool, base: Path) -> dict:
     fasta.write_text(f">{seq_id}\n{EMBED_SEQ}\n")
 
     cmd = [
-        sys.executable, "-m", "tt_bio.main", "embed", str(fasta),
+        sys.executable, "-m", "tt_bio.main", _embed_subcommand(model), str(fasta),
         "--model", model, "--out_dir", str(out_dir), "--format", "npz",
     ]
     print(f"\n{'='*70}\n[{model}] embed {seq_id} (L={len(EMBED_SEQ)})\n{'='*70}",
@@ -444,7 +590,7 @@ def run_embed(model: str, keep: bool, base: Path) -> dict:
 
     # Leg 2: npz parses with the expected shape.
     npz = out_dir / f"{seq_id}.npz"
-    parse_problems = _check_npz(npz, seq_id, EMBED_SEQ) if npz.exists() else [
+    parse_problems = _check_npz(npz, EMBED_SEQ) if npz.exists() else [
         f"embed wrote no npz at {npz}"]
     row["checks"].append(f"parse(npz): {'OK' if not parse_problems else 'FAIL'}")
     if parse_problems:
@@ -468,6 +614,271 @@ def run_embed(model: str, keep: bool, base: Path) -> dict:
     return row
 
 
+# ── boltzgen (binder design) ───────────────────────────────────────────────
+
+# The gen pipeline's own progress reporter (tt_bio/boltzgen/progress.py) emits
+# plain-text stage events on stdout under `--debug --log` (DebugReporter):
+#   >>> [idx/total] <step_name>      stage start
+#       <label> <n>/<total>          sub-step tick (trunk / diff / batch / msa)
+#   <<< ✓                            stage done
+# This is the headless equivalent of the fold leg's JSONL event stream — same
+# real pipeline stages, not a scraped TTY or synthetic replay.
+_GEN_STAGE_START = ">>> "   # DebugReporter.stage_start prefix
+_GEN_STAGE_DONE = "<<< "    # DebugReporter.stage_done prefix
+
+
+def _check_gen_progress(stdout: str) -> list[str]:
+    """Assert the gen pipeline's stdout stage stream advances through the
+    design + refold + analysis stages with no phase skipped. Returns problem
+    strings (empty == pass)."""
+    import re
+    problems = []
+    # A sub-step tick: "    <label> <n>/<total>" (DebugReporter.step) where label
+    # is one of trunk/diff/batch/msa. Match on the stripped line.
+    _tick = re.compile(r"^(trunk|diff|batch|msa)\s+\d+/\d+$")
+    starts: list[tuple[int, str]] = []
+    dones = 0
+    steps = 0
+    for line in stdout.splitlines():
+        s = line.strip()
+        if s.startswith(_GEN_STAGE_START) and "/" in s:
+            # ">>> [idx/total] step_name"
+            tail = s[len(_GEN_STAGE_START):]
+            try:
+                name = tail.split("]", 1)[1].strip()
+            except IndexError:
+                name = ""
+            starts.append((len(starts) + 1, name))
+        elif s.startswith(_GEN_STAGE_DONE):
+            if "✓" in s:
+                dones += 1
+        elif _tick.match(s):
+            steps += 1
+
+    if not starts:
+        return ["no `>>> [i/N] <step>` stage-start lines captured "
+                "(gen --debug --log progress not wired?)"]
+    names = [n for _, n in starts]
+    # protein-anything runs: design → inverse_folding → folding → design_folding
+    # → analysis → filtering (design_folding is the isolated refold = the
+    # designability metric's source). Require the headline design + refold +
+    # analysis stages so a regression that skips or reorders a phase fails.
+    for required in ("design", "analysis"):
+        if required not in names:
+            problems.append(f"'{required}' stage MISSING from gen progress "
+                            f"(stages seen: {names})")
+    if "design_folding" not in names and "folding" not in names:
+        problems.append("no refold stage (design_folding/folding) — the isolated "
+                        f"refold phase is missing (stages seen: {names})")
+    if dones == 0:
+        problems.append("no `<<< ✓` stage-done lines — pipeline did not report "
+                        "any completed stage")
+    if steps == 0:
+        problems.append("no sub-step tick lines (trunk/diff/batch/msa) — the "
+                        "per-stage progress did not tick")
+    # Stages must advance in declaration order; a reordering would surface as a
+    # duplicate or out-of-order name sequence.
+    if len(names) != len(set(names)):
+        problems.append(f"stage names repeat (out-of-order emission): {names}")
+    return problems
+
+
+def run_gen(model: str, base: Path) -> dict:
+    """Run one tiny ``tt-bio gen run`` binder-design job and gate the three UX
+    legs (progress phases, output parses, results shape). Returns a result row."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if not GEN_SPEC.exists():
+        sys.exit(f"missing gen fixture {GEN_SPEC}")
+
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "gen", "run", str(GEN_SPEC),
+        "--output", str(out_dir),
+        "--num_designs", str(GEN_NUM_DESIGNS),
+        "--protocol", GEN_PROTOCOL,
+        "--devices", "1",
+        "--budget", str(GEN_NUM_DESIGNS),
+        "--debug", "--log",   # DebugReporter: plain-text stage events on stdout
+    ]
+    print(f"\n{'='*70}\n[{model}] gen run {GEN_SPEC.name} "
+          f"({GEN_PROTOCOL}, {GEN_NUM_DESIGNS} design)\n{'='*70}", flush=True)
+
+    row = {"model": model, "seconds": None, "progress": False, "parse": False,
+           "metrics": False, "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=_subprocess_env(), timeout=GEN_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"gen run timed out after {GEN_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = (f"gen run exited {proc.returncode}: "
+                        f"{tail[-1] if tail else ''}")
+        return row
+
+    # Leg 1: live progress view (gen's stdout stage stream).
+    prog_problems = _check_gen_progress(proc.stdout or "")
+    row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
+    if prog_problems:
+        row["checks"].extend(f"  • {p}" for p in prog_problems)
+        if not row["error"]:
+            row["error"] = "progress: " + "; ".join(prog_problems)
+
+    # Leg 2: written CIFs parse under a strict standard parser.
+    cifs = sorted(out_dir.rglob("*.cif")) if out_dir.exists() else []
+    if not cifs:
+        parse_problems = [f"gen run wrote no CIF under {out_dir}"]
+    else:
+        parse_problems = []
+        for cif in cifs:
+            parse_problems += _check_cif(cif)
+    row["checks"].append(f"parse: {'OK' if not parse_problems else 'FAIL'}")
+    if parse_problems:
+        row["checks"].extend(f"  • {p}" for p in parse_problems)
+        if not row["error"]:
+            row["error"] = "parse: " + "; ".join(parse_problems)
+
+    # Leg 3: the analysis metrics table the designability harness reads exists
+    # and has the designability RMSD column (the user-facing QA output).
+    metrics_problems = _check_gen_metrics(out_dir)
+    row["checks"].append(f"metrics: {'OK' if not metrics_problems else 'FAIL'}")
+    if metrics_problems:
+        row["checks"].extend(f"  • {p}" for p in metrics_problems)
+        if not row["error"]:
+            row["error"] = "metrics: " + "; ".join(metrics_problems)
+
+    row["progress"] = not prog_problems
+    row["parse"] = not parse_problems
+    row["metrics"] = not metrics_problems
+    row["gate"] = row["progress"] and row["parse"] and row["metrics"]
+    return row
+
+
+def _check_gen_metrics(out_dir: Path) -> list[str]:
+    """The gen pipeline's analysis step writes aggregate_metrics_*.csv with a
+    designability RMSD column (the same column the accuracy leg harvests). Its
+    absence is a real shape regression in the user-facing QA output."""
+    try:
+        import csv as _csv
+    except ImportError:
+        return ["csv module unavailable"]
+    hits = sorted(out_dir.rglob("aggregate_metrics_*.csv"))
+    if not hits:
+        return [f"no aggregate_metrics_*.csv under {out_dir} — analysis did not run"]
+    csv_path = min(hits, key=lambda p: len(p.parts))  # merged top-level table
+    try:
+        with open(csv_path, newline="") as fh:
+            rows = list(_csv.DictReader(fh))
+    except Exception as e:
+        return [f"{csv_path.name}: read failed: {e}"]
+    if not rows:
+        return [f"{csv_path.name}: empty metrics table"]
+    cols = set(rows[0].keys())
+    # Match the designability harness's SC_COLUMNS preference order.
+    if "designfolding-bb_rmsd" not in cols and "bb_rmsd_design" not in cols:
+        return [f"{csv_path.name}: no designability RMSD column "
+                f"(have {sorted(cols)})"]
+    return []
+
+
+def _check_design_progress(stdout: str) -> list[str]:
+    """Assert `tt-bio design`'s stdout advances Designing -> Done with a
+    per-design line. The design command's progress is plain print (no Rich live
+    view, no stage stream like gen), so the check is the headline lines plus a
+    written CIF. Returns problem strings (empty == pass)."""
+    problems = []
+    if "Designing" not in stdout:
+        problems.append("no 'Designing ...' headline — design start not reported")
+    if "Done —" not in stdout and "Done -" not in stdout:
+        problems.append("no 'Done — ...' line — design completion not reported")
+    # a per-design line: "  <spec_id>#<i>: <path> (n atoms)"
+    import re
+    if not re.search(r"^\s*\S+#\d+:\s+\S+\.cif\s+\(\d+ atoms\)", stdout, re.M):
+        problems.append("no per-design 'spec#i: path (n atoms)' line — design result not reported")
+    return problems
+
+
+def run_design(model: str, base: Path) -> dict:
+    """Run one tiny `tt-bio design --from_pdb` job and gate the three UX legs
+    (progress lines, output CIF parses, CLI shape). Returns a result row.
+
+    Reuses the SAME IAI motif-scaffold fixture the parity + perf legs use
+    (scripts/rfd3_port/parity_artifacts/iai_protein/iai_inputs.yaml) — no new
+    fixture invented. 1 design at the shipped default 4 timesteps is enough to
+    gate UX plumbing, not accuracy or perf."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if not DESIGN_SPEC.exists():
+        sys.exit(f"missing design fixture {DESIGN_SPEC}")
+
+    # --devices takes physical card ids (not a count); a hardcoded "1" fails on
+    # single-card hosts (pc has only id 0). Derive from TT_VISIBLE_DEVICES
+    # (default 0) so the leg runs on the caller's pinned card.
+    visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "design", str(DESIGN_SPEC),
+        "--from_pdb",
+        "--out_dir", str(out_dir),
+        "--num_designs", "1",
+        "--num_timesteps", "4",
+        "--devices", visible,
+    ]
+    print(f"\n{'='*70}\n[{model}] design {DESIGN_SPEC.name} (from_pdb, 1 design, 4 steps)\n{'='*70}", flush=True)
+
+    row = {"model": model, "seconds": None, "progress": False, "parse": False,
+           "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=_subprocess_env(), timeout=DESIGN_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"design timed out after {DESIGN_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = (f"design exited {proc.returncode}: "
+                        f"{tail[-1] if tail else ''}")
+        return row
+
+    # Leg 1: progress lines (design's plain-print Designing -> Done -> per-design).
+    prog_problems = _check_design_progress(proc.stdout or "")
+    row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
+    if prog_problems:
+        row["checks"].extend(f"  • {p}" for p in prog_problems)
+        if not row["error"]:
+            row["error"] = "progress: " + "; ".join(prog_problems)
+
+    # Leg 2: written CIF parses under a strict standard parser.
+    cifs = sorted(out_dir.rglob("*.cif")) if out_dir.exists() else []
+    if not cifs:
+        parse_problems = [f"design wrote no CIF under {out_dir}"]
+    else:
+        parse_problems = []
+        for cif in cifs:
+            parse_problems += _check_cif(cif)
+    row["checks"].append(f"parse: {'OK' if not parse_problems else 'FAIL'}")
+    if parse_problems:
+        row["checks"].extend(f"  • {p}" for p in parse_problems)
+        if not row["error"]:
+            row["error"] = "parse: " + "; ".join(parse_problems)
+
+    row["progress"] = not prog_problems
+    row["parse"] = not parse_problems
+    # design has no separate results.json/metrics table like gen — the CIF +
+    # progress lines ARE the user-facing output, so gate = progress & parse.
+    row["gate"] = row["progress"] and row["parse"]
+    return row
+
+
+def _print_design_row(r: dict) -> None:
+    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'wall':>9}  {verdict}")
+    print(f"  prog={r['progress']} parse={r['parse']}")
+
+
 # ── driver ─────────────────────────────────────────────────────────────────
 
 def _print_fold_row(r: dict) -> None:
@@ -489,13 +900,143 @@ def _print_embed_row(r: dict) -> None:
         print(f"  {c}")
 
 
+def _print_gen_row(r: dict) -> None:
+    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'metrics':>9}"
+          f"{wall:>9}  {verdict}")
+    for c in r["checks"]:
+        print(f"  {c}")
+
+
+def _check_affinity_results(path: Path) -> list[str]:
+    """Affinity results.json shape: the fold leg's confidence metric AND the
+    user-facing affinity scalar. The affinity_pred_value (MW-corrected
+    log10(IC50)) is the whole point of affinity mode — its absence is a real
+    shape regression in the customer-facing output."""
+    problems = _check_results_json(path)
+    try:
+        rows = json.loads(path.read_text())
+    except Exception as e:
+        return problems + [f"results.json load failed: {type(e).__name__}: {e}"]
+    ok = [r for r in rows if isinstance(r, dict) and r.get("status") == "ok"]
+    if not ok:
+        return problems
+    r = ok[0]
+    if "affinity_pred_value" not in r:
+        problems.append(f"results.json ok row has no affinity_pred_value "
+                        f"(affinity mode did not emit the user-facing scalar): "
+                        f"{sorted(r)}")
+    return problems
+
+
+def run_affinity(model: str, base: Path) -> dict:
+    """Run one tiny ``tt-bio predict`` affinity-mode call (FKBP12+SB3) and gate the
+    three UX legs: live progress phases advance correctly on the affinity path
+    (the must-never-recur jump class), the written CIF parses, and results.json
+    carries the user-facing affinity scalar. Returns a result row."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if not AFFINITY_SPEC.exists():
+        sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
+    from tt_bio.main import predict_results_dir_name
+    cap_path = base / f"events_{model}.jsonl"
+    cap_path.unlink(missing_ok=True)
+    results_path = out_dir / predict_results_dir_name("boltz2", AFFINITY_SPEC.stem) / "results.json"
+    struct_dir = out_dir / predict_results_dir_name("boltz2", AFFINITY_SPEC.stem) / "structures"
+
+    env = _subprocess_env({"TT_BIO_PROGRESS_CAPTURE": str(cap_path)})
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "predict", str(AFFINITY_SPEC),
+        "--model", "boltz2",
+        "--single_sequence",
+        "--override",
+        "--affinity_mw_correction",
+        "--debug",  # NullDisplay: clean headless, no Rich TTY
+        "--recycling_steps", str(RECYCLING_STEPS),
+        "--sampling_steps", str(SAMPLING_STEPS),
+        "--diffusion_samples", str(DIFFUSION_SAMPLES),
+        "--sampling_steps_affinity", str(SAMPLING_STEPS),
+        "--diffusion_samples_affinity", str(DIFFUSION_SAMPLES),
+        "--out_dir", str(out_dir),
+    ]
+    print(f"\n{'='*70}\n[{model}] predict {AFFINITY_SPEC.name} (affinity mode, "
+          f"recyc={RECYCLING_STEPS}, steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES})"
+          f"\n{'='*70}", flush=True)
+
+    row = {"model": model, "seconds": None, "progress": False, "parse": False,
+           "results": False, "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=env, timeout=AFFINITY_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"affinity predict timed out after {AFFINITY_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = (f"affinity predict exited {proc.returncode}: "
+                        f"{tail[-1] if tail else ''}")
+        return row
+
+    # Leg 1: live progress view — same shape as a structure fold (verified on a
+    # real affinity run: the affinity model's own trunk+diffusion re-run is
+    # silent). _check_progress asserts trunk → diffusion → done with no phase
+    # skipped — the exact jump-class guard GOALS.md calls out.
+    events = _load_events(cap_path) if cap_path.exists() else []
+    prog_problems = _check_progress(events)
+    row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
+    if prog_problems:
+        row["checks"].extend(f"  • {p}" for p in prog_problems)
+        if not row["error"]:
+            row["error"] = "progress: " + "; ".join(prog_problems)
+
+    # Leg 2: written CIF parses under a strict standard parser.
+    cifs = sorted(struct_dir.glob(f"{AFFINITY_SPEC.stem}*.cif")) if struct_dir.exists() else []
+    if not cifs:
+        parse_problems = [f"predict wrote no CIF under {struct_dir}"]
+    else:
+        parse_problems = []
+        for cif in cifs:
+            parse_problems += _check_cif(cif)
+    row["checks"].append(f"parse: {'OK' if not parse_problems else 'FAIL'}")
+    if parse_problems:
+        row["checks"].extend(f"  • {p}" for p in parse_problems)
+        if not row["error"]:
+            row["error"] = "parse: " + "; ".join(parse_problems)
+
+    # Leg 3: results.json shape — fold confidence metric AND affinity scalar.
+    res_problems = _check_affinity_results(results_path) if results_path.exists() else [
+        f"predict wrote no results.json at {results_path}"]
+    row["checks"].append(f"results.json: {'OK' if not res_problems else 'FAIL'}")
+    if res_problems:
+        row["checks"].extend(f"  • {p}" for p in res_problems)
+        if not row["error"]:
+            row["error"] = "results.json: " + "; ".join(res_problems)
+
+    row["progress"] = not prog_problems
+    row["parse"] = not parse_problems
+    row["results"] = not res_problems
+    row["gate"] = row["progress"] and row["parse"] and row["results"]
+    return row
+
+
+def _print_affinity_row(r: dict) -> None:
+    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'results':>9}"
+          f"{wall:>9}  {verdict}")
+    print(f"  prog={r['progress']} parse={r['parse']} results={r['results']}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", action="append",
-                    choices=FOLD_MODELS + [EMBED_MODEL],
+                    choices=FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL],
                     help="Gate only this model (repeatable). Default: all five fold "
-                         "models + esmc-600m embed.")
+                         "models + esmc-600m + saprot-650m embed + boltzgen gen run "
+                         "+ boltz2-affinity.")
     ap.add_argument("--keep", action="store_true",
                     help="Keep the per-run output dirs under the tmp dir for inspection.")
     ap.add_argument("--cli-only", action="store_true",
@@ -519,47 +1060,77 @@ def main() -> int:
             f"/home/ttuser/tt-bio-dev/env/bin/python scripts/ux_regression.py")
 
     # Leg 3 (CLI behaves) runs always — it needs no card.
-    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed --help)\n{'#'*78}")
+    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed / saprot / gen run --help)\n{'#'*78}")
     cli_problems = _check_cli()
     all_pass = not cli_problems
     if cli_problems:
-        for p in cli_problems:
-            print(f"  ✗ {p}")
+        for prob in cli_problems:
+            print(f"  ✗ {prob}")
     else:
-        print("  ✓ predict --help, embed --help, tt-bio --help all OK and list core flags")
+        print("  ✓ predict --help, embed --help, saprot --help, gen run --help, "
+              "design --help, tt-bio --help all OK and list core flags")
     print(f"{'#'*78}")
 
     if args.cli_only:
         return 0 if all_pass else 1
 
-    models = args.model or (FOLD_MODELS + [EMBED_MODEL])
+    models = args.model or (FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL])
     fold_models = [m for m in models if m in FOLD_MODELS]
-    embed_models = [m for m in models if m == EMBED_MODEL]
+    embed_models = [m for m in models if m in EMBED_MODELS]
+    gen_models = [m for m in models if m == GEN_MODEL]
+    affinity_models = [m for m in models if m == AFFINITY_MODEL]
+    design_models = [m for m in models if m == DESIGN_MODEL]
 
-    if not DATA.exists():
+    if not DATA.exists() and fold_models:
         sys.exit(f"missing gate target {DATA}")
-    if not fold_models and not embed_models:
+    if not GEN_SPEC.exists() and gen_models:
+        sys.exit(f"missing gen fixture {GEN_SPEC}")
+    if not AFFINITY_SPEC.exists() and affinity_models:
+        sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
+    if not DESIGN_SPEC.exists() and design_models:
+        sys.exit(f"missing design fixture {DESIGN_SPEC}")
+    if (not fold_models and not embed_models and not gen_models
+            and not affinity_models and not design_models):
         return 0 if all_pass else 1
 
     base = Path(tempfile.mkdtemp(prefix="ux_gate_", dir=str(REPO_ROOT)))
     try:
         rows = []
         for m in fold_models:
-            r = run_fold(m, args.keep, base)
+            r = run_fold(m, base)
             rows.append(("fold", r))
             all_pass &= r["gate"]
         for m in embed_models:
-            r = run_embed(m, args.keep, base)
+            r = run_embed(m, base)
             rows.append(("embed", r))
             all_pass &= r["gate"]
-
-        print(f"\n{'#'*78}\nUX GATE — summary ({DATA.name}, recyc={RECYCLING_STEPS}, "
-              f"steps={SAMPLING_STEPS}, samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
+        for m in gen_models:
+            r = run_gen(m, base)
+            rows.append(("gen", r))
+            all_pass &= r["gate"]
+        for m in affinity_models:
+            r = run_affinity(m, base)
+            rows.append(("affinity", r))
+            all_pass &= r["gate"]
+        for m in design_models:
+            r = run_design(m, base)
+            rows.append(("design", r))
+            all_pass &= r["gate"]
+        print(f"\n{'#'*78}\nUX GATE — summary (fold fixtures: {DATA.name}"
+              f"{f' / {ABAG_DATA.name} (opendde-abag)' if ABAG_DATA.exists() else ''}, "
+              f"recyc={RECYCLING_STEPS}, steps={SAMPLING_STEPS}, "
+              f"samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
         for kind, r in rows:
             if kind == "fold":
                 _print_fold_row(r)
-            else:
+            elif kind == "embed":
                 _print_embed_row(r)
+            elif kind == "gen":
+                _print_gen_row(r)
+            elif kind == "affinity":
+                _print_affinity_row(r)
+            elif kind == "design":
+                _print_design_row(r)
         print(f"{'#'*78}")
         print("GATE PASS — every surface cleared progress + parse + results/manifest "
               "shape, and the CLI behaves" if all_pass

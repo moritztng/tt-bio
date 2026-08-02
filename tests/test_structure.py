@@ -55,12 +55,28 @@ def get_ca_atoms(cif_path: str):
     return chains
 
 
-def compute_rmsd(protein_name: str, model_idx: int = 0):
+def _find_results_dir(protein_name: str) -> Path:
+    """Locate the tt-bio predict output dir for protein_name in the cwd.
+
+    Model-agnostic: matches the model-named layout <model>_results_<name> (e.g.
+    protenix_results_prot, boltz2_results_trpcage, opendde_results_1ahw_abag)
+    and the neutral results_<name> form, so the harness never hardcodes a model
+    prefix. Raises if no results dir is found."""
+    candidates = sorted(Path(".").glob(f"*results_{protein_name}"))
+    if not candidates:
+        raise FileNotFoundError(
+            f"No results dir found for {protein_name} " f"(looked for *results_{protein_name})")
+    return candidates[0]
+
+
+def compute_rmsd(protein_name: str, model_idx: int = 0, results_dir: Path | None = None):
     """Compute RMSD with optimal chain matching (handles partial coverage)."""
+    if results_dir is None:
+        results_dir = _find_results_dir(protein_name)
     if model_idx == 0:
-        pred_file = Path(f"boltz_results_{protein_name}/structures/{protein_name}.cif")
+        pred_file = results_dir / "structures" / f"{protein_name}.cif"
     else:
-        pred_file = Path(f"boltz_results_{protein_name}/structures/{protein_name}_model_{model_idx}.cif")
+        pred_file = results_dir / "structures" / f"{protein_name}_model_{model_idx}.cif"
     truth_file = Path(f"examples/ground_truth_structures/{protein_name}.cif")
     
     if not pred_file.exists():
@@ -153,13 +169,15 @@ def compute_rmsd(protein_name: str, model_idx: int = 0):
     return best_rmsd, tm
 
 
-def _num_models(protein_name: str) -> int:
+def _num_models(protein_name: str, results_dir: Path | None = None) -> int:
     """Number of written samples (best is model 0, ranked by confidence)."""
-    d = Path(f"boltz_results_{protein_name}/structures")
+    if results_dir is None:
+        results_dir = _find_results_dir(protein_name)
+    d = results_dir / "structures"
     return 1 + sum(1 for _ in d.glob(f"{protein_name}_model_*.cif")) if d.exists() else 1
 
 
-def evaluate(protein_name: str, max_rmsd: float | None = None, min_tm: float | None = None):
+def evaluate(protein_name: str, max_rmsd: float | None = None, min_tm: float | None = None, results_dir: Path | None = None):
     """Ground-truth accuracy gate for a foldable target.
 
     tt-bio writes the best-confidence sample as ``{name}.cif`` (model 0) and the
@@ -177,10 +195,10 @@ def evaluate(protein_name: str, max_rmsd: float | None = None, min_tm: float | N
     Returns (best_conf_rmsd, best_conf_tm). Raises AssertionError if thresholds set
     and the confidence-selected model misses them.
     """
-    n = _num_models(protein_name)
+    n = _num_models(protein_name, results_dir)
     rows = []
     for m in range(n):
-        rmsd, tm = compute_rmsd(protein_name, m)
+        rmsd, tm = compute_rmsd(protein_name, m, results_dir)
         rows.append((m, rmsd, tm))
     conf_m, conf_rmsd, conf_tm = rows[0]  # model 0 == best confidence
     oracle = min(rows, key=lambda r: r[1])

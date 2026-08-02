@@ -1,0 +1,9 @@
+version: 1
+# Arm-3 specificity decoy: antibody from 9obn (real antigen: Pfs48/45 (malaria transmission-blocking antigen)) forced onto the UNRELATED antigen from 9gfr (collagen type II triple-helical peptide (THP59)). Non-cognate by construction -- these two PDB entries share no antigen class. Auto-generated for flagship-abag-trust-validation Arm 3.
+sequences:
+  - protein:
+      id: A
+      sequence: HMGPPGPPGPPGPPGPPGASGDRGPPGPVGPPGLTGPAGEPGPPGPPGPPGPPGPPGSGYIPEAPRDGQAYVRKDGEWVLLSTFL
+  - protein:
+      id: H
+      sequence: QVQLQESGGGLVQAGGSLRLSCAASGRTFSKYAMAWFRQAPGKEREFVAAISGAGGATVHAAPVKGRFTISRDNAKNMGYLQMNSLKPEDTAVYYCAQTGSTGWPAGRTYTYDYWGQGTQVTVSSHHHHHH

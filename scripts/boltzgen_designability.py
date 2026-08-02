@@ -30,9 +30,7 @@ Because the refolder is Boltz-2, whose *own* on-device folding accuracy is
 independently ground-truth-gated (``scripts/release_gate.py`` boltz2 leg:
 CA-RMSD <= 3 A / TM >= 0.75 on 7ROA), a large scRMSD here isolates cleanly:
 if the refolder is accurate (separately gated) yet a design refolds poorly,
-the fault is design quality / target hardness, not a refold device bug. This
-mirrors the Protenix accuracy investigation's "is the reference also like
-this" discipline (docs/protenix-accuracy-investigation.md).
+the fault is design quality or target hardness, not a refold device bug.
 
 Two modes:
 
@@ -190,7 +188,7 @@ def main() -> int:
                     help="Resume/keep an existing partial run instead of restarting.")
     ap.add_argument("--diffusion_trace", action="store_true",
                     help="Pass --diffusion_trace to gen run (ttnn trace replay of the "
-                    "diffusion DiT; lossless). See docs/boltzgen-trace-replay.md.")
+                    "diffusion DiT; lossless).")
     ap.add_argument("--sc-threshold", type=float, default=STRICT_A,
                     help=f"scRMSD pass bar in A (default {STRICT_A}).")
     ap.add_argument("--min-pass-rate", type=float, default=None, metavar="FRAC",

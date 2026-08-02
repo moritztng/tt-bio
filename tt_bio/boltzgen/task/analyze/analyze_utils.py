@@ -740,11 +740,6 @@ def compute_ss_metrics(dssp_pred, ss_conditioning_metricsed):
     return ss_metrics
 
 
-def filter_resolved_atoms(structure: Structure) -> Structure:
-    resolved_atom_indices = np.where(structure.atoms["is_present"])[0]
-    return Structure.extract_atoms(structure, resolved_atom_indices)
-
-
 def save_design_only_structure_to_cif(atom_design_mask, structure, output_path: Path):
     design_atom_indices = torch.where(atom_design_mask)[0].cpu().numpy()
     design_only_str = Structure.extract_atoms(

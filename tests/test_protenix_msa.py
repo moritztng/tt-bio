@@ -6,8 +6,7 @@ import math
 
 import torch
 
-from tt_bio.protenix_data import (aatype_from_sequence, build_protein_features,
-                                   protein_msa_features)
+from tt_bio.protenix_data import build_protein_features, protein_msa_features
 
 # query ACDEF; s1 has an insertion ('a') before C; s2 has a gap at col 2; s3 duplicates query
 A3M = ">q\nACDEF\n>s1\nAaCDEF\n>s2\nAC-EF\n>s3\nACDEF\n"

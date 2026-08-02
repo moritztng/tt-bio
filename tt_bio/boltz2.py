@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import gc
+import os
 from abc import ABC, abstractmethod
 from functools import partial
 from math import exp, pi, sqrt
@@ -3902,8 +3903,7 @@ class AtomDiffusion(Module):
         # host-side scalars), so the captured device graph replays every step
         # and collapses the per-step host dispatch. Lossless by construction
         # (bit-identical to the untraced path). See the shared
-        # ``DiffusionModule.forward_traced`` in tt_bio/tenstorrent.py and
-        # docs/boltz2-trace-replay.md.
+        # ``DiffusionModule.forward_traced`` in tt_bio/tenstorrent.py.
         self._diffusion_trace = bool(diffusion_trace) and use_tenstorrent
         DiffusionModule_, _, _, _ = _get_pytorch_modules()
         self.score_model = (
@@ -4090,6 +4090,19 @@ class AtomDiffusion(Module):
 
         # atom position is noise at the beginning
         init_sigma = sigmas[0]
+        # Integration-parity gate hook (opt-in, off in production). The device (ttnn trunk) and the
+        # CPU reference (torch trunk) consume the global RNG DIFFERENTLY between the one seed set in
+        # worker.py and this sampler, so a plain single-seed run does NOT give the device and the
+        # reference the same diffusion noise — the "shared draws" the envelope test needs are broken
+        # by construction (measured 2026-07-23: device vs CPU init noise diverged completely). Re-
+        # seeding immediately before the first draw makes every sampler call (structure AND affinity
+        # both route through this method) start from an identical RNG state regardless of what the
+        # trunk consumed, so device and reference draw byte-identical noise and the only remaining
+        # difference is arithmetic. Both sides of the gate set this env to the same value; unset in
+        # production, so normal folds are untouched.
+        _sds = os.environ.get("TT_BIO_SHARED_DRAW_SEED")
+        if _sds:
+            torch.manual_seed(int(_sds))
         atom_coords = init_sigma * torch.randn(shape, device=self.device)
         token_repr = None
         atom_coords_denoised = None
@@ -4131,9 +4144,11 @@ class AtomDiffusion(Module):
             with torch.no_grad():
                 atom_coords_denoised = torch.zeros_like(atom_coords_noisy)
                 sample_ids = torch.arange(multiplicity).to(atom_coords_noisy.device)
-                sample_ids_chunks = sample_ids.chunk(
-                    multiplicity % max_parallel_samples + 1
-                )
+                # Width-based chunking (ceil): upstream's N % mps + 1 count formula yields
+                # one 1000-sample chunk at N=1000/mps=5 -> ~0.9 GB L1 forward buffers -> OOM.
+                # Match protenix.edm_sample: chunk width <= max_parallel_samples.
+                _n_chunks = max(1, (multiplicity + max_parallel_samples - 1) // max_parallel_samples)
+                sample_ids_chunks = sample_ids.chunk(_n_chunks)
 
                 for sample_ids_chunk in sample_ids_chunks:
                     atom_coords_denoised_chunk = self.preconditioned_network_forward(
@@ -4735,6 +4750,13 @@ class AffinityModule(nn.Module):
         multiplicity=1,
         use_kernels=False,
     ):
+        # Host fp32 path: the trunk ships bf16 tensors off-device; cast to fp32 so
+        # the PyTorch pairformer/heads (fp32 weights) run without dtype mismatch
+        # and without bf16 accumulation bias in the affinity scalar.
+        if not self.use_tenstorrent:
+            z = z.float()
+            s_inputs = s_inputs.float()
+            x_pred = x_pred.float()
         z = self.z_linear(self.z_norm(z))
         z = z.repeat_interleave(multiplicity, 0)
 
@@ -5008,10 +5030,27 @@ class Boltz2(nn.Module):
 
         # Pairwise stack
         self.use_templates = use_templates
+        # Pass 2 (release-gated): the affinity model re-runs its own 64-block trunk
+        # in bf16 on device to produce the z that feeds the (now fp32, pass 1)
+        # affinity head. That bf16 trunk z carries a small systematic bias that the
+        # affinity scalar's mean-over-pooled-pair reduction amplifies into the
+        # residual ~0.19 log10(IC50) offset. Running the affinity model's TRUNK
+        # (MSA + 64-block pairformer) in fp32 on host closes that, while the expensive
+        # diffusion + confidence stay on device. Scoped to the affinity model only
+        # (affinity_prediction=True): the structure model has affinity_prediction=False
+        # so _trunk_use_tt == use_tenstorrent and its trunk is byte-for-byte unchanged.
+        # Gated by BOLTZ2_AFFINITY_TRUNK_FP32_HOST (default on; set =0 to A/B the old
+        # bf16 device trunk).
+        import os as _os_trunk
+        self.affinity_trunk_fp32_host = (
+            affinity_prediction
+            and _os_trunk.environ.get("BOLTZ2_AFFINITY_TRUNK_FP32_HOST", "1") != "0"
+        )
+        _trunk_use_tt = use_tenstorrent and not self.affinity_trunk_fp32_host
         if use_templates:
             if use_templates_v2:
                 self.template_module = TemplateV2Module(
-                    token_z, use_tenstorrent=use_tenstorrent, **template_args
+                    token_z, use_tenstorrent=_trunk_use_tt, **template_args
                 )
             else:
                 self.template_module = TemplateModule(token_z, **template_args)
@@ -5032,7 +5071,7 @@ class Boltz2(nn.Module):
                 tri_att_head_dim=32,
                 tri_att_n_heads=4,
             )
-            if self.use_tenstorrent
+            if _trunk_use_tt
             else MSAModule_(
                 token_z=token_z,
                 token_s=token_s,
@@ -5048,7 +5087,7 @@ class Boltz2(nn.Module):
             )
         self.pairformer_module = (
             tenstorrent.PairformerModule(64, 32, 4, 24, 16, True)
-            if use_tenstorrent
+            if _trunk_use_tt
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )
         if compile_pairformer:
@@ -5083,6 +5122,28 @@ class Boltz2(nn.Module):
         )
 
         # Output modules
+        # Pass 3 (release-gated, DEFAULT OFF): the affinity model re-runs its OWN
+        # diffusion (5 samples, 200 steps, recycling 5, separate boltz2_aff.ckpt) to
+        # produce the coords that condition the affinity head's pairwise rep. Pass 2
+        # hypothesized the residual ~0.06 log10(IC50) gap was bf16 bias in those
+        # device diffusion coords and that running the affinity diffusion in fp32 on
+        # host (conditioning is already host fp32; only the score model moves) would
+        # close it. A clean same-session A/B (3 seeds) DISCONFIRMED that: fp32 host
+        # diffusion does NOT shrink the systematic offset — it grows X 0.061->0.098
+        # and widens per-seed dev variance D 0.028->0.077 (vs ref R=0.010), so the
+        # within-noise-floor gate only flips by inflating the floor, not by matching
+        # the reference. Default OFF because it regresses the parity distance and
+        # ~doubles the affinity-target wall-clock (~116 s -> ~255 s); kept as an A/B
+        # lever (set BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST=1) for future investigation.
+        # Scoped to the affinity model only (affinity_prediction=True): the
+        # structure model has affinity_prediction=False so _diff_use_tt ==
+        # use_tenstorrent and its diffusion is byte-for-byte unchanged.
+        import os as _os_diff
+        self.affinity_diffusion_fp32_host = (
+            affinity_prediction
+            and _os_diff.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST", "0") == "1"
+        )
+        _diff_use_tt = use_tenstorrent and not self.affinity_diffusion_fp32_host
         self.structure_module = AtomDiffusion(
             score_model_args={
                 "token_s": token_s,
@@ -5092,7 +5153,7 @@ class Boltz2(nn.Module):
                 **score_model_args,
             },
             compile_score=compile_structure,
-            use_tenstorrent=use_tenstorrent,
+            use_tenstorrent=_diff_use_tt,
             diffusion_trace=diffusion_trace,
             **diffusion_process_args,
         )
@@ -5133,17 +5194,28 @@ class Boltz2(nn.Module):
                 )
 
         if self.affinity_prediction:
+            # The affinity pairformer + heads are far more precision-sensitive than
+            # the structure trunk: the reference runs the whole affinity module in
+            # fp32 (torch.autocast("cuda", enabled=False) in Boltz2.forward), and the
+            # affinity scalar is a mean over a pooled pair representation where a
+            # small bf16 bias becomes a systematic log10(IC50) shift. Running the
+            # affinity pairformer (8 + 4 blocks, small) and heads in fp32 on host
+            # removes that bias while the expensive trunk/diffusion stays on device.
+            # Gated by BOLTZ2_AFFINITY_FP32_HOST (default on) so it can be A/B'd.
+            import os as _os
+            _aff_host_fp32 = _os.environ.get("BOLTZ2_AFFINITY_FP32_HOST", "1") != "0"
+            _aff_use_tt = False if _aff_host_fp32 else use_tenstorrent
             if self.affinity_ensemble:
                 self.affinity_module1 = AffinityModule(
                     token_s,
                     token_z,
-                    use_tenstorrent=use_tenstorrent,
+                    use_tenstorrent=_aff_use_tt,
                     **affinity_model_args1,
                 )
                 self.affinity_module2 = AffinityModule(
                     token_s,
                     token_z,
-                    use_tenstorrent=use_tenstorrent,
+                    use_tenstorrent=_aff_use_tt,
                     **affinity_model_args2,
                 )
                 if compile_affinity:
@@ -5274,6 +5346,7 @@ class Boltz2(nn.Module):
             and self.use_tenstorrent
             and not self.is_msa_compiled
             and not self.is_pairformer_compiled
+            and not self.affinity_trunk_fp32_host
         )
         if use_resident_trunk:
             _trunk = self._tt_trunk_module()

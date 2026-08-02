@@ -41,15 +41,36 @@ function genSpec({ isLigand, target, ligand, ligandMode, targetId, binderId, len
 
 const specHasLigand = (s) => /(^|\n)\s*-?\s*ligand\s*:/i.test(s || "");
 
+// Per-RFD3-protocol contig help: the contig grammar is shared, but what you
+// fix vs. design differs per task.
+const RFD3_CONTIG_HELP = {
+  "rfd3-binder": {
+    placeholder: "A1-150,60-80",
+    hint: "Comma-separated segments: chain-ranges stay fixed (e.g. A1-150 keeps target chain A), a bare number designs that many new residues. This example keeps a 150-residue target and designs a 60–80 residue binder.",
+  },
+  "rfd3-scaffold": {
+    placeholder: "A1-10,20,A31-40",
+    hint: "List the motif residues to keep fixed, with bare numbers for the designed stretches between them. This example keeps residues 1–10 and 31–40 and designs 20 residues between.",
+  },
+  "rfd3-na-binder": {
+    placeholder: "A1-12,B1-12,40-60",
+    hint: "Fix the DNA/RNA chains (e.g. A1-12,B1-12 for a duplex) and add a bare number for the designed protein binder's length.",
+  },
+};
+
 export default function DesignForm({ catalog, onSubmitted, onError }) {
   const [protocol, setProtocol] = useState("protein-anything");
   const [name, setName] = useState("");
   const [params, setParams] = useState(() => defaultsFor(catalog.design_params));
+  const [rfd3Params, setRfd3Params] = useState(() => defaultsFor(catalog.rfd3_design_params || []));
   const [submitting, setSubmitting] = useState(false);
   // Simple form is the default; raw YAML is an optional advanced surface, just
   // like the Fold tab. Beginners never have to see BoltzGen YAML.
   const [specMode, setSpecMode] = useState("form"); // form (simple, default) | yaml (advanced)
   const [spec, setSpec] = useState("");
+  // RFD3 inputs: a pasted structure + a contig string (no YAML spec).
+  const [structure, setStructure] = useState("");
+  const [contig, setContig] = useState("");
 
   // builder state
   const [target, setTarget] = useState("");       // protein-target sequence
@@ -61,7 +82,10 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
 
   const protoInfo = useMemo(() => catalog.protocols.find((p) => p.id === protocol), [catalog, protocol]);
   const setParam = (k, v) => setParams((p) => ({ ...p, [k]: v }));
+  const setRfd3Param = (k, v) => setRfd3Params((p) => ({ ...p, [k]: v }));
   const isLigand = isLigandProtocol(protocol);
+  const isRfd3 = protoInfo?.engine === "rfd3";
+  const contigHelp = RFD3_CONTIG_HELP[protocol] || RFD3_CONTIG_HELP["rfd3-binder"];
 
   const onProtocol = (id) => {
     setProtocol(id);
@@ -81,6 +105,12 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
     const ex = catalog.examples.find((e) => e.id === id);
     if (!ex) return;
     if (ex.protocol) onProtocol(ex.protocol);
+    if (ex.builder?.structure) {
+      // RFD3 example: structure text + contig, resolved server-side.
+      setStructure(ex.builder.structure);
+      setContig(ex.builder.contig || "");
+      return;
+    }
     // Load examples into the simple form (not raw YAML), keeping everything
     // editable without touching the spec textarea.
     if (ex.builder) {
@@ -105,6 +135,7 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
     setTargetId("A"); setBinderId("B");
     setLengthRange(DEFAULT_LEN[protocol] || "80..120");
     setSpec(""); setSpecMode("form"); setName("");
+    setStructure(""); setContig("");
   };
 
   const designExamples = catalog.examples.filter((e) => e.kind === "design");
@@ -121,7 +152,24 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
   const designResidues = (isLigand ? 0 : (target || "").replace(/[^A-Za-z]/g, "").length) + rangeMax(lengthRange);
   const oversized = specMode === "form" && designResidues > (lim.max_residues || 1024);
 
+  const structureOversized = (structure || "").length > (lim.max_structure_chars || 700000);
+
   const submit = async () => {
+    if (isRfd3) {
+      if (!structure.trim()) return onError("Paste the target structure (PDB or mmCIF text) first.");
+      if (!contig.trim()) return onError("Enter a contig string first.");
+      setSubmitting(true);
+      try {
+        const job = await api.submit({ kind: "design", name: name.trim(), protocol,
+                                       structure, contig: contig.trim(), params: rfd3Params });
+        onSubmitted(job);
+      } catch (e) {
+        onError(e.message);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     let body;
     if (specMode === "yaml") {
       body = spec.trim();
@@ -168,6 +216,39 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
         <button className="btn sm" title="Clear the form and start blank" onClick={resetForm}>↺ Clear form</button>
       </div>
 
+      {isRfd3 ? (
+        <div className="panel">
+          <p className="section-title">Design target</p>
+          <div className="field">
+            <label>Target structure (PDB or mmCIF)</label>
+            <textarea className="code" rows={8} value={structure} spellCheck={false}
+              onChange={(e) => setStructure(e.target.value)}
+              placeholder={"Paste the target structure — PDB text with ATOM records, or mmCIF…"} />
+            <div className="hint">
+              The structure to design against.{" "}
+              <label className="link" style={{ cursor: "pointer" }}>
+                Or load a file
+                <input type="file" accept=".pdb,.cif" style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const rd = new FileReader();
+                    rd.onload = () => setStructure(String(rd.result || ""));
+                    rd.readAsText(f);
+                    e.target.value = "";
+                  }} />
+              </label>
+              {" "}— it never leaves your browser except as this job's input.
+            </div>
+          </div>
+          <div className="field">
+            <label>Contig</label>
+            <input type="text" className="code" value={contig} spellCheck={false}
+              onChange={(e) => setContig(e.target.value)} placeholder={contigHelp.placeholder} />
+            <div className="hint">{contigHelp.hint}</div>
+          </div>
+        </div>
+      ) : (
       <div className="panel">
         <div className="flex-between">
           <p className="section-title mb0">Design target</p>
@@ -216,12 +297,13 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
           </div>
         )}
       </div>
+      )}
 
       <div className="panel">
         <details className="collapse">
           <summary>Advanced settings</summary>
           <div className="mt8">
-            {specMode === "form" && (
+            {!isRfd3 && specMode === "form" && (
               <div className="row">
                 <div className="field">
                   <label>Binder chain ID</label>
@@ -233,7 +315,11 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
                 </div>
               </div>
             )}
-            <ParamControls params={catalog.design_params} values={params} onChange={setParam} />
+            {isRfd3 ? (
+              <ParamControls params={catalog.rfd3_design_params || []} values={rfd3Params} onChange={setRfd3Param} />
+            ) : (
+              <ParamControls params={catalog.design_params} values={params} onChange={setParam} />
+            )}
           </div>
         </details>
       </div>
@@ -247,10 +333,18 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
         </div>
       )}
 
-      {oversized && (
+      {oversized && !isRfd3 && (
         <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
           <strong style={{ color: "var(--warn)" }}>⚠ Too large for the free demo.</strong> Target + binder must total{" "}
           <strong>{lim.max_residues} residues</strong> or fewer (currently ~{designResidues}). This limit exists only because this is a free public demo.
+        </div>
+      )}
+
+      {isRfd3 && structureOversized && (
+        <div className="panel" style={{ borderColor: "var(--warn)", background: "rgba(201,138,0,0.06)" }}>
+          <strong style={{ color: "var(--warn)" }}>⚠ Too large for the free demo.</strong> The target structure is{" "}
+          {structure.length.toLocaleString()} characters — the limit is {(lim.max_structure_chars || 700000).toLocaleString()}{" "}
+          (about a 1,000-residue PDB). This limit exists only because this is a free public demo.
         </div>
       )}
 
@@ -258,7 +352,7 @@ export default function DesignForm({ catalog, onSubmitted, onError }) {
         <div className="field" style={{ flex: 1, marginRight: 16, marginBottom: 0 }}>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Job name (optional)" />
         </div>
-        <button className="btn primary" disabled={submitting || designMismatch || oversized} onClick={submit}>
+        <button className="btn primary" disabled={submitting || designMismatch || oversized || (isRfd3 && structureOversized)} onClick={submit}>
           {submitting ? "Submitting…" : "Run design →"}
         </button>
       </div>

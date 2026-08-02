@@ -1,0 +1,22 @@
+[
+  {
+    "confidence_score": 0.866467297077179,
+    "ptm": 0.6888278126716614,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.9108771085739136,
+    "complex_iplddt": 0.9108771085739136,
+    "complex_pde": 0.6749042868614197,
+    "complex_ipde": 0.0,
+    "chains_ptm": {
+      "0": 0.6888278126716614
+    },
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.6888278126716614
+      }
+    },
+    "id": "hsa_no_msa"
+  }
+]

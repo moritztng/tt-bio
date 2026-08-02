@@ -1,6 +1,5 @@
 from collections.abc import Mapping
-from dataclasses import dataclass
-from dataclasses import replace, astuple
+from dataclasses import dataclass, replace
 from collections import defaultdict
 from pathlib import Path
 import random
@@ -37,8 +36,6 @@ from tt_bio.boltzgen.data.data import (
     Tokenized,
 )
 from tt_bio.boltzgen.data.parse.pdb_parser import parse_pdb
-from tt_bio.boltzgen.data.tokenizer import TokenData
-from dataclasses import replace
 
 ####################################################################################################
 # CONSTRAINTS (design-spec `constraints:` block)
@@ -1083,6 +1080,9 @@ def parse_entity(item, mols, mol_dir, ligand_id, is_msa_custom, is_msa_auto):
                     f"{seq} has an atom with a name longer than 4 characters: {atom_name}"
                 )
             atom.SetProp("name", atom_name)
+        print(
+            f"  Generating 3D conformer for ligand ({mol.GetNumHeavyAtoms()} heavy atoms)..."
+        )
         success = compute_3d_conformer(mol)
 
         if not success:
@@ -1963,6 +1963,9 @@ class YamlDesignParser:
                         atom.SetProp("name", atom_name)
                     mols[f"LIG{ligand_id}"] = mol
 
+                    print(
+                        f"  Generating 3D conformer for ligand ({mol.GetNumHeavyAtoms()} heavy atoms)..."
+                    )
                     success = compute_3d_conformer(mol)
 
                     if not success:

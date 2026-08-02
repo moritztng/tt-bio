@@ -3,7 +3,7 @@
 Each test builds a Protenix/OpenFold reference module with random weights,
 remaps its weights onto the existing tt-bio module (built for Boltz-2 — same
 AF3 family), runs the tt-bio module on the TT device, and asserts PCC > 0.98.
-Idiom mirrors tests/test_esmfold2.py. See docs/porting-protenix-v2.md.
+Idiom mirrors tests/test_esmfold2.py.
 """
 
 import os

@@ -1,0 +1,14 @@
+{
+  "seed": 1,
+  "target_id": "prot",
+  "harvested_from": "/home/ttuser/opendde_parity_prod/ref_harness_seed1",
+  "selected_record": {
+    "id": "prot",
+    "status": "ok",
+    "confidence_score": 0.10706853121519089,
+    "ptm": 0.5353426337242126,
+    "iptm": 0.0,
+    "complex_plddt": 0.6417508697509766
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

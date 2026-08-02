@@ -12,7 +12,7 @@ harness-format `results.json` + `structures/<id>.cif`, plus the exact MSA where
 the model uses one) into the committed fixture tree and writes the provenance
 metadata that makes the fixture reproducible and machine-checkable:
 
-  docs/pharma-benchmark-data/ref-fixtures/<model>/<target>/<settings-tag>/
+  docs/implementation-parity-data/ref-fixtures/<model>/<target>/<settings-tag>/
       meta.json          reference impl + version + commit, exact command, settings, date
       msa.a3m            the exact MSA fed to the reference (only when the model uses one)
       seed<N>/
@@ -31,13 +31,14 @@ committed `seed<N>/` dirs and skips the reference compute entirely.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "docs" / "pharma-benchmark-data" / "ref-fixtures"
+FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "docs" / "implementation-parity-data" / "ref-fixtures"
 
 
 @dataclass
@@ -90,6 +91,9 @@ SPECS = [
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_protenix_run/ref_seed0", "prot"),
             SeedSpec(1, "/home/ttuser/pharma_protenix_run/ref_seed1", "prot"),
+            SeedSpec(2, "/home/ttuser/pharma_seedbump2/protenix/ref_seed2", "prot"),
+            SeedSpec(3, "/home/ttuser/pharma_seedbump2/protenix/ref_seed3", "prot"),
+            SeedSpec(4, "/home/ttuser/pharma_seedbump2/protenix/ref_seed4", "prot"),
         ],
         msa_source="/home/ttuser/pharma_protenix_run/ref_seed0/raw/prot/msa/0.a3m",
         msa_note=(
@@ -100,8 +104,70 @@ SPECS = [
         provenance_note=(
             "Harvested from the 2026-07-13 qb2 reference run (REF_PREDICT_DONE markers "
             "at ref_seed{0,1}). Per-seed ptm in results.json matches "
-            "docs/pharma-benchmark-data/protenix-v2.json (seed0 ptm 0.91748, "
+            "docs/implementation-parity-data/protenix-v2.json (seed0 ptm 0.91748, "
             "seed1 ptm 0.82158). Checkpoint /home/ttuser/checkpoint/protenix-v2.pt."
+        ),
+    ),
+    FixtureSpec(
+        model="protenix-v2",
+        target="ubq",
+        settings_tag="msa-server_200step_5sample_10cycle_bf16",
+        reference_impl="official ByteDance Protenix (torch, CPU)",
+        reference_version="protenix 2.0.0 (model protenix-v2, 464M params)",
+        reference_commit="bytedance/Protenix c3bfc365b3e1341a11935eddfe7bfdc308092147",
+        command=(
+            "refenv312/bin/python protenix_ref_predict_ubq.py <seed> <out_dir>  "
+            "(calls runner.batch_inference.inference_jsons: use_msa=True(server), "
+            "seeds=[<seed>], n_cycle=10, n_step=200, n_sample=5, dtype=bf16, "
+            "model_name=protenix-v2, trimul_kernel=torch, triatt_kernel=torch, "
+            "use_template=False; CUDA FusedLayerNorm stubbed by torch LayerNorm, "
+            "triangle kernels forced to torch so it runs CPU-only; "
+            "json prot_ubq.json names the target ubq, sequence = human ubiquitin PDB 1UBQ 76 res)"
+        ),
+        settings={
+            "use_msa": True, "msa_source": "https://protenix-server.com/api/msa",
+            "recycling_cycles": 10, "diffusion_steps": 200, "diffusion_samples": 5,
+            "selection": "confidence-selected best-of-5 by ranking_score",
+            "dtype": "bf16", "trimul_kernel": "torch", "triatt_kernel": "torch",
+            "target": "examples/ubq.yaml (PDB 1UBQ, human ubiquitin, 76 res, 602 atoms)",
+            "rationale": ("second Protenix-v2 structure target: different length/fold than the "
+                           "7ROA leg (L76 vs L117, ubiquitin alpha-beta grasp vs EntV136), "
+                           "customer-relevant (ubiquitin-proteasome oncology pathway), and the "
+                           "same target as the Boltz-2 ubiquitin leg for cross-model comparability. "
+                           "Same production settings as the 7ROA protenix leg (MSA server, "
+                           "n_cycle=10, n_step=200, n_sample=5, bf16) so the two protenix legs "
+                           "differ only in target, not methodology."),
+        },
+        seeds=[
+            SeedSpec(0, "/home/ttuser/pharma_protenix_run/ref_ubq_seed0", "ubq"),
+            SeedSpec(1, "/home/ttuser/pharma_protenix_run/ref_ubq_seed1", "ubq"),
+            SeedSpec(2, "/home/ttuser/pharma_protenix_ubq5_run/ref_seed2/boltz_results_ubq", "ubq"),
+            SeedSpec(3, "/home/ttuser/pharma_protenix_ubq5_run/ref_seed3/boltz_results_ubq", "ubq"),
+            SeedSpec(4, "/home/ttuser/pharma_protenix_ubq5_run/ref_seed4/boltz_results_ubq", "ubq"),
+        ],
+        msa_source="/home/ttuser/pharma_protenix_run/ref_ubq_seed0/raw/ubq/msa/0.a3m",
+        msa_note=(
+            "Protenix-server.com MSA, identical across all 5 reference seeds "
+            "(diff of ref_ubq_seed{0,1}/raw/ubq/msa/0.a3m is empty; seeds 2-4 reuse the same "
+            "committed msa.a3m). 20826 a3m entries; ubiquitin is deeply aligned in sequence "
+            "databases. The device folds the SAME MSA (staged into dev_ubq_msa/<seq_hash>.a3m, "
+            "seq_hash=233b4b0b8c461609) so X measures pure port fidelity with input MSA held "
+            "identical."
+        ),
+        provenance_note=(
+            "Seeds 0-1 harvested from a FRESH 2026-07-18 qb2 reference run (REF_PREDICT_DONE "
+            "markers at ref_ubq_seed{0,1}, mtime 2026-07-18 20:45/20:49 UTC). Seeds 2-4 harvested "
+            "from a FRESH 2026-07-19 qb1 reference run (pharma_protenix_ubq5_run/ref_seed{2,3,4}, "
+            "protenix_ref_predict.py in protenix_ref_venv, same pinned protenix 2.0.0 / commit "
+            "c3bfc365b3e1341a11935eddfe7bfdc308092147 and same n_cycle=10 / n_step=200 / n_sample=5 "
+            "/ bf16 settings as seeds 0-1). Per-seed model-forward time 132.08s (seed0, cold) / "
+            "162.50s (seed1) from ref_ubq_seed{0,1}.log -- NOT the ~3.5h/seed a stale memory note "
+            "claimed (that note misread the 7ROA logs; the real on-disk cost is ~2.5 min/seed for "
+            "ubiquitin, ~10-23 min/seed for 7ROA). Per-seed ptm 0.93154 / 0.93144 (seeds 0,1, both "
+            "confidence-selected sample 0). 5 reference + 5 device seeds: X = 2.09 +- 0.40 A Kabsch "
+            "CA-RMSD (n=25), within floor max(R, D) (R over 10 ref-seed pairs, D over 10 dev-seed "
+            "pairs) -> PASS, recorded in docs/implementation-parity-data/protenix-v2-ubiquitin.json. "
+            "Checkpoint /home/ttuser/protenix_ckpt/protenix-v2.pt."
         ),
     ),
     FixtureSpec(
@@ -132,7 +198,7 @@ SPECS = [
             "Harvested from the 2026-07-13 qb2 production reference run (REF_PROD_DONE at "
             "opendde_parity_prod). Per-seed model-forward time from ref_prod.log: "
             "seed0 1376.14s (cold), seed1 235.58s, seed2 236.11s. Matches "
-            "docs/pharma-benchmark-data/opendde-prod-leg.json (X=5.68 A within floor 8.06 A)."
+            "docs/implementation-parity-data/opendde-prod-leg.json (X=5.68 A within floor 8.06 A)."
         ),
     ),
     FixtureSpec(
@@ -161,7 +227,7 @@ SPECS = [
         provenance_note=(
             "Harvested from the 2026-07-12 qb2 reduced-settings reference run "
             "(pharma_opendde_run/ref2_driver.sh, 4c/20s/sample=1). Matches the reduced prot "
-            "leg in docs/pharma-benchmark-data/opendde.json (X=7.65 A, 2.85x over floor -- "
+            "leg in docs/implementation-parity-data/opendde.json (X=7.65 A, 2.85x over floor -- "
             "the tight-device-floor artifact resolved by the production leg above)."
         ),
     ),
@@ -182,12 +248,15 @@ SPECS = [
         settings={
             "use_msa": True, "msa_source": "colabfold server (api.colabfold.com), 93 sequences",
             "recycling_steps": 3, "diffusion_steps": 200, "diffusion_samples": 1,
-            "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "seeds": [0, 1, 2, 3, 4], "dtype": "bf16 (pytorch-lightning AMP)",
             "target": "examples/prot.yaml (PDB 7ROA, 117 res)",
         },
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_boltz2_msa_run/ref_harness_s0", "prot"),
             SeedSpec(1, "/home/ttuser/pharma_boltz2_msa_run/ref_harness_s1", "prot"),
+            SeedSpec(2, "/home/ttuser/pharma_seedbump2/boltz2_prot_msa/ref_harness_s2", "prot"),
+            SeedSpec(3, "/home/ttuser/pharma_seedbump2/boltz2_prot_msa/ref_harness_s3", "prot"),
+            SeedSpec(4, "/home/ttuser/pharma_seedbump2/boltz2_prot_msa/ref_harness_s4", "prot"),
         ],
         msa_source="/home/ttuser/pharma_boltz2_msa_run/prot_msa_clean.a3m",
         msa_note=(
@@ -198,7 +267,7 @@ SPECS = [
         provenance_note=(
             "Harvested from the 2026-07-13 qb2 reference run (pharma_boltz2_msa_run/ref_harness_s{0,1}, "
             "mtime 2026-07-13 05:31). Per-seed confidence in results.json matches "
-            "docs/pharma-benchmark-data/boltz2.json prot_msa leg (ref confidence_score 0.8916)."
+            "docs/implementation-parity-data/boltz2.json prot_msa leg (ref confidence_score 0.8916)."
         ),
     ),
     FixtureSpec(
@@ -237,7 +306,7 @@ SPECS = [
             "rather than copied from a prior raw output. Per-seed model-forward ~5s (warm); "
             "ranking_score 0.0911 on all three seeds. The fresh reference-vs-reference floor "
             "R=0.31 A (mean of 3 seed pairs: 0.41/0.38/0.15) reproduces the published R=0.31 "
-            "in docs/pharma-benchmark.md within noise."
+            "in docs/implementation-parity.md within noise."
         ),
     ),
     FixtureSpec(
@@ -258,20 +327,23 @@ SPECS = [
         ),
         settings={
             "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
-            "diffusion_samples": 1, "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "diffusion_samples": 1, "seeds": [0, 1, 2, 3, 4], "dtype": "bf16 (pytorch-lightning AMP)",
             "target": "trp-cage (examples/trpcage_no_msa.yaml, PDB 1L2Y, 20 res, msa: empty)",
         },
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_trpcage_s0", "trpcage_no_msa"),
             SeedSpec(1, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_trpcage_s1", "trpcage_no_msa"),
+            SeedSpec(2, "/home/ttuser/pharma_seedbump2/boltz2_trpcage/ref_harness_s2", "trpcage_no_msa"),
+            SeedSpec(3, "/home/ttuser/pharma_seedbump2/boltz2_trpcage/ref_harness_s3", "trpcage_no_msa"),
+            SeedSpec(4, "/home/ttuser/pharma_seedbump2/boltz2_trpcage/ref_harness_s4", "trpcage_no_msa"),
         ],
         provenance_note=(
             "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/"
             "boltz_trpcage_s{0,1}, mtime 2026-07-13 15:55), generated for this fixture. "
             "Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and "
             "identical confidence). The fresh reference-vs-reference floor R=0.81 A (1 seed pair) "
-            "reproduces the published R=0.79 in docs/pharma-benchmark.md within noise. "
-            "Per-seed confidence_score 0.854/0.847, ptm 0.85/0.85."
+            "reproduces the published R=0.79 in docs/implementation-parity.md within noise. "
+            "Per-seed confidence_score 0.854/0.847, ptm 0.445/0.420 (the 0.85 in the prior note was the confidence_score, not ptm). Seeds 2,3,4 were generated 2026-07-21 on qb2 CPU (pinned boltz 2.2.1, same 3 recycle / 200 sampling steps / 1 sample settings, msa: empty) for the 2+2 -> 5+5 pharma-meeting hardening pass; the 5+5 read is X 0.66 +- 0.22 A vs floor max(R 0.60, D 0.57) = 0.60 A (X/floor 1.10, within the floor+std band on CA-RMSD; 1-lDDT exceeds at 1.93), reproducing the 2+2 X 0.60 within noise."
         ),
     ),
     FixtureSpec(
@@ -290,26 +362,144 @@ SPECS = [
         ),
         settings={
             "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
-            "diffusion_samples": 1, "seeds": [0, 1], "dtype": "bf16 (pytorch-lightning AMP)",
+            "diffusion_samples": 1, "seeds": [0, 1, 2, 3, 4], "dtype": "bf16 (pytorch-lightning AMP)",
             "target": "prot/7ROA (examples/prot_no_msa.yaml, 117 res, 899 atoms, msa: empty)",
         },
         seeds=[
             SeedSpec(0, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_prot_no_msa_s0", "prot_no_msa"),
             SeedSpec(1, "/home/ttuser/pharma_ref_fixture_run/boltz_harness_prot_no_msa_s1", "prot_no_msa"),
+            SeedSpec(2, "/home/ttuser/pharma_seedbump_prot_nomsa/ref_harness_s2", "prot_no_msa"),
+            SeedSpec(3, "/home/ttuser/pharma_seedbump_prot_nomsa/ref_harness_s3", "prot_no_msa"),
+            SeedSpec(4, "/home/ttuser/pharma_seedbump_prot_nomsa/ref_harness_s4", "prot_no_msa"),
         ],
         provenance_note=(
-            "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/"
-            "boltz_prot_no_msa_s{0,1}, mtime 2026-07-13 15:46/15:53), generated for this fixture. "
-            "Boltz-2 CPU is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and "
-            "identical confidence). DISCREPANCY: the fresh reference-vs-reference floor R=6.94 A "
-            "(1 seed pair, deterministic) does NOT reproduce the previously-published R=3.37 in "
-            "docs/pharma-benchmark.md. The prior 3.37's source run is not on disk and is not "
-            "reproducible from the documented 3 recycling / 200 sampling-step / 1 sample settings "
-            "on the pinned boltz 2.2.1 (the only on-disk prot no-MSA reference runs used 2 recycle "
-            "/ 20 steps and give R=2.60). The trp-cage no-MSA leg at the same 3/200/1 settings DOES "
-            "reproduce (R=0.81 vs 0.79), so the settings interpretation is correct; the prot 3.37 "
-            "is the anomaly. The device-vs-reference cross X against this fresh fixture is NOT "
-            "re-measured here (device side not re-run) and is flagged for re-verification."
+            "Seeds 0-1 harvested from a FRESH 2026-07-13 qb2 reference run "
+            "(pharma_ref_fixture_run/boltz_prot_no_msa_s{0,1}, mtime 2026-07-13 15:46/15:53). "
+            "Seeds 2-4 harvested from a FRESH 2026-07-21 qb2 reference run "
+            "(pharma_seedbump_prot_nomsa/ref_harness_s{2,3,4}), same pinned boltz 2.2.1 and same "
+            "3 recycle / 200 sampling-step / 1 sample / no-MSA settings as seeds 0-1. Boltz-2 CPU "
+            "is bit-exact deterministic (a repeat seed-0 run gave RMSD=0.000 and identical "
+            "confidence). DISCREPANCY (historical, retained for honesty): the 2-seed "
+            "reference-vs-reference floor R=6.94 A (1 seed pair, deterministic) did NOT reproduce "
+            "the previously-published R=3.37; the 3.37's source run was not on disk and was not "
+            "reproducible from the documented settings on the pinned boltz 2.2.1 (the only "
+            "on-disk prot no-MSA reference runs at the time used 2 recycle / 20 steps and gave "
+            "R=2.60). The trp-cage no-MSA leg at the same 3/200/1 settings DOES reproduce "
+            "(R=0.81 vs 0.79), so the settings interpretation is correct; the prot 3.37 was the "
+            "anomaly and was withdrawn. 5+5 hardening (2026-07-21): with 5 reference + 5 device "
+            "seeds R and D are each 10 pairwise distances (a real distribution) rather than 1; "
+            "CA-RMSD X=4.21+-1.59 A vs floor max(R 4.98, D 3.34)=4.98 A (X/floor 0.84, within floor "
+            "on RMSD, 1-PCC, 1-TM and 1-lDDT). The 5+5 read reproduces the 2+2 verdict within noise "
+            "(X 4.21 vs 4.83 A; the floor shifts inward R 6.94->4.98 as the single-pair extreme "
+            "regresses to the 10-pair mean, D 2.93->3.34, X stays inside it). Per-seed reference "
+            "confidence_score 0.525/0.603/0.625/0.620/0.586, ptm "
+            "0.439/0.540/0.585/0.583/0.512; device confidence_score "
+            "0.686/0.686/0.684/0.608/0.642, ptm 0.664/0.664/0.692/0.548/0.628."
+        ),
+    ),
+    FixtureSpec(
+        model="boltz2",
+        target="hsa",
+        settings_tag="nomsa_200step_1sample_3recycle_bf16",
+        reference_impl="official Boltz-2 (torch + pytorch-lightning, GPU via vast.ai RTX3090)",
+        reference_version="boltz 2.2.1",
+        reference_commit="boltz 2.2.1 (pip-installed in /root/boltz_venv on vast.ai; upstream jwohlwend/boltz)",
+        command=(
+            "boltz predict examples/hsa_no_msa.yaml --out_dir <out> --seed <N> "
+            "--recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 "
+            "--accelerator gpu --no_kernels --override  "
+            "&& python scripts/boltz2_ref_layout.py <out>/boltz_results_hsa_no_msa <harness_dir>  "
+            "(hsa_no_msa.yaml sets msa: empty so boltz runs single-sequence; --no_kernels forces the "
+            "torch einsum triangle path, matching the qb1 CPU reference kernel; GPU execution only)"
+        ),
+        settings={
+            "use_msa": False, "recycling_steps": 3, "sampling_steps": 200,
+            "diffusion_samples": 1, "seeds": [0, 1, 2, 3, 4], "dtype": "bf16 (pytorch-lightning AMP)",
+            "target": "hsa (examples/hsa_no_msa.yaml, PDB 1AO6, 585 res, 3-domain, msa: empty)",
+            "rationale": "large pharma-realistic target (L585, multi-domain human serum albumin, "
+                         "classic drug-binding carrier) extending Boltz-2 past L117 to the L300-800 "
+                         "regime; same no-MSA single-sequence methodology as the trpcage/"
+                         "prot legs so the no-MSA length ladder reads L20/L117/L585 are directly "
+                         "comparable. Reference generated on vast.ai GPU (CPU infeasible at L585) "
+                         "with --no_kernels (torch einsum, identical kernel to the qb1 CPU ref).",
+        },
+        seeds=[
+            SeedSpec(0, "/home/ttuser/hsa_ref_boltz/ref_boltz_harness_s0", "hsa_no_msa"),
+            SeedSpec(1, "/home/ttuser/hsa_ref_boltz/ref_boltz_harness_s1", "hsa_no_msa"),
+            SeedSpec(2, "/home/ttuser/hsa_ref_boltz/ref_boltz_harness_s2", "hsa_no_msa"),
+            SeedSpec(3, "/home/ttuser/hsa_ref_boltz/ref_boltz_harness_s3", "hsa_no_msa"),
+            SeedSpec(4, "/home/ttuser/hsa_ref_boltz/ref_boltz_harness_s4", "hsa_no_msa"),
+        ],
+        provenance_note=(
+            "Harvested from a 2026-07-19 vast.ai RTX3090 reference run (ref_boltz_seed{0-4}, "
+            "BOLTZ_SEED{0-4}_DONE 18:58-19:06 UTC). Pinned boltz 2.2.1, torch 2.5.1+cu124, "
+            "--accelerator gpu --no_kernels (torch einsum triangle path, the SAME kernel as the "
+            "qb1 CPU reference for the other boltz2 legs -- only the execution device differs). "
+            "Per-seed wall ~1.8 min on RTX3090 (vs multi-hour on CPU, which is why vast.ai GPU was "
+            "used). Boltz-2 is deterministic per seed; GPU-vs-CPU of the same torch-einsum path "
+            "differs only by floating-point non-determinism, within the R/D/X tolerance."
+        ),
+    ),
+    FixtureSpec(
+        model="protenix-v2",
+        target="hsa",
+        settings_tag="msa-server_200step_5sample_10cycle_bf16",
+        reference_impl="official ByteDance Protenix (torch, GPU via vast.ai RTX3090)",
+        reference_version="protenix 2.0.0 (model protenix-v2, 464M params)",
+        reference_commit="bytedance/Protenix c3bfc365b3e1341a11935eddfe7bfdc308092147",
+        command=(
+            "protenix_venv/bin/python protenix_ref_predict_hsa.py <seed> <out_dir>  "
+            "(calls runner.batch_inference.inference_jsons: use_msa=True(server), "
+            "seeds=[<seed>], n_cycle=10, n_step=200, n_sample=5, dtype=bf16, "
+            "model_name=protenix-v2, trimul_kernel=torch, triatt_kernel=torch, "
+            "use_template=False; CUDA FusedLayerNorm stubbed by torch LayerNorm, "
+            "triangle kernels forced to torch (the SAME torch kernels as the qb2 CPU "
+            "reference for the other protenix legs -- only the execution device differs "
+            "GPU vs CPU); json prot_hsa.json names the target hsa, sequence = human serum "
+            "albumin PDB 1AO6 585 res)"
+        ),
+        settings={
+            "use_msa": True, "msa_source": "https://protenix-server.com/api/msa",
+            "recycling_cycles": 10, "diffusion_steps": 200, "diffusion_samples": 5,
+            "selection": "confidence-selected best-of-5 by ranking_score",
+            "dtype": "bf16", "trimul_kernel": "torch", "triatt_kernel": "torch",
+            "target": "examples/hsa.yaml (PDB 1AO6, human serum albumin, 585 res, 3-domain)",
+            "rationale": ("large pharma-realistic Protenix-v2 target (L585, multi-domain human "
+                           "serum albumin, classic drug-binding carrier) extending Protenix-v2 "
+                           "past L117 to the L300-800 regime, and the SAME target as the Boltz-2 "
+                           "HSA leg for cross-model comparability. Same production settings as the "
+                           "7ROA/ubiquitin protenix legs (MSA server, n_cycle=10, n_step=200, "
+                           "n_sample=5, bf16) so the protenix legs differ only in target, not "
+                           "methodology. Reference generated on vast.ai GPU (CPU infeasible at "
+                           "L585) with the same pinned protenix 2.0.0 / commit and same torch "
+                           "triangle kernels as the qb2 CPU reference."),
+        },
+        seeds=[
+            SeedSpec(0, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed0", "hsa"),
+            SeedSpec(1, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed1", "hsa"),
+            SeedSpec(2, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed2", "hsa"),
+            SeedSpec(3, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed3", "hsa"),
+            SeedSpec(4, "/home/ttuser/hsa_ref_protenix/ref_protenix_seed4", "hsa"),
+        ],
+        msa_source="/home/ttuser/hsa_ref_protenix/hsa_ref_msa.a3m",
+        msa_note=(
+            "Protenix-server.com MSA, identical across all 5 reference seeds (the ref script "
+            "copies ref_protenix_seed0/raw/.../0.a3m to hsa_ref_msa.a3m). The device folds the "
+            "SAME MSA (staged into the dev run) so X measures pure port fidelity with input MSA "
+            "held identical."
+        ),
+        provenance_note=(
+            "Harvested from a 2026-07-19 vast.ai RTX3090 reference run (ref_protenix_seed{0-4}). "
+            "Pinned protenix 2.0.0 / commit c3bfc365b3e1341a11935eddfe7bfdc308092147, torch "
+            "2.6.0+cu124, n_cycle=10 / n_step=200 / n_sample=5 / bf16, use_msa=True (protenix-"
+            "server.com), trimul_kernel=torch, triatt_kernel=torch, FusedLayerNorm stubbed by "
+            "torch LayerNorm -- the SAME torch kernels as the qb2 CPU reference for the other "
+            "protenix legs; only the execution device differs (GPU vs CPU), so the fixture stays "
+            "valid under the existing invalidation rule (same commit, same settings, same "
+            "kernel). The data cache (components.cif + rdkit_mol.pkl) and the protenix-v2 "
+            "checkpoint were copied from qb2 (the same cache+checkpoint the ubiquitin/7ROA protenix "
+            "legs used, Jul 13 vintage) so the CCD+checkpoint version matches the existing protenix "
+            "legs exactly. CPU was infeasible at L585 (multi-hour/seed), hence vast.ai GPU."
         ),
     ),
 ]
@@ -326,7 +516,7 @@ def _selected_record(results: list, target_id: str) -> dict:
     return results[0] if results else {}
 
 
-def harvest(spec: FixtureSpec) -> None:
+def harvest(spec: FixtureSpec, skip_missing: bool = False) -> None:
     base = FIXTURE_ROOT / spec.model / spec.target / spec.settings_tag
     base.mkdir(parents=True, exist_ok=True)
 
@@ -335,6 +525,12 @@ def harvest(spec: FixtureSpec) -> None:
         cif = src / "structures" / f"{ss.target_id}.cif"
         res = src / "results.json"
         if not cif.exists() or not res.exists():
+            if skip_missing and (base / f"seed{ss.seed}").exists():
+                # already committed on a previous harvest (source dir may live on another
+                # build host); keep the committed seed dir as-is and continue.
+                print(f"skip (already committed, src not on this host): "
+                      f"{spec.model}/{spec.target}/{spec.settings_tag}/seed{ss.seed} <- {src}")
+                continue
             raise FileNotFoundError(
                 f"reference fixture source missing for {spec.model}/{spec.target}/"
                 f"{spec.settings_tag}/seed{ss.seed}: expected {cif} and {res}")
@@ -384,8 +580,24 @@ def harvest(spec: FixtureSpec) -> None:
 
 
 def main() -> int:
-    for spec in SPECS:
-        harvest(spec)
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--only", nargs="*", default=[],
+                    help="only harvest these fixtures, given as <model>/<target> (e.g. "
+                         "boltz2/ubiquitin protenix-v2/ubq). Default: harvest every spec. Useful "
+                         "when only the freshly re-run legs' source dirs exist on this host "
+                         "(other specs' source dirs may live on a different build host).")
+    ap.add_argument("--skip-missing", action="store_true",
+                    help="skip seeds whose source dir is not on this host when the seed is "
+                         "already committed (use when re-harvesting a fixture whose earlier "
+                         "seeds were produced on a different build host).")
+    args = ap.parse_args()
+    want = {(o.split("/")[0], o.split("/")[1]) for o in args.only if "/" in o}
+    specs = [s for s in SPECS if not want or (s.model, s.target) in want]
+    if want and not specs:
+        raise SystemExit(f"--only matched no specs; known: {sorted({(s.model, s.target) for s in SPECS})}")
+    for spec in specs:
+        harvest(spec, skip_missing=args.skip_missing)
     print(f"\nfixture root: {FIXTURE_ROOT}")
     return 0
 

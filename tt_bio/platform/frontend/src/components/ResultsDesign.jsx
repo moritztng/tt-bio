@@ -6,9 +6,14 @@ import StructureViewer from "./StructureViewerLazy.jsx";
 export default function ResultsDesign({ jobId, results }) {
   const designs = results.designs || [];
   const [selRank, setSelRank] = useState(designs[0]?.final_rank);
+  const [selId, setSelId] = useState(designs[0]?.id);
   const [copied, setCopied] = useState(null);
 
-  const sel = designs.find((d) => d.final_rank === selRank) || designs[0];
+  const isRfd3 = results.engine === "rfd3";
+
+  const sel = isRfd3
+    ? designs.find((d) => d.id === selId) || designs[0]
+    : designs.find((d) => d.final_rank === selRank) || designs[0];
 
   const copy = (seq, rank) => {
     navigator.clipboard?.writeText(seq);
@@ -17,6 +22,46 @@ export default function ResultsDesign({ jobId, results }) {
   };
 
   if (!designs.length) return <div className="empty">No ranked designs were produced.</div>;
+
+  // RFdiffusion3 output: unranked all-atom designs, one CIF each — no refold /
+  // filter metrics. A simple list + viewer instead of the ranked table.
+  if (isRfd3) {
+    return (
+      <div>
+        <p className="hint" style={{ marginTop: 0 }}>
+          {designs.length} designs from RFdiffusion3 all-atom diffusion. They are unranked — refold the ones you
+          like with a Fold job to check them.
+        </p>
+        <table className="data">
+          <thead>
+            <tr><th>Design</th><th>Structure</th></tr>
+          </thead>
+          <tbody>
+            {designs.map((d, i) => (
+              <tr key={d.id} className={`clickable ${d.id === sel?.id ? "sel" : ""}`} onClick={() => setSelId(d.id)}>
+                <td><strong>#{i + 1}</strong></td>
+                <td className="seqcell">{d.structure || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {sel && (
+          <div className="mt16">
+            <p className="section-title">{sel.id}</p>
+            {sel.structure ? (
+              <StructureViewer
+                url={api.structureUrl(jobId, sel.structure)}
+                format="cif"
+                downloadName={`${sel.id}.cif`}
+              />
+            ) : (
+              <div className="empty">No structure file for this design.</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>

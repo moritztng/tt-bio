@@ -4,7 +4,7 @@
 # == crystal label_seq, so resolved residues map 1:1). Paired with
 # protenix_ref_msa_rmsd.py (same construct WITH the MSA) it isolates the no-MSA
 # regime as the root cause of the ~5-10A no-MSA results.
-import sys, types, numbers, os, pickle, json
+import sys, types, numbers, os, json
 os.environ.setdefault('PROTENIX_ROOT_DIR', '/home/ttuser')
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # tt-bio repo root
 sys.path.insert(0, os.environ.get('PROTENIX_SRC', '/tmp/protenix-src'))

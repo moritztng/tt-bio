@@ -1,0 +1,1 @@
+{"input": "M0255_7vh8.pdb", "ligand": "4WI", "unindex": "A41,A145", "length": "190", "select_fixed_atoms": {"A41": "CG,ND1,CD2,CE1,NE2", "A145": "CB,SG", "4WI": "ALL"}, "allow_ligand_on_existing_chain": true}

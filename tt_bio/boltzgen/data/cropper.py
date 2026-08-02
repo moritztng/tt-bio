@@ -5,7 +5,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 
 from tt_bio.data import const
-from tt_bio.boltzgen.data.data import Input, Token, TokenBond, Tokenized
+from tt_bio.boltzgen.data.data import TokenBond, Tokenized
 
 
 def pick_random_token(

@@ -34,7 +34,6 @@ from configs.configs_model_type import model_configs
 from protenix.config.config import parse_configs
 from protenix.model.protenix import Protenix
 from protenix.data.inference.infer_dataloader import get_inference_dataloader
-from protenix.utils.torch_utils import to_device
 
 # --- compose v2 config, offline (no MSA / template / esm), tiny diffusion ---
 base = {**configs_base, **{"data": data_configs}, **inference_configs}

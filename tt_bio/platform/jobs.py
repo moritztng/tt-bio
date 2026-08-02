@@ -134,6 +134,20 @@ class Job:
         return None  # indeterminate
 
 
+def _writable_dir(path: str) -> bool:
+    """Probe a cache dir once at startup. The shared MSA cache lives next to the
+    DB on /data — an NFS mount that is the empty, root-owned rootfs dir when the
+    mount is down. An unwritable --msa_dir turns every MSA job into a
+    PermissionError crash, so in that state fall back to per-job caching; the
+    next serve restart re-probes and re-enables the shared cache automatically."""
+    try:
+        p = Path(path)
+        p.mkdir(parents=True, exist_ok=True)
+        return os.access(p, os.W_OK | os.X_OK)
+    except OSError:
+        return False
+
+
 class JobManager:
     def __init__(self, workspace: str | Path, *, cluster=None, max_concurrent: int = 32,
                  msa_db_path: str | None = "/data/colabfold_db", msa_mode: str = "auto"):
@@ -148,6 +162,10 @@ class JobManager:
         # safe via the per-seq_hash lock + atomic write in the engine.
         self.msa_cache_dir = (str(Path(self.msa_db_path).parent / "msa_cache")
                               if self.msa_db_path else None)
+        if self.msa_cache_dir and not _writable_dir(self.msa_cache_dir):
+            print(f"[jobs] shared MSA cache {self.msa_cache_dir} is not writable — "
+                  "MSA jobs use per-job caching until it is back", file=sys.stderr)
+            self.msa_cache_dir = None
         self.workspace = Path(workspace).expanduser().resolve()
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.jobs: dict[str, Job] = {}
@@ -426,7 +444,7 @@ class JobManager:
             raise ValueError(f"unknown model '{model}' — choose one of {sorted(limits.EMBED_MODEL_IDS)}.")
         # Clamp every numeric knob into its allowed range — the client is never
         # trusted (the UI mirrors this, but this is the authority).
-        params = limits.clamp_params(params, kind)
+        params = limits.clamp_params(params, kind, protocol=protocol)
         # A model that requires an MSA (Boltz-2) can't fold single-sequence: force
         # MSA on rather than letting the run fail with 'Missing MSAs'.
         if kind == "predict" and limits.model_needs_msa(model) and not params.get("use_msa_server"):
@@ -479,14 +497,32 @@ class JobManager:
                 (inputs / f"{stem}.{ext}").write_text(t["content"])
             job.total = len(targets)
         elif kind == "design":
-            spec = payload.get("spec")
-            if not isinstance(spec, str) or not spec.strip():
-                raise ValueError("design job needs a spec string")
-            limits.check_design(spec)
             inputs = self._inputs_dir(job_id)
-            inputs.mkdir(parents=True, exist_ok=True)
-            self._out_dir(job_id).mkdir(parents=True, exist_ok=True)
-            (inputs / "design.yaml").write_text(spec)
+            if limits.protocol_engine(job.protocol) == "rfd3":
+                # RFD3: the submission is a pasted target structure + a contig
+                # string. Write the structure verbatim and generate the spec
+                # JSON referencing it — the fleet client reads the structure
+                # back and ships it inline to workers.
+                structure = payload.get("structure")
+                contig = payload.get("contig")
+                if not isinstance(structure, str) or not isinstance(contig, str):
+                    raise ValueError("rfd3 design job needs 'structure' and 'contig' strings")
+                limits.check_rfd3_design(structure, contig)
+                inputs.mkdir(parents=True, exist_ok=True)
+                self._out_dir(job_id).mkdir(parents=True, exist_ok=True)
+                struct_path = inputs / "target.pdb"
+                struct_path.write_text(structure)
+                spec = {"design": {"input": str(struct_path), "contig": contig.strip()}}
+                (inputs / "design.json").write_text(json.dumps(spec, indent=2))
+                job.total = 1
+            else:
+                spec = payload.get("spec")
+                if not isinstance(spec, str) or not spec.strip():
+                    raise ValueError("design job needs a spec string")
+                limits.check_design(spec)
+                inputs.mkdir(parents=True, exist_ok=True)
+                self._out_dir(job_id).mkdir(parents=True, exist_ok=True)
+                (inputs / "design.yaml").write_text(spec)
         else:  # embed
             records = _parse_embed_input(payload)
             limits.check_sequences(records, model=model)
@@ -528,8 +564,12 @@ class JobManager:
         p = job.params
         out = self._out_dir(job.id)
         if job.kind == "embed":
-            cmd = [*TTBIO, "embed", str(self._inputs_dir(job.id) / "sequences.yaml"),
-                   "--out_dir", str(out), "--model", job.model or "esmc-600m",
+            model = job.model or "esmc-600m"
+            # ESMC and SaProt are separate CLI commands with identical
+            # embed-relevant options; both take --controller for fleet dispatch.
+            sub = "saprot" if model.startswith("saprot-") else "embed"
+            cmd = [*TTBIO, sub, str(self._inputs_dir(job.id) / "sequences.yaml"),
+                   "--out_dir", str(out), "--model", model,
                    "--pool", p.get("pool", "mean"), "--format", p.get("format", "npz")]
             if controller_url:
                 cmd += ["--controller", controller_url]
@@ -567,7 +607,23 @@ class JobManager:
                 if v is not None:
                     cmd += [f"--{key}", str(v)]
             return cmd
-        # design
+        # design — two engines share the surface: BoltzGen (`gen run`, a YAML
+        # spec) and RFdiffusion3 (`design`, a JSON spec + --from_pdb).
+        if limits.protocol_engine(job.protocol) == "rfd3":
+            cmd = [*TTBIO, "design", str(self._inputs_dir(job.id) / "design.json"),
+                   "--from_pdb", "--out_dir", str(out),
+                   "--num_timesteps", str(self._int(p, "num_timesteps") or 100)]
+            # The fleet client shards one spec per worker and ships the
+            # structure inline, so workers need no shared filesystem.
+            if controller_url:
+                cmd += ["--controller", controller_url, "--run-id", job.id]
+                if job.owner:
+                    cmd += ["--owner", _owner_key(job.owner)]
+            for key in ("num_designs", "seed"):
+                v = self._int(p, key)
+                if v is not None:
+                    cmd += [f"--{key}", str(v)]
+            return cmd
         cmd = [*TTBIO, "gen", "run", "design.yaml", "--output", str(out),
                "--protocol", job.protocol or "protein-anything", "--debug", "--log"]
         # With a shared cluster up, design fans across the fleet exactly like
@@ -751,7 +807,11 @@ class JobManager:
     # -- progress / results parsing ---------------------------------------
     def _results_dir(self, job: Job) -> Path | None:
         if job.kind == "predict":
-            hits = sorted(self._out_dir(job.id).glob("boltz_results_*"))
+            # Derive the folder name from the engine's single source of truth —
+            # <model>_results_<stem> per model, not a hardcoded boltz_ prefix.
+            from tt_bio.main import predict_results_dir_name
+            hits = sorted(self._out_dir(job.id).glob(
+                predict_results_dir_name(job.model or "boltz2", "*")))
             return hits[0] if hits else None
         return self._out_dir(job.id)
 
@@ -975,6 +1035,9 @@ class JobManager:
                 return False
         if job.kind == "embed":
             return (rd / "manifest.json").exists()
+        if limits.protocol_engine(job.protocol) == "rfd3":
+            # RFD3 drops one CIF per design straight into the results dir.
+            return any(rd.glob("design*.cif"))
         return any((rd / "final_ranked_designs").glob("final_designs_metrics_*.csv"))
 
     def results(self, job: Job) -> dict[str, Any]:
@@ -1013,6 +1076,8 @@ class JobManager:
                "d_model": manifest.get("d_model"), "sequences": manifest.get("sequences") or []}
 
     def _design_results(self, job: Job, rd: Path) -> dict[str, Any]:
+        if limits.protocol_engine(job.protocol) == "rfd3":
+            return self._rfd3_results(rd)
         ranked = rd / "final_ranked_designs"
         # The ranked CSV and structure dir are named for the budget
         # (final_designs_metrics_<N>.csv, final_<N>_designs), not always 30.
@@ -1051,6 +1116,16 @@ class JobManager:
                 d["structure"] = None
         return {"ready": True, "kind": "design", "designs": designs}
 
+    def _rfd3_results(self, rd: Path) -> dict[str, Any]:
+        """RFD3 results: one unranked CIF per design in the results dir (no
+        refold/filter pipeline, so no metrics CSV — the designs list carries
+        just an id and its structure file)."""
+        cifs = sorted(rd.glob("design*.cif"))
+        if not cifs:
+            return {"ready": False}
+        designs = [{"id": f.stem, "structure": f.name} for f in cifs]
+        return {"ready": True, "kind": "design", "engine": "rfd3", "designs": designs}
+
     def structure_file(self, job_id: str, relpath: str) -> Path | None:
         job = self.jobs.get(job_id)
         if job is None:
@@ -1058,7 +1133,12 @@ class JobManager:
         rd = self._results_dir(job)
         if not rd:
             return None
-        base = (rd / "structures") if job.kind == "predict" else (rd / "final_ranked_designs")
+        if job.kind == "predict":
+            base = rd / "structures"
+        elif limits.protocol_engine(job.protocol) == "rfd3":
+            base = rd  # RFD3 CIFs sit directly in the results dir
+        else:
+            base = rd / "final_ranked_designs"
         target = (base / relpath).resolve()
         # Contain strictly to the structure directory (not just the results dir),
         # so a "../" relpath can't reach sibling files like results.json/config.

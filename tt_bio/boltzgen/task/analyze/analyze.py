@@ -50,7 +50,6 @@ from collections import defaultdict
 from tt_bio.data import const
 from tt_bio.boltzgen.task.task import Task
 from tt_bio.boltzgen.data.data import Structure
-from tt_bio.boltzgen.data.write_mmcif import to_mmcif
 
 
 class Analyze(Task):

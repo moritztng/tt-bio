@@ -3,7 +3,6 @@
 # 4D row-chunk for c_z=256). Asserts the fold completes with finite, non-collapsed coords.
 # Gated on the v2 checkpoint; slow (~2 min, trunk-dominated) so marked accordingly.
 import os
-import sys
 
 import pytest
 

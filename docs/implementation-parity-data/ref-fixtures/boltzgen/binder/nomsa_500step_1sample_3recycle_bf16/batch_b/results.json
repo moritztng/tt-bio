@@ -1,0 +1,53 @@
+{
+  "metric": "designfolding-bb_rmsd (scRMSD, isolated refold, Kabsch CA-RMSD in Angstrom)",
+  "column": "designfolding-bb_rmsd",
+  "n": 8,
+  "rows": [
+    {
+      "id": "binder_0",
+      "len": 101,
+      "scrmsd": 0.61289
+    },
+    {
+      "id": "binder_1",
+      "len": 101,
+      "scrmsd": 2.01524
+    },
+    {
+      "id": "binder_2",
+      "len": 111,
+      "scrmsd": 1.25486
+    },
+    {
+      "id": "binder_3",
+      "len": 113,
+      "scrmsd": 0.66223
+    },
+    {
+      "id": "binder_4",
+      "len": 108,
+      "scrmsd": 2.97798
+    },
+    {
+      "id": "binder_5",
+      "len": 100,
+      "scrmsd": 0.90921
+    },
+    {
+      "id": "binder_6",
+      "len": 88,
+      "scrmsd": 6.6681
+    },
+    {
+      "id": "binder_7",
+      "len": 110,
+      "scrmsd": 1.76367
+    }
+  ],
+  "min": 0.61289,
+  "median": 1.509265,
+  "mean": 2.1080225,
+  "stdev": 1.876469254396072,
+  "pass_le_2A": 0.625,
+  "pass_le_4A": 0.875
+}

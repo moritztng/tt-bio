@@ -149,8 +149,7 @@ def _rope(q: ttnn.Tensor, k: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor):
     per tensor. This is the largest single share of ESMC attention (a dispatch-
     bound elementwise stack, not a matmul), so collapsing it is a real per-layer
     win, largest on the smaller models. Matches the reference within bf16 noise;
-    the ragged fallback keeps arbitrary single-sequence lengths exact. See
-    docs/esmc-attention-kernel-scout.md.
+    the ragged fallback keeps arbitrary single-sequence lengths exact.
     """
     if q.shape[2] % 32 == 0:
         return (ttnn.experimental.rotary_embedding(q, cos, sin),
@@ -957,25 +956,34 @@ def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = F
     return [by_id[sid] for sid, _ in items]  # restore input order
 
 
-def _shard_by_length(items: list[tuple[str, str]], n: int) -> list[list[tuple[str, str]]]:
-    """Split ``(id, seq)`` pairs into ``n`` balanced shards for data-parallel embedding.
+def _shard_by_length(items: list, n: int, *,
+                     key=lambda it: len(it[1])) -> list[list]:
+    """Split ``(id, payload)`` pairs into ``n`` balanced shards for data-parallel embedding.
 
-    Pairs are length-sorted and striped round-robin across shards, so every shard
-    gets a similar length distribution (tight length-bucketing, little padding waste)
-    and a balanced total workload — long sequences don't all land on one card. Input
-    ordering is irrelevant here; results are reassembled by id afterwards.
+    Pairs are length-sorted (by ``key``, default the character length of the pair's
+    second element) and striped round-robin across shards, so every shard gets a
+    similar length distribution (tight length-bucketing, little padding waste) and a
+    balanced total workload — long sequences don't all land on one card. Input
+    ordering is irrelevant here; results are reassembled by id afterwards. ``key`` is
+    overridden by callers whose payload isn't a bare string (e.g. SaProt's
+    ``(aa, struc)`` tuple sorts on the AA length).
     """
-    shards: list[list[tuple[str, str]]] = [[] for _ in range(n)]
-    order = sorted(range(len(items)), key=lambda i: len(items[i][1]))
+    shards: list[list] = [[] for _ in range(n)]
+    order = sorted(range(len(items)), key=lambda i: key(items[i]))
     for rank, i in enumerate(order):
         shards[rank % n].append(items[i])
     return shards
 
 
-def _reassemble(items: list[tuple[str, str]],
-                shard_results: list[list[ESMCEmbedding]]) -> list[ESMCEmbedding]:
-    """Flatten per-shard embeddings and restore the original ``items`` order."""
-    by_id: dict[str, ESMCEmbedding] = {}
+def _reassemble(items: list[tuple[str, object]],
+                shard_results: list[list]) -> list:
+    """Flatten per-shard embeddings and restore the original ``items`` order.
+
+    Duck-typed on the per-sequence result's ``.id`` (both ESMCEmbedding and
+    SaprotEmbedding expose one), so the same helper reassembles ESMC and SaProt
+    fanout results.
+    """
+    by_id: dict[str, object] = {}
     for res in shard_results:
         for emb in res:
             by_id[emb.id] = emb
@@ -1012,7 +1020,7 @@ def _thread_cap_env(n_workers: int) -> dict:
     co-resident shards spawn N*cores threads that thrash the host CPU -- confirmed
     via `ps -eLo pcpu` during a 4-card esmc-6b run (each shard bursts to 200-380%
     CPU, host loadavg > 2x core count) as the residual fanout regression left after
-    fixing the weight-load contention (see docs/esmc-multicard-scaling.md). Mirrors
+    fixing the weight-load contention. Mirrors
     the identical fix already applied to the fleet worker pool in
     ``main._cap_worker_threads``; an operator-set value wins.
     """
@@ -1079,7 +1087,7 @@ def _await_shard(proc, out_path: str, device: int, log_path: str, logf) -> list[
 
 
 def _shm_dir() -> str:
-    """RAM-backed scratch dir for the shared tile cache; falls back to \$TMPDIR."""
+    """RAM-backed scratch dir for the shared tile cache; falls back to $TMPDIR."""
     return "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
 
 

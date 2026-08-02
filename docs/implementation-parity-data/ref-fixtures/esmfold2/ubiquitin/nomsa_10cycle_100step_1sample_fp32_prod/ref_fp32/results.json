@@ -1,0 +1,38 @@
+[
+  {
+    "id": "ubiquitin",
+    "status": "ok",
+    "plddt": 0.8023943901062012,
+    "complex_plddt": 0.8023943901062012,
+    "ptm": 0.7427206635475159,
+    "iptm": 0.0,
+    "confidence_score": 0.14854413270950317,
+    "n_residues": 76,
+    "n_atoms": 601,
+    "samples": 1
+  },
+  {
+    "id": "ubiquitin",
+    "status": "ok",
+    "plddt": 0.8047699332237244,
+    "complex_plddt": 0.8047699332237244,
+    "ptm": 0.7427905797958374,
+    "iptm": 0.0,
+    "confidence_score": 0.14855811595916749,
+    "n_residues": 76,
+    "n_atoms": 601,
+    "samples": 1
+  },
+  {
+    "id": "ubiquitin",
+    "status": "ok",
+    "plddt": 0.8039249777793884,
+    "complex_plddt": 0.8039249777793884,
+    "ptm": 0.743468701839447,
+    "iptm": 0.0,
+    "confidence_score": 0.1486937403678894,
+    "n_residues": 76,
+    "n_atoms": 601,
+    "samples": 1
+  }
+]

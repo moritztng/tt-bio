@@ -8,6 +8,7 @@ so they can be reused from both the CLI and the worker subprocess.
 from __future__ import annotations
 
 import glob
+import os
 import socket
 from dataclasses import dataclass
 from pathlib import Path
@@ -78,6 +79,17 @@ def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_wor
     through and failing much later with an opaque low-level device-open error.
     """
     all_devices = sorted(int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*"))
+    # Honor ambient TT_VISIBLE_DEVICES (the same env ttnn/tt-smi read at
+    # device-open time): a job pinned to card N via the environment must fan out
+    # only onto card N. Without this filter, a predict launched with
+    # TT_VISIBLE_DEVICES=1 enumerated every physical card and spawned one worker
+    # per card, so the card-0 worker wedged card 0 for every concurrent job on
+    # the box. Explicit --device_ids still wins (validated below against the
+    # ambient-visible set).
+    visible = os.environ.get("TT_VISIBLE_DEVICES")
+    if visible is not None:
+        allowed = {int(d.strip()) for d in visible.split(",") if d.strip()}
+        all_devices = [d for d in all_devices if d in allowed]
     if device_ids:
         requested = [int(d.strip()) for d in device_ids.split(",") if d.strip()]
         missing = [d for d in requested if d not in all_devices]
