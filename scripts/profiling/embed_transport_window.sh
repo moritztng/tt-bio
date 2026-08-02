@@ -11,6 +11,11 @@
 # window, which is deployed and restored by the existing tooling.
 #
 #   bash embed_transport_window.sh <src-dir> [n-workers] [n-seqs]
+#   DRY_RUN=1 bash embed_transport_window.sh ...   # run the guards, then stop
+#
+# DRY_RUN exists because the guards are the part that must not be wrong -- they are what stands
+# between this and another worker's folds -- and a guard nobody has ever seen fire is not a guard.
+# It exercises them against the live box and exits before touching anything.
 #
 # Run it detached. It ignores INT/HUP because setsid+nohup alone does not survive the launching
 # session going away on this host.
@@ -20,6 +25,7 @@ set -u
 SRC=${1:-/home/cust-team/mthuening/g32-src}
 NW=${2:-8}
 NSEQ=${3:-1024}
+DRY_RUN=${DRY_RUN:-0}
 M=/home/cust-team/mthuening/maintenance
 B=/home/cust-team/mthuening/g32/embedwindow
 ENVBIN=/home/cust-team/mthuening/tt-bio/env/bin
@@ -45,6 +51,13 @@ if [ "$(systemctl is-active japanfold)" = "active" ]; then
 else
   echo "NOTE: japanfold already inactive -- someone else may hold a window; not proceeding" >> "$LOG"
   exit 1        # an inactive unit means someone else took the box, not that it is free
+fi
+echo "guards passed: box is idle and the platform is serving with nothing in flight" >> "$LOG"
+
+if [ "$DRY_RUN" = "1" ]; then
+  echo "DRY_RUN: would now arm the watchdog, deploy maintenance, start $NW workers from $SRC," >> "$LOG"
+  echo "         run the N=$NSEQ A/B, tear the pool down and restore. Stopping here." >> "$LOG"
+  exit 0
 fi
 
 # ---------------------------------------------------------------- window
