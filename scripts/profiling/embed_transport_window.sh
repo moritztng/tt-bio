@@ -39,6 +39,18 @@ say() { printf '\n=== %s\n' "$*" >> "$LOG"; }
 say "guards $(date -Is)"
 if [ ! -d "$SRC/tt_bio" ]; then echo "ABORT: no branch checkout at $SRC" >> "$LOG"; exit 1; fi
 
+# A maintenance HOLD means someone else already owns the box. This is the first thing to check,
+# because japanfold's own state is ambiguous and I have now misread it in both directions: once as
+# "the box is free" (2026-08-01, put a 32-way sweep inside another worker's window and extended a
+# public outage) and once as "my restore failed" (2026-08-02, restarted the service inside another
+# worker's window and took its 32 cards back mid-run). Both times the answer was in this file.
+HOLD=/home/cust-team/.japanfold-agent/MAINTENANCE-HOLD.md
+if [ -f "$HOLD" ]; then
+  echo "ABORT: a maintenance window is already open -- not mine to use or to end:" >> "$LOG"
+  grep -E "^Opened:" "$HOLD" >> "$LOG" 2>/dev/null
+  exit 1
+fi
+
 # Someone else's folds must never be interrupted -- that is what caused the 2026-08-01 outage.
 if ps -eo args | grep -q "[t]t_bio.main predict"; then
   echo "ABORT: folds are running (another worker owns the box)" >> "$LOG"; exit 1
