@@ -331,15 +331,6 @@ class OpenDDE:
         bias = None
         if extra_attn_bias:
             bias = ttnn.reshape(attn_bias, (1, 1, Ns, Ns))
-        # Compact the structural-token pair tensor before the refiner runs. Ns is ~1.9x the
-        # residue-token count, so z4 here is ~3.7x the trunk's pair tensor -- 2.1 GiB at Ns=1712 --
-        # and it is built after a full trunk has already churned DRAM. Two AbAg-XM targets die
-        # exactly here, ~1300 s into a fold, and not for lack of room: the tap records 3.68 and
-        # 3.88 GiB in use of 12.0 at the refused allocation. A DRAM buffer needs its share
-        # contiguous in every one of the 12 banks, so 8 GiB free is not enough if it is scattered.
-        # Same remedy, and the same reason, as OuterProductMean's reallocate before its matmuls.
-        # Bit-exact: reallocate moves bytes, it does not compute.
-        z4 = ttnn.reallocate(z4)
         s_ref, z_ref = self.refiner(s3, z4, extra_attn_bias=bias)
         result = (s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref)
         if return_attn_bias:
