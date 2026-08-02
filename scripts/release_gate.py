@@ -565,7 +565,7 @@ def run_capacity(keep: bool) -> dict:
     row = {"model": "capacity", "seconds": None, "peak_gib": None, "cifs": None,
            "paes": None, "gate": False, "error": None}
     log = out.parent / f"{name}_capacity.log"
-    # tt_bio.protenix.dram_peak appends its samples to this file. It has to be a file:
+    # tt_bio.tenstorrent.dram_peak appends its samples to this file. It has to be a file:
     # predict folds in a spawned worker whose stdout the live-progress view owns, so a
     # printed measurement is lost exactly when the gate collects it non-interactively.
     dram_log = out.parent / f"{name}_capacity_dram.log"

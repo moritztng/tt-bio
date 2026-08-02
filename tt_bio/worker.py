@@ -410,21 +410,39 @@ class _WorkerState:
         report_progress("prep")
         chains = [(cid, seq, resolve_msa(spec, seq, msa_dir, max_sequences=max_msa) if uses_msa else None)
                   for cid, seq, spec in chains]
-        res = fold_complex(
+        ranked = fold_complex(
             self.model, chains,
             num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],
             num_diffusion_samples=cfg["diffusion_samples"], seed=cfg.get("seed") or 0,
+            return_all=True,
         )
-        out = Path(cfg["struct_dir"]) / f"{path.stem}.{cfg['output_format']}"
-        _write_structure(res.complex, out, cfg["output_format"])
+        res = ranked[0]
+        # Write every sample, not just the winner: best as "{stem}.{fmt}" and the rest as
+        # "{stem}_model_{rank}.{fmt}", the same convention Protenix-v2 and OpenDDE use. The
+        # samples were always drawn -- they were discarded in fold_complex -- so this costs
+        # nothing but the writes, and the winner's file is byte-identical to before.
+        fmt = cfg["output_format"]
+        struct_dir = Path(cfg["struct_dir"])
+        for r, s in enumerate(ranked):
+            name = f"{path.stem}.{fmt}" if r == 0 else f"{path.stem}_model_{r}.{fmt}"
+            _write_structure(s.complex, struct_dir / name, fmt)
+
+        def _sample_scalars(s):
+            m = {"plddt": round(float(s.plddt.mean()), 4)}
+            if getattr(s, "ptm", None) is not None:
+                m["ptm"] = round(float(s.ptm), 4)
+            return m
+
         metrics = {
-            "plddt": round(float(res.plddt.mean()), 4),
+            **_sample_scalars(res),
             "n_residues": sum(len(c[1]) for c in chains), "n_chains": len(chains),
             "msa": any(c[2] is not None for c in chains),
             "samples": cfg["diffusion_samples"],  # best-of-N: report N (plddt is the winner's)
         }
-        if getattr(res, "ptm", None) is not None:
-            metrics["ptm"] = round(float(res.ptm), 4)
+        # Per-sample records, keyed like the other models' so one dataset harness reads them all.
+        # Only when there is more than one, matching _scalars/all_runs in main.py.
+        if len(ranked) > 1:
+            metrics["all_runs"] = [{"rank": r, **_sample_scalars(s)} for r, s in enumerate(ranked)]
         # _execute_job inspects feats["record"].affinity; ESMFold2 has no affinity.
         feats = {"record": types.SimpleNamespace(affinity=False)}
         return metrics, None, feats
@@ -485,6 +503,18 @@ class _WorkerState:
                 msa_endpoint=cfg.get("msa_endpoint"))
         chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
                        for _cid, cseq, spec, mt in chains]
+
+        # --msa_cache_only: the cache is the only source, so a miss is an error. Without this
+        # _resolve_a3m_text returns None for an uncached chain and the fold quietly proceeds
+        # single-sequence for it -- a large, invisible accuracy loss in a benchmark run.
+        if cfg.get("msa_cache_only"):
+            uncached = [cid for (cid, _s, _sp, mt), (_q, a3m, _m)
+                        in zip(chains, chain_specs) if mt == "protein" and not a3m]
+            if uncached:
+                raise RuntimeError(
+                    f"--msa_cache_only: no cached a3m in {msa_dir} for protein chain(s) "
+                    f"{uncached}. Folding them single-sequence would silently change MSA "
+                    "depth; search them first, or drop --msa_cache_only.")
 
         # Paired (species-pairing) MSA for multi-chain complexes -- the cross-chain
         # co-evolution signal the reference OpenDDE pipeline injects via

@@ -9,7 +9,7 @@ supposed to encode: the peak DRAM a real sampler step actually occupies at a giv
 
 Instrumentation: the ttnn allocator is host-side bookkeeping updated at op-dispatch time,
 so reading `ttnn.get_memory_view` from the calling thread is synchronous and does not
-sync the device (same instrument as `tt_bio.protenix._dram_peak`). Sampling only at step
+sync the device (same instrument as `tt_bio.tenstorrent.dram_peak`). Sampling only at step
 boundaries would miss the intra-step transients that are what actually OOMs, so every
 allocating ttnn op used by the RFD3 path is wrapped and the peak is sampled after each
 call. That costs wall clock, so this script measures memory only -- throughput is a
