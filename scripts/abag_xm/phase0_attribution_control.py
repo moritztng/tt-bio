@@ -48,6 +48,8 @@ def load_control(p25: pathlib.Path, md: str, conf_key: str) -> dict:
     """p25 control arm: conf from results.json all_runs, DockQ from the scored TSV, by rank."""
     dockq: dict[str, dict[int, float]] = {}
     tsv = p25 / f"p25ctrl_{md}_dockq.tsv"
+    if not tsv.exists():
+        return {}
     for line in tsv.read_text().splitlines()[1:]:
         parts = line.split("\t")
         if len(parts) < 3 or parts[2].startswith("ERR"):
@@ -80,6 +82,9 @@ def main() -> int:
     verdict = {}
     for md, (dirname, conf_key) in MODELS.items():
         ctrl = load_control(args.p25, dirname, conf_key)
+        if not ctrl:
+            verdict[md] = {"error": "control harvest incomplete (no TSV or no targets)"}
+            continue
         ta = p0check.load_tiera(args.p0, args.tier_a, md)
         gal = p0check.load_galaxy(args.p0, GAL_SUFFIX[md])
         gal = {t: gal[t] for t in CTRL_TARGETS if t in gal}
