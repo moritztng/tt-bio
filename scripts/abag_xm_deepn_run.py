@@ -189,8 +189,9 @@ def record(job, card, wall_s, status):
            "wall_s": round(wall_s, 1), "tt_bio_commit": GIT_HEAD,
            "recycling_steps": RESOLVED[job["model"]][0],
            "sampling_steps": RESOLVED[job["model"]][1],
-           "msa_cache_only": True,
-           "mps": job.get("mps", MPS), "n_samples": job["n_samples"],
+           "msa_cache_only": job["model"] != "esmfold2",
+           "mps": "auto" if job["model"] == "esmfold2" else job.get("mps", MPS),
+           "n_samples": job["n_samples"],
            "n_cifs": count_cifs(job), "status": status,
            "out_dir": job["out_dir"]}
     with open(PROGRESS, "a") as f:
