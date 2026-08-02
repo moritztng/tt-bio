@@ -44,12 +44,17 @@ host-device interconnect.
 
 That is still open, and the experiment to close it is: capture device-op time for the same fold at
 N=1 and N=32 and ask whether *kernel* time grows with concurrency (a shared device-side resource) or
-stays flat while the *gaps between ops* grow (dispatch latency under load). The pip ttnn wheel does
-ship Tracy (`ttnn.libs/libtracy*.so`, a `tracy` Python package, and `ReadDeviceProfiler` exported
-from `_ttnn.so`, driven by `TT_METAL_DEVICE_PROFILER=1` + `TT_METAL_PROFILER_MID_RUN_DUMP=1` +
-`TT_METAL_PROFILER_CPP_POST_PROCESS=1`), so the tooling is present — whether this build actually
-emits device timestamps is untested and wants a one-chip smoke test first. Profile a subset of the
+stays flat while the *gaps between ops* grow (dispatch latency under load). Profile a subset of the
 folds, not all 32, or the instrumentation perturbs what you are measuring.
+
+**It needs a Tracy-enabled tt-metal build, which the pip wheel is not.** The wheel is misleading
+here: it ships `ttnn.libs/libtracy*.so` and a `tracy` Python package, and `_ttnn.so` exports
+`ReadDeviceProfiler` — but setting `TT_METAL_DEVICE_PROFILER=1` makes `ttnn.open_device()` fail
+before it opens anything:
+
+    TT_FATAL: TT_METAL_DEVICE_PROFILER requires a Tracy-enabled build of tt-metal.
+
+Don't infer profiler support from the exported symbol; ask the runtime.
 
 ## The other fanout path: `tt-bio embed` through the serve pool
 
