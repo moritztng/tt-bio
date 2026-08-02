@@ -1015,6 +1015,9 @@ def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> 
     """Spawn one process per worker slot, each connected to the controller."""
     ctx = mp.get_context("spawn")
     _cap_worker_threads(len(workers))
+    # So orphaned workers self-terminate (see run_worker_loop): spawn children
+    # inherit this, remote workers never see it.
+    os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
     procs = []
     for worker in workers:
         proc = ctx.Process(

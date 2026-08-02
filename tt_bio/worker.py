@@ -777,6 +777,13 @@ def run_worker_loop(
     _apply_tt_environment(worker_info)
     _bind_host_threads()
 
+    # A locally-spawned worker (CLI fan-out / serve pool) records its dispatcher
+    # here; a dispatcher killed with SIGTERM skips its finally-block and would
+    # otherwise orphan us holding the chip open indefinitely (observed: a stray
+    # worker pinned /dev/tenstorrent/3 for 2h, silently blocking later runs on
+    # that card). Remote `worker --connect` processes leave the var unset.
+    _dispatcher_pid = int(os.environ.get("TT_BIO_PARENT_PID") or 0)
+
     client = ControllerClient(controller_url)
     worker_id = worker_info["worker_id"]
     meta = {
@@ -828,6 +835,8 @@ def run_worker_loop(
             return
     try:
         while True:
+            if _dispatcher_pid and os.getppid() != _dispatcher_pid:
+                return
             # Tolerate a controller that's briefly unreachable (restart, network
             # blip): retry leasing instead of crashing the worker. This makes the
             # fleet self-healing — a worker reconnects on its own when the
