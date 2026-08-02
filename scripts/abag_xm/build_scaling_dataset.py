@@ -133,7 +133,12 @@ def read_folds(folds_dir: pathlib.Path, model: str, sha: str) -> list[dict]:
                     "status": rec.get("status"),
                     "n_samples": rec.get("samples") or len(runs),
                     "rank": run.get("rank"),
-                    "confidence_score": run.get("confidence_score"),
+                    # esmfold2 has no composite confidence key -- its own ranker (and so the
+                    # structure a user is handed) is selected by mean pLDDT, which is exactly
+                    # what confidence_score means for the other arms. Other models keep None
+                    # rather than silently substitute a different semantic.
+                    "confidence_score": (run.get("plddt") if model == "esmfold2"
+                                         else run.get("confidence_score")),
                     "iptm": run.get("iptm"),
                     "ptm": run.get("ptm"),
                     "plddt": run.get("plddt"),
