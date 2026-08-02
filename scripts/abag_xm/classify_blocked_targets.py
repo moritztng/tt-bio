@@ -20,8 +20,17 @@ not, whatever its refused count says.  This is a ranking, not a threshold: the f
 *not* separate success from failure in general, and this script prints how many folding targets
 sit above each failure precisely so that is visible.
 
-The two checks are unrelated -- one is byte arithmetic, one is an empirical ranking over measured
-outcomes -- so where they agree, the classification is worth acting on.
+**Both checks were run, both were wrong about two targets, and a device run settled it.** The
+arithmetic found no decomposition for 9q7y and 9ivj, and the footprint ranking put them below
+dozens of targets that fold; together that read as "transient, retry it". Retried, both reproduced
+their refused byte counts exactly. The missing dimension was the structural-token axis: the
+expander produces ~1.9x as many tokens as there are residues, and the pair tensor at that scale is
+~3.7x the trunk's. With Ns in the catalogue both refusals factor immediately.
+
+So the verdicts printed at the end are the MEASURED ones, and the two checks are kept for what they
+legitimately show -- which allocation fails, and at which scale -- not as a way of guessing a
+verdict. The footprint columns rank on the residue-scale pair tensor only, so a target can look
+comfortable there and still fail in the structural-token stage.
 
 Usage:
     python3 scripts/abag_xm/classify_blocked_targets.py [--panel scripts/abag_xm/mfeat_panel_v2.json]
@@ -46,6 +55,38 @@ REFUSED = {
     "9ivj": 2272002048,
 }
 MISSING = ("9j4c", "9i3p", "9q7y", "9ivj", "9mns")
+
+# What a device run actually showed, rather than what this script's arithmetic would guess. An
+# earlier version classified 9q7y and 9ivj as transients on the strength of their residue-scale
+# footprint and offered "retry first"; retried, both reproduced their refused byte counts exactly.
+MEASURED = {
+    "9j4c": "capacity, residue-scale pair tensor, fails in the trunk at ~43 s",
+    "9i3p": "capacity, residue-scale pair tensor, fails in the trunk at ~44 s",
+    "9q7y": "capacity, STRUCTURAL-scale pair tensor, fails in refiner block 0 at ~1320 s",
+    "9ivj": "capacity, STRUCTURAL-scale pair tensor, fails in refiner block 0 at ~1308 s",
+    "9mns": "no OOM at all -- does not finish inside 3000 s; unexplained",
+}
+
+
+def structural_token_count(target: str, examples: Path) -> int | None:
+    """Ns, the structural-token axis the expander produces -- ~1.9x the residue tokens.
+
+    One backbone token per residue plus one sidechain token per residue that has a sidechain, so
+    ``Ns = 2 * tokens - glycines``. Checked against the two values a device run actually printed:
+    9q7y 853 tokens / 62 Gly -> 1644, and 9ivj 891 / 70 -> 1712, both exact.
+
+    This axis is why an earlier version of this script reported "no decomposition" for those two.
+    Every dimension it searched was residue-scale, and the tensor they die on is not.
+    """
+    import re
+
+    path = examples / f"{target}.yaml"
+    if not path.exists():
+        return None
+    seqs = re.findall(r"sequence:\s*([A-Z]+)", path.read_text())
+    if not seqs:
+        return None
+    return sum(2 * len(s) - s.count("G") for s in seqs)
 
 
 def atom_count(target: str, examples: Path) -> int | None:
@@ -140,6 +181,9 @@ def main() -> None:
         atoms = atom_count(t, args.examples)
         if atoms:
             dims["atom"], dims["apad"] = atoms, -(-atoms // 32) * 32
+        ns = structural_token_count(t, args.examples)
+        if ns:
+            dims["ns"], dims["nspad"] = ns, -(-ns // 32) * 32
 
         refused = REFUSED.get(t)
         if refused is None:
@@ -155,25 +199,23 @@ def main() -> None:
             if not dims.get("atom"):
                 note += "  (atom axis NOT checked: tt_bio import failed)"
 
-        # Capacity-bound needs both: nothing larger folds, and the refusal names a tensor.
-        verdicts[t] = "capacity" if above == 0 and refused and "NONE" not in note else "other"
+        verdicts[t] = MEASURED.get(t, "unmeasured")
         print(f"{t:<7}{r['tokens']:>6}{r['depth']:>7}{r['mfeat_gib']:>8.3f}{pair:>7.3f}"
               f"{total:>8.3f}{above:>10}  {note}")
 
     print("\nA decomposition is one reading of the cell count, not automatically the tensor: 9i3p's"
           "\n512 x 992 x 512 is the same number of cells as OuterProductMean's per-I-block matmul"
-          "\nresult (rows*c_a, c_b*tokens) at 256 rows, which is the form with a mechanism behind it."
-          "\nWhat matters here is only whether ANY reading exists -- for 9q7y and 9ivj none does.")
+          "\nresult at 256 rows, which is the form with a mechanism behind it. What the arithmetic"
+          "\nestablishes is that a reading EXISTS and at which scale.")
 
-    cap = [t for t, v in verdicts.items() if v == "capacity"]
-    other = [t for t, v in verdicts.items() if v != "capacity"]
-    print(f"\ncapacity-bound  ({len(cap)}): {', '.join(cap)}")
-    print(f"  above every folding target AND the refused size names a real tensor -- these need an"
-          f" engineering fix, and each needs its own (9i3p's is OuterProductMean, 9j4c's is the"
-          f" pair representation).")
-    print(f"not capacity-bound ({len(other)}): {', '.join(other)}")
-    print(f"  each fails while strictly larger targets fold, and none names a tensor -- a transient"
-          f" or allocator effect, so a retry is the first thing to try, not a fix.")
+    print("\nverdicts (measured on a Wormhole Galaxy, not inferred from the table above):")
+    for t in MISSING:
+        print(f"  {t:<6} {MEASURED.get(t, 'unmeasured')}")
+    print("\nAll four that OOM die on the same tensor family, the pair representation "
+          "(N, pad32(N), 384) in bf16.\nTwo do so at residue scale in the trunk, two at "
+          "structural-token scale where Ns is ~1.9x larger.\nThe footprint columns rank on the "
+          "RESIDUE-scale pair tensor only, which is why 9q7y and 9ivj\nlook comfortable there and "
+          "still fail: at structural scale their pair tensor is ~3.7x bigger.")
 
 
 if __name__ == "__main__":
