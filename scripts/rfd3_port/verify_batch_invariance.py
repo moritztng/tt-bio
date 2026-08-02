@@ -8,7 +8,7 @@ output, at every batch size and every fixture size given.
 It catches the failure mode that `core_grid=` reintroduces: ttnn derives a
 linear's program config from M = batch * rows, so its K-blocking (and therefore
 its bf16 rounding) changes with the batch. See BATCH_INVARIANT_GRID in
-tt_bio/rfd3.py, and probe_callsites.py to re-derive which linears need it.
+tt_bio/rfd3/model.py, and probe_callsites.py to re-derive which linears need it.
 
 Usage:
   TT_VISIBLE_DEVICES=0 python3 scripts/rfd3_port/verify_batch_invariance.py \
@@ -40,9 +40,9 @@ def parse_args():
 
 def main():
     args = parse_args()
-    from tt_bio.rfd3 import build_diffusion_module, build_token_initializer
-    from tt_bio.rfd3_featurize import featurize
-    from tt_bio.rfd3_input import InputSpecification
+    from tt_bio.rfd3.model import build_diffusion_module, build_token_initializer
+    from tt_bio.rfd3.featurize import featurize
+    from tt_bio.rfd3.input import InputSpecification
 
     ti = torch.load(GOLDEN_DIR / "token_initializer.real_weights.pt",
                     map_location="cpu", weights_only=True)

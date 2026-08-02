@@ -9,7 +9,7 @@ the refolded backbone to the originally-designed backbone, and measure CA-RMSD:
 - **scRMSD ≤ 4 Å** — permissively designable.
 - **high scRMSD** — bad design *or* a device-fidelity problem in the fold.
 
-This closes the same gap for `tt-bio gen` that `scripts/release_gate.py` closed for
+This closes the same gap for `tt-bio design --model boltzgen` that `scripts/release_gate.py` closed for
 the fold models: the prior BoltzGen checks (`tests/test_boltzgen.py` state-dict load,
 `tests/test_boltzgen_regression.py` bond-length distribution vs a GPU baseline) verify
 the sampler runs and the chemistry is intact, but say nothing about whether a design is
@@ -17,7 +17,7 @@ a *good* binder.
 
 ## It already runs inside the pipeline
 
-The scRMSD is **not re-implemented** — the shipping `tt-bio gen` pipeline computes it.
+The scRMSD is **not re-implemented** — the shipping design pipeline computes it.
 For the `protein-anything` / `protein-small_molecule` protocols the `design_folding`
 step refolds each design's sequence alone, and `analysis` Kabsch-aligns and writes it
 to `aggregate_metrics_analyze.csv`:
@@ -53,7 +53,7 @@ refolds poorly, the fault is design quality / target hardness — not a refold d
 TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> \
     python scripts/boltzgen_designability.py --num_designs 4
 
-# score an already-completed gen output dir — no device needed
+# score an already-completed design output dir — no device needed
 python scripts/boltzgen_designability.py --from-output ./binder
 
 # gate mode: non-zero exit if too few designs clear the bar
@@ -62,7 +62,7 @@ python scripts/boltzgen_designability.py --from-output ./binder \
 ```
 
 Default spec is `examples/binder.yaml` (de-novo protein binder vs chain A of 7ROA), the
-target the README documents for `tt-bio gen run`.
+target the README documents for `tt-bio design --model boltzgen`.
 
 ## Observed on-device results
 
@@ -89,7 +89,7 @@ recommendation below.
 ## Release-gate status: wired into `scripts/release_gate.py`
 
 The ~40 min/2-design estimate above (this doc's original recommendation) predicted a full
-n=4 gen run would run tens of minutes and dominate the fast fold-model gate, so it was kept
+n=4 design run would run tens of minutes and dominate the fast fold-model gate, so it was kept
 standalone. A fresh n=4 reproduction of this exact target/protocol on 2026-07-10 (main HEAD,
 after the device-resident-trunk merge) measured **271 s
 (4.5 min) end-to-end** (design + inverse-fold + refold + analysis + filtering) — 0.85 Å

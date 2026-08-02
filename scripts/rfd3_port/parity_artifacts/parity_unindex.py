@@ -29,8 +29,8 @@ def pcc(a, b):
 
 def main():
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
-    from tt_bio.rfd3_featurize import featurize
-    from tt_bio.rfd3_input import InputSpecification
+    from tt_bio.rfd3.featurize import featurize
+    from tt_bio.rfd3.input import InputSpecification
     spec = InputSpecification.from_dict({"input": PDB, "contig": CONTIG, "unindex": UNINDEX})
     pf = featurize(PDB, spec)
     rf = torch.load(REF_PT, weights_only=False)

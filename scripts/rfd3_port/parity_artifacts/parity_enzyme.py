@@ -47,8 +47,8 @@ def pcc(a, b):
 
 def main():
     sys.path.insert(0, os.path.abspath(os.path.join(DIR, "..", "..", "..")))
-    from tt_bio.rfd3_featurize import featurize
-    from tt_bio.rfd3_input import InputSpecification
+    from tt_bio.rfd3.featurize import featurize
+    from tt_bio.rfd3.input import InputSpecification
     if not os.path.exists(REF_PT):
         print(f"SKIPPED: no reference capture at {REF_PT} (see module docstring to reproduce)")
         return
