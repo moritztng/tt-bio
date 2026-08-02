@@ -33,11 +33,15 @@ The remaining 13% is not host CPU, not chip placement, and not thread count:
   that cell puts the same per-complex load on one complex that N=32 puts on all four, at a twelfth of
   the degradation.
 * `--host_threads` 1 / 2 / 4 at N=32 spans 1.6%, trending *against* more threads.
+* Host DRAM bandwidth is not close: one fold pulls 4.72 MB/s from DRAM (`perf stat -e
+  ls_any_fills_from_sys.all_dram_io`, 20 s on a live fold), so 32 of them ask ~151 MB/s of the
+  176.6 GB/s measured on this host — **0.09%**.
 
 Host CPU per fold is constant across the whole range (381 core-seconds at N=1, 394 at N=32, +3.4%)
 while the wall grows 15.2%, so the extra time at high N is time folds spend waiting rather than
-computing on the host. What is left to test is host DRAM/IO bandwidth, or a device-side effect this
-box cannot profile (the pip ttnn wheel has no Tracy build).
+computing — and not on any host resource above. What remains is on the device side or in the
+host-device interconnect, which this box cannot see: the pip ttnn wheel has no Tracy build, so there
+is no device profiler.
 
 ## The other fanout path: `tt-bio embed` through the serve pool
 
