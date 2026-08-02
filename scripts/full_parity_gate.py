@@ -958,6 +958,11 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         cmd = [sys.executable, "scripts/esmfold2_e2e_parity.py",
                "--proteins", "trpcage,gb1,ubiquitin,lysozyme", "--seeds", "0,1,2,3,4",
                "--out", str(out_json)]
+        # Mirror production (main.py): esmfold2 auto-runs --fast on Wormhole because the
+        # non-fast model needs >12 GB DRAM/chip; without this the device load OOMs.
+        from tt_bio.tenstorrent import is_wormhole
+        if is_wormhole():
+            cmd.append("--fast")
     else:
         return None
     try:
