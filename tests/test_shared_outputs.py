@@ -75,3 +75,43 @@ def test_nonce_is_not_left_behind_in_the_results(tmp_path):
 def test_a_token_cannot_escape_the_results_directory(tmp_path):
     cfg = {"shared_outputs": {"dir": str(tmp_path), "token": "../etc/passwd"}}
     assert _shared_outputs_dir(cfg) is None
+
+
+def test_nonce_is_cleared_even_when_the_run_raises(tmp_path, monkeypatch):
+    """A run that dies must not leave scaffolding in the user's results directory."""
+    import tt_bio.main as m
+
+    struct_dir = tmp_path / "results"
+    seen = {}
+
+    def boom(payload, sd):
+        _offer_shared_outputs(payload, sd)
+        seen["token"] = payload["config"]["shared_outputs"]["token"]
+
+    payload = {"config": {}}
+    boom(payload, struct_dir)
+    assert (struct_dir / seen["token"]).is_file()
+
+    try:
+        raise RuntimeError("run died")
+    except RuntimeError:
+        m._clear_shared_outputs(payload, struct_dir)
+
+    assert not (struct_dir / seen["token"]).exists()
+
+
+def test_a_reported_but_missing_shared_file_is_not_silently_accepted(tmp_path, capsys):
+    """The worker's scratch dir is gone by now, so a missing file is a lost output."""
+    import tt_bio.main as m
+
+    struct_dir = tmp_path / "results"
+    struct_dir.mkdir()
+
+    class _Client:
+        def job_outputs(self, run_id, job_id):
+            return {"a.npz": SHARED_OUTPUT_PREFIX + str(struct_dir / "a.npz")}
+
+    m._write_job_outputs(_Client(), "run", "job", struct_dir)
+
+    err = capsys.readouterr().err
+    assert "a.npz" in err and "not there" in err

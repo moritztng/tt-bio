@@ -1211,12 +1211,15 @@ def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
         # Locally-spawned workers are on this filesystem by construction, but a --listen
         # run can also pick up workers from other machines; the nonce sorts them out.
         _offer_shared_outputs(run_payload, struct_dir)
-        run_id = client.create_run(run_payload)["run_id"]
-        failed = _stream_run(client, run_id, total=total, n_workers=len(workers),
-                             debug=debug, log=log, results_path=results_path,
-                             struct_dir=struct_dir, model=model)
-        _persist_run_results(client, run_id, results_path)
-        _clear_shared_outputs(run_payload, struct_dir)
+        try:
+            run_id = client.create_run(run_payload)["run_id"]
+            failed = _stream_run(client, run_id, total=total, n_workers=len(workers),
+                                 debug=debug, log=log, results_path=results_path,
+                                 struct_dir=struct_dir, model=model)
+            _persist_run_results(client, run_id, results_path)
+        finally:
+            # a run that dies must not leave its scaffolding in the user's results
+            _clear_shared_outputs(run_payload, struct_dir)
     click.echo(f"\nDone: {total - failed} ok, {failed} failed — {results_path}")
     return failed
 
@@ -1275,12 +1278,15 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     if run_id:
         run_payload["run_id"] = run_id
     _offer_shared_outputs(run_payload, struct_dir)
-    run_id = client.create_run(run_payload)["run_id"]
-    failed = _stream_run(client, run_id, total=total, n_workers=n_workers,
-                         debug=debug, log=log, results_path=results_path,
-                         struct_dir=struct_dir, model=model)
-    _persist_run_results(client, run_id, results_path)
-    _clear_shared_outputs(run_payload, struct_dir)
+    try:
+        run_id = client.create_run(run_payload)["run_id"]
+        failed = _stream_run(client, run_id, total=total, n_workers=n_workers,
+                             debug=debug, log=log, results_path=results_path,
+                             struct_dir=struct_dir, model=model)
+        _persist_run_results(client, run_id, results_path)
+    finally:
+        # a run that dies must not leave its scaffolding in the user's results
+        _clear_shared_outputs(run_payload, struct_dir)
     click.echo(f"\nDone: {total - failed} ok, {failed} failed — {results_path}")
     return failed
 
@@ -1302,9 +1308,14 @@ def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
         target.parent.mkdir(parents=True, exist_ok=True)
         if content_b64.startswith(SHARED_OUTPUT_PREFIX):
             # A co-located worker wrote the file straight into struct_dir, so there is
-            # nothing to decode — the value is a path, never bytes. It is only ever a
-            # path this client named, so anything pointing elsewhere is dropped rather
-            # than followed.
+            # nothing to decode — the value is a path, never bytes, and never one this
+            # client follows. Confirm the file really landed where we expect instead of
+            # taking the worker's word for it: the bytes are gone from the worker's
+            # scratch dir by now, so a missing file here is a lost output, and it should
+            # look like one rather than like a silent success.
+            if not target.is_file():
+                click.echo(f"  ! {job_id}: worker reported {rel.as_posix()} as written "
+                           f"in place, but it is not there", err=True)
             continue
         try:
             target.write_bytes(base64.b64decode(content_b64))
