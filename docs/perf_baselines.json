@@ -200,11 +200,51 @@
               "tt_bio_version": "0.3.4",
               "date": "2026-07-23",
               "note": "seed qb2 (tt-quietbox2) p300c saprot-650m baseline; the p300c card-level block predated saprot-650m being added to SPECS so the gate read NO BASELINE for it on qb2. Measured 2026-07-23 on clean main HEAD; machine-block (not card-level) so it does not assume other p300c machines match qb2."
+            },
+            "opendde-abag": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 2.66279,
+              "latency_ms": 375.55,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p300c",
+              "machine_id": "tt-quietbox2",
+              "tt_bio_version": "0.5.0",
+              "date": "2026-08-02",
+              "note": "seed p300c tt-quietbox2 baselines: opendde-abag had no baseline on any card, rfd3 had p150a only; measured on main v0.5.0 @ df0b34a7, qb2 card 0, during the 2026-08-02 regression check"
+            },
+            "rfd3": {
+              "unit": "designs/s",
+              "direction": "higher",
+              "value": 0.310593,
+              "latency_ms": 3219.65,
+              "input": "iai_inputs.yaml (IAI motif-scaffold, I40/L419, from_pdb, 4 steps)",
+              "sampling_steps": null,
+              "diffusion_samples": null,
+              "recycling_steps": null,
+              "num_timesteps": 4,
+              "num_designs": 1,
+              "warmup": 0,
+              "repeat": 1,
+              "hardware": "blackhole",
+              "card_type": "p300c",
+              "machine_id": "tt-quietbox2",
+              "tt_bio_version": "0.5.0",
+              "date": "2026-08-02",
+              "note": "seed p300c tt-quietbox2 baselines: opendde-abag had no baseline on any card, rfd3 had p150a only; measured on main v0.5.0 @ df0b34a7, qb2 card 0, during the 2026-08-02 regression check"
             }
           },
-          "date": "2026-07-23",
-          "tt_bio_version": "0.3.4",
-          "note": "seed qb2 (tt-quietbox2) p300c saprot-650m baseline; the p300c card-level block predated saprot-650m being added to SPECS so the gate read NO BASELINE for it on qb2. Measured 2026-07-23 on clean main HEAD; machine-block (not card-level) so it does not assume other p300c machines match qb2."
+          "date": "2026-08-02",
+          "tt_bio_version": "0.5.0",
+          "note": "seed p300c tt-quietbox2 baselines: opendde-abag had no baseline on any card, rfd3 had p150a only; measured on main v0.5.0 @ df0b34a7, qb2 card 0, during the 2026-08-02 regression check"
         }
       }
     },
