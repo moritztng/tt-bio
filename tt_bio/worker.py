@@ -630,6 +630,12 @@ class _WorkerState:
                 seed=cfg.get("seed") or 0, progress_fn=report_progress,
                 return_confidence=True, n_cycles=cfg.get("recycling_steps"),
                 max_parallel_samples=cfg.get("max_parallel_samples"),
+                # Without this --trace was a silent no-op for --model protenix-v2: main.py
+                # reserves the trace region and puts "trace" in the worker config, and
+                # Protenix.fold accepts trace=, but this call site never forwarded it, so
+                # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
+                # above forwards it, which is why the flag looked plumbed.
+                trace=cfg.get("trace", False),
             )
         confs = conf if isinstance(conf, list) else [conf]
 
