@@ -22,6 +22,7 @@ import ttnn
 OUT = sys.argv[1]
 REPS = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 10
 TRACE = "--trace" in sys.argv
+SWIGLU = "--swiglu" in sys.argv
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -34,7 +35,7 @@ res = {"ttnn_version": md.version("ttnn"), "reps": REPS, "trace": TRACE, "runs":
 
 if TRACE:
     _TTd.get_device(trace_region_size=1 << 30)  # open the singleton with a trace region
-model = tt_esmc.load_esmc("esmc-300m", trace=TRACE)
+model = tt_esmc.load_esmc("esmc-300m", trace=TRACE, fuse_swiglu=SWIGLU)
 dev = getattr(model, "device", None) or getattr(getattr(model, "cfg", None), "device", None)
 
 

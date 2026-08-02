@@ -322,10 +322,11 @@ class Block(Module):
       x = x + attn(x) / s ; x = x + ffn(x) / s,  s = sqrt(n_layers / 36).
     """
 
-    def __init__(self, n_heads: int, n_layers: int, state_dict: Weights, compute_kernel_config):
+    def __init__(self, n_heads: int, n_layers: int, state_dict: Weights, compute_kernel_config,
+                 fuse_swiglu: bool = False):
         super().__init__(state_dict, compute_kernel_config)
         self.attn = Attention(n_heads, self.scope("attn"), compute_kernel_config)
-        self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config)
+        self.ffn = SwiGLUFFN(self.scope("ffn"), compute_kernel_config, fuse_swiglu=fuse_swiglu)
         self.inv_scale = 1.0 / (n_layers / 36) ** 0.5
 
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
@@ -375,12 +376,14 @@ class ESMCModel(Module):
     the post-final-norm hidden states (matches esm.models.esmc.ESMC).
     """
 
-    def __init__(self, n_heads: int, n_layers: int, state_dict: Weights, compute_kernel_config):
+    def __init__(self, n_heads: int, n_layers: int, state_dict: Weights, compute_kernel_config,
+                 fuse_swiglu: bool = False):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
         self.embed = Embedding(self.scope("embed"), compute_kernel_config)
         self.blocks = [
-            Block(n_heads, n_layers, self.scope(f"transformer.blocks.{i}"), compute_kernel_config)
+            Block(n_heads, n_layers, self.scope(f"transformer.blocks.{i}"), compute_kernel_config,
+                  fuse_swiglu=fuse_swiglu)
             for i in range(n_layers)
         ]
         self.norm_weight = self.torch_to_tt("transformer.norm.weight")
@@ -413,7 +416,8 @@ class ESMC(TorchWrapper):
     forward(tokens[int B,L]) -> (logits[B,L,64], embeddings[B,L,d_model]).
     """
 
-    def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = False):
+    def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = False,
+                 fuse_swiglu: bool = False):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
@@ -423,11 +427,13 @@ class ESMC(TorchWrapper):
         # region: get_device(trace_region_size=1<<30) before load. Bit-identical to
         # eager by construction (same captured program, fresh input contents).
         self.trace = trace
+        self.fuse_swiglu = fuse_swiglu
         self._trace_cache = collections.OrderedDict()
         self._trace_broken = False
 
     @classmethod
-    def from_pretrained(cls, name: str = "esmc-300m", *, trace: bool = False) -> "ESMC":
+    def from_pretrained(cls, name: str = "esmc-300m", *, trace: bool = False,
+                        fuse_swiglu: bool = False) -> "ESMC":
         """Download + load trained weights from HuggingFace (e.g. 'esmc-300m')."""
         from huggingface_hub import hf_hub_download
 
@@ -435,12 +441,13 @@ class ESMC(TorchWrapper):
         path = hf_hub_download(repo_id, weights_path)
         sd = torch.load(path, map_location="cpu", weights_only=False)
         sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
-        model = cls(**config, trace=trace)
+        model = cls(**config, trace=trace, fuse_swiglu=fuse_swiglu)
         model.load_state_dict(sd, strict=False)
         return model
 
     def _create_module(self, weights: WeightScope) -> ESMCModel:
-        return ESMCModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
+        return ESMCModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config,
+                         fuse_swiglu=self.fuse_swiglu)
 
     _TRACE_CACHE_MAX = 8
 
@@ -934,7 +941,8 @@ def load_sequences(data) -> dict[str, str]:
     return seqs
 
 
-def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = False):
+def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = False,
+              fuse_swiglu: bool = False):
     """Load an ESMC model onto the TT device. ``name`` is one of ``MODELS``.
 
     300M/600M load from a single esm-repo .pth (with a sequence head, so logits
@@ -952,10 +960,12 @@ def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = Fals
         if trace:
             raise ValueError("trace is not supported for esmc-6b (per-layer host "
                              "reads in the hidden-states shim); keep it eager")
+        if fuse_swiglu:
+            raise ValueError("fuse_swiglu is not wired into the esmc-6b path")
         return ESMCLanguageModel.from_pretrained(name=name)
     if name not in CONFIGS:
         raise ValueError(f"unknown ESMC model {name!r}; choose from {list(MODELS)}")
-    return ESMC.from_pretrained(name, trace=trace)
+    return ESMC.from_pretrained(name, trace=trace, fuse_swiglu=fuse_swiglu)
 
 
 def _trunk_forward(model, seq: str, return_logits: bool):
