@@ -61,6 +61,17 @@ embeddings. Same N, same warm pool, A/B/A/B:
 the real compute ceiling: 150 seq/s across 26 workers is 5.8 seq/s per card, so any "per-card
 seq/s" figure derived from the npz path was already transfer-limited rather than a compute number.
 
+`embed_controller_probe.py` names the component. Sampling the controller process's own CPU next to
+the pool's, the two curves are exact complements: on the npz path the pool is fully busy for the
+first ~40% of the run and **completely idle for the last 50%**, while the controller pegs ~1.1-1.4
+cores over exactly that tail. It spends **15 core-seconds of a 27 s wall** on result handling; the
+parquet run does the same compute and needs **1.3**.
+
+Every shard's results come back through one controller process as base64 inside JSON — 651 KB of
+per-residue embeddings per sequence, inflated 33% by base64 — and the cards idle while that happens.
+Removing the tail would take N=1024 from 27 s to ~12 s (~2.2x). Workers and client share a
+filesystem here, so handing back a path instead of an 868 KB string is the obvious lever.
+
 ## Running it
 
 ```
