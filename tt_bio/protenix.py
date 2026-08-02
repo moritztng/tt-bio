@@ -1368,8 +1368,14 @@ class ConfidenceHead:
         plddt heads run on device (bf16) and only the final logits are
         downloaded -- the (N,N,256) z never round-trips per sample."""
         import torch, ttnn
+        # Tapped because the trunk and the diffusion stream are, and this was not: three AbAg-XM
+        # targets fail ~1300 s in, long after the trunk, at refused sizes that match no trunk
+        # tensor. Without a tag here the last thing TT_BIO_DRAM_PEAK reports is the final edm
+        # step, which cannot distinguish "died in confidence" from "died after it".
+        dram_peak("confidence: enter")
         rc = self._device_resident(s_inputs, s_trunk, z_base_dev, feats)
         N = rc["N"]
+        dram_peak(f"confidence: resident built [N={N}]")
         # ---- per-sample distance-embed on device ----
         coords_tbl = ttnn.from_torch(coords.float().reshape(coords.shape[0], 3), layout=ttnn.ROW_MAJOR_LAYOUT,
                                      device=self.dev, dtype=ttnn.bfloat16)        # (N_atom,3) gather table
@@ -1424,6 +1430,7 @@ class ConfidenceHead:
         # einsum nc,ncb->nb  ==  batched (N_atom,1,384) @ (N_atom,384,50) -> (N_atom,1,50)
         aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
         plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
+        dram_peak("confidence: heads done, before download")
         # ---- download the small finals; post-process on host (small, exact) ----
         pae_h = torch.Tensor(ttnn.to_torch(pae_logits)).float().reshape(N, N, -1)
         pde_h = torch.Tensor(ttnn.to_torch(pde_logits)).float().reshape(N, N, -1)
