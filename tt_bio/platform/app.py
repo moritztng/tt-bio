@@ -20,6 +20,10 @@ from .jobs import CapacityError, JobManager
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"  # built React app (npm run build output)
+_LANDING = _HERE / "landing"  # hand-crafted landing page for the apex domain
+# Hosts that get the landing page instead of the SPA. demo.japanfold.com and
+# api.japanfold.com are deliberately absent: they keep serving the SPA / API.
+_LANDING_HOSTS = frozenset({"japanfold.com", "www.japanfold.com"})
 
 # Anonymous per-visitor session. No login: the server mints an unguessable id in
 # an HttpOnly cookie on first contact and tags every job with it; a job is only
@@ -164,12 +168,26 @@ def create_app(workspace: str | os.PathLike | None = None, *,
     from . import api_v1
     api_v1.register(app)
 
-    # ---- Static SPA ---------------------------------------------------
+    # ---- Static SPA + apex landing page -------------------------------
     @app.get("/")
     @app.get("/<path:path>")
     def spa(path: str = ""):
         if path.startswith("api/") or path.startswith("v1/"):
             return jsonify({"error": "not found"}), 404
+        # The apex domain shows the marketing landing page; the interactive
+        # demo SPA lives on demo.japanfold.com. API paths above are identical
+        # on every host. Falls through to the SPA when no landing page is
+        # deployed (dev boxes, older checkouts).
+        host = request.host.partition(":")[0].lower()
+        if host in _LANDING_HOSTS:
+            candidate = _LANDING / path
+            if path and candidate.is_file():
+                return send_from_directory(_LANDING, path)
+            index = _LANDING / "index.html"
+            if index.exists():
+                resp = send_file(index)
+                resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                return resp
         candidate = _STATIC / path
         if path and candidate.is_file():
             resp = send_from_directory(_STATIC, path)
