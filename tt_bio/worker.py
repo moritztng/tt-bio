@@ -237,6 +237,20 @@ class _WorkerState:
         elif _is_esmc_model(model_id):
             from tt_bio.esmc import load_esmc
 
+            if model_id in ("esmc-300m", "esmc-600m"):
+                # The traced single-sequence forward needs its trace region
+                # reserved at device-open; load_esmc requests it only on a
+                # fresh open. Guarantee the fresh open here instead of relying
+                # on reset() having closed the chip — a cleanup that failed
+                # (swallowed there) would otherwise pin this worker eager
+                # forever. Scoped to the 300M/600M embedders: esmc-6b cannot
+                # be traced, and a 256 MB reservation risks OOM for the big
+                # models, so no other model's device-open is touched.
+                from tt_bio.tenstorrent import cleanup as _tt_cleanup
+                from tt_bio.tenstorrent import trace_region_size
+
+                if trace_region_size() <= 0:
+                    _tt_cleanup()
             self.model = load_esmc(model_id, fast=cfg.get("fast", False))
         else:
             from tt_bio.boltz2 import Boltz2
