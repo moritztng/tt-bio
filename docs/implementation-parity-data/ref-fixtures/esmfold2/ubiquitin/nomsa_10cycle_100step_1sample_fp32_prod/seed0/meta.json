@@ -1,0 +1,5 @@
+{
+  "seed": 0,
+  "backend": "ttnn (Tenstorrent Blackhole), production sampler path",
+  "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 \u2014 device sampler draws from the global CPU torch stream, seeded per seed before each forward on both paths (paired shared-draw comparison)"
+}

@@ -1,0 +1,18 @@
+version: 1
+# Antibody-antigen complex from OpenDDE 2026ARK-AB benchmark set (PDB 9loz).
+# F61R2-780 Fab vs SARS-CoV-2 JN.1 RBD (Spike protein S1).
+# N-expansion Tier A target (flagship-abag-trust-signal-rethink). Same antibody as 9lp1
+# (F61R2-780) but a DIFFERENT antigen variant -- 9lp1 is the KP.3.1.1 RBD, this is the JN.1
+# RBD (confirmed via RCSB struct.title, NOT a duplicate deposition -- both are genuinely
+# independent targets). Sequences are the RESOLVED chain sequences extracted directly from
+# the real RCSB CIF via gemmi. MSA on by default.
+sequences:
+  - protein:
+      id: A
+      sequence: TNLCPFHEVFNATRFASVYAWNRTRISNCVADYSVLYNFAPFFAFKCYGVSPTKLNDLCFTNVYADSFVIKGNEVSQIAPGQTGNIADYNYKLPDDFTGCVIAWNSNKLDSKHSGNYDYWYRSFRKSKLKPFERDISTEIYQAGNKPCKGKGPNCYFPLQSYGFRPTYGVGHQPYRVVVLSFELLHAPATVCGP
+  - protein:
+      id: H
+      sequence: EVQLVESGGGLVQPGGSLRLSCEASEIIVNRNYMNWVRQAPGKGLEWVSIIYPGGSTFYADSVKGRFTISRDNSKNTMYLQMNSLRAEDTAVYYCARSYGDFYVDFWGQGTLVTVSS
+  - protein:
+      id: L
+      sequence: GTLSLSPGERATLSCRATQSIPSTYLAWYQQKPGQAPRLLIYGASSRATGIPDRFSGSGSGTDFTLSINRLEPEDFAVYYCQHYGTSPFTFGPGTKVDIK

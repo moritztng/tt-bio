@@ -1,0 +1,36 @@
+[
+  {
+    "id": "affinity_dhfr",
+    "status": "ok",
+    "confidence_score": 0.976607,
+    "ptm": 0.966286,
+    "iptm": 0.981682,
+    "ligand_iptm": 0.981682,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.975338,
+    "complex_iplddt": 0.970116,
+    "complex_pde": 0.337106,
+    "complex_ipde": 0.386324,
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.964337,
+        "1": 0.854099
+      },
+      "1": {
+        "0": 0.981682,
+        "1": 0.950066
+      }
+    },
+    "chains_ptm": {
+      "0": 0.964337,
+      "1": 0.950066
+    },
+    "runtime_s": 230.6,
+    "affinity_pred_value": -1.839871,
+    "affinity_probability_binary": 0.966448,
+    "affinity_pred_value1": -0.452844,
+    "affinity_probability_binary1": 0.952443,
+    "affinity_pred_value2": -1.307894,
+    "affinity_probability_binary2": 0.980453
+  }
+]

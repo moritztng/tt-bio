@@ -41,6 +41,7 @@ MIT-licensed and credited in the top-level LICENSE.
 5. tt_bio/_vendor/openfold3/ — OpenFold3 host-side data pipeline: query-JSON
    parsing, CCD/ligand lookup, tokenization, MSA/template featurization (no
    neural compute; the model itself is ported separately for Tenstorrent).
+   Present in the aiand-bio platform repo only.
    Source:        github.com/aqlaboratory/openfold-3 @ 5520bc9 (v0.4.3)
    License:       Apache-2.0 — Copyright 2026 AlQuraishi Laboratory
                   (tt_bio/_vendor/openfold3/LICENSE)

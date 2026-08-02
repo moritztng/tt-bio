@@ -1,0 +1,18 @@
+{
+  "batch": "batch_b",
+  "target_id": "binder",
+  "n": 8,
+  "wallclock_s": 1257,
+  "wallclock_breakdown": "design 389.4s + inverse_folding 11.8s + folding 369.3s + design_folding 323.3s + analysis 162.8s = 1256.6s (full pipeline, single invocation; the optional filtering step 6/6 aborted on a missing config but runs after analysis and does not affect the scRMSD designability metric, which is read from the analysis CSV)",
+  "scrmsd": {
+    "min": 0.61289,
+    "median": 1.509265,
+    "mean": 2.1080225,
+    "stdev": 1.876469254396072,
+    "pass_le_2A": 0.625,
+    "pass_le_4A": 0.875
+  },
+  "outliers": "binder_6 at 6.67 A and binder_4 at 2.98 A are the two strict fails; the other 6/8 designs are <=2.02 A, with three <=0.91 A.",
+  "harvested_from": "/root/work/ref_batch_b/intermediate_designs_inverse_folded/aggregate_metrics_analyze.csv on vast instance 44721818",
+  "note": "real reference output copied verbatim from the GPU run; not regenerated or edited. Independent invocation of the same official CLI as batch_a (BoltzGen has no --seed flag; each process is an independent draw, matching the device discipline)."
+}

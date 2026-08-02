@@ -1,0 +1,26 @@
+{
+  "seed": 3,
+  "target_id": "trpcage_no_msa",
+  "harvested_from": "/home/ttuser/pharma_seedbump2/boltz2_trpcage/ref_harness_s3",
+  "selected_record": {
+    "confidence_score": 0.8368631601333618,
+    "ptm": 0.39345142245292664,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.9477160573005676,
+    "complex_iplddt": 0.9477160573005676,
+    "complex_pde": 0.3303602337837219,
+    "complex_ipde": 0.0,
+    "chains_ptm": {
+      "0": 0.39345142245292664
+    },
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.39345142245292664
+      }
+    },
+    "id": "trpcage_no_msa"
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

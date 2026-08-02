@@ -3,7 +3,7 @@ os.environ.setdefault('TT_VISIBLE_DEVICES','0'); os.environ.setdefault('TT_LOGGE
 sys.path.insert(0,'/home/ttuser/tt-boltz2'); sys.path.insert(0,'/home/ttuser/tt-boltz2/tests')
 import pickle, torch, torch.nn.functional as F, ttnn
 from protenix_reference import remap_pairformer_block
-from tt_bio.tenstorrent import get_device, Pairformer, CORE_GRID_MAIN as CORE
+from tt_bio.tenstorrent import get_device, Pairformer
 ck=torch.load('/home/ttuser/protenix_ckpt/protenix-v2.pt',map_location='cpu',weights_only=True); ck=ck.get('model',ck)
 P='module.confidence_head.'; g=lambda k: ck[P+k].float()
 gc=pickle.load(open('/home/ttuser/protenix_confidence_pre.pkl','rb')); kw=gc['kwargs']
@@ -14,7 +14,6 @@ N=s_inputs.shape[-2] if s_inputs.dim()>1 else s_inputs.shape[0]
 s_inputs=s_inputs.reshape(-1,449)[:N] if s_inputs.dim()>2 else s_inputs.reshape(N,449)
 s_trunk=s_trunk.reshape(N,384); z_trunk=z_trunk.reshape(N,N,256)
 # host-side prep (distance embed) then pairformer on device
-import math
 s_t=F.layer_norm(torch.clamp(s_trunk,-512,512),(384,))*g('input_strunk_ln.weight')+ (g('input_strunk_ln.bias') if (P+'input_strunk_ln.bias') in ck else 0)
 mask=feat['distogram_rep_atom_mask'].bool()
 xr=x_pred.reshape(-1,3)[mask] if x_pred.dim()==2 else x_pred.reshape(x_pred.shape[-2],3)[mask]

@@ -19,6 +19,17 @@ TRANSITION_W_CHUNKING_THRESHOLD = 1024
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 _FAST_MODE = False
+_DTYPE_OVERRIDE = None
+_DIFFUSION_FP32_DEVICE = False
+# Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
+# on device, matching the Boltz-2 reference's autocast-disabled fp32-softmax-then-
+# cast-back-to-bf16 recipe (src/boltz/model/layers/attention.py:119-127 and
+# triangular_attention/primitives.py:127-194). Operands and storage stay bf16; only
+# the softmax reduction (and the additive bias it consumes) upcast to fp32. The
+# q@k score matmul already uses fp32_dest_acc, so per memory
+# boltz-reference-selective-fp32-softmax the softmax is the remaining mismatch. Set
+# BOLTZ2_FP32_SOFTMAX=1 to A/B; default OFF until a leg closes against it.
+_FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
@@ -69,6 +80,8 @@ CORE_GRID_MAIN = ttnn.CoreGrid(y=COMPUTE_GRID_Y, x=COMPUTE_GRID_X_11)
 COMPUTE_GRID_MAIN = (CORE_GRID_MAIN.x, CORE_GRID_MAIN.y)
 
 def _dtype():
+    if _DTYPE_OVERRIDE is not None:
+        return _DTYPE_OVERRIDE
     return ttnn.bfloat8_b if _FAST_MODE else ttnn.bfloat16
 
 
@@ -113,6 +126,46 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
         q_chunk_size=_capped_sdpa_chunk_size(q_len),
         k_chunk_size=_capped_sdpa_chunk_size(k_len),
     )
+
+
+def _fp32_softmax_attention(
+    q: ttnn.Tensor,
+    k: ttnn.Tensor,
+    v: ttnn.Tensor,
+    bias: ttnn.Tensor,
+    scale_inv: float,
+    compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+    out_dtype: ttnn.DataType = ttnn.bfloat16,
+) -> ttnn.Tensor:
+    """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
+
+    Mirrors the Boltz-2 reference recipe (attention.py:119-127):
+    ``softmax((q@k^T)/sqrt(h) + z)`` in fp32, then ``o = attn @ v`` cast back to bf16.
+    The q@k matmul keeps bf16 operands with fp32_dest_acc (the existing einsum recipe);
+    only the softmax reduction and the additive bias it consumes upcast to fp32. The
+    additive ``bias`` arrives pre-baked by ``sqrt(h)`` (z_weight * sqrt(h)), so it is
+    multiplied by ``scale_inv`` to recover the raw reference ``z`` before the add —
+    the same undo the fp32_raw_matmul_attention path applies. Replaces the fused
+    ``ttnn.transformer.scaled_dot_product_attention`` call (bf16 softmax) when the
+    BOLTZ2_FP32_SOFTMAX gate is on.
+    """
+    kt = ttnn.permute(k, (0, 1, 3, 2))
+    # bf16 operands, fp32_dest_acc -> bf16 scores (the existing einsum recipe).
+    sc = ttnn.matmul(q, kt, compute_kernel_config=compute_kernel_config)
+    ttnn.deallocate(kt)
+    sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
+    sc = ttnn.multiply(sc, scale_inv)
+    bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+    bias_f = ttnn.multiply(bias_f, scale_inv)  # undo the sqrt(h) pre-bake -> raw z
+    sc = ttnn.add(sc, bias_f)
+    ttnn.deallocate(bias_f)
+    attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
+    attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
+    ttnn.deallocate(attn)
+    ttnn.deallocate(sc)
+    o = ttnn.matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
+    ttnn.deallocate(attn_bf)
+    return o
 
 
 @lru_cache(maxsize=None)
@@ -208,6 +261,33 @@ def set_fast_mode(enabled: bool) -> None:
     _FAST_MODE = bool(enabled)
 
 
+@contextlib.contextmanager
+def device_dtype_override(dtype):
+    """Temporarily override the dtype used while constructing a device module."""
+    global _DTYPE_OVERRIDE
+    old = _DTYPE_OVERRIDE
+    _DTYPE_OVERRIDE = dtype
+    try:
+        yield
+    finally:
+        _DTYPE_OVERRIDE = old
+
+
+@contextlib.contextmanager
+def diffusion_fp32_device(enabled: bool):
+    """Scope the default-off fp32 token-diffusion hybrid (fp32 storage, native bf16
+    SDPA) to one model load — used for both the affinity diffusion (BOLTZ2_AFFINITY_
+    DIFFUSION_FP32_DEVICE) and the plain structure diffusion (BOLTZ2_STRUCTURE_
+    DIFFUSION_FP32_DEVICE); see worker.py load_model/predict_affinity."""
+    global _DIFFUSION_FP32_DEVICE
+    old = _DIFFUSION_FP32_DEVICE
+    _DIFFUSION_FP32_DEVICE = bool(enabled)
+    try:
+        yield
+    finally:
+        _DIFFUSION_FP32_DEVICE = old
+
+
 @lru_cache(maxsize=1)
 def arch_name() -> str:
     """Tenstorrent architecture, e.g. 'wormhole_b0' or 'blackhole'. Cheap; no
@@ -239,6 +319,7 @@ def pair_row_tile(L: int) -> int:
 
 _device = None
 _trace_region_size = 0
+_device_lease = None
 
 _DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
 
@@ -332,42 +413,60 @@ def get_device(trace_region_size=0):
     size (e.g. 1 << 30) to enable the Protenix denoise trace via fold(trace=True)
     or BoltzGen's diffusion trace (Boltz.__init__(diffusion_trace=True)); the
     default 0 leaves the device layout unchanged. If the arg is 0,
-    ``TT_BIO_TRACE_REGION_SIZE`` is consulted as a dev-only escape hatch (used by
-    the parity harness in perf/boltzgen_trace_step_parity/) so a single-BH open
-    can reserve a trace region without the caller threading the kwarg.
+    ``TT_BIO_TRACE_REGION_SIZE`` is consulted as a dev-only escape hatch so a
+    single-BH open can reserve a trace region without the caller threading the
+    kwarg.
     """
-    global _device, _trace_region_size
+    global _device, _trace_region_size, _device_lease
     if _device is None:
-        if trace_region_size == 0:
-            env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
-            if env_sz:
-                trace_region_size = int(env_sz)
-        device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
-        # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
-        # (rather than 8x7 after worker-dispatch reservation) is available.
-        # BUT on a multi-chip system (Galaxy / multi-card mesh) the ETH cores are
-        # consumed by the inter-chip fabric, so ETH dispatch has no free cores
-        # ("No more available dispatch cores"). We must NOT attempt-then-reopen in
-        # the same process: the failed ETH open leaves the device mid-initialized
-        # ("dispatch kernels still running", "unexpected run_mailbox value") and a
-        # subsequent in-process open is unstable (later from_torch / close_device
-        # hang). So decide up front from the physical chip count and open cleanly
-        # once. Default (Tensix) dispatch yields an 8x7 grid that
-        # _configure_active_compute_grid picks up and tunes for.
-        eth_dispatch = is_wormhole() and num_chips() <= 1
-        kwargs = (
-            {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
-            if eth_dispatch else {}
-        )
-        # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound
-        # diffusion). Default 0 -> device layout unchanged when tracing is off.
-        if trace_region_size > 0:
-            kwargs["trace_region_size"] = trace_region_size
-        dev = _open_device_locked(device_id, kwargs)
-        _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
-        _device = dev
-        _trace_region_size = trace_region_size
+        # Enforce an exclusive, host-local lease on the physical card BEFORE opening it,
+        # so two processes on this host can never open the same card at once regardless of
+        # how they were launched (fleet worker, detached campaign, cross-host fanout, manual).
+        # The flock is auto-released by the kernel on any process death, so a crashed/killed
+        # holder never leaves a phantom claim. See tt_bio/device_lease.py.
+        from tt_bio.device_lease import DeviceLease
+        _device_lease = DeviceLease().acquire()
+        try:
+            _device = _open_and_init_device(trace_region_size)
+        except Exception:
+            _device_lease.release()
+            _device_lease = None
+            raise
     return _device
+
+
+def _open_and_init_device(trace_region_size):
+    """Open + configure TT device 0 (the physical card is already leased by the caller)."""
+    global _trace_region_size
+    if trace_region_size == 0:
+        env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
+        if env_sz:
+            trace_region_size = int(env_sz)
+    device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
+    # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
+    # (rather than 8x7 after worker-dispatch reservation) is available.
+    # BUT on a multi-chip system (Galaxy / multi-card mesh) the ETH cores are
+    # consumed by the inter-chip fabric, so ETH dispatch has no free cores
+    # ("No more available dispatch cores"). We must NOT attempt-then-reopen in
+    # the same process: the failed ETH open leaves the device mid-initialized
+    # ("dispatch kernels still running", "unexpected run_mailbox value") and a
+    # subsequent in-process open is unstable (later from_torch / close_device
+    # hang). So decide up front from the physical chip count and open cleanly
+    # once. Default (Tensix) dispatch yields an 8x7 grid that
+    # _configure_active_compute_grid picks up and tunes for.
+    eth_dispatch = is_wormhole() and num_chips() <= 1
+    kwargs = (
+        {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
+        if eth_dispatch else {}
+    )
+    # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound
+    # diffusion). Default 0 -> device layout unchanged when tracing is off.
+    if trace_region_size > 0:
+        kwargs["trace_region_size"] = trace_region_size
+    dev = _open_device_locked(device_id, kwargs)
+    _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
+    _trace_region_size = trace_region_size
+    return dev
 
 
 def trace_region_size():
@@ -376,7 +475,7 @@ def trace_region_size():
 
 
 def cleanup():
-    global _device, _trace_region_size
+    global _device, _trace_region_size, _device_lease
     if _device is not None:
         try:
             # Drain queued work before closing so teardown is deterministic.
@@ -390,6 +489,12 @@ def cleanup():
             ttnn.close_device(_device)
         _device = None
         _trace_region_size = 0
+    # Release the physical-card lease AFTER the chip is closed, so the card is not
+    # advertised as free while UMD teardown is still in flight. The kernel also drops
+    # the flock on process exit, so a skipped cleanup (e.g. SIGKILL) still frees it.
+    if _device_lease is not None:
+        _device_lease.release()
+        _device_lease = None
 
 
 atexit.register(cleanup)
@@ -474,8 +579,10 @@ class Module:
         self,
         key: str,
         transform: Callable[[torch.Tensor], torch.Tensor] = lambda x: x.t(),
-        dtype=ttnn.bfloat16,
+        dtype=None,
     ) -> ttnn.Tensor:
+        if dtype is None:
+            dtype = _dtype()
         wc = _weight_cache
         if wc is None:
             return ttnn.from_torch(
@@ -502,10 +609,10 @@ class Module:
             os.replace(tmp, path)  # atomic publish
         return ttnn.to_device(host, self.device)
 
-    def _lin(self, x, w, bias=None, dtype=ttnn.bfloat16, **kw):
-        """Shared linear projection: ttnn.linear on this module's kernel config +
-        the main core grid. Used across the ESMFold2 encoders / diffusion (which
-        bind ``lin = self._lin``) instead of repeating the call everywhere."""
+    def _lin(self, x, w, bias=None, dtype=None, **kw):
+        """Shared linear projection on this module's kernel config and core grid."""
+        if dtype is None:
+            dtype = _dtype()
         return ttnn.linear(
             x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
             dtype=dtype, core_grid=CORE_GRID_MAIN, **kw,
@@ -743,15 +850,14 @@ class TriangleAttention(Module):
         self.affinity = affinity
         self.scale = self.head_dim**0.5
         # nlp_concat_heads pads each head's channel dim up to a 32-tile boundary, so at
-        # a sub-tile head_dim (e.g. OF3 template pair_stack c_hidden_tri_att=16) it
+        # a sub-tile head_dim it
         # yields n_heads*32 channels while the gate g carries n_heads*head_dim -- a
         # shape mismatch that throws "Invalid subtile broadcast type" in gate_and_
         # project's multiply_. The tile-aligned head_dim=32 path (MSA / Boltz-2 /
         # Protenix) is unaffected and stays on the original nlp_concat_heads path. The
         # sub-tile path pads the qkv head_dim up to 32 (zeros, so the real head_dim
         # channels are unchanged) and slices + manual-concats the SDPA output back to
-        # n_heads*head_dim -- mirrors the already-validated AttentionPairBias sub-tile
-        # handling. See docs/openfold3-port.md P8 tick 12 / Leg 2.
+        # n_heads*head_dim -- mirrors the AttentionPairBias sub-tile handling.
         head_dim_padding = -head_dim % 32
         self.padded_head_dim = head_dim + head_dim_padding
         self.subtile = head_dim_padding != 0
@@ -809,10 +915,18 @@ class TriangleAttention(Module):
                 transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             ttnn.deallocate(qkv_in)
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
-            )
+            if _FP32_SOFTMAX:
+                o = _fp32_softmax_attention(
+                    q, k, v, bias,
+                    scale_inv=self.scale ** -1,
+                    compute_kernel_config=self.compute_kernel_config,
+                    out_dtype=_dtype(),
+                )
+            else:
+                o = ttnn.transformer.scaled_dot_product_attention(
+                    q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
+                    program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+                )
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
@@ -913,21 +1027,25 @@ class AttentionPairBias(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        dtype: ttnn.DataType | None = None,
+        fp32_raw_matmul_attention: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
+        self.dtype = dtype if dtype is not None else _dtype()
+        self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
         self.atom_level = atom_level
         if atom_level:
-            self.q_weight = self.torch_to_tt("proj_q.weight", dtype=_dtype())
-            self.q_bias = self.torch_to_tt("proj_q.bias", dtype=_dtype())
+            self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
+            self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
             kv_weight = torch.cat([self.weights["proj_k.weight"], self.weights["proj_v.weight"]], dim=0)
             self.kv_weight = ttnn.from_torch(
                 kv_weight.t(),
                 layout=ttnn.TILE_LAYOUT,
                 device=self.device,
-                dtype=_dtype(),
+                dtype=self.dtype,
             )
         else:
             qkv_weight = torch.cat(
@@ -943,7 +1061,7 @@ class AttentionPairBias(Module):
                 qkv_weight.t(),
                 layout=ttnn.TILE_LAYOUT,
                 device=self.device,
-                dtype=ttnn.bfloat16,
+                dtype=self.dtype,
             )
             q_bias = self.weights["proj_q.bias"]
             q_bias = q_bias.reshape(self.n_heads, head_dim)
@@ -954,16 +1072,16 @@ class AttentionPairBias(Module):
                 qkv_bias,
                 layout=ttnn.TILE_LAYOUT,
                 device=self.device,
-                dtype=ttnn.bfloat16,
+                dtype=self.dtype,
             )
-        self.g_weight = self.torch_to_tt("proj_g.weight")
+        self.g_weight = self.torch_to_tt("proj_g.weight", dtype=self.dtype)
         if compute_pair_bias:
-            self.z_norm_weight = self.torch_to_tt("proj_z.0.weight")
-            self.z_norm_bias = self.torch_to_tt("proj_z.0.bias")
+            self.z_norm_weight = self.torch_to_tt("proj_z.0.weight", dtype=self.dtype)
+            self.z_norm_bias = self.torch_to_tt("proj_z.0.bias", dtype=self.dtype)
             self.z_weight = ttnn.multiply_(
-                self.torch_to_tt("proj_z.1.weight"), self.head_dim**0.5
+                self.torch_to_tt("proj_z.1.weight", dtype=self.dtype), self.head_dim**0.5
             )
-        self.o_weight = self.torch_to_tt("proj_o.weight")
+        self.o_weight = self.torch_to_tt("proj_o.weight", dtype=self.dtype)
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -980,6 +1098,63 @@ class AttentionPairBias(Module):
             z, self.z_weight, compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
         )
         return ttnn.permute(z, (0, 3, 1, 2))
+
+    def _attention(
+        self,
+        q: ttnn.Tensor,
+        k: ttnn.Tensor,
+        v: ttnn.Tensor,
+        bias: ttnn.Tensor,
+    ) -> ttnn.Tensor:
+        if _FP32_SOFTMAX and self.dtype != ttnn.float32:
+            # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
+            return _fp32_softmax_attention(
+                q, k, v, bias,
+                scale_inv=self.head_dim ** -0.5,
+                compute_kernel_config=self.compute_kernel_config,
+                out_dtype=_dtype(),
+            )
+        if self.dtype != ttnn.float32:
+            return ttnn.transformer.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=bias,
+                is_causal=False,
+                scale=self.head_dim**-0.5,
+                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+            )
+
+        # SDPA accepts bf16/bf8/bf4 only. Keep the fp32 transformer in fp32
+        # storage and cross this one hardware boundary in native bf16: the
+        # attention reduction is the precision-insensitive part (softmax over
+        # a large logits range), and fp32 SDPA is op-blocked on Wormhole, so a
+        # pure-fp32 matmul-attention wedges the device. The linears, residuals,
+        # and layernorm around it stay fp32.
+        q_bf16 = ttnn.typecast(q, ttnn.bfloat16, memory_config=q.memory_config())
+        k_bf16 = ttnn.typecast(k, ttnn.bfloat16, memory_config=k.memory_config())
+        v_bf16 = ttnn.typecast(v, ttnn.bfloat16, memory_config=v.memory_config())
+        bias_bf16 = ttnn.typecast(
+            bias, ttnn.bfloat16, memory_config=bias.memory_config()
+        )
+        out_bf16 = ttnn.transformer.scaled_dot_product_attention(
+            q_bf16,
+            k_bf16,
+            v_bf16,
+            attn_mask=bias_bf16,
+            is_causal=False,
+            scale=self.head_dim**-0.5,
+            program_config=_sdpa_program_config_for_lengths(
+                q_bf16.shape[2], k_bf16.shape[2]
+            ),
+        )
+        for tensor in (q_bf16, k_bf16, v_bf16, bias_bf16):
+            ttnn.deallocate(tensor)
+        out = ttnn.typecast(
+            out_bf16, self.dtype, memory_config=out_bf16.memory_config()
+        )
+        ttnn.deallocate(out_bf16)
+        return out
 
     def __call__(
         self,
@@ -1021,17 +1196,30 @@ class AttentionPairBias(Module):
                     core_grid=CORE_GRID_MAIN,
                 )
                 z = ttnn.permute(z, (0, 3, 1, 2))
-            if seq_mask is not None:
-                z = ttnn.add_(z, seq_mask)
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                attn_mask=z,
-                is_causal=False,
-                scale=self.head_dim**-0.5,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
-            )
+            if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
+                # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
+                # path computes attention as raw matmul. SDPA scales its additive mask
+                # along with QK, so z_weight carries sqrt(head_dim) compensation. Undo
+                # that compensation before adding z after the explicit QK scale.
+                if self.compute_pair_bias:
+                    z = ttnn.multiply(z, self.head_dim ** -0.5)
+                if seq_mask is not None:
+                    z = ttnn.add_(z, seq_mask)
+                kt = ttnn.permute(k, (0, 1, 3, 2))
+                sc = ttnn.matmul(q, kt,
+                                 compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(kt)
+                sc = ttnn.multiply(sc, self.head_dim ** -0.5)
+                sc = ttnn.add(sc, z)
+                attn = ttnn.softmax(sc, dim=-1)
+                o = ttnn.matmul(attn, v,
+                                compute_kernel_config=self.compute_kernel_config)
+                ttnn.deallocate(attn)
+                ttnn.deallocate(sc)
+            else:
+                if seq_mask is not None:
+                    z = ttnn.add_(z, seq_mask)
+                o = self._attention(q, k, v, z)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
@@ -1081,10 +1269,7 @@ class AttentionPairBias(Module):
             v = ttnn.reshape(v, (B, K * H, S, D_Q))
             q = q[:, :, :ATOM_WINDOW, :]
             z = ttnn.reshape(z, (1, -1, z.shape[2], z.shape[3]))
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q, k, v, attn_mask=z, is_causal=False, scale=self.head_dim**-0.5,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
-            )
+            o = self._attention(q, k, v, z)
             o = ttnn.reshape(o, (B * K, H, W, D_Q))
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
@@ -1097,7 +1282,7 @@ class AttentionPairBias(Module):
         )
         if _FAST_MODE:
             o = ttnn.typecast(o, ttnn.bfloat16)
-        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=_dtype())
+        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
         x = ttnn.linear(
             o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
@@ -1112,16 +1297,20 @@ class Transition(Module):
         self,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        dtype: ttnn.DataType | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
-        self.norm_weight = self.torch_to_tt("norm.weight")
-        self.norm_bias = self.torch_to_tt("norm.bias")
-        self.fc1_weight = self.torch_to_tt("fc1.weight")
-        self.fc2_weight = self.torch_to_tt("fc2.weight")
-        self.fc3_weight = self.torch_to_tt("fc3.weight")
+        self.dtype = dtype
+        weight_dtype = dtype if dtype is not None else ttnn.bfloat16
+        self.norm_weight = self.torch_to_tt("norm.weight", dtype=weight_dtype)
+        self.norm_bias = self.torch_to_tt("norm.bias", dtype=weight_dtype)
+        self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=weight_dtype)
+        self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
+        self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         def swiglu(x):
+            dtype = self.dtype if self.dtype is not None else _dtype()
             x_norm = ttnn.layer_norm(
                 x,
                 weight=self.norm_weight,
@@ -1136,7 +1325,7 @@ class Transition(Module):
                 activation="silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             x_2 = ttnn.linear(
@@ -1144,7 +1333,7 @@ class Transition(Module):
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
@@ -1154,7 +1343,7 @@ class Transition(Module):
                 x,
                 self.fc3_weight,
                 compute_kernel_config=self.compute_kernel_config,
-                dtype=_dtype(),
+                dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
@@ -1575,13 +1764,14 @@ class AdaLN(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        dtype: ttnn.DataType = ttnn.bfloat16,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
-        self.s_norm_weight = self.torch_to_tt("s_norm.weight")
-        self.s_scale_weight = self.torch_to_tt("s_scale.weight")
-        self.s_scale_bias = self.torch_to_tt("s_scale.bias")
-        self.s_bias_weight = self.torch_to_tt("s_bias.weight")
+        self.s_norm_weight = self.torch_to_tt("s_norm.weight", dtype=dtype)
+        self.s_scale_weight = self.torch_to_tt("s_scale.weight", dtype=dtype)
+        self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
+        self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False) -> ttnn.Tensor:
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
@@ -1634,7 +1824,7 @@ class ConditionedTransitionBlock(Module):
         )
         swish_chunk, gates_chunk = torch.chunk(self.weights["swish_gate.0.weight"], chunks=2, dim=0)
         self.swish_weight, self.gates_weight = [
-            ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+            ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype())
             for chunk in [swish_chunk, gates_chunk]
         ]
         self.a_to_b_weight = self.torch_to_tt("a_to_b.weight")
@@ -2168,14 +2358,17 @@ class Diffusion(Module):
         self.s_to_a_norm_weight = self.torch_to_tt("s_to_a_linear.0.weight")
         self.s_to_a_norm_bias = self.torch_to_tt("s_to_a_linear.0.bias")
         self.s_to_a_linear_weight = self.torch_to_tt("s_to_a_linear.1.weight")
-        self.token_transformer = DiffusionTransformer(
-            n_layers=TOKEN_N_LAYERS,
-            dim=TOKEN_DIM,
-            n_heads=TOKEN_N_HEADS,
-            atom_level=False,
-            state_dict=self.scope("token_transformer"),
-            compute_kernel_config=compute_kernel_config,
-        )
+        self.token_transformer_fp32 = _DIFFUSION_FP32_DEVICE
+        token_dtype = ttnn.float32 if self.token_transformer_fp32 else None
+        with device_dtype_override(token_dtype):
+            self.token_transformer = DiffusionTransformer(
+                n_layers=TOKEN_N_LAYERS,
+                dim=TOKEN_DIM,
+                n_heads=TOKEN_N_HEADS,
+                atom_level=False,
+                state_dict=self.scope("token_transformer"),
+                compute_kernel_config=compute_kernel_config,
+            )
         self.a_norm_weight = self.torch_to_tt("a_norm.weight")
         self.a_norm_bias = self.torch_to_tt("a_norm.bias")
         self.a_to_q_weight = self.torch_to_tt(
@@ -2313,7 +2506,20 @@ class Diffusion(Module):
         )
         a = ttnn.add(a, s_to_a)
         ttnn.deallocate(s_to_a)
-        a = self.token_transformer(a, s, bias_token)
+        if self.token_transformer_fp32:
+            a_fp32 = ttnn.typecast(a, ttnn.float32, memory_config=a.memory_config())
+            s_fp32 = ttnn.typecast(s, ttnn.float32, memory_config=s.memory_config())
+            bias_fp32 = ttnn.typecast(
+                bias_token, ttnn.float32, memory_config=bias_token.memory_config()
+            )
+            a_fp32 = self.token_transformer(a_fp32, s_fp32, bias_fp32)
+            a = ttnn.typecast(
+                a_fp32, ttnn.bfloat16, memory_config=a_fp32.memory_config()
+            )
+            for tensor in (a_fp32, s_fp32, bias_fp32):
+                ttnn.deallocate(tensor)
+        else:
+            a = self.token_transformer(a, s, bias_token)
         ttnn.deallocate(s)
         a = ttnn.layer_norm(
             a,

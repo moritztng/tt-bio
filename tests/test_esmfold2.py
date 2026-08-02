@@ -33,7 +33,6 @@ except (ImportError, ModuleNotFoundError, FileNotFoundError) as exc:
     pytest.skip(f"ESMFold2 Biohub reference unavailable: {exc}", allow_module_level=True)
 
 from tt_bio import esmfold2 as tt_ef2  # noqa: E402
-from tt_bio.tenstorrent import get_device  # noqa: E402
 
 torch.set_grad_enabled(False)
 torch.manual_seed(893)
@@ -149,6 +148,25 @@ def test_distogram_head(seq_len):
     out = mod(z)
     assert out.shape == ref_out.shape
     assert pcc(out, ref_out) > 0.999
+
+
+def test_diffusion_sampler_shared_rng_gate(monkeypatch):
+    """The opt-in sampler path follows the caller's global torch RNG stream."""
+    ref_mask = torch.ones(1, 8)
+
+    def denoise(x_noisy, _t_hat):
+        return 0.5 * x_noisy
+
+    monkeypatch.setenv("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG", "1")
+    torch.manual_seed(7)
+    first = tt_ef2.sample_structure(denoise, 8, ref_mask, steps=4)
+    torch.manual_seed(7)
+    repeated = tt_ef2.sample_structure(denoise, 8, ref_mask, steps=4)
+    torch.manual_seed(8)
+    different = tt_ef2.sample_structure(denoise, 8, ref_mask, steps=4)
+
+    torch.testing.assert_close(first, repeated, rtol=0, atol=0)
+    assert not torch.equal(first, different)
 
 
 def test_diffusion_sampler():

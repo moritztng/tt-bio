@@ -1,0 +1,9 @@
+{
+    "symmetry": {
+        "id": "C3",
+        "is_symmetric_motif": true,
+        "is_unsym_motif": "Y1-11,Z16-25"
+    },
+    "contig": "20-20,/0,Y1-11,/0,Z16-25",
+    "is_non_loopy": true
+}

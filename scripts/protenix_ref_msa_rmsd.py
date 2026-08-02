@@ -4,7 +4,7 @@
 # label_seq == crystal label_seq, so resolved residues map 1:1). This is the
 # control that tells us whether the target folds well GIVEN an MSA -- isolating
 # "no-MSA regime" as the root cause of the ~5-10A no-MSA results.
-import sys, types, numbers, os, pickle, json
+import sys, types, numbers, os, json
 os.environ.setdefault('PROTENIX_ROOT_DIR', '/home/ttuser')
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # tt-bio repo root
 sys.path.insert(0, os.environ.get('PROTENIX_SRC', '/tmp/protenix-src'))

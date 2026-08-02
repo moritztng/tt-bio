@@ -1,0 +1,273 @@
+{
+  "unindexing_pair_mask": {
+    "shape": [
+      40,
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_motif_token_unindexed": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "residue_index": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.int32"
+  },
+  "token_index": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.int64"
+  },
+  "asym_id": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.int64"
+  },
+  "entity_id": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.int64"
+  },
+  "sym_id": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.int32"
+  },
+  "restype": {
+    "shape": [
+      40,
+      32
+    ],
+    "dtype": "torch.int64"
+  },
+  "is_protein": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_rna": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_dna": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_ligand": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "terminus_type": {
+    "shape": [
+      40,
+      2
+    ],
+    "dtype": "torch.int64"
+  },
+  "is_polar": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "ref_atom_name_chars": {
+    "shape": [
+      419,
+      4,
+      64
+    ],
+    "dtype": "torch.float32"
+  },
+  "ref_pos": {
+    "shape": [
+      419,
+      3
+    ],
+    "dtype": "torch.float32"
+  },
+  "ref_mask": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "ref_element": {
+    "shape": [
+      419,
+      128
+    ],
+    "dtype": "torch.float32"
+  },
+  "ref_charge": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.int8"
+  },
+  "ref_space_uid": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.int64"
+  },
+  "ref_pos_is_ground_truth": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "has_zero_occupancy": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "ref_is_motif_atom_with_fixed_coord": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "ref_is_motif_atom_unindexed": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "ref_motif_token_type": {
+    "shape": [
+      40,
+      3
+    ],
+    "dtype": "torch.int8"
+  },
+  "motif_pos": {
+    "shape": [
+      419,
+      3
+    ],
+    "dtype": "torch.float32"
+  },
+  "is_backbone": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_sidechain": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_virtual": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_motif_atom_with_fixed_coord": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_motif_atom_with_fixed_seq": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_motif_atom_unindexed": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_motif_token_with_fully_fixed_coord": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_central": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "is_ca": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.bool"
+  },
+  "ref_atomwise_rasa": {
+    "shape": [
+      419,
+      3
+    ],
+    "dtype": "torch.int64"
+  },
+  "active_donor": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.int64"
+  },
+  "active_acceptor": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.int64"
+  },
+  "ref_plddt": {
+    "shape": [
+      40
+    ],
+    "dtype": "torch.int64"
+  },
+  "is_non_loopy": {
+    "shape": [
+      40,
+      1
+    ],
+    "dtype": "torch.float32"
+  },
+  "is_atom_level_hotspot": {
+    "shape": [
+      419,
+      1
+    ],
+    "dtype": "torch.float32"
+  },
+  "token_bonds": {
+    "shape": [
+      40,
+      40
+    ],
+    "dtype": "torch.bool"
+  },
+  "atom_to_token_map": {
+    "shape": [
+      419
+    ],
+    "dtype": "torch.int32"
+  }
+}

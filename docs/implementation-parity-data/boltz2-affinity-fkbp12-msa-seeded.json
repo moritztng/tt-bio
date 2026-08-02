@@ -1,0 +1,80 @@
+{
+  "mode": "affinity",
+  "target": "affinity_fkg",
+  "metrics": {
+    "affinity_pred_value": {
+      "metric": "affinity_pred_value",
+      "cross": {
+        "n": 25,
+        "mean": 0.07161020000000001,
+        "std": 0.027445544231441306,
+        "min": 0.020205999999999946,
+        "max": 0.12760400000000005
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.025,
+        "std": 0.015934435979977454,
+        "min": 0.0,
+        "max": 0.046875
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.027182600000000036,
+        "std": 0.016289406147554943,
+        "min": 0.0024060000000000192,
+        "max": 0.060523000000000104
+      },
+      "floor_mean": 0.027182600000000036,
+      "cross_over_floor": 2.634413190791165,
+      "dev_over_ref_floor": 1.0873040000000014,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": false,
+      "same_seed_diagonal": {
+        "n": 5,
+        "mean": 0.0716102,
+        "all_pairs_mean": 0.0716102,
+        "seed_independent": true
+      }
+    },
+    "affinity_probability_binary": {
+      "metric": "affinity_probability_binary",
+      "cross": {
+        "n": 25,
+        "mean": 0.0015277000000000207,
+        "std": 0.001150946984009272,
+        "min": 0.0004144999999999843,
+        "max": 0.0037295000000000522
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.0014270000000000227,
+        "std": 0.001129322097543493,
+        "min": 0.00010900000000002574,
+        "max": 0.003315000000000068
+      },
+      "floor_mean": 0.0014270000000000227,
+      "cross_over_floor": 1.070567624386823,
+      "dev_over_ref_floor": null,
+      "dev_floor_instability_check_applied": false,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_diagonal": {
+        "n": 5,
+        "mean": 0.0015277000000000207,
+        "all_pairs_mean": 0.0015277000000000207,
+        "seed_independent": true
+      }
+    }
+  },
+  "verdict": "GAP-evidenced",
+  "note": "FKBP12+SB3, L107, MSA (production default). MSA tightens the floor ~8x (R 0.196->0.025) so the affinity scalar GAPs (X/floor 2.27) and pocket-lDDT GAPs \u2014 both systematic bf16 by the seed-independent same-seed diagonal. PROVEN a genuine bf16-BACKEND floor (not a port defect) by GPU-vs-CPU scalar triangulation (commit a31e7c2bb; docs/implementation-parity.md MSA row). devfp32-vs-gpu passes (boltz2-affinity-fkbp12-devfp32-vs-gpu-seeded.json). The live bf16-vs-gpu GAP reproduces this committed GAP-evidenced verdict, so the gate does not block the release on it."
+}

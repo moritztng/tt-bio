@@ -1,4 +1,4 @@
-"""First end-to-end OpenDDE co-fold smoke test (docs/opendde-port.md 'Remaining' item 4).
+"""End-to-end OpenDDE co-fold smoke test.
 
 Folds examples/prot.yaml's sequence (PDB 7ROA, 117 residues -- the same target
 scripts/release_gate.py uses for Protenix-v2/Boltz-2/ESMFold2) with REDUCED settings
@@ -17,7 +17,6 @@ Run: TT_VISIBLE_DEVICES=0 TT_MESH_GRAPH_DESC_PATH=<...> PYTHONPATH=<worktree> \
 import os
 os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
 os.environ.setdefault("TT_LOGGER_LEVEL", "FATAL")
-import sys
 import time
 
 import torch
@@ -48,7 +47,7 @@ def main():
           f"N_res={feats['restype'].shape[0]}", flush=True)
 
     # OPENDDE_TRACE=1 threads fold(trace=True) -- replays a captured ttnn trace
-    # of the shared denoise stream (lossless; see perf/opendde_trace_step_parity/).
+    # of the shared denoise stream (lossless).
     trace = os.environ.get("OPENDDE_TRACE", "0") in ("1", "true", "True")
     coords = model.fold(feats, n_step=int(os.environ.get("OPENDDE_NSTEP", "20")),
                          n_cycles=int(os.environ.get("OPENDDE_NCYCLES", "2")), seed=seed,

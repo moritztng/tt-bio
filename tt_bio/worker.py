@@ -14,7 +14,6 @@ import json
 import os
 import shutil
 import signal
-import subprocess
 import sys
 import tempfile
 import time
@@ -50,6 +49,26 @@ def _apply_tt_environment(worker_info: dict[str, Any]) -> None:
         os.environ["TT_MESH_GRAPH_DESC_PATH"] = str(mgd)
 
 
+def _bind_host_threads() -> None:
+    """Bind torch's thread pools to the OMP_NUM_THREADS cap set by the launcher.
+
+    ``main._cap_worker_threads`` exports the cap before spawning, and a fresh torch
+    import honours it for the intra-op pool -- but not for the inter-op pool, which
+    always sizes itself to cores/2. Bind both explicitly so a capped worker really
+    holds its share of the CPU. Nothing to do when the launcher set no cap.
+    """
+    cap = os.environ.get("OMP_NUM_THREADS")
+    if not cap:
+        return
+    import torch
+
+    torch.set_num_threads(int(cap))
+    try:
+        torch.set_num_interop_threads(int(cap))
+    except RuntimeError:
+        pass  # already started (only settable before the first parallel op)
+
+
 def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     """Make sure model files and caches exist locally for this worker.
 
@@ -72,9 +91,7 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
             hf_artifact(PROTENIX_REPO, "protenix-v2.pt", cache))
         cfg["mol_dir"] = str(download_mols(cache))     # CCD templates for nucleic acids / ligands
         return
-    # OpenDDE loads its weights from HF (aurekaresearch/OpenDDE) on the first fold via
-    # load_opendde_checkpoint; single-sequence only (no MSA dir needed -- see
-    # docs/opendde-port.md).
+    # OpenDDE loads its weights from HF on the first fold.
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
         cfg["opendde_ckpt"] = os.environ.get("OPENDDE_CKPT")
         return
@@ -107,6 +124,27 @@ def _resolve_msa_dir(requested: str | None, cache: Path) -> str:
     fallback = cache / "msa"
     fallback.mkdir(parents=True, exist_ok=True)
     return str(fallback)
+
+
+def _err_text(exc: BaseException, limit: int = 400) -> str:
+    """Bounded error text for a job row that never loses the tail.
+
+    TT_FATAL messages put the diagnostic payload LAST. An allocator OOM reads
+    `TT_FATAL @ ...bank_manager.cpp:439 ... Out of Memory: Not enough space to
+    allocate N B DRAM buffer across 12 banks, where each bank needs to store N B,
+    but bank size is N B (allocated: N B, free: N B, largest free block: N B)` --
+    the leading 78 chars are a fixed file/line prefix and the closing parenthetical
+    is the only part that says how full the chip actually was. A plain
+    `str(exc)[:200]` lands mid-number just before it, so every recorded OOM in the
+    AbAg-XM Wormhole campaign was indistinguishable between a genuinely full chip
+    and one oversized request. Keep both ends instead of just the head.
+    """
+    s = str(exc)
+    if len(s) <= limit:
+        return s
+    keep = limit - 5                       # room for the " ... " elision marker
+    head = keep // 2
+    return s[:head] + " ... " + s[-(keep - head):]
 
 
 def _is_esmc_model(model_id: str) -> bool:
@@ -221,11 +259,17 @@ class _WorkerState:
             self._tokenizer, self._featurizer = Boltz2Tokenizer(), Boltz2Featurizer()
             self._mol_dir = Path(cfg["mol_dir"])
             self._ccd = load_canonicals(self._mol_dir)
-            self.model = (
-                Boltz2.load_from_checkpoint(cfg["conf_ckpt"], **cfg["conf_kwargs"])
-                .eval()
-                .to(self.torch_device)
+            from tt_bio.tenstorrent import diffusion_fp32_device
+
+            struct_fp32_device = (
+                os.environ.get("BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE", "0") == "1"
             )
+            with diffusion_fp32_device(struct_fp32_device):
+                self.model = (
+                    Boltz2.load_from_checkpoint(cfg["conf_ckpt"], **cfg["conf_kwargs"])
+                    .eval()
+                    .to(self.torch_device)
+                )
         self.config_hash = _hash_run_config(cfg)
         self.model_id = model_id
 
@@ -251,6 +295,25 @@ class _WorkerState:
         else:
             self.prepare = None
 
+    def _maybe_ref_bf16(self):
+        """Integration-parity envelope (scripts/full_parity_gate.py): when TT_BIO_REF_BF16=1 and
+        this is the CPU/host reference (NOT tenstorrent), run the model forward under a bf16
+        autocast so its closed-loop divergence from the fp32 reference measures the intrinsic
+        bf16 cost of the full sampler trajectory (chaotic amplification included). Applied at
+        every forward the device runs in bf16 — the structure ``predict_step`` (bf16 unless
+        BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE=1) AND the affinity ``aff_model.predict_step``
+        (bf16 unless BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1) — so the bf16 reference mirrors
+        the device's dtype boundary rather than leaving the scalar in fp32. Shared draws are
+        preserved: the diffusion ``torch.randn`` draws (boltz2.py:4092/4127) run on CPU MT19937
+        from the one seed, unaffected by autocast, so fp32 and bf16 references differ only in
+        arithmetic dtype, nothing stochastic. Default off — device runs and the fp32 reference
+        get a nullcontext and are untouched."""
+        import contextlib
+        _on = os.environ.get("TT_BIO_REF_BF16", "0") not in ("0", "")
+        if _on and self.accelerator != "tenstorrent":
+            return torch.autocast(device_type="cpu", dtype=torch.bfloat16)
+        return contextlib.nullcontext()
+
     def predict_one(self, path: Path, cfg: dict[str, Any]):
         if cfg.get("model") in ("opendde", "opendde-abag"):
             return self._predict_opendde_one(path, cfg)
@@ -263,10 +326,36 @@ class _WorkerState:
 
         from tt_bio.main import to_batch, write_result
 
+        # The boltz-2 path calls ``predict_step`` directly (unlike the esmfold2 /
+        # protenix / opendde paths, which re-seed via ``_seed_context`` inside
+        # ``fold_complex``). This worker is spawned with ``mp.get_context(
+        # "spawn")``, so the controller's ``torch.manual_seed(seed)`` does NOT
+        # propagate here, and the boltz-2 forward never re-seeds on its own. The
+        # official ``boltz`` reference calls ``seed_everything(seed)`` once at
+        # the start of ``predict`` and then runs structure -> affinity from that
+        # one global RNG stream, so the affinity diffusion's ``torch.randn``
+        # draws are reproducible. Without this seed the device's affinity value
+        # swings ~0.05 log10(IC50) between identical-seed runs (verified: two
+        # seed-0 runs gave -0.394 vs -0.440, a 0.047 spread larger than the whole
+        # FKBP12 GAP of 0.041 and the reference floor R=0.010), which the tight
+        # affinity floor catches as a GAP. Seed once here (before the structure
+        # forward) and do NOT re-seed before ``predict_affinity`` so the device
+        # matches the reference's single-seed structure->affinity RNG stream.
+        _seed = cfg.get("seed")
+        if _seed is not None:
+            import random as _random
+            import numpy as _np
+            _random.seed(_seed)
+            _np.random.seed(_seed)
+            torch.manual_seed(_seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(_seed)
+
         feats, input_struct = self.prepare(path, method=cfg.get("method"), progress=self.pfn)
         batch = to_batch(feats, self.torch_device)
         with torch.no_grad():
-            pred = self.model.predict_step(batch)
+            with self._maybe_ref_bf16():
+                pred = self.model.predict_step(batch)
         metrics, best = write_result(
             pred,
             batch,
@@ -345,9 +434,12 @@ class _WorkerState:
         structural-token fold -> structure. Rides the SAME MSA stage as Protenix-v2 /
         ESMFold2 / Boltz-2: each protein chain whose {seq_hash}.a3m is not cached is
         searched into the shared msa_dir, resolved, and featurized via
-        build_complex_features' block-diagonal MSA. Protein-only (nucleic-acid/ligand
-        structural tokens not ported yet). Confidence-based best-of-N ranking and CIF
-        writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
+        build_complex_features' block-diagonal MSA. Protein + ligand co-folds (nucleic-acid
+        structural tokens not ported yet). Ligand atoms are tokenized per-atom by
+        build_complex_features and expand to one "atom"-role structural token each
+        (opendde_data.build_structural_token_features), so a covalent inhibitor bonded
+        to a protein Cys is honored end-to-end. Confidence-based best-of-N ranking and
+        CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
         ConfidenceHead / build_complex_features / _write_protenix_structure)."""
         import hashlib
         import types
@@ -362,11 +454,12 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein sequences")
-        non_protein = [cid for cid, _s, _sp, mt in chains if mt != "protein"]
-        if non_protein:
+        unsupported = [cid for cid, _s, _sp, mt in chains if mt not in ("protein", "ligand")]
+        if unsupported:
             raise RuntimeError(
-                f"--model opendde is protein-only for now (chain(s) {non_protein} are not "
-                "protein); see docs/opendde-port.md's Remaining section.")
+                f"--model opendde supports protein + ligand chains only (chain(s) "
+                f"{unsupported} are nucleic-acid); nucleic-acid structural tokens are not "
+                "ported yet. Ligand covalent bonds are honored.")
         bonds = _read_bio_constraints(path)
         msa_dir = Path(cfg["msa_dir"])
 
@@ -407,7 +500,8 @@ class _WorkerState:
                 paired = _generate_opendde_paired_a3m(
                     paired_seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
                     cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                    cfg.get("msa_server_password"), cfg.get("api_key_value"))
+                    cfg.get("msa_server_password"), cfg.get("api_key_value"),
+                    msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
                 paired_a3ms = [paired.get(hashlib.sha256(cseq.encode()).hexdigest()[:16])
                                for _cid, cseq, _spec, mt in chains if mt == "protein"]
             except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
@@ -423,11 +517,15 @@ class _WorkerState:
         # separate OpenDDE progress wiring, and no premature "diffusion" emit
         # that would skip the trunk phase on the live view.
         n_sample = int(cfg["diffusion_samples"])
-        coords, conf = self.model.fold(
-            feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-            seed=cfg.get("seed") or 0, progress_fn=report_progress,
-            n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
-            return_confidence=True)
+        # Integration-parity envelope: run the bf16 CPU reference fold under bf16
+        # autocast (see _predict_protenix_one / _maybe_ref_bf16). nullcontext on
+        # device and on the fp32 reference, so those paths are untouched.
+        with torch.no_grad(), self._maybe_ref_bf16():
+            coords, conf = self.model.fold(
+                feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
+                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
+                return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"))
         confs = conf if isinstance(conf, list) else [conf]
 
         # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers, falling
@@ -464,6 +562,10 @@ class _WorkerState:
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
+        if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
+            import numpy as np
+            np.savez(struct_dir / f"{stem}_pae.npz",
+                     pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_protenix_one(self, path: Path, cfg: dict[str, Any]):
@@ -516,11 +618,25 @@ class _WorkerState:
         # as "trunk", diffusion steps as "diffusion" (no remapping that would
         # hide the trunk phase).
         n_sample = int(cfg["diffusion_samples"])
-        coords, conf = self.model.fold(
-            feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-            seed=cfg.get("seed") or 0, progress_fn=report_progress,
-            return_confidence=True, n_cycles=cfg.get("recycling_steps"),
-        )
+        # Integration-parity envelope: the bf16 CPU reference must run the whole
+        # protenix fold under bf16 autocast (mirroring the boltz2 path at
+        # predict_step), otherwise the bf16 ref runs in fp32, the envelope
+        # denominator collapses to ~0 and any device residual reads as a false GAP.
+        # On device (accelerator == "tenstorrent") and on the fp32 reference this
+        # is a nullcontext, so those paths are untouched.
+        with torch.no_grad(), self._maybe_ref_bf16():
+            coords, conf = self.model.fold(
+                feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
+                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                return_confidence=True, n_cycles=cfg.get("recycling_steps"),
+                max_parallel_samples=cfg.get("max_parallel_samples"),
+                # Without this --trace was a silent no-op for --model protenix-v2: main.py
+                # reserves the trace region and puts "trace" in the worker config, and
+                # Protenix.fold accepts trace=, but this call site never forwarded it, so
+                # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
+                # above forwards it, which is why the flag looked plumbed.
+                trace=cfg.get("trace", False),
+            )
         confs = conf if isinstance(conf, list) else [conf]
 
         # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers,
@@ -605,16 +721,23 @@ class _WorkerState:
         from tt_bio.main import to_batch
 
         if self.aff_model is None:
-            self.aff_model = (
-                Boltz2.load_from_checkpoint(cfg["aff_ckpt"], **cfg["aff_kwargs"])
-                .eval()
-                .to(self.torch_device)
+            from tt_bio.tenstorrent import diffusion_fp32_device
+
+            fp32_device = (
+                os.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE", "0") == "1"
             )
+            with diffusion_fp32_device(fp32_device):
+                self.aff_model = (
+                    Boltz2.load_from_checkpoint(cfg["aff_ckpt"], **cfg["aff_kwargs"])
+                    .eval()
+                    .to(self.torch_device)
+                )
 
         feats, _ = self.prepare(path, method="other", affinity=True, pred_structure=pred_structure)
         batch = to_batch(feats, self.torch_device)
         with torch.no_grad():
-            pred = self.aff_model.predict_step(batch)
+            with self._maybe_ref_bf16():
+                pred = self.aff_model.predict_step(batch)
         if pred.get("exception"):
             return {}
         keys = [
@@ -664,6 +787,7 @@ def run_worker_loop(
         _silence_subprocess_output()
     _install_signal_handlers()
     _apply_tt_environment(worker_info)
+    _bind_host_threads()
 
     client = ControllerClient(controller_url)
     worker_id = worker_info["worker_id"]
@@ -774,7 +898,7 @@ def run_worker_loop(
                     _E.set_progress(pfn)  # esmfold2 + protenix report via this module
             except Exception as exc:
                 traceback.print_exc()
-                _complete_failure(client, run_id, worker_id, meta, jobs, str(exc)[:200])
+                _complete_failure(client, run_id, worker_id, meta, jobs, _err_text(exc))
                 state.reset()
                 continue
 
@@ -838,10 +962,10 @@ def _execute_job(
                     row.update(aff)
                 except Exception:
                     traceback.print_exc()
-        outputs = _read_outputs(output_dir)
+        outputs = _read_outputs(output_dir, _shared_outputs_dir(cfg))
     except Exception as exc:
         traceback.print_exc()
-        row["error"] = str(exc)[:200]
+        row["error"] = _err_text(exc)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
@@ -937,12 +1061,12 @@ def _execute_design_job_inprocess(
 
         from tt_bio.boltzgen.cli.boltzgen import build_parser, run_command
         run_command(build_parser().parse_args(argv))  # reuses get_device(); no cold-open
-        outputs = _read_outputs(out_dir)
+        outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
         row.update({"status": "ok", "num_designs": num_designs,
                     "runtime_s": round(time.time() - t0, 1)})
     except Exception as exc:
         traceback.print_exc()
-        row["error"] = str(exc)[:200]
+        row["error"] = _err_text(exc)
     finally:
         stop.set()
         pos[0] = _forward_design_progress(progress_file, pos[0], emit)  # flush the tail
@@ -983,19 +1107,42 @@ def _forward_design_progress(path: Path, pos: int, emit) -> int:
         return pos
 
 
-def _tail_text(path: Path, nbytes: int = 800) -> str:
-    try:
-        with open(path, "rb") as f:
-            f.seek(0, os.SEEK_END)
-            size = f.tell()
-            f.seek(max(0, size - nbytes))
-            return f.read().decode("utf-8", "replace").strip()[-400:]
-    except Exception:
-        return "design shard failed (see worker log)."
+# Marks an output value as "the file is already where the client wants it" rather than
+# base64 bytes. Only ever emitted after _shared_outputs_dir proves co-location.
+SHARED_OUTPUT_PREFIX = "tt-bio-shared-path:"
 
 
-def _read_outputs(output_dir: Path) -> dict[str, str]:
-    """Read every file in output_dir and return name -> base64 bytes."""
+def _shared_outputs_dir(cfg: dict[str, Any]) -> Path | None:
+    """The client's own results directory, when this worker provably shares it.
+
+    Routing bulk results back as base64 inside JSON costs more than the compute for
+    embeddings: a 1024-sequence esmc run ships ~635 MB of per-residue arrays, inflated
+    33% by base64, through one controller process while every card sits idle. When the
+    worker and the client are the same filesystem the copy is pure waste.
+
+    "Provably" matters. A worker on another machine can happily create the client's
+    path and write into it, and the client would then find nothing -- so writability is
+    not proof of sharing. The client leaves a nonce file in its results directory and
+    names it here; seeing that exact file is what makes co-location certain.
+    """
+    share = cfg.get("shared_outputs")
+    if not isinstance(share, dict):
+        return None
+    directory, token = share.get("dir"), share.get("token")
+    if not directory or not token or os.sep in str(token):
+        return None
+    d = Path(directory)
+    return d if (d / str(token)).is_file() else None
+
+
+def _read_outputs(output_dir: Path, share_dir: Path | None = None) -> dict[str, str]:
+    """Read every file in output_dir and return name -> base64 bytes.
+
+    With ``share_dir`` set (see _shared_outputs_dir) each file is moved there instead
+    and reported as a path, so the bytes never enter the controller. Any file that
+    cannot be moved falls back to base64 individually, so a partial failure degrades
+    to the old behaviour rather than losing an output.
+    """
     outputs: dict[str, str] = {}
     if not output_dir.exists():
         return outputs
@@ -1003,6 +1150,15 @@ def _read_outputs(output_dir: Path) -> dict[str, str]:
         if not path.is_file():
             continue
         rel = path.relative_to(output_dir).as_posix()
+        if share_dir is not None:
+            target = share_dir / rel
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(path), str(target))
+                outputs[rel] = SHARED_OUTPUT_PREFIX + str(target)
+                continue
+            except Exception:
+                pass  # fall through to base64 for this one file
         outputs[rel] = base64.b64encode(path.read_bytes()).decode("ascii")
     return outputs
 

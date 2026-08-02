@@ -36,6 +36,7 @@ import torch
 # standard AlphaFold restype order (index -> one-letter); index 7=G, 15=S (matches v2 golden)
 RESTYPE_ORDER = "ARNDCQEGHILKMFPSTWYV"
 RESTYPE_DIM = 32  # protenix restype width (20 aa + X/gap/other slots)
+MOL_TYPE_IDS = {"protein": 0, "rna": 1, "dna": 2, "ligand": 3}  # per-token mol_type enum (build_complex_features -> feats["mol_type"])
 _AA1_TO_IDX = {c: i for i, c in enumerate(RESTYPE_ORDER)}
 
 # CCD formal charges on amino-acid atoms (the v2 reference's neutral-CCD convention:
@@ -296,7 +297,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
 
     entity_of = {}                                   # (mol_type, sequence) -> entity_id
     sym_counter = {}                                 # entity_id -> next copy index
-    restype, asym, entity, sym, resid = [], [], [], [], []
+    restype, asym, entity, sym, resid, mol_type = [], [], [], [], [], []
     atom_feats, lig_bonds = [], []                   # per-chain atom features; (tok_off, local_bonds)
     tok_off, res_off = 0, 0                           # global token / residue-frame counters
     per_chain_msa = []                               # (start_col, n_tok, raw_msa|None, restype_idx)
@@ -323,6 +324,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         entity.append(torch.full((n,), eid, dtype=torch.long))
         sym.append(torch.full((n,), sid, dtype=torch.long))
         resid.append(res_index)
+        mol_type.append(torch.full((n,), MOL_TYPE_IDS[mt], dtype=torch.long))
         af["atom_to_token_idx"] = af["atom_to_token_idx"] + tok_off
         af["ref_space_uid"] = af["ref_space_uid"] + res_off
         atom_feats.append(af)
@@ -439,6 +441,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         "entity_id": torch.cat(entity, 0),
         "sym_id": torch.cat(sym, 0),
         "residue_index": torch.cat(resid, 0),
+        "mol_type": torch.cat(mol_type, 0),
         "token_index": torch.arange(0, N_tot, dtype=torch.long),
         **msa_feats,
     }

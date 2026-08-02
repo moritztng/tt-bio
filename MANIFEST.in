@@ -1,0 +1,14 @@
+# Belt-and-braces for sdist: the [tool.setuptools.package-data] globs in
+# pyproject.toml already pull these into the wheel, and modern setuptools
+# also includes them in the sdist when tracked. These explicit includes make
+# the sdist contents independent of that behavior so a clean
+# `python -m build` ships every runtime data file in BOTH artifacts.
+# See the v0.3.4 changelog — a missing glob here silently broke every
+# protenix-v2 / opendde / boltzgen install of 0.3.3.
+include tt_bio/data/*.json
+include tt_bio/boltzgen/LICENSE
+include tt_bio/boltzgen/resources/*.json
+include tt_bio/boltzgen/resources/config/*.yaml
+include tt_bio/boltzgen/resources/splits/*.txt
+include tt_bio/_vendor/esm/LICENSE
+include tt_bio/_vendor/esmfold2_hf/LICENSE

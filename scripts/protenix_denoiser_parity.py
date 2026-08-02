@@ -1,9 +1,9 @@
-import os, sys, re
+import os, sys
 os.environ.setdefault('TT_VISIBLE_DEVICES','0'); os.environ.setdefault('TT_LOGGER_LEVEL','FATAL')
 sys.path.insert(0,'/home/ttuser/tt-boltz2'); sys.path.insert(0,'/home/ttuser/tt-boltz2/tests')
 import pickle, torch, ttnn
-from protenix_reference import remap_transition, remap_attention_pair_bias, remap_adaptive_layernorm
-from tt_bio.tenstorrent import get_device, Transition, AdaLN, AttentionPairBias, CORE_GRID_MAIN as CORE
+from protenix_reference import remap_transition
+from tt_bio.tenstorrent import get_device, Transition, CORE_GRID_MAIN as CORE
 from tt_bio.protenix import AtomTransformer
 ck=torch.load('/home/ttuser/protenix_ckpt/protenix-v2.pt',map_location='cpu',weights_only=True); ck=ck.get('model',ck)
 D=pickle.load(open('/home/ttuser/protenix_denoiser_pre.pkl','rb')); kw=D['kwargs']

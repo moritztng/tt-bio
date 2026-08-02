@@ -1,0 +1,36 @@
+[
+  {
+    "id": "affinity_fkg_msa",
+    "status": "ok",
+    "confidence_score": 0.938559,
+    "ptm": 0.869858,
+    "iptm": 0.889616,
+    "ligand_iptm": 0.889616,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.950795,
+    "complex_iplddt": 0.933337,
+    "complex_pde": 0.479646,
+    "complex_ipde": 0.641981,
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.875946,
+        "1": 0.576575
+      },
+      "1": {
+        "0": 0.889616,
+        "1": 0.845257
+      }
+    },
+    "chains_ptm": {
+      "0": 0.875946,
+      "1": 0.845257
+    },
+    "runtime_s": 74.0,
+    "affinity_pred_value": -1.0625,
+    "affinity_probability_binary": 0.980469,
+    "affinity_pred_value1": -0.137695,
+    "affinity_probability_binary1": 0.976562,
+    "affinity_pred_value2": -0.148438,
+    "affinity_probability_binary2": 0.984375
+  }
+]

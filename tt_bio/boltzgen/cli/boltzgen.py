@@ -276,7 +276,7 @@ def add_configure_arguments(
         action="store_true",
         help="Replay a captured ttnn trace of the per-step diffusion DiT device "
         "stream (lossless; collapses per-step host dispatch). Opt-in — reserves a "
-        "1 GiB trace region on the device. See docs/boltzgen-trace-replay.md.",
+        "1 GiB trace region on the device.",
     )
 
     # Inverse folding configuration options
@@ -715,6 +715,15 @@ def run_command(args: argparse.Namespace) -> None:
     try:
         if getattr(args, "controller", None):
             _run_via_controller(args, args.controller)
+        elif not devices:
+            # A local run with zero detected cards would sail through configure
+            # (which never opens the device) and then hang silently inside
+            # execute_command's device-open. Surface the real problem now.
+            raise RuntimeError(
+                "No Tenstorrent devices found under /dev/tenstorrent for a local "
+                "run. Ensure tt-kmd is loaded and the card is visible (ls "
+                "/dev/tenstorrent/), or use --controller to dispatch to a fleet."
+            )
         elif len(devices) > 1:
             _run_distributed(args, devices)
         else:
@@ -1010,6 +1019,7 @@ def configure_command(args: argparse.Namespace) -> None:
         $ boltzgen configure path/to/design.yaml --output out_dir --protocol peptide-anything
     """
     moldir = get_artifact_path(args, args.moldir, repo_type="dataset")
+    print(f"Loading molecule library from {Path(moldir).name}...")
     mols = load_canonicals(moldir=moldir)
 
     # Setup output directory
@@ -1088,6 +1098,7 @@ def check_command(args: argparse.Namespace) -> None:
     This function does **not** execute the pipeline — it only validates inputs.
     """
     moldir = get_artifact_path(args, args.moldir, repo_type="dataset")
+    print(f"Loading molecule library from {Path(moldir).name}...")
     mols = load_canonicals(moldir=moldir)
 
     if args.output:
@@ -1672,6 +1683,7 @@ def check_design_spec(
         check_design_spec(args, moldir, Path("design.yaml"), mols)
     """
     parser = YamlDesignParser(moldir)
+    print(f"  Parsing design spec {design_spec.name}...")
     parsed = parser.parse_yaml(design_spec, mols, moldir)
     structure = parsed.structure
     design_info = parsed.design_info
@@ -1766,6 +1778,31 @@ def _artifact_intact(path: Path, name: str | None = None) -> bool:
         return False
 
 
+def _sweep_stale_staging(cache: Path, max_age_s: float = 3600.0) -> None:
+    """Remove orphaned ``.dl-*`` staging dirs/files left by a hard-killed run.
+
+    ``get_artifact_path`` stages each download in a fresh ``.dl-*`` entry and
+    cleans it in a ``finally`` — which a SIGKILL skips, so the staging lingers
+    forever (harmless: each run picks a unique name, but it grows unbounded).
+    Anything from a PRIOR process is safe to delete; the mtime gate keeps us
+    off an in-flight download (multi-device workers share this cache and each
+    spin up their own staging within seconds of each other, so a threshold
+    well past startup is safe in practice).
+    """
+    cutoff = time.time() - max_age_s
+    if not cache.is_dir():
+        return
+    for entry in cache.glob(".dl-*"):
+        try:
+            if entry.stat().st_mtime < cutoff:
+                if entry.is_dir():
+                    shutil.rmtree(entry, ignore_errors=True)
+                else:
+                    entry.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def get_artifact_path(
     args, artifact: str, repo_type: str = "model", verbose: bool = True
 ) -> Path:
@@ -1781,6 +1818,7 @@ def get_artifact_path(
     cache = args.cache if args.cache is not None else (Path.home() / ".boltz" / "boltzgen")
     force = bool(getattr(args, "force_download", False))
     if artifact.startswith("huggingface:"):
+        _sweep_stale_staging(cache)
         import tempfile
         from huggingface_hub import hf_hub_download
 
@@ -1811,6 +1849,7 @@ def get_artifact_path(
         import urllib.request
 
         cache.mkdir(parents=True, exist_ok=True)
+        _sweep_stale_staging(cache)
         result = cache / artifact.rsplit("/", 1)[-1]
         if force or not result.exists() or not _artifact_intact(result):
             if result.exists() and not force:

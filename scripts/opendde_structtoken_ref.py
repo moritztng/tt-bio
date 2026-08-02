@@ -36,7 +36,6 @@ _stub("opendde.distributed.foldcp.pair_sharding",
       ["FoldCPPairShardSpec", "make_pair_shard_spec"])
 
 from opendde.model.modules.structural_tokens import StructuralTokenExpander
-from opendde.data.tokenizer import STRUCTURAL_TOKEN_ROLES
 
 # --- opendde_v1 config for this block (opendde/config/model_base.py) ---
 C_S, C_Z, C_S_INPUTS = 384, 384, 449

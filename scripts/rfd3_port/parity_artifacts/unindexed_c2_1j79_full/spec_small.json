@@ -1,0 +1,13 @@
+{
+    "symmetry": {
+        "id": "C2",
+        "is_symmetric_motif": true
+    },
+    "ligand": "ORO,ZN",
+    "unindex": "A250",
+    "length": 20,
+    "select_fixed_atoms": {
+        "A250": "OD1,CG"
+    },
+    "allow_ligand_on_existing_chain": true
+}

@@ -1,0 +1,281 @@
+[
+  {
+    "protein": "gb1",
+    "L": 56,
+    "n_seeds": 3,
+    "plddt_pcc": 0.9980014562606812,
+    "plddt_mae": 0.0044871303252875805,
+    "distogram_pcc": 0.9992751479148865,
+    "ptm_tt": 0.774840772151947,
+    "ptm_ref": 0.7804868817329407,
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 9,
+        "mean": 0.33181921972168815,
+        "std": 0.04608781702740419,
+        "min": 0.2382110059261322,
+        "max": 0.393559068441391
+      },
+      "ref_floor": {
+        "n": 3,
+        "mean": 0.2945140302181244,
+        "std": 0.024583578034966365,
+        "min": 0.2622261643409729,
+        "max": 0.3218225836753845
+      },
+      "dev_floor": {
+        "n": 3,
+        "mean": 0.18216450015703836,
+        "std": 0.03809951562907903,
+        "min": 0.12887628376483917,
+        "max": 0.2157103568315506
+      },
+      "floor_mean": 0.2945140302181244,
+      "cross_over_floor": 1.1266669349366296,
+      "within_noise_floor": true
+    },
+    "coord_dm_1mpcc": {
+      "metric": "1-coord_dm_pcc",
+      "cross": {
+        "n": 9,
+        "mean": 0.0007764299710591634,
+        "std": 0.00020606238436423377,
+        "min": 0.0003643631935119629,
+        "max": 0.001058042049407959
+      },
+      "ref_floor": {
+        "n": 3,
+        "mean": 0.0006125966707865397,
+        "std": 7.238615949066255e-05,
+        "min": 0.0005154609680175781,
+        "max": 0.0006891489028930664
+      },
+      "dev_floor": {
+        "n": 3,
+        "mean": 0.0003306667009989421,
+        "std": 0.00012492940485552966,
+        "min": 0.00015491247177124023,
+        "max": 0.0004341602325439453
+      },
+      "floor_mean": 0.0006125966707865397,
+      "cross_over_floor": 1.2674407290889633,
+      "within_noise_floor": false
+    }
+  },
+  {
+    "protein": "trpcage",
+    "L": 20,
+    "n_seeds": 3,
+    "plddt_pcc": 0.9979090690612793,
+    "plddt_mae": 0.002489659236744046,
+    "distogram_pcc": 0.9996275901794434,
+    "ptm_tt": 0.24771416187286377,
+    "ptm_ref": 0.2468971461057663,
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 9,
+        "mean": 0.6049100524849362,
+        "std": 0.09891726241510179,
+        "min": 0.4971228539943695,
+        "max": 0.7614941000938416
+      },
+      "ref_floor": {
+        "n": 3,
+        "mean": 0.5053355892499288,
+        "std": 0.10799733920837469,
+        "min": 0.35316580533981323,
+        "max": 0.5927520990371704
+      },
+      "dev_floor": {
+        "n": 3,
+        "mean": 0.1648616890112559,
+        "std": 0.0323125954585806,
+        "min": 0.12890475988388062,
+        "max": 0.20726309716701508
+      },
+      "floor_mean": 0.5053355892499288,
+      "cross_over_floor": 1.1970462111778157,
+      "within_noise_floor": true
+    },
+    "coord_dm_1mpcc": {
+      "metric": "1-coord_dm_pcc",
+      "cross": {
+        "n": 9,
+        "mean": 0.007330728901757134,
+        "std": 0.003516096207141049,
+        "min": 0.003933131694793701,
+        "max": 0.013152241706848145
+      },
+      "ref_floor": {
+        "n": 3,
+        "mean": 0.006622254848480225,
+        "std": 0.003273525584238366,
+        "min": 0.002174675464630127,
+        "max": 0.009958803653717041
+      },
+      "dev_floor": {
+        "n": 3,
+        "mean": 0.0005981524785359701,
+        "std": 0.0002658398354945513,
+        "min": 0.00034230947494506836,
+        "max": 0.0009646415710449219
+      },
+      "floor_mean": 0.006622254848480225,
+      "cross_over_floor": 1.1069838098181166,
+      "within_noise_floor": true
+    }
+  },
+  {
+    "protein": "ubiquitin",
+    "L": 76,
+    "n_seeds": 3,
+    "plddt_pcc": 0.9993314743041992,
+    "plddt_mae": 0.006347024347633123,
+    "distogram_pcc": 0.9992462396621704,
+    "ptm_tt": 0.7529308199882507,
+    "ptm_ref": 0.7409548163414001,
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 9,
+        "mean": 0.7548811766836379,
+        "std": 0.10433921114780108,
+        "min": 0.6046606302261353,
+        "max": 0.9000253677368164
+      },
+      "ref_floor": {
+        "n": 3,
+        "mean": 0.9213364919026693,
+        "std": 0.1949199157448311,
+        "min": 0.6456873416900635,
+        "max": 1.0611155033111572
+      },
+      "dev_floor": {
+        "n": 3,
+        "mean": 0.2320391188065211,
+        "std": 0.03300161086886378,
+        "min": 0.18536783754825592,
+        "max": 0.25543051958084106
+      },
+      "floor_mean": 0.9213364919026693,
+      "cross_over_floor": 0.8193327663867069,
+      "within_noise_floor": true
+    },
+    "coord_dm_1mpcc": {
+      "metric": "1-coord_dm_pcc",
+      "cross": {
+        "n": 9,
+        "mean": 0.003417160775926378,
+        "std": 0.0004159615522890377,
+        "min": 0.00293731689453125,
+        "max": 0.004044651985168457
+      },
+      "ref_floor": {
+        "n": 3,
+        "mean": 0.004699289798736572,
+        "std": 0.00161635216381782,
+        "min": 0.0029953718185424805,
+        "max": 0.006870865821838379
+      },
+      "dev_floor": {
+        "n": 3,
+        "mean": 0.0003515879313151042,
+        "std": 6.105495011262745e-05,
+        "min": 0.0002764463424682617,
+        "max": 0.0004259943962097168
+      },
+      "floor_mean": 0.004699289798736572,
+      "cross_over_floor": 0.7271653637630731,
+      "within_noise_floor": true
+    }
+  },
+  {
+    "protein": "lysozyme",
+    "L": 129,
+    "n_seeds": 5,
+    "plddt_pcc": 0.995029091835022,
+    "plddt_mae": 0.0007965555414557457,
+    "distogram_pcc": 0.9995667338371277,
+    "ptm_tt": 0.9915123581886292,
+    "ptm_ref": 0.9914461970329285,
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 25,
+        "mean": 0.13020768702030183,
+        "std": 0.01770033107124703,
+        "min": 0.10180740058422089,
+        "max": 0.15192212164402008
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.09496348723769188,
+        "std": 0.020693836842356313,
+        "min": 0.06443656235933304,
+        "max": 0.133821502327919
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.07737840004265309,
+        "std": 0.008145491707168356,
+        "min": 0.061744000762701035,
+        "max": 0.08708040416240692
+      },
+      "floor_mean": 0.09496348723769188,
+      "cross_over_floor": 1.3711342201913286,
+      "within_noise_floor": false
+    },
+    "coord_dm_1mpcc": {
+      "metric": "1-coord_dm_pcc",
+      "cross": {
+        "n": 25,
+        "mean": 0.00011054277420043945,
+        "std": 3.065329136851384e-05,
+        "min": 6.210803985595703e-05,
+        "max": 0.00015628337860107422
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 5.7870149612426756e-05,
+        "std": 2.5144648043869613e-05,
+        "min": 2.2590160369873047e-05,
+        "max": 0.00010991096496582031
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 3.9064884185791014e-05,
+        "std": 8.099181250668726e-06,
+        "min": 2.5212764739990234e-05,
+        "max": 4.9233436584472656e-05
+      },
+      "floor_mean": 5.7870149612426756e-05,
+      "cross_over_floor": 1.910186424966526,
+      "within_noise_floor": false
+    },
+    "_provenance": {
+      "leg": "ESMFold2 longer-sequence parity (tt-bio-pharma-benchmark-next-leg)",
+      "host": "pc (card 0, Blackhole)",
+      "date": "2026-07-18",
+      "target": "hen egg-white lysozyme (PDB 1L2Y/2VB1, L129) \u2014 the model antigen in antibody drug-discovery assays (HyHEL10-class complexes); extends the ESMFold2 leg past the L76 ubiquitin ceiling toward pharma-realistic lengths",
+      "harness": "scripts/esmfold2_e2e_parity.py (in-process vendored torch reference + ttnn device, sharing pharma_parity.noise_floor_verdict)",
+      "settings": {
+        "seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "steps": 20,
+        "recycles": 3,
+        "diffusion_samples": 1,
+        "feature_seed": 7,
+        "msa": "none (ESMFold2 is single-sequence)"
+      },
+      "note": "0.130 A is the tightest ABSOLUTE CA-RMSD of any ESMFold2 leg (vs trpcage 0.605, gb1 0.332, ubiquitin 0.755). Lysozyme is a rigid, well-folded domain so the torch reference is unusually self-consistent (R=0.095 A), making the floor tight; the device bf16 diffusion stochasticity (X=0.130 A) sits at 1.37x that floor (above the strict floor, sub-angstrom, t~=4.6 on the mean difference). Sampler-independent outputs match essentially exactly: pLDDT PCC 0.9950, distogram PCC 0.99957, pTM delta +0.00007. Disclosed as a coordinate-floor nuance, not an algorithmic discrepancy.",
+      "invalidation_rule": "Regenerate only when the pinned ESMFold2/ESMC-6B weights or the harness settings change; the device side re-runs live."
+    }
+  }
+]

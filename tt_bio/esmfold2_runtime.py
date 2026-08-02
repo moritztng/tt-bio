@@ -157,9 +157,16 @@ class _StructureHeadAdapter(_Adapter):
 
     def sample(self, *, z_trunk, s_inputs, relative_position_encoding, ref_pos, ref_charge,
                ref_mask, ref_element, ref_atom_name_chars, ref_space_uid, tok_idx,
-               num_diffusion_samples: int = 1, num_sampling_steps=None, seed: int = 0,
+               num_diffusion_samples: int = 1, num_sampling_steps=None, seed: int | None = None,
                **_ignored):
         steps = 20 if num_sampling_steps is None else int(num_sampling_steps)
+        if seed is None:
+            # The vendored forward never threads a fold seed into this call. Take the chunk
+            # base from the global generator's seed instead: builder.fold(seed=...) sets it
+            # via _seed_context. (Previously the default 0 made --seed a no-op for esmfold2:
+            # every fold drew from a private generator seeded 0+done regardless of the seed
+            # the caller asked for.)
+            seed = torch.initial_seed()
         n = max(1, num_diffusion_samples)
         L = int(s_inputs.shape[1])  # residue (token) count
         args = (z_trunk.float(), s_inputs.float(), relative_position_encoding.float(),

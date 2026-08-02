@@ -1,0 +1,21 @@
+version: 1
+# Antibody-antigen complex from OpenDDE 2026ARK-AB benchmark set (PDB 21tw).
+# TNF30 nanobody vs TNF-alpha homotrimer (3 antigen copies A/A2/A3).
+# N-expansion Tier A target (flagship-abag-trust-signal-rethink). Sequences are the
+# RESOLVED chain sequences extracted directly from the real RCSB CIF via gemmi (NOT the
+# RCSB polymer_entity canonical/construct sequence, which can include unresolved tag or
+# multi-domain regions not present in the crystal -- confirmed to differ materially for
+# 21tw, see docs/implementation-parity-data/abag-n-expansion-candidates.json). MSA on by default.
+sequences:
+  - protein:
+      id: A
+      sequence: DKPVAHVVANPQAEGQLQWLNRRANALLANGVELRDNQLVVPSEGLYLIYSQVLFKGQGCPSTHVLLTHTISRIAVSYQTKVNLLSAIKSPCQKPWYEPIYLGGVFQLEKGDRLSAEINRPDYLDFAESGQVYFGIIAL
+  - protein:
+      id: A2
+      sequence: DKPVAHVVANPQAEGQLQWLNRRANALLANGVELRDNQLVVPSEGLYLIYSQVLFKGQGCPSTHVLLTHTISRIAVSYQTKVNLLSAIKSPCKPWYEPIYLGGVFQLEKGDRLSAEINRPDYLDFAESGQVYFGIIA
+  - protein:
+      id: A3
+      sequence: KPVAHVVANPQAEGQLQWLNRRANALLANGVELRDNQLVVPSEGLYLIYSQVLFKGQGCPSTHVLLTHTISRIAVSYQTKVNLLSAIKSPCAKPWYEPIYLGGVFQLEKGDRLSAEINRPDYLDFAESGQVYFGIIAL
+  - protein:
+      id: H
+      sequence: VQLVESGGGLVQPGGSLRLSCAASGFTFSDYWMYWVRQAPGKGLEWVSEINTNGLITKYPDSVKGRFTISRDNAKNTLYLQMNSLRPEDTAVYYCARSPSGFNRGQGTLVTVVQLVESGGGLVQPGGSLRLSCAASGFTFSDYWMYWVRQAPGKGLEWVSEINTNGLITKYPDSVKGRFTISRDNAKNTLYLQMNSLRPEDTAVYYCARSPSGFNRGQGTLVTV

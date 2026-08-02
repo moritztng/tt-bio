@@ -45,8 +45,6 @@ own on-device folding accuracy is **independently ground-truth-gated** by
 `scripts/release_gate.py` (boltz2 leg: CA-RMSD ≤ 3 Å / TM ≥ 0.75 on 7ROA). So a large
 scRMSD isolates cleanly: if the refolder is accurate (separately gated) yet a design
 refolds poorly, the fault is design quality / target hardness — not a refold device bug.
-This mirrors the "is the reference also like this" discipline of
-[docs/protenix-accuracy-investigation.md](protenix-accuracy-investigation.md).
 
 ## Running it
 
@@ -93,7 +91,7 @@ recommendation below.
 The ~40 min/2-design estimate above (this doc's original recommendation) predicted a full
 n=4 gen run would run tens of minutes and dominate the fast fold-model gate, so it was kept
 standalone. A fresh n=4 reproduction of this exact target/protocol on 2026-07-10 (main HEAD,
-after the device-resident-trunk merge, `docs/boltzgen-resident-trunk.md`) measured **271 s
+after the device-resident-trunk merge) measured **271 s
 (4.5 min) end-to-end** (design + inverse-fold + refold + analysis + filtering) — 0.85 Å
 median scRMSD, 4/4 designs ≤2 Å. That is comparable to a single fold model's leg, so the
 original "keep it out of the fast gate" call no longer holds at this n: BoltzGen is now the
