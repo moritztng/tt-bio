@@ -18,6 +18,7 @@ implements: token embedding.
 
 from __future__ import annotations
 
+import collections
 import os
 import pickle
 import shutil
@@ -386,10 +387,12 @@ class ESMCModel(Module):
         self.head = RegressionHead(self.scope("sequence_head"), compute_kernel_config)
 
     def __call__(self, tokens: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
-                 key_valid: ttnn.Tensor | None = None):
+                 key_valid: ttnn.Tensor | None = None, _rope=None):
         seq_len = tokens.shape[-1]
         head_dim = self.norm_weight.shape[-1] // self.n_heads
-        cos, sin = rope_tables(seq_len, head_dim, device=self.device)
+        # _rope: precomputed (cos, sin) device tensors. Trace capture passes these in
+        # because rope_tables uploads from the host, which a captured graph cannot replay.
+        cos, sin = _rope if _rope is not None else rope_tables(seq_len, head_dim, device=self.device)
 
         x = self.embed(tokens)
         for block in self.blocks:
@@ -410,14 +413,21 @@ class ESMC(TorchWrapper):
     forward(tokens[int B,L]) -> (logits[B,L,64], embeddings[B,L,d_model]).
     """
 
-    def __init__(self, d_model: int, n_heads: int, n_layers: int):
+    def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = False):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
         self.n_layers = n_layers
+        # trace=True replays the forward as a captured device graph (one capture per
+        # (B, L, mask?) key, LRU-capped). Requires the device opened with a trace
+        # region: get_device(trace_region_size=1<<30) before load. Bit-identical to
+        # eager by construction (same captured program, fresh input contents).
+        self.trace = trace
+        self._trace_cache = collections.OrderedDict()
+        self._trace_broken = False
 
     @classmethod
-    def from_pretrained(cls, name: str = "esmc-300m") -> "ESMC":
+    def from_pretrained(cls, name: str = "esmc-300m", *, trace: bool = False) -> "ESMC":
         """Download + load trained weights from HuggingFace (e.g. 'esmc-300m')."""
         from huggingface_hub import hf_hub_download
 
@@ -425,20 +435,104 @@ class ESMC(TorchWrapper):
         path = hf_hub_download(repo_id, weights_path)
         sd = torch.load(path, map_location="cpu", weights_only=False)
         sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
-        model = cls(**config)
+        model = cls(**config, trace=trace)
         model.load_state_dict(sd, strict=False)
         return model
 
     def _create_module(self, weights: WeightScope) -> ESMCModel:
         return ESMCModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
 
-    def forward(self, tokens: torch.Tensor, attn_mask: torch.Tensor | None = None,
-                key_valid: torch.Tensor | None = None):
-        """tokens[B,L] -> (logits[B,L,64], emb[B,L,d]). Optional padding masks
-        (built by ``_batch_tokens``) let a batch of unequal-length sequences share
-        one padded, bucketed forward: ``attn_mask`` [B,L,L] additive removes padded
-        keys from the softmax denominator; ``key_valid`` [B,1,L,1] zeros padded
-        keys/values so their contribution is exactly 0."""
+    _TRACE_CACHE_MAX = 8
+
+    def _release_traces(self):
+        for tr in self._trace_cache.values():
+            try:
+                ttnn.release_trace(self.tt_device, tr["tid"])
+            except Exception:
+                pass
+            for k in ("tokens", "mask", "kv", "cos", "sin"):
+                self._deallocate_tensor_like(tr.get(k))
+        self._trace_cache.clear()
+
+    def reset_static_cache(self):
+        super().reset_static_cache()
+        self._release_traces()
+
+    def _capture_esmc_trace(self, tokens, attn_mask, key_valid, key):
+        from tt_bio import tenstorrent as _TTd
+
+        if _TTd.trace_region_size() <= 0:
+            raise ValueError(
+                "ESMC trace=True needs a device opened with a trace region; call "
+                "get_device(trace_region_size=1 << 30) before load_esmc.")
+        dev = self.tt_device
+        tok_d = ttnn.from_torch(tokens.to(torch.int32), device=dev,
+                                layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32)
+        mask_d = None if attn_mask is None else ttnn.from_torch(
+            attn_mask.unsqueeze(1).to(torch.bfloat16), device=dev,
+            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        kv_d = None if key_valid is None else ttnn.from_torch(
+            key_valid.to(torch.bfloat16), device=dev,
+            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        rope = rope_tables(tokens.shape[-1], self.d_model // self.n_heads, device=dev)
+        for _ in range(2):  # warm compile + program cache outside the capture
+            wl, we = self.module(tok_d, mask_d, kv_d, _rope=rope)
+            ttnn.deallocate(wl)
+            ttnn.deallocate(we)
+        ttnn.synchronize_device(dev)
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
+        lg, em = self.module(tok_d, mask_d, kv_d, _rope=rope)
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        while len(self._trace_cache) >= self._TRACE_CACHE_MAX:
+            _, old = self._trace_cache.popitem(last=False)
+            try:
+                ttnn.release_trace(dev, old["tid"])
+            except Exception:
+                pass
+            for k in ("tokens", "mask", "kv", "cos", "sin"):
+                self._deallocate_tensor_like(old.get(k))
+        tr = {"tid": tid, "tokens": tok_d, "mask": mask_d, "kv": kv_d,
+              "cos": rope[0], "sin": rope[1], "logits": lg, "emb": em}
+        self._trace_cache[key] = tr
+        return tr
+
+    @staticmethod
+    def _host_tokens(tokens: torch.Tensor) -> ttnn.Tensor:
+        return ttnn.from_torch(tokens.to(torch.int32),
+                               layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32)
+
+    def _forward_traced(self, tokens, attn_mask, key_valid):
+        key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None)
+        tr = self._trace_cache.get(key)
+        if tr is None:
+            if self._trace_broken:
+                return self._forward_eager(tokens, attn_mask, key_valid)
+            try:
+                tr = self._capture_esmc_trace(tokens, attn_mask, key_valid, key)
+            except Exception as exc:
+                self._trace_broken = True
+                self._release_traces()
+                print(f"ESMC trace capture failed ({exc!r}); falling back to eager "
+                      f"for the rest of this process", file=sys.stderr)
+                return self._forward_eager(tokens, attn_mask, key_valid)
+        else:
+            self._trace_cache.move_to_end(key)
+        ttnn.copy_host_to_device_tensor(self._host_tokens(tokens), tr["tokens"])
+        if attn_mask is not None:
+            ttnn.copy_host_to_device_tensor(
+                ttnn.from_torch(attn_mask.unsqueeze(1).to(torch.bfloat16),
+                                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16),
+                tr["mask"])
+        if key_valid is not None:
+            ttnn.copy_host_to_device_tensor(
+                ttnn.from_torch(key_valid.to(torch.bfloat16),
+                                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16),
+                tr["kv"])
+        ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
+        # to_torch copies out of the replay-owned output buffers before returning.
+        return self._to_torch(tr["logits"]), self._to_torch(tr["emb"])
+
+    def _forward_eager(self, tokens, attn_mask, key_valid):
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
@@ -453,6 +547,17 @@ class ESMC(TorchWrapper):
         )
         logits, emb = self.module(tokens_tt, mask_tt, kv_tt)
         return self._to_torch(logits), self._to_torch(emb)
+
+    def forward(self, tokens: torch.Tensor, attn_mask: torch.Tensor | None = None,
+                key_valid: torch.Tensor | None = None):
+        """tokens[B,L] -> (logits[B,L,64], emb[B,L,d]). Optional padding masks
+        (built by ``_batch_tokens``) let a batch of unequal-length sequences share
+        one padded, bucketed forward: ``attn_mask`` [B,L,L] additive removes padded
+        keys from the softmax denominator; ``key_valid`` [B,1,L,1] zeros padded
+        keys/values so their contribution is exactly 0."""
+        if self.trace:
+            return self._forward_traced(tokens, attn_mask, key_valid)
+        return self._forward_eager(tokens, attn_mask, key_valid)
 
 
 # ===========================================================================
@@ -829,22 +934,28 @@ def load_sequences(data) -> dict[str, str]:
     return seqs
 
 
-def load_esmc(name: str = "esmc-300m", *, fast: bool = False):
+def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = False):
     """Load an ESMC model onto the TT device. ``name`` is one of ``MODELS``.
 
     300M/600M load from a single esm-repo .pth (with a sequence head, so logits
     are available); 6B loads from the sharded TransformerEngine safetensors
     (embeddings only). ``fast`` selects the block-fp8 weight path and must be set
     before the weights are materialized, hence here rather than at call time.
+    ``trace`` (300M/600M only) replays the forward as a captured device graph;
+    it needs the device opened with ``get_device(trace_region_size=1 << 30)``
+    first and is bit-identical to eager.
     """
     from tt_bio import tenstorrent
 
     tenstorrent.set_fast_mode(fast)
     if name == "esmc-6b":
+        if trace:
+            raise ValueError("trace is not supported for esmc-6b (per-layer host "
+                             "reads in the hidden-states shim); keep it eager")
         return ESMCLanguageModel.from_pretrained(name=name)
     if name not in CONFIGS:
         raise ValueError(f"unknown ESMC model {name!r}; choose from {list(MODELS)}")
-    return ESMC.from_pretrained(name)
+    return ESMC.from_pretrained(name, trace=trace)
 
 
 def _trunk_forward(model, seq: str, return_logits: bool):
