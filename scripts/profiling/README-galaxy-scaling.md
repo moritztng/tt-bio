@@ -91,11 +91,14 @@ list, for when another job owns part of the box or when you want every fold on o
 
 Four things that will otherwise cost you a pass:
 
-* **The box must be yours.** If a serve pool or another campaign holds the chips, every fold blocks
-  on device open and the cell returns `ok: 0` — filter on `ok > 0` when reading the JSONL. Load
-  average is the quick tell: ~1 per fold means computing, near zero means blocked.
-* **Run it detached with `trap "" INT HUP`.** `setsid nohup` alone is not enough; a run died mid-cell
-  on a SIGINT it should never have received.
+* **The box must be yours, and a stopped service does not mean it is.** If a serve pool or another
+  job holds the chips, every fold blocks on device open and the cell returns `ok: 0` — filter on
+  `ok > 0` when reading the JSONL. Load average is the quick tell: ~1 core per fold means computing,
+  near zero means blocked. A stopped platform service usually means *someone else* has a maintenance
+  window open and is about to restore it; taking the chips then blocks their restore and keeps the
+  public site down. Deploy your own window, and arm a watchdog that restores it at a hard deadline
+  whatever happens to your session.
+* **Run it detached with `trap "" INT HUP`.** `setsid nohup` alone does not survive a dropped tunnel.
 * **Discard the first cell of a session** — cold JIT/program cache is ~10x.
 * **Count folds, not processes.** One fold is a wrapper, a parent, a fork child that owns the device,
   and spawn grandchildren; counting processes halves per-fold CPU and inverts the conclusion.
