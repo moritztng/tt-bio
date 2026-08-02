@@ -188,11 +188,17 @@ def build_spec(version: str) -> dict:
                 "DesignRequest": {"type": "object", "properties": {
                     "protocol": {"type": "string", "enum": ["protein-anything", "peptide-anything",
                                  "nanobody-anything", "antibody-anything", "protein-small_molecule",
-                                 "protein-redesign"]},
+                                 "protein-redesign", "rfd3-binder", "rfd3-scaffold", "rfd3-na-binder"]},
                     "name": {"type": "string"},
-                    "spec": {"type": "string", "description": "YAML design spec (target + binder request)."},
-                    "params": {"type": "object", "description": "num_designs, budget, fast."},
-                }, "required": ["spec"]},
+                    "spec": {"type": "string", "description": "YAML design spec (target + binder request). "
+                             "BoltzGen protocols only."},
+                    "structure": {"type": "string", "description": "Target structure as PDB or mmCIF text. "
+                                  "Required for the rfd3-* protocols (with contig)."},
+                    "contig": {"type": "string", "description": "RFD3 contig string, e.g. 'A1-150,60-80' — "
+                               "fixed chain-ranges plus designed-length segments. rfd3-* protocols only."},
+                    "params": {"type": "object", "description": "BoltzGen: num_designs, budget, fast. "
+                               "RFD3: num_designs, num_timesteps, seed."},
+                }},
             },
         },
     }
