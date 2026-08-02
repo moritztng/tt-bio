@@ -1208,11 +1208,15 @@ def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
     with _scheduler_session(listen, workers, debug) as (client, public_url):
         if public_url:
             click.echo(f"Workers may join: tt-bio worker --connect {public_url}")
+        # Locally-spawned workers are on this filesystem by construction, but a --listen
+        # run can also pick up workers from other machines; the nonce sorts them out.
+        _offer_shared_outputs(run_payload, struct_dir)
         run_id = client.create_run(run_payload)["run_id"]
         failed = _stream_run(client, run_id, total=total, n_workers=len(workers),
                              debug=debug, log=log, results_path=results_path,
                              struct_dir=struct_dir, model=model)
         _persist_run_results(client, run_id, results_path)
+        _clear_shared_outputs(run_payload, struct_dir)
     click.echo(f"\nDone: {total - failed} ok, {failed} failed — {results_path}")
     return failed
 
