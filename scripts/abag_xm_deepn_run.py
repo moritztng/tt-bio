@@ -315,10 +315,19 @@ def run_job(job, card, py, timeout, host_threads, log):
     cmd = [py, "-u", "-m", "tt_bio.main", "predict", str(yaml),
            "--model", job["model"], "--out_dir", job["out_dir"],
            "--diffusion_samples", str(job["n_samples"]),
-           "--max_parallel_samples", str(job.get("mps", MPS)),
-           "--msa_dir", str(MSA_DIR), "--msa_cache_only",
            "--seed", str(job["seed"]), "--override", "--write_pae",
            "--host_threads", str(host_threads)]
+    if job["model"] == "esmfold2":
+        # Single-sequence by design (D12/A.5, tier_a protocol): this leg measures the
+        # no-MSA regime, so MSA flags must NOT be passed (a warm shared-cache hit would
+        # silently MSA-condition the fold -- and the MSA path is also what blew DRAM to
+        # 12 GB on 9q6y). No --max_parallel_samples: the runtime auto-chunks the sample
+        # batch by TT_ESMFOLD2_DIFFUSION_BUDGET; forcing mps caused the pilot OOMs.
+        cmd += ["--recycling_steps", "10", "--sampling_steps", "100",
+                "--single_sequence"]
+    else:
+        cmd += ["--max_parallel_samples", str(job.get("mps", MPS)),
+                "--msa_dir", str(MSA_DIR), "--msa_cache_only"]
     env = {**os.environ, "PYTHONPATH": str(WT), "PYTHONUNBUFFERED": "1"}
     t0 = time.time()
     with open(log, "a") as lf:
