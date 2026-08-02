@@ -92,6 +92,11 @@ def main() -> int:
         rows, pooled = p0check.compare(ctrl, ta, seed=20260803)
         summ = p0check.summarize(md, rows, pooled)
 
+        # decisive same-7 basis: the p2 galaxy arm through the SAME machinery, restricted to
+        # the control targets -- separates target-composition noise from a real arm shift.
+        rows_p2, pooled_p2 = p0check.compare(gal, ta, seed=20260803)
+        summ_p2 = p0check.summarize(md + " (p2 arm, same 7)", rows_p2, pooled_p2)
+
         # side-by-side: control vs p2-galaxy on the same targets (same-hardware seed check)
         side = {}
         for t in sorted(set(ctrl) & set(gal)):
@@ -106,8 +111,19 @@ def main() -> int:
         consistent = all(v["exceed_q95_within"] <= 0.15 and v["ratio_med"] <= 2.0
                          for v in key_stats.values() if not np.isnan(v.get("ratio_med", np.nan)))
         bias = {k: v.get("bias_frac_above") for k, v in key_stats.items()}
+        # paired same-hardware shift: med|ctrl - p2gal| per stat vs the seed floor
+        shift = {}
+        for k in ("dq_mean", "oracle", "user", "conf_mean"):
+            ds = [abs(side[t][k]["delta"]) for t in side if side[t][k]["delta"] is not None]
+            if ds:
+                shift[k] = {"med_abs_ctrl_vs_p2gal": float(np.median(ds)),
+                            "med_abs_within_floor": key_stats.get(k, {}).get("med_abs_within")}
+        p2_same7 = {k: v for k, v in summ_p2["stats"].items()
+                    if k in ("dq_mean", "oracle", "user", "dq_q90", "conf_mean")}
         verdict[md] = {"n_control_targets": len(ctrl), "vs_tier_a": key_stats,
                        "consistent_with_tier_a": consistent, "bias_frac_above": bias,
+                       "p2gal_vs_tier_a_same7": p2_same7,
+                       "ctrl_vs_p2gal_shift": shift,
                        "control_vs_p2galaxy": side,
                        "targets": sorted(ctrl)}
 
