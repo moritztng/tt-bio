@@ -2994,8 +2994,20 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                    "across, e.g. '0,1,2,3'. One pinned subprocess per card (data-parallel, the "
                    "same pattern `tt-bio embed`/`predict` use). Per-design seeded random streams "
                    "are preserved across sharding. Default: this machine's single card.")
+@click.option("--controller", default=None,
+              help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of "
+                   "running locally. One shard per spec; each worker runs its shard in-process "
+                   "on its own card and ships the CIFs back. Compute comes from that cluster's "
+                   "workers.")
+@click.option("--run-id", "run_id", default=None,
+              help="Use this run id on the controller (lets the submitter cancel the run later). "
+                   "Requires --controller.")
+@click.option("--owner", default=None,
+              help="Opaque fairness key (e.g. a hashed session id) the controller uses to "
+                   "fair-share devices across users. Requires --controller.")
 def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed, partial_t,
-               fp32_residual, spec_subset, num_designs, batch_size, devices):
+               fp32_residual, spec_subset, num_designs, batch_size, devices, controller,
+               run_id, owner):
     """Run RFdiffusion3 (RFD3) structure design on a Tenstorrent card.
 
     INPUTS is a JSON or YAML file of InputSpecifications (each top-level key is
@@ -3045,6 +3057,25 @@ def design_cmd(inputs, out_dir, golden_dir, cache, from_pdb, num_timesteps, seed
         specs = {k: v for k, v in specs.items() if k in keep}
         if not specs:
             raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
+
+    if controller:
+        if not from_pdb:
+            raise click.ClickException(
+                "--controller runs need --from_pdb (the golden-bridge fixture is a local "
+                "dev/test path and is never shipped to workers).")
+        click.echo(f"Designing {len(specs)} spec(s) × {num_designs} design(s) → {out_dir} "
+                   f"via the fleet at {controller} ({num_timesteps} steps)")
+        try:
+            results = rfd3_design.run_design_via_controller(
+                specs, out_dir, controller_url=controller, num_timesteps=num_timesteps,
+                seed=seed, partial_t=partial_t, fp32_residual=fp32_residual,
+                num_designs=num_designs, batch_size=batch_size,
+                run_id=run_id, owner=owner, verbose=True,
+            )
+        except (ValueError, TypeError, RuntimeError) as e:
+            raise click.ClickException(str(e))
+        click.echo(f"Done — {len(results)} design(s) → {out_dir}")
+        return
 
     if golden_dir is None:
         gdir = str(ensure_rfd3_weights(Path(cache).expanduser()))

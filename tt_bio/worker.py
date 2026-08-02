@@ -868,7 +868,10 @@ def run_worker_loop(
             if cfg.get("kind") == "design":
                 state.free_model()
                 for job in jobs:
-                    _execute_design_job_inprocess(client, run_id, worker_id, worker_info, meta, job, cfg)
+                    if cfg.get("engine") == "rfd3":
+                        _execute_rfd3_job_inprocess(client, run_id, worker_id, worker_info, meta, job, cfg)
+                    else:
+                        _execute_design_job_inprocess(client, run_id, worker_id, worker_info, meta, job, cfg)
                 continue
 
             _ensure_local_artifacts(cfg)
@@ -1073,6 +1076,102 @@ def _execute_design_job_inprocess(
         shutil.rmtree(workdir, ignore_errors=True)
         os.environ.pop("BOLTZGEN_PROGRESS_FILE", None)
         gc.collect()  # drop the design models' host refs; the chip stays open
+
+    try:
+        client.complete(
+            run_id, worker_id, row,
+            {**meta, "event": "done", "name": job_id, "status": row["status"],
+             "time": round(time.time() - t0, 1), "error": row.get("error", ""), "row": row},
+            outputs=outputs or None,
+        )
+    except Exception:
+        traceback.print_exc()
+
+
+def _execute_rfd3_job_inprocess(
+    client: ControllerClient,
+    run_id: str,
+    worker_id: str,
+    worker_info: dict[str, Any],
+    meta: dict[str, Any],
+    job: dict[str, Any],
+    cfg: dict[str, Any],
+) -> None:
+    """Run one RFD3 design shard IN-PROCESS on this worker's persistent device.
+
+    Same reuse pattern as the BoltzGen shard path: rfd3_design.run_design loads
+    its modules on get_device(), which returns this worker's already-open chip —
+    no per-shard cold-open. One shard owns ALL designs of its spec (they share
+    the featurize + TokenInitializer pass and batch bit-identically), so the
+    shard payload is just {spec_id, num_designs}; the spec JSON and the input
+    structure's content ride in cfg (fleet-safe, no shared filesystem needed).
+    """
+    job_id = job["id"]
+    t0 = time.time()
+
+    def emit(event: str, **kw):
+        try:
+            client.event(run_id, worker_id, {"event": event, **meta, **kw})
+        except Exception:
+            pass
+
+    workdir = Path(tempfile.mkdtemp(prefix=f"tt-bio-rfd3-{job_id}-"))
+    out_dir = workdir / "out"
+    row: dict[str, Any] = {"id": job_id, "status": "failed"}
+    outputs: dict[str, str] = {}
+    emit("start", name=job_id)
+    try:
+        data = json.loads(base64.b64decode(job.get("input_b64", "")).decode("utf-8"))
+        spec_id = str(data["spec_id"])
+        num_designs = int(data.get("num_designs") or 1)
+
+        structures: dict[str, str] = {}
+        for s in cfg.get("structures", []):
+            p = workdir / Path(str(s["name"])).name
+            p.write_text(str(s["content"]))
+            structures[str(s["name"])] = str(p)
+        specs: dict[str, dict] = {}
+        for s in cfg.get("specs", []):
+            doc = json.loads(str(s["content"]))
+            for sid, spec in doc.items():
+                spec = dict(spec)
+                inp = spec.get("input")
+                if inp is not None:
+                    local = structures.get(Path(str(inp)).name)
+                    if local is None:
+                        raise RuntimeError(f"spec {sid!r}: input {inp!r} was not shipped")
+                    spec["input"] = local
+                specs[str(sid)] = spec
+        if spec_id not in specs:
+            raise RuntimeError(f"design run has no spec for {spec_id!r}")
+
+        from tt_bio.main import ensure_rfd3_weights
+        from tt_bio.rfd3_design import run_design
+        cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
+        golden_dir = ensure_rfd3_weights(cache)
+        results = run_design(
+            {spec_id: specs[spec_id]}, out_dir,
+            golden_dir=golden_dir, from_pdb=True,
+            num_timesteps=int(cfg.get("num_timesteps") or 4),
+            seed=int(cfg.get("seed") or 42),
+            partial_t=cfg.get("partial_t"),
+            cfg_scale=cfg.get("cfg_scale"),
+            fp32_residual=bool(cfg.get("fp32_residual")),
+            num_designs=num_designs,
+            batch_size=int(cfg.get("batch_size") or 8),
+            verbose=False,
+        )
+        if not results:
+            raise RuntimeError("no designs were produced")
+        outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
+        row.update({"status": "ok", "num_designs": len(results),
+                    "runtime_s": round(time.time() - t0, 1)})
+    except Exception as exc:
+        traceback.print_exc()
+        row["error"] = _err_text(exc)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+        gc.collect()  # drop the design modules' host refs; the chip stays open
 
     try:
         client.complete(
