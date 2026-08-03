@@ -14,7 +14,7 @@ Data arms (this script: deepn + tier_a; overlays bolt on later):
 
 Writes deepn/analysis_curves.json and prints the curve table. CPU-only.
 """
-import argparse, json, sys
+import argparse, json, os, sys
 from pathlib import Path
 
 BASE = Path.home() / "abag_xm" / "deepn"
@@ -31,6 +31,14 @@ GALAXY_OK = {"boltz2": "_boltz2", "opendde-abag": ""}
 # boltz2/opendde PHASE-0-consistent; esmfold2 LICENSED at N=64 (2026-08-03); protenix-v2
 # STOPPED at N=64 (arch signal, exceed_q95=0.40 > 0.33) -- its galaxy arm never pools.
 GALAXY64_OK = {"boltz2", "opendde-abag", "esmfold2"}
+# N=16 ARK restatement (opt-in, DEEPN_N16_ARK=1): the galaxy p2 N=16 structures re-labeled
+# with the ARK-interface scorer, removing the global-vs-ARK flavor gap from the curve's
+# first rung. boltz2: replaces the parquet rung (flavor gap decisive, -0.087). esmfold2:
+# adds the rung (galaxy spine LICENSED at N=64). opendde's p2 structures were not retained
+# (parquet rung stays, flavor-flagged; gap inconclusive). protenix-v2 is staged on disk but
+# deliberately unlicensed here (N=64 gate STOP = arch signal; its curve stays BH-only).
+N16_ARK = BASE / "n16_ark"
+N16_ARK_OK = {"boltz2", "esmfold2"}
 GALAXY_NOTE = "galaxy N=16 uses global_dockq (mean over native interfaces), not the " \
               "ARK-interface DockQ of the qb1 arms; PHASE 0 measured the flavors " \
               "statistically equivalent for these two models."
@@ -235,6 +243,39 @@ def galaxy64_pools(model: str):
     return out
 
 
+def n16ark_pools(model: str):
+    """ARK-flavor re-label of the galaxy p2 N=16 structures (PHASE 3 restatement arm).
+
+    Rooted at BASE/n16_ark/<prefix>/<target>_n16 (single-fold rung, complete by
+    construction; labels land via the deepn labeler on that base). Opt-in via
+    DEEPN_N16_ARK=1; applied LAST so a restated (target, 16) pool replaces the
+    global_dockq parquet pool. Seconds were paid in the p2 window, so wall_s is
+    None here (the p2 cost table carries them)."""
+    if model not in N16_ARK_OK:
+        return {}
+    prefix, _md, sel = MODELS[model]
+    out = {}
+    mdir = N16_ARK / prefix
+    if not mdir.is_dir():
+        return out
+    for out_dir in sorted(mdir.iterdir()):
+        if not out_dir.is_dir():
+            continue
+        name = out_dir.name  # <target>_n16
+        try:
+            t, rung = name.split("_n")
+            if int(rung) != 16:
+                continue
+        except ValueError:
+            continue
+        pool = pool_fold(out_dir / f"{prefix}_results_{t}" / "results.json",
+                         out_dir / "labels.json", sel)
+        if pool is None:
+            continue
+        out[(t, 16)] = {"pool": pool, "wall_s": None}
+    return out
+
+
 def curve_points(pools):
     """Aggregate a {(target, N): {pool}} map into per-N curve points."""
     by_n = {}
@@ -407,6 +448,8 @@ def main():
         pools = tiera_pools(model) | deepn_pools(model) | overlay_pools(model) \
             | galaxy_pools(model)
         pools.update(galaxy64_pools(model))  # campaign spine wins key collisions
+        if os.environ.get("DEEPN_N16_ARK") == "1":
+            pools.update(n16ark_pools(model))  # ARK restatement wins the N=16 rung
         pts = curve_points(pools)
         report[model] = pts
         print(f"\n=== {model} ===")
