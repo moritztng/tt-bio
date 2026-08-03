@@ -24,6 +24,10 @@ mkdir -p "$DEST"
 
 timeout 120 ssh -o BatchMode=yes "$GAL" "cat $GB/results.jsonl" > "$DEST/.fleet.$RUN.jsonl" \
   || { echo "WARN: no results.jsonl for $RUN"; exit 0; }
+# skip-and-link manifest (p28+): attests the engine tree is identical across windows,
+# which licenses the nested-rung repair below (a rung-R chunk j IS rung R/2's chunk j).
+timeout 60 ssh -o BatchMode=yes "$GAL" "cat $GB/link_manifest.json 2>/dev/null" \
+  > "$DEST/.link_manifest.$RUN.json" || true
 { [ -f "$DEST/fleet_results.jsonl" ] && cat "$DEST/fleet_results.jsonl"; cat "$DEST/.fleet.$RUN.jsonl"; } \
   | sort -u > "$DEST/.fleet.all" && mv "$DEST/.fleet.all" "$DEST/fleet_results.jsonl"
 rm -f "$DEST/.fleet.$RUN.jsonl"
@@ -88,4 +92,35 @@ if partials:
     print("PARTIAL chunk pools (pool is honest measured-N but not the full rung):")
     for m, t, r, k, c in partials:
         print(f"  {m} {t} n{r}: {c}/{k} chunks")
+
+# Nested-rung repair: on a seed-nested ladder a rung-R chunk j carries the same seed block
+# as rung R/2's chunk j, so a fresh rung-R fold also fills a missing R/2 (and R/4, ...)
+# slot. Gated on the run's link_manifest.json attesting commit_equal across windows
+# (same engine tree => same numerics); never overwrites an existing slot.
+mani = None
+mp = dest / f".link_manifest.{run}.json"
+try:
+    mani = json.loads(mp.read_text()) if mp.exists() and mp.stat().st_size else None
+except Exception:
+    mani = None
+if mani and mani.get("commit_equal"):
+    repaired = []
+    for (model, t, rung, chunk), chunks in sorted(ok.items()):
+        if chunk is None or chunks <= 1 or rung < 256:
+            continue
+        mdir = MD[model]
+        srcdir = dest / mdir / f"{t}_n{rung}_c{chunk}"
+        if not (srcdir / f"{mdir}_results_{t}" / "results.json").exists():
+            continue  # source slot not staged locally; nothing safe to link from
+        r2 = rung // 2
+        while r2 >= 128 and chunk < r2 // 64:
+            slot = dest / mdir / f"{t}_n{r2}_c{chunk}"
+            if not slot.exists():
+                subprocess.run(["cp", "-al", str(srcdir), str(slot)], check=True)
+                repaired.append(f"{model} {t} n{r2} c{chunk} <- n{rung} c{chunk}")
+            r2 //= 2
+    if repaired:
+        print(f"nested-rung repair (commit_equal manifest): {len(repaired)} slots materialized")
+        for x in repaired:
+            print(f"  REPAIR {x}")
 PY
