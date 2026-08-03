@@ -29,16 +29,25 @@ GALAXY_OK = {"boltz2": "_boltz2", "opendde-abag": ""}
 # PHASE 0; protenix-v2/esmfold2 join ONLY after their N=64 cross-hardware gate verdict.
 # Galaxy-spine license per model (N=64 cross-hardware gate, phase0_n64_gate.py):
 # boltz2/opendde PHASE-0-consistent; esmfold2 LICENSED at N=64 (2026-08-03); protenix-v2
-# STOPPED at N=64 (arch signal, exceed_q95=0.40 > 0.33) -- its galaxy arm never pools.
-GALAXY64_OK = {"boltz2", "opendde-abag", "esmfold2"}
+# LICENSED 2026-08-04 by gate amendment: the pre-registered partition null is misspecified
+# for the same-seed paired design (per-index cross-arch perturbations cancel under random
+# partition but accumulate under the hardware split, inflating exceed_q95 at zero bias).
+# Root-cause (scripts/abag_xm/xhw_same_seed_pairing.py): MSA byte-identical, same-seed
+# noise streams identical (per-index DockQ spr 0.78, ptm 0.84, n=960), zero signed oracle
+# bias (med -0.003, wilcoxon p=0.30); residual = chaotic amplification of WH/BH
+# reduction-order numerics on borderline multi-basin targets, reproduced on-galaxy by the
+# mps 1->5 control (~0.014 oracle wobble, same magnitude). Moritz 2026-08-04 policy: px
+# runs on Galaxy.
+GALAXY64_OK = {"boltz2", "opendde-abag", "esmfold2", "protenix-v2"}
 # N=16 ARK restatement (opt-in, DEEPN_N16_ARK=1): the galaxy p2 N=16 structures re-labeled
 # with the ARK-interface scorer, removing the global-vs-ARK flavor gap from the curve's
 # first rung. boltz2: replaces the parquet rung (flavor gap decisive, -0.087). esmfold2:
 # adds the rung (galaxy spine LICENSED at N=64). opendde's p2 structures were not retained
-# (parquet rung stays, flavor-flagged; gap inconclusive). protenix-v2 is staged on disk but
-# deliberately unlicensed here (N=64 gate STOP = arch signal; its curve stays BH-only).
+# (parquet rung stays, flavor-flagged; gap inconclusive). protenix-v2 joins 2026-08-04 with
+# the galaxy-spine license (gate amendment above); its restated rung was validated by the
+# flavor-clean recheck (n=152, med|d|=0.030, zero directional bias).
 N16_ARK = BASE / "n16_ark"
-N16_ARK_OK = {"boltz2", "esmfold2"}
+N16_ARK_OK = {"boltz2", "esmfold2", "protenix-v2"}
 # Per-model target exclusions for the restated N=16 rung. esmfold2 9loz/9w14: the
 # p2-era galaxy pipeline mis-folded the complex on the IDENTICAL input sequence --
 # all 16 samples ptm ~0.55-0.61 vs 0.92 for the current pipeline (tier_a), DockQ
