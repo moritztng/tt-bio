@@ -39,6 +39,13 @@ GALAXY64_OK = {"boltz2", "opendde-abag", "esmfold2"}
 # deliberately unlicensed here (N=64 gate STOP = arch signal; its curve stays BH-only).
 N16_ARK = BASE / "n16_ark"
 N16_ARK_OK = {"boltz2", "esmfold2"}
+# Per-model target exclusions for the restated N=16 rung. esmfold2 9loz/9w14: the
+# p2-era galaxy pipeline mis-folded the complex on the IDENTICAL input sequence --
+# all 16 samples ptm ~0.55-0.61 vs 0.92 for the current pipeline (tier_a), DockQ
+# ~0.03 vs ~0.89. Scorer-independent (the model's own ptm condemns the fold); the
+# other 161 esm targets match tier_a at median delta-ptm +0.003. A pipeline artifact
+# is not model behavior, so the rung drops these two targets.
+N16_ARK_EXCLUDE = {"esmfold2": {"9loz", "9w14"}}
 GALAXY_NOTE = "galaxy N=16 uses global_dockq (mean over native interfaces), not the " \
               "ARK-interface DockQ of the qb1 arms; PHASE 0 measured the flavors " \
               "statistically equivalent for these two models."
@@ -267,6 +274,8 @@ def n16ark_pools(model: str):
             if int(rung) != 16:
                 continue
         except ValueError:
+            continue
+        if t in N16_ARK_EXCLUDE.get(model, ()):
             continue
         pool = pool_fold(out_dir / f"{prefix}_results_{t}" / "results.json",
                          out_dir / "labels.json", sel)
