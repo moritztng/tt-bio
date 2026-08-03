@@ -393,7 +393,7 @@ def main():
                   + row + f" {p['card_h']:>8.1f}")
         if a.deep:
             ns = sorted(pts)
-            common = sorted(t for t, _n in pools if all((t, n) in pools for n in ns))
+            common = sorted({t for t, _n in pools if all((t, n) in pools for n in ns)})
             if len(ns) >= 2 and common:
                 ci = paired_boot({n: [(max(v for _c, v in pools[(t, n)]["pool"]),
                                        max(pools[(t, n)]["pool"], key=lambda x: x[0])[1])
@@ -411,8 +411,8 @@ def main():
             import math
             gains = {}
             for lo, hi in zip(ns, ns[1:]):
-                both = sorted(t for t, _n in pools
-                              if (t, lo) in pools and (t, hi) in pools)
+                both = sorted({t for t, _n in pools
+                               if (t, lo) in pools and (t, hi) in pools})
                 if not both:
                     continue
                 g = paired_gain_boot([_ci_row(pools[(t, lo)]["pool"]) for t in both],
