@@ -8,12 +8,15 @@
 # is the last failed attempt). Also refreshes galaxy/fleet_results.jsonl (line-deduped).
 #
 # usage: p25_harvest.sh <run_id> [rung ...]     e.g.: p25_harvest.sh p25 64
+# On qb1 run it directly; qb1 cannot reach the galaxy (no cloudflared), so the relay is:
+#   pc:  bash scripts/abag_xm/p25_harvest.sh p25 64 && bash scripts/abag_xm/p25_harvest.sh p25b 64
+#   pc:  rsync -az ~/abag_xm/deepn/galaxy/ qb1:abag_xm/deepn/galaxy/
 set -uo pipefail
 RUN=${1:?run id, e.g. p25 or p25b}
 shift
 RUNGS=${*:-64}
-DEST=$HOME/abag_xm/deepn/galaxy
-GAL=japanfold-ssh
+DEST=${DEST:-$HOME/abag_xm/deepn/galaxy}
+GAL=${GAL:-japanfold-ssh}
 GB=/home/cust-team/mthuening/$RUN
 mkdir -p "$DEST"
 
