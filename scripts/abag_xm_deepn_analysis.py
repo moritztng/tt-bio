@@ -27,7 +27,10 @@ GALAXY64 = BASE / "galaxy"                                   # harvested galaxy 
 GALAXY_OK = {"boltz2": "_boltz2", "opendde-abag": ""}
 # Galaxy N>=64 arm: models licensed to contribute curve points. boltz2/opendde licensed by
 # PHASE 0; protenix-v2/esmfold2 join ONLY after their N=64 cross-hardware gate verdict.
-GALAXY64_OK = {"boltz2", "opendde-abag"}
+# Galaxy-spine license per model (N=64 cross-hardware gate, phase0_n64_gate.py):
+# boltz2/opendde PHASE-0-consistent; esmfold2 LICENSED at N=64 (2026-08-03); protenix-v2
+# STOPPED at N=64 (arch signal, exceed_q95=0.40 > 0.33) -- its galaxy arm never pools.
+GALAXY64_OK = {"boltz2", "opendde-abag", "esmfold2"}
 GALAXY_NOTE = "galaxy N=16 uses global_dockq (mean over native interfaces), not the " \
               "ARK-interface DockQ of the qb1 arms; PHASE 0 measured the flavors " \
               "statistically equivalent for these two models."

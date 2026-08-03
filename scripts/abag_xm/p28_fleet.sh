@@ -8,8 +8,16 @@
 #   opendde 160 targets x 8 chunks, seeds 20000-27000, mps 5->2->1 narrowing
 #     (excluded: 9i3p 9j4c 9ivj 9q7y -- documented WH DRAM exclusions at mps=1)
 # Chunking is RAM-forced (boltz2 ~0.22 GB/sample host RAM; 64-sample chunks cap a fold at
-# ~15 GB so 32 concurrent folds fit the galaxy's 566 GB). px/esm legs are NOT in this
-# window: their panel rungs stay gated on the qb1 N=64 cross-hardware gate verdict.
+# ~15 GB so 32 concurrent folds fit the galaxy's 566 GB).
+#
+# ESMFOLD2 N=64 PANEL (added after the N=64 cross-hardware gate LICENSED esmfold2
+# 2026-08-03; protenix-v2 was STOPPED by the same gate -- arch signal -- and gets NO
+# galaxy panel legs): 148 targets, single folds, seed 50000, single-sequence with auto
+# chunking (the campaign measures the no-MSA regime; never pass msa flags or mps).
+# Excluded: 9j4c (documented WH DRAM exclusion) and the 15 pilot targets whose N=64 galaxy
+# folds already exist staged (same seed block -- re-folding would duplicate, not extend).
+# The esm tasks lead the queue: small folds (~10-25 min) that complete the esm N=64 panel
+# curve point within the first hours of the window.
 #
 # SKIP-AND-LINK (binding, Moritz 2026-08-03 "as efficient as possible, but still correct"):
 # chunks 0-3 whose N=256 source chunk provably matches -- same seed block by construction,
@@ -43,11 +51,21 @@ B=$H/p28; mkdir -p $B $B/claims
 NCHIP=${1:-32}
 STAGGER=${2:-8}
 PY_SYS=/usr/bin/python3.10
+PY_VENV=$H/tt-bio/env/bin/python3.10
 MSA=$H/abag_xm/msa_cache
 OD_EXCL="9i3p 9j4c 9ivj 9q7y"
+# esm panel: skip the WH exclusion + the 15 pilot targets already folded at N=64 (seed
+# 50000, staged) -- their data pools from the existing harvest, re-folding duplicates it.
+ESM_SKIP="9j4c 21tw 9d3j 9i3p 9ly5 9m0j 9ma0 9obn 9ppw 9q6y 9rye 9ua5 9udq 9v0x 9wpm 9zen"
 
 TASKS=$B/tasks.txt
 {
+  for y in $SRC/examples/abag_xm/*.yaml; do
+    t=$(basename $y .yaml)
+    skip=0
+    for e in $ESM_SKIP; do [ "$t" = "$e" ] && skip=1; done
+    [ $skip = 0 ] && echo "esmfold2 $t 64 50000 0 1"
+  done
   for y in $SRC/examples/abag_xm/*.yaml; do
     t=$(basename $y .yaml)
     for j in 0 1 2 3 4 5 6 7; do
@@ -226,10 +244,26 @@ fold_od() { # <target> <rung> <seed> <chunk> <chunks> <chip>  -- mps narrowing 5
   done
 }
 
+fold_esm() { # <target> <rung> <seed> <chunk> <chunks> <chip>  -- single-seq, auto chunking
+  local t=$1 rung=$2 seed=$3 c=$4 k=$5 u=$6 s rc secs oom d nd ob
+  ob=$(outbase esmfold2 $t $c $k)
+  s=$(date +%s)
+  timeout 21600 env TT_VISIBLE_DEVICES=$u $PY_VENV -u -m tt_bio.main predict \
+    examples/abag_xm/$t.yaml --model esmfold2 --out_dir $ob --override \
+    --diffusion_samples $((rung/k)) --recycling_steps 10 --sampling_steps 100 --seed $seed \
+    --host_threads 2 > $B/esmfold2_${t}_c$c.log 2>&1
+  rc=$?; secs=$(( $(date +%s) - s ))
+  d=$(ls -d $ob/*results_$t 2>/dev/null | head -1)
+  read -r _n _di <<<$(count_structs "$d")
+  oom=$(grep -c 'Out of Memory' $B/esmfold2_${t}_c$c.log 2>/dev/null)
+  record esmfold2 $t $rung $seed $c $k auto $u $rc $secs ${_n:-0} ${_di:-0} ${oom:-0}
+}
+
 fold() { # <model> <target> <rung> <seed> <chunk> <chunks> <chip>
   case "$1" in
     boltz2)       fold_bz  "$2" "$3" "$4" "$5" "$6" "$7";;
     opendde-abag) fold_od  "$2" "$3" "$4" "$5" "$6" "$7";;
+    esmfold2)     fold_esm "$2" "$3" "$4" "$5" "$6" "$7";;
     *)            echo "SKIP: $1 not in this window" >> $B/slots.log;;
   esac
 }
