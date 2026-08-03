@@ -19,6 +19,7 @@ NCHIP=${1:-32}
 STAGGER=${2:-8}
 PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
+MSA=$H/abag_xm/msa_cache
 
 PILOT16="21tw 9d3j 9i3p 9j4c 9ly5 9m0j 9ma0 9obn 9ppw 9q6y 9rye 9ua5 9udq 9v0x 9wpm 9zen"
 
@@ -51,7 +52,7 @@ fold_px() { # <target> <rung> <seed> <chip>  -- mps narrowing 5->2->1 on OOM
   local t=$1 rung=$2 seed=$3 u=$4 mps s rc secs oom d nd
   for mps in 5 2 1; do
     s=$(date +%s)
-    timeout 7200 env TT_VISIBLE_DEVICES=$u $PY_SYS -u -m tt_bio.main predict \
+    timeout 21600 env TT_VISIBLE_DEVICES=$u $PY_SYS -u -m tt_bio.main predict \
       examples/abag_xm/$t.yaml --model protenix-v2 --out_dir $B/protenix/$t --override \
       --diffusion_samples $rung --max_parallel_samples $mps --seed $seed --host_threads 2 \
       --msa_dir $MSA --msa_cache_only > $B/protenix_${t}_mps$mps.log 2>&1
@@ -67,7 +68,7 @@ fold_px() { # <target> <rung> <seed> <chip>  -- mps narrowing 5->2->1 on OOM
 fold_esm() { # <target> <rung> <seed> <chip>  -- exact p2 config, single-sequence
   local t=$1 rung=$2 seed=$3 u=$4 s rc secs oom d nd
   s=$(date +%s)
-  timeout 7200 env TT_VISIBLE_DEVICES=$u $PY_VENV -u -m tt_bio.main predict \
+  timeout 21600 env TT_VISIBLE_DEVICES=$u $PY_VENV -u -m tt_bio.main predict \
     examples/abag_xm/$t.yaml --model esmfold2 --out_dir $B/esmfold2/$t --override \
     --diffusion_samples $rung --recycling_steps 10 --sampling_steps 100 --seed $seed \
     --host_threads 2 > $B/esmfold2_$t.log 2>&1
