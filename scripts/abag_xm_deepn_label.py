@@ -48,7 +48,7 @@ def fold_complete(rd):
         rec = data[0] if isinstance(data, list) else data
         if rec.get("status") != "ok":
             return False
-        n_exp = int(rec.get("samples", 0))
+        n_exp = int(rec.get("samples") or len(rec.get("all_runs") or []))
         if n_exp <= 0:
             return False
         st = rd / "structures"
@@ -57,10 +57,10 @@ def fold_complete(rd):
         return False
 
 
-def pending_folds():
+def pending_folds(base):
     todo = []
     for model in MODEL_DIRS:
-        mdir = BASE / model
+        mdir = base / model
         if not mdir.is_dir():
             continue
         for out_dir in sorted(p for p in mdir.iterdir() if p.is_dir()):
@@ -103,17 +103,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=2,
                     help="concurrent single-threaded label processes")
+    ap.add_argument("--base", type=Path, default=BASE,
+                    help="campaign root to scan (default ~/abag_xm/deepn)")
     ap.add_argument("--once", action="store_true", help="one scan, then exit")
     a = ap.parse_args()
-    print(f"deepn labeler: workers={a.workers} base={BASE}", flush=True)
+    print(f"deepn labeler: workers={a.workers} base={a.base}", flush=True)
     while True:
-        todo = pending_folds()
+        todo = pending_folds(a.base)
         if todo:
             print(f"scan: {len(todo)} pending -> "
                   + ",".join(f"{o.parent.name}/{o.name}" for o, _ in todo), flush=True)
             with ThreadPoolExecutor(max_workers=a.workers) as ex:
                 list(ex.map(lambda t: label_one(*t), todo))
-        if a.once or (not todo and DONE_MARKER.exists()):
+        if a.once or (not todo and (a.base / DONE_MARKER.name).exists()):
             print("labeler done", flush=True)
             return
         time.sleep(SLEEP_S)

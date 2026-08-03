@@ -22,8 +22,12 @@ TIER_A = Path.home() / "abag_xm" / "tier_a"
 FRONTIER_A = Path.home() / "abag_xm" / "frontier" / "A"      # opendde, m=200, 11 targets
 SATURATION = Path.home() / "abag_xm" / "saturation"          # 3 models, N=1000, 16 targets
 PHASE0 = BASE / "phase0"                                     # galaxy p2 parquets (N=16)
+GALAXY64 = BASE / "galaxy"                                   # harvested galaxy deep-N folds
 # PHASE 0 verdict: galaxy overlay is statistically consistent for boltz2 + opendde ONLY.
 GALAXY_OK = {"boltz2": "_boltz2", "opendde-abag": ""}
+# Galaxy N>=64 arm: models licensed to contribute curve points. boltz2/opendde licensed by
+# PHASE 0; protenix-v2/esmfold2 join ONLY after their N=64 cross-hardware gate verdict.
+GALAXY64_OK = {"boltz2", "opendde-abag"}
 GALAXY_NOTE = "galaxy N=16 uses global_dockq (mean over native interfaces), not the " \
               "ARK-interface DockQ of the qb1 arms; PHASE 0 measured the flavors " \
               "statistically equivalent for these two models."
@@ -159,6 +163,54 @@ def galaxy_pools(model: str):
     return out
 
 
+def galaxy64_pools(model: str):
+    """Harvested WH-Galaxy deep-N folds (the PHASE 2 campaign spine, N>=64).
+
+    Same pool shape as deepn_pools, rooted at BASE/galaxy/<prefix>/<target>_n<N>[_c<j>],
+    walls from BASE/galaxy/fleet_results.jsonl. In assembly this arm is applied LAST with
+    replacement semantics: where galaxy and qb1 both hold a (target, N) pool, the galaxy
+    pool defines the curve point (qb1 deep-N is the pilot overlay; cross-hardware deltas
+    are a separate gate analysis, not pooled into the curve)."""
+    if model not in GALAXY64_OK:
+        return {}
+    prefix, _md, sel = MODELS[model]
+    out = {}
+    mdir_root = GALAXY64 / prefix
+    if not mdir_root.is_dir():
+        return out
+    walls = {}
+    fj = GALAXY64 / "fleet_results.jsonl"
+    if fj.exists():
+        for line in fj.read_text().splitlines():
+            if not line.startswith("{"):
+                continue
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            if r.get("model") == model and r.get("rc") == 0 and r.get("cifs", 0) > 0:
+                k = (r["target"], r["rung"])
+                walls[k] = walls.get(k, 0.0) + r["seconds"]
+    for out_dir in sorted(mdir_root.iterdir()):
+        if not out_dir.is_dir():
+            continue
+        name = out_dir.name  # <target>_n<N>[_c<j>]
+        try:
+            t, rest = name.split("_n")
+            rung = int(rest.split("_c")[0])
+        except ValueError:
+            continue
+        pool = pool_fold(out_dir / f"{prefix}_results_{t}" / "results.json",
+                         out_dir / "labels.json", sel)
+        if pool is None:
+            continue
+        k = (t, rung)
+        out.setdefault(k, []).extend(pool)
+    for k in out:
+        out[k] = {"pool": out[k], "wall_s": walls.get(k)}
+    return out
+
+
 def curve_points(pools):
     """Aggregate a {(target, N): {pool}} map into per-N curve points."""
     by_n = {}
@@ -277,6 +329,7 @@ def main():
     for model in models:
         pools = tiera_pools(model) | deepn_pools(model) | overlay_pools(model) \
             | galaxy_pools(model)
+        pools.update(galaxy64_pools(model))  # campaign spine wins key collisions
         pts = curve_points(pools)
         report[model] = pts
         print(f"\n=== {model} ===")
