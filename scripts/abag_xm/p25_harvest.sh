@@ -8,6 +8,8 @@
 # is the last failed attempt). Also refreshes galaxy/fleet_results.jsonl (line-deduped).
 #
 # usage: p25_harvest.sh <run_id> [rung ...]     e.g.: p25_harvest.sh p25 64
+# Chunk-aware (p27+): records with chunk/chunks>1 land as <t>_n<N>_c<j> from galaxy <t>_c<j>
+# dirs and partial chunk pools are reported at the end (the analysis pools measured-N).
 # On qb1 run it directly; qb1 cannot reach the galaxy (no cloudflared), so the relay is:
 #   pc:  bash scripts/abag_xm/p25_harvest.sh p25 64 && bash scripts/abag_xm/p25_harvest.sh p25b 64
 #   pc:  rsync -az ~/abag_xm/deepn/galaxy/ qb1:abag_xm/deepn/galaxy/
@@ -38,12 +40,16 @@ for line in (dest / "fleet_results.jsonl").read_text().splitlines():
         continue
     r = json.loads(line)
     if r.get("rc") == 0 and r.get("cifs", 0) > 0 and r.get("rung") in rungs:
-        ok[(r["model"], r["target"], r["rung"])] = True
+        # chunked runs (p27+) key by (model,target,rung,chunk); unchunked get chunk None
+        ok[(r["model"], r["target"], r["rung"], r.get("chunk"))] = r.get("chunks", 1)
 print(f"harvest: {len(ok)} ok folds at rungs {sorted(rungs)}")
 gb = f"/home/cust-team/mthuening/{run}"
-for (model, t, rung) in sorted(ok):
+chunk_tot = {}
+for (model, t, rung, chunk), chunks in sorted(ok.items()):
     mdir = MD[model]
-    out = dest / mdir / f"{t}_n{rung}"
+    suffix = f"{t}_n{rung}" + (f"_c{chunk}" if chunk is not None and chunks > 1 else "")
+    srcdir = f"{t}_c{chunk}" if chunk is not None and chunks > 1 else t
+    out = dest / mdir / suffix
     rd = out / f"{mdir}_results_{t}"
     rj = rd / "results.json"
     if rj.exists():
@@ -52,27 +58,34 @@ for (model, t, rung) in sorted(ok):
             n = len(rec.get("all_runs") or [])
             if rec.get("status") == "ok" and n > 0 \
                and len(list((rd / "structures").glob("*.cif"))) == n:
+                chunk_tot[(model, t, rung, chunks)] = chunk_tot.get((model, t, rung, chunks), 0) + 1
                 continue  # already harvested and complete
         except Exception:
             pass
     out.mkdir(parents=True, exist_ok=True)
-    src = f"japanfold-ssh:{gb}/{mdir}/{t}/{mdir}_results_{t}/"
+    src = f"japanfold-ssh:{gb}/{mdir}/{srcdir}/{mdir}_results_{t}/"
     r = subprocess.run(["rsync", "-az", "--timeout=300", src, str(rd) + "/"],
                        capture_output=True, text=True)
     if r.returncode != 0:
-        print(f"  {model} {t} n{rung}: rsync FAILED {r.stderr.strip()[:120]}")
+        print(f"  {model} {t} n{rung} c{chunk}: rsync FAILED {r.stderr.strip()[:120]}")
         continue
     try:
         rec = json.loads(rj.read_text())[0]
         n = len(rec.get("all_runs") or [])
         n_cif = len(list((rd / "structures").glob("*.cif")))
         if rec.get("status") == "ok" and n > 0 and n_cif == n:
-            print(f"  {model} {t} n{rung}: ok ({n} cifs)")
+            chunk_tot[(model, t, rung, chunks)] = chunk_tot.get((model, t, rung, chunks), 0) + 1
+            print(f"  {model} {t} n{rung} c{chunk}: ok ({n} cifs)")
         else:
-            print(f"  {model} {t} n{rung}: INCOMPLETE on galaxy "
+            print(f"  {model} {t} n{rung} c{chunk}: INCOMPLETE on galaxy "
                   f"(status={rec.get('status')} runs={n} cifs={n_cif}) -- dropped")
             subprocess.run(["rm", "-rf", str(out)])
     except Exception as e:
-        print(f"  {model} {t} n{rung}: verify error {e} -- dropped")
+        print(f"  {model} {t} n{rung} c{chunk}: verify error {e} -- dropped")
         subprocess.run(["rm", "-rf", str(out)])
+partials = [(m, t, r, k, c) for (m, t, r, k), c in sorted(chunk_tot.items()) if k > 1 and c != k]
+if partials:
+    print("PARTIAL chunk pools (pool is honest measured-N but not the full rung):")
+    for m, t, r, k, c in partials:
+        print(f"  {m} {t} n{r}: {c}/{k} chunks")
 PY
