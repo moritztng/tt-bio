@@ -40,8 +40,14 @@ print(' '.join(sorted(out)))
 "); do kill -TERM "$p" 2>/dev/null; done
   # venv-python fleet folds (esmfold2) share the service's interpreter path; they die
   # with the RUNPAT process-group TERM above. Belt: TERM any surviving fold processes by
-  # their out-dir marker.
-  for p in $(pgrep -f 'mthuening/p2[56]'); do kill -TERM "$p" 2>/dev/null; done
+  # their out-dir marker. NEVER match ourselves: this script's own cmdline contains
+  # mthuening/p26_... which the pattern matches -- exclude by pid AND name (2026-08-03:
+  # an unguarded belt self-killed the watchdog before maint-restore, prod stayed down).
+  for p in $(pgrep -f 'mthuening/p2[56]'); do
+    [ "$p" = "$$" ] && continue
+    case "$(tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null)" in *watchdog*) continue;; esac
+    kill -TERM "$p" 2>/dev/null
+  done
   sleep 30
 
   bash /home/cust-team/mthuening/maintenance/maint-restore.sh
