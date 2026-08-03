@@ -353,7 +353,7 @@ def deep_stats(pools, model):
         for m, v in subsample_oracle_curve(pool, (16, 32, 50, 64, 100, 128, 200, 256,
                                                   400, 512), rng).items():
             per_m.setdefault(m, []).append(v)
-        for k in (16, 25, 32, 64, 128, 256):
+        for k in (16, 25, 32, 50, 64, 128, 256):
             f = seed_noise_floor(pool, k, rng)
             if f is not None:
                 per_floor.setdefault(k, []).append(f)
@@ -361,9 +361,35 @@ def deep_stats(pools, model):
         for thr in THR:
             if o >= thr:
                 solvable[str(thr)] += 1
+    # Common-set within-fold curve: the per-m table above mixes target sets across
+    # m (deep-m entries are overlay-heavy hard targets, so the raw curve can
+    # invert). Pick the largest grid depth D with >= 20 targets at len(pool) >= D
+    # and report the curve at all m <= D over that fixed set.
+    MGRID = (16, 32, 50, 64, 100, 128, 200, 256, 400, 512)
+    depth_ok = [m for m in MGRID
+                if sum(1 for _n, p in biggest.values() if len(p) >= m) >= 20]
+    common = None
+    if depth_ok:
+        D = max(depth_ok)
+        cset = [biggest[t][1] for t in sorted(biggest) if len(biggest[t][1]) >= D]
+        cc, cf = {}, {}
+        for p in cset:
+            for m, v in subsample_oracle_curve(p, [m for m in MGRID if m <= D],
+                                             rng).items():
+                cc.setdefault(m, []).append(v)
+            for m in MGRID:
+                if 2 * m > D:
+                    break
+                f = seed_noise_floor(p, m, rng)
+                if f is not None:
+                    cf.setdefault(m, []).append(f)
+        common = {"depth": D, "n_targets": len(cset),
+                  "curve": {m: float(np.mean(v)) for m, v in sorted(cc.items())},
+                  "floor_med": {m: float(np.median(v)) for m, v in sorted(cf.items())}}
     return {"top_rung": max(n for _t, n in pools), "n_targets": len(biggest),
             "within_fold_oracle_curve": {m: float(np.mean(v)) for m, v in sorted(per_m.items())},
             "within_fold_nt": {m: len(v) for m, v in sorted(per_m.items())},
+            "within_fold_common": common,
             "seed_noise_floor_med": {k: float(np.median(v)) for k, v in sorted(per_floor.items())},
             "solvable_at_top": solvable}
 
