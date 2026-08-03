@@ -194,6 +194,7 @@ def galaxy64_pools(model: str):
             if r.get("model") == model and r.get("rc") == 0 and r.get("cifs", 0) > 0:
                 k = (r["target"], r["rung"])
                 walls[k] = walls.get(k, 0.0) + r["seconds"]
+    meta = {}
     for out_dir in sorted(mdir_root.iterdir()):
         if not out_dir.is_dir():
             continue
@@ -203,12 +204,32 @@ def galaxy64_pools(model: str):
             rung = int(rest.split("_c")[0])
         except ValueError:
             continue
+        chunk = None
+        if "_c" in rest:
+            try:
+                chunk = int(rest.split("_c")[1])
+            except ValueError:
+                chunk = None
         pool = pool_fold(out_dir / f"{prefix}_results_{t}" / "results.json",
                          out_dir / "labels.json", sel)
         if pool is None:
             continue
         k = (t, rung)
         out.setdefault(k, []).extend(pool)
+        m = meta.setdefault(k, {"chunks": set(), "plain": 0})
+        if chunk is None:
+            m["plain"] += 1
+        else:
+            m["chunks"].add(chunk)
+    # Rung-completeness gate: a chunked rung (N>=256 -> N/64 chunks) contributes only
+    # when every chunk is present -- a 2-of-4 pool is a 128-sample oracle mislabeled
+    # as N=256. Unchunked single-fold rungs (n64) are complete by construction.
+    for k in list(out):
+        m = meta[k]
+        if m["plain"] and not m["chunks"]:
+            continue
+        if len(m["chunks"]) < max(1, k[1] // 64):
+            del out[k]
     for k in out:
         out[k] = {"pool": out[k], "wall_s": walls.get(k)}
     return out
