@@ -313,6 +313,33 @@ def paired_boot(ci_rows, b=20000, seed=20260802):
     return out
 
 
+def _ci_row(pool):
+    """Per-target CI metrics for one pool: oracle, user, threshold indicators."""
+    o = oracle_of(pool)
+    u = max(pool, key=lambda x: x[0])[1]
+    return (o, u) + tuple(1.0 if o >= t else 0.0 for t in THR)
+
+
+def paired_gain_boot(rows_lo, rows_hi, b=20000, seed=20260802):
+    """CI of the per-metric mean GAIN (hi rung minus lo rung) over a common target set.
+
+    rows_lo/rows_hi: aligned _ci_row tuples per target. One resample index vector
+    serves both rungs, so the gain is paired; every model caller shares the seed.
+    """
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    lo = np.array(rows_lo, dtype=float)
+    hi = np.array(rows_hi, dtype=float)
+    nt = len(lo)
+    idx = rng.integers(0, nt, (b, nt))
+    keys = ("oracle", "user", "ge_0.23", "ge_0.49", "ge_0.80")
+    out = {}
+    for c, k in enumerate(keys):
+        g = hi[idx, c].mean(axis=1) - lo[idx, c].mean(axis=1)
+        out[k] = [float(np.quantile(g, q)) for q in (0.025, 0.5, 0.975)]
+    return out
+
+
 def deep_stats(pools, model):
     """Stop-rule + exhaustion inputs from each target's LARGEST pool."""
     import numpy as np
@@ -377,6 +404,33 @@ def main():
                     o, u = ci[n]["oracle_mean"], ci[n]["user_mean"]
                     print(f"    N={n:<5} oracle {o[1]:.4f} [{o[0]:.4f},{o[2]:.4f}] "
                           f"user {u[1]:.4f} [{u[0]:.4f},{u[2]:.4f}]")
+            # Pairwise adjacent-rung gain CIs -- the stop-rule comparator. The
+            # all-rungs intersection above degenerates to zero once sparse overlay
+            # rungs (200/500/1000) join the curve, so the knee test reads these
+            # per-pair gains (normalize by `doublings` for gain-per-doubling).
+            import math
+            gains = {}
+            for lo, hi in zip(ns, ns[1:]):
+                both = sorted(t for t, _n in pools
+                              if (t, lo) in pools and (t, hi) in pools)
+                if not both:
+                    continue
+                g = paired_gain_boot([_ci_row(pools[(t, lo)]["pool"]) for t in both],
+                                     [_ci_row(pools[(t, hi)]["pool"]) for t in both])
+                gains[f"{lo}->{hi}"] = {"common_targets": len(both),
+                                        "doublings": round(math.log2(hi / lo), 4),
+                                        # below ~8 targets a bootstrap CI is a
+                                        # coarse discrete point mass -- never let
+                                        # it clear the stop rule
+                                        "degenerate": len(both) < 8,
+                                        "gain_ci": g}
+            if gains:
+                report[model + "__pairwise_gain_ci"] = gains
+                print("  pairwise adjacent-rung gain CIs (stop-rule basis):")
+                for pair, d in gains.items():
+                    o = d["gain_ci"]["oracle"]
+                    print(f"    {pair:<12} nt={d['common_targets']:<4} "
+                          f"oracle gain {o[1]:+.4f} [{o[0]:+.4f},{o[2]:+.4f}]")
             ds = deep_stats(pools, model)
             report[model + "__deep"] = ds
             print(f"  within-fold oracle curve (top rung N={ds['top_rung']}, "
