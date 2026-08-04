@@ -79,8 +79,10 @@ a { color: inherit; text-decoration: none; }
    Logo sizing balances VISUAL MASS, not letter height: at equal box height the
    tenstorrent wordmark is 1.8x wider than the ai& mark (562 vs 305 units), so
    matching the two by height — or by lowercase x-height, which needs ai& smaller
-   still — leaves ai& looking like the junior partner. ai& is set to ~1.2x the
-   tenstorrent box height instead. The top offset on .tt is a baseline correction:
+   still — leaves ai& looking like the junior partner. ai& carries a small
+   compensation (~1.06x the tenstorrent box height) rather than a large one: at
+   1.2x it read as the bigger of the two logos.
+   The top offset on .tt is a baseline correction:
    tenstorrent's cube dips below its own letter baseline, so vertical-align alone
    floats its text high. Re-tune that offset whenever either height changes. */
 .powered-top {
@@ -92,7 +94,7 @@ a { color: inherit; text-decoration: none; }
 }
 .powered-top a { display: inline; }
 .powered-top img { vertical-align: baseline; margin: 0 0.18em; }
-.powered-top img.aiand { height: 23px; }
+.powered-top img.aiand { height: 20.4px; }
 .powered-top img.tt { height: 19.3px; position: relative; top: 2px; }
 .eyebrow {
   font-family: var(--mono); font-size: 13px; letter-spacing: 0.14em;
@@ -159,7 +161,11 @@ section { padding: 88px 0; }
 h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 12px; }
 .sec-head p { color: var(--ink-soft); }
 
-/* ---------- why tenstorrent ---------- */
+/* ---------- why tenstorrent ----------
+   #why is a single statement, not a full section, so two stacked 88px paddings
+   above it opened a hole under the three cards. It keeps its own bottom padding
+   (models follows) but leans on .use's bottom padding at the top. */
+#why { padding-top: 16px; }
 .why-statement {
   font-size: clamp(23px, 3vw, 32px); font-weight: 600;
   letter-spacing: -0.02em; line-height: 1.32; max-width: 26em;
@@ -236,7 +242,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 }
 .foot .powered { display: block; }
 .foot .powered img { vertical-align: baseline; margin: 0 0.16em; }
-.foot img.aiand { height: 22px; }
+.foot img.aiand { height: 19.7px; }
 .foot img.tt { height: 18.6px; position: relative; top: 2px; }
 .foot .links { margin-left: auto; display: flex; gap: 22px; }
 .foot .links a { color: var(--ink-soft); }
@@ -249,7 +255,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 @media (max-width: 620px) {
   .powered-top { font-size: 11px; letter-spacing: 0.07em; padding-left: 12px; }
   .powered-top .tt-suffix { display: none; }
-  .powered-top img.aiand { height: 21.5px; }
+  .powered-top img.aiand { height: 19px; }
   .powered-top img.tt { height: 17.9px; top: 1.9px; }
 }
 @media (max-width: 920px) {
