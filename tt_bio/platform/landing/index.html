@@ -221,6 +221,15 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 .foot .links a:hover { color: var(--ink); }
 
 /* ---------- responsive ---------- */
+/* Phone: the attribution line is wider than a 390px viewport, so it ran off the
+   right edge. Trim the trailing words (the sentence still reads) and step the
+   type + logos down a notch, keeping the measured wordmark ratios. */
+@media (max-width: 620px) {
+  .powered-top { font-size: 11px; letter-spacing: 0.07em; padding-left: 12px; }
+  .powered-top .tt-suffix { display: none; }
+  .powered-top img.aiand { height: 12.5px; }
+  .powered-top img.tt { height: 17.9px; top: 3.35px; }
+}
 @media (max-width: 920px) {
   .hero { grid-template-columns: 1fr; gap: 40px; padding: 56px 0 64px; }
   .hero-mark { order: -1; justify-content: center; }
@@ -266,7 +275,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
         <a href="https://aiand.com" target="_blank" rel="noopener noreferrer" title="ai&amp;"><img class="aiand" src="/aiand-logo.svg" alt="ai&amp;"></a>
         <span>on</span>
         <a href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer" title="Tenstorrent"><img class="tt" src="/tenstorrent-logo.svg" alt="Tenstorrent"></a>
-        <span>AI processors</span>
+        <span class="tt-suffix">AI processors</span>
       </p>
       <h1 aria-label="High Throughput. Low Cost. Drug Discovery.">
         <span class="hl-line"><span class="hl-word hl-accent">High Throughput</span></span>
