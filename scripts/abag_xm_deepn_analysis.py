@@ -199,6 +199,28 @@ def galaxy_pools(model: str):
     return out
 
 
+def _reuse_skip(model: str):
+    """(target, rung, chunk) keys of LINKED chunk records (reused_chunks.*.jsonl).
+
+    Linked records carry their source fold's real seconds for provenance, but those
+    seconds were paid at the source rung/window and are counted there via the source's
+    own record (empirically: od 21du's 1214s sat at both rung 64 and rung 256 c0).
+    Skipping them in the walls sum makes per-rung card_h the marginal ladder cost --
+    the denominator of the pre-registered marginal-oracle-per-card-second metric."""
+    skip = set()
+    for f in sorted(GALAXY64.glob("reused_chunks.*.jsonl")):
+        for line in f.read_text().splitlines():
+            if not line.startswith("{"):
+                continue
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            if r.get("model") == model:
+                skip.add((r["target"], r["rung"], r.get("chunk")))
+    return skip
+
+
 def galaxy64_pools(model: str):
     """Harvested WH-Galaxy deep-N folds (the PHASE 2 campaign spine, N>=64).
 
@@ -216,6 +238,7 @@ def galaxy64_pools(model: str):
         return out
     walls = {}
     fj = GALAXY64 / "fleet_results.jsonl"
+    skip = _reuse_skip(model)
     if fj.exists():
         for line in fj.read_text().splitlines():
             if not line.startswith("{"):
@@ -225,6 +248,8 @@ def galaxy64_pools(model: str):
             except Exception:
                 continue
             if r.get("model") == model and r.get("rc") == 0 and r.get("cifs", 0) > 0:
+                if (r["target"], r["rung"], r.get("chunk")) in skip:
+                    continue
                 k = (r["target"], r["rung"])
                 walls[k] = walls.get(k, 0.0) + r["seconds"]
     meta = {}
