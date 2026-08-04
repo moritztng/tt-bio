@@ -14,6 +14,7 @@ from pathlib import Path
 from flask import Flask, g, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 
+from . import contact
 from .catalog import catalog
 from .http_common import client_ip, serve_archive, serve_artifact, serve_log, serve_structure, submit_job
 from .jobs import CapacityError, JobManager
@@ -165,6 +166,10 @@ def create_app(workspace: str | os.PathLike | None = None, *,
         if not _owns(job_id):
             return jsonify({"error": "not found"}), 404
         return jsonify({"deleted": manager.delete(job_id)})
+
+    # ---- Contact form (landing page) ----------------------------------
+    # Registered before the SPA catch-all, which 404s unrecognised api/ paths.
+    contact.register(app)
 
     # ---- Customer API (/v1, API-key auth) -----------------------------
     # A stable, documented, key-authenticated surface for programmatic and agent

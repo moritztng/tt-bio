@@ -234,6 +234,27 @@ h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 
 .cta-band h2 { font-size: 32px; margin-bottom: 26px; }
 .cta-band .btn { font-size: 16px; padding: 16px 34px; }
 
+/* ---------- contact ---------- */
+#contact form { max-width: 640px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field label { font-size: 14px; font-weight: 600; }
+.field label .opt { color: var(--muted); font-weight: 400; }
+.field input, .field textarea {
+  font: inherit; font-size: 15px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 12px; width: 100%;
+  transition: border-color 0.15s ease;
+}
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--ink); }
+.field textarea { resize: vertical; min-height: 140px; }
+.form-foot { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.form-foot .btn { font-size: 15px; padding: 12px 24px; }
+.form-status { font-size: 14px; color: var(--ink-soft); }
+.form-status.err { color: #b3261e; }
+/* Honeypot: off-screen rather than display:none, which the dumber bots skip. */
+.hp { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+
 /* ---------- footer ---------- */
 footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 .foot {
@@ -275,6 +296,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
   .nav { gap: 16px; }
   .nav a.plain { display: none; }
   .models { grid-template-columns: 1fr; }
+  .field-grid { grid-template-columns: 1fr; }
   section { padding: 64px 0; }
   .cta-band { padding: 72px 0; }
 }
@@ -403,6 +425,42 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
     <a class="btn btn-primary" href="https://demo.japanfold.com">Open the workbench &rarr;</a>
   </div>
 
+  <section id="contact" hidden>
+    <div class="sec-head">
+      <p class="eyebrow">Contact</p>
+      <h2>Talk to us.</h2>
+      <p>Questions, pilots, partnerships: we read every message.</p>
+    </div>
+    <form id="contact-form">
+      <div class="field-grid">
+        <div class="field">
+          <label for="cf-name">Name</label>
+          <input id="cf-name" name="name" type="text" required maxlength="120" autocomplete="name">
+        </div>
+        <div class="field">
+          <label for="cf-email">Email</label>
+          <input id="cf-email" name="email" type="email" required maxlength="200" autocomplete="email">
+        </div>
+      </div>
+      <div class="field">
+        <label for="cf-company">Company/Org <span class="opt">(optional)</span></label>
+        <input id="cf-company" name="company" type="text" maxlength="160" autocomplete="organization">
+      </div>
+      <div class="field">
+        <label for="cf-message">Message</label>
+        <textarea id="cf-message" name="message" required maxlength="5000"></textarea>
+      </div>
+      <div class="hp" aria-hidden="true">
+        <label for="cf-website">Website</label>
+        <input id="cf-website" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+      <div class="form-foot">
+        <button class="btn btn-primary" type="submit">Send message</button>
+        <p class="form-status" id="contact-status" role="status"></p>
+      </div>
+    </form>
+  </section>
+
 </main>
 
 <footer>
@@ -422,6 +480,49 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
     </span>
   </div>
 </footer>
+
+<script>
+(function () {
+  var form = document.getElementById('contact-form');
+  if (!form) return;
+  var status = document.getElementById('contact-status');
+  var btn = form.querySelector('button[type="submit"]');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var fields = form.elements;
+    btn.disabled = true;
+    status.textContent = 'Sending…';
+    status.className = 'form-status';
+    fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: fields.namedItem('name').value.trim(),
+        email: fields.namedItem('email').value.trim(),
+        company: fields.namedItem('company').value.trim(),
+        message: fields.namedItem('message').value.trim(),
+        website: fields.namedItem('website').value
+      })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (res.ok && data.ok) {
+          status.textContent = 'Thanks, we\'ll be in touch.';
+          status.className = 'form-status';
+          form.reset();
+        } else {
+          status.textContent = data.error || 'Something went wrong. Please try again.';
+          status.className = 'form-status err';
+        }
+      });
+    }).catch(function () {
+      status.textContent = 'Network error. Please try again.';
+      status.className = 'form-status err';
+    }).finally(function () {
+      btn.disabled = false;
+    });
+  });
+})();
+</script>
 
 </body>
 </html>
