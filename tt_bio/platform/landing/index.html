@@ -9,10 +9,10 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="canonical" href="https://japanfold.com/">
 <meta name="theme-color" content="#f6f6f7">
-<meta name="description" content="Structure prediction, binding affinity, de-novo design and protein embeddings on Tenstorrent AI processors. 100% Japan-hosted, 1:1 accuracy parity with the GPU implementations. Use the web app, the free HTTP API, or the agent skill.">
+<meta name="description" content="Structure prediction, binding affinity, de-novo design and protein embeddings on Tenstorrent AI processors. 100% Japan-hosted, 1:1 accuracy parity with the GPU implementations. Use the workbench, the free HTTP API, or the agent skill.">
 <meta property="og:title" content="JapanFold: High Throughput, Low Cost Drug Discovery">
 <meta property="og:site_name" content="JapanFold">
-<meta property="og:description" content="Structure prediction, binding affinity, de-novo design and protein embeddings on Tenstorrent AI processors. 100% Japan-hosted, 1:1 accuracy parity with the GPU implementations. Use the web app, the free HTTP API, or the agent skill.">
+<meta property="og:description" content="Structure prediction, binding affinity, de-novo design and protein embeddings on Tenstorrent AI processors. 100% Japan-hosted, 1:1 accuracy parity with the GPU implementations. Use the workbench, the free HTTP API, or the agent skill.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://japanfold.com/">
 <meta property="og:image" content="https://japanfold.com/apple-touch-icon.png">
@@ -187,7 +187,8 @@ h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 
    The product is one service reachable three ways, so the three get equal weight:
    one card each, same shape, one destination each. Keeping them parallel is what
    stops the API and the skill reading as the same thing. */
-.use { padding-top: 0; }
+/* The figures band sits between the hero and this section, so .use keeps the
+   standard section padding (it used to butt straight onto the hero). */
 .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .way {
   background: var(--surface); border: 1px solid var(--border);
@@ -281,7 +282,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
     <span class="brand">Japan<span class="fold">Fold</span></span>
   </a>
   <nav class="nav">
-    <a class="plain" href="https://demo.japanfold.com">Web app</a>
+    <a class="plain" href="https://demo.japanfold.com">Workbench</a>
     <a class="plain" href="https://docs.japanfold.com">API</a>
     <a class="plain" href="https://docs.japanfold.com/skill/">Skill</a>
     <a class="plain" href="#models">Models</a>
@@ -308,7 +309,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
       <p class="lede">Structure prediction, binding affinity, de-novo design, and protein
         embeddings. Every model, free to use.</p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="https://demo.japanfold.com">Open the web app &rarr;</a>
+        <a class="btn btn-primary" href="https://demo.japanfold.com">Open the workbench &rarr;</a>
         <a class="btn btn-ghost" href="https://aiand.com/contact">Contact us</a>
       </div>
     </div>
@@ -321,38 +322,6 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
       </div>
     </div>
   </div>
-
-  <section id="use" class="use">
-    <div class="sec-head">
-      <p class="eyebrow">Three ways to use it</p>
-      <h2>Point and click, call the API, or let your agent do it.</h2>
-    </div>
-    <div class="ways">
-      <a class="way" href="https://demo.japanfold.com">
-        <span class="way-n">01</span>
-        <span class="way-name">Web app</span>
-        <p>Fold, design and inspect structures in the browser. Nothing to
-          install, no signup.</p>
-        <span class="way-go">Try it in the browser &rarr;</span>
-      </a>
-      <a class="way" href="https://docs.japanfold.com">
-        <span class="way-n">02</span>
-        <span class="way-name">API</span>
-        <p>One HTTP endpoint for every model. Anything that speaks JSON &mdash; curl,
-          Python, your pipeline.</p>
-        <code>POST api.japanfold.com/v1/predictions</code>
-        <span class="way-go">Read the API docs &rarr;</span>
-      </a>
-      <a class="way" href="https://docs.japanfold.com/skill/">
-        <span class="way-n">03</span>
-        <span class="way-name">Agent skill</span>
-        <p>Ask in plain language instead of writing calls. Claude Code, Cursor, Codex,
-          Gemini CLI and more.</p>
-        <code>npx skills add moritztng/japanfold</code>
-        <span class="way-go">Install the skill &rarr;</span>
-      </a>
-    </div>
-  </section>
 
   <div class="figures">
     <div class="figure">
@@ -369,6 +338,35 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
         <a href="https://docs.japanfold.com/accuracy/">measured</a>.</p>
     </div>
   </div>
+
+  <section id="use" class="use">
+    <div class="sec-head">
+      <p class="eyebrow">How to use it</p>
+      <h2>Three ways in.</h2>
+    </div>
+    <div class="ways">
+      <a class="way" href="https://demo.japanfold.com">
+        <span class="way-n">01</span>
+        <span class="way-name">Workbench</span>
+        <p>Fold and design in the browser. No install, no signup.</p>
+        <span class="way-go">Open the workbench &rarr;</span>
+      </a>
+      <a class="way" href="https://docs.japanfold.com">
+        <span class="way-n">02</span>
+        <span class="way-name">API</span>
+        <p>One HTTP endpoint for every model.</p>
+        <code>POST api.japanfold.com/v1/predictions</code>
+        <span class="way-go">Read the API docs &rarr;</span>
+      </a>
+      <a class="way" href="https://docs.japanfold.com/skill/">
+        <span class="way-n">03</span>
+        <span class="way-name">Agent skill</span>
+        <p>Ask in plain language. Claude Code, Cursor, Codex and more.</p>
+        <code>npx skills add moritztng/japanfold</code>
+        <span class="way-go">Install the skill &rarr;</span>
+      </a>
+    </div>
+  </section>
 
   <section id="why">
     <p class="eyebrow">Why</p>
@@ -397,7 +395,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 
   <div class="cta-band">
     <h2>See it fold.</h2>
-    <a class="btn btn-primary" href="https://demo.japanfold.com">Open the web app &rarr;</a>
+    <a class="btn btn-primary" href="https://demo.japanfold.com">Open the workbench &rarr;</a>
   </div>
 
 </main>
@@ -412,7 +410,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
       AI processors
     </span>
     <span class="links">
-      <a href="https://demo.japanfold.com">Web app</a>
+      <a href="https://demo.japanfold.com">Workbench</a>
       <a href="https://docs.japanfold.com">API</a>
       <a href="https://docs.japanfold.com/skill/">Skill</a>
       <a href="https://aiand.com/contact">Contact</a>
