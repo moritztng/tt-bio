@@ -32,8 +32,8 @@ SLEEP_S = 180
 LABEL_TIMEOUT_S = 21600
 
 
-def label_env():
-    sp = next(iter(SHARED_VENV.glob("lib/python*/site-packages")), None)
+def label_env(shared_venv=SHARED_VENV):
+    sp = next(iter(shared_venv.glob("lib/python*/site-packages")), None)
     pp = ":".join(str(x) for x in [sp, WT] if x)
     env = {**os.environ, "PYTHONPATH": pp,
            "PATH": str(Path.home() / ".local" / "bin") + os.pathsep + os.environ.get("PATH", "")}
@@ -57,9 +57,9 @@ def fold_complete(rd):
         return False
 
 
-def pending_folds(base):
+def pending_folds(base, models=MODEL_DIRS):
     todo = []
-    for model in MODEL_DIRS:
+    for model in models:
         mdir = base / model
         if not mdir.is_dir():
             continue
@@ -77,17 +77,17 @@ def pending_folds(base):
     return todo
 
 
-def label_one(out_dir, rd):
+def label_one(out_dir, rd, venv_py=LABEL_VENV_PY, shared_venv=SHARED_VENV):
     target = rd.name.split("results_")[1]
     lock = out_dir / ".label_lock"
     lock.write_text(str(os.getpid()))
     t0 = time.time()
     try:
-        cmd = [str(LABEL_VENV_PY), str(WT / "scripts" / "abag_xm_labels.py"), str(rd),
+        cmd = [str(venv_py), str(WT / "scripts" / "abag_xm_labels.py"), str(rd),
                str(GT / f"{target}.cif"), str(WT / "examples" / "abag_xm" / f"{target}.yaml"),
                "--out", str(out_dir / "labels.json"), "--per_sample_only"]
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, env=label_env(),
+            r = subprocess.run(cmd, capture_output=True, text=True, env=label_env(shared_venv),
                                timeout=LABEL_TIMEOUT_S)
             ok = r.returncode == 0 and (out_dir / "labels.json").exists()
             tail = (r.stderr or r.stdout or "").strip().splitlines()[-1:] or [""]
@@ -105,16 +105,24 @@ def main():
                     help="concurrent single-threaded label processes")
     ap.add_argument("--base", type=Path, default=BASE,
                     help="campaign root to scan (default ~/abag_xm/deepn)")
+    ap.add_argument("--models", type=str, default=",".join(MODEL_DIRS),
+                    help="comma-separated model dirs to scan (default all four)")
+    ap.add_argument("--label-venv-py", type=Path, default=LABEL_VENV_PY,
+                    help="python of the label venv (default ~/.abag_xm_label_venv)")
+    ap.add_argument("--shared-venv", type=Path, default=SHARED_VENV,
+                    help="venv whose site-packages holds DockQ/gemmi (default qb1's)")
     ap.add_argument("--once", action="store_true", help="one scan, then exit")
     a = ap.parse_args()
-    print(f"deepn labeler: workers={a.workers} base={a.base}", flush=True)
+    models = tuple(m.strip() for m in a.models.split(",") if m.strip())
+    print(f"deepn labeler: workers={a.workers} base={a.base} models={models}", flush=True)
     while True:
-        todo = pending_folds(a.base)
+        todo = pending_folds(a.base, models)
         if todo:
             print(f"scan: {len(todo)} pending -> "
                   + ",".join(f"{o.parent.name}/{o.name}" for o, _ in todo), flush=True)
             with ThreadPoolExecutor(max_workers=a.workers) as ex:
-                list(ex.map(lambda t: label_one(*t), todo))
+                list(ex.map(lambda t: label_one(*t, venv_py=a.label_venv_py,
+                                                shared_venv=a.shared_venv), todo))
         if a.once or (not todo and (a.base / DONE_MARKER.name).exists()):
             print("labeler done", flush=True)
             return
