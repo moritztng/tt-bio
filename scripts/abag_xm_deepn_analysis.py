@@ -462,12 +462,16 @@ def main():
     a = ap.parse_args()
     models = [a.model] if a.model else sorted(MODELS)
     report = {}
+    ark16 = []
     for model in models:
         pools = tiera_pools(model) | deepn_pools(model) | overlay_pools(model) \
             | galaxy_pools(model)
         pools.update(galaxy64_pools(model))  # campaign spine wins key collisions
         if os.environ.get("DEEPN_N16_ARK") == "1":
-            pools.update(n16ark_pools(model))  # ARK restatement wins the N=16 rung
+            ark = n16ark_pools(model)
+            if any(n == 16 for _t, n in ark):
+                ark16.append(model)
+            pools.update(ark)  # ARK restatement wins the N=16 rung
         pts = curve_points(pools)
         report[model] = pts
         print(f"\n=== {model} ===")
@@ -526,6 +530,10 @@ def main():
                 fl = ds["seed_noise_floor_med"].get(str(m)) or ds["seed_noise_floor_med"].get(m)
                 print(f"    m={m:<4} E[oracle]={v:.4f}" + (f"  floor={fl:.4f}" if fl else ""))
             print(f"  solvable at top rung: {ds['solvable_at_top']}")
+    if os.environ.get("DEEPN_N16_ARK") == "1":
+        # models whose N=16 rung is the ARK restatement (same flavor as the qb1 arms);
+        # the datasheet keys its cross-flavor flags/prose off this
+        report["n16_ark_models"] = sorted(ark16)
     Path(a.out).write_text(json.dumps(report, indent=1))
     print(f"\nwrote {a.out}")
     return 0

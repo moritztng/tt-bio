@@ -12,12 +12,17 @@ tables, both owned by this script) between the `## 4.` and `## 9.` headers.
 Sections 1-3 and 9 are hand prose and stay untouched. Idempotent; safe on partial
 data (every table carries its coverage; verdicts are marked partial).
 
-Stop-rule verdict (pre-registered): walk the campaign ladder (N=16 EXCLUDED -- it is
-global_dockq-flavored, section 9; overlay rungs 200/500/1000 are reported in section
-6 but are not ladder rungs), normalize each adjacent pair's oracle gain per doubling,
-compare against the seed-noise floor at the lo rung's size. Two consecutive
-below-floor pairs = knee; N* = the lo rung of the first of the two. Degenerate pairs
-(<8 common targets) never clear. "No knee by N=<max>" is a complete answer.
+Stop-rule verdict (pre-registered): walk the campaign ladder (N=16 EXCLUDED from the
+ladder; overlay rungs 200/500/1000 are reported in section 6 but are not ladder rungs),
+normalize each adjacent pair's oracle gain per doubling, compare against the seed-noise
+floor at the lo rung's size. Two consecutive below-floor pairs = knee; N* = the lo rung
+of the first of the two. Degenerate pairs (<8 common targets) never clear. "No knee by
+N=<max>" is a complete answer.
+
+N=16 flavor: with DEEPN_N16_ARK=1 the analysis restates the rung with the ARK-interface
+scorer for the models in N16_ARK_OK (report key `n16_ark_models`); this driver keys its
+cross-flavor flags and prose off that list. opendde-abag's N=16 stays the global_dockq
+parquet rung (its p2 structures were not retained).
 """
 import json, subprocess, sys
 from pathlib import Path
@@ -30,7 +35,7 @@ ANALYSIS = Path(__file__).with_name("abag_xm_deepn_analysis.py")
 MODELS = ("boltz2", "opendde-abag", "protenix-v2", "esmfold2")
 THR = (0.23, 0.49, 0.80)
 THR_KEY = {t: str(t).replace(".", "") for t in THR}
-LADDER = (50, 64, 256, 512, 1024)  # N=16 excluded: global_dockq flavor (section 9)
+LADDER = (50, 64, 256, 512, 1024)  # N=16 excluded from the stop-rule ladder (section 9)
 
 SEC5_PROSE = """\
 Stop a model's ladder when the oracle-gain-per-doubling drops below the measured
@@ -46,9 +51,23 @@ B=20000 paired bootstrap over targets (seed 20260802, one resample vector shared
 across rungs and models). Basis: pairwise adjacent-rung gains over the targets
 present at BOTH rungs -- the all-rungs intersection degenerates to zero once sparse
 overlay rungs join, so it is never the CI basis. Metrics: oracle mean, user mean,
-and the three threshold fractions. The N=16 rung is global_dockq-flavored (section
-9); gain chains crossing into or out of N=16 mix flavors and are flagged, never
-quoted as depth effects."""
+and the three threshold fractions."""
+
+
+def n16_note(rep):
+    """The N=16 flavor sentence, keyed off the analysis's restatement record."""
+    ark = set(rep.get("n16_ark_models", []))
+    if not ark:
+        return ("The N=16 row is global_dockq-flavored (section 9) -- do not read "
+                "depth effects across it.")
+    rest = [m for m in MODELS if m not in ark]
+    if not rest:
+        return ("The N=16 row is the ARK-interface restatement for all four models "
+                "(full panel, same flavor as the qb1 arms; section 9).")
+    return ("The N=16 row is the ARK-interface restatement for "
+            + "/".join(sorted(ark)) + " (full panel, same flavor as the qb1 arms); "
+            + "for " + "/".join(rest) + " it stays the global_dockq parquet rung "
+            "(section 9) -- do not read depth effects across its 16<->50 step.")
 
 SEC7_PROSE = """\
 Saturation attributed to (a) targets where the oracle never reaches the threshold at
@@ -79,8 +98,8 @@ def sec4(rep):
            f"Regenerate: `python3 scripts/abag_xm_deepn_datasheet.py` (data: `{CURVES.name}`).",
            "",
            "Rows with different target counts are **not** raw-comparable across N; paired",
-           "comparisons always run on common target sets (section 6). The N=16 row is",
-           "global_dockq-flavored (section 9) -- do not read depth effects across it.",
+           "comparisons always run on common target sets (section 6).",
+           n16_note(rep),
            ""]
     for m in MODELS:
         pts = rep.get(m)
@@ -158,7 +177,10 @@ def sec5(rep):
 
 
 def sec6(rep):
-    out = ["## 6. Paired bootstrap confidence intervals", "", SEC6_PROSE, ""]
+    ark16 = set(rep.get("n16_ark_models", []))
+    out = ["## 6. Paired bootstrap confidence intervals", "", SEC6_PROSE, "",
+           n16_note(rep) + " Gain chains crossing into or out of a global_dockq "
+           "N=16 rung mix flavors and are flagged, never quoted as depth effects.", ""]
     for m in MODELS:
         gains = rep.get(m + "__pairwise_gain_ci", {})
         if not gains:
@@ -170,7 +192,7 @@ def sec6(rep):
             flags = []
             if d["degenerate"]:
                 flags.append("degenerate")
-            if pair.startswith("16->") or pair.endswith("->16"):
+            if (pair.startswith("16->") or pair.endswith("->16")) and m not in ark16:
                 flags.append("cross-flavor")
             out.append(f"| {pair} | {d['common_targets']} | {d['doublings']:.2f} | "
                        f"{fmt_ci(d['gain_ci']['oracle'])} | {fmt_ci(d['gain_ci']['user'])} | "
