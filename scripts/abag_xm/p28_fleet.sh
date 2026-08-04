@@ -11,13 +11,22 @@
 # ~15 GB so 32 concurrent folds fit the galaxy's 566 GB).
 #
 # ESMFOLD2 N=64 PANEL (added after the N=64 cross-hardware gate LICENSED esmfold2
-# 2026-08-03; protenix-v2 was STOPPED by the same gate -- arch signal -- and gets NO
-# galaxy panel legs): 148 targets, single folds, seed 50000, single-sequence with auto
+# 2026-08-03): 148 targets, single folds, seed 50000, single-sequence with auto
 # chunking (the campaign measures the no-MSA regime; never pass msa flags or mps).
 # Excluded: 9j4c (documented WH DRAM exclusion) and the 15 pilot targets whose N=64 galaxy
 # folds already exist staged (same seed block -- re-folding would duplicate, not extend).
 # The esm tasks lead the queue: small folds (~10-25 min) that complete the esm N=64 panel
 # curve point within the first hours of the window.
+#
+# PROTENIX-V2 N=64 PANEL (added 2026-08-04 after the gate amendment a673a4d8 LICENSED px
+# on galaxy: the N=64 STOP verdict was a misspecified null on the paired design, not an
+# arch defect -- same-seed pairing shows stream-identical folds, zero signed bias): 148
+# targets, single folds, seed 30000, mps 5->1 narrowing, same exclusions as esm (9j4c +
+# the shared 15-target pilot set, already folded at seed 30000). Rides directly behind
+# the esm panel so both N=64 curve points land early in the window.
+# px/esm N=256 rungs are deliberately NOT in this window: their chunk-0 IS the N=64 fold
+# (seed-nested ladder), so their link phase needs the COMPLETE N=64 panel on disk --
+# that is window p29, sourced homogeneously from this window's panel dirs.
 #
 # SKIP-AND-LINK (binding, Moritz 2026-08-03 "as efficient as possible, but still correct"):
 # chunks 0-3 whose N=256 source chunk provably matches -- same seed block by construction,
@@ -57,6 +66,9 @@ OD_EXCL="9i3p 9j4c 9ivj 9q7y"
 # esm panel: skip the WH exclusion + the 15 pilot targets already folded at N=64 (seed
 # 50000, staged) -- their data pools from the existing harvest, re-folding duplicates it.
 ESM_SKIP="9j4c 21tw 9d3j 9i3p 9ly5 9m0j 9ma0 9obn 9ppw 9q6y 9rye 9ua5 9udq 9v0x 9wpm 9zen"
+# px panel: same exclusions (9j4c WH DRAM; the shared 15-target pilot set already folded
+# at seed 30000, staged).
+PX_SKIP="$ESM_SKIP"
 
 TASKS=$B/tasks.txt
 {
@@ -65,6 +77,12 @@ TASKS=$B/tasks.txt
     skip=0
     for e in $ESM_SKIP; do [ "$t" = "$e" ] && skip=1; done
     [ $skip = 0 ] && echo "esmfold2 $t 64 50000 0 1"
+  done
+  for y in $SRC/examples/abag_xm/*.yaml; do
+    t=$(basename $y .yaml)
+    skip=0
+    for e in $PX_SKIP; do [ "$t" = "$e" ] && skip=1; done
+    [ $skip = 0 ] && echo "protenix-v2 $t 64 30000 0 1"
   done
   for y in $SRC/examples/abag_xm/*.yaml; do
     t=$(basename $y .yaml)
@@ -244,6 +262,24 @@ fold_od() { # <target> <rung> <seed> <chunk> <chunks> <chip>  -- mps narrowing 5
   done
 }
 
+fold_px() { # <target> <rung> <seed> <chunk> <chunks> <chip>  -- mps 5, narrow 5->1 on OOM
+  local t=$1 rung=$2 seed=$3 c=$4 k=$5 u=$6 mps s rc secs oom d nd ob
+  ob=$(outbase protenix $t $c $k)
+  for mps in 5 1; do
+    s=$(date +%s)
+    timeout 21600 env TT_VISIBLE_DEVICES=$u $PY_SYS -u -m tt_bio.main predict \
+      examples/abag_xm/$t.yaml --model protenix-v2 --out_dir $ob --override \
+      --diffusion_samples $((rung/k)) --max_parallel_samples $mps --seed $seed --host_threads 2 \
+      --msa_dir $MSA --msa_cache_only > $B/protenix_${t}_c${c}_mps$mps.log 2>&1
+    rc=$?; secs=$(( $(date +%s) - s ))
+    d=$(ls -d $ob/*results_$t 2>/dev/null | head -1)
+    read -r _n _di <<<$(count_structs "$d")
+    oom=$(grep -c 'Out of Memory' $B/protenix_${t}_c${c}_mps$mps.log 2>/dev/null)
+    record protenix-v2 $t $rung $seed $c $k $mps $u $rc $secs ${_n:-0} ${_di:-0} ${oom:-0}
+    [ "${oom:-0}" -gt 0 ] && [ "${_n:-0}" -eq 0 ] && [ "$mps" != 1 ] || break
+  done
+}
+
 fold_esm() { # <target> <rung> <seed> <chunk> <chunks> <chip>  -- single-seq, auto chunking
   local t=$1 rung=$2 seed=$3 c=$4 k=$5 u=$6 s rc secs oom d nd ob
   ob=$(outbase esmfold2 $t $c $k)
@@ -263,6 +299,7 @@ fold() { # <model> <target> <rung> <seed> <chunk> <chunks> <chip>
   case "$1" in
     boltz2)       fold_bz  "$2" "$3" "$4" "$5" "$6" "$7";;
     opendde-abag) fold_od  "$2" "$3" "$4" "$5" "$6" "$7";;
+    protenix-v2)  fold_px  "$2" "$3" "$4" "$5" "$6" "$7";;
     esmfold2)     fold_esm "$2" "$3" "$4" "$5" "$6" "$7";;
     *)            echo "SKIP: $1 not in this window" >> $B/slots.log;;
   esac
