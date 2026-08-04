@@ -23,7 +23,12 @@ _STATIC = _HERE / "static"  # built React app (npm run build output)
 _LANDING = _HERE / "landing"  # hand-crafted landing page for the apex domain
 # Hosts that get the landing page instead of the SPA. demo.japanfold.com and
 # api.japanfold.com are deliberately absent: they keep serving the SPA / API.
-_LANDING_HOSTS = frozenset({"japanfold.com", "www.japanfold.com", "landing.japanfold.com"})
+# APEX DELIBERATELY EXCLUDED (Moritz, 2026-08-04): landing page stays on
+# landing.japanfold.com only (development/preview surface). japanfold.com and
+# www.japanfold.com keep serving the SPA. The apex cutover was OWED pending
+# Moritz greenlight and was done without it; this restores the intended split.
+# Do not re-add the apex here without an explicit greenlight.
+_LANDING_HOSTS = frozenset({"landing.japanfold.com"})
 
 # Anonymous per-visitor session. No login: the server mints an unguessable id in
 # an HttpOnly cookie on first contact and tags every job with it; a job is only
