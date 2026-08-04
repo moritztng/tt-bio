@@ -99,6 +99,7 @@ import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -549,7 +550,12 @@ def parse_workers(spec: str) -> list[Worker]:
     remote whose checkout/env don't live at the same absolute paths as the local worktree
     (e.g. a different user/home on that host)."""
     out = []
-    local_host = os.environ.get("HOSTNAME", "pc").split(".")[0]
+    # Locality must come from the real hostname. $HOSTNAME is a bash-only variable and is
+    # NOT exported to non-interactive shells, so it is unset under ssh/systemd on every host —
+    # the old "pc" fallback therefore made any non-pc host classify ITSELF as remote and ssh
+    # to its own hostname ("Host key verification failed", every device leg exiting 255 in
+    # under a second). It only ever worked on pc, by accident of the default matching.
+    local_host = (os.environ.get("HOSTNAME") or socket.gethostname()).split(".")[0]
     for part in spec.split(","):
         part = part.strip()
         if not part:
@@ -558,10 +564,12 @@ def parse_workers(spec: str) -> list[Worker]:
         card_str, _, rest2 = rest.partition(":")
         remote_cwd, _, remote_python = rest2.partition(":")
         out.append(Worker(host=host, card=int(card_str or 0),
-                           is_local=(host == "pc" or host == local_host),
+                           is_local=(host in ("localhost", "127.0.0.1", local_host)),
                            remote_cwd=remote_cwd or None,
                            remote_python=remote_python or None))
-    return out or [Worker(host="pc", card=0, is_local=True)]
+    # Default worker names the host we are actually on — report.json records these as
+    # provenance, so "pc:0" on a different box would be a false record.
+    return out or [Worker(host=local_host, card=0, is_local=True)]
 
 
 def _find_results_dir(out_dir: Path) -> Path | None:
@@ -891,9 +899,19 @@ def _load_release_gate():
 
 
 def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
-                  fold_timeout: float | None = None) -> dict | None:
+                  fold_timeout: float | None = None, pin_card: int | None = None) -> dict | None:
     """Run the dedicated harness for esmc/saprot/esmfold2 (subprocess) or the in-process
-    designability/DockQ leg for boltzgen/abag. Persists the report to out_json (for --resume)."""
+    designability/DockQ leg for boltzgen/abag. Persists the report to out_json (for --resume).
+
+    pin_card sets TT_VISIBLE_DEVICES for the subprocess harnesses. Without it they inherit the
+    gate's environment, which has no device restriction, so on a multi-chip host they open the
+    WHOLE mesh. On the 32-chip Wormhole galaxy that fails before any compute: 32 copies of
+    "Read unexpected run_mailbox value: 0x40" (one per chip, all on core (x=25,y=17), i.e. stale
+    state left by the previously-stopped 32-worker service) and then a nonsense
+    "Out of Memory ... allocate 524288 B ... bank size is 1073741792 B" — a 512 KB request against
+    a 1 GB bank, meaning the allocator saw DRAM as full rather than actually being short of it.
+    The per-card legs, which are pinned, passed on those same chips in the same run. Pinning is
+    also simply correct: these legs score one card's numerics, so they have no use for a mesh."""
     if leg.kind in ("boltzgen", "abag", "capacity"):
         try:
             rg = _load_release_gate()
@@ -934,6 +952,8 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
                "--out", str(out_json)]
     else:
         return None
+    if pin_card is not None:
+        env = {**env, "TT_VISIBLE_DEVICES": str(pin_card)}
     try:
         with open(log_path, "w") as f:
             proc = subprocess.run(cmd, cwd=REPO, stdout=f, stderr=subprocess.STDOUT, env=env,
@@ -1470,7 +1490,8 @@ def main() -> int:
             else:
                 log_path = log_dir / f"{leg.id}.log"
                 report = run_inprocess(leg, cached_report_path, log_path, dict(os.environ),
-                                       fold_timeout=args.fold_timeout)
+                                       fold_timeout=args.fold_timeout,
+                                       pin_card=workers[0].card if workers else None)
                 verdict, detail = extract_verdict(leg, report)
             wall = time.monotonic() - t_run
 

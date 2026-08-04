@@ -3871,6 +3871,58 @@ class TemplateV2Module(nn.Module):
         return u
 
 
+def resolve_sample_chunk_width(multiplicity, max_parallel_samples):
+    """The single sample-chunk width the whole trajectory is denoised at.
+
+    Every chunk runs at exactly this width -- a short tail is padded up to it and the
+    padding discarded -- because the device conditioning is cached per sample batch, and
+    not only in the runtime cache: the DiT also keeps the reshaped atom conditioning and
+    the atom layers' output gate as module state. A second width meets those stale caches
+    and dies with a broadcasting TT_FATAL mid-trajectory (measured 2026-07-29 at
+    multiplicity=5, mps=3). One width makes that unreachable, and costs at most
+    ``n_chunks - 1`` extra sample-steps out of ``multiplicity`` -- zero whenever the
+    width divides it.
+
+    ``max_parallel_samples`` is a cap: omit it (None) and the whole multiplicity runs as
+    one chunk. Where the previous ragged split already produced equal widths this returns
+    the same width, so working configurations are bit-identical; only splits that used to
+    crash change shape.
+    """
+    m = max(1, int(multiplicity))
+    width = m if max_parallel_samples is None else min(m, max(1, int(max_parallel_samples)))
+    # Rebalance: given the number of chunks the cap forces, the widest chunk only needs
+    # to be ceil(m / n_chunks). Narrower chunks mean less padding and less peak memory at
+    # identical chunk count, so this is free.
+    n_chunks = -(-m // width)
+    return -(-m // n_chunks)
+
+
+def _write_sample_digest(atom_coords, chunk_width):
+    """Append a per-sample SHA of the final diffusion coordinates, one line per sample.
+
+    Chunking regroups the sample batch and must not move a single bit of any sample, so
+    the acceptance check for every chunking change is "same seed, different width, same
+    digests". Per sample and not over the whole tensor, because sample i stays sample i
+    at every width -- a per-sample digest says WHICH sample moved, and survives a run
+    that folds a different number of samples. Off unless TT_BIO_SAMPLE_DIGEST names a
+    file, so a production fold pays nothing; a file and not stdout because the fold runs
+    in a spawned worker whose stdout the progress view owns.
+    """
+    path = os.environ.get("TT_BIO_SAMPLE_DIGEST")
+    if not path:
+        return
+    import hashlib
+
+    coords = atom_coords.detach().to(torch.float32).cpu().contiguous()
+    try:
+        with open(path, "a") as fp:
+            for i in range(coords.shape[0]):
+                digest = hashlib.sha256(coords[i].numpy().tobytes()).hexdigest()[:16]
+                fp.write(f"width={chunk_width} sample={i} {digest}\n")
+    except OSError:
+        pass                                 # a diagnostic must never break a fold
+
+
 class AtomDiffusion(Module):
     def __init__(
         self,
@@ -4071,8 +4123,7 @@ class AtomDiffusion(Module):
                 dtype=torch.float32,
                 device=self.device,
             )
-        if max_parallel_samples is None:
-            max_parallel_samples = multiplicity
+        chunk_width = resolve_sample_chunk_width(multiplicity, max_parallel_samples)
 
         num_sampling_steps = default(num_sampling_steps, self.num_sampling_steps)
         atom_mask = atom_mask.repeat_interleave(multiplicity, 0)
@@ -4143,23 +4194,29 @@ class AtomDiffusion(Module):
 
             with torch.no_grad():
                 atom_coords_denoised = torch.zeros_like(atom_coords_noisy)
-                sample_ids = torch.arange(multiplicity).to(atom_coords_noisy.device)
-                # Width-based chunking (ceil): upstream's N % mps + 1 count formula yields
-                # one 1000-sample chunk at N=1000/mps=5 -> ~0.9 GB L1 forward buffers -> OOM.
-                # Match protenix.edm_sample: chunk width <= max_parallel_samples.
-                _n_chunks = max(1, (multiplicity + max_parallel_samples - 1) // max_parallel_samples)
-                sample_ids_chunks = sample_ids.chunk(_n_chunks)
-
-                for sample_ids_chunk in sample_ids_chunks:
+                # One width for every chunk (resolve_sample_chunk_width): a ragged split
+                # presents a second width to the per-width device caches and dies with a
+                # broadcasting TT_FATAL mid-trajectory.
+                for start in range(0, multiplicity, chunk_width):
+                    r_chunk = atom_coords_noisy[start : start + chunk_width]
+                    n_real = r_chunk.shape[0]
+                    if n_real < chunk_width:
+                        # Pad the short tail up to the one width. Repeating a real sample
+                        # keeps the padded rows in distribution; they are sliced off below.
+                        r_chunk = torch.cat(
+                            [r_chunk, r_chunk[-1:].expand(chunk_width - n_real, -1, -1)]
+                        )
                     atom_coords_denoised_chunk = self.preconditioned_network_forward(
-                        atom_coords_noisy[sample_ids_chunk],
+                        r_chunk,
                         t_hat,
                         network_condition_kwargs=dict(
-                            multiplicity=sample_ids_chunk.numel(),
+                            multiplicity=chunk_width,
                             **network_condition_kwargs,
                         ),
                     )
-                    atom_coords_denoised[sample_ids_chunk] = atom_coords_denoised_chunk
+                    atom_coords_denoised[start : start + n_real] = (
+                        atom_coords_denoised_chunk[:n_real]
+                    )
 
                 if steering_args["fk_steering"] and (
                     (
@@ -4295,6 +4352,7 @@ class AtomDiffusion(Module):
 
             atom_coords = atom_coords_next
 
+        _write_sample_digest(atom_coords, chunk_width)
         return dict(sample_atom_coords=atom_coords, diff_token_repr=token_repr)
 
     def loss_weight(self, sigma):
