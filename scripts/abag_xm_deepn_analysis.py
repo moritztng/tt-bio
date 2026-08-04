@@ -55,6 +55,15 @@ N16_ARK_OK = {"boltz2", "esmfold2", "protenix-v2"}
 # other 161 esm targets match tier_a at median delta-ptm +0.003. A pipeline artifact
 # is not model behavior, so the rung drops these two targets.
 N16_ARK_EXCLUDE = {"esmfold2": {"9loz", "9w14"}}
+# Galaxy-spine pipeline-artifact exclusions (scorer-independent; the model's own ptm
+# condemns the fold -- the pass-75 exclusion rule). opendde 9sbb: galaxy N=64 basin
+# ptm 0.67-0.70 vs tier_a 0.91, current-pipeline probe reproduces 0.914 -- the p2-era
+# galaxy pipeline mis-folded the complex on the identical input. The seed-nested
+# ladder makes the chunked rungs share the condemned fold setup (c0 IS the n64 seed
+# block), so the exclusion spans all od galaxy rungs. A pipeline artifact is not
+# model behavior. Full-panel scan (xhw_galaxy_tiera_scan.py, pass 75) confirmed the
+# set: 9sbb is od's only galaxy-worse>0.2 outlier; bz 9v1h is tail-luck (ptm-clean).
+GALAXY_EXCLUDE = {"opendde-abag": {"9sbb"}}
 GALAXY_NOTE = "galaxy N=16 uses global_dockq (mean over native interfaces), not the " \
               "ARK-interface DockQ of the qb1 arms; PHASE 0 measured the flavors " \
               "statistically equivalent for these two models."
@@ -227,6 +236,8 @@ def galaxy64_pools(model: str):
             t, rest = name.split("_n")
             rung = int(rest.split("_c")[0])
         except ValueError:
+            continue
+        if t in GALAXY_EXCLUDE.get(model, ()):
             continue
         chunk = None
         if "_c" in rest:
