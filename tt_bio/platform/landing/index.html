@@ -101,7 +101,9 @@ h1 .hl-line:nth-child(1) .hl-word { animation-delay: 0.08s; }
 h1 .hl-line:nth-child(2) .hl-word { animation-delay: 0.24s; }
 h1 .hl-line:nth-child(3) .hl-word { animation-delay: 0.40s; }
 @keyframes hl-rise { to { transform: translateY(0); } }
-h1 .hl-accent { color: var(--ink); }
+/* The two claim lines are the page's argument, so they carry a marker rule;
+   the subject line stays plain. */
+h1 .hl-accent { color: var(--ink); box-shadow: inset 0 -0.07em 0 var(--muted-2); }
 .lede { font-size: 17px; color: var(--ink-soft); max-width: 30em; margin-bottom: 36px; }
 .cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .cta-row .btn { font-size: 15px; padding: 14px 26px; }
@@ -154,6 +156,7 @@ h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 
   letter-spacing: -0.02em; line-height: 1.32; max-width: 26em;
 }
 .why-statement .soft { color: var(--muted); }
+.why-statement .claim { box-shadow: inset 0 -0.11em 0 var(--muted-2); }
 
 /* ---------- models ---------- */
 .models { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
@@ -292,8 +295,8 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
   </div>
 
   <section id="why">
-    <p class="eyebrow">Why it is fast and cheap</p>
-    <p class="why-statement">Every model runs on
+    <p class="eyebrow">Why</p>
+    <p class="why-statement"><span class="claim">Fast and cheap</span> because every model runs on
       <a href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer">Tenstorrent</a>
       AI processors instead of GPUs, with the whole stack built as one,
       <span class="soft">from silicon to serving.</span></p>
