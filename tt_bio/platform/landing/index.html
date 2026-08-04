@@ -74,11 +74,14 @@ a { color: inherit; text-decoration: none; }
   display: grid; grid-template-columns: 1.25fr 1fr; align-items: center;
   gap: 48px; padding: 88px 0 88px;
 }
-/* Attribution line above the headline. No chrome: it reads as one typographic
-   line, not a badge. Both logos are [symbol + lowercase wordmark] locks, so they
-   are normalised to a shared INK height (aiand-logo.svg is drawn tight to its
-   box; tenstorrent-logo.svg carries 2.25% padding per side, hence the 15.7 vs 14
-   asymmetry) and sit on the text baseline via vertical-align. */
+/* Attribution line above the headline. No chrome (it read as a cheap badge), set
+   apart by the left rule instead.
+   Logo sizing is driven by the WORDMARKS, measured off the rendered SVGs: the
+   lowercase x-height is 0.6975 of box height for ai& and 0.4875 for tenstorrent,
+   so 13.5px / 19.3px puts both wordmarks at the same optical size. tenstorrent's
+   cube also dips 0.1875 of box height BELOW its own letter baseline, which is why
+   vertical-align alone floated its text ~3px high; the top offset drops it back so
+   both wordmarks sit on the same baseline as the surrounding type. */
 .powered-top {
   display: block;
   font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
@@ -89,7 +92,7 @@ a { color: inherit; text-decoration: none; }
 .powered-top a { display: inline; }
 .powered-top img { vertical-align: baseline; margin: 0 0.18em; }
 .powered-top img.aiand { height: 13.5px; }
-.powered-top img.tt { height: 16px; }
+.powered-top img.tt { height: 19.3px; position: relative; top: 3.6px; }
 .eyebrow {
   font-family: var(--mono); font-size: 13px; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--muted); margin-bottom: 22px;
@@ -114,6 +117,8 @@ h1 .hl-accent { color: var(--ink); box-shadow: inset 0 -0.07em 0 var(--muted-2);
 .cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .cta-row .btn { font-size: 15px; padding: 14px 26px; }
 .cta-note { font-family: var(--mono); font-size: 12.5px; color: var(--muted-2); margin-top: 16px; }
+.cta-note a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
+.cta-note a:hover { color: var(--ink); text-decoration-color: var(--ink); }
 .hero-mark { display: flex; justify-content: center; align-items: center; }
 .hero-anim-wrap {
   position: relative;
@@ -210,7 +215,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 .foot .powered { display: block; }
 .foot .powered img { vertical-align: baseline; margin: 0 0.16em; }
 .foot img.aiand { height: 13px; }
-.foot img.tt { height: 14.6px; }
+.foot img.tt { height: 18.6px; position: relative; top: 3.5px; }
 .foot .links { margin-left: auto; display: flex; gap: 22px; }
 .foot .links a { color: var(--ink-soft); }
 .foot .links a:hover { color: var(--ink); }
@@ -268,12 +273,14 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
         <span class="hl-line"><span class="hl-word hl-accent">Low Cost</span></span>
         <span class="hl-line"><span class="hl-word">Drug Discovery</span></span>
       </h1>
-      <p class="lede">Structure prediction, binding affinity, de-novo design, and embeddings.</p>
+      <p class="lede">Structure prediction, binding affinity, de-novo design, and embeddings &mdash; over one HTTP API, or as a skill your agent calls.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://demo.japanfold.com">Start free demo &rarr;</a>
         <a class="btn btn-ghost" href="https://aiand.com/contact">Contact us</a>
       </div>
-      <p class="cta-note">Free demo API &middot; no key required &middot; shared, best-effort capacity</p>
+      <p class="cta-note">Free to test &middot; no key required &middot;
+        <a href="https://docs.japanfold.com">API docs</a> &middot;
+        <a href="https://github.com/moritztng/japanfold">Agent skill</a></p>
     </div>
     <div class="hero-mark" aria-hidden="true">
       <div class="hero-anim-wrap">
@@ -332,8 +339,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
         <p class="eyebrow">Researchers &amp; agents</p>
         <h2>One skill, any harness.</h2>
         <p>The <code>japanfold</code> skill works with Claude Code, Codex, Cursor, or plain
-          curl. The API is free and needs no key &mdash; a demo endpoint on shared,
-          best-effort capacity.</p>
+          curl. The API is free and needs no key.</p>
       </div>
       <div class="actions">
         <a class="btn btn-primary" href="https://github.com/moritztng/japanfold">Get the skill</a>
