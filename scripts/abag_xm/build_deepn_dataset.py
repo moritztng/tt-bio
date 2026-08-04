@@ -20,6 +20,12 @@ abag_xm_deepn_analysis -- that script is the canonical owner): pipeline artifact
 not model behavior. The galaxy N=16 parquet arm (global_dockq flavor) is NOT packaged
 here; the restated rung supersedes it for bz/esm/px and opendde's N=16 stays a
 datasheet-only flavor-flagged row (DATASHEET section 9).
+
+Mid-drain builds are honest but partial: a chunked rung contributes whatever chunks are
+labeled so far, so a curve row's n_samples can fall below its rung N (the analysis's
+rung-completeness gate is deliberately NOT applied here -- the samples parquet carries
+chunk per row and the curve carries n_samples, so partial pools are identifiable). The
+final asset is built post-drain, when rungs are complete by construction.
 """
 from __future__ import annotations
 
