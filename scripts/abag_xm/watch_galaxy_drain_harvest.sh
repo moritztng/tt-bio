@@ -42,6 +42,11 @@ if ! mountpoint -q "$MNT"; then
   exit 1
 fi
 cd "$WT" && DEST="$MNT" bash scripts/abag_xm/p25_harvest.sh "$RUN" $RUNGS >> "$LOG" 2>&1
+# Propagate labels to linked chunks: seed-nested duplicate dirs (e.g. n512_c0 == n256_c0
+# content, link-gate attested) get their labels.json copied instead of re-labeled. Saves
+# ~20h of label CPU on the p28/p29 windows; no-op when there are no duplicates (p27-final).
+scp -q "$WT/scripts/abag_xm/propagate_linked_labels.py" qb1:/tmp/ >> "$LOG" 2>&1
+ssh qb1 'nice -15 python3 /tmp/propagate_linked_labels.py propagate' >> "$LOG" 2>&1
 touch "$STATE"
-echo "$(date -u) harvest complete for $RUN (folds landed directly on qb1)" >> "$LOG"
-"$HOME/.coworker/tg.sh" status "abag-xm deepn: $RUN drained on the galaxy; harvested straight into the qb1 tree (rungs $RUNGS). qb1 + pc labelers pick the new folds up automatically; next pass can launch the next window phase."
+echo "$(date -u) harvest+propagate complete for $RUN (folds landed directly on qb1)" >> "$LOG"
+"$HOME/.coworker/tg.sh" status "abag-xm deepn: $RUN drained on the galaxy; harvested straight into the qb1 tree (rungs $RUNGS), linked-chunk labels propagated. qb1 + pc labelers pick the new folds up automatically; next pass can launch the next window phase."
