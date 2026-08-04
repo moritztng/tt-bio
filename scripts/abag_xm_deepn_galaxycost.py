@@ -3,7 +3,7 @@
 abag-xm-deepn-saturation-fullpanel, PHASE 2 cost model).
 
 Reads pc staging (~/abag_xm/deepn/galaxy/): fleet_results.jsonl (merged, line-deduped
-across windows) + reused_chunks.p27.jsonl (skip-and-link provenance). Separates
+across windows) + reused_chunks.<window>.jsonl (skip-and-link provenance). Separates
 FLEET-FOLDED p27 rung-256 chunk records (uncontended timings -- the p26 contention
 class was reclassified as the other tenant's disk-fill, pass 29) from REUSED c0
 records (seconds paid in earlier windows, never a p27 cost basis), then:
@@ -30,8 +30,9 @@ PLAN = {"boltz2": 164, "opendde-abag": 160}   # targets (od minus 4 WH DRAM excl
 
 def main():
     reused = set()
-    rp = GAL / "reused_chunks.p27.jsonl"
-    if rp.exists():
+    # all windows' skip-and-link provenance (p27/p28/p29); the rung filter below keeps
+    # only links AT the measured rung, so future windows' files are safe to include
+    for rp in sorted(GAL.glob("reused_chunks.*.jsonl")):
         for line in rp.read_text().splitlines():
             try:
                 r = json.loads(line)
