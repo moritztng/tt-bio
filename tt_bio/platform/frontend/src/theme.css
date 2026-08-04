@@ -84,12 +84,14 @@ code, pre { font-family: var(--mono); }
 }
 .topbar .credit { display: inline-flex; align-items: center; color: var(--muted); }
 .topbar .credit:hover { color: var(--ink-soft); }
-/* Both partner logos render at the exact same height; the flex row centres every
-   item vertically, so the logos and the words all sit on one perfectly aligned line. */
+/* The flex row centres every item vertically, so the logos and the words all sit on
+   one perfectly aligned line. The two marks are NOT set to the same box height: the
+   Tenstorrent wordmark is far wider per unit height (aspect 5.7 vs 3.0), so at equal
+   height it optically outweighs the ai& mark. ai& is set larger to balance them. */
 .topbar .credits img { height: 16px; width: auto; display: block; }
-/* Optical nudge: the ai& mark sits a touch low against the Tenstorrent wordmark
-   at the same box height, so lift it slightly to line them up by eye. */
-.topbar .credits .aiand-mark { position: relative; top: -1.5px; }
+/* Optical nudge: the ai& mark sits a touch low against the Tenstorrent wordmark,
+   so lift it slightly to line them up by eye. */
+.topbar .credits .aiand-mark { height: 20px; position: relative; top: -2px; }
 
 .main { display: flex; flex: 1; min-height: 0; }
 
