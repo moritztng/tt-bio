@@ -463,7 +463,7 @@ def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
 
 
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
-                 num_diffusion_samples=1, seed=0, return_all=False):
+                 num_diffusion_samples=1, seed=0):
     """Fold one (possibly multi-chain) protein complex on an already-patched model.
 
     `chains` is a list of ``(chain_id, sequence)`` or ``(chain_id, sequence,
@@ -475,14 +475,6 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     sample (distinct seeds); the reference ``fold`` returns them as a list. This
     is best-of-N folding, so we return the single highest-confidence sample,
     ranked by mean pLDDT (ESMFold's confidence metric) — not sample 0.
-
-    ``return_all=True`` returns the whole list instead, ranked best-first by the
-    same key. The samples are drawn either way; without this they are computed
-    and dropped on the floor here, which is why esmfold2 could report "samples:
-    16" while writing one structure and no per-sample confidences. Anything that
-    needs the *distribution* over samples rather than its maximum — a
-    sample-scaling curve, say — needs the list. The default is unchanged, so the
-    single-result callers keep the exact object they had.
     """
     from tt_bio._vendor.esm.models.esmfold2 import (
         ESMFold2InputBuilder, ProteinInput, StructurePredictionInput)
@@ -499,6 +491,5 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
         model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
         num_diffusion_samples=num_diffusion_samples, seed=seed)
     if isinstance(res, list):
-        ranked = sorted(res, key=lambda r: float(r.plddt.mean()), reverse=True)
-        return ranked if return_all else ranked[0]
-    return [res] if return_all else res
+        return max(res, key=lambda r: float(r.plddt.mean()))
+    return res

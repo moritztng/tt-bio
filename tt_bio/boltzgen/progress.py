@@ -1,4 +1,4 @@
-"""Terminal progress for ``tt-bio design --model boltzgen`` — one row per device.
+"""Terminal progress for ``tt-bio gen`` — one row per device.
 
 Each row shows overall pipeline progress (completed stages) plus the current
 stage: how many proteins/designs are done (``i/N``) and the current protein's
@@ -100,7 +100,7 @@ def _fmt(sec: float) -> str:
 
 def render(devices: list[Device], started: float, multi: bool) -> Group:
     head = Text("  ")
-    head.append("tt-bio design", style="bold cyan")
+    head.append("tt-bio gen", style="bold cyan")
     if multi:
         ndone = sum(d.status in ("ok", "fail") for d in devices)
         head.append(f" · {len(devices)} devices  {ndone}/{len(devices)} done", style="dim")
@@ -309,7 +309,7 @@ def header(*, specs, protocol, num_designs, batches, budget, devices, output) ->
         dev = f"1 card (id {devices[0]})"
     else:
         dev = "default"
-    _panel("[bold cyan]tt-bio design[/]", [
+    _panel("[bold cyan]tt-bio gen[/]", [
         ("design", ", ".join(specs)),
         ("protocol", protocol),
         ("designs", f"{num_designs:,}  ({batches} batch{'es' if batches != 1 else ''})"),

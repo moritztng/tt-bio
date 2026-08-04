@@ -227,38 +227,12 @@ EMBED_MODELS = [
     },
 ]
 
-# --- Design models (the Design tab's model-first selection) ---
-# One verb, two models — `tt-bio design INPUT --model boltzgen|rfd3`. The UI
-# picks the model first (exactly like the Fold tab picks a folding model),
-# then shows only that model's protocols, params and examples. `id` is the
-# CLI's --model vocabulary and each protocol's `engine` below.
-DESIGN_MODELS = [
-    {
-        "id": "boltzgen",
-        "name": "BoltzGen",
-        "tagline": "Ranked binders against any target.",
-        "blurb": "Full binder-design pipeline: generate against a protein, small "
-                 "molecule, DNA or RNA target, then inverse-fold, refold, score and "
-                 "filter — you get a ranked top set with confidence metrics, ready "
-                 "to order.",
-    },
-    {
-        "id": "rfd3",
-        "name": "RFdiffusion3",
-        "tagline": "All-atom diffusion around a structure.",
-        "blurb": "Designs directly in 3D around a target structure you provide "
-                 "(PDB/mmCIF plus a contig saying what stays fixed vs. what is "
-                 "designed) — binders, motif scaffolds, DNA/RNA binders. Output is "
-                 "unranked; refold designs with a Fold job to check them.",
-    },
-]
-
 # --- Design protocols ---
-# Each protocol belongs to exactly one design model (`engine`): BoltzGen takes
-# a sequence/ligand target and folds, refolds and ranks; RFdiffusion3 takes a
-# pasted structure plus a contig string and returns unranked all-atom designs.
-# `engine` selects the dispatch path; it defaults to boltzgen for the
-# long-standing protocols.
+# Two engines share the design surface: BoltzGen (`gen run`; the target is a
+# sequence/ligand and the pipeline folds, refolds and ranks) and RFdiffusion3
+# (`design`; the target is a pasted structure plus a contig string, and the
+# output is unranked all-atom designs). `engine` selects the dispatch path;
+# it defaults to boltzgen for the long-standing protocols.
 PROTOCOLS = [
     {"id": "protein-anything", "engine": "boltzgen", "name": "Protein binder", "blurb": "De-novo mini-protein binder against any target."},
     {"id": "peptide-anything", "engine": "boltzgen", "name": "Peptide binder", "blurb": "Short peptide binder."},
@@ -266,11 +240,11 @@ PROTOCOLS = [
     {"id": "antibody-anything", "engine": "boltzgen", "name": "Antibody", "blurb": "Antibody binder design."},
     {"id": "protein-small_molecule", "engine": "boltzgen", "name": "Binder + affinity", "blurb": "Protein binder with a binding-affinity step."},
     {"id": "protein-redesign", "engine": "boltzgen", "name": "Redesign", "blurb": "Re-design residues of an existing binder."},
-    {"id": "rfd3-binder", "engine": "rfd3", "name": "Protein binder",
+    {"id": "rfd3-binder", "engine": "rfd3", "name": "Protein binder (RFdiffusion3)",
      "blurb": "All-atom diffusion binder design against a target structure (PDB) + contig."},
-    {"id": "rfd3-scaffold", "engine": "rfd3", "name": "Motif scaffolding",
+    {"id": "rfd3-scaffold", "engine": "rfd3", "name": "Motif scaffolding (RFdiffusion3)",
      "blurb": "Build a scaffold around a fixed functional motif in a structure."},
-    {"id": "rfd3-na-binder", "engine": "rfd3", "name": "DNA/RNA binder",
+    {"id": "rfd3-na-binder", "engine": "rfd3", "name": "DNA/RNA binder (RFdiffusion3)",
      "blurb": "Design a protein binder against a fixed DNA or RNA structure."},
 ]
 PROTOCOL_ENGINES = {p["id"]: p.get("engine", "boltzgen") for p in PROTOCOLS}
@@ -522,7 +496,7 @@ sequences:
         "id": "rfd3_binder",
         "kind": "design",
         "protocol": "rfd3-binder",
-        "name": "Protein binder",
+        "name": "Protein binder (RFD3)",
         "blurb": "Design an all-atom binder against the IAI protein (150 aa) — contig fixes the target, then designs 60–80 residues.",
         "builder": {"structureFile": "iai_protein.pdb", "contig": "A1-150,60-80"},
     },
@@ -530,7 +504,7 @@ sequences:
         "id": "rfd3_scaffold",
         "kind": "design",
         "protocol": "rfd3-scaffold",
-        "name": "Motif scaffolding",
+        "name": "Motif scaffolding (RFD3)",
         "blurb": "Scaffold the IAI protein's two terminal motifs — keep residues 1–10 and 31–40 fixed, design the 20 between.",
         "builder": {"structureFile": "iai_protein.pdb", "contig": "A1-10,20,A31-40"},
     },
@@ -632,7 +606,6 @@ def catalog() -> dict:
         examples.append(ex)
     return {
         "models": _presentation_models(),
-        "design_models": DESIGN_MODELS,
         "protocols": PROTOCOLS,
         "predict_params": PREDICT_PARAMS,
         "design_params": DESIGN_PARAMS,

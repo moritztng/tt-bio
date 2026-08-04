@@ -39,9 +39,9 @@ ROOT = Path(args.tree).resolve()
 sys.path.insert(0, str(ROOT))
 PDB = ROOT / "scripts/rfd3_port/parity_artifacts/iai_protein/IAI_protein.pdb"
 
-import tt_bio.rfd3.model as R  # noqa: E402
-from tt_bio.rfd3.featurize import featurize  # noqa: E402
-from tt_bio.rfd3.input import InputSpecification  # noqa: E402
+import tt_bio.rfd3 as R  # noqa: E402
+from tt_bio.rfd3_featurize import featurize  # noqa: E402
+from tt_bio.rfd3_input import InputSpecification  # noqa: E402
 
 INF = float("inf")
 

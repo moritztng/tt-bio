@@ -16,57 +16,6 @@ from pathlib import Path
 
 INPUT_SUFFIXES = (".fa", ".fas", ".fasta", ".yml", ".yaml")
 
-HOST_THREAD_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-                    "NUMEXPR_NUM_THREADS")
-
-
-def host_thread_cap(n_workers: int, host_threads: int | None = None) -> int:
-    """Per-worker host thread budget for a process driving ``n_workers`` cards.
-
-    Each worker's torch/OMP/BLAS pools otherwise default to ALL cores, so N
-    co-resident workers spawn N*cores threads that thrash the CPU and collapse the
-    host-side work (weight load, featurization, output) -- the multi-card slowdown.
-    ``host_threads`` is this PROCESS's share of the host CPU, defaulting to every
-    core. All-cores is right for one process driving the whole box, but wrong when an
-    external launcher runs one single-card job per chip: each process then sees
-    n_workers == 1 and claims all cores. Such a launcher passes
-    ``cores // concurrent_jobs``.
-    """
-    budget = host_threads if host_threads and host_threads > 0 else (os.cpu_count() or 1)
-    return max(1, budget // max(1, n_workers))
-
-
-def host_thread_cap_env(n_workers: int, host_threads: int | None = None) -> dict[str, str]:
-    """Thread-cap environment for a spawned per-card child.
-
-    Explicit beats inherited: a passed ``host_threads`` overrides a pre-set env var
-    (the launcher knows how many siblings it started), while the default only fills in
-    what the operator left unset.
-    """
-    cap = str(host_thread_cap(n_workers, host_threads))
-    return {var: cap for var in HOST_THREAD_VARS
-            if host_threads or var not in os.environ}
-
-
-def bind_host_threads() -> None:
-    """Bind torch's thread pools to the OMP_NUM_THREADS cap set by the launcher.
-
-    A fresh torch import honours the cap for the intra-op pool -- but not for the
-    inter-op pool, which always sizes itself to cores/2 regardless. Bind both
-    explicitly so a capped worker really holds only its share of the CPU. Nothing to
-    do when the launcher set no cap.
-    """
-    cap = os.environ.get("OMP_NUM_THREADS")
-    if not cap:
-        return
-    import torch
-
-    torch.set_num_threads(int(cap))
-    try:
-        torch.set_num_interop_threads(int(cap))
-    except RuntimeError:
-        pass  # already started (only settable before the first parallel op)
-
 
 @dataclass(frozen=True)
 class PredictionJob:

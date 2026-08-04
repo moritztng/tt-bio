@@ -18,7 +18,7 @@ on disk after a clean ``pip install --no-deps --target`` of the wheel; 1 otherwi
 
 Optional ``--fold`` mode goes deeper: installs the wheel WITH deps into the
 scratch venv and runs one protenix-v2 fold, one opendde covalent-bond fold, and
-one ``tt-bio design --model boltzgen`` design, asserting each gets past the
+one ``tt-bio gen run`` boltzgen design, asserting each gets past the
 FileNotFoundError class (succeeds, or fails for an unrelated reason). This needs
 a Tenstorrent card and the full dep tree; the default artifact-contents check is
 the fast, card-free guard that catches the bug class on its own.
@@ -225,9 +225,8 @@ def _fold_check(whl: Path) -> int:
                          "--model", "protenix-v2", "--single_sequence"]),
         ("opendde", ["predict", str(examples / "opendde_covalent_bond.yaml"),
                      "--model", "opendde", "--single_sequence"]),
-        ("boltzgen",
-         ["design", str(examples / "binder.yaml"),
-          "--model", "boltzgen", "--num_designs", "1", "--fast"]),
+        ("boltzgen", ["gen", "run", str(examples / "binder.yaml"),
+                      "--num_designs", "1", "--fast"]),
     ]
     with tempfile.TemporaryDirectory(prefix="tt-bio-pkg-fold-") as tmp:
         venv_dir = Path(tmp) / "venv"

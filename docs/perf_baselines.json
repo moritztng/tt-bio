@@ -386,23 +386,6 @@
           "date": "2026-07-19",
           "note": "seed p150a esmc-300m embed perf baseline (warm run, 8x ubiquitin-76 embed, batch 8, main HEAD 0.3.0 on qb1 P150a card 2)"
         },
-        "esmc-300m-single": {
-          "unit": "seq/s",
-          "direction": "higher",
-          "value": 21.070645,
-          "latency_ms": 379.68,
-          "input": "8x ubiquitin (76 aa), batch 1",
-          "sampling_steps": 10,
-          "diffusion_samples": 1,
-          "recycling_steps": 1,
-          "warmup": 2,
-          "repeat": 5,
-          "hardware": "blackhole",
-          "card_type": "p150a",
-          "tt_bio_version": "0.5.0",
-          "date": "2026-08-03",
-          "note": "seed p150a esmc-300m single-seq embed baseline (batch 1, device opened with a 256MB trace region so ESMC.forward replays via ttnn trace capture; measured on pc, card-level fallback per convention). The traced path is device-bound so this travels across hosts; the eager fallback it guards against is host-dispatch-bound (much slower on qb1-class hosts)."
-        },
         "saprot-650m": {
           "unit": "seq/s",
           "direction": "higher",
@@ -652,31 +635,11 @@
               "tt_bio_version": "0.4.0",
               "date": "2026-07-26",
               "note": "seed rfd3 perf baseline on pc p150a (card 0), COLD (page cache dropped); 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. Conservative cold-inflated single run per the design-leg docstring; warm gate runs pass comfortably, cold gate runs match."
-            },
-            "esmc-300m-single": {
-              "unit": "seq/s",
-              "direction": "higher",
-              "value": 21.070645,
-              "latency_ms": 379.68,
-              "input": "8x ubiquitin (76 aa), batch 1",
-              "sampling_steps": 10,
-              "diffusion_samples": 1,
-              "recycling_steps": 1,
-              "num_timesteps": null,
-              "num_designs": null,
-              "warmup": 2,
-              "repeat": 5,
-              "hardware": "blackhole",
-              "card_type": "p150a",
-              "machine_id": "pc",
-              "tt_bio_version": "0.5.0",
-              "date": "2026-08-03",
-              "note": "esmc-300m single-seq embed leg (batch_size 1 through the worker path, device opened with a 256MB trace region so ESMC.forward replays via ttnn trace capture). Seeded on pc/p150a after the trace-capture implementation landed; the traced path is device-bound so this baseline travels across hosts, while the eager fallback it guards against is host-dispatch-bound (much slower on qb1-class hosts)."
             }
           },
-          "date": "2026-08-03",
-          "tt_bio_version": "0.5.0",
-          "note": "esmc-300m single-seq embed leg (batch_size 1 through the worker path, device opened with a 256MB trace region so ESMC.forward replays via ttnn trace capture). Seeded on pc/p150a after the trace-capture implementation landed; the traced path is device-bound so this baseline travels across hosts, while the eager fallback it guards against is host-dispatch-bound (much slower on qb1-class hosts)."
+          "date": "2026-07-26",
+          "tt_bio_version": "0.4.0",
+          "note": "seed rfd3 perf baseline on pc p150a (card 0), COLD (page cache dropped); 1 design, 4 timesteps shipped default, IAI motif-scaffold fixture. Conservative cold-inflated single run per the design-leg docstring; warm gate runs pass comfortably, cold gate runs match."
         }
       }
     }

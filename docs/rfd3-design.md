@@ -29,7 +29,7 @@ runs against a real input for the first three.
 ## Basic usage
 
 ```bash
-tt-bio design specs.json --model rfd3 --from_pdb --out_dir ./designs
+tt-bio design specs.json --from_pdb --out_dir ./designs
 ```
 
 `specs.json` maps design ids to a contig-based specification, one design per
@@ -100,7 +100,7 @@ pattern `tt-bio embed`/`predict` use). Use in-forward batching on each card and
 
 ```bash
 # 32 designs per spec fanned across 4 cards:
-tt-bio design specs.json --model rfd3 --from_pdb --out_dir ./designs \
+tt-bio design specs.json --from_pdb --out_dir ./designs \
   --num_designs 32 --devices 0,1,2,3
 ```
 

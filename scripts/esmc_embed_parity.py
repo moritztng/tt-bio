@@ -111,31 +111,18 @@ def run_esmc_parity(
     if verbose:
         print(f"Loading tt ESMC on device{' (fast)' if fast else ''} …", flush=True)
     model = tt_esmc.load_esmc(name, fast=fast)
-    # Embed the same shape twice: the first call runs eager, the second is
-    # captured + replayed via ttnn trace (ESMC.forward auto-traces a repeated
-    # B=1 shape). Bit-comparing the two gates traced-vs-eager exactness, and
-    # the PCCs below then gate the *traced* output against the reference. With
-    # tracing unavailable (device opened without a trace region) both calls are
-    # eager and the bit check is trivially true.
-    emb_eager = tt_esmc.embed_sequences(model, {"ubq": seq},
-                                        return_logits=True, pool="mean")[0]
     emb = tt_esmc.embed_sequences(model, {"ubq": seq},
                                   return_logits=True, pool="mean")[0]
-    trace_bit_exact = bool(
-        np.array_equal(emb_eager.per_residue, emb.per_residue)
-        and np.array_equal(emb_eager.pooled, emb.pooled)
-        and np.array_equal(emb_eager.logits, emb.logits))
 
     per_res_pcc = pcc(emb.per_residue, ref_per_res)
     pooled_pcc = pcc(emb.pooled, ref_pooled)
     logits_pcc = pcc(emb.logits, ref_logits_res)
     argmax_agree = float((emb.logits.argmax(-1) == ref_logits_res.argmax(-1)).mean())
-    ok = per_res_pcc >= pcc_threshold and trace_bit_exact
+    ok = per_res_pcc >= pcc_threshold
 
     res = {"model": name, "seq_len": len(seq), "fast": fast,
            "per_res_pcc": per_res_pcc, "pooled_pcc": pooled_pcc,
            "logits_pcc": logits_pcc, "argmax_agree": argmax_agree,
-           "trace_bit_exact": trace_bit_exact,
            "threshold": pcc_threshold, "ok": ok}
 
     if verbose:
@@ -146,10 +133,8 @@ def run_esmc_parity(
         print(f"pooled(mean) PCC : {pooled_pcc:.5f}")
         print(f"logits PCC       : {logits_pcc:.5f}")
         print(f"argmax agreement : {argmax_agree:.4f}")
-        print(f"trace bit-exact  : {trace_bit_exact}  (2nd embed replayed vs 1st eager)")
         print(f"\n{'PASS' if ok else 'FAIL'}: per-residue PCC "
-              f"{per_res_pcc:.5f} vs threshold {pcc_threshold}, "
-              f"trace bit-exact {trace_bit_exact}")
+              f"{per_res_pcc:.5f} vs threshold {pcc_threshold}")
     return res
 
 

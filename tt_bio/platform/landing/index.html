@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>JapanFold: High Throughput, Low Cost Drug Discovery</title>
+<title>JapanFold — Biomolecular AI at the lowest cost per prediction</title>
 <link rel="icon" type="image/svg+xml" href="/japanfold-mark.svg">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="canonical" href="https://japanfold.com/">
 <meta name="theme-color" content="#f6f6f7">
-<meta name="description" content="Structure prediction, binding affinity, de-novo design, and embeddings on Tenstorrent AI processors instead of GPUs: ~5x more predictions per dollar. 100% Japan-hosted.">
-<meta property="og:title" content="JapanFold: High Throughput, Low Cost Drug Discovery">
+<meta name="description" content="Structure prediction, binding affinity, de-novo design, and embeddings. ~5x higher throughput per dollar on Tenstorrent AI processors. 100% Japan-hosted.">
+<meta property="og:title" content="JapanFold — Biomolecular AI at the lowest cost per prediction">
 <meta property="og:site_name" content="JapanFold">
-<meta property="og:description" content="Structure prediction, binding affinity, de-novo design, and embeddings on Tenstorrent AI processors instead of GPUs: ~5x more predictions per dollar. 100% Japan-hosted.">
+<meta property="og:description" content="Structure prediction, binding affinity, de-novo design, and embeddings. ~5x higher throughput per dollar on Tenstorrent AI processors. 100% Japan-hosted.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://japanfold.com/">
 <meta property="og:image" content="https://japanfold.com/apple-touch-icon.png">
@@ -40,7 +40,7 @@ body {
   font-family: var(--sans);
   background: var(--bg);
   color: var(--ink);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -56,7 +56,7 @@ a { color: inherit; text-decoration: none; }
 .brand { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
 .brand .fold { color: var(--muted); font-weight: 500; }
 .nav { margin-left: auto; display: flex; align-items: center; gap: 26px; }
-.nav a.plain { font-size: 14.5px; color: var(--ink-soft); }
+.nav a.plain { font-size: 13.5px; color: var(--ink-soft); }
 .nav a.plain:hover { color: var(--ink); }
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
@@ -67,45 +67,25 @@ a { color: inherit; text-decoration: none; }
 .btn-primary:hover { background: #000; }
 .btn-ghost { border: 1px solid var(--border-strong); color: var(--ink); background: transparent; }
 .btn-ghost:hover { border-color: var(--ink); }
-.nav .btn { font-size: 14px; padding: 8px 16px; }
+.nav .btn { font-size: 13px; padding: 8px 16px; }
 
 /* ---------- hero ---------- */
 .hero {
   display: grid; grid-template-columns: 1.25fr 1fr; align-items: center;
-  gap: 48px; padding: 88px 0 88px;
+  gap: 48px; padding: 96px 0 88px;
 }
-.powered-top {
-  display: inline-flex; align-items: center; gap: 13px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 999px; padding: 11px 20px;
-  font-family: var(--mono); font-size: 12px; letter-spacing: 0.13em;
-  text-transform: uppercase; color: var(--muted); margin-bottom: 30px;
-}
-.powered-top a { display: inline-flex; align-items: center; }
-.powered-top img.aiand { height: 19px; }
-.powered-top img.tt { height: 14px; }
 .eyebrow {
-  font-family: var(--mono); font-size: 13px; letter-spacing: 0.14em;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--muted); margin-bottom: 22px;
 }
 h1 {
-  font-size: clamp(40px, 5.6vw, 62px); font-weight: 600;
-  letter-spacing: -0.025em; line-height: 1.08; margin-bottom: 26px;
+  font-size: clamp(38px, 5.4vw, 60px); font-weight: 600;
+  letter-spacing: -0.025em; line-height: 1.06; margin-bottom: 24px;
 }
-h1 .hl-line { display: block; overflow: hidden; padding-bottom: 0.09em; margin-bottom: -0.09em; }
-h1 .hl-word {
-  display: inline-block; transform: translateY(115%);
-  animation: hl-rise 0.85s cubic-bezier(0.16, 0.75, 0.2, 1) forwards;
-}
-h1 .hl-line:nth-child(1) .hl-word { animation-delay: 0.08s; }
-h1 .hl-line:nth-child(2) .hl-word { animation-delay: 0.24s; }
-h1 .hl-line:nth-child(3) .hl-word { animation-delay: 0.40s; }
-@keyframes hl-rise { to { transform: translateY(0); } }
-h1 .hl-accent { color: var(--ink); }
 .lede { font-size: 17px; color: var(--ink-soft); max-width: 30em; margin-bottom: 36px; }
 .cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .cta-row .btn { font-size: 15px; padding: 14px 26px; }
-.cta-note { font-family: var(--mono); font-size: 12.5px; color: var(--muted-2); margin-top: 16px; }
+.cta-note { font-family: var(--mono); font-size: 11.5px; color: var(--muted-2); margin-top: 16px; }
 .hero-mark { display: flex; justify-content: center; }
 .hero-mark svg { width: min(340px, 100%); height: auto; }
 .fold-line {
@@ -125,14 +105,13 @@ h1 .hl-accent { color: var(--ink); }
 .fold-node:nth-of-type(5) { animation-delay: 1.58s; }
 .fold-node:nth-of-type(6) { animation-delay: 1.90s; }
 @media (prefers-reduced-motion: reduce) {
-  h1 .hl-word { animation: none; transform: none; }
   .fold-line { animation: none; stroke-dashoffset: 0; }
   .fold-node { animation: none; opacity: 1; }
 }
 
 /* ---------- figures ---------- */
 .figures {
-  display: grid; grid-template-columns: repeat(3, 1fr);
+  display: grid; grid-template-columns: repeat(4, 1fr);
   border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
 }
 .figure { padding: 40px 28px 44px; border-left: 1px solid var(--border); }
@@ -141,7 +120,7 @@ h1 .hl-accent { color: var(--ink); }
   font-family: var(--mono); font-size: 34px; letter-spacing: -0.03em;
   display: block; margin-bottom: 12px;
 }
-.figure p { font-size: 14.5px; color: var(--ink-soft); }
+.figure p { font-size: 13.5px; color: var(--ink-soft); }
 .figure a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
 .figure a:hover { text-decoration-color: var(--ink); }
 
@@ -150,17 +129,6 @@ section { padding: 88px 0; }
 .sec-head { margin-bottom: 44px; max-width: 34em; }
 h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 12px; }
 .sec-head p { color: var(--ink-soft); }
-
-/* ---------- why tenstorrent ---------- */
-.why-statement {
-  font-size: clamp(23px, 3vw, 32px); font-weight: 600;
-  letter-spacing: -0.02em; line-height: 1.32; max-width: 26em;
-}
-.why-statement .soft { color: var(--muted); }
-.why-payoff {
-  font-size: clamp(17px, 2.2vw, 20px); font-weight: 600;
-  letter-spacing: -0.01em; margin-top: 32px;
-}
 
 /* ---------- models ---------- */
 .models { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
@@ -172,13 +140,13 @@ h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 
 }
 .model:hover { border-color: var(--border-strong); }
 .model .tag {
-  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--muted-2);
 }
 .model .name { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
-.model .gloss { font-size: 14px; color: var(--muted); }
+.model .gloss { font-size: 13px; color: var(--muted); }
 
-/* ---------- researchers ---------- */
+/* ---------- developers ---------- */
 .dev {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; padding: 56px;
@@ -192,7 +160,7 @@ h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 
   border-radius: 4px; padding: 1px 6px;
 }
 .dev .actions { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
-.dev .actions .btn { font-size: 15px; padding: 12px 22px; justify-content: center; }
+.dev .actions .btn { font-size: 14px; padding: 12px 22px; justify-content: center; }
 
 /* ---------- bottom cta ---------- */
 .cta-band { text-align: center; padding: 96px 0; }
@@ -202,10 +170,10 @@ h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 
 /* ---------- footer ---------- */
 footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 .foot {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  font-size: 14px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; color: var(--muted);
 }
-.foot .powered { display: flex; align-items: center; gap: 10px; }
+.foot .powered { display: flex; align-items: center; gap: 8px; }
 .foot img.aiand { height: 15px; }
 .foot img.tt { height: 13px; }
 .foot .links { margin-left: auto; display: flex; gap: 22px; }
@@ -214,12 +182,13 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 920px) {
-  .hero { grid-template-columns: 1fr; gap: 40px; padding: 56px 0 64px; }
+  .hero { grid-template-columns: 1fr; gap: 40px; padding: 64px 0 64px; }
   .hero-mark { order: -1; justify-content: flex-start; }
   .hero-mark svg { width: 200px; }
-  .figures { grid-template-columns: 1fr; }
-  .figure { padding: 28px 0 32px; border-left: none; border-top: 1px solid var(--border); }
-  .figure:first-child { border-top: none; }
+  .figures { grid-template-columns: 1fr 1fr; }
+  .figure { padding: 28px 20px 32px; }
+  .figure:nth-child(odd) { border-left: none; padding-left: 0; }
+  .figure:nth-child(n+3) { border-top: 1px solid var(--border); }
   .models { grid-template-columns: 1fr 1fr; }
   .dev { flex-direction: column; align-items: flex-start; padding: 36px; }
   .dev .actions { flex-direction: row; flex-wrap: wrap; }
@@ -243,7 +212,7 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
   </a>
   <nav class="nav">
     <a class="plain" href="#models">Models</a>
-    <a class="plain" href="#researchers">Researchers</a>
+    <a class="plain" href="#developers">Developers</a>
     <a class="plain" href="https://docs.japanfold.com">Docs</a>
     <a class="btn btn-ghost" href="https://aiand.com/contact">Contact us</a>
   </nav>
@@ -253,19 +222,11 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
 
   <div class="hero">
     <div>
-      <p class="powered-top">
-        <span>Powered by</span>
-        <a href="https://aiand.com" target="_blank" rel="noopener noreferrer" title="ai&amp;"><img class="aiand" src="/aiand-logo.svg" alt="ai&amp;"></a>
-        <span>on</span>
-        <a href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer" title="Tenstorrent"><img class="tt" src="/tenstorrent-logo.svg" alt="Tenstorrent"></a>
-        <span>AI processors</span>
-      </p>
-      <h1 aria-label="High Throughput. Low Cost. Drug Discovery.">
-        <span class="hl-line"><span class="hl-word hl-accent">High Throughput</span></span>
-        <span class="hl-line"><span class="hl-word hl-accent">Low Cost</span></span>
-        <span class="hl-line"><span class="hl-word">Drug Discovery</span></span>
-      </h1>
-      <p class="lede">Structure prediction, binding affinity, de-novo design, and embeddings.</p>
+      <p class="eyebrow">100% Japan-hosted &middot; Sovereign compute</p>
+      <h1>Biomolecular AI at the lowest cost per prediction.</h1>
+      <p class="lede">Structure prediction, binding affinity, de-novo design, and embeddings.
+        A single job parallelizes across Tenstorrent Galaxy servers, 32 AI chips each,
+        for incredible throughput at a fraction of GPU cost.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://demo.japanfold.com">Start free demo &rarr;</a>
         <a class="btn btn-ghost" href="https://aiand.com/contact">Contact us</a>
@@ -291,29 +252,28 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
   <div class="figures">
     <div class="figure">
       <span class="num">~5&times;</span>
-      <p>more predictions per dollar than on GPUs.</p>
+      <p>higher throughput per dollar on Tenstorrent AI processors. Kernels, compiler, and
+        serving built as one vertically integrated stack, so nothing sits between the model
+        and the metal.</p>
+    </div>
+    <div class="figure">
+      <span class="num">32</span>
+      <p>AI chips in every Tenstorrent Galaxy. A single job parallelizes across all of them,
+        and scales out across Galaxies.</p>
     </div>
     <div class="figure">
       <span class="num">0</span>
-      <p>cross-border data egress. 100% Japan-hosted.</p>
+      <p>cross-border data egress. 100% Japan-hosted; your sequences never leave the
+        country.</p>
     </div>
     <div class="figure">
       <span class="num">1:1</span>
-      <p>accuracy parity with reference implementations,
-        <a href="https://docs.japanfold.com/accuracy/">measured</a>.</p>
+      <p>output parity with the original reference implementations. See the
+        <a href="https://docs.japanfold.com/accuracy/">measured accuracy</a>.</p>
     </div>
   </div>
 
-  <section id="why">
-    <p class="eyebrow">Why it is fast and cheap</p>
-    <p class="why-statement">Every model runs on
-      <a href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer">Tenstorrent</a>
-      AI processors instead of GPUs, with the whole stack built as one,
-      <span class="soft">from silicon to serving.</span></p>
-    <p class="why-payoff">That is exactly what makes it high throughput and low cost.</p>
-  </section>
-
-  <section id="models" style="padding-top:0;">
+  <section id="models">
     <div class="sec-head">
       <p class="eyebrow">Models</p>
       <h2>Every model, running today.</h2>
@@ -330,10 +290,10 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
     </div>
   </section>
 
-  <section id="researchers" style="padding-top:0;">
+  <section id="developers" style="padding-top:0;">
     <div class="dev">
       <div>
-        <p class="eyebrow">Researchers &amp; agents</p>
+        <p class="eyebrow">Developers &amp; agents</p>
         <h2>One skill, any harness.</h2>
         <p>The <code>japanfold</code> skill works with Claude Code, Codex, Cursor, or plain
           curl. Free public API, no key required.</p>

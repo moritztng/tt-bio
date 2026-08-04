@@ -26,28 +26,6 @@ export function fmt(v, digits = 3) {
   return n.toFixed(digits);
 }
 
-// Display names for the design engines, matching the CLI's `--model` vocabulary.
-export const DESIGN_MODEL_LABEL = { boltzgen: "BoltzGen", rfd3: "RFdiffusion3" };
-
-// The design model that produced/will produce a job, from the server-computed
-// `engine` field (jobs.py derives it from the protocol). The prefix fallback
-// covers a job payload from before the field existed.
-export function designEngine(job) {
-  if (job?.engine) return job.engine;
-  return (job?.protocol || "").startsWith("rfd3") ? "rfd3" : "boltzgen";
-}
-
-export function designModelLabel(job) {
-  return DESIGN_MODEL_LABEL[designEngine(job)] || "BoltzGen";
-}
-
-// Job-list / job-detail tag for a design job: "RFdiffusion3 · Motif scaffolding".
-// Falls back to the raw protocol id when the catalog hasn't loaded yet.
-export function designTag(catalog, job) {
-  const proto = catalog?.protocols?.find((p) => p.id === job.protocol)?.name || job.protocol;
-  return `${designModelLabel(job)} · ${proto || "design"}`;
-}
-
 export function timeAgo(ts) {
   if (!ts) return "";
   const s = Math.max(0, Date.now() / 1000 - ts);

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
-import { Badge, Spinner, designModelLabel, duration, timeAgo } from "../ui.jsx";
+import { Badge, Spinner, duration, timeAgo } from "../ui.jsx";
 import ResultsPredict from "./ResultsPredict.jsx";
 import ResultsDesign from "./ResultsDesign.jsx";
 import ResultsEmbed from "./ResultsEmbed.jsx";
@@ -47,7 +47,7 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
               <Badge status={job.status} />
             </div>
             <div className="ji-meta mt8">
-              <span className="tag">{job.kind === "design" ? `${designModelLabel(job)} · ${job.protocol}` : job.model}</span>
+              <span className="tag">{job.kind === "design" ? job.protocol : job.model}</span>
               <span>{_kindLabel(job.kind, job)}</span>
               <span className="sep">·</span>
               <span>submitted {timeAgo(job.created_at)}</span>
@@ -105,9 +105,9 @@ export default function JobDetail({ jobId, onDeleted, onError }) {
   );
 }
 
-const _KIND_LABEL = { predict: "Structure prediction", embed: "Protein-language-model embedding" };
+const _KIND_LABEL = { predict: "Structure prediction", design: "BoltzGen design", embed: "Protein-language-model embedding" };
 function _kindLabel(kind, job) {
-  if (kind === "design") return `${designModelLabel(job)} design`;
+  if (kind === "design" && (job?.protocol || "").startsWith("rfd3")) return "RFdiffusion3 design";
   return _KIND_LABEL[kind] || kind;
 }
 

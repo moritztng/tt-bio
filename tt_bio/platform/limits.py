@@ -25,7 +25,6 @@ _MODEL_CAPS = {m["id"]: set(m.get("caps", [])) for m in MODELS}
 _DEFAULT_MODEL = "boltz2"  # mirrors jobs._build_cmd's "job.model or 'boltz2'"
 MODEL_IDS = set(_MODEL_CAPS)                                   # valid predict model ids
 PROTOCOL_IDS = {p["id"] for p in PROTOCOLS}                    # valid design protocol ids
-DESIGN_MODEL_IDS = set(PROTOCOL_ENGINES.values())              # valid design engines (boltzgen, rfd3)
 EMBED_MODEL_IDS = {m["id"] for m in EMBED_MODELS}              # valid embed (ESMC) model ids
 _MODEL_NEEDS_MSA = {m["id"]: bool(m.get("needs_msa")) for m in MODELS}
 
@@ -318,7 +317,7 @@ def check_rfd3_design(structure: str, contig: str) -> None:
         raise InputError(f"The contig is too long (limit {_MAX_CONTIG_CHARS:,} characters).")
     # Grammar check via the engine's own parser — one source of truth for what
     # a legal contig is. ValueError/TypeError surface as a clean 400.
-    from tt_bio.rfd3.input import parse_contig
+    from tt_bio.rfd3_input import parse_contig
     try:
         parse_contig(c)
     except (ValueError, TypeError) as e:

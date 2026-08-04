@@ -18,23 +18,19 @@ release ships with still works, headlessly and fast, on a tiny input:
      ``numpy.load``), catching the malformed-output class (e.g. the historical
      missing ``_atom_site.occupancy`` fixed in 17aeab9e).
   3. CLI behaves — ``tt-bio predict --help`` / ``tt-bio embed --help`` /
-     ``tt-bio saprot --help`` / the unified ``tt-bio design --help`` (with
-     ``--model rfd3|boltzgen``) / the deprecated ``tt-bio gen run --help``
-     alias (exit 0 AND a deprecation warning on stderr) all exit 0 and list
-     the core flags, and each surface's results/manifest file has the shape
-     the downstream reader expects.
+     ``tt-bio saprot --help`` / ``tt-bio gen run --help``
+     exit 0 and list the core flags, and each surface's results/manifest file
+     has the shape the downstream reader expects.
 
 Coverage: the six fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
 opendde, opendde-abag) for legs 1–3 (opendde-abag is gated on the Ab-Ag fixture
 examples/1ahw_abag.yaml; the other fold models use examples/trpcage.yaml), plus
 the embed-leg models (esmc-600m via `tt-bio embed`, saprot-650m via `tt-bio
 saprot`) for legs 2–3 (embed has no fold phases; its user-facing progress is the
-load → embed → done stdout lines), plus BOTH design models for legs 1–3
-exercised via the unified design surface: boltzgen via `tt-bio design
-examples/binder.yaml --model boltzgen` (a tiny 1-design binder job; its
-progress is the design pipeline's own stdout stage stream under --debug --log)
-and rfd3 via `tt-bio design --model rfd3 --from_pdb` (IAI motif-scaffold
-fixture), plus boltz2-affinity for legs 1–3 exercised via `tt-bio predict
+load → embed → done stdout lines), plus boltzgen for legs 1–3 exercised via
+`tt-bio gen run` (a tiny 1-design binder job on examples/binder.yaml; its
+progress is the gen pipeline's own stdout stage stream under --debug --log),
+plus boltz2-affinity for legs 1–3 exercised via `tt-bio predict
 examples/affinity_fkg.yaml --model boltz2 --affinity_mw_correction` (Boltz-2
 binding-affinity mode; its progress event stream is the same shape as a
 structure fold — the affinity model's own trunk+diffusion re-run is silent — so
@@ -60,7 +56,6 @@ device serially (one card context per predict).
 import argparse
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -106,9 +101,8 @@ ABAG_DATA = REPO_ROOT / "examples" / "1ahw_abag.yaml"
 # parse/manifest checks are shared.
 EMBED_MODELS = ["esmc-600m", "saprot-650m"]
 
-# BoltzGen (binder design) — exercised via `tt-bio design --model boltzgen` on
-# the canonical binder fixture (same target the designability accuracy leg + the
-# perf leg use).
+# BoltzGen (binder design) — exercised via `tt-bio gen run` on the canonical
+# binder fixture (same target the designability accuracy leg + the perf leg use).
 # A tiny 1-design job is enough to gate the UX plumbing (progress phases, output
 # parses, CLI shape); it is not an accuracy or perf measurement.
 GEN_MODEL = "boltzgen"
@@ -134,8 +128,7 @@ AFFINITY_MODEL = "boltz2-affinity"
 AFFINITY_SPEC = REPO_ROOT / "examples" / "affinity_fkg.yaml"  # FKBP12+SB3, L107, msa: empty
 AFFINITY_TIMEOUT_S = 900  # affinity trunk fp32 (5 recycles, 64 blocks) ~140s + fold; load dominates
 
-# RFdiffusion3 (RFD3) structure design — exercised via
-# `tt-bio design --model rfd3 --from_pdb`
+# RFdiffusion3 (RFD3) structure design — exercised via `tt-bio design --from_pdb`
 # on the canonical IAI motif-scaffold fixture (the SAME fixture the parity leg
 # and the perf leg use — scripts/rfd3_port/parity_artifacts/iai_protein/
 # iai_inputs.yaml). A tiny 1-design job at the shipped default 4 timesteps is
@@ -403,39 +396,45 @@ def _check_cli() -> list[str]:
                 if flag not in r.stdout:
                     problems.append(f"saprot --help missing flag {flag}")
 
-    # `tt-bio gen` is the DEPRECATED hidden alias for `tt-bio design --model
-    # boltzgen`: it must keep working (exit 0), print a one-line deprecation
-    # warning to stderr, and forward --help to BoltzGen's own argparse parser
-    # (tt_bio/boltzgen/cli/boltzgen.py), whose run help lists the core design
-    # flags. It must also stay hidden from the top-level help.
-    try:
-        r = _run([sys.executable, "-m", "tt_bio.main", "gen", "run", "--help"],
-                 env=_subprocess_env(), timeout=60)
-        if r.returncode != 0:
-            problems.append(f"gen run --help exited {r.returncode}")
-        else:
-            if "deprecat" not in (r.stderr or "").lower():
-                problems.append("gen run --help printed no deprecation warning on stderr")
-            for flag in ("--num_designs", "--protocol", "--output", "--devices",
-                         "--budget"):
-                if flag not in r.stdout:
-                    problems.append(f"gen run --help missing forwarded flag {flag}")
-    except Exception as e:
-        problems.append(f"gen run --help failed to run: {e}")
     try:
         r = _run([sys.executable, "-m", "tt_bio.main", "--help"],
                  env=_subprocess_env(), timeout=60)
         if r.returncode != 0:
             problems.append(f"tt-bio --help exited {r.returncode}")
-        elif re.search(r"^\s+gen\s", r.stdout, re.M):
-            problems.append("deprecated `gen` alias is visible in tt-bio --help "
-                            "(must stay hidden)")
     except Exception as e:
         problems.append(f"tt-bio --help failed to run: {e}")
 
-    # `tt-bio design` is the unified design command with `--model
-    # boltzgen|rfd3` (mirroring `predict --model`). Gate the shared flag surface
-    # plus both model-scoped groups so a regression that drops one ships loudly.
+    # `tt-bio gen run` is a click subcommand that forwards its args to BoltzGen's
+    # own argparse parser (tt_bio/boltzgen/cli/boltzgen.py). Click intercepts
+    # `--help` at the `gen` wrapper level, so `tt-bio gen run --help` shows the
+    # wrapper's short help rather than the run flags — the real flag surface is
+    # the forwarded parser's help. Assert the wrapper responds to --help cleanly
+    # AND the forwarded parser lists the core design flags a user would reach for.
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "gen", "run", "--help"],
+                 env=_subprocess_env(), timeout=60)
+        if r.returncode != 0:
+            problems.append(f"gen run --help exited {r.returncode}")
+    except Exception as e:
+        problems.append(f"gen run --help failed to run: {e}")
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.boltzgen.cli.boltzgen",
+                  "run", "--help"], env=_subprocess_env(), timeout=60)
+    except Exception as e:
+        problems.append(f"boltzgen run --help failed to run: {e}")
+    else:
+        if r.returncode != 0:
+            problems.append(f"boltzgen run --help exited {r.returncode}")
+        else:
+            for flag in ("--num_designs", "--protocol", "--output", "--devices",
+                         "--budget"):
+                if flag not in r.stdout:
+                    problems.append(f"boltzgen run --help missing flag {flag}")
+
+    # `tt-bio design` is a separate click command (not a --model choice) — gate
+    # its flag surface so a regression that drops one of its core flags ships
+    # loudly. Click intercepts --help at the command level, so this asserts the
+    # wrapper responds cleanly AND lists the core design flags.
     try:
         r = _run([sys.executable, "-m", "tt_bio.main", "design", "--help"],
                  env=_subprocess_env(), timeout=60)
@@ -444,17 +443,10 @@ def _check_cli() -> list[str]:
     except Exception as e:
         problems.append(f"design --help failed to run: {e}")
     else:
-        for flag in ("--model", "--out_dir", "--num_designs", "--devices", "--seed",
-                     "--from_pdb", "--num_timesteps", "--batch_size", "--checkpoint",
-                     "--protocol", "--steps", "--budget"):
+        for flag in ("--from_pdb", "--out_dir", "--num_designs", "--num_timesteps",
+                     "--batch_size", "--devices", "--seed"):
             if flag not in r.stdout:
                 problems.append(f"design --help missing flag {flag}")
-        for model_name in ("boltzgen", "rfd3"):
-            if model_name not in r.stdout:
-                problems.append(f"design --help does not mention --model choice {model_name}")
-        if "--golden_dir" in r.stdout:
-            problems.append("design --help still shows the deprecated --golden_dir flag "
-                            "(must stay hidden)")
     return problems
 
 
@@ -665,7 +657,7 @@ def _check_gen_progress(stdout: str) -> list[str]:
 
     if not starts:
         return ["no `>>> [i/N] <step>` stage-start lines captured "
-                "(design --debug --log progress not wired?)"]
+                "(gen --debug --log progress not wired?)"]
     names = [n for _, n in starts]
     # protein-anything runs: design → inverse_folding → folding → design_folding
     # → analysis → filtering (design_folding is the isolated refold = the
@@ -673,7 +665,7 @@ def _check_gen_progress(stdout: str) -> list[str]:
     # analysis stages so a regression that skips or reorders a phase fails.
     for required in ("design", "analysis"):
         if required not in names:
-            problems.append(f"'{required}' stage MISSING from design progress "
+            problems.append(f"'{required}' stage MISSING from gen progress "
                             f"(stages seen: {names})")
     if "design_folding" not in names and "folding" not in names:
         problems.append("no refold stage (design_folding/folding) — the isolated "
@@ -692,28 +684,23 @@ def _check_gen_progress(stdout: str) -> list[str]:
 
 
 def run_gen(model: str, base: Path) -> dict:
-    """Run one tiny ``tt-bio design --model boltzgen`` binder-design job and gate
-    the three UX legs (progress phases, output parses, results shape). Returns a
-    result row."""
+    """Run one tiny ``tt-bio gen run`` binder-design job and gate the three UX
+    legs (progress phases, output parses, results shape). Returns a result row."""
     out_dir = base / f"out_{model}"
     out_dir.mkdir(parents=True, exist_ok=True)
     if not GEN_SPEC.exists():
         sys.exit(f"missing gen fixture {GEN_SPEC}")
 
-    # --devices takes physical card ids (not a count) — same convention as the
-    # rfd3 design leg below.
-    visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     cmd = [
-        sys.executable, "-m", "tt_bio.main", "design", str(GEN_SPEC),
-        "--model", "boltzgen",
-        "--out_dir", str(out_dir),
+        sys.executable, "-m", "tt_bio.main", "gen", "run", str(GEN_SPEC),
+        "--output", str(out_dir),
         "--num_designs", str(GEN_NUM_DESIGNS),
         "--protocol", GEN_PROTOCOL,
-        "--devices", visible,
+        "--devices", "1",
         "--budget", str(GEN_NUM_DESIGNS),
         "--debug", "--log",   # DebugReporter: plain-text stage events on stdout
     ]
-    print(f"\n{'='*70}\n[{model}] design --model boltzgen {GEN_SPEC.name} "
+    print(f"\n{'='*70}\n[{model}] gen run {GEN_SPEC.name} "
           f"({GEN_PROTOCOL}, {GEN_NUM_DESIGNS} design)\n{'='*70}", flush=True)
 
     row = {"model": model, "seconds": None, "progress": False, "parse": False,
@@ -722,12 +709,12 @@ def run_gen(model: str, base: Path) -> dict:
     try:
         proc = _run(cmd, env=_subprocess_env(), timeout=GEN_TIMEOUT_S)
     except subprocess.TimeoutExpired:
-        row["error"] = f"design run timed out after {GEN_TIMEOUT_S}s"
+        row["error"] = f"gen run timed out after {GEN_TIMEOUT_S}s"
         return row
     row["seconds"] = time.monotonic() - t0
     if proc.returncode != 0:
         tail = (proc.stderr or proc.stdout or "").strip().splitlines()
-        row["error"] = (f"design run exited {proc.returncode}: "
+        row["error"] = (f"gen run exited {proc.returncode}: "
                         f"{tail[-1] if tail else ''}")
         return row
 
@@ -742,7 +729,7 @@ def run_gen(model: str, base: Path) -> dict:
     # Leg 2: written CIFs parse under a strict standard parser.
     cifs = sorted(out_dir.rglob("*.cif")) if out_dir.exists() else []
     if not cifs:
-        parse_problems = [f"design run wrote no CIF under {out_dir}"]
+        parse_problems = [f"gen run wrote no CIF under {out_dir}"]
     else:
         parse_problems = []
         for cif in cifs:
@@ -814,8 +801,8 @@ def _check_design_progress(stdout: str) -> list[str]:
 
 
 def run_design(model: str, base: Path) -> dict:
-    """Run one tiny `tt-bio design --model rfd3 --from_pdb` job and gate the three UX
-    legs (progress lines, output CIF parses, CLI shape). Returns a result row.
+    """Run one tiny `tt-bio design --from_pdb` job and gate the three UX legs
+    (progress lines, output CIF parses, CLI shape). Returns a result row.
 
     Reuses the SAME IAI motif-scaffold fixture the parity + perf legs use
     (scripts/rfd3_port/parity_artifacts/iai_protein/iai_inputs.yaml) — no new
@@ -832,7 +819,6 @@ def run_design(model: str, base: Path) -> dict:
     visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     cmd = [
         sys.executable, "-m", "tt_bio.main", "design", str(DESIGN_SPEC),
-        "--model", "rfd3",
         "--from_pdb",
         "--out_dir", str(out_dir),
         "--num_designs", "1",
@@ -1048,9 +1034,9 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", action="append",
                     choices=FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL],
-                    help="Gate only this model (repeatable). Default: all six fold "
-                         "models + esmc-600m + saprot-650m embed + both design "
-                         "models (boltzgen, rfd3) + boltz2-affinity.")
+                    help="Gate only this model (repeatable). Default: all five fold "
+                         "models + esmc-600m + saprot-650m embed + boltzgen gen run "
+                         "+ boltz2-affinity.")
     ap.add_argument("--keep", action="store_true",
                     help="Keep the per-run output dirs under the tmp dir for inspection.")
     ap.add_argument("--cli-only", action="store_true",
@@ -1074,16 +1060,15 @@ def main() -> int:
             f"/home/ttuser/tt-bio-dev/env/bin/python scripts/ux_regression.py")
 
     # Leg 3 (CLI behaves) runs always — it needs no card.
-    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed / saprot / design / deprecated gen alias)\n{'#'*78}")
+    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed / saprot / gen run --help)\n{'#'*78}")
     cli_problems = _check_cli()
     all_pass = not cli_problems
     if cli_problems:
         for prob in cli_problems:
             print(f"  ✗ {prob}")
     else:
-        print("  ✓ predict --help, embed --help, saprot --help, design --help "
-              "(--model boltzgen|rfd3), deprecated gen run --help (warns), "
-              "tt-bio --help all OK and list core flags")
+        print("  ✓ predict --help, embed --help, saprot --help, gen run --help, "
+              "design --help, tt-bio --help all OK and list core flags")
     print(f"{'#'*78}")
 
     if args.cli_only:

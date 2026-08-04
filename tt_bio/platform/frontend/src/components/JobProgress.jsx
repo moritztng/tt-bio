@@ -1,5 +1,5 @@
 import React from "react";
-import { Spinner, designEngine, fmt, duration } from "../ui.jsx";
+import { Spinner, fmt, duration } from "../ui.jsx";
 
 // Cap how many per-structure cells we draw, so a very large run can't flood the
 // DOM. The segmented bar + phase tally still summarise every structure, and the
@@ -50,7 +50,7 @@ const RFD3_PHASES = [
   { key: "save", label: "Finish", activity: "Writing the designs…" },
 ];
 const RFD3_STAGE_KEY = { design: "design", writing: "save", saving: "save" };
-const isRfd3Job = (job) => designEngine(job) === "rfd3";
+const isRfd3Job = (job) => (job.protocol || "").startsWith("rfd3");
 
 // Embed (ESMC) is just a language-model forward pass — load -> embed -> write,
 // no MSA/fold/diffusion steps to show (see JobManager._embed_stage).

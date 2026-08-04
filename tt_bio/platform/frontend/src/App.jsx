@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "./api.js";
-import { Badge, Progress, designTag, timeAgo } from "./ui.jsx";
+import { Badge, Progress, timeAgo } from "./ui.jsx";
 import NewJob from "./components/NewJob.jsx";
 import JobDetail from "./components/JobDetail.jsx";
 
@@ -91,7 +91,7 @@ export default function App() {
                   <Badge status={j.status} />
                 </div>
                 <div className="ji-meta">
-                  <span className="tag">{j.kind === "design" ? designTag(catalog, j) : j.model}</span>
+                  <span className="tag">{j.kind === "design" ? j.protocol : j.model}</span>
                   <span>{timeAgo(j.created_at)}</span>
                 </div>
                 {j.status === "running" && (

@@ -37,7 +37,6 @@ from . import limits, catalog
 # Display names for the run-log header (single source of truth: the catalog).
 _MODEL_NAME = {m["id"]: m["name"] for m in catalog.MODELS}
 _PROTO_NAME = {p["id"]: p["name"] for p in catalog.PROTOCOLS}
-_DESIGN_MODEL_NAME = {m["id"]: m["name"] for m in catalog.DESIGN_MODELS}
 _EMBED_MODEL_NAME = {m["id"]: m["name"] for m in catalog.EMBED_MODELS}
 
 
@@ -49,8 +48,7 @@ def _log_header(job) -> str:
     when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(job.started_at or time.time()))
     p = job.params or {}
     if job.kind == "design":
-        engine = _DESIGN_MODEL_NAME.get(limits.protocol_engine(job.protocol), "BoltzGen")
-        bits = [_PROTO_NAME.get(job.protocol, job.protocol or "design"), f"{engine} design"]
+        bits = [_PROTO_NAME.get(job.protocol, job.protocol or "design"), "BoltzGen design"]
         if p.get("num_designs"):
             bits.append(f"{p['num_designs']} designs")
     elif job.kind == "embed":
@@ -123,10 +121,6 @@ class Job:
     def to_dict(self) -> dict[str, Any]:
         d = dataclasses.asdict(self)
         d.pop("client_ip", None)   # keep the visitor's IP server-side only
-        if self.kind == "design":
-            # The producing design model, derived from the protocol's engine —
-            # the UI labels jobs with it and never re-derives it client-side.
-            d["engine"] = limits.protocol_engine(self.protocol)
         d["progress"] = self.progress()
         return d
 
@@ -446,17 +440,6 @@ class JobManager:
             raise ValueError(f"unknown model '{model}' — choose one of {sorted(limits.MODEL_IDS)}.")
         if kind == "design" and protocol is not None and str(protocol) not in limits.PROTOCOL_IDS:
             raise ValueError(f"unknown protocol '{protocol}' — choose one of {sorted(limits.PROTOCOL_IDS)}.")
-        # An explicitly named design model must agree with the protocol's engine —
-        # the UI sends both, and a mismatch must 400 here, not silently route by
-        # protocol (UI = UX, this guard = security).
-        if kind == "design" and model is not None:
-            if str(model) not in limits.DESIGN_MODEL_IDS:
-                raise ValueError(f"unknown design model '{model}' — choose one of {sorted(limits.DESIGN_MODEL_IDS)}.")
-            engine = limits.protocol_engine(str(protocol) if protocol is not None else None)
-            if str(model) != engine:
-                raise ValueError(
-                    f"model '{model}' does not match protocol '{protocol}' — "
-                    f"'{protocol}' is a {engine} protocol.")
         if kind == "embed" and model is not None and str(model) not in limits.EMBED_MODEL_IDS:
             raise ValueError(f"unknown model '{model}' — choose one of {sorted(limits.EMBED_MODEL_IDS)}.")
         # Clamp every numeric knob into its allowed range — the client is never
@@ -624,11 +607,11 @@ class JobManager:
                 if v is not None:
                     cmd += [f"--{key}", str(v)]
             return cmd
-        # design — one verb, two models (`tt-bio design SPEC --model …`):
-        # rfd3 takes a JSON spec + --from_pdb, boltzgen a YAML spec.
+        # design — two engines share the surface: BoltzGen (`gen run`, a YAML
+        # spec) and RFdiffusion3 (`design`, a JSON spec + --from_pdb).
         if limits.protocol_engine(job.protocol) == "rfd3":
             cmd = [*TTBIO, "design", str(self._inputs_dir(job.id) / "design.json"),
-                   "--model", "rfd3", "--from_pdb", "--out_dir", str(out),
+                   "--from_pdb", "--out_dir", str(out),
                    "--num_timesteps", str(self._int(p, "num_timesteps") or 100)]
             # The fleet client shards one spec per worker and ships the
             # structure inline, so workers need no shared filesystem.
@@ -641,12 +624,11 @@ class JobManager:
                 if v is not None:
                     cmd += [f"--{key}", str(v)]
             return cmd
-        cmd = [*TTBIO, "design", "design.yaml", "--model", "boltzgen",
-               "--out_dir", str(out),
+        cmd = [*TTBIO, "gen", "run", "design.yaml", "--output", str(out),
                "--protocol", job.protocol or "protein-anything", "--debug", "--log"]
         # With a shared cluster up, design fans across the fleet exactly like
         # predict: the controller leases one shard per worker, each runs a
-        # single-device design run, and this client merges + filters the union.
+        # single-device gen run, and this client merges + filters the union.
         if controller_url:
             cmd += ["--controller", controller_url, "--run-id", job.id]
             if job.owner:
@@ -1132,7 +1114,7 @@ class JobManager:
                 d["structure"] = rank_files.get(int(float(d.get("final_rank"))))
             except Exception:
                 d["structure"] = None
-        return {"ready": True, "kind": "design", "engine": "boltzgen", "designs": designs}
+        return {"ready": True, "kind": "design", "designs": designs}
 
     def _rfd3_results(self, rd: Path) -> dict[str, Any]:
         """RFD3 results: one unranked CIF per design in the results dir (no

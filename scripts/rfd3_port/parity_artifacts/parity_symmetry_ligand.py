@@ -4,7 +4,7 @@ COMBINED with `ligand` (p20): the real, UNMODIFIED `unindexed_C2_1j79`
 example -- a C2 design around real PDB 1j79_C2.pdb with `ligand: "ORO,ZN"`
 (each of the two real subunits' own active site: 1 ORO + 2 Zn, verified via
 `grep HETATM`) plus `unindex: "A250"` (a catalytic residue "within a
-subunit") -- see `tt_bio.rfd3.featurize`'s module docstring's "ligand +
+subunit") -- see `tt_bio.rfd3_featurize`'s module docstring's "ligand +
 symmetry" grounding for the full mechanism.
 
 Reproduce the reference capture (CPU, no ckpt -- same method as
@@ -224,8 +224,8 @@ def compare_ligand_block_by_identity(pf, rf, lig_tok_p, lig_tok_r, lig_atom_p, l
 
 def main():
     sys.path.insert(0, os.path.abspath(os.path.join(DIR, "..", "..", "..")))
-    from tt_bio.rfd3.featurize import featurize
-    from tt_bio.rfd3.input import InputSpecification
+    from tt_bio.rfd3_featurize import featurize
+    from tt_bio.rfd3_input import InputSpecification
     if not os.path.exists(REF_PT):
         print(f"SKIPPED: no reference capture at {REF_PT} (see module docstring to reproduce)")
         return

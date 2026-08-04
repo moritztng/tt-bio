@@ -12,7 +12,7 @@ COMBINED with a real motif (p19) -- two real, grounded targets:
 
 2. `unindexed_C2_1j79` MINUS its `ligand` field (a deterministic variant of
    the real example -- `ligand`+`symmetry` is out of scope this pass, see
-   `tt_bio.rfd3.featurize`'s module docstring for the grounded reason): a C2
+   `tt_bio.rfd3_featurize`'s module docstring for the grounded reason): a C2
    design around real PDB 1j79_C2.pdb with `unindex: "A250"` (a catalytic
    residue "within a subunit", `select_fixed_atoms: {"A250": "OD1,CG"}`).
    Exercises mechanism (a) again (a DIFFERENT real Kabsch-derived C2 frame)
@@ -84,8 +84,8 @@ ATOM_KEYS = ["ref_atom_name_chars", "ref_pos", "ref_mask", "ref_element", "ref_c
 
 
 def run_case(name, pdb, spec_json, ref_pt, known_gap_keys=()):
-    from tt_bio.rfd3.featurize import featurize
-    from tt_bio.rfd3.input import InputSpecification
+    from tt_bio.rfd3_featurize import featurize
+    from tt_bio.rfd3_input import InputSpecification
     print("#" * 70)
     print(f"# CASE: {name}")
     print("#" * 70)

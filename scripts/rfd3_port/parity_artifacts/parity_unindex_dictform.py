@@ -71,8 +71,8 @@ def compare(name, pdb, spec_json, ref_pt):
         print(f"SKIPPED: no reference capture at {ref_pt}")
         return True
     sys.path.insert(0, os.path.abspath(os.path.join(DIR, "..", "..", "..")))
-    from tt_bio.rfd3.featurize import featurize
-    from tt_bio.rfd3.input import InputSpecification
+    from tt_bio.rfd3_featurize import featurize
+    from tt_bio.rfd3_input import InputSpecification
     with open(spec_json) as fh:
         spec_dict = json.load(fh)
     spec_dict["input"] = pdb

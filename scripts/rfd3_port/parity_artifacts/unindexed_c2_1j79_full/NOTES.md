@@ -42,7 +42,7 @@ merged or split differently).
 
 ## What shipped (p20)
 
-`tt_bio.rfd3.featurize._plan_ligand_tokens` groups ligand matches by their
+`tt_bio.rfd3_featurize._plan_ligand_tokens` groups ligand matches by their
 real SOURCE chain (`residue.chain`) -- each source-chain group gets its own
 fresh output chain (reduces to the pre-existing F4 "one shared chain" rule
 when there's only one source chain). Ligand tokens get

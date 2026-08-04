@@ -50,11 +50,23 @@ def _apply_tt_environment(worker_info: dict[str, Any]) -> None:
 
 
 def _bind_host_threads() -> None:
-    """Bind torch's thread pools to the cap ``main._cap_worker_threads`` exported
-    before spawning. See ``runtime.bind_host_threads``."""
-    from . import runtime
+    """Bind torch's thread pools to the OMP_NUM_THREADS cap set by the launcher.
 
-    runtime.bind_host_threads()
+    ``main._cap_worker_threads`` exports the cap before spawning, and a fresh torch
+    import honours it for the intra-op pool -- but not for the inter-op pool, which
+    always sizes itself to cores/2. Bind both explicitly so a capped worker really
+    holds its share of the CPU. Nothing to do when the launcher set no cap.
+    """
+    cap = os.environ.get("OMP_NUM_THREADS")
+    if not cap:
+        return
+    import torch
+
+    torch.set_num_threads(int(cap))
+    try:
+        torch.set_num_interop_threads(int(cap))
+    except RuntimeError:
+        pass  # already started (only settable before the first parallel op)
 
 
 def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
@@ -245,20 +257,6 @@ class _WorkerState:
         elif _is_esmc_model(model_id):
             from tt_bio.esmc import load_esmc
 
-            if model_id in ("esmc-300m", "esmc-600m"):
-                # The traced single-sequence forward needs its trace region
-                # reserved at device-open; load_esmc requests it only on a
-                # fresh open. Guarantee the fresh open here instead of relying
-                # on reset() having closed the chip — a cleanup that failed
-                # (swallowed there) would otherwise pin this worker eager
-                # forever. Scoped to the 300M/600M embedders: esmc-6b cannot
-                # be traced, and a 256 MB reservation risks OOM for the big
-                # models, so no other model's device-open is touched.
-                from tt_bio.tenstorrent import cleanup as _tt_cleanup
-                from tt_bio.tenstorrent import trace_region_size
-
-                if trace_region_size() <= 0:
-                    _tt_cleanup()
             self.model = load_esmc(model_id, fast=cfg.get("fast", False))
         elif _is_saprot_model(model_id):
             from tt_bio.saprot import load_saprot
@@ -424,39 +422,21 @@ class _WorkerState:
         report_progress("prep")
         chains = [(cid, seq, resolve_msa(spec, seq, msa_dir, max_sequences=max_msa) if uses_msa else None)
                   for cid, seq, spec in chains]
-        ranked = fold_complex(
+        res = fold_complex(
             self.model, chains,
             num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],
             num_diffusion_samples=cfg["diffusion_samples"], seed=cfg.get("seed") or 0,
-            return_all=True,
         )
-        res = ranked[0]
-        # Write every sample, not just the winner: best as "{stem}.{fmt}" and the rest as
-        # "{stem}_model_{rank}.{fmt}", the same convention Protenix-v2 and OpenDDE use. The
-        # samples were always drawn -- they were discarded in fold_complex -- so this costs
-        # nothing but the writes, and the winner's file is byte-identical to before.
-        fmt = cfg["output_format"]
-        struct_dir = Path(cfg["struct_dir"])
-        for r, s in enumerate(ranked):
-            name = f"{path.stem}.{fmt}" if r == 0 else f"{path.stem}_model_{r}.{fmt}"
-            _write_structure(s.complex, struct_dir / name, fmt)
-
-        def _sample_scalars(s):
-            m = {"plddt": round(float(s.plddt.mean()), 4)}
-            if getattr(s, "ptm", None) is not None:
-                m["ptm"] = round(float(s.ptm), 4)
-            return m
-
+        out = Path(cfg["struct_dir"]) / f"{path.stem}.{cfg['output_format']}"
+        _write_structure(res.complex, out, cfg["output_format"])
         metrics = {
-            **_sample_scalars(res),
+            "plddt": round(float(res.plddt.mean()), 4),
             "n_residues": sum(len(c[1]) for c in chains), "n_chains": len(chains),
             "msa": any(c[2] is not None for c in chains),
             "samples": cfg["diffusion_samples"],  # best-of-N: report N (plddt is the winner's)
         }
-        # Per-sample records, keyed like the other models' so one dataset harness reads them all.
-        # Only when there is more than one, matching _scalars/all_runs in main.py.
-        if len(ranked) > 1:
-            metrics["all_runs"] = [{"rank": r, **_sample_scalars(s)} for r, s in enumerate(ranked)]
+        if getattr(res, "ptm", None) is not None:
+            metrics["ptm"] = round(float(res.ptm), 4)
         # _execute_job inspects feats["record"].affinity; ESMFold2 has no affinity.
         feats = {"record": types.SimpleNamespace(affinity=False)}
         return metrics, None, feats
@@ -517,18 +497,6 @@ class _WorkerState:
                 msa_endpoint=cfg.get("msa_endpoint"))
         chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir), mt)
                        for _cid, cseq, spec, mt in chains]
-
-        # --msa_cache_only: the cache is the only source, so a miss is an error. Without this
-        # _resolve_a3m_text returns None for an uncached chain and the fold quietly proceeds
-        # single-sequence for it -- a large, invisible accuracy loss in a benchmark run.
-        if cfg.get("msa_cache_only"):
-            uncached = [cid for (cid, _s, _sp, mt), (_q, a3m, _m)
-                        in zip(chains, chain_specs) if mt == "protein" and not a3m]
-            if uncached:
-                raise RuntimeError(
-                    f"--msa_cache_only: no cached a3m in {msa_dir} for protein chain(s) "
-                    f"{uncached}. Folding them single-sequence would silently change MSA "
-                    "depth; search them first, or drop --msa_cache_only.")
 
         # Paired (species-pairing) MSA for multi-chain complexes -- the cross-chain
         # co-evolution signal the reference OpenDDE pipeline injects via
@@ -842,13 +810,6 @@ def run_worker_loop(
     _apply_tt_environment(worker_info)
     _bind_host_threads()
 
-    # A locally-spawned worker (CLI fan-out / serve pool) records its dispatcher
-    # here; a dispatcher killed with SIGTERM skips its finally-block and would
-    # otherwise orphan us holding the chip open indefinitely (observed: a stray
-    # worker pinned /dev/tenstorrent/3 for 2h, silently blocking later runs on
-    # that card). Remote `worker --connect` processes leave the var unset.
-    _dispatcher_pid = int(os.environ.get("TT_BIO_PARENT_PID") or 0)
-
     client = ControllerClient(controller_url)
     worker_id = worker_info["worker_id"]
     meta = {
@@ -900,8 +861,6 @@ def run_worker_loop(
             return
     try:
         while True:
-            if _dispatcher_pid and os.getppid() != _dispatcher_pid:
-                return
             # Tolerate a controller that's briefly unreachable (restart, network
             # blip): retry leasing instead of crashing the worker. This makes the
             # fleet self-healing — a worker reconnects on its own when the
@@ -1161,7 +1120,7 @@ def _execute_rfd3_job_inprocess(
 ) -> None:
     """Run one RFD3 design shard IN-PROCESS on this worker's persistent device.
 
-    Same reuse pattern as the BoltzGen shard path: rfd3.design.run_design loads
+    Same reuse pattern as the BoltzGen shard path: rfd3_design.run_design loads
     its modules on get_device(), which returns this worker's already-open chip —
     no per-shard cold-open. One shard owns ALL designs of its spec (they share
     the featurize + TokenInitializer pass and batch bit-identically), so the
@@ -1221,12 +1180,12 @@ def _execute_rfd3_job_inprocess(
             raise RuntimeError(f"design run has no spec for {spec_id!r}")
 
         from tt_bio.main import ensure_rfd3_weights
-        from tt_bio.rfd3.design import run_design
+        from tt_bio.rfd3_design import run_design
         cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
-        checkpoint_dir = ensure_rfd3_weights(cache)
+        golden_dir = ensure_rfd3_weights(cache)
         results = run_design(
             {spec_id: specs[spec_id]}, out_dir,
-            checkpoint_dir=checkpoint_dir, from_pdb=True,
+            golden_dir=golden_dir, from_pdb=True,
             num_timesteps=int(cfg.get("num_timesteps") or 4),
             seed=int(cfg.get("seed") or 42),
             partial_t=cfg.get("partial_t"),

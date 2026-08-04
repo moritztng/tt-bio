@@ -4,7 +4,7 @@ symmetry case (p18): a fully-unconditional cyclic design, spec =
 {"length": 12, "is_non_loopy": true, "symmetry": {"id": "C3"}} -- the same
 shape as the real docs/examples/symmetry.md "uncond_C5" example, just a
 smaller length for a fast/deterministic capture. No `input` PDB at all
-(see module docstring's F5 grounding in tt_bio/rfd3/featurize.py for why a
+(see module docstring's F5 grounding in tt_bio/rfd3_featurize.py for why a
 bare `length`-only spec never requires one).
 
 Reproduce the reference capture (CPU, no ckpt -- same method as
@@ -39,8 +39,8 @@ def pcc(a, b):
 
 def main():
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
-    from tt_bio.rfd3.featurize import featurize, _cyclic_frames
-    from tt_bio.rfd3.input import InputSpecification
+    from tt_bio.rfd3_featurize import featurize, _cyclic_frames
+    from tt_bio.rfd3_input import InputSpecification
     if not os.path.exists(REF_PT):
         print(f"SKIPPED: no reference capture at {REF_PT} (see module docstring to reproduce)")
         return

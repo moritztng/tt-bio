@@ -1,4 +1,4 @@
-"""Map every non-batch-invariant core_grid linear to its tt_bio/rfd3/model.py call site.
+"""Map every non-batch-invariant core_grid linear to its rfd3.py call site.
 
 Records (caller line, input shape, weight shape) for each core_grid linear in one
 real forward, then replays that shape at B=1 vs B=2/4/8/16 with identical data in
@@ -33,7 +33,7 @@ sites: dict[tuple, set] = defaultdict(set)
 def recording_linear(a, b, *args, **kw):
     if kw.get("core_grid") is not None:
         for fr in reversed(traceback.extract_stack()[:-1]):
-            if fr.filename.endswith("tt_bio/rfd3/model.py"):
+            if fr.filename.endswith("tt_bio/rfd3.py"):
                 sites[(fr.lineno, fr.name, fr.line.strip()[:52])].add(
                     (tuple(a.shape), tuple(b.shape)))
                 break
@@ -41,9 +41,9 @@ def recording_linear(a, b, *args, **kw):
 
 
 def forward(contig):
-    from tt_bio.rfd3.model import build_diffusion_module, build_token_initializer
-    from tt_bio.rfd3.featurize import featurize
-    from tt_bio.rfd3.input import InputSpecification
+    from tt_bio.rfd3 import build_diffusion_module, build_token_initializer
+    from tt_bio.rfd3_featurize import featurize
+    from tt_bio.rfd3_input import InputSpecification
 
     spec = InputSpecification.from_dict({"input": str(PDB), "contig": contig})
     spec.validate()

@@ -10,8 +10,8 @@ scRMSD (BoltzGen's paper bar: <2 A strict, <4 A permissive) means the
 sequence actually encodes the shape it was designed for = designable. A high
 one flags either a bad design or a device-fidelity problem in the fold.
 
-This check already runs *inside* the ``tt-bio design --model boltzgen``
-pipeline — it is not re-implemented here. The ``design_folding`` step (enabled by default for the
+This check already runs *inside* the ``tt-bio gen`` pipeline — it is not
+re-implemented here. The ``design_folding`` step (enabled by default for the
 ``protein-anything`` / ``protein-small_molecule`` protocols) refolds each
 design's sequence alone with the folding checkpoint
 (``boltz2_conf_final.ckpt`` — the Boltz-2-derived confidence model BoltzGen
@@ -38,7 +38,7 @@ Two modes:
     TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> \\
         python scripts/boltzgen_designability.py --num_designs 4
 
-    # score an already-completed design output dir (no device needed)
+    # score an already-completed gen output dir (no device needed)
     python scripts/boltzgen_designability.py --from-output ./binder
 
 Exit code is 0 unless ``--min-pass-rate`` is given and the fraction of
@@ -46,7 +46,6 @@ designs clearing ``--sc-threshold`` falls below it (gate mode).
 """
 
 import argparse
-import os
 import subprocess
 import sys
 import time
@@ -55,7 +54,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # The canonical design example: a de-novo protein binder against chain A of
 # 7ROA (examples/binder.yaml, protein-anything protocol). Small and fast — the
-# same target README documents for `tt-bio design --model boltzgen`.
+# same target README documents for `tt-bio gen run`.
 DEFAULT_SPEC = REPO_ROOT / "examples" / "binder.yaml"
 
 # BoltzGen's own designability bars (get_fold_metrics: designability_rmsd_2/_4).
@@ -71,23 +70,16 @@ SC_COLUMNS = [
 ]
 
 
-def _visible_device_ids() -> str:
-    """Physical card ids for the design run: the caller's TT_VISIBLE_DEVICES
-    pin (first entry), else card 0 — same convention as the UX/perf gates."""
-    return (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
-
-
-def _run_design(spec: Path, out: Path, num_designs: int, protocol: str,
-                devices: str | None, budget: int, reuse: bool,
-                diffusion_trace: bool = False) -> None:
-    """Drive `tt-bio design --model boltzgen` for one target. Reuses the shipping pipeline."""
+def _run_gen(spec: Path, out: Path, num_designs: int, protocol: str,
+             devices: int, budget: int, reuse: bool,
+             diffusion_trace: bool = False) -> None:
+    """Drive `tt-bio gen run` for one target. Reuses the shipping pipeline."""
     cmd = [
-        sys.executable, "-m", "tt_bio.main", "design", str(spec),
-        "--model", "boltzgen",
-        "--out_dir", str(out),
+        sys.executable, "-m", "tt_bio.main", "gen", "run", str(spec),
+        "--output", str(out),
         "--num_designs", str(num_designs),
         "--protocol", protocol,
-        "--devices", devices or _visible_device_ids(),
+        "--devices", str(devices),
         "--budget", str(budget),
     ]
     if reuse:
@@ -99,8 +91,8 @@ def _run_design(spec: Path, out: Path, num_designs: int, protocol: str,
     proc = subprocess.run(cmd, cwd=REPO_ROOT)
     dt = time.monotonic() - t0
     if proc.returncode != 0:
-        sys.exit(f"design run exited {proc.returncode} after {dt:.0f}s")
-    print(f"[designability] design run finished in {dt:.0f}s", flush=True)
+        sys.exit(f"gen run exited {proc.returncode} after {dt:.0f}s")
+    print(f"[designability] gen run finished in {dt:.0f}s", flush=True)
 
 
 def _find_metrics_csv(out: Path) -> Path:
@@ -181,22 +173,21 @@ def main() -> int:
     ap.add_argument("--spec", type=Path, default=DEFAULT_SPEC,
                     help="Design spec YAML (default: examples/binder.yaml).")
     ap.add_argument("--from-output", type=Path, default=None, metavar="DIR",
-                    help="Skip design; score an existing design output dir.")
+                    help="Skip design; score an existing gen output dir.")
     ap.add_argument("--output", type=Path, default=None, metavar="DIR",
-                    help="Where the design run writes (default: ./boltzgen_designability_<spec>).")
+                    help="Where gen run writes (default: ./boltzgen_designability_<spec>).")
     ap.add_argument("--num_designs", type=int, default=4)
     ap.add_argument("--protocol", default="protein-anything",
                     help="Only protein-anything / protein-small_molecule refold "
                          "the design in isolation (true scRMSD).")
-    ap.add_argument("--devices", type=str, default=None,
-                    help="Comma-separated physical card ids (default: the "
-                         "TT_VISIBLE_DEVICES pin, else card 0).")
+    ap.add_argument("--devices", type=int, default=1,
+                    help="Card count; pin the physical card with TT_VISIBLE_DEVICES.")
     ap.add_argument("--budget", type=int, default=8,
                     help="Designs kept after filtering (scoring reads the full set).")
     ap.add_argument("--reuse", action="store_true",
                     help="Resume/keep an existing partial run instead of restarting.")
     ap.add_argument("--diffusion_trace", action="store_true",
-                    help="Pass --diffusion_trace to the design run (ttnn trace replay of the "
+                    help="Pass --diffusion_trace to gen run (ttnn trace replay of the "
                     "diffusion DiT; lossless).")
     ap.add_argument("--sc-threshold", type=float, default=STRICT_A,
                     help=f"scRMSD pass bar in A (default {STRICT_A}).")
@@ -213,9 +204,9 @@ def main() -> int:
         if not args.spec.exists():
             sys.exit(f"missing spec {args.spec}")
         out = args.output or (REPO_ROOT / f"boltzgen_designability_{args.spec.stem}")
-        _run_design(args.spec, out, args.num_designs, args.protocol,
-                    args.devices, args.budget, args.reuse,
-                    getattr(args, "diffusion_trace", False))
+        _run_gen(args.spec, out, args.num_designs, args.protocol,
+                 args.devices, args.budget, args.reuse,
+                 getattr(args, "diffusion_trace", False))
 
     res = score(out, args.sc_threshold)
     report(res)

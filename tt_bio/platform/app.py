@@ -21,10 +21,9 @@ from .jobs import CapacityError, JobManager
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"  # built React app (npm run build output)
 _LANDING = _HERE / "landing"  # hand-crafted landing page for the apex domain
-# Hosts that get the landing page instead of the SPA. Dev preview ONLY for now
-# (Moritz 2026-08-02: not on apex until he greenlights the cutover) — apex, www,
-# demo.japanfold.com and api.japanfold.com all keep serving the SPA / API.
-_LANDING_HOSTS = frozenset({"landing.japanfold.com"})
+# Hosts that get the landing page instead of the SPA. demo.japanfold.com and
+# api.japanfold.com are deliberately absent: they keep serving the SPA / API.
+_LANDING_HOSTS = frozenset({"japanfold.com", "www.japanfold.com", "landing.japanfold.com"})
 
 # Anonymous per-visitor session. No login: the server mints an unguessable id in
 # an HttpOnly cookie on first contact and tags every job with it; a job is only
@@ -175,10 +174,10 @@ def create_app(workspace: str | os.PathLike | None = None, *,
     def spa(path: str = ""):
         if path.startswith("api/") or path.startswith("v1/"):
             return jsonify({"error": "not found"}), 404
-        # The landing page is a dev preview on landing.japanfold.com only;
-        # every other host (apex, www, demo, api) serves the interactive SPA.
-        # API paths above are identical on every host. Falls through to the
-        # SPA when no landing page is deployed (dev boxes, older checkouts).
+        # The apex domain shows the marketing landing page; the interactive
+        # demo SPA lives on demo.japanfold.com. API paths above are identical
+        # on every host. Falls through to the SPA when no landing page is
+        # deployed (dev boxes, older checkouts).
         host = request.host.partition(":")[0].lower()
         if host in _LANDING_HOSTS:
             candidate = _LANDING / path

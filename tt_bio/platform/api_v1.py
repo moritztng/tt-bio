@@ -344,15 +344,14 @@ def create_design():
         if not isinstance(contig, str) or not contig.strip():
             return _problem(400, "Invalid request", "Provide a 'contig' string.",
                             type_="https://japanfold.com/errors/invalid-input")
-        return _submit({"kind": "design", "model": body.get("model"), "protocol": protocol,
-                        "name": body.get("name"),
+        return _submit({"kind": "design", "protocol": protocol, "name": body.get("name"),
                         "structure": structure, "contig": contig,
                         "params": body.get("params") or {}})
     spec = body.get("spec") if isinstance(body.get("spec"), str) else body.get("input")
     if not isinstance(spec, str) or not spec.strip():
         return _problem(400, "Invalid request", "Provide a 'spec' (YAML design spec) string.",
                         type_="https://japanfold.com/errors/invalid-input")
-    return _submit({"kind": "design", "model": body.get("model"), "protocol": protocol,
+    return _submit({"kind": "design", "protocol": protocol,
                     "name": body.get("name"), "spec": spec, "params": body.get("params") or {}})
 
 

@@ -92,11 +92,7 @@ def build_spec(version: str) -> dict:
                 "responses": {"202": ok_job, **_problem_responses(400, 401, 429)}}},
             "/v1/designs": {"post": {
                 "tags": ["designs"], "operationId": "createDesign",
-                "summary": "Design binders/proteins against a target (BoltzGen or RFdiffusion3).",
-                "description": "The protocol picks the design model: the six boltzgen protocols "
-                               "take a `spec` (YAML); the rfd3-* protocols take `structure` + "
-                               "`contig`. An explicit `model` is optional but must match the "
-                               "protocol's model when given.",
+                "summary": "Design binders/proteins against a target (BoltzGen).",
                 "requestBody": json_body({"$ref": "#/components/schemas/DesignRequest"}),
                 "responses": {"202": ok_job, **_problem_responses(400, 401, 429)}}},
             "/v1/embeddings": {"post": {
@@ -190,9 +186,6 @@ def build_spec(version: str) -> dict:
                                "format (npz|parquet), fast."},
                 }},
                 "DesignRequest": {"type": "object", "properties": {
-                    "model": {"type": "string", "enum": ["boltzgen", "rfd3"],
-                              "description": "Design model. Optional — the protocol already implies "
-                              "it; when given, it must match (a mismatch is a 400)."},
                     "protocol": {"type": "string", "enum": ["protein-anything", "peptide-anything",
                                  "nanobody-anything", "antibody-anything", "protein-small_molecule",
                                  "protein-redesign", "rfd3-binder", "rfd3-scaffold", "rfd3-na-binder"]},

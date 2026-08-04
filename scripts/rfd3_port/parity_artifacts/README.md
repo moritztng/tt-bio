@@ -1,7 +1,7 @@
 # RFD3 featurizer value-parity artifacts (IAI protein motif-scaffold)
 
 This directory holds a **real reference `f` capture** used to value-gate the ported
-`tt_bio/rfd3/featurize.py` against the upstream RosettaCommons/foundry featurizer —
+`tt_bio/rfd3_featurize.py` against the upstream RosettaCommons/foundry featurizer —
 **without vast.ai**. The reference featurizer runs locally on CPU once the foundry
 package is installed, so the value gate no longer needs a rented GPU.
 
@@ -70,7 +70,7 @@ where `has_sequence` excludes protein under `generate_conformers_for_non_protein
 - `ref_atomwise_rasa`, `active_donor`, `active_acceptor` are all-zero in the
   default inference config (not computed).
 
-See `tt_bio/rfd3/featurize.py` module docstring for the full implementation and
+See `tt_bio/rfd3_featurize.py` module docstring for the full implementation and
 state §2l for the p12 writeup.
 
 ## F2/F8 nucleic-acid-binder case (p15)
@@ -86,7 +86,7 @@ state §2l for the p12 writeup.
 
 **Value-gate result (p15 — 42/43 keys bit-exact, both token- and atom-level).**
 The lone gap is `ref_pos` (real reference-conformer 3D geometry via RDKit/CCD
-embedding, not vendored — see `tt_bio/rfd3/featurize.py` module docstring);
+embedding, not vendored — see `tt_bio/rfd3_featurize.py` module docstring);
 `ref_mask`/`ref_element`/`ref_charge` (which unlike protein ARE filled for
 NA) are all bit-exact. DNA/RNA atoms keep real atom names verbatim (never
 V-slot-relabeled or padded — that's protein-only), use the base ring-center

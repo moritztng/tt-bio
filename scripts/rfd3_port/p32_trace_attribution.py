@@ -34,11 +34,11 @@ def main() -> None:
     args = ap.parse_args()
 
     import ttnn
-    import tt_bio.rfd3.model as R
+    import tt_bio.rfd3 as R
     import tt_bio.tenstorrent as TTd
-    from tt_bio.rfd3.featurize import featurize
-    from tt_bio.rfd3.input import InputSpecification
-    from tt_bio.rfd3.sampler import RFD3Sampler
+    from tt_bio.rfd3_featurize import featurize
+    from tt_bio.rfd3_input import InputSpecification
+    from tt_bio.rfd3_sampler import RFD3Sampler
 
     TTd.get_device(trace_region_size=1 << 30)
     acc = defaultdict(float)
