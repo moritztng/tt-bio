@@ -9,10 +9,10 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="canonical" href="https://japanfold.com/">
 <meta name="theme-color" content="#f6f6f7">
-<meta name="description" content="Structure prediction, binding affinity, de-novo design, and embeddings on Tenstorrent AI processors. 100% Japan-hosted, 1:1 accuracy parity with the GPU implementations, free demo API.">
+<meta name="description" content="Structure prediction, binding affinity, de-novo design and protein embeddings on Tenstorrent AI processors. 100% Japan-hosted, 1:1 accuracy parity with the GPU implementations. Use the web app, the free HTTP API, or the agent skill.">
 <meta property="og:title" content="JapanFold: High Throughput, Low Cost Drug Discovery">
 <meta property="og:site_name" content="JapanFold">
-<meta property="og:description" content="Structure prediction, binding affinity, de-novo design, and embeddings on Tenstorrent AI processors. 100% Japan-hosted, 1:1 accuracy parity with the GPU implementations, free demo API.">
+<meta property="og:description" content="Structure prediction, binding affinity, de-novo design and protein embeddings on Tenstorrent AI processors. 100% Japan-hosted, 1:1 accuracy parity with the GPU implementations. Use the web app, the free HTTP API, or the agent skill.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://japanfold.com/">
 <meta property="og:image" content="https://japanfold.com/apple-touch-icon.png">
@@ -76,12 +76,13 @@ a { color: inherit; text-decoration: none; }
 }
 /* Attribution line above the headline. No chrome (it read as a cheap badge), set
    apart by the left rule instead.
-   Logo sizing is driven by the WORDMARKS, measured off the rendered SVGs: the
-   lowercase x-height is 0.6975 of box height for ai& and 0.4875 for tenstorrent,
-   so 13.5px / 19.3px puts both wordmarks at the same optical size. tenstorrent's
-   cube also dips 0.1875 of box height BELOW its own letter baseline, which is why
-   vertical-align alone floated its text ~3px high; the top offset drops it back so
-   both wordmarks sit on the same baseline as the surrounding type. */
+   Logo sizing balances VISUAL MASS, not letter height: at equal box height the
+   tenstorrent wordmark is 1.8x wider than the ai& mark (562 vs 305 units), so
+   matching the two by height — or by lowercase x-height, which needs ai& smaller
+   still — leaves ai& looking like the junior partner. ai& is set to ~1.2x the
+   tenstorrent box height instead. The top offset on .tt is a baseline correction:
+   tenstorrent's cube dips below its own letter baseline, so vertical-align alone
+   floats its text high. Re-tune that offset whenever either height changes. */
 .powered-top {
   display: block;
   font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
@@ -116,9 +117,6 @@ h1 .hl-accent { color: var(--ink); box-shadow: inset 0 -0.07em 0 var(--muted-2);
 .lede { font-size: 17px; color: var(--ink-soft); max-width: 30em; margin-bottom: 36px; }
 .cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .cta-row .btn { font-size: 15px; padding: 14px 26px; }
-.cta-note { font-family: var(--mono); font-size: 12.5px; color: var(--muted-2); margin-top: 16px; }
-.cta-note a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
-.cta-note a:hover { color: var(--ink); text-decoration-color: var(--ink); }
 .hero-mark { display: flex; justify-content: center; align-items: center; }
 .hero-anim-wrap {
   position: relative;
@@ -185,21 +183,42 @@ h2 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 
 .model .name { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
 .model .gloss { font-size: 14px; color: var(--muted); }
 
-/* ---------- researchers ---------- */
-.dev {
+/* ---------- three ways in ----------
+   The product is one service reachable three ways, so the three get equal weight:
+   one card each, same shape, one destination each. Keeping them parallel is what
+   stops the API and the skill reading as the same thing. */
+.use { padding-top: 0; }
+.ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.way {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 56px;
-  display: flex; align-items: center; justify-content: space-between; gap: 40px;
+  border-radius: 12px; padding: 28px 26px 24px;
+  display: flex; flex-direction: column;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  /* Grid items default to min-width:auto, so the nowrap code line below would
+     force the whole track — and the page — wider than a phone viewport. */
+  min-width: 0;
 }
-.dev h2 { margin-bottom: 10px; }
-.dev p { color: var(--ink-soft); max-width: 32em; }
-.dev code {
-  font-family: var(--mono); font-size: 0.92em;
+.way:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.way-n {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
+  color: var(--muted-2); margin-bottom: 16px;
+}
+.way-name { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+.way p { font-size: 14.5px; color: var(--ink-soft); }
+.way code {
+  display: block; margin-top: 16px;
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft);
   background: var(--bg); border: 1px solid var(--border);
-  border-radius: 4px; padding: 1px 6px;
+  border-radius: 6px; padding: 9px 11px;
+  overflow-x: auto; white-space: nowrap; max-width: 100%;
 }
-.dev .actions { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
-.dev .actions .btn { font-size: 15px; padding: 12px 22px; justify-content: center; }
+/* Pinned to the bottom so the three calls-to-action line up across cards of
+   unequal body length. */
+.way-go {
+  margin-top: auto; padding-top: 22px;
+  font-size: 14.5px; font-weight: 600; color: var(--ink);
+}
+.way:hover .way-go { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------- bottom cta ---------- */
 .cta-band { text-align: center; padding: 96px 0; }
@@ -238,8 +257,9 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
   .figure { padding: 28px 0 32px; border-left: none; border-top: 1px solid var(--border); }
   .figure:first-child { border-top: none; }
   .models { grid-template-columns: 1fr 1fr; }
-  .dev { flex-direction: column; align-items: flex-start; padding: 36px; }
-  .dev .actions { flex-direction: row; flex-wrap: wrap; }
+  .ways { grid-template-columns: 1fr; }
+  .way { padding: 24px 22px 22px; }
+  .way-go { padding-top: 18px; }
 }
 @media (max-width: 560px) {
   .wrap { padding: 0 20px; }
@@ -259,9 +279,10 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
     <span class="brand">Japan<span class="fold">Fold</span></span>
   </a>
   <nav class="nav">
+    <a class="plain" href="https://demo.japanfold.com">Web app</a>
+    <a class="plain" href="https://docs.japanfold.com">API</a>
+    <a class="plain" href="https://docs.japanfold.com/skill/">Skill</a>
     <a class="plain" href="#models">Models</a>
-    <a class="plain" href="#researchers">Researchers</a>
-    <a class="plain" href="https://docs.japanfold.com">Docs</a>
     <a class="btn btn-ghost" href="https://aiand.com/contact">Contact us</a>
   </nav>
 </header>
@@ -282,29 +303,59 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
         <span class="hl-line"><span class="hl-word hl-accent">Low Cost</span></span>
         <span class="hl-line"><span class="hl-word">Drug Discovery</span></span>
       </h1>
-      <p class="lede">Structure prediction, binding affinity, de-novo design, and embeddings &mdash; over one HTTP API, or as a skill your agent calls.</p>
+      <p class="lede">Structure prediction, binding affinity, de-novo design, and protein
+        embeddings. Every model, free to use.</p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="https://demo.japanfold.com">Start free demo &rarr;</a>
+        <a class="btn btn-primary" href="https://demo.japanfold.com">Open the web app &rarr;</a>
         <a class="btn btn-ghost" href="https://aiand.com/contact">Contact us</a>
       </div>
-      <p class="cta-note">Free to test &middot; no key required &middot;
-        <a href="https://docs.japanfold.com">API docs</a> &middot;
-        <a href="https://github.com/moritztng/japanfold">Agent skill</a></p>
     </div>
     <div class="hero-mark" aria-hidden="true">
       <div class="hero-anim-wrap">
-        <video class="hero-anim" autoplay loop muted playsinline poster="/assets/hero-animation-v5-poster.png">
-          <source src="/assets/hero-animation-v5.webm" type="video/webm">
-          <img src="/assets/hero-animation-v5-poster.png" alt="Biomolecular structure co-folding animation">
+        <video class="hero-anim" autoplay loop muted playsinline poster="/assets/hero-animation-v3-poster.png">
+          <source src="/assets/hero-animation-v3.webm" type="video/webm">
+          <img src="/assets/hero-animation-v3-poster.png" alt="Biomolecular structure co-folding animation">
         </video>
       </div>
     </div>
   </div>
 
+  <section id="use" class="use">
+    <div class="sec-head">
+      <p class="eyebrow">Three ways to use it</p>
+      <h2>Point and click, call the API, or let your agent do it.</h2>
+    </div>
+    <div class="ways">
+      <a class="way" href="https://demo.japanfold.com">
+        <span class="way-n">01</span>
+        <span class="way-name">Web app</span>
+        <p>Fold, design and inspect structures in the browser. Nothing to
+          install, no signup.</p>
+        <span class="way-go">Try it in the browser &rarr;</span>
+      </a>
+      <a class="way" href="https://docs.japanfold.com">
+        <span class="way-n">02</span>
+        <span class="way-name">API</span>
+        <p>One HTTP endpoint for every model. Anything that speaks JSON &mdash; curl,
+          Python, your pipeline.</p>
+        <code>POST api.japanfold.com/v1/predictions</code>
+        <span class="way-go">Read the API docs &rarr;</span>
+      </a>
+      <a class="way" href="https://docs.japanfold.com/skill/">
+        <span class="way-n">03</span>
+        <span class="way-name">Agent skill</span>
+        <p>Ask in plain language instead of writing calls. Claude Code, Cursor, Codex,
+          Gemini CLI and more.</p>
+        <code>npx skills add moritztng/japanfold</code>
+        <span class="way-go">Install the skill &rarr;</span>
+      </a>
+    </div>
+  </section>
+
   <div class="figures">
     <div class="figure">
       <span class="num">&yen;0</span>
-      <p><a href="https://github.com/moritztng/japanfold">Free demo API</a>, no key.</p>
+      <p>Free to use. No key required.</p>
     </div>
     <div class="figure">
       <span class="num">100%</span>
@@ -342,24 +393,9 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
     </div>
   </section>
 
-  <section id="researchers" style="padding-top:0;">
-    <div class="dev">
-      <div>
-        <p class="eyebrow">Researchers &amp; agents</p>
-        <h2>One skill, any harness.</h2>
-        <p>The <code>japanfold</code> skill works with Claude Code, Codex, Cursor, or plain
-          curl. The API is free and needs no key.</p>
-      </div>
-      <div class="actions">
-        <a class="btn btn-primary" href="https://github.com/moritztng/japanfold">Get the skill</a>
-        <a class="btn btn-ghost" href="https://docs.japanfold.com">Read the docs</a>
-      </div>
-    </div>
-  </section>
-
   <div class="cta-band">
-    <h2>See it fold. Free, no signup.</h2>
-    <a class="btn btn-primary" href="https://demo.japanfold.com">Start free demo &rarr;</a>
+    <h2>See it fold.</h2>
+    <a class="btn btn-primary" href="https://demo.japanfold.com">Open the web app &rarr;</a>
   </div>
 
 </main>
@@ -374,9 +410,9 @@ footer { border-top: 1px solid var(--border); padding: 36px 0 44px; }
       AI processors
     </span>
     <span class="links">
-      <a href="https://demo.japanfold.com">Demo</a>
-      <a href="https://docs.japanfold.com">Docs</a>
-      <a href="https://github.com/moritztng/japanfold">Skill</a>
+      <a href="https://demo.japanfold.com">Web app</a>
+      <a href="https://docs.japanfold.com">API</a>
+      <a href="https://docs.japanfold.com/skill/">Skill</a>
       <a href="https://aiand.com/contact">Contact</a>
     </span>
   </div>
