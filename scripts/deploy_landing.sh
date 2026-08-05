@@ -42,6 +42,18 @@ SITE="$TMP/site"
 mv "$TMP/$LANDING_DIR" "$SITE"
 echo landing.japanfold.com > "$SITE/CNAME"
 touch "$SITE/.nojekyll"
+# Written on every deploy so the rsync --delete below never wipes it.
+cat > "$SITE/README.md" <<'EOF'
+# japanfold-landing
+
+The JapanFold landing page as a static bundle, served at https://landing.japanfold.com from GitHub Pages.
+
+Source of truth is `tt_bio/platform/landing/` in [aiand-bio](https://github.com/moritztng/aiand-bio) (branch `aiand-bio-platform`). Do not edit this repo directly.
+
+Deploy (from an aiand-bio checkout): `scripts/deploy_landing.sh` — syncs the landing bundle at HEAD plus the CNAME here and pushes.
+
+Rollback: point the `landing.japanfold.com` CNAME back to `e3d9384a-ade9-4198-bc17-ebc087bd7168.cfargotunnel.com` (proxied). The platform still serves the page through the tunnel, so recovery is one DNS call.
+EOF
 
 # Gates: no secrets, and every local reference in index.html exists in the bundle.
 if find "$SITE" -type f \( -name '*.env' -o -name '*.jsonl' -o -name '*.pem' -o -name '*token*' \) | grep -q .; then
@@ -64,7 +76,7 @@ git clone --quiet "https://github.com/$DEST_REPO" "$TMP/repo" 2>/dev/null || {
     # First deploy against an empty repo: clone warns, that's fine.
     git clone "https://github.com/$DEST_REPO" "$TMP/repo"
 }
-rsync -a --delete --exclude=.git --exclude=README.md "$SITE/" "$TMP/repo/"
+rsync -a --delete --exclude=.git "$SITE/" "$TMP/repo/"
 
 cd "$TMP/repo"
 if [ -z "$(git status --porcelain)" ]; then
