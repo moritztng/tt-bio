@@ -25,6 +25,16 @@ while true; do
 done
 
 echo "$(date -Is) sentinel seen; waiting up to 900s for the primary to fire" >> "$LOG"
+
+# Reap leaked spawn_main orphans (pass-239 leak class: timeout TERM-kills the fold
+# main at the 21600s cap; its spawn grandchild reparents to pid 1 and keeps holding
+# the chip) BEFORE any prod-worker spawn leg fires, so prod never collides with a
+# held devnode. ppid=1 + spawn_main filter only matches dead folds' grandchildren;
+# kill -9 because they ignore TERM. Idempotent and safe post-sentinel (all p27 fold
+# mains are dead by definition of P27_DONE).
+$SSH 'PIDS=$(ps -eo pid,ppid,cmd | grep spawn_main | grep -v grep | awk "\$2==1 {print \$1}"); [ -n "$PIDS" ] && { echo "$PIDS" | while read -r P; do kill -9 "$P" 2>/dev/null && echo "reaped $P"; done; }; exit 0' >> "$LOG" 2>&1
+echo "$(date -Is) orphan reap leg done (remote rc=$?)" >> "$LOG"
+
 for _ in 1 2 3 4 5 6 7 8 9; do
   sleep 100
   if $SSH 'pgrep -f "tt-bio worker --connect" > /dev/null' 2>/dev/null; then
