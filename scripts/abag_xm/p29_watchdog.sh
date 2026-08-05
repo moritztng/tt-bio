@@ -17,7 +17,7 @@ while true; do
     break
   fi
   if [ $(date +%s) -gt $DEADLINE ]; then
-    pgrep -f "abag_x\[m\]" > /dev/null || break   # deadline + no folds alive -> safe
+    pgrep -f "abag_x[m]" > /dev/null || break   # deadline + no folds alive -> safe
   fi
 done
 setsid nohup $HOME/mthuening/tt-bio/env/bin/tt-bio worker --connect http://127.0.0.1:8770 --accelerator tenstorrent >> $HOME/mthuening/prod_worker_restore.log 2>&1 &
