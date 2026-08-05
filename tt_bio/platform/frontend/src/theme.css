@@ -64,9 +64,11 @@ code, pre { font-family: var(--mono); }
   background: var(--surface);
 }
 .wordmark { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-.wordmark .brand-mark { height: 26px; width: auto; display: block; }
+/* Lockup one notch up from the original 26px/19px (Moritz 2026-08-05): mark and
+   wordmark move together so the header logo keeps its proportions. */
+.wordmark .brand-mark { height: 28.5px; width: auto; display: block; }
 .wordmark .brand-name {
-  color: var(--ink); font-weight: 600; font-size: 19px; letter-spacing: -0.015em;
+  color: var(--ink); font-weight: 600; font-size: 20.5px; letter-spacing: -0.015em;
   line-height: 1;
 }
 .wordmark .brand-name .fold { color: var(--accent); }
@@ -422,8 +424,8 @@ pre.log {
   }
   .nav-toggle:hover { border-color: var(--muted-2); }
   .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--ink); border-radius: 2px; }
-  .wordmark .brand-mark { height: 23px; }
-  .wordmark .brand-name { font-size: 17px; }
+  .wordmark .brand-mark { height: 25.5px; }
+  .wordmark .brand-name { font-size: 18.5px; }
 
   /* job-list sidebar -> slide-in drawer over the content area (not the header) */
   .main { position: relative; }
