@@ -2,7 +2,7 @@
 # Optional convenience installer for the `japanfold` CLI.
 # The primary install is just:  pipx install japanfold   (or: pip install japanfold)
 # This wrapper only picks pipx-vs-pip for you. The CLI is optional — agents use
-# the skill (github.com/moritztng/japanfold), which needs no CLI.
+# the skill (github.com/japanfold/japanfold), which needs no CLI.
 #
 # Installs the dependency-free `japanfold` CLI. Prefers pipx (isolated), falls
 # back to `pip install --user`. Set JAPANFOLD_CLI_SOURCE to install from a local

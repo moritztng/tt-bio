@@ -14,8 +14,8 @@ One line installs it everywhere the open standard is supported — **Claude Code
 Cursor, Codex, Gemini CLI, Cline, Windsurf, Copilot, Amp, and 60+ more**:
 
 ```bash
-npx skills add moritztng/japanfold          # this project
-npx skills add moritztng/japanfold -g       # global: every project / new chat
+npx skills add japanfold/japanfold          # this project
+npx skills add japanfold/japanfold -g       # global: every project / new chat
 ```
 
 - Target specific agents: `-a claude-code`, `-a cursor`, `-a codex`, `-a '*'` (all).

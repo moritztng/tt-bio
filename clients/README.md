@@ -60,13 +60,13 @@ and exit codes let an agent branch on the failure mode without parsing text:
 ## 2. The agent skill (Claude Code, Claude Science, …)
 
 One self-contained skill teaches any agent to drive the public API — no CLI, no
-key. It's published at **[github.com/moritztng/japanfold](https://github.com/moritztng/japanfold)**
+key. It's published at **[github.com/japanfold/japanfold](https://github.com/japanfold/japanfold)**
 (source of truth: [`skill/SKILL.md`](skill/SKILL.md)).
 
 **Claude Code (and Cursor, Codex, +70 agents) — one command:**
 
 ```bash
-npx skills add moritztng/japanfold
+npx skills add japanfold/japanfold
 ```
 
 **Claude Science:** either
@@ -74,7 +74,7 @@ npx skills add moritztng/japanfold
   fold this sequence …"* (it's public + self-describing at `/v1/openapi.json`;
   approve the network host when prompted), or
 - *install for repeat use* — add via **Customize → Skills** (paste `SKILL.md` or
-  point at `github.com/moritztng/japanfold`) and **publish** it. Claude Science
+  point at `github.com/japanfold/japanfold`) and **publish** it. Claude Science
   requires only `name` + `description` in the frontmatter (both present); a
   skill stays a *draft* — invisible to `search_skills`/`skill()` — until you
   publish it, so don't skip that step. `allowed-tools` is a Claude Code field

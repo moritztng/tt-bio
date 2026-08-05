@@ -1,7 +1,7 @@
 # The JapanFold skill
 
 Prefer to fold and design straight from your AI agent instead of writing HTTP
-calls? Install the **JapanFold skill** — a single [`SKILL.md`](https://github.com/moritztng/japanfold/blob/master/SKILL.md)
+calls? Install the **JapanFold skill** — a single [`SKILL.md`](https://github.com/japanfold/japanfold/blob/master/SKILL.md)
 built on the open [Agent Skills](https://agentskills.io) standard. It teaches
 your agent the API so you can just ask, in plain language, to fold or design.
 
@@ -11,8 +11,8 @@ One line installs it into any compatible harness (Claude Code, Cursor, Codex,
 Gemini CLI, Cline, Windsurf, Copilot, Amp, and more):
 
 ```bash
-npx skills add moritztng/japanfold          # this project
-npx skills add moritztng/japanfold -g       # global: every project / new chat
+npx skills add japanfold/japanfold          # this project
+npx skills add japanfold/japanfold -g       # global: every project / new chat
 ```
 
 - Target specific agents: `-a claude-code`, `-a cursor`, `-a codex`, `-a '*'` (all).
@@ -24,7 +24,7 @@ npx skills add moritztng/japanfold -g       # global: every project / new chat
 Install it as a managed plugin (auto-updates via `/plugin marketplace update`):
 
 ```bash
-claude plugin marketplace add moritztng/japanfold
+claude plugin marketplace add japanfold/japanfold
 claude plugin install japanfold@japanfold
 ```
 
@@ -33,7 +33,7 @@ Restart Claude Code, then just ask it to fold or design.
 ### Claude Science
 
 Manage skills in-app — no installer. **Customize → Skills**, add from the
-[repo](https://github.com/moritztng/japanfold) (or paste `SKILL.md`), and
+[repo](https://github.com/japanfold/japanfold) (or paste `SKILL.md`), and
 **publish**. If egress is sandboxed, approve the host `api.japanfold.com`.
 
 ## Use
