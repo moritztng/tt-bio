@@ -46,9 +46,12 @@
 # abag_xm/ -- never a full `git archive` re-extract of $SRC, which refreshes every mtime
 # and trips the link gate (safe, but re-folds ~600 card-h).
 #
-# Launch procedure (maintenance window): acquire galaxy_device_lock, maint-deploy, run
-# this script detached, then arm p28_watchdog.sh by absolute path and READ ITS LOG for
-# the "armed" line before ending the pass (p27 lesson).
+# Launch procedure (pass-188 pattern -- NO maintenance-mode deploy): acquire
+# galaxy_device_lock, stop ONLY the prod fold-worker tree (the spawn_main worker under
+# tt-bio serve; web tier + SSH stay up -- NEVER touch japanfold.service or cloudflared),
+# run this script detached, then arm p28_watchdog.sh by absolute path and READ ITS LOG
+# for the respawn line before ending the pass (p27 lesson). Watchdog respawns the prod
+# worker at P28_DONE; no service restart, landing/SSH never blip.
 #
 # Every attempt appends one JSON record to results.jsonl. DONE_CHECK convention: no
 # literal percent strings in logs.

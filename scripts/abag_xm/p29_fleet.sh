@@ -28,9 +28,12 @@
 # DEPLOY DISCIPLINE: single-file scp into $SRC/scripts/abag_xm/ -- never a full re-extract
 # of $SRC (refreshes every mtime and trips the link gate).
 #
-# Launch procedure (maintenance window): acquire galaxy_device_lock, maint-deploy, run
-# this script detached, then arm p29_watchdog.sh by absolute path and READ ITS LOG for
-# the "armed" line before ending the pass (p27 lesson).
+# Launch procedure (pass-188 pattern -- NO maintenance-mode deploy): acquire
+# galaxy_device_lock, stop ONLY the prod fold-worker tree (the spawn_main worker under
+# tt-bio serve; web tier + SSH stay up -- NEVER touch japanfold.service or cloudflared),
+# run this script detached, then arm p29_watchdog.sh by absolute path and READ ITS LOG
+# for the respawn line before ending the pass (p27 lesson). Watchdog respawns the prod
+# worker at P29_DONE; no service restart, landing/SSH never blip.
 #
 # Every attempt appends one JSON record to results.jsonl. DONE_CHECK convention: no
 # literal percent strings in logs.
