@@ -52,7 +52,12 @@ def create_app(workspace: str | os.PathLike | None = None, *,
                          msa_db_path=msa_db_path, msa_mode=msa_mode)
 
     app = Flask(__name__, static_folder=None)
-    CORS(app)  # allow the Vite dev server to reach the API in development
+    # Wildcard so the Vite dev server can reach the API in development — except
+    # the contact route, the only one the static landing CDN calls cross-origin,
+    # which gets an explicit allowlist. flask_cors sorts resource patterns by
+    # length, so the /api/contact entry wins over the wildcard.
+    CORS(app, resources={r"/api/contact": {"origins": sorted(contact.ALLOWED_ORIGINS)},
+                         r"/*": {"origins": "*"}})
     app.config["manager"] = manager
     app.config["cluster"] = cluster
     # Cap request bodies: the demo limits keep real inputs tiny (≤10 small

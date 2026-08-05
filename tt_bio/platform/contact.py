@@ -52,6 +52,15 @@ _DEFAULT_CC = "moritz.thuening@gmail.com"
 _DEFAULT_NOTIFY_CMD = "/home/cust-team/.japanfold-agent/notify.sh"
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# Origins allowed to call this endpoint cross-origin: the CDN-served static
+# landing page plus the Flask-served hosts. Wired into flask_cors in app.py —
+# an allowlist, never '*', and no credentials (the form sends none).
+ALLOWED_ORIGINS = frozenset({
+    "https://landing.japanfold.com",
+    "https://japanfold.com",
+    "https://www.japanfold.com",
+})
+
 _ENV_KEYS = (
     "CONTACT_TO", "CONTACT_CC", "CONTACT_FROM",
     "CONTACT_SMTP_HOST", "CONTACT_SMTP_PORT", "CONTACT_SMTP_USER",

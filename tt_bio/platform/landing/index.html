@@ -486,7 +486,7 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
     btn.disabled = true;
     status.textContent = 'Sending…';
     status.className = 'form-status';
-    fetch('/api/contact', {
+    fetch('https://api.japanfold.com/api/contact', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
