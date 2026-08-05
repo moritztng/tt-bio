@@ -256,6 +256,31 @@ side is compared against a fixture generated on a different machine. So the resi
 cross-host floor at ~0.1 Å on a 117-residue target, not a Wormhole port defect. It has not been
 driven under the bound; no fp32-boundary lever has been tried for it yet.
 
+## Measurement bounds and non-gated variants
+
+Two facts a skeptical reader should have that do not appear as a verdict row
+above. Both are recorded here because this doc, not the public JapanFold
+accuracy page, is where the full detail belongs.
+
+**BoltzGen designability carries a sampling bound.** The leg is n=16 per side
+(two batches of 8, `docs/implementation-parity-data/boltzgen.json`), and the
+reference's own two batches are 12.5 points apart on the ≤2 Å bar (batch_a 75%,
+batch_b 62.5%). So part of the 93.75%-vs-68.75% margin is sampling noise, not
+port quality. What the leg establishes is the direction, and the direction holds
+across both batch pairings: device median scRMSD 0.78 Å vs reference 1.05 Å, and
+device pass-rate on the favorable side of the reference's spread in every
+pairing. BoltzGen designs new sequences, so there is no 1:1 correspondence to
+score — parity is in the designability distribution, not a per-design RMSD.
+
+**SaProt-1.3B is served but is not a clean PASS.** On ubiquitin (L76) it measures
+per-residue embedding PCC 0.995076 and MLM-logits PCC 0.998952 (R = D = 1.00000,
+deterministic), which lands just below the 0.9987–0.9996 band the 35M and 650M
+variants hit, so `docs/saprot-parity.md` records it as a near-pass and claims no
+PASS row. The residual tracks depth rather than a port defect: 1.3B is the 650M
+width at twice the layers (66 vs 33), so it accumulates about twice the bf16
+rounding. It has no leg in `full_parity_gate.py` and is therefore absent from
+the tally above; the 650M leg is the gated SaProt path.
+
 ## Reproduce
 
 Each leg's reproduce command is in [Implementation parity — details](implementation-parity-details.md#reproducing-a-comparison).
