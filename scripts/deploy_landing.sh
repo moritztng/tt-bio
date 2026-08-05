@@ -1,20 +1,48 @@
 #!/usr/bin/env bash
-# Deploy the JapanFold landing page to GitHub Pages (moritztng/japanfold-landing,
+# Deploy the JapanFold landing page to Cloudflare Pages (project japanfold-landing,
 # served as https://landing.japanfold.com).
 #
-# Ships tt_bio/platform/landing/ at the HEAD of this branch — never a dirty
-# tree — plus a CNAME file. Idempotent: a no-change run pushes nothing.
+# Direct upload: only the built bytes are published, never the source. This repo is
+# the single source of truth for the page — there is no mirror repo to keep in sync.
 #
-# One-time setup (already done): create the public repo, then
-#   gh api repos/moritztng/japanfold-landing/pages -X POST -f "source[branch]=main" -f "source[path]=/"
-# Rollback: point the landing.japanfold.com CNAME back to
-#   e3d9384a-ade9-4198-bc17-ebc087bd7168.cfargotunnel.com (proxied); Flask still
-#   serves the page unchanged.
+# Ships tt_bio/platform/landing/ exactly as committed on the canonical branch (git
+# archive, so never a dirty tree), plus a _headers file that marks the versioned
+# assets immutable.
+#
+# Usage:
+#   scripts/deploy_landing.sh                      production -> landing.japanfold.com
+#   scripts/deploy_landing.sh --preview            preview -> a *.pages.dev URL, no traffic
+#   scripts/deploy_landing.sh --allow-low-quality-hero    ship a hero below the bitrate floor
+#
+# Credentials: CLOUDFLARE_API_TOKEN (needs Pages:Edit) and CLOUDFLARE_ACCOUNT_ID,
+# from the environment or ~/.coworker/cloudflare.env.
+#
+# One-time setup (already done): the japanfold-landing Pages project with production
+# branch aiand-bio-platform, and landing.japanfold.com attached to it as a custom
+# domain.
+#
+# Rollback, in order of preference:
+#   1. Cloudflare dashboard > Workers & Pages > japanfold-landing > Deployments >
+#      "Rollback to this deployment". Instant, and every past deploy is kept.
+#   2. If Pages itself is the problem: point the landing.japanfold.com CNAME back at
+#      e3d9384a-ade9-4198-bc17-ebc087bd7168.cfargotunnel.com (proxied). The platform
+#      serves this same page through the tunnel, so recovery is one DNS call.
 set -euo pipefail
 
 BRANCH=aiand-bio-platform
 LANDING_DIR=tt_bio/platform/landing
-DEST_REPO=moritztng/japanfold-landing
+PROJECT=japanfold-landing
+WRANGLER=wrangler@4
+
+PREVIEW=0
+ALLOW_LOW_HERO=0
+for arg in "$@"; do
+    case "$arg" in
+        --preview)                PREVIEW=1 ;;
+        --allow-low-quality-hero) ALLOW_LOW_HERO=1 ;;
+        *) echo "unknown argument: $arg" >&2; exit 2 ;;
+    esac
+done
 
 cd "$(dirname "$0")/.."
 
@@ -22,37 +50,41 @@ if [ -n "$(git status --porcelain -- "$LANDING_DIR")" ]; then
     echo "refusing: $LANDING_DIR has uncommitted changes" >&2
     exit 1
 fi
+# Deploys ship reviewed bytes: the landing tree at HEAD must be identical to the one
+# on the canonical branch. A worker branch may deploy (it often carries unrelated
+# commits), but a landing change has to be merged and pushed first.
 git fetch --quiet origin "$BRANCH"
-if [ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$BRANCH")" ]; then
-    echo "refusing: HEAD != origin/$BRANCH — pull first, deploys must match the pushed branch" >&2
-    exit 1
-fi
-if [ "$(git config user.email)" != "moritz.thuening@gmail.com" ]; then
-    echo "refusing: git identity is not moritztng" >&2
+if [ -n "$(git diff --name-only "origin/$BRANCH" HEAD -- "$LANDING_DIR")" ]; then
+    echo "refusing: $LANDING_DIR differs from origin/$BRANCH — merge and push the landing change first" >&2
+    git diff --stat "origin/$BRANCH" HEAD -- "$LANDING_DIR" >&2
     exit 1
 fi
 SHA=$(git rev-parse --short HEAD)
 
+if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] && [ -f "$HOME/.coworker/cloudflare.env" ]; then
+    set -a; . "$HOME/.coworker/cloudflare.env"; set +a
+fi
+if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+    echo "refusing: CLOUDFLARE_API_TOKEN (Pages:Edit) and CLOUDFLARE_ACCOUNT_ID must be set" >&2
+    exit 1
+fi
+export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
+
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# Bundle = landing/ at HEAD (git archive: committed bytes only) + CNAME.
+# Bundle = landing/ at HEAD (git archive: committed bytes only).
 git archive HEAD "$LANDING_DIR" | tar -x -C "$TMP"
 SITE="$TMP/site"
 mv "$TMP/$LANDING_DIR" "$SITE"
-echo landing.japanfold.com > "$SITE/CNAME"
-touch "$SITE/.nojekyll"
-# Written on every deploy so the rsync --delete below never wipes it.
-cat > "$SITE/README.md" <<'EOF'
-# japanfold-landing
+# Asset filenames are versioned and never reused (a re-encode under an existing name
+# serves the old cached bytes), so they can be cached forever. The HTML must not be.
+cat > "$SITE/_headers" <<'EOF'
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
 
-The JapanFold landing page as a static bundle, served at https://landing.japanfold.com from GitHub Pages.
-
-Source of truth is `tt_bio/platform/landing/` in [aiand-bio](https://github.com/moritztng/aiand-bio) (branch `aiand-bio-platform`). Do not edit this repo directly.
-
-Deploy (from an aiand-bio checkout): `scripts/deploy_landing.sh` — syncs the landing bundle at HEAD plus the CNAME here and pushes.
-
-Rollback: point the `landing.japanfold.com` CNAME back to `e3d9384a-ade9-4198-bc17-ebc087bd7168.cfargotunnel.com` (proxied). The platform still serves the page through the tunnel, so recovery is one DNS call.
+/*.html
+  Cache-Control: public, max-age=300, must-revalidate
 EOF
 
 # Gates: no secrets, and every local reference in index.html exists in the bundle.
@@ -72,14 +104,14 @@ if missing:
 print(f"asset gate: {len(refs)} local references, all present")
 PY
 
-# Hero quality floor: every <source> of the hero video must probe at or above
-# the approved encode's bitrate per pixel. A "hosting efficiency" re-encode
-# once cut the hero to a third of its bitrate and shipped silently; this gate
-# makes a degraded hero a deliberate act — pass --allow-low-quality-hero to
-# override. The floor is 1800 kbps at the 1440px desktop size and scales with
-# pixel area, so the phone-sized variants are held to the same bits-per-pixel
-# bar, not to a bitrate sized for four times their pixels.
-if [ "${1:-}" != "--allow-low-quality-hero" ]; then
+# Hero quality floor: every <source> of the hero video must probe at or above the
+# approved encode's bitrate per pixel. A "hosting efficiency" re-encode once cut the
+# hero to a third of its bitrate and shipped silently; this gate makes a degraded hero
+# a deliberate act — pass --allow-low-quality-hero to override. The floor is 1800 kbps
+# at the 1440px desktop size and scales with pixel area, so the phone-sized variants
+# are held to the same bits-per-pixel bar, not to a bitrate sized for four times their
+# pixels.
+if [ "$ALLOW_LOW_HERO" = 0 ]; then
 python3 - "$SITE" <<'PY'
 import json, re, subprocess, sys, pathlib
 site = pathlib.Path(sys.argv[1])
@@ -112,18 +144,17 @@ print(f"hero quality gate: {len(srcs)} sources, all at or above the "
 PY
 fi
 
-git clone --quiet "https://github.com/$DEST_REPO" "$TMP/repo" 2>/dev/null || {
-    # First deploy against an empty repo: clone warns, that's fine.
-    git clone "https://github.com/$DEST_REPO" "$TMP/repo"
-}
-rsync -a --delete --exclude=.git "$SITE/" "$TMP/repo/"
-
-cd "$TMP/repo"
-if [ -z "$(git status --porcelain)" ]; then
-    echo "already up to date with $BRANCH@$SHA"
-    exit 0
+# Cloudflare Pages routes a deploy to production when its --branch is the project's
+# production branch; any other branch is a preview on its own *.pages.dev URL.
+if [ "$PREVIEW" = 1 ]; then
+    TARGET="preview-$(git rev-parse --abbrev-ref HEAD | tr -c 'a-zA-Z0-9._-' '-')"
+else
+    TARGET="$BRANCH"
 fi
-git add -A
-git commit --quiet -m "deploy: landing from aiand-bio $BRANCH@$SHA"
-git push --quiet origin HEAD
-echo "deployed $BRANCH@$SHA -> github.com/$DEST_REPO"
+npx --yes "$WRANGLER" pages deploy "$SITE" \
+    --project-name "$PROJECT" \
+    --branch "$TARGET" \
+    --commit-hash "$(git rev-parse HEAD)" \
+    --commit-message "landing from $BRANCH@$SHA" \
+    --commit-dirty=true
+echo "deployed $BRANCH@$SHA -> Cloudflare Pages $PROJECT (branch $TARGET)"

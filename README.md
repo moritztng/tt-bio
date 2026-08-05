@@ -12,6 +12,18 @@
 
 TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#boltzgen) and [RFdiffusion3](#rfdiffusion3) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
+## Where this repo sits
+
+JapanFold is three repositories with one boundary between open and closed:
+
+| Layer | Repository | Contents |
+|---|---|---|
+| Engine, open | [`moritztng/tt-bio`](https://github.com/moritztng/tt-bio) | The models and CLI this repo is built on. |
+| Interface, open | [`japanfold/japanfold`](https://github.com/japanfold/japanfold) | Agent skill, REST clients, and the docs site at [docs.japanfold.com](https://docs.japanfold.com/). |
+| Product, closed | `japanfold/platform` (this repo) | The hosted service: API, web app, job scheduler, landing page source. |
+
+Anything a user needs in order to call the service is open. The service itself is not. A new JapanFold repository has to fit one of these three layers, and the landing page has exactly one source of truth: `tt_bio/platform/landing/` here, deployed to Cloudflare Pages by [`scripts/deploy_landing.sh`](scripts/deploy_landing.sh).
+
 ## Accuracy
 
 Every model TT-Bio serves is validated against its official reference implementation on the same input and reproduces it within that reference's own run-to-run noise. See [`docs/implementation-parity.md`](docs/implementation-parity.md) for the methodology, per-target results, and reproduction commands.
