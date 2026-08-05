@@ -24,6 +24,8 @@ JapanFold is three repositories with one boundary between open and closed:
 
 Anything a user needs in order to call the service is open. The service itself is not. A new JapanFold repository has to fit one of these three layers, and the landing page has exactly one source of truth: `tt_bio/platform/landing/` here, deployed to Cloudflare Pages by [`scripts/deploy_landing.sh`](scripts/deploy_landing.sh).
 
+In production, [japanfold.com](https://japanfold.com/) serves that landing page from Cloudflare Pages, the web app runs at [demo.japanfold.com](https://demo.japanfold.com/), and the published API base is `https://api.japanfold.com/v1`. Only the app and the API are served from the Galaxy. See [`docs/galaxy-deployment.md`](docs/galaxy-deployment.md) for the full hostname map.
+
 ## Accuracy
 
 Every model TT-Bio serves is validated against its official reference implementation on the same input and reproduces it within that reference's own run-to-run noise. See [`docs/implementation-parity.md`](docs/implementation-parity.md) for the methodology, per-target results, and reproduction commands.
