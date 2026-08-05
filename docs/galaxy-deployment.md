@@ -5,9 +5,23 @@ on-box artifacts. The authoritative short version lives on the box at
 `~/.japanfold-agent/RUNBOOK.md`.
 
 JapanFold = the `aiand-bio` platform ("ai& Bio" / tt-bio serve) rebranded and put
-into public production at **https://japanfold.com**. It is presented as its own
-product ("Sovereign compute in Japan"); ai& and Tenstorrent appear only as a
-"Powered by ai& on Tenstorrent AI processors" credit.
+into public production. It is presented as its own product ("Sovereign compute in
+Japan"); ai& and Tenstorrent appear only as a "Powered by ai& on Tenstorrent AI
+processors" credit.
+
+Public hostnames, since the apex cutover on 2026-08-05:
+
+| hostname | serves | origin |
+|---|---|---|
+| `japanfold.com`, `www.japanfold.com` | the marketing landing page | Cloudflare Pages (`japanfold-landing`) |
+| `landing.japanfold.com` | 301 to the apex | Cloudflare Pages |
+| `demo.japanfold.com` | the interactive SPA | this box, over the tunnel |
+| `api.japanfold.com` | the published API base (`/v1/*`) | this box, over the tunnel |
+| `docs.japanfold.com` | the docs site | GitHub Pages (`japanfold/japanfold`) |
+
+Only `demo`, `api` and `ssh` still route through the tunnel. Landing assets are
+never served off this box — that is deliberate, so a 15 MB hero video cannot
+compete with predictions for the prediction host's bandwidth.
 
 ## The box
 - Host **UF-EV-A13-GWH02** (a Tenstorrent Wormhole **Galaxy, 32 chips**,
@@ -48,9 +62,11 @@ product ("Sovereign compute in Japan"); ai& and Tenstorrent appear only as a
 
 2. **`cloudflared-japanfold.service`** (systemd, enabled) — public ingress.
    Cloudflare Tunnel named `japanfold` → `localhost:8090`, config
-   `~/.cloudflared/config.yml` (+ creds json). Ingress routes: `japanfold.com`,
-   `www.japanfold.com`, `api.japanfold.com` → the server; `ssh.japanfold.com` →
-   local sshd (Access-gated); catch-all → 404. Auto-TLS at the Cloudflare edge
+   `~/.cloudflared/config.yml` (+ creds json). Ingress routes: `demo.japanfold.com`
+   and `api.japanfold.com` → the server; `ssh.japanfold.com` → local sshd
+   (Access-gated); catch-all → 404. The config also still lists `japanfold.com` and
+   `www.japanfold.com`, left in place as an inert rollback target — no DNS points at
+   them since the apex cutover. Auto-TLS at the Cloudflare edge
    (routed via Osaka/**kix** — on-brand for "sovereign compute in Japan"), no
    cert management on the box, no bandwidth caps. **Replaced ngrok entirely.**
 
@@ -92,7 +108,9 @@ at boot by choice) warms the UniRef30 MSA index into page cache.
   hour / who's hitting limits"). Size-rotated (`.jsonl` + `.jsonl.1`).
 - Fleet logs: `~/.aiand-bio/jobs/_cluster/workers.log` + `controller.log`.
 - `curl -s localhost:8090/api/cluster` → `online_workers` (expect 32),
-  `controller_alive`. `curl -fsS https://japanfold.com/api/health` → `status ok`.
+  `controller_alive`. `curl -fsS https://api.japanfold.com/api/health` → `status ok`.
+  Do not health-check the apex: it is a static Pages site and stays up when this box
+  is dead.
 
 ## Stand it up again from scratch (order matters)
 1. **Serve first, on 8090/8770** (8080 is taken by k8s). Confirm 32 workers:
@@ -101,9 +119,10 @@ at boot by choice) warms the UniRef30 MSA index into page cache.
    step is the human's: `cloudflared tunnel login` → authorize the `japanfold.com`
    zone in a browser → writes `~/.cloudflared/cert.pem`.
 3. `cloudflared tunnel create japanfold` (writes a creds json — keep secret),
-   `cloudflared tunnel route dns japanfold japanfold.com` (auto-creates the CF DNS
-   record; repeat for `www`/`api`), write `~/.cloudflared/config.yml` mapping the
+   `cloudflared tunnel route dns japanfold demo.japanfold.com` (auto-creates the CF
+   DNS record; repeat for `api`), write `~/.cloudflared/config.yml` mapping the
    hostnames → `http://localhost:8090`, `cloudflared tunnel ingress validate`.
+   Leave the apex and `www` alone — Cloudflare Pages owns them.
 4. Wrap the tunnel in `cloudflared-japanfold.service`, `enable --now`.
 5. Wrap the serve in `japanfold.service` (waitress + the graceful-stop settings
    above), `enable --now`. Cut over from any hand-started serve **only while

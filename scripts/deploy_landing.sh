@@ -1,32 +1,41 @@
 #!/usr/bin/env bash
-# Deploy the JapanFold landing page to Cloudflare Pages (project japanfold-landing,
-# served as https://landing.japanfold.com).
+# Deploy the JapanFold landing page to Cloudflare Pages (project japanfold-landing).
+# It is the public front door: https://japanfold.com and https://www.japanfold.com,
+# with https://landing.japanfold.com kept alive as a 301 to the apex.
 #
 # Direct upload: only the built bytes are published, never the source. This repo is
 # the single source of truth for the page — there is no mirror repo to keep in sync.
 #
 # Ships tt_bio/platform/landing/ exactly as committed on the canonical branch (git
 # archive, so never a dirty tree), plus a _headers file that marks the versioned
-# assets immutable.
+# assets immutable and a _redirects file that folds landing.japanfold.com onto the
+# apex.
 #
 # Usage:
-#   scripts/deploy_landing.sh                      production -> landing.japanfold.com
+#   scripts/deploy_landing.sh                      production -> japanfold.com
 #   scripts/deploy_landing.sh --preview            preview -> a *.pages.dev URL, no traffic
 #   scripts/deploy_landing.sh --allow-low-quality-hero    ship a hero below the bitrate floor
 #
 # Credentials: CLOUDFLARE_API_TOKEN (needs Pages:Edit) and CLOUDFLARE_ACCOUNT_ID,
 # from the environment or ~/.coworker/cloudflare.env.
 #
-# One-time setup (already done): the japanfold-landing Pages project with production
-# branch aiand-bio-platform, and landing.japanfold.com attached to it as a custom
-# domain.
+# One-time setup (already done): the japanfold-landing Pages project, with
+# japanfold.com, www.japanfold.com and landing.japanfold.com all attached to it as
+# custom domains. One project serves all three.
 #
-# Rollback, in order of preference:
+# Rollback — the landing:
 #   1. Cloudflare dashboard > Workers & Pages > japanfold-landing > Deployments >
 #      "Rollback to this deployment". Instant, and every past deploy is kept.
-#   2. If Pages itself is the problem: point the landing.japanfold.com CNAME back at
-#      e3d9384a-ade9-4198-bc17-ebc087bd7168.cfargotunnel.com (proxied). The platform
-#      serves this same page through the tunnel, so recovery is one DNS call.
+#   2. If Pages itself is the problem, point the hostnames back in DNS (zone
+#      e89626607c673078e66e1f93315f946b). Tunnel origin is
+#      e3d9384a-ade9-4198-bc17-ebc087bd7168.cfargotunnel.com, proxied.
+#
+# Rollback — the apex, back to the demo SPA on the Galaxy tunnel. PATCH both CNAMEs
+# to the tunnel origin above (proxied, ttl 1):
+#   japanfold.com      record a4248dae37574543cd208731175bdd2f
+#   www.japanfold.com  record 9ebd50135dcef52355a3aecc75963de0
+# api.japanfold.com (04b72999bf1657018fbb10cc1a357d72) is the published API base and
+# is never touched by either phase, so the API keeps answering throughout.
 set -euo pipefail
 
 BRANCH=aiand-bio-platform
@@ -78,13 +87,23 @@ git archive HEAD "$LANDING_DIR" | tar -x -C "$TMP"
 SITE="$TMP/site"
 mv "$TMP/$LANDING_DIR" "$SITE"
 # Asset filenames are versioned and never reused (a re-encode under an existing name
-# serves the old cached bytes), so they can be cached forever. The HTML must not be.
+# serves the old cached bytes), so they can be cached forever. The HTML must not be:
+# `/` is not matched by the `/*.html` rule and keeps Pages' default
+# `max-age=0, must-revalidate`, which is what a redeployed page wants anyway.
 cat > "$SITE/_headers" <<'EOF'
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
 /*.html
   Cache-Control: public, max-age=300, must-revalidate
+EOF
+
+# The apex is the one canonical address. landing.japanfold.com stays attached to the
+# project so old links keep working, but folds onto the apex. Source patterns carry
+# the hostname, so this only fires for that one domain — the apex and www serve the
+# page normally.
+cat > "$SITE/_redirects" <<'EOF'
+https://landing.japanfold.com/* https://japanfold.com/:splat 301
 EOF
 
 # Gates: no secrets, and every local reference in index.html exists in the bundle.

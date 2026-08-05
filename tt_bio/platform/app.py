@@ -21,15 +21,12 @@ from .jobs import CapacityError, JobManager
 
 _HERE = Path(__file__).resolve().parent
 _STATIC = _HERE / "static"  # built React app (npm run build output)
-_LANDING = _HERE / "landing"  # hand-crafted landing page for the apex domain
-# Hosts that get the landing page instead of the SPA. demo.japanfold.com and
-# api.japanfold.com are deliberately absent: they keep serving the SPA / API.
-# APEX DELIBERATELY EXCLUDED (Moritz, 2026-08-04): landing page stays on
-# landing.japanfold.com only (development/preview surface). japanfold.com and
-# www.japanfold.com keep serving the SPA. The apex cutover was OWED pending
-# Moritz greenlight and was done without it; this restores the intended split.
-# Do not re-add the apex here without an explicit greenlight.
-_LANDING_HOSTS = frozenset({"landing.japanfold.com"})
+# The marketing landing page is NOT served from here. Its source lives in
+# tt_bio/platform/landing/ and it is published to Cloudflare Pages by
+# scripts/deploy_landing.sh, which owns japanfold.com, www.japanfold.com and
+# landing.japanfold.com. This process only ever serves the SPA and the API, so
+# landing assets never come off the Galaxy origin. Do not add a landing branch
+# back here: it would put a 15 MB hero video on the prediction host.
 
 # Anonymous per-visitor session. No login: the server mints an unguessable id in
 # an HttpOnly cookie on first contact and tags every job with it; a job is only
@@ -183,26 +180,14 @@ def create_app(workspace: str | os.PathLike | None = None, *,
     from . import api_v1
     api_v1.register(app)
 
-    # ---- Static SPA + apex landing page -------------------------------
+    # ---- Static SPA ---------------------------------------------------
     @app.get("/")
     @app.get("/<path:path>")
     def spa(path: str = ""):
         if path.startswith("api/") or path.startswith("v1/"):
             return jsonify({"error": "not found"}), 404
-        # The apex domain shows the marketing landing page; the interactive
-        # demo SPA lives on demo.japanfold.com. API paths above are identical
-        # on every host. Falls through to the SPA when no landing page is
-        # deployed (dev boxes, older checkouts).
-        host = request.host.partition(":")[0].lower()
-        if host in _LANDING_HOSTS:
-            candidate = _LANDING / path
-            if path and candidate.is_file():
-                return send_from_directory(_LANDING, path)
-            index = _LANDING / "index.html"
-            if index.exists():
-                resp = send_file(index)
-                resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-                return resp
+        # Every host this process answers on gets the SPA; the marketing page is
+        # on Cloudflare Pages. API paths above are identical on every host.
         candidate = _STATIC / path
         if path and candidate.is_file():
             resp = send_from_directory(_STATIC, path)

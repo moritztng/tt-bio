@@ -79,3 +79,6 @@ perf/p2/
 
 # Contact-form credential file (never commit; written by hand on prod)
 /.contact.env
+
+# wrangler scratch from scripts/deploy_landing.sh
+.wrangler/
