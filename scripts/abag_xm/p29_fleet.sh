@@ -44,6 +44,11 @@
 # ~47min, not 6h), post-hang tt-smi -r quarantine before the slot's next fold, kill-class
 # records normalized to rc=124 with real cifs (0 = hang, partial = slow) + GUARD log lines.
 # Thresholds env-overridable for fixture testing (STALL_MIN/GRACE_S/CAP_S/MIN_CPU_S).
+# PLUS the pass-260 binding third leg (p28 9d73 double-hang blind spot): a fold whose log
+# is still ZERO BYTES after ZERO_MIN minutes is stuck in pre-banner engine init -- the
+# spin class burns >=60 CPU-s/min forever with a frozen 0-byte log, so the two-leg rule
+# never fires. Zero-log kills are false-positive-safe: every healthy fold on record
+# writes its banner within ~2 min of launch.
 set -u
 H=$HOME/mthuening
 SRC=$H/deepn_src
@@ -194,13 +199,15 @@ group_cpu() { # <pgid> -> total CPU seconds of every process in the group
 guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group kills + quarantine
   local log=$1 u=$2; shift 2
   local stall_min=${STALL_MIN:-45} cap_s=${CAP_S:-21600} grace_s=${GRACE_S:-120} min_cpu=${MIN_CPU_S:-60}
+  local zero_min=${ZERO_MIN:-30}  # pass-260 third leg: 0-byte log for this long = pre-banner spin hang
   local poll_s=${POLL_S:-60}   # one stall unit per poll; 60s default => stall_min ~ minutes
   setsid env TT_VISIBLE_DEVICES=$u "$@" > "$log" 2>&1 &
-  local pid=$! t0=$(date +%s) last_cpu=-1 last_size=-1 stall=0 killrc=0 g=0
+  local pid=$! t0=$(date +%s) last_cpu=-1 last_size=-1 stall=0 zero=0 killrc=0 g=0
   while kill -0 $pid 2>/dev/null; do
     sleep $poll_s
     kill -0 $pid 2>/dev/null || break
     local cpu=$(group_cpu $pid) size=$(stat -c %s "$log" 2>/dev/null || echo 0)
+    if [ "$size" = "0" ]; then zero=$((zero+1)); else zero=0; fi
     if [ "$last_cpu" -ge 0 ]; then
       if [ $((cpu - last_cpu)) -ge $min_cpu ] || [ "$size" != "$last_size" ]; then
         stall=0
@@ -209,6 +216,16 @@ guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group 
       fi
     fi
     last_cpu=$cpu; last_size=$size
+    if [ $zero -ge $zero_min ]; then
+      echo "$(date -u +%FT%TZ) GUARD: zero-log kill (${zero}m at 0 bytes, pre-banner spin class) -> INT pgid $pid" >> "$log"
+      kill -INT -- -$pid 2>/dev/null
+      g=0; while kill -0 $pid 2>/dev/null && [ $g -lt $grace_s ]; do sleep 2; g=$((g+2)); done
+      if kill -0 $pid 2>/dev/null; then
+        echo "$(date -u +%FT%TZ) GUARD: INT grace expired -> KILL pgid $pid" >> "$log"
+        kill -KILL -- -$pid 2>/dev/null
+      fi
+      killrc=124; break
+    fi
     if [ $stall -ge $stall_min ]; then
       echo "$(date -u +%FT%TZ) GUARD: no-progress kill (${stall}m without cpu/log growth) -> INT pgid $pid" >> "$log"
       kill -INT -- -$pid 2>/dev/null
