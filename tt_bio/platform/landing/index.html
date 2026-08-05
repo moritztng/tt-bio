@@ -80,8 +80,10 @@ a { color: inherit; text-decoration: none; }
   display: grid; grid-template-columns: 1.25fr 1fr; align-items: center;
   gap: 48px; padding: 88px 0 88px;
 }
-/* Attribution line above the headline. No chrome (it read as a cheap badge), set
-   apart by the left rule instead.
+/* Attribution line, sitting between the headline and the lede (Moritz 2026-08-05):
+   the headline gets the first read, the attribution qualifies it, the description
+   follows. No chrome (it read as a cheap badge), set apart by the left rule
+   instead.
    Logo sizing balances VISUAL MASS, not letter height: at equal box height the
    tenstorrent wordmark is 1.8x wider than the ai& mark (562 vs 305 units), so
    matching the two by height — or by lowercase x-height, which needs ai& smaller
@@ -96,7 +98,7 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--muted);
   padding-left: 15px; border-left: 2px solid var(--border-strong);
-  margin-bottom: 34px;
+  margin-bottom: var(--space-s);
 }
 .powered-top a { display: inline; }
 .powered-top img { vertical-align: baseline; margin: 0 0.18em; }
@@ -293,7 +295,6 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
   .hero { grid-template-columns: 1fr; gap: var(--space-m); padding: var(--space-m) 0 var(--space-l); }
   .hero-mark { justify-content: center; }
   .hero-anim-wrap { width: min(320px, 100%); }
-  .powered-top { margin-bottom: var(--space-s); }
   .figures { grid-template-columns: 1fr; }
   .figure { padding: 28px 0 32px; border-left: none; border-top: 1px solid var(--border); }
   .figure:first-child { border-top: none; }
@@ -344,6 +345,11 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
 
   <div class="hero">
     <div>
+      <h1 aria-label="High Throughput. Low Cost. Drug Discovery.">
+        <span class="hl-line"><span class="hl-word hl-accent">High Throughput</span></span>
+        <span class="hl-line"><span class="hl-word hl-accent">Low Cost</span></span>
+        <span class="hl-line"><span class="hl-word">Drug Discovery</span></span>
+      </h1>
       <p class="powered-top">
         <span>Powered by</span>
         <a href="https://aiand.com" target="_blank" rel="noopener noreferrer" title="ai&amp;"><img class="aiand" src="/aiand-logo.svg" alt="ai&amp;"></a>
@@ -351,11 +357,6 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
         <a href="https://tenstorrent.com" target="_blank" rel="noopener noreferrer" title="Tenstorrent"><img class="tt" src="/tenstorrent-logo.svg" alt="Tenstorrent"></a>
         <span class="tt-suffix">AI processors</span>
       </p>
-      <h1 aria-label="High Throughput. Low Cost. Drug Discovery.">
-        <span class="hl-line"><span class="hl-word hl-accent">High Throughput</span></span>
-        <span class="hl-line"><span class="hl-word hl-accent">Low Cost</span></span>
-        <span class="hl-line"><span class="hl-word">Drug Discovery</span></span>
-      </h1>
       <p class="lede">Structure prediction, binding affinity, de-novo design, and protein
         embeddings. Every model, free to try.</p>
       <div class="cta-row">
