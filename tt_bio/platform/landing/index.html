@@ -365,10 +365,12 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
     </div>
     <div class="hero-mark" aria-hidden="true">
       <div class="hero-anim-wrap">
-        <video class="hero-anim" autoplay loop muted playsinline preload="metadata" poster="/assets/hero-animation-v8-poster.png">
-          <source src="/assets/hero-animation-v8.webm" type="video/webm">
-          <source src="/assets/hero-animation-v10-safari.mp4" type="video/mp4">
-          <img src="/assets/hero-animation-v8-poster.png" alt="Biomolecular structure co-folding animation">
+        <video class="hero-anim" autoplay loop muted playsinline preload="metadata" poster="/assets/hero-animation-v10-poster.png">
+          <source src="/assets/hero-animation-v10-mobile.webm" type="video/webm" media="(max-width: 920px)">
+          <source src="/assets/hero-animation-v10.webm" type="video/webm">
+          <source src="/assets/hero-animation-v10-mobile.mp4" type="video/mp4" media="(max-width: 920px)">
+          <source src="/assets/hero-animation-v10-fallback.mp4" type="video/mp4">
+          <img src="/assets/hero-animation-v10-poster.png" alt="Biomolecular structure co-folding animation">
         </video>
       </div>
     </div>
@@ -527,10 +529,10 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
     if (alphaOK !== null) return;
     alphaOK = ok;
     if (ok) { syncShadow(); return; }
-    var s = v.querySelector('source[type="video/webm"]');
-    if (!s) return;
+    var ss = v.querySelectorAll('source[type="video/webm"]');
+    if (!ss.length) return;
     var wasActive = /\.webm(\?|$)/.test(v.currentSrc);
-    s.remove();
+    for (var i = 0; i < ss.length; i++) ss[i].remove();
     if (wasActive) v.load();
   }
   /* The probe must be attached and playing: a detached/paused video has no

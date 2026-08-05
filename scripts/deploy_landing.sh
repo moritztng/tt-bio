@@ -73,32 +73,42 @@ print(f"asset gate: {len(refs)} local references, all present")
 PY
 
 # Hero quality floor: every <source> of the hero video must probe at or above
-# the approved encode's bitrate. A "hosting efficiency" re-encode once cut the
-# hero to a third of its bitrate and shipped silently; this gate makes a
-# degraded hero a deliberate act — pass --allow-low-quality-hero to override.
+# the approved encode's bitrate per pixel. A "hosting efficiency" re-encode
+# once cut the hero to a third of its bitrate and shipped silently; this gate
+# makes a degraded hero a deliberate act — pass --allow-low-quality-hero to
+# override. The floor is 1800 kbps at the 1440px desktop size and scales with
+# pixel area, so the phone-sized variants are held to the same bits-per-pixel
+# bar, not to a bitrate sized for four times their pixels.
 if [ "${1:-}" != "--allow-low-quality-hero" ]; then
 python3 - "$SITE" <<'PY'
-import re, subprocess, sys, pathlib
+import json, re, subprocess, sys, pathlib
 site = pathlib.Path(sys.argv[1])
 html = (site / "index.html").read_text(encoding="utf-8")
 m = re.search(r'<video class="hero-anim".*?</video>', html, re.S)
 srcs = re.findall(r'<source src="(/[^"]+)"', m.group(0)) if m else []
 FLOOR = 1_800_000
+REF_AREA = 1440 * 1440
 low = []
 for s in srcs:
     f = site / s.lstrip("/")
     if not f.is_file():
         continue  # missing refs are the asset gate's job
     out = subprocess.run(["ffprobe", "-v", "quiet", "-show_entries",
-                          "format=bit_rate", "-of", "csv=p=0", str(f)],
-                         capture_output=True, text=True).stdout.strip()
-    br = int(out or 0)
-    if br < FLOOR:
-        low.append(f"{s} ({br / 1e3:.0f} kbps)")
+                          "format=bit_rate:stream=width,height",
+                          "-of", "json", str(f)],
+                         capture_output=True, text=True).stdout
+    d = json.loads(out or "{}")
+    br = int(d.get("format", {}).get("bit_rate") or 0)
+    dims = [(st.get("width") or 0, st.get("height") or 0)
+            for st in d.get("streams", []) if st.get("width")]
+    floor = FLOOR * (dims[0][0] * dims[0][1]) / REF_AREA if dims else FLOOR
+    if br < floor:
+        low.append(f"{s} ({br / 1e3:.0f} kbps < {floor / 1e3:.0f} kbps floor)")
 if low:
-    sys.exit("refusing: hero source below the 1800 kbps quality floor: "
+    sys.exit("refusing: hero source below the quality floor: "
              + ", ".join(low) + " — pass --allow-low-quality-hero to override")
-print(f"hero quality gate: {len(srcs)} sources, all >= 1800 kbps")
+print(f"hero quality gate: {len(srcs)} sources, all at or above the "
+      f"1800 kbps @1440px floor (area-scaled)")
 PY
 fi
 
