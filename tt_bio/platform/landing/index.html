@@ -285,6 +285,9 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
   .powered-top img.tt { height: 17.9px; top: 1.9px; }
 }
 @media (max-width: 920px) {
+  /* Top air for the phone header: --space-s, plus the safe-area so a notch
+     or cutout cannot eat it. */
+  .topbar { padding-top: calc(var(--space-s) + env(safe-area-inset-top, 0px)); }
   /* Phone stack: headline first, hero art second -- the message lands above
      the fold, the art follows. Gaps on the --space-* scale, no one-off px. */
   .hero { grid-template-columns: 1fr; gap: var(--space-m); padding: var(--space-m) 0 var(--space-l); }
@@ -309,7 +312,10 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
   .field input, .field textarea { font-size: 16px; }
 }
 @media (max-width: 560px) {
-  .wrap { padding: 0 20px; }
+  /* Longhands, not the padding shorthand: at equal specificity this block
+     follows .topbar in source order, so a shorthand here would silently
+     zero the header's vertical padding (it did). */
+  .wrap { padding-left: 20px; padding-right: 20px; }
   .nav { gap: 16px; }
   .nav a.plain { display: none; }
   .models { grid-template-columns: 1fr; }
