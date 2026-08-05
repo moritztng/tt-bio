@@ -49,6 +49,47 @@ for line in (dest / "fleet_results.jsonl").read_text().splitlines():
 print(f"harvest: {len(ok)} ok folds at rungs {sorted(rungs)}")
 gb = f"/home/cust-team/mthuening/{run}"
 chunk_tot = {}
+
+# Upward materialization: the inverse of the link phase -- a rung-R chunk j that the
+# fleet hardlinked from rung R/2's chunk j can be re-materialized LOCALLY from the
+# already-harvested R/2 slot instead of re-rsyncing identical bytes through the relay.
+# Same license as the downward repair below: the run's link_manifest.json attesting
+# commit_equal (same engine tree => same numerics). Existing slots are re-verified
+# (incomplete ones are rebuilt); never disturbs a complete slot.
+mani = None
+mp = dest / f".link_manifest.{run}.json"
+try:
+    mani = json.loads(mp.read_text()) if mp.exists() and mp.stat().st_size else None
+except Exception:
+    mani = None
+def slot_complete(d, mdir, t):
+    rjs = list(d.glob(f"{mdir}_results_{t}/results.json"))
+    if not rjs:
+        return False
+    try:
+        rec = json.loads(rjs[0].read_text())[0]
+        n = len(rec.get("all_runs") or [])
+        return rec.get("status") == "ok" and n > 0 \
+            and len(list((rjs[0].parent / "structures").glob("*.cif"))) == n
+    except Exception:
+        return False
+if mani and mani.get("commit_equal"):
+    made = rebuilt = 0
+    for (model, t, rung, chunk), chunks in sorted(ok.items()):
+        if chunk is None or chunks <= 1:
+            continue
+        mdir = MD[model]
+        r2 = rung // 2
+        while r2 >= 128 and chunk < r2 // 64:
+            src = dest / mdir / f"{t}_n{r2}_c{chunk}"
+            slot = dest / mdir / f"{t}_n{rung}_c{chunk}"
+            if not slot.exists() and slot_complete(src, mdir, t):
+                subprocess.run(["cp", "-al", str(src), str(slot)], check=True)
+                made += 1
+            r2 //= 2
+    if made:
+        print(f"upward materialization (commit_equal manifest): {made} slots hardlinked locally")
+
 for (model, t, rung, chunk), chunks in sorted(ok.items()):
     mdir = MD[model]
     suffix = f"{t}_n{rung}" + (f"_c{chunk}" if chunk is not None and chunks > 1 else "")
@@ -95,14 +136,8 @@ if partials:
 
 # Nested-rung repair: on a seed-nested ladder a rung-R chunk j carries the same seed block
 # as rung R/2's chunk j, so a fresh rung-R fold also fills a missing R/2 (and R/4, ...)
-# slot. Gated on the run's link_manifest.json attesting commit_equal across windows
-# (same engine tree => same numerics); never overwrites an existing slot.
-mani = None
-mp = dest / f".link_manifest.{run}.json"
-try:
-    mani = json.loads(mp.read_text()) if mp.exists() and mp.stat().st_size else None
-except Exception:
-    mani = None
+# slot. Same commit_equal manifest license as the upward materialization above;
+# never overwrites an existing slot.
 if mani and mani.get("commit_equal"):
     repaired = []
     for (model, t, rung, chunk), chunks in sorted(ok.items()):
