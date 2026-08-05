@@ -51,6 +51,9 @@ PREV=$H/p28
 B=$H/p29; mkdir -p $B $B/claims
 NCHIP=${1:-32}
 STAGGER=${2:-8}
+# CHIPS: space-separated chip ids to run (default 0..NCHIP-1); see p28_fleet.sh header
+# note on the p27 device-open wedge chips 4 16 21 22 (exclude until -glx_reset proven).
+CHIPS=${CHIPS:-$(seq -s' ' 0 $((NCHIP-1)))}
 PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
 MSA=$H/abag_xm/msa_cache
@@ -71,7 +74,7 @@ TASKS=$B/tasks.txt
     done
   done
 } > $TASKS
-echo "tasks: $(wc -l < $TASKS)  chips: $NCHIP"
+echo "tasks: $(wc -l < $TASKS)  chips: $(wc -w <<<"$CHIPS") [$CHIPS]"
 
 # ---- link phase: hardlink provably-identical chunk-0 slots from $PREV (N=64 panel) ----
 $PY_SYS - "$PREV" "$B" "$SRC" <<'PY'
@@ -303,7 +306,7 @@ slot() {
   echo "slot $chip done" >> $B/slots.log
 }
 
-for (( c=0; c<NCHIP; c++ )); do
+for c in $CHIPS; do
   slot "$c" &
   sleep "$STAGGER"
 done

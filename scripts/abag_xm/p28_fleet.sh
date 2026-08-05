@@ -77,6 +77,10 @@ PREV=$H/p27
 B=$H/p28; mkdir -p $B $B/claims
 NCHIP=${1:-32}
 STAGGER=${2:-8}
+# CHIPS: space-separated chip ids to run (default 0..NCHIP-1). Galaxy chips 4 16 21 22
+# wedged every fold at device-open in p27 (3 consecutive generations, reset-resistant) --
+# exclude via CHIPS until the post-drain -glx_reset proves them (pass 205, state doc).
+CHIPS=${CHIPS:-$(seq -s' ' 0 $((NCHIP-1)))}
 PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
 MSA=$H/abag_xm/msa_cache
@@ -115,7 +119,7 @@ TASKS=$B/tasks.txt
     done
   done
 } > $TASKS
-echo "tasks: $(wc -l < $TASKS)  chips: $NCHIP"
+echo "tasks: $(wc -l < $TASKS)  chips: $(wc -w <<<"$CHIPS") [$CHIPS]"
 
 # ---- link phase: hardlink provably-identical chunks 0-3 from $PREV (rung 256) ----
 $PY_SYS - "$PREV" "$B" "$SRC" <<'PY'
@@ -384,7 +388,7 @@ slot() {
   echo "slot $chip done" >> $B/slots.log
 }
 
-for (( c=0; c<NCHIP; c++ )); do
+for c in $CHIPS; do
   slot "$c" &
   sleep "$STAGGER"
 done
