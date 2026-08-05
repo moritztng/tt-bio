@@ -58,8 +58,10 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: center; gap: 10px;
   padding: 18px 0;
 }
-.topbar .mark { width: 30px; height: 30px; display: block; }
-.brand { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+/* Header lockup, one notch up from the original 30px/17px (Moritz 2026-08-05):
+   the mark and the wordmark move together so the lockup keeps its proportions. */
+.topbar .mark { width: 33px; height: 33px; display: block; }
+.brand { font-size: 18.5px; font-weight: 600; letter-spacing: -0.01em; }
 .brand .fold { color: var(--muted); font-weight: 500; }
 .nav { margin-left: auto; display: flex; align-items: center; gap: 26px; }
 .nav a.plain { font-size: 14.5px; color: var(--ink-soft); }
@@ -328,7 +330,7 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
 <body>
 
 <header class="wrap topbar">
-  <a href="/" aria-label="JapanFold home" style="display:flex;align-items:center;gap:10px;">
+  <a href="/" aria-label="JapanFold home" style="display:flex;align-items:center;gap:11px;">
     <img class="mark" src="/japanfold-mark.svg" alt="">
     <span class="brand">Japan<span class="fold">Fold</span></span>
   </a>
