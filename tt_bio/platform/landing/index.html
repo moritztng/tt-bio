@@ -365,7 +365,10 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
     </div>
     <div class="hero-mark" aria-hidden="true">
       <div class="hero-anim-wrap">
-        <video class="hero-anim" autoplay loop muted playsinline preload="metadata" poster="/assets/hero-animation-v10-poster.png">
+        <!-- The poster MUST be the animation's FIRST frame (the unfolded point cloud), never a
+             settled one: it is what a visitor sees while the multi-MB source buffers, so a
+             post-fold poster both spoils the result and makes the cut to frame 0 look like a jump. -->
+        <video class="hero-anim" autoplay loop muted playsinline preload="metadata" poster="/assets/hero-animation-v10-start-poster.webp">
           <source src="/assets/hero-animation-v10-mobile.webm" type="video/webm" media="(max-width: 920px)">
           <source src="/assets/hero-animation-v10.webm" type="video/webm">
           <source src="/assets/hero-animation-v10-mobile.mp4" type="video/mp4" media="(max-width: 920px)">
