@@ -85,6 +85,6 @@ the confidence"* or *"design 10 nanobody binders against this target."*
 
 ## 3. The API directly
 
-Any language can call the REST API — see the [docs site](../docs/site/overview.md)
+Any language can call the REST API — see the [docs site](https://docs.japanfold.com/)
 and the OpenAPI 3.1 contract at `GET /v1/openapi.json` (usable to generate typed
 SDKs or an MCP server).
