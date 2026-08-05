@@ -128,13 +128,23 @@ def _config() -> dict:
 
 
 def _send_smtp(cfg: dict, msg: EmailMessage) -> None:
+    """One envelope per recipient, so a per-recipient refusal is never silent.
+
+    ``send_message`` with several recipients only raises when *every* one is
+    refused, and delivering straight to a receiver's MX (no relay) additionally
+    rejects a transaction that spans two destination domains -- Google answers
+    ``451 Multiple destination domains per transaction is unsupported``. Both
+    problems disappear if each recipient gets its own transaction.
+    """
+    rcpts = [a for a in (msg["To"], msg["Cc"]) if a]
     cls = smtplib.SMTP_SSL if cfg["smtp_port"] == 465 else smtplib.SMTP
     with cls(cfg["smtp_host"], cfg["smtp_port"], timeout=20) as s:
         if cfg["smtp_starttls"]:
             s.starttls()
         if cfg["smtp_user"]:
             s.login(cfg["smtp_user"], cfg["smtp_pass"])
-        s.send_message(msg)
+        for rcpt in rcpts:
+            s.send_message(msg, to_addrs=[rcpt])
 
 
 def _send_resend(cfg: dict, msg: EmailMessage) -> None:
