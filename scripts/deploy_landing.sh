@@ -64,7 +64,7 @@ git clone --quiet "https://github.com/$DEST_REPO" "$TMP/repo" 2>/dev/null || {
     # First deploy against an empty repo: clone warns, that's fine.
     git clone "https://github.com/$DEST_REPO" "$TMP/repo"
 }
-rsync -a --delete --exclude=.git "$SITE/" "$TMP/repo/"
+rsync -a --delete --exclude=.git --exclude=README.md "$SITE/" "$TMP/repo/"
 
 cd "$TMP/repo"
 if [ -z "$(git status --porcelain)" ]; then
