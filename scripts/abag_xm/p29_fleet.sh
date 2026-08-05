@@ -51,8 +51,8 @@ PREV=$H/p28
 B=$H/p29; mkdir -p $B $B/claims
 NCHIP=${1:-32}
 STAGGER=${2:-8}
-# CHIPS: space-separated chip ids to run (default 0..NCHIP-1); see p28_fleet.sh header
-# note on the p27 device-open wedge chips 4 16 21 22 (exclude until -glx_reset proven).
+# CHIPS: space-separated chip ids to run (default 0..NCHIP-1). Escape hatch only --
+# p27's wedge chips were refuted as host-kmd poison, cured by kmd reload (p28 header).
 CHIPS=${CHIPS:-$(seq -s' ' 0 $((NCHIP-1)))}
 PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
