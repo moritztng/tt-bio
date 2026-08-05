@@ -187,7 +187,7 @@ at boot by choice) warms the UniRef30 MSA index into page cache.
   be rotated. The reboot wiped the in-shell `NGROK_AUTHTOKEN`, which is what broke
   the old tunnel and forced the (better) Cloudflare Tunnel migration.
 - **Two-repo model**: engine code (`tt_bio/*.py`) → both `tt-bio` (branch `main`)
-  and `aiand-bio` (branch `aiand-bio-platform`); platform code
+  and `aiand-bio` (branch `main`); platform code
   (`tt_bio/platform/*`) → `aiand-bio` only. `tt_bio` is pip-installed **editable**
   pointing at the aiand-bio checkout, so the running service imports aiand-bio
   sources. **Frontend** changes go live after `npm run build` (no restart);

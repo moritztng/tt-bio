@@ -38,7 +38,7 @@
 # is never touched by either phase, so the API keeps answering throughout.
 set -euo pipefail
 
-BRANCH=aiand-bio-platform
+BRANCH=main
 LANDING_DIR=tt_bio/platform/landing
 PROJECT=japanfold-landing
 WRANGLER=wrangler@4
