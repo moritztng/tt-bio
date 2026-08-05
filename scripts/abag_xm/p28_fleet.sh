@@ -52,6 +52,21 @@
 #
 # Every attempt appends one JSON record to results.jsonl. DONE_CHECK convention: no
 # literal percent strings in logs.
+#
+# RUNNER HARDENING (pass-185 spec, root-caused in the pass-182 incident: 210 card-h
+# lost to wedged folds + orphaned spawn grandchildren holding device handles after
+# timeout kills):
+#   1. PROCESS-GROUP LAUNCH: every fold runs via setsid; all kills target -pgid so
+#      multiprocessing spawn grandchildren can never orphan-hold a chip.
+#   2. NO-PROGRESS KILL: a fold accruing <60s group CPU AND zero log growth for
+#      STALL_MIN consecutive minutes is wedged -> INT the group, GRACE_S, then KILL.
+#      Caps any hang at ~47min instead of the 6h absolute cap (87% saving).
+#      Progress = CPU accrual OR log growth (device-bound phases still poll/log).
+#   3. POST-HANG QUARANTINE: after any kill-class exit, tt-smi -r the chip before
+#      the slot's next assignment (tt-device-wedge-recovery: free-first).
+#   4. hang-vs-slow stays derivable: kill-class records normalize to rc=124 with the
+#      real cifs count (0 CIFs = hang; partial = slow) + a GUARD line in the fold log.
+# Thresholds are env-overridable for fixture testing (STALL_MIN/GRACE_S/CAP_S/MIN_CPU_S).
 set -u
 H=$HOME/mthuening
 SRC=$H/deepn_src
@@ -212,6 +227,56 @@ manifest["refold"] = sorted(refold)
 print(f"LINK {linked} chunks hardlinked from {prev.name}; {len(refold)} chunk-0..3 slots fold fresh")
 PY
 
+group_cpu() { # <pgid> -> total CPU seconds of every process in the group
+  ps -eo pgid=,times= | awk -v g="$1" '$1==g {s+=$2} END {print s+0}'
+}
+
+guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group kills + quarantine
+  local log=$1 u=$2; shift 2
+  local stall_min=${STALL_MIN:-45} cap_s=${CAP_S:-21600} grace_s=${GRACE_S:-120} min_cpu=${MIN_CPU_S:-60}
+  local poll_s=${POLL_S:-60}   # one stall unit per poll; 60s default => stall_min ~ minutes
+  setsid env TT_VISIBLE_DEVICES=$u "$@" > "$log" 2>&1 &
+  local pid=$! t0=$(date +%s) last_cpu=-1 last_size=-1 stall=0 killrc=0 g=0
+  while kill -0 $pid 2>/dev/null; do
+    sleep $poll_s
+    kill -0 $pid 2>/dev/null || break
+    local cpu=$(group_cpu $pid) size=$(stat -c %s "$log" 2>/dev/null || echo 0)
+    if [ "$last_cpu" -ge 0 ]; then
+      if [ $((cpu - last_cpu)) -ge $min_cpu ] || [ "$size" != "$last_size" ]; then
+        stall=0
+      else
+        stall=$((stall+1))
+      fi
+    fi
+    last_cpu=$cpu; last_size=$size
+    if [ $stall -ge $stall_min ]; then
+      echo "$(date -u +%FT%TZ) GUARD: no-progress kill (${stall}m without cpu/log growth) -> INT pgid $pid" >> "$log"
+      kill -INT -- -$pid 2>/dev/null
+      g=0; while kill -0 $pid 2>/dev/null && [ $g -lt $grace_s ]; do sleep 2; g=$((g+2)); done
+      if kill -0 $pid 2>/dev/null; then
+        echo "$(date -u +%FT%TZ) GUARD: INT grace expired -> KILL pgid $pid" >> "$log"
+        kill -KILL -- -$pid 2>/dev/null
+      fi
+      killrc=124; break
+    fi
+    if [ $(( $(date +%s) - t0 )) -ge $cap_s ]; then
+      echo "$(date -u +%FT%TZ) GUARD: ${cap_s}s cap -> TERM pgid $pid" >> "$log"
+      kill -TERM -- -$pid 2>/dev/null
+      g=0; while kill -0 $pid 2>/dev/null && [ $g -lt 60 ]; do sleep 2; g=$((g+2)); done
+      kill -0 $pid 2>/dev/null && kill -KILL -- -$pid 2>/dev/null
+      killrc=124; break
+    fi
+  done
+  wait $pid 2>/dev/null; local rc=$?
+  if [ $killrc -ne 0 ]; then
+    rc=$killrc
+    sudo -n tt-smi -r /dev/tenstorrent/$u >> "$log" 2>&1 \
+      || echo "$(date -u +%FT%TZ) GUARD: tt-smi reset failed on dev $u" >> "$log"
+    sleep 10
+  fi
+  return $rc
+}
+
 record() {  # record <model> <target> <rung> <seed> <chunk> <chunks> <mps> <chip> <rc> <secs> <cifs> <distinct> <oom>
   printf '{"model":"%s","target":"%s","rung":%s,"seed":%s,"chunk":%s,"chunks":%s,"mps":"%s","umd":%s,"rc":%s,"seconds":%s,"cifs":%s,"distinct":%s,"oom":%s}\n' \
     "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}" "${12}" "${13}" >> $B/results.jsonl
@@ -233,10 +298,10 @@ fold_bz() { # <target> <rung> <seed> <chunk> <chunks> <chip>
   local t=$1 rung=$2 seed=$3 c=$4 k=$5 u=$6 s rc secs oom d nd ob
   ob=$(outbase boltz2 $t $c $k)
   s=$(date +%s)
-  timeout 21600 env TT_VISIBLE_DEVICES=$u $PY_SYS -u -m tt_bio.main predict \
+  guarded_fold $B/boltz2_${t}_c$c.log $u $PY_SYS -u -m tt_bio.main predict \
     examples/abag_xm/$t.yaml --model boltz2 --out_dir $ob --override \
     --diffusion_samples $((rung/k)) --max_parallel_samples 1 --seed $seed --host_threads 2 \
-    --msa_dir $MSA --msa_cache_only > $B/boltz2_${t}_c$c.log 2>&1
+    --msa_dir $MSA --msa_cache_only
   rc=$?; secs=$(( $(date +%s) - s ))
   d=$(ls -d $ob/*results_$t 2>/dev/null | head -1)
   read -r _n _di <<<$(count_structs "$d")
@@ -249,10 +314,10 @@ fold_od() { # <target> <rung> <seed> <chunk> <chunks> <chip>  -- mps narrowing 5
   ob=$(outbase opendde $t $c $k)
   for mps in 5 2 1; do
     s=$(date +%s)
-    timeout 21600 env TT_VISIBLE_DEVICES=$u $PY_SYS -u -m tt_bio.main predict \
+    guarded_fold $B/opendde_${t}_c${c}_mps$mps.log $u $PY_SYS -u -m tt_bio.main predict \
       examples/abag_xm/$t.yaml --model opendde-abag --out_dir $ob --override \
       --diffusion_samples $((rung/k)) --max_parallel_samples $mps --seed $seed --host_threads 2 \
-      --msa_dir $MSA --msa_cache_only > $B/opendde_${t}_c${c}_mps$mps.log 2>&1
+      --msa_dir $MSA --msa_cache_only
     rc=$?; secs=$(( $(date +%s) - s ))
     d=$(ls -d $ob/*results_$t 2>/dev/null | head -1)
     read -r _n _di <<<$(count_structs "$d")
@@ -267,10 +332,10 @@ fold_px() { # <target> <rung> <seed> <chunk> <chunks> <chip>  -- mps 5, narrow 5
   ob=$(outbase protenix $t $c $k)
   for mps in 5 1; do
     s=$(date +%s)
-    timeout 21600 env TT_VISIBLE_DEVICES=$u $PY_SYS -u -m tt_bio.main predict \
+    guarded_fold $B/protenix_${t}_c${c}_mps$mps.log $u $PY_SYS -u -m tt_bio.main predict \
       examples/abag_xm/$t.yaml --model protenix-v2 --out_dir $ob --override \
       --diffusion_samples $((rung/k)) --max_parallel_samples $mps --seed $seed --host_threads 2 \
-      --msa_dir $MSA --msa_cache_only > $B/protenix_${t}_c${c}_mps$mps.log 2>&1
+      --msa_dir $MSA --msa_cache_only
     rc=$?; secs=$(( $(date +%s) - s ))
     d=$(ls -d $ob/*results_$t 2>/dev/null | head -1)
     read -r _n _di <<<$(count_structs "$d")
@@ -284,10 +349,10 @@ fold_esm() { # <target> <rung> <seed> <chunk> <chunks> <chip>  -- single-seq, au
   local t=$1 rung=$2 seed=$3 c=$4 k=$5 u=$6 s rc secs oom d nd ob
   ob=$(outbase esmfold2 $t $c $k)
   s=$(date +%s)
-  timeout 21600 env TT_VISIBLE_DEVICES=$u $PY_VENV -u -m tt_bio.main predict \
+  guarded_fold $B/esmfold2_${t}_c$c.log $u $PY_VENV -u -m tt_bio.main predict \
     examples/abag_xm/$t.yaml --model esmfold2 --out_dir $ob --override \
     --diffusion_samples $((rung/k)) --recycling_steps 10 --sampling_steps 100 --seed $seed \
-    --host_threads 2 > $B/esmfold2_${t}_c$c.log 2>&1
+    --host_threads 2
   rc=$?; secs=$(( $(date +%s) - s ))
   d=$(ls -d $ob/*results_$t 2>/dev/null | head -1)
   read -r _n _di <<<$(count_structs "$d")
