@@ -77,9 +77,10 @@ PREV=$H/p27
 B=$H/p28; mkdir -p $B $B/claims
 NCHIP=${1:-32}
 STAGGER=${2:-8}
-# CHIPS: space-separated chip ids to run (default 0..NCHIP-1). Galaxy chips 4 16 21 22
-# wedged every fold at device-open in p27 (3 consecutive generations, reset-resistant) --
-# exclude via CHIPS until the post-drain -glx_reset proves them (pass 205, state doc).
+# CHIPS: space-separated chip ids to run (default 0..NCHIP-1). Escape hatch only --
+# p27's chips-4/16/21/22 wedge class was refuted as host-kmd poison and cured by kmd
+# reload (state doc pass 212/214); all 32 chips probe healthy. Exclude via CHIPS only
+# if a fresh wedge class appears (detect by spawn-grandchild CPU stall, never 0B logs).
 CHIPS=${CHIPS:-$(seq -s' ' 0 $((NCHIP-1)))}
 PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
