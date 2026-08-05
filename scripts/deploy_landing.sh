@@ -72,6 +72,36 @@ if missing:
 print(f"asset gate: {len(refs)} local references, all present")
 PY
 
+# Hero quality floor: every <source> of the hero video must probe at or above
+# the approved encode's bitrate. A "hosting efficiency" re-encode once cut the
+# hero to a third of its bitrate and shipped silently; this gate makes a
+# degraded hero a deliberate act — pass --allow-low-quality-hero to override.
+if [ "${1:-}" != "--allow-low-quality-hero" ]; then
+python3 - "$SITE" <<'PY'
+import re, subprocess, sys, pathlib
+site = pathlib.Path(sys.argv[1])
+html = (site / "index.html").read_text(encoding="utf-8")
+m = re.search(r'<video class="hero-anim".*?</video>', html, re.S)
+srcs = re.findall(r'<source src="(/[^"]+)"', m.group(0)) if m else []
+FLOOR = 1_800_000
+low = []
+for s in srcs:
+    f = site / s.lstrip("/")
+    if not f.is_file():
+        continue  # missing refs are the asset gate's job
+    out = subprocess.run(["ffprobe", "-v", "quiet", "-show_entries",
+                          "format=bit_rate", "-of", "csv=p=0", str(f)],
+                         capture_output=True, text=True).stdout.strip()
+    br = int(out or 0)
+    if br < FLOOR:
+        low.append(f"{s} ({br / 1e3:.0f} kbps)")
+if low:
+    sys.exit("refusing: hero source below the 1800 kbps quality floor: "
+             + ", ".join(low) + " — pass --allow-low-quality-hero to override")
+print(f"hero quality gate: {len(srcs)} sources, all >= 1800 kbps")
+PY
+fi
+
 git clone --quiet "https://github.com/$DEST_REPO" "$TMP/repo" 2>/dev/null || {
     # First deploy against an empty repo: clone warns, that's fine.
     git clone "https://github.com/$DEST_REPO" "$TMP/repo"

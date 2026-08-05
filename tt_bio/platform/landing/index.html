@@ -133,6 +133,12 @@ h1 .hl-accent { color: var(--ink); box-shadow: inset 0 -0.07em 0 var(--muted-2);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* The drop-shadow follows the video's alpha, so it may only apply while the
+   transparent WebM is the active source. The baked MP4 is opaque (page
+   background and shadow baked into the frames); the script below sets
+   .has-alpha once it has proven VP9-alpha decoding. */
+.hero-anim-wrap.has-alpha {
   filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.45));
 }
 .hero-anim {
@@ -279,9 +285,12 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
   .powered-top img.tt { height: 17.9px; top: 1.9px; }
 }
 @media (max-width: 920px) {
-  .hero { grid-template-columns: 1fr; gap: 40px; padding: 56px 0 64px; }
-  .hero-mark { order: -1; justify-content: center; }
+  /* Phone stack: headline first, hero art second -- the message lands above
+     the fold, the art follows. Gaps on the --space-* scale, no one-off px. */
+  .hero { grid-template-columns: 1fr; gap: var(--space-m); padding: var(--space-m) 0 var(--space-l); }
+  .hero-mark { justify-content: center; }
   .hero-anim-wrap { width: min(320px, 100%); }
+  .powered-top { margin-bottom: var(--space-s); }
   .figures { grid-template-columns: 1fr; }
   .figure { padding: 28px 0 32px; border-left: none; border-top: 1px solid var(--border); }
   .figure:first-child { border-top: none; }
@@ -289,6 +298,15 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
   .ways { grid-template-columns: 1fr; }
   .way { padding: 24px 22px 22px; }
   .way-go { padding-top: 18px; }
+  /* Thumb targets: every tappable element gets ~44px of touch height. The
+     logo links are inline, so their padding only grows the hit area, not the
+     line box. */
+  .nav a.plain { padding: 11px 0; }
+  .nav .btn { padding: 11px 16px; }
+  .powered-top a, .foot .powered a { padding: 12px 0; }
+  .foot .links a { padding: 11px 0; }
+  /* iOS Safari zooms the page when a focused field is under 16px. */
+  .field input, .field textarea { font-size: 16px; }
 }
 @media (max-width: 560px) {
   .wrap { padding: 0 20px; }
@@ -341,8 +359,9 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
     </div>
     <div class="hero-mark" aria-hidden="true">
       <div class="hero-anim-wrap">
-        <video class="hero-anim" autoplay loop muted playsinline poster="/assets/hero-animation-v8-poster.png">
+        <video class="hero-anim" autoplay loop muted playsinline preload="metadata" poster="/assets/hero-animation-v8-poster.png">
           <source src="/assets/hero-animation-v8.webm" type="video/webm">
+          <source src="/assets/hero-animation-v10-safari.mp4" type="video/mp4">
           <img src="/assets/hero-animation-v8-poster.png" alt="Biomolecular structure co-folding animation">
         </video>
       </div>
@@ -473,6 +492,71 @@ footer { border-top: 1px solid var(--border); padding: var(--space-m) 0; }
     </span>
   </div>
 </footer>
+
+<script>
+/* Hero video source control.
+   Safari (iOS 17.4+, macOS) plays VP9 WebM but silently drops the alpha
+   side-channel, so the transparent hero would render as an opaque rectangle
+   and the wrap's drop-shadow would outline the box. There is no capability
+   API for VP9-alpha, so we decode a 600-byte inline probe and measure the
+   alpha channel; if it is gone we remove the WebM source and let the element
+   fall through to the MP4 (page background and shadow baked into the frames).
+   Also honours reduced-motion for the video, matching the CSS animation. */
+(function () {
+  var v = document.querySelector('.hero-anim');
+  if (!v) return;
+  var wrap = v.closest ? v.closest('.hero-anim-wrap') : null;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    v.removeAttribute('autoplay');
+    v.pause();
+  }
+  var alphaOK = null;
+  function syncShadow() {
+    if (wrap && alphaOK && /\.webm(\?|$)/.test(v.currentSrc)) {
+      wrap.classList.add('has-alpha');
+    }
+  }
+  v.addEventListener('loadeddata', syncShadow);
+  function decide(ok) {
+    if (alphaOK !== null) return;
+    alphaOK = ok;
+    if (ok) { syncShadow(); return; }
+    var s = v.querySelector('source[type="video/webm"]');
+    if (!s) return;
+    var wasActive = /\.webm(\?|$)/.test(v.currentSrc);
+    s.remove();
+    if (wasActive) v.load();
+  }
+  /* The probe must be attached and playing: a detached/paused video has no
+     painted frame and drawImage reads alpha 0 regardless of codec support. */
+  var p = document.createElement('video');
+  p.muted = true;
+  p.loop = true;
+  p.setAttribute('playsinline', '');
+  p.style.cssText = 'position:absolute;left:-9999px;top:0;width:2px;height:2px;pointer-events:none';
+  function teardown() { p.pause(); p.removeAttribute('src'); p.load(); p.remove(); }
+  function check() {
+    if (alphaOK !== null) return;
+    try {
+      var c = document.createElement('canvas');
+      c.width = c.height = 2;
+      var x = c.getContext('2d');
+      x.drawImage(p, 0, 0, 2, 2);
+      var a = x.getImageData(0, 0, 1, 1).data[3];
+      if (a >= 250) { decide(false); teardown(); }       /* alpha dropped */
+      else if (a > 20) { decide(true); teardown(); }     /* alpha ~128: kept */
+      else { setTimeout(check, 120); }                   /* not painted yet */
+    } catch (e) { decide(false); teardown(); }
+  }
+  p.addEventListener('playing', function () { setTimeout(check, 80); });
+  p.addEventListener('error', function () { decide(false); teardown(); });
+  setTimeout(function () { if (alphaOK === null) { decide(false); teardown(); } }, 2500);
+  p.src = 'data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAIfEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEpTbuMU6uEHFO7a1OsggIJ7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNTkuMjcuMTAwV0GNTGF2ZjU5LjI3LjEwMESJiEBEAAAAAAAAFlSua8yuAQAAAAAAAEPXgQFzxYgTHzzaflGn15yBACK1nIN1bmSIgQCGhVZfVlA5g4EBI+ODhAJiWgDglLCBELqBEJqBAlPAgQFVsIRVuYEBElTDZ0CBc3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY1OS4yNy4xMDBzc9tjwItjxYgTHzzaflGn12fIpUWjh0VOQ09ERVJEh5hMYXZjNTkuMzcuMTAwIGxpYnZweC12cDlnyKJFo4hEVVJBVElPTkSHlDAwOjAwOjAwLjA0MDAwMDAwMAAAH0O2ddTngQCgz6GrgQAAAIJJg0IAAPAA9gA4JBwYSgAAMGAAABC///cdr////1/f////8irAAHWhn6ad7oEBpZiCSYNCAADwAPYAOCQcGEoAADBgAABDsAAcU7trkbuPs4EAt4r3gQHxggGw8IED';
+  document.body.appendChild(p);
+  var pr = p.play();
+  if (pr && pr.catch) pr.catch(function () {});
+})();
+</script>
 
 <script>
 (function () {
