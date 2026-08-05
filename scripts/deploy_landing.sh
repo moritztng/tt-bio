@@ -8,7 +8,7 @@
 #
 # Ships tt_bio/platform/landing/ exactly as committed on the canonical branch (git
 # archive, so never a dirty tree), plus a _headers file that marks the versioned
-# assets immutable and a _redirects file that folds landing.japanfold.com onto the
+# assets immutable and a small edge worker that folds landing.japanfold.com onto the
 # apex.
 #
 # Usage:
@@ -99,11 +99,34 @@ cat > "$SITE/_headers" <<'EOF'
 EOF
 
 # The apex is the one canonical address. landing.japanfold.com stays attached to the
-# project so old links keep working, but folds onto the apex. Source patterns carry
-# the hostname, so this only fires for that one domain — the apex and www serve the
-# page normally.
-cat > "$SITE/_redirects" <<'EOF'
-https://landing.japanfold.com/* https://japanfold.com/:splat 301
+# project so old links keep working, and folds onto the apex.
+#
+# Only the hostname distinguishes the two cases, so it takes code at the edge. Both
+# simpler options were tried against the live site and do not work: a _redirects line
+# is matched on the path only and silently ignores a hostname in the source, and a
+# functions/ directory is discovered relative to wrangler's working directory, not
+# inside the uploaded bundle. _worker.js is, so that is what ships.
+#
+# A Cloudflare Redirect Rule would also do it, but needs a zone-scoped token this
+# deploy does not have. _routes.json pins the worker to "/" so asset requests are
+# served straight off the edge and never invoke it.
+cat > "$SITE/_worker.js" <<'EOF'
+const REDIRECT_FROM = "landing.japanfold.com";
+const CANONICAL = "https://japanfold.com";
+
+export default {
+  fetch(request, env) {
+    const url = new URL(request.url);
+    if (url.hostname === REDIRECT_FROM) {
+      return Response.redirect(CANONICAL + url.pathname + url.search, 301);
+    }
+    // The apex, www and the *.pages.dev preview URLs all serve the page directly.
+    return env.ASSETS.fetch(request);
+  },
+};
+EOF
+cat > "$SITE/_routes.json" <<'EOF'
+{"version": 1, "include": ["/"], "exclude": []}
 EOF
 
 # Gates: no secrets, and every local reference in index.html exists in the bundle.
