@@ -24,7 +24,7 @@ scorer for the models in N16_ARK_OK (report key `n16_ark_models`); this driver k
 cross-flavor flags and prose off that list. opendde-abag's N=16 stays the global_dockq
 parquet rung (its p2 structures were not retained).
 """
-import json, subprocess, sys
+import json, os, subprocess, sys
 from pathlib import Path
 
 BASE = Path.home() / "abag_xm" / "deepn"
@@ -45,6 +45,13 @@ before the knee. The gain per adjacent rung pair and its CI come from the pairwi
 paired bootstrap (section 6); the comparator floor is the lo rung's size (the
 difference's noise is dominated by the smaller sample). Pairs flagged `degenerate`
 (<8 common targets) never clear the rule. "No knee by N=1024" is a complete answer."""
+
+# Campaign decision 2026-08-05 (Moritz, Telegram): the ladder is capped at N=256 for
+# every model -- N=512/1024 will never run. When DEEPN_CAP_DECISION=256 is set, a model
+# with no measured knee gets the honest verdict "N* = 256 by decision" (NOT a measured
+# knee; the curve state stays visible in its table) and the mid-drain "partial
+# coverage" hedge is dropped. A measured knee below the cap still reports as measured.
+CAP_DECISION = int(os.environ.get("DEEPN_CAP_DECISION", "0"))
 
 SEC6_PROSE = """\
 B=20000 paired bootstrap over targets (seed 20260802, one resample vector shared
@@ -154,6 +161,9 @@ def stop_verdict(model, rep):
             nstar = lo
     if nstar is not None:
         verdict = f"**N* = {nstar}** (knee: two consecutive below-floor doublings)"
+    elif CAP_DECISION and ladder and ladder[-1] >= CAP_DECISION:
+        verdict = (f"**N* = {CAP_DECISION} by decision** (ladder capped 2026-08-05; "
+                   f"no measured knee -- the gains above are the curve's true final state)")
     elif len(ladder) > 1:
         verdict = f"**no knee by N={ladder[-1]}**"
     else:
@@ -171,7 +181,9 @@ def sec5(rep):
                 "| pair | nt | oracle gain [95 pct CI] | per doubling | floor(lo) | verdict |",
                 "|---|---|---|---|---|---|"] + rows + [""]
         if verdict:
-            out.append(verdict + " *(partial coverage -- verdict not final)*")
+            if not CAP_DECISION:
+                verdict += " *(partial coverage -- verdict not final)*"
+            out.append(verdict)
             out.append("")
     return "\n".join(out)
 
