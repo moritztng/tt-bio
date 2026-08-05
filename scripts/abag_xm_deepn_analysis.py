@@ -535,9 +535,17 @@ def main():
             # all-rungs intersection above degenerates to zero once sparse overlay
             # rungs (200/500/1000) join the curve, so the knee test reads these
             # per-pair gains (normalize by `doublings` for gain-per-doubling).
+            # Adjacency runs over the POWERED spine (>= POWER_MIN targets): sparse
+            # legacy arms (od 200/500/1000, bz 1000, px 500) must not interpose
+            # between campaign rungs -- else e.g. od's stop-rule pair 64->256
+            # (and later 256->512) is never emitted and the knee test silently
+            # reads tiny-n legacy noise instead. Sparse rungs stay in the ladder
+            # table above; they just don't break the chain.
             import math
+            POWER_MIN = 50
+            ns_powered = [n for n in ns if pts[n]["n_targets"] >= POWER_MIN]
             gains = {}
-            for lo, hi in zip(ns, ns[1:]):
+            for lo, hi in zip(ns_powered, ns_powered[1:]):
                 both = sorted({t for t, _n in pools
                                if (t, lo) in pools and (t, hi) in pools})
                 if not both:
