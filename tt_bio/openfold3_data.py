@@ -160,9 +160,22 @@ def build_openfold3_features(
     file paths already resolved on the `Query.chains` are read directly, and
     everything else falls back to the single-sequence / dummy-template features
     the model was trained to accept when none are provided.
+
+    Defaults follow the reference inference configuration
+    (`InferenceDatasetConfigKwargs`, dataset_configs.py:368): `subsample_main=False`
+    (the bare `MSASettings` default of `True` randomly subsamples the main MSA -- a
+    training augmentation) and `take_top_k=True`. The default parse order/caps are
+    extended with `cfdb_hits` (cap 100000000, per docs/source/precomputed_msa_how_to.md)
+    so the OpenFold3 S3 benchmark MSA directories, which ship `cfdb_hits.a3m`, parse.
     """
-    msa_settings = msa_settings or MSASettings()
-    template_settings = template_settings or TemplateSettings()
+    if msa_settings is None:
+        msa_settings = MSASettings(subsample_main=False)
+        if "cfdb_hits" not in msa_settings.max_seq_counts:
+            msa_settings.max_seq_counts["cfdb_hits"] = 100000000
+            msa_settings.aln_order.insert(
+                msa_settings.aln_order.index("uniref90_hits") + 1, "cfdb_hits"
+            )
+    template_settings = template_settings or TemplateSettings(take_top_k=True)
     template_preprocessor_settings = TemplatePreprocessorSettings(mode="predict")
     ccd = (
         CIFFile.read(ccd_file_path) if ccd_file_path is not None else BiotiteCCDWrapper()
