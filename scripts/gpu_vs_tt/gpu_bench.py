@@ -101,6 +101,9 @@ def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
         "--sample_diffusion.N_step", str(STEPS),
         "--sample_diffusion.N_sample", str(SAMPLES),
         "--use_msa", "true", "--use_template", "false", "--use_rna_msa", "false",
+        # The v2 checkpoint ships template_embedder weights; with templates off
+        # the module is not built, so the sanctioned load is non-strict.
+        "--load_strict", "false",
         "--dtype", rung["dtype"],
         "--triangle_attention", rung["triangle_attention"],
         "--triangle_multiplicative", rung["triangle_multiplicative"],
@@ -128,7 +131,7 @@ def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
     def deep_update(d, u):
         for k, v in u.items():
             if isinstance(v, Mapping) and k in d and isinstance(d[k], Mapping):
-                deep_update(d, v)
+                deep_update(d[k], v)
             else:
                 d[k] = v
         return d
@@ -222,7 +225,10 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
         def one_fold():
             sd.seed_everything(seed=SEED, deterministic=False)
             t0 = time.perf_counter()
-            pred = runner.predict(data)
+            # protenix's forward deletes the MSA keys from input_feature_dict
+            # in place (protenix.py:524); hand each fold a fresh shallow copy.
+            pred = runner.predict(
+                {**data, "input_feature_dict": dict(data["input_feature_dict"])})
             torch.cuda.synchronize()
             return time.perf_counter() - t0, pred
 
