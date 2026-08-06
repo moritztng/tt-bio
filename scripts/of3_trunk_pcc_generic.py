@@ -88,10 +88,15 @@ def main():
     tb_d = ttnn.from_torch(tb.float().unsqueeze(0).unsqueeze(-1),
                            layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     s_init_d, z_init_d = glue(ft(s_input.unsqueeze(0)), ft(relpos.unsqueeze(0)), tb_d)
+    n_token = aux["n_token"]
+    if "s_init" in ref:
+        s_init = ttnn.to_torch(s_init_d).float().reshape(n_token, -1)
+        z_init = ttnn.to_torch(z_init_d).float().reshape(n_token, n_token, -1)
+        print(f"s_init:  pcc={pcc(s_init, ref['s_init'].float()):.6f}")
+        print(f"z_init:  pcc={pcc(z_init, ref['z_init'].float()):.6f}")
     tmpl_d = {k: ft(v) for k, v in template_feat.items()}
     s_trunk_d, z_trunk_d = trunk(
         s_init_d, z_init_d, tmpl_d, ft(msa_feat.unsqueeze(0)), ft(s_input.unsqueeze(0)))
-    n_token = aux["n_token"]
     s_trunk = ttnn.to_torch(s_trunk_d).float().reshape(n_token, -1)
     z_trunk = ttnn.to_torch(z_trunk_d).float().reshape(n_token, n_token, -1)
     print(f"s_trunk: pcc={pcc(s_trunk, ref['s_trunk'].float()):.6f}")

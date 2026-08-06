@@ -72,18 +72,24 @@ def main():
     print(f"load_state_dict: missing={len(missing)} unexpected={len(unexpected)}")
 
     with torch.no_grad():
+        pre = {}
+        if args.dump_trunk:
+            # Compute on the pristine batch BEFORE run_trunk (which may mutate it).
+            dm_rafe = model.diffusion_module.atom_attn_enc.ref_atom_feature_embedder
+            cl0, plm0 = dm_rafe(batch=batch, n_query=32, n_key=128)
+            ai, _, _, _ = model.input_embedder.atom_attn_enc(batch=batch)
+            _, s_init, z_init = model.input_embedder(batch=batch)
+            pre = {"cl0": cl0[0], "plm0": plm0[0], "ai": ai[0],
+                   "s_init": s_init[0], "z_init": z_init[0]}
         s_input, s_trunk, z_trunk = model.run_trunk(batch, num_cycles=4)
         print(
             f"trunk: s_input std {float(s_input.std()):.4f} "
             f"s std {float(s_trunk.std()):.4f} z std {float(z_trunk.std()):.4f}"
         )
         if args.dump_trunk:
-            dm_rafe = model.diffusion_module.atom_attn_enc.ref_atom_feature_embedder
-            cl0, plm0 = dm_rafe(batch=batch, n_query=32, n_key=128)
-            ai, _, _, _ = model.input_embedder.atom_attn_enc(batch=batch)
             torch.save(
                 {"s_input": s_input[0], "s_trunk": s_trunk[0], "z_trunk": z_trunk[0],
-                 "cl0": cl0[0], "plm0": plm0[0], "ai": ai[0]},
+                 **pre},
                 args.dump_trunk)
             print(f"dumped reference trunk/conditioning tensors -> {args.dump_trunk}")
         from openfold3.core.utils.tensor_utils import tensor_tree_map
