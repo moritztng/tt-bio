@@ -2,17 +2,26 @@
 """TT baseline leg of the GPU-vs-Tenstorrent Protenix-v2 / OpenDDE head-to-head.
 
 Measures per-fold latency on one Blackhole card, in-process, at production
-config: examples/prot.yaml (117 aa, single protein chain, MSA on), 10 recycling
-steps / 200 diffusion sampling steps / 1 sample / seed 0. The model is loaded
-once; one cold fold absorbs first-kernel compile and the one-time MSA fetch
-(both reported separately, never in the warm numbers); then N warm folds give
-min/median/max. Every timed fold hits the MSA cache ({seq_hash}.a3m in
---msa-dir), so MSA search is never inside a timed region.
+config: a single-chain target YAML (MSA on), 10 recycling steps / 200 diffusion
+sampling steps / 1 sample / seed 0. The model is loaded once; one cold fold
+absorbs first-kernel compile (reported separately, never in the warm numbers);
+then N warm folds give min/median/max. The committed alignment is seeded into
+the MSA cache as {seq_hash}.a3m before any fold, so MSA search never runs at all
+-- not in the timed region and not in the cold fold.
+
+Two targets share this harness, which is what makes the scaling comparison
+possible: examples/prot.yaml (117 aa) and examples/prot300.yaml (CDK2, 298 aa).
+Both use a 35-sequence alignment, so token count is the only variable.
 
 Usage (on a TT host, card pinned via TT_VISIBLE_DEVICES):
 
     TT_VISIBLE_DEVICES=1 python3 scripts/gpu_vs_tt/tt_baseline.py \
         --model protenix-v2 --repeat 3 --out tt_protenix.json
+
+    TT_VISIBLE_DEVICES=1 python3 scripts/gpu_vs_tt/tt_baseline.py \
+        --model protenix-v2 --repeat 3 --target examples/prot300.yaml \
+        --msa-a3m scripts/gpu_vs_tt/fixtures/prot300.a3m --label "298 aa" \
+        --out tt_protenix_300.json
 """
 
 from __future__ import annotations
@@ -28,7 +37,7 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-PROT = REPO_ROOT / "examples" / "prot.yaml"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 # Production config, identical to what the GPU leg must run (fairness contract).
 RECYCLING_STEPS = 10
@@ -80,7 +89,31 @@ def _card_info() -> dict:
     return info
 
 
-def measure(model: str, repeat: int, msa_dir: Path, out_path: Path) -> dict:
+def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
+    """Install ``a3m`` as the cached alignment for ``target``'s chain, so the timed
+    folds hit the cache and no MSA search ever runs. Same contract the 117-aa run
+    used ({sha256(seq)[:16]}.a3m in msa_dir); asserts the a3m's query row is the
+    target's own sequence, which is what makes "identical bytes both sides" a
+    checked fact rather than a claim.
+    """
+    import hashlib
+
+    from tt_bio.main import _read_bio_chains
+
+    chains = _read_bio_chains(target)
+    assert len(chains) == 1, f"{target} is not a monomer: {len(chains)} chains"
+    seq = chains[0][1]
+    text = a3m.read_text()
+    rows = text.split("\n")
+    assert rows[1] == seq, f"{a3m} query row does not match {target}'s sequence"
+    msa_dir.mkdir(parents=True, exist_ok=True)
+    h = hashlib.sha256(seq.encode()).hexdigest()[:16]
+    (msa_dir / f"{h}.a3m").write_text(text)
+    return text.count(">")
+
+
+def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
+            target: Path, a3m: Path, label: str) -> dict:
     import torch  # noqa: F401
     torch.set_grad_enabled(False)
     from tt_bio.tenstorrent import get_device, arch_name, cleanup
@@ -110,6 +143,7 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path) -> dict:
         write_pae=False, write_pde=False, write_embeddings=False, method=None,
     )
     _ensure_local_artifacts(cfg)
+    n_msa = seed_msa_cache(target, a3m, msa_dir)
 
     state = _WorkerState("tenstorrent")
     t_load = time.perf_counter()
@@ -125,12 +159,13 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path) -> dict:
         for p in struct_dir.glob("*"):
             p.unlink()
         t0 = time.perf_counter()
-        metrics, _best, _feats = state.predict_one(PROT, job_cfg)
+        metrics, _best, _feats = state.predict_one(target, job_cfg)
         return time.perf_counter() - t0, metrics
 
-    # Cold fold: first-kernel compile + one-time MSA fetch (cache miss). Never
-    # counted in the warm numbers.
+    # Cold fold: first-kernel compile. Never counted in the warm numbers. The MSA
+    # cache was seeded above, so no fold here -- cold or warm -- runs a search.
     cold_s, cold_metrics = one_fold()
+    assert cold_metrics.get("msa"), "fold ran without an MSA -- cache seeding failed"
     msa_hits = sorted(p.name for p in msa_dir.glob("*.a3m"))
 
     times = []
@@ -146,7 +181,9 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path) -> dict:
         visible_devices=os.environ.get("TT_VISIBLE_DEVICES", "0"),
         **_card_info(),
         tt_bio_git=_git_sha(), ttnn_version=_ttnn_version(),
-        input="prot.yaml (117 aa, single protein, MSA on)",
+        input=f"{target.name} ({label}, single protein, MSA on)",
+        target=str(target), n_msa=n_msa,
+        n_tokens=cold_metrics.get("n_tokens"), n_residues=cold_metrics.get("n_residues"),
         msa_cache=msa_hits,
         recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
         diffusion_samples=DIFFUSION_SAMPLES, seed=SEED,
@@ -173,9 +210,16 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=3, help="timed warm folds (default 3)")
     ap.add_argument("--msa-dir", type=Path,
                     default=Path("~/.cache/tt-bio-gpu-vs-tt/msa").expanduser())
+    ap.add_argument("--target", type=Path, default=REPO_ROOT / "examples" / "prot.yaml",
+                    help="single-chain target YAML (default: the 117-aa prot.yaml)")
+    ap.add_argument("--msa-a3m", type=Path, default=FIXTURES / "prot117.a3m",
+                    help="committed alignment, seeded into the MSA cache before folding")
+    ap.add_argument("--label", default="117 aa",
+                    help="size label recorded in the result JSON")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-    measure(args.model, args.repeat, args.msa_dir, args.out)
+    measure(args.model, args.repeat, args.msa_dir, args.out,
+            args.target, args.msa_a3m, args.label)
     return 0
 
 

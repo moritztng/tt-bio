@@ -5,8 +5,10 @@ Runs the UPSTREAM reference implementations (bytedance/Protenix, aurekaresearch
 OpenDDE) on an NVIDIA GPU with the model loaded once in-process: one cold fold
 (CUDA init / autotune / first-kernel compile, reported separately), then N warm
 timed folds (min/median/max). Same target, same precomputed MSA, same config as
-the TT leg (scripts/gpu_vs_tt/tt_baseline.py): prot.yaml's 117-aa sequence,
-10 cycles / 200 diffusion steps / 1 sample / seed 0.
+the TT leg (scripts/gpu_vs_tt/tt_baseline.py): 10 cycles / 200 diffusion steps /
+1 sample / seed 0, over whichever of the two committed targets is selected --
+prot117 (117 aa) or prot300 (CDK2, 298 aa), both with a 35-row alignment so that
+token count is the only thing that changes between them.
 
 The optimization ladder is vendor-sanctioned only: dtype (fp32 -> bf16), the
 upstream triangle-kernel selectors (triattention / cuequivariance), Protenix's
@@ -31,8 +33,7 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SEQ = ("QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISA"
-       "IVKAAQKKAWKELAVTVLRFAKANGLKTNAIIVAGQLALWAVQCG")  # examples/prot.yaml, 117 aa
+FIXTURES = HERE / "fixtures"
 
 CYCLES = 10
 STEPS = 200
@@ -190,7 +191,7 @@ def _build_opendde_runner(rung: dict, input_json: str, dump_dir: str,
 
 def run_model(model: str, model_name: str, repeat: int, input_json: str,
               dump_root: Path, checkpoint: str | None, out_path: Path,
-              rungs: list[dict]) -> dict:
+              rungs: list[dict], label: str, n_msa_expected: int) -> dict:
     torch = importlib.import_module("torch")
 
     results = []
@@ -221,6 +222,12 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
         new_configs = inf.update_inference_configs(configs, data["N_token"].item())
         runner.update_model_configs(new_configs)
         n_msa = int(data["N_msa"].item())
+        n_token = int(data["N_token"].item())
+        # Fairness is only real if both sides consume the SAME alignment rows. The
+        # TT side reads all 35; if this side cropped or padded to something else the
+        # head-to-head is invalid, so fail loudly rather than publish the number.
+        assert n_msa == n_msa_expected, \
+            f"GPU consumed {n_msa} MSA rows, TT side uses {n_msa_expected}"
 
         def one_fold():
             sd.seed_everything(seed=SEED, deterministic=False)
@@ -255,7 +262,7 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
             rung=rung["name"], rung_config=rung, load_s=round(load_s, 2),
             cold_s=round(cold_s, 3), warm_times_s=[round(t, 3) for t in times],
             warm_min_s=round(ts[0], 3), warm_median_s=round(ts[len(ts) // 2], 3),
-            warm_max_s=round(ts[-1], 3), n_msa=n_msa,
+            warm_max_s=round(ts[-1], 3), n_msa=n_msa, n_token=n_token,
             ca_kabsch_rmsd_vs_L0=rmsd,
         ))
         print(f"[{model} {rung['name']}] warm median {ts[len(ts)//2]:.2f}s "
@@ -264,11 +271,25 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
         del runner
         torch.cuda.empty_cache()
 
+    # Host CPU matters: at these token counts a good share of the wall clock is
+    # kernel-launch dispatch, so a scaling ratio taken across two different rented
+    # hosts is not clean. Recorded here so the 117-vs-300 ratio can be shown to be
+    # a within-host measurement (the 117-aa run of 2026-08-06 did not record it).
+    cpu = "unknown"
+    try:
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            if line.startswith("model name"):
+                cpu = line.split(":", 1)[1].strip()
+                break
+    except Exception:
+        pass
+
     summary = dict(
         model=model, side="gpu", model_name=model_name,
-        gpu=torch.cuda.get_device_name(0),
+        gpu=torch.cuda.get_device_name(0), host_cpu=cpu,
+        cpu_count=os.cpu_count(),
         torch_version=torch.__version__, cuda_version=torch.version.cuda,
-        input="prot.yaml sequence (117 aa), precomputed MSA (same a3m as TT side)",
+        input=f"{label}, precomputed MSA (same a3m as TT side)",
         recycling_steps=CYCLES, sampling_steps=STEPS, diffusion_samples=SAMPLES,
         seed=SEED, rungs=results, date=time.strftime("%Y-%m-%d"),
     )
@@ -276,13 +297,13 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
     return summary
 
 
-def write_input_json(path: Path, msa_a3m: Path) -> None:
+def write_input_json(path: Path, msa_a3m: Path, seq: str, name: str) -> None:
     job = {
-        "name": "prot117",
+        "name": name,
         "modelSeeds": [SEED],
         "sequences": [{
             "proteinChain": {
-                "sequence": SEQ,
+                "sequence": seq,
                 "count": 1,
                 "msa": {
                     "precomputed_msa_dir": str(msa_a3m.parent),
@@ -302,7 +323,11 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", required=True, choices=["protenix-v2", "opendde"])
     ap.add_argument("--repeat", type=int, default=3)
-    ap.add_argument("--msa-a3m", type=Path, default=HERE / "fixtures" / "prot117.a3m")
+    ap.add_argument("--msa-a3m", type=Path, default=FIXTURES / "prot117.a3m")
+    ap.add_argument("--seq-file", type=Path, default=FIXTURES / "prot117.seq",
+                    help="one-line target sequence; must match the a3m's query row")
+    ap.add_argument("--label", default="prot.yaml sequence (117 aa)")
+    ap.add_argument("--name", default="prot117", help="job name in the input JSON")
     ap.add_argument("--checkpoint", default=None,
                     help="local checkpoint path (skips the gated official download)")
     ap.add_argument("--rungs", default=None,
@@ -315,7 +340,13 @@ def main() -> int:
         if (tmp := os.environ.get("TMPDIR")) else Path(f"/tmp/gpubench-{args.model}")
     work.mkdir(parents=True, exist_ok=True)
     input_json = work / "input.json"
-    write_input_json(input_json, args.msa_a3m.resolve())
+    seq = args.seq_file.read_text().strip()
+    a3m_rows = args.msa_a3m.read_text().split("\n")
+    # Same identical-bytes check the TT harness makes, from the other side.
+    assert a3m_rows[1] == seq, f"{args.msa_a3m} query row does not match {args.seq_file}"
+    n_msa_expected = args.msa_a3m.read_text().count(">")
+    print(f"target {args.label}: {len(seq)} aa, {n_msa_expected} MSA rows", file=sys.stderr)
+    write_input_json(input_json, args.msa_a3m.resolve(), seq, args.name)
 
     ladder = LADDERS[args.model]
     selected = set(args.rungs.split(",")) if args.rungs else None
@@ -323,7 +354,7 @@ def main() -> int:
     if not rungs:
         ap.error("no rungs selected")
     run_model(args.model, model_name, args.repeat, str(input_json), work / "dump",
-              args.checkpoint, args.out, rungs)
+              args.checkpoint, args.out, rungs, args.label, n_msa_expected)
     return 0
 
 
