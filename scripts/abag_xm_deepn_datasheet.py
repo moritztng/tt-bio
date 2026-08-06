@@ -35,7 +35,11 @@ ANALYSIS = Path(__file__).with_name("abag_xm_deepn_analysis.py")
 MODELS = ("boltz2", "opendde-abag", "protenix-v2", "esmfold2")
 THR = (0.23, 0.49, 0.80)
 THR_KEY = {t: str(t).replace(".", "") for t in THR}
-LADDER = (50, 64, 256, 512, 1024)  # N=16 excluded from the stop-rule ladder (section 9)
+# Measured-rung spine: the fleet folds the designed rungs (64, 256) as 4x64 chunks, so the
+# c0+c1=128 pool is a real measured rung and the analysis emits adjacent-pair gains
+# (50->64, 64->128, 128->256). The stop walk must see 128 or it adjudicates nothing past
+# 50->64 ("64->256" is never emitted). N=16 stays excluded (flavor boundary, section 9).
+LADDER = (50, 64, 128, 256, 512, 1024)
 
 SEC5_PROSE = """\
 Stop a model's ladder when the oracle-gain-per-doubling drops below the measured
