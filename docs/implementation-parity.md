@@ -18,7 +18,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | ESMFold2 | ubiquitin, L76 | PASS | CA-RMSD 0.75 Å inside the 0.92 Å floor; device closer to ref than ref to itself |
 | ESMFold2 | lysozyme, L129 | PASS | CA-RMSD 0.136 Å inside the 0.139 Å floor (X/floor 0.98); seed-wiring fix applied ([per-leg evidence](implementation-parity-details.md#per-leg-evidence)) |
 | Protenix-v2 | 7ROA, L117, MSA | PASS | CA-RMSD 2.63 Å inside the 2.94 Å floor; confidence-head under-ranking shared with reference (model property) |
-| Protenix-v2 | ubiquitin, L76, MSA | PASS | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too |
+| Protenix-v2 | ubiquitin, L76, MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too. The envelope test GAPs this leg since v0.6.1 (numerator 2.015 Å vs a collapsed zero envelope): the in-range MSA row-chunking puts this target's 20826-sequence MSA on the chunked trunk path, measured non-bit-exact by design; root-caused as the path change, not a regression — see below |
 | Protenix-v2 | HSA, L585, MSA | PASS | on-device fp32 diffusion matches the reference's own fp32 boundary; CA-RMSD 0.685 Å inside the 0.695 Å floor (was GAP-evidenced in bf16, X 1.03 Å) |
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
 | Boltz-2 | 7ROA, L117, no MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å. The tighter envelope test GAPs this leg at the pinned seed (ratio 2.04); root-caused as seed-0 chaotic-trajectory amplification, not a precision bug — see below |
@@ -255,6 +255,8 @@ same-dtype cross-host recompute already spends the whole measured bf16 envelope,
 side is compared against a fixture generated on a different machine. So the residual is a bf16 +
 cross-host floor at ~0.1 Å on a 117-residue target, not a Wormhole port defect. It has not been
 driven under the bound; no fp32-boundary lever has been tried for it yet.
+
+**`protenix-v2-ubq-msa` GAP root-caused 2026-08-06 (GAP-evidenced, not fixed): the chunked MSA path, not a numerics regression.** The v0.6.1 gate run read numerator 2.015 Å against this leg's collapsed zero envelope (abs_floor 0.05), a 20x jump from its v0.6.0 reading of 0.011 Å. The cause is the abag-xm MSA row-chunking that landed in this range (`tt_bio/protenix.py`, `MSA_ROW_CHUNK_BUDGET_BYTES` = 0.25 GiB): ubiquitin's MSA is 20826 sequences deep, so its m_feat (0.377 GiB) is the only protenix gate leg that crosses the budget and takes the chunked trunk path, which is measured non-bit-exact by design (whole-vs-chunked mean 0.738 Å / max 3.98 Å on the same chip and seed, commit `c49dd6a4`; the changed depth extent re-plans each matmul's K-blocking, changing the bf16 summation order over tokens). prot (166 sequences) and hsa (0.139 GiB) stay on the whole path and reproduce at 0.045 / 0.025 Å. The device ensemble is the reference ensemble: 3 of 5 device samples match reference samples at 0.093 / 0.430 / 0.453 Å, all five sit inside the reference's own inter-sample spread (0.856–2.851 Å), and the rank-invariant matcher finds the reference top structure's counterpart at 1.189 Å (unsafe at 1.69x, so the report falls back to the strict rank-0 compare). 2.015 Å is inside this target's committed noise floor (ref floor max 2.993 Å). Verdict stays **GAP-evidenced**, margin not loosened; the accuracy content of the port is unchanged.
 
 ## Measurement bounds and non-gated variants
 

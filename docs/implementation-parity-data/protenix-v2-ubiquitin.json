@@ -111,5 +111,7 @@
         "within_noise_floor": true
       }
     }
-  }
+  },
+  "verdict": "GAP-evidenced",
+  "note": "GAP-evidenced under the integration-envelope gate, accepted 2026-08-06 for v0.6.1: kabsch_rmsd numerator 2.0151 against a collapsed zero envelope (ref_fp32/ref_bf16 byte-identical, ttnn-only port, so the leg discriminates only against abs_floor 0.05). PASS under the legacy R/D/X test this file's metrics come from (cross_over_floor 0.901, within_noise_floor true). Root cause: the abag-xm MSA row-chunking (tt_bio/protenix.py, MSA_ROW_CHUNK_BUDGET_BYTES = 0.25 GiB) landed in the v0.6.0..v0.6.1 range, and this target's m_feat (20826 x 76 x 128 x 2 B = 0.377 GiB) is the only protenix gate leg that crosses the budget, so its trunk now takes the chunked path, measured non-bit-exact by design (whole-vs-chunked mean 0.738 A / max 3.98 A on the same chip and seed, commit c49dd6a4: changing the depth extent re-plans each matmul's K-blocking, so the bf16 summation order over tokens changes). protenix-prot (166 seqs) and protenix-hsa (1000 seqs, 0.139 GiB) stay on the whole path and reproduce at 0.0445 / 0.0249 A. The device ensemble is the reference ensemble: 3 of 5 device samples match reference samples at 0.093 / 0.430 / 0.453 A, all 5 sit inside the reference's own inter-sample spread (0.856-2.851 A), and the rank-invariant matcher finds the reference top structure's counterpart at 1.189 A (unsafe at 1.69x < 3x, so the report falls back to the strict rank-0 compare, 2.0151 A). 2.0151 A is inside this target's committed noise floor (ref_floor max 2.993 A). Historical envelope numerators for this leg: 0.0374 (v0.5.0), 0.1008 (2026-07-31), 0.0112 (v0.6.0); the 20x jump is the path change, not run wobble. Not a port defect; accuracy content unchanged."
 }
