@@ -5,24 +5,91 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-06
+
+Design gets one verb: `tt-bio design INPUT --model boltzgen|rfd3`, mirroring `tt-bio predict
+--model ...`. `tt-bio gen` still works unchanged and is now a hidden deprecated alias for
+`tt-bio design --model boltzgen`. ESMC-300M/600M single-sequence embedding is trace-captured,
+and RFD3 multi-card design no longer strangles itself on host threads: four cards aggregated
+0.68x of a single card before, 3.48x after. `--devices N` is honoured on the single-card embed
+and RFD3 design paths, where it had been ignored, and `predict` now says so out loud when a run
+finishes on fewer cards than you asked for instead of quietly returning a slower result.
+
+This release also merges back the v0.6.0 release commits, which were tagged but never landed on
+`main`. For five days `main` reported version 0.5.0, shipped no 0.6.0 changelog entry, and
+carried a `tests/` file that aborted pytest collection so the host suite never ran.
+
 ### Changed
+
 - **Unified design CLI** — `tt-bio design INPUT --model boltzgen|rfd3` is now the single design
-  command, mirroring `tt-bio predict --model ...`. BoltzGen's pipeline options (`--steps`,
+  command, mirroring `tt-bio predict --model ...`. BoltzGen pipeline options (`--steps`,
   `--config STEP key=val`, `--num_designs`, `--budget`, `--devices`, `--out_dir`) moved onto the
   shared command as boltzgen-scoped flags (`boltzgen` is the default model, so existing
   single-model invocations need only swap the verb). The RFD3 checkpoint flag is renamed
-  `--golden_dir` → `--checkpoint` (the old spelling stays as a hidden deprecated alias for one
-  release). The RFD3 engine modules moved from flat `tt_bio/rfd3*.py` files into a self-contained
-  `tt_bio/rfd3/` package mirroring `tt_bio/boltzgen/`; `import tt_bio.rfd3` resolves to the
-  package. Numerics are bit-identical — this is a CLI, layout, and docs change only. BoltzGen's
-  user documentation moved from the README to `docs/boltzgen-design.md`; the README now has one
-  Design section covering both models.
+  `--golden_dir` to `--checkpoint`, with the old spelling kept as a hidden deprecated alias for
+  one release. The RFD3 engine modules moved from flat `tt_bio/rfd3*.py` files into a
+  self-contained `tt_bio/rfd3/` package mirroring `tt_bio/boltzgen/`; `import tt_bio.rfd3`
+  resolves to the package. Numerics are bit-identical: this is a CLI, layout and docs change
+  only. BoltzGen user documentation moved from the README to `docs/boltzgen-design.md`, and the
+  README now has one Design section covering both models. (`26cf293a`)
+- `fa77e884` predict: warn loudly when a run completes on fewer cards than requested, rather
+  than silently returning the slower result.
+- `7bee7292` embed and `ef0265ef` rfd3: honour `--devices N` on the single-card path.
 
 ### Deprecated
+
 - **`tt-bio gen`** — hidden from `--help` and prints a deprecation warning on stderr, then
-  forwards every argument to BoltzGen unchanged. It will be removed in a future release; use
-  `tt-bio design INPUT --model boltzgen` instead (`gen run X --output out` becomes
+  forwards every argument to BoltzGen unchanged. It still works; it will be removed in a future
+  release. Use `tt-bio design INPUT --model boltzgen` instead (`gen run X --output out` becomes
   `design X --model boltzgen --out_dir out`).
+
+### Fixed
+
+- `280de387` tenstorrent: restore the bf16 construction defaults in fast mode. This was the root
+  cause of ESMFold2 returning NaN confidence.
+- `a657a636` boltz2: use one sample-chunk width for the whole diffusion trajectory and pad the
+  short tail. Chunk width is not bit-inert, so a trajectory that changed width partway changed
+  its own numbers.
+- `46b641e3` protenix: `--trace` was a silent no-op for `--model protenix-v2`; the predict
+  worker now forwards it.
+- `c7313862` worker: self-terminate when the spawning dispatcher dies, instead of outliving it
+  and holding a card.
+- `69649a0e` stderr filter: kill the nanobind-filter grandchild together with its parent.
+- `13107362` find_mmseqs: pair mmseqs with the `colabfold_search` actually in use.
+- `176fc85b` embed: clean up the co-location nonce on failure, and stop accepting a missing
+  shared file.
+
+### Performance
+
+- `3bb206e7`, `11cbb13a` ESMC-300M/600M: the single-sequence embed forward is captured as a ttnn
+  trace, and the trace region is guaranteed at fleet load time. Measured 1.47x host-relative and
+  bit-exact (`2584548d`).
+- `75fe28b3` rfd3: cap host thread pools in the design fan-out. Four co-resident single-card
+  designs aggregated 0.68x before the fix and 3.48x after, the same thread-oversubscription
+  class that `--host_threads` addressed for folds in 0.6.0.
+- `67786544`, `78e1ebec` embed: pin single-card visibility before the ttnn import, and raise the
+  parallel npz writers to 32 threads.
+- `719807ef`, `114f4b4d` embed: co-located workers hand back result paths instead of pushing
+  base64 through the controller.
+
+### Gates and documentation
+
+- `cd891272` parity gate: pin the in-process harness legs to one card instead of the whole mesh.
+- `81128ae7` parity gate: derive worker locality from the real hostname. `$HOSTNAME` is not
+  exported to non-interactive shells, so every non-pc host classified itself as remote and
+  tried to ssh to itself.
+- `cca9e030` parity: make the esmfold2-trpcage leg runnable on Wormhole.
+- `e50f285e` perf gate: seed the p300c baselines for opendde-abag and rfd3.
+- `3d6239ee` parity docs: record the BoltzGen sampling bound and SaProt-1.3B near-pass.
+- Restored from the unmerged v0.6.0 release commits: the README documentation for
+  `--host_threads` and `--max_parallel_samples`, the re-synced RELEASING.md accuracy floors, the
+  qb1 p150a opendde-abag perf baseline, and the fix that stopped a `tests/` script aborting
+  pytest collection.
+
+<!-- EXEC TIER: replace this block with the measured gate results, in the shape of the 0.6.0
+     section above (accuracy table, parity tally with the GAP/DRIFT breakdown, perf percentages,
+     ux tally, host-suite tally). Name the opendde-trpcage-nomsa BLOCKED-REF-REGEN-NEEDED leg and
+     why it is not a failure. Quote no number a gate did not produce. -->
 
 ## [0.6.0] - 2026-08-01
 
