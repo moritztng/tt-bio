@@ -559,13 +559,23 @@ def main():
                                         # it clear the stop rule
                                         "degenerate": len(both) < 8,
                                         "gain_ci": g}
+                # Pre-registered marginal-oracle-per-1000-card-seconds: gain CI
+                # midpoint over the rungs' card_h delta (hours -> 1000 s = x3.6).
+                # Skipped when the pair has no measured cost basis (ARK/tier_a
+                # rungs carry wall_s=None -> card_h 0.0).
+                d_h = pts[hi]["card_h"] - pts[lo]["card_h"]
+                if d_h > 0:
+                    gains[f"{lo}->{hi}"]["marginal_oracle_per_1000cs"] = \
+                        round(g["oracle"][1] / (d_h * 3.6), 5)
             if gains:
                 report[model + "__pairwise_gain_ci"] = gains
                 print("  pairwise adjacent-rung gain CIs (stop-rule basis):")
                 for pair, d in gains.items():
                     o = d["gain_ci"]["oracle"]
+                    marg = d.get("marginal_oracle_per_1000cs")
                     print(f"    {pair:<12} nt={d['common_targets']:<4} "
-                          f"oracle gain {o[1]:+.4f} [{o[0]:+.4f},{o[2]:+.4f}]")
+                          f"oracle gain {o[1]:+.4f} [{o[0]:+.4f},{o[2]:+.4f}]"
+                          + (f"  marginal {marg:+.5f}/1000 card-s" if marg is not None else ""))
             ds = deep_stats(pools, model)
             report[model + "__deep"] = ds
             print(f"  within-fold oracle curve (top rung N={ds['top_rung']}, "
