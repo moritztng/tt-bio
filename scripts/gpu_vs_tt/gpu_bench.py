@@ -107,6 +107,12 @@ def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
     ]
     if checkpoint:
         arg_str += ["--load_checkpoint_path", checkpoint]
+        # protenix 2.0.0's runner loads load_checkpoint_dir/<model_name>.pt and
+        # download_inference_cache 403s on the gated official URL if it is
+        # absent there; point the dir at the local copy when the name matches.
+        ck = Path(checkpoint)
+        if ck.name == f"{model_name}.pt":
+            arg_str += ["--load_checkpoint_dir", str(ck.parent)]
     for k in ("enable_efficient_fusion", "enable_diffusion_shared_vars_cache",
               "enable_tf32"):
         if k in rung:
