@@ -240,11 +240,31 @@
               "tt_bio_version": "0.5.0",
               "date": "2026-08-02",
               "note": "seed p300c tt-quietbox2 baselines: opendde-abag had no baseline on any card, rfd3 had p150a only; measured on main v0.5.0 @ df0b34a7, qb2 card 0, during the 2026-08-02 regression check"
+            },
+            "openfold3": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 2.451845,
+              "latency_ms": 407.86,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p300c",
+              "machine_id": "tt-quietbox2",
+              "tt_bio_version": "0.5.0",
+              "date": "2026-08-06",
+              "note": "seed openfold3 p300c baseline: 2.439 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample), same light protocol as all fold models; measured on the production-merge branch post main-merge"
             }
           },
-          "date": "2026-08-02",
+          "date": "2026-08-06",
           "tt_bio_version": "0.5.0",
-          "note": "seed p300c tt-quietbox2 baselines: opendde-abag had no baseline on any card, rfd3 had p150a only; measured on main v0.5.0 @ df0b34a7, qb2 card 0, during the 2026-08-02 regression check"
+          "note": "seed openfold3 p300c baseline: 2.439 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample), same light protocol as all fold models; measured on the production-merge branch post main-merge"
         }
       }
     },
