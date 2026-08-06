@@ -439,8 +439,20 @@ def deep_stats(pools, model):
     """Stop-rule + exhaustion inputs from each target's LARGEST pool."""
     import numpy as np
     rng = np.random.default_rng(20260802)
+    # Campaign-spine cap: the exhaustion verdict is read at the campaign's top
+    # POWERED rung (>= 20 targets, the within-fold common-set rule), not at a
+    # sparse legacy tail. Without the cap, e.g. px's 3-target N=500 saturation-
+    # depth remnant becomes "top rung", its targets get judged at 500, and the
+    # within-fold curve mixes target sets past the campaign cap (pass-400 note).
+    rung_nt = {}
+    for _t, n in pools:
+        rung_nt[n] = rung_nt.get(n, 0) + 1
+    powered = [n for n, nt in rung_nt.items() if nt >= 20]
+    cap = max(powered) if powered else None
     biggest = {}
     for (t, n), d in pools.items():
+        if cap is not None and n > cap:
+            continue
         if t not in biggest or n > biggest[t][0]:
             biggest[t] = (n, d["pool"])
     per_m, per_floor, solvable = {}, {}, {str(thr): 0 for thr in THR}
@@ -481,7 +493,8 @@ def deep_stats(pools, model):
         common = {"depth": D, "n_targets": len(cset),
                   "curve": {m: float(np.mean(v)) for m, v in sorted(cc.items())},
                   "floor_med": {m: float(np.median(v)) for m, v in sorted(cf.items())}}
-    return {"top_rung": max(n for _t, n in pools), "n_targets": len(biggest),
+    top = cap if cap is not None else max(n for _t, n in pools)
+    return {"top_rung": top, "n_targets": len(biggest),
             "within_fold_oracle_curve": {m: float(np.mean(v)) for m, v in sorted(per_m.items())},
             "within_fold_nt": {m: len(v) for m, v in sorted(per_m.items())},
             "within_fold_common": common,
