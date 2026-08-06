@@ -11,9 +11,15 @@ RESULTS=/root/bench-results
 mkdir -p "$RESULTS"
 
 echo "== session start: $(date -u +%FT%TZ) =="
-bash gpu_setup.sh 2>&1 | tee -a "$RESULTS/session.log"
-SETUP_RC=$?
-echo "setup rc=$SETUP_RC" | tee -a "$RESULTS/session.log"
+if [ "${SKIP_SETUP:-0}" != "1" ]; then
+  bash gpu_setup.sh 2>&1 | tee -a "$RESULTS/session.log"
+  SETUP_RC=$?
+  echo "setup rc=$SETUP_RC" | tee -a "$RESULTS/session.log"
+fi
+# gpu_setup.sh installs the CUDA toolchain; the bench needs it in env even when
+# setup is skipped (venvs + toolchain persist on the instance disk).
+export CUDA_HOME=/opt/conda
+export PATH=/opt/conda/bin:$PATH
 
 for MODEL in protenix-v2 opendde; do
   if [ "$MODEL" = "protenix-v2" ]; then

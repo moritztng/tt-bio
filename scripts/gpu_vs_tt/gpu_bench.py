@@ -39,19 +39,38 @@ STEPS = 200
 SAMPLES = 1
 SEED = 0
 
-# Optimization ladder. Each rung overrides CLI-style config keys of the
-# upstream runner. "fp32+torch kernels" is the eager reference point; the later
-# rungs are the vendor's own published performance knobs.
-LADDER = [
-    dict(name="L0-eager-fp32", dtype="fp32", triangle_attention="torch",
-         triangle_multiplicative="torch"),
-    dict(name="L1-bf16-vendor-kernels", dtype="bf16",
-         triangle_attention="triattention", triangle_multiplicative="cuequivariance"),
-    dict(name="L2-bf16-fusion-cache", dtype="bf16",
-         triangle_attention="triattention", triangle_multiplicative="cuequivariance",
-         enable_efficient_fusion=True, enable_diffusion_shared_vars_cache=True,
-         enable_tf32=True),
-]
+# Optimization ladder, per model. Each rung sets EVERY performance knob
+# explicitly: both vendors default fusion/cache/tf32 to ON for inference, so an
+# unset flag is not a clean eager reference. "fp32+torch kernels, no fusion" is
+# the eager reference point; the later rungs are the vendor's own published
+# performance knobs. Kernel selector names differ between the two codebases
+# (protenix: triattention/cuequivariance; opendde: cuequivariance/auto).
+LADDERS = {
+    "protenix-v2": [
+        dict(name="L0-eager-fp32", dtype="fp32", triangle_attention="torch",
+             triangle_multiplicative="torch", enable_efficient_fusion=False,
+             enable_diffusion_shared_vars_cache=False, enable_tf32=False),
+        dict(name="L1-bf16-vendor-kernels", dtype="bf16",
+             triangle_attention="triattention", triangle_multiplicative="cuequivariance",
+             enable_efficient_fusion=False, enable_diffusion_shared_vars_cache=False,
+             enable_tf32=False),
+        dict(name="L2-bf16-fusion-cache", dtype="bf16",
+             triangle_attention="triattention", triangle_multiplicative="cuequivariance",
+             enable_efficient_fusion=True, enable_diffusion_shared_vars_cache=True,
+             enable_tf32=True),
+    ],
+    "opendde": [
+        dict(name="L0-eager-fp32", dtype="fp32", triatt_kernel="torch",
+             trimul_kernel="torch", enable_fusion=False, enable_cache=False,
+             enable_tf32=False),
+        dict(name="L1-bf16-vendor-kernels", dtype="bf16",
+             triatt_kernel="cuequivariance", trimul_kernel="cuequivariance",
+             enable_fusion=False, enable_cache=False, enable_tf32=False),
+        dict(name="L2-bf16-fusion-cache", dtype="bf16", triatt_kernel="auto",
+             trimul_kernel="auto", enable_fusion=True, enable_cache=True,
+             enable_tf32=True),
+    ],
+}
 
 
 def _import_any(names: list[str]):
@@ -132,29 +151,54 @@ def _ca_kabsch_rmsd(c1, c2, ca_idx1=None, ca_idx2=None) -> float:
     return float(np.sqrt(((a @ rot.T - b) ** 2).sum(-1).mean()))
 
 
+def _build_opendde_runner(rung: dict, input_json: str, dump_dir: str,
+                          checkpoint: str | None):
+    """OpenDDE's public runner factory (runner.batch_inference.get_default_runner)
+    with the vendor's own knob names. Returns (runner, configs, inf_module,
+    dataloader_module, seed_module)."""
+    bi = importlib.import_module("runner.batch_inference")
+    inf = importlib.import_module("runner.inference")
+    dl = importlib.import_module("opendde.data.inference.infer_dataloader")
+    sd = importlib.import_module("opendde.utils.seed")
+    runner = bi.get_default_runner(
+        seeds=[SEED], dump_dir=dump_dir, n_cycle=CYCLES, n_step=STEPS,
+        n_sample=SAMPLES, dtype=rung["dtype"], model_name="opendde_v1",
+        load_checkpoint_path=checkpoint or "", use_msa=True,
+        trimul_kernel=rung["trimul_kernel"], triatt_kernel=rung["triatt_kernel"],
+        enable_cache=rung["enable_cache"], enable_fusion=rung["enable_fusion"],
+        enable_tf32=rung["enable_tf32"], deterministic=False, use_template=False,
+        use_rna_msa=False, need_atom_confidence=True,
+    )
+    configs = runner.configs
+    configs.input_json_path = input_json
+    return runner, configs, inf, dl, sd
+
+
 def run_model(model: str, model_name: str, repeat: int, input_json: str,
               dump_root: Path, checkpoint: str | None, out_path: Path,
               rungs: list[dict]) -> dict:
     torch = importlib.import_module("torch")
-    inf = _import_any(["runner.inference", "protenix.runner.inference",
-                       "opendde.runner.inference"])
-    dl = _import_any(["protenix.data.inference.infer_dataloader",
-                      "opendde.data.inference.infer_dataloader"])
-    sd = _import_any(["protenix.utils.seed", "opendde.utils.seed"])
 
     results = []
     ref_coords = None
     for rung in rungs:
         rung_dir = dump_root / rung["name"]
         rung_dir.mkdir(parents=True, exist_ok=True)
-        configs = _build_configs(model_name, rung, input_json, str(rung_dir),
-                                 checkpoint)
-        if hasattr(inf, "update_gpu_compatible_configs"):
-            configs = inf.update_gpu_compatible_configs(configs)
-        inf.download_inference_cache(configs)
 
         t_load = time.perf_counter()
-        runner = inf.InferenceRunner(configs)
+        if model == "opendde":
+            runner, configs, inf, dl, sd = _build_opendde_runner(
+                rung, input_json, str(rung_dir), checkpoint)
+        else:
+            inf = _import_any(["runner.inference", "protenix.runner.inference"])
+            dl = _import_any(["protenix.data.inference.infer_dataloader"])
+            sd = _import_any(["protenix.utils.seed"])
+            configs = _build_configs(model_name, rung, input_json, str(rung_dir),
+                                     checkpoint)
+            if hasattr(inf, "update_gpu_compatible_configs"):
+                configs = inf.update_gpu_compatible_configs(configs)
+            inf.download_inference_cache(configs)
+            runner = inf.InferenceRunner(configs)
         load_s = time.perf_counter() - t_load
 
         dataloader = dl.get_inference_dataloader(configs=configs)
@@ -244,8 +288,8 @@ def main() -> int:
     ap.add_argument("--msa-a3m", type=Path, default=HERE / "fixtures" / "prot117.a3m")
     ap.add_argument("--checkpoint", default=None,
                     help="local checkpoint path (skips the gated official download)")
-    ap.add_argument("--rungs", default=",".join(r["name"] for r in LADDER),
-                    help="comma-separated subset of rung names")
+    ap.add_argument("--rungs", default=None,
+                    help="comma-separated subset of rung names (default: all)")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
 
@@ -256,8 +300,9 @@ def main() -> int:
     input_json = work / "input.json"
     write_input_json(input_json, args.msa_a3m.resolve())
 
-    wanted = {r["name"] for r in LADDER if r["name"] in set(args.rungs.split(","))}
-    rungs = [r for r in LADDER if r["name"] in wanted]
+    ladder = LADDERS[args.model]
+    selected = set(args.rungs.split(",")) if args.rungs else None
+    rungs = [r for r in ladder if selected is None or r["name"] in selected]
     if not rungs:
         ap.error("no rungs selected")
     run_model(args.model, model_name, args.repeat, str(input_json), work / "dump",

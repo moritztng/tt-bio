@@ -9,6 +9,16 @@ cd "$(dirname "$0")"
 echo "== gpu_setup: $(date -u +%FT%TZ) =="
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
 
+# CUDA toolchain. The runtime image has no nvcc/CUDA_HOME, but both vendors
+# JIT-compile a fused layernorm CUDA extension at import (their own dockers use
+# devel images). conda cuda-compiler matches the image's cu128 torch.
+if [ ! -x /opt/conda/bin/nvcc ]; then
+  apt-get update -qq && apt-get install -y -qq build-essential
+  /opt/conda/bin/conda install -y -n base -c nvidia "cuda-compiler=12.8"
+fi
+export CUDA_HOME=/opt/conda
+export PATH=/opt/conda/bin:$PATH
+
 # Two venvs: opendde[gpu] pins cuequivariance 0.10.0 while protenix 2.0.0 pins
 # cuequivariance 0.8.0 -- one env cannot serve both. --system-site-packages
 # reuses the image's torch 2.7.1+cu128 (== both packages' pinned torch), so no
