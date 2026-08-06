@@ -113,6 +113,8 @@ def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
         if k in rung:
             arg_str += [f"--{k}", str(rung[k]).lower()]
 
+    # protenix 2.0.0 parse_configs does arg_str.split() -- it wants one string.
+    arg_str = " ".join(arg_str)
     configs = {**cb.configs, **{"data": cd.data_configs}, **ci.inference_configs}
     configs = cc.parse_configs(configs=configs, arg_str=arg_str,
                                fill_required_with_null=True)
@@ -136,6 +138,10 @@ def _ca_kabsch_rmsd(c1, c2, ca_idx1=None, ca_idx2=None) -> float:
     import numpy as np
     a = np.asarray(c1, dtype=np.float64)
     b = np.asarray(c2, dtype=np.float64)
+    # Vendors disagree on leading dims ([N,3] vs [N_sample,N,3]); flatten to
+    # (N,3) and compare the first sample's atoms.
+    a = a.reshape(-1, a.shape[-1])
+    b = b.reshape(-1, b.shape[-1])
     if ca_idx1 is not None:
         a = a[ca_idx1]
         b = b[ca_idx2]
