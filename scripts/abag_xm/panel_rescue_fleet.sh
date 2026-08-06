@@ -46,6 +46,9 @@ EOF
 fi
 NTask=$(wc -l < $TASKS)
 CHIPS=${CHIPS:-$(seq -s' ' 0 $((NTask-1)))}
+[ -n "${CHIPS// /}" ] || { echo "CHIPS is empty -- nothing to launch"; exit 0; }
+[ -d "$SRC" ] || { echo "engine tree $SRC missing -- refusing to launch"; exit 1; }
+command -v "$PY_SYS" >/dev/null || { echo "$PY_SYS missing -- refusing to launch"; exit 1; }
 echo "rescue tasks: $NTask  chips: $(wc -w <<<"$CHIPS") [$CHIPS]  window: $B"
 
 group_cpu() { # <pgid> -> total CPU seconds of every process in the group
