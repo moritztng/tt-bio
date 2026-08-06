@@ -24,6 +24,104 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `tt-bio design INPUT --model boltzgen` instead (`gen run X --output out` becomes
   `design X --model boltzgen --out_dir out`).
 
+## [0.6.0] - 2026-08-01
+
+ESMFold2 now folds at the paper's protocol by default: 10 recycling loops and 100 requested sampling
+steps, of which 68 execute after the sigma-schedule clip. The old default under-recycled by 3.3x and
+burned roughly twice the diffusion compute for no measured quality gain. Folds that draw several
+samples per batch pick up `--max_parallel_samples` on Protenix-v2, OpenDDE and ESMFold2, where the
+flag had been silently ignored, and single-card folds sharing a host can now be given a CPU budget
+with the new `--host_threads` — four co-resident folds previously aggregated only 2.56x of a possible
+4.00x because each sized its thread pools to every core. A fold error is no longer truncated before
+its tail, which matters more than it sounds: a clipped out-of-memory message had hidden the real
+evidence and produced a wrong "Wormhole cannot run this" verdict.
+
+### Fixed
+
+- `c145a1a6` worker: stop truncating away the tail of a fold error.
+- `b62301f5` boltz2: width-based diffusion chunking. Upstream's `N % mps + 1` chunk-count formula
+  produced a single 1000-sample chunk at N=1000 / mps=5 — about 0.9 GB of L1 forward buffers — and
+  ran out of memory at both mps 5 and mps 3. It now matches `protenix.edm_sample`'s width<=mps
+  semantics. `9f31125fc` refuses to run rather than derive a wrong sibling seed past two chunks.
+- `364bdd46` predict: `--max_parallel_samples` was a silent no-op for protenix-v2, opendde and
+  esmfold2.
+- `f0fe2a72` esmfold2: thread the fold seed into the diffusion sampler's private RNG.
+- `fce156d4` protenix/opendde: broadcast the sample-invariant diffusion biases instead of
+  replicating them.
+- `45036687` tests: a script dropped into `tests/` ran its scenarios at import and ended in
+  `sys.exit()`, so pytest aborted collection with INTERNALERROR and the entire 209-test host suite
+  silently never ran. Caught by this release's own gate.
+
+### Changed
+
+- `f8a00aed` esmfold2 / esmfold2-fast default to the paper protocol (10 recycling loops, 100
+  requested sampling steps). Explicit flags are honoured verbatim; other models are unchanged.
+- `228dc8e5` rfd3: raise the design batch clamp to the memory bound it stands for.
+
+### Performance
+
+RFdiffusion3 (43 commits, p19-p32): resident pair tables, a one-kernel head merge, build-once sparse
+pair-bias construction, and an opt-in `RFD3_TUNE_MATMUL` calibration path. Two trace levers were
+measured and recorded as negative rather than shipped (`5a32a203`), and `5945a944` fixes a traced
+decoder handing out the buffer its own trace replays into. Measured effect at release: rfd3 runs at
+0.1185 designs/s, +5.3% against its committed baseline.
+
+### Documentation
+
+- `54682d89` RELEASING.md's accuracy floor table had drifted from `release_gate.py:MODELS` — it
+  listed ESMFold2 at 4.0 A / TM 0.65 while the code has enforced 8.0 A / TM 0.40 since `88c14f3b`.
+  Re-synced and annotated with the source of truth.
+- `6c63537b`, `2fcf0bad` document `--host_threads` and `--max_parallel_samples`, the two
+  user-facing CLI flags that had shipped without ever reaching the options table.
+- Profiling instrumentation (6 commits): measured Blackhole p150a roofline, `ttnn.graph` capture
+  characterised as an instrument, real-model op counts (ESMFold2-Fast 1290 ops per diffusion step,
+  whole-fold 43,291 ops), and a worked example showing ESMC-300M is DRAM-bandwidth-bound rather than
+  matmul-bound.
+
+### Release gate (Blackhole P150a on `tt-quietbox`, card 2)
+
+Host suite, run one process per test file: **200 passed, 22 skipped, 1 failed**. The single failure,
+`test_protenix_confidence.py::test_confidence_device_resident_parity`, is pre-existing: it produces
+a bit-identical PCC of 0.9807124853748275 against its >0.99 bar at both this commit and v0.5.0, so it
+predates this release. Packaging guard: 15/15 expected data files and 31/31 declared dependencies
+present in the wheel and sdist. UX gate: PASS on all 11 surfaces.
+
+**Accuracy gate** — every shipped fold architecture folded end-to-end with production sampling and
+checked against a per-model ground-truth floor, not self-consistency:
+
+| model | RMSD (A) | TM | floor | result |
+|---|---|---|---|---|
+| boltz2 | 1.555 | 0.942 | <=3.0 / >=0.75 | PASS |
+| esmfold2 | 1.834 | 0.906 | <=8.0 / >=0.40 | PASS |
+| esmfold2-fast | 1.811 | 0.909 | <=4.5 / >=0.60 | PASS |
+| protenix-v2 | 1.458 | 0.945 | <=6.0 / >=0.50 | PASS |
+| opendde | 1.350 | 0.953 | <=6.0 / >=0.50 | PASS |
+
+BoltzGen scRMSD 1.300 A at a 100% pass rate (floor <=2.0 A, >=50%); OpenDDE-abag DockQ 0.856 with
+fnat 0.922 (floor >=0.50); capacity leg peaked at 5.90 GiB against a 7.0 GiB budget on a
+1095-token target, writing all 50 samples.
+
+**Parity gate** (`scripts/full_parity_gate.py`, 23 legs): **21 PASS, 2 GAP, 0 DRIFT**. Both GAPs
+reproduce a committed `GAP-evidenced` verdict rather than drifting — boltz2-prot-nomsa at
+ratio 2.07 and boltz2-affinity-fkbp12-nomsa at 0.0033. Highlights: ESMC-300m/600m minimum
+per-residue PCC 0.99918 / 0.99938, SaProt-35m/650m embedding PCC 0.99914 / 0.99964, ESMFold2 within
+its noise floor on all four targets, Boltz-2 trp-cage envelope ratio 0.59 and HSA 0.71, Protenix-v2
+7ROA 1.05 / ubiquitin 0.00 / HSA 0.48, both OpenDDE structure legs bit-identical at 0.0000, and the
+RFD3 featurizer 43/43 keys bit-exact. Five of six Boltz-2 affinity legs pass and the sixth
+(fkbp12-msa, 0.0028) improves on its recorded gap.
+
+**Performance gate**: PASS on all 13 models within a +/-15% threshold — boltz2 +0.2%, esmfold2 +0.7%,
+esmfold2-fast -0.9%, protenix-v2 -4.5%, opendde +0.9%, opendde-abag -0.3%, esmc-300m +0.3%,
+esmc-600m +0.0%, esmc-6b +1.0%, saprot-650m -1.1%, boltzgen +0.0%, boltz2-affinity -4.9%,
+rfd3 +5.3%. `opendde-abag` is a **first seeded baseline** at 1.208666 structures/s, not a compared
+number: v0.5.0 reported seeding one but the JSON edit was never committed, leaving the model with no
+baseline on any card for two releases.
+
+Both the perf sweep and the host suite must be run **one model (or one test file) per process**.
+tt-bio supports one device context per process, and iterating models inside a single long-lived
+process produces false failures — it reported rfd3 at -42.5% and failed five host-suite tests that
+each pass when run alone.
+
 ## [0.5.0] - 2026-07-27
 
 Multi-sample folds are about 3x faster on Protenix-v2 and OpenDDE, which now draw every sample
