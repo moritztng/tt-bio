@@ -76,11 +76,15 @@ def resolve_openfold3_msas(
     msa_server_password: str | None = None,
     api_key: str | None = None,
     msa_endpoint: str | None = None,
+    fetch: bool = True,
 ) -> Query:
     """Attach cached or freshly searched unpaired MSAs to an OF3 query.
 
     This is the same sequence-hash cache and search stage used by Protenix-v2,
     OpenDDE, and ESMFold2. Existing ``main_msa_file_paths`` are preserved.
+    ``fetch=False`` attaches from the cache only (no search) — the
+    single-sequence / staged-fixture mode, matching Protenix-v2's "cached a3m
+    is always used, search only when a source is configured" semantics.
     """
     from tt_bio.main import _generate_esmfold2_a3m
 
@@ -95,7 +99,7 @@ def resolve_openfold3_msas(
         seq_hash = hashlib.sha256(seq.encode()).hexdigest()[:16]
         path = msa_dir / f"{seq_hash}.a3m"
         paths[i] = path
-        if not path.exists():
+        if fetch and not path.exists():
             needed[seq_hash] = seq
     if needed:
         _generate_esmfold2_a3m(
@@ -103,6 +107,7 @@ def resolve_openfold3_msas(
             msa_server_url, msa_pairing_strategy, msa_server_username,
             msa_server_password, api_key, msa_endpoint=msa_endpoint,
         )
+    paths = {i: p for i, p in paths.items() if p.exists()}
     for i, path in paths.items():
         # OF3 filters direct MSA files by canonical source basename. Keep the shared
         # hash cache unchanged and expose the same bytes under its ColabFold source name.

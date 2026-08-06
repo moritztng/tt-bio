@@ -141,6 +141,11 @@ def _write_openfold3_structure(atom_array, coords, outpath, output_format,
         arr.add_annotation("b_factor", float)
     arr.b_factor[:] = (b_factors.detach().cpu().numpy().astype("float32")
                        if b_factors is not None else 0.0)
+    # Bio.PDB.MMCIFParser hard-requires _atom_site.occupancy; biotite only writes
+    # it when the annotation exists.
+    if "occupancy" not in arr.get_annotation_categories():
+        arr.add_annotation("occupancy", float)
+        arr.occupancy[:] = 1.0
     outpath = Path(outpath)
     if output_format == "pdb":
         pf = _pdb.PDBFile()
@@ -776,11 +781,10 @@ class _WorkerState:
         into the shared msa_dir and attached to the query as main_msa_file_paths.
         Polymer chains only (protein/RNA/DNA); no template search (OF3 folds the
         validated panel template-free)."""
-        import hashlib
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains)
+        from tt_bio.main import _read_bio_chains
 
         chains = _read_bio_chains(path)
         if not chains:
@@ -793,29 +797,6 @@ class _WorkerState:
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
-        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
-        need = {}
-        for _cid, cseq, spec, mt in chains:
-            have_spec = bool(spec and Path(spec).expanduser().exists())
-            if mt == "protein" and want_msa and not have_spec:
-                h = hashlib.sha256(cseq.encode()).hexdigest()[:16]
-                if not (msa_dir / f"{h}.a3m").exists():
-                    need[h] = cseq
-        if need:
-            _generate_esmfold2_a3m(
-                need, path.stem, msa_dir, cfg.get("msa_db_path"),
-                cfg.get("use_envdb", False), cfg.get("msa_server_url"),
-                cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                cfg.get("msa_server_password"), cfg.get("api_key_value"),
-                msa_endpoint=cfg.get("msa_endpoint"))
-
-        def _a3m_path(spec, cseq):
-            if spec and Path(spec).expanduser().exists():
-                return str(Path(spec).expanduser())
-            h = hashlib.sha256(cseq.encode()).hexdigest()[:16]
-            cached = msa_dir / f"{h}.a3m"
-            return str(cached) if cached.exists() else None
-
         _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA"}
         query = {
             "query_name": path.stem, "use_msas": True, "use_paired_msas": False,
@@ -824,8 +805,9 @@ class _WorkerState:
                 {"molecule_type": _MT[mt], "chain_ids": [cid], "sequence": cseq,
                  "non_canonical_residues": None, "smiles": None, "ccd_codes": None,
                  "paired_msa_file_paths": None,
-                 "main_msa_file_paths": ([_a3m_path(spec, cseq)]
-                                         if _a3m_path(spec, cseq) else None),
+                 "main_msa_file_paths": ([str(Path(spec).expanduser())]
+                                         if spec and Path(spec).expanduser().exists()
+                                         else None),
                  "template_alignment_file_path": None, "template_entry_chain_ids": None,
                  "sdf_file_path": None}
                 for cid, cseq, spec, mt in chains
@@ -857,6 +839,34 @@ class _WorkerState:
         np.random.seed(0)
         iqs = InferenceQuerySet.from_json(qpath)
         of3_query = next(iter(iqs.queries.values()))
+        # The MSA stage delegates to the shared resolver: it exposes the cached
+        # hash-named ColabFold a3m under the canonical source basename OF3's parser
+        # filters on (a raw hash-named path parses to ZERO chains and dies on an
+        # IndexError deep in the vendored pipeline), and preserves user-specified
+        # per-chain MSA paths.
+        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
+        from tt_bio.openfold3_data import resolve_openfold3_msas
+        of3_query = resolve_openfold3_msas(
+            of3_query, msa_dir, target_id=path.stem,
+            msa_db_path=cfg.get("msa_db_path"),
+            use_envdb=cfg.get("use_envdb", False),
+            msa_server_url=cfg.get("msa_server_url"),
+            msa_pairing_strategy=cfg.get("msa_pairing_strategy"),
+            msa_server_username=cfg.get("msa_server_username"),
+            msa_server_password=cfg.get("msa_server_password"),
+            api_key=cfg.get("api_key_value"),
+            msa_endpoint=cfg.get("msa_endpoint"),
+            fetch=bool(want_msa))
+        if want_msa:
+            missing = [c.chain_ids for c in of3_query.chains
+                       if c.molecule_type.name == "PROTEIN" and not c.main_msa_file_paths]
+            if missing:
+                raise RuntimeError(
+                    f"MSA was requested but none resolved for protein chain(s) {missing} "
+                    "-- refusing to silently fold single-sequence.")
+        if not any(c.main_msa_file_paths for c in of3_query.chains):
+            of3_query.use_msas = False
+            of3_query.use_main_msas = False
         features = build_openfold3_features(of3_query)
         msa_feat = make_openfold3_msa_features(features, max_sequences=1024, seed=0)
         aux = derive_block_aux(features)
