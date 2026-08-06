@@ -15,9 +15,10 @@ data (every table carries its coverage; verdicts are marked partial).
 Stop-rule verdict (pre-registered): walk the campaign ladder (N=16 EXCLUDED from the
 ladder; overlay rungs 200/500/1000 are reported in section 6 but are not ladder rungs),
 normalize each adjacent pair's oracle gain per doubling, compare against the seed-noise
-floor at the lo rung's size. Two consecutive below-floor pairs = knee; N* = the lo rung
-of the first of the two. Degenerate pairs (<8 common targets) never clear. "No knee by
-N=<max>" is a complete answer.
+floor at the lo rung's size. Two consecutive below-floor pairs = candidate knee;
+N* = the lo rung of the first of the two. The candidate is FALSIFIED (noise dip, not
+saturation) if any later pair clears the floor. Degenerate pairs (<8 common targets)
+never clear. "No knee by N=<max>" is a complete answer.
 
 N=16 flavor: with DEEPN_N16_ARK=1 the analysis restates the rung with the ARK-interface
 scorer for the models in N16_ARK_OK (report key `n16_ark_models`); this driver keys its
@@ -48,7 +49,9 @@ largest pool per target, B=200) at two consecutive ladder rungs. N* = the last r
 before the knee. The gain per adjacent rung pair and its CI come from the pairwise
 paired bootstrap (section 6); the comparator floor is the lo rung's size (the
 difference's noise is dominated by the smaller sample). Pairs flagged `degenerate`
-(<8 common targets) never clear the rule. "No knee by N=1024" is a complete answer."""
+(<8 common targets) never clear the rule. A candidate knee is reported only if no
+later pair clears the floor: a below-floor dip the curve's own tail contradicts is
+seed noise, not saturation. "No knee by N=1024" is a complete answer."""
 
 # Campaign decision 2026-08-05 (Moritz, Telegram): the ladder is capped at N=256 for
 # every model -- N=512/1024 will never run. When DEEPN_CAP_DECISION=256 is set, a model
@@ -134,12 +137,18 @@ def sec4(rep):
 
 
 def stop_verdict(model, rep):
-    """Walk the ladder; two consecutive below-floor pairs = knee."""
+    """Walk the ladder; two consecutive below-floor pairs = knee, but only if no
+    LATER pair clears the floor -- a below-floor dip followed by an above-floor
+    pair is seed noise, not saturation (the falsification clause; without it the
+    mechanical walk would call a knee the curve's own tail contradicts, and the
+    2026-08-05 cap decision forbids implying a saturation verdict we did not
+    measure)."""
     gains = rep.get(model + "__pairwise_gain_ci", {})
     floors = rep.get(model + "__deep", {}).get("seed_noise_floor_med", {})
     rows, below, nstar = [], 0, None
     ladder = [n for n in LADDER
               if any(g.startswith(f"{n}->") or g.endswith(f"->{n}") for g in gains)]
+    states = []
     for lo, hi in zip(ladder, ladder[1:]):
         g = gains.get(f"{lo}->{hi}")
         if not g:
@@ -159,15 +168,26 @@ def stop_verdict(model, rep):
         else:
             state = "above floor"
             below = 0
+        states.append((lo, state))
         rows.append(f"| {lo}->{hi} | {g['common_targets']} | {fmt_ci(ci)} | "
                     f"{per_dbl[1]:+.4f} | {fl_s} | {state} |")
         if below == 2 and nstar is None:
             nstar = lo
+    if nstar is not None and any(s == "above floor"
+                                 for lo, s in states if lo > nstar):
+        falsified = nstar
+        nstar = None
+    else:
+        falsified = None
     if nstar is not None:
         verdict = f"**N* = {nstar}** (knee: two consecutive below-floor doublings)"
     elif CAP_DECISION and ladder and ladder[-1] >= CAP_DECISION:
         verdict = (f"**N* = {CAP_DECISION} by decision** (ladder capped 2026-08-05; "
                    f"no measured knee -- the gains above are the curve's true final state)")
+        if falsified is not None:
+            verdict += (f"; the {falsified}-rung candidate knee (two below-floor "
+                        f"doublings) is FALSIFIED by the later above-floor pair -- "
+                        f"a noise dip, not saturation")
     elif len(ladder) > 1:
         verdict = f"**no knee by N={ladder[-1]}**"
     else:
