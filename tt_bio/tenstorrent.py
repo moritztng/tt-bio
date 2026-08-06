@@ -1015,15 +1015,23 @@ class AttentionPairBias(Module):
                 z = ttnn.permute(z, (0, 3, 1, 2))
             if seq_mask is not None:
                 z = ttnn.add_(z, seq_mask)
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                attn_mask=z,
-                is_causal=False,
-                scale=self.head_dim**-0.5,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
-            )
+            # Unfused attention: the fused ttnn SDPA kernel systematically flattens
+            # near-degenerate attention distributions (observed on 7XI5's repeat-
+            # protein logits: output std shrunk ~16%, s-track diverged over trunk
+            # cycles). matmul + ttnn.softmax + matmul on the same q/k/v/bias is
+            # PCC-clean (0.99993 vs 0.98128). z is head_dim**0.5-premultiplied, so
+            # (q@k^T + z) * head_dim**-0.5 == q@k^T/sqrt(d) + bias.
+            kt = ttnn.transpose(k, -2, -1)
+            logits = ttnn.matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(kt)
+            if z is not None:
+                logits = ttnn.add_(logits, z)
+            logits = ttnn.multiply_(logits, self.head_dim**-0.5)
+            probs = ttnn.softmax(logits, dim=-1,
+                                 compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(logits)
+            o = ttnn.matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(probs)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
