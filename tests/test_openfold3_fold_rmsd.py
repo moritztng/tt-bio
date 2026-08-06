@@ -89,5 +89,7 @@ def test_of3_msa_confidence_selected_fold_rmsd():
     selected = rmsds[result.best_index]
     print(f"OF3 MSA+confidence: selected={selected:.3f} A best={min(rmsds):.3f} A "
           f"median={sorted(rmsds)[2]:.3f} A index={result.best_index}")
-    assert min(rmsds) < 10.0, f"MSA ensemble best RMSD {min(rmsds):.2f} A regressed"
-    assert selected < 12.0, f"confidence-selected RMSD {selected:.2f} A regressed"
+    # Post-P13 the fixture-path fold lands at 0.7-0.9 A (the fused-SDPA s-track
+    # fix); 2.0 A guards that fixed behavior without flaking on seed/MSA drift.
+    assert min(rmsds) < 2.0, f"MSA ensemble best RMSD {min(rmsds):.2f} A regressed"
+    assert selected < 2.0, f"confidence-selected RMSD {selected:.2f} A regressed"

@@ -1647,3 +1647,48 @@ best-of-five gap to the other models.
 confidence-ranked path. It guards oracle best below 10 Å and selected RMSD below 12 Å;
 these are regression ceilings around the measured result, not a claim that OF3 has
 reached the release accuracy bar.
+
+## P13 -- accuracy re-open: two root causes found and fixed; CLI wiring
+
+P12 closed on a "checkpoint ceiling" hypothesis; P13 re-opened it after the OpenFold
+consortiums own benchmark of the same 155k checkpoint (median TM 0.968 over 331
+monomers) contradicted it. Two independent tt-bio-side defects, neither visible to the
+per-module PCC gates:
+
+1. **Swapped conditioning arguments** (`0b51d189`): `openfold3_sample_diffusion.py`
+   passed `(si_input, si_trunk)` where `OF3DiffusionConditioning` binds
+   `(si_trunk, si_input)`; the concat width is unchanged so nothing shape-checked.
+   Fixed: 1UBQ 9.45 -> 0.75 Angstrom.
+2. **Fused-SDPA softmax flattening** (`ba6ede96`): the fused
+   `ttnn.transformer.scaled_dot_product_attention` systematically flattens
+   near-degenerate attention distributions. 7XI5 (designed repeat protein) drove the
+   pairformer s-track onto that knife-edge: attention deltas came out ~16%
+   under-scaled on bit-exact inputs (std ratio 0.836), the s-track decorrelated over
+   4 trunk cycles (s_trunk pcc 0.44, z 0.999 clean), RMSD 8.61 Angstrom. A manual
+   matmul + `ttnn.softmax` + matmul path on the same device tensors is clean
+   (pcc 0.99993), and full-bf16 CPU emulation of the whole stack is clean
+   (0.99998) -- the fused kernel, not bf16. Fix: unfused attention in the
+   non-atom-level `AttentionPairBias.__call__`. The per-module gates had passed the
+   fused op because a systematic magnitude shrink still PCCs at 0.98.
+
+P13 also de-fixtured the accuracy path (`openfold3_host_prep.py` derives every fold
+input from features + checkpoint; `of3_host_prep_check.py` validates each derived
+tensor) and corrected the MSA settings to inference mode (`subsample_main=False`).
+
+Post-fix accuracy panel (5 samples, 200 steps, seed 0, fixture-free end-to-end;
+upstream = the consortiums published numbers for the same checkpoint):
+
+| target | selected Ca-RMSD | oracle best | pLDDT (upstream) | pTM (upstream) |
+|---|---:|---:|---:|---:|
+| 1UBQ  | 0.7482 A | 0.7482 A | 71.1 (--)    | 0.546 (--) |
+| 8HEL  | 0.7777 A | 0.7718 A | 66.7 (72.8)  | 0.506 (0.568) |
+| 7XI5  | 0.5388 A | 0.5388 A | 74.7 (77.4)  | 0.580 (0.598) |
+| 8JN0  | 0.6462 A | 0.6456 A | 73.5 (79.2)  | 0.656 (0.721) |
+
+**CLI:** `--model openfold3` is wired into `tt-bio predict` exactly like
+`protenix-v2` (same scheduler/worker/MSA-cache path; polymer chains only, no
+template search; weights via `OF3_CKPT` or `~/.boltz/of3-p2-155k.pt`). Acceptance:
+`tt-bio predict` on the 1UBQ fasta delivers the selected structure at **0.8963 A**
+Ca-RMSD in 31 s. Host-only contract tests in `tests/test_openfold3_cli.py`; the
+device fold gate `tests/test_openfold3_fold_rmsd.py` now guards selected/oracle
+< 2.0 A (was 12/10 around the broken numbers).

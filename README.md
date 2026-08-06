@@ -60,19 +60,21 @@ Every command names its model with `--model`:
 - **`boltz2`** — folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
 - **`esmfold2`** / **`esmfold2-fast`** — fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint):
 - **`protenix-v2`** — folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`:
+- **`openfold3`** — [OpenFold3](https://github.com/aqlaboratory/openfold-3), the open AlphaFold3-family reproduction (MSA + template embedder + atom diffusion); MSA-dependent (on by default), polymer chains (protein/RNA/DNA) only for now, no template search; weights via `OF3_CKPT`:
 - **`opendde`** / **`opendde-abag`** — antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2):
 
 ```bash
 tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
 tt-bio predict examples/prot.yaml --model protenix-v2   # MSA on by default; NA/ligand chains are single-sequence
+tt-bio predict examples/prot.fasta --model openfold3    # MSA on by default; set OF3_CKPT to the weights file
 tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen co-fold, MSA on by default
 ```
 
-| Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenDDE |
-|---|---|---|---|---|
-| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein complex (antibody-antigen) |
-| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) |
-| Affinity / potentials / templates | yes | no | no | no |
+| Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenFold3 | OpenDDE |
+|---|---|---|---|---|---|
+| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein complex (antibody-antigen) |
+| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
+| Affinity / potentials / templates | yes | no | no | no | no |
 | Pocket / contact constraints | yes | no | no | no |
 | Covalent `bond` constraints | yes | no | yes | no |
 | PAE/PDE output (`--write_pae`/`--write_pde`) | no | no | yes | no |
