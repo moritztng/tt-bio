@@ -1,7 +1,7 @@
 """Regression: the MSA-dependent models (boltz2, protenix-v2) must never silently
 fold single-sequence.
 
-The "~10 A Protenix-v2" result (docs/protenix-accuracy-investigation.md) was an
+The historical low-accuracy Protenix-v2 result was an
 MSA-trained model folded single-sequence. ``predict`` now resolves an MSA source
 by default via ``_resolve_msa_default``; these tests pin the precedence contract:
 

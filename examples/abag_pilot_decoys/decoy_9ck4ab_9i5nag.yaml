@@ -1,0 +1,12 @@
+version: 1
+# Arm-3 specificity decoy: antibody from 9ck4 (real antigen: L9 epitope scaffold (malaria CSP-family)) forced onto the UNRELATED antigen from 9i5n (human CD40 ligand). Non-cognate by construction -- these two PDB entries share no antigen class. Auto-generated for flagship-abag-trust-validation Arm 3.
+sequences:
+  - protein:
+      id: A
+      sequence: NPQIAAHVISEASSKTTSVLQWAEKGYYTMSNNLVTLENGKQLTVKRQGLYYIYAQVTFCSNREASSQAPFIASLCLKSPGRFERILLRAANTHSSAKPCGQQSIHLGGVFELQPGASVFVNVTDPSQVSHGTGFTSFGLLKL
+  - protein:
+      id: H
+      sequence: QVKLVESGGGVVQPGRSLRLSCEASGFIFSTYGMHWVRQAPGKGLEWVAVIWFDGSNIYYADSVKGRFTISRDNSKNTVFMQMDSLRAEDTAVYYCHRNFYDGSGPFDYWGQGTLVTVS
+  - protein:
+      id: L
+      sequence: DIQMTQSPSTLSASVGDRVTITCRASQFISRWLAWYQQKPGKAPKLLIYKASSLESGVPSRFSGSGSETHFTLTISSLQPDDVATYYCQEYTSYGRTFGQGTKVEIK

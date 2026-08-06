@@ -1,0 +1,240 @@
+{
+  "n_targets": 12,
+  "k_tier": 4,
+  "table": [
+    {
+      "target": "9ck4",
+      "label_medium_correct": 0,
+      "opendde_dockq": 0.4833,
+      "opendde_iptm": 0.703653,
+      "boltz2_dockq": 0.32933378387683404,
+      "boltz2_iptm": 0.949203,
+      "protenix_v2_dockq": 0.3018107366739691,
+      "protenix_v2_iptm": 0.710444,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.3130306053038718,
+        "opendde-protenix-v2": 0.32746772229410565,
+        "boltz2-protenix-v2": 0.27621860103970736
+      },
+      "consensus_score": 0.3056,
+      "boltz2_seed_consistency": 0.745,
+      "protenix_v2_seed_consistency": 0.5009
+    },
+    {
+      "target": "9d3j",
+      "label_medium_correct": 0,
+      "opendde_dockq": 0.3495,
+      "opendde_iptm": 0.900157,
+      "boltz2_dockq": 0.3382766170050883,
+      "boltz2_iptm": 0.961593,
+      "protenix_v2_dockq": 0.282898624498614,
+      "protenix_v2_iptm": 0.76772,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.39861525377405504,
+        "opendde-protenix-v2": 0.3238005418300731,
+        "boltz2-protenix-v2": 0.2832852952787043
+      },
+      "consensus_score": 0.3352,
+      "boltz2_seed_consistency": 0.7483,
+      "protenix_v2_seed_consistency": 0.4904
+    },
+    {
+      "target": "9i5n",
+      "label_medium_correct": 0,
+      "opendde_dockq": 0.3045,
+      "opendde_iptm": 0.62947,
+      "boltz2_dockq": 0.27483502766058043,
+      "boltz2_iptm": 0.942982,
+      "protenix_v2_dockq": 0.2664258999586307,
+      "protenix_v2_iptm": 0.652956,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.27494822759202175,
+        "opendde-protenix-v2": 0.304679034948448,
+        "boltz2-protenix-v2": 0.26979752876379887
+      },
+      "consensus_score": 0.2831,
+      "boltz2_seed_consistency": 0.4833,
+      "protenix_v2_seed_consistency": 0.4222
+    },
+    {
+      "target": "9m72",
+      "label_medium_correct": 0,
+      "opendde_dockq": 0.3397,
+      "opendde_iptm": 0.671717,
+      "boltz2_dockq": 0.2716604524313804,
+      "boltz2_iptm": 0.946698,
+      "protenix_v2_dockq": 0.3063843040089867,
+      "protenix_v2_iptm": 0.63034,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.27625746773745813,
+        "opendde-protenix-v2": 0.2921129435154842,
+        "boltz2-protenix-v2": 0.293291834091896
+      },
+      "consensus_score": 0.2872,
+      "boltz2_seed_consistency": 0.6598,
+      "protenix_v2_seed_consistency": 0.4282
+    },
+    {
+      "target": "9obn",
+      "label_medium_correct": 1,
+      "opendde_dockq": 0.6388,
+      "opendde_iptm": 0.910293,
+      "boltz2_dockq": 0.6119221296958103,
+      "boltz2_iptm": 0.906999,
+      "protenix_v2_dockq": 0.6352550201565413,
+      "protenix_v2_iptm": 0.86385,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.7262345553018109,
+        "opendde-protenix-v2": 0.7100040833420577,
+        "boltz2-protenix-v2": 0.5459701631076171
+      },
+      "consensus_score": 0.6607,
+      "boltz2_seed_consistency": 0.6551,
+      "protenix_v2_seed_consistency": 0.8536
+    },
+    {
+      "target": "22ps",
+      "label_medium_correct": 1,
+      "opendde_dockq": 0.9017,
+      "opendde_iptm": 0.909096,
+      "boltz2_dockq": 0.7841670571091651,
+      "boltz2_iptm": 0.767464,
+      "protenix_v2_dockq": 0.8837127840069371,
+      "protenix_v2_iptm": 0.889083,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.7730343825246976,
+        "opendde-protenix-v2": 0.9531911033502919,
+        "boltz2-protenix-v2": 0.7718469064034036
+      },
+      "consensus_score": 0.8327,
+      "boltz2_seed_consistency": 0.8979,
+      "protenix_v2_seed_consistency": 0.8359
+    },
+    {
+      "target": "9yio",
+      "label_medium_correct": 1,
+      "opendde_dockq": 0.6447,
+      "opendde_iptm": 0.928566,
+      "boltz2_dockq": 0.22195889126779836,
+      "boltz2_iptm": 0.837859,
+      "protenix_v2_dockq": 0.597594441639422,
+      "protenix_v2_iptm": 0.799926,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.2915245128997901,
+        "opendde-protenix-v2": 0.7965099711770774,
+        "boltz2-protenix-v2": 0.2915249907375097
+      },
+      "consensus_score": 0.4599,
+      "boltz2_seed_consistency": 0.4102,
+      "protenix_v2_seed_consistency": 0.8518
+    },
+    {
+      "target": "9ncy",
+      "label_medium_correct": 1,
+      "opendde_dockq": 0.5948,
+      "opendde_iptm": 0.916919,
+      "boltz2_dockq": 0.40392636977436597,
+      "boltz2_iptm": 0.912748,
+      "protenix_v2_dockq": 0.571450822703547,
+      "protenix_v2_iptm": 0.86145,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.1952187428633186,
+        "opendde-protenix-v2": 0.9438530151906535,
+        "boltz2-protenix-v2": 0.27482901954125294
+      },
+      "consensus_score": 0.4713,
+      "boltz2_seed_consistency": 0.3915,
+      "protenix_v2_seed_consistency": 0.8464
+    },
+    {
+      "target": "9w14",
+      "label_medium_correct": 1,
+      "opendde_dockq": 0.9138,
+      "opendde_iptm": 0.956998,
+      "boltz2_dockq": 0.8905026413031271,
+      "boltz2_iptm": 0.831023,
+      "protenix_v2_dockq": 0.9267518606830344,
+      "protenix_v2_iptm": 0.811428,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.8653678725150947,
+        "opendde-protenix-v2": 0.9396155874154571,
+        "boltz2-protenix-v2": 0.898886491321801
+      },
+      "consensus_score": 0.9013,
+      "boltz2_seed_consistency": 0.9266,
+      "protenix_v2_seed_consistency": 0.9677
+    },
+    {
+      "target": "9gfr",
+      "label_medium_correct": 0,
+      "opendde_dockq": 0.3191,
+      "opendde_iptm": 0.811751,
+      "boltz2_dockq": 0.2618956880285214,
+      "boltz2_iptm": 0.847475,
+      "protenix_v2_dockq": 0.23390474013150545,
+      "protenix_v2_iptm": 0.72965,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.3229328949810273,
+        "opendde-protenix-v2": 0.2454505011000441,
+        "boltz2-protenix-v2": 0.24856092811156605
+      },
+      "consensus_score": 0.2723,
+      "boltz2_seed_consistency": 0.3969,
+      "protenix_v2_seed_consistency": 0.3756
+    },
+    {
+      "target": "9udq",
+      "label_medium_correct": 0,
+      "opendde_dockq": 0.2772,
+      "opendde_iptm": 0.806588,
+      "boltz2_dockq": 0.2871213340887058,
+      "boltz2_iptm": 0.685375,
+      "protenix_v2_dockq": 0.27919936136558815,
+      "protenix_v2_iptm": 0.704288,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.26434695050346807,
+        "opendde-protenix-v2": 0.531473785525869,
+        "boltz2-protenix-v2": 0.2960457778430671
+      },
+      "consensus_score": 0.364,
+      "boltz2_seed_consistency": 0.2913,
+      "protenix_v2_seed_consistency": 0.5505
+    },
+    {
+      "target": "9jkr",
+      "label_medium_correct": 1,
+      "opendde_dockq": 0.7855,
+      "opendde_iptm": 0.902047,
+      "boltz2_dockq": 0.834295205551501,
+      "boltz2_iptm": 0.955782,
+      "protenix_v2_dockq": 0.8021910251253752,
+      "protenix_v2_iptm": 0.871642,
+      "pair_dockqs": {
+        "opendde-boltz2": 0.5507330162999464,
+        "opendde-protenix-v2": 0.6384869696877534,
+        "boltz2-protenix-v2": 0.5092312646037076
+      },
+      "consensus_score": 0.5662,
+      "boltz2_seed_consistency": 0.7721,
+      "protenix_v2_seed_consistency": 0.8688
+    }
+  ],
+  "precision@consensus-tier": 1.0,
+  "coverage@consensus-tier": 0.3333,
+  "precision@native-ipTM-tier": 1.0,
+  "coverage@native-ipTM-tier": 0.3333,
+  "consensus_tier_targets": [
+    "9w14",
+    "22ps",
+    "9obn",
+    "9jkr"
+  ],
+  "native_iptm_tier_targets": [
+    "9w14",
+    "9yio",
+    "9ncy",
+    "9obn"
+  ],
+  "verdict": "NO-GO",
+  "missing_folds": []
+}

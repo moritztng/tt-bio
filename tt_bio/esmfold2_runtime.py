@@ -157,9 +157,16 @@ class _StructureHeadAdapter(_Adapter):
 
     def sample(self, *, z_trunk, s_inputs, relative_position_encoding, ref_pos, ref_charge,
                ref_mask, ref_element, ref_atom_name_chars, ref_space_uid, tok_idx,
-               num_diffusion_samples: int = 1, num_sampling_steps=None, seed: int = 0,
+               num_diffusion_samples: int = 1, num_sampling_steps=None, seed: int | None = None,
                **_ignored):
         steps = 20 if num_sampling_steps is None else int(num_sampling_steps)
+        if seed is None:
+            # The vendored forward never threads a fold seed into this call. Take the chunk
+            # base from the global generator's seed instead: builder.fold(seed=...) sets it
+            # via _seed_context. (Previously the default 0 made --seed a no-op for esmfold2:
+            # every fold drew from a private generator seeded 0+done regardless of the seed
+            # the caller asked for.)
+            seed = torch.initial_seed()
         n = max(1, num_diffusion_samples)
         L = int(s_inputs.shape[1])  # residue (token) count
         args = (z_trunk.float(), s_inputs.float(), relative_position_encoding.float(),
@@ -456,7 +463,7 @@ def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
 
 
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
-                 num_diffusion_samples=1, seed=0):
+                 num_diffusion_samples=1, seed=0, return_all=False):
     """Fold one (possibly multi-chain) protein complex on an already-patched model.
 
     `chains` is a list of ``(chain_id, sequence)`` or ``(chain_id, sequence,
@@ -468,6 +475,14 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     sample (distinct seeds); the reference ``fold`` returns them as a list. This
     is best-of-N folding, so we return the single highest-confidence sample,
     ranked by mean pLDDT (ESMFold's confidence metric) — not sample 0.
+
+    ``return_all=True`` returns the whole list instead, ranked best-first by the
+    same key. The samples are drawn either way; without this they are computed
+    and dropped on the floor here, which is why esmfold2 could report "samples:
+    16" while writing one structure and no per-sample confidences. Anything that
+    needs the *distribution* over samples rather than its maximum — a
+    sample-scaling curve, say — needs the list. The default is unchanged, so the
+    single-result callers keep the exact object they had.
     """
     from tt_bio._vendor.esm.models.esmfold2 import (
         ESMFold2InputBuilder, ProteinInput, StructurePredictionInput)
@@ -484,5 +499,6 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
         model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
         num_diffusion_samples=num_diffusion_samples, seed=seed)
     if isinstance(res, list):
-        return max(res, key=lambda r: float(r.plddt.mean()))
-    return res
+        ranked = sorted(res, key=lambda r: float(r.plddt.mean()), reverse=True)
+        return ranked if return_all else ranked[0]
+    return [res] if return_all else res

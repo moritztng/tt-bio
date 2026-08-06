@@ -1,0 +1,22 @@
+[
+  {
+    "confidence_score": 0.8658626675605774,
+    "ptm": 0.4913175106048584,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.9594988822937012,
+    "complex_iplddt": 0.9594988822937012,
+    "complex_pde": 0.2986792027950287,
+    "complex_ipde": 0.0,
+    "chains_ptm": {
+      "0": 0.4913175106048584
+    },
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.4913175106048584
+      }
+    },
+    "id": "trpcage_no_msa"
+  }
+]

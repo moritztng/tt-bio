@@ -8,8 +8,8 @@ trunk / MSA / diffusion / confidence graph is Protenix-v2's, already ported in
 same-residue pair structure, before diffusion. The rest of the pipeline then
 runs unchanged on the structural-token axis (the ttnn ops are axis-agnostic).
 
-This module ports that one block; assembly reuses the Protenix-v2 stack verbatim
-(see docs/opendde-port.md). The integer index gathers (parent, prev/next-parent
+This module ports that one block; assembly reuses the Protenix-v2 stack verbatim.
+The integer index gathers (parent, prev/next-parent
 adjacency, role-pair-type maps) are precomputed host-side; only the split-MLP,
 the 49 role-pair pair projections, and the bias adds run on device.
 """
@@ -17,7 +17,7 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights
-from .tenstorrent import get_device, CORE_GRID_MAIN
+from .tenstorrent import get_device
 
 # opendde/data/tokenizer.py
 STRUCTURAL_TOKEN_ROLES = {
@@ -201,7 +201,7 @@ class StructuralTokenExpander(_KeyedWeights):
 
 
 # ---------------------------------------------------------------------------
-# Pipeline assembly + real-weight load (docs/opendde-port.md steps 2-3).
+# Pipeline assembly + real-weight load.
 #
 # OpenDDE's compute graph = Protenix-v2's trunk/MSA/template/diffusion/confidence
 # (byte-identical checkpoint key names, verified 2026-07-12 against protenix-v2.pt:
@@ -276,12 +276,7 @@ class OpenDDE:
     """OpenDDE co-folding on Tenstorrent: the Protenix-v2 trunk/diffusion/confidence stack
     (reused verbatim, ``tt_bio.protenix``) + the novel :class:`StructuralTokenExpander` +
     a 4-block structural-token refiner (a reused ``Pairformer``), on the structural-token
-    axis. Ships co-folding only (no design/affinity) -- see docs/opendde-port.md.
-
-    Assembly status (2026-07-12): real-weight routing and the novel expander->refiner seam
-    are wired and run finite on-device with the REAL checkpoint
-    (``scripts/opendde_assembly_verify.py``). The full residue->structure fold is gated on
-    three still-pending prerequisites -- see :meth:`fold`."""
+    axis. Ships co-folding only (no design/affinity)."""
 
     def __init__(self, state_dict, compute_kernel_config, device=None):
         from .tenstorrent import get_device, Pairformer
@@ -292,10 +287,14 @@ class OpenDDE:
         routed = route_opendde_weights(state_dict)
         self._shared = routed["shared"]         # Protenix-v2-family graph (for step-2 trunk/diffusion)
         # Shared Protenix-v2-family stack (input embedder, trunk, diffusion, confidence),
-        # built at OpenDDE's c_z=384 (Trunk.__init__(c_z=...), docs/opendde-port.md item 2).
-        # Reused verbatim -- no duplicated orchestration class.
+        # built at OpenDDE's c_z=384.
+        # Reused verbatim -- no duplicated orchestration class. diffusion_fp32=False pins
+        # OpenDDE to its own validated bf16 diffusion config regardless of Protenix-v2's
+        # PROTENIX_DIFFUSION_FP32_DEVICE default (fp32 diffusion is >60x slower on OpenDDE's
+        # atom-level tensors, see tt-bio-shared-diffusion-global-env-default-regression).
         self._protenix = Protenix(
-            self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True)
+            self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
+            diffusion_fp32=False)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
@@ -338,8 +337,10 @@ class OpenDDE:
             return (*result, attn_bias)
         return result
 
-    def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1, return_confidence=False):
-        """First end-to-end residue->structure co-fold. feats: a tt_bio.protenix_data-style
+    def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
+             return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
+             max_parallel_samples=None):
+        """End-to-end residue-to-structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
 
@@ -362,16 +363,25 @@ class OpenDDE:
 
         --fast and multi-card fanout ride the existing Protenix-v2 machinery (the trunk
         reads the global fast flag; the predict scheduler fans targets across --devices),
-        both verified for OpenDDE -- see docs/opendde-port.md. Returns coords (n_sample,
-        N_atom, 3) host tensor; if
+        both apply unchanged to OpenDDE. trace=True replays a
+        captured ttnn trace of the shared denoise stream (lossless; faster on
+        dispatch-bound diffusion, mirroring Protenix-v2.fold(trace=)); needs a device
+        opened with a trace region (get_device(trace_region_size=1 << 30)). Returns
+        coords (n_sample, N_atom, 3) host tensor; if
         return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
         list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
         """
         import torch
         from .opendde_data import build_structural_token_features
         from .tenstorrent import get_device
-        from .protenix import edm_sample
+        from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, edm_sample
 
+        if trace:
+            import tt_bio.tenstorrent as _TTd
+            if _TTd.trace_region_size() <= 0:
+                raise ValueError(
+                    "fold(trace=True) needs a device opened with a trace region; "
+                    "call get_device(trace_region_size=1 << 30) before folding.")
         P = self._protenix
         tt = P._tt
         ifd = build_structural_token_features(feats)
@@ -394,7 +404,8 @@ class OpenDDE:
                                          tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
         p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
         relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
-        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"], n_cycles=n_cycles)
+        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
+                                  n_cycles=n_cycles, progress_fn=progress_fn)
         s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z))
 
@@ -426,11 +437,22 @@ class OpenDDE:
             cond["dit_z"] = P.diffusion._dit_z_device(pair_z)
         else:
             cond["dit_biases"] = P.diffusion._dit_pair_biases(pair_z)
-        coords = []
-        for k in range(n_sample):
-            sd_seed = None if seed is None else seed + k
-            coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed)[0])
-        coords = torch.stack(coords, 0)
+        # Multiplicity batching (see Protenix.fold): one batched trajectory when
+        # P.diffusion.supports_multiplicity is on; else the per-sample loop (bit-exact).
+        if n_sample > 1 and getattr(P.diffusion, "supports_multiplicity", False):
+            _mps = DEFAULT_MAX_PARALLEL_SAMPLES if max_parallel_samples is None else max_parallel_samples
+            _df = (lambda step, x: dump_fn(step, step, x)) if dump_fn is not None else None
+            coords = edm_sample(P.diffusion, cond, N, n_step=n_step, multiplicity=n_sample,
+                                 max_parallel_samples=_mps, seed=seed, trace=trace,
+                                 progress_fn=progress_fn, dump_fn=_df)
+        else:
+            coords = []
+            for k in range(n_sample):
+                sd_seed = None if seed is None else seed + k
+                _df = (lambda step, x, _k=k: dump_fn(_k, step, x)) if dump_fn is not None else None
+                coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
+                                         trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
+            coords = torch.stack(coords, 0)
         if return_confidence:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the

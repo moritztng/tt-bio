@@ -5,6 +5,434 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **Unified design CLI** — `tt-bio design INPUT --model boltzgen|rfd3` is now the single design
+  command, mirroring `tt-bio predict --model ...`. BoltzGen's pipeline options (`--steps`,
+  `--config STEP key=val`, `--num_designs`, `--budget`, `--devices`, `--out_dir`) moved onto the
+  shared command as boltzgen-scoped flags (`boltzgen` is the default model, so existing
+  single-model invocations need only swap the verb). The RFD3 checkpoint flag is renamed
+  `--golden_dir` → `--checkpoint` (the old spelling stays as a hidden deprecated alias for one
+  release). The RFD3 engine modules moved from flat `tt_bio/rfd3*.py` files into a self-contained
+  `tt_bio/rfd3/` package mirroring `tt_bio/boltzgen/`; `import tt_bio.rfd3` resolves to the
+  package. Numerics are bit-identical — this is a CLI, layout, and docs change only. BoltzGen's
+  user documentation moved from the README to `docs/boltzgen-design.md`; the README now has one
+  Design section covering both models.
+
+### Deprecated
+- **`tt-bio gen`** — hidden from `--help` and prints a deprecation warning on stderr, then
+  forwards every argument to BoltzGen unchanged. It will be removed in a future release; use
+  `tt-bio design INPUT --model boltzgen` instead (`gen run X --output out` becomes
+  `design X --model boltzgen --out_dir out`).
+
+## [0.5.0] - 2026-07-27
+
+Multi-sample folds are about 3x faster on Protenix-v2 and OpenDDE, which now draw every sample
+from one batched device trajectory instead of looping one sample at a time. The parity reference
+fixtures a clean checkout needs are published for the first time, so
+`scripts/fetch_parity_fixtures.sh` works and the eight structure legs 0.4.0 had to skip are back
+in the gate. RFdiffusion3 gains the parity, performance, and UX gate coverage it shipped without,
+and a few percent of throughput.
+
+**Release gate** (Blackhole P150a on `pc`, tt-bio 0.5.0): host suite 114 passed / 49 skipped;
+packaging guard 15/15 data files and 31/31 declared dependencies present in the wheel and sdist;
+UX gate PASS on every shipped surface, now including `tt-bio design`.
+
+**Parity gate** (`scripts/full_parity_gate.py`, 22 legs): **20 PASS, 2 GAP**, both GAPs
+reproducing a committed `GAP-evidenced` verdict rather than drifting. The eight envelope structure
+legs score for the first time since they were externalized, because the fixture asset they read is
+finally published: Boltz-2 trp-cage 0.074 Å against a 0.145 Å envelope (ratio 0.51), Boltz-2 HSA
+0.92 vs 1.33 (0.69), Protenix-v2 7ROA 0.049 vs 0.042 (1.16), Protenix-v2 HSA 0.050 vs 0.052 (0.96).
+ESMFold2 (4 targets), ESMC-300m/600m, SaProt-35m/650m, OpenDDE-abag, BoltzGen (scRMSD pass-rate
+100%, median 0.68 Å) and the RFD3 featurizer (43/43 keys bit-exact) all reproduce their recorded
+verdicts, as do five of six Boltz-2 affinity legs; the sixth improves on its recorded gap.
+
+Three of those legs pass on the absolute floor rather than a measured envelope, because their
+cached bf16 and fp32 references are identical, which collapses the envelope to zero: Protenix-v2
+ubiquitin (0.037 Å against the 0.05 Å floor) and both OpenDDE structure legs. The envelope test
+assumes a model with a torch CPU path to recompute in two dtypes, which a ttnn-only port does not
+have. Those OpenDDE legs are covered by the R/D/X device-vs-reference diagnostic instead, the right
+scorer for such a port, and `opendde-prot-prod` passes it (X 4.824 against a 1.499 floor).
+Restoring a meaningful envelope for ttnn-only legs is follow-up work, not a coverage hole.
+
+The two GAPs are Boltz-2 7ROA no-MSA structure (kabsch_rmsd ratio 2.04) and FKBP12+SB3 no-MSA
+affinity. Both are recorded `GAP-evidenced` in `docs/implementation-parity.md`. The 7ROA one was
+root-caused this release: the pinned envelope seed lands that target in an unusually chaotic
+reverse-diffusion trajectory in the *reference*, whose own bf16-vs-fp32 spread swings 3.45 Å, 2.16 Å
+and 0.81 Å across seeds 0, 1 and 2, and the leg passes cleanly at seeds 1 and 2. Two on-device fp32
+levers were tried and neither moves it, so it is a property of the reference trajectory, not a port
+defect.
+
+**Perf gate** (`scripts/perf_regression.py`, trpcage 20 aa single-sequence, warm 2+5, ±15%):
+boltz2 1.164 structures/s (-2.2%), esmfold2 1.586 (-7.0%), esmfold2-fast 2.167 (-5.4%),
+protenix-v2 2.192 (-8.0%), opendde 1.891 (-1.6%), esmc-300m 25.65 seq/s (+53.3%), esmc-600m 20.99
+(+0.3%), esmc-6b 4.429 (+39.7%), saprot-650m 239.2 (+7.4%), boltzgen 0.01708 designs/s (-0.8%),
+rfd3 0.1178 designs/s (-3.6%), boltz2-affinity 0.00909 affinities/s (-4.2%, median of three
+isolated runs). opendde-abag measures 1.789 structures/s and is seeding its first baseline. No
+model regressed beyond the threshold and nothing OOMed.
+
+### Added
+- **Per-sample chain-pair ipTM and per-chain pTM for OpenDDE** — `pair_chains_iptm` and
+  `chains_ptm` are now written for every sample in `all_runs`, like every other confidence
+  scalar, instead of for the top-ranked sample only. For antibody-antigen work the
+  antibody-vs-antigen chain-pair ipTM ranks candidates better than the global ipTM, and a
+  winner-only value cannot rank the rest.
+- **RFdiffusion3 gate coverage** — `tt-bio design` now has legs in the parity gate, the
+  performance regression gate, and the UX gate. It shipped in 0.4.0 with none.
+
+### Changed
+- **Protenix-v2 / OpenDDE diffusion multiplicity batching** — `Protenix.fold` / `OpenDDE.fold`
+  now draw `n_sample` samples from one batched device denoise trajectory instead of looping one
+  sample at a time (mirrors `boltz2.AtomDiffusion.sample`'s `multiplicity` +
+  `max_parallel_samples` pattern; `--max_parallel_samples` chunks batches too large to fit).
+  Parity-verified against the established diffusion noise floor (batched-vs-unbatched drift
+  within the seed-to-seed floor, not bit-exact, since diffusion is stochastic) on two hosts:
+  Protenix X/floor 0.971-1.049, OpenDDE X/floor 0.995-1.003. Measured speedup at multiplicity 4:
+  Protenix 3.19-3.57x, OpenDDE 3.15x.
+- **RFdiffusion3 is a few percent faster** — the design matmuls that read a single tile of K now
+  carry an explicit core-grid hint. It is bit-identical to the default and worth 5-15% depending
+  on size. On one Blackhole p150a at 40 residues, batch 8 goes from 0.1216 to 0.1352 designs/sec
+  and batch 1 from 0.0767 to 0.0807. The refreshed per-size table is in `docs/rfd3-design.md`.
+
+### Fixed
+- **OpenDDE re-ran a full offline MSA search on every multi-chain fold, and overwrote the MSAs
+  the other models read.** The paired-MSA helper had no cache check, unlike the unpaired path, so
+  each fold searched the whole database again. Worse, it wrote `{seq_hash}.a3m` into the shared
+  `msa_dir`, silently replacing the files Boltz-2 and Protenix-v2 read for the same chains.
+  Paired results now live in `msa_dir/paired/` and are only computed when absent, so a paired run
+  can neither clobber the unpaired cache nor be served an unpaired file as if it were paired.
+- **The parity reference fixtures were documented but never published.**
+  `docs/implementation-parity.md` and `scripts/fetch_parity_fixtures.sh` both pointed at a
+  `parity-fixtures-latest` release asset that did not exist, so on a clean checkout the eight
+  envelope structure legs had no references and reported `BLOCKED-REF-REGEN-NEEDED` instead of a
+  verdict. The asset is published and the fetch is verified end to end from a clean directory.
+  Two fetch bugs went with it: a doubled `parity-fixtures-` prefix in the asset name, and a
+  `grep -F` that treated the `$` end-anchor as a literal character.
+- **Regenerating envelope references destroyed the fixtures' other provenance.** The envelope
+  path and the legacy R/D/X path share one `meta.json` with incompatible schemas, and the
+  envelope regenerator overwrote the whole file, wiping the `settings_tag` and upstream-reference
+  provenance the R/D/X scorer needs. That is what made five legs flip between blocked and passing
+  every time either gate was regenerated. The regenerator now nests its own bookkeeping under an
+  `envelope` key and leaves harvested fields alone.
+
+## [0.4.0] - 2026-07-26
+
+First release shipping **RFdiffusion3** (`tt-bio design`) — an all-atom generative model that
+designs new protein structures and the sequences that support them from a specification, instead
+of folding a sequence you already have. Protein-binder design, motif scaffolding, and
+nucleic-acid-binder design run end to end from a real input structure. The checkpoint downloads
+itself from the Institute for Protein Design on first use, so no `rc-foundry` install is needed.
+Multiple designs per specification share device forwards, and `--devices` fans a design set
+across cards. See [`docs/rfd3-design.md`](docs/rfd3-design.md).
+
+Also in this release: OpenDDE no longer runs its diffusion in fp32 (a >60x slowdown it inherited
+from a Protenix-v2 default), opening a card that another process already holds now fails with a
+clear error instead of colliding, and `transformers` moves to >= 5.5.0, clearing three dependabot
+advisories.
+
+**Release gate** (Blackhole P150a on `pc`, tt-bio 0.4.0): host suite 111 passed / 49 skipped;
+packaging guard 15/15 data files and 31/31 declared dependencies present in the wheel and sdist;
+UX gate PASS on every shipped surface (live-progress advancement, strict mmCIF/npz parse, and
+results/manifest shape for boltz2, esmfold2, esmfold2-fast, protenix-v2, opendde, opendde-abag,
+esmc-600m, saprot-650m, boltzgen, boltz2-affinity).
+
+**Perf gate** (`scripts/perf_regression.py`, trpcage 20 aa single-sequence, 1 recycle / 10 steps /
+1 sample, warm 2+5, ±15% threshold):
+
+| model | metric | baseline | current | delta | result |
+|---|---|---|---|---|---|
+| boltz2 | structures/s | 1.19 | 1.15 | -3.4% | PASS |
+| esmfold2 | structures/s | 1.705 | 1.601 | -6.1% | PASS |
+| esmfold2-fast | structures/s | 2.29 | 2.141 | -6.5% | PASS |
+| protenix-v2 | structures/s | 2.383 | 2.166 | -9.1% | PASS |
+| opendde | structures/s | 1.922 | 1.785 | -7.1% | PASS |
+| esmc-300m | seq/s | 16.74 | 25.26 | +50.9% | PASS |
+| esmc-600m | seq/s | 20.92 | 20.78 | -0.7% | PASS |
+| esmc-6b | seq/s | 3.171 | 4.363 | +37.6% | PASS |
+| saprot-650m | seq/s | 222.7 | 237.9 | +6.8% | PASS |
+| boltzgen | designs/s | 0.01723 | 0.01695 | -1.6% | PASS |
+| boltz2-affinity | affinities/s | 0.009498 | 0.008148 | -14.2% | PASS |
+
+No model regressed beyond the threshold. No OOM through the gate targets.
+
+**Parity gate** (`scripts/full_parity_gate.py`, 21 legs): ESMC-300m/600m, SaProt-35m/650m,
+ESMFold2 (4 targets, L20 to L129), OpenDDE-abag (global DockQ 0.853, fnat 0.932) and BoltzGen
+(scRMSD pass-rate 100%, median 1.12 Å) all reproduce their recorded verdicts, as do five of the
+six Boltz-2 affinity legs; the sixth, FKBP12+SB3 with MSA, improves on its recorded gap. The
+FKBP12+SB3 no-MSA affinity scalar is now recorded `GAP-evidenced` under the integration-envelope
+test on the same cross-backend bf16 floor already accepted for its MSA counterpart (see
+`docs/implementation-parity.md`).
+
+The eight envelope **structure** legs report `BLOCKED-REF-REGEN-NEEDED` rather than a verdict: the
+CPU reference structures those legs compare against are not distributed with the repository, so
+they cannot be reproduced from a clean checkout. Their recorded verdicts in
+`docs/implementation-parity.md` are unchanged and remain the evidence of record; restoring the
+reference set is tracked as follow-up work.
+
+### Added
+- **RFdiffusion3 (RFD3)** — `tt-bio design specs.json --from_pdb --out_dir ./designs`. Designs
+  are specified with a contig mini-language (fixed regions taken verbatim from the input
+  structure, designed regions of fixed or randomized length, chain breaks, indexed and unindexed
+  motifs, per-atom fixing). Protein-binder design, motif scaffolding, and nucleic-acid-binder
+  design accept a real PDB input; small-molecule-binder, enzyme, and symmetric-oligomer design
+  run on device and are value-parity-verified against a captured reference, but the host
+  featurizer does not build their input from a PDB yet and raises `NotImplementedError`.
+  An independent ttnn reimplementation — no upstream RosettaCommons code is vendored, only the
+  BSD-3-Clause checkpoint is fetched.
+- **Batched multi-design generation for RFD3** — `--num_designs N` produces N designs per
+  specification (noise seed `--seed + i`), sharing device forwards in batches of up to
+  `--batch_size` (default 8, reduced automatically for larger atom counts). Batching is
+  accuracy-free: the device forward is bit-identical across batch size, so a batched design
+  reproduces its standalone run exactly (min trajectory PCC 1.000000, maxabs 0, at 200 timesteps
+  and batch 8). Throughput depends on design size — on one Blackhole p150a at 200 timesteps,
+  batch 8 is 1.59x batch 1 at 40 residues and 1.21x at 80 residues, and within a few percent of
+  batch 1 above roughly 150 residues, where `--devices` is the parallelism that matters. The
+  per-size numbers are in `docs/rfd3-design.md`.
+- **`tt-bio design --devices 0,1,2,3`** — fans the (specification × `--num_designs`) jobs across
+  the listed cards, one pinned subprocess per card, the same data-parallel pattern `tt-bio embed`
+  and `tt-bio predict` use.
+- **Physical-card lease at device open** — every device acquisition takes an exclusive `flock` on
+  a per-card lock file for as long as the card is open. A second process opening the same card
+  waits up to `TT_BIO_LEASE_TIMEOUT` (120 s) and then fails with `DeviceInUseError` naming the
+  holder, instead of colliding at the fd level. The lock is released by the kernel on any process
+  death, so a killed or orphaned job never leaves a phantom claim.
+
+### Fixed
+- **OpenDDE ran its diffusion in fp32, >60x slower than it needs to be.** OpenDDE reuses the
+  Protenix-v2 diffusion stack, and Protenix-v2 defaults that stack to fp32 on device
+  (`PROTENIX_DIFFUSION_FP32_DEVICE=1`, correct for Protenix-v2, where fp32 is what its own
+  reference uses). OpenDDE silently inherited it, and fp32 on OpenDDE's atom-level tensors is
+  catastrophically slow. OpenDDE now pins its own already-validated bf16 diffusion config
+  explicitly instead of reading the env default. A real device fold of 1AHW is back to 539 s at
+  DockQ 0.862, matching the 0.863 pre-regression baseline — accuracy-neutral, speed-only.
+- **`--write_pae` was silently a no-op for `--model opendde` / `opendde-abag`.** The flag was
+  parsed but never reached the OpenDDE prediction path, so no PAE was written. Now wired.
+- **`--msa_db_path` was silently ignored by `opendde-abag`.** An offline paired-MSA run fell
+  through to the network path and failed if the public ColabFold service was unreachable. The
+  local paired-MSA database is now honored, so `opendde-abag` folds fully offline.
+
+### Changed
+- **`transformers` >= 5.5.0, `huggingface_hub` >= 1.5.0** (were `==4.57.6` and `<1.0`). Clears
+  three dependabot advisories (Trainer, `config.json`, and LightGlue remote-code execution; the
+  last is not reachable from tt-bio). The vendored ESMFold2 model runs on the stock transformers
+  core, and the bump is CPU-level bit-exact on the same torch, weights, and seed.
+
+## [0.3.4] - 2026-07-22
+
+### Fixed
+- **Missing package data broke every clean `pip install`** — the
+  `[tool.setuptools.package-data]` table shipped only the two vendored
+  ESM/ESMFold2 license files, so the 0.3.3 wheel and sdist omitted the 13
+  runtime data files the package loads by path. A fresh `pip install tt-bio`
+  crashed at featurization for protenix-v2 and opendde / opendde-abag folds
+  (`FileNotFoundError: .../tt_bio/data/protein_ref_conformers.json`) and at
+  `_configure` for every `tt-bio gen` design
+  (`FileNotFoundError: .../boltzgen/resources/config/design.yaml`).
+  boltz2 / esmfold2 / esmc / saprot were unaffected. Added the missing globs
+  for `tt_bio.data` and the `tt_bio.boltzgen.resources` tree plus a
+  `MANIFEST.in`, and added `scripts/packaging_smoke.py` to the release gate
+  so a dropped data file fails the gate instead of shipping silently.
+  Packaging-only; no model or behavior change.
+
+## [0.3.3] - 2026-07-22
+
+### Fixed
+- **BoltzGen abort/resume robustness** — hard-killing `tt-bio gen` mid-download no
+  longer poisons the artifact cache or leaks `.dl-*` staging directories. A sweep
+  on startup reaps orphaned staging dirs left by a killed fetch, and a download-path
+  patch keeps partial downloads out of the cache so a resumed run picks up cleanly.
+- **BoltzGen design-spec-check perceived hang** — `tt-bio gen` now reports progress
+  during the design-spec check (the gap after `mols.zip` is cached where the CLI
+  previously showed no output), so a genuinely slow conformer-generation step reads
+  as activity instead of a frozen process. Print-only; parsed molecule data is
+  bit-identical.
+
+### Changed
+- **Repo docs reorganization** — internal engineering-journey notes moved out of the
+  public repository into the private knowledge base, leaving the public docs focused
+  on what a user needs to decide and use the package. Comment/docstring/doc-move
+  only; no logic change.
+
+## [0.3.2] - 2026-07-20
+
+### Fixed
+- **SaProt-1.3b config bug** — `CONFIGS["saprot-1.3b"]` carried a fabricated arch
+  (hidden=2560 / n_heads=40 / n_layers=40 / intermediate=10240) that does not match
+  the real `westlake-repl/SaProt_1.3B_AF2` checkpoint (1280 / 20 / 66 / 5120 — the
+  650m width with double the layers). `load_state_dict(..., strict=False)` silently
+  masked the mismatch, so the device ran with effectively untrained weights and the
+  1.3b leg read as a parity failure. Config corrected; `Saprot.from_pretrained` now
+  reads the checkpoint's `config.json` and refuses to build on an arch mismatch. With
+  correct shapes saprot-1.3b reaches X_emb=0.99508 / X_logits=0.99895 (deterministic,
+  qb1 card 1) — a near-pass; the per-residue embedding PCC lands just below the
+  0.9987–0.9996 ESMC band (bf16 accumulation over 66 residual layers), so no clean
+  PASS row is added to `docs/implementation-parity.md`. See `docs/saprot-parity.md`.
+- **Perf-gate within-card-type false positives** — the perf-regression gate keyed
+  baselines by card type only, so two machines with the same card type (pc vs qb1,
+  both p150a) read as false ~30–36% regressions against each other. Added a machine-id
+  layer under card type (`socket.gethostname()`), with backward-compatible fallback
+  to the card-type block. `--update-baseline` now writes to the detected machine's
+  block.
+
+### Added
+- **`tt-bio saprot --devices`** — multi-card data-parallel fanout for SaProt
+  embeddings (one pinned worker per card, sequences sharded by length, results
+  reassembled in input order), mirroring the ESMC `--devices` path. Row-independent:
+  a sequence's output is identical to running it on one card.
+- **esmc-300m and esmc-6b perf-gate baselines seeded** (esmc-300m 33.17 seq/s on
+  p300c, esmc-6b 3.17 seq/s on p150a), activating the perf-regression legs specced
+  in 0.3.1.
+- **Release-gate perf + UX coverage for SaProt and Boltz-2 affinity** — both shipped
+  in 0.3.1 with accuracy-leg coverage but no perf/UX gate legs; saprot-650m
+  (222.69 seq/s, qb1 p150a) and boltz2-affinity (0.014319 affinities/s, p300c)
+  baselines seeded.
+
+### Removed
+- **ProteinMPNN** — the `tt-bio design` inverse-folding port is dropped entirely.
+  It ran CPU-only (dispatch-bound, no TT-card use), duplicated BoltzGen's
+  inverse-fold capability, and reimplemented the mature upstream
+  `dauparas/ProteinMPNN`. SaProt is untouched.
+
+### Verify / benchmark hardening
+- **Boltz-2 and Protenix-v2 ubiquitin flagship legs hardened 2+2 → 5+5 seeds**
+  (seeds 0–4 both sides): R and D are now 10 pairwise distances each, so the parity
+  verdict is a real statistical statement rather than a single-pair coincidence.
+  Both PASS within floor on CA-RMSD and TM-score; CA-lDDT misses on Boltz-2 (a bf16
+  narrower-basin residual on local structure, recorded as a borderline GAP) and
+  passes on Protenix-v2.
+- **TM-score and CA-lDDT added** alongside CA-RMSD for the two flagship stochastic
+  legs — alignment-free metrics a pharma customer evaluating a binding interface
+  actually feels.
+- **Boltz-2 affinity leg widened 1 → 3 targets** (FKBP12, DHFR+MTX, trypsin+BAM)
+  with ligand-pose RMSD and pocket-lDDT added alongside the scalar Δlog10(IC50).
+  Scalar affinity PASSES on all three; ligand-pose RMSD passes on FKBP12 and
+  trypsin, misses on DHFR; pocket-lDDT misses on all three (the consistent bf16
+  narrower-basin residual on local interface geometry).
+- **FKBP12 affinity GAP root-caused and fixed** — the boltz-2 worker is
+  spawn-started (does not inherit the controller's RNG) and the affinity path calls
+  `predict_affinity` without re-seeding, so the affinity diffusion's `torch.randn`
+  draws ran from an unseeded global RNG; the tight affinity floor (R=0.010) surfaced
+  this as a systematic GAP. Seeded the global RNG once before the boltz-2 structure
+  step, matching the reference's single `seed_everything` → structure → affinity
+  stream. `affinity_pred_value` now X=0.041 ± 0.024, within floor.
+- **HSA (PDB 1AO6, L585) added** as the first L300–800 pharma-realistic large target
+  on both flagship legs: Boltz-2 PASS (CA-RMSD X=1.47 ± 0.22 Å, within floor);
+  Protenix-v2 GAP (X=1.03 ± 0.17 Å vs a tight GPU-bf16 reference floor R=0.70 Å — a
+  tight-floor effect from bf16 numerical divergence between NVIDIA and Tenstorrent
+  reduction orders, not a structural defect; both folds are correct HSA shapes). See
+  `docs/implementation-parity.md`.
+
+### Release gate (card p150a @ pc, tt-bio 0.3.1 baseline, warm 2 warmup + 5 timed)
+Perf-regression gate: 11/11 models within ±15% of baseline, no regression. boltz2
+1.188 structures/s (-0.2%), esmfold2 1.700 (-0.3%), esmfold2-fast 2.235 (-2.4%),
+protenix-v2 2.376 (-0.3%), opendde 1.899 (-1.2%), esmc-300m 25.72 seq/s (+53.7%,
+new p150a baseline seed), esmc-600m 21.06 (+0.7%), esmc-6b 4.413 (+39.2%, new
+p150a baseline seed), saprot-650m 232.8 (+4.5%), boltzgen 0.01712 designs/s
+(-0.6%), boltz2-affinity 0.008772 affinities/s (-7.6%, first pc p150a baseline).
+Accuracy (`scripts/release_gate.py`) and UX (`scripts/ux_regression.py`) gates
+green on the same commit lineage; no code changes since their last pass besides
+the `TT_VISIBLE_DEVICES` default fix below, which does not touch either path.
+
+## [0.3.1] - 2026-07-19
+
+Adds **SaProt** structure-aware protein embeddings (`tt-bio saprot`, an ESM-2 encoder over a
+fused amino-acid + Foldseek-3Di vocabulary). Purely additive: no existing model file changed.
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0, Blackhole P150a):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.541 Å | 0.939 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 1.774 Å | 0.915 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.725 Å | 0.909 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 1.417 Å | 0.936 | ≤6.0 Å / ≥0.50 | PASS |
+| OpenDDE | 1.367 Å | 0.952 | ≤6.0 Å / ≥0.50 | PASS |
+
+**BoltzGen designability** — n=4, `examples/binder.yaml`: scRMSD median 0.892 Å, 4/4 designs (100%) ≤2 Å (floor ≤2.0 Å / ≥50%) — PASS.
+
+**ESMC embedding parity** (fused-RoPE shipped path vs reference esm, 76-residue sequence, PCC floor 0.99):
+
+| model | per-res PCC | pooled | logits | argmax | result |
+|---|---|---|---|---|---|
+| esmc-300m | 0.99961 | 0.99993 | 0.99990 | 1.0000 | PASS |
+| esmc-600m | 0.99964 | 0.99989 | 0.99996 | 1.0000 | PASS |
+
+**SaProt embedding parity** (vs reference HF `EsmForMaskedLM` golden, PCC floor 0.99):
+
+| model | embedding PCC | logits PCC | result |
+|---|---|---|---|
+| saprot-35m | 0.999138 | 0.999772 | PASS |
+| saprot-650m | 0.999638 | 0.999927 | PASS |
+
+**UX gate** (`scripts/ux_regression.py`, `examples/trpcage.yaml`): every shipped surface (Boltz-2,
+ESMFold2, ESMFold2-fast, Protenix-v2, OpenDDE, ESMC-600m embed, BoltzGen) cleared live-progress
+advancement, strict mmCIF/npz parse, and results/manifest shape — PASS.
+
+**Perf gate** (`scripts/perf_regression.py`, Blackhole P150a, trpcage 20 aa single-sequence, warm 2+5, ±15% threshold):
+
+| model | metric | baseline | current | delta | result |
+|---|---|---|---|---|---|
+| boltz2 | structures/s | 1.190 | 1.176 | -1.2% | PASS |
+| esmfold2 | structures/s | 1.705 | 1.692 | -0.7% | PASS |
+| esmfold2-fast | structures/s | 2.290 | 2.304 | +0.6% | PASS |
+| protenix-v2 | structures/s | 2.383 | 2.329 | -2.3% | PASS |
+| opendde | structures/s | 1.922 | 1.939 | +0.9% | PASS |
+| esmc-600m | seq/s | 20.92 | 21.03 | +0.5% | PASS |
+| boltzgen | designs/s | 0.01723 | 0.01745 | +1.3% | PASS |
+
+No perf regression. No OOM observed through the gate targets.
+
+### Added
+- **SaProt** structure-aware protein embeddings (`tt-bio saprot`, `saprot-35m`/`saprot-650m`/`saprot-1.3b`).
+- **esmc-300m** and **esmc-6b** legs in the perf-regression gate.
+
+## [0.3.0] - 2026-07-17
+
+First release shipping **OpenDDE** antibody-antigen co-folding (`--model opendde` / `opendde-abag`, built on the Protenix-v2 stack plus a structural-token expander), the **ESMC fused-RoPE** attention kernel (an accuracy-neutral speedup for the embed path), and opt-in **diffusion trace replay** for the Boltz-2, BoltzGen, and OpenDDE CLIs plus the Protenix-v2 Python API. Also lands the standing **perf-regression** and **UX-regression** harnesses as release-gate legs, plus the per-card performance baseline fix.
+
+OpenDDE's antibody-antigen accuracy is weak on `9dsg`, a confirmed reference-level ceiling rather than a port bug; the device-vs-reference results for `9dsg` and `1ahw` are in `docs/implementation-parity.md`.
+
+**Release gate** (`scripts/release_gate.py`, `examples/prot.yaml`, 200 steps / 5 samples, seed 0, Blackhole P150a):
+
+| model | CA-RMSD | TM | floor | result |
+|---|---|---|---|---|
+| Boltz-2 | 1.863 Å | 0.891 | ≤3.0 Å / ≥0.75 | PASS |
+| ESMFold2 | 1.774 Å | 0.915 | ≤4.0 Å / ≥0.65 | PASS |
+| ESMFold2-fast | 1.725 Å | 0.909 | ≤4.5 Å / ≥0.60 | PASS |
+| Protenix-v2 | 1.417 Å | 0.936 | ≤6.0 Å / ≥0.50 | PASS |
+
+**BoltzGen designability** — n=4, `examples/binder.yaml`: scRMSD median 0.820 Å, 4/4 designs (100%) ≤2 Å (floor ≤2.0 Å / ≥50%) — PASS.
+
+**ESMC embedding parity** (fused-RoPE shipped path vs reference esm, 76-residue sequence, PCC floor 0.99):
+
+| model | per-res PCC | pooled | logits | argmax | result |
+|---|---|---|---|---|---|
+| esmc-300m | 0.99961 | 0.99993 | 0.99990 | 1.0000 | PASS |
+| esmc-600m | 0.99964 | 0.99989 | 0.99996 | 1.0000 | PASS |
+
+**UX gate** (`scripts/ux_regression.py`, `examples/trpcage.yaml`): every shipped surface (Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2, OpenDDE, ESMC-600m embed) cleared live-progress advancement, strict mmCIF/npz parse, and results/manifest shape — PASS.
+
+**Perf gate** (`scripts/perf_regression.py`, Blackhole P150a, trpcage 20 aa single-sequence, 1 recycle / 10 steps / 1 sample, warm 2+5, ±15% threshold):
+
+| model | metric | baseline | current | delta | result |
+|---|---|---|---|---|---|
+| boltz2 | structures/s | 1.186 | 1.190 | +0.3% | PASS |
+| esmfold2 | structures/s | 1.665 | 1.705 | +2.4% | PASS |
+| esmfold2-fast | structures/s | 2.271 | 2.290 | +0.8% | PASS |
+| protenix-v2 | structures/s | 2.406 | 2.383 | -1.0% | PASS |
+| opendde | structures/s | 1.920 | 1.922 | +0.1% | PASS |
+| esmc-600m | seq/s | 21.09 | 20.92 | -0.8% | PASS |
+
+No perf regression. No OOM observed through the gate targets.
+
+### Added
+- **OpenDDE** antibody-antigen co-folding (`opendde` / `opendde-abag`).
+- **ESMC fused-RoPE** attention kernel for the embed path (accuracy-neutral speedup).
+- Opt-in **diffusion trace replay** for the Boltz-2, BoltzGen, and OpenDDE CLIs and the Protenix-v2 Python API.
+- **perf-regression** and **UX-regression** harnesses as standing release-gate legs.
+
+### Fixed
+- Perf gate compares against the correct per-card-type baseline (P300c vs P150a mismatch no longer reads as a false regression).
+
 ## [0.2.5] - 2026-07-11
 
 Protenix-v2 accuracy fixes — the template embedder never ran in any real `predict` call
@@ -31,22 +459,21 @@ unchanged within seed-to-seed noise vs 0.2.4.
 
 No OOM: `examples/615.yaml` and `examples/1303.yaml` (Boltz-2 `--fast`) completed cleanly;
 the full supported range to `examples/3233.yaml` (4-chain multimer + ligand) was already
-verified OOM-free on this unchanged Boltz-2 code (`docs/boltz2-tt-vs-nvidia.md`). No perf
+verified OOM-free on this unchanged Boltz-2 code. No perf
 regression: Boltz-2 `--fast` warm e2e at L=615 is **46.5 s**, vs the 43.4 s 0.2.4-era
 baseline — within run-to-run/environment noise on the same unchanged code path.
 
 ### Fixed
 - **Protenix-v2: template embedder never ran** — `nt` (template count) was always 0 in
-  every real `predict` call, so the template-embedder pass was silently skipped
-  regardless of input. See `docs/protenix-template-embedder-fix.md`.
+  every real `predict` call, so the template-embedder pass was silently skipped.
 - **Protenix-v2: `recycling_steps` default 3 → 10** — the trunk now runs at its spec
   recycle count (previously reused Boltz-2/ESMFold2's default of 3); the correct
   default once the template-embedder fix above made recycling actually informative.
-  See `docs/protenix-recycling-revisit.md`. This makes Protenix-v2 slower per-fold than
-  0.2.4 (more recycles) — expected, not a regression; see the gate wall-clock above.
+  This makes Protenix-v2 slower per-fold than 0.2.4 (more recycles) — expected,
+  not a regression; see the gate wall-clock above.
 - ESMC-6B `--devices` fanout regression past 2 cards, root-caused to two independent
   host-side bottlenecks (both fixed, verified bit-exact, end-to-end scaling now
-  monotonic to 4 cards — see `docs/esmc-multicard-scaling.md`):
+  monotonic to 4 cards):
   - **Redundant weight loading**: the N data-parallel workers now share one host-tiled
     copy of the 24 GB checkpoint via a `/dev/shm` cache (`esmc.load_esmc6b_shared` +
     `tenstorrent.weight_cache`) instead of each independently reading+tiling it.
@@ -66,7 +493,7 @@ baseline — within run-to-run/environment noise on the same unchanged code path
 - `tt-bio embed --controller URL`: dispatch to a persistent `tt-bio controller`/`worker`
   pool instead of spawning per-call subprocesses. A worker's ESMC model stays resident
   across calls, so the weight reload that dominates `--devices` wall-clock for
-  `esmc-6b` (see `docs/esmc-multicard-scaling.md`) becomes a one-time cost per worker
+  `esmc-6b` becomes a one-time cost per worker
   lifetime instead of a per-invocation tax (measured: esmc-6b N=48 50.0s cold -> 9.1s
   warm on 1 card, 261s cold -> 13.4s warm on 2 cards; bit-exact vs single-shot). Reuses
   the existing predict/design scheduler/lease machinery (`tt_bio/distributed.py`,
@@ -76,7 +503,7 @@ baseline — within run-to-run/environment noise on the same unchanged code path
 
 ### Measured
 - Re-measured `esmc-300m`/`esmc-600m` `--devices` wall-clock scaling on qb2 post
-  thread-cap fix (N=48/256/4096, see `docs/esmc-multicard-scaling.md`): the original
+  thread-cap fix (N=48/256/4096): the original
   table's `esmc-600m/N=256` 3-card 0.62x cliff does not reproduce (now a 0.87x dip,
   within run-to-run noise) — no regression for either model at any previously-fine
   config. New finding: both models scale far more modestly on qb2 (~1.1x@4cards for
@@ -108,7 +535,7 @@ No regression vs 0.2.3 (within TT diffusion's seed-to-seed variance band).
 **BoltzGen designability** — n=8 fixed-length-100 designs, `examples/binder.yaml`: scRMSD
 median 0.84 Å (resident) vs 0.91 Å (host), 7/8 designs ≤2 Å strict pass (comparable to host's
 8/8) — no regression. Wall-clock (design + refold + confidence + analysis + filtering) **697 s
-→ 479 s, ~31% faster**. See `docs/boltzgen-resident-trunk.md`.
+→ 479 s, ~31% faster**.
 
 ### Added
 - **BoltzGen device-resident trunk** — `TokenDistanceRecycle` (mirrors `TemplateRecycle`) keeps
@@ -139,14 +566,14 @@ and `tt-bio embed` input/UX polish. No structure-model code changed vs 0.2.2 (`t
 Full test suite: 71 passed, 46 skipped (missing optional reference checkpoints/packages, same
 gap as prior releases), 0 failed. No OOM: `examples/615.yaml` and `examples/1303.yaml`
 (Boltz-2 `--fast`) completed cleanly; the full supported range up to `examples/3233.yaml`
-(4-chain multimer + ligand) was already verified OOM-free on this same unchanged model code
-(`docs/boltz2-tt-vs-nvidia.md`). No perf regression: Boltz-2 `--fast` warm e2e at L=615 is
+(4-chain multimer + ligand) was already verified OOM-free on this same unchanged model code.
+No perf regression: Boltz-2 `--fast` warm e2e at L=615 is
 **43.4 s**, matching the 0.2.2-era baseline exactly (same code path since before 0.2.2).
 
 ### Added
 - **`tt-bio predict --devices`** — alias for `--device_ids` (comma-separated card ids), matching `tt-bio embed`'s flag name; `--device_ids` still works for back-compat.
 - **BoltzGen designability (scRMSD) verify script** — `scripts/boltzgen_designability.py` harvests the self-consistency RMSD `tt-bio gen` already computes and summarizes/gates on it; see `docs/boltzgen-designability.md`.
-- **`tt-bio embed --devices` wall-clock scaling measured** (`docs/esmc-multicard-scaling.md`) — real ~2x @ 4 cards for `esmc-600m` on large batches, but flat/worse for small batches and for `esmc-6b` beyond 2 cards (concurrent weight-load contention); README softened to match. Performance-only finding, no change to the (already bit-exact) sharding correctness.
+- **`tt-bio embed --devices` wall-clock scaling measured** — real ~2x @ 4 cards for `esmc-600m` on large batches, but flat/worse for small batches and for `esmc-6b` beyond 2 cards (concurrent weight-load contention); README softened to match. Performance-only finding, no change to the (already bit-exact) sharding correctness.
 
 ### Changed
 - **`tt-bio embed` input handling** — `DATA` now also accepts a YAML `{id: sequence}` mapping or a bare sequence string (previously FASTA file/directory only), writes a `manifest.json` (model/pool/shapes/dtype + which output file holds each sequence) alongside the embeddings, and reports bad input as a one-line error instead of a raw traceback.
@@ -165,7 +592,7 @@ Ground-truth gate on the default path (`examples/prot.yaml`): Boltz-2 CA-RMSD 2.
 - **`--single_sequence` flag** for `predict` — deliberately fold Boltz-2/Protenix-v2 without an MSA (skips both the local-DB lookup and the online fallback), for batch-screening orphan sequences.
 
 ### Changed
-- **Boltz-2 and Protenix-v2 use an MSA by default** — these MSA-dependent models no longer silently fold single-sequence (the cause of the alarming "~10 Å Protenix-v2" result; see `docs/protenix-accuracy-investigation.md`). With no MSA flags, `predict` uses a local ColabFold DB (`~/.boltz/msa_db`) if present, else falls back to the online ColabFold server and prints a one-line notice naming the server the sequences are sent to (they leave the machine). Pass `--msa_db_path` for a private offline DB, or `--single_sequence` to skip the MSA. ESMFold2 / ESMFold2-Fast are unchanged (single-sequence by design). Ground-truth gate on the default path (`examples/prot.yaml`): Boltz-2 CA-RMSD 2.49 Å / TM 0.78, Protenix-v2 3.47 Å / TM 0.75.
+- **Boltz-2 and Protenix-v2 use an MSA by default** — these MSA-dependent models no longer silently fold single-sequence. With no MSA flags, `predict` uses a local ColabFold DB (`~/.boltz/msa_db`) if present, else falls back to the online ColabFold server and prints a one-line notice naming the server the sequences are sent to (they leave the machine). Pass `--msa_db_path` for a private offline DB, or `--single_sequence` to skip the MSA. ESMFold2 / ESMFold2-Fast are unchanged (single-sequence by design). Ground-truth gate on the default path (`examples/prot.yaml`): Boltz-2 CA-RMSD 2.49 Å / TM 0.78, Protenix-v2 3.47 Å / TM 0.75.
 
 ## [0.2.1] - 2026-07-09
 

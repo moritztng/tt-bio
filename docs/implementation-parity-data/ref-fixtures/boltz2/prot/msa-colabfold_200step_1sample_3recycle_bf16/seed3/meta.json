@@ -1,0 +1,26 @@
+{
+  "seed": 3,
+  "target_id": "prot",
+  "harvested_from": "/home/ttuser/pharma_seedbump2/boltz2_prot_msa/ref_harness_s3",
+  "selected_record": {
+    "confidence_score": 0.8269296884536743,
+    "ptm": 0.7586543560028076,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.8439985513687134,
+    "complex_iplddt": 0.8439985513687134,
+    "complex_pde": 0.7655887603759766,
+    "complex_ipde": 0.0,
+    "chains_ptm": {
+      "0": 0.7586543560028076
+    },
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.7586543560028076
+      }
+    },
+    "id": "prot"
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

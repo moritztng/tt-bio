@@ -1,0 +1,18 @@
+{
+  "boltz2-affinity-dhfr-msa": "c5eba2198e8e7c5a",
+  "boltz2-affinity-dhfr-nomsa": "391d475a35dbb8bc",
+  "boltz2-affinity-fkbp12-msa": "720ac259a303affa",
+  "boltz2-affinity-fkbp12-nomsa": "b7b160cd5cf26b54",
+  "boltz2-affinity-tryp-msa": "919b6f0921e82d20",
+  "boltz2-affinity-tryp-nomsa": "fc83f02f14c14291",
+  "boltz2-hsa-nomsa": "87abdf32f727b576",
+  "boltz2-prot-msa": "c5ab4fde5c12b78d",
+  "boltz2-prot-nomsa": "5d9cf17847e569db",
+  "boltz2-trpcage-nomsa": "cbf9b4c32da1360b",
+  "boltz2-ubiquitin-msa": "0b36b642a7dbab05",
+  "opendde-prot-prod": "f5f19dcc2140fd15",
+  "opendde-trpcage-nomsa": "bad3d1a8fb8b902e",
+  "protenix-hsa-msa": "929f66eba5e87ebd",
+  "protenix-prot-msa": "33db62fb5e770b98",
+  "protenix-ubq-msa": "7b148b8e7f031faa"
+}

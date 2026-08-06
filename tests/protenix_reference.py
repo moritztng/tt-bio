@@ -7,7 +7,7 @@ provide weight-name remaps from Protenix/OpenFold naming onto the existing
 tt-bio modules (built for Boltz-2 — the same AlphaFold3 family). Each tt-bio
 module is then validated against its Protenix reference at PCC > 0.98.
 
-Phase 1 of docs/porting-protenix-v2.md. This file holds the reference builders
+This file holds the reference builders
 and remaps; tests/test_protenix.py runs the on-device parity checks.
 """
 

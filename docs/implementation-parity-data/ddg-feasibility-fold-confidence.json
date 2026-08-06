@@ -1,0 +1,138 @@
+[
+  {
+    "id": "1vfb_CD18A",
+    "status": "ok",
+    "iptm": 0.970083,
+    "ptm": 0.974748,
+    "confidence_score": 0.971016,
+    "runtime_s": 329.6
+  },
+  {
+    "id": "1vfb_CQ121A",
+    "status": "ok",
+    "iptm": 0.968551,
+    "ptm": 0.973634,
+    "confidence_score": 0.969568,
+    "runtime_s": 168.1
+  },
+  {
+    "id": "1vfb_CS24A",
+    "status": "ok",
+    "iptm": 0.96957,
+    "ptm": 0.974371,
+    "confidence_score": 0.97053,
+    "runtime_s": 165.6
+  },
+  {
+    "id": "1vfb_HD54A",
+    "status": "ok",
+    "iptm": 0.9695,
+    "ptm": 0.974344,
+    "confidence_score": 0.970469,
+    "runtime_s": 175.9
+  },
+  {
+    "id": "1vfb_HG31E",
+    "status": "ok",
+    "iptm": 0.969821,
+    "ptm": 0.974546,
+    "confidence_score": 0.970766,
+    "runtime_s": 194.8
+  },
+  {
+    "id": "1vfb_LL46D",
+    "status": "ok",
+    "iptm": 0.967344,
+    "ptm": 0.972696,
+    "confidence_score": 0.968414,
+    "runtime_s": 191.7
+  },
+  {
+    "id": "1vfb_LW92A",
+    "status": "ok",
+    "iptm": 0.969835,
+    "ptm": 0.974547,
+    "confidence_score": 0.970777,
+    "runtime_s": 186.9
+  },
+  {
+    "id": "1vfb_LY32A",
+    "status": "ok",
+    "iptm": 0.965672,
+    "ptm": 0.971487,
+    "confidence_score": 0.966835,
+    "runtime_s": 199.8
+  },
+  {
+    "id": "1vfb_wt",
+    "status": "ok",
+    "iptm": 0.969953,
+    "ptm": 0.974649,
+    "confidence_score": 0.970892,
+    "runtime_s": 148.5
+  },
+  {
+    "id": "3hfm_HC95A",
+    "status": "ok",
+    "iptm": 0.927858,
+    "ptm": 0.920132,
+    "confidence_score": 0.926313,
+    "runtime_s": 470.5
+  },
+  {
+    "id": "3hfm_HD32N",
+    "status": "ok",
+    "iptm": 0.92724,
+    "ptm": 0.920243,
+    "confidence_score": 0.925841,
+    "runtime_s": 374.7
+  },
+  {
+    "id": "3hfm_HY50A",
+    "status": "ok",
+    "iptm": 0.927921,
+    "ptm": 0.921246,
+    "confidence_score": 0.926586,
+    "runtime_s": 376.0
+  },
+  {
+    "id": "3hfm_LN31D",
+    "status": "ok",
+    "iptm": 0.927387,
+    "ptm": 0.920203,
+    "confidence_score": 0.92595,
+    "runtime_s": 414.8
+  },
+  {
+    "id": "3hfm_LQ53A",
+    "status": "ok",
+    "iptm": 0.926589,
+    "ptm": 0.919719,
+    "confidence_score": 0.925215,
+    "runtime_s": 377.7
+  },
+  {
+    "id": "3hfm_LY50F",
+    "status": "ok",
+    "iptm": 0.926862,
+    "ptm": 0.920029,
+    "confidence_score": 0.925495,
+    "runtime_s": 384.0
+  },
+  {
+    "id": "3hfm_YK97A",
+    "status": "ok",
+    "iptm": 0.927193,
+    "ptm": 0.920942,
+    "confidence_score": 0.925943,
+    "runtime_s": 350.3
+  },
+  {
+    "id": "3hfm_wt",
+    "status": "ok",
+    "iptm": 0.927039,
+    "ptm": 0.920206,
+    "confidence_score": 0.925672,
+    "runtime_s": 330.0
+  }
+]

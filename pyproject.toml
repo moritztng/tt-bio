@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tt-bio"
-version = "0.2.5"
-description = "Boltz-2, ESMFold2, and Protenix-v2 structure prediction, BoltzGen binder design, and ESMC protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
+version = "0.5.0"
+description = "Boltz-2, ESMFold2, Protenix-v2, and OpenDDE structure prediction, BoltzGen binder design, and ESMC/SaProt protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
 readme = "README.md"
 requires-python = ">=3.10,<3.13,!=3.11.*"
 dependencies = [
@@ -32,11 +32,16 @@ dependencies = [
     "pydssp",
     "tqdm",
     "rich",
-    "huggingface_hub<1.0",  # esmc.py weight download; <1.0 also matches the vendored ESMFold2 model
+    "huggingface_hub>=1.5.0,<2.0",  # esmc.py weight download; transformers>=5.3 requires >=1.5.0
     "safetensors",          # esmc.py: safe_open for the sharded 6B checkpoint
     # ESMFold2 reference code is vendored under tt_bio/_vendor (see NOTICE); these
     # are the stock PyPI runtime deps it needs — no git clones / external repos.
-    "transformers==4.57.6",  # the vendored ESMFold2 model runs on the stock transformers core
+    # >=5.5.0 clears all 3 open dependabot alerts (#3 Trainer RCE fixed 5.0.0rc3,
+    # #4 config.json RCE fixed 5.3.0, #5 LightGlue RCE fixed 5.5.0 -- N/A to tt-bio,
+    # no LightGlue usage). CPU-level bit-exact parity verified (transformers
+    # 4.57.6 -> 5.5.0/5.14.1, same torch, same weights, same seed):
+    # ~/.coworker/state/tt-bio-dependabot-transformers-triage.md.
+    "transformers>=5.5.0,<6.0",  # the vendored ESMFold2 model runs on the stock transformers core
     "zstd",                  # esm MSA utils (vendored)
     "msgpack-numpy",         # esm structure serialization (vendored)
     "brotli",                # esm (vendored)
@@ -45,12 +50,6 @@ dependencies = [
     # pure torch/ttnn (canonical-CCD conformers bundled as JSON, no rdkit/gemmi at runtime),
     # and weights come from the Hugging Face mirror via huggingface_hub (no clone).
     "ttnn==0.68.0",
-    # OpenFold3 host-side data pipeline is vendored under tt_bio/_vendor (see NOTICE);
-    # these are the stock PyPI runtime deps it needs for query-JSON featurization.
-    "pydantic",         # Query/settings schema (inference_query_format, dataset_config_components)
-    "pdbeccdutils",      # CCD (Chemical Component Dictionary) residue/ligand lookup
-    "func_timeout",      # bounds RDKit reference-conformer generation
-    "networkx",          # connected-components on CCD bond graphs (structure/cleanup.py)
 ]
 
 [project.optional-dependencies]
@@ -69,7 +68,15 @@ include = ["tt_bio*"]
 # ship the vendored third-party license texts inside the wheel (see NOTICE)
 "tt_bio._vendor.esm" = ["LICENSE"]
 "tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
-"tt_bio._vendor.openfold3" = ["LICENSE"]
+# runtime data files the package loads by path at import/featurize time — these
+# MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
+#   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization
+#   - tt_bio/boltzgen/resources/**: every `tt-bio design --model boltzgen` run (config yamls, splits, metrics)
+"tt_bio.data" = ["*.json"]
+"tt_bio.boltzgen" = ["LICENSE"]
+"tt_bio.boltzgen.resources" = ["*.json"]
+"tt_bio.boltzgen.resources.config" = ["*.yaml"]
+"tt_bio.boltzgen.resources.splits" = ["*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

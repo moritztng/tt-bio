@@ -8,12 +8,64 @@ so they can be reused from both the CLI and the worker subprocess.
 from __future__ import annotations
 
 import glob
+import os
 import socket
 from dataclasses import dataclass
 from pathlib import Path
 
 
 INPUT_SUFFIXES = (".fa", ".fas", ".fasta", ".yml", ".yaml")
+
+HOST_THREAD_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+                    "NUMEXPR_NUM_THREADS")
+
+
+def host_thread_cap(n_workers: int, host_threads: int | None = None) -> int:
+    """Per-worker host thread budget for a process driving ``n_workers`` cards.
+
+    Each worker's torch/OMP/BLAS pools otherwise default to ALL cores, so N
+    co-resident workers spawn N*cores threads that thrash the CPU and collapse the
+    host-side work (weight load, featurization, output) -- the multi-card slowdown.
+    ``host_threads`` is this PROCESS's share of the host CPU, defaulting to every
+    core. All-cores is right for one process driving the whole box, but wrong when an
+    external launcher runs one single-card job per chip: each process then sees
+    n_workers == 1 and claims all cores. Such a launcher passes
+    ``cores // concurrent_jobs``.
+    """
+    budget = host_threads if host_threads and host_threads > 0 else (os.cpu_count() or 1)
+    return max(1, budget // max(1, n_workers))
+
+
+def host_thread_cap_env(n_workers: int, host_threads: int | None = None) -> dict[str, str]:
+    """Thread-cap environment for a spawned per-card child.
+
+    Explicit beats inherited: a passed ``host_threads`` overrides a pre-set env var
+    (the launcher knows how many siblings it started), while the default only fills in
+    what the operator left unset.
+    """
+    cap = str(host_thread_cap(n_workers, host_threads))
+    return {var: cap for var in HOST_THREAD_VARS
+            if host_threads or var not in os.environ}
+
+
+def bind_host_threads() -> None:
+    """Bind torch's thread pools to the OMP_NUM_THREADS cap set by the launcher.
+
+    A fresh torch import honours the cap for the intra-op pool -- but not for the
+    inter-op pool, which always sizes itself to cores/2 regardless. Bind both
+    explicitly so a capped worker really holds only its share of the CPU. Nothing to
+    do when the launcher set no cap.
+    """
+    cap = os.environ.get("OMP_NUM_THREADS")
+    if not cap:
+        return
+    import torch
+
+    torch.set_num_threads(int(cap))
+    try:
+        torch.set_num_interop_threads(int(cap))
+    except RuntimeError:
+        pass  # already started (only settable before the first parallel op)
 
 
 @dataclass(frozen=True)
@@ -78,6 +130,17 @@ def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_wor
     through and failing much later with an opaque low-level device-open error.
     """
     all_devices = sorted(int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*"))
+    # Honor ambient TT_VISIBLE_DEVICES (the same env ttnn/tt-smi read at
+    # device-open time): a job pinned to card N via the environment must fan out
+    # only onto card N. Without this filter, a predict launched with
+    # TT_VISIBLE_DEVICES=1 enumerated every physical card and spawned one worker
+    # per card, so the card-0 worker wedged card 0 for every concurrent job on
+    # the box. Explicit --device_ids still wins (validated below against the
+    # ambient-visible set).
+    visible = os.environ.get("TT_VISIBLE_DEVICES")
+    if visible is not None:
+        allowed = {int(d.strip()) for d in visible.split(",") if d.strip()}
+        all_devices = [d for d in all_devices if d in allowed]
     if device_ids:
         requested = [int(d.strip()) for d in device_ids.split(",") if d.strip()]
         missing = [d for d in requested if d not in all_devices]

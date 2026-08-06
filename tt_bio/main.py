@@ -44,9 +44,20 @@ def _install_nanobind_leak_stderr_filter() -> None:
     try:
         read_fd, write_fd = _os.pipe()
         original_stderr_fd = _os.dup(2)
+        ppid = _os.getpid()
         pid = _os.fork()
         if pid == 0:
             try:
+                # Die with the parent: a surviving filter grandchild keeps the
+                # dup of fd 2 open, and when fd 2 is a dispatchers shard pipe
+                # the dispatcher never sees EOF and hangs after the run ends.
+                try:
+                    import ctypes
+                    ctypes.CDLL(None).prctl(1, 9)  # PR_SET_PDEATHSIG, SIGKILL
+                    if _os.getppid() != ppid:
+                        _os._exit(0)
+                except Exception:
+                    pass
                 _os.close(write_fd)
                 suppressing_nanobind_leak = False
                 with _os.fdopen(read_fd, "rb", closefd=True) as pipe:
@@ -104,6 +115,7 @@ import subprocess
 import tarfile
 import time
 import urllib.request
+import uuid
 import warnings
 import fcntl
 from contextlib import contextmanager
@@ -116,14 +128,11 @@ import torch
 from rdkit import Chem
 
 from tt_bio.data import const
-from tt_bio.data.featurizer import Boltz2Featurizer
-from tt_bio.data.mol import load_canonicals, load_molecules
+from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
-from tt_bio.data.tokenize import Boltz2Tokenizer
 from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
-from tt_bio.boltz2 import Boltz2
 from tt_bio.distributed import (
     ControllerClient,
     ControllerServer,
@@ -137,12 +146,62 @@ from tt_bio.runtime import (
     detect_tenstorrent_devices,
     discover_jobs,
 )
-from tt_bio.worker import run_worker_loop
+from tt_bio.worker import SHARED_OUTPUT_PREFIX, run_worker_loop
 
 # Model weights and data live on the Hugging Face Hub and are fetched with
 # huggingface_hub — the single download path shared by every tt-bio model.
 BOLTZ2_REPO = "moritztng/boltz-2"            # Boltz-2 weights + molecules (MIT)
 PROTENIX_REPO = "TMF001/protenix-v2-weights"  # Protenix-v2 weights (Apache-2.0)
+
+# RFdiffusion3 (RFD3, BSD-3-Clause, Institute for Protein Design / UW) ships no
+# HF repo; its checkpoint lives on IPD's own file server. This is the same URL
+# RosettaCommons' `foundry install rfd3` installer downloads (read from the
+# `rc-foundry` package's checkpoint_registry.py) — tt-bio fetches it directly
+# over plain HTTPS so users never need `rc-foundry`/`foundry` installed.
+RFD3_CKPT_URL = "https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt"
+
+# Single source of truth for the predict output-folder prefix. Each supported
+# --model maps to a model-named results folder; a model not listed falls back to
+# the neutral, model-independent "results" prefix (never a hardcoded "boltz_"
+# string). Add a new model here when you add it to the predict --model choice —
+# PREDICT_MODELS below derives from these keys, so the CLI choice and every
+# gate that imports PREDICT_MODELS (release_gate.py, perf_regression.py) stay
+# in sync automatically instead of needing their own hand-copied list (the gap
+# that let opendde-abag's diffusion_fp32 regression ship with no perf coverage
+# — see tt-bio-shared-diffusion-global-env-default-regression).
+_MODEL_RESULTS_PREFIX = {
+    "boltz2": "boltz2_results",
+    "esmfold2": "esmfold2_results",
+    "esmfold2-fast": "esmfold2_results",
+    "protenix-v2": "protenix_results",
+    "openfold3": "openfold3_results",
+    "opendde": "opendde_results",
+    "opendde-abag": "opendde_results",
+}
+PREDICT_MODELS = tuple(_MODEL_RESULTS_PREFIX)
+
+# Single source of truth for the other two model-choice CLI surfaces (`embed`,
+# `saprot`), for the same reason: anything that needs "every model we ship"
+# (perf gate coverage, docs, future audits) should import these instead of
+# re-typing the list.
+EMBED_MODELS = ("esmc-300m", "esmc-600m", "esmc-6b")
+SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
+
+# Single source of truth for the `design --model` choice, for the same reason
+# as PREDICT_MODELS above: gates and docs derive the shipped design models from
+# here instead of re-typing the list. boltzgen is the default (the full
+# production binder-design pipeline, mirroring predict's boltz2 default); rfd3
+# is the lighter single-shot all-atom diffusion designer.
+DESIGN_MODELS = ("boltzgen", "rfd3")
+
+
+def predict_results_dir_name(model: str, stem: str) -> str:
+    """Predict output folder name: <model>_results_<stem> (e.g.
+    protenix_results_prot, boltz2_results_trpcage). Single source of truth —
+    every consumer (CLI, release gate, parity harness) derives the results-folder
+    name from here so a new model gets a correct, model-named folder automatically
+    and no generic output path ever hardcodes boltz_."""
+    return f"{_MODEL_RESULTS_PREFIX.get(model, 'results')}_{stem}"
 
 
 def hf_artifact(repo_id: str, filename: str, dest_dir: Path) -> Path:
@@ -156,6 +215,25 @@ def hf_artifact(repo_id: str, filename: str, dest_dir: Path) -> Path:
         click.echo(f"Downloading {filename}")
         hf_hub_download(repo_id=repo_id, filename=filename, local_dir=str(dest_dir))
     return dest
+
+
+def ensure_rfd3_weights(cache: Path) -> Path:
+    """Fetch the RFD3 checkpoint from files.ipd.uw.edu on first use and extract
+    the TokenInitializer/DiffusionModule weights `tt-bio design` loads. Cached
+    under cache/rfd3 thereafter."""
+    from tt_bio.rfd3.design import extract_rfd3_weights
+    weights_dir = cache / "rfd3" / "weights"
+    if (weights_dir / "diffusion_module.real_weights.pt").exists():
+        return weights_dir
+    ckpt_path = cache / "rfd3" / "rfd3_foundry_2025_12_01_remapped.ckpt"
+    if not ckpt_path.exists():
+        ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+        click.echo("Downloading RFD3 checkpoint (~2.5 GiB, files.ipd.uw.edu)")
+        _download_file(RFD3_CKPT_URL, ckpt_path)
+    click.echo("Extracting RFD3 weights")
+    extract_rfd3_weights(ckpt_path, weights_dir)
+    ckpt_path.unlink()  # only the extracted weights are ever loaded again
+    return weights_dir
 
 
 def download_mols(cache: Path) -> Path:
@@ -338,14 +416,21 @@ def _ensure_offline_tools(install_tools: bool) -> None:
             )
 
 
-def _find_mmseqs() -> str | None:
-    """Find mmseqs binary on PATH or at common install locations."""
-    found = shutil.which("mmseqs")
-    if found:
-        return found
+def _find_mmseqs(colabfold_bin: str | None = None) -> str | None:
+    """Find an mmseqs binary, preferring the one bundled with the colabfold_search
+    in use. colabfold invokes mmseqs with flags a mismatched system build rejects
+    (e.g. Debian 13-45111 has no --prefilter-mode, breaking every offline MSA).
+    """
+    if colabfold_bin:
+        sibling = Path(colabfold_bin).parent / "mmseqs"
+        if sibling.is_file() and os.access(sibling, os.X_OK):
+            return str(sibling)
     for p in _MMSEQS_SEARCH_PATHS:
         if p.is_file() and os.access(p, os.X_OK):
             return str(p)
+    found = shutil.which("mmseqs")
+    if found:
+        return found
     return None
 
 
@@ -443,7 +528,7 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, "
                f"pairing={pairing_strategy if pair else 'none'})")
     colabfold_bin = _find_colabfold_search()
-    mmseqs_bin = _find_mmseqs()
+    mmseqs_bin = _find_mmseqs(colabfold_bin)
     strategy_map = {"greedy": "0", "complete": "1"}
     strategy_val = strategy_map.get(pairing_strategy, pairing_strategy)
     # Unique per process AND thread so concurrent searches in one process (e.g.
@@ -741,6 +826,20 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
     def _scalars(idx):
         return {k: round(pred[k][idx].item(), 6) if k in pred else 0.0 for k in scalar_keys}
 
+    def _pair_chains(idx):
+        """Per-sample chain-pair ipTM / per-chain pTM. Same source as the winner-only block
+        below; exposed per sample because for an antibody-antigen ranking dataset the
+        antibody-vs-antigen chain-pair ipTM is more informative than the global ipTM, and a
+        winner-only value cannot be used to rank the other samples (AbAg-XM audit 2026-07-27)."""
+        if "pair_chains_iptm" not in pred:
+            return {}
+        pci = pred["pair_chains_iptm"]
+        return {
+            "pair_chains_iptm": {i: {j: round(pci[i][j][idx].item(), 6) for j in pci[i]}
+                                 for i in pci},
+            "chains_ptm": {i: round(pci[i][i][idx].item(), 6) for i in pci if i in pci[i]},
+        }
+
     metrics.update(_scalars(best_idx))
 
     if "pair_chains_iptm" in pred:
@@ -755,7 +854,8 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
 
     if num_samples > 1:
         idx_by_rank = sorted(rank, key=rank.get)
-        metrics["all_runs"] = [{"rank": rank[i], **_scalars(i)} for i in idx_by_rank]
+        metrics["all_runs"] = [{"rank": rank[i], **_scalars(i), **_pair_chains(i)}
+                               for i in idx_by_rank]
 
     # Optional large outputs
     if write_pae and "pae" in pred:
@@ -823,24 +923,6 @@ def _save_results(results: list[dict], path: Path) -> None:
         fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
         try:
             _save_results_unlocked(results, path)
-        finally:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-
-
-def _append_result(row: dict, path: Path) -> None:
-    """Append one result row to results.json atomically.
-
-    Safe for concurrent workers: reads existing, merges, writes via rename.
-    """
-    lock_path = _results_lock_path(path)
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(lock_path, "a") as lock_f:
-        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
-        try:
-            existing = _load_results_resilient(path)
-            existing = [r for r in existing if isinstance(r, dict) and r.get("id") != row["id"]]
-            existing.append(row)
-            _save_results_unlocked(existing, path)
         finally:
             fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
 
@@ -917,21 +999,33 @@ def _local_workers(accelerator: str, num_devices: int, device_ids: str | None, m
     ]
 
 
-def _cap_worker_threads(n_workers: int) -> None:
+def _cap_worker_threads(n_workers: int, host_threads: int | None = None) -> None:
     """Cap each worker's host thread pools. Each worker's torch/OMP/BLAS pools
     otherwise default to ALL cores, so N co-resident workers spawn N*cores threads
     that thrash the CPU and collapse throughput on the host-side work
     (featurization, output, layout conversion) -- the multi-card slowdown. Size to
-    cores/workers; an operator-set value wins. Spawned children inherit these."""
-    cap = max(1, (os.cpu_count() or 1) // max(1, n_workers))
-    for var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
-        os.environ.setdefault(var, str(cap))
+    host_threads/workers; spawned children inherit these.
+
+    ``host_threads`` is this PROCESS's share of the host CPU, defaulting to every
+    core. All-cores is right for one process driving the whole box, but wrong when an
+    external launcher runs one single-card ``predict`` per chip: each process then
+    sees n_workers == 1, sizes its pools to all cores, and N co-resident folds
+    oversubscribe the host N-fold. Such a launcher passes ``--host_threads
+    cores//concurrent_folds``. Explicit beats inherited: a passed value overrides a
+    pre-set env var (the launcher knows how many siblings it started), while the
+    default only fills in what the operator left unset."""
+    from . import runtime
+
+    os.environ.update(runtime.host_thread_cap_env(n_workers, host_threads))
 
 
 def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> list:
     """Spawn one process per worker slot, each connected to the controller."""
     ctx = mp.get_context("spawn")
     _cap_worker_threads(len(workers))
+    # So orphaned workers self-terminate (see run_worker_loop): spawn children
+    # inherit this, remote workers never see it.
+    os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
     procs = []
     for worker in workers:
         proc = ctx.Process(
@@ -1058,6 +1152,13 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         else DebugDisplay(pq) if log else NullDisplay(pq)
     )
     display.start()
+    # Optional headless event capture (TT_BIO_PROGRESS_CAPTURE=<path>): tee every
+    # streamed event to a JSONL file so the UX-regression guard can assert the
+    # live progress view advances through every real phase without scraping a
+    # TTY. Same event stream the display reads above, so it observes real
+    # behaviour. Off by default; no effect on a normal predict run.
+    cap_path = os.environ.get("TT_BIO_PROGRESS_CAPTURE")
+    cap_fh = open(cap_path, "a") if cap_path else None
     after = 0
     failed = 0
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
@@ -1088,12 +1189,23 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                         if struct_dir is not None and row.get("status") == "ok":
                             _write_job_outputs(client, run_id, row["id"], struct_dir)
                 pq.put(ev)
+                if cap_fh is not None:
+                    try:
+                        cap_fh.write(json.dumps(ev, default=str) + "\n")
+                        cap_fh.flush()
+                    except Exception:
+                        pass
             if snapshot.get("status") in ("ok", "failed", "canceled"):
                 failed = int(snapshot.get("failed") or 0)
                 break
             time.sleep(0.5)
     finally:
         display.stop()
+        if cap_fh is not None:
+            try:
+                cap_fh.close()
+            except Exception:
+                pass
     if failures:
         # The rolling log only had room for a one-line clip per job; print the
         # full message here so any actionable guidance (e.g. how to supply
@@ -1117,13 +1229,68 @@ def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
     with _scheduler_session(listen, workers, debug) as (client, public_url):
         if public_url:
             click.echo(f"Workers may join: tt-bio worker --connect {public_url}")
-        run_id = client.create_run(run_payload)["run_id"]
-        failed = _stream_run(client, run_id, total=total, n_workers=len(workers),
-                             debug=debug, log=log, results_path=results_path,
-                             struct_dir=struct_dir, model=model)
-        _persist_run_results(client, run_id, results_path)
+        # Locally-spawned workers are on this filesystem by construction, but a --listen
+        # run can also pick up workers from other machines; the nonce sorts them out.
+        _offer_shared_outputs(run_payload, struct_dir)
+        try:
+            run_id = client.create_run(run_payload)["run_id"]
+            failed = _stream_run(client, run_id, total=total, n_workers=len(workers),
+                                 debug=debug, log=log, results_path=results_path,
+                                 struct_dir=struct_dir, model=model)
+            _persist_run_results(client, run_id, results_path)
+        finally:
+            # a run that dies must not leave its scaffolding in the user's results
+            _clear_shared_outputs(run_payload, struct_dir)
+        # A shard that loses its device-open race (lease held by another run,
+        # wedged card) exits its worker loop and the scheduler simply serves
+        # every job to the survivors: the run completes "ok" on fewer cards
+        # than --devices asked for, with the DeviceInUseError visible only
+        # under --debug. Say so loudly — silent degradation turned a 4-card
+        # scaling measurement into a 2-worker run twice in the audit.
+        try:
+            online = int(client.cluster().get("online_workers") or 0)
+        except Exception:
+            online = -1
+        if 0 <= online < len(workers):
+            click.echo(f"  ! run completed with only {online} of {len(workers)} requested "
+                       f"workers online — results came from FEWER CARDS than --devices "
+                       f"requested (shard device-open failures are visible with --debug).",
+                       err=True)
     click.echo(f"\nDone: {total - failed} ok, {failed} failed — {results_path}")
     return failed
+
+
+def _clear_shared_outputs(run_payload: dict, struct_dir: Path) -> None:
+    """Remove the co-location nonce; it is scaffolding, not a result."""
+    token = ((run_payload.get("config") or {}).get("shared_outputs") or {}).get("token")
+    if token:
+        try:
+            (struct_dir / str(token)).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def _offer_shared_outputs(run_payload: dict, struct_dir: Path) -> None:
+    """Tell workers they may write results straight into ``struct_dir``, if they can.
+
+    Results otherwise travel back as base64 inside JSON through the single controller
+    process: a 1024-sequence esmc embed ships ~635 MB of per-residue arrays that way and
+    the controller spends ~15 of the run's 27 seconds on it while every card idles.
+    Workers that share this filesystem can skip the round trip entirely.
+
+    Co-location has to be proven, not assumed -- a worker on another machine could
+    create this same path locally and write into the void. So drop a nonce here and name
+    it; only a worker that can see that exact file is really looking at this directory.
+    A worker that cannot stays on base64, which is what every older worker does anyway.
+    """
+    try:
+        struct_dir.mkdir(parents=True, exist_ok=True)
+        token = f".tt-bio-share-{uuid.uuid4().hex[:16]}"
+        (struct_dir / token).write_text("")
+    except Exception:
+        return  # can't prove anything -> leave every worker on base64
+    cfg = run_payload.setdefault("config", {})
+    cfg["shared_outputs"] = {"dir": str(struct_dir.resolve()), "token": token}
 
 
 def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: int,
@@ -1146,11 +1313,16 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     # cancelled later via the controller; otherwise the controller assigns one.
     if run_id:
         run_payload["run_id"] = run_id
-    run_id = client.create_run(run_payload)["run_id"]
-    failed = _stream_run(client, run_id, total=total, n_workers=n_workers,
-                         debug=debug, log=log, results_path=results_path,
-                         struct_dir=struct_dir, model=model)
-    _persist_run_results(client, run_id, results_path)
+    _offer_shared_outputs(run_payload, struct_dir)
+    try:
+        run_id = client.create_run(run_payload)["run_id"]
+        failed = _stream_run(client, run_id, total=total, n_workers=n_workers,
+                             debug=debug, log=log, results_path=results_path,
+                             struct_dir=struct_dir, model=model)
+        _persist_run_results(client, run_id, results_path)
+    finally:
+        # a run that dies must not leave its scaffolding in the user's results
+        _clear_shared_outputs(run_payload, struct_dir)
     click.echo(f"\nDone: {total - failed} ok, {failed} failed — {results_path}")
     return failed
 
@@ -1170,6 +1342,17 @@ def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
             continue
         target = struct_dir / rel
         target.parent.mkdir(parents=True, exist_ok=True)
+        if content_b64.startswith(SHARED_OUTPUT_PREFIX):
+            # A co-located worker wrote the file straight into struct_dir, so there is
+            # nothing to decode — the value is a path, never bytes, and never one this
+            # client follows. Confirm the file really landed where we expect instead of
+            # taking the worker's word for it: the bytes are gone from the worker's
+            # scratch dir by now, so a missing file here is a lost output, and it should
+            # look like one rather than like a silent success.
+            if not target.is_file():
+                click.echo(f"  ! {job_id}: worker reported {rel.as_posix()} as written "
+                           f"in place, but it is not there", err=True)
+            continue
         try:
             target.write_bytes(base64.b64decode(content_b64))
         except Exception:
@@ -1220,26 +1403,50 @@ def _persist_run_results(client: ControllerClient, run_id: str, results_path: Pa
 
 @click.group()
 def cli():
-    """Run Boltz-2 (predict / msa) or BoltzGen (gen) inference on Tenstorrent."""
+    """Run biomolecular prediction, design, and embedding on Tenstorrent."""
+
+
+def _run_boltzgen_cli(prog: str, args) -> None:
+    """Forward args to the vendored BoltzGen pipeline CLI. The single shared
+    path for `tt-bio design --model boltzgen` and the deprecated `tt-bio gen`
+    alias. sys.argv is rewritten BEFORE the boltzgen module imports so its
+    import-time --device_ids -> TT_VISIBLE_DEVICES scan sees the final argv."""
+    import sys
+
+    sys.argv = [prog, *args]
+    from tt_bio.boltzgen.cli.boltzgen import main as _bg_main
+
+    # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open
+    # it without a 1x1 mesh-graph descriptor. The predict path sets this per
+    # worker and the embed command sets it in-process; the gen path opens the
+    # device in-process for a single device (no fanout shard to inherit it),
+    # so set it here the same way. See the embed command + perf_regression.py.
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
+    _bg_main()
 
 
 @cli.command(
     "gen",
+    hidden=True,
+    add_help_option=False,
     context_settings=dict(ignore_unknown_options=True, allow_extra_args=True),
     help=(
-        "Run the BoltzGen binder-design pipeline. All remaining arguments are "
-        "forwarded to BoltzGen's CLI; see `tt-bio gen run --help` for the "
-        "design pipeline, `tt-bio gen download` for model artifacts, etc."
+        "Deprecated alias for `tt-bio design --model boltzgen`. All remaining "
+        "arguments are forwarded to BoltzGen's CLI."
     ),
 )
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
 def gen(args):
-    import sys
-
-    from tt_bio.boltzgen.cli.boltzgen import main as _bg_main
-
-    sys.argv = ["tt-bio gen", *args]
-    _bg_main()
+    click.secho(
+        "Deprecation warning: `tt-bio gen` is deprecated and will be removed in a "
+        "future release. Use `tt-bio design --model boltzgen` instead (same "
+        "pipeline; `gen run X --output out` becomes `design X --model boltzgen "
+        "--out_dir out`).", fg="yellow", err=True)
+    _run_boltzgen_cli("tt-bio gen", args)
 
 
 @cli.command("install-deps")
@@ -1765,23 +1972,44 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
 
 def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
                                  msa_pairing_strategy, msa_server_username,
-                                 msa_server_password, api_key_value):
+                                 msa_server_password, api_key_value,
+                                 msa_db_path=None, use_envdb=False):
     """Run a species-pairing MSA search for a multi-chain protein complex and return
     per-seq-hash paired a3m text (one per chain, rows species-aligned across chains).
 
-    Uses the ColabFold pair endpoint (``ticket/pair``) -- the same paired-MSA utility
-    Boltz-2 uses and the standard AF3/Protenix docking input -- so the species pairing
-    is done server-side, matching what the reference ``MSAPairingEngine.
-    pair_chains_by_species`` produces from per-chain MSAs carrying UniProt/UniRef
-    species IDs. Each returned a3m has the chain's own query as row 0 followed by the
-    paired homologs; row j across chains corresponds to the same genome. Best-effort:
-    callers should catch exceptions and fall back to unpaired-only (no cross-chain
-    signal) rather than failing the whole fold.
+    With ``msa_db_path`` set, searches a local ColabFold DB via ``compute_msa_offline``
+    (``pair=True``, the same offline pairing path boltz2/protenix-v2 already use in
+    ``prepare_features``) instead of ever touching the network. Otherwise uses the
+    ColabFold pair endpoint (``ticket/pair``) -- the same paired-MSA utility Boltz-2
+    uses and the standard AF3/Protenix docking input -- so the species pairing is done
+    server-side, matching what the reference ``MSAPairingEngine.pair_chains_by_species``
+    produces from per-chain MSAs carrying UniProt/UniRef species IDs. Each returned a3m
+    has the chain's own query as row 0 followed by the paired homologs; row j across
+    chains corresponds to the same genome. Best-effort: callers should catch exceptions
+    and fall back to unpaired-only (no cross-chain signal) rather than failing the
+    whole fold.
 
     Returns ``{seq_hash: a3m_text}`` parallel to the input ``seqs`` dict.
     """
-    from tt_bio.data.msa import run_mmseqs2
-
+    if msa_db_path:
+        # Cache into a DEDICATED subdir, and only search what is missing. Two bugs this fixes,
+        # both found auditing the AbAg-XM campaign (2026-07-27):
+        #  (1) PERF: this helper had no cache check at all (unlike prepare_features above, which
+        #      filters to_gen to the missing hashes), so EVERY multi-chain OpenDDE fold re-ran a
+        #      full offline ColabFold search against the ~279 GB uniref30 index -- pure waste on a
+        #      campaign that pre-warms one MSA per target and folds it many times.
+        #  (2) CORRECTNESS: it wrote `{seq_hash}.a3m` into the SHARED msa_dir, silently
+        #      overwriting the very files boltz2/protenix-v2 read for the same chains. Keeping
+        #      paired results in their own namespace means the "identical MSA input across
+        #      generators" fairness contract can no longer be clobbered by an OpenDDE run, and a
+        #      cached unpaired a3m can never be served as if it were paired.
+        paired_dir = msa_dir / "paired"
+        paired_dir.mkdir(parents=True, exist_ok=True)
+        to_gen = {k: s for k, s in seqs.items() if not (paired_dir / f"{k}.a3m").exists()}
+        if to_gen:
+            compute_msa_offline(to_gen, target_id, paired_dir, msa_db_path, use_env=use_envdb,
+                                pairing_strategy=msa_pairing_strategy, pair=True)
+        return {k: (paired_dir / f"{k}.a3m").read_text() for k in seqs}
     headers = {"Content-Type": "application/json", "X-API-Key": api_key_value} if api_key_value else None
     keys = list(seqs)
     res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{target_id}_paired_tmp",
@@ -1795,36 +2023,81 @@ def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 def _resolve_recycling_steps(recycling_steps, model):
     """Per-model default trunk-recycling count when --recycling_steps is unset (None).
 
-    protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); boltz2/esmfold2 use the
-    Boltz-2/AF3 convention of 3. An explicit --recycling_steps is honored verbatim for every
-    model. Running protenix-v2 at 3 under-recycles the trunk, leaving a bimodal ensemble whose
-    confidence head then mis-ranks the samples (docs/protenix-recycling-revisit.md).
+    protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); opendde/opendde-abag keep 10;
+    esmfold2/esmfold2-fast use 10, the ESMFold2 paper's benchmark protocol (A.2.10: "For all
+    benchmark results ... ESMFold2 uses 10 loops"); boltz2 uses the Boltz-2/AF3 convention
+    of 3. An explicit --recycling_steps is honored verbatim for every model. Running
+    protenix-v2 at 3 under-recycles its trunk.
     """
     if recycling_steps is not None:
         return recycling_steps
-    return 10 if model in ("protenix-v2", "opendde", "opendde-abag") else 3
+    return 10 if model in ("protenix-v2", "opendde", "opendde-abag", "esmfold2",
+                           "esmfold2-fast") else 3
+
+
+def _resolve_sampling_steps(sampling_steps, model):
+    """Per-model default REQUESTED diffusion-sampling steps when --sampling_steps is unset.
+
+    esmfold2/esmfold2-fast request 100, the ESMFold2 paper's benchmark protocol (A.2.11:
+    "We use N = 100 which reduces to 68 sampling steps"): the sampler clips the Karras
+    schedule at sigma_max=256, so requesting 100 executes 68 denoise steps. Every other
+    model keeps 200. Requested is not executed for esmfold2 — passing 68 literally would
+    execute only 46. An explicit --sampling_steps is honored verbatim for every model.
+    """
+    if sampling_steps is not None:
+        return sampling_steps
+    return 100 if model in ("esmfold2", "esmfold2-fast") else 200
+
+
+# The structure models that degrade sharply folded single-sequence, so `predict` resolves an
+# MSA source for them by default rather than silently folding without one (see
+# _resolve_msa_default). esmfold2 / esmfold2-fast are deliberately absent: esmfold2 is
+# single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
+# scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
+# actually used, instead of hand-listing the same set a second time.
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag")
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
-                         single_sequence, cache, controller, msa_server_url):
-    """Resolve the MSA source for MSA-dependent models (boltz2, protenix-v2).
+                         single_sequence, cache, controller, msa_server_url,
+                         msa_cache_only=False):
+    """Resolve the MSA source for MSA-dependent structure models.
 
     These models degrade sharply folded single-sequence, so ``predict`` must
     never do so silently. Precedence:
       1. ``--single_sequence``: explicit opt-out — fold single-seq, no network.
-      2. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
+      2. ``--msa_cache_only``: ``--msa_dir``'s cache is the source; never search.
+      3. An explicit source (``--use_msa_server`` / ``--msa_db_path`` /
          ``--msa_endpoint``): use it as given.
-      3. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
-      4. Otherwise enable the online MSA server, with a one-line notice naming the
+      4. A local ColabFold DB auto-detected at ``<cache>/msa_db``: use it, no network.
+      5. Otherwise enable the online MSA server, with a one-line notice naming the
          server the sequences are sent to (a privacy concern for e.g. pharma).
+
+    Note on (2): a populated ``--msa_dir`` is NOT by itself a source here, and cannot be
+    one — this runs before any input is parsed, so whether every chain is cached is not yet
+    knowable. Without the explicit flag a fully-cached offline run therefore falls through
+    to (5) and enables the online server, which in turn switches on the multi-chain paired
+    search in ``worker.py`` (gated on the same ``want_msa``). That silently deepened a
+    benchmark run's MSA by 35-45% over its nominal depth, and made it network-dependent.
+    The flag exists so a reproducible run can say "the cache, or fail".
 
     esmfold2 / esmfold2-fast are single-sequence by design and pass through
     unchanged. Returns the resolved ``(use_msa_server, msa_db_path)``.
     """
-    if model not in ("boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag"):
+    if model not in MSA_DEFAULT_MODELS:
         return use_msa_server, msa_db_path
 
     explicit = use_msa_server or msa_db_path or msa_endpoint
+    if msa_cache_only:
+        if explicit:
+            raise click.BadParameter(
+                "--msa_cache_only cannot be combined with --use_msa_server / "
+                "--msa_db_path / --msa_endpoint: it means the --msa_dir cache is the "
+                "only source and nothing is searched.")
+        if single_sequence:
+            raise click.BadParameter(
+                "--msa_cache_only cannot be combined with --single_sequence")
+        return False, None
     if single_sequence:
         if explicit:
             raise click.BadParameter(
@@ -1854,10 +2127,15 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
-              help="Trunk recycling iterations. Default: protenix-v2 uses its spec of 10; boltz2/esmfold2 use 3.")
-@click.option("--sampling_steps", default=200, type=int)
+              help="Trunk recycling iterations. Default: protenix-v2/opendde/esmfold2 use 10; boltz2 uses 3.")
+@click.option("--sampling_steps", default=None, type=int,
+              help="Requested diffusion sampling steps. Default: esmfold2/esmfold2-fast request "
+                   "100 (executes 68 after the sigma_max=256 schedule clip); every other model "
+                   "200. Explicit values are honored verbatim.")
 @click.option("--diffusion_samples", default=1, type=int)
-@click.option("--max_parallel_samples", default=5, type=int)
+@click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
+              help="Diffusion samples denoised in one batched forward. Higher is faster but "
+                   "costs device memory linearly; lower it if a large target runs out.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
@@ -1867,6 +2145,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
               help="MSA cache directory (default: <out_dir>/msa). Point at a persistent shared "
                    "path to reuse {seq_hash}.a3m across runs and hosts (never re-search a sequence).")
+@click.option("--msa_cache_only", is_flag=True,
+              help="Treat --msa_dir as the ONLY MSA source: never search (online or local), and "
+                   "fail rather than fold a chain single-sequence when its a3m is not cached. Use "
+                   "for reproducible benchmark runs, where an unnoticed search changes MSA depth.")
 @click.option("--use_envdb", is_flag=True, help="Also search ColabFold environmental database (requires envdb)")
 @click.option("--single_sequence", is_flag=True,
               help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2 (no local DB, "
@@ -1884,6 +2166,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--num_subsampled_msa", default=1024, type=int)
 @click.option("--no_kernels", is_flag=True)
 @click.option("--trace", is_flag=True)
+@click.option("--diffusion_trace", is_flag=True,
+              help="Replay a captured ttnn trace of the per-step diffusion DiT device "
+                   "stream (lossless; collapses per-step host dispatch). boltz2 only. "
+                   "Opt-in — reserves a 1 GiB trace region on the device.")
 @click.option("--write_pae", is_flag=True, help="Write PAE matrix per target")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
@@ -1896,6 +2182,12 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Comma-separated physical TT card ids to fan the folding jobs across, "
                    "e.g. '0,1,2,3' (data-parallel: one pinned worker per card, each an "
                    "untouched single-card fold). Matches `tt-bio embed`. Default: all detected cards.")
+@click.option("--host_threads", default=None, type=int,
+              help="CPU threads this process may use in total, split across its cards "
+                   "(default: all cores). Set this when you run several single-card "
+                   "predicts side by side on one host — each would otherwise size its "
+                   "thread pools to every core and they would fight for the CPU. Use "
+                   "cores//concurrent-predicts.")
 @click.option("--fast", is_flag=True, help="Use block-fp8 for some operations (slightly lower precision, faster)")
 @click.option("--debug", is_flag=True, help="Debug mode: no Rich display, no output suppression")
 @click.option("--log", is_flag=True, help="With --debug: print per-device stage progress")
@@ -1906,7 +2198,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
-@click.option("--model", type=click.Choice(["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "openfold3", "opendde", "opendde-abag"]), default="boltz2", show_default=True,
+@click.option("--model", type=click.Choice(list(PREDICT_MODELS)), default="boltz2", show_default=True,
               help="Structure model. boltz2: MSA + Pairformer (MSA-dependent; MSA on by default). "
                    "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
                    "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
@@ -1918,12 +2210,12 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
-            method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace,
+            method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
-            num_devices, device_ids, fast, debug, log,
+            num_devices, device_ids, host_threads, fast, debug, log,
             report_energy, energy_sample_hz, energy_metric, listen, controller, run_id, owner, model):
     """Run structure prediction.
 
@@ -1944,7 +2236,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     \b
     Output:
         msa/                # MSA cache (keyed by sequence hash)
-        boltz_results_<name>/
+        <model>_results_<name>/   # e.g. protenix_results_prot, boltz2_results_trpcage
             structures/     # one CIF per complex (pLDDT in B-factors)
             results.json    # confidence metrics + affinity
     """
@@ -1958,9 +2250,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
 
-    # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2 -> its
-    # spec 10, boltz2/esmfold2 -> 3; an explicit --recycling_steps overrides either.
+    # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2/opendde/
+    # esmfold2 -> 10, boltz2 -> 3; an explicit --recycling_steps overrides either.
     recycling_steps = _resolve_recycling_steps(recycling_steps, model)
+    # Per-model requested diffusion steps (see _resolve_sampling_steps): esmfold2 requests
+    # 100 (68 executed after the sigma-clip), everything else 200.
+    sampling_steps = _resolve_sampling_steps(sampling_steps, model)
 
     use_tt = accelerator == "tenstorrent"
     if fast and not use_tt:
@@ -1981,7 +2276,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # esmfold2-fast are single-sequence by design and pass through untouched.
     use_msa_server, msa_db_path = _resolve_msa_default(
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
-        controller, msa_server_url)
+        controller, msa_server_url, msa_cache_only)
 
     if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "openfold3", "opendde", "opendde-abag"):
         # ESMFold2, Protenix-v2, OpenFold3 and OpenDDE ride the SAME scheduler / worker /
@@ -2011,7 +2306,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # --single_sequence, so single-sequence folding here is always an explicit choice.
         data = Path(data).expanduser()
         out_dir_path = Path(out_dir).expanduser()
-        out = out_dir_path / f"boltz_results_{data.stem}"
+        out = out_dir_path / predict_results_dir_name(model, data.stem)
         msa_dir = Path(msa_dir_opt).expanduser() if msa_dir_opt else out_dir_path / "msa"
         struct_dir = out / "structures"
         msa_dir.mkdir(parents=True, exist_ok=True)
@@ -2027,16 +2322,29 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
         # shared msa_dir cache, and folds. MSA is optional here (single-sequence
         # folding when no source is given), so unlike Boltz-2 it never errors out.
+        # --trace: reserve a ttnn trace region on each worker before its first
+        # get_device() open (workers inherit the parent env). Protenix-v2/OpenDDE
+        # fold(trace=True) read it back via trace_region_size(); the device must be
+        # opened with the region up front (a later reopen is unstable on TT).
+        if trace:
+            os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
-            "diffusion_samples": diffusion_samples, "seed": seed or 0,
+            "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
+            # Without this key --max_parallel_samples is a silent no-op for every model that
+            # rides this config (protenix-v2 / opendde / esmfold2): the worker reads it with
+            # cfg.get(), so it saw None on every fold and fell back to the engine default.
+            # boltz2 carries it separately, via conf_kwargs["predict_args"], which is why the
+            # flag looked plumbed. Lowering it to fit a large target did nothing.
+            "max_parallel_samples": max_parallel_samples,
             "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
             "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
             "msa_endpoint": msa_endpoint, "single_sequence": single_sequence,
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
+            "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
         }
         results_path = out / "results.json"
@@ -2055,6 +2363,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                                     struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
             return
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
+        _cap_worker_threads(len(workers), host_threads)
         _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                       struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
         return
@@ -2088,7 +2397,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
 
     data = Path(data).expanduser()
     out_dir_path = Path(out_dir).expanduser()
-    out = out_dir_path / f"boltz_results_{data.stem}"
+    out = out_dir_path / predict_results_dir_name(model, data.stem)
     msa_dir = Path(msa_dir_opt).expanduser() if msa_dir_opt else out_dir_path / "msa"
     struct_dir = out / "structures"
     msa_dir.mkdir(parents=True, exist_ok=True)
@@ -2111,7 +2420,15 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                   "synchronize_sigmas": True}
     _pairformer = {"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True}
     _msa = {"subsample_msa": subsample_msa, "num_subsampled_msa": num_subsampled_msa,
-            "use_paired_feature": True}
+            "use_paired_feature": True,
+            # Required by the non-tenstorrent (PyTorch reference) MSAModule path; the
+            # tenstorrent path builds tenstorrent.MSAModule(n_blocks=4,...) and ignores
+            # this dict, so adding these keys is a no-op for device runs. Values mirror
+            # the boltz2_conf/aff checkpoint hparams so the CPU/host path matches the
+            # reference implementation exactly.
+            "msa_s": 64, "msa_blocks": 4, "msa_dropout": 0.15, "z_dropout": 0.25,
+            "pairwise_head_width": 32, "pairwise_num_heads": 4,
+            "activation_checkpointing": True}
     conf_kwargs = dict(
         predict_args={"recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
                       "diffusion_samples": diffusion_samples, "max_parallel_samples": max_parallel_samples},
@@ -2120,6 +2437,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                        "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
         use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=trace,
+        diffusion_trace=diffusion_trace,
     )
     aff_kwargs = dict(
         predict_args={"recycling_steps": 5, "sampling_steps": sampling_steps_affinity,
@@ -2129,6 +2447,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                        "contact_guidance_update": False, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
         affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=trace,
+        diffusion_trace=diffusion_trace,
     )
 
     results_path = out / "results.json"
@@ -2145,6 +2464,15 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
         "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
         "fast": fast, "single_sequence": single_sequence,
+        # Seed the spawned worker's RNG (mp.get_context("spawn") does NOT inherit
+        # the controller's torch.manual_seed). Without this the boltz-2 diffusion
+        # ``torch.randn`` draws are unseeded, so same-seed device runs disagree by
+        # the full stochastic spread (measured 1.73 A CA-RMSD on ubiquitin seed 0),
+        # which the doc's same-seed diagonal test cannot distinguish from "systematic
+        # bf16" -- it is the mp-spawn-worker-unseeded-rng-pattern. worker.py re-seeds
+        # once before predict_step (structure -> affinity from one stream, matching
+        # the reference's single seed_everything).
+        "seed": seed or 0,
     }
     run_payload = {
         "data": str(data),
@@ -2169,6 +2497,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         num_devices, device_ids, max_workers=max(len(jobs), 1),
     )
     devices = [int(w.device_id) for w in workers if w.accelerator == "tenstorrent"]
+    _cap_worker_threads(len(workers), host_threads)
 
     energy_profiler = None
     if report_energy:
@@ -2414,7 +2743,7 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
 
 @cli.command("embed")
 @click.argument("data")
-@click.option("--model", type=click.Choice(["esmc-300m", "esmc-600m", "esmc-6b"]),
+@click.option("--model", type=click.Choice(list(EMBED_MODELS)),
               default="esmc-600m", show_default=True,
               help="ESMC protein-LM variant (sequence embeddings via the LM trunk alone).")
 @click.option("--out_dir", default="./embeddings", show_default=True)
@@ -2442,7 +2771,7 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
                    "worker --connect`) instead of spawning local subprocess shards. Workers keep "
                    "the ESMC model resident across calls, so repeated embed runs against the same "
                    "controller skip the weight reload that otherwise dominates wall-clock for "
-                   "large models (see docs/esmc-multicard-scaling.md).")
+                   "large models.")
 @click.option("--owner", default=None,
               help="Opaque fairness key the controller uses to fair-share workers across users. "
                    "Requires --controller.")
@@ -2461,6 +2790,16 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
         embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
         manifest.json       # model/pool/shapes/dtype + which file holds each sequence
     """
+    if devices and "TT_VISIBLE_DEVICES" not in os.environ:
+        _ids = [x for x in str(devices).split(",") if x.strip()]
+        if len(_ids) == 1:
+            # Pin visibility BEFORE importing esmc (ttnn binds TT_VISIBLE_DEVICES
+            # at import, and esmc imports ttnn at module scope). Without this,
+            # ``embed --devices 2`` silently runs on card 0 (get_device defaults
+            # to logical 0); setting TT_BIO_LOGICAL_DEVICE_ID instead would leave
+            # the full cluster visible, and two concurrent single-card embeds
+            # deadlock on UMD CHIP_IN_USE mutexes during cluster discovery.
+            os.environ["TT_VISIBLE_DEVICES"] = _ids[0]
     from tt_bio import esmc
 
     torch.set_grad_enabled(False)
@@ -2514,8 +2853,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
         raise click.ClickException(str(e))
 
     if out_format == "npz":
-        for emb in results:
-            esmc.write_npz(emb, out / f"{emb.id}.npz")
+        esmc.write_npz_many(results, out)
     if out_format == "parquet":
         esmc.write_parquet(results, out / "embeddings.parquet")
         click.echo(f"Wrote {out / 'embeddings.parquet'}")
@@ -2523,6 +2861,339 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
                         out_format=out_format, return_logits=return_logits)
     click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]} "
                f"→ {out} (see manifest.json)")
+
+
+@cli.command("saprot")
+@click.argument("data")
+@click.option("--model", type=click.Choice(list(SAPROT_MODELS)),
+              default="saprot-650m", show_default=True,
+              help="SaProt structure-aware protein-LM variant (ESM-2 over a fused "
+                   "AA+Foldseek-3Di vocabulary).")
+@click.option("--structure", default=None,
+              help="PDB/cif file or a directory of <id>.pdb/.cif files for the 3Di "
+                   "structural tokens. Omit for sequence-only mode (3Di = '#', lower "
+                   "accuracy for 35M/650M; the 1.3B works sequence-only).")
+@click.option("--out_dir", default="./embeddings", show_default=True)
+@click.option("--format", "out_format", type=click.Choice(["npz", "parquet"]),
+              default="npz", show_default=True,
+              help="npz: one <id>.npz per sequence (per-residue + pooled [+logits]). "
+                   "parquet: a single embeddings.parquet of the pooled vectors.")
+@click.option("--pool", type=click.Choice(["mean", "max", "cls"]), default="mean",
+              show_default=True, help="Pooling for the fixed-size per-sequence vector.")
+@click.option("--logits", "return_logits", is_flag=True,
+              help="Also write per-residue MLM logits [L, 446].")
+@click.option("--fast", is_flag=True,
+              help="Use block-fp8 weights (faster, slightly lower precision).")
+@click.option("--batch_size", default=8, show_default=True,
+              help="Sequences per device forward (padded+masked per batch so "
+                   "per-sequence embeddings are unchanged).")
+@click.option("--devices", default=None,
+              help="Comma-separated physical TT card ids to shard the sequences across, "
+                   "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
+                   "results are reassembled in input order. Default: this machine's single card.")
+def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast,
+               batch_size, devices):
+    """Compute SaProt structure-aware protein-language-model embeddings.
+
+    SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
+    vocabulary (446 tokens): each residue is one of 20 AA x 21 3Di states. DATA
+    is a FASTA file, a directory of FASTA files, or a single bare protein
+    sequence. With ``--structure``, foldseek computes the 3Di tokens from the
+    structure (PDB/cif); without it, SaProt runs sequence-only (3Di = '#').
+
+    \b
+    Output (--out_dir, default ./embeddings):
+        <id>.npz            # per-residue [L,d] + pooled [d] (+ logits) — one per sequence
+        embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
+        manifest.json       # model/pool/shapes/dtype + which file holds each sequence
+    """
+    from tt_bio import saprot, esmc
+
+    torch.set_grad_enabled(False)
+    try:
+        seqs = saprot.load_sequences_with_structure(data, structure)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    out = Path(out_dir).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+
+    device_list = None
+    if devices:
+        from tt_bio import runtime
+        device_list = runtime.detect_tenstorrent_devices(devices, 0, len(seqs))
+
+    try:
+        if device_list and len(device_list) > 1:
+            click.echo(f"Sharding {len(seqs)} sequence(s) across cards "
+                       f"{device_list}{' (fast)' if fast else ''} → {out}")
+            results = saprot.embed(seqs, model=model, devices=device_list, fast=fast,
+                                  return_logits=return_logits, pool=pool, batch_size=batch_size)
+        else:
+            # This process opens its TT device in-process (no fanout subprocess),
+            # so it needs the same P300-board-misdetection workaround the fanout
+            # path applies per-shard (see saprot._spawn_saprot_shard).
+            if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+                mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+                if mgd:
+                    os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+            click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
+            m = saprot.load_saprot(model, fast=fast)
+            click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
+            results = saprot.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
+                                             batch_size=batch_size)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    if out_format == "npz":
+        esmc.write_npz_many(results, out)
+    if out_format == "parquet":
+        esmc.write_parquet(results, out / "embeddings.parquet")
+        click.echo(f"Wrote {out / 'embeddings.parquet'}")
+    esmc.write_manifest(results, out / "manifest.json", model=model, pool=pool, fast=fast,
+                         out_format=out_format, return_logits=return_logits)
+    # SaProt logits are over the 446-token fused vocab, not ESMC's 64-dim sequence head.
+    import json as _json
+    _mf = out / "manifest.json"
+    _m = _json.load(open(_mf))
+    _m["shapes"]["logits"] = "[length, 446] float32 (per-residue MLM logits over the fused AA+3Di vocab)"
+    _json.dump(_m, open(_mf, "w"), indent=2)
+    click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]} "
+               f"→ {out} (see manifest.json)")
+
+
+@cli.command("design")
+@click.argument("inputs", type=click.Path(exists=True, dir_okay=False))
+@click.option("--model", type=click.Choice(list(DESIGN_MODELS)), default="boltzgen", show_default=True,
+              help="Design model. boltzgen: the full BoltzGen binder-design pipeline "
+                   "(design → inverse folding → refolding → analysis → filtering; mirrors "
+                   "predict's boltz2 default). rfd3: RFdiffusion3, a lighter single-shot "
+                   "all-atom diffusion designer (one CIF per spec). Options marked "
+                   "boltzgen/rfd3 apply to that model only.")
+@click.option("--out_dir", default=None,
+              help="Output directory. Default: ./<input name>/ (boltzgen, writes "
+                   "final_ranked_designs/ under it) or ./designs (rfd3, one "
+                   "<spec_id>.cif per design).")
+@click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())),
+              show_default=False, help="Weight cache directory (default: $BOLTZ_CACHE or ~/.boltz). "
+                   "Both models auto-download their checkpoints here on first use.")
+@click.option("--num_designs", default=None, type=int,
+              help="Designs to generate. Default: 10000 in total (boltzgen) or 1 per spec "
+                   "(rfd3; each design gets noise seed --seed + design_idx, written as "
+                   "<spec_id>.cif when 1 else <spec_id>_<i>.cif).")
+@click.option("--devices", "--device_ids", "devices", default=None,
+              help="Comma-separated physical TT card ids to fan the designs across, e.g. "
+                   "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
+                   "Default: all detected cards (boltzgen) or this machine's single card (rfd3).")
+# ---- rfd3-scoped options ----
+@click.option("--checkpoint", "checkpoint", default=None, metavar="DIR",
+              help="rfd3 only. Directory of extracted RFD3 device weights. Default: "
+                   "auto-download the checkpoint and extract it into --cache on first "
+                   "run (~2.5 GiB download).")
+@click.option("--golden_dir", "golden_dir", default=None, hidden=True)
+@click.option("--num_timesteps", default=4, show_default=True,
+              help="rfd3 only. Diffusion denoising timesteps (low for a fast smoke; "
+                   "upstream default 200).")
+@click.option("--seed", default=42, show_default=True, help="rfd3 only.")
+@click.option("--partial_t", default=None, type=float,
+              help="rfd3 only. Partial-diffusion noise in Angstroms (per-spec partial_t "
+                   "overrides this).")
+@click.option("--fp32_residual", is_flag=True,
+              help="rfd3 only. Opt in the RFD3_FP32_RESIDUAL precision lever (fp32 residual "
+                   "stream across the DiT + encoder + DiffusionTokenEncoder; default off = bf16).")
+@click.option("--spec", "spec_subset", default=None,
+              help="rfd3 only. Comma-separated subset of spec ids from the inputs file to run.")
+@click.option("--from_pdb", is_flag=True,
+              help="rfd3 only. Featurize each spec's `input` PDB + contig on the host — the "
+                   "standard path for real inputs (protein-binder, motif-scaffolding, and "
+                   "nucleic-acid-binder specs; ligand/enzyme and symmetry specs raise "
+                   "NotImplementedError). Without it, features come from a captured fixture "
+                   "in --checkpoint (dev/test only).")
+@click.option("--batch_size", default=8, show_default=True, type=click.IntRange(min=1),
+              help="rfd3 only. Maximum designs from one spec evaluated in each device forward. "
+                   "The runtime shrinks it so a batch cannot exhaust device memory; each design "
+                   "keeps its own seeded RNG stream and the forward is bit-identical to running "
+                   "the designs one at a time.")
+@click.option("--host_threads", default=None, type=int,
+              help="rfd3 only. Total host CPU threads this process may use, split across its "
+                   "cards. Defaults to every core, which is right when this is the only tt-bio "
+                   "process on the box. Pass cores//concurrent_processes when an external "
+                   "launcher runs several designs side by side, so they do not oversubscribe "
+                   "the host.")
+# ---- boltzgen-scoped options ----
+@click.option("--protocol", default=None,
+              help="boltzgen only. Protocol for the binder type (protein-anything, "
+                   "peptide-anything, nanobody-anything, antibody-anything, "
+                   "protein-small_molecule, protein-redesign). Default: protein-anything.")
+@click.option("--steps", default=None, metavar="LIST",
+              help="boltzgen only. Comma-separated pipeline steps to run instead of the full "
+                   "pipeline (design,inverse_folding,design_folding,folding,affinity,analysis,"
+                   "filtering), e.g. --steps design or --steps analysis,filtering.")
+@click.option("--config", "configs", nargs=2, multiple=True, metavar="STEP KEY=VAL",
+              help="boltzgen only. Override a pipeline step's configuration, e.g. "
+                   "--config design sampling_steps=200. Repeatable.")
+@click.option("--budget", default=None, type=int,
+              help="boltzgen only. How many designs the filtering step keeps in the final "
+                   "diversity-optimized set. Default: 30.")
+@click.option("--reuse", is_flag=True,
+              help="boltzgen only. Reuse existing results in --out_dir and generate only as "
+                   "many new designs as --num_designs still needs.")
+@click.option("--fast", is_flag=True,
+              help="boltzgen only. Use block-fp8 for some operations (slightly lower "
+                   "precision, faster).")
+@click.option("--diffusion_trace", is_flag=True,
+              help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
+                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in — "
+                   "reserves a 1 GiB trace region on the device.")
+@click.option("--debug", is_flag=True,
+              help="boltzgen only. Debug mode: no Rich display, no output suppression.")
+@click.option("--log", is_flag=True,
+              help="boltzgen only. With --debug: print per-stage progress lines.")
+def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
+               checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
+               spec_subset, from_pdb, batch_size, host_threads,
+               protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log):
+    """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
+    or sequences from a specification instead of folding an existing one.
+
+    \b
+    --model boltzgen (default): the BoltzGen binder-design pipeline. INPUTS is a
+    design-spec YAML (a designed chain plus a target structure). Runs design →
+    inverse folding → refolding → analysis → filtering and writes the top-ranked
+    binders to <out_dir>/final_ranked_designs/. See docs/boltzgen-designability.md.
+
+    \b
+    --model rfd3: RFdiffusion3 all-atom diffusion design. INPUTS is a JSON or YAML
+    file of InputSpecifications (each top-level key is one independent design), e.g.:
+
+    \b
+    {
+      "binder-1": {"input": "target.pdb", "contig": "A1-100,70", "length": "70"},
+      "scaffold-1": {"input": "motif.pdb", "contig": "A10-20,40,A30-40"}
+    }
+
+    Writes one CIF per spec to --out_dir. Protein-binder, motif-scaffolding, and
+    nucleic-acid-binder specs are supported end to end from a real input structure
+    (pass --from_pdb). See docs/rfd3-design.md for the contig grammar and current
+    limitations.
+
+    Both models auto-download their checkpoints on first use.
+    """
+    ctx = click.get_current_context()
+    from click.core import ParameterSource
+
+    def _explicit(name: str) -> bool:
+        return ctx.get_parameter_source(name) == ParameterSource.COMMANDLINE
+
+    if model == "boltzgen":
+        for flag, name in (("--checkpoint", "checkpoint"), ("--golden_dir", "golden_dir"),
+                           ("--num_timesteps", "num_timesteps"), ("--seed", "seed"),
+                           ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
+                           ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
+                           ("--batch_size", "batch_size"), ("--host_threads", "host_threads")):
+            if _explicit(name):
+                click.secho(f"Note: --model boltzgen does not use {flag}; ignoring.", fg="yellow")
+        argv = ["run", str(inputs)]
+        if out_dir:
+            argv += ["--output", out_dir]
+        if num_designs is not None:
+            argv += ["--num_designs", str(num_designs)]
+        if devices:
+            argv += ["--device_ids", devices]
+        if protocol:
+            argv += ["--protocol", protocol]
+        if steps:
+            argv += ["--steps", *[s.strip() for s in steps.split(",") if s.strip()]]
+        for step, kv in configs:
+            argv += ["--config", step, kv]
+        if budget is not None:
+            argv += ["--budget", str(budget)]
+        if _explicit("cache"):
+            argv += ["--cache", cache]
+        for flag, on in (("--reuse", reuse), ("--fast", fast),
+                         ("--diffusion_trace", diffusion_trace), ("--debug", debug),
+                         ("--log", log)):
+            if on:
+                argv.append(flag)
+        _run_boltzgen_cli("tt-bio design", argv)
+        return
+
+    # --model rfd3
+    for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
+                       ("--config", "configs"), ("--budget", "budget"),
+                       ("--reuse", "reuse"), ("--fast", "fast"),
+                       ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
+                       ("--log", "log")):
+        if _explicit(name):
+            click.secho(f"Note: --model rfd3 does not use {flag}; ignoring.", fg="yellow")
+    if golden_dir is not None:
+        click.secho("Deprecation warning: --golden_dir is deprecated; use --checkpoint.",
+                    fg="yellow", err=True)
+        if checkpoint is not None:
+            raise click.UsageError("--checkpoint and --golden_dir are the same option; pass one.")
+        checkpoint = golden_dir
+
+    import json as _json
+    import yaml as _yaml
+    from tt_bio.rfd3 import design as _rfd3
+
+    num_designs = num_designs if num_designs is not None else 1
+    out_dir = out_dir or "./designs"
+
+    torch.set_grad_enabled(False)
+    src = Path(inputs).expanduser()
+    text = src.read_text()
+    try:
+        if src.suffix in (".json",):
+            specs = _json.loads(text)
+        else:
+            specs = _yaml.safe_load(text)
+    except Exception as e:
+        raise click.ClickException(f"could not parse {src}: {e}")
+    if not isinstance(specs, dict) or not specs:
+        raise click.ClickException("inputs file must be a non-empty mapping of spec_id -> spec")
+    if spec_subset:
+        keep = {s.strip() for s in spec_subset.split(",")}
+        specs = {k: v for k, v in specs.items() if k in keep}
+        if not specs:
+            raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
+
+    if checkpoint is None:
+        gdir = str(ensure_rfd3_weights(Path(cache).expanduser()))
+    else:
+        gdir = checkpoint
+        if not Path(gdir).exists():
+            raise click.ClickException(f"checkpoint not found: {gdir}")
+
+    device_list = None
+    if devices:
+        from tt_bio import runtime
+        device_list = runtime.detect_tenstorrent_devices(devices, 0, len(specs) * num_designs)
+
+    # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open it
+    # without a 1x1 mesh-graph descriptor. The fanout path sets this per shard;
+    # the single-device in-process path opens the device here (no shard to
+    # inherit it), so set it the same way as the embed/gen/saprot commands.
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
+    click.echo(f"Designing {len(specs)} spec(s) × {num_designs} design(s) → {out_dir} "
+               f"(checkpoint={gdir}, from_pdb={from_pdb}, {num_timesteps} steps, batch={batch_size}"
+               f"{f', devices={device_list}' if device_list and len(device_list) > 1 else ''})")
+    try:
+        results = _rfd3.run_design(
+            specs, out_dir, checkpoint_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
+            seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, num_designs=num_designs,
+            batch_size=batch_size, devices=device_list, host_threads=host_threads,
+            verbose=True,
+        )
+    except (ValueError, TypeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done — {len(results)} design(s) → {out_dir}")
+    for r in results:
+        click.echo(f"  {r.spec_id}#{r.design_idx}: {r.out_path} ({r.n_atoms} atoms)")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,13 @@
+version: 1
+# Hard-negative specificity test: PDB 6WPS chain B/C (Vir Biotechnology S309 Fab, sotrovimab precursor, conserved cryptic epitope) vs RBD E484K (immune-escape mutation; basis for bamlanivimab EUA revocation).
+# Expected experimental label: binds -- S309 targets a conserved epitope outside the RBM; E484K does not escape it (documented broad-spectrum retained activity)
+sequences:
+  - protein:
+      id: A
+      sequence: RVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVKGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGP
+  - protein:
+      id: H
+      sequence: QVQLVQSGAEVKKPGASVKVSCKASGYPFTSYGISWVRQAPGQGLEWMGWISTYNGNTNYAQKFQGRVTMTTDTSTTTGYMELRRLRSDDTAVYYCARDYTRGAWFGESLIGGFDNWGQGTLVTVSS
+  - protein:
+      id: L
+      sequence: EIVLTQSPGTLSLSPGERATLSCRASQTVSSTSLAWYQQKPGQAPRLLIYGASSRATGIPDRFSGSGSGTDFTLTISRLEPEDFAVYYCQQHDTSLTFGGGTKVEIK

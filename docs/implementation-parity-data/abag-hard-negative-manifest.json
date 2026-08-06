@@ -1,0 +1,51 @@
+[
+  {
+    "id": "regn10933_wt",
+    "antibody": "regn10933",
+    "antigen": "wt",
+    "label_binds": 1,
+    "rationale": "cognate WT complex (structure solved, 6XDG)"
+  },
+  {
+    "id": "regn10933_k417n",
+    "antibody": "regn10933",
+    "antigen": "k417n",
+    "label_binds": 0,
+    "rationale": "K417N is casirivimab's class-1 escape mutation (Beta/Gamma resistance, Starr/Greaney 2021)"
+  },
+  {
+    "id": "lycov555_wt",
+    "antibody": "lycov555",
+    "antigen": "wt",
+    "label_binds": 1,
+    "rationale": "cognate WT complex (structure solved, 7KMG)"
+  },
+  {
+    "id": "lycov555_e484k",
+    "antibody": "lycov555",
+    "antigen": "e484k",
+    "label_binds": 0,
+    "rationale": "E484K abolishes bamlanivimab binding (FDA revoked EUA for E484K-lineage variants)"
+  },
+  {
+    "id": "s309_wt",
+    "antibody": "s309",
+    "antigen": "wt",
+    "label_binds": 1,
+    "rationale": "cognate WT complex (structure solved, 6WPS)"
+  },
+  {
+    "id": "s309_e484k",
+    "antibody": "s309",
+    "antigen": "e484k",
+    "label_binds": 1,
+    "rationale": "S309 targets a conserved epitope outside the RBM; E484K does not escape it (documented broad-spectrum retained activity)"
+  },
+  {
+    "id": "s309_k417n",
+    "antibody": "s309",
+    "antigen": "k417n",
+    "label_binds": 1,
+    "rationale": "K417 is outside S309's epitope; retained activity documented"
+  }
+]

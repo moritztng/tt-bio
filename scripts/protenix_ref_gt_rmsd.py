@@ -6,7 +6,7 @@
 # tt-bio ~10A result is the model implementation + sampling depth.
 #
 # Run in the py3.11 protenix reference venv; needs CCD in ~/common/.
-import sys, types, numbers, os, pickle, json
+import sys, types, numbers, os, json
 os.environ.setdefault('PROTENIX_ROOT_DIR', '/home/ttuser')
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # tt-bio repo root
 sys.path.insert(0, os.environ.get('PROTENIX_SRC', '/tmp/protenix-src'))

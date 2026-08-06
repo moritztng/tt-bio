@@ -1,0 +1,515 @@
+{
+  "n_targets": 12,
+  "n_medium_correct": 6,
+  "missing_targets": [],
+  "table": [
+    {
+      "target": "9ck4",
+      "label_medium_correct": 0,
+      "opendde_dockq_5sample": 0.3864633181404353,
+      "opendde_iptm": 0.706891,
+      "opendde_seed_consistency": 0.5627,
+      "boltz2_dockq": 0.32933378387683404,
+      "boltz2_iptm": 0.949203,
+      "protenix_v2_dockq": 0.3018107366739691,
+      "protenix_v2_iptm": 0.710444,
+      "boltz2_seed_consistency": 0.745,
+      "protenix_v2_seed_consistency": 0.5009,
+      "consensus_score_stale_opendde_pair": 0.3056
+    },
+    {
+      "target": "9d3j",
+      "label_medium_correct": 0,
+      "opendde_dockq_5sample": 0.3578627812866675,
+      "opendde_iptm": 0.901217,
+      "opendde_seed_consistency": 0.9355,
+      "boltz2_dockq": 0.3382766170050883,
+      "boltz2_iptm": 0.961593,
+      "protenix_v2_dockq": 0.282898624498614,
+      "protenix_v2_iptm": 0.76772,
+      "boltz2_seed_consistency": 0.7483,
+      "protenix_v2_seed_consistency": 0.4904,
+      "consensus_score_stale_opendde_pair": 0.3352
+    },
+    {
+      "target": "9i5n",
+      "label_medium_correct": 0,
+      "opendde_dockq_5sample": 0.26468301218175183,
+      "opendde_iptm": 0.660367,
+      "opendde_seed_consistency": 0.5402,
+      "boltz2_dockq": 0.27483502766058043,
+      "boltz2_iptm": 0.942982,
+      "protenix_v2_dockq": 0.2664258999586307,
+      "protenix_v2_iptm": 0.652956,
+      "boltz2_seed_consistency": 0.4833,
+      "protenix_v2_seed_consistency": 0.4222,
+      "consensus_score_stale_opendde_pair": 0.2831
+    },
+    {
+      "target": "9m72",
+      "label_medium_correct": 0,
+      "opendde_dockq_5sample": 0.33691696854953573,
+      "opendde_iptm": 0.676991,
+      "opendde_seed_consistency": 0.5202,
+      "boltz2_dockq": 0.2716604524313804,
+      "boltz2_iptm": 0.946698,
+      "protenix_v2_dockq": 0.3063843040089867,
+      "protenix_v2_iptm": 0.63034,
+      "boltz2_seed_consistency": 0.6598,
+      "protenix_v2_seed_consistency": 0.4282,
+      "consensus_score_stale_opendde_pair": 0.2872
+    },
+    {
+      "target": "9obn",
+      "label_medium_correct": 1,
+      "opendde_dockq_5sample": 0.6273170656877214,
+      "opendde_iptm": 0.910212,
+      "opendde_seed_consistency": 0.7237,
+      "boltz2_dockq": 0.6119221296958103,
+      "boltz2_iptm": 0.906999,
+      "protenix_v2_dockq": 0.6352550201565413,
+      "protenix_v2_iptm": 0.86385,
+      "boltz2_seed_consistency": 0.6551,
+      "protenix_v2_seed_consistency": 0.8536,
+      "consensus_score_stale_opendde_pair": 0.6607
+    },
+    {
+      "target": "22ps",
+      "label_medium_correct": 1,
+      "opendde_dockq_5sample": 0.8854212862966305,
+      "opendde_iptm": 0.910215,
+      "opendde_seed_consistency": 0.844,
+      "boltz2_dockq": 0.7841670571091651,
+      "boltz2_iptm": 0.767464,
+      "protenix_v2_dockq": 0.8837127840069371,
+      "protenix_v2_iptm": 0.889083,
+      "boltz2_seed_consistency": 0.8979,
+      "protenix_v2_seed_consistency": 0.8359,
+      "consensus_score_stale_opendde_pair": 0.8327
+    },
+    {
+      "target": "9yio",
+      "label_medium_correct": 1,
+      "opendde_dockq_5sample": 0.6334933119901843,
+      "opendde_iptm": 0.933091,
+      "opendde_seed_consistency": 0.9244,
+      "boltz2_dockq": 0.22195889126779836,
+      "boltz2_iptm": 0.837859,
+      "protenix_v2_dockq": 0.597594441639422,
+      "protenix_v2_iptm": 0.799926,
+      "boltz2_seed_consistency": 0.4102,
+      "protenix_v2_seed_consistency": 0.8518,
+      "consensus_score_stale_opendde_pair": 0.4599
+    },
+    {
+      "target": "9ncy",
+      "label_medium_correct": 1,
+      "opendde_dockq_5sample": 0.6035642442560674,
+      "opendde_iptm": 0.917771,
+      "opendde_seed_consistency": 0.71,
+      "boltz2_dockq": 0.40392636977436597,
+      "boltz2_iptm": 0.912748,
+      "protenix_v2_dockq": 0.571450822703547,
+      "protenix_v2_iptm": 0.86145,
+      "boltz2_seed_consistency": 0.3915,
+      "protenix_v2_seed_consistency": 0.8464,
+      "consensus_score_stale_opendde_pair": 0.4713
+    },
+    {
+      "target": "9w14",
+      "label_medium_correct": 1,
+      "opendde_dockq_5sample": 0.9082912609552202,
+      "opendde_iptm": 0.957036,
+      "opendde_seed_consistency": 0.8968,
+      "boltz2_dockq": 0.8905026413031271,
+      "boltz2_iptm": 0.831023,
+      "protenix_v2_dockq": 0.9267518606830344,
+      "protenix_v2_iptm": 0.811428,
+      "boltz2_seed_consistency": 0.9266,
+      "protenix_v2_seed_consistency": 0.9677,
+      "consensus_score_stale_opendde_pair": 0.9013
+    },
+    {
+      "target": "9gfr",
+      "label_medium_correct": 0,
+      "opendde_dockq_5sample": 0.28624574623486226,
+      "opendde_iptm": 0.809952,
+      "opendde_seed_consistency": 0.3336,
+      "boltz2_dockq": 0.2618956880285214,
+      "boltz2_iptm": 0.847475,
+      "protenix_v2_dockq": 0.23390474013150545,
+      "protenix_v2_iptm": 0.72965,
+      "boltz2_seed_consistency": 0.3969,
+      "protenix_v2_seed_consistency": 0.3756,
+      "consensus_score_stale_opendde_pair": 0.2723
+    },
+    {
+      "target": "9udq",
+      "label_medium_correct": 0,
+      "opendde_dockq_5sample": 0.2823007128343585,
+      "opendde_iptm": 0.784777,
+      "opendde_seed_consistency": 0.5333,
+      "boltz2_dockq": 0.2871213340887058,
+      "boltz2_iptm": 0.685375,
+      "protenix_v2_dockq": 0.27919936136558815,
+      "protenix_v2_iptm": 0.704288,
+      "boltz2_seed_consistency": 0.2913,
+      "protenix_v2_seed_consistency": 0.5505,
+      "consensus_score_stale_opendde_pair": 0.364
+    },
+    {
+      "target": "9jkr",
+      "label_medium_correct": 1,
+      "opendde_dockq_5sample": 0.78277988053622,
+      "opendde_iptm": 0.895703,
+      "opendde_seed_consistency": 0.6206,
+      "boltz2_dockq": 0.834295205551501,
+      "boltz2_iptm": 0.955782,
+      "protenix_v2_dockq": 0.8021910251253752,
+      "protenix_v2_iptm": 0.871642,
+      "boltz2_seed_consistency": 0.7721,
+      "protenix_v2_seed_consistency": 0.8688,
+      "consensus_score_stale_opendde_pair": 0.5662
+    }
+  ],
+  "precision_by_signal_and_coverage": {
+    "opendde_iptm": {
+      "0.25": {
+        "k": 3,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "9yio",
+          "9ncy"
+        ]
+      },
+      "0.33": {
+        "k": 4,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "9yio",
+          "9ncy",
+          "22ps"
+        ]
+      },
+      "0.5": {
+        "k": 6,
+        "precision": 0.833,
+        "targets": [
+          "9w14",
+          "9yio",
+          "9ncy",
+          "22ps",
+          "9obn",
+          "9d3j"
+        ]
+      },
+      "0.67": {
+        "k": 8,
+        "precision": 0.75,
+        "targets": [
+          "9w14",
+          "9yio",
+          "9ncy",
+          "22ps",
+          "9obn",
+          "9d3j",
+          "9jkr",
+          "9gfr"
+        ]
+      }
+    },
+    "boltz2_iptm": {
+      "0.25": {
+        "k": 3,
+        "precision": 0.333,
+        "targets": [
+          "9d3j",
+          "9jkr",
+          "9ck4"
+        ]
+      },
+      "0.33": {
+        "k": 4,
+        "precision": 0.25,
+        "targets": [
+          "9d3j",
+          "9jkr",
+          "9ck4",
+          "9m72"
+        ]
+      },
+      "0.5": {
+        "k": 6,
+        "precision": 0.333,
+        "targets": [
+          "9d3j",
+          "9jkr",
+          "9ck4",
+          "9m72",
+          "9i5n",
+          "9ncy"
+        ]
+      },
+      "0.67": {
+        "k": 8,
+        "precision": 0.375,
+        "targets": [
+          "9d3j",
+          "9jkr",
+          "9ck4",
+          "9m72",
+          "9i5n",
+          "9ncy",
+          "9obn",
+          "9gfr"
+        ]
+      }
+    },
+    "protenix_v2_iptm": {
+      "0.25": {
+        "k": 3,
+        "precision": 1.0,
+        "targets": [
+          "22ps",
+          "9jkr",
+          "9obn"
+        ]
+      },
+      "0.33": {
+        "k": 4,
+        "precision": 1.0,
+        "targets": [
+          "22ps",
+          "9jkr",
+          "9obn",
+          "9ncy"
+        ]
+      },
+      "0.5": {
+        "k": 6,
+        "precision": 1.0,
+        "targets": [
+          "22ps",
+          "9jkr",
+          "9obn",
+          "9ncy",
+          "9w14",
+          "9yio"
+        ]
+      },
+      "0.67": {
+        "k": 8,
+        "precision": 0.75,
+        "targets": [
+          "22ps",
+          "9jkr",
+          "9obn",
+          "9ncy",
+          "9w14",
+          "9yio",
+          "9d3j",
+          "9gfr"
+        ]
+      }
+    },
+    "consensus_score_stale_opendde_pair": {
+      "0.25": {
+        "k": 3,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "22ps",
+          "9obn"
+        ]
+      },
+      "0.33": {
+        "k": 4,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "22ps",
+          "9obn",
+          "9jkr"
+        ]
+      },
+      "0.5": {
+        "k": 6,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "22ps",
+          "9obn",
+          "9jkr",
+          "9ncy",
+          "9yio"
+        ]
+      },
+      "0.67": {
+        "k": 8,
+        "precision": 0.75,
+        "targets": [
+          "9w14",
+          "22ps",
+          "9obn",
+          "9jkr",
+          "9ncy",
+          "9yio",
+          "9udq",
+          "9d3j"
+        ]
+      }
+    },
+    "opendde_seed_consistency": {
+      "0.25": {
+        "k": 3,
+        "precision": 0.667,
+        "targets": [
+          "9d3j",
+          "9yio",
+          "9w14"
+        ]
+      },
+      "0.33": {
+        "k": 4,
+        "precision": 0.75,
+        "targets": [
+          "9d3j",
+          "9yio",
+          "9w14",
+          "22ps"
+        ]
+      },
+      "0.5": {
+        "k": 6,
+        "precision": 0.833,
+        "targets": [
+          "9d3j",
+          "9yio",
+          "9w14",
+          "22ps",
+          "9obn",
+          "9ncy"
+        ]
+      },
+      "0.67": {
+        "k": 8,
+        "precision": 0.75,
+        "targets": [
+          "9d3j",
+          "9yio",
+          "9w14",
+          "22ps",
+          "9obn",
+          "9ncy",
+          "9jkr",
+          "9ck4"
+        ]
+      }
+    },
+    "boltz2_seed_consistency": {
+      "0.25": {
+        "k": 3,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "22ps",
+          "9jkr"
+        ]
+      },
+      "0.33": {
+        "k": 4,
+        "precision": 0.75,
+        "targets": [
+          "9w14",
+          "22ps",
+          "9jkr",
+          "9d3j"
+        ]
+      },
+      "0.5": {
+        "k": 6,
+        "precision": 0.5,
+        "targets": [
+          "9w14",
+          "22ps",
+          "9jkr",
+          "9d3j",
+          "9ck4",
+          "9m72"
+        ]
+      },
+      "0.67": {
+        "k": 8,
+        "precision": 0.5,
+        "targets": [
+          "9w14",
+          "22ps",
+          "9jkr",
+          "9d3j",
+          "9ck4",
+          "9m72",
+          "9obn",
+          "9i5n"
+        ]
+      }
+    },
+    "protenix_v2_seed_consistency": {
+      "0.25": {
+        "k": 3,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "9jkr",
+          "9obn"
+        ]
+      },
+      "0.33": {
+        "k": 4,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "9jkr",
+          "9obn",
+          "9yio"
+        ]
+      },
+      "0.5": {
+        "k": 6,
+        "precision": 1.0,
+        "targets": [
+          "9w14",
+          "9jkr",
+          "9obn",
+          "9yio",
+          "9ncy",
+          "22ps"
+        ]
+      },
+      "0.67": {
+        "k": 8,
+        "precision": 0.75,
+        "targets": [
+          "9w14",
+          "9jkr",
+          "9obn",
+          "9yio",
+          "9ncy",
+          "22ps",
+          "9udq",
+          "9ck4"
+        ]
+      }
+    }
+  },
+  "auc_by_signal": {
+    "opendde_iptm": 0.9722,
+    "boltz2_iptm": 0.3333,
+    "protenix_v2_iptm": 1.0,
+    "consensus_score_stale_opendde_pair": 1.0,
+    "opendde_seed_consistency": 0.8333,
+    "boltz2_seed_consistency": 0.6667,
+    "protenix_v2_seed_consistency": 1.0
+  }
+}

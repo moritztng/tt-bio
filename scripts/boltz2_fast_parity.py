@@ -49,6 +49,55 @@ def kabsch(A: np.ndarray, B: np.ndarray):
     return rmsd, A_al, B0
 
 
+def tm_score(pred_al: np.ndarray, ref: np.ndarray) -> float:
+    """TM-score (Zhang-Skolnick) under a FIXED 1:1 CA alignment.
+
+    ``pred_al`` is the predicted CA coords already Kabsch-aligned onto ``ref``;
+    both are [N,3] over the same matched atoms. TM-score in [0,1] (1 = identical).
+    Uses the standard d0 = 1.24*(L-15)^(1/3) - 1.8 (clamped to >= 0.5) and the
+    per-residue deviation after superposition. The alignment is fixed (identical
+    atoms pair 1:1), so this is the fixed-alignment TM-score, the right metric
+    for implementation parity (no alignment search needed).
+    """
+    L = len(pred_al)
+    if L < 1:
+        return 0.0
+    Lnorm = max(L, 1)
+    d0 = 1.24 * (Lnorm - 15) ** (1.0 / 3.0) - 1.8
+    if d0 < 0.5:
+        d0 = 0.5
+    dev = np.sqrt(((pred_al - ref) ** 2).sum(1))
+    return float(np.sum(1.0 / (1.0 + (dev / d0) ** 2)) / Lnorm)
+
+
+def lddt(pred_al: np.ndarray, ref: np.ndarray, cutoff: float = 15.0) -> float:
+    """CA-lDDT (Mariani et al.) under a FIXED 1:1 alignment.
+
+    ``pred_al`` is the predicted CA coords already Kabsch-aligned onto ``ref``
+    (alignment does NOT change pairwise distances, so lDDT is alignment-
+    invariant — we pass the aligned coords only for convenience). For each
+    residue, neighbors within ``cutoff`` A in the REFERENCE structure are
+    preserved contacts; per-residue lDDT averages the fraction preserved at the
+    four standard thresholds (0.5, 1, 2, 4 A). lDDT in [0,1] (1 = identical
+    local structure). Returns 0.0 for <2 residues.
+    """
+    L = len(ref)
+    if L < 2:
+        return 0.0
+    dref = np.sqrt(((ref[:, None, :] - ref[None, :, :]) ** 2).sum(-1))
+    dpred = np.sqrt(((pred_al[:, None, :] - pred_al[None, :, :]) ** 2).sum(-1))
+    thr = (0.5, 1.0, 2.0, 4.0)
+    per_res = np.zeros(L)
+    for i in range(L):
+        nb = np.where((dref[i] < cutoff) & (np.arange(L) != i))[0]
+        if len(nb) == 0:
+            per_res[i] = 1.0
+            continue
+        dd = np.abs(dref[i, nb] - dpred[i, nb])
+        per_res[i] = float(np.mean([np.mean(dd < t) for t in thr]))
+    return float(per_res.mean())
+
+
 def compare_structure(full_cif: Path, fast_cif: Path):
     full, fast = load_atoms(full_cif), load_atoms(fast_cif)
     keys = [k for k in full if k in fast]
@@ -69,8 +118,11 @@ def compare_structure(full_cif: Path, fast_cif: Path):
                                 np.array([full[k] for k in ck]))
         per_chain[cid] = {"n": len(ck), "rmsd": cr,
                           "pcc": float(np.corrcoef(cg_al.flatten(), cf0.flatten())[0, 1])}
+    _tm = tm_score(G_al, F0)
+    _lddt = lddt(G_al, F0)
     return {"n_matched": n, "n_full": n_full, "n_fast": n_fast,
             "kabsch_rmsd": rmsd, "coord_pcc": pcc,
+            "tm_score": _tm, "lddt": _lddt,
             "dev_max": float(dev.max()), "dev_med": float(np.median(dev)),
             "per_chain": per_chain}
 

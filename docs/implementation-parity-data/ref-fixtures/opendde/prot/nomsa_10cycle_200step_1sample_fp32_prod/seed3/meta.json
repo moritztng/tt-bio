@@ -1,0 +1,14 @@
+{
+  "seed": 3,
+  "target_id": "prot",
+  "harvested_from": "~/opendde_parity_prod/ref_prod_s34/prot/seed_3 (qb2 CPU, 2026-07-20)",
+  "selected_record": {
+    "id": "prot",
+    "status": "ok",
+    "confidence_score": 0.10580455511808395,
+    "ptm": 0.529022753238678,
+    "iptm": 0.0,
+    "complex_plddt": 0.643095474243164
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited. Added 2026-07-20 (3+3 -> 5+5 extension, same pinned commit/settings as seeds 0-2)."
+}

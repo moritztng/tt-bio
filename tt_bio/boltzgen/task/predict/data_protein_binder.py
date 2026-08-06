@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from tt_bio.boltzgen.data.data import StructureInfo
 from pathlib import Path
 import re
 from typing import Dict, List, Optional

@@ -23,6 +23,25 @@ tests/random_protein_sweep/
 # local scratch batch for ESMFold2 runs (not repo content)
 prot8/
 
+# ...but keep the committed BoltzGen reference fixtures (the binder/ rule above would hide them)
+!docs/implementation-parity-data/ref-fixtures/boltzgen/binder/
+!docs/implementation-parity-data/ref-fixtures/boltzgen/binder/**
+
+# Parity reference fixtures: externalize the large binaries (CIF structures, A3M
+# MSAs, NPZ coordinate tensors) to GitHub Release assets and fetch on demand
+# (scripts/fetch_parity_fixtures.sh). The small provenance JSONs/yaml/csv stay
+# committed (they are the evidence a reader checks); ignore new .cif/.a3m/.npz so
+# they are not accidentally re-added to git. The already-committed fixtures stay
+# tracked (no history rewrite); this only blocks future binary additions.
+docs/implementation-parity-data/ref-fixtures/**/*.cif
+docs/implementation-parity-data/ref-fixtures/**/*.a3m
+docs/implementation-parity-data/ref-fixtures/**/*.npz
+
+# Same rationale: the AbAg-XM seeds-vs-samples-oracle-frontier research merge (07-31)
+# added ~25MB of ground-truth CIFs here in a second, previously-unguarded location.
+# Already-committed ones stay tracked (no history rewrite); block further growth.
+examples/ground_truth_structures/*.cif
+
 # ...but keep the vendored ESM MSA package (the msa/ rule above would hide it)
 !tt_bio/_vendor/esm/utils/msa/
 !tt_bio/_vendor/esm/utils/msa/*.py
@@ -44,3 +63,10 @@ memory_inputs/
 oom_inputs/
 
 .perf-runs/
+perf/p2/
+
+# planning/status/coordination notes belong in the coworker system, not the repo
+/notes/
+
+# RFD3 port local scratch (goldens, foundry clone, ckpt) - not repo content
+.scratch/
