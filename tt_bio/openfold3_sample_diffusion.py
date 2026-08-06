@@ -109,8 +109,8 @@ class OF3SampleDiffusion:
             xl_noisy = xl_aug + noise
             # per-step conditioning: host n_emb(t) -> device conditioning -> (si, zij).
             n_emb = fourier_noise_emb(t, self.sigma_data, self.fourier_w, self.fourier_b)
-            si_dev, zij_dev = self.dc(zij_trunk_dev, relpos_dev, si_input_dev,
-                                      si_trunk_dev, self._to_dev(n_emb.reshape(1, 1, 256)),
+            si_dev, zij_dev = self.dc(zij_trunk_dev, relpos_dev, si_trunk_dev,
+                                      si_input_dev, self._to_dev(n_emb.reshape(1, 1, 256)),
                                       pair_mask_dev, tok_mask_dev)
             # pad conditioned si/zij to n_tok_pad for the DiffusionModule.
             si_pad = self._pad_tokens(si_dev, n_token, n_tok_pad)
