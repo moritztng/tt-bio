@@ -9,10 +9,20 @@ wave-average. Using the auto mapper + average also re-opens the
 model chain to the wrong copy and yield a false-zero DockQ).
 
 This script loads model + native, builds DockQ's sequence-based chain map, then
-calls `run_on_chains` on ONLY the two declared chains (antibody + antigen),
-resolving model<->native by sequence. Output is the single-interface DockQ +
+calls `run_on_chains` on the two declared chains (antibody + antigen), resolving
+model<->native by sequence. Output is the single-interface DockQ +
 Fnat/iRMSD/LRMSD/clashes/CAPRI, plus the chain map used so the mapping is
 auditable.
+
+Multi-copy natives: when the declared chains belong to mmCIF entities with more
+than one chain (crystallographically equivalent copies of the same molecule),
+the model -- which folds a single copy -- is free to dock ANY of them. Pinning
+the declared copy then false-zeros correct predictions that chose a different
+copy (9q1l: declared E/F scores 0.07 while the equivalent B/C copy scores 0.97
+for the same, correct model). For such natives the script scores the declared
+pair plus every entity-equivalent (copy-of-chain1, copy-of-chain2) pair and
+keeps the best DockQ; the declared pair and all attempts are recorded for
+audit. Single-copy natives take exactly the declared pair (unchanged behavior).
 
     PYTHONPATH=<wt> python3 scripts/abag_xm_dockq_interface.py \
         <model.cif> <native.cif> <chain1> <chain2> [--out json]
@@ -25,6 +35,7 @@ sides: if a declared id is a model chain it is mapped to its native counterpart
 via the sequence chain map, and vice-versa.
 """
 import argparse, json, sys
+from difflib import SequenceMatcher
 from DockQ.DockQ import load_PDB, run_on_chains, group_chains, get_all_chain_maps
 
 
@@ -38,18 +49,19 @@ def _chain_by_id(struct, cid):
 
 
 def _build_seq_map(model_path, native_path):
-    """Many-to-one {native_chain_id: model_chain_id} by best sequence identity,
-    with residue-count fallback for models lacking _entity_poly (e.g. some
-    OpenDDE/Protenix CIFs where gemmi returns empty polymer sequences).
+    """Many-to-one {native_chain_id: model_chain_id} by best sequence identity.
 
     Handles multicopy natives (2+ chains with the same entity/length) where
     DockQ's one-to-one group_chains leaves the second copy unmapped. For each
     native chain, pick the model chain with the highest sequence identity
-    (allowing multiple native chains to map to the same model chain). When
-    model sequences are unavailable (no _entity_poly), fall back to matching
-    by residue (CA-atom) count.
+    (allowing multiple native chains to map to the same model chain). Models
+    lacking _entity_poly (e.g. some OpenDDE/Protenix CIFs where gemmi returns
+    empty polymer sequences) get their sequences rebuilt from CA-bearing
+    standard residues; a bare CA-count match is only the last-resort fallback
+    (calcium ions share the CA atom name and poison the count).
     """
     import gemmi
+    from Bio.Data.PDBData import protein_letters_3to1
 
     def _info(path):
         st = gemmi.read_structure(str(path))
@@ -60,6 +72,16 @@ def _build_seq_map(model_path, native_path):
                     s = ch.get_polymer().make_one_letter_sequence()
                 except Exception:
                     s = ""
+                if not s:
+                    # Models lacking _entity_poly (some OpenDDE/Protenix CIFs):
+                    # rebuild the sequence from standard amino-acid residues that
+                    # carry a CA atom. A bare CA-atom count is NOT a safe proxy:
+                    # natives can hold calcium ions (atom name CA) which shift the
+                    # count and mis-map same-sized chains (9q1l: the native light
+                    # chain mapped onto the model's heavy chain -> false-zero).
+                    s = "".join(protein_letters_3to1[r.name] for r in ch
+                                if r.name in protein_letters_3to1
+                                and any(a.name == "CA" for a in r))
                 n_ca = sum(1 for r in ch for a in r if a.name == "CA")
                 out[ch.name] = (s, n_ca)
         return out
@@ -67,15 +89,16 @@ def _build_seq_map(model_path, native_path):
     ms = _info(model_path)
     ns = _info(native_path)
     smap = {}
-    have_seq = any(s for s, _ in ms.values())
     for n_id, (n_seq, n_ca) in ns.items():
         best, best_id = -1.0, None
         for m_id, (m_seq, m_ca) in ms.items():
-            if have_seq and n_seq and m_seq:
-                if len(n_seq) == len(m_seq):
-                    ident = sum(a == b for a, b in zip(n_seq, m_seq)) / max(len(n_seq), 1)
-                else:
-                    ident = 1.0 - abs(len(n_seq) - len(m_seq)) / max(len(n_seq), len(m_seq), 1)
+            if n_seq and m_seq:
+                # Shift-robust identity: constructs can differ by terminal
+                # residues (9q1l's antigen copy C carries an extra N-terminal
+                # Asp vs the folded sequence), which zeroes a colinear zip
+                # comparison. Never a length proxy: heavy/light chains differ
+                # by ~7 residues and a length proxy scores them 0.96+ identical.
+                ident = SequenceMatcher(None, n_seq, m_seq).ratio()
             else:
                 denom = max(n_ca, m_ca, 1)
                 ident = 1.0 - abs(n_ca - m_ca) / denom
@@ -84,6 +107,28 @@ def _build_seq_map(model_path, native_path):
         if best_id is not None and best >= 0.5:
             smap[n_id] = best_id
     return smap
+
+def _entity_classes(native_path, nc):
+    """Group native chain ids by mmCIF polymer entity (same molecule = equivalent
+    copies). Chains in no polymer entity form singleton classes. gemmi's chain
+    names use the same namespace DockQ's load_PDB exposes for these CIFs (the
+    auth asym ids), so the classes line up with `nc`.
+    """
+    import gemmi
+    st = gemmi.read_structure(str(native_path))
+    classes, seen = [], set()
+    for e in st.entities:
+        if e.entity_type != gemmi.EntityType.Polymer:
+            continue
+        members = [c for c in e.subchains if c in nc]
+        if members:
+            classes.append(members)
+            seen.update(members)
+    for c in nc:
+        if c not in seen:
+            classes.append([c])
+    return classes
+
 
 def _resolve(declared, mc, nc, cmap, inv, seq_map=None):
     """Return (model_id, native_id) for a declared chain id, or raise.
@@ -94,12 +139,15 @@ def _resolve(declared, mc, nc, cmap, inv, seq_map=None):
     id being a native chain; we also accept a declared model chain for robustness.
     """
     if declared in nc:           # declared id is a native chain -> map to model
-        if declared in cmap:
-            return cmap[declared], declared
-        # multicopy fallback: another native copy took the one-to-one mapping;
-        # use the many-to-one sequence map to find the model chain directly.
+        # Prefer the gemmi sequence map over DockQ's one-to-one chain_map: the
+        # chain_map is built from the sequences DockQ's own parser extracts, and
+        # for model CIFs it cannot read (no _entity_poly) every chain looks
+        # identical, so chain_map degenerates to an arbitrary permutation
+        # (9q1l: it paired the model light chain with a native heavy chain).
         if seq_map and declared in seq_map:
             return seq_map[declared], declared
+        if declared in cmap:
+            return cmap[declared], declared
         raise KeyError(f"declared chain {declared!r} is a native chain but not in "
                        f"chain_map (multicopy?) and no seq_map fallback; native={nc}")
     if declared in mc:           # declared id is a model chain -> map to native
@@ -141,15 +189,44 @@ def main():
                 json.dump(result, fp, indent=2, default=str)
         return 3
 
-    model_chains = [_chain_by_id(ms, m1), _chain_by_id(ms, m2)]
-    native_chains = [_chain_by_id(ns, n1), _chain_by_id(ns, n2)]
     # Mirror run_on_all_native_interfaces: protein interfaces use the DockQ path
     # (small_molecule=False); the default True path runs calc_sym_corrected_lrmsd
     # and returns None for protein-protein interfaces.
-    small_molecule = bool(getattr(native_chains[0], "is_het", False) or
-                          getattr(native_chains[1], "is_het", False))
-    info = run_on_chains(tuple(model_chains), tuple(native_chains),
-                         small_molecule=small_molecule)
+    def _score(m_id1, m_id2, x, y):
+        mch = (_chain_by_id(ms, m_id1), _chain_by_id(ms, m_id2))
+        nch = (_chain_by_id(ns, x), _chain_by_id(ns, y))
+        sm = bool(getattr(nch[0], "is_het", False) or getattr(nch[1], "is_het", False))
+        return run_on_chains(mch, nch, small_molecule=sm)
+
+    # Multi-copy natives: score the declared pair plus every entity-equivalent
+    # copy pair and keep the best DockQ (see module docstring). Single-copy
+    # natives get exactly one candidate -- the declared pair, unchanged behavior.
+    classes = _entity_classes(a.native, nc)
+    cls1 = next((c for c in classes if n1 in c), [n1])
+    cls2 = next((c for c in classes if n2 in c), [n2])
+    extra = sorted((x, y) for x in cls1 for y in cls2
+                   if x != y and (x, y) != (n1, n2))
+
+    info = _score(m1, m2, n1, n2)
+    best = (info, m1, m2, n1, n2)
+    copies_scored = []
+    for x, y in extra:
+        mx = seq_map.get(x) or inv.get(x)
+        my = seq_map.get(y) or inv.get(y)
+        if mx is None or my is None or mx == my:
+            continue
+        try:
+            xi = _score(mx, my, x, y)
+        except Exception:
+            xi = None
+        dq = xi.get("DockQ") if xi else None
+        copies_scored.append({"native_chain1": x, "native_chain2": y,
+                              "model_chain1": mx, "model_chain2": my,
+                              "dockq": dq})
+        best_dq = best[0].get("DockQ") if best[0] else None
+        if dq is not None and (best_dq is None or dq > best_dq):
+            best = (xi, mx, my, x, y)
+    info, m1, m2, n1_best, n2_best = best
     if info is None:
         # DockQ returns None when it finds no interface between the two chains it was given,
         # and `info.get` then raised AttributeError -- so an unscorable target produced a
@@ -162,10 +239,12 @@ def main():
                   "chain2": a.chain2, "chain_map": cmap,
                   "model_chain1": m1, "model_chain2": m2,
                   "native_chain1": n1, "native_chain2": n2,
+                  "copies_scored": copies_scored,
                   "status": "no_scorable_interface",
                   "error": (f"DockQ found no scorable interface between native chains "
-                            f"{n1}/{n2}; the contact is carried by residues its loader "
-                            f"discards (see abag_xm_native_interface_audit.py)")}
+                            f"{n1}/{n2} (or any entity-equivalent copy pair); the "
+                            f"contact is carried by residues its loader discards "
+                            f"(see abag_xm_native_interface_audit.py)")}
         print(json.dumps(result, indent=2, default=str))
         if a.out:
             with open(a.out, "w") as fp:
@@ -184,7 +263,9 @@ def main():
     out = {"model": a.model, "native": a.native,
            "chain1": a.chain1, "chain2": a.chain2,
            "model_chain1": m1, "model_chain2": m2,
-           "native_chain1": n1, "native_chain2": n2, "chain_map": cmap,
+           "native_chain1": n1_best, "native_chain2": n2_best,
+           "declared_native_chain1": n1, "declared_native_chain2": n2,
+           "chain_map": cmap,
            "interface": f"{a.chain1}_{a.chain2}",
            "dockq": dockq,
            "fnat": fnat,
@@ -195,6 +276,8 @@ def main():
            "capri": info.get("capri_class") or info.get("CAPRI") or info.get("capri"),
            "raw": {k: v for k, v in info.items()
                    if not isinstance(v, (list, dict))}}
+    if copies_scored:
+        out["copies_scored"] = copies_scored
     print(json.dumps(out, indent=2, default=str))
     if a.out:
         with open(a.out, "w") as fp:
