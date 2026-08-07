@@ -1,0 +1,314 @@
+# STOCKHOLM 1.0
+
+#=GS tr|A0A3S0XK31|A0A3S0XK31_9BURK/13-70   DE [subseq from] XRE family transcriptional regulator OS=Variovorax guangxiensis OX=1775474 GN=EJP67_32885 PE=4 SV=1
+#=GS tr|A0AA96IWY6|A0AA96IWY6_9GAMM/17-77   DE [subseq from] XRE family transcriptional regulator OS=Dyella sp. BiH032 OX=3075430 GN=RKE25_23210 PE=4 SV=1
+#=GS tr|A0AA96IWY6|A0AA96IWY6_9GAMM/88-143  DE [subseq from] XRE family transcriptional regulator OS=Dyella sp. BiH032 OX=3075430 GN=RKE25_23210 PE=4 SV=1
+#=GS tr|A0A4Q5NHY7|A0A4Q5NHY7_UNCXX/12-70   DE [subseq from] XRE family transcriptional regulator OS=bacterium OX=1869227 GN=EON83_29580 PE=4 SV=1
+#=GS tr|A0A939GYU4|A0A939GYU4_9BURK/2-59    DE [subseq from] Helix-turn-helix domain-containing protein OS=Comamonas denitrificans OX=117506 GN=J1777_05440 PE=4 SV=1
+#=GS tr|A0A974RWB0|A0A974RWB0_9GAMM/95-152  DE [subseq from] HTH cro/C1-type domain-containing protein OS=Entomomonas asaccharolytica OX=2785331 GN=JHT90_11600 PE=4 SV=1
+#=GS tr|A0A974RWB0|A0A974RWB0_9GAMM/164-221 DE [subseq from] HTH cro/C1-type domain-containing protein OS=Entomomonas asaccharolytica OX=2785331 GN=JHT90_11600 PE=4 SV=1
+#=GS tr|A0A2N0VUD3|A0A2N0VUD3_9GAMM/2-55    DE [subseq from] Transcriptional regulator OS=Rahnella sp. AA OX=2057180 GN=CWS43_26810 PE=4 SV=1
+#=GS tr|A0A8I1N1M2|A0A8I1N1M2_9PROT/17-73   DE [subseq from] Helix-turn-helix transcriptional regulator OS=Thiobacillus sp. OX=924 GN=J0I76_02855 PE=4 SV=1
+#=GS tr|A0A7L5YIF8|A0A7L5YIF8_9PROT/23-77   DE [subseq from] Helix-turn-helix domain-containing protein OS=Thiobacillus sp. OX=924 GN=HZY77_02525 PE=4 SV=1
+#=GS tr|A0A9D9S414|A0A9D9S414_9RHOO/3-58    DE [subseq from] Helix-turn-helix domain-containing protein OS=Azonexus sp. OX=1872668 GN=KA440_08425 PE=4 SV=1
+#=GS tr|A0A8I1N7T7|A0A8I1N7T7_9PROT/17-72   DE [subseq from] Helix-turn-helix transcriptional regulator OS=Thiobacillus sp. OX=924 GN=J0J07_10015 PE=4 SV=1
+#=GS tr|A0A1G0N9K3|A0A1G0N9K3_9PROT/17-73   DE [subseq from] HTH cro/C1-type domain-containing protein OS=Hydrogenophilales bacterium RIFOXYD1_FULL_62_11 OX=1798415 GN=A2580_03280 PE=4 SV=1
+#=GS tr|A0A947TPI2|A0A947TPI2_9GAMM/17-72   DE [subseq from] Helix-turn-helix domain-containing protein OS=Gammaproteobacteria bacterium OX=1913989 GN=KJ946_05135 PE=4 SV=1
+#=GS tr|A0A522FG96|A0A522FG96_9BURK/14-70   DE [subseq from] XRE family transcriptional regulator OS=Burkholderiaceae bacterium OX=2030806 GN=EPN64_05890 PE=4 SV=1
+#=GS tr|A0A2U7XXE3|A0A2U7XXE3_KLEPN/11-65   DE [subseq from] XRE family transcriptional regulator OS=Klebsiella pneumoniae OX=573 GN=pKP91-00040 PE=4 SV=1
+#=GS tr|A0A947V985|A0A947V985_9GAMM/3-55    DE [subseq from] Helix-turn-helix domain-containing protein OS=Gammaproteobacteria bacterium OX=1913989 GN=KKA22_02650 PE=4 SV=1
+#=GS tr|A0A7G5BB31|A0A7G5BB31_9CAUD/7-60    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Ralstonia phage Hyacinthe OX=2759731 GN=8G_00072 PE=4 SV=1
+#=GS tr|A0A261S605|A0A261S605_9BORD/9-62    DE [subseq from] Transcriptional regulator OS=Bordetella genomosp. 10 OX=1416804 GN=CAL29_21470 PE=4 SV=1
+#=GS tr|A0A1E4UT34|A0A1E4UT34_9PSED/12-69   DE [subseq from] Transcriptional regulator OS=Pseudomonas sp. 21C1 OX=1843690 GN=A7D25_21875 PE=4 SV=1
+#=GS tr|A0A1H9P0M3|A0A1H9P0M3_9PSED/12-69   DE [subseq from] Helix-turn-helix domain-containing protein OS=Pseudomonas cuatrocienegasensis OX=543360 GN=SAMN05216600_12847 PE=4 SV=1
+#=GS tr|A0AAI9RSI3|A0AAI9RSI3_9PROT/14-70   DE [subseq from] Helix-turn-helix transcriptional regulator OS=Acetobacter pomorum OX=65959 GN=FKW54_14385 PE=4 SV=1
+#=GS tr|A0A7Y7I576|A0A7Y7I576_9BURK/8-63    DE [subseq from] DNA-binding transcriptional regulator YiaG OS=Variovorax sp. SG517 OX=2587117 GN=FHT32_002520 PE=4 SV=1
+#=GS tr|E6QWB6|E6QWB6_9ZZZZ/16-72           DE [subseq from] XRE family transcriptional regulator OS=mine drainage metagenome OX=410659 GN=CARN7_2372 PE=4 SV=1
+#=GS tr|A0A1W6STN4|A0A1W6STN4_9PROT/6-60    DE [subseq from] Transcriptional regulator OS=Nitrosospira lacus OX=1288494 GN=EBAPG3_013265 PE=4 SV=1
+#=GS tr|A0A368U993|A0A368U993_9GAMM/9-64    DE [subseq from] XRE family transcriptional regulator OS=Vreelandella rituensis OX=2282306 GN=DU506_00505 PE=4 SV=1
+#=GS tr|A0A9D9WTN5|A0A9D9WTN5_9RHOO/2-56    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Azonexus sp. OX=1872668 GN=KA440_08530 PE=4 SV=1
+#=GS tr|A0A522ZMR5|A0A522ZMR5_9GAMM/8-62    DE [subseq from] XRE family transcriptional regulator OS=Nevskiaceae bacterium OX=1969813 GN=EPN72_12125 PE=4 SV=1
+#=GS tr|A0A433MQK7|A0A433MQK7_9BURK/8-63    DE [subseq from] XRE family transcriptional regulator OS=Variovorax guangxiensis OX=1775474 GN=EJP67_24115 PE=4 SV=1
+#=GS tr|A0A369VPR3|A0A369VPR3_9BURK/7-61    DE [subseq from] XRE family transcriptional regulator OS=Acidovorax sp. BoFeN1 OX=1231053 GN=DTW89_02720 PE=4 SV=1
+#=GS tr|A0A3S0B6E1|A0A3S0B6E1_9BURK/8-63    DE [subseq from] XRE family transcriptional regulator OS=Variovorax sp. 679 OX=2496119 GN=EJO71_23105 PE=4 SV=1
+#=GS tr|A0A1H2LTF5|A0A1H2LTF5_9PSED/15-72   DE [subseq from] Helix-turn-helix domain-containing protein OS=Pseudomonas sihuiensis OX=1274359 GN=SAMN05216363_2183 PE=4 SV=1
+#=GS tr|A0A1H7TMG9|A0A1H7TMG9_9BURK/8-63    DE [subseq from] Helix-turn-helix domain-containing protein OS=Variovorax sp. YR750 OX=1884384 GN=SAMN05518845_11298 PE=4 SV=1
+#=GS tr|A0A431TTW1|A0A431TTW1_9BURK/8-63    DE [subseq from] XRE family transcriptional regulator OS=Variovorax gossypii OX=1679495 GN=EJP69_07570 PE=4 SV=1
+#=GS tr|A0A157S4S1|A0A157S4S1_9BORD/8-62    DE [subseq from] Transcriptional regulator OS=Bordetella ansorpii OX=288768 GN=SAMEA3906486_00119 PE=4 SV=1
+#=GS tr|A0A1H6ZDT5|A0A1H6ZDT5_9BURK/8-61    DE [subseq from] Helix-turn-helix domain-containing protein OS=Variovorax sp. OK202 OX=1884311 GN=SAMN05518853_102321 PE=4 SV=1
+#=GS tr|A0A315EEX5|A0A315EEX5_9BURK/4-59    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Limnohabitans parvus II-B4 OX=1293052 GN=B9Z37_03930 PE=4 SV=1
+#=GS tr|A0A858ZX07|A0A858ZX07_9BURK/8-61    DE [subseq from] Helix-turn-helix transcriptional regulator OS=Alicycliphilus denitrificans OX=179636 GN=HF896_15615 PE=4 SV=1
+#=GS tr|A0A1G0CSR6|A0A1G0CSR6_9PROT/14-74   DE [subseq from] Transcriptional regulator OS=Gallionellales bacterium GWA2_59_43 OX=1798245 GN=A2061_01140 PE=4 SV=1
+#=GS tr|A0A1H0WTS4|A0A1H0WTS4_9BURK/9-62    DE [subseq from] Helix-turn-helix domain-containing protein OS=Paracidovorax cattleyae OX=80868 GN=SAMN04489708_1575 PE=4 SV=1
+#=GS tr|A0A315CYQ5|A0A315CYQ5_9BURK/4-59    DE [subseq from] Transcriptional regulator OS=Limnohabitans sp. Hippo3 OX=1597956 GN=B9Z34_10660 PE=4 SV=1
+#=GS tr|A0A3D1JT91|A0A3D1JT91_9BURK/8-61    DE [subseq from] Transcriptional regulator OS=Comamonadaceae bacterium OX=1871071 GN=DET46_13100 PE=4 SV=1
+#=GS tr|A0A1D2S7X2|A0A1D2S7X2_9BURK/9-61    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Comamonas sp. SCN 65-56 OX=1660095 GN=ABS45_09135 PE=4 SV=1
+#=GS tr|A0A157RNV3|A0A157RNV3_9BORD/7-62    DE [subseq from] Transcriptional regulator OS=Bordetella ansorpii OX=288768 GN=SAMEA1982600_05338 PE=4 SV=1
+#=GS tr|A0AAI8K5D8|A0AAI8K5D8_9BURK/6-61    DE [subseq from] Transcriptional regulator OS=Paraburkholderia hospita OX=169430 GN=CUJ88_41305 PE=4 SV=1
+#=GS tr|A0A5B0HL26|A0A5B0HL26_9BURK/6-61    DE [subseq from] Helix-turn-helix domain-containing protein OS=Paraburkholderia panacisoli OX=2603818 GN=FVF58_01140 PE=4 SV=1
+#=GS tr|A0A3M2H4I4|A0A3M2H4I4_9PSED/7-62    DE [subseq from] XRE family transcriptional regulator OS=Pseudomonas sp. AOB-7 OX=2482750 GN=EA796_19420 PE=4 SV=1
+#=GS tr|A1WSX1|A1WSX1_VEREI/10-69           DE [subseq from] Transcriptional regulator, XRE family OS=Verminephrobacter eiseniae (strain EF01-2) OX=391735 GN=Veis_5042 PE=4 SV=1
+#=GS tr|A0A7Y2JCW8|A0A7Y2JCW8_9FLAO/3-57    DE [subseq from] Helix-turn-helix transcriptional regulator OS=Flavobacteriaceae bacterium OX=1871037 GN=HKM99_12280 PE=4 SV=1
+#=GS tr|A0A936KC98|A0A936KC98_9BURK/8-61    DE [subseq from] XRE family transcriptional regulator OS=Burkholderiales bacterium OX=1891238 GN=IPN21_09625 PE=4 SV=1
+#=GS tr|A0A366H9L9|A0A366H9L9_9BURK/9-62    DE [subseq from] Helix-turn-helix protein OS=Eoetvoesiella caeni OX=645616 GN=DFR37_106234 PE=4 SV=1
+#=GS tr|A0A2T0XQ96|A0A2T0XQ96_9BURK/134-187 DE [subseq from] Uncharacterized protein OS=Jezberella montanilacus OX=323426 GN=BCM14_0116 PE=4 SV=1
+#=GS tr|E5AW58|E5AW58_MYCRK/15-69           DE [subseq from] Transcriptional regulator OS=Mycetohabitans rhizoxinica (strain DSM 19002 / CIP 109453 / HKI 454) OX=882378 GN=RBRH_00757 PE=4 SV=1
+#=GS tr|A0A524Q6T2|A0A524Q6T2_9GAMM/17-70   DE [subseq from] XRE family transcriptional regulator OS=Xanthomonadales bacterium OX=2006849 GN=E4H01_11925 PE=4 SV=1
+#=GS tr|A0A7Z7BIF7|A0A7Z7BIF7_9BURK/12-67   DE [subseq from] Helix-turn-helix domain OS=Paraburkholderia steynii OX=1245441 GN=SAMN04487926_14259 PE=4 SV=1
+#=GS tr|A0A5C7QAA5|A0A5C7QAA5_9BACT/13-70   DE [subseq from] XRE family transcriptional regulator OS=Desulfurellales bacterium OX=2482794 GN=E6Q97_07580 PE=4 SV=1
+#=GS tr|A0A410GCF1|A0A410GCF1_9BURK/9-62    DE [subseq from] Transcriptional regulator OS=Pollutimonas thiosulfatoxidans OX=2028345 GN=CKA81_09020 PE=4 SV=1
+#=GS tr|A0A4U8VB32|A0A4U8VB32_9BURK/9-63    DE [subseq from] Transcriptional regulator OS=Burkholderiaceae bacterium PBA OX=795666 GN=MW7_001305 PE=4 SV=1
+#=GS tr|A0A208XII9|A0A208XII9_9BURK/11-63   DE [subseq from] HTH cro/C1-type domain-containing protein OS=Pigmentiphaga sp. NML080357 OX=2008675 GN=CDO44_21905 PE=4 SV=1
+#=GS tr|A0A315DGR4|A0A315DGR4_9BURK/4-59    DE [subseq from] Transcriptional regulator OS=Limnohabitans sp. Hippo3 OX=1597956 GN=B9Z34_02075 PE=4 SV=1
+#=GS tr|A0AAE4GA18|A0AAE4GA18_9BURK/3-56    DE [subseq from] XRE family transcriptional regulator OS=Herbaspirillum huttiense NC40101 OX=3075126 GN=RJN63_12160 PE=4 SV=1
+#=GS tr|A0AAJ2HDN4|A0AAJ2HDN4_9BURK/3-56    DE [subseq from] XRE family transcriptional regulator OS=Herbaspirillum huttiense OX=863372 GN=RI046_14185 PE=4 SV=1
+#=GS tr|A0A853FZ56|A0A853FZ56_9BURK/7-62    DE [subseq from] Helix-turn-helix transcriptional regulator OS=Parapusillimonas granuli OX=380911 GN=H0A72_08515 PE=4 SV=1
+#=GS tr|A0A6J7HVQ0|A0A6J7HVQ0_9ZZZZ/4-59    DE [subseq from] Unannotated protein OS=freshwater metagenome OX=449393 GN=UFOPK3614_00849 PE=4 SV=1
+#=GS tr|A0A7K0PPV6|A0A7K0PPV6_UNCAC/4-59    DE [subseq from] Helix-turn-helix domain-containing protein OS=Actinomycetes bacterium OX=1883427 GN=F2827_04320 PE=4 SV=1
+#=GS tr|A0A4Y1YIN4|A0A4Y1YIN4_9PROT/8-62    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Nitrosomonas stercoris OX=1444684 GN=Nstercoris_00079 PE=4 SV=1
+#=GS tr|A0A7Z0MER1|A0A7Z0MER1_9BURK/8-62    DE [subseq from] Helix-turn-helix transcriptional regulator OS=Alcaligenaceae bacterium OX=2021368 GN=H0A73_18220 PE=4 SV=1
+#=GS tr|A0A1E7YZJ3|A0A1E7YZJ3_9PROT/15-70   DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acidithiobacillus caldus OX=33059 GN=BAE30_03420 PE=4 SV=1
+#=GS tr|A0A4D7DA21|A0A4D7DA21_9SPHN/15-67   DE [subseq from] Helix-turn-helix transcriptional regulator OS=Novosphingobium sp. EMRT-2 OX=2571749 GN=FA702_06735 PE=4 SV=1
+#=GS tr|A0A4D7DA21|A0A4D7DA21_9SPHN/79-125  DE [subseq from] Helix-turn-helix transcriptional regulator OS=Novosphingobium sp. EMRT-2 OX=2571749 GN=FA702_06735 PE=4 SV=1
+#=GS tr|A0A7Y4XXK0|A0A7Y4XXK0_9GAMM/4-55    DE [subseq from] Helix-turn-helix transcriptional regulator OS=Methylococcaceae bacterium OX=1933926 GN=HOP02_09915 PE=4 SV=1
+#=GS tr|A0A967B8U6|A0A967B8U6_9PROT/39-94   DE [subseq from] Helix-turn-helix domain-containing protein OS=Acetobacter estunensis OX=104097 GN=GOB87_13860 PE=4 SV=1
+#=GS tr|A0A1I3MCR6|A0A1I3MCR6_9PROT/12-70   DE [subseq from] Helix-turn-helix domain-containing protein OS=Nitrosomonas sp. Nm34 OX=1881055 GN=SAMN05428978_10649 PE=4 SV=1
+#=GS tr|A0A2M6VE21|A0A2M6VE21_9BURK/3-59    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Limnohabitans sp. JirII-31 OX=1977908 GN=B9Z41_10405 PE=4 SV=1
+#=GS tr|A0A9E0P957|A0A9E0P957_9NEIS/5-57    DE [subseq from] Helix-turn-helix domain-containing protein OS=Laribacter sp. OX=2818474 GN=KBE25_07135 PE=4 SV=1
+#=GS tr|A0A373FCW7|A0A373FCW7_COMTE/4-45    DE [subseq from] XRE family transcriptional regulator OS=Comamonas testosteroni OX=285 GN=DZC30_18575 PE=4 SV=1
+#=GS tr|A0A0A1H0I9|A0A0A1H0I9_9BURK/14-74   DE [subseq from] XRE family transcriptional regulator OS=Burkholderiales bacterium GJ-E10 OX=1469502 GN=E1O_06970 PE=4 SV=1
+#=GS tr|A0A315C3J2|A0A315C3J2_9BURK/4-59    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Limnohabitans sp. Jir61 OX=1826168 GN=B9Z35_12810 PE=4 SV=1
+#=GS tr|A0A259PKG9|A0A259PKG9_9BURK/4-55    DE [subseq from] Transcriptional regulator OS=Polynucleobacter sp. 39-45-136 OX=1970427 GN=B7X60_01295 PE=4 SV=1
+#=GS tr|A0A540V322|A0A540V322_9GAMM/2-56    DE [subseq from] Helix-turn-helix domain-containing protein OS=Spiribacter salinus OX=1335746 GN=FKY71_20265 PE=4 SV=1
+#=GS tr|A0A961T6M4|A0A961T6M4_9HYPH/2-38    DE [subseq from] Uncharacterized protein OS=Rhizobiaceae bacterium OX=1913961 GN=KDJ43_10390 PE=4 SV=1
+#=GS tr|A0A9Q2ITD9|A0A9Q2ITD9_GLUJA/15-66   DE [subseq from] Helix-turn-helix transcriptional regulator OS=Gluconobacter japonicus OX=376620 GN=HKD32_12310 PE=4 SV=1
+#=GS tr|R0E965|R0E965_RALPI/7-61            DE [subseq from] HTH cro/C1-type domain-containing protein OS=Ralstonia pickettii OR214 OX=1264675 GN=OR214_02233 PE=4 SV=1
+#=GS tr|A0A9E0KBH4|A0A9E0KBH4_9NEIS/5-58    DE [subseq from] Helix-turn-helix transcriptional regulator OS=Laribacter sp. OX=2818474 GN=KBE25_04170 PE=4 SV=1
+#=GS tr|C6BPB6|C6BPB6_RALP1/16-70           DE [subseq from] XRE family transcriptional regulator OS=Ralstonia pickettii (strain 12D) OX=428406 GN=Rpic12D_4805 PE=4 SV=1
+#=GS tr|A0A1J4YV52|A0A1J4YV52_9PROT/7-68    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Zetaproteobacteria bacterium CG1_02_53_45 OX=1805427 GN=AUJ57_00725 PE=4 SV=1
+#=GS tr|A0A3G2HSZ8|A0A3G2HSZ8_9BURK/9-63    DE [subseq from] XRE family transcriptional regulator OS=Alcaligenes aquatilis OX=323284 GN=D3M96_05515 PE=4 SV=1
+#=GS tr|A0A365QWX3|A0A365QWX3_9BURK/22-77   DE [subseq from] XRE family transcriptional regulator OS=Burkholderia reimsis OX=2234132 GN=DPV79_16085 PE=4 SV=1
+#=GS tr|A0A6J5MLJ2|A0A6J5MLJ2_9CAUD/2-55    DE [subseq from] HTH_XRE domain containing protein OS=uncultured Caudovirales phage OX=2100421 GN=UFOVP509_31 PE=4 SV=1
+#=GS tr|A0A1Z5YRN5|A0A1Z5YRN5_9PROT/3-58    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acetobacter cibinongensis OX=146475 GN=HK14_14190 PE=4 SV=1
+#=GS tr|A0A432XXP2|A0A432XXP2_9GAMM/9-54    DE [subseq from] Cytosine-specific methyltransferase OS=Pseudidiomarina homiensis OX=364198 GN=CWI70_09895 PE=3 SV=1
+#=GS tr|Q5QUQ6|Q5QUQ6_IDILO/5-54            DE [subseq from] Cytosine-specific methyltransferase OS=Idiomarina loihiensis (strain ATCC BAA-735 / DSM 15497 / L2-TR) OX=283942 GN=dcm PE=3 SV=1
+#=GS tr|A0A2E7F0V5|A0A2E7F0V5_9PROT/23-68   DE [subseq from] Transcriptional regulator OS=Ponticaulis sp. OX=2020902 GN=CMK08_13280 PE=4 SV=1
+#=GS tr|A0A3D0SDG6|A0A3D0SDG6_ALTSX/23-68   DE [subseq from] Transcriptional regulator OS=Alteromonas sp. OX=232 GN=DEO96_09065 PE=4 SV=1
+#=GS tr|A0A351MDQ8|A0A351MDQ8_9GAMM/8-51    DE [subseq from] Transcriptional regulator OS=Gammaproteobacteria bacterium OX=1913989 GN=DCY89_06370 PE=4 SV=1
+#=GS tr|A0AA91KDB9|A0AA91KDB9_9GAMM/18-71   DE [subseq from] Transcriptional regulator OS=Salinivibrio sp. IB872 OX=1766123 GN=BZJ18_14415 PE=4 SV=1
+#=GS tr|A0A269XXI5|A0A269XXI5_9PROT/3-57    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acetobacter fabarum OX=483199 GN=B8X00_11360 PE=4 SV=1
+#=GS tr|A0A545THD9|A0A545THD9_9GAMM/5-58    DE [subseq from] XRE family transcriptional regulator OS=Aliikangiella marina OX=1712262 GN=FLL45_01390 PE=4 SV=1
+#=GS tr|A0A2K4ICG0|A0A2K4ICG0_9PSED/8-61    DE [subseq from] XRE family transcriptional regulator OS=Pseudomonas sp. MPR-ANC1 OX=2075548 GN=C1893_23395 PE=4 SV=1
+#=GS tr|A0A9X8MH35|A0A9X8MH35_9PSED/14-64   DE [subseq from] Helix-turn-helix domain-containing protein OS=Pseudomonas lutea OX=243924 GN=SAMN05216409_11861 PE=4 SV=1
+#=GS tr|A0A1V5QJD2|A0A1V5QJD2_9PROT/3-57    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Betaproteobacteria bacterium ADurb.Bin341 OX=1852821 GN=BWY57_03108 PE=4 SV=1
+#=GS tr|A0A105KTN5|A0A105KTN5_9BURK/18-71   DE [subseq from] XRE family transcriptional regulator OS=Burkholderia ubonensis OX=101571 GN=WK55_09705 PE=4 SV=1
+#=GS tr|A0A3N7RXZ4|A0A3N7RXZ4_9BURK/18-71   DE [subseq from] DUF1870 family protein OS=Burkholderia ubonensis OX=101571 GN=DF011_17885 PE=4 SV=1
+#=GS tr|A0A7W4FBR7|A0A7W4FBR7_GLUDI/1-59    DE [subseq from] Helix-turn-helix transcriptional regulator OS=Gluconacetobacter diazotrophicus OX=33996 GN=HLH33_00530 PE=4 SV=1
+#=GS tr|A0A849REX9|A0A849REX9_9GAMM/3-63    DE [subseq from] XRE family transcriptional regulator OS=Methyloglobulus sp. OX=2518622 GN=HOP36_01190 PE=4 SV=1
+#=GS tr|A0A9W6JM79|A0A9W6JM79_9HYPH/14-73   DE [subseq from] Helix-turn-helix domain-containing protein OS=Methylopila jiangsuensis OX=586230 GN=GCM10008171_33220 PE=4 SV=1
+#=GS tr|A0AA90T3W4|A0AA90T3W4_9BURK/6-63    DE [subseq from] XRE family transcriptional regulator OS=Massilia sp. CCM 9029 OX=3057166 GN=RBA09_31255 PE=4 SV=1
+#=GS tr|A0A9E6AVR3|A0A9E6AVR3_9HYPH/4-60    DE [subseq from] Cytosine-specific methyltransferase (Fragment) OS=Hyphomicrobiales bacterium OX=1909294 GN=dcm PE=3 SV=1
+#=GS tr|T0YIS2|T0YIS2_9ZZZZ/67-116          DE [subseq from] HTH cro/C1-type domain-containing protein OS=mine drainage metagenome OX=410659 GN=B1A_18361 PE=4 SV=1
+#=GS tr|A0A494X502|A0A494X502_9BURK/2-61    DE [subseq from] XRE family transcriptional regulator OS=Pararobbsia silviterrae OX=1792498 GN=D7S86_27470 PE=4 SV=1
+#=GS tr|A0A1J5IEH3|A0A1J5IEH3_9GAMM/45-86   DE [subseq from] XRE family transcriptional regulator OS=Thiomicrospira sp. CG2_30_44_34 OX=1805397 GN=AUK56_05320 PE=4 SV=1
+#=GS tr|A0A1L7NPV9|A0A1L7NPV9_PSEPU/10-64   DE [subseq from] XRE family transcriptional regulator OS=Pseudomonas putida OX=303 GN=KF715C_pC760 PE=4 SV=1
+#=GS tr|A0A942PTB5|A0A942PTB5_9PROT/4-60    DE [subseq from] XRE family transcriptional regulator OS=Sulfuricella sp. OX=2099377 GN=KGZ83_19020 PE=4 SV=1
+#=GS tr|A0A6G5Y3S0|A0A6G5Y3S0_9CAUD/172-225 DE [subseq from] Cro/C1-type helix-turn-helix domain protein OS=Caudoviricetes sp. OX=2832643 PE=4 SV=1
+#=GS tr|A0A0D6NK45|A0A0D6NK45_9PROT/3-59    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acetobacter orientalis OX=146474 GN=Abor_014_138 PE=4 SV=1
+#=GS tr|A0A258NYP4|A0A258NYP4_9BURK/16-66   DE [subseq from] HTH cro/C1-type domain-containing protein OS=Polaromonas sp. 35-63-35 OX=1970418 GN=B7Y60_15125 PE=4 SV=1
+#=GS tr|A0A7W4IA20|A0A7W4IA20_9PROT/2-59    DE [subseq from] Helix-turn-helix transcriptional regulator OS=Gluconacetobacter sacchari OX=92759 GN=HLH48_02170 PE=4 SV=1
+#=GS tr|A0A7W4IKS8|A0A7W4IKS8_9PROT/6-62    DE [subseq from] Helix-turn-helix domain-containing protein OS=Gluconacetobacter dulcium OX=2729096 GN=HLH26_08995 PE=4 SV=1
+#=GS tr|A0A2W4QUH3|A0A2W4QUH3_UNCPS/19-68   DE [subseq from] XRE family transcriptional regulator (Fragment) OS=Pseudomonadota bacterium OX=1977087 GN=DIU57_19740 PE=4 SV=1
+#=GS tr|A0A023D6Z5|A0A023D6Z5_ACIMT/3-57    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acidomonas methanolica NBRC 104435 OX=1231351 GN=Amme_068_009 PE=4 SV=1
+#=GS tr|A0AAJ4T1E0|A0AAJ4T1E0_9BURK/5-48    DE [subseq from] Helix-turn-helix domain-containing protein OS=Paraburkholderia hospita OX=169430 GN=SAMN05192544_10286 PE=4 SV=1
+#=GS tr|A0A269XXJ9|A0A269XXJ9_9PROT/5-63    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acetobacter fabarum OX=483199 GN=B8X00_11410 PE=4 SV=1
+#=GS tr|A0A269XV29|A0A269XV29_9PROT/5-56    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acetobacter fabarum OX=483199 GN=B8X00_11415 PE=4 SV=1
+#=GS tr|A0A6G5Y1S7|A0A6G5Y1S7_9VIRU/173-224 DE [subseq from] Uncharacterized protein OS=Bacteriophage sp. OX=38018 PE=4 SV=1
+#=GS tr|A0A023D780|A0A023D780_ACIMT/38-96   DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acidomonas methanolica NBRC 104435 OX=1231351 GN=Amme_068_013 PE=4 SV=1
+#=GS tr|A0A269XVF3|A0A269XVF3_9PROT/3-57    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acetobacter fabarum OX=483199 GN=B8X00_11375 PE=4 SV=1
+#=GS tr|A0A7W4NVP6|A0A7W4NVP6_9PROT/5-60    DE [subseq from] Helix-turn-helix domain-containing protein OS=Gluconacetobacter dulcium OX=2729096 GN=HLH26_08960 PE=4 SV=1
+#=GS tr|A0A524Q118|A0A524Q118_9GAMM/3-53    DE [subseq from] XRE family transcriptional regulator OS=Xanthomonadales bacterium OX=2006849 GN=E4H01_14815 PE=4 SV=1
+#=GS tr|A0A8H9MA64|A0A8H9MA64_9BURK/3-61    DE [subseq from] XRE family transcriptional regulator OS=Alcaligenes pakistanensis OX=1482717 GN=GCM10010096_34520 PE=4 SV=1
+#=GS tr|A0A495H531|A0A495H531_9BURK/12-64   DE [subseq from] Helix-turn-helix protein OS=Acidovorax sp. 94 OX=2135633 GN=C8C94_5100 PE=4 SV=1
+#=GS tr|A0A023D3G3|A0A023D3G3_ACIMT/6-59    DE [subseq from] HTH cro/C1-type domain-containing protein OS=Acidomonas methanolica NBRC 104435 OX=1231351 GN=Amme_018_030 PE=4 SV=1
+#=GS tr|A0A1B9JSZ9|A0A1B9JSZ9_9GAMM/192-246 DE [subseq from] HTH cro/C1-type domain-containing protein OS=Gilliamella apicola OX=1196095 GN=A9G10_06000 PE=4 SV=1
+#=GS tr|A0A0F8Y0K9|A0A0F8Y0K9_9ZZZZ/17-75   DE [subseq from] HTH cro/C1-type domain-containing protein OS=marine sediment metagenome OX=412755 GN=LCGC14_2879980 PE=4 SV=1
+#=GS tr|A0A2N6GHB0|A0A2N6GHB0_9GAMM/5-65    DE [subseq from] Transcriptional regulator OS=Sedimenticola sp. OX=1940285 GN=C0631_09105 PE=4 SV=1
+#=GS tr|A0A0D6NIV4|A0A0D6NIV4_9PROT/7-62    DE [subseq from] XRE family transcriptional regulator OS=Acetobacter orientalis OX=146474 GN=Abor_014_139 PE=4 SV=1
+#=GS tr|V5YMX4|V5YMX4_9BURK/9-72            DE [subseq from] XRE family transcriptional regulator OS=Burkholderia sp. M701 OX=326454 PE=4 SV=1
+#=GS tr|A6N5N1|A6N5N1_PSEAI/14-59           DE [subseq from] Uncharacterized protein OS=Pseudomonas aeruginosa OX=287 GN=PACL_0022 PE=4 SV=1
+#=GS tr|A0A1Q8Y945|A0A1Q8Y945_9BURK/19-74   DE [subseq from] XRE family transcriptional regulator OS=Rhodoferax antarcticus ANT.BR OX=1111071 GN=BLL52_4242 PE=4 SV=1
+#=GS tr|A0A9E2C5M0|A0A9E2C5M0_9GAMM/4-57    DE [subseq from] Helix-turn-helix domain-containing protein OS=Gammaproteobacteria bacterium OX=1913989 GN=KKD25_10030 PE=4 SV=1
+#=GS tr|A0A2R5F9Z1|A0A2R5F9Z1_9PROT/7-70    DE [subseq from] UDP-N-acetylenolpyruvoylglucosamine reductase OS=Novimethylophilus kurashikiensis OX=1825523 GN=NMK_2456 PE=4 SV=1
+#=GS tr|A0A2G2QJZ6|A0A2G2QJZ6_9GAMM/5-65    DE [subseq from] Transcriptional regulator OS=Cycloclasticus sp. OX=2024830 GN=COB22_05395 PE=4 SV=1
+#=GS tr|A0A059KGI7|A0A059KGI7_9BURK/3-51    DE [subseq from] XRE family transcriptional regulator OS=Sphaerotilus natans subsp. natans DSM 6575 OX=1286631 GN=X805_38700 PE=4 SV=1
+#=GS tr|A0A3N4DYH4|A0A3N4DYH4_9GAMM/6-54    DE [subseq from] Cytosine-specific methyltransferase OS=Shewanella psychromarinicola OX=2487742 GN=dcm PE=3 SV=1
+#=GS tr|A0A1I2HTI4|A0A1I2HTI4_9BURK/12-68   DE [subseq from] Helix-turn-helix domain-containing protein OS=Paracidovorax wautersii OX=1177982 GN=SAMN04489711_13114 PE=4 SV=1
+#=GS tr|A0A2N6GIV9|A0A2N6GIV9_9GAMM/5-65    DE [subseq from] Transcriptional regulator OS=Sedimenticola sp. OX=1940285 GN=C0631_06865 PE=4 SV=1
+#=GS tr|A0A6P2FI09|A0A6P2FI09_9BURK/18-73   DE [subseq from] Zinc finger/helix-turn-helix protein, YgiT family OS=Variovorax sp. PBS-H4 OX=434008 GN=H4CHR_04401 PE=4 SV=1
+#=GS tr|A0A7W4IHG3|A0A7W4IHG3_9PROT/36-85   DE [subseq from] Helix-turn-helix domain-containing protein OS=Gluconacetobacter sacchari OX=92759 GN=HLH48_22885 PE=4 SV=1
+#=GS tr|A0A258ZJP9|A0A258ZJP9_9PROT/27-83   DE [subseq from] Transcriptional regulator OS=Gallionellales bacterium 24-53-125 OX=1970510 GN=B7Y04_00650 PE=4 SV=1
+#=GS tr|A0A7W4NSI0|A0A7W4NSI0_9PROT/7-61    DE [subseq from] Helix-turn-helix domain-containing protein OS=Gluconacetobacter dulcium OX=2729096 GN=HLH26_09015 PE=4 SV=1
+#=GS tr|A0A2T5JY23|A0A2T5JY23_9PROT/12-70   DE [subseq from] XRE family transcriptional regulator OS=Nitrosospira sp. Nsp2 OX=136548 GN=C8R31_10498 PE=4 SV=1
+#=GS tr|A0A4Y7X8W8|A0A4Y7X8W8_9GAMM/103-154 DE [subseq from] XRE family transcriptional regulator OS=Alkanindiges illinoisensis OX=197183 GN=E2B99_13650 PE=4 SV=1
+#=GS tr|A0A1R4H9H7|A0A1R4H9H7_9GAMM/37-85   DE [subseq from] Antitoxin higA-2 OS=Crenothrix polyspora OX=360316 GN=CRENPOLYSF2_2750013 PE=4 SV=1
+#=GS tr|A0A372IV59|A0A372IV59_9ACTN/38-81   DE [subseq from] Helix-turn-helix domain-containing protein OS=Geodermatophilus sp. LHW52908 OX=2303986 GN=D0Z06_24700 PE=4 SV=1
+#=GS tr|A0A8T6ZNB8|A0A8T6ZNB8_9BURK/10-73   DE [subseq from] XRE family transcriptional regulator OS=Paraburkholderia sacchari OX=159450 GN=NH14_031340 PE=4 SV=1
+
+7xi5_1|A|A|PROTEIN                             MSSATPDPAEILTARKAVGL--S--QTAAAALVH--SS----LR-TWQQWEA------G-----D-----RRMHP-GLWELFLLKT-QLPSPSS
+tr|A0A3S0XK31|A0A3S0XK31_9BURK/13-70           --SSNPTPADICTAREATGL--T--QTQAATLIH--SS----LR-TWQQWEA------G-----D-----RRMHA-GLWELFRIKA-GL-----
+tr|A0AA96IWY6|A0AA96IWY6_9GAMM/17-77           --AATPDPAAIKAARIDADL--S--QTAAAALVY--SP----LI-TWQKWEQ------G-----QAN-GGNRMHP-AFFKLFKLKV-R------
+tr|A0AA96IWY6|A0AA96IWY6_9GAMM/88-143          ----KPAPATILAKRESLGL--T--RKEAAALLM--VT----ES-GWQRWETE---GTG-----G-----RPMHL-AFWELLHVL---------
+tr|A0A4Q5NHY7|A0A4Q5NHY7_UNCXX/12-70           -AAATPAPEEILAGRVAADL--T--QTEAAELIY--SS----LR-TWQQWEA------G-----D-----RRMHP-GLWELFRIKA-NL-----
+tr|A0A939GYU4|A0A939GYU4_9BURK/2-59            --SSSPTPDAIRTLREKAEL--T--QTDAAALVH--SG----LR-TWQQWEA------G-----D-----RRMHP-GLWELFRLKT-TL-----
+tr|A0A974RWB0|A0A974RWB0_9GAMM/95-152          ----SPTPEEIIAFRESVGL--T--SQQASDLVY--IS----LN-TWMKWET------G-----T-----GKMSL-ATWELLQLKV-TIES---
+tr|A0A974RWB0|A0A974RWB0_9GAMM/164-221         --SKFPLPSEIKALRETKGL--T--QTQASKLVY--AL----LR-QWQRWEG------G-----T-----NEMNI-AMLELFRLKA-EY-----
+tr|A0A2N0VUD3|A0A2N0VUD3_9GAMM/2-55            ----TPTPDEIKAARNLAAL--T--QTEAAALTH--SK----LR-TWQQWEA------G-----D-----RKMHP-GLWELFTLKI--------
+tr|A0A8I1N1M2|A0A8I1N1M2_9PROT/17-73           --ATPPEPDDIRAARTAAGL--T--QTEAGAVVH--AS----LR-TWQQWEA------G-----D-----RKMHP-GLFELFKLKT-A------
+tr|A0A7L5YIF8|A0A7L5YIF8_9PROT/23-77           ----APEPDDIRAARTAAGL--T--QTEAGAVVH--AS----LR-TWQQWEA------G-----D-----RKMHP-GLFELFTLKT-A------
+tr|A0A9D9S414|A0A9D9S414_9RHOO/3-58            ---CNPSPQEIRQARELAGL--S--QTAAAALIS--ST----LR-TWQDWEA------G-----K-----ARMHP-GLWELFRIKT-S------
+tr|A0A8I1N7T7|A0A8I1N7T7_9PROT/17-72           --ATPPEPDDIRAARTAAGL--T--QTEAGGVVH--AS----LR-TWQQWEA------G-----D-----RKMHP-GLFELFKLKT--------
+tr|A0A1G0N9K3|A0A1G0N9K3_9PROT/17-73           --ATPPEPDDIRAARTAAGL--T--QTEAGDVVH--AS----LR-TWQQWEA------G-----D-----RKMHP-GLFELFKLKT-G------
+tr|A0A947TPI2|A0A947TPI2_9GAMM/17-72           --ATPPEPDDIRAARTAAGL--T--QTEAGDVVH--AS----LR-TWQQWEA------G-----D-----RKMHP-GLFELFKLKT--------
+tr|A0A522FG96|A0A522FG96_9BURK/14-70           --SRNPLPSEVRAAREAAGL--T--QTEAAALVH--TS----CR-TWQQWEA------G-----D-----RRMHQ-AFWELFRIKI-S------
+tr|A0A2U7XXE3|A0A2U7XXE3_KLEPN/11-65           ----HPSPEEILTKRKEAGL--T--QTEAGTLVY--SA----CR-TWQQWEE------G-----N-----RKMHP-GLWELFNIKV-S------
+tr|A0A947V985|A0A947V985_9GAMM/3-55            -----PVPDDIRAARTAAGL--T--QTEAGDVVH--AS----LR-TWQQWEA------G-----D-----RKMHP-GLFELFKLKT--------
+tr|A0A7G5BB31|A0A7G5BB31_9CAUD/7-60            ----PPTAQQVREAREAAGL--T--QTEAGALVY--SA----LR-AWQQWEA------G-----D-----RRMHP-ALWELFRIKI--------
+tr|A0A261S605|A0A261S605_9BORD/9-62            ----SPAPAAIRKARDAAGL--T--QTKAALTVQ--AS----LR-TWQQWEA------G-----D-----RRMPP-GLFELFMLKT--------
+tr|A0A1E4UT34|A0A1E4UT34_9PSED/12-69           -ASSNPTPEEILAARTASGL--T--QTQAGELVR--ST----CR-RWQEWEA------G-----D-----YRMHP-GLFELFQLKT-R------
+tr|A0A1H9P0M3|A0A1H9P0M3_9PSED/12-69           -ASSNPTPEEILAARTASGL--T--QTQAGELVR--ST----CR-RWQEWEA------G-----D-----YRMHP-GLFELFQLKT-R------
+tr|A0AAI9RSI3|A0AAI9RSI3_9PROT/14-70           --SRNPEPTEIKQARSTVGM--T--QEEAAAVVH--ST----KR-VWYQWEA------G-----L-----RRMHP-AFWELFLMKT-T------
+tr|A0A7Y7I576|A0A7Y7I576_9BURK/8-63            ---SSPSPAAVRDARMAVGL--T--QTEAAQTVQ--AS----LR-GWQQWEA------G-----D-----RSMAP-GLFELFMLKT-R------
+tr|E6QWB6|E6QWB6_9ZZZZ/16-72                   --SRYPAPAEVREERLAADL--T--QVAAGEMVH--TS----CR-TWQQWEA------G-----D-----RKMHP-AFWELFRIKT-S------
+tr|A0A1W6STN4|A0A1W6STN4_9PROT/6-60            ----HPPPIEIKSAREAVGL--T--QAAAASLVY--CN----VN-TWQKWES------G-----Y-----SKMHP-GFWELFKIKT-R------
+tr|A0A368U993|A0A368U993_9GAMM/9-64            ---VSPTPEHIRETRLKAGL--T--QTQAGALVH--TT----CR-TWQQWEA------G-----D-----RGMHP-AFWELFCLKL---P----
+tr|A0A9D9WTN5|A0A9D9WTN5_9RHOO/2-56            ----NPTPSEIRAAREVAGL--T--QTQAGELVH--AP----LR-AWQRWEA------G-----D-----TAMHP-AFWELFTLKL-K------
+tr|A0A522ZMR5|A0A522ZMR5_9GAMM/8-62            ---SSPTPAAVRNARVAAGL--T--QTEAAKTVR--AS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT--------
+tr|A0A433MQK7|A0A433MQK7_9BURK/8-63            ---SSPSPAAVRDARIAAGL--T--QTEAAQTVQ--AS----LR-GWQQWEA------G-----D-----RSMAP-GLFELFMLKT-R------
+tr|A0A369VPR3|A0A369VPR3_9BURK/7-61            ---PSPTPAAIREARLAAGL--T--QTEAAQTVR--AS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT--------
+tr|A0A3S0B6E1|A0A3S0B6E1_9BURK/8-63            ---SSPAPAAVRDARIAAGL--T--QTEAAQTVQ--AS----LR-GWQQWEA------G-----D-----RSMAP-GLFELFMLKT-R------
+tr|A0A1H2LTF5|A0A1H2LTF5_9PSED/15-72           -KSQSPTPAAIRKARVTAGL--T--QTKAAQAVQ--AS----LR-AWQQWEA------G-----D-----RTMPP-GLFELFMLKT-G------
+tr|A0A1H7TMG9|A0A1H7TMG9_9BURK/8-63            ---SSPAPAAVRDARIAAGL--T--QTEAAQTVQ--AS----LR-GWQQWEA------G-----D-----RSMAP-GLFELFMLKT-R------
+tr|A0A431TTW1|A0A431TTW1_9BURK/8-63            ---SSPAPAAVRDARIAAGL--T--QTEAAQTVQ--AS----LR-GWQQWEA------G-----D-----RSMAP-GLFELFMLKT-R------
+tr|A0A157S4S1|A0A157S4S1_9BORD/8-62            ----APKPDAIRTARLVVGL--T--QAEAANVVR--SS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT-N------
+tr|A0A1H6ZDT5|A0A1H6ZDT5_9BURK/8-61            ----NPKPDAIRKARLAVGL--T--QTEAAHVVQ--AS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT--------
+tr|A0A315EEX5|A0A315EEX5_9BURK/4-59            ----SPTPEQLKSARKALGY--T--QKEAAELVH--VS----LR-AWQLWEA------G-----D-----RKMPP-GIWELCVIKA-GL-----
+tr|A0A858ZX07|A0A858ZX07_9BURK/8-61            ----SPKPDAIRKARLAVGL--T--QTEAAQAVR--AS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT--------
+tr|A0A1G0CSR6|A0A1G0CSR6_9PROT/14-74           --ASNPTPSEVRAAREAAGL--T--QTAAAALVF--TT----CR-TWQQWEAEE-GTAG-----H-----RRMHP-AFWELFRIKL--------
+tr|A0A1H0WTS4|A0A1H0WTS4_9BURK/9-62            ----APTPEEVRAARSAAGM--T--QTEAAETVH--MS----MR-AWQQWEG------G-----E-----RTMPP-GLFELFMIKT--------
+tr|A0A315CYQ5|A0A315CYQ5_9BURK/4-59            ----SPQPDQVKVTRKALGF--T--QKESAEMVH--CS----LR-AWQLWEA------G-----D-----RNMPA-GIWELFVIKT-EL-----
+tr|A0A3D1JT91|A0A3D1JT91_9BURK/8-61            ----SPTPAAIREARLAASL--T--QTEAAQSVR--SS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT--------
+tr|A0A1D2S7X2|A0A1D2S7X2_9BURK/9-61            -----PTPDAIRKARLAVGL--T--QTEAAHTVR--AS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT--------
+tr|A0A157RNV3|A0A157RNV3_9BORD/7-62            ---HTPKPDAIRHARLVVGL--T--QAEAANVVR--SS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT-N------
+tr|A0AAI8K5D8|A0AAI8K5D8_9BURK/6-61            ---SNPTPVEVRAAREAAGL--T--QAAAGAVVH--VD----LR-SWQRWES------G-----E-----RSMSP-AHWELFQIKT-R------
+tr|A0A5B0HL26|A0A5B0HL26_9BURK/6-61            ---STPTPVEVRAAREAAGL--T--QAAAGALVH--VD----LR-SWQRWES------G-----E-----RGMNL-AYWELFQIKT-A------
+tr|A0A3M2H4I4|A0A3M2H4I4_9PSED/7-62            --PQSPTPTAIREARVVAGL--T--QTKAAHAVQ--AS----LR-AWQQWEA------G-----D-----RTMPP-GLFELFMLKT--------
+tr|A1WSX1|A1WSX1_VEREI/10-69                   ----SPTPVEVWAARERSGL--T--QTEAAALVH--GT----LR-AWQGWEA------P-----EGEPAARRMHP-GLWELFQIKT-K------
+tr|A0A7Y2JCW8|A0A7Y2JCW8_9FLAO/3-57            ----SPKPESIKQTRKEAGL--T--QTKAAELIY--FK----LR-TWQDWEA------G-----I-----AKMHP-SAWELFLIKT-K------
+tr|A0A936KC98|A0A936KC98_9BURK/8-61            ----NPTPDAIRKARLAVGF--T--QTEAAHTVR--AS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMLKT--------
+tr|A0A366H9L9|A0A366H9L9_9BURK/9-62            ----SPPVATIRDARIVAGL--T--QTEAAQIVR--VS----LR-TWQRWEA------G-----D-----RSMPP-GLFELFMLKT--------
+tr|A0A2T0XQ96|A0A2T0XQ96_9BURK/134-187         ----SPEPEDVAAARAVSGL--T--QTEAARVIH--ST----LR-AWQNWEG------G-----H-----RSMHP-GLFELFKIKT--------
+tr|E5AW58|E5AW58_MYCRK/15-69                   ----HPMPADIKAIRVAAGL--S--QSEAAFKVY--RT----AR-DWQQWEA------G-----D-----RRMDP-ALWELFKLKI-A------
+tr|A0A524Q6T2|A0A524Q6T2_9GAMM/17-70           ----NPTPDEIRVARADAGL--T--QSAAADIIY--CT----MR-AWQEWEA------G-----R-----RRMHP-GMFELFLGKQ--------
+tr|A0A7Z7BIF7|A0A7Z7BIF7_9BURK/12-67           ---CSPAPADIRAGRERAGL--N--QIEAAGLLH--VD----MR-LWQKWEL------G-----E-----REMHP-AFWELFCIKT-G------
+tr|A0A5C7QAA5|A0A5C7QAA5_9BACT/13-70           --AANPQPADIRAARKAAGM--T--QTEAGAMVY--VG----LT-CWARWEA------G-----E-----RQMHP-AFWELWRHKA-AL-----
+tr|A0A410GCF1|A0A410GCF1_9BURK/9-62            ----SPPVATIRDARIVAGL--T--QTEAAQIVR--VS----LR-AWQRWEA------G-----D-----RSMPP-GLFELFMLKT--------
+tr|A0A4U8VB32|A0A4U8VB32_9BURK/9-63            ----SPPPAVIRQARTIAGL--T--QMEAAQTVR--AS----LR-AWQQWEA------D-----D-----RAMPP-GLFELFMLKT-E------
+tr|A0A208XII9|A0A208XII9_9BURK/11-63           -----PPPAAIRLARHTAGL--T--QAEAADTVR--AS----LR-GWQQWEA------G-----D-----RAMPP-GLFELFMIKT--------
+tr|A0A315DGR4|A0A315DGR4_9BURK/4-59            ----SPQPDQVKVTRQALGF--T--QKESADMVH--YS----LR-AWQLWEA------G-----D-----RTMPA-GVWELFLIKI-GL-----
+tr|A0AAE4GA18|A0AAE4GA18_9BURK/3-56            ----APLPHEIKESRLKAGL--S--QERAADLIY--ST----KR-TWQDWEA------G-----K-----AKMHC-GLWELFKLKT--------
+tr|A0AAJ2HDN4|A0AAJ2HDN4_9BURK/3-56            ----APLPHEIKESRLKAGL--S--QERAADLIY--ST----KR-TWQDWEA------G-----K-----AKMHC-GLWELFKLKT--------
+tr|A0A853FZ56|A0A853FZ56_9BURK/7-62            ---CSPPPEAIRHARQAASL--T--QTEAARTVS--VS----MR-AWQQWES------G-----E-----RAMPP-GLFELFMLKT-R------
+tr|A0A6J7HVQ0|A0A6J7HVQ0_9ZZZZ/4-59            ----SPTPQLIKKTRLALGY--T--QKEAAEMVH--VS----LR-AWQLWEA------G-----D-----RRIPP-GLWELCVIKA-GL-----
+tr|A0A7K0PPV6|A0A7K0PPV6_UNCAC/4-59            ----SPTPQLIKKTRLALGY--T--QKEAAEMVH--VS----LR-AWQLWEA------G-----D-----RRIPP-GLWELCVIKA-GL-----
+tr|A0A4Y1YIN4|A0A4Y1YIN4_9PROT/8-62            ----NPSPETVRQARQTANL--T--QTEAAKTVS--AS----MR-AWQQWES------G-----E-----RAMPP-GLFELFMLKT-R------
+tr|A0A7Z0MER1|A0A7Z0MER1_9BURK/8-62            ----NPSPETVRQARQTANL--T--QTEAAKTVS--AS----MR-AWQQWES------G-----E-----RAMPP-GLFELFMLKT-R------
+tr|A0A1E7YZJ3|A0A1E7YZJ3_9PROT/15-70           ---RNPSPGQIRAARLEAGL--T--QAQAADLIY--AT----VS-AWESWEQ------G-----L-----RRMHP-GLWELFRIKL-G------
+tr|A0A4D7DA21|A0A4D7DA21_9SPHN/15-67           ---GCPSPQAVKAARVLANL--S--REEASALVS--VS----SR-TWTRWEN------G-----E-----GKMHP-DVWTAWLA----------
+tr|A0A4D7DA21|A0A4D7DA21_9SPHN/79-125          -----PMASHIRELREAAGL--T--QEAAARMLG--VS----VA-SWYGWES------G-----R-----STMRP-AQFK--------------
+tr|A0A7Y4XXK0|A0A7Y4XXK0_9GAMM/4-55            -----PTQQEITKTRKEAGL--T--QTQAAELIY--KK----LR-TWQQWEN------G-----D-----REMDY-ALWELFNIK---------
+tr|A0A967B8U6|A0A967B8U6_9PROT/39-94           ----PPEPETVRAAREEAGL--T--QAEAAQLVH--AT----LN-AWQKWES------G-----D-----RKMQA-ATWELFQIKTGQ------
+tr|A0A1I3MCR6|A0A1I3MCR6_9PROT/12-70           -SASNPTPEQIKHARIAAGL--T--QADAGELIY--CS----MR-SWQQWES------G-----E-----SIMHP-AMYELFMIKA-GL-----
+tr|A0A2M6VE21|A0A2M6VE21_9BURK/3-59            ---ASPTPQKVKTVRTSLGY--T--QKEAAEMVH--VT----LR-AWQLWEA------G-----Q-----RRMPS-GLWELCVIKA-GL-----
+tr|A0A9E0P957|A0A9E0P957_9NEIS/5-57            -----PTPEEIRDARKAVGL--T--QAQAAELVH--AS----LN-GWHQWEK------G-----L-----RPMGL-AHWELFMIKT--------
+tr|A0A373FCW7|A0A373FCW7_COMTE/4-45            -----------------AGL--T--HAAAAVLVH--AN----TR-SWQKWEA------G-----E-----REMHP-AFWELFCLKT-G------
+tr|A0A0A1H0I9|A0A0A1H0I9_9BURK/14-74           ----GPEPEEVRAARRAAGL--T--QAQAGALVH--TT----QR-VWGGYEADE-GKVG-----H-----RRMHP-AMWELFLLKT-KA-----
+tr|A0A315C3J2|A0A315C3J2_9BURK/4-59            ----SPTPQKIKTVRTSLGY--T--QKEAAEMVH--VT----LR-AWQLWEA------G-----Q-----RRMPS-GLWELCVIKA-GL-----
+tr|A0A259PKG9|A0A259PKG9_9BURK/4-55            -----PLSEEIRAARQSAGL--T--QTKAAALIH--AT----CR-AWQKWEA------G-----D-----AKMNL-ASWELFNIK---------
+tr|A0A540V322|A0A540V322_9GAMM/2-56            ----SPDPSEIRAARLAAGL--T--QRQAGELIG--GT----LR-TWQDWEY------G-----R-----RNMPS-AKWELFVIKT-G------
+tr|A0A961T6M4|A0A961T6M4_9HYPH/2-38            ----------------------T--QTQAAELVR--GT----MR-AWQEWEA------G-----N-----RRMHP-GLWELFLRK---------
+tr|A0A9Q2ITD9|A0A9Q2ITD9_GLUJA/15-66           -------PRAIRQARLDAGL--T--QVSAASLVH--VT----PL-TWKRWES------G-----D-----RSMHP-AFWELFALKV-E------
+tr|R0E965|R0E965_RALPI/7-61                    ---GNPPPVEIKAARVRAGI--S--QAAAAKLIY--KT----TR-AWELWEG------G-----K-----RRMDP-AFWDLFLIRI--------
+tr|A0A9E0KBH4|A0A9E0KBH4_9NEIS/5-58            -----PTSEEIRDARKAVGL--T--QAQAAELVH--AS----LN-GWHQWEK------G-----L-----RPMGL-AHWELFLIKT-G------
+tr|C6BPB6|C6BPB6_RALP1/16-70                   ---GNPPPVEIKAARVRAGI--S--QAAAAKLIY--KT----TR-AWELWEG------G-----K-----RRMDP-AFWDLFLIRI--------
+tr|A0A1J4YV52|A0A1J4YV52_9PROT/7-68            --EAPPDFKEIRAEREKYGL--S--QTRAGELVH--VS----CR-TWQQWEA------A-----PEIKSHQKMHP-AFWELFQIKA-K------
+tr|A0A3G2HSZ8|A0A3G2HSZ8_9BURK/9-63            ----NPTVTAIRDARVAAEL--T--QTEAAQTVR--VS----LR-TWQRWEA------G-----D-----RTMPT-GLFELFMLKT-G------
+tr|A0A365QWX3|A0A365QWX3_9BURK/22-77           --VTTPDSDTLRALREQLGI--T--QAQAAELMR--VN----LR-TWQKWEL------G-----E-----RTMHV-ALFELFLIKT--------
+tr|A0A6J5MLJ2|A0A6J5MLJ2_9CAUD/2-55            ----SPTPDDIRTARVSAGL--T--KTQAAALVY--VT----LR-CWQRWES------G-----E-----RVMHA-AFFELFRHKL--------
+tr|A0A1Z5YRN5|A0A1Z5YRN5_9PROT/3-58            ----EPTPQQIKDARNAAGL--T--QQAAANLLY--VQ----KL-AWARWEA------G-----S-----RAMHP-AFYELFRLKT-GL-----
+tr|A0A432XXP2|A0A432XXP2_9GAMM/9-54            -------------HRLRCGL--T--QSQAAELVH--AN----IR-TWQQWES------G-----D-----RTMHP-AFIELFYMKT-A------
+tr|Q5QUQ6|Q5QUQ6_IDILO/5-54                    ---------ELKQLRERLCL--T--QSQAASLVH--SS----VR-AWQQWES------G-----E-----RQMHP-AIRELFTIKT-K------
+tr|A0A2E7F0V5|A0A2E7F0V5_9PROT/23-68           ----------------GITS--A--QDACAELLH--TS----RR-AWQQWER------G-----E-----RKMHP-AFWELINIKY-QYPQ---
+tr|A0A3D0SDG6|A0A3D0SDG6_ALTSX/23-68           ----------------GITS--A--QDACAELLH--TS----RR-AWQQWER------G-----E-----RKMHP-AFWELINIKY-QYPQ---
+tr|A0A351MDQ8|A0A351MDQ8_9GAMM/8-51            -------------------W--T--NAAAAACVRPAAT----RR-VWQQWEA------G-----D-----RRMHP-AMWELFQIKI-KRP----
+tr|A0AA91KDB9|A0AA91KDB9_9GAMM/18-71           -------------LSNSIGITAA--QDKCADMLH--TS----RR-AWQQWEK------G-----D-----RKMHP-AFWELINIKC-AMHTPKS
+tr|A0A269XXI5|A0A269XXI5_9PROT/3-57            -----PAPSAIRAARNAAGL--T--QAQAAETVS--VA----IS-TWRKWEA------G-----T-----HRMPP-PSFEMFLLKT-QS-----
+tr|A0A545THD9|A0A545THD9_9GAMM/5-58            ----IPDSEMIKQTRIKAGF--S--QSQCAELVH--VN----LR-SWQRWES------G-----D-----RQISG-AAWELFLIKI--------
+tr|A0A2K4ICG0|A0A2K4ICG0_9PSED/8-61            ----QPTPQNIRKARKAVNL--S--ETAAGELIY--VS----RE-SWRLYEK------G-----D-----TKIKL-GLWELFLFKT--------
+tr|A0A9X8MH35|A0A9X8MH35_9PSED/14-64           ----RPTKDEVLEARKAVGY--S--QTEAANVIR--VS----LR-QWQNYES------G-----E-----SEMHP-IFWRYFC-----------
+tr|A0A1V5QJD2|A0A1V5QJD2_9PROT/3-57            ----PPTPEEIRAARQSAHL--T--QTQAAELIY--KQ----RL-AWARYES------G-----D-----REMDP-ALWELFQIKL-S------
+tr|A0A105KTN5|A0A105KTN5_9BURK/18-71           ----SPSGAELRAIRLSLSL--T--QPEAAKVVH--VD----TR-TWQKWEG------D-----E-----RGMHP-AYLELFLIKT--------
+tr|A0A3N7RXZ4|A0A3N7RXZ4_9BURK/18-71           ----SPSGAELRAIRLSLSL--T--QPEAAKVVH--VD----TR-TWQKWEG------D-----E-----RGMHP-AYLELFLIKT--------
+tr|A0A7W4FBR7|A0A7W4FBR7_GLUDI/1-59            MSNIPPDPGAIRAARKDAHL--T--QAEAAEVVS--VS----LA-TWRRWEA------G-----S-----HPMPS-GLFDLFLIVT-K------
+tr|A0A849REX9|A0A849REX9_9GAMM/3-63            ----TPSPTQIKEAREKAGL--T--QSQAAALIY--KG----LR-TWQGWEAPV-GEKG-----H-----RKMDI-AFWELYNMKV-AL-----
+tr|A0A9W6JM79|A0A9W6JM79_9HYPH/14-73           ---GTPTPEQIKAAREAVGL--T--QKQAADLVQ--AS----SR-AWQNWEAP----VGS--PEG-----RAMRP-ALWEMFRAKA--------
+tr|A0AA90T3W4|A0AA90T3W4_9BURK/6-63            ----VPTPEEIRHAREKAGL--T--QTEAAELVC--AT----CN-AWQKWEA------T-----EGSNSARKMHP-GIWKLFKIE---------
+tr|A0A9E6AVR3|A0A9E6AVR3_9HYPH/4-60            ---ISIDISEIAIARKTLAI--T--QKQAASYLS--VS----ER-TWQQWET------G-----Q-----RGMRS-SYWELFLIKT-DY-----
+tr|T0YIS2|T0YIS2_9ZZZZ/67-116                  ----SPSPATLKTLRRKAGL--T--QVQAAALCL--SA----PR-SWQDWES------G-----R-----RRMHP-AIFRVF------------
+tr|A0A494X502|A0A494X502_9BURK/2-61            -TLKTPTSDEVRAVRRAARI--S--QSKAASLVH-LSS----AV-RWSEYER------G-----T-----RRMDI-ARWELFLLKT-QT-----
+tr|A0A1J5IEH3|A0A1J5IEH3_9GAMM/45-86           ----------------GITK--A--QEYCATQLH--TG----LR-TWQQWER------G-----E-----RKMHP-AFWELINIKI--------
+tr|A0A1L7NPV9|A0A1L7NPV9_PSEPU/10-64           ---LIPAPADIRASRQLAGL--S--QRESATLIH--VS----RR-SWQCYED------G-----K-----AEIKL-GLWELYLFKT--------
+tr|A0A942PTB5|A0A942PTB5_9PROT/4-60            ----TPD--VIRAARMRAGL--N--EVQAAALVE--TS----LD-CWLDWEC------G-----A-----ARMPY-GLYELFLAKT-HMGQP--
+tr|A0A6G5Y3S0|A0A6G5Y3S0_9CAUD/172-225         ----TITPEMVIDARNKAGL--T--QKESAALVY--VE----ER-TWQHWEA------G-----T-----RKMGR-NVYELFLIKT--------
+tr|A0A0D6NK45|A0A0D6NK45_9PROT/3-59            -------PDDIKTARQKAGL--T--QQESADMMR--VH----LR-TWQKWEY------G-----K-----REMSL-GLLEMFLILS-REPNVS-
+tr|A0A258NYP4|A0A258NYP4_9BURK/16-66           -------PEALQTLRKSAGW--T--QEECAAQVS--ST----RR-TLQDWEA------G-----I-----AAMHP-GLWELLNIKA--------
+tr|A0A7W4IA20|A0A7W4IA20_9PROT/2-59            -QTISPTPMQIRDARRAAGM--T--QAEAAQVVS--KT----QT-SWRRWEG------G-----I-----HRMSP-ALFDYFLIET-G------
+tr|A0A7W4IKS8|A0A7W4IKS8_9PROT/6-62            --MGNPRPQAIRSARATSGL--T--QTEAAEIVF--VS----LA-TWARWEA------G-----T-----CPMPR-GLYDLFLINT-N------
+tr|A0A2W4QUH3|A0A2W4QUH3_UNCPS/19-68           ------------QAREEAGH--T--QTEAAECIL--VS----VR-TWQDYEQ------G-----R-----RKMPP-GLWEYYCLQT-AFPN---
+tr|A0A023D6Z5|A0A023D6Z5_ACIMT/3-57            ----NPKPEMIRSARAASGL--T--QTEAAKIVS--VS----LV-TWARWEA------G-----T-----CLMPR-GLYDLFMIST-N------
+tr|A0AAJ4T1E0|A0AAJ4T1E0_9BURK/5-48            ---QEPAPAQVRVDREAAGL--T--QTEAGPLVH--VN----LR-SWQRWES------G-----G-----RTMY--------------------
+tr|A0A269XXJ9|A0A269XXJ9_9PROT/5-63            ---TNPTPGEIRASRLASGL--T--QKQAGTLVS--VT----LS-TWQKWEY------G-----R-----HPMPR-ALYNLFIIKT-RKGS---
+tr|A0A269XV29|A0A269XV29_9PROT/5-56            ------SAANARAARKKAGL--T--QQQSADLIG--VH----IR-SWQRWES------G-----E-----HEMSP-GLLEMFLFLS--------
+tr|A0A6G5Y1S7|A0A6G5Y1S7_9VIRU/173-224         -------PEMVIEARKIADL--T--QKQSATLVY--VD----ER-TWQRWES------G-----D-----RNMPR-GLFKLYLMET-K------
+tr|A0A023D780|A0A023D780_ACIMT/38-96           ----CPTPDQIRSVRERAGV--N--QTFAAAMVG--TT----PR-TWRRWEA------G-----V-----HRMPL-ATWALFNIQS-SRTAP--
+tr|A0A269XVF3|A0A269XVF3_9PROT/3-57            ----NPEPHTIRSARATSGL--T--QSEAAQMVF--VS----LV-TWARWEA------G-----T-----CPMPR-GLFDLFMIKT-N------
+tr|A0A7W4NVP6|A0A7W4NVP6_9PROT/5-60            ---TPPTPGEIRASRLAADL--T--QKQAGALVA--VT----LS-TWQKWEY------G-----R-----HPMPR-ALYDLFIIKT-K------
+tr|A0A524Q118|A0A524Q118_9GAMM/3-53            ----APTPQMIRKLRGKLGL--T--RSEAAGIIE--CS----AR-TWEAWEA------G-----R-----RPMHP-AFWFAFK-----------
+tr|A0A8H9MA64|A0A8H9MA64_9BURK/3-61            ---SSPTPEAVRNARLGAGL--T--QSEAAGLVY--AS----PR-AWANWES------G-----A-----RKMDQ-ALFHLFIQRL-TSPS---
+tr|A0A495H531|A0A495H531_9BURK/12-64           ----------LRSAREALNL--T--TTQAAALVH--AS----RR-SWERWES------G-----V-----QRVPE-ATLELFLEKL-QGRAP--
+tr|A0A023D3G3|A0A023D3G3_ACIMT/6-59            --PIPPTPTEIRAARKAVRL--T--QAEAAEVVS--VS----QA-TWKKWEA------G-----V-----HRMPP-ASFHAFQM----------
+tr|A0A1B9JSZ9|A0A1B9JSZ9_9GAMM/192-246         ---------EVKSVREDFGL--T--QKQCADMVY--VD----VR-TWQKWEL------G-----E-----RKMNR-AVYQLFCLKT-KILYPK-
+tr|A0A0F8Y0K9|A0A0F8Y0K9_9ZZZZ/17-75           ----NPTPDEIIQLRHDAGL--T--QTEASQKIW--SA----LR-TWQGYEAT----SG-----DT---QRRMHP-AIWWCFKQRT-K------
+tr|A0A2N6GHB0|A0A2N6GHB0_9GAMM/5-65            -------PAQIKRLRKRAGL--T--QREAAVLVH--VG----LR-GWQAWES------PSELSTS-----RQMPE-AYVELFCIKT-KIPYP--
+tr|A0A0D6NIV4|A0A0D6NIV4_9PROT/7-62            ---SHPTPGKIRASRLASGL--T--QKQAGALVS--VT----LS-TWQKWEY------G-----R-----HPMPG-ILHDLFIIKT-K------
+tr|V5YMX4|V5YMX4_9BURK/9-72                    ----QPSPDEVRAARKAVGL--P--QTEASQVVS--DAGAKGYR-TWQRYEAPL--GSA-----D-----HRPIPNGVWELFLLRT-D------
+tr|A6N5N1|A6N5N1_PSEAI/14-59                   ------------KARSVLGA--S--TAEAAQLVH--VS----KR-TWELWES------G-----Q-----REMPE-ASWELFVYKI--------
+tr|A0A1Q8Y945|A0A1Q8Y945_9BURK/19-74           ---ATREAIQIVLGLKITA---A--QDWCAAALH--TS----RR-SFQQWET------G-----D-----RSMHP-AFFELLKIKV-AL-----
+tr|A0A9E2C5M0|A0A9E2C5M0_9GAMM/4-57            ----DPTPETISTERKQAGH--T--QSQASAAVG--VT----AR-AWQQYES------G-----D-----RSMPD-AAWWLYLLRV--------
+tr|A0A2R5F9Z1|A0A2R5F9Z1_9PROT/7-70            ----PPTPEEVVAARRAAGL--T--QTEAAQLVS--NAGAKGYR-TWQRYEAPE--TNS-----D-----SRAIPIGLWEYFLLLT-D------
+tr|A0A2G2QJZ6|A0A2G2QJZ6_9GAMM/5-65            -------PENLKKLRKRSGL--T--QTEAAHLVR--SK----LR-TWQSWEA------D-----SKLPTSRKIPD-GLVELFCMKV-GITYP--
+tr|A0A059KGI7|A0A059KGI7_9BURK/3-51            -----------RAARAAAGD--T--QAQAIQRLH--RD----RRMTWDDWES------G-----R-----RVMEP-ALWELYLLKT-G------
+tr|A0A3N4DYH4|A0A3N4DYH4_9GAMM/6-54            ----------IKATRKKLSL--T--QKQAANLVG--VS----KS-TWQQWEL------G-----S-----RSMHT-AFWEMFISKV-S------
+tr|A0A1I2HTI4|A0A1I2HTI4_9BURK/12-68           ----QPTPVEIKEVRNKAGL--T--QQHAAEVVH--RA---DGA-RWREWEG------G-----K-----YGIDL-AVWELFLLKT-GL-----
+tr|A0A2N6GIV9|A0A2N6GIV9_9GAMM/5-65            -------PEQIKRLRKRAGL--T--QTEAGKCVH--VA----LR-TWQSWES------P-----EEDPHSRQMPE-ANIELFCIKN-KIPYP--
+tr|A0A6P2FI09|A0A6P2FI09_9BURK/18-73           ----RPSPEQIRALRDGLRM--T--QEQAAAFVH--VS----TR-TWQAWET------G-----Q-----NPMSL-ATWEHWHLKV-KS-----
+tr|A0A7W4IHG3|A0A7W4IHG3_9PROT/36-85           ------PPAEIRAARKAVRL--T--QAEAAEVVS--VC----QA-TWKKWEA------G-----V-----HRMPP-ASFHAFQM----------
+tr|A0A258ZJP9|A0A258ZJP9_9PROT/27-83           ---------EEVQARLELGI--TEAQELCAKQVH--TT----CR-TWQQWETDADIPVS-----H-----RRMHP-AFWELFNIKK--------
+tr|A0A7W4NSI0|A0A7W4NSI0_9PROT/7-61            ----PPPPAAIRAARRSARL--T--QTQAGRIVS--VT----QS-TWKRWEA------G-----R-----HPMPP-ASFNLFQILT-D------
+tr|A0A2T5JY23|A0A2T5JY23_9PROT/12-70           ----QPTPEEIRALLKKHGI--S--REKAASLVH--AS----LR-AWHNWSA------P-----EGGVNHREMPK-AAWELLLIKL--------
+tr|A0A4Y7X8W8|A0A4Y7X8W8_9GAMM/103-154         ----PPTPEQIKDLRKQVGT-----QAKCAKLAG--VN----IS-NWQRWEK------G-----E-----QRPHP-TTWGMFLLS---------
+tr|A0A1R4H9H7|A0A1R4H9H7_9GAMM/37-85           ---YTVEPNEIVTTRMKCGL--S--QTQFAKALH--IS----FR-TLQQWEQ------G-----R-----RKP-S-GAAET-------------
+tr|A0A372IV59|A0A372IV59_9ACTN/38-81           -------PATLTAARLTAGL--T--MTQLARAVH--VS----RP-NVSLWEN------G-----G-----RRPAR-QYW---------------
+tr|A0A8T6ZNB8|A0A8T6ZNB8_9BURK/10-73           ---SVPSPEEVRAARERAGL--T--PQSAGALVS--SSQ-QPRR-TWEKWEKE----KGT--DNH-----REMPQ-ATWELFLLLT-D------
+#=GC RF                                        xxxxxxxxxxxxxxxxxxxx..x..xxxxxxxxx..xx....xx.xxxxxxx......x.....x.....xxxxx.xxxxxxxxxx.xxxxxxx
+//

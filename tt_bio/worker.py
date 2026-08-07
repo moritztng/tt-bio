@@ -91,7 +91,9 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
                 "weights file (of3-p2-155k.pt) or place it at "
                 f"{cache / 'of3-p2-155k.pt'}.")
         cfg["of3_ckpt"] = of3_ckpt
-        tmpl_struct_dir = cache / "of3_template_structures"
+        tmpl_struct_dir = Path(
+            os.environ.get("OF3_TEMPLATE_STRUCTURES")
+            or str(cache / "of3_template_structures"))
         tmpl_struct_dir.mkdir(parents=True, exist_ok=True)
         cfg["of3_template_structures"] = str(tmpl_struct_dir)
         cfg["of3_max_msa_seqs"] = os.environ.get("OF3_MAX_MSA_SEQS")

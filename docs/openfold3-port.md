@@ -1692,3 +1692,64 @@ template search; weights via `OF3_CKPT` or `~/.boltz/of3-p2-155k.pt`). Acceptanc
 Ca-RMSD in 31 s. Host-only contract tests in `tests/test_openfold3_cli.py`; the
 device fold gate `tests/test_openfold3_fold_rmsd.py` now guards selected/oracle
 < 2.0 A (was 12/10 around the broken numbers).
+
+## P14 — complex-fold parity root-caused end-to-end; confidence-head representative-atom fix
+
+The production-merge pass found and fixed the last two functional defects, both in
+code that had passed every single-chain gate:
+
+**1. OuterProductMean bias scaling (the complex-fold killer).** The device OPM scaled
+the raw outer product by 1/S but added the `proj_o` bias at full strength; the
+AF3/OF3 reference divides the *entire* `linear_out` (bias included) by the effective
+norm. The injected constant (std ~0.9) is negligible against a high-signal MSA (the
+1024-row ubiquitin golden: OPM update std ~18 — why every pre-P14 gate passed) but is
+~50% of the signal on a low-signal complex MSA (9BK6, 1108 rows, update std ~1.8),
+and the pairformer then amplified it in the low-magnitude inter-chain pair blocks.
+Symptom chain: 9BK6 device cross-RMSD 12.6 A / ipTM 0.16 -> inter-chain z blocks
+decorrelating inside the trunk loop (PCC 0.72-0.81) while intra-chain stayed >0.99 ->
+MSA-module Z-update 16x worse than the CPU-bf16 floor -> OPM internals bisect found
+the unscaled bias. Fix: `OuterProductMean(scale_bias=True)` for OF3's MSA module
+(`tt_bio/tenstorrent.py`, `openfold3_msa_embedder.py`). Post-fix: OPM update PCC
+0.885 -> 0.99998; `z_after_msa` inter-block 0.9995-1.0 every cycle; the previously
+xfailed MSA device tests pass un-xfailed. **9BK6 end-to-end: cross-RMSD mean 1.56 A
+(min 1.08, max 2.33) vs the CPU reference, cross/floor 1.20.**
+
+**2. Confidence-head representative atoms.** The head's pairformer distance
+embedding was fed `token_center_atom` coords (CA/C1') where the reference
+`get_token_representative_atoms` uses CB (CA for glycine), C4/C2 for
+purine/pyrimidine, first atom for ligands. The ~1.5 A CB-vs-CA shift flips contact
+pairs across distance-bin edges; through the confidence pairformer that
+miscalibrated every confidence output (device pLDDT 63.7 / pTM 0.57 / ipTM 0.51 on a
+structure 1.56 A from the reference whose own metrics are 87.8 / 0.82 / 0.77). The
+device ops themselves were exact (z-path 0.99994-0.99999 per block from the
+reference's captured stack input). Fix: the fold calls the vendored
+`get_token_representative_atoms` directly. Post-fix on identical inputs the device
+head matches the reference head to 0.001 pTM (zij_conf / pae_logits PCC
+0.99998-0.99999, plddt_logits 1.0).
+
+Also this pass: the OF3 predict path now **rejects yaml `constraints:` blocks**
+(covalent bonds) with a named error instead of silently folding without them
+(`_validate_openfold3_constraints`, tested in `test_openfold3_cli.py`).
+
+## Capability coverage (R3) — the complete-port table
+
+Enumerated against the upstream input schema
+(`of3_all_atom/config/inference_query_format.py`) and output surface. Every
+UNSUPPORTED row is a loud error, verified by running it; nothing silently degrades.
+
+| capability | status | evidence / error |
+|---|---|---|
+| protein chains | **ported, parity-gated** | ubq / prot / 9bk6 gate legs; 4-target accuracy panel (P13) |
+| multi-chain complexes | **ported, parity-gated** | 9BK6 heterodimer: cross-RMSD 1.56 A mean, cross/floor 1.20 (P14, above) |
+| RNA | **ported, folds e2e** | 35-nt RNA via CLI: status ok, pLDDT 0.508 (pass 3; `d57e479e` fixed the protein-only representative mask) |
+| DNA | **ported, folds e2e** | 24-nt DNA via CLI: status ok, pLDDT 0.849 (pass 4) |
+| ligands (SMILES/CCD) | **UNSUPPORTED — loud error** | `--model openfold3 is polymer-only for now (chain(s) ['L'] are ligands); see docs/openfold3-port.md.` (`_validate_openfold3_chains`, tested) |
+| covalent bonds / modifications | **UNSUPPORTED — loud error** | `--model openfold3 does not port covalent bonds yet (got N constraint(s) ...); the fold would silently ignore them.` (`_validate_openfold3_constraints`, tested) |
+| templates | **ported, on/off differ** | yaml `templates:` per chain (alignment npz, the upstream benchmark cache format); structures prefetched from RCSB with a hard error naming any missing CIF. 7XI5 on-vs-off folds differ (0.052 A Ca-RMSD, pTM 0.583 vs 0.577; were bit-identical before `41a32756`). Templates-ON reference-parity leg: see the 7xi5 fixtures |
+| MSA modes | **ported** | per-chain yaml `msa:` (file or benchmark dir), shared hash-cache search (`--use_msa_server`/db), `--msa_cache_only` (cache only), `--single_sequence` (no MSA; `use_msas=False`). MSA requested but unresolvable raises rather than folding single-sequence silently |
+| paired MSA | **not ported — documented** | `use_paired_msas: False` hard-coded; complexes fold on per-chain (unpaired) MSAs. 9BK6 parity above is achieved unpaired |
+| outputs | **all ported** | ranked CIF ensemble + `results.json` (structure, pLDDT, pTM, ipTM, ranking score); `--write_pae` writes `<stem>_pae.npz` (PAE + PDE); distogram + experimentally_resolved heads ported and PCC-gated (P10) |
+| recycling | **ported** | `num_cycles = recycling_steps + 1`, default 4 cycles (upstream default), verified P13 |
+| sample ranking | **ported** | confidence-selected best-of-N by `0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 clash` (the OF3 rule), all samples kept |
+| multicard `--devices` | **ported** | rides the shared `_local_workers` fan-out like protenix-v2 (R4 numbers in `docs/perf_baselines.json`) |
+| `--fast` | **not applicable** | no bf8 trunk path exists for OF3; the flag is a Boltz-2/Protenix lever, stated here so it is not read as a gap |

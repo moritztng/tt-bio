@@ -1,0 +1,506 @@
+# STOCKHOLM 1.0
+
+#=GS UniRef90_UPI0009445151/1-65    DE [subseq from] Transcriptional regulator n=1 Tax=Pseudomonas citronellolis TaxID=53408 RepID=UPI0009445151
+#=GS UniRef90_UPI00187886D3/1-58    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Laribacter hongkongensis TaxID=168471 RepID=UPI00187886D3
+#=GS UniRef90_UPI0031B6BA32/7-64    DE [subseq from] helix-turn-helix domain-containing protein n=2 Tax=Pseudomonas aeruginosa TaxID=287 RepID=UPI0031B6BA32
+#=GS UniRef90_UPI0007A7539B/4-57    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Marinobacter salarius TaxID=1420917 RepID=UPI0007A7539B
+#=GS UniRef90_UPI0009A45852/2-60    DE [subseq from] helix-turn-helix domain-containing protein n=2 Tax=Pseudomonas aeruginosa TaxID=287 RepID=UPI0009A45852
+#=GS UniRef90_A0A3S0XK31/13-70      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Variovorax guangxiensis TaxID=1775474 RepID=A0A3S0XK31_9BURK
+#=GS UniRef90_UPI0025887CB5/3-57    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Pseudomonas sp. TaxID=306 RepID=UPI0025887CB5
+#=GS UniRef90_A0AA96IWY6/17-77      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Dyella sp. BiH032 TaxID=3075430 RepID=A0AA96IWY6_9GAMM
+#=GS UniRef90_A0AA96IWY6/88-143     DE [subseq from] XRE family transcriptional regulator n=1 Tax=Dyella sp. BiH032 TaxID=3075430 RepID=A0AA96IWY6_9GAMM
+#=GS UniRef90_UPI00045B7EDE/3-57    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Bordetella hinzii TaxID=103855 RepID=UPI00045B7EDE
+#=GS UniRef90_A0A4Q5NHY7/12-70      DE [subseq from] XRE family transcriptional regulator n=1 Tax=bacterium TaxID=1869227 RepID=A0A4Q5NHY7_UNCXX
+#=GS UniRef90_UPI002861BFC5/6-64    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Caballeronia sp. LP003 TaxID=3038551 RepID=UPI002861BFC5
+#=GS UniRef90_UPI0018D6FCCB/2-62    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Pseudomonas mosselii TaxID=78327 RepID=UPI0018D6FCCB
+#=GS UniRef90_A0A939GYU4/2-59       DE [subseq from] Helix-turn-helix domain-containing protein n=3 Tax=Pseudomonadota TaxID=1224 RepID=A0A939GYU4_9BURK
+#=GS UniRef90_A0A974RWB0/95-152     DE [subseq from] HTH cro/C1-type domain-containing protein n=2 Tax=Entomomonas TaxID=2758906 RepID=A0A974RWB0_9GAMM
+#=GS UniRef90_A0A974RWB0/164-221    DE [subseq from] HTH cro/C1-type domain-containing protein n=2 Tax=Entomomonas TaxID=2758906 RepID=A0A974RWB0_9GAMM
+#=GS UniRef90_UPI002FC35AE0/13-69   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Candidatus Accumulibacter contiguus TaxID=2954381 RepID=UPI002FC35AE0
+#=GS UniRef90_UPI000718DB09/11-65   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Aquabacterium parvum TaxID=70584 RepID=UPI000718DB09
+#=GS UniRef90_A0A2N0VUD3/2-55       DE [subseq from] Transcriptional regulator n=1 Tax=Rahnella sp. AA TaxID=2057180 RepID=A0A2N0VUD3_9GAMM
+#=GS UniRef90_A0A7L5YIF8/23-77      DE [subseq from] Helix-turn-helix domain-containing protein n=2 Tax=Thiobacillus sp. TaxID=924 RepID=A0A7L5YIF8_9PROT
+#=GS UniRef90_A0A9D9S414/3-58       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Azonexus sp. TaxID=1872668 RepID=A0A9D9S414_9RHOO
+#=GS UniRef90_UPI0025EFF968/15-70   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Propionivibrio sp. TaxID=2212460 RepID=UPI0025EFF968
+#=GS UniRef90_UPI0011D8F8A0/17-72   DE [subseq from] hypothetical protein n=1 Tax=Thiobacillus sp. TaxID=924 RepID=UPI0011D8F8A0
+#=GS UniRef90_A0A1G0N9K3/17-73      DE [subseq from] HTH cro/C1-type domain-containing protein n=4 Tax=Pseudomonadota TaxID=1224 RepID=A0A1G0N9K3_9PROT
+#=GS UniRef90_UPI001ADED978/13-69   DE [subseq from] helix-turn-helix transcriptional regulator n=2 Tax=Pseudomonas TaxID=286 RepID=UPI001ADED978
+#=GS UniRef90_A0A522FG96/14-70      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Burkholderiaceae bacterium TaxID=2030806 RepID=A0A522FG96_9BURK
+#=GS UniRef90_UPI0009709186/15-70   DE [subseq from] hypothetical protein n=1 Tax=Janthinobacterium sp. TND4EL3 TaxID=1907311 RepID=UPI0009709186
+#=GS UniRef90_UPI0026086B44/2-60    DE [subseq from] helix-turn-helix domain-containing protein n=2 Tax=Caballeronia TaxID=1827195 RepID=UPI0026086B44
+#=GS UniRef90_A0A2U7XXE3/11-65      DE [subseq from] XRE family transcriptional regulator n=2 Tax=Enterobacterales TaxID=91347 RepID=A0A2U7XXE3_KLEPN
+#=GS UniRef90_UPI000A37C7CA/3-63    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Acetobacter sp. DsW_063 TaxID=1514894 RepID=UPI000A37C7CA
+#=GS UniRef90_A0A947V985/3-55       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Gammaproteobacteria bacterium TaxID=1913989 RepID=A0A947V985_9GAMM
+#=GS UniRef90_UPI001CBBBC72/4-58    DE [subseq from] hypothetical protein n=1 Tax=Serratia sp. JSRIV002 TaxID=2831894 RepID=UPI001CBBBC72
+#=GS UniRef90_A0A7G5BB31/7-60       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Ralstonia phage Hyacinthe TaxID=2759731 RepID=A0A7G5BB31_9CAUD
+#=GS UniRef90_A0A261S605/9-62       DE [subseq from] Transcriptional regulator n=1 Tax=Bordetella genomosp. 10 TaxID=1416804 RepID=A0A261S605_9BORD
+#=GS UniRef90_UPI00244C7565/13-69   DE [subseq from] XRE family transcriptional regulator n=1 Tax=Pigmentiphaga sp. GD03639 TaxID=2975354 RepID=UPI00244C7565
+#=GS UniRef90_A0A1E4UT34/12-69      DE [subseq from] Transcriptional regulator n=2 Tax=Pseudomonas TaxID=286 RepID=A0A1E4UT34_9PSED
+#=GS UniRef90_A0AAI9RSI3/14-70      DE [subseq from] Helix-turn-helix transcriptional regulator n=2 Tax=Acetobacter TaxID=434 RepID=A0AAI9RSI3_9PROT
+#=GS UniRef90_UPI0031E66902/5-60    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Pigmentiphaga soli TaxID=1007095 RepID=UPI0031E66902
+#=GS UniRef90_UPI000949F0D0/16-69   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Xanthomonas oryzae TaxID=347 RepID=UPI000949F0D0
+#=GS UniRef90_UPI000A1A2328/7-60    DE [subseq from] helix-turn-helix domain-containing protein n=3 Tax=Burkholderia pseudomallei TaxID=28450 RepID=UPI000A1A2328
+#=GS UniRef90_E6QWB6/16-72          DE [subseq from] XRE family transcriptional regulator n=1 Tax=mine drainage metagenome TaxID=410659 RepID=E6QWB6_9ZZZZ
+#=GS UniRef90_UPI0018D00983/4-57    DE [subseq from] hypothetical protein n=1 Tax=Salmonella enterica TaxID=28901 RepID=UPI0018D00983
+#=GS UniRef90_UPI001F483B8D/13-75   DE [subseq from] hypothetical protein n=1 Tax=Paraburkholderia TaxID=1822464 RepID=UPI001F483B8D
+#=GS UniRef90_A0A1W6STN4/6-60       DE [subseq from] Transcriptional regulator n=1 Tax=Nitrosospira lacus TaxID=1288494 RepID=A0A1W6STN4_9PROT
+#=GS UniRef90_UPI001CF10077/9-63    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Burkholderia metallica TaxID=488729 RepID=UPI001CF10077
+#=GS UniRef90_UPI0004794A8E/7-62    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Alcaligenes phenolicus TaxID=232846 RepID=UPI0004794A8E
+#=GS UniRef90_A0A368U993/9-64       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Halomonas rituensis TaxID=2282306 RepID=A0A368U993_9GAMM
+#=GS UniRef90_UPI000949E918/15-72   DE [subseq from] hypothetical protein n=1 Tax=Xanthomonas oryzae TaxID=347 RepID=UPI000949E918
+#=GS UniRef90_UPI002D803D93/2-59    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Burkholderia pseudomallei TaxID=28450 RepID=UPI002D803D93
+#=GS UniRef90_UPI000F7FD73B/5-64    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Burkholderia ambifaria TaxID=152480 RepID=UPI000F7FD73B
+#=GS UniRef90_UPI0026498190/8-63    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Variovorax sp. CAN15 TaxID=3046727 RepID=UPI0026498190
+#=GS UniRef90_A0A9D9WTN5/2-56       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Azonexus sp. TaxID=1872668 RepID=A0A9D9WTN5_9RHOO
+#=GS UniRef90_A0A522ZMR5/8-62       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Nevskiaceae bacterium TaxID=1969813 RepID=A0A522ZMR5_9GAMM
+#=GS UniRef90_UPI00097758F3/6-60    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Burkholderia pseudomallei TaxID=28450 RepID=UPI00097758F3
+#=GS UniRef90_A0A369VPR3/7-61       DE [subseq from] XRE family transcriptional regulator n=5 Tax=Comamonadaceae TaxID=80864 RepID=A0A369VPR3_9BURK
+#=GS UniRef90_UPI0010A89AFF/6-60    DE [subseq from] helix-turn-helix domain-containing protein n=4 Tax=Burkholderia pseudomallei TaxID=28450 RepID=UPI0010A89AFF
+#=GS UniRef90_UPI003002D6E8/7-61    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Halopseudomonas sp. TaxID=2901191 RepID=UPI003002D6E8
+#=GS UniRef90_A0A1H2LTF5/15-72      DE [subseq from] Helix-turn-helix domain-containing protein n=2 Tax=Pseudomonadaceae TaxID=135621 RepID=A0A1H2LTF5_9PSED
+#=GS UniRef90_A0A1H7TMG9/8-63       DE [subseq from] Helix-turn-helix domain-containing protein n=7 Tax=Comamonadaceae TaxID=80864 RepID=A0A1H7TMG9_9BURK
+#=GS UniRef90_A0A157S4S1/8-62       DE [subseq from] Transcriptional regulator n=2 Tax=Bordetella ansorpii TaxID=288768 RepID=A0A157S4S1_9BORD
+#=GS UniRef90_A0A1H6ZDT5/8-61       DE [subseq from] Helix-turn-helix domain-containing protein n=2 Tax=Burkholderiales TaxID=80840 RepID=A0A1H6ZDT5_9BURK
+#=GS UniRef90_A0A315EEX5/4-59       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Limnohabitans parvus II-B4 TaxID=1293052 RepID=A0A315EEX5_9BURK
+#=GS UniRef90_A0A858ZX07/8-61       DE [subseq from] Helix-turn-helix transcriptional regulator n=2 Tax=Comamonadaceae TaxID=80864 RepID=A0A858ZX07_9BURK
+#=GS UniRef90_UPI001EE843D5/8-62    DE [subseq from] YdiL family protein n=1 Tax=Paenalcaligenes niemegkensis TaxID=2895469 RepID=UPI001EE843D5
+#=GS UniRef90_UPI00289EFDAD/4-59    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Limnohabitans sp. TaxID=1907725 RepID=UPI00289EFDAD
+#=GS UniRef90_A0A1G0CSR6/14-74      DE [subseq from] Transcriptional regulator n=1 Tax=Gallionellales bacterium GWA2_59_43 TaxID=1798245 RepID=A0A1G0CSR6_9PROT
+#=GS UniRef90_UPI0028A96D6F/7-58    DE [subseq from] hypothetical protein n=1 Tax=Stutzerimonas kunmingensis TaxID=1211807 RepID=UPI0028A96D6F
+#=GS UniRef90_UPI0028A96D6F/72-131  DE [subseq from] hypothetical protein n=1 Tax=Stutzerimonas kunmingensis TaxID=1211807 RepID=UPI0028A96D6F
+#=GS UniRef90_UPI0028806978/47-101  DE [subseq from] helix-turn-helix domain-containing protein n=2 Tax=Burkholderia pseudomallei TaxID=28450 RepID=UPI0028806978
+#=GS UniRef90_A0A1H0WTS4/9-62       DE [subseq from] Helix-turn-helix domain-containing protein n=2 Tax=Paracidovorax cattleyae TaxID=80868 RepID=A0A1H0WTS4_9BURK
+#=GS UniRef90_A0A315CYQ5/4-59       DE [subseq from] Transcriptional regulator n=1 Tax=Limnohabitans sp. Hippo3 TaxID=1597956 RepID=A0A315CYQ5_9BURK
+#=GS UniRef90_A0A3D1JT91/8-61       DE [subseq from] Transcriptional regulator n=1 Tax=Comamonadaceae bacterium TaxID=1871071 RepID=A0A3D1JT91_9BURK
+#=GS UniRef90_A0A1D2S7X2/9-61       DE [subseq from] HTH cro/C1-type domain-containing protein n=2 Tax=Comamonadaceae TaxID=80864 RepID=A0A1D2S7X2_9BURK
+#=GS UniRef90_UPI0025C1C862/8-61    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Acidovorax sp. TaxID=1872122 RepID=UPI0025C1C862
+#=GS UniRef90_A0AAI8K5D8/6-61       DE [subseq from] Transcriptional regulator n=2 Tax=Paraburkholderia TaxID=1822464 RepID=A0AAI8K5D8_9BURK
+#=GS UniRef90_UPI000978C5FF/15-71   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Burkholderia pseudomallei TaxID=28450 RepID=UPI000978C5FF
+#=GS UniRef90_UPI001B33B242/4-60    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Acidovorax sp. JG5 TaxID=2822718 RepID=UPI001B33B242
+#=GS UniRef90_UPI00161E495A/6-61    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Cupriavidus alkaliphilus TaxID=942866 RepID=UPI00161E495A
+#=GS UniRef90_A0A5B0HL26/6-61       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Paraburkholderia panacisoli TaxID=2603818 RepID=A0A5B0HL26_9BURK
+#=GS UniRef90_UPI0005DC7B4A/8-61    DE [subseq from] helix-turn-helix transcriptional regulator n=2 Tax=Burkholderiales TaxID=80840 RepID=UPI0005DC7B4A
+#=GS UniRef90_A0A3M2H4I4/7-62       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Pseudomonas sp. AOB-7 TaxID=2482750 RepID=A0A3M2H4I4_9PSED
+#=GS UniRef90_A1WSX1/10-69          DE [subseq from] Transcriptional regulator, XRE family n=2 Tax=Verminephrobacter eiseniae TaxID=364317 RepID=A1WSX1_VEREI
+#=GS UniRef90_A0A7Y2JCW8/3-57       DE [subseq from] Helix-turn-helix transcriptional regulator n=1 Tax=Flavobacteriaceae bacterium TaxID=1871037 RepID=A0A7Y2JCW8_9FLAO
+#=GS UniRef90_UPI001F5036FE/3-59    DE [subseq from] RES domain-containing protein n=2 Tax=Enterobacterales TaxID=91347 RepID=UPI001F5036FE
+#=GS UniRef90_A0A2T0XQ96/134-187    DE [subseq from] Uncharacterized protein n=1 Tax=Jezberella montanilacus TaxID=323426 RepID=A0A2T0XQ96_9BURK
+#=GS UniRef90_UPI0001DA0B32/6-59    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Alicycliphilus denitrificans TaxID=179636 RepID=UPI0001DA0B32
+#=GS UniRef90_E5AW58/15-69          DE [subseq from] Transcriptional regulator n=5 Tax=Burkholderiales TaxID=80840 RepID=E5AW58_MYCRK
+#=GS UniRef90_UPI00053D5190/8-62    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Pseudomonadaceae TaxID=135621 RepID=UPI00053D5190
+#=GS UniRef90_A0A524Q6T2/17-70      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Xanthomonadales bacterium TaxID=2006849 RepID=A0A524Q6T2_9GAMM
+#=GS UniRef90_UPI0025DC63E5/7-66    DE [subseq from] hypothetical protein n=1 Tax=Nevskia sp. TaxID=1929292 RepID=UPI0025DC63E5
+#=GS UniRef90_UPI001916727C/2-56    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Dyella sp. EPa41 TaxID=1561194 RepID=UPI001916727C
+#=GS UniRef90_A0A7Z7BIF7/12-67      DE [subseq from] Helix-turn-helix domain n=1 Tax=Paraburkholderia steynii TaxID=1245441 RepID=A0A7Z7BIF7_9BURK
+#=GS UniRef90_UPI003016D59F/2-53    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Mycetohabitans sp. B2 TaxID=2841274 RepID=UPI003016D59F
+#=GS UniRef90_A0A5C7QAA5/13-70      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Desulfurellales bacterium TaxID=2482794 RepID=A0A5C7QAA5_9BACT
+#=GS UniRef90_UPI0025C216D5/4-59    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Limnohabitans sp. TaxID=1907725 RepID=UPI0025C216D5
+#=GS UniRef90_A0A410GCF1/9-62       DE [subseq from] Transcriptional regulator n=3 Tax=Alcaligenaceae TaxID=506 RepID=A0A410GCF1_9BURK
+#=GS UniRef90_UPI00248F5DF0/5-61    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Enterococcus dispar TaxID=44009 RepID=UPI00248F5DF0
+#=GS UniRef90_A0A4U8VB32/9-63       DE [subseq from] Transcriptional regulator n=1 Tax=Burkholderiaceae bacterium PBA TaxID=795666 RepID=A0A4U8VB32_9BURK
+#=GS UniRef90_A0A208XII9/11-63      DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Pigmentiphaga sp. NML080357 TaxID=2008675 RepID=A0A208XII9_9BURK
+#=GS UniRef90_UPI00075BBB99/6-60    DE [subseq from] transcriptional regulator n=1 Tax=Burkholderia ubonensis TaxID=101571 RepID=UPI00075BBB99
+#=GS UniRef90_A0A315DGR4/4-59       DE [subseq from] Transcriptional regulator n=1 Tax=Limnohabitans sp. Hippo3 TaxID=1597956 RepID=A0A315DGR4_9BURK
+#=GS UniRef90_UPI0022EB3E3F/15-72   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Burkholderia pseudomallei TaxID=28450 RepID=UPI0022EB3E3F
+#=GS UniRef90_UPI0010620801/3-60    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Azoarcus indigens TaxID=29545 RepID=UPI0010620801
+#=GS UniRef90_A0AAE4GA18/3-56       DE [subseq from] XRE family transcriptional regulator n=2 Tax=Herbaspirillum huttiense TaxID=863372 RepID=A0AAE4GA18_9BURK
+#=GS UniRef90_UPI0012BCABF5/7-62    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Parazoarcus communis TaxID=41977 RepID=UPI0012BCABF5
+#=GS UniRef90_UPI0022650507/11-63   DE [subseq from] hypothetical protein n=1 Tax=Dyella silvae TaxID=2994424 RepID=UPI0022650507
+#=GS UniRef90_A0A853FZ56/7-62       DE [subseq from] Helix-turn-helix transcriptional regulator n=1 Tax=Parapusillimonas granuli TaxID=380911 RepID=A0A853FZ56_9BURK
+#=GS UniRef90_A0A7K0PPV6/4-59       DE [subseq from] Helix-turn-helix domain-containing protein n=2 Tax=root TaxID=1 RepID=A0A7K0PPV6_UNCAC
+#=GS UniRef90_UPI002942BED1/3-57    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Paracidovorax avenae TaxID=80867 RepID=UPI002942BED1
+#=GS UniRef90_A0A7Z0MER1/8-62       DE [subseq from] Helix-turn-helix transcriptional regulator n=2 Tax=Betaproteobacteria TaxID=28216 RepID=A0A7Z0MER1_9BURK
+#=GS UniRef90_UPI003119AC39/2-40    DE [subseq from] hypothetical protein n=1 Tax=Thermithiobacillus plumbiphilus TaxID=1729899 RepID=UPI003119AC39
+#=GS UniRef90_A0A1E7YZJ3/15-70      DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Acidithiobacillus caldus TaxID=33059 RepID=A0A1E7YZJ3_9PROT
+#=GS UniRef90_A0A4D7DA21/15-67      DE [subseq from] Helix-turn-helix transcriptional regulator n=1 Tax=Novosphingobium sp. EMRT-2 TaxID=2571749 RepID=A0A4D7DA21_9SPHN
+#=GS UniRef90_A0A4D7DA21/79-125     DE [subseq from] Helix-turn-helix transcriptional regulator n=1 Tax=Novosphingobium sp. EMRT-2 TaxID=2571749 RepID=A0A4D7DA21_9SPHN
+#=GS UniRef90_A0A7Y4XXK0/4-55       DE [subseq from] Helix-turn-helix transcriptional regulator n=1 Tax=Methylococcaceae bacterium TaxID=1933926 RepID=A0A7Y4XXK0_9GAMM
+#=GS UniRef90_A0A967B8U6/39-94      DE [subseq from] Helix-turn-helix domain-containing protein n=2 Tax=Acetobacter estunensis TaxID=104097 RepID=A0A967B8U6_9PROT
+#=GS UniRef90_A0A1I3MCR6/12-70      DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Nitrosomonas sp. Nm34 TaxID=1881055 RepID=A0A1I3MCR6_9PROT
+#=GS UniRef90_A0A9E0P957/5-57       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Laribacter sp. TaxID=2818474 RepID=A0A9E0P957_9NEIS
+#=GS UniRef90_A0A373FCW7/4-45       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Comamonas testosteroni TaxID=285 RepID=A0A373FCW7_COMTE
+#=GS UniRef90_UPI00261C4B26/2-65    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Aquabacterium sp. TaxID=1872578 RepID=UPI00261C4B26
+#=GS UniRef90_UPI003172E62B/13-68   DE [subseq from] XRE family transcriptional regulator n=1 Tax=Paraburkholderia azotifigens TaxID=2057004 RepID=UPI003172E62B
+#=GS UniRef90_A0A0A1H0I9/14-74      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Burkholderiales bacterium GJ-E10 TaxID=1469502 RepID=A0A0A1H0I9_9BURK
+#=GS UniRef90_A0A315C3J2/4-59       DE [subseq from] HTH cro/C1-type domain-containing protein n=2 Tax=unclassified Limnohabitans TaxID=2626134 RepID=A0A315C3J2_9BURK
+#=GS UniRef90_UPI0019D2C0C6/7-62    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Methylicorpusculum TaxID=2713642 RepID=UPI0019D2C0C6
+#=GS UniRef90_UPI0003F5378F/16-69   DE [subseq from] hypothetical protein n=1 Tax=Ralstonia insidiosa TaxID=190721 RepID=UPI0003F5378F
+#=GS UniRef90_UPI00078468CC/10-62   DE [subseq from] helix-turn-helix transcriptional regulator n=3 Tax=Acetobacteraceae TaxID=433 RepID=UPI00078468CC
+#=GS UniRef90_UPI000F8E3911/3-56    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Candidatus Methylobacter oryzae TaxID=2497749 RepID=UPI000F8E3911
+#=GS UniRef90_A0A259PKG9/4-55       DE [subseq from] Transcriptional regulator n=1 Tax=Polynucleobacter sp. 39-45-136 TaxID=1970427 RepID=A0A259PKG9_9BURK
+#=GS UniRef90_A0A540V322/2-56       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Spiribacter salinus TaxID=1335746 RepID=A0A540V322_9GAMM
+#=GS UniRef90_UPI001923082F/11-62   DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Gluconobacter sp. Gdi TaxID=2691888 RepID=UPI001923082F
+#=GS UniRef90_UPI0025F524C8/2-46    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Noviherbaspirillum sp. TaxID=1926288 RepID=UPI0025F524C8
+#=GS UniRef90_A0A961T6M4/2-38       DE [subseq from] Uncharacterized protein n=1 Tax=Rhizobiaceae bacterium TaxID=1913961 RepID=A0A961T6M4_9HYPH
+#=GS UniRef90_UPI0008FE3070/18-71   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Burkholderia ubonensis TaxID=101571 RepID=UPI0008FE3070
+#=GS UniRef90_A0A9Q2ITD9/15-66      DE [subseq from] Helix-turn-helix transcriptional regulator n=2 Tax=Gluconobacter TaxID=441 RepID=A0A9Q2ITD9_GLUJA
+#=GS UniRef90_A0A9E0KBH4/5-58       DE [subseq from] Helix-turn-helix transcriptional regulator n=1 Tax=Laribacter sp. TaxID=2818474 RepID=A0A9E0KBH4_9NEIS
+#=GS UniRef90_C6BPB6/16-70          DE [subseq from] XRE family transcriptional regulator n=3 Tax=Ralstonia pickettii TaxID=329 RepID=C6BPB6_RALP1
+#=GS UniRef90_UPI0021E7FE86/3-57    DE [subseq from] hypothetical protein n=2 Tax=Pantoea TaxID=53335 RepID=UPI0021E7FE86
+#=GS UniRef90_UPI001B8CF933/10-61   DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Gluconobacter TaxID=441 RepID=UPI001B8CF933
+#=GS UniRef90_A0A1J4YV52/7-68       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Zetaproteobacteria bacterium CG1_02_53_45 TaxID=1805427 RepID=A0A1J4YV52_9PROT
+#=GS UniRef90_A0A3G2HSZ8/9-63       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Alcaligenes aquatilis TaxID=323284 RepID=A0A3G2HSZ8_9BURK
+#=GS UniRef90_UPI0007874C2D/2-56    DE [subseq from] DNA (cytosine-5-)-methyltransferase n=1 Tax=Photobacterium sanguinicancri TaxID=875932 RepID=UPI0007874C2D
+#=GS UniRef90_UPI0002669A41/14-67   DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Paraburkholderia hospita TaxID=169430 RepID=UPI0002669A41
+#=GS UniRef90_UPI000A4C5489/3-57    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Acetobacter oryzifermentans TaxID=1633874 RepID=UPI000A4C5489
+#=GS UniRef90_UPI00105000FF/5-66    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Paraburkholderia sp. BL8N3 TaxID=1938808 RepID=UPI00105000FF
+#=GS UniRef90_A0A365QWX3/22-77      DE [subseq from] XRE family transcriptional regulator n=2 Tax=Burkholderia reimsis TaxID=2234132 RepID=A0A365QWX3_9BURK
+#=GS UniRef90_A0A6J5MLJ2/2-55       DE [subseq from] HTH_XRE domain containing protein n=1 Tax=uncultured Caudovirales phage TaxID=2100421 RepID=A0A6J5MLJ2_9CAUD
+#=GS UniRef90_UPI001E657FB2/2-55    DE [subseq from] DNA (cytosine-5-)-methyltransferase n=3 Tax=Photobacterium TaxID=657 RepID=UPI001E657FB2
+#=GS UniRef90_UPI000D16194A/2-55    DE [subseq from] DNA (cytosine-5-)-methyltransferase n=1 Tax=Photobacterium phosphoreum TaxID=659 RepID=UPI000D16194A
+#=GS UniRef90_UPI001FFD4270/6-61    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Pseudomonas sp. PNPG3 TaxID=2919497 RepID=UPI001FFD4270
+#=GS UniRef90_UPI0010BFFAA2/4-54    DE [subseq from] DNA (cytosine-5-)-methyltransferase n=1 Tax=Shewanella sp. MEBiC00475 TaxID=2575361 RepID=UPI0010BFFAA2
+#=GS UniRef90_A0A1Z5YRN5/3-58       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Acetobacter cibinongensis TaxID=146475 RepID=A0A1Z5YRN5_9PROT
+#=GS UniRef90_UPI000ADEBAAD/7-61    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Pseudomonas TaxID=286 RepID=UPI000ADEBAAD
+#=GS UniRef90_A0A432XXP2/9-54       DE [subseq from] Cytosine-specific methyltransferase n=1 Tax=Pseudidiomarina homiensis TaxID=364198 RepID=A0A432XXP2_9GAMM
+#=GS UniRef90_Q5QUQ6/5-54           DE [subseq from] Cytosine-specific methyltransferase n=1 Tax=Idiomarina loihiensis (strain ATCC BAA-735 / DSM 15497 / L2-TR) TaxID=283942 RepID=Q5QUQ6_IDILO
+#=GS UniRef90_UPI000534E3C8/4-57    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Pantoea stewartii TaxID=66269 RepID=UPI000534E3C8
+#=GS UniRef90_UPI0022AEAFA3/7-62    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Oxalobacter formigenes TaxID=847 RepID=UPI0022AEAFA3
+#=GS UniRef90_UPI002072ACF4/17-74   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Achromobacter sp. Marseille-Q4962 TaxID=2942202 RepID=UPI002072ACF4
+#=GS UniRef90_A0A2E7F0V5/23-68      DE [subseq from] Transcriptional regulator n=2 Tax=Pseudomonadota TaxID=1224 RepID=A0A2E7F0V5_9PROT
+#=GS UniRef90_UPI00163B4524/5-61    DE [subseq from] helix-turn-helix transcriptional regulator n=4 Tax=Pseudomonas TaxID=286 RepID=UPI00163B4524
+#=GS UniRef90_UPI00200BBA48/16-67   DE [subseq from] hypothetical protein n=1 Tax=Marinobacter sp. M3C TaxID=2917715 RepID=UPI00200BBA48
+#=GS UniRef90_A0A351MDQ8/8-51       DE [subseq from] Transcriptional regulator n=1 Tax=Gammaproteobacteria bacterium TaxID=1913989 RepID=A0A351MDQ8_9GAMM
+#=GS UniRef90_A0AA91KDB9/18-71      DE [subseq from] Transcriptional regulator n=1 Tax=Salinivibrio sp. IB872 TaxID=1766123 RepID=A0AA91KDB9_9GAMM
+#=GS UniRef90_A0A269XXI5/3-57       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Acetobacter fabarum TaxID=483199 RepID=A0A269XXI5_9PROT
+#=GS UniRef90_A0A545THD9/5-58       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Aliikangiella marina TaxID=1712262 RepID=A0A545THD9_9GAMM
+#=GS UniRef90_A0A2K4ICG0/8-61       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Pseudomonas sp. MPR-ANC1 TaxID=2075548 RepID=A0A2K4ICG0_9PSED
+#=GS UniRef90_A0A9X8MH35/14-64      DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Pseudomonas lutea TaxID=243924 RepID=A0A9X8MH35_9PSED
+#=GS UniRef90_A0A1V5QJD2/3-57       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Betaproteobacteria bacterium ADurb.Bin341 TaxID=1852821 RepID=A0A1V5QJD2_9PROT
+#=GS UniRef90_A0A105KTN5/18-71      DE [subseq from] XRE family transcriptional regulator n=7 Tax=Burkholderia TaxID=32008 RepID=A0A105KTN5_9BURK
+#=GS UniRef90_UPI002981A09A/19-64   DE [subseq from] hypothetical protein n=1 Tax=Photobacterium leiognathi TaxID=553611 RepID=UPI002981A09A
+#=GS UniRef90_A0A7W4FBR7/1-59       DE [subseq from] Helix-turn-helix transcriptional regulator n=1 Tax=Gluconacetobacter diazotrophicus TaxID=33996 RepID=A0A7W4FBR7_GLUDI
+#=GS UniRef90_A0A849REX9/3-63       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Methyloglobulus sp. TaxID=2518622 RepID=A0A849REX9_9GAMM
+#=GS UniRef90_A0A9W6JM79/14-73      DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Methylopila jiangsuensis TaxID=586230 RepID=A0A9W6JM79_9HYPH
+#=GS UniRef90_A0AA90T3W4/6-63       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Massilia sp. CCM 9029 TaxID=3057166 RepID=A0AA90T3W4_9BURK
+#=GS UniRef90_UPI002351C116/4-57    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Aristophania vespae TaxID=2697033 RepID=UPI002351C116
+#=GS UniRef90_A0A9E6AVR3/4-60       DE [subseq from] Cytosine-specific methyltransferase (Fragment) n=1 Tax=Hyphomicrobiales bacterium TaxID=1909294 RepID=A0A9E6AVR3_9HYPH
+#=GS UniRef90_T0YIS2/67-116         DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=mine drainage metagenome TaxID=410659 RepID=T0YIS2_9ZZZZ
+#=GS UniRef90_A0A494X502/2-61       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Pararobbsia silviterrae TaxID=1792498 RepID=A0A494X502_9BURK
+#=GS UniRef90_UPI001786C2D7/13-66   DE [subseq from] hypothetical protein n=1 Tax=Pseudomonas TaxID=286 RepID=UPI001786C2D7
+#=GS UniRef90_UPI00259087B1/2-40    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Diaphorobacter sp. TaxID=1934310 RepID=UPI00259087B1
+#=GS UniRef90_A0A1J5IEH3/45-86      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Thiomicrospira sp. CG2_30_44_34 TaxID=1805397 RepID=A0A1J5IEH3_9GAMM
+#=GS UniRef90_A0A1L7NPV9/10-64      DE [subseq from] XRE family transcriptional regulator n=2 Tax=Pseudomonas TaxID=286 RepID=A0A1L7NPV9_PSEPU
+#=GS UniRef90_UPI002653D157/10-65   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Acetobacter senegalensis TaxID=446692 RepID=UPI002653D157
+#=GS UniRef90_A0A942PTB5/4-60       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Sulfuricella sp. TaxID=2099377 RepID=A0A942PTB5_9PROT
+#=GS UniRef90_A0A6G5Y3S0/172-225    DE [subseq from] Cro/C1-type helix-turn-helix domain protein n=1 Tax=Caudoviricetes sp. TaxID=2832643 RepID=A0A6G5Y3S0_9CAUD
+#=GS UniRef90_UPI00037D9352/13-63   DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Paraburkholderia TaxID=1822464 RepID=UPI00037D9352
+#=GS UniRef90_A0A0D6NK45/3-59       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Acetobacter orientalis TaxID=146474 RepID=A0A0D6NK45_9PROT
+#=GS UniRef90_A0A258NYP4/16-66      DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Polaromonas sp. 35-63-35 TaxID=1970418 RepID=A0A258NYP4_9BURK
+#=GS UniRef90_UPI002865E7C6/8-68    DE [subseq from] hypothetical protein n=1 Tax=Rhodoferax ferrireducens TaxID=192843 RepID=UPI002865E7C6
+#=GS UniRef90_A0A7W4IA20/2-59       DE [subseq from] Helix-turn-helix transcriptional regulator n=2 Tax=Gluconacetobacter sacchari TaxID=92759 RepID=A0A7W4IA20_9PROT
+#=GS UniRef90_UPI001CC26DBD/12-64   DE [subseq from] DNA (cytosine-5-)-methyltransferase n=2 Tax=Candidatus Enterovibrio escacola TaxID=1927127 RepID=UPI001CC26DBD
+#=GS UniRef90_A0A7W4IKS8/6-62       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Gluconacetobacter dulcium TaxID=2729096 RepID=A0A7W4IKS8_9PROT
+#=GS UniRef90_A0A2W4QUH3/19-68      DE [subseq from] XRE family transcriptional regulator (Fragment) n=1 Tax=Pseudomonadota bacterium TaxID=1977087 RepID=A0A2W4QUH3_UNCPS
+#=GS UniRef90_UPI001E58709B/67-117  DE [subseq from] hypothetical protein n=1 Tax=Marinobacter shengliensis TaxID=1389223 RepID=UPI001E58709B
+#=GS UniRef90_UPI00264FA572/5-59    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Acetobacter senegalensis TaxID=446692 RepID=UPI00264FA572
+#=GS UniRef90_A0A023D6Z5/3-57       DE [subseq from] HTH cro/C1-type domain-containing protein n=2 Tax=Acidomonas methanolica TaxID=437 RepID=A0A023D6Z5_ACIMT
+#=GS UniRef90_A0AAJ4T1E0/5-48       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Paraburkholderia hospita TaxID=169430 RepID=A0AAJ4T1E0_9BURK
+#=GS UniRef90_A0A269XXJ9/5-63       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Acetobacter fabarum TaxID=483199 RepID=A0A269XXJ9_9PROT
+#=GS UniRef90_A0A269XV29/5-56       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Acetobacter fabarum TaxID=483199 RepID=A0A269XV29_9PROT
+#=GS UniRef90_A0A6G5Y1S7/173-224    DE [subseq from] Uncharacterized protein n=1 Tax=Bacteriophage sp. TaxID=38018 RepID=A0A6G5Y1S7_9VIRU
+#=GS UniRef90_A0A023D780/38-96      DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Acidomonas methanolica NBRC 104435 TaxID=1231351 RepID=A0A023D780_ACIMT
+#=GS UniRef90_A0A269XVF3/3-57       DE [subseq from] HTH cro/C1-type domain-containing protein n=4 Tax=Acetobacter TaxID=434 RepID=A0A269XVF3_9PROT
+#=GS UniRef90_A0A7W4NVP6/5-60       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Gluconacetobacter dulcium TaxID=2729096 RepID=A0A7W4NVP6_9PROT
+#=GS UniRef90_A0A524Q118/3-53       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Xanthomonadales bacterium TaxID=2006849 RepID=A0A524Q118_9GAMM
+#=GS UniRef90_UPI0001D9E935/12-68   DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Alicycliphilus denitrificans TaxID=179636 RepID=UPI0001D9E935
+#=GS UniRef90_A0A8H9MA64/3-61       DE [subseq from] XRE family transcriptional regulator n=2 Tax=Alcaligenes pakistanensis TaxID=1482717 RepID=A0A8H9MA64_9BURK
+#=GS UniRef90_A0A495H531/12-64      DE [subseq from] Helix-turn-helix protein n=2 Tax=Comamonadaceae TaxID=80864 RepID=A0A495H531_9BURK
+#=GS UniRef90_A0A023D3G3/6-59       DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Acidomonas methanolica NBRC 104435 TaxID=1231351 RepID=A0A023D3G3_ACIMT
+#=GS UniRef90_UPI00258B50C0/4-57    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Aquamicrobium sp. TaxID=1872579 RepID=UPI00258B50C0
+#=GS UniRef90_UPI002859FF6D/3-56    DE [subseq from] hypothetical protein n=1 Tax=Rheinheimera soli TaxID=443616 RepID=UPI002859FF6D
+#=GS UniRef90_UPI000A1FEAA8/8-61    DE [subseq from] hypothetical protein n=1 Tax=unclassified Pseudomonas TaxID=196821 RepID=UPI000A1FEAA8
+#=GS UniRef90_A0A1B9JSZ9/192-246    DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=Gilliamella apicola TaxID=1196095 RepID=A0A1B9JSZ9_9GAMM
+#=GS UniRef90_A0A0F8Y0K9/17-75      DE [subseq from] HTH cro/C1-type domain-containing protein n=1 Tax=marine sediment metagenome TaxID=412755 RepID=A0A0F8Y0K9_9ZZZZ
+#=GS UniRef90_UPI001C3C3C45/8-61    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Pseudomonas azerbaijanoccidentalis TaxID=2842347 RepID=UPI001C3C3C45
+#=GS UniRef90_UPI00163E333B/9-72    DE [subseq from] hypothetical protein n=1 Tax=Burkholderia gladioli TaxID=28095 RepID=UPI00163E333B
+#=GS UniRef90_UPI0031384612/5-57    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Methyloversatilis discipulorum TaxID=1119528 RepID=UPI0031384612
+#=GS UniRef90_A0A2N6GHB0/5-65       DE [subseq from] Transcriptional regulator n=1 Tax=Sedimenticola sp. TaxID=1940285 RepID=A0A2N6GHB0_9GAMM
+#=GS UniRef90_UPI0004DF050E/37-90   DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Thiomonas sp. FB-Cd TaxID=1158292 RepID=UPI0004DF050E
+#=GS UniRef90_UPI00244C129E/179-229 DE [subseq from] MucR family transcriptional regulator n=1 Tax=Pigmentiphaga sp. GD03639 TaxID=2975354 RepID=UPI00244C129E
+#=GS UniRef90_A0A0D6NIV4/7-62       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Acetobacter orientalis TaxID=146474 RepID=A0A0D6NIV4_9PROT
+#=GS UniRef90_V5YMX4/9-72           DE [subseq from] XRE family transcriptional regulator n=1 Tax=Burkholderia sp. M701 TaxID=326454 RepID=V5YMX4_9BURK
+#=GS UniRef90_A6N5N1/14-59          DE [subseq from] Uncharacterized protein n=11 Tax=Pseudomonadaceae TaxID=135621 RepID=A6N5N1_PSEAI
+#=GS UniRef90_A0A1Q8Y945/19-74      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Rhodoferax antarcticus ANT.BR TaxID=1111071 RepID=A0A1Q8Y945_9BURK
+#=GS UniRef90_A0A9E2C5M0/4-57       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Gammaproteobacteria bacterium TaxID=1913989 RepID=A0A9E2C5M0_9GAMM
+#=GS UniRef90_UPI00272F8968/5-53    DE [subseq from] DUF1870 family protein n=1 Tax=Sulfuriferula sp. TaxID=2025307 RepID=UPI00272F8968
+#=GS UniRef90_UPI001C6A2646/178-228 DE [subseq from] hypothetical protein n=1 Tax=Gilliamella sp. ESL0441 TaxID=2704654 RepID=UPI001C6A2646
+#=GS UniRef90_A0A2R5F9Z1/7-70       DE [subseq from] UDP-N-acetylenolpyruvoylglucosamine reductase n=1 Tax=Novimethylophilus kurashikiensis TaxID=1825523 RepID=A0A2R5F9Z1_9PROT
+#=GS UniRef90_A0A2G2QJZ6/5-65       DE [subseq from] Transcriptional regulator n=1 Tax=Cycloclasticus sp. TaxID=2024830 RepID=A0A2G2QJZ6_9GAMM
+#=GS UniRef90_UPI0015A2FE87/8-61    DE [subseq from] hypothetical protein n=1 Tax=Pseudomonas gingeri TaxID=117681 RepID=UPI0015A2FE87
+#=GS UniRef90_A0A059KGI7/3-51       DE [subseq from] XRE family transcriptional regulator n=1 Tax=Sphaerotilus natans subsp. natans DSM 6575 TaxID=1286631 RepID=A0A059KGI7_9BURK
+#=GS UniRef90_A0A3N4DYH4/6-54       DE [subseq from] Cytosine-specific methyltransferase n=1 Tax=Shewanella psychromarinicola TaxID=2487742 RepID=A0A3N4DYH4_9GAMM
+#=GS UniRef90_A0A1I2HTI4/12-68      DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Paracidovorax wautersii TaxID=1177982 RepID=A0A1I2HTI4_9BURK
+#=GS UniRef90_A0A2N6GIV9/5-65       DE [subseq from] Transcriptional regulator n=1 Tax=Sedimenticola sp. TaxID=1940285 RepID=A0A2N6GIV9_9GAMM
+#=GS UniRef90_A0A6P2FI09/18-73      DE [subseq from] Zinc finger/helix-turn-helix protein, YgiT family n=1 Tax=Variovorax sp. PBS-H4 TaxID=434008 RepID=A0A6P2FI09_9BURK
+#=GS UniRef90_UPI000A345477/175-227 DE [subseq from] hypothetical protein n=1 Tax=Gilliamella apicola TaxID=1196095 RepID=UPI000A345477
+#=GS UniRef90_UPI0018DE7FC1/174-226 DE [subseq from] hypothetical protein n=1 Tax=unclassified Gilliamella TaxID=2685620 RepID=UPI0018DE7FC1
+#=GS UniRef90_A0A7W4IHG3/36-85      DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Gluconacetobacter sacchari TaxID=92759 RepID=A0A7W4IHG3_9PROT
+#=GS UniRef90_UPI000685084D/13-74   DE [subseq from] XRE family transcriptional regulator n=2 Tax=Paraburkholderia TaxID=1822464 RepID=UPI000685084D
+#=GS UniRef90_UPI001DED8C27/13-75   DE [subseq from] hypothetical protein n=1 Tax=Alcanivorax sp. 1008 TaxID=2816853 RepID=UPI001DED8C27
+#=GS UniRef90_UPI002543C38B/7-57    DE [subseq from] helix-turn-helix transcriptional regulator n=2 Tax=Neisseriaceae TaxID=481 RepID=UPI002543C38B
+#=GS UniRef90_UPI000F039A92/7-59    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Pseudomonas viridiflava TaxID=33069 RepID=UPI000F039A92
+#=GS UniRef90_A0A258ZJP9/27-83      DE [subseq from] Transcriptional regulator n=1 Tax=Gallionellales bacterium 24-53-125 TaxID=1970510 RepID=A0A258ZJP9_9PROT
+#=GS UniRef90_A0A7W4NSI0/7-61       DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Gluconacetobacter dulcium TaxID=2729096 RepID=A0A7W4NSI0_9PROT
+#=GS UniRef90_UPI001C5663F3/4-58    DE [subseq from] helix-turn-helix domain-containing protein n=1 Tax=Pseudomonas sp. UMAB-40 TaxID=1365407 RepID=UPI001C5663F3
+#=GS UniRef90_A0A2T5JY23/12-70      DE [subseq from] XRE family transcriptional regulator n=2 Tax=Nitrosospira sp. Nsp2 TaxID=136548 RepID=A0A2T5JY23_9PROT
+#=GS UniRef90_UPI0005C48CFB/4-62    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Methylophaga thiooxydans TaxID=392484 RepID=UPI0005C48CFB
+#=GS UniRef90_UPI0005568C76/4-59    DE [subseq from] helix-turn-helix transcriptional regulator n=1 Tax=Acidithiobacillus thiooxidans TaxID=930 RepID=UPI0005568C76
+#=GS UniRef90_A0A4Y7X8W8/103-154    DE [subseq from] XRE family transcriptional regulator n=1 Tax=Alkanindiges illinoisensis TaxID=197183 RepID=A0A4Y7X8W8_9GAMM
+#=GS UniRef90_A0A1R4H9H7/37-85      DE [subseq from] Antitoxin higA-2 n=1 Tax=Crenothrix polyspora TaxID=360316 RepID=A0A1R4H9H7_9GAMM
+#=GS UniRef90_A0A372IV59/38-81      DE [subseq from] Helix-turn-helix domain-containing protein n=1 Tax=Geodermatophilus sp. LHW52908 TaxID=2303986 RepID=A0A372IV59_9ACTN
+#=GS UniRef90_A0A8T6ZNB8/10-73      DE [subseq from] XRE family transcriptional regulator n=1 Tax=Paraburkholderia sacchari TaxID=159450 RepID=A0A8T6ZNB8_9BURK
+
+7xi5_1|A|A|PROTEIN                     MSSATPDPAEILTARK-AVGL--S--QT-AAAALV----H--S-S----LR-TWQQWE-----A------G-----D-----RRMHP-GLWELFLLKT---QLPSPSS
+UniRef90_UPI0009445151/1-65            MSSATPDPAEILTARK-AVGL--S--QT-AAAALV----H--S-S----LR-TWQQWE-----A------G-----D-----RRMHP-GLWELFLLKT---QLPSPSS
+UniRef90_UPI00187886D3/1-58            MTDAIPTPSEIRSARE-AVGL--S--RT-AAADLV----H--S-A----LR-TWQQWE-----A------G-----D-----RGMHP-GLWELFLIKT----------
+UniRef90_UPI0031B6BA32/7-64            -SMSSPAPTEIRAARE-AAGL--S--QT-AAAELV----H--S-K----LR-TWQQWE-----A------G-----D-----RRMHP-GLWELFRLKT---A------
+UniRef90_UPI0007A7539B/4-57            ----EPTPAEIRGARE-AAGL--S--QT-AAAELV----H--S-K----LR-TWQQWE-----A------G-----D-----RKMHP-GLWELFRLKI----------
+UniRef90_UPI0009A45852/2-60            ----SPSPAEIRAARE-AAEL--S--QT-AAADLV----H--S-K----LR-TWQQWE-----A------G-----D-----RRMHP-GLWELFRLKI---ATLSP--
+UniRef90_A0A3S0XK31/13-70              --SSNPTPADICTARE-ATGL--T--QT-QAATLI----H--S-S----LR-TWQQWE-----A------G-----D-----RRMHA-GLWELFRIKA---GL-----
+UniRef90_UPI0025887CB5/3-57            ----SPLPEEIRAARE-ASGL--S--QT-AAAELV----H--S-K----LR-TWQQWE-----A------G-----D-----RKMHP-GLWELFRLKT---H------
+UniRef90_A0AA96IWY6/17-77              --AATPDPAAIKAARI-DADL--S--QT-AAAALV----Y--S-P----LI-TWQKWE-----Q------G-----QAN-GGNRMHP-AFFKLFKLKV---R------
+UniRef90_A0AA96IWY6/88-143             ----KPAPATILAKRE-SLGL--T--RK-EAAALL----M--V-T----ES-GWQRWE-----TE---GTG-----G-----RPMHL-AFWELLHVL-----------
+UniRef90_UPI00045B7EDE/3-57            ----HPTPEQIKAARE-AASL--T--QT-AAGALV----H--S-S----LR-TWQQWE-----A------G-----D-----RKMHP-GLWELFCLKV---A------
+UniRef90_A0A4Q5NHY7/12-70              -AAATPAPEEILAGRV-AADL--T--QT-EAAELI----Y--S-S----LR-TWQQWE-----A------G-----D-----RRMHP-GLWELFRIKA---NL-----
+UniRef90_UPI002861BFC5/6-64            ---ISPDPEAVRERRK-AVGL--S--QA-AAAHIV----H--S-G----LR-TWQQWE-----A------G-----A-----RRMHP-AFWELFQIKT---EVPR---
+UniRef90_UPI0018D6FCCB/2-62            --STSPAPQEVRAARE-AAKL--S--QT-KAAELV----H--S-K----LR-TWQQWE-----A------G-----D-----RSMHP-GLWELFQLKV---SAPTA--
+UniRef90_A0A939GYU4/2-59               --SSSPTPDAIRTLRE-KAEL--T--QT-DAAALV----H--S-G----LR-TWQQWE-----A------G-----D-----RRMHP-GLWELFRLKT---TL-----
+UniRef90_A0A974RWB0/95-152             ----SPTPEEIIAFRE-SVGL--T--SQ-QASDLV----Y--I-S----LN-TWMKWE-----T------G-----T-----GKMSL-ATWELLQLKV---TIES---
+UniRef90_A0A974RWB0/164-221            --SKFPLPSEIKALRE-TKGL--T--QT-QASKLV----Y--A-L----LR-QWQRWE-----G------G-----T-----NEMNI-AMLELFRLKA---EY-----
+UniRef90_UPI002FC35AE0/13-69           --SSNPLPAEIRVRRE-AVGL--S--QT-AAGALV----H--T-T----CR-VWQQWE-----A------G-----D-----RRMHP-AFWELFCIKS---A------
+UniRef90_UPI000718DB09/11-65           --SDSPEPADIRAARK-AAGL--T--QT-EAARLV----H--G-T----LR-AWQEWE-----A------G-----N-----RQMHP-GLWELFRLK-----------
+UniRef90_A0A2N0VUD3/2-55               ----TPTPDEIKAARN-LAAL--T--QT-EAAALT----H--S-K----LR-TWQQWE-----A------G-----D-----RKMHP-GLWELFTLKI----------
+UniRef90_A0A7L5YIF8/23-77              ----APEPDDIRAART-AAGL--T--QT-EAGAVV----H--A-S----LR-TWQQWE-----A------G-----D-----RKMHP-GLFELFTLKT---A------
+UniRef90_A0A9D9S414/3-58               ---CNPSPQEIRQARE-LAGL--S--QT-AAAALI----S--S-T----LR-TWQDWE-----A------G-----K-----ARMHP-GLWELFRIKT---S------
+UniRef90_UPI0025EFF968/15-70           --SRNPDPAEIKAARE-AAGL--S--AT-EAATLL----H--T-S----YR-AWKQWE-----D------G-----D-----RRMHP-AFWELFLLKA----------
+UniRef90_UPI0011D8F8A0/17-72           --ATSPEPDDIRAARM-AAGL--T--QT-EAGDVV----H--A-S----LR-TWQQWE-----A------G-----D-----RKMHP-GLFELFKLKT----------
+UniRef90_A0A1G0N9K3/17-73              --ATPPEPDDIRAART-AAGL--T--QT-EAGDVV----H--A-S----LR-TWQQWE-----A------G-----D-----RKMHP-GLFELFKLKT---G------
+UniRef90_UPI001ADED978/13-69           --ASNPKPEQILEARN-AAGL--T--QT-QAAELV----H--A-T----CR-RWQEWE-----A------G-----D-----YRMHP-GLFELFMLKT---R------
+UniRef90_A0A522FG96/14-70              --SRNPLPSEVRAARE-AAGL--T--QT-EAAALV----H--T-S----CR-TWQQWE-----A------G-----D-----RRMHQ-AFWELFRIKI---S------
+UniRef90_UPI0009709186/15-70           --KTSPTPAEIRSVRQ-ASGL--S--QT-AAAKLI----Y--S-T----LR-TWQDWE-----A------G-----K-----ANMHP-GLWELFLHKK----------
+UniRef90_UPI0026086B44/2-60            -SIEPPVPEDIRAARQ-AAGL--T--QT-AAGALL----H--T-T----CR-TWQKWE-----A------G-----D-----RHMHP-AMWELFCIKC---QQ-----
+UniRef90_A0A2U7XXE3/11-65              ----HPSPEEILTKRK-EAGL--T--QT-EAGTLV----Y--S-A----CR-TWQQWE-----E------G-----N-----RKMHP-GLWELFNIKV---S------
+UniRef90_UPI000A37C7CA/3-63            ---TTPTPDEIRARRL-AIGL--T--QT-EAAELI----Y--S-R----MR-SWQNWE-----A------G-----E-----RTMHP-GLWELFCLKS---ATANPA-
+UniRef90_A0A947V985/3-55               -----PVPDDIRAART-AAGL--T--QT-EAGDVV----H--A-S----LR-TWQQWE-----A------G-----D-----RKMHP-GLFELFKLKT----------
+UniRef90_UPI001CBBBC72/4-58            ----SPTPMEIRAARD-SAKL--T--QS-AAAALV----H--S-A----AG-TWQQWE-----A------G-----D-----RKMHL-GFWELFLIKT---K------
+UniRef90_A0A7G5BB31/7-60               ----PPTAQQVREARE-AAGL--T--QT-EAGALV----Y--S-A----LR-AWQQWE-----A------G-----D-----RRMHP-ALWELFRIKI----------
+UniRef90_A0A261S605/9-62               ----SPAPAAIRKARD-AAGL--T--QT-KAALTV----Q--A-S----LR-TWQQWE-----A------G-----D-----RRMPP-GLFELFMLKT----------
+UniRef90_UPI00244C7565/13-69           --ASNPEPAAITAARE-AAGL--T--QS-RAAALV----H--A-N----LR-SWQKWE-----G------G-----E-----RSMHP-AVFELFMLKT---G------
+UniRef90_A0A1E4UT34/12-69              -ASSNPTPEEILAART-ASGL--T--QT-QAGELV----R--S-T----CR-RWQEWE-----A------G-----D-----YRMHP-GLFELFQLKT---R------
+UniRef90_A0AAI9RSI3/14-70              --SRNPEPTEIKQARS-TVGM--T--QE-EAAAVV----H--S-T----KR-VWYQWE-----A------G-----L-----RRMHP-AFWELFLMKT---T------
+UniRef90_UPI0031E66902/5-60            ---ETPSPEQVLTART-QAGL--T--QT-QAGALV----H--A-T----LT-SWQRWE-----W------G-----T-----RAMHP-AMWELFLLKT---G------
+UniRef90_UPI000949F0D0/16-69           ----NPSAVEISRARG-AAGL--T--QT-EAAALV----H--S-N----IR-SWQKWE-----L------G-----E-----RRMHP-AFWELFRLKL----------
+UniRef90_UPI000A1A2328/7-60            ----PPTPAQVRAARD-AAGL--T--QT-AAGALV----H--V-D----LR-SWQRWE-----S------G-----E-----RTMHV-AFWELFLIKT----------
+UniRef90_E6QWB6/16-72                  --SRYPAPAEVREERL-AADL--T--QV-AAGEMV----H--T-S----CR-TWQQWE-----A------G-----D-----RKMHP-AFWELFRIKT---S------
+UniRef90_UPI0018D00983/4-57            ----HPDPAEILAKRK-EARL--T--QT-EAGKLV----Y--S-A----CR-TWQQWE-----Q------G-----K-----RKMHP-AIWELFQIKA----------
+UniRef90_UPI001F483B8D/13-75           -SAVIPTPDEVLTARQ-AAGL--T--QT-QAAGVV----H--S-K----LR-AWQCWE-----AK----PGT--PEH-----RRMHP-GLWELFLIKT---A------
+UniRef90_A0A1W6STN4/6-60               ----HPPPIEIKSARE-AVGL--T--QA-AAASLV----Y--C-N----VN-TWQKWE-----S------G-----Y-----SKMHP-GFWELFKIKT---R------
+UniRef90_UPI001CF10077/9-63            -----PAEEEIVLVRN-AAGL--T--QR-EAAALV----H--T-T----MR-TWRSWE-----A------G-----E-----RRMHP-AIWELFHLKV---AI-----
+UniRef90_UPI0004794A8E/7-62            ---HTPKPDAIRNARI-AAGL--T--QT-EAAQLV----R--A-S----LR-AWQQWE-----A------G-----D-----RSMPP-GLFELFMLKT---N------
+UniRef90_A0A368U993/9-64               ---VSPTPEHIRETRL-KAGL--T--QT-QAGALV----H--T-T----CR-TWQQWE-----A------G-----D-----RGMHP-AFWELFCLKL-----P----
+UniRef90_UPI000949E918/15-72           ---RNPKPAEIVKARV-NAGL--T--QG-GAAELV----Y--S-N----LR-SWQKWE-----L------G-----E-----RQMHP-AFWELFRLKT---TTA----
+UniRef90_UPI002D803D93/2-59            -EATAPTPAQIRAARE-RAGL--T--QT-QAGAVV----H--V-T----LR-AWQLWE-----A------G-----Q-----REMHP-AFWELFEIKT---R------
+UniRef90_UPI000F7FD73B/5-64            ---HSPAPAAIKAARE-AAGL--T--QS-AAAELL----Y--K-T----AR-AWQWWE-----A------G-----D-----RGMDP-ALWELFLLKT---RSTAP--
+UniRef90_UPI0026498190/8-63            ---SCPSPAAIRDARL-AAGL--T--QT-EAARTV----Q--A-S----LR-GWQQWE-----A------G-----D-----RSMAP-GLFELFMLKT---R------
+UniRef90_A0A9D9WTN5/2-56               ----NPTPSEIRAARE-VAGL--T--QT-QAGELV----H--A-P----LR-AWQRWE-----A------G-----D-----TAMHP-AFWELFTLKL---K------
+UniRef90_A0A522ZMR5/8-62               ---SSPTPAAVRNARV-AAGL--T--QT-EAAKTV----R--A-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_UPI00097758F3/6-60            ---VPPTPAQVRAARE-AAGL--T--QG-AAGAVV----H--V-D----LR-SWQRWE-----S------G-----E-----RTMHV-AFWELFLMKT----------
+UniRef90_A0A369VPR3/7-61               ---PSPTPAAIREARL-AAGL--T--QT-EAAQTV----R--A-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_UPI0010A89AFF/6-60            ---APPTPAQVRAARE-AAGL--T--QG-AAGAVV----H--V-D----LR-SWQRWE-----S------G-----E-----RSMHL-AYWELFLIKT----------
+UniRef90_UPI003002D6E8/7-61            ---KSPSPAEIREART-NAGL--T--QT-ESAQTV----Q--A-S----LR-GWQQWE-----A------G-----D-----RTMPP-GLFELFMLKT----------
+UniRef90_A0A1H2LTF5/15-72              -KSQSPTPAAIRKARV-TAGL--T--QT-KAAQAV----Q--A-S----LR-AWQQWE-----A------G-----D-----RTMPP-GLFELFMLKT---G------
+UniRef90_A0A1H7TMG9/8-63               ---SSPAPAAVRDARI-AAGL--T--QT-EAAQTV----Q--A-S----LR-GWQQWE-----A------G-----D-----RSMAP-GLFELFMLKT---R------
+UniRef90_A0A157S4S1/8-62               ----APKPDAIRTARL-VVGL--T--QA-EAANVV----R--S-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT---N------
+UniRef90_A0A1H6ZDT5/8-61               ----NPKPDAIRKARL-AVGL--T--QT-EAAHVV----Q--A-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_A0A315EEX5/4-59               ----SPTPEQLKSARK-ALGY--T--QK-EAAELV----H--V-S----LR-AWQLWE-----A------G-----D-----RKMPP-GIWELCVIKA---GL-----
+UniRef90_A0A858ZX07/8-61               ----SPKPDAIRKARL-AVGL--T--QT-EAAQAV----R--A-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_UPI001EE843D5/8-62            ----NPKPDAIRNARL-AVGL--T--QT-EAANVV----R--S-S----LR-GWQQWE-----A------S-----D-----RAMPP-GLFELFMLKT---N------
+UniRef90_UPI00289EFDAD/4-59            ----SPQPDQVKETRK-ALGF--T--QK-ESAEMV----H--S-S----LR-AWQLWE-----A------G-----D-----RTMPA-GIWELFVIKT---GL-----
+UniRef90_A0A1G0CSR6/14-74              --ASNPTPSEVRAARE-AAGL--T--QT-AAAALV----F--T-T----CR-TWQQWE-----AEE-GTAG-----H-----RRMHP-AFWELFRIKL----------
+UniRef90_UPI0028A96D6F/7-58            ---------DLVALRN-QVGI--N--QQ-MAANLL----K--T-P----FR-TYQRWE-----Q------E-----G-----SRMHT-AFMELLRFKC---SAP----
+UniRef90_UPI0028A96D6F/72-131          ----EPTPAEIKSARL-KYGI--E--EPDLAGQVI----Y--M-K----DK-TWYRWE-----S------G-----K-----RKMKR-AFLELFYLKQ---RTPTP--
+UniRef90_UPI0028806978/47-101          ---VPPTPAQVRAARE-AAGL--T--QG-AAGAVV----H--V-D----LR-SWQRWE-----S------G-----E-----RTMHV-AFWELFLMKT----------
+UniRef90_A0A1H0WTS4/9-62               ----APTPEEVRAARS-AAGM--T--QT-EAAETV----H--M-S----MR-AWQQWE-----G------G-----E-----RTMPP-GLFELFMIKT----------
+UniRef90_A0A315CYQ5/4-59               ----SPQPDQVKVTRK-ALGF--T--QK-ESAEMV----H--C-S----LR-AWQLWE-----A------G-----D-----RNMPA-GIWELFVIKT---EL-----
+UniRef90_A0A3D1JT91/8-61               ----SPTPAAIREARL-AASL--T--QT-EAAQSV----R--S-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_A0A1D2S7X2/9-61               -----PTPDAIRKARL-AVGL--T--QT-EAAHTV----R--A-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_UPI0025C1C862/8-61            ----SPKPDAIRKARL-VVGL--T--QT-EAAHVV----Q--A-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_A0AAI8K5D8/6-61               ---SNPTPVEVRAARE-AAGL--T--QA-AAGAVV----H--V-D----LR-SWQRWE-----S------G-----E-----RSMSP-AHWELFQIKT---R------
+UniRef90_UPI000978C5FF/15-71           --AANPKPDEIRSLRE-SLGL--T--QS-QAAAVV----Y--S-T----LS-AWQRWE-----Q------G-----E-----RAMHP-AMWELFRIKT---G------
+UniRef90_UPI001B33B242/4-60            --PASPAPDAIKAART-AAGL--T--QT-QAAALI----Y--C-G----LR-GWQEWE-----A------G-----K-----RAMHP-AFFELFLLKC---E------
+UniRef90_UPI00161E495A/6-61            ----QPTPEKIRAARE-RAGL--T--QT-QAGALL----H--V-N----LR-SWQKWE-----G------G-----E-----RAMHL-AFWELFLLKT---GV-----
+UniRef90_A0A5B0HL26/6-61               ---STPTPVEVRAARE-AAGL--T--QA-AAGALV----H--V-D----LR-SWQRWE-----S------G-----E-----RGMNL-AYWELFQIKT---A------
+UniRef90_UPI0005DC7B4A/8-61            ----NPTPDAIRKARL-AVGF--T--QT-EAAHIV----R--A-S----MR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_A0A3M2H4I4/7-62               --PQSPTPTAIREARV-VAGL--T--QT-KAAHAV----Q--A-S----LR-AWQQWE-----A------G-----D-----RTMPP-GLFELFMLKT----------
+UniRef90_A1WSX1/10-69                  ----SPTPVEVWAARE-RSGL--T--QT-EAAALV----H--G-T----LR-AWQGWE-----A------P-----EGEPAARRMHP-GLWELFQIKT---K------
+UniRef90_A0A7Y2JCW8/3-57               ----SPKPESIKQTRK-EAGL--T--QT-KAAELI----Y--F-K----LR-TWQDWE-----A------G-----I-----AKMHP-SAWELFLIKT---K------
+UniRef90_UPI001F5036FE/3-59            ----SPLPAEIIARRH-ASSL--T--QT-QAGKLV----Y--S-G----LR-SWQQWE-----K------G-----D-----RKMPS-GLWELFIWKT---DQP----
+UniRef90_A0A2T0XQ96/134-187            ----SPEPEDVAAARA-VSGL--T--QT-EAARVI----H--S-T----LR-AWQNWE-----G------G-----H-----RSMHP-GLFELFKIKT----------
+UniRef90_UPI0001DA0B32/6-59            ----GPTPDAIRAARA-AAGL--T--QT-QAAALI----Y--C-T----LR-GWQDWE-----A------G-----K-----RAMHP-AFFELFLLKA----------
+UniRef90_E5AW58/15-69                  ----HPMPADIKAIRV-AAGL--S--QS-EAAFKV----Y--R-T----AR-DWQQWE-----A------G-----D-----RRMDP-ALWELFKLKI---A------
+UniRef90_UPI00053D5190/8-62            ----NPAPDAVRLARH-AAGL--T--QT-EAAKIV----S--A-S----MR-AWQQWE-----S------G-----E-----RAMPP-GLFELFMLKT---R------
+UniRef90_A0A524Q6T2/17-70              ----NPTPDEIRVARA-DAGL--T--QS-AAADII----Y--C-T----MR-AWQEWE-----A------G-----R-----RRMHP-GMFELFLGKQ----------
+UniRef90_UPI0025DC63E5/7-66            ----SPAPAEVAAARA-KSGL--T--QT-EAAALV----Y--S-T----FR-TWQNWE-----S------G-----A-----RNMPP-ALWELWQYKA--LRVPIP--
+UniRef90_UPI001916727C/2-56            ----TPGAVRIAKARA-AARL--S--QA-EAAATV----H--V-D----LR-TWQRWE-----A------G-----D-----RAMHA-AFFELFLLKT---K------
+UniRef90_A0A7Z7BIF7/12-67              ---CSPAPADIRAGRE-RAGL--N--QI-EAAGLL----H--V-D----MR-LWQKWE-----L------G-----E-----REMHP-AFWELFCIKT---G------
+UniRef90_UPI003016D59F/2-53            -------PADIKAIRV-AAGL--S--QS-EAAFKV----Y--R-T----AR-NWQQWE-----A------G-----D-----RRMDP-ALWELFKLKI---A------
+UniRef90_A0A5C7QAA5/13-70              --AANPQPADIRAARK-AAGM--T--QT-EAGAMV----Y--V-G----LT-CWARWE-----A------G-----E-----RQMHP-AFWELWRHKA---AL-----
+UniRef90_UPI0025C216D5/4-59            ----SPSPDQIKTVRK-ALGY--T--QK-EAAELV----H--V-S----LR-AWQLWE-----A------G-----D-----RNMPA-NVWELSLIKA---GL-----
+UniRef90_A0A410GCF1/9-62               ----SPPVATIRDARI-VAGL--T--QT-EAAQIV----R--V-S----LR-AWQRWE-----A------G-----D-----RSMPP-GLFELFMLKT----------
+UniRef90_UPI00248F5DF0/5-61            ---TIPAPEEIKAARK-KAGL--T--QK-KAGAVV----H--SPS----YR-AWQDWE-----G------G-----V-----RKMHP-AIFELFLLKT---G------
+UniRef90_A0A4U8VB32/9-63               ----SPPPAVIRQART-IAGL--T--QM-EAAQTV----R--A-S----LR-AWQQWE-----A------D-----D-----RAMPP-GLFELFMLKT---E------
+UniRef90_A0A208XII9/11-63              -----PPPAAIRLARH-TAGL--T--QA-EAADTV----R--A-S----LR-GWQQWE-----A------G-----D-----RAMPP-GLFELFMIKT----------
+UniRef90_UPI00075BBB99/6-60            ----RPTPCEIKLARE-AAGL--T--QT-KAAALL----Y--K-T----CR-VWQMWE-----A------G-----------RPMDP-AYWELFLIKT---KA-----
+UniRef90_A0A315DGR4/4-59               ----SPQPDQVKVTRQ-ALGF--T--QK-ESADMV----H--Y-S----LR-AWQLWE-----A------G-----D-----RTMPA-GVWELFLIKI---GL-----
+UniRef90_UPI0022EB3E3F/15-72           --AANPKPDEIRALRE-DLGL--T--QA-QAAAVV----Y--S-T----LS-AWQRWE-----Q------A-----E-----RAMHP-AMWELFRIKT---GV-----
+UniRef90_UPI0010620801/3-60            -----PSPGEVKAARE-AAGL--T--QA-QAAELV----H--A-T----PR-NWQQWEDATGGT------N-----A-----RRMHP-GLWELFSIKV----------
+UniRef90_A0AAE4GA18/3-56               ----APLPHEIKESRL-KAGL--S--QE-RAADLI----Y--S-T----KR-TWQDWE-----A------G-----K-----AKMHC-GLWELFKLKT----------
+UniRef90_UPI0012BCABF5/7-62            --SQSPVAAAIRDARI-AAGL--T--QS-EAAETA----R--V-S----LR-TWQHWE-----A------G-----D-----RAMPP-GLFELFMLKT----------
+UniRef90_UPI0022650507/11-63           -----PAADAVRVTRE-GVGL--T--QA-EAAAVV----Y--V-N----LR-TWQKWE-----G------G-----E-----RTMLP-AVWELFLLKT----------
+UniRef90_A0A853FZ56/7-62               ---CSPPPEAIRHARQ-AASL--T--QT-EAARTV----S--V-S----MR-AWQQWE-----S------G-----E-----RAMPP-GLFELFMLKT---R------
+UniRef90_A0A7K0PPV6/4-59               ----SPTPQLIKKTRL-ALGY--T--QK-EAAEMV----H--V-S----LR-AWQLWE-----A------G-----D-----RRIPP-GLWELCVIKA---GL-----
+UniRef90_UPI002942BED1/3-57            ---VQPTPEAIRAARA-QAGL--T--QT-QAAALI----Y--C-T----LR-GWQDWE-----G------G-----K-----RAMHP-AFFELFLLKA----------
+UniRef90_A0A7Z0MER1/8-62               ----NPSPETVRQARQ-TANL--T--QT-EAAKTV----S--A-S----MR-AWQQWE-----S------G-----E-----RAMPP-GLFELFMLKT---R------
+UniRef90_UPI003119AC39/2-40            -----------------------T--QR-EAGDVV----H--A-S----LR-TWQQWE-----A------G-----D-----RKMHP-GLFELFKLKT---G------
+UniRef90_A0A1E7YZJ3/15-70              ---RNPSPGQIRAARL-EAGL--T--QA-QAADLI----Y--A-T----VS-AWESWE-----Q------G-----L-----RRMHP-GLWELFRIKL---G------
+UniRef90_A0A4D7DA21/15-67              ---GCPSPQAVKAARV-LANL--S--RE-EASALV----S--V-S----SR-TWTRWE-----N------G-----E-----GKMHP-DVWTAWLA------------
+UniRef90_A0A4D7DA21/79-125             -----PMASHIRELRE-AAGL--T--QE-AAARML----G--V-S----VA-SWYGWE-----S------G-----R-----STMRP-AQFK----------------
+UniRef90_A0A7Y4XXK0/4-55               -----PTQQEITKTRK-EAGL--T--QT-QAAELI----Y--K-K----LR-TWQQWE-----N------G-----D-----REMDY-ALWELFNIK-----------
+UniRef90_A0A967B8U6/39-94              ----PPEPETVRAARE-EAGL--T--QA-EAAQLV----H--A-T----LN-AWQKWE-----S------G-----D-----RKMQA-ATWELFQIKT--GQ------
+UniRef90_A0A1I3MCR6/12-70              -SASNPTPEQIKHARI-AAGL--T--QA-DAGELI----Y--C-S----MR-SWQQWE-----S------G-----E-----SIMHP-AMYELFMIKA---GL-----
+UniRef90_A0A9E0P957/5-57               -----PTPEEIRDARK-AVGL--T--QA-QAAELV----H--A-S----LN-GWHQWE-----K------G-----L-----RPMGL-AHWELFMIKT----------
+UniRef90_A0A373FCW7/4-45               ------------------AGL--T--HA-AAAVLV----H--A-N----TR-SWQKWE-----A------G-----E-----REMHP-AFWELFCLKT---G------
+UniRef90_UPI00261C4B26/2-65            ----TPTPAQIRAARE-SAGL--S--QE-AAAALI----H--K-T----RS-AWAQWE-----A------R-----ESASNHRAMDP-AFWELFLLKI---KQKSP--
+UniRef90_UPI003172E62B/13-68           ----IPTPAAIRQKRE-RAGL--N--QI-EAAALL----H--V-N----MR-LWQKWE-----L------G-----E-----RAMHT-AFWQLFCIKT---GL-----
+UniRef90_A0A0A1H0I9/14-74              ----GPEPEEVRAARR-AAGL--T--QA-QAGALV----H--T-T----QR-VWGGYE-----ADE-GKVG-----H-----RRMHP-AMWELFLLKT---KA-----
+UniRef90_A0A315C3J2/4-59               ----SPTPQKIKTVRT-SLGY--T--QK-EAAEMV----H--V-T----LR-AWQLWE-----A------G-----Q-----RRMPS-GLWELCVIKA---GL-----
+UniRef90_UPI0019D2C0C6/7-62            ----SPSTEQIKKSRM-DAGL--T--QS-QAASLI----Y--S-E----LR-TWQHWE-----K------G-----D-----RVMHP-AFFELFTIKS---AM-----
+UniRef90_UPI0003F5378F/16-69           ---GNPPPADIKAARL-RAGI--S--QA-AAARLI----Y--K-T----TR-AWELWE-----G------G-----A-----RRMDP-AFWELFLIR-----------
+UniRef90_UPI00078468CC/10-62           -------PQTIRQARL-DAGL--T--QV-SAASLV----H--V-T----PL-TWKRWE-----S------G-----D-----RTMHP-AFWELFVIKV---ET-----
+UniRef90_UPI000F8E3911/3-56            ----SPTPEEIIDARK-KSSK--S--QT-EAAAVI----Y--C-S----LG-AWQKWE-----L------G-----K-----RTMHP-AFFELFKIKT----------
+UniRef90_A0A259PKG9/4-55               -----PLSEEIRAARQ-SAGL--T--QT-KAAALI----H--A-T----CR-AWQKWE-----A------G-----D-----AKMNL-ASWELFNIK-----------
+UniRef90_A0A540V322/2-56               ----SPDPSEIRAARL-AAGL--T--QR-QAGELI----G--G-T----LR-TWQDWE-----Y------G-----R-----RNMPS-AKWELFVIKT---G------
+UniRef90_UPI001923082F/11-62           -------PQAIRQARL-DAGL--T--QV-SAASLV----H--V-T----PL-TWKRWE-----S------G-----D-----RTMHP-AFWELFALKV---E------
+UniRef90_UPI0025F524C8/2-46            --------------RE-AAGL--T--QG-QAAALI----Y--R-T----AR-NWQQWE-----G------G-----E-----RRMDP-ALWELFRLKS---T------
+UniRef90_A0A961T6M4/2-38               -----------------------T--QT-QAAELV----R--G-T----MR-AWQEWE-----A------G-----N-----RRMHP-GLWELFLRK-----------
+UniRef90_UPI0008FE3070/18-71           ----SPSAAELRAARE-SVSL--T--QA-EAAKLL----H--V-D----KR-TWQKWE-----G------S-----E-----RGMHP-AFFELFLIKT----------
+UniRef90_A0A9Q2ITD9/15-66              -------PRAIRQARL-DAGL--T--QV-SAASLV----H--V-T----PL-TWKRWE-----S------G-----D-----RSMHP-AFWELFALKV---E------
+UniRef90_A0A9E0KBH4/5-58               -----PTSEEIRDARK-AVGL--T--QA-QAAELV----H--A-S----LN-GWHQWE-----K------G-----L-----RPMGL-AHWELFLIKT---G------
+UniRef90_C6BPB6/16-70                  ---GNPPPVEIKAARV-RAGI--S--QA-AAAKLI----Y--K-T----TR-AWELWE-----G------G-----K-----RRMDP-AFWDLFLIRI----------
+UniRef90_UPI0021E7FE86/3-57            ----SPEPKKIFHARN-SIGL--S--TE-QAANLV----Y--A-T----RR-SWEYWE-----S------G-----E-----RAMSP-AIWELFLMKI---S------
+UniRef90_UPI001B8CF933/10-61           -------PQAIRQARL-DAGL--T--QV-SAASLV----H--V-T----PL-TWKRWE-----S------G-----D-----RAMHP-AFWELFALKV---E------
+UniRef90_A0A1J4YV52/7-68               --EAPPDFKEIRAERE-KYGL--S--QT-RAGELV----H--V-S----CR-TWQQWE-----A------A-----PEIKSHQKMHP-AFWELFQIKA---K------
+UniRef90_A0A3G2HSZ8/9-63               ----NPTVTAIRDARV-AAEL--T--QT-EAAQTV----R--V-S----LR-TWQRWE-----A------G-----D-----RTMPT-GLFELFMLKT---G------
+UniRef90_UPI0007874C2D/2-56            ------SPEELVIARK-HLSL--T--QK-KAAELI----Q--V-S----QR-TWQQWE-----L------G-----Q-----RNMRP-AFWELFLIKT---NYK----
+UniRef90_UPI0002669A41/14-67           -----PTPTIIRAGRE-RAGL--N--QI-EAATLV----C--V-N----MR-LWQKWE-----L------G-----E-----REMHP-AFWELFCIKT---G------
+UniRef90_UPI000A4C5489/3-57            ----SPTPEMIAETRK-NKNL--T--QS-DAARLV----H--V-A----PR-SWRMWE-----A------G-----D-----RAMHS-AFWELFLMKT---A------
+UniRef90_UPI00105000FF/5-66            ----SPTKEQIRAARE-KAGI--S--LA-TASALI----Y--C-H----RF-TWAKWE-----T------G-----D-----RKMHP-AFWELFLAKIGQQKLPKP--
+UniRef90_A0A365QWX3/22-77              --VTTPDSDTLRALRE-QLGI--T--QA-QAAELM----R--V-N----LR-TWQKWE-----L------G-----E-----RTMHV-ALFELFLIKT----------
+UniRef90_A0A6J5MLJ2/2-55               ----SPTPDDIRTARV-SAGL--T--KT-QAAALV----Y--V-T----LR-CWQRWE-----S------G-----E-----RVMHA-AFFELFRHKL----------
+UniRef90_UPI001E657FB2/2-55            ------DSKELIRARK-HLSL--T--QK-EAAAFI----K--V-S----QR-TWQQWE-----L------G-----Q-----RNMRP-AFWELFLIKT---NY-----
+UniRef90_UPI000D16194A/2-55            ------DSKELIRARK-HLSL--T--QK-EAAAFI----K--V-S----QR-TWQQWE-----L------G-----Q-----RHMRP-AFWELFLIKT---NY-----
+UniRef90_UPI001FFD4270/6-61            --PASPDKAAIREARK-VAGL--S--QS-GAAAIV----Y--V-S----RR-AWQKYE-----D------G-----T-----NAMKL-GLWELFRFKT----------
+UniRef90_UPI0010BFFAA2/4-54            --------MEIVLARK-ELNL--T--QS-QAANIL----Y--V-S----KR-TWQQWE-----L------G-----Q-----RKMHP-AFWELFKIKM---N------
+UniRef90_A0A1Z5YRN5/3-58               ----EPTPQQIKDARN-AAGL--T--QQ-AAANLL----Y--V-Q----KL-AWARWE-----A------G-----S-----RAMHP-AFYELFRLKT---GL-----
+UniRef90_UPI000ADEBAAD/7-61            ---GSPDKAAIREARK-LAGL--S--QS-GAAAIV----Y--V-S----RR-AWQKYE-----D------G-----S-----NAMKL-GLWELFRFKT----------
+UniRef90_A0A432XXP2/9-54               -------------HRL-RCGL--T--QS-QAAELV----H--A-N----IR-TWQQWE-----S------G-----D-----RTMHP-AFIELFYMKT---A------
+UniRef90_Q5QUQ6/5-54                   ---------ELKQLRE-RLCL--T--QS-QAASLV----H--S-S----VR-AWQQWE-----S------G-----E-----RQMHP-AIRELFTIKT---K------
+UniRef90_UPI000534E3C8/4-57            -----PTPKTIFHARN-SIGL--S--TE-QAANLV----Y--A-T----KR-SWEYWE-----S------G-----E-----RSMSP-AVWELFLMKI---S------
+UniRef90_UPI0022AEAFA3/7-62            ----SPATEEIKQARK-IAGL--T--QE-QAANVV----L--SPS----RR-TWQEWE-----H------G-----K-----NKMPP-GLFELFLLKT---G------
+UniRef90_UPI002072ACF4/17-74           ---PGPTPAEVRTARG-YVGH--T--QT-QAAETV----Y--V-T----LS-AWQRYE-----Q------G-----E-----RRMPP-GLRELYSLKT---GAP----
+UniRef90_A0A2E7F0V5/23-68              -----------------GITS--A--QD-ACAELL----H--T-S----RR-AWQQWE-----R------G-----E-----RKMHP-AFWELINIKY---QYPQ---
+UniRef90_UPI00163B4524/5-61            -APASPDKAAIKEARK-VAGL--S--QS-EAGAVV----Y--V-S----RR-AWQKYE-----D------G-----T-----NAMKL-GLWELFRFKT----------
+UniRef90_UPI00200BBA48/16-67           ----------VQTSRKIGITA--A--QD-ACAESV----H--A-G----RR-SWQQWE-----R------G-----D-----RKMHP-AFWELAQIKL---DSP----
+UniRef90_A0A351MDQ8/8-51               --------------------W--T--NA-AAAACV----RPAA-T----RR-VWQQWE-----A------G-----D-----RRMHP-AMWELFQIKI---KRP----
+UniRef90_A0AA91KDB9/18-71              -------------LSN-SIGITAA--QD-KCADML----H--T-S----RR-AWQQWE-----K------G-----D-----RKMHP-AFWELINIKC---AMHTPKS
+UniRef90_A0A269XXI5/3-57               -----PAPSAIRAARN-AAGL--T--QA-QAAETV----S--V-A----IS-TWRKWE-----A------G-----T-----HRMPP-PSFEMFLLKT---QS-----
+UniRef90_A0A545THD9/5-58               ----IPDSEMIKQTRI-KAGF--S--QS-QCAELV----H--V-N----LR-SWQRWE-----S------G-----D-----RQISG-AAWELFLIKI----------
+UniRef90_A0A2K4ICG0/8-61               ----QPTPQNIRKARK-AVNL--S--ET-AAGELI----Y--V-S----RE-SWRLYE-----K------G-----D-----TKIKL-GLWELFLFKT----------
+UniRef90_A0A9X8MH35/14-64              ----RPTKDEVLEARK-AVGY--S--QT-EAANVI----R--V-S----LR-QWQNYE-----S------G-----E-----SEMHP-IFWRYFC-------------
+UniRef90_A0A1V5QJD2/3-57               ----PPTPEEIRAARQ-SAHL--T--QT-QAAELI----Y--K-Q----RL-AWARYE-----S------G-----D-----REMDP-ALWELFQIKL---S------
+UniRef90_A0A105KTN5/18-71              ----SPSGAELRAIRL-SLSL--T--QP-EAAKVV----H--V-D----TR-TWQKWE-----G------D-----E-----RGMHP-AYLELFLIKT----------
+UniRef90_UPI002981A09A/19-64           ------------TNRI-GITA--A--QD-KCAGML----H--T-S----RR-AWQQWE-----K------G-----D-----RKMHP-AFWELINIKC----------
+UniRef90_A0A7W4FBR7/1-59               MSNIPPDPGAIRAARK-DAHL--T--QA-EAAEVV----S--V-S----LA-TWRRWE-----A------G-----S-----HPMPS-GLFDLFLIVT---K------
+UniRef90_A0A849REX9/3-63               ----TPSPTQIKEARE-KAGL--T--QS-QAAALI----Y--K-G----LR-TWQGWE-----APV-GEKG-----H-----RKMDI-AFWELYNMKV---AL-----
+UniRef90_A0A9W6JM79/14-73              ---GTPTPEQIKAARE-AVGL--T--QK-QAADLV----Q--A-S----SR-AWQNWE-----AP----VGS--PEG-----RAMRP-ALWEMFRAKA----------
+UniRef90_A0AA90T3W4/6-63               ----VPTPEEIRHARE-KAGL--T--QT-EAAELV----C--A-T----CN-AWQKWE-----A------T-----EGSNSARKMHP-GIWKLFKIE-----------
+UniRef90_UPI002351C116/4-57            ----NPTPDEIKKTRL-KAGF--T--QS-KAASLA----S--V-T----LN-AWQKWE-----Q------G-----T-----RKPTP-QIWELFLLKL----------
+UniRef90_A0A9E6AVR3/4-60               ---ISIDISEIAIARK-TLAI--T--QK-QAASYL----S--V-S----ER-TWQQWE-----T------G-----Q-----RGMRS-SYWELFLIKT---DY-----
+UniRef90_T0YIS2/67-116                 ----SPSPATLKTLRR-KAGL--T--QV-QAAALC----L--S-A----PR-SWQDWE-----S------G-----R-----RRMHP-AIFRVF--------------
+UniRef90_A0A494X502/2-61               -TLKTPTSDEVRAVRR-AARI--S--QS-KAASLV----H-LS-S----AV-RWSEYE-----R------G-----T-----RRMDI-ARWELFLLKT---QT-----
+UniRef90_UPI001786C2D7/13-66           ----SPDAALVRAARK-SAGL--S--QI-ASADLI----Y--V-S----RR-AWQTYE-----D------G-----T-----VSMKA-GLWELFQFKT----------
+UniRef90_UPI00259087B1/2-40            -----------------------T--QT-EAAETV----H--M-S----MR-AWQQWE-----S------G-----E-----RTMPQ-GLFELFMIKT---G------
+UniRef90_A0A1J5IEH3/45-86              -----------------GITK--A--QE-YCATQL----H--T-G----LR-TWQQWE-----R------G-----E-----RKMHP-AFWELINIKI----------
+UniRef90_A0A1L7NPV9/10-64              ---LIPAPADIRASRQ-LAGL--S--QR-ESATLI----H--V-S----RR-SWQCYE-----D------G-----K-----AEIKL-GLWELYLFKT----------
+UniRef90_UPI002653D157/10-65           -------ASEALAARK-EAGL--T--QQ-QSADLL----G--V-H----LR-TWQKWE-----Y------G-----K-----REMSP-AYLEMFLILS---KEPTP--
+UniRef90_A0A942PTB5/4-60               ----TPD--VIRAARM-RAGL--N--EV-QAAALV----E--T-S----LD-CWLDWE-----C------G-----A-----ARMPY-GLYELFLAKT---HMGQP--
+UniRef90_A0A6G5Y3S0/172-225            ----TITPEMVIDARN-KAGL--T--QK-ESAALV----Y--V-E----ER-TWQHWE-----A------G-----T-----RKMGR-NVYELFLIKT----------
+UniRef90_UPI00037D9352/13-63           ----VPTPPAIREKRE-RAGL--N--LI-EAAALL----H--V-N----IR-LWQKWE-----L------G-----E-----RAMHV-AFWEFFA-------------
+UniRef90_A0A0D6NK45/3-59               -------PDDIKTARQ-KAGL--T--QQ-ESADMM----R--V-H----LR-TWQKWE-----Y------G-----K-----REMSL-GLLEMFLILS---REPNVS-
+UniRef90_A0A258NYP4/16-66              -------PEALQTLRK-SAGW--T--QE-ECAAQV----S--S-T----RR-TLQDWE-----A------G-----I-----AAMHP-GLWELLNIKA----------
+UniRef90_UPI002865E7C6/8-68            --SRNPLPREIRETRE-LARL--T--QT-QAGALV----H--T-T----CR-TWQQWE-----AEP-GTKN-----H-----RAMHA-AFWELFTNKI----------
+UniRef90_A0A7W4IA20/2-59               -QTISPTPMQIRDARR-AAGM--T--QA-EAAQVV----S--K-T----QT-SWRRWE-----G------G-----I-----HRMSP-ALFDYFLIET---G------
+UniRef90_UPI001CC26DBD/12-64           -------PIDIKKTRQ-QLGL--S--QQ-KAAASI----N--V-S----LV-AWQQWE-----S------G-----K-----RKIRE-AFWELFLIKN---NL-----
+UniRef90_A0A7W4IKS8/6-62               --MGNPRPQAIRSARA-TSGL--T--QT-EAAEIV----F--V-S----LA-TWARWE-----A------G-----T-----CPMPR-GLYDLFLINT---N------
+UniRef90_A0A2W4QUH3/19-68              ------------QARE-EAGH--T--QT-EAAECI----L--V-S----VR-TWQDYE-----Q------G-----R-----RKMPP-GLWEYYCLQT---AFPN---
+UniRef90_UPI001E58709B/67-117          ---------ESLQKRE-SIGI--TAAQD-RCAEML----H--T-S----RR-AWQQWE-----R------G-----E-----RKIHP-AFWELAQLKC----------
+UniRef90_UPI00264FA572/5-59            ---SHPTPGKIRASRL-ASGL--T--QK-QAGALV----S--V-T----LS-TWQKWE-----Y------G-----R-----HPMPK-ALYDLFLIKT----------
+UniRef90_A0A023D6Z5/3-57               ----NPKPEMIRSARA-ASGL--T--QT-EAAKIV----S--V-S----LV-TWARWE-----A------G-----T-----CLMPR-GLYDLFMIST---N------
+UniRef90_A0AAJ4T1E0/5-48               ---QEPAPAQVRVDRE-AAGL--T--QT-EAGPLV----H--V-N----LR-SWQRWE-----S------G-----G-----RTMY----------------------
+UniRef90_A0A269XXJ9/5-63               ---TNPTPGEIRASRL-ASGL--T--QK-QAGTLV----S--V-T----LS-TWQKWE-----Y------G-----R-----HPMPR-ALYNLFIIKT---RKGS---
+UniRef90_A0A269XV29/5-56               ------SAANARAARK-KAGL--T--QQ-QSADLI----G--V-H----IR-SWQRWE-----S------G-----E-----HEMSP-GLLEMFLFLS----------
+UniRef90_A0A6G5Y1S7/173-224            -------PEMVIEARK-IADL--T--QK-QSATLV----Y--V-D----ER-TWQRWE-----S------G-----D-----RNMPR-GLFKLYLMET---K------
+UniRef90_A0A023D780/38-96              ----CPTPDQIRSVRE-RAGV--N--QT-FAAAMV----G--T-T----PR-TWRRWE-----A------G-----V-----HRMPL-ATWALFNIQS---SRTAP--
+UniRef90_A0A269XVF3/3-57               ----NPEPHTIRSARA-TSGL--T--QS-EAAQMV----F--V-S----LV-TWARWE-----A------G-----T-----CPMPR-GLFDLFMIKT---N------
+UniRef90_A0A7W4NVP6/5-60               ---TPPTPGEIRASRL-AADL--T--QK-QAGALV----A--V-T----LS-TWQKWE-----Y------G-----R-----HPMPR-ALYDLFIIKT---K------
+UniRef90_A0A524Q118/3-53               ----APTPQMIRKLRG-KLGL--T--RS-EAAGII----E--C-S----AR-TWEAWE-----A------G-----R-----RPMHP-AFWFAFK-------------
+UniRef90_UPI0001D9E935/12-68           ----QPTPVEIKEVRT-RAGL--T--QQ-QAAALV----H--R-A---DGA-RWREWE-----G------G-----K-----YGIDL-AVWELFLLKT---GL-----
+UniRef90_A0A8H9MA64/3-61               ---SSPTPEAVRNARL-GAGL--T--QS-EAAGLV----Y--A-S----PR-AWANWE-----S------G-----A-----RKMDQ-ALFHLFIQRL---TSPS---
+UniRef90_A0A495H531/12-64              ----------LRSARE-ALNL--T--TT-QAAALV----H--A-S----RR-SWERWE-----S------G-----V-----QRVPE-ATLELFLEKL---QGRAP--
+UniRef90_A0A023D3G3/6-59               --PIPPTPTEIRAARK-AVRL--T--QA-EAAEVV----S--V-S----QA-TWKKWE-----A------G-----V-----HRMPP-ASFHAFQM------------
+UniRef90_UPI00258B50C0/4-57            ----DPTPDAITTARQ-RAGH--T--QA-QAAAAV----G--V-T----AR-AWQQYE-----S------G-----D-----RAMPS-SAWWLYLLRV----------
+UniRef90_UPI002859FF6D/3-56            --KVTPD--QVKKARE-TAGH--T--QT-QAAAVI----Y--K-K----LL-AWQRYE-----S------G-----G-----REMDQ-AFYELYLIKT----------
+UniRef90_UPI000A1FEAA8/8-61            ----QPTPDNIRRTRL-SLRM--S--ET-AAGALV----Y--V-S----RE-SWRLYE-----K------G-----E-----TNIKM-GLWELFLIKT----------
+UniRef90_A0A1B9JSZ9/192-246            ---------EVKSVRE-DFGL--T--QK-QCADMV----Y--V-D----VR-TWQKWE-----L------G-----E-----RKMNR-AVYQLFCLKT---KILYPK-
+UniRef90_A0A0F8Y0K9/17-75              ----NPTPDEIIQLRH-DAGL--T--QT-EASQKI----W--S-A----LR-TWQGYE-----AT----SG-----DT---QRRMHP-AIWWCFKQRT---K------
+UniRef90_UPI001C3C3C45/8-61            ----QPSPQNIRKARK-NRNL--S--ES-AAGELI----Y--V-S----RE-SWRLYE-----K------G-----T-----TKMKL-GLWELFLFKT----------
+UniRef90_UPI00163E333B/9-72            ----QPSPEEIRAARK-AAGL--S--QT-EASQLV----S--D-AGAKGYR-TWQRYE-----APL--GSA-----D-----HRPIPDGIWELFLLLT---D------
+UniRef90_UPI0031384612/5-57            -----PTPEAVATARQ-RAGH--T--QA-QAAAAV----G--M-T----AR-AWQQYE-----S------G-----D-----RSMPA-SAWWLYLLRV----------
+UniRef90_A0A2N6GHB0/5-65               -------PAQIKRLRK-RAGL--T--QR-EAAVLV----H--V-G----LR-GWQAWE-----S------PSELSTS-----RQMPE-AYVELFCIKT---KIPYP--
+UniRef90_UPI0004DF050E/37-90           ----MPQPGELRVLRK-ALGL--S--LT-EAAALL----R--T-T----RR-GYAFWE-----A------G-----T-----HQMPG-AAWELFCIKS----------
+UniRef90_UPI00244C129E/179-229         ------KPEEIVRIRT-ICEL--S--EE-DAARLV----R--A-T----LR-EYRSWE-----S------G-----E-----TRMHP-GLLELLRIK-----------
+UniRef90_A0A0D6NIV4/7-62               ---SHPTPGKIRASRL-ASGL--T--QK-QAGALV----S--V-T----LS-TWQKWE-----Y------G-----R-----HPMPG-ILHDLFIIKT---K------
+UniRef90_V5YMX4/9-72                   ----QPSPDEVRAARK-AVGL--P--QT-EASQVV----S--D-AGAKGYR-TWQRYE-----APL--GSA-----D-----HRPIPNGVWELFLLRT---D------
+UniRef90_A6N5N1/14-59                  ------------KARS-VLGA--S--TA-EAAQLV----H--V-S----KR-TWELWE-----S------G-----Q-----REMPE-ASWELFVYKI----------
+UniRef90_A0A1Q8Y945/19-74              ---ATREAIQIVLGLK-ITA---A--QD-WCAAAL----H--T-S----RR-SFQQWE-----T------G-----D-----RSMHP-AFFELLKIKV---AL-----
+UniRef90_A0A9E2C5M0/4-57               ----DPTPETISTERK-QAGH--T--QS-QASAAV----G--V-T----AR-AWQQYE-----S------G-----D-----RSMPD-AAWWLYLLRV----------
+UniRef90_UPI00272F8968/5-53            ---------ELKAMRQ-SLSL--S--QR-ECAEMV----H--I-T----LN-AWQKWE-----S------G-----E-----RPVNK-TALELFLLKT----------
+UniRef90_UPI001C6A2646/178-228         -------PELILKCRN-VANL--T--QK-ECADLV----Y--V-D----ER-TWQRWE-----S------G-----E-----RRMAR-NIFELFLIKI----------
+UniRef90_A0A2R5F9Z1/7-70               ----PPTPEEVVAARR-AAGL--T--QT-EAAQLV----S--N-AGAKGYR-TWQRYE-----APE--TNS-----D-----SRAIPIGLWEYFLLLT---D------
+UniRef90_A0A2G2QJZ6/5-65               -------PENLKKLRK-RSGL--T--QT-EAAHLV----R--S-K----LR-TWQSWE-----A------D-----SKLPTSRKIPD-GLVELFCMKV---GITYP--
+UniRef90_UPI0015A2FE87/8-61            ----LPTPENIRKARK-NKNL--S--EL-AAGEII----Y--V-S----RE-SWRLYE-----K------G-----T-----TKMKL-GLWELFLFKT----------
+UniRef90_A0A059KGI7/3-51               -----------RAARA-AAGD--T--QA-QAIQRL----H--R-D----RRMTWDDWE-----S------G-----R-----RVMEP-ALWELYLLKT---G------
+UniRef90_A0A3N4DYH4/6-54               ----------IKATRK-KLSL--T--QK-QAANLV----G--V-S----KS-TWQQWE-----L------G-----S-----RSMHT-AFWEMFISKV---S------
+UniRef90_A0A1I2HTI4/12-68              ----QPTPVEIKEVRN-KAGL--T--QQ-HAAEVV----H--R-A---DGA-RWREWE-----G------G-----K-----YGIDL-AVWELFLLKT---GL-----
+UniRef90_A0A2N6GIV9/5-65               -------PEQIKRLRK-RAGL--T--QT-EAGKCV----H--V-A----LR-TWQSWE-----S------P-----EEDPHSRQMPE-ANIELFCIKN---KIPYP--
+UniRef90_A0A6P2FI09/18-73              ----RPSPEQIRALRD-GLRM--T--QE-QAAAFV----H--V-S----TR-TWQAWE-----T------G-----Q-----NPMSL-ATWEHWHLKV---KS-----
+UniRef90_UPI000A345477/175-227         -------PEMVIEARN-SANL--T--QK-QSADLV----F--V-D----ER-TWQRWE-----S------G-----D-----RTMSK-AVFKLYLLET---KL-----
+UniRef90_UPI0018DE7FC1/174-226         ------TPKMVIEARK-TANL--T--QK-QSAELV----C--V-D----ER-TWQRWE-----S------G-----D-----RAMSK-AVYKLYLIET---K------
+UniRef90_A0A7W4IHG3/36-85              ------PPAEIRAARK-AVRL--T--QA-EAAEVV----S--V-C----QA-TWKKWE-----A------G-----V-----HRMPP-ASFHAFQM------------
+UniRef90_UPI000685084D/13-74           ----EPSPEEVRAARE-YAGL--T--QE-AAGALV----S--S-SD-QPRR-TWDKWE-----TTN--ETN-----K-----RKMPL-PTWELFLLLT---G------
+UniRef90_UPI001DED8C27/13-75           ----PPSPEDVVAARK-KAGL--S--QD-EAAGLIGATGK--S-R----YR-TWQNYE-----A------T-----DGP-GARPIPA-SAWELFLLKT---G------
+UniRef90_UPI002543C38B/7-57            -----PTAEEIKALRV-KHGL--E--NY-QAAALI----N--V-S----LQ-TWWRYE-----N------G-----D-----LKPST-FNWALFLN------------
+UniRef90_UPI000F039A92/7-59            -----PSAKNIRQARI-NSGL--S--ET-AAGELI----Y--V-S----RQ-SWRLYE-----T------G-----K-----TAIKL-GLWELFLFKT----------
+UniRef90_A0A258ZJP9/27-83              ---------EEVQARL-ELGI--TEAQE-LCAKQV----H--T-T----CR-TWQQWE-----TDADIPVS-----H-----RRMHP-AFWELFNIKK----------
+UniRef90_A0A7W4NSI0/7-61               ----PPPPAAIRAARR-SARL--T--QT-QAGRIV----S--V-T----QS-TWKRWE-----A------G-----R-----HPMPP-ASFNLFQILT---D------
+UniRef90_UPI001C5663F3/4-58            ---CSPTADQVKKSRA-ATGL--S--QR-ESAELI----S--V-S----RR-AWQTYE-----D------G-----T-----VPMKV-GLWELYQFKT----------
+UniRef90_A0A2T5JY23/12-70              ----QPTPEEIRALLK-KHGI--S--RE-KAASLV----H--A-S----LR-AWHNWS-----A------P-----EGGVNHREMPK-AAWELLLIKL----------
+UniRef90_UPI0005C48CFB/4-62            ------TPEELKKLRN-ALGL--T--QE-DAAKVV----H--V-S----KR-TWVSWE-----IKQ-GLEN-----N-----RKMPE-GLIELFCLKS---NI-----
+UniRef90_UPI0005568C76/4-59            ----HPTPTEIKAWRV-SAGI--T--QA-QAAALI----G--Y-T----AR-SWENWE-----Q------G-----A-----RPMRP-VLLDLARRSV---NP-----
+UniRef90_A0A4Y7X8W8/103-154            ----PPTPEQIKDLRK-QVGT-----QA-KCAKLA----G--V-N----IS-NWQRWE-----K------G-----E-----QRPHP-TTWGMFLLS-----------
+UniRef90_A0A1R4H9H7/37-85              ---YTVEPNEIVTTRM-KCGL--S--QT-QFAKAL----H--I-S----FR-TLQQWE-----Q------G-----R-----RKP-S-GAAET---------------
+UniRef90_A0A372IV59/38-81              -------PATLTAARL-TAGL--T--MT-QLARAV----H--V-S----RP-NVSLWE-----N------G-----G-----RRPAR-QYW-----------------
+UniRef90_A0A8T6ZNB8/10-73              ---SVPSPEEVRAARE-RAGL--T--PQ-SAGALV----S--S-SQ-QPRR-TWEKWE-----KE----KGT--DNH-----REMPQ-ATWELFLLLT---D------
+#=GC RF                                xxxxxxxxxxxxxxxx.xxxx..x..xx.xxxxxx....x..x.x....xx.xxxxxx.....x......x.....x.....xxxxx.xxxxxxxxxx...xxxxxxx
+//

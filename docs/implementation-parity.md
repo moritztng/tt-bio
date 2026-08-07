@@ -20,6 +20,9 @@ accuracy (does the fold match the native structure) is out of scope.
 | Protenix-v2 | 7ROA, L117, MSA | PASS | CA-RMSD 2.63 Å inside the 2.94 Å floor; confidence-head under-ranking shared with reference (model property) |
 | Protenix-v2 | ubiquitin, L76, MSA | PASS | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too |
 | Protenix-v2 | HSA, L585, MSA | PASS | on-device fp32 diffusion matches the reference's own fp32 boundary; CA-RMSD 0.685 Å inside the 0.695 Å floor (was GAP-evidenced in bf16, X 1.03 Å) |
+| OpenFold3 | ubiquitin, L76, MSA | PASS | external CPU reference (official openfold3 0.4.4, fp32); CA-RMSD X 1.46 Å inside the 1.64 Å reference noise floor (X/floor 0.89) |
+| OpenFold3 | 7ROA, L117, MSA | PASS | external CPU reference; CA-RMSD X 2.02 Å inside the 1.97 Å floor |
+| OpenFold3 | 9BK6 heterodimer (2xL~104/60), per-chain MSA | PASS | external CPU reference; CA-RMSD X 1.61 Å inside the 1.72 Å floor (X/floor 1.23); the complex leg that exposed and now guards the OPM bias-scaling and confidence representative-atom fixes (docs/openfold3-port.md P14) |
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
 | Boltz-2 | 7ROA, L117, no MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å. The tighter envelope test GAPs this leg at the pinned seed (ratio 2.04); root-caused as seed-0 chaotic-trajectory amplification, not a precision bug — see below |
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |

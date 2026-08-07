@@ -1,0 +1,7 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MSSATPDPAEILTARKAVGLSQTAAAALVHSSLRTWQQWEAGDRRMHPGLWELFLLKTQLPSPSS
+      msa: docs/implementation-parity-data/ref-fixtures/openfold3/7xi5/msa-bench-tmpl_200step_5sample_4cycle_fp32cpu/msa_A
+      templates: docs/implementation-parity-data/ref-fixtures/openfold3/7xi5/msa-bench-tmpl_200step_5sample_4cycle_fp32cpu/templates.npz

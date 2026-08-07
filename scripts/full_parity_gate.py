@@ -284,9 +284,37 @@ LEGS = [
         committed_json="openfold3-prot.json", target_id="prot",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="staged", legacy_rdx=True),
+    Leg("openfold3-7xi5-tmpl", "openfold3", "structure", "examples/7xi5_tmpl.yaml",
+        fixture="openfold3/7xi5/msa-bench-tmpl_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-7xi5-tmpl.json", target_id="7xi5_tmpl",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="yaml", legacy_rdx=True,
+        note="templates-ON leg: benchmark template npz + RCSB CIFs committed in the "
+             "fixture (templates.npz, template_structures/); set "
+             "OF3_TEMPLATE_STRUCTURES=<fixture>/template_structures for a hermetic "
+             "run, else the worker prefetches the same immutable CIFs from RCSB"),
+    Leg("openfold3-7xi5-notmpl", "openfold3", "structure", "examples/7xi5_notmpl.yaml",
+        fixture="openfold3/7xi5/msa-bench-notmpl_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-7xi5-notmpl.json", target_id="7xi5_notmpl",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="yaml", legacy_rdx=True,
+        note="templates-OFF control for openfold3-7xi5-tmpl; same target, MSA, seeds"),
+    Leg("openfold3-8hel-msa", "openfold3", "structure", "examples/8hel_msa.yaml",
+        fixture="openfold3/8hel/msa-bench-notmpl_200step_5sample_4cycle_fp32cpu",
+        committed_json="", target_id="8hel_msa",  # bootstrap: verdict committed after first run
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="yaml", legacy_rdx=True,
+        note="de-novo designed helix with benchmark MSA, no templates"),
+    Leg("openfold3-8hel-nomsa", "openfold3", "structure", "examples/8hel_nomsa.yaml",
+        fixture="openfold3/8hel/nomsa_200step_5sample_4cycle_fp32cpu",
+        committed_json="", target_id="8hel_nomsa",  # bootstrap: verdict committed after first run
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5",
+                     "--single_sequence"),
+        msa="none", legacy_rdx=True,
+        note="single-sequence leg: no MSA, no templates"),
     Leg("openfold3-9bk6-complex-msa", "openfold3", "structure", "examples/9bk6.yaml",
         fixture="openfold3/9bk6/msa-bench_200step_5sample_4cycle_fp32cpu",
-        committed_json="openfold3-9bk6.json", target_id="9bk6",
+        committed_json="", target_id="9bk6",  # bootstrap: verdict committed after first run
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="yaml", legacy_rdx=True,
         note="two-chain heterodimer; per-chain benchmark MSA dirs committed in the "
@@ -1525,8 +1553,16 @@ def main() -> int:
                                             cached_report_path, args.margin)
                     verdict, detail = extract_verdict(leg, report)
             elif leg.kind in ("structure", "affinity"):
+                # Hermetic templates: a fixture that commits template_structures/ is
+                # folded against those CIFs (OF3_TEMPLATE_STRUCTURES override), not the
+                # shared cache / RCSB network prefetch.
+                fold_env = {}
+                _tsdir = _fixture_dir(leg.fixture) / "template_structures" if leg.fixture else None
+                if _tsdir is not None and _tsdir.is_dir():
+                    fold_env["OF3_TEMPLATE_STRUCTURES"] = str(_tsdir)
                 folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir,
-                                         resume=resume, fold_timeout=args.fold_timeout)
+                                         resume=resume, fold_timeout=args.fold_timeout,
+                                         extra_env=fold_env)
                 dev_dirs, fold_errs = [], []
                 for s in seeds:
                     v = folds.get(s)

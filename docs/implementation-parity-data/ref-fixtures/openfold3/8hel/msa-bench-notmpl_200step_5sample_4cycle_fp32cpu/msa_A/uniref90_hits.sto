@@ -1,0 +1,20 @@
+# STOCKHOLM 1.0
+
+#=GS UniRef90_A0A6B1Y4H4/1-68    DE [subseq from] Uncharacterized protein n=7 Tax=root TaxID=1 RepID=A0A6B1Y4H4_PSEAI
+#=GS UniRef90_A0A0A1IWZ7/1-62    DE [subseq from] Uncharacterized protein n=32 Tax=root TaxID=1 RepID=A0A0A1IWZ7_9CAUD
+#=GS UniRef90_A0A239MY75/1-64    DE [subseq from] Uncharacterized protein n=1 Tax=Pseudomonas delhiensis TaxID=366289 RepID=A0A239MY75_9PSED
+#=GS UniRef90_UPI00068BBDEF/1-62 DE [subseq from] hypothetical protein n=1 Tax=Pseudomonas aeruginosa TaxID=287 RepID=UPI00068BBDEF
+#=GS UniRef90_UPI0019D07BBE/2-51 DE [subseq from] hypothetical protein n=1 Tax=Pseudomonas aeruginosa TaxID=287 RepID=UPI0019D07BBE
+#=GS UniRef90_A0A9E0UD06/1-62    DE [subseq from] Uncharacterized protein n=1 Tax=Chromatiaceae bacterium TaxID=2049432 RepID=A0A9E0UD06_9GAMM
+#=GS UniRef90_UPI002AC32E3F/1-39 DE [subseq from] hypothetical protein n=1 Tax=Pseudomonas aeruginosa TaxID=287 RepID=UPI002AC32E3F
+
+8hel_A                              MKITNDTTTYEVAELMGSEADELDGRIMMGLLSRECVVDTDDLSEDQWLALIDESQKVRREQFESDEALEHHHHHH
+UniRef90_A0A6B1Y4H4/1-68            MKITNDTTTYEVAELMGSEADELDGRIMMGLLSRECVVDTDDLSEDQWLALIDESQKVRREQFESDEA--------
+UniRef90_A0A0A1IWZ7/1-62            MKITNDTTTYEVAELMGSEADELDGRIMMGLLSRECVVDTDDLSEDQWLALIDESQKVRREQ--------------
+UniRef90_A0A239MY75/1-64            MKITNDTTTYQVAELMGTEADELDGRIMLGLLSRECVVDTDDLTEDEWLALIDESQKIRRTEYE------------
+UniRef90_UPI00068BBDEF/1-62         MKITNDTTTYEIAELIGPEADERDGRIMLGLISRECIVDTEEVSESQWLALIEESREIRRNE--------------
+UniRef90_UPI0019D07BBE/2-51         ------------AELMGSEADELDGRIMLGLLSRECVVDTDELSEDQWLALIDESQKVRREQ--------------
+UniRef90_A0A9E0UD06/1-62            MHIDNNFTPAQLVELLGADADERDGRILLGLLSREGVTDTDELTEEEWLGLLDEAASIRKTE--------------
+UniRef90_UPI002AC32E3F/1-39         ---------------------------MMGLLSRECVVDTDDLSEDQWLALIDESQKVMRYYLSED----------
+#=GC RF                             xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+//

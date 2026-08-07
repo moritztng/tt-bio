@@ -1,0 +1,19 @@
+{
+  "seed": 0,
+  "target_id": "8hel",
+  "harvested_from": "/tmp/of3_ref_8hel_msa_runs/8hel_seed0",
+  "selected_record": {
+    "id": "8hel",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.560962,
+    "iptm": 0.0,
+    "plddt": 71.944725,
+    "ranking_score": 0.197719,
+    "selected_sample_idx": 4
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}
