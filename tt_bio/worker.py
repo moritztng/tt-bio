@@ -900,6 +900,12 @@ class _WorkerState:
         seed = int(cfg.get("seed") or 0)
         _torch.manual_seed(0)
         np.random.seed(0)
+        # The vendored featurizer draws its RDKit conformer seed from python"s
+        # unseeded `random` (conformer.py: "we set a random seed here"), which made
+        # ref_pos — and therefore the whole fold — nondeterministic across
+        # processes even at fixed --seed. Pin it to the fold seed.
+        import random as _pyrandom
+        _pyrandom.seed(seed)
         iqs = InferenceQuerySet.from_json(qpath)
         of3_query = next(iter(iqs.queries.values()))
         # The MSA stage delegates to the shared resolver: it exposes the cached
