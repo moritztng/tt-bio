@@ -86,9 +86,11 @@ tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen
 
 All structure models support the sampling, output-format, and scheduling options.
 MSA, affinity, constraint, and auxiliary-output options apply only where listed
-below. Each model downloads its weights automatically on first use.
+below. Each model downloads its weights automatically on first use, except
+OpenFold3: fetch the consortium checkpoint yourself and point `OF3_CKPT` at it,
+or put it at `~/.boltz/of3-p2-155k.pt`.
 
-Boltz-2, Protenix-v2, and OpenDDE are MSA-dependent and use an MSA **by default**, a local
+Boltz-2, Protenix-v2, OpenFold3, and OpenDDE are MSA-dependent and use an MSA **by default**, a local
 ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-msa-optional)),
 otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
 leaves your machine; a one-line notice is printed when that fallback is used. Pass
@@ -268,7 +270,7 @@ tt-bio msa-server --listen 0.0.0.0:8765
 tt-bio predict examples/prot.yaml --model protenix-v2 --msa_endpoint http://HOST:8765
 ```
 
-The server runs the same offline `colabfold_search` and serves unpaired `{hash}.a3m`, with a shared cache and a search-concurrency cap (`--max_concurrent`). Add `--token` to require `Authorization: Bearer <token>`. `--msa_endpoint` applies to `--model esmfold2`/`protenix-v2`.
+The server runs the same offline `colabfold_search` and serves unpaired `{hash}.a3m`, with a shared cache and a search-concurrency cap (`--max_concurrent`). Add `--token` to require `Authorization: Bearer <token>`. `--msa_endpoint` applies to `--model esmfold2`, `protenix-v2`, `openfold3`, and `opendde`.
 
 ### Binding Affinity Prediction (Boltz-2)
 
@@ -283,7 +285,9 @@ The `--affinity_mw_correction` flag applies molecular weight correction for more
 ### Input Format
 
 ESMFold2 accepts protein inputs only. Protenix-v2 accepts proteins, DNA, RNA,
-ligands, and covalent `bond` constraints. OpenDDE accepts proteins and ligands
+ligands, and covalent `bond` constraints. OpenFold3 accepts proteins, DNA and RNA
+plus per-chain templates, and rejects ligands and constraints with a named error.
+OpenDDE accepts proteins and ligands
 and honors covalent `bond` constraints between them. Boltz-2 additionally supports affinity, pocket/contact constraints,
 potentials, and user-supplied templates.
 
@@ -335,7 +339,7 @@ MSA results are cached in `<out_dir>/msa/` (default `./msa/`), keyed by sequence
 
 ### Confidence Scores
 
-Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 reports the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`.
+Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 and OpenFold3 report the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`.
 
 ```json
 {
@@ -356,7 +360,7 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
 }
 ```
 
-- `confidence_score`: Overall confidence (0-1, higher is better), calculated as 0.8 × `complex_plddt` + 0.2 × `iptm`. Models are ranked by this score
+- `confidence_score`: Overall confidence (0-1, higher is better), calculated as 0.8 × `complex_plddt` + 0.2 × `iptm`. Models are ranked by this score. OpenFold3 uses its own upstream ranking score instead (0.8 × `iptm` + 0.2 × `ptm` + 0.5 × disorder − 100 × clash), so its values are not comparable to the other models'
 - `ptm`: Predicted TM-score for complex (0-1)
 - `iptm`: Interface TM-score (0-1)
 - `complex_plddt`: Average per-residue confidence (0-1)
@@ -416,7 +420,7 @@ For affinity targets, the same `results.json` entry also contains:
 
 #### Constraints
 
-Pocket and contact constraints are **Boltz-2 only** (they need a trained constraint embedder). Covalent `bond` constraints work with **Boltz-2, Protenix-v2, and OpenDDE**.
+Pocket and contact constraints are **Boltz-2 only** (they need a trained constraint embedder). Covalent `bond` constraints work with **Boltz-2, Protenix-v2, and OpenDDE**. OpenFold3 does not support any `constraints:` block yet and rejects one with a named error rather than folding without it.
 
 **Pocket Constraints** (binding site):
 ```yaml
@@ -438,7 +442,7 @@ constraints:
       force: false
 ```
 
-**Bond Constraints** (covalent link, e.g. a covalent inhibitor, glycosylation, or disulfide; works with Boltz-2 and Protenix-v2):
+**Bond Constraints** (covalent link, e.g. a covalent inhibitor, glycosylation, or disulfide; works with Boltz-2, Protenix-v2, and OpenDDE):
 ```yaml
 constraints:
   - bond:
@@ -466,6 +470,20 @@ templates:
     threshold: 2.0           # Max deviation in Angstroms
 ```
 
+OpenFold3 takes templates per protein chain instead, as a precomputed alignment
+`.npz` (the format the upstream benchmark cache ships). There is no template
+search; the referenced structures are fetched from RCSB, and a missing one is a
+hard error rather than a silently dropped template. See
+`examples/7xi5_tmpl.yaml`.
+
+```yaml
+sequences:
+  - protein:
+      id: A
+      sequence: MSSATPDPAEILT...
+      templates: ./templates.npz
+```
+
 ### Command-Line Options
 
 Model-specific options are labelled below.
@@ -478,15 +496,16 @@ Model-specific options are labelled below.
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | **(Boltz-2)** model cache directory; ESMFold2 uses the Hugging Face cache |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
-| `--recycling_steps` | model-specific | 3 for Boltz-2; 10 for Protenix-v2/OpenDDE/ESMFold2 (the ESMFold2 paper's benchmark setting) |
-| `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v2/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
+| `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3 (OpenFold3 runs recycles+1 = 4 trunk cycles, its upstream default); 10 for Protenix-v2/OpenDDE/ESMFold2 (the ESMFold2 paper's benchmark setting) |
+| `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v2/OpenFold3/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
 | `--diffusion_samples` | `1` | Number of structure samples |
 | `--max_parallel_samples` | `5` | Diffusion samples denoised in one batched forward. Higher is faster but costs device memory linearly; lower it if a large target runs out of memory |
 | `--output_format` | `cif` | `cif` or `pdb` |
 | `--override` | `False` | Re-run from scratch |
-| `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v2/OpenDDE when no local DB is found |
-| `--single_sequence` | `False` | **(Boltz-2/Protenix-v2/OpenDDE)** Skip all MSA requests; lower accuracy |
+| `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v2/OpenFold3/OpenDDE when no local DB is found |
+| `--single_sequence` | `False` | **(Boltz-2/Protenix-v2/OpenFold3/OpenDDE)** Skip all MSA requests; lower accuracy |
 | `--msa_endpoint` | — | Fetch unpaired MSAs from a `tt-bio msa-server`; OpenDDE pairing still uses `--msa_server_url` |
+| `--write_pae` | `False` | **(Protenix-v2/OpenDDE)** Write the token-token PAE/PDE matrices to `<name>_pae.npz` |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
@@ -505,14 +524,14 @@ Model-specific options are labelled below.
 | `--sampling_steps_affinity` | `200` | Sampling steps for affinity |
 | `--diffusion_samples_affinity` | `5` | Number of affinity samples |
 
-**MSA Options** (Boltz-2, Protenix-v2, and OpenDDE use an MSA by default; ESMFold2 only when requested):
+**MSA Options** (Boltz-2, Protenix-v2, OpenFold3, and OpenDDE use an MSA by default; ESMFold2 only when requested):
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--msa_db_path` | auto-detect | Path to local ColabFold database (`~/.boltz/msa_db` if present) |
 | `--use_envdb` | `False` | Also search environmental database |
 | `--use_msa_server` | auto | Use ColabFold API for MSA (auto-enabled when no local DB is found) |
-| `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v2/OpenDDE) |
+| `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v2/OpenFold3/OpenDDE) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
 | `--max_msa_seqs` | `8192` | Maximum MSA sequences |
@@ -649,6 +668,13 @@ If you use this code or the models in your research, please cite the following p
   url = {https://github.com/bytedance/Protenix}
 }
 
+@misc{openfold3,
+  author = {{OpenFold Consortium}},
+  title = {OpenFold3: An Open-Source Reproduction of AlphaFold3},
+  year = {2026},
+  url = {https://github.com/aqlaboratory/openfold-3}
+}
+
 @article{butcher2025rfdiffusion3,
   author = {Butcher, Jasper and Krishna, Rohith and Mitra, Raktim and Brent, Rafael Isaac and Li, Yanjing and Corley, Nathaniel and Kim, Paul T and Funk, Jonathan and Mathis, Simon Valentin and Salike, Saman and Muraishi, Aiko and Eisenach, Helen and Thompson, Tuscan Rock and Chen, Jie and Politanska, Yuliya and Sehgal, Enisha and Coventry, Brian and Zhang, Odin and Qiang, Bo and Didi, Kieran and Kazman, Maxwell and DiMaio, Frank and Baker, David},
   title = {De novo Design of All-atom Biomolecular Interactions with RFdiffusion3},
@@ -671,4 +697,4 @@ In addition if you use the automatic MSA generation, please cite:
 
 ## License
 
-tt-bio is released under the MIT License (see [`LICENSE`](LICENSE)) and is built on the MIT-licensed Boltz-2 / Boltz-1 code. It bundles third-party code, each under its upstream license: the ESMFold2 host-side reference under `tt_bio/_vendor/` (the `esm` pipeline, MIT, © Chan Zuckerberg Biohub; and the HuggingFace ESMFold2 model definition, Apache-2.0) and the BoltzGen binder-design source under `tt_bio/boltzgen/` (MIT, © Hannes Stärk). Protenix-v2 and RFdiffusion3 are independent ttnn reimplementations (no upstream code is vendored); Protenix-v2's weights download from ByteDance's Hugging Face mirror under Apache-2.0, and RFdiffusion3's checkpoint downloads directly from the Institute for Protein Design (BSD-3-Clause). See [`NOTICE`](NOTICE) for sources, versions, and modifications.
+tt-bio is released under the MIT License (see [`LICENSE`](LICENSE)) and is built on the MIT-licensed Boltz-2 / Boltz-1 code. It bundles third-party code, each under its upstream license: the ESMFold2 host-side reference under `tt_bio/_vendor/` (the `esm` pipeline, MIT, © Chan Zuckerberg Biohub; and the HuggingFace ESMFold2 model definition, Apache-2.0), the OpenFold3 host-side data pipeline under `tt_bio/_vendor/openfold3/` (Apache-2.0, OpenFold Consortium), and the BoltzGen binder-design source under `tt_bio/boltzgen/` (MIT, © Hannes Stärk). Protenix-v2, OpenFold3's on-device model, and RFdiffusion3 are independent ttnn reimplementations (no upstream compute code is vendored); Protenix-v2's weights download from ByteDance's Hugging Face mirror under Apache-2.0, RFdiffusion3's checkpoint downloads directly from the Institute for Protein Design (BSD-3-Clause), and OpenFold3's `of3-p2-155k.pt` is the consortium's ungated public parameter release, which you fetch yourself (the project is Apache-2.0, stated by upstream as free for academic and commercial use; the consortium publishes no separate parameter license). See [`NOTICE`](NOTICE) for sources, versions, and modifications.

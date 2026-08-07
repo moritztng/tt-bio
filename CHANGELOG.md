@@ -5,6 +5,24 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **OpenFold3** — `tt-bio predict --model openfold3` folds proteins, RNA and DNA with the
+  OpenFold Consortium's AlphaFold3 reproduction, with per-chain MSAs and optional per-chain
+  templates. It rides the same scheduler, worker, multi-card fan-out and MSA cache as
+  Protenix-v2. Parity-gated against the official CPU reference on seven legs (see
+  `docs/implementation-parity.md`); the on-device diffusion sampler runs in fp32 by default
+  to match the reference's own boundary. Polymer chains only — ligands, covalent bonds and
+  `--write_pae` raise or are declined rather than silently degrading. This is the one model
+  whose weights tt-bio does not download: set `OF3_CKPT`. (`9c10f08f9`)
+
+### Fixed
+
+- OpenFold3's vendored data pipeline imports `pydantic`, `pdbeccdutils`, `func_timeout`,
+  `networkx` and `packaging` at module load, and none were declared, so `--model openfold3`
+  failed on a clean `pip install tt-bio`. The vendored Apache-2.0 license text now ships in
+  the wheel too.
+
 ## [0.6.1] - 2026-08-07
 
 Design gets one verb: `tt-bio design INPUT --model boltzgen|rfd3`, mirroring `tt-bio predict

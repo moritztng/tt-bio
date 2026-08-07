@@ -17,7 +17,7 @@ trunk explodes over 48 blocks (out s std ~3.7e4 vs a real fold's ~1.8e2); at tha
 magnitude bf16 collapses the z-track with no device involved (pure-CPU fp32-vs-bf16
 z_pcc=0.72). So the deep-stack gate is NOT meaningful here -- it needs real
 input-embedder output (the P3 InputEmbedder port), exactly as Protenix's stack
-gate uses real captured trunk I/O. See docs/openfold3-port.md status log.
+gate uses real captured trunk I/O. See docs/openfold3-port.md.
 
 Run with the CPU reference venv, NOT the tt-bio device env:
     /tmp/of3-venv/bin/python scripts/of3_golden.py

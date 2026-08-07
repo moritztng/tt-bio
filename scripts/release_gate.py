@@ -2,7 +2,7 @@
 """Standing accuracy release gate — the on-hardware accuracy leg of RELEASING.md.
 
 For every shipped fold architecture (Boltz-2, ESMFold2, ESMFold2-fast,
-Protenix-v2, OpenDDE) this
+Protenix-v2, OpenFold3, OpenDDE) this
 folds one easy, foldable target end-to-end on the real device with production
 sampling and then applies two independent gates to the result:
 

@@ -24,8 +24,8 @@ release ships with still works, headlessly and fast, on a tiny input:
      the core flags, and each surface's results/manifest file has the shape
      the downstream reader expects.
 
-Coverage: the six fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
-opendde, opendde-abag) for legs 1–3 (opendde-abag is gated on the Ab-Ag fixture
+Coverage: the seven fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
+openfold3, opendde, opendde-abag) for legs 1–3 (opendde-abag is gated on the Ab-Ag fixture
 examples/1ahw_abag.yaml; the other fold models use examples/trpcage.yaml), plus
 the embed-leg models (esmc-600m via `tt-bio embed`, saprot-650m via `tt-bio
 saprot`) for legs 2–3 (embed has no fold phases; its user-facing progress is the
@@ -88,13 +88,18 @@ SEED = 0
 PER_MODEL_TIMEOUT_S = 900
 ABAG_MODEL_TIMEOUT_S = 1800
 
-FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "opendde",
-               "opendde-abag"]
+FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "openfold3",
+               "opendde", "opendde-abag"]
+# OpenFold3 is the one fold model whose weights tt-bio does not download (see
+# NOTICE #6). main() refuses to start an openfold3 leg without a resolvable
+# checkpoint rather than skipping it: a shipped --model choice with no UX
+# coverage is the opendde-abag failure mode RELEASING.md describes.
+OF3_CKPT_DEFAULT = Path.home() / ".boltz" / "of3-p2-155k.pt"
 # MSA-dependent models get --single_sequence so the gate is offline + deterministic
 # (no ColabFold server round-trip). esmfold2 / esmfold2-fast are single-seq by design.
 # opendde-abag rides the same MSA-dependent path as opendde (only the checkpoint
 # differs — opendde_abag.pt vs opendde.pt), so it gets --single_sequence too.
-MSA_DEPENDENT = {"boltz2", "protenix-v2", "opendde", "opendde-abag"}
+MSA_DEPENDENT = {"boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag"}
 # opendde-abag is the antibody-antigen checkpoint, so it is gated on the canonical
 # Ab-Ag fixture 1ahw_abag.yaml (the same SAbDab/PDB 1ahw target the benchmark uses
 # elsewhere) instead of trpcage. Every other fold model uses trpcage.
@@ -1104,6 +1109,11 @@ def main() -> int:
         sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
     if not DESIGN_SPEC.exists() and design_models:
         sys.exit(f"missing design fixture {DESIGN_SPEC}")
+    if "openfold3" in fold_models and not (
+            os.environ.get("OF3_CKPT") or OF3_CKPT_DEFAULT.exists()):
+        sys.exit(f"missing openfold3 checkpoint: set OF3_CKPT or place the OpenFold3 "
+                 f"preview2 weights at {OF3_CKPT_DEFAULT} (see docs/openfold3-port.md). "
+                 f"Run the rest with --model <name>.")
     if (not fold_models and not embed_models and not gen_models
             and not affinity_models and not design_models):
         return 0 if all_pass else 1

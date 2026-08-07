@@ -2026,8 +2026,9 @@ def _resolve_recycling_steps(recycling_steps, model):
     protenix-v2 uses its spec of 10 (protenix.Trunk.N_CYCLES); opendde/opendde-abag keep 10;
     esmfold2/esmfold2-fast use 10, the ESMFold2 paper's benchmark protocol (A.2.10: "For all
     benchmark results ... ESMFold2 uses 10 loops"); boltz2 uses the Boltz-2/AF3 convention
-    of 3. An explicit --recycling_steps is honored verbatim for every model. Running
-    protenix-v2 at 3 under-recycles its trunk.
+    of 3, and openfold3 also uses 3 — its trunk runs recycles+1 = 4 cycles, the OF3
+    upstream default. An explicit --recycling_steps is honored verbatim for every model.
+    Running protenix-v2 at 3 under-recycles its trunk.
     """
     if recycling_steps is not None:
         return recycling_steps
@@ -2127,7 +2128,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--checkpoint", type=click.Path(exists=True), default=None)
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
-              help="Trunk recycling iterations. Default: protenix-v2/opendde/esmfold2 use 10; boltz2 uses 3.")
+              help="Trunk recycling iterations. Default: protenix-v2/opendde/esmfold2 use 10; "
+                   "boltz2 and openfold3 use 3 (openfold3 runs recycles+1 = 4 trunk cycles).")
 @click.option("--sampling_steps", default=None, type=int,
               help="Requested diffusion sampling steps. Default: esmfold2/esmfold2-fast request "
                    "100 (executes 68 after the sigma_max=256 schedule clip); every other model "
@@ -2151,9 +2153,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "for reproducible benchmark runs, where an unnoticed search changes MSA depth.")
 @click.option("--use_envdb", is_flag=True, help="Also search ColabFold environmental database (requires envdb)")
 @click.option("--single_sequence", is_flag=True,
-              help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2 (no local DB, "
-                   "no online server). Explicit opt-out for batch-screening orphan sequences.")
-@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v2.")
+              help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2/openfold3/"
+                   "opendde (no local DB, no online server). Explicit opt-out for batch-screening "
+                   "orphan sequences.")
+@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v2/openfold3/opendde.")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
 @click.option("--msa_server_username", default=None)
@@ -2170,7 +2173,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
                    "Opt-in — reserves a 1 GiB trace region on the device.")
-@click.option("--write_pae", is_flag=True, help="Write PAE matrix per target")
+@click.option("--write_pae", is_flag=True, help="Write PAE matrix per target (not openfold3)")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
 @click.option("--affinity_mw_correction", is_flag=True)
@@ -2227,11 +2230,11 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     (single-sequence, protein-only) and writes the same output layout.
 
     \b
-    MSA: boltz2 and protenix-v2 are MSA-dependent and use an MSA by default —
-    a local ColabFold DB (~/.boltz/msa_db) if present, else the online ColabFold
-    server (input sequences leave the machine; a notice is printed). Pass
-    --msa_db_path for a private offline DB, or --single_sequence to skip the MSA.
-    esmfold2 / esmfold2-fast are single-sequence by design.
+    MSA: boltz2, protenix-v2, openfold3 and opendde are MSA-dependent and use an
+    MSA by default — a local ColabFold DB (~/.boltz/msa_db) if present, else the
+    online ColabFold server (input sequences leave the machine; a notice is
+    printed). Pass --msa_db_path for a private offline DB, or --single_sequence
+    to skip the MSA. esmfold2 / esmfold2-fast are single-sequence by design.
 
     \b
     Output:
@@ -2251,7 +2254,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         raise click.BadParameter("--max_parallel_samples must be at least 1")
 
     # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2/opendde/
-    # esmfold2 -> 10, boltz2 -> 3; an explicit --recycling_steps overrides either.
+    # esmfold2 -> 10, boltz2/openfold3 -> 3; an explicit --recycling_steps overrides either.
     recycling_steps = _resolve_recycling_steps(recycling_steps, model)
     # Per-model requested diffusion steps (see _resolve_sampling_steps): esmfold2 requests
     # 100 (68 executed after the sigma-clip), everything else 200.
@@ -2287,6 +2290,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                       ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:
             if on:
                 click.secho(f"Note: --model {model} is protein-only; ignoring {n}", fg="yellow")
+        # Every other fold model with a confidence head writes <name>_pae.npz under
+        # --write_pae; OF3's head computes PAE logits but the fold does not return the
+        # matrices, so the flag would otherwise be a silent no-op.
+        if model == "openfold3" and (write_pae or write_pde):
+            click.secho("Note: --model openfold3 does not emit PAE/PDE matrices; "
+                        "ignoring --write_pae/--write_pde", fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
         # --fast block-fp8 path halves it to ~6.4 GB and, with the grid-aware FFN

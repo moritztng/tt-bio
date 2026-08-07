@@ -100,9 +100,9 @@ class MSAModule:
     the trunk can reuse the constant ``m`` across cycles without re-running the
     embedder).
 
-    Device-precision note (see docs/openfold3-port.md P8 tick 17 / tests/test_openfold3_msa.py,
-    both xfail): the z-track is an intrinsic bf16 ill-conditioning limit at OF3's
-    activation magnitude (z_pcc ~0.75 over 4 blocks), NOT a kernel bug and NOT the
+    Device-precision note (see docs/openfold3-port.md, "Precision"): the residual
+    z-track gap is an intrinsic bf16 ill-conditioning limit at OF3's
+    activation magnitude, NOT a kernel bug and NOT the
     softmax lever; the fp32-z-path fix is release-gated. The trunk accepts this
     degradation as a known, quantified real number and measures its propagation into
     s_trunk/z_trunk rather than chasing it further.

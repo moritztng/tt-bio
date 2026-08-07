@@ -37,3 +37,27 @@ MIT-licensed and credited in the top-level LICENSE.
    redistributed in this repo) are from ByteDance's Protenix.
    Source:        github.com/bytedance/Protenix
    License:       Apache-2.0 — Copyright ByteDance (code and model parameters).
+
+5. tt_bio/_vendor/openfold3/ — OpenFold3 host-side data pipeline: the query
+   schema, CCD/ligand lookup, tokenization, and structure / reference-conformer /
+   MSA / template featurization (no neural compute; that runs on Tenstorrent via
+   tt_bio.openfold3*).
+   Source:        github.com/aqlaboratory/openfold-3, PyPI `openfold3` 0.4.3
+   License:       Apache-2.0 — Copyright 2026 AlQuraishi Laboratory
+                  (tt_bio/_vendor/openfold3/LICENSE)
+   Modifications: only the query-to-features path is included; the Lightning
+                  Dataset/DataModule framework, the LMDB training dataset caches,
+                  and the S3 template-cache build pipeline are dropped, and the
+                  memory_profiler import was made lazy.
+
+6. tt_bio/openfold3*.py — OpenFold3 (AlphaFold3-family) on-device model. Like
+   Protenix-v2 this is an INDEPENDENT ttnn reimplementation; no upstream compute
+   code is vendored (only the data pipeline above). The weights
+   (of3-p2-155k.pt, the OpenFold3 preview2 checkpoint) are the OpenFold
+   consortium's ungated public parameter release; tt-bio neither redistributes
+   nor downloads them — set OF3_CKPT or place the file at ~/.boltz/.
+   Source:        github.com/aqlaboratory/openfold-3, weights from
+                  s3://openfold3-data/openfold3-parameters/of3-p2-155k.pt
+   License:       Apache-2.0 — Copyright 2026 AlQuraishi Laboratory. Upstream
+                  states the project is free for academic and commercial use and
+                  publishes no separate parameter license.

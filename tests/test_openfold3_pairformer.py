@@ -6,7 +6,7 @@ ubiquitin example via tt_bio.openfold3_data.build_openfold3_features -> referenc
 InputEmbedder -> real (s, z)). Remap: tt_bio.openfold3_weights (pure dict rename +
 delegate to the proven protenix remap). Mirrors test_protenix_trunk_pairformer.py.
 
-STACK-GATE HISTORY (see docs/openfold3-port.md status log, ticks 3-5).
+STACK-GATE HISTORY (see the history below).
   tick 3: gated a *synthetic* N(0,1) golden, got z_pcc=0.164, blamed off-manifold input.
   tick 4: re-ran on REAL input, still low (z_pcc=0.649) -- falsified the artifact theory.
   tick 5 (P5 bisect): captured the full per-block reference trajectory and localized the

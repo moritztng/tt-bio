@@ -24,7 +24,7 @@ sequence is reproducible and the cycle-0 ``m`` matches the one already stored un
 ``input_embedder_real["msa_out"]``.
 
 Three of the trunk's sub-components are documented device-xfail on a known open device
-precision / kernel gap (see docs/openfold3-port.md P8 tick 12): the template pair_stack
+precision / kernel gap (see docs/openfold3-port.md): the template pair_stack
 (throws on device at sub-tile head_dim=16), the MSA pair_stack (z_pcc~0.75), and the
 pairformer stack's final-block z (z_pcc~0.66, cancellation). So a fully-device-gated
 trunk output is NOT achievable; the golden's per-cycle intermediates let the device gate

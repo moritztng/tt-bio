@@ -3,7 +3,7 @@ example (via P1's build_openfold3_features), captured to extend ~/of3_ref_out.pk
 
 Mirrors scripts/protenix_ref_forward.py's method (real weights + real features, forward
 hooks / direct submodule calls -- not synthetic tensors) rather than of3_golden.py's
-seeded-N(0,1) approach. See docs/openfold3-port.md status log tick 3: the 48-block stack
+seeded-N(0,1) approach. The 48-block stack
 gate needs REAL trunk-scale (s, z), not off-manifold noise that makes the reference
 trunk explode.
 

@@ -22,7 +22,8 @@ number.
 
 One statistical core, three comparison front-ends:
 
-  structures   fold models (boltz2, esmfold2, protenix-v2): Kabsch CA-RMSD,
+  structures   fold models (boltz2, esmfold2, protenix-v2, openfold3, opendde):
+               Kabsch RMSD over every matched atom,
                coordinate PCC and confidence-metric deltas between the output
                structures of paired runs. Model-agnostic: point it at result
                dirs produced by `tt-bio predict` (device) and by the reference
@@ -230,7 +231,7 @@ def structures(args) -> int:
 
     metric_keys = ("kabsch_rmsd", "1-coord_pcc", "1-tm_score", "1-lddt")
     metric_labels = {
-        "kabsch_rmsd": "CA-RMSD (Å)",
+        "kabsch_rmsd": "all-atom RMSD (Å)",
         "1-coord_pcc": "1-PCC",
         "1-tm_score": "1-TM",
         "1-lddt": "1-lDDT",
