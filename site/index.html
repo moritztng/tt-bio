@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en" data-palette="#2a78d6,#eb6834,#1baf7a,#eda100">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sampling scales. Selection does not. — AbAg-XM deep-N</title>
+<meta name="description" content="383,000 DockQ-labelled antibody-antigen samples from four independent structure predictors. Sampling 256 times and trusting the model's confidence delivers what a perfect selector gets from two samples.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fragment+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f6f7;
+  --surface: #ffffff;
+  --surface-2: #f0f0f2;
+  --border: #e6e6e9;
+  --border-strong: #d6d6da;
+  --ink: #1c1d21;
+  --ink-soft: #4a4d55;
+  --muted: #7a7d85;
+  --muted-2: #abadb4;
+  --accent: #1a1c20;
+  --grid: #ececef;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --oracle: #2a78d6;
+  --delivered: #1c1d21;
+  --bad: #c2c4c9;
+  --radius: 8px;
+  --mono: "Fragment Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg: #101113; --surface: #16171a; --surface-2: #1d1e22;
+    --border: #2a2c31; --border-strong: #3a3d43;
+    --ink: #f2f2f4; --ink-soft: #c3c5cb; --muted: #8f929a; --muted-2: #63666d;
+    --accent: #f2f2f4; --grid: #24262a;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --oracle: #3987e5; --delivered: #f2f2f4; --bad: #43464c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #101113; --surface: #16171a; --surface-2: #1d1e22;
+  --border: #2a2c31; --border-strong: #3a3d43;
+  --ink: #f2f2f4; --ink-soft: #c3c5cb; --muted: #8f929a; --muted-2: #63666d;
+  --accent: #f2f2f4; --grid: #24262a;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --oracle: #3987e5; --delivered: #f2f2f4; --bad: #43464c;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); overflow-x: clip;
+  font-family: var(--sans); font-size: 16px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 24px 96px; }
+
+/* ---------- top bar ---------- */
+header {
+  border-bottom: 1px solid var(--border); background: var(--surface);
+  position: sticky; top: 0; z-index: 20;
+}
+.bar {
+  max-width: 880px; margin: 0 auto; padding: 12px 24px;
+  display: flex; align-items: center; gap: 12px;
+}
+.mark { font-weight: 600; letter-spacing: -0.015em; font-size: 15px; }
+.mark span { color: var(--muted); font-weight: 400; }
+.bar .sp { flex: 1; }
+.tbtn {
+  font: inherit; font-size: 13px; color: var(--ink-soft); cursor: pointer;
+  background: none; border: 1px solid var(--border-strong); border-radius: 6px;
+  padding: 4px 10px; line-height: 1.4;
+}
+.tbtn:hover { border-color: var(--muted-2); }
+
+/* ---------- hero ---------- */
+.hero { padding: 56px 0 8px; }
+.kicker {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--muted); margin: 0 0 14px;
+}
+h1 {
+  font-size: clamp(30px, 6.2vw, 46px); line-height: 1.1; letter-spacing: -0.028em;
+  font-weight: 600; margin: 0 0 16px;
+}
+.lede { font-size: 18px; color: var(--ink-soft); margin: 0 0 32px; max-width: 62ch; }
+.lede b { color: var(--ink); font-weight: 600; }
+
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 28px 0 8px; }
+.tile {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 18px;
+}
+.tile .n {
+  font-size: 30px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.tile .n small { font-size: 16px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.tile .l { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+
+/* ---------- sections ---------- */
+section { padding-top: 64px; }
+h2 {
+  font-size: clamp(22px, 4.4vw, 30px); line-height: 1.18; letter-spacing: -0.022em;
+  font-weight: 600; margin: 0 0 10px; max-width: 24ch;
+}
+section p { color: var(--ink-soft); margin: 0 0 20px; max-width: 66ch; font-size: 15.5px; }
+section p b { color: var(--ink); font-weight: 600; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 18px 12px;
+}
+.card + .card { margin-top: 12px; }
+
+/* ---------- controls ---------- */
+.ctl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; }
+.seg button {
+  font: inherit; font-size: 13px; padding: 5px 11px; border: 0; cursor: pointer;
+  background: var(--surface); color: var(--ink-soft); line-height: 1.5;
+}
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.ctl label { font-size: 13px; color: var(--muted); }
+input[type=range] { accent-color: var(--accent); width: 190px; vertical-align: middle; }
+
+/* ---------- chart ---------- */
+.figwrap { position: relative; }
+svg { display: block; width: 100%; max-width: 100%; height: auto; overflow: visible;
+  touch-action: pan-y; }
+.figwrap { overflow: visible; }
+.axis text { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); }
+.axis line, .axis path { stroke: var(--border-strong); }
+.gridline { stroke: var(--grid); stroke-width: 1; }
+.axlabel { font-size: 11.5px; fill: var(--muted); font-family: var(--sans); }
+.dlabel { font-size: 12px; font-weight: 600; font-family: var(--sans); }
+.mkline { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.band { opacity: 0.13; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 2px 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-soft); }
+.legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.legend i.dash { height: 0; border-top: 2px dashed currentColor; border-radius: 0; }
+.foot { font-size: 12.5px; color: var(--muted); margin: 2px 2px 6px; max-width: none; }
+
+.tip {
+  position: absolute; pointer-events: none; opacity: 0; transition: opacity .09s;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.07), 0 10px 24px rgba(0,0,0,.09);
+  padding: 8px 10px; font-size: 12.5px; z-index: 5; min-width: 132px;
+}
+.tip h4 { margin: 0 0 5px; font-size: 12px; color: var(--muted); font-weight: 500; font-family: var(--mono); }
+.tip .row { display: flex; align-items: center; gap: 7px; justify-content: space-between; }
+.tip .row b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.tip .row .k { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); }
+.tip .row i { width: 9px; height: 9px; border-radius: 2px; }
+
+/* ---------- table view ---------- */
+details { margin-top: 12px; }
+details summary {
+  cursor: pointer; font-size: 13px; color: var(--muted); list-style: none;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before { content: "›"; display: inline-block; transition: transform .12s; }
+details[open] summary::before { transform: rotate(90deg); }
+details summary:hover { color: var(--ink-soft); }
+table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 12.5px; }
+th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; }
+td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td:first-child { font-family: var(--sans); }
+
+/* ---------- explorer ---------- */
+.pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 4px; }
+select {
+  font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 6px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  max-width: 100%; min-width: 0; flex: 0 1 auto; text-overflow: ellipsis;
+}
+.readout { display: flex; flex-wrap: wrap; gap: 22px; margin: 14px 2px 2px; }
+.readout div { font-size: 13px; color: var(--muted); }
+.readout b { display: block; font-size: 21px; color: var(--ink); font-weight: 600;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+/* ---------- footer ---------- */
+.notes { margin-top: 72px; border-top: 1px solid var(--border); padding-top: 28px; }
+.notes h3 { font-size: 16px; margin: 24px 0 8px; font-weight: 600; }
+.notes ul { margin: 0; padding-left: 20px; color: var(--ink-soft); font-size: 14.5px; }
+.notes li { margin-bottom: 7px; }
+.notes p { font-size: 14.5px; color: var(--ink-soft); }
+.notes a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.mono { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+
+@media (max-width: 620px) {
+  body { font-size: 15px; }
+  .wrap, .bar { padding-left: 16px; padding-right: 16px; }
+  .hero { padding-top: 36px; }
+  .tiles { grid-template-columns: 1fr; gap: 8px; }
+  .tile { display: flex; align-items: baseline; gap: 12px; padding: 12px 14px; }
+  .tile .n { font-size: 24px; }
+  .tile .l { margin-top: 0; }
+  section { padding-top: 46px; }
+  .card { padding: 14px 12px 8px; }
+  .lede { font-size: 16.5px; }
+  input[type=range] { width: 150px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="mark">AbAg-XM <span>· deep-N</span></div>
+    <div class="sp"></div>
+    <button class="tbtn" id="theme" type="button">Dark</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="hero">
+  <p class="kicker">383,000 labelled samples · 4 models · 161 antibody–antigen targets</p>
+  <h1>Sampling raises the ceiling. Nobody reaches it.</h1>
+  <p class="lede">Draw 256 structures for one antibody–antigen complex and the best of them is
+  far better than the first. Ask the model which one to keep and it hands you
+  <b>what a perfect chooser would have found in roughly two draws</b>. Every model. Every threshold.</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="n" id="t-neff">–</div><div class="l">samples' worth of accuracy delivered, out of 256 drawn</div></div>
+    <div class="tile"><div class="n" id="t-rho">–</div><div class="l">rank correlation between a model's confidence and its own samples' accuracy</div></div>
+    <div class="tile"><div class="n" id="t-div">–</div><div class="l">less compute for four models to match the best single model at full depth</div></div>
+  </div>
+</div>
+
+<section id="gap">
+  <h2>The gap does not close. It widens.</h2>
+  <p>Solid = the best sample in the pool. Dashed = the one the model's own confidence hands
+  you. More sampling lifts the ceiling on every model; the delivered line is flat.</p>
+  <div class="card">
+    <div class="ctl">
+      <div class="seg" id="metric-seg"></div>
+    </div>
+    <div class="figwrap"><div id="c-gap"></div><div class="tip" id="tip-gap"></div></div>
+    <div class="legend" id="lg-gap"></div>
+    <details><summary>Table</summary><div id="tb-gap"></div></details>
+  </div>
+</section>
+
+<section id="neff">
+  <h2>256 samples in, 2 samples out.</h2>
+  <p>Invert the ceiling curve at the accuracy actually delivered: 256 samples plus the model's
+  own confidence is worth <b>1 to 2 samples</b> picked perfectly. The bar is the estimate, the
+  line its 95% interval — the upper bound never reaches 15.</p>
+  <div class="card">
+    <div class="figwrap"><div id="c-neff"></div><div class="tip" id="tip-neff"></div></div>
+    <div class="legend" id="lg-neff"></div>
+  </div>
+</section>
+
+<section id="conf">
+  <h2>Confidence knows which target is easy. Not which sample is right.</h2>
+  <p>The same score, correlated two ways. Across targets it works. Within a target's 256
+  samples it is near zero — including <span class="mono">ipTM</span>, the score the field uses
+  for interfaces.</p>
+  <div class="card">
+    <div class="figwrap"><div id="c-conf"></div><div class="tip" id="tip-conf"></div></div>
+    <div class="legend" id="lg-conf"></div>
+    <details><summary>Table</summary><div id="tb-conf"></div></details>
+  </div>
+</section>
+
+<section id="epi">
+  <h2>Two thirds of failures never find the epitope.</h2>
+  <p>Split every target by what went wrong. Most failures are not near-misses: no sample in 256
+  ever lands on the right binding site. Sampling refines poses far faster than it discovers
+  sites.</p>
+  <div class="card">
+    <div class="figwrap"><div id="c-epi"></div><div class="tip" id="tip-epi"></div></div>
+    <div class="legend" id="lg-epi"></div>
+    <p class="foot" id="epi-foot"></p>
+  </div>
+</section>
+
+<section id="pareto">
+  <h2>Spend compute on different models, not on more samples.</h2>
+  <p>Same card-hours per target, split four ways instead of poured into one model. Drag the
+  budget: from a twelfth of a card-hour upward the four-way split beats every single model, and
+  it beats the best of them running <span class="xfold">31×</span> longer.</p>
+  <div class="card">
+    <div class="ctl">
+      <label for="budget">Budget</label>
+      <input type="range" id="budget" min="0" max="10" value="2" step="1">
+      <span class="mono" id="budget-lab"></span>
+      <div class="seg" id="pmetric-seg"></div>
+    </div>
+    <div class="figwrap"><div id="c-pareto"></div><div class="tip" id="tip-pareto"></div></div>
+    <div class="legend" id="lg-pareto"></div>
+    <details><summary>Table</summary><div id="tb-pareto"></div></details>
+  </div>
+  <div class="card">
+    <p style="margin:0 0 4px;font-size:15px">And the catch: nobody can harvest it yet. Picking
+    the globally highest-confidence structure across all four pools <b>gets worse as the budget
+    grows</b> — worse than just using one model.</p>
+    <div class="figwrap"><div id="c-deliv"></div><div class="tip" id="tip-deliv"></div></div>
+    <div class="legend" id="lg-deliv"></div>
+  </div>
+</section>
+
+<section id="explore">
+  <h2>Look at one target.</h2>
+  <p>One real 64-sample fold. Each mark is a structure, ordered left to right by the model's own
+  confidence. The model hands you the leftmost one.</p>
+  <div class="card">
+    <div class="pick">
+      <select id="ex-model"></select>
+      <select id="ex-target" title="targets ordered by how much the selector left on the table"></select>
+      <div class="seg" id="ex-sort"></div>
+    </div>
+    <div class="figwrap"><div id="c-explore"></div><div class="tip" id="tip-explore"></div></div>
+    <div class="readout" id="ex-read"></div>
+    <p class="foot" id="ex-note"></p>
+  </div>
+</section>
+
+<div class="notes">
+  <h3>What this is</h3>
+  <p>Four architecturally independent predictors — Boltz-2, OpenDDE-abag, Protenix-v2 and
+  ESMFold2 — each sampled to 256 structures on all 161 scorable targets of the AbAg-XM panel,
+  every structure scored with DockQ against the experimental reference. 383,000 labelled
+  samples on one panel, folded on Tenstorrent Wormhole Galaxy hardware.</p>
+  <p>Curves are exact, not simulated: the probability that a given sample is the top-ranked
+  member of a random k-subset has a closed form, so every point is computed rather than drawn.
+  Intervals are a 20,000-resample paired bootstrap over targets.</p>
+
+  <h3>Limitations</h3>
+  <ul>
+    <li>161 of 164 targets. Three are three-way hetero-hexamers the DockQ scorer does not
+    support; per-model counts after dropping short pools are 153–160.</li>
+    <li><b>N = 256 is a decision cap, not a measured knee.</b> Three of four models were still
+    gaining at the cap. Nothing here says sampling saturates.</li>
+    <li>Epitope and CDR labels are partial for Protenix-v2 and ESMFold2; those two are analysed
+    at reduced depth and never quoted at 256.</li>
+    <li>Four specific models at specific settings. ESMFold2 runs single-sequence; OpenDDE-abag
+    is antibody-specialised, so its lead is not a general co-folding result.</li>
+    <li>This measures each model's own shipped confidence, not published rankers
+    (ipSAE, pDockQ2, AntiConf, DeepRank-Ab), which need PAE matrices this data does not carry.
+    Whether a learned ranker closes the gap is untested here.</li>
+    <li>Forecasts beyond 256 samples are extrapolations under a no-ceiling fit, so they are
+    optimistic.</li>
+  </ul>
+
+  <h3>Reproduce</h3>
+  <p class="mono">python3 scripts/abag_xm_insights/build_insights.py</p>
+  <p>Every number on this page is read from the file that command writes. Full statistics,
+  every interval, every control and the complete limitations section are in
+  <a href="https://github.com/moritztng/tt-bio/blob/wk/abag-xm-deepn-insights-and-site/docs/abag-xm-insights.md">the findings document</a>.</p>
+  <p class="mono" id="stamp" style="color:var(--muted-2)"></p>
+</div>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------- theme
+const root = document.documentElement, tbtn = document.getElementById('theme');
+const setTheme = t => { root.dataset.theme = t; tbtn.textContent = t === 'dark' ? 'Light' : 'Dark'; };
+setTheme(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+tbtn.onclick = () => { setTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'); redraw(); };
+
+// ---------------------------------------------------------------- helpers
+const NS = 'http://www.w3.org/2000/svg';
+const el = (n, a = {}, p) => { const e = document.createElementNS(NS, n);
+  for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const css = v => getComputedStyle(root).getPropertyValue(v).trim();
+const fmt = (x, d = 3) => x == null ? '–' : x.toFixed(d);
+const MODELS = ['boltz2', 'opendde-abag', 'protenix-v2', 'esmfold2'];
+const LABEL = { 'boltz2': 'Boltz-2', 'opendde-abag': 'OpenDDE-abag',
+                'protenix-v2': 'Protenix-v2', 'esmfold2': 'ESMFold2' };
+const SHORT = { 'boltz2': 'Boltz-2', 'opendde-abag': 'OpenDDE', 'protenix-v2': 'Protenix',
+                'esmfold2': 'ESMFold2' };
+const hue = i => css('--s' + (i + 1));
+
+function frame(host, { h = 300, ml = 46, mr = 16, mt = 12, mb = 34 } = {}) {
+  host.innerHTML = '';
+  const w = Math.max(300, host.clientWidth || 800);
+  const svg = el('svg', { viewBox: `0 0 ${w} ${h}`, width: w, height: h }, host);
+  return { svg, w, h, ml, mr, mt, mb, iw: w - ml - mr, ih: h - mt - mb };
+}
+function yaxis(f, sc, ticks, fm = (v => v)) {
+  const g = el('g', { class: 'axis' }, f.svg);
+  ticks.forEach(v => {
+    const y = sc(v);
+    el('line', { x1: f.ml, x2: f.w - f.mr, y1: y, y2: y, class: 'gridline' }, g);
+    const t = el('text', { x: f.ml - 8, y: y + 3.5, 'text-anchor': 'end' }, g);
+    t.textContent = fm(v);
+  });
+}
+function xticks(f, sc, ticks, fm = (v => v)) {
+  const g = el('g', { class: 'axis' }, f.svg);
+  el('line', { x1: f.ml, x2: f.w - f.mr, y1: f.mt + f.ih, y2: f.mt + f.ih }, g);
+  ticks.forEach(v => {
+    const t = el('text', { x: sc(v), y: f.mt + f.ih + 17, 'text-anchor': 'middle' }, g);
+    t.textContent = fm(v);
+  });
+}
+function axlabel(f, text, where) {
+  const t = el('text', { class: 'axlabel' }, f.svg);
+  t.textContent = text;
+  if (where === 'x') { t.setAttribute('x', f.ml + f.iw / 2); t.setAttribute('y', f.h - 1);
+    t.setAttribute('text-anchor', 'middle'); }
+  else { t.setAttribute('transform', `translate(11,${f.mt + f.ih / 2}) rotate(-90)`);
+    t.setAttribute('text-anchor', 'middle'); }
+}
+function path(f, xs, ys, x, y, color, dash) {
+  const d = xs.map((v, i) => `${i ? 'L' : 'M'}${x(v).toFixed(1)},${y(ys[i]).toFixed(1)}`).join('');
+  const p = el('path', { d, class: 'mkline', stroke: color }, f.svg);
+  if (dash) p.setAttribute('stroke-dasharray', '5 4');
+  return p;
+}
+function bandfill(f, xs, lo, hi, x, y, color) {
+  const d = xs.map((v, i) => `${i ? 'L' : 'M'}${x(v).toFixed(1)},${y(hi[i]).toFixed(1)}`).join('')
+    + xs.slice().reverse().map(v => `L${x(v).toFixed(1)},${y(lo[xs.indexOf(v)]).toFixed(1)}`).join('') + 'Z';
+  el('path', { d, fill: color, class: 'band', stroke: 'none' }, f.svg);
+}
+// Nudge direct labels apart so end-of-line labels never overlap.
+function declutter(items, gap) {
+  const a = items.slice().sort((p, q) => p.y - q.y);
+  for (let i = 1; i < a.length; i++)
+    if (a[i].y - a[i - 1].y < gap) a[i].y = a[i - 1].y + gap;
+  return a;
+}
+function legend(host, items) {
+  host.innerHTML = items.map(i =>
+    `<span><i class="${i.dash ? 'dash' : ''}" style="${i.dash ? 'color:' + i.c : 'background:' + i.c}"></i>${i.t}</span>`
+  ).join('');
+}
+function table(host, head, rows) {
+  host.innerHTML = '<table><thead><tr>' + head.map(h => `<th>${h}</th>`).join('')
+    + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('')
+    + '</tbody></table>';
+}
+function tipAt(tip, wrap, px, py, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const W = wrap.clientWidth, tw = tip.offsetWidth;
+  tip.style.left = Math.max(2, Math.min(W - tw - 2, px - tw / 2)) + 'px';
+  tip.style.top = Math.max(2, py) + 'px';
+}
+function segmented(host, opts, cur, cb) {
+  host.innerHTML = '';
+  opts.forEach(o => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = o.t;
+    b.setAttribute('aria-pressed', o.v === cur);
+    b.onclick = () => cb(o.v);
+    host.appendChild(b);
+  });
+}
+
+// ---------------------------------------------------------------- state
+let D = null;
+const S = { metric: 'mean', pmetric: 'acceptable', budget: 2, exModel: 'boltz2',
+            exTarget: null, exSort: 'conf' };
+
+const METRICS = [
+  { v: 'mean', t: 'Mean DockQ' },
+  { v: 'acceptable', t: '≥ 0.23' },
+  { v: 'medium', t: '≥ 0.49' },
+  { v: 'high', t: '≥ 0.80' },
+];
+
+// ---------------------------------------------------------------- 1. the gap
+function drawGap() {
+  const host = document.getElementById('c-gap'), tip = document.getElementById('tip-gap');
+  const wrap = host.parentElement;
+  const q = D.q1_selection.per_model;
+  const ks = q.boltz2.k_grid;
+  const pull = (m, which) => S.metric === 'mean'
+    ? q[m][which] : q[m].thresholds[S.metric][which];
+  const isFrac = S.metric !== 'mean';
+
+  let hi = 0;
+  MODELS.forEach(m => { hi = Math.max(hi, ...pull(m, 'oracle').mean); });
+  hi = Math.min(1, Math.ceil(hi * 10 + 0.6) / 10);
+
+  const tight = window.innerWidth < 620;
+  const f = frame(host, { h: tight ? 270 : 330, ml: 38, mr: tight ? 14 : 62 });
+  const lx = Math.log2(1), hx = Math.log2(256);
+  const x = v => f.ml + (Math.log2(v) - lx) / (hx - lx) * f.iw;
+  const y = v => f.mt + f.ih - (v / hi) * f.ih;
+  const yt = []; for (let v = 0; v <= hi + 1e-9; v += hi <= 0.4 ? 0.1 : 0.2) yt.push(+v.toFixed(2));
+  yaxis(f, y, yt, v => isFrac ? Math.round(v * 100) + '%' : v.toFixed(1));
+  xticks(f, x, [1, 4, 16, 64, 256]);
+  axlabel(f, 'samples drawn', 'x');
+  axlabel(f, isFrac ? 'targets reaching it' : 'DockQ', 'y');
+
+  // Four overlapping CI bands turn this chart to mud; the intervals are in the tooltip,
+  // the table and the findings doc. Here the readable signal is solid-vs-dashed.
+  const ends = [];
+  MODELS.forEach((m, i) => {
+    const o = pull(m, 'oracle'), u = pull(m, 'user');
+    path(f, ks, o.mean, x, y, hue(i), false);
+    path(f, ks, u.mean, x, y, hue(i), true);
+    ends.push({ y: y(o.mean[o.mean.length - 1]), c: hue(i), t: SHORT[m] });
+  });
+  if (!tight) declutter(ends, 14).forEach(e => {
+    const t = el('text', { x: f.w - f.mr + 6, y: e.y + 4, class: 'dlabel', fill: e.c }, f.svg);
+    t.style.fontSize = '11.5px';
+    t.textContent = e.t;
+  });
+
+  // crosshair
+  const cross = el('line', { y1: f.mt, y2: f.mt + f.ih, class: 'gridline',
+    stroke: css('--muted-2'), 'stroke-width': 1, opacity: 0 }, f.svg);
+  const hit = el('rect', { x: f.ml, y: f.mt, width: f.iw, height: f.ih,
+    fill: 'transparent' }, f.svg);
+  const move = ev => {
+    const r = f.svg.getBoundingClientRect();
+    const px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * (f.w / r.width);
+    const kv = Math.pow(2, lx + Math.max(0, Math.min(1, (px - f.ml) / f.iw)) * (hx - lx));
+    let bi = 0; ks.forEach((k, i) => { if (Math.abs(k - kv) < Math.abs(ks[bi] - kv)) bi = i; });
+    cross.setAttribute('x1', x(ks[bi])); cross.setAttribute('x2', x(ks[bi]));
+    cross.setAttribute('opacity', 1);
+    const rows = MODELS.map((m, i) => {
+      const o = pull(m, 'oracle').mean[bi], u = pull(m, 'user').mean[bi];
+      const s = v => isFrac ? Math.round(v * 100) + '%' : v.toFixed(3);
+      return `<div class="row"><span class="k"><i style="background:${hue(i)}"></i>${SHORT[m]}</span>`
+        + `<b>${s(o)} <span style="color:var(--muted);font-weight:400">/ ${s(u)}</span></b></div>`;
+    }).join('');
+    tipAt(tip, wrap, x(ks[bi]), f.mt + 4,
+      `<h4>N = ${ks[bi]} · best / delivered</h4>${rows}`);
+  };
+  hit.addEventListener('pointermove', move);
+  hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', () => { tip.style.opacity = 0; cross.setAttribute('opacity', 0); });
+
+  legend(document.getElementById('lg-gap'), [
+    { c: css('--muted'), t: 'solid = best sample in the pool' },
+    { c: css('--muted'), t: 'dashed = what confidence delivers', dash: 1 },
+    ...MODELS.map((m, i) => ({ c: hue(i), t: LABEL[m] })),
+  ]);
+  const s = v => isFrac ? (v * 100).toFixed(1) + '%' : v.toFixed(3);
+  table(document.getElementById('tb-gap'),
+    ['model', 'best @16', 'delivered @16', 'best @256', 'delivered @256'],
+    MODELS.map(m => {
+      const o = pull(m, 'oracle').mean, u = pull(m, 'user').mean;
+      const i16 = ks.indexOf(16), i2 = ks.length - 1;
+      return [LABEL[m], s(o[i16]), s(u[i16]), s(o[i2]), s(u[i2])];
+    }));
+}
+
+// ---------------------------------------------------------------- 2. effective N
+function drawNeff() {
+  const host = document.getElementById('c-neff'), tip = document.getElementById('tip-neff');
+  const wrap = host.parentElement;
+  const q = D.q1_selection.per_model;
+  const rows = [];
+  MODELS.forEach(m => {
+    rows.push({ m, lab: 'mean DockQ', d: q[m].effective_n });
+    ['acceptable', 'medium'].forEach(t =>
+      rows.push({ m, lab: t === 'acceptable' ? '≥ 0.23' : '≥ 0.49', d: q[m].thresholds[t].effective_n }));
+  });
+  const maxv = Math.max(...rows.map(r => r.d.hi), 16);
+  const narrow = window.innerWidth < 620;
+  const f = frame(host, { h: 34 + rows.length * (narrow ? 22 : 26), ml: narrow ? 84 : 132,
+    mr: 42, mt: 8, mb: 26 });
+  const bh = f.ih / rows.length;
+  const x = v => f.ml + (v / maxv) * f.iw;
+  const xt = [1, 4, 8, 16].filter(v => v <= maxv);
+  const g = el('g', { class: 'axis' }, f.svg);
+  xt.forEach(v => {
+    el('line', { x1: x(v), x2: x(v), y1: f.mt, y2: f.mt + f.ih, class: 'gridline' }, g);
+    const t = el('text', { x: x(v), y: f.mt + f.ih + 16, 'text-anchor': 'middle' }, g);
+    t.textContent = v;
+  });
+  axlabel(f, 'samples a perfect chooser would have needed', 'x');
+
+  rows.forEach((r, i) => {
+    const cy = f.mt + i * bh + bh / 2, c = hue(MODELS.indexOf(r.m));
+    const bw = Math.max(2, x(r.d.mean) - f.ml);
+    el('rect', { x: f.ml, y: cy - bh * 0.28, width: bw, height: bh * 0.56, rx: 3,
+      fill: c }, f.svg);
+    el('line', { x1: x(r.d.lo), x2: x(r.d.hi), y1: cy, y2: cy, stroke: css('--ink'),
+      'stroke-width': 1.5, opacity: 0.55 }, f.svg);
+    [r.d.lo, r.d.hi].forEach(v => el('line', { x1: x(v), x2: x(v), y1: cy - 4, y2: cy + 4,
+      stroke: css('--ink'), 'stroke-width': 1.5, opacity: 0.55 }, f.svg));
+    const lt = el('text', { x: f.ml - 8, y: cy + 3.5, 'text-anchor': 'end', class: 'axis' }, f.svg);
+    lt.setAttribute('fill', css('--ink-soft'));
+    lt.style.fontSize = narrow ? '10px' : '11.5px';
+    lt.style.fontFamily = 'var(--sans)';
+    lt.textContent = (narrow ? SHORT[r.m] : LABEL[r.m]) + ' · ' + r.lab;
+    const vt = el('text', { x: Math.min(x(r.d.hi) + 7, f.w - 4), y: cy + 3.5,
+      class: 'axis', 'text-anchor': x(r.d.hi) + 7 > f.w - 4 ? 'end' : 'start' }, f.svg);
+    vt.setAttribute('fill', css('--muted')); vt.textContent = r.d.mean.toFixed(1);
+    const hz = el('rect', { x: f.ml, y: cy - bh / 2, width: f.iw, height: bh,
+      fill: 'transparent' }, f.svg);
+    hz.addEventListener('pointerenter', () => tipAt(tip, wrap, x(r.d.mean), cy - 52,
+      `<h4>${LABEL[r.m]} · ${r.lab}</h4><div class="row"><span class="k">effective N</span>`
+      + `<b>${r.d.mean.toFixed(2)}</b></div><div class="row"><span class="k">95% CI</span>`
+      + `<b>${r.d.lo.toFixed(2)} – ${r.d.hi.toFixed(2)}</b></div>`));
+    hz.addEventListener('pointerleave', () => tip.style.opacity = 0);
+  });
+  legend(document.getElementById('lg-neff'),
+    MODELS.map((m, i) => ({ c: hue(i), t: LABEL[m] })));
+}
+
+// ---------------------------------------------------------------- 3. confidence
+function drawConf() {
+  const host = document.getElementById('c-conf'), tip = document.getElementById('tip-conf');
+  const wrap = host.parentElement;
+  const q = D.q2_confidence;
+  const FL = ['selector', 'iptm', 'ptm', 'complex_plddt'];
+  const FLL = { selector: 'own selector', iptm: 'ipTM', ptm: 'pTM', complex_plddt: 'pLDDT' };
+  const rows = [];
+  MODELS.forEach(m => FL.forEach(fl => {
+    const v = q[m].flavors[fl]; if (!v) return;
+    rows.push({ m, fl, within: v.within_target.median, across: v.across_target_mean_dockq });
+  }));
+  const narrow = window.innerWidth < 620;
+  const f = frame(host, { h: 40 + rows.length * (narrow ? 20 : 23), ml: narrow ? 98 : 140,
+    mr: 22, mt: 10, mb: 30 });
+  const bh = f.ih / rows.length;
+  const x = v => f.ml + ((v + 0.1) / 1.0) * f.iw;   // domain -0.1 .. 0.9
+  const g = el('g', { class: 'axis' }, f.svg);
+  [0, 0.2, 0.4, 0.6, 0.8].forEach(v => {
+    el('line', { x1: x(v), x2: x(v), y1: f.mt, y2: f.mt + f.ih, class: 'gridline' }, g);
+    const t = el('text', { x: x(v), y: f.mt + f.ih + 16, 'text-anchor': 'middle' }, g);
+    t.textContent = v.toFixed(1);
+  });
+  el('line', { x1: x(0), x2: x(0), y1: f.mt, y2: f.mt + f.ih, stroke: css('--border-strong'),
+    'stroke-width': 1 }, f.svg);
+  axlabel(f, 'Spearman correlation with DockQ', 'x');
+
+  rows.forEach((r, i) => {
+    const cy = f.mt + i * bh + bh / 2, c = hue(MODELS.indexOf(r.m));
+    el('line', { x1: x(r.within), x2: x(r.across), y1: cy, y2: cy, stroke: c,
+      'stroke-width': 2, opacity: 0.35 }, f.svg);
+    el('circle', { cx: x(r.within), cy, r: 4.5, fill: css('--surface'), stroke: c,
+      'stroke-width': 2 }, f.svg);
+    el('circle', { cx: x(r.across), cy, r: 4.5, fill: c }, f.svg);
+    const lt = el('text', { x: f.ml - 8, y: cy + 3.5, 'text-anchor': 'end', class: 'axis' }, f.svg);
+    lt.setAttribute('fill', css('--ink-soft'));
+    lt.style.fontSize = narrow ? '10px' : '11.5px'; lt.style.fontFamily = 'var(--sans)';
+    lt.textContent = (narrow ? SHORT[r.m] : LABEL[r.m]) + ' · ' + FLL[r.fl];
+    const hz = el('rect', { x: f.ml, y: cy - bh / 2, width: f.iw, height: bh,
+      fill: 'transparent' }, f.svg);
+    hz.addEventListener('pointerenter', () => tipAt(tip, wrap, x(r.across), cy - 56,
+      `<h4>${LABEL[r.m]} · ${FLL[r.fl]}</h4>`
+      + `<div class="row"><span class="k">within target</span><b>${r.within.toFixed(3)}</b></div>`
+      + `<div class="row"><span class="k">across targets</span><b>${r.across.toFixed(3)}</b></div>`));
+    hz.addEventListener('pointerleave', () => tip.style.opacity = 0);
+  });
+  document.getElementById('lg-conf').innerHTML =
+    `<span><i style="border:2px solid ${css('--muted')};background:none;border-radius:50%"></i>`
+    + `within one target — which sample is right</span>`
+    + `<span><i style="background:${css('--muted')};border-radius:50%"></i>`
+    + `across targets — which target is easy</span>`;
+  table(document.getElementById('tb-conf'), ['model · score', 'within target', 'across targets'],
+    rows.map(r => [LABEL[r.m] + ' · ' + FLL[r.fl], r.within.toFixed(3), r.across.toFixed(3)]));
+}
+
+// ---------------------------------------------------------------- 4. epitope
+function drawEpi() {
+  const host = document.getElementById('c-epi'), tip = document.getElementById('tip-epi');
+  const wrap = host.parentElement;
+  const q = D.q3_epitope.per_model;
+  const KEYS = [
+    { k: 'solved', t: 'solved', c: () => css('--s3') },
+    { k: 'right_site_wrong_pose', t: 'right site, wrong pose', c: () => css('--s4') },
+    { k: 'never_finds_site', t: 'never finds the site', c: () => css('--bad') },
+  ];
+  const narrow = window.innerWidth < 620;
+  const f = frame(host, { h: 30 + MODELS.length * 46, ml: narrow ? 74 : 112, mr: 16,
+    mt: 8, mb: 28 });
+  const bh = f.ih / MODELS.length;
+  const x = v => f.ml + v * f.iw;
+  const g = el('g', { class: 'axis' }, f.svg);
+  [0, 0.25, 0.5, 0.75, 1].forEach(v => {
+    const t = el('text', { x: x(v), y: f.mt + f.ih + 16, 'text-anchor': 'middle' }, g);
+    t.textContent = Math.round(v * 100) + '%';
+  });
+  axlabel(f, 'share of targets', 'x');
+
+  MODELS.forEach((m, mi) => {
+    const st = q[m].states, tot = KEYS.reduce((a, k) => a + st[k.k], 0);
+    const cy = f.mt + mi * bh + bh / 2;
+    let acc = 0;
+    KEYS.forEach(k => {
+      const frac = st[k.k] / tot;
+      const x0 = x(acc), x1 = x(acc + frac);
+      el('rect', { x: x0 + 1, y: cy - 13, width: Math.max(0, x1 - x0 - 2), height: 26, rx: 3,
+        fill: k.c() }, f.svg);
+      if (x1 - x0 > 44) {
+        const t = el('text', { x: (x0 + x1) / 2, y: cy + 4, 'text-anchor': 'middle',
+          class: 'dlabel', fill: k.k === 'never_finds_site' ? css('--ink-soft') : '#fff' }, f.svg);
+        t.style.fontSize = '11.5px';
+        t.textContent = Math.round(frac * 100) + '%';
+      }
+      const hz = el('rect', { x: x0, y: cy - 13, width: Math.max(1, x1 - x0), height: 26,
+        fill: 'transparent' }, f.svg);
+      hz.addEventListener('pointerenter', () => tipAt(tip, wrap, (x0 + x1) / 2, cy - 60,
+        `<h4>${LABEL[m]}</h4><div class="row"><span class="k">${k.t}</span>`
+        + `<b>${st[k.k]} / ${tot}</b></div>`));
+      hz.addEventListener('pointerleave', () => tip.style.opacity = 0);
+      acc += frac;
+    });
+    const lt = el('text', { x: f.ml - 8, y: cy + 4, 'text-anchor': 'end', class: 'axis' }, f.svg);
+    lt.setAttribute('fill', css('--ink-soft'));
+    lt.style.fontSize = narrow ? '10.5px' : '12px'; lt.style.fontFamily = 'var(--sans)';
+    lt.textContent = narrow ? SHORT[m] : LABEL[m];
+  });
+  legend(document.getElementById('lg-epi'), KEYS.map(k => ({ c: k.c(), t: k.t })));
+  // The bars are shares of ALL targets. The claim is about the failures alone, so say it.
+  document.getElementById('epi-foot').textContent = 'Counting only the targets that fail: '
+    + MODELS.map(m => `${SHORT[m]} ${Math.round(
+        100 * D.q3_epitope.per_model[m].f2.frac_failures_that_never_find_site)}%`).join(', ')
+    + ' never find the site.';
+}
+
+// ---------------------------------------------------------------- 5. pareto
+const PSTRATS = () => [
+  { k: 'boltz2', t: 'Boltz-2 only', c: hue(0) },
+  { k: 'opendde', t: 'OpenDDE only', c: hue(1) },
+  { k: 'protenix', t: 'Protenix only', c: hue(2) },
+  { k: 'esmfold2', t: 'ESMFold2 only', c: hue(3) },
+  { k: 'boltz2+opendde+protenix+esmfold2', t: 'all four, split evenly', c: css('--ink') },
+];
+function pval(st, i) {
+  return S.pmetric === 'oracle' ? st.oracle[i] : st.solved[S.pmetric][i];
+}
+function drawPareto() {
+  const host = document.getElementById('c-pareto'), tip = document.getElementById('tip-pareto');
+  const wrap = host.parentElement;
+  const q = D.q4_pareto, B = q.budgets_card_h, strats = PSTRATS();
+  const isFrac = S.pmetric !== 'oracle';
+  let hi = 0; strats.forEach(s => B.forEach((_, i) => hi = Math.max(hi, pval(q.strategies[s.k], i).mean)));
+  hi = Math.min(1, Math.ceil(hi * 10 + 0.5) / 10);
+  const narrow = window.innerWidth < 620;
+  const f = frame(host, { h: narrow ? 260 : 320, ml: 44, mr: narrow ? 16 : 74 });
+  const lx = Math.log10(B[0]), hx = Math.log10(B[B.length - 1]);
+  const x = v => f.ml + (Math.log10(v) - lx) / (hx - lx) * f.iw;
+  const y = v => f.mt + f.ih - (v / hi) * f.ih;
+  const yt = []; for (let v = 0; v <= hi + 1e-9; v += 0.2) yt.push(+v.toFixed(1));
+  yaxis(f, y, yt, v => isFrac ? Math.round(v * 100) + '%' : v.toFixed(1));
+  xticks(f, x, [0.02, 0.08, 0.3, 1.0, 2.5], v => v < 1 ? String(v) : v.toFixed(1));
+  axlabel(f, 'card-hours per target', 'x');
+  axlabel(f, isFrac ? 'targets reaching it' : 'best DockQ', 'y');
+
+  const pends = [];
+  strats.forEach(s => {
+    const st = q.strategies[s.k];
+    const ys = B.map((_, i) => pval(st, i).mean);
+    const p = path(f, B, ys, x, y, s.c, false);
+    if (s.k.includes('+')) p.setAttribute('stroke-width', 3);
+    pends.push({ y: y(ys[ys.length - 1]), c: s.c,
+      t: s.k.includes('+') ? 'all four' : SHORT[s.k === 'opendde' ? 'opendde-abag'
+        : s.k === 'protenix' ? 'protenix-v2' : s.k] });
+  });
+  if (!narrow) declutter(pends, 14).forEach(e => {
+    const t = el('text', { x: f.w - f.mr + 6, y: e.y + 4, class: 'dlabel', fill: e.c }, f.svg);
+    t.style.fontSize = '11.5px';
+    t.textContent = e.t;
+  });
+
+  // budget marker
+  const bi = S.budget, bx = x(B[bi]);
+  el('line', { x1: bx, x2: bx, y1: f.mt, y2: f.mt + f.ih, stroke: css('--muted-2'),
+    'stroke-width': 1, 'stroke-dasharray': '3 3' }, f.svg);
+  strats.forEach(s => {
+    const v = pval(q.strategies[s.k], bi).mean;
+    el('circle', { cx: bx, cy: y(v), r: 5, fill: s.c, stroke: css('--surface'),
+      'stroke-width': 2 }, f.svg);
+  });
+
+  const hit = el('rect', { x: f.ml, y: f.mt, width: f.iw, height: f.ih, fill: 'transparent' }, f.svg);
+  const move = ev => {
+    const r = f.svg.getBoundingClientRect();
+    const px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * (f.w / r.width);
+    const bv = Math.pow(10, lx + Math.max(0, Math.min(1, (px - f.ml) / f.iw)) * (hx - lx));
+    let i = 0; B.forEach((b, j) => { if (Math.abs(b - bv) < Math.abs(B[i] - bv)) i = j; });
+    const rows = strats.map(s => {
+      const v = pval(q.strategies[s.k], i).mean;
+      const sv = isFrac ? Math.round(v * 100) + '%' : v.toFixed(3);
+      return `<div class="row"><span class="k"><i style="background:${s.c}"></i>${s.t}</span><b>${sv}</b></div>`;
+    }).join('');
+    const n = q.strategies['boltz2+opendde+protenix+esmfold2'].mean_n[i];
+    tipAt(tip, wrap, x(B[i]), f.mt + 4,
+      `<h4>${B[i]} card-h/target · ${n.toFixed(0)} samples</h4>${rows}`);
+  };
+  hit.addEventListener('pointermove', move);
+  hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', () => tip.style.opacity = 0);
+
+  legend(document.getElementById('lg-pareto'), strats.map(s => ({ c: s.c, t: s.t })));
+  const s2 = v => isFrac ? (v * 100).toFixed(1) + '%' : v.toFixed(3);
+  table(document.getElementById('tb-pareto'),
+    ['strategy', 'samples', ...[0.08, 0.5, 2.5].map(b => b + ' card-h')],
+    strats.map(s => [s.t, q.strategies[s.k].mean_n[B.indexOf(0.08)].toFixed(0),
+      ...[0.08, 0.5, 2.5].map(b => s2(pval(q.strategies[s.k], B.indexOf(b)).mean))]));
+
+  document.getElementById('budget-lab').textContent =
+    `${B[bi]} card-h/target · ${q.strategies['boltz2+opendde+protenix+esmfold2'].mean_n[bi].toFixed(0)} samples`;
+}
+
+function drawDelivered() {
+  const host = document.getElementById('c-deliv'), tip = document.getElementById('tip-deliv');
+  const wrap = host.parentElement;
+  const q = D.q4_pareto, B = q.budgets_card_h;
+  const which = [
+    { k: 'boltz2+opendde+protenix+esmfold2', t: 'all four (highest confidence wins)', c: css('--ink') },
+    { k: 'opendde', t: 'OpenDDE only', c: hue(1) },
+    { k: 'protenix', t: 'Protenix only', c: hue(2) },
+  ];
+  const f = frame(host, { h: window.innerWidth < 620 ? 200 : 230, ml: 44, mr: 16, mt: 10 });
+  const hi = 0.6;
+  const lx = Math.log10(B[0]), hx = Math.log10(B[B.length - 1]);
+  const x = v => f.ml + (Math.log10(v) - lx) / (hx - lx) * f.iw;
+  const y = v => f.mt + f.ih - (v / hi) * f.ih;
+  yaxis(f, y, [0, 0.2, 0.4, 0.6], v => v.toFixed(1));
+  xticks(f, x, [0.02, 0.08, 0.3, 1.0, 2.5], v => v < 1 ? String(v) : v.toFixed(1));
+  axlabel(f, 'card-hours per target', 'x');
+  axlabel(f, 'delivered DockQ', 'y');
+  which.forEach(w => {
+    const ys = B.map((_, i) => q.strategies[w.k].delivered[i].mean);
+    const p = path(f, B, ys, x, y, w.c, false);
+    if (w.k.includes('+')) p.setAttribute('stroke-width', 3);
+  });
+  const hit = el('rect', { x: f.ml, y: f.mt, width: f.iw, height: f.ih, fill: 'transparent' }, f.svg);
+  const move = ev => {
+    const r = f.svg.getBoundingClientRect();
+    const px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * (f.w / r.width);
+    const bv = Math.pow(10, lx + Math.max(0, Math.min(1, (px - f.ml) / f.iw)) * (hx - lx));
+    let i = 0; B.forEach((b, j) => { if (Math.abs(b - bv) < Math.abs(B[i] - bv)) i = j; });
+    tipAt(tip, wrap, x(B[i]), f.mt + 4, `<h4>${B[i]} card-h/target</h4>` + which.map(w =>
+      `<div class="row"><span class="k"><i style="background:${w.c}"></i>${w.t}</span>`
+      + `<b>${q.strategies[w.k].delivered[i].mean.toFixed(3)}</b></div>`).join(''));
+  };
+  hit.addEventListener('pointermove', move);
+  hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', () => tip.style.opacity = 0);
+  legend(document.getElementById('lg-deliv'), which.map(w => ({ c: w.c, t: w.t })));
+}
+
+// ---------------------------------------------------------------- 6. explorer
+function drawExplore() {
+  const host = document.getElementById('c-explore'), tip = document.getElementById('tip-explore');
+  const wrap = host.parentElement;
+  const pool = D.explorer.models[S.exModel][S.exTarget];
+  if (!pool) { host.innerHTML = ''; return; }
+  const n = pool.length;
+  const order = S.exSort === 'conf' ? pool.map((v, i) => i)
+    : pool.map((v, i) => i).sort((a, b) => pool[a] - pool[b]);
+  const best = Math.max(...pool), bestIdx = pool.indexOf(best), pick = pool[0];
+
+  const f = frame(host, { h: window.innerWidth < 620 ? 220 : 260, ml: 42, mr: 16, mt: 14, mb: 34 });
+  const hi = Math.max(0.3, Math.ceil(best * 10 + 0.5) / 10);
+  const x = i => f.ml + (i + 0.5) / n * f.iw;
+  const y = v => f.mt + f.ih - (v / hi) * f.ih;
+  const yt = []; for (let v = 0; v <= hi + 1e-9; v += hi > 0.6 ? 0.2 : 0.1) yt.push(+v.toFixed(1));
+  yaxis(f, y, yt, v => v.toFixed(1));
+  axlabel(f, S.exSort === 'conf' ? 'the 64 samples, most confident first'
+    : 'the 64 samples, worst to best', 'x');
+  axlabel(f, 'DockQ', 'y');
+
+  const bw = Math.max(2.5, f.iw / n - 2.5);
+  order.forEach((si, i) => {
+    const v = pool[si];
+    const isPick = si === 0, isBest = si === bestIdx;
+    const c = isPick ? css('--s2') : isBest ? css('--s3') : css('--bad');
+    el('rect', { x: x(i) - bw / 2, y: y(v), width: bw, height: Math.max(1, f.mt + f.ih - y(v)),
+      rx: Math.min(2, bw / 2), fill: c }, f.svg);
+    const hz = el('rect', { x: x(i) - f.iw / n / 2, y: f.mt, width: f.iw / n, height: f.ih,
+      fill: 'transparent' }, f.svg);
+    hz.addEventListener('pointerenter', () => tipAt(tip, wrap, x(i), f.mt,
+      `<h4>confidence rank ${si + 1} of ${n}</h4>`
+      + `<div class="row"><span class="k">DockQ</span><b>${v.toFixed(3)}</b></div>`
+      + (isPick ? '<div class="row"><span class="k">the model hands you this one</span></div>'
+        : isBest ? '<div class="row"><span class="k">the best one in the pool</span></div>' : '')));
+    hz.addEventListener('pointerleave', () => tip.style.opacity = 0);
+  });
+  // acceptable threshold, painted OVER the bars with a surface halo so it stays legible
+  el('line', { x1: f.ml, x2: f.w - f.mr, y1: y(0.23), y2: y(0.23), stroke: css('--muted-2'),
+    'stroke-dasharray': '4 4', 'stroke-width': 1 }, f.svg);
+  const thl = el('text', { x: f.ml + 4, y: y(0.23) - 6, class: 'axis',
+    stroke: css('--surface'), 'stroke-width': 3, 'paint-order': 'stroke' }, f.svg);
+  thl.setAttribute('fill', css('--muted'));
+  thl.textContent = 'acceptable (0.23)';
+
+  // mark the two
+  [[order.indexOf(0), css('--s2'), 'delivered'], [order.indexOf(bestIdx), css('--s3'), 'best']]
+    .forEach(([i, c, t]) => {
+      const v = pool[order[i]];
+      const tx = el('text', { x: x(i), y: y(v) - 7, 'text-anchor': 'middle', class: 'dlabel',
+        fill: c }, f.svg);
+      tx.style.fontSize = '11px'; tx.textContent = t;
+    });
+
+  // Context so a single hand-picked target cannot mislead: where this one's gap sits.
+  const all = D.explorer.models[S.exModel];
+  const gaps = Object.keys(all).map(t => Math.max(...all[t]) - all[t][0]).sort((a, b) => a - b);
+  const med = gaps[gaps.length >> 1];
+  const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  const rank = gaps.filter(g => g < best - pick).length;
+  document.getElementById('ex-read').innerHTML =
+    `<div><b>${pick.toFixed(3)}</b>what confidence hands you</div>`
+    + `<div><b>${best.toFixed(3)}</b>best in the same 64</div>`
+    + `<div><b>#${bestIdx + 1}</b>where confidence ranked the best one</div>`
+    + `<div><b>${Math.round(100 * rank / gaps.length)}%</b>of ${gaps.length} targets have a `
+    + `smaller gap than this one (mean ${avg.toFixed(2)}, median ${med.toFixed(2)})</div>`;
+  document.getElementById('ex-note').textContent =
+    'Opens on a typical solvable target: the median gap among targets whose 64 samples contain '
+    + 'at least one acceptable pose. Use the menu for any other target.';
+}
+
+// ---------------------------------------------------------------- boot
+function redraw() {
+  drawGap(); drawNeff(); drawConf(); drawEpi(); drawPareto(); drawDelivered(); drawExplore();
+}
+
+// How much less compute the even four-way split needs to match the best single model
+// running at the largest measured budget, on the acceptable-pose rate.
+function cheaperBy() {
+  const q = D.q4_pareto, B = q.budgets_card_h, last = B.length - 1;
+  const singles = ['boltz2', 'opendde', 'protenix', 'esmfold2'];
+  const target = Math.max(...singles.map(k => q.strategies[k].solved.acceptable[last].mean));
+  const u = q.strategies['boltz2+opendde+protenix+esmfold2'].solved.acceptable;
+  const i = u.findIndex(v => v.mean >= target);
+  return i < 0 ? 1 : Math.round(B[last] / B[i]);
+}
+
+function tiles() {
+  const q = D.q1_selection.per_model;
+  const ns = MODELS.map(m => q[m].effective_n.mean);
+  document.getElementById('t-neff').innerHTML =
+    `${Math.min(...ns).toFixed(1)}–${Math.max(...ns).toFixed(1)}`;
+  const rs = MODELS.map(m => D.q2_confidence[m].flavors.selector.within_target.median);
+  document.getElementById('t-rho').innerHTML =
+    `${Math.min(...rs).toFixed(2)}–${Math.max(...rs).toFixed(2)}`;
+  document.getElementById('t-div').innerHTML = `${cheaperBy()}<small>×</small>`;
+  document.querySelectorAll('.xfold').forEach(e => e.textContent = cheaperBy() + '×');
+  const p = D.provenance;
+  document.getElementById('stamp').textContent =
+    `generated ${p.generated_utc} · bootstrap B=${p.bootstrap.B}, seed ${p.bootstrap.seed}`;
+}
+
+function controls() {
+  segmented(document.getElementById('metric-seg'), METRICS, S.metric,
+    v => { S.metric = v; controls(); drawGap(); });
+  segmented(document.getElementById('pmetric-seg'),
+    [{ v: 'acceptable', t: '≥ 0.23' }, { v: 'medium', t: '≥ 0.49' }, { v: 'oracle', t: 'Mean DockQ' }],
+    S.pmetric, v => { S.pmetric = v; controls(); drawPareto(); });
+  segmented(document.getElementById('ex-sort'),
+    [{ v: 'conf', t: 'by confidence' }, { v: 'dockq', t: 'by accuracy' }],
+    S.exSort, v => { S.exSort = v; controls(); drawExplore(); });
+
+  const bslider = document.getElementById('budget');
+  bslider.max = D.q4_pareto.budgets_card_h.length - 1;
+  bslider.value = S.budget;
+  bslider.oninput = () => { S.budget = +bslider.value; drawPareto(); };
+
+  const ms = document.getElementById('ex-model');
+  if (!ms.options.length) {
+    MODELS.forEach(m => ms.add(new Option(LABEL[m], m)));
+    ms.value = S.exModel;
+    ms.onchange = () => { S.exModel = ms.value; fillTargets(); drawExplore(); };
+  }
+}
+
+function fillTargets() {
+  const ts = document.getElementById('ex-target');
+  const pool = D.explorer.models[S.exModel];
+  const gapOf = t => Math.max(...pool[t]) - pool[t][0];
+  const keys = Object.keys(pool).sort((a, b) => gapOf(b) - gapOf(a));
+  ts.innerHTML = '';
+  keys.forEach(t => ts.add(new Option(
+    `${t}  —  best ${Math.max(...pool[t]).toFixed(2)}, delivered ${pool[t][0].toFixed(2)}`, t)));
+  // Default to the median-gap target among the SOLVABLE ones (pool contains an acceptable
+  // pose). That is the population the claim is about -- on a target nobody can solve there is
+  // nothing for a selector to get right. Stated filter, not a hand-picked example.
+  if (!keys.includes(S.exTarget)) {
+    const solvable = keys.filter(t => Math.max(...pool[t]) >= 0.23);
+    const from = (solvable.length ? solvable : keys).slice().sort((a, b) => gapOf(a) - gapOf(b));
+    S.exTarget = from[from.length >> 1];
+  }
+  ts.value = S.exTarget;
+  ts.onchange = () => { S.exTarget = ts.value; drawExplore(); };
+}
+
+fetch('data/insights.json').then(r => r.json()).then(j => {
+  D = j;
+  tiles();
+  controls();
+  fillTargets();
+  redraw();
+  let t; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(redraw, 120); });
+});
+</script>
+</body>
+</html>
