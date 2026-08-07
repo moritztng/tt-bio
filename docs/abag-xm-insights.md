@@ -248,6 +248,60 @@ was also a null result.
 
 ---
 
+## Q5. Nothing a user already has beats the shipped selector.
+
+Six alternative selectors, **fixed before running them**, each built only from numbers a model
+already returns alongside its samples, so any of them could be applied today at inference time
+with no ground truth: `pTM`, `ipTM`, `pLDDT`, and the mean within-pool rank of (ipTM, pLDDT),
+of (pTM, ipTM, pLDDT), and of all available flavours. ESMFold2 carries only two flavours, so
+only `pTM` applies there.
+
+Pre-declared bar: a candidate beats the baseline only if its delivered mean DockQ exceeds the
+shipped selector's, with the paired-bootstrap CI on the **difference** excluding zero, on the
+same target set, for **at least 2 of the 4 models**. The majority rule is the multiplicity
+guard: six candidates across four models makes a single nominal 95% interval uninformative on
+its own.
+
+Delivered mean DockQ at N=256, change against each model's shipped selector:
+
+| model | candidate | change vs baseline |
+|---|---|---|
+| boltz2 | pTM | -0.0434 [-0.0745, -0.0139] |
+| boltz2 | ipTM | -0.0375 [-0.0684, -0.0083] |
+| boltz2 | pLDDT | +0.0026 [-0.0092, +0.0161] |
+| boltz2 | rank_mean(ipTM, pLDDT) | -0.0019 [-0.0124, +0.0082] |
+| boltz2 | rank_mean(pTM, ipTM, pLDDT) | -0.0163 [-0.0343, -0.0004] |
+| boltz2 | rank_mean(all flavours) | -0.0011 [-0.0117, +0.0089] |
+| opendde-abag | pTM | -0.0040 [-0.0128, +0.0035] |
+| opendde-abag | ipTM | -0.0035 [-0.0103, +0.0025] |
+| opendde-abag | pLDDT | -0.0005 [-0.0152, +0.0146] |
+| opendde-abag | rank_mean(ipTM, pLDDT) | +0.0041 [-0.0028, +0.0107] |
+| opendde-abag | rank_mean(pTM, ipTM, pLDDT) | +0.0041 [-0.0027, +0.0107] |
+| opendde-abag | rank_mean(all flavours) | +0.0040 [-0.0028, +0.0107] |
+| protenix-v2 | pTM | -0.0197 [-0.0365, -0.0050] |
+| protenix-v2 | ipTM | -0.0006 [-0.0062, +0.0054] |
+| protenix-v2 | pLDDT | -0.0756 [-0.1076, -0.0459] |
+| protenix-v2 | rank_mean(ipTM, pLDDT) | -0.0080 [-0.0229, +0.0055] |
+| protenix-v2 | rank_mean(pTM, ipTM, pLDDT) | -0.0090 [-0.0223, +0.0028] |
+| protenix-v2 | rank_mean(all flavours) | -0.0061 [-0.0152, +0.0016] |
+| esmfold2 | pTM | +0.0014 [-0.0075, +0.0087] |
+
+**NULL RESULT, as pre-declared.** Not one of the six candidates beats the baseline on a single
+model, let alone two. Four of the six are significantly *worse* on at least one model. The
+three rank-mean ensembles on opendde-abag come closest to a win and their intervals still cross
+zero.
+
+Read with Q1 this sharpens the finding rather than softening it. The shipped selector is
+already the best of what these models expose, and it is still worth about two samples out of
+256. The problem is not that a better formula over the existing scores was overlooked — none of
+these scores carries enough within-target information to combine.
+
+**Arm not run.** Ranking samples by structural agreement with the pool's modal pose needs the
+CIF pools and pairwise interface-RMSD. It is not implemented here and remains open. The prior
+for it is the earlier cross-model consensus-confidence pilot on this panel, also a null result.
+
+---
+
 ## Q6. Sampling alone does not get there.
 
 Fitting the measured k = 1..256 curves with a saturating family `y = a - b·N^(-alpha)` (asymptote

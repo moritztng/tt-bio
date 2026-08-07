@@ -290,6 +290,20 @@ select {
   </div>
 </section>
 
+<section id="beat">
+  <h2>We tried to beat it. Nothing did.</h2>
+  <p>Six alternative selectors, fixed in advance, each built only from numbers a model already
+  returns — so you could use any of them today, with no ground truth. Every one is level with
+  the shipped selector or worse. The bar was set before running them: beat the baseline with an
+  interval excluding zero on at least two of the four models. <b>Nothing came close.</b></p>
+  <div class="card">
+    <div class="figwrap"><div id="c-beat"></div><div class="tip" id="tip-beat"></div></div>
+    <div class="legend" id="lg-beat"></div>
+    <p class="foot">Structural consensus — ranking samples by agreement with the pool's modal
+    pose — needs the structures themselves and is not tested here.</p>
+  </div>
+</section>
+
 <section id="pareto">
   <h2>Spend compute on different models, not on more samples.</h2>
   <p>Same card-hours per target, split four ways instead of poured into one model. Drag the
@@ -724,6 +738,56 @@ function drawEpi() {
     + ' never find the site.';
 }
 
+// ---------------------------------------------------------------- 4b. beat the selector
+function drawBeat() {
+  const host = document.getElementById('c-beat'), tip = document.getElementById('tip-beat');
+  const wrap = host.parentElement;
+  const q = D.q5_selectors.per_model;
+  const rows = [];
+  MODELS.forEach(m => Object.keys(q[m].candidates).forEach(n =>
+    rows.push({ m, n, d: q[m].candidates[n].vs_baseline })));
+  const lim = Math.max(0.02, ...rows.map(r => Math.max(Math.abs(r.d.lo[2]), Math.abs(r.d.hi[2]))));
+  const narrow = window.innerWidth < 620;
+  const f = frame(host, { h: 40 + rows.length * (narrow ? 18 : 21), ml: narrow ? 106 : 176,
+    mr: 20, mt: 10, mb: 30 });
+  const bh = f.ih / rows.length;
+  const x = v => f.ml + (v + lim) / (2 * lim) * f.iw;
+  const g = el('g', { class: 'axis' }, f.svg);
+  const step = lim > 0.08 ? 0.05 : 0.02;
+  for (let v = -Math.floor(lim / step) * step; v <= lim + 1e-9; v += step) {
+    const vv = +v.toFixed(3);
+    el('line', { x1: x(vv), x2: x(vv), y1: f.mt, y2: f.mt + f.ih, class: 'gridline' }, g);
+    const t = el('text', { x: x(vv), y: f.mt + f.ih + 16, 'text-anchor': 'middle' }, g);
+    t.textContent = vv.toFixed(2);
+  }
+  el('line', { x1: x(0), x2: x(0), y1: f.mt, y2: f.mt + f.ih, stroke: css('--ink'),
+    'stroke-width': 1.5, opacity: 0.45 }, f.svg);
+  axlabel(f, 'delivered DockQ vs the shipped selector, at N = 256', 'x');
+
+  rows.forEach((r, i) => {
+    const cy = f.mt + i * bh + bh / 2, c = hue(MODELS.indexOf(r.m));
+    const lo = r.d.lo[2], hi = r.d.hi[2], mv = r.d.mean[2];
+    el('line', { x1: x(lo), x2: x(hi), y1: cy, y2: cy, stroke: c, 'stroke-width': 2,
+      opacity: 0.45 }, f.svg);
+    el('circle', { cx: x(mv), cy, r: 4, fill: c }, f.svg);
+    const lt = el('text', { x: f.ml - 8, y: cy + 3.5, 'text-anchor': 'end', class: 'axis' }, f.svg);
+    lt.setAttribute('fill', css('--ink-soft'));
+    lt.style.fontSize = narrow ? '9.5px' : '11px'; lt.style.fontFamily = 'var(--sans)';
+    lt.textContent = SHORT[r.m] + ' · ' + r.n.replace('complex_plddt', 'pLDDT')
+      .replace('iptm', 'ipTM').replace('ptm', 'pTM').replace('plddt', 'pLDDT');
+    const hz = el('rect', { x: f.ml, y: cy - bh / 2, width: f.iw, height: bh,
+      fill: 'transparent' }, f.svg);
+    hz.addEventListener('pointerenter', () => tipAt(tip, wrap, x(mv), cy - 56,
+      `<h4>${LABEL[r.m]} · ${r.n}</h4>`
+      + `<div class="row"><span class="k">change</span><b>${mv >= 0 ? '+' : ''}${mv.toFixed(4)}</b></div>`
+      + `<div class="row"><span class="k">95% CI</span><b>${lo.toFixed(4)} – ${hi.toFixed(4)}</b></div>`));
+    hz.addEventListener('pointerleave', () => tip.style.opacity = 0);
+  });
+  legend(document.getElementById('lg-beat'), [
+    ...MODELS.map((m, i) => ({ c: hue(i), t: LABEL[m] })),
+  ]);
+}
+
 // ---------------------------------------------------------------- 5. pareto
 const PSTRATS = () => [
   { k: 'boltz2', t: 'Boltz-2 only', c: hue(0) },
@@ -921,7 +985,8 @@ function drawExplore() {
 
 // ---------------------------------------------------------------- boot
 function redraw() {
-  drawGap(); drawNeff(); drawConf(); drawEpi(); drawPareto(); drawDelivered(); drawExplore();
+  drawGap(); drawNeff(); drawConf(); drawEpi(); drawBeat(); drawPareto(); drawDelivered();
+  drawExplore();
 }
 
 // How much less compute the even four-way split needs to match the best single model

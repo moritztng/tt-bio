@@ -23,6 +23,7 @@ import q1_selection
 import q2_confidence
 import q3_epitope
 import q4_pareto
+import q5_selectors
 import q6_forecast
 import q7_antibody
 
@@ -65,6 +66,7 @@ SECTIONS = {
     "q2_confidence": q2_confidence.run,
     "q3_epitope": q3_epitope.run,
     "q4_pareto": q4_pareto.run,
+    "q5_selectors": q5_selectors.run,
     "q6_forecast": q6_forecast.run,
     "q7_antibody": q7_antibody.run,
     "explorer": explorer.run,
