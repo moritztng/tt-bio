@@ -117,8 +117,13 @@ def resolve_openfold3_msas(
         if not of3_path.exists():
             try:
                 os.link(path, of3_path)
+            except FileExistsError:
+                pass  # a concurrent worker linked it first
             except OSError:
-                shutil.copyfile(path, of3_path)
+                try:
+                    shutil.copyfile(path, of3_path)
+                except shutil.SameFileError:
+                    pass  # lost the race: of3_path is already a link to path
         query.chains[i].main_msa_file_paths = [of3_path]
     return query
 
