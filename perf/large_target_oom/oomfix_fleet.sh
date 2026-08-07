@@ -16,6 +16,7 @@ mkdir -p "$B"
 fold() { # <src> <model> <target> <chip> <timeout_s> <tag>
   local src=$1 m=$2 t=$3 c=$4 to=$5 tag=$6
   local ob=$B/$tag
+  rm -rf "$ob" "$B/$tag.log" "$B/$tag.dram.txt"   # no stale cifs/logs from an earlier run
   mkdir -p "$ob"
   setsid env SRC="$src" M="$m" T="$t" C="$c" TO="$to" TAG="$tag" OB="$ob" B="$B" MSA="$MSA" bash -c '
     cd "$SRC"
@@ -49,10 +50,8 @@ fold $BRANCH_SRC protenix-v2  9j4c 10 3600 px_9j4c;    sleep 8
 fold $BRANCH_SRC protenix-v2  9i3p 11 3600 px_9i3p;    sleep 8
 fold $BRANCH_SRC protenix-v2  9ivj 12 3600 px_9ivj;    sleep 8
 fold $BRANCH_SRC protenix-v2  9q7y 13 3600 px_9q7y;    sleep 8
-fold $BRANCH_SRC esmfold2     9j4c 14 2400 esm_9j4c;   sleep 8
-fold $BRANCH_SRC esmfold2     9i3p 16 2400 esm_9i3p;   sleep 8
-fold $BRANCH_SRC esmfold2     9ivj 17 2400 esm_9ivj;   sleep 8
-fold $BRANCH_SRC esmfold2     9q7y 18 2400 esm_9q7y;   sleep 8
+# esmfold2 runs from oomfix_esm_fleet.sh instead: it needs the oomfix_deps PYTHONPATH
+# (torchvision pin) and the campaign config (no msa flags, recycling 10 / sampling 100).
 fold $BRANCH_SRC boltz2       9j4c 19 2400 bz_9j4c;    sleep 8
 fold $BRANCH_SRC boltz2       9i3p 20 2400 bz_9i3p;    sleep 8
 fold $BRANCH_SRC boltz2       9ivj 21 2400 bz_9ivj;    sleep 8

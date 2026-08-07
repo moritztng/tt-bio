@@ -13,15 +13,20 @@ fold() { # <target> <chip>
   local t=$1 c=$2 tag=esm_$1
   rm -rf "$B/$tag" "$B/$tag.log" "$B/$tag.dram.txt"
   mkdir -p "$B/$tag"
-  setsid env SRC="$BRANCH_SRC" T="$t" C="$c" TAG="$tag" B="$B" MSA="$MSA" bash -c '
+  # Campaign config for esmfold2 (p28_fleet.sh fold_esm): single-sequence, NEVER msa
+  # flags (they activate the optional MSA encoder on the full cached MSA -- a different,
+  # much larger regime that is not what the campaign measures), recycling 10 / sampling
+  # 100 explicit, seed 50000. The first oomfix fleet run passed --msa_dir and OOM'd all
+  # four targets on MSA-encoder allocations; that was a config artifact, not capability.
+  setsid env SRC="$BRANCH_SRC" T="$t" C="$c" TAG="$tag" B="$B" bash -c '
     cd "$SRC"
     s=$(date +%s)
     TT_VISIBLE_DEVICES=$C TT_BIO_DRAM_PEAK=$B/$TAG.dram.txt \
       PYTHONPATH=$HOME/mthuening/oomfix_deps:$SRC OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
       timeout -k 30 2400 /usr/bin/python3.10 -u -m tt_bio.main predict \
       examples/abag_xm/$T.yaml --model esmfold2 --out_dir $B/$TAG --override \
-      --diffusion_samples 1 --max_parallel_samples 1 --seed 42 --host_threads 2 \
-      --msa_dir $MSA --msa_cache_only > $B/$TAG.log 2>&1
+      --diffusion_samples 1 --recycling_steps 10 --sampling_steps 100 --seed 50000 \
+      --host_threads 2 > $B/$TAG.log 2>&1
     rc=$?
     secs=$(( $(date +%s) - s ))
     if [ $rc -eq 124 ]; then pkill -TERM -g $$ -f python3.10 2>/dev/null; sleep 5; pkill -KILL -g $$ -f python3.10 2>/dev/null; fi
