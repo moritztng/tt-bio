@@ -41,10 +41,21 @@ from abag_xm_deepn_analysis import (  # noqa: E402
 
 BASE = Path.home() / "abag_xm" / "deepn"
 GALAXY = BASE / "galaxy"
+# Galaxy-spine seed blocks (abag_xm_deepn_run.py MODELS): chunk j always folds seed
+# base+1000*j on every rung (the ladder is seed-nested), so the seed of a galaxy-spine
+# sample is a pure function of model and chunk -- no fleet record needed (nested-rung
+# materializations have none). Rung-16 ARK rows keep the fleet lookup (p2 seeds differ).
+BASE_SEED = {"opendde-abag": 20000, "protenix-v2": 30000, "boltz2": 40000,
+             "esmfold2": 50000}
 
 
 def fleet_index():
-    """(target, rung, chunk) -> (seed, mps, seconds); last-attempt-wins, rc=0 only."""
+    """(model, target, rung, chunk) -> (seed, mps, seconds); last-attempt-wins, rc=0 only.
+
+    The key MUST carry the model: the four models share target names, rungs and chunk
+    indices on the seed-nested ladder, so a model-less key silently stamps one model's
+    seed/mps/wall_s onto another's rows (found 2026-08-07: bz 21av c0 rows carried px's
+    30000 base seed)."""
     out = {}
     fj = GALAXY / "fleet_results.jsonl"
     if not fj.exists():
@@ -58,7 +69,7 @@ def fleet_index():
             continue
         if r.get("rc") != 0:
             continue
-        out[(r.get("target"), r.get("rung"), r.get("chunk"))] = (
+        out[(r.get("model"), r.get("target"), r.get("rung"), r.get("chunk"))] = (
             r.get("seed"), r.get("mps"), r.get("seconds"))
     return out
 
@@ -80,7 +91,11 @@ def fold_rows(model, out_dir, target, rung, chunk, hardware, sha, prov):
         labs = {int(s["rank"]): s for s in json.loads(lj.read_text()).get("samples", [])}
     except Exception:
         return []
-    seed, mps, secs = prov.get((target, rung, chunk), (None, None, None))
+    # unchunked folds (dir has no _c suffix) map to the fleet record's chunk 0
+    seed, mps, secs = prov.get((model, target, rung, chunk if chunk is not None else 0),
+                               (None, None, None))
+    if rung >= 64 and hardware == "wh-galaxy":
+        seed = BASE_SEED[model] + 1000 * (chunk or 0)
     rows = []
     for r in runs:
         rank = r.get("rank")
@@ -103,7 +118,8 @@ def fold_rows(model, out_dir, target, rung, chunk, hardware, sha, prov):
             "cdr_h1_rmsd": cdr.get("H1"), "cdr_h2_rmsd": cdr.get("H2"),
             "cdr_h3_rmsd": cdr.get("H3"),
             "epitope_jaccard": ej.get("epitope_jaccard"),
-            "seed": seed, "mps": int(mps) if mps is not None else None,
+            "seed": seed,
+            "mps": int(mps) if mps is not None and str(mps).isdigit() else None,
             "wall_s": secs, "hardware": hardware, "code_sha": sha})
     return rows
 
