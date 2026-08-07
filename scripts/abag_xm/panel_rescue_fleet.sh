@@ -97,8 +97,14 @@ guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group 
   wait $pid 2>/dev/null; local rc=$?
   if [ $killrc -ne 0 ]; then
     rc=$killrc
-    sudo -n tt-smi -r /dev/tenstorrent/$u >> "$log" 2>&1 \
-      || echo "$(date -u +%FT%TZ) GUARD: tt-smi reset failed on dev $u" >> "$log"
+    # NO unattended tt-smi here: this fleet runs ALONGSIDE prod on the same Galaxy,
+    # UMD id != /dev node number (verified 2026-08-07: UMD 8/16/29 -> nodes 24/8/5),
+    # and tt-smi can escalate a targeted reset to -glx_reset (all 32 chips). A wrong
+    # or escalated reset kills live prod workers. Mark the chip suspect instead; a
+    # later pass resets it deliberately. A dirty chip fails the next fold fast at
+    # device open and is recorded, not silent.
+    echo "$(date -u +%FT%TZ) GUARD: chip umd $u SUSPECT after kill -- needs a deliberate reset" >> "$log"
+    echo "$u $(date -u +%FT%TZ)" >> $B/rescue_suspect_chips.txt
     sleep 10
   fi
   return $rc
@@ -227,6 +233,10 @@ slot() {
     read -r model t rung seed c k <<<"$(sed -n "${idx}p" $TASKS)"
     if already_ok "$model" "$t" "$rung" "$seed" "$c"; then
       echo "rescue slot $chip: $model/$t c$c already rc=0 -- skip" >> $B/rescue_slots.log
+      continue
+    fi
+    if [ -f $B/rescue_suspect_chips.txt ] && grep -q "^$chip " $B/rescue_suspect_chips.txt; then
+      echo "rescue slot $chip: chip marked suspect -- skipping $model/$t c$c (needs reset first)" >> $B/rescue_slots.log
       continue
     fi
     ( cd $SRC && fold "$model" "$t" "$rung" "$seed" "$c" "$k" "$chip" )

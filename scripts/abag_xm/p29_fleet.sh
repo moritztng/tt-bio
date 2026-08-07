@@ -242,8 +242,11 @@ guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group 
   wait $pid 2>/dev/null; local rc=$?
   if [ $killrc -ne 0 ]; then
     rc=$killrc
-    sudo -n tt-smi -r /dev/tenstorrent/$u >> "$log" 2>&1 \
-      || echo "$(date -u +%FT%TZ) GUARD: tt-smi reset failed on dev $u" >> "$log"
+    # Reset by UMD logical id (bare number), NOT /dev/tenstorrent/$u: on this Galaxy
+    # UMD id != /dev node number (verified 2026-08-07: UMD 8/16/29 -> nodes 24/8/5),
+    # so the path form would reset a neighbor's chip.
+    sudo -n tt-smi -r $u >> "$log" 2>&1 \
+      || echo "$(date -u +%FT%TZ) GUARD: tt-smi reset failed on umd $u" >> "$log"
     sleep 10
   fi
   return $rc
