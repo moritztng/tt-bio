@@ -102,9 +102,9 @@ def m1(dev, ckc):
         y = ttnn.linear(xr, w, activation="silu", compute_kernel_config=ckc,
                         memory_config=ttnn.L1_MEMORY_CONFIG, dtype=ttnn.bfloat16,
                         core_grid=CORE_GRID_MAIN)
-        yr = ttnn.reshape(y, (1, H_CHUNK, N, C_HID))
-        ttnn.deallocate(y)
-        return yr
+        # NOTE: no deallocate(y) -- reshape returns a VIEW of y's buffer, and
+        # freeing y would invalidate the returned tensor.
+        return ttnn.reshape(y, (1, H_CHUNK, N, C_HID))
 
     def leg_reshape_only():
         xr = ttnn.reshape(x4, (1, 1, H_CHUNK * N, C_Z))
@@ -133,9 +133,7 @@ def m1(dev, ckc):
             xf = ttnn.reshape(x3, (1, 1, N * N, C_Z))
             y = ttnn.linear(xf, wk, compute_kernel_config=ckc,
                             dtype=ttnn.bfloat16, core_grid=CORE_GRID_MAIN)
-            yr = ttnn.reshape(y, (N, N, k_dim))
-            ttnn.deallocate(y)
-            return yr
+            return ttnn.reshape(y, (N, N, k_dim))
 
         med = interleave([(f"k{k_dim}_3d", leg_3d), (f"k{k_dim}_flat", leg_flat)], dev)
         print(f"    k={k_dim}: {med}  speedup 3d/flat = {med[f'k{k_dim}_3d'] / med[f'k{k_dim}_flat']:.2f}x")
@@ -154,21 +152,24 @@ def m2(dev, ckc):
     pm, pn = -(-10 // gy), -(-10 // gx)
     flops = 2 * TRI_C * N * N * N
     legs = []
-    for ibw in (1, 2, 4, 10):
-        for osh, osw in ((1, 1), (2, 2)):
-            pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-                compute_with_storage_grid_size=(gx, gy),
-                in0_block_w=ibw, out_subblock_h=osh, out_subblock_w=osw,
-                out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn,
-                transpose_mcast=False, fused_activation=None, fuse_batch=False)
+    # fuse_batch is invalid here: it requires batch(in1)==1, and b is [1,32,320,320].
+    # Kt = 10 tiles: in0_block_w must divide it (4 is invalid).
+    for ibw in (1, 2, 5, 10):
+        # out block is per_core_M x per_core_N = 1x1 tile at N=320, so
+        # out_subblock > 1 is invalid (out_block % subblock == 0 required).
+        pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=(gx, gy),
+            in0_block_w=ibw, out_subblock_h=1, out_subblock_w=1,
+            out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn,
+            transpose_mcast=False, fused_activation=None, fuse_batch=False)
 
-            def leg(pc=pc):
-                return ttnn.matmul(a, b, compute_kernel_config=ckc,
-                                   memory_config=ttnn.L1_MEMORY_CONFIG, program_config=pc,
-                                   dtype=ttnn.bfloat16)
-            legs.append((f"ibw{ibw}_sb{osh}x{osw}", leg))
+        def leg(pc=pc):
+            return ttnn.matmul(a, b, compute_kernel_config=ckc,
+                               memory_config=ttnn.L1_MEMORY_CONFIG, program_config=pc,
+                               dtype=ttnn.bfloat16)
+        legs.append((f"ibw{ibw}", leg))
     med = interleave(legs, dev, warm=2, iters=5)
-    cur = med.get("ibw1_sb1x1")
+    cur = med.get("ibw1")
     for k, v in sorted(med.items(), key=lambda kv: kv[1]):
         print(f"    {k}: {v:.3f} ms  {flops / v / 1e9:.1f} TFLOP/s  ({cur / v:.2f}x vs current)")
 
@@ -273,20 +274,23 @@ def m6(dev, ckc):
     check("packed g vs separate", g2, ttnn.to_torch(g1))
 
 
-def m7(dev, ckc):
-    print("M7 tri-attention SDPA program-config sweep (q [320,8,320,32], bias [1,8,320,320])")
-    q = ttnn.from_torch(torch.randn(N, 8, N, 32, dtype=torch.bfloat16),
+def m7(dev, ckc, fine=False):
+    print("M7 tri-attention SDPA program-config sweep (q [N,8,N,32], bias [1,8,N,N])")
+    n = 128 if fine else N
+    q = ttnn.from_torch(torch.randn(n, 8, n, 32, dtype=torch.bfloat16),
                         layout=ttnn.TILE_LAYOUT, device=dev)
-    k = ttnn.from_torch(torch.randn(N, 8, N, 32, dtype=torch.bfloat16),
+    k = ttnn.from_torch(torch.randn(n, 8, n, 32, dtype=torch.bfloat16),
                         layout=ttnn.TILE_LAYOUT, device=dev)
-    v = ttnn.from_torch(torch.randn(N, 8, N, 32, dtype=torch.bfloat16),
+    v = ttnn.from_torch(torch.randn(n, 8, n, 32, dtype=torch.bfloat16),
                         layout=ttnn.TILE_LAYOUT, device=dev)
-    bias = ttnn.from_torch(torch.randn(1, 8, N, N, dtype=torch.bfloat16),
+    bias = ttnn.from_torch(torch.randn(1, 8, n, n, dtype=torch.bfloat16),
                            layout=ttnn.TILE_LAYOUT, device=dev)
-    flops = 2 * 2 * N * 8 * N * N * 32
+    flops = 2 * 2 * n * 8 * n * n * 32
 
     legs = []
-    for qc, kc in ((32, 32), (64, 64), (128, 128), (256, 256), (64, 256), (128, 256), (256, 128)):
+    combos = ((32, 32), (64, 64), (64, 128), (128, 64), (128, 128)) if fine else \
+        ((32, 32), (64, 64), (128, 128), (256, 256), (64, 256), (128, 256), (256, 128))
+    for qc, kc in combos:
         pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=(13, 10),
                                     exp_approx_mode=False, q_chunk_size=qc, k_chunk_size=kc)
 
@@ -295,22 +299,130 @@ def m7(dev, ckc):
                 q, k, v, attn_mask=bias, is_causal=False, scale=32 ** -0.5, program_config=pc)
         legs.append((f"q{qc}k{kc}", leg))
     med = interleave(legs, dev, warm=2, iters=5)
-    cur = med.get("q256k256")  # current: _capped_sdpa_chunk_size(320) = 256
+    cur = med.get("q256k256") or med.get("q128k128")  # current: _capped_sdpa_chunk_size(N)
     for kk, vv in sorted(med.items(), key=lambda kv: kv[1]):
-        print(f"    {kk}: {vv:.3f} ms  {flops / vv / 1e9:.1f} TFLOP/s  ({cur / vv:.2f}x vs current q256k256)")
+        print(f"    {kk}: {vv:.3f} ms  {flops / vv / 1e9:.1f} TFLOP/s  ({cur / vv:.2f}x vs current)")
+    # numerics: chunking changes the online-softmax reduction order -- measure it
+    ref_pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=(13, 10),
+                                    exp_approx_mode=False, q_chunk_size=256 if not fine else 128,
+                                    k_chunk_size=256 if not fine else 128)
+    best_pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=(13, 10),
+                                     exp_approx_mode=False, q_chunk_size=64, k_chunk_size=64)
+    a = ttnn.transformer.scaled_dot_product_attention(q, k, v, attn_mask=bias, is_causal=False,
+                                                      scale=32 ** -0.5, program_config=ref_pc)
+    b = ttnn.transformer.scaled_dot_product_attention(q, k, v, attn_mask=bias, is_causal=False,
+                                                      scale=32 ** -0.5, program_config=best_pc)
+    ttnn.synchronize_device(dev)
+    check("q64k64 vs current-config", b, ttnn.to_torch(a))
+
+
+def m7c(dev, ckc):
+    """Cross-size guard for the M7 winner: boltz2/esmfold2 tri-att shapes (L=512/1024,
+    same head_dim=32). If q64k64 does not win there too, the landing must be size-gated."""
+    print("M7c SDPA chunk winner at OTHER models' shapes")
+    for n in (512, 1024):
+        q = ttnn.from_torch(torch.randn(n, 8, n, 32, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+        k = ttnn.from_torch(torch.randn(n, 8, n, 32, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+        v = ttnn.from_torch(torch.randn(n, 8, n, 32, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+        bias = ttnn.from_torch(torch.randn(1, 8, n, n, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+        cur_chunk = min(256, ((n + 31) // 32) * 32)
+        legs = []
+        for qc, kc in ((64, 64), (128, 128), (cur_chunk, cur_chunk)):
+            pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=(13, 10),
+                                        exp_approx_mode=False, q_chunk_size=qc, k_chunk_size=kc)
+
+            def leg(pc=pc):
+                return ttnn.transformer.scaled_dot_product_attention(
+                    q, k, v, attn_mask=bias, is_causal=False, scale=32 ** -0.5, program_config=pc)
+            legs.append((f"q{qc}k{kc}", leg))
+        med = interleave(legs, dev, warm=2, iters=5)
+        cur = med.get(f"q{cur_chunk}k{cur_chunk}")
+        print(f"  N={n} (current chunk {cur_chunk}):")
+        for kk, vv in sorted(med.items(), key=lambda kv: kv[1]):
+            print(f"    {kk}: {vv:.3f} ms ({cur / vv:.2f}x vs current)")
+        del q, k, v, bias
+
+
+def m2b(dev, ckc):
+    """Cross-size guard for the M2 winner: boltz2 trimul contraction at L=512 (Kt=16)."""
+    print("M2b trimul contraction at [1,32,512,512] (Kt=16): ibw 1 vs 8")
+    a = ttnn.from_torch(torch.randn(1, 32, 512, 512, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+    b = ttnn.from_torch(torch.randn(1, 32, 512, 512, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+    gx, gy = 13, 10
+    tiles = 16
+    pm, pn = -(-tiles // gy), -(-tiles // gx)
+    legs = []
+    for ibw in (1, 8):
+        pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=ibw,
+            out_subblock_h=1, out_subblock_w=1, out_block_h=pm, out_block_w=pn,
+            per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+            fused_activation=None, fuse_batch=False)
+
+        def leg(pc=pc):
+            return ttnn.matmul(a, b, compute_kernel_config=ckc,
+                               memory_config=ttnn.L1_MEMORY_CONFIG, program_config=pc,
+                               dtype=ttnn.bfloat16)
+        legs.append((f"ibw{ibw}", leg))
+    med = interleave(legs, dev, warm=2, iters=5)
+    print(f"    {med}  speedup ibw1/ibw8 = {med['ibw1'] / med['ibw8']:.2f}x")
+
+
+def m4b(dev, ckc):
+    """Cross-shape guard for the M4 winner: boltz2 transition at W=1024, c=128."""
+    print("M4b transition at boltz2 shape [1,h,1024,128], h=16 vs 64")
+    w1 = ttnn.from_torch(torch.randn(128, 512, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+    w2 = ttnn.from_torch(torch.randn(128, 512, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+    w3 = ttnn.from_torch(torch.randn(512, 128, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+    lnw = ttnn.from_torch(torch.randn(128, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+    lnb = ttnn.from_torch(torch.randn(128, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+
+    def swiglu(x):
+        xn = ttnn.layer_norm(x, weight=lnw, bias=lnb, epsilon=1e-5,
+                             compute_kernel_config=ckc, memory_config=ttnn.L1_MEMORY_CONFIG)
+        x1 = ttnn.linear(xn, w1, activation="silu", compute_kernel_config=ckc,
+                         memory_config=ttnn.L1_MEMORY_CONFIG, dtype=ttnn.bfloat16, core_grid=CORE_GRID_MAIN)
+        x2 = ttnn.linear(xn, w2, compute_kernel_config=ckc,
+                         memory_config=ttnn.L1_MEMORY_CONFIG, dtype=ttnn.bfloat16, core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(xn)
+        x = ttnn.multiply_(x1, x2)
+        ttnn.deallocate(x2)
+        xd = ttnn.linear(x, w3, compute_kernel_config=ckc, dtype=ttnn.bfloat16,
+                         core_grid=CORE_GRID_MAIN, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(x)
+        return xd
+
+    legs = []
+    for h in (16, 64):
+        xh = ttnn.from_torch(torch.randn(1, h, 1024, 128, dtype=torch.bfloat16),
+                             layout=ttnn.TILE_LAYOUT, device=dev)
+        n_chunks = -(-1024 // h)
+
+        def leg(xh=xh, n_chunks=n_chunks):
+            outs = []
+            for c in ttnn.chunk(xh, n_chunks, dim=1):
+                outs.append(swiglu(c))
+            y = ttnn.concat(outs, dim=1)
+            for o in outs:
+                ttnn.deallocate(o)
+            return y
+        legs.append((f"h{h}(x{n_chunks})", leg))
+    med = interleave(legs, dev, warm=2, iters=5)
+    print(f"    {med}  speedup h16/h64 = {med['h16(x64)'] / med['h64(x16)']:.2f}x")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--only", choices=["m1", "m2", "m4", "m5", "m6", "m7"], default=None)
+    ap.add_argument("--only", choices=["m1", "m2", "m2b", "m4", "m4b", "m5", "m6", "m7", "m7b", "m7c"], default=None)
     args = ap.parse_args()
     dev = get_device()
     ckc = ckc_of(dev, ttnn.MathFidelity.HiFi4, True)
     todo = [args.only] if args.only else ["m1", "m2", "m4", "m5", "m6", "m7"]
     for name in todo:
-        {"m1": lambda: m1(dev, ckc), "m2": lambda: m2(dev, ckc),
-         "m4": lambda: m4(dev, ckc), "m5": lambda: m5(dev),
-         "m6": lambda: m6(dev, ckc), "m7": lambda: m7(dev, ckc)}[name]()
+        {"m1": lambda: m1(dev, ckc), "m2": lambda: m2(dev, ckc), "m2b": lambda: m2b(dev, ckc),
+         "m4": lambda: m4(dev, ckc), "m4b": lambda: m4b(dev, ckc), "m5": lambda: m5(dev),
+         "m6": lambda: m6(dev, ckc), "m7": lambda: m7(dev, ckc), "m7b": lambda: m7(dev, ckc, fine=True),
+         "m7c": lambda: m7c(dev, ckc)}[name]()
 
 
 if __name__ == "__main__":

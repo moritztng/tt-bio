@@ -52,12 +52,53 @@ def build_layer(ckc):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=["count", "bench"], required=True)
+    ap.add_argument("--mode", choices=["count", "bench", "ab_trimul"], required=True)
     ap.add_argument("--n", type=int, default=320, help="padded token count (298 aa -> 320, 117 aa -> 128)")
+    ap.add_argument("--trimul-chunk", type=int, default=0,
+                    help="if >0, override TRIANGLE_MULT_CHUNK_SIZE before building the layer (M3)")
     ap.add_argument("--warm", type=int, default=2)
     ap.add_argument("--iters", type=int, default=5)
     ap.add_argument("--out", type=str, default=None)
     args = ap.parse_args()
+
+    if args.mode == "ab_trimul":
+        import tt_bio.tenstorrent as T
+        dev = get_device()
+        ckc = ttnn.init_device_compute_kernel_config(
+            dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+            fp32_dest_acc_en=True, packer_l1_acc=True,
+        )
+        layers = {}
+        for c in (32, 64, 128):
+            T.TRIANGLE_MULT_CHUNK_SIZE = c
+            layers[c] = build_layer(ckc)
+        T.TRIANGLE_MULT_CHUNK_SIZE = 32
+        N = args.n
+        torch.manual_seed(0)
+        for c, (layer, c_z) in layers.items():
+            s = ttnn.from_torch(torch.randn(1, N, 384), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+            z = ttnn.from_torch(torch.randn(1, N, N, c_z), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+            for _ in range(args.warm):
+                s, z = layer(s, z)
+            layers[c] = (layer, c_z, s, z)
+        ttnn.synchronize_device(dev)
+        times = {c: [] for c in layers}
+        for _ in range(args.iters):
+            for c, (layer, c_z, s, z) in layers.items():
+                ttnn.synchronize_device(dev)
+                t0 = time.perf_counter()
+                s, z = layer(s, z)
+                ttnn.synchronize_device(dev)
+                times[c].append((time.perf_counter() - t0) * 1e3)
+                layers[c] = (layer, c_z, s, z)
+        for c, ts in sorted(times.items()):
+            med = sorted(ts)[len(ts) // 2]
+            print(f"TRIMUL_CHUNK {c}: median {med:.1f} ms series {[round(t, 1) for t in ts]}")
+        return
+
+    if args.trimul_chunk:
+        import tt_bio.tenstorrent as T
+        T.TRIANGLE_MULT_CHUNK_SIZE = args.trimul_chunk
 
     dev = get_device()
     ckc = ttnn.init_device_compute_kernel_config(

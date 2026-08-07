@@ -35,7 +35,7 @@ SEQ_LEN_MORE_CHUNKING = 1536
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
 TRANSITION_W_CHUNKING_THRESHOLD = 1024
 TRANSITION_H_CHUNK_SIZE_FAST = 32
-TRANSITION_H_CHUNK_SIZE = 16
+TRANSITION_H_CHUNK_SIZE = 32  # 64 measured 2.47x standalone (M4) but overflows L1 in-block; 32 is 1.87x
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
@@ -151,6 +151,18 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
     )
 
 
+@lru_cache(maxsize=None)
+def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
+    # Microbench M7/M7b/M7c (Blackhole 13x10, tri-att shape batch=seq, h=8, d=32):
+    # the 256-cap is optimal at >=512 (0.59x regression at 64) and 128 is best at
+    # <=128, but in the 256<seq<=384 band (298-aa proteins pad to 320, 2 chunks of
+    # 256+64 padded) q_chunk=k_chunk=64 is 2.45x faster. Chunking only changes the
+    # online-softmax reduction order (measured PCC 0.9999 vs the 256 config).
+    if 256 < q_len <= 384 and 256 < k_len <= 384:
+        return _sdpa_program_config(q_chunk_size=64, k_chunk_size=64)
+    return _sdpa_program_config_for_lengths(q_len, k_len)
+
+
 def _fp32_softmax_attention(
     q: ttnn.Tensor,
     k: ttnn.Tensor,
@@ -196,9 +208,13 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
+    # in0_block_w must divide seq_len_tiles (Kt). Measured on Blackhole: widest
+    # legal block is 2.4x faster than 1 at Kt=10 and 2.15x at Kt=16 (microbench M2/M2b);
+    # K-tile accumulation order into the fp32 dest register is unchanged.
+    in0_block_w = max(d for d in range(min(10, seq_len_tiles), 0, -1) if seq_len_tiles % d == 0)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
-        in0_block_w=1,
+        in0_block_w=in0_block_w,
         out_subblock_h=1,
         out_subblock_w=1,
         out_block_h=per_core_M,
@@ -985,7 +1001,7 @@ class TriangleAttention(Module):
             else:
                 o = ttnn.transformer.scaled_dot_product_attention(
                     q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
-                    program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+                    program_config=_tri_att_sdpa_program_config(q.shape[2], k.shape[2]),
                 )
             ttnn.deallocate(q)
             ttnn.deallocate(k)
