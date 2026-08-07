@@ -23,16 +23,24 @@ ever copied to make a count -- the link is legitimate only because the fold it
 points at is the same (model, target, rung, seed) measurement, verified 64/64.
 
 Usage: panel_link_retries.py [--apply]   (default: dry-run, prints what would link)
-Runs on the Galaxy; H=/home/cust-team/mthuening.
+       panel_link_retries.py --p28-from-p29 [--apply]
+Runs on the Galaxy; H=/home/cust-team/mthuening (PANEL_LINK_HOME overrides, for fixtures).
+
+--p28-from-p29: fill p28's failed rung-64 slots from p29's rung-256 chunk-0 folds.
+Seed nesting makes chunk 0 of the N=256 ladder byte-identical to the N=64 slot:
+p29's c0 runs --diffusion_samples 64 (256/4) --seed <base>, p28's rung-64 slot runs
+--diffusion_samples 64 (64/1) --seed <base> -- same model, target, samples, seed,
+engine tree. p28 records carry chunk/chunks fields; p25/p25b/p26 do not.
 """
 import hashlib
 import json
+import os
 import pathlib
 import subprocess
 import sys
 import time
 
-H = pathlib.Path("/home/cust-team/mthuening")
+H = pathlib.Path(os.environ.get("PANEL_LINK_HOME", "/home/cust-team/mthuening"))
 ORIGINS = ["p25", "p25b", "p26"]
 SOURCE = H / "p27"
 MD = {"boltz2": "boltz2", "opendde-abag": "opendde",
@@ -75,9 +83,70 @@ def verify_fold(d, t):
     return n_distinct, "ok"
 
 
+def link_p28_from_p29(apply, now):
+    """Fill p28 rung-64 failures from p29's rung-256 chunk-0 folds (seed-nested twin)."""
+    SRC, W = H / "p29", H / "p28"
+    src_best = last_wins(SRC / "results.jsonl")  # rung-256 seed is chunk-unique (base+1000*j)
+    tasks = [l.split() for l in (W / "tasks.txt").read_text().splitlines() if l.strip()]
+    idx = {(f[0], f[1], f[2], f[3]): i for i, f in enumerate(tasks, 1) if len(f) >= 4}
+    best = last_wins(W / "results.jsonl")
+    linked, no_source, bad_verify = 0, [], []
+    rf = open(W / "results.jsonl", "a") if apply else None
+    pf = open(W / "reused_chunks.jsonl", "a") if apply else None
+    try:
+        for (m, t, rung, seed), i in sorted(idx.items(), key=lambda kv: kv[1]):
+            if rung != "64":
+                continue  # only rung-64 slots have a rung-256 chunk-0 twin
+            last = best.get((m, t, rung, seed))
+            if last and last.get("rc") in (0, "0") and last.get("cifs", 0) > 0:
+                continue  # already done (idempotent)
+            src = src_best.get((m, t, "256", seed))
+            if not (src and src.get("rc") in (0, "0") and src.get("chunk") in (0, "0")
+                    and src.get("cifs") == 64 and src.get("distinct") == 64):
+                no_source.append(f"{m}/{t}")
+                continue
+            srcdir = SRC / MD[m] / f"{t}_c0"
+            n_distinct, why = verify_fold(srcdir, t)
+            if n_distinct != 64:
+                bad_verify.append(f"{m}/{t}: {why}")
+                continue
+            dst = W / MD[m] / t
+            if apply:
+                if not dst.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    subprocess.run(["cp", "-al", str(srcdir), str(dst)], check=True)
+                rf.write(json.dumps(
+                    {"model": m, "target": t, "rung": 64, "seed": int(seed),
+                     "chunk": 0, "chunks": 1,
+                     "mps": str(src["mps"]), "umd": src["umd"], "rc": 0,
+                     "seconds": src["seconds"], "cifs": 64, "distinct": n_distinct,
+                     "oom": 0}, separators=(",", ":")) + "\n")
+                pf.write(json.dumps(
+                    {"model": m, "target": t, "rung": 64, "seed": int(seed),
+                     "chunk": 0, "chunks": 1,
+                     "source_window": SRC.name, "source_dir": str(srcdir),
+                     "source_rung": 256, "source_chunk": 0,
+                     "source_seconds": src["seconds"], "source_mps": str(src["mps"]),
+                     "verify": "results.json ok, 64 cifs, 64 md5-distinct",
+                     "reused_at": now, "claim_idx": i}) + "\n")
+                (W / "claims" / str(i)).mkdir(parents=True, exist_ok=True)
+            linked += 1
+    finally:
+        if rf:
+            rf.close()
+            pf.close()
+    print(f"p28<-p29: {'linked' if apply else 'would link'} {linked}"
+          + (f"  no-p29-source: {sorted(no_source)}" if no_source else "")
+          + (f"  FAILED-VERIFY: {bad_verify}" if bad_verify else ""))
+    return linked
+
+
 def main():
     apply = "--apply" in sys.argv[1:]
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    if "--p28-from-p29" in sys.argv[1:]:
+        link_p28_from_p29(apply, now)
+        return
     src_best = last_wins(SOURCE / "results.jsonl")
     total_linked = 0
     for win in ORIGINS:
