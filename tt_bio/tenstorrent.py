@@ -883,20 +883,15 @@ class TriangleMultiplication(Module):
             for c in x_chunks:
                 ttnn.deallocate(c)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
-        x = ttnn.layer_norm(
-            x,
-            weight=self.out_norm_weight,
-            bias=self.out_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
         if H > SEQ_LEN_MORE_CHUNKING:
-            # Row-block the two output projections instead of computing them full-size.
-            # x_norm_in is a full c_z-wide tensor held only for the g_out projection;
-            # layer_norm is row-local, so recomputing it per row block from the (alive,
-            # unmutated) input is bit-identical to slicing the full-size result. Peak
-            # here drops from ~4 pair-tensor multiples (z + x_norm_in + p_out + g_out)
-            # to ~3 (z + accumulated blocks + concat destination).
+            # Row-block the output projections instead of computing them full-size.
+            # Both layer_norms are row-local, so recomputing them per row block from the
+            # (alive, unmutated) inputs is bit-identical to slicing the full-size results,
+            # and the full-size norm_out output never exists: at these shapes it is one
+            # pair-tensor-sized allocation attempted while z, x_norm_in and the hidden
+            # are all live, which is exactly the refusal the large targets die on. Peak
+            # here drops to ~3 pair-tensor multiples (z + accumulated blocks + concat
+            # destination), with the hidden freed before the concat.
             ttnn.deallocate(x_norm_in)
             blocks = []
             for s in range(0, H, 128):
@@ -917,14 +912,22 @@ class TriangleMultiplication(Module):
                     core_grid=CORE_GRID_MAIN,
                 )
                 ttnn.deallocate(z_rows)
-                p_block = ttnn.linear(
+                x_rows = ttnn.layer_norm(
                     x[:, s:e],
+                    weight=self.out_norm_weight,
+                    bias=self.out_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=self.compute_kernel_config,
+                )
+                p_block = ttnn.linear(
+                    x_rows,
                     self.out_p_weight,
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                     dtype=_dtype(),
                     compute_kernel_config=self.compute_kernel_config,
                     core_grid=CORE_GRID_MAIN,
                 )
+                ttnn.deallocate(x_rows)
                 blocks.append(ttnn.multiply_(
                     p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
                 ))
@@ -935,6 +938,13 @@ class TriangleMultiplication(Module):
             for b in blocks:
                 ttnn.deallocate(b)
             return out
+        x = ttnn.layer_norm(
+            x,
+            weight=self.out_norm_weight,
+            bias=self.out_norm_bias,
+            epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+        )
         p_out = ttnn.linear(
             x,
             self.out_p_weight,
@@ -1026,25 +1036,75 @@ class TriangleAttention(Module):
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x = ttnn.reshape(x, tuple(x.shape)[1:])
-        if self.ending:
-            x = ttnn.permute(x, (1, 0, 2))  # THIS CAUSES CACHE -> RESHAPE PROBLEM
-        x = ttnn.layer_norm(
-            x,
-            weight=self.layer_norm_weight,
-            bias=self.layer_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
-        triangle_bias = ttnn.linear(
-            x,
-            self.bias_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            dtype=ttnn.bfloat16,
-            core_grid=CORE_GRID_MAIN,
-        )
-        triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
-        triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
-        dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
+        S = x.shape[0]
+        need_chunk = S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID)
+        if need_chunk:
+            # Large-sequence path: never materialise the full layer_norm output.
+            # layer_norm is row-local, so norming a row block is bit-identical to
+            # slicing the full normed tensor, and for the ending variant a row block of
+            # the transposed pair tensor is a column strip of the input followed by the
+            # same (1,0,2) transpose -- pure reordering, bit-exact. The triangle bias is
+            # built from the same per-block norms and concat'ed along its row axis, so
+            # it arrives identical to the full-tensor computation. This drops the
+            # chunked path from 3 full pair tensors live (z + normed x + accumulated
+            # parts) to 2, plus the n_heads-wide bias.
+            chunk = TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE
+
+            def normed_rows(s, e):
+                blk = x[:, s:e, :] if self.ending else x[s:e, :, :]
+                if self.ending:
+                    blk = ttnn.permute(blk, (1, 0, 2))
+                return ttnn.layer_norm(
+                    blk,
+                    weight=self.layer_norm_weight,
+                    bias=self.layer_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=self.compute_kernel_config,
+                )
+
+            bias_parts = []
+            for s in range(0, S, chunk):
+                e = min(s + chunk, S)
+                xc = normed_rows(s, e)
+                b = ttnn.linear(
+                    xc,
+                    self.bias_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    dtype=ttnn.bfloat16,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                ttnn.deallocate(xc)
+                # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an
+                # explicit ttnn.deallocate force-frees the buffer even while the view is
+                # still referenced, so the permute would read recycled memory (measured:
+                # bias garbage at PCC 0.87 with the deallocates, bit-exact without).
+                # Rebinding on the next iteration frees the buffer via refcount.
+                bp = ttnn.unsqueeze(b, 0)
+                bias_parts.append(ttnn.permute(bp, (0, 3, 1, 2)))
+            triangle_bias = ttnn.concat(bias_parts, dim=2)
+            for bp in bias_parts:
+                ttnn.deallocate(bp)
+            dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
+        else:
+            if self.ending:
+                x = ttnn.permute(x, (1, 0, 2))  # THIS CAUSES CACHE -> RESHAPE PROBLEM
+            x = ttnn.layer_norm(
+                x,
+                weight=self.layer_norm_weight,
+                bias=self.layer_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            triangle_bias = ttnn.linear(
+                x,
+                self.bias_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                dtype=ttnn.bfloat16,
+                core_grid=CORE_GRID_MAIN,
+            )
+            triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
+            triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
+            dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
         def attend(qkv_in, bias):
             qkv_in = ttnn.unsqueeze(qkv_in, 1)
@@ -1097,16 +1157,13 @@ class TriangleAttention(Module):
             ttnn.deallocate(o_in)
             return x_out
 
-        S = x.shape[0]
-        need_chunk = S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID)
         if need_chunk:
             if not self.affinity and attn_mask is not None:
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
-            chunk = TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE
             parts = []
             for s in range(0, S, chunk):
                 end = min(s + chunk, S)
-                x_chunk = x[s:end, :, :]
+                x_chunk = normed_rows(s, end)
                 qkv_chunk = ttnn.experimental.minimal_matmul(
                     input_tensor=x_chunk,
                     weight_tensor=self.qkv_weight,
@@ -1119,6 +1176,7 @@ class TriangleAttention(Module):
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
                 )
+                ttnn.deallocate(x_chunk)
                 if self.affinity:
                     bias = ttnn.add(triangle_bias, attn_mask[s:end, :, :])
                     o_chunk = attend(qkv_chunk, bias)
@@ -1128,7 +1186,8 @@ class TriangleAttention(Module):
                 ttnn.deallocate(qkv_chunk)
                 parts.append(gate_and_project(o_chunk, g_chunk))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) row loop done [z={'x'.join(str(d) for d in x.shape)}]")
-            ttnn.deallocate(x)
+            # x here is the reshaped (unpermuted) input -- for the starting variant it can
+            # alias the caller's pair tensor, so it must NOT be deallocated.
             ttnn.deallocate(triangle_bias)
             x = ttnn.concat(parts, dim=0)
             del parts
