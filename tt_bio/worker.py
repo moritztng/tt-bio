@@ -157,6 +157,67 @@ def _write_openfold3_structure(atom_array, coords, outpath, output_format,
         cf.write(str(outpath))
 
 
+def _openfold3_template_map(path: Path) -> dict[str, str]:
+    """Per-chain template alignment (npz) paths from a YAML input's `templates:` key.
+
+    OF3-only: the shared chain reader has no template field, so the OF3 path re-reads
+    the YAML for `{protein: {id: X, sequence: ..., templates: <npz>}}`. A template path
+    on a non-protein chain, an unknown chain id, or a missing file is a hard error —
+    silently dropping a user-supplied template would fold a different input than asked.
+    """
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return {}
+    import yaml
+    doc = yaml.safe_load(path.read_text()) or {}
+    out: dict[str, str] = {}
+    for entry in doc.get("sequences", []):
+        if not isinstance(entry, dict):
+            continue
+        for key, mt in (("protein", "protein"), ("rna", "rna"), ("dna", "dna")):
+            sub = entry.get(key)
+            if not (isinstance(sub, dict) and sub.get("sequence")):
+                continue
+            tmpl = sub.get("templates")
+            if tmpl in (None, "", "~"):
+                continue
+            if mt != "protein":
+                raise RuntimeError(
+                    f"--model openfold3: templates are only valid on protein chains, "
+                    f"not {mt} (chain entry {sub.get('id')!r}).")
+            tp = Path(str(tmpl)).expanduser()
+            if not tp.exists():
+                raise RuntimeError(
+                    f"--model openfold3: template file {tp} does not exist.")
+            ids = sub.get("id", "A")
+            id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
+                       else str(ids).split(","))
+            for c in id_list:
+                out[c.strip()] = str(tp)
+    return out
+
+
+def _validate_openfold3_chains(chains: list) -> None:
+    """Reject OF3 inputs that would otherwise fold into plausible-looking garbage.
+
+    Ligand chains are out of scope (polymer-only port); a blank/whitespace sequence
+    would tokenize to UNK placeholders and still produce a status=ok structure — the
+    silent-garbage class from tt-bio-fold-succeeds-on-malformed-input. Unknown residue
+    CODES (X/Z/...) stay upstream-compatible: the vendored featurizer maps them to UNK
+    with a warning, exactly like the reference implementation.
+    """
+    if not chains:
+        raise RuntimeError("no protein/nucleic-acid sequences")
+    non_polymer = [cid for cid, _s, _sp, mt in chains if mt not in ("protein", "rna", "dna")]
+    if non_polymer:
+        raise RuntimeError(
+            f"--model openfold3 is polymer-only for now (chain(s) {non_polymer} are "
+            "ligands); see docs/openfold3-port.md.")
+    blank = [cid for cid, cseq, _sp, _mt in chains if not cseq or not cseq.strip()]
+    if blank:
+        raise RuntimeError(
+            f"--model openfold3: chain(s) {blank} have empty/whitespace-only sequences.")
+
+
 def _err_text(exc: BaseException, limit: int = 400) -> str:
     """Bounded error text for a job row that never loses the tail.
 
@@ -779,21 +840,22 @@ class _WorkerState:
         (host featurization + device glue/trunk/diffusion/confidence) -> structure.
         Rides the same MSA stage as Protenix-v2: uncached protein chains are searched
         into the shared msa_dir and attached to the query as main_msa_file_paths.
-        Polymer chains only (protein/RNA/DNA); no template search (OF3 folds the
-        validated panel template-free)."""
+        Polymer chains only (protein/RNA/DNA). Templates are opt-in per protein chain
+        via the YAML `templates:` key (precomputed alignment npz, the format the
+        upstream benchmark cache ships); there is no template SEARCH."""
         import types
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import _read_bio_chains
 
         chains = _read_bio_chains(path)
-        if not chains:
-            raise RuntimeError("no protein/nucleic-acid sequences")
-        non_polymer = [cid for cid, _s, _sp, mt in chains if mt not in ("protein", "rna", "dna")]
-        if non_polymer:
+        _validate_openfold3_chains(chains)
+        tmpl_map = _openfold3_template_map(path)
+        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})
+        if unknown_tmpl:
             raise RuntimeError(
-                f"--model openfold3 is polymer-only for now (chain(s) {non_polymer} are "
-                "ligands); see docs/openfold3-port.md.")
+                f"--model openfold3: `templates:` given for unknown chain id(s) "
+                f"{unknown_tmpl}.")
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
@@ -808,7 +870,8 @@ class _WorkerState:
                  "main_msa_file_paths": ([str(Path(spec).expanduser())]
                                          if spec and Path(spec).expanduser().exists()
                                          else None),
-                 "template_alignment_file_path": None, "template_entry_chain_ids": None,
+                 "template_alignment_file_path": tmpl_map.get(cid),
+                 "template_entry_chain_ids": None,
                  "sdf_file_path": None}
                 for cid, cseq, spec, mt in chains
             ],
@@ -937,7 +1000,7 @@ class _WorkerState:
             **_row(best),
             "n_residues": sum(len(cseq) for _c, cseq, _s, _mt in chains),
             "n_chains": len(chains), "n_tokens": int(features["restype"].shape[0]),
-            "msa": any(q["main_msa_file_paths"] for q in query["chains"]),
+            "msa": any(c.main_msa_file_paths for c in of3_query.chains),
             "n_atoms": int(result.samples[0].shape[0]), "samples": n_sample,
         }
         if len(confs) > 1:

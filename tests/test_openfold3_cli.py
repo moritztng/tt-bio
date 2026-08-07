@@ -57,3 +57,82 @@ def test_worker_errors_clearly_without_checkpoint(tmp_path, monkeypatch):
     monkeypatch.setenv("BOLTZ_CACHE", str(tmp_path))
     with pytest.raises(FileNotFoundError, match="OF3_CKPT"):
         _ensure_local_artifacts({"model": "openfold3", "msa_dir": None})
+
+
+def _yaml(tmp_path, body):
+    p = tmp_path / "in.yaml"
+    p.write_text(body)
+    return p
+
+
+def test_template_map_reads_per_chain_npz(tmp_path):
+    from tt_bio.worker import _openfold3_template_map
+
+    npz = tmp_path / "tmpl.npz"
+    npz.write_bytes(b"stub")
+    p = _yaml(tmp_path, f"""version: 1
+sequences:
+  - protein:
+      id: [A, B]
+      sequence: MKVL
+      templates: {npz}
+  - protein:
+      id: C
+      sequence: ACGT
+""")
+    assert _openfold3_template_map(p) == {"A": str(npz), "B": str(npz)}
+
+
+def test_template_map_rejects_missing_file(tmp_path):
+    from tt_bio.worker import _openfold3_template_map
+
+    p = _yaml(tmp_path, """version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MKVL
+      templates: /nonexistent/tmpl.npz
+""")
+    with pytest.raises(RuntimeError, match="does not exist"):
+        _openfold3_template_map(p)
+
+
+def test_template_map_rejects_non_protein_chain(tmp_path):
+    from tt_bio.worker import _openfold3_template_map
+
+    npz = tmp_path / "tmpl.npz"
+    npz.write_bytes(b"stub")
+    p = _yaml(tmp_path, f"""version: 1
+sequences:
+  - rna:
+      id: R
+      sequence: ACGU
+      templates: {npz}
+""")
+    with pytest.raises(RuntimeError, match="only valid on protein chains"):
+        _openfold3_template_map(p)
+
+
+def test_template_map_ignores_fasta_and_template_free_yaml(tmp_path):
+    from tt_bio.worker import _openfold3_template_map
+
+    fa = tmp_path / "in.fasta"
+    fa.write_text(">A|protein\nMKVL\n")
+    assert _openfold3_template_map(fa) == {}
+    p = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MKVL\n")
+    assert _openfold3_template_map(p) == {}
+
+
+def test_of3_chains_reject_ligands_blank_and_empty():
+    from tt_bio.worker import _validate_openfold3_chains
+
+    with pytest.raises(RuntimeError, match="no protein/nucleic-acid"):
+        _validate_openfold3_chains([])
+    with pytest.raises(RuntimeError, match="polymer-only"):
+        _validate_openfold3_chains([("L", "CCD_ATP", None, "ligand")])
+    with pytest.raises(RuntimeError, match="empty/whitespace-only"):
+        _validate_openfold3_chains([("A", "   ", None, "protein")])
+    with pytest.raises(RuntimeError, match="empty/whitespace-only"):
+        _validate_openfold3_chains([("A", "MKVL", None, "protein"), ("B", "", None, "rna")])
+    # valid polymer chains pass; unknown residue codes are upstream-compatible (UNK warning)
+    _validate_openfold3_chains([("A", "MKVLXXX", None, "protein"), ("R", "ACGU", None, "rna")])
