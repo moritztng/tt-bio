@@ -88,13 +88,21 @@ def main():
     s, z = layer(s, z)   # measured
     ttnn.synchronize_device(dev)
     dram_peak(f"pairlayer {args.tag} measured")
+    # Fresh-input call: the comparison artifact. Running the layer twice on the same
+    # tensors would feed a normed/updated (s, z) back in, which is a different input
+    # distribution than a before/after code compare needs.
+    s2 = ttnn.from_torch(torch.randn(1, N, 384), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    z2 = ttnn.from_torch(torch.randn(1, N, N, c_z), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    s3, z3 = layer(s2, z2)
+    ttnn.synchronize_device(dev)
+    dram_peak(f"pairlayer {args.tag} fresh-input")
 
     mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
     used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks / 2**30
     print(f"DRAM now: {used:.3f} GiB (see TT_BIO_DRAM_PEAK file for the high-water tags)")
 
     if args.out:
-        torch.save((ttnn.to_torch(s), ttnn.to_torch(z)), args.out)
+        torch.save((ttnn.to_torch(s3), ttnn.to_torch(z3)), args.out)
         print(f"wrote {args.out}")
 
 
