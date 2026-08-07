@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 import core
+import explorer
 import q1_selection
 import q2_confidence
 import q3_epitope
@@ -66,6 +67,7 @@ SECTIONS = {
     "q4_pareto": q4_pareto.run,
     "q6_forecast": q6_forecast.run,
     "q7_antibody": q7_antibody.run,
+    "explorer": explorer.run,
 }
 
 
