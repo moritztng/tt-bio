@@ -67,8 +67,12 @@ def analyse(model: str, targets: list) -> dict:
     m_or, m_us = oracle.mean(0), user.mean(0)
     rnd, b_rnd = m_or[0], b_or[:, 0]
 
-    se = (m_us - rnd) / (m_or - rnd)
-    b_se = (b_us - b_rnd[:, None]) / (b_or - b_rnd[:, None])
+    # SE is undefined at k=1, where oracle == user == random by construction.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        se = (m_us - rnd) / (m_or - rnd)
+        b_se = (b_us - b_rnd[:, None]) / (b_or - b_rnd[:, None])
+    se[0] = np.nan
+    b_se[:, 0] = np.nan
     neff = _effective_n(m_or[None, :], np.array([m_us[-1]]))[0]
     b_neff = _effective_n(b_or, b_us[:, -1])
 
@@ -80,7 +84,8 @@ def analyse(model: str, targets: list) -> dict:
         "random_baseline": core.ci_of(b_rnd, rnd),
         "oracle": core.ci_of(b_or[:, gi], m_or[gi]),
         "user": core.ci_of(b_us[:, gi], m_us[gi]),
-        "selection_efficiency": core.ci_of(b_se[:, gi], se[gi]),
+        "selection_efficiency": core.ci_of(b_se[:, gi[1:]], se[gi[1:]]),
+        "selection_efficiency_k": KGRID[1:],
         "effective_n": core.ci_of(b_neff, neff),
         "gap_256": core.ci_of(b_or[:, -1] - b_us[:, -1], m_or[-1] - m_us[-1]),
         "user_gain_16_to_256": core.ci_of(b_us[:, -1] - b_us[:, 15], m_us[-1] - m_us[15]),
@@ -118,7 +123,7 @@ if __name__ == "__main__":
         a = r["per_model"][m]
         g = dict(zip(a["k_grid"], a["oracle"]["mean"]))
         u = dict(zip(a["k_grid"], a["user"]["mean"]))
-        se = dict(zip(a["k_grid"], a["selection_efficiency"]["mean"]))
+        se = dict(zip(a["selection_efficiency_k"], a["selection_efficiency"]["mean"]))
         print(f"\n== {m}  ({a['n_targets']} targets)")
         print(f"  random={a['random_baseline']['mean']:.4f}")
         print("  k        16      64     256")
