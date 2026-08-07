@@ -10,7 +10,7 @@ msa_feat are taken from the same pkl (``template_embedder_real["feat"]`` and
 (host-precomputed mask products / host subsample), so feeding them exercises the
 real device linears + pair_stacks, not a golden substitution of their outputs.
 
-Two gates (see docs/openfold3-port.md P8 tick 13 / P10):
+Two gates (see docs/openfold3-port.md):
 
   1. test_of3_trunk_glue_on_device -- GATED (PCC=1.00000). The top-level cycle glue
      (OF3TrunkGlue) gated in isolation across all 4 cycles on REAL per-cycle
@@ -102,7 +102,7 @@ def test_of3_trunk_assembly_on_device():
     bug, not the softmax lever; the fp32-z-path fix is release-gated). So z_trunk
     drops from the P8 0.99936 golden-substituted figure once the real degraded MSA
     pair_stack feeds the Pairformer across 4 cycles. The actual s_trunk_pcc /
-    z_trunk_pcc are printed and reported in docs/openfold3-port.md; the assertions
+    z_trunk_pcc are printed by the test; the assertions
     enforce sanity (finite, non-garbage), not the P8 tight floor, because the MSA
     degradation is a known accepted limit, not a regression to fix here.
 

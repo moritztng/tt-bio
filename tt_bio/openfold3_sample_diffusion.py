@@ -29,8 +29,8 @@ Topology (reference ``openfold3.core.model.structure.diffusion_module.SampleDiff
 This is a reduced-step rollout gate (4 steps, 1 sample) -- it proves the EDM loop +
 per-step conditioning compose on device. It is NOT the full ``fold()`` Kabsch merge
 gate (the full production rollout is 200 steps x 5 samples = 1000 DiffusionModule
-forwards; ``fold()`` additionally needs the trunk + confidence heads, not yet assembled
-for inference -- see ``docs/openfold3-port.md``).
+forwards; ``fold()`` additionally runs the trunk + confidence heads -- see
+``tt_bio/openfold3_fold.py`` and ``docs/openfold3-port.md``).
 """
 from __future__ import annotations
 

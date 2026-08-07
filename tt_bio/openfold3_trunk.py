@@ -18,7 +18,7 @@ linears): affine LayerNorms (eps=1e-5) + bias-free ``init="final"`` Linears
 (128->128 and 384->384). ``OF3TrunkGlue`` is the device code landed in P8 tick 13 and
 PCC-gated in isolation (PCC=1.00000 across all 4 cycles).
 
-Fully-device scope (P10 -- see docs/openfold3-port.md P8 tick 13 / P10):
+Fully-device scope (see docs/openfold3-port.md):
   - Top-level cycle glue (OF3TrunkGlue): GATED in isolation (PCC=1.00000) -- unchanged
     from P8 tick 13.
   - Template embedder: REAL device path (``TemplateEmbedder``, un-xfailed since the
