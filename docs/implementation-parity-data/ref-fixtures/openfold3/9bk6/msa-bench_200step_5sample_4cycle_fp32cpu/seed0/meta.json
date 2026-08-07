@@ -1,0 +1,19 @@
+{
+  "seed": 0,
+  "target_id": "9bk6",
+  "harvested_from": "/tmp/of3_ref_fixture_runs/9bk6_seed0",
+  "selected_record": {
+    "id": "9bk6",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 2,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.81951,
+    "iptm": 0.770512,
+    "plddt": 87.80954,
+    "ranking_score": 0.780312,
+    "selected_sample_idx": 4
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}
