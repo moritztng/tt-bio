@@ -882,10 +882,16 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(x_old)
                 ttnn.deallocate(x_chunk)
         if x_chunks is not None:
+            if H > SEQ_LEN_MORE_CHUNKING:
+                # x_norm_in is dead on the row-blocked tail path (both norms are
+                # recomputed per row block from x_in). Freeing it before the
+                # concat drops that peak from 4 pair-tensor multiples to 3 --
+                # the difference between fitting and the 9i3p/9j4c refusal.
+                ttnn.deallocate(x_norm_in)
             x = ttnn.concat(x_chunks, dim=-1)
             for c in x_chunks:
                 ttnn.deallocate(c)
-        dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if H > SEQ_LEN_MORE_CHUNKING:
             # Row-block the output projections instead of computing them full-size.
             # Both layer_norms are row-local, so recomputing them per row block from the
@@ -894,8 +900,8 @@ class TriangleMultiplication(Module):
             # pair-tensor-sized allocation attempted while z, x_norm_in and the hidden
             # are all live, which is exactly the refusal the large targets die on. Peak
             # here drops to ~3 pair-tensor multiples (z + accumulated blocks + concat
-            # destination), with the hidden freed before the concat.
-            ttnn.deallocate(x_norm_in)
+            # destination), with the hidden freed before the concat. x_norm_in
+            # was already freed ahead of the channel-loop concat above.
             blocks = []
             for s in range(0, H, 128):
                 e = min(s + 128, H)
