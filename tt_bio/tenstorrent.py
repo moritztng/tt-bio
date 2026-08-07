@@ -792,6 +792,7 @@ class TriangleMultiplication(Module):
         return chunk
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         x_norm_in = ttnn.layer_norm(
             x,
             weight=self.in_norm_weight,
@@ -888,9 +889,49 @@ class TriangleMultiplication(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         if H > SEQ_LEN_MORE_CHUNKING:
-            # Reduce DRAM fragmentation before the two largest output projections.
-            x = ttnn.reallocate(x)
-            x_norm_in = ttnn.reallocate(x_norm_in)
+            # Row-block the two output projections instead of computing them full-size.
+            # x_norm_in is a full c_z-wide tensor held only for the g_out projection;
+            # layer_norm is row-local, so recomputing it per row block from the (alive,
+            # unmutated) input is bit-identical to slicing the full-size result. Peak
+            # here drops from ~4 pair-tensor multiples (z + x_norm_in + p_out + g_out)
+            # to ~3 (z + accumulated blocks + concat destination).
+            ttnn.deallocate(x_norm_in)
+            blocks = []
+            for s in range(0, H, 128):
+                e = min(s + 128, H)
+                z_rows = ttnn.layer_norm(
+                    x_in[:, s:e],
+                    weight=self.in_norm_weight,
+                    bias=self.in_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=self.compute_kernel_config,
+                )
+                g_block = ttnn.linear(
+                    z_rows,
+                    self.g_out_weight,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                    dtype=_dtype(),
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                ttnn.deallocate(z_rows)
+                p_block = ttnn.linear(
+                    x[:, s:e],
+                    self.out_p_weight,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                    dtype=_dtype(),
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                blocks.append(ttnn.multiply_(
+                    p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                ))
+                ttnn.deallocate(g_block)
+            ttnn.deallocate(x)
+            out = ttnn.concat(blocks, dim=1)
+            for b in blocks:
+                ttnn.deallocate(b)
+            return out
         p_out = ttnn.linear(
             x,
             self.out_p_weight,
@@ -1491,15 +1532,49 @@ class Transition(Module):
         # budget ONLY in proportion to the channel's excess over 128: c=256 -> half (h_chunk
         # 16->8, fits), c<=128 -> UNCHANGED (no Boltz-2/esmfold2 regression). Blackhole keeps
         # the full budget for every channel (no small-grid path).
-        _ref = 1024 * 128
-        if _IS_SMALL_GRID:
-            _ref = _ref * 128 // max(128, x.shape[-1])
-        transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (W * x.shape[-1]))))
         transition_w_chunking_threshold = (
             SEQ_LEN_MORE_CHUNKING
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
             else TRANSITION_W_CHUNKING_THRESHOLD
         )
+        # Size the row chunk against the width a swiglu actually sees: when W exceeds
+        # the chunking threshold the W loop below never feeds swiglu more than
+        # TRANSITION_W_CHUNK_SIZE columns, so dividing by the full W over-shrinks the
+        # row chunk by W/w_eff (3-4x at structural scale) and degenerates to one row
+        # per chunk -- thousands of tiny live buffers that fragment DRAM. The min(1.0)
+        # clamp means this only ever raises the chunk size where it had been shrunk,
+        # so W<=threshold shapes (every normal target) are byte-identical to before.
+        w_eff = min(W, TRANSITION_W_CHUNK_SIZE) if W > transition_w_chunking_threshold else W
+        _ref = 1024 * 128
+        if _IS_SMALL_GRID:
+            _ref = _ref * 128 // max(128, x.shape[-1])
+        transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * x.shape[-1]))))
+        if H > SEQ_LEN_MORE_CHUNKING:
+            # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
+            # would materialise a full second copy of the pair tensor up front, and the
+            # list comprehension accumulates a full set of outputs before concat adds a
+            # third; here the peak is input + accumulated outputs + one block. swiglu is
+            # row-local, so block boundaries do not change a single output byte.
+            parts = []
+            for s in range(0, H, transition_h_chunk_size):
+                c = x[:, s:min(s + transition_h_chunk_size, H)]
+                if W <= transition_w_chunking_threshold:
+                    parts.append(swiglu(c))
+                    ttnn.deallocate(c)
+                else:
+                    w_parts = []
+                    for w in range(0, W, TRANSITION_W_CHUNK_SIZE):
+                        cw = c[:, :, w:min(w + TRANSITION_W_CHUNK_SIZE, W), :]
+                        w_parts.append(swiglu(cw))
+                        ttnn.deallocate(cw)
+                    ttnn.deallocate(c)
+                    parts.append(ttnn.concat(w_parts, dim=2))
+                    for wp in w_parts:
+                        ttnn.deallocate(wp)
+            out = ttnn.concat(parts, dim=1)
+            for p in parts:
+                ttnn.deallocate(p)
+            return out
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         if W <= transition_w_chunking_threshold:
             return ttnn.concat([swiglu(c) for c in chunks], dim=1)
