@@ -22,7 +22,8 @@ number.
 
 One statistical core, three comparison front-ends:
 
-  structures   fold models (boltz2, esmfold2, protenix-v2): Kabsch CA-RMSD,
+  structures   fold models (boltz2, esmfold2, protenix-v2, openfold3, opendde):
+               Kabsch CA-RMSD,
                coordinate PCC and confidence-metric deltas between the output
                structures of paired runs. Model-agnostic: point it at result
                dirs produced by `tt-bio predict` (device) and by the reference

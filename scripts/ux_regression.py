@@ -24,8 +24,8 @@ release ships with still works, headlessly and fast, on a tiny input:
      the core flags, and each surface's results/manifest file has the shape
      the downstream reader expects.
 
-Coverage: the six fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
-opendde, opendde-abag) for legs 1–3 (opendde-abag is gated on the Ab-Ag fixture
+Coverage: the seven fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
+openfold3, opendde, opendde-abag) for legs 1–3 (opendde-abag is gated on the Ab-Ag fixture
 examples/1ahw_abag.yaml; the other fold models use examples/trpcage.yaml), plus
 the embed-leg models (esmc-600m via `tt-bio embed`, saprot-650m via `tt-bio
 saprot`) for legs 2–3 (embed has no fold phases; its user-facing progress is the

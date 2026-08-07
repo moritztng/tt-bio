@@ -2254,7 +2254,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         raise click.BadParameter("--max_parallel_samples must be at least 1")
 
     # Per-model trunk-recycling default (see _resolve_recycling_steps): protenix-v2/opendde/
-    # esmfold2 -> 10, boltz2 -> 3; an explicit --recycling_steps overrides either.
+    # esmfold2 -> 10, boltz2/openfold3 -> 3; an explicit --recycling_steps overrides either.
     recycling_steps = _resolve_recycling_steps(recycling_steps, model)
     # Per-model requested diffusion steps (see _resolve_sampling_steps): esmfold2 requests
     # 100 (68 executed after the sigma-clip), everything else 200.

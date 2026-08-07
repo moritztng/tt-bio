@@ -8,7 +8,7 @@ before every release so a perf regression can't ship silently.
 
 What it measures, per model:
 
-  * fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2, opendde) —
+  * fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2, openfold3, opendde) —
     structures/s on ``examples/trpcage.yaml`` (20 aa), single-sequence, 1 recycling
     cycle / 10 sampling steps / 1 sample. The model is loaded ONCE in-process
     (``tt_bio.worker._WorkerState``), one warmup fold absorbs the first-kernel
