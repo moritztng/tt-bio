@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#design) and [RFdiffusion3](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#design) and [RFdiffusion3](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 ## Accuracy
 
@@ -80,9 +80,9 @@ tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen
 | Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein complex (antibody-antigen) |
 | MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
 | Affinity / potentials / templates | yes | no | no | templates only | no |
-| Pocket / contact constraints | yes | no | no | no |
-| Covalent `bond` constraints | yes | no | yes | yes |
-| PAE/PDE output (`--write_pae`) | no | no | yes | no |
+| Pocket / contact constraints | yes | no | no | no | no |
+| Covalent `bond` constraints | yes | no | yes | no | yes |
+| PAE/PDE output (`--write_pae`) | no | no | yes | no | no |
 
 All structure models support the sampling, output-format, and scheduling options.
 MSA, affinity, constraint, and auxiliary-output options apply only where listed
@@ -474,7 +474,7 @@ Model-specific options are labelled below.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), or `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now) |
+| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates, `OF3_CKPT` weights), or `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now) |
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | **(Boltz-2)** model cache directory; ESMFold2 uses the Hugging Face cache |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
