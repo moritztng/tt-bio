@@ -3,7 +3,15 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.6.2] - 2026-08-07
+
+OpenFold3 lands: `tt-bio predict --model openfold3` folds proteins, RNA and DNA with the
+OpenFold Consortium's AlphaFold3 reproduction, with per-chain MSAs and optional per-chain
+templates, on the same scheduler, multi-card fan-out and MSA cache as Protenix-v2. Polymer
+chains only — ligands, covalent bonds and `--write_pae` raise or are declined rather than
+silently degrading. OpenFold3 is the one model whose weights tt-bio does not download: the
+consortium's checkpoint is a public release you fetch yourself — point `OF3_CKPT` at it or
+drop it at `~/.boltz/of3-p2-155k.pt`.
 
 ### Added
 
@@ -22,6 +30,31 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `networkx` and `packaging` at module load, and none were declared, so `--model openfold3`
   failed on a clean `pip install tt-bio`. The vendored Apache-2.0 license text now ships in
   the wheel too.
+
+### Performance
+
+- Protenix-v2 and OpenDDE at ~300 residues: the 298-aa GPU scaling gap is closed, 1.18x on
+  the landed code (`ec28f3d2`; measured `62934f2f`). At that size the Pairformer trunk is
+  74.5% of step time and scales as N² (`46c4fe29`); the SDPA chunk gate, the trimul
+  `in0_block_w` and the transition chunk were re-tuned for it (`7349f407`, `ec50003d`).
+
+### Gates and documentation
+
+- The README, `predict --help`, the parity docs and the OpenFold3 port doc now match what the
+  shipped model actually does, including template support (`a6403435`, `a35f7a3b`,
+  `1327a080`, `2b0671ee`, `92d5b58a`, `50bc0bee`).
+- `kabsch_rmsd` was labelled a CA RMSD but is computed over every atom name; the label is
+  corrected at the source and on the OpenFold3 rows. The other models' rows follow in a
+  deliberate pass — the affinity pocket legs use a different, genuinely CA-based scorer.
+- OpenFold3 is enrolled in the accuracy, perf and UX release gates (`86932b20`, `1f236666`,
+  `2a20f028`).
+- `scripts/fetch_parity_fixtures.sh` verifies the fetched tarball by its hash field instead
+  of the sidecar's recorded absolute path, which exists only on the machine that generated
+  it (`f9d0afc1`).
+
+### Release gate (Blackhole P150a on `tt-quietbox`)
+
+EXEC-TIER PLACEHOLDER — measured accuracy / perf / UX numbers land here before the tag.
 
 ## [0.6.1] - 2026-08-07
 
