@@ -15,6 +15,7 @@ import os
 import shutil
 from pathlib import Path
 
+import numpy as np
 import torch
 from biotite.structure.io.pdbx import CIFFile
 
@@ -157,6 +158,7 @@ def build_openfold3_features(
     msa_settings: MSASettings | None = None,
     template_settings: TemplateSettings | None = None,
     ccd_file_path: str | None = None,
+    template_structures_directory: str | Path | None = None,
 ) -> dict[str, torch.Tensor]:
     """Featurizes a single OpenFold3 `Query` into a model-ready feature dict.
 
@@ -223,23 +225,62 @@ def build_openfold3_features(
         )
     )
 
-    assembly_data = {
-        chain_id: {
-            "template_ids": chain.template_entry_chain_ids,
-            "cache_entry_file_path": chain.template_alignment_file_path,
-        }
-        for chain in query.chains
-        for chain_id in chain.chain_ids
-    }
+    # Templates: the cache npz holds per-entry ALIGNMENTS only (index/release_date/
+    # idx_map); coordinates come from raw <pdb_id>.cif files in
+    # template_structures_directory. The vendored loader silently falls back to all-zero
+    # dummy templates when ids or directories are missing (its training-time path) — a
+    # REQUESTED template that cannot load must be a loud error, not a template-free fold.
+    assembly_data: dict[str, dict] = {}
+    templates_requested = False
+    needed_pdb_ids: set[str] = set()
+    for chain in query.chains:
+        tmpl_path = chain.template_alignment_file_path
+        template_ids = chain.template_entry_chain_ids
+        if tmpl_path is not None:
+            templates_requested = True
+            tmpl_path = Path(str(tmpl_path)).expanduser()
+            if not template_ids:
+                # CLI case: only the npz was given. Its keys are the entry ids, in the
+                # same e-value order upstream wrote them (verified against the benchmark
+                # query JSONs, e.g. 7XI5).
+                with np.load(str(tmpl_path), allow_pickle=True) as _npz:
+                    template_ids = list(_npz.keys())
+            needed_pdb_ids |= {str(tid).split("_")[0] for tid in template_ids}
+        for chain_id in chain.chain_ids:
+            assembly_data[chain_id] = {
+                "template_ids": template_ids,
+                "cache_entry_file_path": tmpl_path,
+            }
+    if templates_requested:
+        if template_structures_directory is None:
+            raise RuntimeError(
+                "templates were requested but no template_structures_directory was "
+                "provided — template coordinates come from raw <pdb_id>.cif files; "
+                "the cache npz holds alignments only.")
+        ts_dir = Path(template_structures_directory).expanduser()
+        missing = sorted(p for p in needed_pdb_ids
+                         if not (ts_dir / f"{p}.cif").exists())
+        if missing:
+            raise RuntimeError(
+                f"template structure(s) missing under {ts_dir}: "
+                + ", ".join(f"{p}.cif" for p in missing)
+                + ". Fetch with e.g. `curl -o <pdb>.cif "
+                  "https://files.rcsb.org/download/<PDB>.cif` (uppercase pdb id).")
+        # non-None unlocks the vendored inference cache branch (the npz itself is read
+        # via cache_entry_file_path; this directory is only the gate)
+        template_cache_directory = ts_dir
+    else:
+        ts_dir = None
+        template_cache_directory = None
     template_slice_collection = process_template_structures_of3(
         atom_array=atom_array,
         n_templates=template_settings.n_templates,
         take_top_k=template_settings.take_top_k,
         min_n_tokens_per_chain=template_settings.min_n_tokens_per_chain,
-        template_cache_directory=None,
+        template_cache_directory=template_cache_directory,
         assembly_data=assembly_data,
-        template_structures_directory=template_preprocessor_settings.structure_directory,
-        template_structure_array_directory=template_preprocessor_settings.structure_array_directory,
+        template_structures_directory=ts_dir,
+        template_structure_array_directory=None,
         template_file_format=template_preprocessor_settings.structure_file_format,
         ccd=ccd,
     )

@@ -91,6 +91,10 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
                 "weights file (of3-p2-155k.pt) or place it at "
                 f"{cache / 'of3-p2-155k.pt'}.")
         cfg["of3_ckpt"] = of3_ckpt
+        tmpl_struct_dir = cache / "of3_template_structures"
+        tmpl_struct_dir.mkdir(parents=True, exist_ok=True)
+        cfg["of3_template_structures"] = str(tmpl_struct_dir)
+        cfg["of3_max_msa_seqs"] = os.environ.get("OF3_MAX_MSA_SEQS")
         return
     # OpenDDE loads its weights from HF on the first fold.
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
@@ -216,6 +220,31 @@ def _validate_openfold3_chains(chains: list) -> None:
     if blank:
         raise RuntimeError(
             f"--model openfold3: chain(s) {blank} have empty/whitespace-only sequences.")
+
+
+def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
+                                            struct_dir: Path) -> None:
+    # Download the raw template CIFs a `templates:` npz needs from RCSB. The npz
+    # holds alignments only (index/release_date/idx_map per entry); coordinates
+    # come from <pdb_id>.cif files. Only missing files are fetched; a failed
+    # download is a hard error (a skipped template would fold the wrong input).
+    import numpy as np
+    pdb_ids: set[str] = set()
+    for npz_path in tmpl_map.values():
+        with np.load(npz_path, allow_pickle=True) as z:
+            pdb_ids |= {k.split("_")[0] for k in z.keys()}
+    missing = [p for p in sorted(pdb_ids)
+               if not (struct_dir / f"{p}.cif").exists()]
+    if not missing:
+        return
+    import urllib.request
+    for p in missing:
+        url = f"https://files.rcsb.org/download/{p.upper()}.cif"
+        try:
+            urllib.request.urlretrieve(url, struct_dir / f"{p}.cif")
+        except Exception as exc:
+            raise RuntimeError(
+                f"--model openfold3: failed to fetch template structure {url}: {exc}")
 
 
 def _err_text(exc: BaseException, limit: int = 400) -> str:
@@ -936,8 +965,13 @@ class _WorkerState:
         if not any(c.main_msa_file_paths for c in of3_query.chains):
             of3_query.use_msas = False
             of3_query.use_main_msas = False
-        features = build_openfold3_features(of3_query)
-        msa_feat = make_openfold3_msa_features(features, max_sequences=1024, seed=0)
+        if tmpl_map:
+            _prefetch_openfold3_template_structures(
+                tmpl_map, Path(cfg["of3_template_structures"]))
+        features = build_openfold3_features(
+            of3_query,
+            template_structures_directory=cfg["of3_template_structures"])
+        msa_feat = make_openfold3_msa_features(features, max_sequences=int(cfg.get("of3_max_msa_seqs") or 1024), seed=0)
         aux = derive_block_aux(features)
         template_feat = derive_template_feat(features)
         relpos = derive_relpos(features)
