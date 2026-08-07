@@ -971,7 +971,12 @@ class _WorkerState:
         features = build_openfold3_features(
             of3_query,
             template_structures_directory=cfg["of3_template_structures"])
-        msa_feat = make_openfold3_msa_features(features, max_sequences=int(cfg.get("of3_max_msa_seqs") or 1024), seed=0)
+        # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
+        # CPU reference folds the full featurized MSA, so any lower cap is an input
+        # divergence (measured on 9BK6: the 1024-row subsample cost chain A
+        # 11.1 vs 7.6 A Ca-RMSD). OF3_MAX_MSA_SEQS stays as a memory escape hatch.
+        msa_feat = make_openfold3_msa_features(
+            features, max_sequences=int(cfg.get("of3_max_msa_seqs") or 16384), seed=0)
         aux = derive_block_aux(features)
         template_feat = derive_template_feat(features)
         relpos = derive_relpos(features)
