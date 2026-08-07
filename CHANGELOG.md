@@ -54,7 +54,44 @@ drop it at `~/.boltz/of3-p2-155k.pt`.
 
 ### Release gate (Blackhole P150a on `tt-quietbox`)
 
-EXEC-TIER PLACEHOLDER — measured accuracy / perf / UX numbers land here before the tag.
+Host suite: 225 passed / 23 skipped / 1 xfailed with 25 failures triaged one file per
+process — 24 are environment or harness artefacts, not code regressions (qb1's boltzgen
+transformers env gap, the parent-holds-device false-failure class, a stale July OF3 dev golden
+that the P8+ tests skip without, and a 4e-6 PCC wobble on the confidence leg). The 25th was
+real: `ec50003d`'s transition big-chunk gate admitted the Protenix-v2 N=512 pair shape
+(W=512), which overflowed in-block L1 (`test_fold_512_no_oom`). Fixed as `e6678e21` (gate
+tightened to W<=384, keeping the 298-aa fast path); the test passes on the fixed tree.
+Packaging guard: 16/16 data files and 36/36 declared dependencies in the wheel and sdist.
+
+**Accuracy gate** — every shipped fold architecture folded end-to-end with production sampling
+(200 steps, 5 samples) and checked against a per-model ground-truth floor, not
+self-consistency:
+
+| model | RMSD (A) | TM | floor | result |
+|---|---|---|---|---|
+| boltz2 | 1.373 | 0.945 | <=3.0 / >=0.75 | PASS |
+| esmfold2 | 4.462 | 0.563 | <=8.0 / >=0.40 | PASS |
+| esmfold2-fast | 1.769 | 0.910 | <=4.5 / >=0.60 | PASS |
+| protenix-v2 | 2.459 | 0.799 | <=6.0 / >=0.50 | PASS |
+| opendde | 1.352 | 0.955 | <=6.0 / >=0.50 | PASS |
+| openfold3 | 2.042 | 0.845 | <=3.5 / >=0.70 | PASS |
+
+**Parity gate** (`scripts/full_parity_gate.py`, 30 legs): **24 PASS, 6 GAP, 0 DRIFT, 0 ERROR**,
+every GAP reproducing a committed `GAP-evidenced` record. All seven OpenFold3 legs pass on the
+release tree (ubq X=1.34 A within R=1.64/D=0.80; 8hel-msa and 9bk6 included). Four records are
+newly evidenced this release: protenix-prot-msa, opendde-prot-prod and opendde-trpcage-nomsa
+(`c97076c0`, root-caused to `ba6ede96`'s intended AttentionPairBias unfusing, device samples
+inside each reference's own inter-seed spread and every numerator inside the committed noise
+floor), and openfold3-7xi5-notmpl (`af8f886d`, fold accuracy verified against RCSB 7XI5
+directly: all five device seeds at 0.589-0.609 A aligned CA-RMSD, the CPU reference's own
+spread being 0.422-0.895 A).
+
+**Performance gate**: OpenFold3 vs its committed p300c baseline on `tt-quietbox2`: 2.191
+structures/s vs 2.142 (+2.3%, threshold +/-15%) — the 298-aa shared kernel-gate work does not
+regress it. P150a full-model leg on `tt-quietbox`: PENDING (chain running; OpenFold3's p150a
+entry is a first seeded baseline, disclosed as such, not a compared number).
+
+**UX gate**: PENDING (chain running; includes OpenFold3's first hardware UX leg).
 
 ## [0.6.1] - 2026-08-07
 
