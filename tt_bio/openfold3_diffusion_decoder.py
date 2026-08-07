@@ -28,7 +28,7 @@ broadcast and the per-row layer_norm do not leak into real atoms.
 import torch
 import ttnn
 
-from .tenstorrent import Module, CORE_GRID_MAIN
+from .tenstorrent import Module, CORE_GRID_MAIN, _dtype
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_weights import _sub
 
@@ -55,6 +55,7 @@ class OF3AtomAttentionDecoder(Module):
 
     def __init__(self, state_dict, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
+        self._act_dtype = _dtype(ttnn.bfloat16)
         self.w_q_in = self.torch_to_tt("linear_q_in.weight")    # (128, 768) tiled
         self.w_q_out = self.torch_to_tt("linear_q_out.weight")  # (3, 128) tiled
         self.ln_w = self.torch_to_tt("layer_norm.weight", transform=lambda x: x)
@@ -67,12 +68,18 @@ class OF3AtomAttentionDecoder(Module):
         q_in_tok = ttnn.linear(ai, self.w_q_in,
                                compute_kernel_config=self.compute_kernel_config,
                                core_grid=CORE_GRID_MAIN)  # [1, N_tok_pad, 128]
+        if self._act_dtype != ttnn.bfloat16:
+            _bf = ttnn.typecast(q_in_tok, ttnn.bfloat16)
+            ttnn.deallocate(q_in_tok)
+            q_in_tok = _bf
         q_in_2d = ttnn.reshape(ttnn.to_layout(q_in_tok, ttnn.ROW_MAJOR_LAYOUT),
                                (q_in_tok.shape[1], 128))
         bcast = ttnn.embedding(atom_to_token_index_tt, q_in_2d,
                                layout=ttnn.ROW_MAJOR_LAYOUT,
                                memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [NP, 128]
         bcast = ttnn.to_layout(ttnn.reshape(bcast, (1, NP, 128)), ttnn.TILE_LAYOUT)
+        if self._act_dtype != ttnn.bfloat16:
+            bcast = ttnn.typecast(bcast, self._act_dtype)
         bcast = ttnn.multiply(bcast, atom_mask_col)  # zero padded atoms
         ttnn.deallocate(q_in_tok)
 
@@ -86,7 +93,7 @@ class OF3AtomAttentionDecoder(Module):
 
         # weight-only layer_norm + linear_q_out (c_atom -> 3); pad to NP for tiling,
         # slice back to n_atom. LN is per-row so padded (zero) rows do not affect reals.
-        ql_out_pad = self._pad_atoms(ql_out, n_atom, NP)
+        ql_out_pad = self._pad_atoms(ql_out, n_atom, NP, self._act_dtype)
         ttnn.deallocate(ql_out)
         ln = ttnn.layer_norm(ql_out_pad, weight=self.ln_w, epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
@@ -100,10 +107,10 @@ class OF3AtomAttentionDecoder(Module):
         return ttnn.to_layout(rl, ttnn.TILE_LAYOUT)
 
     @staticmethod
-    def _pad_atoms(x, n_atom, NP):
+    def _pad_atoms(x, n_atom, NP, dtype=ttnn.bfloat16):
         # x: [1, n_atom, 128] device -> [1, NP, 128] device (zero-padded).
         th = ttnn.to_torch(x).float()  # [1, n_atom, 128]
         if NP > n_atom:
             th = torch.nn.functional.pad(th, (0, 0, 0, NP - n_atom))
         return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT,
-                               device=x.device(), dtype=ttnn.bfloat16)
+                               device=x.device(), dtype=dtype)

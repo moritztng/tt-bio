@@ -27,7 +27,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN
+from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype
 
 
 def remap_of3_adaln(sd: dict) -> dict:
@@ -59,6 +59,7 @@ class OF3AtomTransformer(Module):
 
     def __init__(self, state_dict, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
+        self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = {k: v for k, v in self.weights.data.items()}
         self._wc: dict = {}
         self.ln_z_w = self._w_tt("layer_norm_z.weight", False)
@@ -77,7 +78,7 @@ class OF3AtomTransformer(Module):
         if v is None:
             w = self._w[key]
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+                                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self._act_dtype)
             self._wc[(key, transpose)] = v
         return v
 
@@ -95,11 +96,18 @@ class OF3AtomTransformer(Module):
 
     def _gather_keys(self, x, key_block_idxs_tt, valid_mask, nb):
         # x: [1, NP, 128] -> [1, nb, N_KEY, 128] via fixed host gather indices.
-        x2d = ttnn.reshape(ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT), (x.shape[1], 128))
+        src = x
+        if self._act_dtype != ttnn.bfloat16:
+            src = ttnn.typecast(x, ttnn.bfloat16)
+        x2d = ttnn.reshape(ttnn.to_layout(src, ttnn.ROW_MAJOR_LAYOUT), (x.shape[1], 128))
+        if src is not x:
+            ttnn.deallocate(src)
         xk = ttnn.embedding(key_block_idxs_tt, x2d, layout=ttnn.ROW_MAJOR_LAYOUT,
                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
         xk = ttnn.reshape(xk, (1, nb, self.N_KEY, 128))
         xk = ttnn.to_layout(xk, ttnn.TILE_LAYOUT)
+        if self._act_dtype != ttnn.bfloat16:
+            xk = ttnn.typecast(xk, self._act_dtype)
         return ttnn.multiply(xk, valid_mask)
 
     def __call__(self, a, s, z, atom_mask_col, key_block_idxs_tt, valid_mask,

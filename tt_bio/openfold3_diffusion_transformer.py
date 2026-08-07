@@ -56,7 +56,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN
+from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype
 from .openfold3_atom_transformer import remap_of3_adaln
 
 C_A = 768
@@ -73,24 +73,24 @@ def _sub(sd: dict, prefix: str) -> dict:
     return {k[len(p):]: v for k, v in sd.items() if k.startswith(p)}
 
 
-def _pad_single(t: ttnn.Tensor, padded_N: int) -> ttnn.Tensor:
+def _pad_single(t: ttnn.Tensor, padded_N: int, dtype=ttnn.bfloat16) -> ttnn.Tensor:
     """Device [1, N, C] -> [1, padded_N, C] (zero-padded), logical width padded_N."""
     N = t.shape[1]
     if padded_N == N:
         return t
     x = ttnn.to_torch(t)  # [1, N, C] (logical, to_torch strips tile padding)
     x = torch.nn.functional.pad(x, (0, 0, 0, padded_N - N), value=0.0)
-    return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=t.device(), dtype=ttnn.bfloat16)
+    return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=t.device(), dtype=dtype)
 
 
-def _pad_pair(t: ttnn.Tensor, padded_N: int) -> ttnn.Tensor:
+def _pad_pair(t: ttnn.Tensor, padded_N: int, dtype=ttnn.bfloat16) -> ttnn.Tensor:
     """Device [1, N, N, C] -> [1, padded_N, padded_N, C] (zero-padded)."""
     N = t.shape[1]
     if padded_N == N:
         return t
     x = ttnn.to_torch(t)
     x = torch.nn.functional.pad(x, (0, 0, 0, padded_N - N, 0, padded_N - N), value=0.0)
-    return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=t.device(), dtype=ttnn.bfloat16)
+    return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=t.device(), dtype=dtype)
 
 
 class _DiTBlock(Module):
@@ -98,6 +98,7 @@ class _DiTBlock(Module):
 
     def __init__(self, sd_block: dict, compute_kernel_config):
         super().__init__({}, compute_kernel_config)  # weights loaded via _w_tt, not torch_to_tt
+        self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = sd_block
         self._wc: dict = {}
 
@@ -119,13 +120,13 @@ class _DiTBlock(Module):
         qkv_w = torch.nn.functional.pad(qkv_w, (0, 0, 0, PADDED_HEAD_DIM - HEAD_DIM), value=0)
         qkv_w = qkv_w.reshape(3 * N_HEADS * PADDED_HEAD_DIM, -1)  # [3072, 768]
         self.qkv_w = ttnn.from_torch(qkv_w.t().contiguous(), layout=ttnn.TILE_LAYOUT,
-                                     device=self.device, dtype=ttnn.bfloat16)
+                                     device=self.device, dtype=self._act_dtype)
         qb = bq.reshape(N_HEADS, HEAD_DIM)
         qb = torch.nn.functional.pad(qb, (0, PADDED_HEAD_DIM - HEAD_DIM), value=0)
         qb = qb.reshape(N_HEADS * PADDED_HEAD_DIM)
         qkv_b = torch.cat([qb, torch.zeros(2 * N_HEADS * PADDED_HEAD_DIM, dtype=qb.dtype)])
         self.qkv_b = ttnn.from_torch(qkv_b, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                     dtype=ttnn.bfloat16)
+                                     dtype=self._act_dtype)
 
         self.w_g = self._w_tt(apb + "mha.linear_g.weight")
         self.w_o = self._w_tt(apb + "mha.linear_o.weight")
@@ -144,7 +145,7 @@ class _DiTBlock(Module):
         if v is None:
             w = self._w[key]
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+                                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self._act_dtype)
             self._wc[(key, transpose)] = v
         return v
 
@@ -188,7 +189,7 @@ class _DiTBlock(Module):
         sc = ttnn.typecast(sc, ttnn.float32)
         attn = ttnn.softmax(sc, dim=-1, numeric_stable=True)
         ttnn.deallocate(sc)
-        attn = ttnn.typecast(attn, ttnn.bfloat16)
+        attn = ttnn.typecast(attn, self._act_dtype)
         o = ttnn.matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(attn); ttnn.deallocate(v)
         # Slice padded head_dim 64->48, merge heads -> [1, N, 768].
@@ -240,6 +241,7 @@ class OF3DiffusionTransformer(Module):
 
     def __init__(self, state_dict, compute_kernel_config, n_blocks=N_BLOCKS):
         super().__init__(state_dict, compute_kernel_config)
+        self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = {k: v for k, v in self.weights.data.items()}
         self.blocks = [_DiTBlock(_sub(self._w, f"blocks.{b}"), compute_kernel_config)
                        for b in range(n_blocks)]
@@ -261,19 +263,19 @@ class OF3DiffusionTransformer(Module):
             a_d, s_d, z_d, tmc_d = a, s, z, tok_mask_col
             mb_t = (tok - 1.0) * 1e9
         else:
-            a_d = _pad_single(a, padded_N)
-            s_d = _pad_single(s, padded_N)
-            z_d = _pad_pair(z, padded_N)
+            a_d = _pad_single(a, padded_N, self._act_dtype)
+            s_d = _pad_single(s, padded_N, self._act_dtype)
+            z_d = _pad_pair(z, padded_N, self._act_dtype)
             tok_p = torch.zeros(padded_N, dtype=torch.float32)
             tok_p[:N] = tok
             tmc_p = tok_p.reshape(1, padded_N, 1)
             tmc_d = ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=ttnn.bfloat16)
+                                    dtype=self._act_dtype)
             mb_t = torch.full((padded_N,), -1e9, dtype=torch.float32)
             mb_t[:N] = (tok - 1.0) * 1e9
         mb = mb_t.reshape(1, 1, 1, padded_N)
         mask_bias = ttnn.from_torch(mb, layout=ttnn.TILE_LAYOUT, device=self.device,
-                                    dtype=ttnn.bfloat16)
+                                    dtype=self._act_dtype)
         x = a_d
         for blk in self.blocks:
             x = blk(x, s_d, z_d, mask_bias, tmc_d)

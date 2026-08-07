@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 
 import torch
 import ttnn
 
-from .tenstorrent import Module
+from .tenstorrent import Module, device_dtype_override
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
@@ -202,8 +203,20 @@ class OpenFold3(Module):
         # sigma_data lives under diffusion_module.diffusion_module in the checkpoint.
         sigma_data = float(sd.get("diffusion_module.diffusion_module.sigma_data", 16.0))
         self.sigma_data = sigma_data
-        self.sampler = OF3SampleDiffusion(_sub(sd, "diffusion_module"), compute_kernel_config,
-                                          fourier_w, fourier_b, sigma_data)
+        # The diffusion module (weights and activations) runs in fp32 on device by
+        # default, matching the reference rollout's fp32 boundary — the same lever
+        # that closed the Protenix HSA leg (PROTENIX_DIFFUSION_FP32_DEVICE, also
+        # default-on). In bf16 the 9BK6 complex leg misses the all-atom noise floor
+        # (X 1.889 > 1.821 threshold); in fp32 it passes (X 1.627, seeds 0-4:
+        # 1.35-2.18 A). OF3_DIFFUSION_FP32_DEVICE=0 opts back out to bf16.
+        if os.environ.get("OF3_DIFFUSION_FP32_DEVICE", "1") == "1":
+            with device_dtype_override(ttnn.float32):
+                self.sampler = OF3SampleDiffusion(_sub(sd, "diffusion_module"),
+                                                  compute_kernel_config,
+                                                  fourier_w, fourier_b, sigma_data)
+        else:
+            self.sampler = OF3SampleDiffusion(_sub(sd, "diffusion_module"), compute_kernel_config,
+                                              fourier_w, fourier_b, sigma_data)
         self.device = self.trunk.device
         # AF3 sample_diffusion + noise_schedule defaults (OF3 model_config).
         self.gamma_0 = 0.8

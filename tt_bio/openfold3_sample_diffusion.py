@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import CORE_GRID_MAIN
+from .tenstorrent import CORE_GRID_MAIN, _dtype
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
@@ -70,6 +70,7 @@ class OF3SampleDiffusion:
     def __init__(self, state_dict, compute_kernel_config, fourier_w: torch.Tensor,
                  fourier_b: torch.Tensor, sigma_data: float):
         # state_dict is already the diffusion_module sub-dict.
+        self._act_dtype = _dtype(ttnn.bfloat16)
         self.dc = OF3DiffusionConditioning(_sub(state_dict, "diffusion_conditioning"),
                                            compute_kernel_config)
         self.dm = OF3DiffusionModule(state_dict, compute_kernel_config)
@@ -79,7 +80,9 @@ class OF3SampleDiffusion:
         self.ckc = compute_kernel_config
         self.device = self.dc.device
 
-    def _to_dev(self, x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT):
+    def _to_dev(self, x, dtype=None, layout=ttnn.TILE_LAYOUT):
+        if dtype is None:
+            dtype = self._act_dtype
         return ttnn.from_torch(x, layout=layout, device=self.device, dtype=dtype)
 
     def __call__(self, xl_init_dev, si_trunk_dev, si_input_dev, zij_trunk_dev, relpos_dev,
@@ -93,6 +96,22 @@ class OF3SampleDiffusion:
                  step_scale):
         """Run the rollout. Per-step host artefacts (rots/trans/noise/t/c_tau) are
         python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device."""
+        if self._act_dtype != ttnn.bfloat16:
+            # fp32-diffusion boundary (OF3_DIFFUSION_FP32_DEVICE): the trunk-side
+            # tensors arrive bf16; upcast once here so every DM op sees one dtype.
+            def _c(x):
+                return ttnn.typecast(x, self._act_dtype) if x.dtype == ttnn.bfloat16 else x
+            si_trunk_dev, si_input_dev = _c(si_trunk_dev), _c(si_input_dev)
+            zij_trunk_dev, relpos_dev = _c(zij_trunk_dev), _c(relpos_dev)
+            cl0_dev, plm0_dev = _c(cl0_dev), _c(plm0_dev)
+            atom_mask_col_dev = _c(atom_mask_col_dev)
+            atom_mask_col_na_dev = _c(atom_mask_col_na_dev)
+            enc_mask_bias, enc_pair_mask = _c(enc_mask_bias), _c(enc_pair_mask)
+            token_mask_pad_tt = _c(token_mask_pad_tt)
+            tok_mask_col_pad_tt = _c(tok_mask_col_pad_tt)
+            atom_to_token_mean_tt = _c(atom_to_token_mean_tt)
+            npe_zij_mask = _c(npe_zij_mask)
+
         atom_mask_host = ttnn.to_torch(atom_mask_col_na_dev).float().reshape(n_atom)  # [n_atom]
         xl_host = ttnn.to_torch(xl_init_dev).float().reshape(n_atom, 3)               # [n_atom, 3]
 
@@ -113,8 +132,8 @@ class OF3SampleDiffusion:
                                       si_input_dev, self._to_dev(n_emb.reshape(1, 1, 256)),
                                       pair_mask_dev, tok_mask_dev)
             # pad conditioned si/zij to n_tok_pad for the DiffusionModule.
-            si_pad = self._pad_tokens(si_dev, n_token, n_tok_pad)
-            zij_pad = self._pad_pair(zij_dev, n_token, n_tok_pad)
+            si_pad = self._pad_tokens(si_dev, n_token, n_tok_pad, self._act_dtype)
+            zij_pad = self._pad_pair(zij_dev, n_token, n_tok_pad, self._act_dtype)
             ttnn.deallocate(si_dev); ttnn.deallocate(zij_dev)
             # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device).
             rl_noisy = xl_noisy * atom_mask_host[:, None] / math.sqrt(t * t + self.sigma_data ** 2)
@@ -146,17 +165,17 @@ class OF3SampleDiffusion:
         return x.unsqueeze(0)
 
     @staticmethod
-    def _pad_tokens(x_dev, n_token, n_tok_pad):
+    def _pad_tokens(x_dev, n_token, n_tok_pad, dtype=ttnn.bfloat16):
         th = ttnn.to_torch(x_dev).float()
         if n_tok_pad > n_token:
             th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token))
         return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT, device=x_dev.device(),
-                               dtype=ttnn.bfloat16)
+                               dtype=dtype)
 
     @staticmethod
-    def _pad_pair(x_dev, n_token, n_tok_pad):
+    def _pad_pair(x_dev, n_token, n_tok_pad, dtype=ttnn.bfloat16):
         th = ttnn.to_torch(x_dev).float()
         if n_tok_pad > n_token:
             th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token, 0, n_tok_pad - n_token))
         return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT, device=x_dev.device(),
-                               dtype=ttnn.bfloat16)
+                               dtype=dtype)

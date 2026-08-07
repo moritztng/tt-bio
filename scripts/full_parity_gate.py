@@ -314,11 +314,12 @@ LEGS = [
         note="single-sequence leg: no MSA, no templates"),
     Leg("openfold3-9bk6-complex-msa", "openfold3", "structure", "examples/9bk6.yaml",
         fixture="openfold3/9bk6/msa-bench_200step_5sample_4cycle_fp32cpu",
-        committed_json="", target_id="9bk6",  # bootstrap: verdict committed after first run
+        committed_json="openfold3-9bk6-complex-msa.json", target_id="9bk6",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="yaml", legacy_rdx=True,
         note="two-chain heterodimer; per-chain benchmark MSA dirs committed in the "
-             "fixture (msa_A/msa_B), referenced by the yaml"),
+             "fixture (msa_A/msa_B), referenced by the yaml; PASS committed under the "
+             "fp32 diffusion boundary (P15, OF3_DIFFUSION_FP32_DEVICE default-on)"),
 
     # --- Boltz-2 affinity legs (cached fixture, device-only per release) ---
 ] + [

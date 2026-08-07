@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import Module, CORE_GRID_MAIN
+from .tenstorrent import Module, CORE_GRID_MAIN, _dtype
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
 from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
@@ -72,6 +72,7 @@ class OF3NoisyPositionEmbedder(Module):
 
     def __init__(self, state_dict, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
+        self._act_dtype = _dtype(ttnn.bfloat16)
         self.w_ls = self.torch_to_tt("linear_s.weight")         # (384, 128) tiled
         self.w_lz = self.torch_to_tt("linear_z.weight")         # (128, 16) tiled
         self.w_lr = self.torch_to_tt("linear_r.weight")         # (3, 128) tiled
@@ -87,12 +88,20 @@ class OF3NoisyPositionEmbedder(Module):
                                 compute_kernel_config=ckc)                      # [1, Ntk, 384]
         si_tok = ttnn.linear(si_ln, self.w_ls, compute_kernel_config=ckc,
                              core_grid=CORE_GRID_MAIN)                          # [1, Ntk, 128]
+        if self._act_dtype != ttnn.bfloat16:
+            # ttnn.embedding requires a bf16 table; the gather is exact in any
+            # dtype, so downcast the (single-use) table and upcast the rows.
+            _bf = ttnn.typecast(si_tok, ttnn.bfloat16)
+            ttnn.deallocate(si_tok)
+            si_tok = _bf
         si_tok_2d = ttnn.reshape(ttnn.to_layout(si_tok, ttnn.ROW_MAJOR_LAYOUT),
                                  (si_tok.shape[1], 128))
         si_atoms = ttnn.embedding(atom_to_token_idx_tt, si_tok_2d,
                                   layout=ttnn.ROW_MAJOR_LAYOUT,
                                   memory_config=ttnn.DRAM_MEMORY_CONFIG)        # [NP, 128]
         si_atoms = ttnn.to_layout(ttnn.reshape(si_atoms, (1, NP, 128)), ttnn.TILE_LAYOUT)
+        if self._act_dtype != ttnn.bfloat16:
+            si_atoms = ttnn.typecast(si_atoms, self._act_dtype)
         si_atoms = ttnn.multiply(si_atoms, atom_mask_col)                       # zero padded
         ttnn.deallocate(si_tok)
         cl = ttnn.add(cl0, si_atoms)
@@ -104,6 +113,10 @@ class OF3NoisyPositionEmbedder(Module):
         zij_tok = ttnn.linear(zij_ln, self.w_lz, compute_kernel_config=ckc,
                               core_grid=CORE_GRID_MAIN)                         # [1, Ntk, Ntk, 16]
         ntk = zij_tok.shape[1]
+        if self._act_dtype != ttnn.bfloat16:
+            _bf = ttnn.typecast(zij_tok, ttnn.bfloat16)
+            ttnn.deallocate(zij_tok)
+            zij_tok = _bf
         zij_tok_2d = ttnn.reshape(ttnn.to_layout(zij_tok, ttnn.ROW_MAJOR_LAYOUT),
                                   (ntk * ntk, 16))
         zij_blocks = ttnn.embedding(zij_flat_idx_tt, zij_tok_2d,
@@ -112,6 +125,8 @@ class OF3NoisyPositionEmbedder(Module):
         nb = zij_mask.shape[1]
         zij_blocks = ttnn.to_layout(
             ttnn.reshape(zij_blocks, (1, nb, 32, 128, 16)), ttnn.TILE_LAYOUT)
+        if self._act_dtype != ttnn.bfloat16:
+            zij_blocks = ttnn.typecast(zij_blocks, self._act_dtype)
         zij_blocks = ttnn.multiply(zij_blocks, zij_mask)
         ttnn.deallocate(zij_tok)
         plm = ttnn.add(plm0, zij_blocks)
@@ -174,6 +189,7 @@ class OF3DiffusionModule(Module):
     def __init__(self, state_dict, compute_kernel_config):
         # state_dict = _sub(sd, "diffusion_module")
         super().__init__({}, compute_kernel_config)
+        self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = dict(state_dict)
         self._wc = {}
 
@@ -206,7 +222,7 @@ class OF3DiffusionModule(Module):
         if v is None:
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
                                 layout=ttnn.TILE_LAYOUT, device=self.device,
-                                dtype=ttnn.bfloat16)
+                                dtype=self._act_dtype)
             self._wc[key] = v
         return v
 
@@ -216,20 +232,20 @@ class OF3DiffusionModule(Module):
                            core_grid=CORE_GRID_MAIN)
 
     @staticmethod
-    def _pad_atoms(x, n_atom, NP):
+    def _pad_atoms(x, n_atom, NP, dtype=ttnn.bfloat16):
         th = ttnn.to_torch(x).float()
         if NP > n_atom:
             th = torch.nn.functional.pad(th, (0, 0, 0, NP - n_atom))
         return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT,
-                               device=x.device(), dtype=ttnn.bfloat16)
+                               device=x.device(), dtype=dtype)
 
     @staticmethod
-    def _pad_tokens(x, n_token, n_tok_pad):
+    def _pad_tokens(x, n_token, n_tok_pad, dtype=ttnn.bfloat16):
         th = ttnn.to_torch(x).float()
         if n_tok_pad > n_token:
             th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token))
         return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT,
-                               device=x.device(), dtype=ttnn.bfloat16)
+                               device=x.device(), dtype=dtype)
 
     def __call__(self, si_trunk, si, zij, cl0, plm0, rl_noisy, xl_noisy,
                  atom_mask_col, atom_mask_col_na, atom_to_token_idx_tt,
@@ -266,18 +282,25 @@ class OF3DiffusionModule(Module):
                                n_atom, NP)
 
         # --- Encoder pair update (fresh): cl_lm + pair_mlp, update plm. ---
-        cl_pad = self._pad_atoms(cl, n_atom, NP)                # [1, NP, 128]
+        cl_pad = self._pad_atoms(cl, n_atom, NP, self._act_dtype)  # [1, NP, 128]
         ttnn.deallocate(cl)
         # cl_l = reshape to query blocks [1, nb, NQ, 128].
         cl_l = ttnn.to_layout(cl_pad, ttnn.ROW_MAJOR_LAYOUT)
         cl_l = ttnn.reshape(cl_l, (1, nb, self.N_QUERY, 128))
         cl_l = ttnn.to_layout(cl_l, ttnn.TILE_LAYOUT)
         # cl_m = gather cl by key_block_idxs -> [1, nb, NK, 128], invalid -> 0.
-        cl2d = ttnn.reshape(ttnn.to_layout(cl_pad, ttnn.ROW_MAJOR_LAYOUT), (NP, 128))
+        _cl_src = cl_pad
+        if self._act_dtype != ttnn.bfloat16:
+            _cl_src = ttnn.typecast(cl_pad, ttnn.bfloat16)
+        cl2d = ttnn.reshape(ttnn.to_layout(_cl_src, ttnn.ROW_MAJOR_LAYOUT), (NP, 128))
+        if _cl_src is not cl_pad:
+            ttnn.deallocate(_cl_src)
         cl_m = ttnn.embedding(enc_key_block_idxs_tt, cl2d, layout=ttnn.ROW_MAJOR_LAYOUT,
                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
         cl_m = ttnn.reshape(cl_m, (1, nb, self.N_KEY, 128))
         cl_m = ttnn.to_layout(cl_m, ttnn.TILE_LAYOUT)
+        if self._act_dtype != ttnn.bfloat16:
+            cl_m = ttnn.typecast(cl_m, self._act_dtype)
         cl_m = ttnn.multiply(cl_m, enc_valid_mask)              # [1, nb, NK, 128]
         # relu -> linear_l/m outer sum -> [1, nb, NQ, NK, 16], * pair_mask.
         # (reference: linear_l(relu(cl_l)) + linear_m(relu(cl_m)) -- relu is applied to
@@ -303,7 +326,7 @@ class OF3DiffusionModule(Module):
         plm_postpu = ttnn.clone(plm) if _return_intermediates else None
 
         # --- Encoder atom_transformer (gated OF3AtomTransformer) -> ql [1, n_atom, 128]. ---
-        ql_pad = self._pad_atoms(ql, n_atom, NP)               # [1, NP, 128]
+        ql_pad = self._pad_atoms(ql, n_atom, NP, self._act_dtype)  # [1, NP, 128]
         ttnn.deallocate(ql)
         ql_enc = self.enc_at(ql_pad, cl_pad, plm, atom_mask_col,
                              enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
@@ -329,7 +352,7 @@ class OF3DiffusionModule(Module):
         ai_postglue = ttnn.clone(ai) if _return_intermediates else None
 
         # --- DiT (gated) -> ai. Feed padded (n_tok_pad) with the padded token mask. ---
-        ai_pad = self._pad_tokens(ai, n_token, n_tok_pad)      # [1, n_tok_pad, 768]
+        ai_pad = self._pad_tokens(ai, n_token, n_tok_pad, self._act_dtype)  # [1, n_tok_pad, 768]
         ttnn.deallocate(ai)
         ai_pad = self.dit(ai_pad, si, zij, token_mask_pad_tt, tok_mask_col_pad_tt)
         ai_postdit = ttnn.clone(ai_pad) if _return_intermediates else None
@@ -342,7 +365,7 @@ class OF3DiffusionModule(Module):
         # --- AtomAttentionDecoder (gated) -> rl_update [1, n_atom, 3]. ---
         # Decoder reuses the encoder's ql (atom_transformer output), cl, and the
         # post-pair-update plm -- the same (ql, cl, plm) the reference decoder consumes.
-        ql_dec = self._pad_atoms(ql_enc, n_atom, NP)           # [1, NP, 128]
+        ql_dec = self._pad_atoms(ql_enc, n_atom, NP, self._act_dtype)  # [1, NP, 128]
         ttnn.deallocate(ql_enc)
         rl_update = self.dec(ai_ln, ql_dec, cl_pad, plm, atom_mask_col,
                              atom_to_token_idx_tt, enc_key_block_idxs_tt,

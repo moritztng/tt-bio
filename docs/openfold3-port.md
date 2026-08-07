@@ -1731,6 +1731,47 @@ Also this pass: the OF3 predict path now **rejects yaml `constraints:` blocks**
 (covalent bonds) with a named error instead of silently folding without them
 (`_validate_openfold3_constraints`, tested in `test_openfold3_cli.py`).
 
+## P15 — fp32 diffusion-module boundary closes the 9BK6 all-atom residual
+
+After P14 the 9BK6 gate leg still missed the all-atom Kabsch noise floor by a hair
+(X 1.889 A vs the 1.821 A threshold; CA-level passed at 1.605 <= 1.723). The
+bisect chain said "rollout-level accumulation inside the diffusion module, not the
+trunk": reference-trunk + device-diffusion hybrid scored within ~0.07 A of the
+full-device fold, the trunk itself gates at z-PCC 0.996, and a captured single
+`DiffusionModule` step replayed on device matched the fp32 reference at
+xl_out-PCC 0.9996 (t=240), 0.9990 (t=8), 0.9937 (t=2) — degrading exactly where
+the rollout's late, near-converged steps live. A CPU bf16 (autocast) replay of the
+same captured step scored 0.9985, i.e. the device bf16 kernel stack sat ~2x the
+cpu-bf16 per-step decorrelation at low t, and a full CPU bf16 *rollout* diverges
+outright on this target (16 A+) — 9BK6's interface is in the chaotic regime where
+bf16 rounding is trajectory-amplifying.
+
+The sanctioned lever for exactly this situation (Protenix HSA precedent,
+`PROTENIX_DIFFUSION_FP32_DEVICE`): run the diffusion sampler on device in fp32,
+matching the reference rollout's own fp32 boundary rather than blanket-upgrading
+precision. The whole OF3 diffusion module (conditioning, atom encoder, DiT, atom
+decoder; weights and activations) now threads an activation dtype captured at
+construction; `OF3_DIFFUSION_FP32_DEVICE` (default **1** = fp32, mirroring the
+Protenix default) wraps sampler construction in `device_dtype_override(fp32)`.
+`ttnn.embedding` gathers require bf16 tables, so the five gather sites round-trip
+through bf16 (a gather is exact in any dtype — loss-free). bf16 mode is unchanged
+(`...=0` opt-out; every `_act_dtype` branch is a no-op at bf16).
+
+Result on the 9BK6 gate leg (5 seeds x 5 samples, 200 steps): **PASS, X=1.663 A
+within the noise floor** (R=1.448, D=0.696) — the seed-0 fold scored all-atom
+Kabsch 1.353-2.182 A vs the fp32 CPU fixture (TM 0.979-0.987, lDDT 0.887-0.905;
+confidence pLDDT 0.774 / pTM 0.777 / ipTM 0.728). Fold wall time 120.6 s (fp32 DM) vs 81.8 s (bf16
+DM + fused-SDPA trunk, broken-parity A/B) — the fp32 boundary costs ~1.5x on this
+target, far less than the fp32-softmax trunk fix did, and buys the last open
+accuracy gap.
+
+Negative results recorded so they are not re-tried: (a) flipping the atom
+transformer's softmax alone to the fp32 helper moved nothing (ql_enc 0.9892 ->
+0.9891, xl_out 0.9937 -> 0.9926 at t=2) — the atom attention softmax was never
+the weak link; reverted. (b) fused SDPA with the P13 bias-scale fix in place still
+destroys the fold (19.8 A all-atom, ipTM 0.056) — `fp32_softmax=True` at the OF3
+trunk/template/MSA construction sites is load-bearing, not a luxury.
+
 ## Capability coverage (R3) — the complete-port table
 
 Enumerated against the upstream input schema
@@ -1740,7 +1781,7 @@ UNSUPPORTED row is a loud error, verified by running it; nothing silently degrad
 | capability | status | evidence / error |
 |---|---|---|
 | protein chains | **ported, parity-gated** | ubq / prot / 9bk6 gate legs; 4-target accuracy panel (P13) |
-| multi-chain complexes | **ported, parity-gated** | 9BK6 heterodimer: cross-RMSD 1.56 A mean, cross/floor 1.20 (P14, above) |
+| multi-chain complexes | **ported, parity-gated** | 9BK6 heterodimer: all-atom cross-RMSD 1.627 A mean inside the 1.821 A noise floor under the fp32 diffusion boundary (P15, above) |
 | RNA | **ported, folds e2e** | 35-nt RNA via CLI: status ok, pLDDT 0.508 (pass 3; `d57e479e` fixed the protein-only representative mask) |
 | DNA | **ported, folds e2e** | 24-nt DNA via CLI: status ok, pLDDT 0.849 (pass 4) |
 | ligands (SMILES/CCD) | **UNSUPPORTED — loud error** | `--model openfold3 is polymer-only for now (chain(s) ['L'] are ligands); see docs/openfold3-port.md.` (`_validate_openfold3_chains`, tested) |

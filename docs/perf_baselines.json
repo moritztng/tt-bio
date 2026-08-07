@@ -244,8 +244,8 @@
             "openfold3": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 0.83429,
-              "latency_ms": 1198.62,
+              "value": 2.141953,
+              "latency_ms": 466.86,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -259,12 +259,32 @@
               "machine_id": "tt-quietbox2",
               "tt_bio_version": "0.5.0",
               "date": "2026-08-07",
-              "note": "re-seed openfold3 p300c baseline post P14 correctness fixes: 0.834 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample). The pre-fix seed was 2.45 (86932b20); the 2.9x cost is the fp32-softmax attention path (fp32_softmax=True at the OF3 construction sites), required for correctness: an A/B fold with fused SDPA (fp32_softmax=False) breaks 9BK6 parity catastrophically (19.8 A all-atom, ipTM 0.06 vs 0.77). protenix-v2 on the same card: 3.45 structures/s."
+              "note": "openfold3 p300c baseline, fp32 diffusion-module default (P15): 2.142 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample; 467 ms/call). Same-session bf16-DM A/B (OF3_DIFFUSION_FP32_DEVICE=0): 2.217 structures/s \u2014 the fp32 boundary costs ~3.5% on the light protocol. The earlier 0.834 seed (this morning) was contention-degraded and is superseded; the fp32-softmax trunk cost measured cleanly at 9bk6 production scale is ~1.33x (109s vs 82s fused-SDPA per 5x200-step fold), not the 2.9x the contended readings suggested."
+            },
+            "protenix-v2": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 3.194585,
+              "latency_ms": 313.03,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p300c",
+              "machine_id": "tt-quietbox2",
+              "tt_bio_version": "0.5.0",
+              "date": "2026-08-07",
+              "note": "seed protenix-v2 p300c baseline on tt-quietbox2 for the OF3 R4 same-card comparison (OF3: 2.142 structures/s same session)"
             }
           },
           "date": "2026-08-07",
           "tt_bio_version": "0.5.0",
-          "note": "re-seed openfold3 p300c baseline post P14 correctness fixes: 0.834 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample). The pre-fix seed was 2.45 (86932b20); the 2.9x cost is the fp32-softmax attention path (fp32_softmax=True at the OF3 construction sites), required for correctness: an A/B fold with fused SDPA (fp32_softmax=False) breaks 9BK6 parity catastrophically (19.8 A all-atom, ipTM 0.06 vs 0.77). protenix-v2 on the same card: 3.45 structures/s."
+          "note": "seed protenix-v2 p300c baseline on tt-quietbox2 for the OF3 R4 same-card comparison (OF3: 2.142 structures/s same session)"
         }
       }
     },
