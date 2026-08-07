@@ -1007,7 +1007,10 @@ class _WorkerState:
             max_atom_per_token_mask=aux["max_atom_per_token_mask"],
             atom_array=features["atom_array"], asym_id=features["asym_id"],
             atom_to_token_index=atom_to_token, atom_mask=features["atom_mask"].bool(),
-            polymer_mask=polymer_token[atom_to_token])
+            polymer_mask=polymer_token[atom_to_token],
+            repr_batch={k: features[k] for k in (
+                "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
+                "start_atom_index", "atom_mask", "token_mask")})
 
         def _pfn(stage, step, total):
             report_progress("diffusion" if stage == "trunk" else stage)

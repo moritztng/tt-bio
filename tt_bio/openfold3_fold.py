@@ -238,7 +238,19 @@ class OpenFold3(Module):
         if self.confidence_head is None:
             self.confidence_head = OF3ConfidenceHead(
                 self._confidence_sd, self.device, self.ckc)
-        representative = sample[aux["representative_atom_indices"].long()]
+        if aux.get("repr_batch") is not None:
+            # Reference rule (openfold3 get_token_representative_atoms): CB for
+            # protein (CA for glycine), C4/C2 for purine/pyrimidine, first atom for
+            # atomized ligands. The token_center_atom (CA/C1') convention shifts
+            # representative distances by ~1.5 A on non-glycine residues, flipping
+            # contact pairs across distance-bin edges and miscalibrating PAE/pLDDT.
+            from ._vendor.openfold3.core.utils.atomize_utils import (
+                get_token_representative_atoms)
+            representative, _ = get_token_representative_atoms(
+                batch=aux["repr_batch"], x=sample,
+                atom_mask=aux["repr_batch"]["atom_mask"])
+        else:
+            representative = sample[aux["representative_atom_indices"].long()]
         out = self.confidence_head.forward(
             si_input=si_input.float(), si_trunk=si_trunk.float(),
             zij_trunk=zij_trunk.float(), repr_x_pred=representative.float(),
