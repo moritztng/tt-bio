@@ -14,6 +14,8 @@ INTERLEAVED (all-A-then-all-B reads thermal drift as a code difference), median 
   M5  math fidelity HiFi4+fp32_dest vs HiFi2(+/-fp32_dest) vs LoFi on the M1/M2 GEMMs.
       (Run regardless; the fidelity lever is only LIVE if Step 1b says FPU-bound.)
   M6  qkv+g packed into one [c_z,1024] minimal_matmul + chunk vs two separate matmuls.
+  M7  tri-attention SDPA program-config sweep at the measured offender shape
+      q [320,8,320,32] + bias [1,8,320,320] (27% of block device time at 4.5 TFLOP/s).
 
     TT_VISIBLE_DEVICES=3 python3 perf/stage_split_298/microbench.py --only m1
 """
@@ -113,6 +115,33 @@ def m1(dev, ckc):
     a, b = leg_4d(), leg_tall()
     ttnn.synchronize_device(dev)
     check("tall vs 4d", b, ttnn.to_torch(a))
+
+    # M1b: the profile's slowest matmuls are the 3D [320,320,256] pair projections
+    # ([256->256] at 744 us, [256->8] at 466 us). Test as-is vs one flattened tall GEMM.
+    print("M1b 3D pair projection [320,320,256]@[256,k] vs flattened [102400,256] tall GEMM")
+    x3_t = torch.randn(N, N, C_Z, dtype=torch.bfloat16)
+    for k_dim in (256, 8):
+        wk_t = torch.randn(C_Z, k_dim, dtype=torch.bfloat16)
+        x3 = ttnn.from_torch(x3_t, layout=ttnn.TILE_LAYOUT, device=dev)
+        wk = ttnn.from_torch(wk_t, layout=ttnn.TILE_LAYOUT, device=dev)
+
+        def leg_3d(x3=x3, wk=wk):
+            return ttnn.linear(x3, wk, compute_kernel_config=ckc,
+                               dtype=ttnn.bfloat16, core_grid=CORE_GRID_MAIN)
+
+        def leg_flat(x3=x3, wk=wk, k_dim=k_dim):
+            xf = ttnn.reshape(x3, (1, 1, N * N, C_Z))
+            y = ttnn.linear(xf, wk, compute_kernel_config=ckc,
+                            dtype=ttnn.bfloat16, core_grid=CORE_GRID_MAIN)
+            yr = ttnn.reshape(y, (N, N, k_dim))
+            ttnn.deallocate(y)
+            return yr
+
+        med = interleave([(f"k{k_dim}_3d", leg_3d), (f"k{k_dim}_flat", leg_flat)], dev)
+        print(f"    k={k_dim}: {med}  speedup 3d/flat = {med[f'k{k_dim}_3d'] / med[f'k{k_dim}_flat']:.2f}x")
+        a, b = leg_3d(), leg_flat()
+        ttnn.synchronize_device(dev)
+        check(f"k={k_dim} flat vs 3d", b, ttnn.to_torch(a))
 
 
 def m2(dev, ckc):
@@ -244,17 +273,44 @@ def m6(dev, ckc):
     check("packed g vs separate", g2, ttnn.to_torch(g1))
 
 
+def m7(dev, ckc):
+    print("M7 tri-attention SDPA program-config sweep (q [320,8,320,32], bias [1,8,320,320])")
+    q = ttnn.from_torch(torch.randn(N, 8, N, 32, dtype=torch.bfloat16),
+                        layout=ttnn.TILE_LAYOUT, device=dev)
+    k = ttnn.from_torch(torch.randn(N, 8, N, 32, dtype=torch.bfloat16),
+                        layout=ttnn.TILE_LAYOUT, device=dev)
+    v = ttnn.from_torch(torch.randn(N, 8, N, 32, dtype=torch.bfloat16),
+                        layout=ttnn.TILE_LAYOUT, device=dev)
+    bias = ttnn.from_torch(torch.randn(1, 8, N, N, dtype=torch.bfloat16),
+                           layout=ttnn.TILE_LAYOUT, device=dev)
+    flops = 2 * 2 * N * 8 * N * N * 32
+
+    legs = []
+    for qc, kc in ((32, 32), (64, 64), (128, 128), (256, 256), (64, 256), (128, 256), (256, 128)):
+        pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=(13, 10),
+                                    exp_approx_mode=False, q_chunk_size=qc, k_chunk_size=kc)
+
+        def leg(pc=pc):
+            return ttnn.transformer.scaled_dot_product_attention(
+                q, k, v, attn_mask=bias, is_causal=False, scale=32 ** -0.5, program_config=pc)
+        legs.append((f"q{qc}k{kc}", leg))
+    med = interleave(legs, dev, warm=2, iters=5)
+    cur = med.get("q256k256")  # current: _capped_sdpa_chunk_size(320) = 256
+    for kk, vv in sorted(med.items(), key=lambda kv: kv[1]):
+        print(f"    {kk}: {vv:.3f} ms  {flops / vv / 1e9:.1f} TFLOP/s  ({cur / vv:.2f}x vs current q256k256)")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--only", choices=["m1", "m2", "m4", "m5", "m6"], default=None)
+    ap.add_argument("--only", choices=["m1", "m2", "m4", "m5", "m6", "m7"], default=None)
     args = ap.parse_args()
     dev = get_device()
     ckc = ckc_of(dev, ttnn.MathFidelity.HiFi4, True)
-    todo = [args.only] if args.only else ["m1", "m2", "m4", "m5", "m6"]
+    todo = [args.only] if args.only else ["m1", "m2", "m4", "m5", "m6", "m7"]
     for name in todo:
         {"m1": lambda: m1(dev, ckc), "m2": lambda: m2(dev, ckc),
          "m4": lambda: m4(dev, ckc), "m5": lambda: m5(dev),
-         "m6": lambda: m6(dev, ckc)}[name]()
+         "m6": lambda: m6(dev, ckc), "m7": lambda: m7(dev, ckc)}[name]()
 
 
 if __name__ == "__main__":

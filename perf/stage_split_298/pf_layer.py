@@ -43,7 +43,8 @@ def build_layer(ckc):
         if k.startswith("pairformer_stack.blocks.0.")
     }
     remapped = PW.remap_pairformer_block(blk)
-    c_z = remapped["tri_mul_out.p_in.weight"].shape[0]
+    # p_in.weight is cat([a_p, b_p]) = [2*c_z, c_z]; the in-features dim is c_z.
+    c_z = remapped["tri_mul_out.p_in.weight"].shape[1]
     return PairformerLayer(
         TRI_HEAD_DIM, c_z // TRI_HEAD_DIM, 384 // 16, 16, True, remapped, ckc
     ), c_z
