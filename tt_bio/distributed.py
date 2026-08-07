@@ -503,32 +503,39 @@ class ControllerServer:
                     _json_response(self, 500, {"error": str(exc)})
 
             def do_GET(self):  # noqa: N802
-                parsed = urllib.parse.urlparse(self.path)
-                if parsed.path == "/cluster":
-                    _json_response(self, 200, store.cluster())
-                elif parsed.path == "/healthz":
-                    _json_response(self, 200, {"ok": True})
-                elif parsed.path.startswith("/runs/") and parsed.path.endswith("/events"):
-                    run_id = parsed.path.split("/")[2]
-                    query = urllib.parse.parse_qs(parsed.query)
-                    after = int((query.get("after") or ["0"])[0])
-                    _json_response(self, 200, store.events(run_id, after))
-                elif parsed.path.startswith("/runs/") and parsed.path.endswith("/results"):
-                    run_id = parsed.path.split("/")[2]
-                    _json_response(self, 200, {"results": store.results(run_id)})
-                elif parsed.path.startswith("/runs/") and parsed.path.endswith("/status"):
-                    _json_response(self, 200, store.run_status(parsed.path.split("/")[2]))
-                elif parsed.path.startswith("/runs/") and parsed.path.endswith("/jobs"):
-                    _json_response(self, 200, {"jobs": store.run_jobs(parsed.path.split("/")[2])})
-                elif "/jobs/" in parsed.path and parsed.path.endswith("/outputs"):
-                    parts = parsed.path.split("/")
-                    # /runs/<run_id>/jobs/<job_id>/outputs
-                    if len(parts) == 6 and parts[1] == "runs" and parts[3] == "jobs":
-                        _json_response(self, 200, {"outputs": store.job_outputs(parts[2], parts[4])})
+                # A store error (e.g. sqlite CANTOPEN on a full disk) must not
+                # kill the handler thread: the client's poll would die with
+                # RemoteDisconnected and take the whole run down with it.
+                # Answer 503 instead — transient, retriable, run survives.
+                try:
+                    parsed = urllib.parse.urlparse(self.path)
+                    if parsed.path == "/cluster":
+                        _json_response(self, 200, store.cluster())
+                    elif parsed.path == "/healthz":
+                        _json_response(self, 200, {"ok": True})
+                    elif parsed.path.startswith("/runs/") and parsed.path.endswith("/events"):
+                        run_id = parsed.path.split("/")[2]
+                        query = urllib.parse.parse_qs(parsed.query)
+                        after = int((query.get("after") or ["0"])[0])
+                        _json_response(self, 200, store.events(run_id, after))
+                    elif parsed.path.startswith("/runs/") and parsed.path.endswith("/results"):
+                        run_id = parsed.path.split("/")[2]
+                        _json_response(self, 200, {"results": store.results(run_id)})
+                    elif parsed.path.startswith("/runs/") and parsed.path.endswith("/status"):
+                        _json_response(self, 200, store.run_status(parsed.path.split("/")[2]))
+                    elif parsed.path.startswith("/runs/") and parsed.path.endswith("/jobs"):
+                        _json_response(self, 200, {"jobs": store.run_jobs(parsed.path.split("/")[2])})
+                    elif "/jobs/" in parsed.path and parsed.path.endswith("/outputs"):
+                        parts = parsed.path.split("/")
+                        # /runs/<run_id>/jobs/<job_id>/outputs
+                        if len(parts) == 6 and parts[1] == "runs" and parts[3] == "jobs":
+                            _json_response(self, 200, {"outputs": store.job_outputs(parts[2], parts[4])})
+                        else:
+                            _json_response(self, 404, {"error": "not found"})
                     else:
                         _json_response(self, 404, {"error": "not found"})
-                else:
-                    _json_response(self, 404, {"error": "not found"})
+                except Exception as exc:
+                    _json_response(self, 503, {"error": str(exc)})
 
         self.httpd = ThreadingHTTPServer((host, port), Handler)
         self.port = self.httpd.server_address[1]
