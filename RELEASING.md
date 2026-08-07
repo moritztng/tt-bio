@@ -35,9 +35,14 @@ TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_v
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/perf_regression.py
 
-TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
+TT_VISIBLE_DEVICES=0 OF3_CKPT=/path/to/of3-p2-155k.pt PYTHONPATH="$PWD" \
   python3 scripts/ux_regression.py
 ```
+
+OpenFold3's weights are the one checkpoint tt-bio does not download, so the
+accuracy, perf and UX gates all need `OF3_CKPT` (or the file at
+`~/.boltz/of3-p2-155k.pt`) before they can run its legs. `ux_regression.py`
+refuses to start rather than skipping the leg — see `docs/openfold3-port.md`.
 
 The packaging guard (`scripts/packaging_smoke.py`) builds the wheel and sdist
 from the current tree and asserts every non-`.py` data file under `tt_bio/`
@@ -200,7 +205,8 @@ time — an all-day thrash with zero model-numerics problems. Run `--check` and 
 one-leg `--dry-run`/fold smoke first; they catch that whole class in minutes.
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
-OpenDDE, BoltzGen designability, OpenDDE-abag antibody-antigen docking, and
+OpenFold3, OpenDDE, BoltzGen designability, OpenDDE-abag antibody-antigen
+docking, and
 ESMC-300m/600m reference parity. It folds 7ROA at production sampling settings,
 parses every written mmCIF, and checks the confidence-selected structure against
 these regression limits:
@@ -211,6 +217,7 @@ these regression limits:
 | ESMFold2 | 8.0 Å | 0.40 |
 | ESMFold2-fast | 4.5 Å | 0.60 |
 | Protenix-v2 | 6.0 Å | 0.50 |
+| OpenFold3 | 3.5 Å | 0.70 |
 | OpenDDE | 6.0 Å | 0.50 |
 
 ESMFold2's floor is loose because it is anchored to the **default single-sequence**
