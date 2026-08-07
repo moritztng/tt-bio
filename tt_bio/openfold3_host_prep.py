@@ -122,7 +122,15 @@ def derive_block_aux(features: dict) -> dict:
     ).reshape(-1)
 
     atom_array = features["atom_array"]
-    ca_mask = torch.from_numpy(atom_array.atom_name == "CA").bool()
+    # Representative ("token center") atom per token for the confidence head: CA for
+    # protein, C1' for nucleic acids — the upstream TOKEN_CENTER_ATOMS convention the
+    # vendored tokenizer already annotates. A protein-only "== CA" mask leaves RNA/DNA
+    # tokens with zero representatives and crashes the confidence head on an empty
+    # one-hot. Fall back to CA only if the annotation is absent.
+    if "token_center_atom" in atom_array.get_annotation_categories():
+        ca_mask = torch.from_numpy(atom_array.token_center_atom).bool()
+    else:
+        ca_mask = torch.from_numpy(atom_array.atom_name == "CA").bool()
 
     return dict(
         atom_mask=atom_mask, atom_to_token_index=atom_to_token_index,
