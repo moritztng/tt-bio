@@ -801,6 +801,7 @@ class TriangleMultiplication(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         H = x_norm_in.shape[1]
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
@@ -881,6 +882,7 @@ class TriangleMultiplication(Module):
             x = ttnn.concat(x_chunks, dim=-1)
             for c in x_chunks:
                 ttnn.deallocate(c)
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
         x = ttnn.layer_norm(
             x,
             weight=self.out_norm_weight,
@@ -928,6 +930,7 @@ class TriangleMultiplication(Module):
                 ))
                 ttnn.deallocate(g_block)
             ttnn.deallocate(x)
+            dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
             out = ttnn.concat(blocks, dim=1)
             for b in blocks:
                 ttnn.deallocate(b)
@@ -941,6 +944,7 @@ class TriangleMultiplication(Module):
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(x)
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
         g_out = ttnn.linear(
             x_norm_in,
             self.g_out_weight,
@@ -1040,6 +1044,7 @@ class TriangleAttention(Module):
         )
         triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
         triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
+        dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
         def attend(qkv_in, bias):
             qkv_in = ttnn.unsqueeze(qkv_in, 1)
@@ -1122,6 +1127,7 @@ class TriangleAttention(Module):
                     o_chunk = attend(qkv_chunk, triangle_bias)
                 ttnn.deallocate(qkv_chunk)
                 parts.append(gate_and_project(o_chunk, g_chunk))
+            dram_peak(f"tri_att({'end' if self.ending else 'start'}) row loop done [z={'x'.join(str(d) for d in x.shape)}]")
             ttnn.deallocate(x)
             ttnn.deallocate(triangle_bias)
             x = ttnn.concat(parts, dim=0)
@@ -1571,11 +1577,13 @@ class Transition(Module):
                     parts.append(ttnn.concat(w_parts, dim=2))
                     for wp in w_parts:
                         ttnn.deallocate(wp)
+            dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
             out = ttnn.concat(parts, dim=1)
             for p in parts:
                 ttnn.deallocate(p)
             return out
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
+        dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
         if W <= transition_w_chunking_threshold:
             return ttnn.concat([swiglu(c) for c in chunks], dim=1)
         return ttnn.concat([
