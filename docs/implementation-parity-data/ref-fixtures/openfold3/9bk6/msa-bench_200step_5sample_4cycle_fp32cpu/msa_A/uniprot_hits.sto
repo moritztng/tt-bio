@@ -1,0 +1,86 @@
+# STOCKHOLM 1.0
+
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/36-70     DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/49-83     DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/79-121    DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/105-149   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/139-175   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/180-214   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/196-239   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/218-252   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/249-291   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/274-317   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/322-358   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/347-382   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/386-421   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/404-450   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/455-486   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/491-527   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/509-551   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/533-564   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/556-593   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/582-616   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/608-643   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/651-694   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/674-707   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/709-747   DE [subseq from] Uncharacterized protein LOC106613742 OS=Salmo salar OX=8030 GN=LOC106613742 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/667-706   DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/755-794   DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/843-882   DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/931-970   DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1019-1058 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1107-1146 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1195-1234 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1283-1322 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1371-1407 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1723-1762 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1811-1850 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1899-1938 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1987-2026 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/2075-2114 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/2163-2202 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+#=GS tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/2251-2290 DE [subseq from] Tandem-95 repeat domain-containing protein OS=Arcobacter acticola OX=1849015 GN=AACT_2585 PE=4 SV=1
+
+9bk6_A                                           MSGGTPEERLAQLEKEIQALYDAADEVVDEVEEKDGKMTVTRTLTIGDGTVTLVETLKIVDGAPVKDGEIEVICNPECEELGKRLKALAKEYEKAQEEVEKAKA
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/36-70             ---------------------------VDTLAIQDGYLLLVDTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/49-83             ---------------------------VDTLAIQDGYLLLVDTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/79-121            ------------------AIQDGYLLLVDTLAIQDGYLLLADTLAIQDGYLLLVDTLAIQD-------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/105-149           ------------------AIQDGYLLLVDTLAIQDGYLLLVDTLAIQDGYLLLVDTLAIQDGY-----------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/139-175           --------------------------LVDTLAIQDGYLLRADTLAIHDGYLLLVDTLAIQDGY-----------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/180-214           ----------------------------DTLAIQDGYLLRADTLAIQDGYLLLVDTLAIQDGY-----------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/196-239           ------------------AIQDGYLLLVDTLAIQDGYLLLADTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/218-252           ---------------------------ADTLAIQDGYLLLVDTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/249-291           -------------------IQDGYLLLVDTLAIQDGYLLLADTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/274-317           ------------------AIQDGYLLLVDTLAIQDGYLLLADTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/322-358           ---------------------------VDTLAIQDGYLLLVDTLAIQDGYLLLVDTLAIQDGYL----------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/347-382           --------------------------LVDTLAIQDGYLLRADTLAIHDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/386-421           --------------------------LADTLAIQDGYLLRADTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/404-450           ------------------AIQDGYLLLVDTLAIQDGYLLLADTLAIQDGYLLLVDTLAIQDGYLL---------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/455-486           ------------------------------LAIQDGYLLLVDTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/491-527           ---------------------------VDTLAIQDGYLLLADTLAIQDGYLLLVDTLAIQDGYL----------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/509-551           -------------------IQDGYLLLVDTLAIQDGYLLRADTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/533-564           ------------------------------LAIQDGYLLLVDTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/556-593           ---------------------------VDTLAIQDGYLLLVDTLSIQDGYLLLVDTLAIQDGYLL---------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/582-616           ---------------------------VDTLAIQDGYLLRADTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/608-643           ---------------------------VDTLAIQDGYLLLADTLAIQDGYLLLVDTLAIQDGY-----------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/651-694           ------------------AIQDGYLLLVDTLAIQDGYLLLADTLAIQDGYLLLVDTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/674-707           ----------------------------DTLAIQDGYLLLVDTLAIQDGYLLLADTLAIQDG------------------------------------------
+tr|A0A1S3T5C1|A0A1S3T5C1_SALSA/709-747           ------------------------LLLVDTLSIQDGYLLLADTLAIQDGYLLLVDTLAIQDGY-----------------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/667-706           --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/755-794           --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/843-882           --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/931-970           --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1019-1058         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1107-1146         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1195-1234         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1283-1322         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1371-1407         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPI----------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1723-1762         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1811-1850         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1899-1938         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/1987-2026         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/2075-2114         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/2163-2202         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+tr|A0A6M8EYP3|A0A6M8EYP3_9BACT/2251-2290         --------------------------------TKDFNGTATVTLTVNDGTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+#=GC RF                                          xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+//

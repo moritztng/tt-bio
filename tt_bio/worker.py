@@ -79,6 +79,25 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
             hf_artifact(PROTENIX_REPO, "protenix-v2.pt", cache))
         cfg["mol_dir"] = str(download_mols(cache))     # CCD templates for nucleic acids / ligands
         return
+    # OpenFold3: checkpoint via $OF3_CKPT or the local cache (no tt-bio HF mirror;
+    # the p2 preview weights are distributed by the OpenFold consortium). MSA dir
+    # resolves exactly like Protenix-v2.
+    if cfg.get("model") == "openfold3":
+        cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
+        of3_ckpt = os.environ.get("OF3_CKPT") or str(cache / "of3-p2-155k.pt")
+        if not Path(of3_ckpt).exists():
+            raise FileNotFoundError(
+                "OpenFold3 checkpoint not found. Set OF3_CKPT to the OF3 p2 preview "
+                "weights file (of3-p2-155k.pt) or place it at "
+                f"{cache / 'of3-p2-155k.pt'}.")
+        cfg["of3_ckpt"] = of3_ckpt
+        tmpl_struct_dir = Path(
+            os.environ.get("OF3_TEMPLATE_STRUCTURES")
+            or str(cache / "of3_template_structures"))
+        tmpl_struct_dir.mkdir(parents=True, exist_ok=True)
+        cfg["of3_template_structures"] = str(tmpl_struct_dir)
+        cfg["of3_max_msa_seqs"] = os.environ.get("OF3_MAX_MSA_SEQS")
+        return
     # OpenDDE loads its weights from HF on the first fold.
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
         cfg["opendde_ckpt"] = os.environ.get("OPENDDE_CKPT")
@@ -112,6 +131,141 @@ def _resolve_msa_dir(requested: str | None, cache: Path) -> str:
     fallback = cache / "msa"
     fallback.mkdir(parents=True, exist_ok=True)
     return str(fallback)
+
+
+def _write_openfold3_structure(atom_array, coords, outpath, output_format,
+                               b_factors=None):
+    """Write an OpenFold3 prediction as PDB/mmCIF: the featurization's biotite
+    AtomArray carries all atom metadata; only the coordinates and the per-atom
+    pLDDT B-factors (0-100, the AF/Boltz convention) are replaced."""
+    import biotite.structure.io.pdb as _pdb
+    import biotite.structure.io.pdbx as _pdbx
+
+    arr = atom_array.copy()
+    arr.coord = coords.detach().cpu().numpy().astype("float32")
+    if "b_factor" not in arr.get_annotation_categories():
+        arr.add_annotation("b_factor", float)
+    arr.b_factor[:] = (b_factors.detach().cpu().numpy().astype("float32")
+                       if b_factors is not None else 0.0)
+    # Bio.PDB.MMCIFParser hard-requires _atom_site.occupancy; biotite only writes
+    # it when the annotation exists.
+    if "occupancy" not in arr.get_annotation_categories():
+        arr.add_annotation("occupancy", float)
+        arr.occupancy[:] = 1.0
+    outpath = Path(outpath)
+    if output_format == "pdb":
+        pf = _pdb.PDBFile()
+        pf.set_structure(arr)
+        pf.write(str(outpath))
+    else:
+        cf = _pdbx.CIFFile()
+        _pdbx.set_structure(cf, arr)
+        cf.write(str(outpath))
+
+
+def _openfold3_template_map(path: Path) -> dict[str, str]:
+    """Per-chain template alignment (npz) paths from a YAML input's `templates:` key.
+
+    OF3-only: the shared chain reader has no template field, so the OF3 path re-reads
+    the YAML for `{protein: {id: X, sequence: ..., templates: <npz>}}`. A template path
+    on a non-protein chain, an unknown chain id, or a missing file is a hard error —
+    silently dropping a user-supplied template would fold a different input than asked.
+    """
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return {}
+    import yaml
+    doc = yaml.safe_load(path.read_text()) or {}
+    out: dict[str, str] = {}
+    for entry in doc.get("sequences", []):
+        if not isinstance(entry, dict):
+            continue
+        for key, mt in (("protein", "protein"), ("rna", "rna"), ("dna", "dna")):
+            sub = entry.get(key)
+            if not (isinstance(sub, dict) and sub.get("sequence")):
+                continue
+            tmpl = sub.get("templates")
+            if tmpl in (None, "", "~"):
+                continue
+            if mt != "protein":
+                raise RuntimeError(
+                    f"--model openfold3: templates are only valid on protein chains, "
+                    f"not {mt} (chain entry {sub.get('id')!r}).")
+            tp = Path(str(tmpl)).expanduser()
+            if not tp.exists():
+                raise RuntimeError(
+                    f"--model openfold3: template file {tp} does not exist.")
+            ids = sub.get("id", "A")
+            id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
+                       else str(ids).split(","))
+            for c in id_list:
+                out[c.strip()] = str(tp)
+    return out
+
+
+def _validate_openfold3_constraints(path) -> None:
+    """Reject yaml `constraints:` blocks for OF3 instead of folding without them.
+
+    The OF3 query is built with `covalent_bonds: None` (the bond graph is not
+    ported), so a constraints block would otherwise be silently dropped — the
+    silent-garbage class. Raises naming the constraint count and the models that
+    do honor covalent bonds.
+    """
+    from tt_bio.main import _read_bio_constraints
+
+    bonds = _read_bio_constraints(path)
+    if bonds:
+        raise RuntimeError(
+            "--model openfold3 does not port covalent bonds yet "
+            f"(got {len(bonds)} constraint(s) from {path.name}); the fold would "
+            "silently ignore them. Remove the constraints block or use "
+            "--model protenix-v2 / opendde.")
+
+
+def _validate_openfold3_chains(chains: list) -> None:
+    """Reject OF3 inputs that would otherwise fold into plausible-looking garbage.
+
+    Ligand chains are out of scope (polymer-only port); a blank/whitespace sequence
+    would tokenize to UNK placeholders and still produce a status=ok structure — the
+    silent-garbage class from tt-bio-fold-succeeds-on-malformed-input. Unknown residue
+    CODES (X/Z/...) stay upstream-compatible: the vendored featurizer maps them to UNK
+    with a warning, exactly like the reference implementation.
+    """
+    if not chains:
+        raise RuntimeError("no protein/nucleic-acid sequences")
+    non_polymer = [cid for cid, _s, _sp, mt in chains if mt not in ("protein", "rna", "dna")]
+    if non_polymer:
+        raise RuntimeError(
+            f"--model openfold3 is polymer-only for now (chain(s) {non_polymer} are "
+            "ligands); see docs/openfold3-port.md.")
+    blank = [cid for cid, cseq, _sp, _mt in chains if not cseq or not cseq.strip()]
+    if blank:
+        raise RuntimeError(
+            f"--model openfold3: chain(s) {blank} have empty/whitespace-only sequences.")
+
+
+def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
+                                            struct_dir: Path) -> None:
+    # Download the raw template CIFs a `templates:` npz needs from RCSB. The npz
+    # holds alignments only (index/release_date/idx_map per entry); coordinates
+    # come from <pdb_id>.cif files. Only missing files are fetched; a failed
+    # download is a hard error (a skipped template would fold the wrong input).
+    import numpy as np
+    pdb_ids: set[str] = set()
+    for npz_path in tmpl_map.values():
+        with np.load(npz_path, allow_pickle=True) as z:
+            pdb_ids |= {k.split("_")[0] for k in z.keys()}
+    missing = [p for p in sorted(pdb_ids)
+               if not (struct_dir / f"{p}.cif").exists()]
+    if not missing:
+        return
+    import urllib.request
+    for p in missing:
+        url = f"https://files.rcsb.org/download/{p.upper()}.cif"
+        try:
+            urllib.request.urlretrieve(url, struct_dir / f"{p}.cif")
+        except Exception as exc:
+            raise RuntimeError(
+                f"--model openfold3: failed to fetch template structure {url}: {exc}")
 
 
 def _err_text(exc: BaseException, limit: int = 400) -> str:
@@ -229,6 +383,19 @@ class _WorkerState:
             from tt_bio.protenix import Protenix
 
             self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
+        elif model_id == "openfold3":
+            import ttnn
+
+            from tt_bio.openfold3_fold import OpenFold3
+            from tt_bio.tenstorrent import get_device
+
+            dev = get_device()
+            ckc = ttnn.init_device_compute_kernel_config(
+                dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+                fp32_dest_acc_en=True, packer_l1_acc=True)
+            sd = torch.load(cfg["of3_ckpt"], map_location="cpu", weights_only=False)
+            # CLI --recycling_steps counts recycles; the trunk runs recycles+1 cycles.
+            self.model = OpenFold3(sd, ckc, num_cycles=int(cfg.get("recycling_steps") or 3) + 1)
         elif model_id in ("opendde", "opendde-abag"):
             from tt_bio.opendde import OpenDDE
 
@@ -321,6 +488,8 @@ class _WorkerState:
             return self._predict_opendde_one(path, cfg)
         if cfg.get("model") == "protenix-v2":
             return self._predict_protenix_one(path, cfg)
+        if cfg.get("model") == "openfold3":
+            return self._predict_openfold3_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
             return self._predict_esmfold2_one(path, cfg)
         if _is_esmc_model(cfg.get("model", "boltz2")):
@@ -714,6 +883,198 @@ class _WorkerState:
             import numpy as np
             np.savez(struct_dir / f"{stem}_pae.npz",
                      pae=best["pae"].numpy(), pde=best["pde"].numpy())
+        return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
+
+    def _predict_openfold3_one(self, path: Path, cfg: dict[str, Any]):
+        """OpenFold3 fold: sequence(s) -> per-chain MSA -> fixture-free on-device fold
+        (host featurization + device glue/trunk/diffusion/confidence) -> structure.
+        Rides the same MSA stage as Protenix-v2: uncached protein chains are searched
+        into the shared msa_dir and attached to the query as main_msa_file_paths.
+        Polymer chains only (protein/RNA/DNA). Templates are opt-in per protein chain
+        via the YAML `templates:` key (precomputed alignment npz, the format the
+        upstream benchmark cache ships); there is no template SEARCH."""
+        import types
+
+        from tt_bio.esmfold2 import report_progress
+        from tt_bio.main import _read_bio_chains, _read_bio_constraints
+
+        chains = _read_bio_chains(path)
+        _validate_openfold3_chains(chains)
+        _validate_openfold3_constraints(path)
+        tmpl_map = _openfold3_template_map(path)
+        unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})
+        if unknown_tmpl:
+            raise RuntimeError(
+                f"--model openfold3: `templates:` given for unknown chain id(s) "
+                f"{unknown_tmpl}.")
+        msa_dir = Path(cfg["msa_dir"])
+
+        report_progress("msa")
+        _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA"}
+        query = {
+            "query_name": path.stem, "use_msas": True, "use_paired_msas": False,
+            "use_main_msas": True, "covalent_bonds": None,
+            "chains": [
+                {"molecule_type": _MT[mt], "chain_ids": [cid], "sequence": cseq,
+                 "non_canonical_residues": None, "smiles": None, "ccd_codes": None,
+                 "paired_msa_file_paths": None,
+                 "main_msa_file_paths": ([str(Path(spec).expanduser())]
+                                         if spec and Path(spec).expanduser().exists()
+                                         else None),
+                 "template_alignment_file_path": tmpl_map.get(cid),
+                 "template_entry_chain_ids": None,
+                 "sdf_file_path": None}
+                for cid, cseq, spec, mt in chains
+            ],
+        }
+
+        report_progress("prep")
+        import json as _json
+        import tempfile
+
+        import numpy as np
+        import torch as _torch
+
+        from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
+            InferenceQuerySet,
+        )
+        from tt_bio.openfold3_data import (
+            build_openfold3_features, make_openfold3_msa_features)
+        from tt_bio.openfold3_host_prep import (
+            derive_block_aux, derive_relpos, derive_template_feat, ref_atom_embed,
+            run_input_atom_encoder)
+        from tt_bio.openfold3_weights import _sub
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            _json.dump({"queries": {path.stem: query}}, fh)
+            qpath = fh.name
+        seed = int(cfg.get("seed") or 0)
+        _torch.manual_seed(0)
+        np.random.seed(0)
+        # The vendored featurizer draws its RDKit conformer seed from python"s
+        # unseeded `random` (conformer.py: "we set a random seed here"), which made
+        # ref_pos — and therefore the whole fold — nondeterministic across
+        # processes even at fixed --seed. Pin it to the fold seed.
+        import random as _pyrandom
+        _pyrandom.seed(seed)
+        iqs = InferenceQuerySet.from_json(qpath)
+        of3_query = next(iter(iqs.queries.values()))
+        # The MSA stage delegates to the shared resolver: it exposes the cached
+        # hash-named ColabFold a3m under the canonical source basename OF3's parser
+        # filters on (a raw hash-named path parses to ZERO chains and dies on an
+        # IndexError deep in the vendored pipeline), and preserves user-specified
+        # per-chain MSA paths.
+        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
+        from tt_bio.openfold3_data import resolve_openfold3_msas
+        of3_query = resolve_openfold3_msas(
+            of3_query, msa_dir, target_id=path.stem,
+            msa_db_path=cfg.get("msa_db_path"),
+            use_envdb=cfg.get("use_envdb", False),
+            msa_server_url=cfg.get("msa_server_url"),
+            msa_pairing_strategy=cfg.get("msa_pairing_strategy"),
+            msa_server_username=cfg.get("msa_server_username"),
+            msa_server_password=cfg.get("msa_server_password"),
+            api_key=cfg.get("api_key_value"),
+            msa_endpoint=cfg.get("msa_endpoint"),
+            fetch=bool(want_msa))
+        if want_msa:
+            missing = [c.chain_ids for c in of3_query.chains
+                       if c.molecule_type.name == "PROTEIN" and not c.main_msa_file_paths]
+            if missing:
+                raise RuntimeError(
+                    f"MSA was requested but none resolved for protein chain(s) {missing} "
+                    "-- refusing to silently fold single-sequence.")
+        if not any(c.main_msa_file_paths for c in of3_query.chains):
+            of3_query.use_msas = False
+            of3_query.use_main_msas = False
+        if tmpl_map:
+            _prefetch_openfold3_template_structures(
+                tmpl_map, Path(cfg["of3_template_structures"]))
+        features = build_openfold3_features(
+            of3_query,
+            template_structures_directory=cfg["of3_template_structures"])
+        # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
+        # CPU reference folds the full featurized MSA, so any lower cap is an input
+        # divergence (measured on 9BK6: the 1024-row subsample cost chain A
+        # 11.1 vs 7.6 A Ca-RMSD). OF3_MAX_MSA_SEQS stays as a memory escape hatch.
+        msa_feat = make_openfold3_msa_features(
+            features, max_sequences=int(cfg.get("of3_max_msa_seqs") or 16384), seed=0)
+        aux = derive_block_aux(features)
+        template_feat = derive_template_feat(features)
+        relpos = derive_relpos(features)
+
+        model = self.model
+        dev = model.device
+        ai = run_input_atom_encoder(dev, model.ckc, model.sd, features, aux)
+        s_input = _torch.cat(
+            [ai, features["restype"], features["profile"],
+             features["deletion_mean"].unsqueeze(-1)], dim=-1)
+        cl0, plm0 = ref_atom_embed(
+            _sub(model.sd,
+                 "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), features)
+        dm_aux_host = dict(
+            cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
+            atom_to_token_index=aux["atom_to_token_index"],
+            npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
+            zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
+            invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
+            atom_to_token_mean=aux["atom_to_token_mean"], nb=aux["nb"], NP=aux["NP"])
+        ca_mask = aux["ca_mask"]
+        atom_to_token = aux["atom_to_token_index"].long()
+        polymer_token = (features["is_protein"] | features["is_rna"]
+                         | features["is_dna"]).bool()
+        confidence_aux = dict(
+            representative_atom_indices=_torch.from_numpy(
+                np.flatnonzero(ca_mask.numpy())).long(),
+            max_atom_per_token_mask=aux["max_atom_per_token_mask"],
+            atom_array=features["atom_array"], asym_id=features["asym_id"],
+            atom_to_token_index=atom_to_token, atom_mask=features["atom_mask"].bool(),
+            polymer_mask=polymer_token[atom_to_token],
+            repr_batch={k: features[k] for k in (
+                "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
+                "start_atom_index", "atom_mask", "token_mask")})
+
+        def _pfn(stage, step, total):
+            report_progress("diffusion" if stage == "trunk" else stage)
+
+        n_sample = int(cfg["diffusion_samples"])
+        result = model.fold(
+            template_feat=template_feat, msa_feat=msa_feat, s_input=s_input,
+            relpos=relpos, token_bonds=features["token_bonds"],
+            token_mask=features["token_mask"], dm_aux_host=dm_aux_host,
+            n_atom=aux["n_atom"], n_token=aux["n_token"],
+            no_rollout_steps=int(cfg["sampling_steps"]), seed=seed,
+            no_samples=n_sample, confidence_aux_host=confidence_aux)
+
+        confs = result.confidence
+        order = sorted(range(len(confs)),
+                       key=lambda k: confs[k]["ranking_score"], reverse=True)
+        rank_of = {k: r for r, k in enumerate(order)}
+
+        struct_dir = Path(cfg["struct_dir"])
+        stem, fmt = path.stem, cfg["output_format"]
+        for k in range(len(confs)):
+            r = rank_of[k]
+            name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
+            _write_openfold3_structure(
+                features["atom_array"], result.samples[k], struct_dir / name, fmt,
+                b_factors=confs[k]["plddt_atom"] * 100.0)
+
+        def _row(c):
+            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
+                    "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
+                    "confidence_score": round(c["ranking_score"], 6)}
+
+        best = confs[order[0]]
+        metrics = {
+            **_row(best),
+            "n_residues": sum(len(cseq) for _c, cseq, _s, _mt in chains),
+            "n_chains": len(chains), "n_tokens": int(features["restype"].shape[0]),
+            "msa": any(c.main_msa_file_paths for c in of3_query.chains),
+            "n_atoms": int(result.samples[0].shape[0]), "samples": n_sample,
+        }
+        if len(confs) > 1:
+            metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_embed_one(self, path: Path, cfg: dict[str, Any]):

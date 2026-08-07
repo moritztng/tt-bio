@@ -1,0 +1,9 @@
+# 8HEL — OpenFold3 benchmark case (PDB 8HEL construct, 77 aa incl. His tag), MSA leg.
+# Per-chain benchmark MSA committed in the parity fixture, referenced by a path
+# relative to the repo root (the gate cds to the repo root before folding).
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MKITNDTTTYEVAELMGSEADELDGRIMMGLLSRECVVDTDDLSEDQWLALIDESQKVRREQFESDEALEHHHHHH
+      msa: docs/implementation-parity-data/ref-fixtures/openfold3/8hel/msa-bench-notmpl_200step_5sample_4cycle_fp32cpu/msa_A

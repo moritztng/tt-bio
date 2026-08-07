@@ -1,0 +1,15 @@
+[
+  {
+    "id": "8hel_nomsa",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.246472,
+    "iptm": 0.0,
+    "plddt": 47.811607,
+    "ranking_score": 0.246663,
+    "selected_sample_idx": 3
+  }
+]

@@ -193,6 +193,10 @@ class Leg:
     committed_json: str = ""
     target_id: str = ""          # for affinity scoring (affinity_<t>) and structures tid
     opt_in: bool = False         # slow / network legs (esmc-6b, MSA-server legs) — not default
+    legacy_rdx: bool = False     # ttnn-only model with NO tt-bio torch path (openfold3): score
+                                 # vs the harvested external reference (legacy R/D/X), never the
+                                 # shared-draws envelope — ref_fp32/ref_bf16 would be device-on-CPU
+                                 # tautology, and --regen-refs must skip these legs
     note: str = ""
 
 
@@ -266,6 +270,56 @@ LEGS = [
         committed_json="protenix-v2-hsa.json", target_id="hsa",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="staged"),
+
+    # --- OpenFold3 structure legs (cached fixture, device-only per release) ---
+    # OF3 is ttnn-only (no tt-bio torch path), so these are external-reference
+    # R/D/X legs like Protenix's: official aqlaboratory openfold3 on CPU, fp32.
+    Leg("openfold3-ubq-msa", "openfold3", "structure", "examples/ubq.yaml",
+        fixture="openfold3/ubq/msa-colabfold_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-ubiquitin.json", target_id="ubq",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="staged", legacy_rdx=True),
+    Leg("openfold3-prot-msa", "openfold3", "structure", "examples/prot.yaml",
+        fixture="openfold3/prot/msa-colabfold_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-prot.json", target_id="prot",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="staged", legacy_rdx=True),
+    Leg("openfold3-7xi5-tmpl", "openfold3", "structure", "examples/7xi5_tmpl.yaml",
+        fixture="openfold3/7xi5/msa-bench-tmpl_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-7xi5-tmpl.json", target_id="7xi5_tmpl",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="yaml", legacy_rdx=True,
+        note="templates-ON leg: benchmark template npz + RCSB CIFs committed in the "
+             "fixture (templates.npz, template_structures/); set "
+             "OF3_TEMPLATE_STRUCTURES=<fixture>/template_structures for a hermetic "
+             "run, else the worker prefetches the same immutable CIFs from RCSB"),
+    Leg("openfold3-7xi5-notmpl", "openfold3", "structure", "examples/7xi5_notmpl.yaml",
+        fixture="openfold3/7xi5/msa-bench-notmpl_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-7xi5-notmpl.json", target_id="7xi5_notmpl",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="yaml", legacy_rdx=True,
+        note="templates-OFF control for openfold3-7xi5-tmpl; same target, MSA, seeds"),
+    Leg("openfold3-8hel-msa", "openfold3", "structure", "examples/8hel_msa.yaml",
+        fixture="openfold3/8hel/msa-bench-notmpl_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-8hel-msa.json", target_id="8hel_msa",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="yaml", legacy_rdx=True,
+        note="de-novo designed helix with benchmark MSA, no templates"),
+    Leg("openfold3-8hel-nomsa", "openfold3", "structure", "examples/8hel_nomsa.yaml",
+        fixture="openfold3/8hel/nomsa_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-8hel-nomsa.json", target_id="8hel_nomsa",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5",
+                     "--single_sequence"),
+        msa="none", legacy_rdx=True,
+        note="single-sequence leg: no MSA, no templates"),
+    Leg("openfold3-9bk6-complex-msa", "openfold3", "structure", "examples/9bk6.yaml",
+        fixture="openfold3/9bk6/msa-bench_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-9bk6-complex-msa.json", target_id="9bk6",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="yaml", legacy_rdx=True,
+        note="two-chain heterodimer; per-chain benchmark MSA dirs committed in the "
+             "fixture (msa_A/msa_B), referenced by the yaml; PASS committed under the "
+             "fp32 diffusion boundary (P15, OF3_DIFFUSION_FP32_DEVICE default-on)"),
 
     # --- Boltz-2 affinity legs (cached fixture, device-only per release) ---
 ] + [
@@ -834,7 +888,7 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
     local = Worker(host="pc", card=0, is_local=True)
     n_ok = 0
     for leg in legs:
-        if not _is_envelope_leg(leg) or not leg.fixture:
+        if not _is_envelope_leg(leg) or not leg.fixture or leg.legacy_rdx:
             continue
         base = _fixture_dir(leg.fixture)
         base.mkdir(parents=True, exist_ok=True)
@@ -1371,7 +1425,7 @@ def main() -> int:
 
     # (Re)generate CPU shared-draw references, then exit — the expensive cached step.
     if args.regen_refs:
-        env_legs = [l for l in legs if _is_envelope_leg(l) and l.fixture]
+        env_legs = [l for l in legs if _is_envelope_leg(l) and l.fixture and not l.legacy_rdx]
         if not env_legs:
             print("--regen-refs: no envelope (structure/affinity) legs selected.")
             return 1
@@ -1442,7 +1496,7 @@ def main() -> int:
             # `ref-fixtures/**/*.cif` rule. Either way an absent reference is the same class as a
             # fingerprint drift: BLOCKED-REF-REGEN-NEEDED (regenerate the reference with
             # --regen-refs), NOT a hard gate failure and NOT a silent per-leg ERROR mid-run.
-            if _is_envelope_leg(leg) and not args.legacy_rdx:
+            if _is_envelope_leg(leg) and not args.legacy_rdx and not leg.legacy_rdx:
                 fp32_dir, bf16_dir = envelope_ref_dirs(leg)
                 missing = [d for d, p in (("ref_fp32", fp32_dir), ("ref_bf16", bf16_dir)) if p is None]
                 if missing:
@@ -1483,7 +1537,7 @@ def main() -> int:
                 pass  # fall through to a fresh run
         if verdict is None:
             t_run = time.monotonic()
-            if _is_envelope_leg(leg) and not args.legacy_rdx:
+            if _is_envelope_leg(leg) and not args.legacy_rdx and not leg.legacy_rdx:
                 # Envelope leg: ONE device fold at ENVELOPE_SEED (must match the seed the CPU
                 # references were generated at — shared draws), scored device_bf16 vs the two CPU
                 # references. The refs' presence was already verified above.
@@ -1500,8 +1554,16 @@ def main() -> int:
                                             cached_report_path, args.margin)
                     verdict, detail = extract_verdict(leg, report)
             elif leg.kind in ("structure", "affinity"):
+                # Hermetic templates: a fixture that commits template_structures/ is
+                # folded against those CIFs (OF3_TEMPLATE_STRUCTURES override), not the
+                # shared cache / RCSB network prefetch.
+                fold_env = {}
+                _tsdir = _fixture_dir(leg.fixture) / "template_structures" if leg.fixture else None
+                if _tsdir is not None and _tsdir.is_dir():
+                    fold_env["OF3_TEMPLATE_STRUCTURES"] = str(_tsdir)
                 folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir,
-                                         resume=resume, fold_timeout=args.fold_timeout)
+                                         resume=resume, fold_timeout=args.fold_timeout,
+                                         extra_env=fold_env)
                 dev_dirs, fold_errs = [], []
                 for s in seeds:
                     v = folds.get(s)

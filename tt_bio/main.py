@@ -174,6 +174,7 @@ _MODEL_RESULTS_PREFIX = {
     "esmfold2": "esmfold2_results",
     "esmfold2-fast": "esmfold2_results",
     "protenix-v2": "protenix_results",
+    "openfold3": "openfold3_results",
     "opendde": "opendde_results",
     "opendde-abag": "opendde_results",
 }
@@ -2054,7 +2055,7 @@ def _resolve_sampling_steps(sampling_steps, model):
 # single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
 # scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
 # actually used, instead of hand-listing the same set a second time.
-MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "opendde", "opendde-abag")
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag")
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
@@ -2202,6 +2203,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "esmfold2: ESMC-6B + 48-block trunk + diffusion (single-sequence; optional MSA). "
                    "esmfold2-fast: lighter 24-block checkpoint (single-sequence, no MSA encoder). "
                    "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
+                   "openfold3: OpenFold3 (AF3-family; MSA + template embedder + atom diffusion), "
+                   "MSA on by default; polymer chains only, no template search; weights via OF3_CKPT. "
                    "opendde / opendde-abag: AF3-family co-folding (Protenix-v2 stack + structural-token expander); "
                    "opendde-abag selects the antibody-antigen checkpoint. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
@@ -2275,10 +2278,11 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only)
 
-    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "opendde", "opendde-abag"):
-        # ESMFold2, Protenix-v2 and OpenDDE ride the SAME scheduler / worker / progress path
-        # as Boltz-2: build a run config, then fan jobs across devices via _local_workers +
-        # _dispatch_run (or submit to a remote --controller). Only the per-model config differs.
+    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "openfold3", "opendde", "opendde-abag"):
+        # ESMFold2, Protenix-v2, OpenFold3 and OpenDDE ride the SAME scheduler / worker /
+        # progress path as Boltz-2: build a run config, then fan jobs across devices via
+        # _local_workers + _dispatch_run (or submit to a remote --controller). Only the
+        # per-model config differs.
         for n, on in [("--use_potentials", use_potentials),
                       ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:
             if on:

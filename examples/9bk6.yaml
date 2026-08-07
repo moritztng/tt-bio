@@ -1,0 +1,10 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MSGGTPEERLAQLEKEIQALYDAADEVVDEVEEKDGKMTVTRTLTIGDGTVTLVETLKIVDGAPVKDGEIEVICNPECEELGKRLKALAKEYEKAQEEVEKAKA
+      msa: docs/implementation-parity-data/ref-fixtures/openfold3/9bk6/msa-bench_200step_5sample_4cycle_fp32cpu/msa_A
+  - protein:
+      id: B
+      sequence: LKCNQLIPPFWKTCPKGKNLCYKMTMRAAPMVPVKRGCIDVCPKSSLLIKYMCCNTDKCN
+      msa: docs/implementation-parity-data/ref-fixtures/openfold3/9bk6/msa-bench_200step_5sample_4cycle_fp32cpu/msa_B

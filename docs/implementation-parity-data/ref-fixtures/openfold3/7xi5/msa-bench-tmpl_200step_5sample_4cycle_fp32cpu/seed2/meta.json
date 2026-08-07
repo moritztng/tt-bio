@@ -1,0 +1,19 @@
+{
+  "seed": 2,
+  "target_id": "7xi5",
+  "harvested_from": "/tmp/of3_ref_tmpl_runs/7xi5_seed2",
+  "selected_record": {
+    "id": "7xi5",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.634799,
+    "iptm": 0.0,
+    "plddt": 78.67926,
+    "ranking_score": 0.173114,
+    "selected_sample_idx": 4
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

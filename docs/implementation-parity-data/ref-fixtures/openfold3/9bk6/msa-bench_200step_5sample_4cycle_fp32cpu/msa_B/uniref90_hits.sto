@@ -1,0 +1,128 @@
+# STOCKHOLM 1.0
+
+#=GS UniRef90_P01467/1-60         DE [subseq from] Cytotoxin 1 n=4 Tax=Naja TaxID=8638 RepID=3SA1_NAJMO
+#=GS UniRef90_A0A8C7DYP2/22-47    DE [subseq from] UPAR/Ly6 domain-containing protein n=2 Tax=Elapidae TaxID=8602 RepID=A0A8C7DYP2_NAJNA
+#=GS UniRef90_A0A8C7DYP2/56-115   DE [subseq from] UPAR/Ly6 domain-containing protein n=2 Tax=Elapidae TaxID=8602 RepID=A0A8C7DYP2_NAJNA
+#=GS UniRef90_P0DSN1/1-60         DE [subseq from] Naniproin n=1 Tax=Naja nigricollis TaxID=8654 RepID=3SAN_NAJNG
+#=GS UniRef90_P01462/1-60         DE [subseq from] Cytotoxin 2 n=5 Tax=Naja TaxID=8638 RepID=3SA2_NAJHA
+#=GS UniRef90_P80245/22-81        DE [subseq from] Cytotoxin 6 n=7 Tax=Naja TaxID=8638 RepID=3SAN_NAJAT
+#=GS UniRef90_P01458/1-60         DE [subseq from] Cytotoxin 3 n=2 Tax=Naja TaxID=8638 RepID=3SA3_NAJNI
+#=GS UniRef90_P25517/1-60         DE [subseq from] Cytotoxin 5 n=1 Tax=Naja mossambica TaxID=8644 RepID=3SA5_NAJMO
+#=GS UniRef90_P01441/1-60         DE [subseq from] Cytotoxin 2 n=5 Tax=Naja TaxID=8638 RepID=3SA2_NAJOX
+#=GS UniRef90_P01440/1-60         DE [subseq from] Cytotoxin 2 n=2 Tax=Naja naja TaxID=35670 RepID=3SA2_NAJNA
+#=GS UniRef90_O93472/22-81        DE [subseq from] Cytotoxin 2c n=4 Tax=Naja TaxID=8638 RepID=3SA2C_NAJSP
+#=GS UniRef90_P24779/1-60         DE [subseq from] Cytotoxin 5 n=1 Tax=Naja kaouthia TaxID=8649 RepID=3SA5_NAJKA
+#=GS UniRef90_P01456/1-60         DE [subseq from] Cytotoxin 1 n=5 Tax=Naja TaxID=8638 RepID=3SA1_NAJNI
+#=GS UniRef90_P01451/1-60         DE [subseq from] Cytotoxin 1 n=4 Tax=Naja TaxID=8638 RepID=3SA1_NAJOX
+#=GS UniRef90_P01445/1-60         DE [subseq from] Cytotoxin 2 n=15 Tax=Naja TaxID=8638 RepID=3SA7A_NAJKA
+#=GS UniRef90_Q98958/22-81        DE [subseq from] Cytotoxin 1d/1e n=5 Tax=Naja TaxID=8638 RepID=3SA1D_NAJAT
+#=GS UniRef90_P01443/23-81        DE [subseq from] Cytotoxin 4 n=19 Tax=Naja TaxID=8638 RepID=3SA4_NAJAT
+#=GS UniRef90_P01446/1-60         DE [subseq from] Cytotoxin 3 n=10 Tax=Naja TaxID=8638 RepID=3SA3_NAJKA
+#=GS UniRef90_P01454/1-60         DE [subseq from] Cytotoxin 9 n=2 Tax=Naja annulifera TaxID=96794 RepID=3SA9_NAJHA
+#=GS UniRef90_A0A8C6XG05/22-81    DE [subseq from] UPAR/Ly6 domain-containing protein n=8 Tax=Naja naja TaxID=35670 RepID=A0A8C6XG05_NAJNA
+#=GS UniRef90_P01448/1-60         DE [subseq from] Cytotoxin 1 n=1 Tax=Naja melanoleuca TaxID=8643 RepID=3SA1_NAJME
+#=GS UniRef90_P01447/1-60         DE [subseq from] Cytotoxin 1 n=3 Tax=Naja TaxID=8638 RepID=3SA1_NAJNA
+#=GS UniRef90_P01452/1-60         DE [subseq from] Cytotoxin 4 n=1 Tax=Naja mossambica TaxID=8644 RepID=3SA4_NAJMO
+#=GS UniRef90_P24777/1-61         DE [subseq from] Cytotoxin 3 n=1 Tax=Hemachatus haemachatus TaxID=8626 RepID=3SB3_HEMHA
+#=GS UniRef90_P24776/1-61         DE [subseq from] Cytotoxin 2 n=1 Tax=Hemachatus haemachatus TaxID=8626 RepID=3SB2_HEMHA
+#=GS UniRef90_B3EWH9/1-61         DE [subseq from] Three-finger hemachatoxin n=2 Tax=Hemachatus haemachatus TaxID=8626 RepID=3SBH_HEMHA
+#=GS UniRef90_P62375/22-83        DE [subseq from] Cytotoxin A5 n=7 Tax=Naja TaxID=8638 RepID=3SOF5_NAJAT
+#=GS UniRef90_P0DUK7/1-62         DE [subseq from] Mu-elapitoxin-Na1a n=2 Tax=Naja TaxID=8638 RepID=3SOF1_NAJAT
+#=GS UniRef90_P19003/5-62         DE [subseq from] Cytotoxin homolog S3C2 n=1 Tax=Aspidelaps scutatus TaxID=8607 RepID=3SOG_ASPSC
+#=GS UniRef90_P01473/2-61         DE [subseq from] Cytotoxin homolog 3 n=1 Tax=Naja melanoleuca TaxID=8643 RepID=3SOF3_NAJME
+#=GS UniRef90_P62390/1-62         DE [subseq from] Cytotoxin 11 n=2 Tax=Naja TaxID=8638 RepID=3SOFB_NAJHA
+#=GS UniRef90_P01474/2-61         DE [subseq from] Cytotoxin homolog 2 n=1 Tax=Naja melanoleuca TaxID=8643 RepID=3SOF2_NAJME
+#=GS UniRef90_P49122/22-82        DE [subseq from] Cytotoxin 7 n=2 Tax=Naja TaxID=8638 RepID=3SOF7_NAJAT
+#=GS UniRef90_Q8UUK0/27-82        DE [subseq from] Cytotoxin homolog Clbp-3 n=1 Tax=Naja atra TaxID=8656 RepID=3SOF3_NAJAT
+#=GS UniRef90_P24778/5-62         DE [subseq from] Cytotoxin homolog n=1 Tax=Hemachatus haemachatus TaxID=8626 RepID=3SOE_HEMHA
+#=GS UniRef90_Q69CK0/26-83        DE [subseq from] Beta-cardiotoxin CTX27 n=7 Tax=Ophiophagus hannah TaxID=8665 RepID=3SDC7_OPHHA
+#=GS UniRef90_A0A898IPK1/22-78    DE [subseq from] Three-finger toxin n=1 Tax=Calliophis bivirgatus TaxID=8633 RepID=A0A898IPK1_CALBG
+#=GS UniRef90_P19004/13-63        DE [subseq from] Cytotoxin homolog S4C8 n=1 Tax=Aspidelaps scutatus TaxID=8607 RepID=3SOD_ASPSC
+#=GS UniRef90_A0A898IL68/26-80    DE [subseq from] Three-finger toxin n=1 Tax=Calliophis bivirgatus TaxID=8633 RepID=A0A898IL68_CALBG
+#=GS UniRef90_O93443/20-48        DE [subseq from] Naja naja atra deletetion of cardiotoxin 5 n=1 Tax=Naja atra TaxID=8656 RepID=O93443_NAJAT
+#=GS UniRef90_A0A898IN78/23-80    DE [subseq from] Three-finger toxin n=3 Tax=Calliophis bivirgatus TaxID=8633 RepID=A0A898IN78_CALBG
+#=GS UniRef90_A0A898IKZ4/26-80    DE [subseq from] Three-finger toxin n=1 Tax=Calliophis bivirgatus TaxID=8633 RepID=A0A898IKZ4_CALBG
+#=GS UniRef90_P86539/1-30         DE [subseq from] Cytotoxin 3a (Fragment) n=1 Tax=Naja naja TaxID=35670 RepID=3SA3A_NAJNA
+#=GS UniRef90_P60234/5-64         DE [subseq from] Muscarinic m1-toxin2 n=1 Tax=Dendroaspis angusticeps TaxID=8618 RepID=3SI12_DENAN
+#=GS UniRef90_Q8QGR0/26-85        DE [subseq from] Muscarinic toxin 7 n=3 Tax=Dendroaspis angusticeps TaxID=8618 RepID=3SIM7_DENAN
+#=GS UniRef90_D5J9P1/30-84        DE [subseq from] Short-chain three finger toxin isoform 4 n=2 Tax=Bungarus flaviceps TaxID=8614 RepID=D5J9P1_9SAUR
+#=GS UniRef90_UPI00021E7B74/5-65  DE [subseq from] Three-finger muscarinic toxin 7 n=1 Tax=Dendroaspis angusticeps TaxID=8618 RepID=UPI00021E7B74
+#=GS UniRef90_Q2VBN0/29-85        DE [subseq from] Muscarinic toxin 38 n=1 Tax=Ophiophagus hannah TaxID=8665 RepID=3SIM8_OPHHA
+#=GS UniRef90_R4FJG1/32-82        DE [subseq from] 3FTx-Bra-38 n=1 Tax=Brachyurophis roperi TaxID=1295043 RepID=R4FJG1_9SAUR
+#=GS UniRef90_A0A898IPN4/34-80    DE [subseq from] Three-finger toxin n=1 Tax=Calliophis bivirgatus TaxID=8633 RepID=A0A898IPN4_CALBG
+#=GS UniRef90_A0A898INM0/22-78    DE [subseq from] Three-finger toxin n=1 Tax=Calliophis bivirgatus TaxID=8633 RepID=A0A898INM0_CALBG
+#=GS UniRef90_UPI0001C04ED1/15-64 DE [subseq from] Fusion of Muscarinic toxin 1, Muscarinic m1-toxin1 n=1 Tax=Dendroaspis angusticeps TaxID=8618 RepID=UPI0001C04ED1
+#=GS UniRef90_P0DQH3/1-37         DE [subseq from] Hemextin A (Fragment) n=1 Tax=Hemachatus haemachatus TaxID=8626 RepID=3SBA_HEMHA
+#=GS UniRef90_P81783/38-87        DE [subseq from] Candoxin n=3 Tax=Bungarus TaxID=8612 RepID=3NO4_BUNCA
+#=GS UniRef90_A0A2D4H8V3/49-98    DE [subseq from] Snake toxin/toxin-like domain-containing protein (Fragment) n=3 Tax=Micrurus TaxID=8634 RepID=A0A2D4H8V3_MICLE
+#=GS UniRef90_A0A0H4BJD1/35-84    DE [subseq from] Three-finger toxin L.F n=1 Tax=Micrurus laticollaris TaxID=1240351 RepID=A0A0H4BJD1_MICLL
+#=GS UniRef90_A0A0H4BLY9/35-84    DE [subseq from] Three-finger toxin L.E n=2 Tax=Micrurus TaxID=8634 RepID=A0A0H4BLY9_MICLL
+#=GS UniRef90_A0A898IPP4/31-84    DE [subseq from] Three-finger toxin n=1 Tax=Calliophis bivirgatus TaxID=8633 RepID=A0A898IPP4_CALBG
+#=GS UniRef90_R4FI89/32-82        DE [subseq from] 3FTx-Bra-36 n=2 Tax=Brachyurophis roperi TaxID=1295043 RepID=R4FI89_9SAUR
+#=GS UniRef90_A0A898IPK7/23-77    DE [subseq from] Three-finger toxin n=1 Tax=Calliophis bivirgatus TaxID=8633 RepID=A0A898IPK7_CALBG
+#=GS UniRef90_A0A194ARB6/35-85    DE [subseq from] Three-finger toxin 6 n=1 Tax=Micrurus tener TaxID=1114301 RepID=A0A194ARB6_9SAUR
+
+1cxn_1|A|A|PROTEIN                   LKC-NQ-L-IPPF-WKTCPKGKNLCYKMTMR--A-A--P-M-V-P-V-KRGCIDVCPKSSLL-IKY-M-CCNTDKCN
+UniRef90_P01467/1-60                 LKC-NQ-L-IPPF-WKTCPKGKNLCYKMTMR--A-A--P-M-V-P-V-KRGCIDVCPKSSLL-IKY-M-CCNTNKCN
+UniRef90_A0A8C7DYP2/22-47            LKC-NK-L-IPLA-YKTCPAGKNLCYKMYM-----------------------------------------------
+UniRef90_A0A8C7DYP2/56-115           LKC-NK-L-IPLA-YKTCPAGKNLCYKMYMV--S-N--K-T-V-P-V-KRGCIDVCPKNSLL-VKY-E-CCNTDRCN
+UniRef90_P0DSN1/1-60                 LKC-NR-L-IPPF-WKTCPEGKNLCYKMTMR--L-A--P-K-V-P-V-KRGCIDVCPKSSLL-IKY-M-CCTNDKCN
+UniRef90_P01462/1-60                 LKC-HK-L-VPPF-WKTCPEGKNLCYKMYMV--A-T--P-M-L-P-V-KRGCIDVCPKDSAL-VKY-M-CCNTDKCN
+UniRef90_P80245/22-81                LKC-NQ-L-IPPF-YKTCAAGKNLCYKMFMV--A-A--P-K-V-P-V-KRGCIDVCPKSSLL-VKY-V-CCNTDRCN
+UniRef90_P01458/1-60                 LKC-NQ-L-IPPF-WKTCPKGKNLCYNMYMV--S-T--S-T-V-P-V-KRGCIDVCPKNSAL-VKY-V-CCNTDRCN
+UniRef90_P25517/1-60                 LKC-KK-L-IPLF-SKTCPEGKNLCYKMTMR--L-A--P-K-V-P-V-KRGCIDVCPKSSFL-VKY-E-CCDTDRCN
+UniRef90_P01441/1-60                 LKC-KK-L-VPLF-SKTCPAGKNLCYKMFMV--A-A--P-H-V-P-V-KRGCIDVCPKSSLL-VKY-V-CCNTDKCN
+UniRef90_P01440/1-60                 LKC-NK-L-VPLF-YKTCPAGKNLCYKMYMV--A-T--P-K-V-P-V-KRGCIDVCPKSSLV-LKY-V-CCNTDRCN
+UniRef90_O93472/22-81                LKC-NK-L-VPLF-YKTCPAGKNLCYKMYMV--A-T--P-K-V-P-V-KRGCIDVYPKSSLL-VKY-V-CCNTDRCN
+UniRef90_P24779/1-60                 LKC-NK-L-IPLA-YKTCPAGKNLCYKMFMV--A-A--P-K-V-P-V-KRGCIDACPKNSLL-VKY-V-CCNTDRCN
+UniRef90_P01456/1-60                 LKC-HK-L-VPPV-WKTCPEGKNLCYKMFMV--S-T--S-T-V-P-V-KRGCIDVCPKDSAL-VKY-V-CCSTDKCN
+UniRef90_P01451/1-60                 LKC-NK-L-VPIA-YKTCPEGKNLCYKMFMM--S-D--L-T-I-P-V-KRGCIDVCPKNSLL-VKY-V-CCNTDRCN
+UniRef90_P01445/1-60                 LKC-NK-L-IPLA-YKTCPAGKNLCYKMFMV--S-N--K-T-V-P-V-KRGCIDVCPKNSLL-VKY-V-CCNTDRCN
+UniRef90_Q98958/22-81                LKC-NQ-L-IPIA-SKTCPAGKNLCYKMFMM--S-D--L-T-I-P-V-KRGCIDVCPKNSLL-VKY-V-CCNTDRCN
+UniRef90_P01443/23-81                -KC-NK-L-VPLF-YKTCPAGKNLCYKMFMV--S-N--L-T-V-P-V-KRGCIDVCPKNSAL-VKY-V-CCNTDRCN
+UniRef90_P01446/1-60                 LKC-NK-L-IPLA-YKTCPAGKNLCYKMFMV--S-N--K-T-V-P-V-KRGCIDACPKNSLL-VKY-V-CCNTDRCN
+UniRef90_P01454/1-60                 LEC-NK-L-VPIA-HKTCPEGKNLCYKMFMV--S-T--S-T-V-P-V-KRGCIDVCPKDSAL-VKY-V-CCNTDRCN
+UniRef90_A0A8C6XG05/22-81            LKC-NK-L-IPLA-YKTCPAGKNLCYKMYMV--S-N--K-T-V-P-V-KRGCIDVCPKNSLL-VKY-E-CCNTDRCN
+UniRef90_P01448/1-60                 LEC-NK-L-VPIA-HKTCPAGKNLCYQMYMV--S-K--S-T-I-P-V-KRGCIDVCPKSSLL-VKY-V-CCNTDRCN
+UniRef90_P01447/1-60                 LKC-NK-L-IPLA-YKTCPAGKNLCYKMYMV--S-N--K-T-V-P-V-KRGCIDVCPKNSLV-LKY-E-CCNTDRCN
+UniRef90_P01452/1-60                 LKC-NK-L-IPIA-YKTCPEGKNLCYKMMLA--S-K--K-M-V-P-V-KRGCINVCPKNSAL-VKY-V-CCSTDRCN
+UniRef90_P24777/1-61                 LKCHNK-L-VPFL-SKTCPDGKNLCYKMSME--V-T--P-M-I-P-I-KRGCTDTCPKSSLL-VKV-V-CCKTDKCN
+UniRef90_P24776/1-61                 LKC-HN-K-VVPFLSKTCPEGKNLCYKMTLK--K-V--P-K-I-P-I-KRGCTDACPKSSLL-VNV-M-CCKTDKCN
+UniRef90_B3EWH9/1-61                 LKCHNK-L-VPFL-SKTCPEGKNLCYKMTLM--K-M--P-K-I-P-I-KRGCTDACPKSSLL-VKV-V-CCNKDKCN
+UniRef90_P62375/22-83                LKC-HNTQ-LPFI-YKTCPEGKNLCFKATLK--K-F--P-LKF-P-V-KRGCADNCPKNSAL-LKY-V-CCSTDKCN
+UniRef90_P0DUK7/1-62                 LKC-HNTQ-LPFI-YKTCPEGKNLCFKATLK--K-F--P-LKF-P-F-KRGCADNCPKNSAL-LKY-V-CCSTDKCN
+UniRef90_P19003/5-62                 ----NT-P-LPLF-YKTCPEGKDLCYKMNFK--L-L--P-KKL-S-I-KRGCTDTCPKSSLL-VKV-V-CCDTDKCN
+UniRef90_P01473/2-61                 -KC-HN-TPLPFI-YKTCPEGNNLCFKGTLK--F-P--K-K-I-T-Y-KRGCADACPKTSAL-VKY-V-CCNTDKCN
+UniRef90_P62390/1-62                 LKC-HNTQ-LPFI-YKTCPEGKNLCFKTTLK--K-L--P-LKI-P-I-KRGCAATCPKSSAL-LKV-V-CCSTDKCN
+UniRef90_P01474/2-61                 -KCHNT-L-LPFI-YKTCPEGQNLCFKGTLK--F-P--K-K-T-T-Y-NRGCAATCPKSSLL-VKY-V-CCNTNKCN
+UniRef90_P49122/22-82                LKC-HNTQ-LPFI-YNTCPEGKNLCFKATLK--F-P--L-K-F-P-V-KRGCAATCPRSSSL-VKV-V-CCKTDKCN
+UniRef90_Q8UUK0/27-82                -----S-P-LSLV-YQTCPIGQNICFKINVK--E-A--P-S-I-P-V-KRACAATCPKSSAL-VKV-V-CCKTDKCN
+UniRef90_P24778/5-62                 ----NR-P-LPFL-HKTCPEGQNICYKMTLK--K-T--P-MKL-S-V-KRGCAATCPSERPL-VQV-E-CCKTDKCN
+UniRef90_Q69CK0/26-83                ----NT-P-LPLI-YTTCPIGQDKCVKMTIK--K-L--P-SKY-D-V-IRGCIDICPKSSAD-VEV-L-CCDTNKCN
+UniRef90_A0A898IPK1/22-78            LKCYNT-I-FPAI-YKTCPKGQNLCYLKRQR--F-D--Y-LVI-L-V-SRGCTDKCPKDG-------V-CCNTDKCN
+UniRef90_P19004/13-63                ---------------KPCPEGNNLCYKMSNR--M-Y-PP-G-F-N-V-RRGCAETCPRRNRL-LEV-VCCCDTDNCN
+UniRef90_A0A898IL68/26-80            ----NT-P-LPFF-FQTCPKGKNNCFKFKLR--L-A--S-L-E-L-FNVKGCIGYCPKKR----GF-V-CCSTNKCN
+UniRef90_O93443/20-48                ------------------------------------------F-P-V-KRGCADNCPKNSAL-LKY-V-CCSTDKCN
+UniRef90_A0A898IN78/23-80            -KCYNT-P-LPLI-YKTCPEGKNQCYQKSFK--I-G--K-FKI-Y-V-SRGCTDKCPKGKAV-----K-CCETNKCN
+UniRef90_A0A898IKZ4/26-80            ----NT-P-LPFF-FQTCPKWKNNCFKRTLY--L-G--P-L-K-L-FNVKGCIGFCPKIS----GF-V-CCSTNKCN
+UniRef90_P86539/1-30                 LKC-NK-L-IPLA-YKTCPAGKNLCYKMYMV--A-T--P--------------------------------------
+UniRef90_P60234/5-64                 -KS-NS-I-WFPT-SEDCPPGQNLCFKRWQY--I-S--PRM-Y-D-F-TRGCAATCPKAEYR-DVI-N-CCGTDKCN
+UniRef90_Q8QGR0/26-85                -KS-NS-I-WFPT-SEDCPDGQNLCFKRWQY--I-S--PRM-Y-D-F-TRGCAATCPKAEYR-DVI-N-CCGTDKCN
+UniRef90_D5J9P1/30-84                -------T-TPPT-TENCEPGKNVCYKMYFS--D-H--R-G-T-R-S-SRGCVATCPTNNRY-DRV-V-CCEKDKCN
+UniRef90_UPI00021E7B74/5-65          -KS-NS-I-WFPT-SEDCPDGQNLCFKRWQY--I-S--PRM-Y-D-F-TRGCAATCPKPTNVRETI-R-CCGTDKCN
+UniRef90_Q2VBN0/29-85                -----S-L-SPPT-TKTCPDGQNLCYKRWFA--F-I--P-H-GNK-F-FRGCAAACPKAEHN-EVV-R-CCARDKCN
+UniRef90_R4FJG1/32-82                ----------PET-TTTCPDGENTCYKKVFM--T-P--F-R-I-P-I-ERGC--GCPKERRS-FRL-M-CCQKDKCN
+UniRef90_A0A898IPN4/34-80            ---------------MTCPEGENLCYTKTVP--T-P--THH-Y-V-I-FGGCIDSCPKSW----DY-V-CCRTDKCN
+UniRef90_A0A898INM0/22-78            LKCYNT-P-FPLI-YKTCSAEKNLCYQNTYH--V-G--K-F-I-TVV-TRGCTDKCLK------DY-K-CCNTDKCN
+UniRef90_UPI0001C04ED1/15-64         ---------------ENCPDGQNLCFKRWQY--I-S--PRM-Y-D-F-TRGCAATCPKAEYR-DVI-N-CCGTDKCN
+UniRef90_P0DQH3/1-37                 LKCKNK-L-VPFL-SKTCPEGKNLCYKMTLK--K-V--T---P-K-I-KRG--------------------------
+UniRef90_P81783/38-87                ---------------KVCASGEKYCFKESWR--E-A--R-G-T-R-I-ERGCAATCPKGSVY-GLYVL-CCTTDDCN
+UniRef90_A0A2D4H8V3/49-98            ----------------TCPEGENVCYTLFLVGPS-Y--P-A-K-V-L-KWGCAASCPKVGLG-ARI-S-CCTTDKCN
+UniRef90_A0A0H4BJD1/35-84            ----------------TCPEGENVCYTIFLA--EFN--P-R-E-K-VLKWGCAASCPKVGLG-VRI-T-CCSTDNCN
+UniRef90_A0A0H4BLY9/35-84            ----------------TCPEGENVCYTIFLV--G-ASRP-E-K-V-L-EWGCAASCPKVKLG-VRI-T-CCSTDNCN
+UniRef90_A0A898IPP4/31-84            ---------TPKT-AQTCPDGQNFCYRKRWL--S-Y--G-K-R-K-V-ERGCAATCPRLQRG-VNI-H-CCATDNCN
+UniRef90_R4FI89/32-82                ----------PET-TTTCPDGETSCYKKNLI--N-L--F-R-I-P-I-ERGC--GCPKERGY-FRL-M-CCKKDKCN
+UniRef90_A0A898IPK7/23-77            -KC-YKTP-LPHF-AKTCPEGKNQCYQKSYQ--I-G--K-F-K-Y-V-SKGCAVKCPKG------Y-K-CCKTDYCN
+UniRef90_A0A194ARB6/35-85            --------------TETCPEGQNICIKKFPK--G-I--P-F-L-PWI-IRGCAATCPKRDRH-TYI-E-CCAADKCN
+#=GC RF                              xxx.xx.x.xxxx.xxxxxxxxxxxxxxxxx..x.x..x.x.x.x.x.xxxxxxxxxxxxxx.xxx.x.xxxxxxxx
+//

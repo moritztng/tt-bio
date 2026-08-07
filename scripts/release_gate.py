@@ -155,6 +155,11 @@ MODELS = {
     "esmfold2-fast": {"max_rmsd": 4.5, "min_tm": 0.60},
     "protenix-v2":   {"max_rmsd": 6.0, "min_tm": 0.50},
     "opendde":       {"max_rmsd": 6.0, "min_tm": 0.50},
+    # OpenFold3 (polymer-only port; protenix-v2 is the 1:1 architectural analogue).
+    # Measured on this gate 2026-08-07 (qb2 p150a, MSA on): RMSD 1.775 A / TM 0.890.
+    # Floor = ~2x measured, same discipline as boltz2 (1.55 -> 3.0) and protenix-v2
+    # (3.87 -> 6.0): catches a gross failure, not run-to-run MSA-draw noise.
+    "openfold3":     {"max_rmsd": 3.5, "min_tm": 0.70},
 }
 
 # BoltzGen designability leg — see module docstring. Small n and the target the

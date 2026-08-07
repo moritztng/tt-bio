@@ -182,6 +182,11 @@ SPECS: dict[str, dict] = {
     "esmfold2-fast":  dict(kind="fold", unit="structures/s", direction="higher"),
     "protenix-v2":    dict(kind="fold", unit="structures/s", direction="higher"),
     "opendde":        dict(kind="fold", unit="structures/s", direction="higher"),
+    # OpenFold3 (AF3-family, polymer-only port): the same light TRPCAGE single-seq
+    # protocol as every other fold model (1 recycle / 10 steps / 1 sample), so its
+    # structures/s sits on the same scale as protenix-v2 -- the 1:1 architectural
+    # analogue and the fair in-house comparison.
+    "openfold3":      dict(kind="fold", unit="structures/s", direction="higher"),
     # opendde-abag loads a different checkpoint (opendde_abag.pt) through the exact
     # SAME OpenDDE class/diffusion path as "opendde" above (tt_bio/opendde.py — only
     # load_opendde_checkpoint's abag=True flag differs). It used to have NO entry

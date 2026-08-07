@@ -1,0 +1,15 @@
+[
+  {
+    "id": "9bk6",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 2,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.823214,
+    "iptm": 0.777438,
+    "plddt": 88.174408,
+    "ranking_score": 0.786593,
+    "selected_sample_idx": 0
+  }
+]

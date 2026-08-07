@@ -1,0 +1,28 @@
+{
+  "model": "openfold3",
+  "target": "ubq",
+  "reference_impl": "official aqlaboratory openfold3 (torch, CPU)",
+  "reference_version": "openfold3 0.4.4, checkpoint of3-p2-155k.pt (p2 preview, 155k steps)",
+  "reference_commit": "c615a7f8 (aqlaboratory/openfold-3 main, 2026-08-05)",
+  "command": "scripts/of3_ref_fixture.py (see docs/openfold3-port.md for the CPU venv recipe)",
+  "date": "2026-08-06",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "settings": {
+    "diffusion_samples": 5,
+    "diffusion_steps": 200,
+    "recycling_cycles": 4,
+    "dtype": "fp32 (CPU)",
+    "msa_source": "committed msa.a3m (identical bytes for device and reference)",
+    "use_templates": false,
+    "selection": "confidence-selected best-of-5 by sample_ranking_score"
+  },
+  "settings_tag": "msa-colabfold_200step_5sample_4cycle_fp32cpu",
+  "invalidation_rule": "Regenerate ONLY when the pinned reference version, checkpoint, or settings change; the device side re-runs every release.",
+  "provenance": "All 5 seeds generated 2026-08-06 on qb2 by scripts/of3_ref_fixture.py from the official openfold3 0.4.4 CPU path (run_openfold predict, accelerator=cpu, fp32, triangle/deepspeed/cueq fast-kernel flags off). ~2 min/seed at L=76. The committed msa.a3m is the exact ColabFold MSA bytes both sides consume (device leg stages it by seq hash 233b4b0b8c461609)."
+}
