@@ -1,0 +1,19 @@
+{
+  "seed": 1,
+  "target_id": "prot",
+  "harvested_from": "/tmp/of3_ref_fixture_runs/prot_seed1",
+  "selected_record": {
+    "id": "prot",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.651341,
+    "iptm": 0.0,
+    "plddt": 71.80043,
+    "ranking_score": 0.130268,
+    "selected_sample_idx": 2
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

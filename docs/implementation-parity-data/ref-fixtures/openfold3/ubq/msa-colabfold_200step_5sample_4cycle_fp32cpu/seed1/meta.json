@@ -1,0 +1,19 @@
+{
+  "seed": 1,
+  "target_id": "ubq",
+  "harvested_from": "/tmp/of3_ref_fixture_runs/ubq_seed1",
+  "selected_record": {
+    "id": "ubq",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.672539,
+    "iptm": 0.0,
+    "plddt": 79.829529,
+    "ranking_score": 0.134508,
+    "selected_sample_idx": 3
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

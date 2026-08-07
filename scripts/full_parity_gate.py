@@ -193,6 +193,10 @@ class Leg:
     committed_json: str = ""
     target_id: str = ""          # for affinity scoring (affinity_<t>) and structures tid
     opt_in: bool = False         # slow / network legs (esmc-6b, MSA-server legs) — not default
+    legacy_rdx: bool = False     # ttnn-only model with NO tt-bio torch path (openfold3): score
+                                 # vs the harvested external reference (legacy R/D/X), never the
+                                 # shared-draws envelope — ref_fp32/ref_bf16 would be device-on-CPU
+                                 # tautology, and --regen-refs must skip these legs
     note: str = ""
 
 
@@ -266,6 +270,20 @@ LEGS = [
         committed_json="protenix-v2-hsa.json", target_id="hsa",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="staged"),
+
+    # --- OpenFold3 structure legs (cached fixture, device-only per release) ---
+    # OF3 is ttnn-only (no tt-bio torch path), so these are external-reference
+    # R/D/X legs like Protenix's: official aqlaboratory openfold3 on CPU, fp32.
+    Leg("openfold3-ubq-msa", "openfold3", "structure", "examples/ubq.yaml",
+        fixture="openfold3/ubq/msa-colabfold_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-ubiquitin.json", target_id="ubq",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="staged", legacy_rdx=True),
+    Leg("openfold3-prot-msa", "openfold3", "structure", "examples/prot.yaml",
+        fixture="openfold3/prot/msa-colabfold_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-prot.json", target_id="prot",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="staged", legacy_rdx=True),
 
     # --- Boltz-2 affinity legs (cached fixture, device-only per release) ---
 ] + [
@@ -834,7 +852,7 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
     local = Worker(host="pc", card=0, is_local=True)
     n_ok = 0
     for leg in legs:
-        if not _is_envelope_leg(leg) or not leg.fixture:
+        if not _is_envelope_leg(leg) or not leg.fixture or leg.legacy_rdx:
             continue
         base = _fixture_dir(leg.fixture)
         base.mkdir(parents=True, exist_ok=True)
@@ -1371,7 +1389,7 @@ def main() -> int:
 
     # (Re)generate CPU shared-draw references, then exit — the expensive cached step.
     if args.regen_refs:
-        env_legs = [l for l in legs if _is_envelope_leg(l) and l.fixture]
+        env_legs = [l for l in legs if _is_envelope_leg(l) and l.fixture and not l.legacy_rdx]
         if not env_legs:
             print("--regen-refs: no envelope (structure/affinity) legs selected.")
             return 1
@@ -1442,7 +1460,7 @@ def main() -> int:
             # `ref-fixtures/**/*.cif` rule. Either way an absent reference is the same class as a
             # fingerprint drift: BLOCKED-REF-REGEN-NEEDED (regenerate the reference with
             # --regen-refs), NOT a hard gate failure and NOT a silent per-leg ERROR mid-run.
-            if _is_envelope_leg(leg) and not args.legacy_rdx:
+            if _is_envelope_leg(leg) and not args.legacy_rdx and not leg.legacy_rdx:
                 fp32_dir, bf16_dir = envelope_ref_dirs(leg)
                 missing = [d for d, p in (("ref_fp32", fp32_dir), ("ref_bf16", bf16_dir)) if p is None]
                 if missing:
@@ -1483,7 +1501,7 @@ def main() -> int:
                 pass  # fall through to a fresh run
         if verdict is None:
             t_run = time.monotonic()
-            if _is_envelope_leg(leg) and not args.legacy_rdx:
+            if _is_envelope_leg(leg) and not args.legacy_rdx and not leg.legacy_rdx:
                 # Envelope leg: ONE device fold at ENVELOPE_SEED (must match the seed the CPU
                 # references were generated at — shared draws), scored device_bf16 vs the two CPU
                 # references. The refs' presence was already verified above.
