@@ -374,13 +374,41 @@ different samples from the pool, and no available signal tells you which.
   ipSAE / pDockQ2 / AntiConf / DeepRank-Ab / ABAG-Rank, which need PAE matrices this asset does
   not carry. Whether a learned ranker closes the gap is untested here.
 
-## What is new here
+## Prior work, and what this adds
 
-Confidence-vs-oracle gaps in co-folding are known, and per-target ranking failure has been
-reported before at small scale. What this adds is scale and decomposition on one panel:
-383,000 DockQ-labelled samples, four architecturally independent generators, N to 256, the same
-161 targets throughout — enough to separate within-target from across-target ranking cleanly, to
-convert the gap into an effective-N number, to attribute two thirds of all failures to epitope
-discovery rather than pose refinement, and to price model diversity against sampling depth at
-measured compute. The claims about *which* mechanism fails, and *what a fixed budget should buy*,
-are the parts that need this asset.
+The headline direction is **not new and must not be presented as new.** Published work on
+antibody-antigen complexes already reports both halves of it:
+
+- Zhu et al., *Evaluating deep learning based structure prediction methods on antibody-antigen
+  complexes* (Bioinformatics, 2026) reports that every method improves roughly linearly with
+  the logarithm of sample count -- AF3's best-of-N mean DockQ rising from below 0.3 to above
+  0.5 by 200 samples -- and names identifying the best model among the generated ones as the
+  crucial remaining bottleneck. That is Q1's direction and Q6's log-linear shape, already in
+  the literature.
+- The OpenDDE technical report gives ranked-vs-oracle gaps on its own benchmarks
+  (FoldBench-AB 70.0% ranked vs 81.9% oracle; 2026ARK-AB 66.4% vs 80.1%).
+- Confidence-based ranking for these complexes has its own literature (AntiConf, pDockQ2,
+  ipSAE, and learned rankers such as ABAG-Rank and DeepRank-Ab).
+- Smorodina & Greiff (2026) show co-folding confidence is near-random at separating cognate
+  from non-cognate pairs -- a specificity result, adjacent to but distinct from the
+  pose-quality question here.
+
+Against that baseline, what this asset supports that those do not:
+
+1. **The gap expressed as an effective N.** Inverting the oracle curve at the delivered
+   accuracy turns "there is a gap" into "256 samples plus the model's own confidence is worth
+   1 to 2 samples chosen perfectly", with intervals, on four models and three thresholds.
+2. **Within-target versus across-target ranking, separated.** The same score scores 0.54-0.79
+   across targets and 0.03-0.19 within one. This locates the failure precisely rather than
+   reporting an aggregate ranking deficit.
+3. **A mechanism for the failures.** Two thirds to four fifths of all failures never place a
+   sample on the right epitope, so most of the missing accuracy is not a ranking problem at
+   all and no selector could recover it.
+4. **Diversity priced against depth at measured compute.** Card-hour-matched, four models at
+   about twelve samples total match the best single model at 234 samples.
+5. **A pre-declared null on fixing selection with what is already there.** Six candidate
+   selectors, fixed in advance, none of which beats the shipped selector on any model.
+
+Points 1-5 are what needs this asset -- four architecturally independent generators, N to 256,
+383,000 DockQ-labelled samples, one panel of 161 targets throughout. The scale is the enabler,
+not the claim.

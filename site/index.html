@@ -355,6 +355,15 @@ select {
   member of a random k-subset has a closed form, so every point is computed rather than drawn.
   Intervals are a 20,000-resample paired bootstrap over targets.</p>
 
+  <h3>Prior work</h3>
+  <p>That deep sampling raises the ceiling faster than confidence ranking delivers is
+  <b>already published</b> for antibody–antigen complexes, and is not claimed as new here.
+  What this panel adds is the gap expressed as an effective N, the split of ranking failure
+  into within-target and across-target, the finding that most failures are epitope-level, the
+  price of model diversity against sampling depth at measured compute, and a pre-declared null
+  on fixing selection with the scores already available. The findings document names the prior
+  work directly.</p>
+
   <h3>Limitations</h3>
   <ul>
     <li>161 of 164 targets. Three are three-way hetero-hexamers the DockQ scorer does not
