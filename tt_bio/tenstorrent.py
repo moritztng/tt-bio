@@ -1058,6 +1058,15 @@ class TriangleAttention(Module):
             # chunked path from 3 full pair tensors live (z + normed x + accumulated
             # parts) to 2, plus the n_heads-wide bias.
             chunk = TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE
+            # Byte-cap the row chunk so the fused qkv projection (rows x pad32(S) x 3c
+            # bf16) stays a size a fragmented 12 GiB WH part can still supply. The
+            # allocator needs size/12 contiguous in every bank, and after the trunk's
+            # MSA-chunk churn a >~2 GiB request fails even with GiBs nominally free
+            # (measured: od_9i3p refused 512x1920x1152x2 = 2.16 GiB at 4.6 GiB used).
+            # 1.5 GiB asks 128 MiB per bank. All row-local ops: the cap changes chunk
+            # boundaries only, not what any row computes.
+            _qkv_cap = (1536 * 2 ** 20) // (-(-S // 32) * 32 * x.shape[2] * 3 * 2)
+            chunk = min(chunk, max(32, _qkv_cap // 32 * 32))
 
             def normed_rows(s, e):
                 blk = x[:, s:e, :] if self.ending else x[s:e, :, :]
