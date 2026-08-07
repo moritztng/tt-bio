@@ -26,5 +26,7 @@ The page uses only relative paths, so it works from any host and any subpath. Tw
 
 Fonts come from Google Fonts; the page falls back to system sans and mono without them.
 
-Not published anywhere yet. Publication is a separate decision, as is publication of the
-underlying dataset, which is not in this repository.
+Published 2026-08-07 as its own standalone repo, deliberately outside tt-bio:
+https://moritztng.github.io/abag-scaling/ (`moritztng/abag-scaling`, Pages from `main` root).
+That repo is the canonical copy of the page. The underlying dataset remains unpublished and is
+not in either repository.

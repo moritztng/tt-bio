@@ -4,6 +4,9 @@ Analysis of the AbAg-XM deep-N asset (four architecturally independent structure
 161 antibody-antigen targets, N up to 256 samples per target, every sample DockQ-labelled).
 Source data is frozen and unmodified; this document is the technical backing for the site.
 
+The site is published as its own standalone repo, not in tt-bio:
+https://moritztng.github.io/abag-scaling/ (`moritztng/abag-scaling`).
+
 Reproduce every number:
 
 ```
