@@ -1,8 +1,7 @@
-# 8HEL — de-novo designed helix (OpenFold3 benchmark case), single-sequence leg
+# 8HEL — OpenFold3 benchmark case (PDB 8HEL construct), single-sequence leg
 # (no MSA, no templates): the minimal-input mode of the complete port.
 version: 1
 sequences:
   - protein:
       id: A
-      sequence: AAWEAWLQEHGKKLEEIGGELKKVEELEKAFNELNK
-      modifications: []
+      sequence: MKITNDTTTYEVAELMGSEADELDGRIMMGLLSRECVVDTDDLSEDQWLALIDESQKVRREQFESDEALEHHHHHH

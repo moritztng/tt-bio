@@ -301,13 +301,13 @@ LEGS = [
         note="templates-OFF control for openfold3-7xi5-tmpl; same target, MSA, seeds"),
     Leg("openfold3-8hel-msa", "openfold3", "structure", "examples/8hel_msa.yaml",
         fixture="openfold3/8hel/msa-bench-notmpl_200step_5sample_4cycle_fp32cpu",
-        committed_json="", target_id="8hel_msa",  # bootstrap: verdict committed after first run
+        committed_json="openfold3-8hel-msa.json", target_id="8hel_msa",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="yaml", legacy_rdx=True,
         note="de-novo designed helix with benchmark MSA, no templates"),
     Leg("openfold3-8hel-nomsa", "openfold3", "structure", "examples/8hel_nomsa.yaml",
         fixture="openfold3/8hel/nomsa_200step_5sample_4cycle_fp32cpu",
-        committed_json="", target_id="8hel_nomsa",  # bootstrap: verdict committed after first run
+        committed_json="openfold3-8hel-nomsa.json", target_id="8hel_nomsa",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5",
                      "--single_sequence"),
         msa="none", legacy_rdx=True,

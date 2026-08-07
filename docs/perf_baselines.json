@@ -244,8 +244,8 @@
             "openfold3": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 2.451845,
-              "latency_ms": 407.86,
+              "value": 0.83429,
+              "latency_ms": 1198.62,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -258,13 +258,13 @@
               "card_type": "p300c",
               "machine_id": "tt-quietbox2",
               "tt_bio_version": "0.5.0",
-              "date": "2026-08-06",
-              "note": "seed openfold3 p300c baseline: 2.439 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample), same light protocol as all fold models; measured on the production-merge branch post main-merge"
+              "date": "2026-08-07",
+              "note": "re-seed openfold3 p300c baseline post P14 correctness fixes: 0.834 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample). The pre-fix seed was 2.45 (86932b20); the 2.9x cost is the fp32-softmax attention path (fp32_softmax=True at the OF3 construction sites), required for correctness: an A/B fold with fused SDPA (fp32_softmax=False) breaks 9BK6 parity catastrophically (19.8 A all-atom, ipTM 0.06 vs 0.77). protenix-v2 on the same card: 3.45 structures/s."
             }
           },
-          "date": "2026-08-06",
+          "date": "2026-08-07",
           "tt_bio_version": "0.5.0",
-          "note": "seed openfold3 p300c baseline: 2.439 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample), same light protocol as all fold models; measured on the production-merge branch post main-merge"
+          "note": "re-seed openfold3 p300c baseline post P14 correctness fixes: 0.834 structures/s warm (trpcage single-seq, 1 recycle/10 steps/1 sample). The pre-fix seed was 2.45 (86932b20); the 2.9x cost is the fp32-softmax attention path (fp32_softmax=True at the OF3 construction sites), required for correctness: an A/B fold with fused SDPA (fp32_softmax=False) breaks 9BK6 parity catastrophically (19.8 A all-atom, ipTM 0.06 vs 0.77). protenix-v2 on the same card: 3.45 structures/s."
         }
       }
     },
