@@ -123,8 +123,11 @@ class OF3Trunk(Module):
         self.num_cycles = num_cycles
         self.glue = OF3TrunkGlue(state_dict, compute_kernel_config)
         pf_sd = remap_pairformer_stack(state_dict, prefix="pairformer_stack")
+        # scale_pair_bias=False: openfold3 adds the attention pair bias UNSCALED (q
+        # pre-scaled by 1/sqrt(d)); the shared default sqrt(d) fold is Boltz's.
         self.pairformer = Pairformer(
-            _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config)
+            _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
+            scale_pair_bias=False, fp32_softmax=True)
         self.template = TemplateEmbedder(
             _sub(state_dict, "template_embedder"), compute_kernel_config)
         self.msa_embedder = MSAModuleEmbedder(

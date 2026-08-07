@@ -50,7 +50,8 @@ def _cfg(dev):
 def _run(combined, gold, dev):
     from tt_bio.tenstorrent import Pairformer
     nb = 1 + max(int(k.split(".")[1]) for k in combined)
-    pf = Pairformer(nb, *_DIMS, True, combined, _cfg(dev))
+    pf = Pairformer(nb, *_DIMS, True, combined, _cfg(dev),
+                    scale_pair_bias=False, fp32_softmax=True)
     (s_in, z_in) = gold["in"]; (s_out, z_out) = gold["out"]
     ft = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     so, zo = pf(ft(s_in.unsqueeze(0)), ft(z_in.unsqueeze(0)))

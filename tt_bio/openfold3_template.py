@@ -106,7 +106,8 @@ class TemplatePairStack(Module):
         super().__init__(state_dict, compute_kernel_config)
         remap = remap_template_pair_stack(state_dict, prefix="template_pair_stack")
         self.blocks = [
-            PairformerLayer(*_TRI_DIMS, None, None, False, b, compute_kernel_config)
+            PairformerLayer(*_TRI_DIMS, None, None, False, b, compute_kernel_config,
+                            scale_pair_bias=False, fp32_softmax=True)
             for b in remap["blocks"]
         ]
         self.ln_w = self.torch_to_tt("template_pair_stack.layer_norm.weight")

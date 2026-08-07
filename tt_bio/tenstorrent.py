@@ -159,6 +159,7 @@ def _fp32_softmax_attention(
     scale_inv: float,
     compute_kernel_config: ttnn.DeviceComputeKernelConfig,
     out_dtype: ttnn.DataType = ttnn.bfloat16,
+    bias_scale_inv: float | None = None,
 ) -> ttnn.Tensor:
     """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
 
@@ -179,7 +180,8 @@ def _fp32_softmax_attention(
     sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
     sc = ttnn.multiply(sc, scale_inv)
     bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
-    bias_f = ttnn.multiply(bias_f, scale_inv)  # undo the sqrt(h) pre-bake -> raw z
+    # undo the pair-bias pre-bake (sqrt(h) for Boltz/Protenix, 1.0 for openfold3)
+    bias_f = ttnn.multiply(bias_f, scale_inv if bias_scale_inv is None else bias_scale_inv)
     sc = ttnn.add(sc, bias_f)
     ttnn.deallocate(bias_f)
     attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
@@ -902,13 +904,23 @@ class TriangleAttention(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         affinity: bool = False,
+        scale_pair_bias: bool = True,
+        fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
         self.affinity = affinity
+        self.fp32_softmax = fp32_softmax
         self.scale = self.head_dim**0.5
+        # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
+        # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
+        # adds the pair bias UNSCALED (triangular_attention.py + primitives/attention.py
+        # _prep_qkv). The folded form makes the OF3 tri_att softmax sqrt(d)~5.7x too
+        # peaky -- the root cause behind the OF3 MSA pair_stack z-track degradation
+        # (fp32 A/B vs the reference golden: 0.892 folded vs 1.000000 unscaled).
+        self._bias_scale = self.scale if scale_pair_bias else 1.0
         # nlp_concat_heads pads each head's channel dim up to a 32-tile boundary, so at
         # a sub-tile head_dim it
         # yields n_heads*32 channels while the gate g carries n_heads*head_dim -- a
@@ -924,7 +936,7 @@ class TriangleAttention(Module):
         self.layer_norm_weight = self.torch_to_tt("layer_norm.weight")
         self.layer_norm_bias = self.torch_to_tt("layer_norm.bias")
         self.o_weight = self.torch_to_tt("linear_o.weight")
-        self.bias_weight = ttnn.multiply_(self.torch_to_tt("linear.weight"), self.scale)
+        self.bias_weight = ttnn.multiply_(self.torch_to_tt("linear.weight"), self._bias_scale)
         qkv_weight = torch.cat(
             [
                 self.weights["linear_q.weight"],
@@ -975,12 +987,13 @@ class TriangleAttention(Module):
                 transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             ttnn.deallocate(qkv_in)
-            if _FP32_SOFTMAX:
+            if _FP32_SOFTMAX or self.fp32_softmax:
                 o = _fp32_softmax_attention(
                     q, k, v, bias,
                     scale_inv=self.scale ** -1,
                     compute_kernel_config=self.compute_kernel_config,
                     out_dtype=_dtype(),
+                    bias_scale_inv=1.0 / self._bias_scale,
                 )
             else:
                 o = ttnn.transformer.scaled_dot_product_attention(
@@ -1089,8 +1102,11 @@ class AttentionPairBias(Module):
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         dtype: ttnn.DataType | None = None,
         fp32_raw_matmul_attention: bool = False,
+        scale_pair_bias: bool = True,
+        fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
+        self.fp32_softmax = fp32_softmax
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
@@ -1138,8 +1154,13 @@ class AttentionPairBias(Module):
         if compute_pair_bias:
             self.z_norm_weight = self.torch_to_tt("proj_z.0.weight", dtype=self.dtype)
             self.z_norm_bias = self.torch_to_tt("proj_z.0.bias", dtype=self.dtype)
+            # Boltz/Protenix scale the pair bias by sqrt(head_dim); openfold3 adds it
+            # unscaled (q is pre-scaled by 1/sqrt(d) in the reference Attention). OF3
+            # construction sites pass scale_pair_bias=False.
+            self._bias_scale = self.head_dim**0.5 if scale_pair_bias else 1.0
             self.z_weight = ttnn.multiply_(
-                self.torch_to_tt("proj_z.1.weight", dtype=self.dtype), self.head_dim**0.5
+                self.torch_to_tt("proj_z.1.weight", dtype=self.dtype),
+                self._bias_scale,
             )
         self.o_weight = self.torch_to_tt("proj_o.weight", dtype=self.dtype)
 
@@ -1166,13 +1187,14 @@ class AttentionPairBias(Module):
         v: ttnn.Tensor,
         bias: ttnn.Tensor,
     ) -> ttnn.Tensor:
-        if _FP32_SOFTMAX and self.dtype != ttnn.float32:
+        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32:
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
             return _fp32_softmax_attention(
                 q, k, v, bias,
                 scale_inv=self.head_dim ** -0.5,
                 compute_kernel_config=self.compute_kernel_config,
                 out_dtype=_dtype(),
+                bias_scale_inv=1.0 / self._bias_scale,
             )
         if self.dtype != ttnn.float32:
             return ttnn.transformer.scaled_dot_product_attention(
@@ -1476,6 +1498,8 @@ class PairformerLayer(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         affinity: bool = False,
+        scale_pair_bias: bool = True,
+        fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -1492,6 +1516,8 @@ class PairformerLayer(Module):
             self.scope("tri_att_start", "mha."),
             compute_kernel_config,
             affinity=affinity,
+            scale_pair_bias=scale_pair_bias,
+            fp32_softmax=fp32_softmax,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -1500,6 +1526,8 @@ class PairformerLayer(Module):
             self.scope("tri_att_end", "mha."),
             compute_kernel_config,
             affinity=affinity,
+            scale_pair_bias=scale_pair_bias,
+            fp32_softmax=fp32_softmax,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -1514,6 +1542,8 @@ class PairformerLayer(Module):
                 False,
                 self.scope("attention"),
                 compute_kernel_config,
+                scale_pair_bias=scale_pair_bias,
+                fp32_softmax=fp32_softmax,
             )
             self.transition_s = Transition(
                 self.scope("transition_s"), compute_kernel_config
@@ -1578,6 +1608,8 @@ class Pairformer(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         affinity: bool = False,
+        scale_pair_bias: bool = True,
+        fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -1590,6 +1622,8 @@ class Pairformer(Module):
                 self.scope(f"layers.{i}"),
                 compute_kernel_config,
                 affinity=affinity,
+                scale_pair_bias=scale_pair_bias,
+                fp32_softmax=fp32_softmax,
             )
             for i in range(n_blocks)
         ]
@@ -2161,8 +2195,15 @@ class OuterProductMean(Module):
         self,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        scale_bias: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
+        # scale_bias: divide the proj_o bias by the row count too. The AF3/OF3
+        # reference divides the WHOLE linear_out output (raw outer + bias) by the
+        # pair norm; the default (Boltz/Protenix convention here) scales only the
+        # raw outer product, adding the bias full-strength. For OF3 the unscaled
+        # bias is a structured per-channel constant that the pairformer amplifies.
+        self.scale_bias = scale_bias
         self.norm_weight = self.torch_to_tt("norm.weight")
         self.norm_bias = self.torch_to_tt("norm.bias")
         self.a_weight = self.torch_to_tt("proj_a.weight")
@@ -2329,14 +2370,20 @@ class OuterProductMean(Module):
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
             z = ttnn.permute(z, (0, 2, 1))
-            z = ttnn.multiply_(z, 1 / (n_msa if n_msa is not None else S))
+            scale = 1 / (n_msa if n_msa is not None else S)
+            z = ttnn.multiply_(z, scale)
+            o_bias = self.o_bias
+            if self.scale_bias:
+                o_bias = ttnn.multiply(self.o_bias, scale)
             out = ttnn.linear(
                 z,
                 self.o_weight,
-                bias=self.o_bias,
+                bias=o_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
+            if self.scale_bias:
+                ttnn.deallocate(o_bias)
             ttnn.deallocate(z)
             return out
 

@@ -71,14 +71,19 @@ class MSAModuleBlock:
 
     def __init__(self, block_remap, compute_kernel_config):
         ckc = compute_kernel_config
-        self.opm = OuterProductMean(block_remap["outer_product_mean"], ckc)
+        self.opm = OuterProductMean(block_remap["outer_product_mean"], ckc,
+                                  scale_bias=True)
         self.has_msa_update = "pair_weighted_averaging" in block_remap
         if self.has_msa_update:
             self.pwa = PairWeightedAveraging(
                 *_MSA_AVG_DIMS, block_remap["pair_weighted_averaging"], ckc)
             self.msa_transition = Transition(block_remap["msa_transition"], ckc)
+        # scale_pair_bias=False: openfold3 adds the tri_att pair bias UNSCALED (q is
+        # pre-scaled by 1/sqrt(d)); the shared primitive's default sqrt(d) fold is the
+        # Boltz convention and was root-caused as the OF3 MSA z-track degradation.
         self.pair_stack = PairformerLayer(
-            *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc)
+            *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
+            scale_pair_bias=False, fp32_softmax=True)
 
     def __call__(self, m, z):
         z = ttnn.add(z, self.opm(m, None, None))
