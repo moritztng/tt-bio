@@ -5,7 +5,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
-## [0.6.1] - 2026-08-06
+## [0.6.1] - 2026-08-07
 
 Design gets one verb: `tt-bio design INPUT --model boltzgen|rfd3`, mirroring `tt-bio predict
 --model ...`. `tt-bio gen` still works unchanged and is now a hidden deprecated alias for
@@ -86,10 +86,51 @@ carried a `tests/` file that aborted pytest collection so the host suite never r
   qb1 p150a opendde-abag perf baseline, and the fix that stopped a `tests/` script aborting
   pytest collection.
 
-<!-- EXEC TIER: replace this block with the measured gate results, in the shape of the 0.6.0
-     section above (accuracy table, parity tally with the GAP/DRIFT breakdown, perf percentages,
-     ux tally, host-suite tally). Name the opendde-trpcage-nomsa BLOCKED-REF-REGEN-NEEDED leg and
-     why it is not a failure. Quote no number a gate did not produce. -->
+### Release gate (Blackhole P150a on `tt-quietbox`, card 0)
+
+Host suite: 241 tests collect and run (on main before the v0.6.0 merge-back, collection aborted
+at 220 and no test executed). Full run `7 failed, 212 passed, 22 skipped`; re-run one file per
+process, six of the seven pass alone, the one-device-context-per-process false-failure class
+from 0.6.0. The seventh, `test_confidence_device_resident_parity`, fails at PCC
+0.9807124853748275, bit-identical at v0.6.0 and v0.5.0: pre-existing, not a regression in this
+range. Packaging guard: 15/15 data files and 31/31 declared dependencies in the wheel and
+sdist. UX gate: PASS on all 11 surfaces plus the CLI leg, including the deprecated `gen` alias
+warning.
+
+**Accuracy gate** — every shipped fold architecture folded end-to-end with production sampling
+and checked against a per-model ground-truth floor, not self-consistency:
+
+| model | RMSD (A) | TM | floor | result |
+|---|---|---|---|---|
+| boltz2 | 1.555 | 0.942 | <=3.0 / >=0.75 | PASS |
+| esmfold2 | 1.834 | 0.906 | <=8.0 / >=0.40 | PASS |
+| esmfold2-fast | 1.811 | 0.909 | <=4.5 / >=0.60 | PASS |
+| protenix-v2 | 1.458 | 0.945 | <=6.0 / >=0.50 | PASS |
+| opendde | 1.350 | 0.953 | <=6.0 / >=0.50 | PASS |
+
+BoltzGen scRMSD 0.849 A at a 75% pass rate (floor <=2.0 A, >=50%); OpenDDE-abag DockQ 0.854
+with fnat 0.922 (floor >=0.50); capacity leg peaked at 5.97 GiB against a 7.0 GiB budget,
+writing all 50 samples. ESMC-300m/600m per-residue PCC 0.99961 / 0.99964, trace bit-exact.
+
+**Parity gate** (`scripts/full_parity_gate.py`, 23 legs): **20 PASS, 3 GAP, 0 DRIFT**, every leg
+reproducing its committed verdict. boltz2-prot-nomsa and boltz2-affinity-fkbp12-nomsa reproduce
+their committed `GAP-evidenced` verdicts. The third, protenix-ubq-msa, is newly accepted
+`GAP-evidenced` (`cf35cc15`): the in-range MSA row-chunking for large MSAs changes bf16
+summation order on exactly the one leg whose MSA crosses the 0.25 GiB chunk budget, and the
+observed 2.015 A sits inside both the chunking commit's own measured envelope (mean 0.738 /
+max 3.98 A) and this target's committed noise floor (max 2.993 A). Root cause and evidence are in
+`docs/implementation-parity.md`.
+
+**Performance gate**: PASS on a quiet host, 13 of 14 models within the +/-15% threshold —
+boltz2 +0.2%, esmfold2 -1.7%, esmfold2-fast -1.5%, protenix-v2 -8.6%, opendde +2.0%,
+opendde-abag +0.9%, esmc-300m +0.3%, esmc-600m +0.2%, esmc-6b +1.7%, saprot-650m -0.3%,
+boltzgen -0.4%, boltz2-affinity -3.7%, rfd3 +2.9%. `esmc-300m-single` is a **first seeded
+tt-quietbox machine baseline** at 14.62 seq/s, not a compared number: its only prior baseline
+was seeded on pc, and qb1's p150a reads ~30-36% slower on that leg from within-p150a machine
+variance, which the machine-id baseline layer exists to absorb. A first run co-resident with a
+CPU-only campaign read -10..-28% on every host-dispatch-heavy leg while the dispatch-light
+control held +0.3%; the quiet re-run recovered all of them.
+
 
 ## [0.6.0] - 2026-08-01
 

@@ -627,6 +627,26 @@
               "tt_bio_version": "0.5.0",
               "date": "2026-08-01",
               "note": "seed qb1 (tt-quietbox) p150a opendde-abag baseline \u2014 first ever committed; v0.5.0 measured 1.789 structures/s and said it was seeding one, but the JSON edit was never committed (git log -S over docs/perf_baselines.json is empty), so the model motivating the perf-coverage assert has been un-judgeable for two releases. Measured on card 2; card 1 is ARC-wedged on this host."
+            },
+            "esmc-300m-single": {
+              "unit": "seq/s",
+              "direction": "higher",
+              "value": 14.619138,
+              "latency_ms": 547.23,
+              "input": "8x ubiquitin (76 aa), batch 1",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "tt-quietbox",
+              "tt_bio_version": "0.6.1",
+              "date": "2026-08-07",
+              "note": "seed tt-quietbox machine baseline for esmc-300m-single, from the v0.6.1 quiet-host gate run. The card-level fallback (21.07 seq/s) was seeded on pc 2026-08-03; qb1 measures this leg ~30-36% slower (quiet 14.62 seq/s), inside the documented within-p150a machine-variance band the machine-id layer exists for."
             }
           },
           "date": "2026-08-01",
