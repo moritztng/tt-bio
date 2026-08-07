@@ -491,8 +491,11 @@ def dram_peak(tag=None):
     worker whose stdout the live-progress view owns (and drops when it is not a TTY), so a
     printed measurement is invisible exactly when it is being collected non-interactively.
 
-    The ttnn allocator is host-side bookkeeping updated at op-dispatch time, so sampling it
-    from the calling thread is synchronous and cheap. This is what the release gate's
+    The ttnn allocator is host-side bookkeeping, but reading it is NOT cheap enough to
+    time under: get_memory_view behaves like a pipeline drain, so a timed run with this
+    enabled measures the probe, not the model (measured 2026-08-07 on a 117-aa protenix
+    fold: 12.0 s with the probe off vs 28.8 s on with main's sparse tags, 44.7 s with the
+    denser census tags — never A/B perf with this set). This is what the release gate's
     capacity leg reads: a footprint change is invisible to a numerical parity fixture, so
     the footprint has to be measured directly at the largest supported input.
     Call with no tag to read the current peak across all tags.

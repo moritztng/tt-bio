@@ -389,7 +389,8 @@ LEGS += [
     # largest supported target at the largest sample count and gates the measured peak DRAM.
     Leg("capacity", "protenix-v2", "capacity", "examples/abag_pilot_expansion/9j4c_abag.yaml",
         seeds=(0,),
-        note="largest-input peak-DRAM budget; reuses release_gate --model capacity"),
+        note="largest-input peak-DRAM budgets (9j4c/protenix-v2 residue scale + "
+             "9ivj/opendde-abag structural scale); reuses release_gate --model capacity"),
     # --- RFD3 featurizer parity (card-free, in-process; reuses the committed
     # reference capture under scripts/rfd3_port/parity_artifacts/iai_protein/) ---
     # RFD3's correctness anchor is value parity of the host featurizer vs the
@@ -996,7 +997,7 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         try:
             rg = _load_release_gate()
             row = (rg.run_boltzgen(rg._load_designability_harness(), keep=False)
-                   if leg.kind == "boltzgen" else rg.run_capacity(keep=False)
+                   if leg.kind == "boltzgen" else rg.run_capacity_all(keep=False)
                    if leg.kind == "capacity" else rg.run_opendde_abag(keep=False))
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}"}
@@ -1163,6 +1164,10 @@ def _capacity_verdict(report: dict) -> tuple[str, str]:
     if peak is None:
         return "NO-DATA", "no peak DRAM measured"
     detail = f"peak {peak:.2f} GiB, {report.get('cifs')} CIFs / {report.get('paes')} PAEs"
+    if report.get("legs"):
+        detail += " (" + "; ".join(
+            f"{r['model']} {r['peak_gib']:.2f} GiB" for r in report["legs"]
+            if r.get("peak_gib") is not None) + ")"
     return ("PASS" if report.get("gate") else "GAP"), detail
 
 

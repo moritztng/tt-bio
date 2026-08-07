@@ -12,13 +12,17 @@ export TT_VISIBLE_DEVICES=3
 export TT_BIO_LEASE_HOLDER=worker:tt-bio-large-target-oom-rootcause
 export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8
 
+# TT_BIO_DRAM_PEAK must stay UNSET here: dram_peak's get_memory_view is not cheap (it
+# drains like a sync), and the branch carries denser census tags than main, so timing
+# with the probe on fabricates a phantom branch-only regression (measured: p117 44.7s
+# with it vs 12.05 without; main itself reads 28.8 with vs ~12 without).
 run() { # <src> <model> <target> <a3m> <label> <tag>
   local src=$1; shift
-  ( cd "$src" && PYTHONPATH="$src" TT_BIO_DRAM_PEAK="$OUT/$6.dram.txt" \
+  ( cd "$src" && PYTHONPATH="$src" \
       /usr/bin/python3 scripts/gpu_vs_tt/tt_baseline.py --model "$1" --target "$2" \
       --msa-a3m "scripts/gpu_vs_tt/fixtures/$3" --label "$4" --repeat 5 \
-      --out "$OUT/$6.json" ) > "$OUT/$6.log" 2>&1
-  echo "$(date -Is) $6 rc=$?" >> "$OUT/progress.txt"
+      --out "$OUT/$5.json" ) > "$OUT/$5.log" 2>&1
+  echo "$(date -Is) $5 rc=$?" >> "$OUT/progress.txt"
 }
 
 # interleaved A/B, branch first then main, per spec
