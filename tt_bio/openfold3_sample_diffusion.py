@@ -93,7 +93,7 @@ class OF3SampleDiffusion:
                  token_mask_pad_tt, tok_mask_col_pad_tt,
                  n_atom, NP, nb, n_token, n_tok_pad,
                  noise_schedule, rots_list, trans_list, noise_list, t_list, c_tau_list,
-                 step_scale):
+                 step_scale, progress_fn=None):
         """Run the rollout. Per-step host artefacts (rots/trans/noise/t/c_tau) are
         python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device."""
         if self._act_dtype != ttnn.bfloat16:
@@ -116,6 +116,8 @@ class OF3SampleDiffusion:
         xl_host = ttnn.to_torch(xl_init_dev).float().reshape(n_atom, 3)               # [n_atom, 3]
 
         for tau in range(len(t_list)):
+            if progress_fn:
+                progress_fn("diffusion", step=tau, total=len(t_list))
             rots = rots_list[tau].float()                # [3, 3]
             trans = trans_list[tau].float()              # [3]
             # centre_random_augmentation (host): centre -> rotate -> translate -> mask.
