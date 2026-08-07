@@ -95,13 +95,14 @@ artifact via the same-seed diagonal).
 
 See the [verdict table and tally](implementation-parity.md) in the main doc.
 
-These are the committed benchmark measurements for TT-Bio 0.3.0. Coverage spans
-deterministic encoders (ESMC 300m/600m/6b, SaProt 35m/650m), structure folding
-across the pharma length ladder (L20 trp-cage through L585 HSA, MSA and no-MSA),
-binding-affinity prediction (Boltz-2 affinity on FKBP12/DHFR/trypsin, MSA and
-no-MSA), antibody-antigen docking (OpenDDE-abag), and binder design (BoltzGen).
-Each leg's settings, seed depth, and fixture tag are recorded in its result JSON
-and fixture metadata.
+These are the committed benchmark measurements; the device side re-runs against
+the committed fixtures every release. Coverage spans deterministic encoders
+(ESMC 300m/600m/6b, SaProt 35m/650m), structure folding across the pharma length
+ladder (L20 trp-cage through L585 HSA, MSA and no-MSA), templated and
+heterodimer folding (OpenFold3), binding-affinity prediction (Boltz-2 affinity on
+FKBP12/DHFR/trypsin, MSA and no-MSA), antibody-antigen docking (OpenDDE-abag),
+and binder design (BoltzGen). Each leg's settings, seed depth, and fixture tag
+are recorded in its result JSON and fixture metadata.
 
 | model | target | metric | R | D | X | result |
 |---|---|---|---:|---:|---:|---|
@@ -115,6 +116,13 @@ and fixture metadata.
 | Protenix-v2 | 7ROA, L117, MSA | CA-RMSD | 2.76 Å | 0.59 Å | 2.43 ± 0.58 Å | PASS¶¶¶ |
 | Protenix-v2 | ubiquitin, L76, MSA | CA-RMSD | 1.92 Å | 0.91 Å | 1.73 ± 0.36 Å | PASS¶ |
 | Protenix-v2 | HSA, L585, MSA | CA-RMSD | 0.695 Å | 0.368 Å | 0.685 ± 0.156 Å | PASS¶¶ |
+| OpenFold3 | ubiquitin, L76, MSA | all-atom RMSD | 1.640 Å | 1.086 Å | 1.463 ± 0.341 Å | PASS◊ |
+| OpenFold3 | 7ROA, L117, MSA | all-atom RMSD | 1.642 Å | 1.973 Å | 2.016 ± 0.658 Å | PASS◊ |
+| OpenFold3 | 7XI5, L133, MSA, templates ON | all-atom RMSD | 4.160 Å | 0.404 Å | 4.380 ± 1.664 Å | PASS◊ |
+| OpenFold3 | 7XI5, L133, MSA, templates OFF | all-atom RMSD | 2.867 Å | 3.756 Å | 4.637 ± 1.238 Å | PASS◊ |
+| OpenFold3 | 8HEL construct, L77, MSA | all-atom RMSD | 7.585 Å | 0.691 Å | 5.525 ± 1.846 Å | PASS◊ |
+| OpenFold3 | 8HEL construct, L77, single-sequence | all-atom RMSD | 11.57 Å | 8.136 Å | 11.31 ± 1.266 Å | PASS◊ |
+| OpenFold3 | 9BK6 heterodimer, L~104+60, per-chain MSA | all-atom RMSD | 1.448 Å | 0.696 Å | 1.663 ± 0.355 Å | PASS◊ |
 | Boltz-2 | trp-cage, L20, no MSA | CA-RMSD | 0.60 Å | 0.54 Å | 0.66 ± 0.17 Å | PASS† |
 | Boltz-2 | 7ROA, L117, no MSA | CA-RMSD | 4.98 Å | 3.67 Å | 4.66 ± 1.86 Å | PASS‖ |
 | Boltz-2 | 7ROA, L117, MSA | CA-RMSD | 1.20 Å | 1.17 Å | 1.26 ± 0.22 Å | PASS††† |
@@ -642,6 +650,33 @@ per-interface iRMSD/LRMSD/DockQ/fnat for this run. Reproduce:
 `TT_VISIBLE_DEVICES=0 OPENDDE_DOCKQ_PYTHON=<dockq-py3.10> PYTHONPATH=<worktree> python3 scripts/release_gate.py --model opendde-abag --keep`,
 then read `opendde_results_1ahw_abag/dockq.json`.
 
+◊ The seven OpenFold3 legs (5 reference + 5 device seeds each, seeds 0-4 both
+sides, 4 recycling cycles / 200 sampling steps / 5 diffusion samples,
+confidence-selected best-of-5 by `sample_ranking_score`). The reference is the
+official `aqlaboratory/openfold3` 0.4.4 CPU path in fp32 (checkpoint
+`of3-p2-155k.pt`, the p2 preview at 155k steps; commit `c615a7f8`, 2026-08-05)
+with the triangle/DeepSpeed/cuEquivariance fast-kernel flags off; both sides
+consume the identical committed `msa.a3m` bytes. Evidence JSONs:
+`docs/implementation-parity-data/openfold3-{ubiquitin,prot,7xi5-tmpl,7xi5-notmpl,8hel-msa,8hel-nomsa,9bk6-complex-msa}.json`.
+The gate metric (all-atom RMSD) is within the floor+std band on all seven legs.
+Recorded honestly, as on the trp-cage leg: the stricter local metrics do not all
+clear their tightened floors. 1-lDDT exceeds its floor on four legs — 7XI5
+templates-OFF (X 0.202, R 0.102, D 0.092, X/floor 1.98), 7XI5 templates-ON
+(X/floor 1.88), 8HEL MSA (X/floor 1.21) and 9BK6 (X 0.103, R 0.062, D 0.035,
+X/floor 1.66) — and 1-TM exceeds it on 9BK6 alone (X/floor 1.46). Every other
+metric-cell is within floor. The pattern is the familiar one: the alignment-free
+and global-fold metrics sit inside the reference's own seed-to-seed basin while
+the residue-contact metric, which has the tightest floor, does not separate a
+bf16 trajectory difference from sampler noise at these lengths. 9BK6 is measured
+under the on-device fp32 diffusion boundary (`OF3_DIFFUSION_FP32_DEVICE`, default
+on — the same lever as Protenix-v2 HSA); bf16 diffusion missed the gate metric's
+floor there (X 1.889 Å), and the A/B is in
+[openfold3-port.md](openfold3-port.md#precision). Templates are verified active
+on the 7XI5 pair: the templates-ON and templates-OFF structures differ by up to
+6.1 Å, so the templates-OFF leg is not a relabelled copy of the same run.
+OpenFold3 is the one model whose weights TT-Bio does not download; the legs
+require a manually provisioned checkpoint via `OF3_CKPT`.
+
 ## Reproducing a comparison
 
 Embedding parity runs the upstream ESM model directly:
@@ -679,6 +714,18 @@ seeds:
 ```bash
 python3 scripts/pharma_parity.py structures \
   --ref-fixtures protenix-v2/prot/msa-server_200step_5sample_10cycle_bf16 \
+  --dev-dirs /path/to/device-seed0 /path/to/device-seed1
+```
+
+The OpenFold3 legs follow the same structures path against their own committed
+fixtures. The checkpoint is not downloaded automatically, so `OF3_CKPT` must
+point at a provisioned `of3-p2-155k.pt`; the reference side is regenerated only
+when the pinned version or settings change (`scripts/of3_ref_fixture.py`, CPU
+venv recipe in [openfold3-port.md](openfold3-port.md)):
+
+```bash
+python3 scripts/pharma_parity.py structures \
+  --ref-fixtures openfold3/ubq/msa-colabfold_200step_5sample_4cycle_fp32cpu \
   --dev-dirs /path/to/device-seed0 /path/to/device-seed1
 ```
 

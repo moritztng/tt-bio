@@ -20,13 +20,13 @@ accuracy (does the fold match the native structure) is out of scope.
 | Protenix-v2 | 7ROA, L117, MSA | PASS | CA-RMSD 2.63 Å inside the 2.94 Å floor; confidence-head under-ranking shared with reference (model property) |
 | Protenix-v2 | ubiquitin, L76, MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | CA-RMSD 1.73 Å inside the 1.92 Å floor; passes on TM-score and CA-lDDT too. The envelope test GAPs this leg since v0.6.1 (numerator 2.015 Å vs a collapsed zero envelope): the in-range MSA row-chunking puts this target's 20826-sequence MSA on the chunked trunk path, measured non-bit-exact by design; root-caused as the path change, not a regression — see below |
 | Protenix-v2 | HSA, L585, MSA | PASS | on-device fp32 diffusion matches the reference's own fp32 boundary; CA-RMSD 0.685 Å inside the 0.695 Å floor (was GAP-evidenced in bf16, X 1.03 Å) |
-| OpenFold3 | ubiquitin, L76, MSA | PASS | external CPU reference (official openfold3 0.4.4, fp32); CA-RMSD X 1.46 Å inside the 1.64 Å reference noise floor (X/floor 0.89) |
-| OpenFold3 | 7ROA, L117, MSA | PASS | external CPU reference; CA-RMSD X 2.02 Å inside the 1.97 Å floor |
-| OpenFold3 | 7XI5, L133, MSA + templates ON | PASS | external CPU reference; all-atom Kabsch X 4.38 A inside the 4.16 A floor (X/floor 1.05); templates verified active (on/off structures differ up to 6.1 A) |
-| OpenFold3 | 7XI5, L133, MSA, templates OFF | PASS | external CPU reference; all-atom Kabsch X 4.64 A within the noise floor (R 2.87, D 3.76, X/floor 1.23) |
-| OpenFold3 | 8HEL construct, L77, MSA, no templates | PASS | external CPU reference; all-atom Kabsch X 5.52 A inside the 7.59 A floor (X/floor 0.73) |
-| OpenFold3 | 8HEL construct, L77, single-sequence | PASS | external CPU reference; all-atom Kabsch X 11.31 A within the floor (R 11.57, D 8.14; single-sequence de-novo helix is intrinsically ill-determined) |
-| OpenFold3 | 9BK6 heterodimer (2xL~104/60), per-chain MSA | PASS | external CPU reference; all-atom Kabsch X 1.663 Å within the 5-seed noise floor under the on-device fp32 diffusion boundary (`OF3_DIFFUSION_FP32_DEVICE`, default on — the Protenix HSA lever); bf16 diffusion missed this floor (X 1.889 Å) — root cause and A/B in [openfold3-port.md](openfold3-port.md#precision) |
+| OpenFold3 | ubiquitin, L76, MSA | PASS | external CPU reference (official openfold3 0.4.4, fp32); all-atom RMSD X 1.46 Å inside the 1.64 Å reference noise floor (X/floor 0.89) |
+| OpenFold3 | 7ROA, L117, MSA | PASS | external CPU reference; all-atom RMSD X 2.02 Å inside the 1.97 Å floor |
+| OpenFold3 | 7XI5, L133, MSA + templates ON | PASS | external CPU reference; all-atom RMSD X 4.38 Å inside the 4.16 Å floor (X/floor 1.05); templates verified active (on/off structures differ up to 6.1 Å); 1-lDDT above its tighter floor ([per-leg evidence](implementation-parity-details.md#per-leg-evidence)) |
+| OpenFold3 | 7XI5, L133, MSA, templates OFF | PASS | external CPU reference; all-atom RMSD X 4.64 Å within the noise floor (R 2.87, D 3.76, X/floor 1.23); 1-lDDT above its tighter floor ([per-leg evidence](implementation-parity-details.md#per-leg-evidence)) |
+| OpenFold3 | 8HEL construct, L77, MSA, no templates | PASS | external CPU reference; all-atom RMSD X 5.52 Å inside the 7.59 Å floor (X/floor 0.73); 1-lDDT above its tighter floor ([per-leg evidence](implementation-parity-details.md#per-leg-evidence)) |
+| OpenFold3 | 8HEL construct, L77, single-sequence | PASS | external CPU reference; all-atom RMSD X 11.31 Å within the floor (R 11.57, D 8.14; single-sequence de-novo helix is intrinsically ill-determined) |
+| OpenFold3 | 9BK6 heterodimer (2xL~104/60), per-chain MSA | PASS | external CPU reference; all-atom RMSD X 1.663 Å within the 5-seed noise floor under the on-device fp32 diffusion boundary (`OF3_DIFFUSION_FP32_DEVICE`, default on — the Protenix HSA lever); bf16 diffusion missed this floor (X 1.889 Å) — root cause and A/B in [openfold3-port.md](openfold3-port.md#precision); 1-TM and 1-lDDT above their tighter floors ([per-leg evidence](implementation-parity-details.md#per-leg-evidence)) |
 | Boltz-2 | trp-cage, L20, no MSA | PASS | wide no-MSA floor; absolute X 0.60 Å |
 | Boltz-2 | 7ROA, L117, no MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | wide no-MSA floor (R 4.98 Å); absolute X 4.21 Å. The tighter envelope test GAPs this leg at the pinned seed (ratio 2.04); root-caused as seed-0 chaotic-trajectory amplification, not a precision bug — see below |
 | Boltz-2 | 7ROA, L117, MSA | PASS | CA-RMSD 0.94 Å inside the 0.81 Å floor |
@@ -46,7 +46,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | SaProt-650m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99964, in the ESMC band |
 | RFdiffusion3 | IAI protein motif-scaffold, I40/L419 | PASS | host featurizer 43/43 `f` keys bit-exact vs the committed upstream foundry reference capture; card-free, in-process (`scripts/rfd3_port/parity_gate.py`) |
 
-Net: 23 PASS, 5 PASS-caveated, 0 GAP-evidenced. The three Boltz-2 affinity
+Net: 30 PASS, 5 PASS-caveated, 0 GAP-evidenced. The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
 rows are retained and relabeled `non-default`. The MSA legs score 9 PASS / 3 GAP
