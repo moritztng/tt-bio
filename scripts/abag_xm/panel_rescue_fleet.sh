@@ -34,7 +34,10 @@ STAGGER=8
 
 TASKS=$B/rescue_tasks.txt
 if [ -n "${RESCUE_TASKS:-}" ]; then
-  printf '%s\n' $RESCUE_TASKS > $TASKS
+  # 6 fields per task (model target rung seed chunk chunks): regroup the flat
+  # word list into task lines. (printf '%s\n' $RESCUE_TASKS word-splits to one
+  # field per line -- 2026-08-07 p29 leg ran 18 malformed "tasks" that way.)
+  xargs -n6 <<<"$RESCUE_TASKS" > $TASKS
 elif [ ! -s $TASKS ]; then
   cat > $TASKS <<'EOF'
 boltz2 9ua5 256 42000 2 4
@@ -43,6 +46,9 @@ opendde-abag 9rye 256 22000 2 4
 opendde-abag 9rye 256 23000 3 4
 opendde-abag 9xqn 256 22000 2 4
 EOF
+fi
+if awk 'NF != 6 {bad=1} END {exit bad}' $TASKS; then :; else
+  echo "rescue_tasks.txt has a line without exactly 6 fields -- refusing to launch"; exit 1
 fi
 NTask=$(wc -l < $TASKS)
 CHIPS=${CHIPS:-$(seq -s' ' 0 $((NTask-1)))}
