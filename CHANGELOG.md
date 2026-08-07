@@ -30,6 +30,9 @@ drop it at `~/.boltz/of3-p2-155k.pt`.
   `networkx` and `packaging` at module load, and none were declared, so `--model openfold3`
   failed on a clean `pip install tt-bio`. The vendored Apache-2.0 license text now ships in
   the wheel too.
+- `tt-bio predict --model openfold3` showed no trunk or diffusion phase on the live
+  progress view: the worker's progress adapter was never passed to the model. Wired
+  through the trunk and sampler loops, mirroring Protenix-v2 (`df0ed79f`).
 
 ### Performance
 
@@ -86,12 +89,18 @@ floor), and openfold3-7xi5-notmpl (`af8f886d`, fold accuracy verified against RC
 directly: all five device seeds at 0.589-0.609 A aligned CA-RMSD, the CPU reference's own
 spread being 0.422-0.895 A).
 
-**Performance gate**: OpenFold3 vs its committed p300c baseline on `tt-quietbox2`: 2.191
-structures/s vs 2.142 (+2.3%, threshold +/-15%) — the 298-aa shared kernel-gate work does not
-regress it. P150a full-model leg on `tt-quietbox`: PENDING (chain running; OpenFold3's p150a
-entry is a first seeded baseline, disclosed as such, not a compared number).
+**Performance gate**: every model within +/-15% of its committed baseline on both cards.
+OpenFold3 vs its committed p300c baseline on `tt-quietbox2`: 2.191 structures/s vs 2.142
+(+2.3%) — the 298-aa shared kernel-gate work does not regress it. Full p150a leg on
+`tt-quietbox`: 15/15 PASS, worst |delta| 9.3% (boltzgen), everything else within +/-4%.
+OpenFold3's p150a entry (0.990 structures/s) is a first seeded baseline, disclosed as such
+(`cdebd298`) — it is compared against itself this release; the p300c comparison above is
+this release's regression evidence for the model.
 
-**UX gate**: PENDING (chain running; includes OpenFold3's first hardware UX leg).
+**UX gate**: PASS on the tag tree — every model's live progress advances through trunk
+and diffusion, outputs parse, the CLI surface behaves. It earned its keep: OpenFold3's
+first hardware UX leg caught the missing progress wiring (`df0ed79f`), re-run green after
+the fix.
 
 ## [0.6.1] - 2026-08-07
 
