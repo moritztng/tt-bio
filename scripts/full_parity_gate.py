@@ -284,6 +284,13 @@ LEGS = [
         committed_json="openfold3-prot.json", target_id="prot",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="staged", legacy_rdx=True),
+    Leg("openfold3-9bk6-complex-msa", "openfold3", "structure", "examples/9bk6.yaml",
+        fixture="openfold3/9bk6/msa-bench_200step_5sample_4cycle_fp32cpu",
+        committed_json="openfold3-9bk6.json", target_id="9bk6",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="yaml", legacy_rdx=True,
+        note="two-chain heterodimer; per-chain benchmark MSA dirs committed in the "
+             "fixture (msa_A/msa_B), referenced by the yaml"),
 
     # --- Boltz-2 affinity legs (cached fixture, device-only per release) ---
 ] + [

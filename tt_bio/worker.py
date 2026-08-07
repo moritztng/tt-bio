@@ -200,6 +200,25 @@ def _openfold3_template_map(path: Path) -> dict[str, str]:
     return out
 
 
+def _validate_openfold3_constraints(path) -> None:
+    """Reject yaml `constraints:` blocks for OF3 instead of folding without them.
+
+    The OF3 query is built with `covalent_bonds: None` (the bond graph is not
+    ported), so a constraints block would otherwise be silently dropped — the
+    silent-garbage class. Raises naming the constraint count and the models that
+    do honor covalent bonds.
+    """
+    from tt_bio.main import _read_bio_constraints
+
+    bonds = _read_bio_constraints(path)
+    if bonds:
+        raise RuntimeError(
+            "--model openfold3 does not port covalent bonds yet "
+            f"(got {len(bonds)} constraint(s) from {path.name}); the fold would "
+            "silently ignore them. Remove the constraints block or use "
+            "--model protenix-v2 / opendde.")
+
+
 def _validate_openfold3_chains(chains: list) -> None:
     """Reject OF3 inputs that would otherwise fold into plausible-looking garbage.
 
@@ -875,10 +894,11 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import _read_bio_chains
+        from tt_bio.main import _read_bio_chains, _read_bio_constraints
 
         chains = _read_bio_chains(path)
         _validate_openfold3_chains(chains)
+        _validate_openfold3_constraints(path)
         tmpl_map = _openfold3_template_map(path)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})
         if unknown_tmpl:

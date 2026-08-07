@@ -46,6 +46,12 @@ model_update:
           use_triton_triangle_kernels: false
           use_deepspeed_evo_attention: false
           use_cueq_triangle_kernels: false
+{template_settings}"""
+
+TEMPLATE_SETTINGS = """template_preprocessor_settings:
+  mode: predict
+  cache_directory: /home/ttuser/of3-bench/benchmark_templates
+  structure_directory: /home/ttuser/of3-bench/template_structures
 """
 
 
@@ -121,7 +127,8 @@ def main() -> int:
     for seed in args.seeds:
         runner = work / f"runner_seed{seed}.yml"
         runner.write_text(RUNNER_TEMPLATE.format(
-            seed=seed, use_templates=str(args.use_templates).lower()))
+            seed=seed, use_templates=str(args.use_templates).lower(),
+            template_settings=(TEMPLATE_SETTINGS if args.use_templates else "")))
         out_dir = work / f"{args.target_id}_seed{seed}"
         cmd = [args.ref_run, "predict", "--query-json", args.query_json,
                "--inference-ckpt-path", args.ckpt,

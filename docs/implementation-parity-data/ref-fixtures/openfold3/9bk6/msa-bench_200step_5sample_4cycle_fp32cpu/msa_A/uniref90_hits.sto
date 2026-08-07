@@ -1,0 +1,102 @@
+# STOCKHOLM 1.0
+
+#=GS UniRef90_A0A1S3T5C1/36-70        DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/49-83        DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/79-121       DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/105-149      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/139-175      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/196-239      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/218-252      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/249-291      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/274-317      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/322-358      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/347-382      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/386-421      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/404-450      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/455-486      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/491-527      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/509-551      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/533-564      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/556-593      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/582-616      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/608-643      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/651-694      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_A0A1S3T5C1/709-747      DE [subseq from] Uncharacterized protein LOC106613742 n=1 Tax=Salmo salar TaxID=8030 RepID=A0A1S3T5C1_SALSA
+#=GS UniRef90_UPI003100B770/375-423   DE [subseq from] immunoglobulin-like domain-containing protein n=1 Tax=Parendozoicomonas haliclonae TaxID=1960125 RepID=UPI003100B770
+#=GS UniRef90_UPI003100B770/478-532   DE [subseq from] immunoglobulin-like domain-containing protein n=1 Tax=Parendozoicomonas haliclonae TaxID=1960125 RepID=UPI003100B770
+#=GS UniRef90_UPI003100B770/587-640   DE [subseq from] immunoglobulin-like domain-containing protein n=1 Tax=Parendozoicomonas haliclonae TaxID=1960125 RepID=UPI003100B770
+#=GS UniRef90_UPI003100B770/915-968   DE [subseq from] immunoglobulin-like domain-containing protein n=1 Tax=Parendozoicomonas haliclonae TaxID=1960125 RepID=UPI003100B770
+#=GS UniRef90_UPI003100B770/1138-1186 DE [subseq from] immunoglobulin-like domain-containing protein n=1 Tax=Parendozoicomonas haliclonae TaxID=1960125 RepID=UPI003100B770
+#=GS UniRef90_UPI003100B770/1247-1295 DE [subseq from] immunoglobulin-like domain-containing protein n=1 Tax=Parendozoicomonas haliclonae TaxID=1960125 RepID=UPI003100B770
+#=GS UniRef90_UPI002001894D/493-559   DE [subseq from] hypothetical protein n=1 Tax=Maribellus sp. YY47 TaxID=2929486 RepID=UPI002001894D
+#=GS UniRef90_UPI002001894D/584-650   DE [subseq from] hypothetical protein n=1 Tax=Maribellus sp. YY47 TaxID=2929486 RepID=UPI002001894D
+#=GS UniRef90_UPI002001894D/766-832   DE [subseq from] hypothetical protein n=1 Tax=Maribellus sp. YY47 TaxID=2929486 RepID=UPI002001894D
+#=GS UniRef90_UPI002001894D/858-923   DE [subseq from] hypothetical protein n=1 Tax=Maribellus sp. YY47 TaxID=2929486 RepID=UPI002001894D
+#=GS UniRef90_A0A6M8EYP3/667-706      DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/755-794      DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/843-882      DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/931-970      DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1019-1058    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1107-1146    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1195-1234    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1283-1322    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1371-1407    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1723-1762    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1811-1850    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1899-1938    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/1987-2026    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/2075-2114    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/2163-2202    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+#=GS UniRef90_A0A6M8EYP3/2251-2290    DE [subseq from] Tandem-95 repeat domain-containing protein n=1 Tax=Arcobacter acticola TaxID=1849015 RepID=A0A6M8EYP3_9BACT
+
+9bk6_A                                   MSGGTPEERLAQLEKEIQALYDAA-D-EVVDEV----EEKD--GKMT---VTRTLT----IG---D-GTVTLVETLKIVDGAPVKDGEIEVICNPECEELGKRLKALAKEYEKAQEEVEKAKA
+UniRef90_A0A1S3T5C1/36-70                -----------------------------VDTL----AIQD--GYLL---LVDTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/49-83                -----------------------------VDTL----AIQD--GYLL---LVDTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/79-121               ------------------AIQDGY-L-LLVDTL----AIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQD-------------------------------------------
+UniRef90_A0A1S3T5C1/105-149              ------------------AIQDGY-L-LLVDTL----AIQD--GYLL---LVDTLA----IQ---D-GYLLLVDTLAIQDGY-----------------------------------------
+UniRef90_A0A1S3T5C1/139-175              ----------------------------LVDTL----AIQD--GYLL---RADTLA----IH---D-GYLLLVDTLAIQDGY-----------------------------------------
+UniRef90_A0A1S3T5C1/196-239              ------------------AIQDGY-L-LLVDTL----AIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/218-252              -----------------------------ADTL----AIQD--GYLL---LVDTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/249-291              -------------------IQDGY-L-LLVDTL----AIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/274-317              ------------------AIQDGY-L-LLVDTL----AIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/322-358              -----------------------------VDTL----AIQD--GYLL---LVDTLA----IQ---D-GYLLLVDTLAIQDGYL----------------------------------------
+UniRef90_A0A1S3T5C1/347-382              ----------------------------LVDTL----AIQD--GYLL---RADTLA----IH---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/386-421              ----------------------------LADTL----AIQD--GYLL---RADTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/404-450              ------------------AIQDGY-L-LLVDTL----AIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQDGYLL---------------------------------------
+UniRef90_A0A1S3T5C1/455-486              --------------------------------L----AIQD--GYLL---LVDTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/491-527              -----------------------------VDTL----AIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQDGYL----------------------------------------
+UniRef90_A0A1S3T5C1/509-551              -------------------IQDGY-L-LLVDTL----AIQD--GYLL---RADTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/533-564              --------------------------------L----AIQD--GYLL---LVDTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/556-593              -----------------------------VDTL----AIQD--GYLL---LVDTLS----IQ---D-GYLLLVDTLAIQDGYLL---------------------------------------
+UniRef90_A0A1S3T5C1/582-616              -----------------------------VDTL----AIQD--GYLL---RADTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/608-643              -----------------------------VDTL----AIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQDGY-----------------------------------------
+UniRef90_A0A1S3T5C1/651-694              ------------------AIQDGY-L-LLVDTL----AIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQDG------------------------------------------
+UniRef90_A0A1S3T5C1/709-747              -------------------------L-LLVDTL----SIQD--GYLL---LADTLA----IQ---D-GYLLLVDTLAIQDGY-----------------------------------------
+UniRef90_UPI003100B770/375-423           ----------------------SE-E-EVVTAITDDQDEVT--ITLT---ATPTTS----ED---G-GSITYTATLSNVDGLPVAN-------------------------------------
+UniRef90_UPI003100B770/478-532           ----------------FENLTFSP-D-EVVTAI----TDDT--DTVT---VTLTAT----PSTSEDGGSITYTATLSNVDGLPVAN-------------------------------------
+UniRef90_UPI003100B770/587-640           ----------------FENLTFTS-D-EVVTAI----TDDQ--DEVT---ITLTATPTTSED---G-GSITYTATLTNADGLPVA--------------------------------------
+UniRef90_UPI003100B770/915-968           -----------------ENLTYSQ-D-EVVTTI----TDDQ--DEVT---ITLTATPTTSED---G-GSITYTATLSNVDGLPVAN-------------------------------------
+UniRef90_UPI003100B770/1138-1186         ----------------------SE-E-EVVTAITDDQDEVT--ITLT---ATPTTS----ED---G-GSITYTATLSNVDGLPVAN-------------------------------------
+UniRef90_UPI003100B770/1247-1295         ----------------------SE-E-EVVTAITDDQDEVT--ITLT---ATPTTS----ED---G-GSITYTATLSNVDGLPVDN-------------------------------------
+UniRef90_UPI002001894D/493-559           ------------SETEIDGLYPTAND-EAAIEA----AYSDDCGTVTAAFVSQTLT----GG---Q-CNWTLVRTYNIFDGCAANDFTVEMT-------------------------------
+UniRef90_UPI002001894D/584-650           ------------NETEIDGLYPTA-DDEAAIEA----AYSDDCGTVTAAFVSQTLT----GG---Q-CNWTLVRTYNISDGCAANDFTVEMT-------------------------------
+UniRef90_UPI002001894D/766-832           ------------NETEIDGLYPTA-DDEAAIEA----AYSDDCGTVTAAFVSQTLT----GG---Q-CNWTLVRTYNISDGCAANDFTVEMT-------------------------------
+UniRef90_UPI002001894D/858-923           -------------ETEIDELYPTE-DDEAAIEA----AYSDDCGTVTASFVSQTLT----GG---Q-CNWTLVRTYNISDGCAANDFTVEMT-------------------------------
+UniRef90_A0A6M8EYP3/667-706              --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/755-794              --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/843-882              --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/931-970              --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/1019-1058            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/1107-1146            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/1195-1234            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/1283-1322            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/1371-1407            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPI----------------------------------
+UniRef90_A0A6M8EYP3/1723-1762            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/1811-1850            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/1899-1938            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/1987-2026            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/2075-2114            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/2163-2202            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+UniRef90_A0A6M8EYP3/2251-2290            --------------------------------------TKD--FNGT---ATVTLT----VN---D-GTTTTTQTFNVT-VSPVNDAPVIAL-------------------------------
+#=GC RF                                  xxxxxxxxxxxxxxxxxxxxxxxx.x.xxxxxx....xxxx..xxxx...xxxxxx....xx...x.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+//
