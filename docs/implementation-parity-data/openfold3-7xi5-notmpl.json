@@ -123,5 +123,7 @@
         "within_noise_floor": false
       }
     }
-  }
+  },
+  "verdict": "GAP-evidenced",
+  "note": "GAP-evidenced under the legacy R/D/X gate, accepted 2026-08-07 for v0.6.2: the v0.6.2 gate run reads all-atom X 5.40 +/- 0.78 A vs floor max(R,D) = R 2.87 A (X/floor 1.88, within_noise_floor false), where this committed record read X 4.64 vs floor 3.76 (X/floor 1.23, within). Nothing about the comparison target moved: R is identical (2.867 A, same committed CPU references) and X stayed in its historical band (4.64 -> 5.40 A, both dominated by all-atom tail/side-chain divergence on this designed repeat protein). What moved is the DEVICE self-spread: D collapsed 3.76 -> 0.70 A because this record's device side was generated at f8af5943 (bf16 diffusion module) and the tree now runs the on-device fp32 diffusion boundary (c1a55cd9, default-on, the reference's own recipe and an intended accuracy improvement). The old floor was propped up by pre-P15 device noise via max(R,D); with the noise gone the floor is R alone. Accuracy verified directly against the experimental structure (RCSB 7XI5, sequence-aligned CA Kabsch, 57 resolved positions): all five v0.6.2 device seeds land at 0.589-0.609 A vs ground truth, tighter AND better than the five committed CPU reference seeds themselves (0.422-0.895 A, mean 0.658). Not a regression: the port converges to the right structure more reproducibly than before. Verdict stays GAP-evidenced, floor not loosened; if a future change re-noises the device rollout the leg re-tightens on its own."
 }

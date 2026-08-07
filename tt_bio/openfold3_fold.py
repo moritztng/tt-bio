@@ -290,7 +290,7 @@ class OpenFold3(Module):
 
     def fold(self, *, template_feat, msa_feat, s_input, relpos, token_bonds,
              token_mask, dm_aux_host, n_atom, n_token, no_rollout_steps, seed,
-             no_samples=1, confidence_aux_host=None):
+             no_samples=1, confidence_aux_host=None, progress_fn=None):
         """Run the device input glue + trunk and confidence-rank fresh rollouts.
 
         ``msa_feat`` is the searched, post-subsample 34-channel MSA input. The returned
@@ -307,7 +307,8 @@ class OpenFold3(Module):
         s_init_d, z_init_d = self.input_glue(s_input_d, relpos_dev, token_bonds_dev)
         tmpl_d = {k: ft(v) for k, v in template_feat.items()}
         msa_d = ft(msa_feat.unsqueeze(0))
-        s_trunk_d, z_trunk_d = self.trunk(s_init_d, z_init_d, tmpl_d, msa_d, s_input_d)
+        s_trunk_d, z_trunk_d = self.trunk(s_init_d, z_init_d, tmpl_d, msa_d, s_input_d,
+                                          progress_fn=progress_fn)
         si_trunk_d = s_trunk_d
         zij_trunk_d = z_trunk_d
 
@@ -334,8 +335,18 @@ class OpenFold3(Module):
             n_tok_pad=n_tok_pad)
 
         noise_schedule = create_noise_schedule(no_rollout_steps, **self.ns_cfg)
+        n_steps = len(noise_schedule) - 1
         samples = []
         for sample_index in range(no_samples):
+            # One monotonic diffusion sweep across samples (protenix batches its
+            # samples and ticks total=n_step once; this sampler is per-sample, so
+            # offset the steps of each sample to keep the live view advancing).
+            if progress_fn is not None:
+                def _sample_pfn(stage, step, total, _si=sample_index):
+                    progress_fn(stage, step=_si * n_steps + step,
+                                total=n_steps * no_samples)
+            else:
+                _sample_pfn = None
             xl_init, rots_l, trans_l, noise_l, t_l, c_tau_l = self._gen_rollout(
                 noise_schedule, n_atom, seed + sample_index)
             xl_init_dev = ft(xl_init.unsqueeze(0))
@@ -348,7 +359,7 @@ class OpenFold3(Module):
                 aux["tok_pad_tt"], aux["tok_col_pad_tt"],
                 n_atom, NP, nb, n_token, n_tok_pad,
                 noise_schedule, rots_l, trans_l, noise_l, t_l, c_tau_l,
-                self.step_scale)
+                self.step_scale, progress_fn=_sample_pfn)
             xl_final = torch.Tensor(ttnn.to_torch(xl_final_dev)).float().reshape(n_atom, 3)
             ttnn.deallocate(xl_init_dev)
             ttnn.deallocate(xl_final_dev)

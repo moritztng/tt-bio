@@ -3,7 +3,15 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.6.2] - 2026-08-07
+
+OpenFold3 lands: `tt-bio predict --model openfold3` folds proteins, RNA and DNA with the
+OpenFold Consortium's AlphaFold3 reproduction, with per-chain MSAs and optional per-chain
+templates, on the same scheduler, multi-card fan-out and MSA cache as Protenix-v2. Polymer
+chains only — ligands, covalent bonds and `--write_pae` raise or are declined rather than
+silently degrading. OpenFold3 is the one model whose weights tt-bio does not download: the
+consortium's checkpoint is a public release you fetch yourself — point `OF3_CKPT` at it or
+drop it at `~/.boltz/of3-p2-155k.pt`.
 
 ### Added
 
@@ -22,6 +30,77 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `networkx` and `packaging` at module load, and none were declared, so `--model openfold3`
   failed on a clean `pip install tt-bio`. The vendored Apache-2.0 license text now ships in
   the wheel too.
+- `tt-bio predict --model openfold3` showed no trunk or diffusion phase on the live
+  progress view: the worker's progress adapter was never passed to the model. Wired
+  through the trunk and sampler loops, mirroring Protenix-v2 (`df0ed79f`).
+
+### Performance
+
+- Protenix-v2 and OpenDDE at ~300 residues: the 298-aa GPU scaling gap is closed, 1.18x on
+  the landed code (`ec28f3d2`; measured `62934f2f`). At that size the Pairformer trunk is
+  74.5% of step time and scales as N² (`46c4fe29`); the SDPA chunk gate, the trimul
+  `in0_block_w` and the transition chunk were re-tuned for it (`7349f407`, `ec50003d`).
+
+### Gates and documentation
+
+- The README, `predict --help`, the parity docs and the OpenFold3 port doc now match what the
+  shipped model actually does, including template support (`a6403435`, `a35f7a3b`,
+  `1327a080`, `2b0671ee`, `92d5b58a`, `50bc0bee`).
+- `kabsch_rmsd` was labelled a CA RMSD but is computed over every atom name; the label is
+  corrected at the source and on the OpenFold3 rows. The other models' rows follow in a
+  deliberate pass — the affinity pocket legs use a different, genuinely CA-based scorer.
+- OpenFold3 is enrolled in the accuracy, perf and UX release gates (`86932b20`, `1f236666`,
+  `2a20f028`).
+- `scripts/fetch_parity_fixtures.sh` verifies the fetched tarball by its hash field instead
+  of the sidecar's recorded absolute path, which exists only on the machine that generated
+  it (`f9d0afc1`).
+
+### Release gate (Blackhole P150a on `tt-quietbox`)
+
+Host suite: 225 passed / 23 skipped / 1 xfailed with 25 failures triaged one file per
+process — 24 are environment or harness artefacts, not code regressions (qb1's boltzgen
+transformers env gap, the parent-holds-device false-failure class, a stale July OF3 dev golden
+that the P8+ tests skip without, and a 4e-6 PCC wobble on the confidence leg). The 25th was
+real: `ec50003d`'s transition big-chunk gate admitted the Protenix-v2 N=512 pair shape
+(W=512), which overflowed in-block L1 (`test_fold_512_no_oom`). Fixed as `e6678e21` (gate
+tightened to W<=384, keeping the 298-aa fast path); the test passes on the fixed tree.
+Packaging guard: 16/16 data files and 36/36 declared dependencies in the wheel and sdist.
+
+**Accuracy gate** — every shipped fold architecture folded end-to-end with production sampling
+(200 steps, 5 samples) and checked against a per-model ground-truth floor, not
+self-consistency:
+
+| model | RMSD (A) | TM | floor | result |
+|---|---|---|---|---|
+| boltz2 | 1.373 | 0.945 | <=3.0 / >=0.75 | PASS |
+| esmfold2 | 4.462 | 0.563 | <=8.0 / >=0.40 | PASS |
+| esmfold2-fast | 1.769 | 0.910 | <=4.5 / >=0.60 | PASS |
+| protenix-v2 | 2.459 | 0.799 | <=6.0 / >=0.50 | PASS |
+| opendde | 1.352 | 0.955 | <=6.0 / >=0.50 | PASS |
+| openfold3 | 2.042 | 0.845 | <=3.5 / >=0.70 | PASS |
+
+**Parity gate** (`scripts/full_parity_gate.py`, 30 legs): **24 PASS, 6 GAP, 0 DRIFT, 0 ERROR**,
+every GAP reproducing a committed `GAP-evidenced` record. All seven OpenFold3 legs pass on the
+release tree (ubq X=1.34 A within R=1.64/D=0.80; 8hel-msa and 9bk6 included). Four records are
+newly evidenced this release: protenix-prot-msa, opendde-prot-prod and opendde-trpcage-nomsa
+(`c97076c0`, root-caused to `ba6ede96`'s intended AttentionPairBias unfusing, device samples
+inside each reference's own inter-seed spread and every numerator inside the committed noise
+floor), and openfold3-7xi5-notmpl (`af8f886d`, fold accuracy verified against RCSB 7XI5
+directly: all five device seeds at 0.589-0.609 A aligned CA-RMSD, the CPU reference's own
+spread being 0.422-0.895 A).
+
+**Performance gate**: every model within +/-15% of its committed baseline on both cards.
+OpenFold3 vs its committed p300c baseline on `tt-quietbox2`: 2.191 structures/s vs 2.142
+(+2.3%) — the 298-aa shared kernel-gate work does not regress it. Full p150a leg on
+`tt-quietbox`: 15/15 PASS, worst |delta| 9.3% (boltzgen), everything else within +/-4%.
+OpenFold3's p150a entry (0.990 structures/s) is a first seeded baseline, disclosed as such
+(`cdebd298`) — it is compared against itself this release; the p300c comparison above is
+this release's regression evidence for the model.
+
+**UX gate**: PASS on the tag tree — every model's live progress advances through trunk
+and diffusion, outputs parse, the CLI surface behaves. It earned its keep: OpenFold3's
+first hardware UX leg caught the missing progress wiring (`df0ed79f`), re-run green after
+the fix.
 
 ## [0.6.1] - 2026-08-07
 

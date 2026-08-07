@@ -78,7 +78,17 @@ curl -fsSL -o "${tmp}/${ASSET}" "${tarball_url}"
 
 if [[ -n "${sha_url}" ]]; then
   curl -fsSL -o "${tmp}/${SHA_ASSET}" "${sha_url}"
-  ( cd "${tmp}" && sha256sum -c "${SHA_ASSET}" )
+  # Compare the hash FIELD, not `sha256sum -c`. The sidecar records whatever path
+  # the maintainer hashed (the published one records an absolute /tmp path), and
+  # `-c` re-opens that exact path -- which fails everywhere except the machine that
+  # generated it. The checksum is about the bytes, so verify the bytes.
+  want="$(head -n1 "${tmp}/${SHA_ASSET}")"; want="${want%% *}"
+  got="$(sha256sum "${tmp}/${ASSET}")"; got="${got%% *}"
+  if [[ "${want}" != "${got}" ]]; then
+    echo "error: checksum mismatch for ${ASSET}: expected ${want}, got ${got}" >&2
+    exit 1
+  fi
+  echo "checksum OK (${got})"
 else
   echo "warn: no sha256 sidecar on release; skipping checksum verification." >&2
 fi

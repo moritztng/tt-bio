@@ -192,5 +192,7 @@
       }
     }
   },
-  "note_5x5": "trpcage extended 3+3 -> 5+5 (seeds 0-4) on 2026-07-20; prot (reduced 4c/20s) left at 3+3 as the resolved artifact (see opendde-prod-leg.json for the production 7ROA leg, now 5+5)."
+  "note_5x5": "trpcage extended 3+3 -> 5+5 (seeds 0-4) on 2026-07-20; prot (reduced 4c/20s) left at 3+3 as the resolved artifact (see opendde-prod-leg.json for the production 7ROA leg, now 5+5).",
+  "verdict": "GAP-evidenced",
+  "note": "GAP-evidenced under the integration-envelope gate, accepted 2026-08-07 for v0.6.2 (trpcage_no_msa leg): kabsch_rmsd numerator 0.1979 A against a collapsed zero envelope (ref_fp32/ref_bf16 numerically identical, abs_floor 0.05 discrimination only). The legacy 5+5 record in this file passes within the noise floor (cross mean 0.509 A, ref floor max 0.666 A); 0.1979 A is below the committed cross minimum (0.292 A). Root cause: ba6ede96 (v0.6.1..v0.6.2) unfused the shared token-level AttentionPairBias SDPA (intended accuracy fix, per-call PCC 0.98128 -> 0.99993). At 20 aa the shape crosses none of the in-range chunk gates, so the 0.0 -> 0.1979 A movement isolates the unfusing; chaotic amplification over 4 recycling cycles accounts for the magnitude. Verdict stays GAP-evidenced, margin not loosened; the accuracy content of the port is unchanged."
 }

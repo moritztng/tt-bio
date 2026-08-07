@@ -142,7 +142,8 @@ class OF3Trunk(Module):
         return ttnn.zeros(shape, device=self.device, dtype=ttnn.bfloat16,
                           layout=ttnn.TILE_LAYOUT)
 
-    def __call__(self, s_init, z_init, template_feat, msa_feat, s_input):
+    def __call__(self, s_init, z_init, template_feat, msa_feat, s_input,
+                 progress_fn=None):
         """Fully-device assembled trunk forward.
 
         s_init, z_init: device bf16 [1,N,384] / [1,N,N,128] (InputEmbedder constants).
@@ -159,7 +160,9 @@ class OF3Trunk(Module):
         z = self._zeros_like(z_init)
         # m is identical across cycles (verified in the reference golden); compute once.
         m = self.msa_embedder(msa_feat, s_input)
-        for _ in range(self.num_cycles):
+        for cyc in range(self.num_cycles):
+            if progress_fn:
+                progress_fn("trunk", step=cyc, total=self.num_cycles)
             z = self.glue.glue_z(z, z_init)              # device z-glue
             z_tmpl = self.template(template_feat, z)     # device TemplateEmbedderAllAtom
             z = ttnn.add(z, z_tmpl)
