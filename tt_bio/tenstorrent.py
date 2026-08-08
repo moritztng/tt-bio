@@ -549,7 +549,7 @@ def _host_concat(x: ttnn.Tensor) -> bool:
     round-trip through torch bf16 lossily, so those configs keep the device concat.
     """
     return (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
-            and x.volume * 2 > CONCAT_HOST_BYTES)
+            and x.logical_volume() * 2 > CONCAT_HOST_BYTES)
 
 
 def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
