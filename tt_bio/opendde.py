@@ -9,9 +9,10 @@ same-residue pair structure, before diffusion. The rest of the pipeline then
 runs unchanged on the structural-token axis (the ttnn ops are axis-agnostic).
 
 This module ports that one block; assembly reuses the Protenix-v2 stack verbatim.
-The integer index gathers (parent, prev/next-parent
-adjacency, role-pair-type maps) are precomputed host-side; only the split-MLP,
-the 49 role-pair pair projections, and the bias adds run on device.
+The integer index maps (parent, prev/next-parent
+adjacency, role-pair-type) are precomputed host-side; the gathers themselves,
+the split-MLP, the 49 role-pair pair projections, and the bias adds run on
+device.
 """
 import torch
 import ttnn
@@ -99,14 +100,47 @@ class StructuralTokenExpander(_KeyedWeights):
         w = self._w[name]
         return w.index_select(0, idx.reshape(-1)).reshape(*idx.shape, w.shape[-1])
 
+    def _emb_tt(self, key):
+        """Pair-init embedding table, uploaded once as fp32 TILE and cached.
+        fp32 so the five-way sum below rounds once at the final fp32->bf16
+        cast, bit-identical to the old host fp32 sum + from_torch upload."""
+        cache = self.__dict__.setdefault("_wc", {})
+        v = cache.get((key, "emb_fp32"))
+        if v is None:
+            v = ttnn.from_torch(self._w[key], layout=ttnn.TILE_LAYOUT,
+                                device=get_device(), dtype=ttnn.float32)
+            cache[(key, "emb_fp32")] = v
+        return v
+
     def _pair_init_bias(self, pf):
-        """Sum of the five additive pair-init embeddings (host gather); float32."""
-        b = self._emb("same_parent_embedding.weight", pf["same_parent_residue"].long())
-        b = b + self._emb("same_residue_twin_embedding.weight", pf["same_residue_twin"].long())
-        b = b + self._emb("prev_bb_chain_embedding.weight", pf["prev_bb_chain"].long())
-        b = b + self._emb("next_bb_chain_embedding.weight", pf["next_bb_chain"].long())
-        b = b + self._emb("role_pair_type_embedding.weight", pf["role_pair_type"])
-        return b
+        """Sum of the five additive pair-init embeddings, on device. Each table
+        lookup is a where-chain row select in fp32 (pure selection, no
+        arithmetic, so the row comes through exactly), the five results add in
+        the host's order in fp32, and one fp32->bf16 cast rounds at the end --
+        bit-identical to the old host fp32 gather/sum + from_torch upload
+        (IEEE fp32 adds, both casts round-to-nearest-even). Per chunk only the
+        five (clen*Ns,1) index grids upload instead of a (clen,Ns,c_z) fp32
+        gather+sum+upload. (ttnn.embedding is bf16-only and ttnn.matmul rounds
+        fp32 inputs to bf16, hence the where-chain.)"""
+        dev = get_device()
+        C = self.c_z
+        b = None
+        for tkey, ikey, n in (("same_parent_embedding.weight", "same_parent_residue", 2),
+                              ("same_residue_twin_embedding.weight", "same_residue_twin", 2),
+                              ("prev_bb_chain_embedding.weight", "prev_bb_chain", 2),
+                              ("next_bb_chain_embedding.weight", "next_bb_chain", 2),
+                              ("role_pair_type_embedding.weight", "role_pair_type", 8)):
+            tab = self._emb_tt(tkey)
+            idx = ttnn.from_torch(pf[ikey].reshape(1, -1, 1).to(torch.int32),
+                                  layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.uint32)
+            g = ttnn.reshape(ttnn.slice(tab, [n - 1, 0], [n, C]), (1, 1, C))
+            for k in range(n - 2, -1, -1):
+                rowk = ttnn.reshape(ttnn.slice(tab, [k, 0], [k + 1, C]), (1, 1, C))
+                g = ttnn.where(ttnn.eq(idx, k), rowk, g)
+            b = g if b is None else ttnn.add(b, g)
+        clen, Ns = pf["role_pair_type"].shape
+        b = ttnn.typecast(b, getattr(self, "dtype", ttnn.bfloat16))
+        return ttnn.reshape(b, (clen, Ns, C))
 
     def _attn_bias(self, pf):
         """Scalar-weighted mask sum + role-pair-type bias -> ttnn (clen, Ns).
@@ -127,15 +161,17 @@ class StructuralTokenExpander(_KeyedWeights):
             ab = ttnn.add(ab, self._up(t))
         return ab
 
-    def _pair_project_full(self, z_chunk_h, role, row_index):
+    def _pair_project_full(self, z_chunk_dev, role, row_index):
         """delta[a,b] = W[role[a]*n+role[b]] @ z[a,b], full 49-projection mode.
-        Rows are grouped by role-pair (host permute), each group is one device
-        matmul, then scattered back via a device gather -- numerically identical
-        to OpenDDE's per-(role_i,role_j) masked projection, reordered."""
+        The z chunk arrives device-resident (bf16, row-major (clen*Ns, C)); the
+        role-pair grouping is a device gather by the host-computed permutation,
+        each group is one device matmul, then scattered back via a second
+        device gather -- numerically identical to OpenDDE's per-(role_i,role_j)
+        masked projection, reordered. Bit-exact vs the old host gather +
+        per-group upload: both gathers move the same bf16 values."""
         clen = row_index.numel()
         Ns = role.shape[0]
         C = self.c_z
-        flat = z_chunk_h.reshape(clen * Ns, C)
         row_role = role.index_select(0, row_index)
         role_i = row_role[:, None].expand(clen, Ns).reshape(-1)
         role_j = role[None, :].expand(clen, Ns).reshape(-1)
@@ -144,20 +180,29 @@ class StructuralTokenExpander(_KeyedWeights):
         perm = torch.argsort(pidx, stable=True)
         inv = torch.empty_like(perm)
         inv[perm] = torch.arange(perm.numel())
-        flat_sorted = flat.index_select(0, perm).contiguous()
         uniq, counts = torch.unique_consecutive(pidx.index_select(0, perm), return_counts=True)
+
+        dev = get_device()
+        sorted_dev = ttnn.embedding(
+            ttnn.from_torch(perm.reshape(1, -1).to(torch.int32),
+                            layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.uint32),
+            z_chunk_dev, layout=ttnn.ROW_MAJOR_LAYOUT,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        sorted_dev = ttnn.reshape(sorted_dev, (clen * Ns, C))
 
         pieces = []
         off = 0
         for g, c in zip(uniq.tolist(), counts.tolist()):
-            seg = self._up(flat_sorted[off:off + c].contiguous())
+            seg = ttnn.to_layout(ttnn.slice(sorted_dev, [off, 0], [off + c, C]),
+                                 ttnn.TILE_LAYOUT)
             out = self._lin(seg, "pair_block_proj.%d.weight" % g)
             pieces.append(ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT))
             off += c
+        ttnn.deallocate(sorted_dev)
         sorted_delta = pieces[0] if len(pieces) == 1 else ttnn.concat(pieces, dim=0)
 
         inv_idx = ttnn.from_torch(inv.reshape(1, -1).to(torch.int32),
-                                  layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
+                                  layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
                                   dtype=ttnn.uint32)
         flat_delta = ttnn.embedding(inv_idx, sorted_delta, layout=ttnn.ROW_MAJOR_LAYOUT,
                                     memory_config=ttnn.DRAM_MEMORY_CONFIG)
@@ -183,11 +228,12 @@ class StructuralTokenExpander(_KeyedWeights):
         # --- pair: chunked over rows (opendde_v1 pair_chunk_size) ---
         Ns = role.shape[0]
         chunk = min(self.pair_chunk_size or Ns, Ns)
-        # z_res stays resident: upload once as bf16 and do the (row_parent x parent)
-        # double gather on device with one flat ttnn.embedding per chunk, instead of a
-        # (chunk,Ns,c_z) fp32 host gather + ~118 MB upload per chunk. Bit-exact: the
-        # gather is pure movement and the fp32->bf16 cast is elementwise, so it
-        # commutes with the gather.
+        # z_res stays resident: upload once as bf16 and do both gathers on
+        # device -- the (row_parent x parent) chunk gather below, and the
+        # role-pair permutation inside _pair_project_full -- instead of a
+        # (chunk,Ns,c_z) fp32 host gather + ~118 MB of per-chunk uploads.
+        # Bit-exact: the gathers are pure movement and the fp32->bf16 cast is
+        # elementwise, so it commutes with them.
         Nr = z_res.shape[0]
         z_flat = ttnn.from_torch(
             z_res.reshape(Nr * Nr, self.c_z), layout=ttnn.ROW_MAJOR_LAYOUT,
@@ -198,17 +244,17 @@ class StructuralTokenExpander(_KeyedWeights):
             row_index = torch.arange(start, end)
             pf = self._pair_features_rows(ifd, role, parent, row_index)
             row_parent = parent.index_select(0, row_index)
-            z_chunk_h = z_res.index_select(0, row_parent).index_select(1, parent).contiguous()
             gidx = (row_parent[:, None] * Nr + parent[None, :]).reshape(1, -1).to(torch.int32)
             z_dev = ttnn.embedding(
                 ttnn.from_torch(gidx, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
                                 dtype=ttnn.uint32),
                 z_flat, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-            z_dev = ttnn.to_layout(
+            z_dev = ttnn.reshape(z_dev, ((end - start) * Ns, self.c_z))
+            z_tile = ttnn.to_layout(
                 ttnn.reshape(z_dev, (end - start, Ns, self.c_z)), ttnn.TILE_LAYOUT)
-            z_dev = ttnn.add(z_dev, self._pair_project_full(z_chunk_h, role, row_index))
-            z_dev = ttnn.add(z_dev, self._up(self._pair_init_bias(pf)))
-            z_chunks.append(z_dev)
+            z_tile = ttnn.add(z_tile, self._pair_project_full(z_dev, role, row_index))
+            z_tile = ttnn.add(z_tile, self._pair_init_bias(pf))
+            z_chunks.append(z_tile)
             ab_chunks.append(self._attn_bias(pf))
         ttnn.deallocate(z_flat)
         z_struct = z_chunks[0] if len(z_chunks) == 1 else ttnn.concat(z_chunks, dim=-3)
