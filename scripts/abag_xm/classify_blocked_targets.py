@@ -69,7 +69,7 @@ MISSING = ("9j4c", "9i3p", "9q7y", "9ivj", "9mns")
 # all four models (WH Galaxy, 12 GiB/chip, campaign config, seed 42, fold time / DRAM peak):
 MEASURED = {
     "9j4c": ("FIXED, folds everywhere -- boltz2 472 s/5.50 GiB, esmfold2 782 s/9.82, "
-             "protenix-v2 1521 s/8.77, opendde run9 in flight (was: capacity, residue-scale "
+             "protenix-v2 1521 s/8.77, opendde 2902 s/8.84 (was: capacity, residue-scale "
              "pair tensor, trunk at ~43 s)"),
     "9i3p": ("FIXED, folds everywhere -- boltz2 353 s/4.91 GiB, esmfold2 660 s/9.28, "
              "protenix-v2 1145 s/7.18, opendde 2199 s/9.10 (was: capacity, residue-scale pair "
