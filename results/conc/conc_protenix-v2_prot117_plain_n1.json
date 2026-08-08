@@ -1,0 +1,73 @@
+{
+  "side": "gpu",
+  "mode": "plain",
+  "model": "protenix-v2",
+  "rung": "L2-bf16-fusion-cache",
+  "target": "prot117",
+  "label": "prot.yaml sequence (117 aa)",
+  "n_concurrent": 1,
+  "folds_per_worker": 4,
+  "diffusion_samples": 1,
+  "n_msa": 35,
+  "seed": 0,
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "worker_rcs": {
+    "0": 0
+  },
+  "wall_s": 204.21,
+  "cold_s": [
+    19.009
+  ],
+  "load_s": [
+    151.68
+  ],
+  "peak_alloc_gib": [
+    3.557
+  ],
+  "compute_apps_at_barrier": [
+    "1623447, 3196 MiB"
+  ],
+  "mps": null,
+  "date": "2026-08-08",
+  "n_workers": 1,
+  "agg_folds_per_s": 0.16464,
+  "agg_folds_per_s_window": 0.16464,
+  "window_s": 24.295,
+  "window_start": 6457910.24940165,
+  "window_end": 6457934.54482031,
+  "min_worker_coverage": 1.0,
+  "min_duty_cycle": 1.0,
+  "tail_skew_s": 0.0,
+  "latency_min_s": 6.061,
+  "latency_median_s": 6.069,
+  "latency_max_s": 6.096,
+  "total_folds": 4,
+  "clean": true,
+  "reason": null,
+  "per_worker": [
+    {
+      "worker": 0,
+      "n_folds": 4,
+      "busy_s": 24.295,
+      "span_s": 24.295,
+      "duty_cycle": 1.0,
+      "mean_latency_s": 6.07385,
+      "median_latency_s": 6.0688,
+      "rate_folds_per_s": 0.16464,
+      "first_start": 6457910.2494,
+      "last_end": 6457934.54482
+    }
+  ],
+  "smi_samples_in_window": 24,
+  "utilization_gpu_mean": 33.17,
+  "utilization_gpu_max": 38.0,
+  "utilization_memory_mean": 2.54,
+  "utilization_memory_max": 4.0,
+  "memory_used_mean": 3207.5,
+  "memory_used_max": 3213.0,
+  "power_draw_mean": 163.4,
+  "power_draw_max": 185.11,
+  "clocks_sm_mean": 1980.0,
+  "clocks_sm_max": 1980.0
+}

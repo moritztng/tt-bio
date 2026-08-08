@@ -1,0 +1,8 @@
+== MIG probe 2026-08-08T19:06:33Z ==
+name, driver_version, mig.mode.current, mig.mode.pending
+NVIDIA H200, 580.159.03, Disabled, Disabled
+--- attempt to enable MIG (expected to be refused inside a rented container):
+Unable to enable MIG Mode for GPU 00000000:D8:00.0: Insufficient Permissions
+Terminating early due to previous errors.
+rc=4
+GPU 0: NVIDIA H200 (UUID: GPU-d47285f1-c7a9-1b76-8a50-82640de306f0)

@@ -1,0 +1,2 @@
+name, power.limit [W], power.draw [W], memory.total [MiB]
+NVIDIA H200, 700.00 W, 78.48 W, 143771 MiB
