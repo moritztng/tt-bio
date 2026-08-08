@@ -97,18 +97,37 @@ def _worker(args) -> int:
 # launcher
 # --------------------------------------------------------------------------------------
 
+def _cpu_jiffies() -> tuple[float, float] | None:
+    """(idle_including_iowait, total) from /proc/stat, cumulative since boot."""
+    try:
+        with open("/proc/stat") as fh:
+            parts = [float(x) for x in fh.readline().split()[1:]]
+    except Exception:
+        return None
+    if len(parts) < 5:
+        return None
+    return parts[3] + parts[4], sum(parts)
+
+
 class SmiSampler(threading.Thread):
-    """Device telemetry on the same monotonic clock as the fold timestamps.
+    """Device *and host* telemetry on the same monotonic clock as the fold timestamps.
 
     Sampled rather than read once at the end because the number that matters is the mean
     over the window in which every worker was folding, not a peak that might have landed
     during a model load.
+
+    Host CPU is sampled alongside the GPU because at 117 aa this workload is host-bound
+    (N=1 measured 33% GPU utilisation), so a concurrency curve that flattens is ambiguous
+    on its own: the H200 may have saturated, or the rental's vCPUs may have. Only the pair
+    of numbers distinguishes those, and the whole point of this benchmark is not to quote
+    a device at less than its best.
     """
 
     def __init__(self, period_s: float = 1.0):
         super().__init__(daemon=True)
         self.period_s = period_s
         self.samples: list[tuple[float, list[float]]] = []
+        self.cpu_samples: list[tuple[float, tuple[float, float]]] = []
         self._stop = threading.Event()
 
     def run(self):
@@ -123,18 +142,33 @@ class SmiSampler(threading.Thread):
                 self.samples.append((t, vals))
             except Exception:
                 pass
+            jif = _cpu_jiffies()
+            if jif is not None:
+                self.cpu_samples.append((t, jif))
             self._stop.wait(self.period_s)
 
     def stop(self):
         self._stop.set()
 
     def window_stats(self, t0: float, t1: float) -> dict:
+        out = {}
+        # Host CPU: a difference of cumulative counters across the window, so it needs the
+        # first and last sample inside it rather than a mean of instantaneous readings.
+        cpu = [(t, v) for t, v in self.cpu_samples if t0 <= t <= t1]
+        if len(cpu) >= 2:
+            (_, (idle0, tot0)), (_, (idle1, tot1)) = cpu[0], cpu[-1]
+            d_tot, d_idle = tot1 - tot0, idle1 - idle0
+            if d_tot > 0:
+                out["host_cpu_busy_pct"] = round(100.0 * (1.0 - d_idle / d_tot), 2)
+                out["host_cpu_busy_cores"] = round(
+                    (os.cpu_count() or 0) * (1.0 - d_idle / d_tot), 2)
         rows = [v for t, v in self.samples if t0 <= t <= t1]
         if not rows:
-            return dict(smi_samples_in_window=0)
+            out["smi_samples_in_window"] = 0
+            return out
         cols = list(zip(*rows))
         names = SMI_FIELDS.split(",")
-        out = dict(smi_samples_in_window=len(rows))
+        out["smi_samples_in_window"] = len(rows)
         for name, col in zip(names, cols):
             key = name.replace(".", "_")
             out[f"{key}_mean"] = round(sum(col) / len(col), 2)
@@ -184,7 +218,15 @@ def launcher(args) -> int:
     sampler = SmiSampler()
     sampler.start()
 
-    env = dict(os.environ)
+    # Give each concurrent worker an equal share of the host's cores. Left to itself torch
+    # sizes its thread pools from the full core count, so N workers ask for N x cores
+    # threads and spend the difference in the scheduler -- at N=8 on a 24-vCPU rental that
+    # is a host artefact masquerading as a GPU throughput ceiling. At N=1 the share is the
+    # whole machine, so the control point stays comparable to the unpinned runs already
+    # committed. Floor of 2 so a large N cannot starve a worker to a single thread.
+    cores = os.cpu_count() or 1
+    omp = args.omp_threads if args.omp_threads > 0 else max(2, cores // args.n)
+    env = dict(os.environ, OMP_NUM_THREADS=str(omp), MKL_NUM_THREADS=str(omp))
     t_launch = time.monotonic()
     procs = []
     for i in range(args.n):
@@ -237,6 +279,7 @@ def launcher(args) -> int:
         n_msa=n_msa, seed=gpu_bench.SEED, recycling_steps=gpu_bench.CYCLES,
         sampling_steps=gpu_bench.STEPS,
         worker_rcs=rcs, wall_s=round(wall_s, 2),
+        omp_num_threads=omp, host_cpu_cores=cores,
         cold_s=[r.get("cold_s") for r in results],
         load_s=[r.get("load_s") for r in results],
         peak_alloc_gib=[r.get("peak_alloc_gib") for r in results],
@@ -252,7 +295,9 @@ def launcher(args) -> int:
           f"(window est {agg.get('agg_folds_per_s_window')}), "
           f"latency median {agg.get('latency_median_s')}s, "
           f"util {out.get('utilization_gpu_mean')}%, "
-          f"power {out.get('power_draw_mean')}W, {ok}", file=sys.stderr, flush=True)
+          f"power {out.get('power_draw_mean')}W, "
+          f"host cpu {out.get('host_cpu_busy_pct')}% of {cores} "
+          f"(omp {omp}), {ok}", file=sys.stderr, flush=True)
     return 0 if agg.get("clean") else 2
 
 
@@ -268,6 +313,8 @@ def main() -> int:
     ap.add_argument("--samples", type=int, default=1,
                     help="diffusion samples per fold; >1 is the in-process batching lever")
     ap.add_argument("--mode", default="plain", choices=["plain", "mps", "mig"])
+    ap.add_argument("--omp-threads", type=int, default=0,
+                    help="threads per worker; 0 = an equal share of the host's cores")
     ap.add_argument("--msa-a3m", default=str(HERE / "fixtures" / "prot117.a3m"))
     ap.add_argument("--seq-file", default=str(HERE / "fixtures" / "prot117.seq"))
     ap.add_argument("--name", default="prot117")
