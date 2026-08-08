@@ -176,6 +176,28 @@ class SmiSampler(threading.Thread):
         return out
 
 
+def _effective_cpus() -> int:
+    """Cores this container may actually use: the cgroup CPU quota if one is set,
+    else the visible count. cgroup v2 cpu.max holds '<quota> <period>' ('max' if
+    uncapped); v1 splits them across cpu.cfs_quota_us / cpu.cfs_period_us."""
+    try:
+        p = Path("/sys/fs/cgroup/cpu.max")
+        if p.exists():
+            q, per = p.read_text().split()[:2]
+            if q != "max":
+                return max(1, int(int(q) / int(per)))
+    except Exception:
+        pass
+    try:
+        q = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us").read_text())
+        per = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_period_us").read_text())
+        if q > 0:
+            return max(1, q // per)
+    except Exception:
+        pass
+    return os.cpu_count() or 1
+
+
 def _compute_apps() -> list[str]:
     try:
         out = subprocess.run(
@@ -224,7 +246,11 @@ def launcher(args) -> int:
     # is a host artefact masquerading as a GPU throughput ceiling. At N=1 the share is the
     # whole machine, so the control point stays comparable to the unpinned runs already
     # committed. Floor of 2 so a large N cannot starve a worker to a single thread.
-    cores = os.cpu_count() or 1
+    # The share must come from the EFFECTIVE core count: a vast.ai container sees every
+    # host core (192 on machine 51172) while the cgroup quota caps it at ~23, and sizing
+    # pools from the visible count oversubscribes the quota 8x (measured 2026-08-08:
+    # omp=192 at N=1 depressed the control fold 7.22s vs 6.07-6.15s on uncapped hosts).
+    cores = _effective_cpus()
     omp = args.omp_threads if args.omp_threads > 0 else max(2, cores // args.n)
     env = dict(os.environ, OMP_NUM_THREADS=str(omp), MKL_NUM_THREADS=str(omp))
     t_launch = time.monotonic()
@@ -279,7 +305,8 @@ def launcher(args) -> int:
         n_msa=n_msa, seed=gpu_bench.SEED, recycling_steps=gpu_bench.CYCLES,
         sampling_steps=gpu_bench.STEPS,
         worker_rcs=rcs, wall_s=round(wall_s, 2),
-        omp_num_threads=omp, host_cpu_cores=cores,
+        omp_num_threads=omp, host_cpu_cores=os.cpu_count() or 0,
+        container_cpu_cores=cores,
         cold_s=[r.get("cold_s") for r in results],
         load_s=[r.get("load_s") for r in results],
         peak_alloc_gib=[r.get("peak_alloc_gib") for r in results],
