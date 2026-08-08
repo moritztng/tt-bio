@@ -50,6 +50,28 @@ if [ "$MODEL" = "opendde" ]; then
   PY=${PY_OPENDDE:-/root/venv-opendde/bin/python3}; CKPT=${CKPT_OPENDDE:-/root/ckpt/opendde.pt}
 fi
 
+# CUDA header fix (root-caused 2026-08-08, instance 47202144): on the runtime image,
+# conda cuda-compiler leaves cuda_runtime_api.h under targets/x86_64-linux/include and
+# ships no cusparse/cublas headers at all, so protenix's fused-layer_norm JIT build dies
+# at import. The torch wheel bundles every needed header/lib under site-packages/nvidia;
+# symlink them (and the conda targets dirs) into the prefix. Idempotent, runs on every
+# session including SKIP_SETUP=1.
+if [ -d /opt/conda ]; then
+  SP=$(/opt/conda/bin/python3 -c "import nvidia,os;print(os.path.dirname(nvidia.__file__))" 2>/dev/null)
+  for pkg in $SP/*/ /opt/conda/targets/x86_64-linux/; do
+    for sub in include lib; do
+      d=${pkg}${sub}; [ -d "$d" ] || continue
+      for f in "$d"/*; do
+        b=$(basename "$f"); tgt=/opt/conda/$sub/$b
+        [ -e "$tgt" ] || ln -s "$f" "$tgt" 2>/dev/null
+      done
+    done
+  done
+fi
+# Warm the JIT extension cache once in the launcher (~2 min build) so N workers at a
+# point do not serialize against the same torch-extensions lock on paid time.
+$PY -c "import runner.inference" >/dev/null 2>&1 || true
+
 point(){    # point <mode> <n> <target> [samples]
   local mode=$1 n=$2 tgt=$3 s=${4:-1} label tag
   if ! have_budget; then
