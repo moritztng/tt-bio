@@ -7,14 +7,18 @@
 #   RETRY SWEEP (N=64, completes the panel; single folds, timeout 21600):
 #     boltz2 21 + opendde 22 targets that failed p26/p25 as rc=124 (3h cap too small) or
 #       rc=1 (transient sqlite store failure on the 99%-full disk) -- NOT capacity.
-#       od OOM-at-mps1 targets (9ivj, 9q7y) are NOT retried: documented WH DRAM exclusions.
+#       od OOM-at-mps1 targets (9ivj, 9q7y) are NOT retried here: WH DRAM-excluded at the
+#       time. The 2026-08-08 large-target OOM fix (wk/tt-bio-large-target-oom-rootcause)
+#       lifted this; those cells fold in window p32 on the fixed engine.
 #     protenix 9 + esmfold2 6 pilot targets that hit p25b's 7200s cap -- these complete the
 #       px/esm N=64 overlay the pre-registered cross-hardware gate consumes (gate runs on qb1).
 #
 #   N=256 RUNG (the deep ladder's next rung for the PHASE-0-licensed models):
 #     boltz2 164 targets x 4 chunks x 64 samples, seeds 40000+1000*j, mps 1
 #     opendde 160 targets x 4 chunks x 64 samples, seeds 20000+1000*j, mps 5->2->1 narrowing
-#       (excluded: 9i3p 9j4c 9ivj 9q7y -- documented WH DRAM exclusions at mps=1)
+#       (9i3p 9j4c 9ivj 9q7y excluded at the time for WH DRAM; lifted 2026-08-08 by the
+#       large-target OOM fix -- those cells fold in window p32 on the fixed engine)
+#     ARCHIVAL: never re-run this script -- p27/tasks.txt is the p31 link-phase mtime anchor.
 #     Chunking is RAM-forced: boltz2 holds ~0.22 GB/sample in host RAM (sat-depth: 221 GB per
 #     1000-sample fold); 64-sample chunks cap a fold at ~15 GB so 32 concurrent folds fit in
 #     the galaxy's 566 GB. Chunk records carry chunk/chunks; harvest pools <t>_c<j> dirs.
@@ -35,7 +39,7 @@ BZ_RETRY="21av 22ps 9d72 9d74 9gvn 9hv9 9i5n 9iar 9mze 9mzf 9n09 9nl1 9u5r 9xth 
 OD_RETRY="21av 21du 9d72 9d73 9gfr 9lxp 9ly3 9q6h 9q6n 9u5p 9ve0 9xqn 9xsx 9xth 9y0a 9y0e 9yc5 9yio 9ynx 9yxd 9zdu 9rye"
 PX_RETRY="9d3j 9i3p 9j4c 9ly5 9m0j 9ma0 9obn 9udq 9zen"
 ESM_RETRY="21tw 9d3j 9j4c 9m0j 9ppw 9zen"
-OD_EXCL="9i3p 9j4c 9ivj 9q7y"
+OD_EXCL=""   # lifted 2026-08-08 by the large-target OOM fix; see window p32
 
 TASKS=$B/tasks.txt
 {

@@ -6,10 +6,13 @@
 # nests the N=256 pool exactly:
 #   boltz2       164 targets, seeds 40000-47000, mps 1
 #   opendde-abag 160 targets, seeds 20000-27000, mps 5->2->1 narrowing
-#                (excluded: 9i3p 9j4c 9ivj 9q7y -- documented WH DRAM exclusions at mps=1)
-#   protenix-v2  163 targets, seeds 30000-37000, mps 5->1 narrowing (excluded: 9j4c)
+#                (9i3p 9j4c 9ivj 9q7y not in THIS window: they need the 2026-08-08
+#                large-target OOM fix, which cannot deploy into this tree without tripping
+#                the link gate -- their full 8-chunk cells fold in window p32 on the fixed
+#                engine, deepn_src_oomfix)
+#   protenix-v2  163 targets, seeds 30000-37000, mps 5->1 narrowing (9j4c likewise in p32)
 #   esmfold2     163 targets, seeds 50000-57000, single-sequence auto chunking, no MSA
-#                flags and no mps ever (the campaign measures the no-MSA regime; excl 9j4c)
+#                flags and no mps ever (the campaign measures the no-MSA regime; 9j4c in p32)
 # Chunking is RAM-forced (boltz2 ~0.22 GB/sample host RAM; 64-sample chunks cap a fold at
 # ~15 GB so 32 concurrent folds fit the galaxy's 566 GB).
 #
@@ -76,7 +79,9 @@ PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
 MSA=$H/abag_xm/msa_cache
 
-# WH DRAM capacity exclusions, an engineering boundary and never a scoring or biology call.
+# Per-window target lists. The four large targets were WH DRAM exclusions until the
+# 2026-08-08 OOM fix; this window runs the frozen p27-era engine tree, so they fold in
+# window p32 on the fixed tree instead. Never a scoring or biology call.
 # boltz2 has none: it folded all 164 targets incl. 9j4c on WH through p27/p28 (rung-512
 # chunk-0 record count is 164). Do not "tidy" 9j4c into BZ_EXCL for symmetry.
 BZ_EXCL=""
