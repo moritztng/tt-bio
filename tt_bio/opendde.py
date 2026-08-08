@@ -408,6 +408,13 @@ class OpenDDE:
                                   n_cycles=n_cycles, progress_fn=progress_fn)
         s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z))
+        # The residue-axis device tensors are never read from device again -- the
+        # expander, diffusion conditioning and confidence all consume the host copies
+        # above. Free them before the expander allocates the structural-scale pair
+        # tensor (~1.9x the residue axis): on 12 GiB Wormhole parts their holes are
+        # what the refiner's full-size concats squeeze into.
+        for _t in (s_inputs_tt, s_trunk_tt, z_tt, mt_dev):
+            ttnn.deallocate(_t)
 
         # 2) the novel seam: residue -> structural-token axis
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(

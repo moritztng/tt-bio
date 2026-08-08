@@ -13,15 +13,20 @@ tensors instead of four. The MSA features of very deep MSAs are streamed from th
 recycling cycles instead of staying resident. ESMFold2's pair initialisation is row-tiled the
 same way.
 
-Measured on the WH Galaxy (12 GiB chips), the four targets the AbAg-XM campaign had to exclude
-now fold on every shipped structure model:
+Measured on the WH Galaxy (12 GiB chips) on the four targets the AbAg-XM campaign had to
+exclude:
 
 | target | residues | boltz2 | esmfold2 | protenix-v2 | opendde-abag |
 |---|---|---|---|---|---|
 | 9q7y | 853 | OK | OK | OK | OK |
 | 9ivj | 891 | OK | OK | OK | OK |
-| 9i3p | 980 | OK | OK | OK | OK |
-| 9j4c | 1095 | OK | OK | OK | OK |
+| 9i3p | 980 | OK | OK | OK | not yet |
+| 9j4c | 1095 | OK | OK | OK | not yet |
+
+The two open OpenDDE cells fail on allocator fragmentation, not capacity: after the trunk's
+MSA churn the 12 GiB address space has no contiguous per-bank hole large enough for the
+structural refiner's full-size pair-tensor concats. A fix is in flight on this branch; the
+table is updated as cells are measured, not anticipated.
 
 Per-cell fold times and peak DRAM are in the release notes of the version that landed this.
 Normal-size targets never enter the blocked path: it is gated on a token-count threshold

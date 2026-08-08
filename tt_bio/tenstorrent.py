@@ -30,6 +30,19 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+# Pair-tensor byte size above which a chunked path's row/channel blocks are assembled
+# on the HOST instead of by ttnn.concat on device. The concat needs a fresh
+# full-pair-tensor allocation while the input and every block are still live (k=3
+# pair-tensor multiples), and on a 12 GiB Wormhole part whose address space the trunk
+# has churned, a >~2 GiB (>=~180 MiB/bank) request is refused even with GiBs nominally
+# free (measured: od_9i3p refused 1902x1920x384x2 = 2.61 GiB at 7.2 GiB used). Moving
+# the blocks to the host as they are produced keeps at most one block on device, and
+# the final upload of the assembled tensor happens when only the input is live, so the
+# request always lands in a freshly vacated full-size hole. torch.cat is pure data
+# movement -- bit-identical to ttnn.concat, same equivalence class as the row-blocked
+# norms. 1.5 GiB matches the tri_att qkv byte cap: residue-scale pair tensors
+# (<=0.9 GiB) keep the device concat, so normal targets are byte-identical.
+CONCAT_HOST_BYTES = int(os.environ.get("TT_BIO_CONCAT_HOST_BYTES", 1536 * 2 ** 20))  # 1.5 GiB
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
@@ -529,6 +542,42 @@ def dram_peak(tag=None):
     return max(_DRAM_PEAK.values(), default=0)
 
 
+def _host_concat(x: ttnn.Tensor) -> bool:
+    """Whether a chunked path whose output is x's shape assembles its blocks on the host.
+
+    See CONCAT_HOST_BYTES. bf16 only: a bf8 (fast-mode) or fp32 (affinity) block would
+    round-trip through torch bf16 lossily, so those configs keep the device concat.
+    """
+    return (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
+            and x.volume * 2 > CONCAT_HOST_BYTES)
+
+
+def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
+    """Assemble accumulated row/channel blocks, on the host when they were offloaded.
+
+    Host branch: the blocks are torch tensors (bit-identical bytes); the upload is one
+    full-size allocation made when the accumulator holds nothing on device. Device
+    branch: ttnn.concat, then free the blocks (same as the call sites always did).
+    """
+    if host:
+        return ttnn.from_torch(
+            torch.cat(acc, dim=dim), layout=ttnn.TILE_LAYOUT,
+            device=get_device(), dtype=ttnn.bfloat16)
+    out = ttnn.concat(acc, dim=dim)
+    for t in acc:
+        ttnn.deallocate(t)
+    return out
+
+
+def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
+    """Add a produced block to the accumulator, offloading it when host-assembling."""
+    if host:
+        acc.append(ttnn.to_torch(t))
+        ttnn.deallocate(t)
+    else:
+        acc.append(t)
+
+
 def _open_and_init_device(trace_region_size):
     """Open + configure TT device 0 (the physical card is already leased by the caller)."""
     global _trace_region_size
@@ -829,6 +878,10 @@ class TriangleMultiplication(Module):
         # (same chunk order). Kept only for DRAM: at small L the chunks live in
         # L1 and holding all of them at once would blow the L1 budget.
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        # Assemble the per-channel chunks on the host when the full result is large
+        # enough that the concat's full-size allocation would risk a fragmented-DRAM
+        # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
+        host_acc = large_seq and _host_concat(x_in)
         x_chunks = [] if large_seq else None
         for i in range(self.n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
@@ -881,7 +934,7 @@ class TriangleMultiplication(Module):
             else:
                 x_chunk = ttnn.permute(x_chunk, (0, 2, 3, 1), memory_config=memory_config)
             if x_chunks is not None:
-                x_chunks.append(x_chunk)
+                _acc_append(x_chunks, x_chunk, host_acc)
             elif i == 0:
                 x = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 ttnn.deallocate(x_chunk)
@@ -897,9 +950,7 @@ class TriangleMultiplication(Module):
                 # concat drops that peak from 4 pair-tensor multiples to 3 --
                 # the difference between fitting and the 9i3p/9j4c refusal.
                 ttnn.deallocate(x_norm_in)
-            x = ttnn.concat(x_chunks, dim=-1)
-            for c in x_chunks:
-                ttnn.deallocate(c)
+            x = _acc_concat(x_chunks, -1, host_acc)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if H > SEQ_LEN_MORE_CHUNKING:
             # Row-block the output projections instead of computing them full-size.
@@ -946,16 +997,13 @@ class TriangleMultiplication(Module):
                     core_grid=CORE_GRID_MAIN,
                 )
                 ttnn.deallocate(x_rows)
-                blocks.append(ttnn.multiply_(
+                _acc_append(blocks, ttnn.multiply_(
                     p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
-                ))
+                ), host_acc)
                 ttnn.deallocate(g_block)
             ttnn.deallocate(x)
             dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
-            out = ttnn.concat(blocks, dim=1)
-            for b in blocks:
-                ttnn.deallocate(b)
-            return out
+            return _acc_concat(blocks, 1, host_acc)
         x = ttnn.layer_norm(
             x,
             weight=self.out_norm_weight,
@@ -1187,6 +1235,10 @@ class TriangleAttention(Module):
         if need_chunk:
             if not self.affinity and attn_mask is not None:
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
+            # Assemble the row blocks on the host when the full result is large enough
+            # that the concat's full-size allocation would risk a fragmented-DRAM
+            # refusal (CONCAT_HOST_BYTES); the loop then holds one block on device.
+            host_acc = _host_concat(x)
             parts = []
             for s in range(0, S, chunk):
                 end = min(s + chunk, S)
@@ -1211,11 +1263,21 @@ class TriangleAttention(Module):
                 else:
                     o_chunk = attend(qkv_chunk, triangle_bias)
                 ttnn.deallocate(qkv_chunk)
-                parts.append(gate_and_project(o_chunk, g_chunk))
+                _acc_append(parts, gate_and_project(o_chunk, g_chunk), host_acc)
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) row loop done [z={'x'.join(str(d) for d in x.shape)}]")
             # x here is the reshaped (unpermuted) input -- for the starting variant it can
             # alias the caller's pair tensor, so it must NOT be deallocated.
             ttnn.deallocate(triangle_bias)
+            if host_acc:
+                h = torch.cat(parts, dim=0)
+                # The ending variant's back-transpose rides the host assembly (pure
+                # data movement, bit-identical) so no second full-size device tensor
+                # is allocated for it here.
+                if self.ending:
+                    h = h.permute(1, 0, 2)
+                x = ttnn.from_torch(h.contiguous(), layout=ttnn.TILE_LAYOUT,
+                                    device=get_device(), dtype=ttnn.bfloat16)
+                return ttnn.reshape(x, (1, *x.shape))
             x = ttnn.concat(parts, dim=0)
             del parts
         else:
@@ -1647,11 +1709,15 @@ class Transition(Module):
             # list comprehension accumulates a full set of outputs before concat adds a
             # third; here the peak is input + accumulated outputs + one block. swiglu is
             # row-local, so block boundaries do not change a single output byte.
+            # Host-assemble the row blocks when the full result is large enough that
+            # the concat's full-size allocation would risk a fragmented-DRAM refusal
+            # (CONCAT_HOST_BYTES). Guarded on the swiglu output dtype being bf16.
+            host_acc = _host_concat(x) and (self.dtype or _dtype()) == ttnn.bfloat16
             parts = []
             for s in range(0, H, transition_h_chunk_size):
                 c = x[:, s:min(s + transition_h_chunk_size, H)]
                 if W <= transition_w_chunking_threshold:
-                    parts.append(swiglu(c))
+                    _acc_append(parts, swiglu(c), host_acc)
                     ttnn.deallocate(c)
                 else:
                     w_parts = []
@@ -1660,14 +1726,11 @@ class Transition(Module):
                         w_parts.append(swiglu(cw))
                         ttnn.deallocate(cw)
                     ttnn.deallocate(c)
-                    parts.append(ttnn.concat(w_parts, dim=2))
+                    _acc_append(parts, ttnn.concat(w_parts, dim=2), host_acc)
                     for wp in w_parts:
                         ttnn.deallocate(wp)
             dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
-            out = ttnn.concat(parts, dim=1)
-            for p in parts:
-                ttnn.deallocate(p)
-            return out
+            return _acc_concat(parts, 1, host_acc)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
         if W <= transition_w_chunking_threshold:

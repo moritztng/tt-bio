@@ -23,9 +23,12 @@ import torch
 import ttnn
 from tt_bio.tenstorrent import PairformerLayer, get_device, dram_peak
 
-OPENDDE_CKPT = ("/home/ttuser/.cache/huggingface/hub/models--aurekaresearch--OpenDDE/"
-                "snapshots/eddd563ce96571f784012edd8f045181c8f8627d/opendde_abag.pt")
-PROTENIX_CKPT = "/home/ttuser/.boltz/protenix-v2.pt"
+import os
+
+OPENDDE_CKPT = os.path.expanduser(
+    "~/.cache/huggingface/hub/models--aurekaresearch--OpenDDE/"
+    "snapshots/eddd563ce96571f784012edd8f045181c8f8627d/opendde_abag.pt")
+PROTENIX_CKPT = os.path.expanduser("~/.boltz/protenix-v2.pt")
 
 
 def build_layer(model, ckc):
