@@ -36,6 +36,18 @@ def install_trunk_patches():
     P.Trunk._template = SS.timed("trunk_template", P.Trunk._template)
 
 
+def install_expander_patches():
+    # opendde StructuralTokenExpander sub-stages (per row-chunk, so gross aggregates):
+    # helper methods are timed directly; the residual (host double-gather of z_res,
+    # the big _up uploads, device adds) falls out of expander gross minus helpers.
+    import tt_bio.opendde as O
+    E = O.StructuralTokenExpander
+    E._pair_features_rows = SS.timed("exp_pair_features", E._pair_features_rows)
+    E._pair_project_full = SS.timed("exp_pair_project", E._pair_project_full)
+    E._pair_init_bias = SS.timed("exp_pair_init_bias", E._pair_init_bias)
+    E._attn_bias = SS.timed("exp_attn_bias", E._attn_bias)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, choices=["protenix-v2", "opendde"])
@@ -48,6 +60,8 @@ def main():
 
     SS.install_patches()
     install_trunk_patches()
+    if args.model == "opendde":
+        install_expander_patches()
 
     spec = importlib.util.spec_from_file_location(
         "tt_baseline", REPO_ROOT / "scripts" / "gpu_vs_tt" / "tt_baseline.py")
