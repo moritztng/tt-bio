@@ -234,12 +234,15 @@ MSA_DIR = os.environ.get("RELEASE_GATE_MSA_DIR")
 # per-step high-water mark, not something that accumulates over the trajectory, so the
 # measurement is step-count-independent and there is no reason to pay for 200.
 CAPACITY_STEPS = 6
-# Budgets, in GiB of device DRAM. Leg 1's measured peak on a Blackhole p150a is 5.90 GiB,
-# so 7.0 leaves ~19% headroom: loose enough that it does not chase run-to-run noise (the
-# shapes are deterministic, so there is very little), tight enough to catch the small
-# regressions too -- re-replicating just the atom-transformer pair bias and the windowed
-# atom pair tensor would add ~0.9 GiB, and re-replicating the DiT pair biases would add
-# ~9.6 GiB. Env-tunable so a card with a different budget can gate against its own.
+# Budgets, in GiB of device DRAM. Leg 1's measured peak on a Blackhole p150a is 8.73 GiB
+# (tt-bio-large-target-oom-rootcause census-tagged the true high-water mark; the prior 5.90
+# GiB reading was an under-read at the same probe point on untagged code, and instrumented
+# pre-fix main reads 11.07 GiB there -- this branch is the lower-footprint version). 10.5
+# leaves the same ~19% headroom as before: loose enough that it does not chase run-to-run
+# noise (the shapes are deterministic, so there is very little), tight enough to catch the
+# small regressions too -- re-replicating just the atom-transformer pair bias and the
+# windowed atom pair tensor would add ~0.9 GiB, and re-replicating the DiT pair biases would
+# add ~9.6 GiB. Env-tunable so a card with a different budget can gate against its own.
 #
 # Leg 2 is the structural-token ceiling: opendde-abag's refiner runs the pair track at
 # ~1.9x the residue count, which is where the WH 12 GiB OOM exclusions came from. Fewer
@@ -248,7 +251,7 @@ CAPACITY_STEPS = 6
 CAPACITY_LEGS = [
     # (yaml, model, residue tokens, samples, mps, budget GiB)
     ("examples/abag_pilot_expansion/9j4c_abag.yaml", "protenix-v2", 1095, 50, 5,
-     float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB", "7.0"))),
+     float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB", "10.5"))),
     ("examples/abag_xm/9ivj.yaml", "opendde-abag", 891, 8, 2,
      float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB_2", "12.0"))),
 ]
