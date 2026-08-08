@@ -84,7 +84,7 @@ def _import_any(names: list[str]):
 
 
 def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
-                   checkpoint: str | None):
+                   checkpoint: str | None, samples: int = SAMPLES):
     """Replicate runner/inference.py::run()'s 3-pass config construction."""
     cb = _import_any(["configs.configs_base", "protenix.configs.configs_base"])
     cd = _import_any(["configs.configs_data", "protenix.configs.configs_data"])
@@ -100,7 +100,7 @@ def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
         "--seeds", str(SEED),
         "--model.N_cycle", str(CYCLES),
         "--sample_diffusion.N_step", str(STEPS),
-        "--sample_diffusion.N_sample", str(SAMPLES),
+        "--sample_diffusion.N_sample", str(samples),
         "--use_msa", "true", "--use_template", "false", "--use_rna_msa", "false",
         # The v2 checkpoint ships template_embedder weights; with templates off
         # the module is not built, so the sanctioned load is non-strict.
@@ -167,7 +167,7 @@ def _ca_kabsch_rmsd(c1, c2, ca_idx1=None, ca_idx2=None) -> float:
 
 
 def _build_opendde_runner(rung: dict, input_json: str, dump_dir: str,
-                          checkpoint: str | None):
+                          checkpoint: str | None, samples: int = SAMPLES):
     """OpenDDE's public runner factory (runner.batch_inference.get_default_runner)
     with the vendor's own knob names. Returns (runner, configs, inf_module,
     dataloader_module, seed_module)."""
@@ -177,7 +177,7 @@ def _build_opendde_runner(rung: dict, input_json: str, dump_dir: str,
     sd = importlib.import_module("opendde.utils.seed")
     runner = bi.get_default_runner(
         seeds=[SEED], dump_dir=dump_dir, n_cycle=CYCLES, n_step=STEPS,
-        n_sample=SAMPLES, dtype=rung["dtype"], model_name="opendde_v1",
+        n_sample=samples, dtype=rung["dtype"], model_name="opendde_v1",
         load_checkpoint_path=checkpoint or "", use_msa=True,
         trimul_kernel=rung["trimul_kernel"], triatt_kernel=rung["triatt_kernel"],
         enable_cache=rung["enable_cache"], enable_fusion=rung["enable_fusion"],
@@ -189,6 +189,62 @@ def _build_opendde_runner(rung: dict, input_json: str, dump_dir: str,
     return runner, configs, inf, dl, sd
 
 
+def build_fold(model: str, model_name: str, rung: dict, input_json: str,
+               dump_dir: Path, checkpoint: str | None, n_msa_expected: int,
+               samples: int = SAMPLES):
+    """Load one ladder rung and return ``(one_fold, meta, runner)``.
+
+    Split out of ``run_model`` so the concurrency launcher (``gpu_concurrency.py``)
+    folds through exactly the same code path as the latency benchmark: an aggregate
+    throughput number is only comparable to the committed per-fold latency if the fold
+    itself is identical.
+    """
+    torch = importlib.import_module("torch")
+    dump_dir.mkdir(parents=True, exist_ok=True)
+
+    t_load = time.perf_counter()
+    if model == "opendde":
+        runner, configs, inf, dl, sd = _build_opendde_runner(
+            rung, input_json, str(dump_dir), checkpoint, samples=samples)
+    else:
+        inf = _import_any(["runner.inference", "protenix.runner.inference"])
+        dl = _import_any(["protenix.data.inference.infer_dataloader"])
+        sd = _import_any(["protenix.utils.seed"])
+        configs = _build_configs(model_name, rung, input_json, str(dump_dir),
+                                 checkpoint, samples=samples)
+        if hasattr(inf, "update_gpu_compatible_configs"):
+            configs = inf.update_gpu_compatible_configs(configs)
+        inf.download_inference_cache(configs)
+        runner = inf.InferenceRunner(configs)
+    load_s = time.perf_counter() - t_load
+
+    dataloader = dl.get_inference_dataloader(configs=configs)
+    data, atom_array, err = next(iter(dataloader))[0]
+    assert not err, f"featurization failed: {err}"
+    new_configs = inf.update_inference_configs(configs, data["N_token"].item())
+    runner.update_model_configs(new_configs)
+    n_msa = int(data["N_msa"].item())
+    n_token = int(data["N_token"].item())
+    # Fairness is only real if both sides consume the SAME alignment rows. The
+    # TT side reads all 35; if this side cropped or padded to something else the
+    # head-to-head is invalid, so fail loudly rather than publish the number.
+    assert n_msa == n_msa_expected, \
+        f"GPU consumed {n_msa} MSA rows, TT side uses {n_msa_expected}"
+
+    def one_fold():
+        sd.seed_everything(seed=SEED, deterministic=False)
+        t0 = time.perf_counter()
+        # protenix's forward deletes the MSA keys from input_feature_dict
+        # in place (protenix.py:524); hand each fold a fresh shallow copy.
+        pred = runner.predict(
+            {**data, "input_feature_dict": dict(data["input_feature_dict"])})
+        torch.cuda.synchronize()
+        return time.perf_counter() - t0, pred
+
+    return one_fold, dict(load_s=round(load_s, 2), n_msa=n_msa, n_token=n_token,
+                          diffusion_samples=samples), runner
+
+
 def run_model(model: str, model_name: str, repeat: int, input_json: str,
               dump_root: Path, checkpoint: str | None, out_path: Path,
               rungs: list[dict], label: str, n_msa_expected: int) -> dict:
@@ -197,47 +253,10 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
     results = []
     ref_coords = None
     for rung in rungs:
-        rung_dir = dump_root / rung["name"]
-        rung_dir.mkdir(parents=True, exist_ok=True)
-
-        t_load = time.perf_counter()
-        if model == "opendde":
-            runner, configs, inf, dl, sd = _build_opendde_runner(
-                rung, input_json, str(rung_dir), checkpoint)
-        else:
-            inf = _import_any(["runner.inference", "protenix.runner.inference"])
-            dl = _import_any(["protenix.data.inference.infer_dataloader"])
-            sd = _import_any(["protenix.utils.seed"])
-            configs = _build_configs(model_name, rung, input_json, str(rung_dir),
-                                     checkpoint)
-            if hasattr(inf, "update_gpu_compatible_configs"):
-                configs = inf.update_gpu_compatible_configs(configs)
-            inf.download_inference_cache(configs)
-            runner = inf.InferenceRunner(configs)
-        load_s = time.perf_counter() - t_load
-
-        dataloader = dl.get_inference_dataloader(configs=configs)
-        data, atom_array, err = next(iter(dataloader))[0]
-        assert not err, f"featurization failed: {err}"
-        new_configs = inf.update_inference_configs(configs, data["N_token"].item())
-        runner.update_model_configs(new_configs)
-        n_msa = int(data["N_msa"].item())
-        n_token = int(data["N_token"].item())
-        # Fairness is only real if both sides consume the SAME alignment rows. The
-        # TT side reads all 35; if this side cropped or padded to something else the
-        # head-to-head is invalid, so fail loudly rather than publish the number.
-        assert n_msa == n_msa_expected, \
-            f"GPU consumed {n_msa} MSA rows, TT side uses {n_msa_expected}"
-
-        def one_fold():
-            sd.seed_everything(seed=SEED, deterministic=False)
-            t0 = time.perf_counter()
-            # protenix's forward deletes the MSA keys from input_feature_dict
-            # in place (protenix.py:524); hand each fold a fresh shallow copy.
-            pred = runner.predict(
-                {**data, "input_feature_dict": dict(data["input_feature_dict"])})
-            torch.cuda.synchronize()
-            return time.perf_counter() - t0, pred
+        one_fold, meta, runner = build_fold(
+            model, model_name, rung, input_json, dump_root / rung["name"],
+            checkpoint, n_msa_expected)
+        load_s, n_msa, n_token = meta["load_s"], meta["n_msa"], meta["n_token"]
 
         cold_s, pred = one_fold()
         times = []
@@ -259,7 +278,7 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
 
         ts = sorted(times)
         results.append(dict(
-            rung=rung["name"], rung_config=rung, load_s=round(load_s, 2),
+            rung=rung["name"], rung_config=rung, load_s=load_s,
             cold_s=round(cold_s, 3), warm_times_s=[round(t, 3) for t in times],
             warm_min_s=round(ts[0], 3), warm_median_s=round(ts[len(ts) // 2], 3),
             warm_max_s=round(ts[-1], 3), n_msa=n_msa, n_token=n_token,
