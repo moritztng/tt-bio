@@ -608,6 +608,15 @@ def run_capacity(keep: bool, leg) -> dict:
                         f"run, so capacity was NOT measured (an unmeasured leg is a FAIL, "
                         f"never a pass by absence of evidence)")
         return row
+    # A LOWER BOUND on the true peak, not the allocator high-water mark: dram_peak() only
+    # samples where model code calls it, so this is the max over instrumented points rather
+    # than over time. Adding a probe call in a hot region can raise the reported number
+    # without anything using more memory -- which is exactly what happened in 2026-08 when
+    # main carried no tag on the eager 4-D pair transition and reported 5.90 GiB for a leg
+    # whose real peak was ~11.07. Reading a true peak is not affordable (ttnn.get_memory_view
+    # drains the pipeline; a 117-aa fold goes 12.0 s -> 44.7 s under a dense census), so the
+    # answer is to keep the probes where the memory actually is, and to calibrate the budgets
+    # below against a measurement taken with those probes present.
     row["peak_gib"] = max(float(p) for p in peaks)
 
     struct_dir = out / "structures"
