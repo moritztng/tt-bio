@@ -1878,11 +1878,11 @@ class Trunk(_KeyedWeights):
                 tm = Transition(PW.remap_transition(sub(P + "msa_stack.transition_m.")), compute_kernel_config)
             self.MSA.append((opm, pwa, tm, pl))
 
-    def _template(self, z3, te_at, N, nt):
+    def _template(self, z3, tpl_a, N, nt):
         zn = self._ln(z3, "template_embedder.layernorm_z.weight", "template_embedder.layernorm_z.bias")
         u = None
         for t in range(nt):
-            v = ttnn.add(self._lin(self._up(te_at[t].unsqueeze(0)), "template_embedder.linear_no_bias_a.weight"),
+            v = ttnn.add(tpl_a[t],
                          self._lin(zn, "template_embedder.linear_no_bias_z.weight"))
             for pl in self.TPL:
                 v = pl(None, v)[1]
@@ -2014,6 +2014,11 @@ class Trunk(_KeyedWeights):
             uv = feat["template_unit_vector"][t] * mc[..., None] * pm[..., None]
             bb = (feat["template_backbone_frame_mask"][t] * mc * pm).unsqueeze(-1)
             te_at.append(torch.cat([dg, pb, aai, aaj, uv, bb], -1))
+        # te_at is cycle-invariant: upload + project it once here instead of re-uploading
+        # ~57 MB x nt on every recycle cycle inside _template. Per-fold local on purpose:
+        # N varies between targets, so never cache this on self.
+        tpl_a = [self._lin(self._up(t.unsqueeze(0)), "template_embedder.linear_no_bias_a.weight")
+                 for t in te_at]
         # msa feature
         msa = F.one_hot(feat["msa"].long(), 32).float()
         ms = torch.cat([msa, feat["has_deletion"].unsqueeze(-1), feat["deletion_value"].unsqueeze(-1)], -1).unsqueeze(0)
@@ -2040,7 +2045,7 @@ class Trunk(_KeyedWeights):
             zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
             z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
             if nt > 0:
-                z3 = ttnn.add(z3, self._template(z3, te_at, N, nt))
+                z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt))
             z3 = self._msa(z3, m_feat)
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
             s = ttnn.add(s_init, sc)
@@ -2051,6 +2056,8 @@ class Trunk(_KeyedWeights):
             # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
             trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
+        for t in tpl_a:
+            ttnn.deallocate(t)
         # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the
         # divergence is born in a later cycle; if this matches too, the trunk is fully exonerated
         # and only the diffusion path (and the allocator state it inherits) can explain the fold.
