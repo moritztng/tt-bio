@@ -20,13 +20,14 @@ exclude:
 |---|---|---|---|---|---|
 | 9q7y | 853 | OK | OK | OK | OK |
 | 9ivj | 891 | OK | OK | OK | OK |
-| 9i3p | 980 | OK | OK | OK | not yet |
+| 9i3p | 980 | OK | OK | OK | OK |
 | 9j4c | 1095 | OK | OK | OK | not yet |
 
-The two open OpenDDE cells fail on allocator fragmentation, not capacity: after the trunk's
-MSA churn the 12 GiB address space has no contiguous per-bank hole large enough for the
-structural refiner's full-size pair-tensor concats. A fix is in flight on this branch; the
-table is updated as cells are measured, not anticipated.
+The last OpenDDE cell (9j4c) was a lifetime bug, not capacity: the structural pair tensor and
+the sampler's pair bias stayed resident through the residue-axis confidence stage that never
+reads them, so the confidence pair track started with under 2 GiB free. Both are now freed at
+the diffusion boundary; the fold is in verification on this branch. The table is updated as
+cells are measured, not anticipated.
 
 Per-cell fold times and peak DRAM are in the release notes of the version that landed this.
 Normal-size targets never enter the blocked path: it is gated on a token-count threshold

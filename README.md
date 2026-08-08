@@ -85,7 +85,7 @@ tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen
 | PAE/PDE output (`--write_pae`) | no | no | yes | no | no |
 
 Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card (OpenDDE, the
-strictest case, is verified to 891 residues with the two largest cells still in fix-verification);
+strictest case, is verified to 980 residues with the largest cell still in fix-verification);
 the pair track switches to row-blocked execution at a size threshold smaller targets never
 reach, so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
 
