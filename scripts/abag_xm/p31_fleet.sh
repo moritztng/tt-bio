@@ -66,6 +66,11 @@
 # zero-log kill after ZERO_MIN minutes (the pre-banner spin class, which burns CPU forever
 # behind a 0-byte log so the two-leg rule never fires), post-hang tt-smi -r quarantine
 # before the slot's next fold, kill-class records normalized to rc=124 with real cifs.
+# ZERO_MIN CALIBRATION LESSON (2026-08-08, p31 first launch): Rich writes to a non-tty log
+# only on final repaint, so a healthy fold's log sits at 0 bytes until it COMPLETES (verified
+# via scheduler sqlite events: folds killed at the 30 min wire were mid-diffusion, step
+# 199/200, events flowing). p29's legit silent folds ran to 89 min. ZERO_MIN=30 decapitated
+# ~40 pct of attempts and made every fold > 30 min uncompletable. 99 sits above the p29 max.
 # Thresholds env-overridable for fixture testing (STALL_MIN/GRACE_S/CAP_S/MIN_CPU_S/ZERO_MIN).
 set -u
 H=$HOME/mthuening
@@ -253,7 +258,7 @@ group_cpu() { # <pgid> -> total CPU seconds of every process in the group
 guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group kills + quarantine
   local log=$1 u=$2; shift 2
   local stall_min=${STALL_MIN:-45} cap_s=${CAP_S:-21600} grace_s=${GRACE_S:-120} min_cpu=${MIN_CPU_S:-60}
-  local zero_min=${ZERO_MIN:-30}
+  local zero_min=${ZERO_MIN:-99}
   local poll_s=${POLL_S:-60}
   setsid env TT_VISIBLE_DEVICES=$u "$@" > "$log" 2>&1 &
   local pid=$! t0=$(date +%s) last_cpu=-1 last_size=-1 stall=0 zero=0 killrc=0 g=0
