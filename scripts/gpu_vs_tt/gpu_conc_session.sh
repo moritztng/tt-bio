@@ -17,10 +17,13 @@
 #   NS="1 2 4 8"    concurrency values for the plain sweep
 #   MPS_NS="4 8 2"  concurrency values for the MPS sweep (4 first: most informative)
 #   TARGETS300=1    also run the 298-aa target at N=1,4 if the budget allows
+#   SAMPLES_LEG=1   also sweep diffusion samples 2 and 4 at N=1 (see the state doc)
 #   SKIP_SETUP=1    reuse an already-provisioned instance
+#   RESULTS/RUNROOT/PY  overrides, used to smoke-test the driver off the rental
 set -uo pipefail    # NOT -e: one failed point must not kill the session
 cd "$(dirname "$0")"
-RESULTS=/root/bench-results
+RESULTS=${RESULTS:-/root/bench-results}
+RUNROOT=${RUNROOT:-/root}
 mkdir -p "$RESULTS"
 
 MODEL=${MODEL:-protenix-v2}
@@ -42,21 +45,29 @@ if [ "${SKIP_SETUP:-0}" != "1" ]; then
 fi
 export CUDA_HOME=/opt/conda
 export PATH=/opt/conda/bin:$PATH
-PY=/root/venv-protenix/bin/python3
-[ "$MODEL" = "opendde" ] && PY=/root/venv-opendde/bin/python3 && CKPT=/root/ckpt/opendde.pt
+PY=${PY:-/root/venv-protenix/bin/python3}
+if [ "$MODEL" = "opendde" ]; then
+  PY=${PY_OPENDDE:-/root/venv-opendde/bin/python3}; CKPT=${CKPT_OPENDDE:-/root/ckpt/opendde.pt}
+fi
 
-point(){    # point <mode> <n> <target>
-  local mode=$1 n=$2 tgt=$3
+point(){    # point <mode> <n> <target> [samples]
+  local mode=$1 n=$2 tgt=$3 s=${4:-1} label tag
   if ! have_budget; then
     echo "== SKIP $mode N=$n $tgt: $(el)s past BUDGET_S=$BUDGET_S ==" | tee -a "$RESULTS/conc.log"
     return
   fi
-  echo "== $mode N=$n $tgt at $(el)s ==" | tee -a "$RESULTS/conc.log"
+  case "$tgt" in
+    prot117) label="prot.yaml sequence (117 aa)" ;;
+    prot300) label="CDK2 / PDB 1HCL (298 aa)" ;;
+    *) label="$tgt" ;;
+  esac
+  tag="n${n}"; [ "$s" != "1" ] && tag="n${n}_s${s}"
+  echo "== $mode N=$n $tgt samples=$s at $(el)s ==" | tee -a "$RESULTS/conc.log"
   $PY gpu_concurrency.py --model "$MODEL" --n "$n" --folds "$FOLDS" --mode "$mode" \
-      --checkpoint "$CKPT" --name "$tgt" \
+      --checkpoint "$CKPT" --name "$tgt" --label "$label" --samples "$s" \
       --msa-a3m "$(pwd)/fixtures/${tgt}.a3m" --seq-file "$(pwd)/fixtures/${tgt}.seq" \
-      --run-dir "/root/run-${mode}-${tgt}-n${n}" \
-      --out "$RESULTS/conc_${MODEL}_${tgt}_${mode}_n${n}.json" 2>&1 | tee -a "$RESULTS/conc.log"
+      --run-dir "$RUNROOT/run-${mode}-${tgt}-${tag}" \
+      --out "$RESULTS/conc_${MODEL}_${tgt}_${mode}_${tag}.json" 2>&1 | tee -a "$RESULTS/conc.log"
 }
 
 # ---- plain: N processes time-slicing. The honest "customer just runs more jobs" case.
@@ -83,6 +94,13 @@ else
     | tee -a "$RESULTS/mps_state.txt"
 fi
 unset CUDA_MPS_PIPE_DIRECTORY CUDA_MPS_LOG_DIRECTORY
+
+# ---- in-process batching, the third throughput lever. Off by default: it changes the
+# unit from folds to samples of one target, and it is only publishable as a comparison if
+# the TT side ran the same sweep (it is free there).
+if [ "${SAMPLES_LEG:-0}" = "1" ]; then
+  for s in 2 4; do point plain 1 prot117 "$s"; done
+fi
 
 # ---- 298-aa repeat, only if the clock allows. Two points is enough to say whether the
 # concurrency headroom survives at a compute-heavier size.

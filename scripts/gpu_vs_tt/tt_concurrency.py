@@ -170,10 +170,10 @@ def launcher(args) -> int:
     cards = [int(c) for c in args.cards.split(",") if c.strip() != ""]
     n = len(cards)
     run_dir = Path(args.run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
     for pat in ("ready.*", "done.*.json", "failed.*"):
         for p in run_dir.glob(pat):
             p.unlink()
-    run_dir.mkdir(parents=True, exist_ok=True)
 
     sampler = TtSmiSampler(_find_tt_smi() if args.telemetry else None, cards)
     sampler.start()
