@@ -411,9 +411,190 @@ def m4b(dev, ckc):
     print(f"    {med}  speedup h16/h64 = {med['h16(x64)'] / med['h64(x16)']:.2f}x")
 
 
+
+
+def d1(dev, ckc):
+    """D1: program-config sweep for the 6x [320,320,256]@[256,256] dense pair projections
+    (trimul p_out/g_out, tri-att o). Default picks 1D mcast in0_block_w=1 (744 us/call,
+    18 TFLOP/s, 141 GB/s vs a 241 us DRAM roofline floor). Sweep bigger K-blocks (1D) and
+    a 2D reuse-mcast grid. fp32-reference checked, interleaved timing."""
+    print("D1 dense pair projection [320,320,256]@[256,256] program-config sweep")
+    x3_t = torch.randn(N, N, C_Z, dtype=torch.bfloat16)
+    w_t = torch.randn(C_Z, C_Z, dtype=torch.bfloat16)
+    ref = x3_t.float() @ w_t.float()
+    x3 = ttnn.from_torch(x3_t, layout=ttnn.TILE_LAYOUT, device=dev)
+    w = ttnn.from_torch(w_t, layout=ttnn.TILE_LAYOUT, device=dev)
+    G1310 = ttnn.CoreCoord(13, 10)
+
+    def cfg1d(ibw, osh, osw, mcast_in0=False):
+        return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+            compute_with_storage_grid_size=G1310, in0_block_w=ibw,
+            out_subblock_h=osh, out_subblock_w=osw, per_core_M=25, per_core_N=8,
+            fuse_batch=True, fused_activation=None, mcast_in0=mcast_in0)
+
+    def cfg2d(gx, gy, ibw, osh, osw, pm, pn):
+        return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy), in0_block_w=ibw,
+            out_subblock_h=osh, out_subblock_w=osw, per_core_M=pm, per_core_N=pn,
+            transpose_mcast=False, fused_activation=None)
+
+    def leg_default():
+        return ttnn.linear(x3, w, compute_kernel_config=ckc, dtype=ttnn.bfloat16,
+                           memory_config=ttnn.DRAM_MEMORY_CONFIG, core_grid=CORE_GRID_MAIN)
+
+    legs = [("default", leg_default)]
+    for name, pc in [
+        ("1d_ibw2", cfg1d(2, 1, 4)), ("1d_ibw4", cfg1d(4, 1, 4)), ("1d_ibw8", cfg1d(8, 1, 4)),
+        ("1d_ibw4_mi0", cfg1d(4, 1, 4, mcast_in0=True)),
+        ("2d_8x10_ibw1", cfg2d(8, 10, 1, 1, 1, 320, 1)),
+        ("2d_4x10_ibw1", cfg2d(4, 10, 1, 1, 1, 320, 2)),
+    ]:
+        def make(pc=pc):
+            def leg():
+                return ttnn.matmul(x3, w, program_config=pc, compute_kernel_config=ckc,
+                                   dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            return leg
+        try:
+            y = make()()          # compile + validate now so a bad config cannot skew timing
+            ttnn.synchronize_device(dev)
+            check(name, y, ref)
+            legs.append((name, make()))
+        except Exception as e:
+            print(f"    {name}: REJECTED {type(e).__name__} {str(e)[:110]}")
+    med = interleave(legs, dev)
+    print(f"    median ms: {med}")
+    base = med["default"]
+    for k, v in sorted(med.items(), key=lambda kv: kv[1]):
+        print(f"    {k:16s} {v:7.3f} ms  {base / v:5.2f}x vs default")
+
+
+
+
+def d2(dev, ckc):
+    """D2: in0_block_w sweep for the thin-N pair projections, [320,320,256]@[256,8]
+    (tri-att bias x2, 466 us each, 112 GB/s vs 435 roof) and @[256,16] (pair-bias z proj,
+    473 us). The dense D1 sweep is L1-closed (out CB alone is 800 KB/core), but at N=8/16
+    the out CB is tiny so bigger K-blocks fit. Full-K (ibw=8) should cut NoC round trips."""
+    print("D2 thin-N pair projection in0_block_w sweep ([256->8] and [256->16])")
+    x3_t = torch.randn(N, N, C_Z, dtype=torch.bfloat16)
+    x3 = ttnn.from_torch(x3_t, layout=ttnn.TILE_LAYOUT, device=dev)
+    G1310 = ttnn.CoreCoord(13, 10)
+
+    def cfg1d(ibw, pn, mcast_in0=False):
+        return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+            compute_with_storage_grid_size=G1310, in0_block_w=ibw,
+            out_subblock_h=1, out_subblock_w=1, per_core_M=25, per_core_N=pn,
+            fuse_batch=True, fused_activation=None, mcast_in0=mcast_in0)
+
+    for k_dim in (8, 16):
+        pn = max(k_dim // 32, 1)
+        w_t = torch.randn(C_Z, k_dim, dtype=torch.bfloat16)
+        ref = x3_t.float() @ w_t.float()
+        w = ttnn.from_torch(w_t, layout=ttnn.TILE_LAYOUT, device=dev)
+
+        def leg_default(w=w):
+            return ttnn.linear(x3, w, compute_kernel_config=ckc, dtype=ttnn.bfloat16,
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG, core_grid=CORE_GRID_MAIN)
+
+        legs = [("default", leg_default)]
+        for ibw in (2, 4, 8):
+            for mi0 in (False, True):
+                name = f"ibw{ibw}" + ("_mi0" if mi0 else "")
+                pc = cfg1d(ibw, pn, mi0)
+
+                def make(pc=pc):
+                    def leg():
+                        return ttnn.matmul(x3, w, program_config=pc, compute_kernel_config=ckc,
+                                           dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                    return leg
+                try:
+                    y = make()()
+                    ttnn.synchronize_device(dev)
+                    check(f"k{k_dim} {name}", y, ref)
+                    legs.append((name, make()))
+                except Exception as e:
+                    print(f"    k={k_dim} {name}: REJECTED {type(e).__name__} {str(e)[:90]}")
+        med = interleave(legs, dev)
+        base = med["default"]
+        for k, v in sorted(med.items(), key=lambda kv: kv[1]):
+            print(f"    k={k_dim} {k:14s} {v:7.3f} ms  {base / v:5.2f}x vs default")
+
+
+
+
+def d3(dev, ckc):
+    """D3: in0_block_w sweep on the transition swiglu GEMMs, the 45 medium matmuls per block
+    (~221 us each, 9.9 ms/block). Shapes at N=320, h_chunk=64: fc1/fc2 [64,320,256]@[256,1024]
+    (L1 out, fc1 silu) and fc3 [64,320,1024]@[1024,256] (DRAM out). mcast_in0=True is EXCLUDED:
+    measured numerically broken on these shapes (PCC 0.007 vs fp32 ref, a wrong-data mcast)."""
+    print("D3 transition GEMM in0_block_w sweep (fc1/fc2 [256->1024], fc3 [1024->256])")
+    G1310 = ttnn.CoreCoord(13, 10)
+
+    def cfg1d(ibw, pm, pn):
+        return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+            compute_with_storage_grid_size=G1310, in0_block_w=ibw,
+            out_subblock_h=1, out_subblock_w=4, per_core_M=pm, per_core_N=pn,
+            fuse_batch=True, fused_activation=None, mcast_in0=False)
+
+    def run(tag, x_t, w_t, act, mem, ibws, pms):
+        # NOTE: all legs run with DRAM out, including default. The model's fc1/fc2 use L1 out,
+        # but a standalone loop of 40 MB L1-resident outputs fragments L1 and the NEXT program's
+        # static CBs clash with it (measured: "CBs clash with L1 buffers" inside interleave).
+        # DRAM out shifts every leg by the same write-back cost, so the ibw ranking survives.
+        mem = ttnn.DRAM_MEMORY_CONFIG
+        x = ttnn.from_torch(x_t, layout=ttnn.TILE_LAYOUT, device=dev)
+        w = ttnn.from_torch(w_t, layout=ttnn.TILE_LAYOUT, device=dev)
+        ref = None
+        if act is None:
+            ref = x_t.float() @ w_t.float()
+
+        def leg_default():
+            return ttnn.linear(x, w, activation=act, compute_kernel_config=ckc,
+                               dtype=ttnn.bfloat16, memory_config=mem, core_grid=CORE_GRID_MAIN)
+
+        legs = [("default", leg_default)]
+        k_tiles = x_t.shape[-1] // 32
+        n_tiles = max(w_t.shape[-1] // 32, 1)
+        for ibw, pm in ((i, m) for i in ibws for m in pms):
+            if ibw > k_tiles:
+                continue
+            name = f"ibw{ibw}_pm{pm}"
+            pc = cfg1d(ibw, pm, n_tiles)
+
+            def make(pc=pc, act=act, mem=mem):
+                def leg():
+                    return ttnn.linear(x, w, activation=act, program_config=pc,
+                                       compute_kernel_config=ckc, dtype=ttnn.bfloat16,
+                                       memory_config=mem)
+                return leg
+            try:
+                y = make()()
+                ttnn.synchronize_device(dev)
+                if ref is not None:
+                    check(f"{tag} {name}", y, ref)
+                ttnn.deallocate(y)
+                legs.append((name, make()))
+            except Exception as e:
+                print(f"    {tag} {name}: REJECTED {type(e).__name__} {str(e)[:90]}")
+        med = interleave(legs, dev)
+        base = med["default"]
+        for k, v in sorted(med.items(), key=lambda kv: kv[1]):
+            print(f"    {tag} {k:10s} {v:7.3f} ms  {base / v:5.2f}x vs default")
+
+    # in-model shape at 298 aa: W=320 <= 384 and c=256 -> TRANSITION_H_CHUNK_SIZE_BIG = 32,
+    # so 10 chunks of [1,32,320,*] per transition, 2 transitions per block.
+    HC = 32
+    run("fc1", torch.randn(1, HC, N, C_Z, dtype=torch.bfloat16),
+        torch.randn(C_Z, C_HID, dtype=torch.bfloat16), "silu", ttnn.L1_MEMORY_CONFIG,
+        (1, 2, 4, 8), (3, 4, 5))
+    run("fc3", torch.randn(1, HC, N, C_HID, dtype=torch.bfloat16),
+        torch.randn(C_HID, C_Z, dtype=torch.bfloat16), None, ttnn.DRAM_MEMORY_CONFIG,
+        (4, 8, 16, 32), (3, 4, 5))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--only", choices=["m1", "m2", "m2b", "m4", "m4b", "m5", "m6", "m7", "m7b", "m7c"], default=None)
+    ap.add_argument("--only", choices=["m1", "m2", "m2b", "m4", "m4b", "m5", "m6", "m7", "m7b", "m7c", "d1", "d2", "d3"], default=None)
     args = ap.parse_args()
     dev = get_device()
     ckc = ckc_of(dev, ttnn.MathFidelity.HiFi4, True)
@@ -422,7 +603,7 @@ def main():
         {"m1": lambda: m1(dev, ckc), "m2": lambda: m2(dev, ckc), "m2b": lambda: m2b(dev, ckc),
          "m4": lambda: m4(dev, ckc), "m4b": lambda: m4b(dev, ckc), "m5": lambda: m5(dev),
          "m6": lambda: m6(dev, ckc), "m7": lambda: m7(dev, ckc), "m7b": lambda: m7(dev, ckc, fine=True),
-         "m7c": lambda: m7c(dev, ckc)}[name]()
+         "m7c": lambda: m7c(dev, ckc), "d1": lambda: d1(dev, ckc), "d2": lambda: d2(dev, ckc), "d3": lambda: d3(dev, ckc)}[name]()
 
 
 if __name__ == "__main__":
