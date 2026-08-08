@@ -1,0 +1,66 @@
+{
+  "side": "tenstorrent",
+  "model": "protenix-v2",
+  "machine": "tt-quietbox",
+  "cards": [
+    3,
+    3
+  ],
+  "n_concurrent": 2,
+  "folds_per_worker": 3,
+  "diffusion_samples": 1,
+  "target": "/home/ttuser/wt-conc/examples/prot.yaml",
+  "ttnn_version": "0.67.4",
+  "tt_bio_git": "3956bbdf317d45871c8bf9a97ca8b9653546e642",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "seed": 0,
+  "worker_rcs": {
+    "0": 1,
+    "1": 1
+  },
+  "worker_log_tails": {
+    "0": [
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_concurrency.py\", line 277, in <module>",
+      "    sys.exit(main())",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_concurrency.py\", line 270, in main",
+      "    return worker(args)",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_concurrency.py\", line 49, in worker",
+      "    return _worker(args)",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_concurrency.py\", line 60, in _worker",
+      "    one_fold, meta, state = tt_baseline.build_fold(",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_baseline.py\", line 133, in build_fold",
+      "    get_device()  # open the chip once (lease enforced here)",
+      "  File \"/home/ttuser/wt-conc/tt_bio/tenstorrent.py\", line 486, in get_device",
+      "    _device_lease = DeviceLease().acquire()",
+      "  File \"/home/ttuser/wt-conc/tt_bio/device_lease.py\", line 147, in acquire",
+      "    raise DeviceInUseError(",
+      "tt_bio.device_lease.DeviceInUseError: physical card 3 on tt-quietbox is in use by pid:3827 (pid 3827); waited 20s. Refusing to open it concurrently (would collide at the fd level)."
+    ],
+    "1": [
+      "2026-08-08 18:48:13.402 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "Traceback (most recent call last):",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_concurrency.py\", line 277, in <module>",
+      "    sys.exit(main())",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_concurrency.py\", line 270, in main",
+      "    return worker(args)",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_concurrency.py\", line 49, in worker",
+      "    return _worker(args)",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/tt_concurrency.py\", line 67, in _worker",
+      "    released = conc.barrier(run_dir, wid, args.n)",
+      "  File \"/home/ttuser/wt-conc/scripts/gpu_vs_tt/conc.py\", line 72, in barrier",
+      "    raise RuntimeError(f\"peer worker failed before the barrier: {dead}\")",
+      "RuntimeError: peer worker failed before the barrier: ['failed.0']",
+      "2026-08-08 18:48:30.132 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)",
+      "2026-08-08 18:48:30.132 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)"
+    ]
+  },
+  "wall_s": 30.01,
+  "cold_s": [],
+  "load_s": [],
+  "plddt": [],
+  "card_of_worker": {},
+  "date": "2026-08-08",
+  "clean": false,
+  "reason": "no worker produced a result"
+}
