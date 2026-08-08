@@ -28,8 +28,16 @@
 #
 # od keeps the campaign-standard mps 5->2->1 narrowing (measured single-sample DRAM peaks
 # on the fixed engine: 8.8-9.6 GiB, so mps=5 cannot fit; the narrowing loop finds the fit
-# empirically and records it). Runner hardening identical to p31: setsid process groups,
-# no-progress kill, zero-log kill, post-hang tt-smi -r quarantine, rc=124 kill class.
+# empirically and records it). Runner hardening as p31 (setsid process groups, no-progress
+# kill, zero-log kill, post-hang tt-smi -r quarantine, rc=124 kill class) but with
+# large-target thresholds: a healthy fold's log stays 0 bytes until completion (p31 pass-5
+# lesson), and these chunks are the longest of the campaign -- the handback's smoke-fold
+# times (1716-2902 s) scale to ~3.6-6 h per 64-sample od chunk at the p31-measured
+# typical-target ratio (2097 s chunk / 280 s smoke = 7.5x). So ZERO_MIN=600 (10 h) sits
+# above every plausible legit silent chunk, and CAP_S=43200 (12 h) gives ~2x margin over
+# the longest projection; the 45-min no-progress leg (CPU-based) is the real hang
+# detector. p31's ZERO_MIN=99 was calibrated on p29's 89-min max silent fold, which does
+# NOT cover these cells.
 set -u
 H=$HOME/mthuening
 SRC=$H/deepn_src_oomfix
@@ -61,8 +69,8 @@ group_cpu() { # <pgid> -> total CPU seconds of every process in the group
 
 guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group kills + quarantine
   local log=$1 u=$2; shift 2
-  local stall_min=${STALL_MIN:-45} cap_s=${CAP_S:-21600} grace_s=${GRACE_S:-120} min_cpu=${MIN_CPU_S:-60}
-  local zero_min=${ZERO_MIN:-30}
+  local stall_min=${STALL_MIN:-45} cap_s=${CAP_S:-43200} grace_s=${GRACE_S:-120} min_cpu=${MIN_CPU_S:-60}
+  local zero_min=${ZERO_MIN:-600}
   local poll_s=${POLL_S:-60}
   setsid env TT_VISIBLE_DEVICES=$u "$@" > "$log" 2>&1 &
   local pid=$! t0=$(date +%s) last_cpu=-1 last_size=-1 stall=0 zero=0 killrc=0 g=0
