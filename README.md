@@ -84,6 +84,11 @@ tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen
 | Covalent `bond` constraints | yes | no | yes | no | yes |
 | PAE/PDE output (`--write_pae`) | no | no | yes | no | no |
 
+Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card, on every structure
+model including OpenDDE, whose structural-token expander makes it the strictest case. The pair
+track switches to row-blocked execution at a size threshold smaller targets never reach, so
+their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
+
 All structure models support the sampling, output-format, and scheduling options.
 MSA, affinity, constraint, and auxiliary-output options apply only where listed
 below. Each model downloads its weights automatically on first use, except

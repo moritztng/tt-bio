@@ -5,10 +5,9 @@
 # the 2026-08-04 same-seed pairing root-cause licensed them on galaxy (a673a4d8). 4 chunks
 # x 64 samples on the seed-nested ladder (chunk j seed = base+1000*j), so chunk 0 IS the
 # N=64 fold:
-#   protenix-v2 163 targets x 4 chunks, seeds 30000-33000, mps 5->1 narrowing
-#   esmfold2    163 targets x 4 chunks, seeds 50000-53000, single-seq auto chunking
+#   protenix-v2 164 targets x 4 chunks, seeds 30000-33000, mps 5->1 narrowing
+#   esmfold2    164 targets x 4 chunks, seeds 50000-53000, single-seq auto chunking
 #     (never pass msa flags or mps -- the campaign measures the no-MSA regime)
-#   both exclude 9j4c (documented WH DRAM capacity exclusion).
 #
 # SKIP-AND-LINK (same binding rule as p28): chunk-0 slots whose N=64 source provably
 # matches -- same seed block by construction, engine tree unchanged since p28 launch
@@ -66,9 +65,12 @@ CHIPS=${CHIPS:-$(seq -s' ' 0 $((NCHIP-1)))}
 PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
 MSA=$H/abag_xm/msa_cache
-# 9j4c WH DRAM exclusion; the 15-target pilot sets fold chunk 0 fresh (no p28 panel
-# record by design) but chunks 1-3 ride the same tasks.
-EXCL="9j4c"
+# No target exclusions. 9j4c was excluded here for WH DRAM capacity until 2026-08-08, when
+# the pair-track memory fix (workstream tt-bio-large-target-oom-rootcause) made it fold on a
+# 12 GiB Wormhole chip on all four models -- esmfold2 782 s / 9.82 GiB, protenix-v2 1521 s /
+# 8.77 GiB measured. Keep this variable: it is the escape hatch for a target that turns out
+# to be broken for a non-memory reason, not a memory budget.
+EXCL=""
 
 TASKS=$B/tasks.txt
 {

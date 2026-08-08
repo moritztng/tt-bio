@@ -973,13 +973,34 @@ class LanguageModelShimModel(Module):
         lz_t = torch.Tensor(ttnn.to_torch(lz)).float().reshape(B, L, K, 256)
         x_t = (combine_w.view(1, 1, K, 1) * lz_t).sum(2)  # [B,L,256]
         x = lin(ttnn.from_torch(x_t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE), self.dp_w, self.dp_b)
-        a = ttnn.repeat(ttnn.unsqueeze(x, 2), (1, 1, L, 1))  # [B,L,L,256]
-        b = ttnn.repeat(ttnn.unsqueeze(x, 1), (1, L, 1, 1))
-        feat = ttnn.concat([ttnn.multiply(a, b), ttnn.subtract(a, b)], dim=-1)  # [B,L,L,512]
+        # The outer-product pair init holds a, b, their product and difference, and the
+        # 512-wide concat all at full [B,L,L,*]: ~4.4 GiB at L=1095, which is the
+        # allocation esmfold2's 9j4c exclusion dies on (1255833600 B = 1095x1120x512x2,
+        # measured on the WH Galaxy). Every op below is row-local over dim=1 (a varies
+        # along rows, b is a broadcast of x along rows, and the MLP/LN are per-row), so
+        # row tiles reassemble bit-identically and the full-size tensors never exist.
+        from tt_bio import tenstorrent
+        tile = tenstorrent.pair_row_tile(L)
+        if tile:
+            parts = [self._pair_init_rows(x, s, min(s + tile, L), L)
+                     for s in range(0, L, tile)]
+            return ttnn.concat(parts, dim=1)
+        return self._pair_init_rows(x, 0, L, L)
+
+    def _pair_init_rows(self, x, s, e, L):
+        ck = self.compute_kernel_config
+        lin = self._lin
+        ln = lambda t, w, b: ttnn.layer_norm(t, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
+        xa = x if (s == 0 and e == L) else x[:, s:e]
+        a = ttnn.repeat(ttnn.unsqueeze(xa, 2), (1, 1, L, 1))  # [B,R,L,256]
+        b = ttnn.repeat(ttnn.unsqueeze(x, 1), (1, e - s, 1, 1))
+        feat = ttnn.concat([ttnn.multiply(a, b), ttnn.subtract(a, b)], dim=-1)  # [B,R,L,512]
         ttnn.deallocate(a); ttnn.deallocate(b)
         h = ttnn.gelu(lin(feat, self.o0_w, self.o0_b))
-        h = lin(h, self.o2_w, self.o2_b)
-        return ln(h, self.fln_w, self.fln_b)
+        ttnn.deallocate(feat)
+        h2 = lin(h, self.o2_w, self.o2_b)
+        ttnn.deallocate(h)
+        return ln(h2, self.fln_w, self.fln_b)
 
 
 class LanguageModelShim(TorchWrapper):

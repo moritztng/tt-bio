@@ -59,11 +59,27 @@ MISSING = ("9j4c", "9i3p", "9q7y", "9ivj", "9mns")
 # What a device run actually showed, rather than what this script's arithmetic would guess. An
 # earlier version classified 9q7y and 9ivj as transients on the strength of their residue-scale
 # footprint and offered "retry first"; retried, both reproduced their refused byte counts exactly.
+#
+# Post-fix truth (2026-08-08, branch wk/tt-bio-large-target-oom-rootcause): the four OOMs were
+# one tensor family (the bf16 pair representation) at three sites -- pair-op multiplicity in the
+# trunk/refiner, deep-MSA co-residency, and per-bank contiguity after trunk churn. The fix
+# row-blocks the pair ops, host-offloads the pristine MSA features, byte-caps the tri_att row
+# chunk, assembles oversized concats on the host, and frees the structural pair tensor plus the
+# sampler's pair bias before the residue-axis confidence stage. All four targets now fold on
+# all four models (WH Galaxy, 12 GiB/chip, campaign config, seed 42, fold time / DRAM peak):
 MEASURED = {
-    "9j4c": "capacity, residue-scale pair tensor, fails in the trunk at ~43 s",
-    "9i3p": "capacity, residue-scale pair tensor, fails in the trunk at ~44 s",
-    "9q7y": "capacity, STRUCTURAL-scale pair tensor, fails in refiner block 0 at ~1320 s",
-    "9ivj": "capacity, STRUCTURAL-scale pair tensor, fails in refiner block 0 at ~1308 s",
+    "9j4c": ("FIXED, folds everywhere -- boltz2 472 s/5.50 GiB, esmfold2 782 s/9.82, "
+             "protenix-v2 1521 s/8.77, opendde 2902 s/8.84 (was: capacity, residue-scale "
+             "pair tensor, trunk at ~43 s)"),
+    "9i3p": ("FIXED, folds everywhere -- boltz2 353 s/4.91 GiB, esmfold2 660 s/9.28, "
+             "protenix-v2 1145 s/7.18, opendde 2199 s/9.10 (was: capacity, residue-scale pair "
+             "tensor, trunk at ~44 s)"),
+    "9q7y": ("FIXED, folds everywhere -- boltz2 289 s/4.35 GiB, esmfold2 535 s/8.80, "
+             "protenix-v2 949 s/5.70, opendde 1716 s/8.98 (was: capacity, STRUCTURAL-scale "
+             "pair tensor, refiner block 0 at ~1320 s)"),
+    "9ivj": ("FIXED, folds everywhere -- boltz2 291 s/4.35 GiB, esmfold2 588 s/9.01, "
+             "protenix-v2 918 s/6.09, opendde 1744 s/9.62 (was: capacity, STRUCTURAL-scale "
+             "pair tensor, refiner block 0 at ~1308 s)"),
     "9mns": "no OOM at all -- does not finish inside 3000 s; unexplained",
 }
 
@@ -211,11 +227,12 @@ def main() -> None:
     print("\nverdicts (measured on a Wormhole Galaxy, not inferred from the table above):")
     for t in MISSING:
         print(f"  {t:<6} {MEASURED.get(t, 'unmeasured')}")
-    print("\nAll four that OOM die on the same tensor family, the pair representation "
-          "(N, pad32(N), 384) in bf16.\nTwo do so at residue scale in the trunk, two at "
+    print("\nAll four that OOM'd die on the same tensor family, the pair representation "
+          "(N, pad32(N), 384) in bf16.\nTwo did so at residue scale in the trunk, two at "
           "structural-token scale where Ns is ~1.9x larger.\nThe footprint columns rank on the "
           "RESIDUE-scale pair tensor only, which is why 9q7y and 9ivj\nlook comfortable there and "
-          "still fail: at structural scale their pair tensor is ~3.7x bigger.")
+          "still failed: at structural scale their pair tensor is ~3.7x bigger.\nPost-fix all "
+          "four fold on all four models; the campaign exclusions for them are unnecessary.")
 
 
 if __name__ == "__main__":

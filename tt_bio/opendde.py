@@ -470,6 +470,13 @@ class OpenDDE:
                                   n_cycles=n_cycles, progress_fn=progress_fn)
         s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z))
+        # The residue-axis device tensors are never read from device again -- the
+        # expander, diffusion conditioning and confidence all consume the host copies
+        # above. Free them before the expander allocates the structural-scale pair
+        # tensor (~1.9x the residue axis): on 12 GiB Wormhole parts their holes are
+        # what the refiner's full-size concats squeeze into.
+        for _t in (s_inputs_tt, s_trunk_tt, z_tt, mt_dev):
+            ttnn.deallocate(_t)
 
         # 2) the novel seam: residue -> structural-token axis
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
@@ -488,6 +495,10 @@ class OpenDDE:
             "token_index": ifd["structural_token_index"],
         })
         pair_z = P._diffusion_pair_cond(z_st, relp_struct).reshape(Ns, Ns, -1)
+        # The structural pair tensor's only consumer was the pair conditioning above
+        # (confidence runs on the residue axis). Free it before the sampler stage: at
+        # Ns=2113 it is 3.2 GiB the confidence pairformer will need back.
+        ttnn.deallocate(z_st)
         a2s = ifd["atom_to_structural_token_idx"]
         S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
         p_lm = p_lm + P._plm_z_term(pair_z, a2s, nb, nq, nk)
@@ -515,6 +526,11 @@ class OpenDDE:
                 coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
                                          trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
             coords = torch.stack(coords, 0)
+        # dit_z (LN(pair_z) uploaded for the on-device DiT) is sampler-only state; the
+        # residue-axis confidence head never reads it. At Ns=2113 it is another ~1.1 GiB
+        # the confidence pairformer needs back.
+        if "dit_z" in cond:
+            ttnn.deallocate(cond["dit_z"])
         if return_confidence:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the

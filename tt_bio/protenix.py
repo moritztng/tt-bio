@@ -70,6 +70,21 @@ DEFAULT_MAX_PARALLEL_SAMPLES = 5
 # chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
 MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 
+# Above this size the pristine m_feat lives on the HOST between recycling cycles and is
+# streamed up one depth-chunk at a time (see Trunk.__call__). A 1 GiB pristine held for all
+# 10 cycles is affordable; the 2.5-3.2 GiB ones the WH-DRAM-blocked targets carry are not --
+# the per-cycle peak pays pristine + updated copy at once. 117/298-aa targets are far below
+# the gate, so their path (and perf) is untouched.
+MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
+
+
+def _msa_host_offload_min_bytes():
+    """Offload gate, with a test-only env override (same rationale as the chunk budget):
+    forcing it to 0 makes a SMALL target take the host-streamed path so its output can be
+    compared byte-for-byte against the same target folded device-resident."""
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    return int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+
 
 def _msa_take_whole_path(nbytes):
     """Can the full-depth MSA path afford `nbytes`, or must it row-chunk?
@@ -1487,6 +1502,17 @@ class ConfidenceHead:
         return self.confidence(s_inputs, s_trunk, z_trunk, coords, feats)["plddt"]
 
 
+# Byte gate for the row-blocked DiffusionConditioning pair chain in _diffusion_pair_cond.
+# The unblocked chain holds the LN'd z ([Ns,Ns,c_z]) and the channel concat ([Ns,Ns,c_z'+128])
+# full-size; on a churned Wormhole heap those are the requests that get refused (measured:
+# 9i3p's [1902,1920,256] bf16 = 1.87 GiB concat refused at 7.5 GiB used / 4.5 free). 9ivj
+# (2.27 GiB z) folds unblocked with 2.4 GiB headroom; 9i3p (2.61) does not, so the gate sits
+# at 2.5 GiB and only the two largest structural-scale cells take the blocked path. Every op
+# in the chain is row-local (layer_norm/linear per position, channel concat), so the blocks
+# are in the same tile-replan equivalence class as the chunked pair track.
+PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
+
+
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
 
@@ -1648,6 +1674,42 @@ class Protenix:
         if self.diffusion._diffusion_fp32:
             z_trunk_tt = ttnn.typecast(z_trunk_tt, self.diffusion.dtype)
         z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
+        N, W, cz = (int(d) for d in z_trunk_tt.shape)
+        if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
+            # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size LN'd z or channel
+            # concat ever materializes; pz assembles on the host (bf16 round trip is
+            # bit-preserving) and uploads once at [Ns,Ns,128].
+            rb = max(32, (256 * 2 ** 20) // (W * cz * 2) // 32 * 32)
+            blocks = []
+            for s in range(0, N, rb):
+                e = min(s + rb, N)
+                zt = z_trunk_tt[s:e]
+                if C + "linear_no_bias_z_trunk.weight" in self._w:
+                    zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
+                                         epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+                    zt = ttnn.linear(zn, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
+                                     compute_kernel_config=self.compute_kernel_config,
+                                     dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+                    ttnn.deallocate(zn)
+                zc = ttnn.concat([zt, relpe[s:e]], dim=-1)
+                ttnn.deallocate(zt)
+                zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
+                                     compute_kernel_config=self.compute_kernel_config)
+                pb = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
+                                 compute_kernel_config=self.compute_kernel_config,
+                                 dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+                ttnn.deallocate(zc)
+                blocks.append(torch.Tensor(ttnn.to_torch(pb)))
+                ttnn.deallocate(pb)
+            pz = ttnn.from_torch(torch.cat(blocks, dim=0), layout=ttnn.TILE_LAYOUT,
+                                 device=get_device(), dtype=self.diffusion.dtype)
+            pz = ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
+            for nm in ("transition_z1", "transition_z2"):
+                sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
+                t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
+                               dtype=self.diffusion.dtype)
+                pz = ttnn.add(pz, t(pz))
+            return self._to_host(pz)
         if C + "linear_no_bias_z_trunk.weight" in self._w:
             zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
@@ -1925,13 +1987,16 @@ class Trunk(_KeyedWeights):
             # accumulation order. (OuterProductMean is the opposite case -- its reduction IS
             # over depth -- which is why it stays full-depth below and must not be chunked.)
             if _msa_take_whole_path(D * m.shape[2] * m.shape[3] * 2):
-                m = ttnn.add(m, ttnn.reshape(
-                    pwa(m, ttnn.clone(z)), tuple(m.shape)))
+                m_up = self._up(m) if torch.is_tensor(m) else m   # host offload + forced whole
+                m2 = ttnn.add(m_up, ttnn.reshape(
+                    pwa(m_up, ttnn.clone(z)), tuple(m_up.shape)))
                 dram_peak("trunk msa block: after pwa add")
-                trunk_tap("whole:after_pwa", m)
+                trunk_tap("whole:after_pwa", m2)
                 out = ttnn.add(
-                    m, ttnn.reshape(transition(m), tuple(m.shape)))
+                    m2, ttnn.reshape(transition(m2), tuple(m2.shape)))
                 trunk_tap("whole:after_transition", out)
+                if m_up is not m:
+                    ttnn.deallocate(m_up)
                 return out
             # One clone of z for the whole loop, not one per chunk: PWA only reads z (it
             # rebinds its own local through reshape/layer_norm and never deallocates it), and
@@ -1939,8 +2004,12 @@ class Trunk(_KeyedWeights):
             zc = ttnn.clone(z)
             parts = []
             cw = _msa_row_chunk_size()
+            host_m = torch.is_tensor(m)     # host-resident pristine (deep-MSA offload)
             for s in range(0, D, cw):
-                mc = m[:, s:min(s + cw, D), :, :]                 # slice => private copy
+                if host_m:
+                    mc = self._up(m[:, s:min(s + cw, D)])         # stream one chunk from host
+                else:
+                    mc = m[:, s:min(s + cw, D), :, :]             # slice => private copy
                 # Deliberately the SAME out-of-place ttnn.add as the unchunked branch above.
                 # An in-place add_ here would be safe for aliasing (mc is a private copy) and
                 # would save a chunk-sized buffer, but it is a second change riding along with
@@ -1966,7 +2035,10 @@ class Trunk(_KeyedWeights):
         # would not show up as an OOM -- only as wrong coordinates. The chunked path above is
         # safe because it slices (a copy) and mutates only the slice.
         global _TRUNK_TAP_CALL
-        trunk_tap("msa_enter:m_feat", m_feat)
+        if torch.is_tensor(m_feat):     # host-resident pristine (deep-MSA offload)
+            trunk_tap_host("msa_enter:m_feat", m_feat)
+        else:
+            trunk_tap("msa_enter:m_feat", m_feat)
         trunk_tap("msa_enter:z3", z3)
         for _bi, (opm, pwa, tm, pl) in enumerate(self.MSA):
             dram_peak(f"trunk msa block {_bi} enter")
@@ -1974,17 +2046,25 @@ class Trunk(_KeyedWeights):
             # ordering its checkpoint was trained with.
             if self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
-            z3 = ttnn.add(z3, opm(m_feat, None, None))
+            if torch.is_tensor(m_feat):
+                # Protenix-order block 0 reads the pristine m with OPM. OPM chunk-gates itself,
+                # so a single transient upload is enough; update_msa below streams from host.
+                m_dev = self._up(m_feat)
+                z3 = ttnn.add(z3, opm(m_dev, None, None))
+                ttnn.deallocate(m_dev)
+            else:
+                z3 = ttnn.add(z3, opm(m_feat, None, None))
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
             z3 = pl(None, z3)[1]
             dram_peak(f"trunk msa block {_bi} done")
-            trunk_tap(f"block{_bi}:m_feat", m_feat)
+            if not torch.is_tensor(m_feat):
+                trunk_tap(f"block{_bi}:m_feat", m_feat)
             trunk_tap(f"block{_bi}:z3", z3)
         # The per-cycle chunk list is dead once the blocks are done: __call__ keeps the original
         # contiguous m_feat and re-derives the chunks next cycle (§34.1 -- the caller's copy must
-        # stay pristine, so it is never freed here).
+        # stay pristine, so it is never freed here). A host-resident pristine needs no freeing.
         if isinstance(m_feat, list):
             for _c in m_feat:
                 ttnn.deallocate(_c)
@@ -2036,6 +2116,19 @@ class Trunk(_KeyedWeights):
         m_feat = ttnn.add(self._lin(self._up(ms), "msa_module.linear_no_bias_m.weight"),
                           self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight"))
         dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
+        # Deep-MSA offload: every read of the pristine m_feat is row-local (PWA/Transition per
+        # row, OPM per chunk), so past 1 GiB it is kept on the host between recycling cycles and
+        # streamed up one depth-chunk at a time in update_msa. That removes a full-size device
+        # copy from the per-cycle peak (pristine + updated list used to coexist). Bit-exact:
+        # to_torch preserves the bf16 bytes and _up re-tilizes the same values, so each chunk
+        # holds exactly the bytes a device slice would have held. bf16 only: a bfloat8_b tensor
+        # is block-floating-point, so a host round-trip would re-quantise the tile scales.
+        if (m_feat.dtype == ttnn.bfloat16
+                and m_feat.shape[1] * m_feat.shape[2] * m_feat.shape[3] * 2 > _msa_host_offload_min_bytes()):
+            _m_host = ttnn.to_torch(m_feat)
+            ttnn.deallocate(m_feat)
+            m_feat = _m_host
+            dram_peak(f"trunk m_feat host-offloaded [{tuple(m_feat.shape)} torch]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles

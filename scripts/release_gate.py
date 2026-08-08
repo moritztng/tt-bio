@@ -233,19 +233,25 @@ MSA_DIR = os.environ.get("RELEASE_GATE_MSA_DIR")
 # with MSA depth and MSA-server state. Six sampling steps on purpose: peak DRAM is a
 # per-step high-water mark, not something that accumulates over the trajectory, so the
 # measurement is step-count-independent and there is no reason to pay for 200.
-CAPACITY_DATA = REPO_ROOT / "examples" / "abag_pilot_expansion" / "9j4c_abag.yaml"
-CAPACITY_MODEL = "protenix-v2"
-CAPACITY_TOKENS = 1095      # the largest target the AbAg-XM Tier-A set folds
-CAPACITY_SAMPLES = 50
-CAPACITY_MPS = 5
 CAPACITY_STEPS = 6
-# Budget, in GiB of device DRAM. Measured peak for this configuration on a Blackhole p150a is
-# 5.90 GiB, so 7.0 leaves ~19% headroom: loose enough that it does not chase run-to-run noise
-# (the shapes are deterministic, so there is very little), tight enough to catch the small
-# regressions too -- re-replicating just the atom-transformer pair bias and the windowed atom
-# pair tensor would add ~0.9 GiB, and re-replicating the DiT pair biases would add ~9.6 GiB.
-# Env-tunable so a card with a different budget can gate against its own.
-CAPACITY_MAX_GIB = float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB", "7.0"))
+# Budgets, in GiB of device DRAM. Leg 1's measured peak on a Blackhole p150a is 5.90 GiB,
+# so 7.0 leaves ~19% headroom: loose enough that it does not chase run-to-run noise (the
+# shapes are deterministic, so there is very little), tight enough to catch the small
+# regressions too -- re-replicating just the atom-transformer pair bias and the windowed
+# atom pair tensor would add ~0.9 GiB, and re-replicating the DiT pair biases would add
+# ~9.6 GiB. Env-tunable so a card with a different budget can gate against its own.
+#
+# Leg 2 is the structural-token ceiling: opendde-abag's refiner runs the pair track at
+# ~1.9x the residue count, which is where the WH 12 GiB OOM exclusions came from. Fewer
+# samples than leg 1 because the pair-track peak this leg guards is sample-count
+# independent; the sample-scaled diffusion footprint is leg 1's job.
+CAPACITY_LEGS = [
+    # (yaml, model, residue tokens, samples, mps, budget GiB)
+    ("examples/abag_pilot_expansion/9j4c_abag.yaml", "protenix-v2", 1095, 50, 5,
+     float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB", "7.0"))),
+    ("examples/abag_xm/9ivj.yaml", "opendde-abag", 891, 8, 2,
+     float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB_2", "12.0"))),
+]
 
 
 def _msa_args(model: str) -> list:
@@ -542,33 +548,35 @@ def run_opendde_abag(keep: bool) -> dict:
     return row
 
 
-def run_capacity(keep: bool) -> dict:
-    """Fold the largest supported target at the largest sample count and check the peak
-    device DRAM against a budget. Also checks the per-sample output contract, since a fold
-    that quietly produces fewer structures than it was asked for is the other way this
-    class of failure shows up. Returns a row."""
+def run_capacity(keep: bool, leg) -> dict:
+    """Fold one capacity leg (large target, campaign-scale sample count) and check the
+    peak device DRAM against its budget. Also checks the per-sample output contract,
+    since a fold that quietly produces fewer structures than it was asked for is the
+    other way this class of failure shows up. Returns a row."""
     from tt_bio.main import predict_results_dir_name
-    name = CAPACITY_DATA.stem
-    out = REPO_ROOT / predict_results_dir_name(CAPACITY_MODEL, name)
+    yaml_rel, model, _tokens, samples, mps, budget = leg
+    data = REPO_ROOT / yaml_rel
+    name = data.stem
+    out = REPO_ROOT / predict_results_dir_name(model, name)
     if out.exists():
         shutil.rmtree(out)
 
     cmd = [
-        sys.executable, "-m", "tt_bio.main", "predict", str(CAPACITY_DATA),
-        "--model", CAPACITY_MODEL,
+        sys.executable, "-m", "tt_bio.main", "predict", str(data),
+        "--model", model,
         "--sampling_steps", str(CAPACITY_STEPS),
-        "--diffusion_samples", str(CAPACITY_SAMPLES),
-        "--max_parallel_samples", str(CAPACITY_MPS),
+        "--diffusion_samples", str(samples),
+        "--max_parallel_samples", str(mps),
         "--seed", str(SEED),
         "--single_sequence",
         "--write_pae",          # the per-sample PAE files this leg counts are opt-in
         "--out_dir", str(REPO_ROOT),
     ]
-    print(f"\n{'='*70}\n[capacity] {CAPACITY_DATA.name} ({CAPACITY_TOKENS} tokens), "
-          f"{CAPACITY_SAMPLES} samples / {CAPACITY_MPS} per batch, "
-          f"budget {CAPACITY_MAX_GIB:.1f} GiB\n{'='*70}", flush=True)
+    print(f"\n{'='*70}\n[capacity] {data.name} on {model}, "
+          f"{samples} samples / {mps} per batch, "
+          f"budget {budget:.1f} GiB\n{'='*70}", flush=True)
 
-    row = {"model": "capacity", "seconds": None, "peak_gib": None, "cifs": None,
+    row = {"model": f"capacity:{name}", "seconds": None, "peak_gib": None, "cifs": None,
            "paes": None, "gate": False, "error": None}
     log = out.parent / f"{name}_capacity.log"
     # tt_bio.tenstorrent.dram_peak appends its samples to this file. It has to be a file:
@@ -600,6 +608,15 @@ def run_capacity(keep: bool) -> dict:
                         f"run, so capacity was NOT measured (an unmeasured leg is a FAIL, "
                         f"never a pass by absence of evidence)")
         return row
+    # A LOWER BOUND on the true peak, not the allocator high-water mark: dram_peak() only
+    # samples where model code calls it, so this is the max over instrumented points rather
+    # than over time. Adding a probe call in a hot region can raise the reported number
+    # without anything using more memory -- which is exactly what happened in 2026-08 when
+    # main carried no tag on the eager 4-D pair transition and reported 5.90 GiB for a leg
+    # whose real peak was ~11.07. Reading a true peak is not affordable (ttnn.get_memory_view
+    # drains the pipeline; a 117-aa fold goes 12.0 s -> 44.7 s under a dense census), so the
+    # answer is to keep the probes where the memory actually is, and to calibrate the budgets
+    # below against a measurement taken with those probes present.
     row["peak_gib"] = max(float(p) for p in peaks)
 
     struct_dir = out / "structures"
@@ -609,12 +626,12 @@ def run_capacity(keep: bool) -> dict:
     # --write_pae on main writes the best sample's pae+pde only. Per-sample PAE files
     # ({name}_model_{k}_pae.npz) are NOT a main feature -- that write path lives on the
     # AbAg-XM campaign branch, so do not gate main on it.
-    if row["cifs"] != CAPACITY_SAMPLES or row["paes"] < 1:
-        row["error"] = (f"expected {CAPACITY_SAMPLES} CIFs and >=1 PAE, "
+    if row["cifs"] != samples or row["paes"] < 1:
+        row["error"] = (f"expected {samples} CIFs and >=1 PAE, "
                         f"got {row['cifs']} and {row['paes']}")
         return row
-    if row["peak_gib"] > CAPACITY_MAX_GIB:
-        row["error"] = f"peak {row['peak_gib']:.2f} GiB over the {CAPACITY_MAX_GIB:.1f} GiB budget"
+    if row["peak_gib"] > budget:
+        row["error"] = f"peak {row['peak_gib']:.2f} GiB over the {budget:.1f} GiB budget"
         return row
 
     row["gate"] = True
@@ -626,6 +643,20 @@ def run_capacity(keep: bool) -> dict:
         log.unlink(missing_ok=True)
         dram_log.unlink(missing_ok=True)
     return row
+
+
+def run_capacity_all(keep: bool) -> dict:
+    """Every capacity leg as one aggregate row, for full_parity_gate's single capacity
+    entry: gate is the AND, peak the worst leg, per-leg rows under 'legs'."""
+    rows = [run_capacity(keep, leg) for leg in CAPACITY_LEGS]
+    return {"model": "capacity",
+            "seconds": sum(r["seconds"] or 0 for r in rows),
+            "peak_gib": max((r["peak_gib"] or 0) for r in rows),
+            "cifs": sum(r["cifs"] or 0 for r in rows),
+            "paes": sum(r["paes"] or 0 for r in rows),
+            "gate": all(r["gate"] for r in rows),
+            "error": next((r["error"] for r in rows if r["error"]), None),
+            "legs": rows}
 
 
 def main() -> int:
@@ -733,24 +764,26 @@ def main() -> int:
               else "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)")
 
     if want_capacity:
-        if not CAPACITY_DATA.exists():
-            sys.exit(f"missing capacity gate target {CAPACITY_DATA}")
-        cr = run_capacity(args.keep)
-        print(f"\n{'#'*78}\nRELEASE GATE — {CAPACITY_DATA.name} capacity "
-              f"({CAPACITY_TOKENS} tokens, {CAPACITY_SAMPLES} samples / {CAPACITY_MPS} per "
-              f"batch, {CAPACITY_STEPS} steps)\n{'#'*78}")
-        print(f"{'leg':<15}{'peak DRAM':>11}{'CIFs':>7}{'PAEs':>7}{'budget':>11}{'wall':>9}  result")
-        pk = f"{cr['peak_gib']:.2f} GiB" if cr["peak_gib"] is not None else "  -  "
-        cf = str(cr["cifs"]) if cr["cifs"] is not None else "-"
-        pa = str(cr["paes"]) if cr["paes"] is not None else "-"
-        wall = f"{cr['seconds']:.0f}s" if cr["seconds"] is not None else "-"
-        verdict = "PASS" if cr["gate"] else f"FAIL ({cr['error']})" if cr["error"] else "FAIL"
-        all_pass &= cr["gate"]
-        print(f"{'capacity':<15}{pk:>11}{cf:>7}{pa:>7}{f'<={CAPACITY_MAX_GIB:.1f} GiB':>11}"
-              f"{wall:>9}  {verdict}")
+        for leg in CAPACITY_LEGS:
+            if not (REPO_ROOT / leg[0]).exists():
+                sys.exit(f"missing capacity gate target {leg[0]}")
+        rows = [run_capacity(args.keep, leg) for leg in CAPACITY_LEGS]
+        print(f"\n{'#'*78}\nRELEASE GATE — capacity "
+              f"({', '.join(f'{REPO_ROOT.joinpath(l[0]).stem} on {l[1]}' for l in CAPACITY_LEGS)}, "
+              f"{CAPACITY_STEPS} steps)\n{'#'*78}")
+        print(f"{'leg':<22}{'peak DRAM':>11}{'CIFs':>7}{'PAEs':>7}{'budget':>11}{'wall':>9}  result")
+        for leg, cr in zip(CAPACITY_LEGS, rows):
+            pk = f"{cr['peak_gib']:.2f} GiB" if cr["peak_gib"] is not None else "  -  "
+            cf = str(cr["cifs"]) if cr["cifs"] is not None else "-"
+            pa = str(cr["paes"]) if cr["paes"] is not None else "-"
+            wall = f"{cr['seconds']:.0f}s" if cr["seconds"] is not None else "-"
+            verdict = "PASS" if cr["gate"] else f"FAIL ({cr['error']})" if cr["error"] else "FAIL"
+            all_pass &= cr["gate"]
+            print(f"{cr['model']:<22}{pk:>11}{cf:>7}{pa:>7}{f'<={leg[5]:.1f} GiB':>11}"
+                  f"{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — largest-input fold fits the DRAM budget and wrote every sample"
-              if cr["gate"] else
+        print("GATE PASS — largest-input folds fit the DRAM budget and wrote every sample"
+              if all(cr["gate"] for cr in rows) else
               "GATE FAIL — capacity regression at the largest supported input (see above)")
 
     if esmc_models:
