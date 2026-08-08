@@ -510,8 +510,17 @@ def dram_peak(tag=None):
         used = (mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * mv.num_banks
         if used > _DRAM_PEAK.get(tag, 0):
             _DRAM_PEAK[tag] = used
+            # Largest contiguous free block per bank (min over banks): the binding
+            # constraint for an interleaved allocation is size/12 contiguous in EVERY
+            # bank, so this -- not total free -- decides whether a big request is
+            # refused after allocator churn. Diagnostic only; the release gate's regex
+            # anchors on "GiB used" and ignores the suffix.
+            lcf = mv.largest_contiguous_bytes_free_per_bank
+            if isinstance(lcf, (list, tuple)):
+                lcf = min(lcf)
             line = (f"[DRAM] {tag}: {used / 2**30:.3f} GiB used "
-                    f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB)\n")
+                    f"(of {mv.total_bytes_per_bank * mv.num_banks / 2**30:.1f} GiB) "
+                    f"maxfree={lcf / 2**20:.0f}MiB/bank\n")
             try:
                 with open(path, "a") as fp:      # append: the worker is a separate process
                     fp.write(line)
