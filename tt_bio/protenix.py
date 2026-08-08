@@ -1502,6 +1502,17 @@ class ConfidenceHead:
         return self.confidence(s_inputs, s_trunk, z_trunk, coords, feats)["plddt"]
 
 
+# Byte gate for the row-blocked DiffusionConditioning pair chain in _diffusion_pair_cond.
+# The unblocked chain holds the LN'd z ([Ns,Ns,c_z]) and the channel concat ([Ns,Ns,c_z'+128])
+# full-size; on a churned Wormhole heap those are the requests that get refused (measured:
+# 9i3p's [1902,1920,256] bf16 = 1.87 GiB concat refused at 7.5 GiB used / 4.5 free). 9ivj
+# (2.27 GiB z) folds unblocked with 2.4 GiB headroom; 9i3p (2.61) does not, so the gate sits
+# at 2.5 GiB and only the two largest structural-scale cells take the blocked path. Every op
+# in the chain is row-local (layer_norm/linear per position, channel concat), so the blocks
+# are in the same tile-replan equivalence class as the chunked pair track.
+PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
+
+
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
 
@@ -1663,6 +1674,42 @@ class Protenix:
         if self.diffusion._diffusion_fp32:
             z_trunk_tt = ttnn.typecast(z_trunk_tt, self.diffusion.dtype)
         z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
+        N, W, cz = (int(d) for d in z_trunk_tt.shape)
+        if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
+            # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size LN'd z or channel
+            # concat ever materializes; pz assembles on the host (bf16 round trip is
+            # bit-preserving) and uploads once at [Ns,Ns,128].
+            rb = max(32, (256 * 2 ** 20) // (W * cz * 2) // 32 * 32)
+            blocks = []
+            for s in range(0, N, rb):
+                e = min(s + rb, N)
+                zt = z_trunk_tt[s:e]
+                if C + "linear_no_bias_z_trunk.weight" in self._w:
+                    zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
+                                         epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+                    zt = ttnn.linear(zn, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
+                                     compute_kernel_config=self.compute_kernel_config,
+                                     dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+                    ttnn.deallocate(zn)
+                zc = ttnn.concat([zt, relpe[s:e]], dim=-1)
+                ttnn.deallocate(zt)
+                zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
+                                     compute_kernel_config=self.compute_kernel_config)
+                pb = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
+                                 compute_kernel_config=self.compute_kernel_config,
+                                 dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+                ttnn.deallocate(zc)
+                blocks.append(torch.Tensor(ttnn.to_torch(pb)))
+                ttnn.deallocate(pb)
+            pz = ttnn.from_torch(torch.cat(blocks, dim=0), layout=ttnn.TILE_LAYOUT,
+                                 device=get_device(), dtype=self.diffusion.dtype)
+            pz = ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
+            for nm in ("transition_z1", "transition_z2"):
+                sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
+                t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
+                               dtype=self.diffusion.dtype)
+                pz = ttnn.add(pz, t(pz))
+            return self._to_host(pz)
         if C + "linear_no_bias_z_trunk.weight" in self._w:
             zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)

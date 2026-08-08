@@ -552,17 +552,38 @@ def _host_concat(x: ttnn.Tensor) -> bool:
             and x.logical_volume() * 2 > CONCAT_HOST_BYTES)
 
 
-def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
+def _acc_concat(acc: list, dim: int, host: bool, upload_block: int = 256) -> ttnn.Tensor:
     """Assemble accumulated row/channel blocks, on the host when they were offloaded.
 
-    Host branch: the blocks are torch tensors (bit-identical bytes); the upload is one
-    full-size allocation made when the accumulator holds nothing on device. Device
-    branch: ttnn.concat, then free the blocks (same as the call sites always did).
+    Host branch: the blocks are torch tensors (bit-identical bytes). The assembled
+    tensor goes back up in contiguous `upload_block`-row/channel slices, NOT as one
+    full-size from_torch: a single >2 GiB request fails the fragmented WH heap for
+    the same reason the device concat did (measured: od_9i3p's 320-row tri_att slice
+    still assembled a 1.74 GiB host result whose one-shot upload was refused at
+    152 MiB/bank needed vs ~110 free). A 256-row slice of a c_z=384 structural pair
+    tensor is 378 MiB (31.5 MiB/bank), which always lands. TILE_LAYOUT from_torch
+    produces a width-padded buffer identical to the one ttnn.concat built, so the
+    slice rows copy byte-for-byte. Device branch: ttnn.concat, then free the blocks
+    (same as the call sites always did).
     """
     if host:
-        return ttnn.from_torch(
-            torch.cat(acc, dim=dim), layout=ttnn.TILE_LAYOUT,
-            device=get_device(), dtype=ttnn.bfloat16)
+        dev = get_device()
+        h = torch.cat(acc, dim=dim)
+        n = h.shape[dim]
+        out = None
+        for s in range(0, n, upload_block):
+            e = min(s + upload_block, n)
+            part = h.narrow(dim, s, e - s).contiguous()
+            if dim != 0 and part.shape[0] == 1:
+                part = part.squeeze(0)
+            t = ttnn.from_torch(part, layout=ttnn.TILE_LAYOUT,
+                                device=dev, dtype=ttnn.bfloat16)
+            if dim != 0 and len(t.shape) == len(h.shape) - 1:
+                t = ttnn.unsqueeze(t, 0)
+            out = t if out is None else ttnn.concat([out, t], dim=dim)
+            if out is not t:
+                ttnn.deallocate(t)
+        return out
     out = ttnn.concat(acc, dim=dim)
     for t in acc:
         ttnn.deallocate(t)
@@ -1269,14 +1290,22 @@ class TriangleAttention(Module):
             # alias the caller's pair tensor, so it must NOT be deallocated.
             ttnn.deallocate(triangle_bias)
             if host_acc:
-                h = torch.cat(parts, dim=0)
-                # The ending variant's back-transpose rides the host assembly (pure
-                # data movement, bit-identical) so no second full-size device tensor
-                # is allocated for it here.
-                if self.ending:
-                    h = h.permute(1, 0, 2)
-                x = ttnn.from_torch(h.contiguous(), layout=ttnn.TILE_LAYOUT,
-                                    device=get_device(), dtype=ttnn.bfloat16)
+                # Assemble on device block by block instead of one full-size
+                # from_torch upload: a single >2 GiB request is refused by a
+                # fragmented WH heap (od_9i3p's 1.74 GiB ending assembly was
+                # refused needing 152 MiB/bank), while a per-block slice is the
+                # same size class the loop itself just placed repeatedly. Pure
+                # data movement, bit-identical; the ending variant's
+                # back-transpose rides each block's host slice.
+                dev = get_device()
+                x = None
+                for p in parts:
+                    blk = p.permute(1, 0, 2).contiguous() if self.ending else p
+                    t = ttnn.from_torch(blk, layout=ttnn.TILE_LAYOUT,
+                                        device=dev, dtype=ttnn.bfloat16)
+                    x = t if x is None else ttnn.concat([x, t], dim=0)
+                    if x is not t:
+                        ttnn.deallocate(t)
                 return ttnn.reshape(x, (1, *x.shape))
             x = ttnn.concat(parts, dim=0)
             del parts
