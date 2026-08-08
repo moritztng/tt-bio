@@ -183,6 +183,15 @@ class StructuralTokenExpander(_KeyedWeights):
         # --- pair: chunked over rows (opendde_v1 pair_chunk_size) ---
         Ns = role.shape[0]
         chunk = min(self.pair_chunk_size or Ns, Ns)
+        # z_res stays resident: upload once as bf16 and do the (row_parent x parent)
+        # double gather on device with one flat ttnn.embedding per chunk, instead of a
+        # (chunk,Ns,c_z) fp32 host gather + ~118 MB upload per chunk. Bit-exact: the
+        # gather is pure movement and the fp32->bf16 cast is elementwise, so it
+        # commutes with the gather.
+        Nr = z_res.shape[0]
+        z_flat = ttnn.from_torch(
+            z_res.reshape(Nr * Nr, self.c_z), layout=ttnn.ROW_MAJOR_LAYOUT,
+            device=get_device(), dtype=getattr(self, "dtype", ttnn.bfloat16))
         z_chunks, ab_chunks = [], []
         for start in range(0, Ns, chunk):
             end = min(start + chunk, Ns)
@@ -190,11 +199,18 @@ class StructuralTokenExpander(_KeyedWeights):
             pf = self._pair_features_rows(ifd, role, parent, row_index)
             row_parent = parent.index_select(0, row_index)
             z_chunk_h = z_res.index_select(0, row_parent).index_select(1, parent).contiguous()
-            z_dev = self._up(z_chunk_h)
+            gidx = (row_parent[:, None] * Nr + parent[None, :]).reshape(1, -1).to(torch.int32)
+            z_dev = ttnn.embedding(
+                ttnn.from_torch(gidx, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
+                                dtype=ttnn.uint32),
+                z_flat, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            z_dev = ttnn.to_layout(
+                ttnn.reshape(z_dev, (end - start, Ns, self.c_z)), ttnn.TILE_LAYOUT)
             z_dev = ttnn.add(z_dev, self._pair_project_full(z_chunk_h, role, row_index))
             z_dev = ttnn.add(z_dev, self._up(self._pair_init_bias(pf)))
             z_chunks.append(z_dev)
             ab_chunks.append(self._attn_bias(pf))
+        ttnn.deallocate(z_flat)
         z_struct = z_chunks[0] if len(z_chunks) == 1 else ttnn.concat(z_chunks, dim=-3)
         attn_bias = ab_chunks[0] if len(ab_chunks) == 1 else ttnn.concat(ab_chunks, dim=0)
         return s_inputs_struct, s_struct, z_struct, attn_bias
