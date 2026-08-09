@@ -1,0 +1,25 @@
+{
+  "model": "protenix-v2",
+  "target": "examples/prot.yaml",
+  "load_s": 2.38,
+  "cold_s": 81.302,
+  "times": {
+    "PROD": [
+      8.933,
+      8.701,
+      8.759
+    ],
+    "GO": [
+      8.913,
+      8.869,
+      8.702
+    ]
+  },
+  "median": {
+    "PROD": 8.759,
+    "GO": 8.869
+  },
+  "speedup": 0.9876,
+  "saved_s": -0.11,
+  "whole_model_bit_exact": true
+}

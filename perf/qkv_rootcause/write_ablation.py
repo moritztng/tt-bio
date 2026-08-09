@@ -48,7 +48,7 @@ ckc = ttnn.init_device_compute_kernel_config(
 torch.manual_seed(0)
 x = ttnn.from_torch(torch.randn(N, N, C_Z), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
 w = ttnn.from_torch(torch.randn(C_Z, 3 * H * D), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-cfg = T._tri_att_qkv_l1_config((N * N) // 32, C_Z // 32, (3 * H * D) // 32, 2)
+cfg = T._l1_resident_matmul_config((N * N) // 32, C_Z // 32, (3 * H * D) // 32, 2, True)
 print(f"grid={gx}x{gy}  result={RESULT_BYTES/1e6:.2f} MB", flush=True)
 res = {"result_MB": round(RESULT_BYTES / 1e6, 2)}
 
