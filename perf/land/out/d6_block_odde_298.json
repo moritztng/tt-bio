@@ -1,0 +1,11 @@
+{
+ "model": "opendde",
+ "n": 298,
+ "c_z": 384,
+ "grid": "13x10",
+ "bit_exact_block": true,
+ "block_ms_baseline": 57.897893667056145,
+ "block_ms_fused": 57.89088699990922,
+ "speedup": 1.0001210322990377,
+ "ms_per_fold": 3.363200230523944
+}

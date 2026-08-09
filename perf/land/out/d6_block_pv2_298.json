@@ -1,0 +1,11 @@
+{
+ "model": "protenix-v2",
+ "n": 298,
+ "c_z": 256,
+ "grid": "13x10",
+ "bit_exact_block": true,
+ "block_ms_baseline": 38.422179333186556,
+ "block_ms_fused": 38.433019000270484,
+ "speedup": 0.9997179595211125,
+ "ms_per_fold": -5.2030402002856135
+}
