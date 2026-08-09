@@ -1,0 +1,54 @@
+{
+  "fused": [
+    {
+      "run": "prod_fused",
+      "Rg_A": 16.4,
+      "nn_spacing_A": 1.524,
+      "contacts_8A": 22.9
+    },
+    {
+      "run": "prod_fused_seed43",
+      "Rg_A": 17.2,
+      "nn_spacing_A": 1.525,
+      "contacts_8A": 20.94
+    },
+    {
+      "run": "prod_fused_seed44",
+      "Rg_A": 16.19,
+      "nn_spacing_A": 1.527,
+      "contacts_8A": 22.6
+    },
+    {
+      "run": "prod_fused_seed45",
+      "Rg_A": 16.98,
+      "nn_spacing_A": 1.53,
+      "contacts_8A": 21.58
+    }
+  ],
+  "unfused": [
+    {
+      "run": "prod_unfused",
+      "Rg_A": 16.27,
+      "nn_spacing_A": 1.529,
+      "contacts_8A": 23.06
+    },
+    {
+      "run": "prod_unfused_seed43",
+      "Rg_A": 16.86,
+      "nn_spacing_A": 1.525,
+      "contacts_8A": 21.28
+    },
+    {
+      "run": "prod_unfused_seed44",
+      "Rg_A": 16.31,
+      "nn_spacing_A": 1.523,
+      "contacts_8A": 23.22
+    },
+    {
+      "run": "prod_unfused_seed45",
+      "Rg_A": 17.36,
+      "nn_spacing_A": 1.549,
+      "contacts_8A": 19.6
+    }
+  ]
+}

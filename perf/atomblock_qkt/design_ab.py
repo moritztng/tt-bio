@@ -30,6 +30,7 @@ ap.add_argument("--batch", type=int, default=1)
 ap.add_argument("--timesteps", type=int, default=6)
 ap.add_argument("--warmup", type=int, default=3)
 ap.add_argument("--reps", type=int, default=3)
+ap.add_argument("--seed", type=int, default=42)
 ap.add_argument("--out", type=Path, required=True)
 args = ap.parse_args()
 
@@ -74,7 +75,7 @@ with torch.no_grad():
     run(args.warmup, 7)
     walls, x, first = [], None, None
     for i in range(args.reps):
-        w, x = run(args.timesteps, 42)
+        w, x = run(args.timesteps, args.seed)
         if first is None:
             first = x
         else:

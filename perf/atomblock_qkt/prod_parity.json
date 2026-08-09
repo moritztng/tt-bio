@@ -1,0 +1,20 @@
+[
+  {
+    "label": "fused vs unfused, SAME seed 42",
+    "rmsd_A": 9.047,
+    "kabsch_rmsd_A": 8.799,
+    "max_atom_dev_A": 28.414
+  },
+  {
+    "label": "fused seed 42 vs fused seed 43",
+    "rmsd_A": 24.368,
+    "kabsch_rmsd_A": 19.937,
+    "max_atom_dev_A": 43.907
+  },
+  {
+    "label": "unfused seed 42 vs fused seed 43",
+    "rmsd_A": 25.232,
+    "kabsch_rmsd_A": 19.526,
+    "max_atom_dev_A": 48.343
+  }
+]
