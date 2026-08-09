@@ -1311,12 +1311,11 @@ class TriangleAttention(Module):
             for s in range(0, S, chunk):
                 e = min(s + chunk, S)
                 xc = normed_rows(s, e)
-                b = ttnn.linear(
-                    xc,
-                    self.bias_weight,
+                b = ttnn.experimental.minimal_matmul(
+                    input_tensor=xc,
+                    weight_tensor=self.bias_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=ttnn.bfloat16,
-                    core_grid=CORE_GRID_MAIN,
                 )
                 ttnn.deallocate(xc)
                 # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an
@@ -1344,12 +1343,11 @@ class TriangleAttention(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
-            triangle_bias = ttnn.linear(
-                x,
-                self.bias_weight,
+            triangle_bias = ttnn.experimental.minimal_matmul(
+                input_tensor=x,
+                weight_tensor=self.bias_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 dtype=ttnn.bfloat16,
-                core_grid=CORE_GRID_MAIN,
             )
             triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
@@ -1399,12 +1397,11 @@ class TriangleAttention(Module):
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
-            x_out = ttnn.linear(
-                o_in,
-                self.o_weight,
+            x_out = ttnn.experimental.minimal_matmul(
+                input_tensor=o_in,
+                weight_tensor=self.o_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 dtype=_dtype(),
-                core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(o_in)
             return x_out
