@@ -67,6 +67,11 @@ _DIFFUSION_FP32_DEVICE = False
 _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
+# ttnn.experimental.minimal_matmul for the two trimul output projections.
+# A/B'd by perf/trimul_kernel/w2_routes.py; see _trimul_out_proj.
+_TRIMUL_MM_OUT = True
+# Let the trimul output channel move write straight to DRAM instead of L1 + clone.
+_TRIMUL_OUT_MOVE_DRAM = True
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -892,6 +897,27 @@ class Module:
         )
 
 
+def _trimul_out_proj(
+    x: ttnn.Tensor, weight: ttnn.Tensor, ckc: ttnn.DeviceComputeKernelConfig
+) -> ttnn.Tensor:
+    """The trimul output projection: [1,L,L,c_z] @ [c_z,c_z], no bias.
+
+    `ttnn.linear(core_grid=...)` reaches 20.6 TFLOP/s on this shape where
+    `minimal_matmul` reaches 35.7 (perf/trimul_kernel/layout_micro.py), the same
+    1.7x gap the tri-attention projections show. Not bit-exact: the two kernels
+    block the contraction differently, so bf16 accumulates in a different order.
+    """
+    if _TRIMUL_MM_OUT:
+        return ttnn.experimental.minimal_matmul(
+            x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
+            compute_kernel_config=ckc,
+        )
+    return ttnn.linear(
+        x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
+        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
+    )
+
+
 class TriangleMultiplication(Module):
     def __init__(
         self,
@@ -1063,8 +1089,17 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(x_chunk)
                 x_chunk = x_chunk_t
             else:
-                x_chunk = ttnn.permute(x_chunk, (0, 2, 3, 1), memory_config=memory_config)
-            if large_seq:
+                # The channel move is the last touch of the chunk before the concat, so
+                # on the L1 path it writes its result straight to DRAM: the separate
+                # clone that used to move it there was a whole extra round trip of the
+                # chunk (13.1 MB each way at 298 aa) for no arithmetic. Index-only, so
+                # bit-exact either way.
+                x_chunk = ttnn.permute(
+                    x_chunk, (0, 2, 3, 1),
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG if _TRIMUL_OUT_MOVE_DRAM
+                    else memory_config,
+                )
+            if large_seq or _TRIMUL_OUT_MOVE_DRAM:
                 _acc_append(x_chunks, x_chunk, host_acc)
             else:
                 # L1-resident chunk: move it to DRAM so all n_pairs can be held at
@@ -1139,24 +1174,10 @@ class TriangleMultiplication(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        p_out = ttnn.linear(
-            x,
-            self.out_p_weight,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            dtype=_dtype(),
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config)
         ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
-        g_out = ttnn.linear(
-            x_norm_in,
-            self.g_out_weight,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            dtype=_dtype(),
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        g_out = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config)
         ttnn.deallocate(x_norm_in)
         x = ttnn.multiply_(
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
