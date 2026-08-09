@@ -1,0 +1,236 @@
+{
+ "grid": [
+  13,
+  10
+ ],
+ "rows": [
+  {
+   "label": "protenix.py:417 atom QK^T pv2",
+   "model": "protenix-v2",
+   "a": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "b": [
+    75,
+    4,
+    128,
+    32
+   ],
+   "dtype": "DataType.FLOAT32",
+   "config": "per_core_M=1 per_core_N=1 in0_block_w=2 sub=1x1",
+   "calls_per_block": 6,
+   "steps": 200,
+   "base_ms": 0.5461343000206398,
+   "new_ms": 0.050665149865380954,
+   "ratio": 10.779289145926487,
+   "torch_equal": true,
+   "ms_per_fold_saved": 594.5629801863106,
+   "rmsd_base_vs_torch": 0.015200350433588028,
+   "rmsd_new_vs_torch": 0.015200350433588028,
+   "qb2_ms_per_fold": 633.0
+  },
+  {
+   "label": "protenix.py:414 atom AV   pv2",
+   "model": "protenix-v2",
+   "a": [
+    75,
+    4,
+    32,
+    32
+   ],
+   "b": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "DataType.FLOAT32",
+   "config": "per_core_M=1 per_core_N=4 in0_block_w=1 sub=1x4",
+   "calls_per_block": 6,
+   "steps": 200,
+   "base_ms": 0.32881945007829927,
+   "new_ms": 0.060241449864406604,
+   "ratio": 5.458358834629921,
+   "torch_equal": true,
+   "ms_per_fold_saved": 322.2936002566712,
+   "rmsd_base_vs_torch": 0.006614220328629017,
+   "rmsd_new_vs_torch": 0.006614220328629017,
+   "qb2_ms_per_fold": 387.8
+  },
+  {
+   "label": "tenstorrent.py:1656 DiT AV pv2",
+   "model": "protenix-v2",
+   "a": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "b": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "dtype": "DataType.FLOAT32",
+   "config": "per_core_M=5 per_core_N=2 in0_block_w=2 sub=1x2",
+   "calls_per_block": 24,
+   "steps": 200,
+   "base_ms": 0.11214509995625122,
+   "new_ms": 0.05748849998781225,
+   "ratio": 1.950739712812586,
+   "torch_equal": true,
+   "ms_per_fold_saved": 262.35167984850705,
+   "rmsd_base_vs_torch": 0.025696206837892532,
+   "rmsd_new_vs_torch": 0.025696206837892532,
+   "qb2_ms_per_fold": 627.4
+  },
+  {
+   "label": "tenstorrent.py:1650 DiT QK pv2",
+   "model": "protenix-v2",
+   "a": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "b": [
+    1,
+    16,
+    64,
+    320
+   ],
+   "dtype": "DataType.FLOAT32",
+   "config": null,
+   "calls_per_block": 24,
+   "steps": 200,
+   "base_ms": 0.04974969997419976,
+   "new_ms": 0.05118664994370192,
+   "ratio": 0.9719272511273426,
+   "torch_equal": true,
+   "ms_per_fold_saved": -6.897359853610396,
+   "rmsd_base_vs_torch": 0.010757111944258213,
+   "rmsd_new_vs_torch": 0.010757111944258213,
+   "qb2_ms_per_fold": 223.9
+  },
+  {
+   "label": "protenix.py:417 atom QK^T odde",
+   "model": "opendde",
+   "a": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "b": [
+    75,
+    4,
+    128,
+    32
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "config": "per_core_M=1 per_core_N=1 in0_block_w=2 sub=1x1",
+   "calls_per_block": 6,
+   "steps": 200,
+   "base_ms": 0.5112249000376323,
+   "new_ms": 0.05132664991833735,
+   "ratio": 9.960223409301221,
+   "torch_equal": true,
+   "ms_per_fold_saved": 551.877900143154,
+   "rmsd_base_vs_torch": 0.03293067216873169,
+   "rmsd_new_vs_torch": 0.03293067216873169,
+   "qb2_ms_per_fold": 592.6
+  },
+  {
+   "label": "protenix.py:414 atom AV   odde",
+   "model": "opendde",
+   "a": [
+    75,
+    4,
+    32,
+    32
+   ],
+   "b": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "config": "per_core_M=1 per_core_N=4 in0_block_w=1 sub=1x4",
+   "calls_per_block": 6,
+   "steps": 200,
+   "base_ms": 0.305921849940205,
+   "new_ms": 0.050712150004983414,
+   "ratio": 6.032515874600908,
+   "torch_equal": true,
+   "ms_per_fold_saved": 306.2516399222659,
+   "rmsd_base_vs_torch": 0.016362791880965233,
+   "rmsd_new_vs_torch": 0.016362791880965233,
+   "qb2_ms_per_fold": 357.4
+  },
+  {
+   "label": "tenstorrent.py:1678 DiT AV odde",
+   "model": "opendde",
+   "a": [
+    1,
+    16,
+    608,
+    608
+   ],
+   "b": [
+    1,
+    16,
+    608,
+    64
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "config": "per_core_M=19 per_core_N=2 in0_block_w=1 sub=1x2",
+   "calls_per_block": 24,
+   "steps": 200,
+   "base_ms": 0.25147880005533807,
+   "new_ms": 0.07455175000359304,
+   "ratio": 3.3732112263389924,
+   "torch_equal": true,
+   "ms_per_fold_saved": 849.2498402483761,
+   "rmsd_base_vs_torch": 0.07180801033973694,
+   "rmsd_new_vs_torch": 0.07180801033973694,
+   "qb2_ms_per_fold": 1325.7
+  },
+  {
+   "label": "tenstorrent.py:1670 DiT QK odde",
+   "model": "opendde",
+   "a": [
+    1,
+    16,
+    608,
+    64
+   ],
+   "b": [
+    1,
+    16,
+    64,
+    608
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "config": null,
+   "calls_per_block": 24,
+   "steps": 200,
+   "base_ms": 0.07449174991052132,
+   "new_ms": 0.07574125011160504,
+   "ratio": 0.9835030422756084,
+   "torch_equal": true,
+   "ms_per_fold_saved": -5.997600965201855,
+   "rmsd_base_vs_torch": 0.02322584018111229,
+   "rmsd_new_vs_torch": 0.02322584018111229,
+   "qb2_ms_per_fold": 369.6
+  }
+ ],
+ "op_isolated_ms_per_fold": {
+  "protenix-v2": 1172.3109004378784,
+  "opendde": 1701.3817793485941
+ }
+}
