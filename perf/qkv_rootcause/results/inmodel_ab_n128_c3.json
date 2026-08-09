@@ -6,89 +6,69 @@
   ],
   "timing": {
     "tri_att start": {
-      "off_ms": 1.0225,
-      "on_ms": 1.0202,
-      "speedup": 1.0023,
-      "saved_ms": 0.0023,
+      "off_ms": 1.0223,
+      "on_ms": 0.754,
+      "speedup": 1.3558,
+      "saved_ms": 0.2683,
       "raw": {
         "OFF": [
-          1.0019,
-          1.0225
+          1.0098,
+          1.0232,
+          1.0223
         ],
         "ON": [
-          1.0202,
-          1.0075
+          0.7544,
+          0.7527,
+          0.754
         ]
       }
     },
     "tri_att end": {
-      "off_ms": 1.3905,
-      "on_ms": 1.3895,
-      "speedup": 1.0007,
-      "saved_ms": 0.001,
+      "off_ms": 1.3929,
+      "on_ms": 1.1265,
+      "speedup": 1.2365,
+      "saved_ms": 0.2664,
       "raw": {
         "OFF": [
-          1.3875,
-          1.3905
+          1.3919,
+          1.3942,
+          1.3929
         ],
         "ON": [
-          1.3839,
-          1.3895
-        ]
-      }
-    },
-    "s attention_pair_bias": {
-      "off_ms": 0.8583,
-      "on_ms": 0.7357,
-      "speedup": 1.1666,
-      "saved_ms": 0.1226,
-      "raw": {
-        "OFF": [
-          0.8583,
-          0.7538
-        ],
-        "ON": [
-          0.6674,
-          0.7357
+          1.1269,
+          1.1255,
+          1.1265
         ]
       }
     },
     "BLOCK (s,z)": {
-      "off_ms": 6.9458,
-      "on_ms": 6.9492,
-      "speedup": 0.9995,
-      "saved_ms": -0.0034,
+      "off_ms": 6.9561,
+      "on_ms": 6.4442,
+      "speedup": 1.0794,
+      "saved_ms": 0.5119,
       "raw": {
         "OFF": [
-          6.9417,
-          6.9458
+          6.9548,
+          6.9561,
+          6.9579
         ],
         "ON": [
-          6.9492,
-          6.9399
+          6.4442,
+          6.4429,
+          6.445
         ]
       }
     }
   },
   "numerics": {
     "tri_att start": {
-      "bit_exact": false,
-      "pcc": 0.020684672,
-      "max_abs_diff": 46.34375,
-      "rel_fro": 2.39409447
+      "bit_exact": true
     },
     "tri_att end": {
-      "bit_exact": false,
-      "pcc": 0.004687194,
-      "max_abs_diff": 42.0625,
-      "rel_fro": 2.27937388
+      "bit_exact": true
     },
-    "s attention_pair_bias": {
-      "bit_exact": false,
-      "pcc": 0.999793087,
-      "max_abs_diff": 0.054688,
-      "rel_fro": 0.02085194
+    "BLOCK (s,z)": {
+      "bit_exact": true
     }
-  },
-  "program_config": "MatmulMultiCoreReuseMultiCast1DProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=8,out_subblock_h=1,out_subblock_w=4,out_block_h=4,out_block_w=24,per_core_M=4,per_core_N=24,fuse_batch=1,fused_activation=std::nullopt,mcast_in0=0,gather_in0=0,hop_cores={},num_global_cb_receivers=1,untilize_out=0)"
+  }
 }
