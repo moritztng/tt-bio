@@ -9,7 +9,8 @@ and 1.84x at `in0_block_w = 8` (not).
     TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3 perf/pf_matmul/fold_ab.py --model protenix-v2 --arm off  --out fold_off.json
     TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3 perf/pf_matmul/fold_ab.py --model protenix-v2 --arm bw1  --out fold_bw1.json
 
-Fold A/B, protenix-v2, 298 aa: **31848.3 -> 31333.0 ms, 515 ms/fold, identical CIF sha256.**
+Fold A/B, 298 aa, identical CIF sha256 on both arms of both models: protenix-v2
+**31848.3 -> 31333.0 ms (515 ms/fold)**, opendde **45093.7 -> 44458.4 ms (635 ms/fold)**.
 
 Roofs this card: square compute 122.59 TFLOP/s, DRAM copy 392.4 GB/s, and 35.5 TFLOP/s at K=256,
 which is the rate that actually bounds a trunk matmul.
