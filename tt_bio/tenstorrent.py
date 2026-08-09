@@ -1483,8 +1483,14 @@ class AttentionPairBias(Module):
                 dtype=self.dtype,
             )
         else:
+            q_weight, q_bias = self.weights["proj_q.weight"], self.weights["proj_q.bias"]
+            if self.raw_matmul_attention:
+                # Fold the 1/sqrt(head_dim) attention scale into q at load, so the
+                # DiT does not rescale an [1,n_heads,NT,NT] logits tensor per call.
+                q_weight = q_weight * head_dim**-0.5
+                q_bias = q_bias * head_dim**-0.5
             qkv_weight = torch.cat(
-                [self.weights["proj_q.weight"], self.weights["proj_k.weight"], self.weights["proj_v.weight"]],
+                [q_weight, self.weights["proj_k.weight"], self.weights["proj_v.weight"]],
                 dim=0,
             )
             head_dim_padding = -head_dim % 32
@@ -1498,7 +1504,6 @@ class AttentionPairBias(Module):
                 device=self.device,
                 dtype=self.dtype,
             )
-            q_bias = self.weights["proj_q.bias"]
             q_bias = q_bias.reshape(self.n_heads, head_dim)
             q_bias = torch.nn.functional.pad(q_bias, (0, head_dim_padding), mode='constant', value=0)
             q_bias = q_bias.reshape(self.n_heads * padded_head_dim)
@@ -1648,11 +1653,14 @@ class AttentionPairBias(Module):
                     z = ttnn.add(z, seq_mask)
                 sc = ttnn.matmul(q, k,
                                  compute_kernel_config=self.compute_kernel_config)
-                sc = ttnn.multiply(sc, self.head_dim ** -0.5)
                 sc = ttnn.add(sc, z)
                 attn = ttnn.softmax(sc, dim=-1)
+                # attn@v writes a 2-tile-wide [1,n_heads,NT,64] output; left to the
+                # default program config it under-occupies the grid and re-reads v per
+                # output row-block. q@k^T writes NTxNT and is slower with a forced grid.
                 o = ttnn.matmul(attn, v,
-                                compute_kernel_config=self.compute_kernel_config)
+                                compute_kernel_config=self.compute_kernel_config,
+                                core_grid=CORE_GRID_MAIN)
                 ttnn.deallocate(attn)
                 ttnn.deallocate(sc)
             else:
