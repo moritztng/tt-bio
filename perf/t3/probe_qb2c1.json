@@ -1,0 +1,397 @@
+{
+ "grid": "11x10",
+ "core_grid_main": "11x10",
+ "dram_sweep": {
+  "rows": [
+   {
+    "MB": 8.0,
+    "read_GBs": 277.2,
+    "d2d_rw_GBs": 325.7,
+    "write_GBs": 213.5
+   },
+   {
+    "MB": 16.0,
+    "read_GBs": 322.5,
+    "d2d_rw_GBs": 338.8,
+    "write_GBs": 237.9
+   },
+   {
+    "MB": 32.0,
+    "read_GBs": 368.2,
+    "d2d_rw_GBs": 377.1,
+    "write_GBs": 259.4
+   },
+   {
+    "MB": 64.0,
+    "read_GBs": 390.6,
+    "d2d_rw_GBs": 392.8,
+    "write_GBs": 269.2
+   },
+   {
+    "MB": 95.99,
+    "read_GBs": 393.1,
+    "d2d_rw_GBs": 397.3,
+    "write_GBs": 271.6
+   },
+   {
+    "MB": 128.0,
+    "read_GBs": 393.4,
+    "d2d_rw_GBs": 396.3,
+    "write_GBs": 273.4
+   }
+  ],
+  "read_peak_GBs": 393.4,
+  "write_peak_GBs": 273.4,
+  "dram2dram_rw_peak_GBs": 397.3
+ },
+ "k_corrected_compute_TFLOPs": {
+  "256": {
+   "tflops": 49.95,
+   "M": 10240,
+   "N": 4096,
+   "cfg": "core_grid",
+   "us": 429.9
+  },
+  "384": {
+   "tflops": 62.54,
+   "M": 10240,
+   "N": 4096,
+   "cfg": "core_grid",
+   "us": 515.1
+  },
+  "1024": {
+   "tflops": 88.21,
+   "M": 4096,
+   "N": 4096,
+   "cfg": "core_grid",
+   "us": 389.5
+  },
+  "1536": {
+   "tflops": 100.13,
+   "M": 4096,
+   "N": 4096,
+   "cfg": "core_grid",
+   "us": 514.7
+  },
+  "4096": {
+   "tflops": 115.04,
+   "M": 10240,
+   "N": 4096,
+   "cfg": "core_grid",
+   "us": 2986.9
+  }
+ },
+ "machine_balance_FLOP_per_byte": 292.4,
+ "occupancy_ab": {
+  "fc1 mt320 kt8 nt32": [
+   {
+    "cores": 64,
+    "grid": "8x8",
+    "us": 108.84
+   },
+   {
+    "cores": 110,
+    "grid": "11x10",
+    "us": 81.1
+   }
+  ],
+  "fc3 mt320 kt32 nt8": [
+   {
+    "cores": 4,
+    "grid": "2x2",
+    "us": 1099.95
+   },
+   {
+    "cores": 16,
+    "grid": "4x4",
+    "us": 300.15
+   },
+   {
+    "cores": 36,
+    "grid": "6x6",
+    "us": 167.83
+   },
+   {
+    "cores": 64,
+    "grid": "8x8",
+    "us": 115.15
+   },
+   {
+    "cores": 100,
+    "grid": "10x10",
+    "us": 104.56
+   },
+   {
+    "cores": 110,
+    "grid": "11x10",
+    "us": 97.72
+   }
+  ]
+ },
+ "ops": {
+  "transition_z.layer_norm@2038": {
+   "us": 44.22,
+   "GFLOP": 0.0,
+   "dram_MB": 5.243,
+   "all_MB": 10.486,
+   "TFLOPs": 0.0,
+   "dram_GBs": 118.6,
+   "all_GBs": 237.1,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "in DRAM, out L1; ledger scored this 0.0 s"
+  },
+  "CONTROL clone DRAM->L1 same bytes": {
+   "us": 21.15,
+   "GFLOP": 0.0,
+   "dram_MB": 5.243,
+   "all_MB": 10.486,
+   "TFLOPs": 0.0,
+   "dram_GBs": 247.9,
+   "all_GBs": 495.8,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "the norm's copy-roof control"
+  },
+  "transition_z.fc1_silu@2046": {
+   "us": 280.89,
+   "GFLOP": 5.3687,
+   "dram_MB": 0.524,
+   "all_MB": 26.739,
+   "TFLOPs": 19.11,
+   "dram_GBs": 1.9,
+   "all_GBs": 95.2,
+   "AI_dram": 10240.0,
+   "AI_all": 200.78,
+   "note": "in/out L1, weight DRAM; ledger scored this 0.0 s"
+  },
+  "transition_z.fc2@2055": {
+   "us": 88.06,
+   "GFLOP": 5.3687,
+   "dram_MB": 0.524,
+   "all_MB": 26.739,
+   "TFLOPs": 60.96,
+   "dram_GBs": 6.0,
+   "all_GBs": 303.6,
+   "AI_dram": 10240.0,
+   "AI_all": 200.78,
+   "note": "in/out L1, weight DRAM; ledger scored this 0.0 s"
+  },
+  "transition_z.fc1 NO activation (control)": {
+   "us": 87.06,
+   "GFLOP": 5.3687,
+   "dram_MB": 0.524,
+   "all_MB": 26.739,
+   "TFLOPs": 61.66,
+   "dram_GBs": 6.0,
+   "all_GBs": 307.1,
+   "AI_dram": 10240.0,
+   "AI_all": 200.78,
+   "note": "prices activation='silu' against the identical matmul"
+  },
+  "transition_z.multiply_@2064": {
+   "us": 68.59,
+   "GFLOP": 0.0105,
+   "dram_MB": 0.0,
+   "all_MB": 62.915,
+   "TFLOPs": 0.15,
+   "dram_GBs": 0.0,
+   "all_GBs": 917.3,
+   "AI_dram": null,
+   "AI_all": 0.17,
+   "note": "all three operands L1"
+  },
+  "CONTROL clone L1->L1 same bytes": {
+   "us": 38.76,
+   "GFLOP": 0.0,
+   "dram_MB": 0.0,
+   "all_MB": 41.943,
+   "TFLOPs": 0.0,
+   "dram_GBs": 0.0,
+   "all_GBs": 1082.2,
+   "AI_dram": null,
+   "AI_all": 0.0,
+   "note": "L1 copy roof for the multiply_"
+  },
+  "transition_z.fc3@2066": {
+   "us": 95.94,
+   "GFLOP": 5.3687,
+   "dram_MB": 5.767,
+   "all_MB": 26.739,
+   "TFLOPs": 55.96,
+   "dram_GBs": 60.1,
+   "all_GBs": 278.7,
+   "AI_dram": 930.9,
+   "AI_all": 200.78,
+   "note": "in L1, out DRAM; W1's AI-930.9 row"
+  },
+  "Transition.chunk@2145": {
+   "us": 313.63,
+   "GFLOP": 0.0,
+   "dram_MB": 104.858,
+   "all_MB": 104.858,
+   "TFLOPs": 0.0,
+   "dram_GBs": 334.3,
+   "all_GBs": 334.3,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "materialises a full second copy of z; 1 call per Transition"
+  },
+  "Transition.concat@2148": {
+   "us": 283.63,
+   "GFLOP": 0.0,
+   "dram_MB": 104.858,
+   "all_MB": 104.858,
+   "TFLOPs": 0.0,
+   "dram_GBs": 369.7,
+   "all_GBs": 369.7,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "reassembles the 10 chunks; 1 call per Transition"
+  },
+  "PairformerLayer.add_ x5 @2223..2239": {
+   "us": 366.56,
+   "GFLOP": 0.0262,
+   "dram_MB": 157.286,
+   "all_MB": 157.286,
+   "TFLOPs": 0.07,
+   "dram_GBs": 429.1,
+   "all_GBs": 429.1,
+   "AI_dram": 0.2,
+   "AI_all": 0.17,
+   "note": "in-place: 2 reads + 1 write, all DRAM"
+  },
+  "CONTROL clone DRAM->DRAM same bytes": {
+   "us": 267.0,
+   "GFLOP": 0.0,
+   "dram_MB": 104.858,
+   "all_MB": 104.858,
+   "TFLOPs": 0.0,
+   "dram_GBs": 392.7,
+   "all_GBs": 392.7,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "W6's copy-roof control for the adds, re-measured on this card"
+  },
+  "AttentionPairBias.z_norm@1893": {
+   "us": 348.58,
+   "GFLOP": 0.0,
+   "dram_MB": 104.858,
+   "all_MB": 104.858,
+   "TFLOPs": 0.0,
+   "dram_GBs": 300.8,
+   "all_GBs": 300.8,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "(1,320,320,256) DRAM->DRAM layernorm, the biggest norm in the block"
+  },
+  "AttentionPairBias.z_proj@1900": {
+   "us": 485.08,
+   "GFLOP": 1.6777,
+   "dram_MB": 58.999,
+   "all_MB": 58.999,
+   "TFLOPs": 3.46,
+   "dram_GBs": 121.6,
+   "all_GBs": 121.6,
+   "AI_dram": 28.4,
+   "AI_all": 28.44,
+   "note": "c_z=256 -> 16 heads of bias, nt=1"
+  },
+  "PairformerLayer.pre_norm_s@2242": {
+   "us": 13.71,
+   "GFLOP": 0.0,
+   "dram_MB": 0.492,
+   "all_MB": 0.492,
+   "TFLOPs": 0.0,
+   "dram_GBs": 35.9,
+   "all_GBs": 35.9,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "(1,320,384) -- 0.246 MB, far under any bandwidth roof"
+  },
+  "CONTROL clone (1,320,384) DRAM->DRAM": {
+   "us": 9.32,
+   "GFLOP": 0.0,
+   "dram_MB": 0.492,
+   "all_MB": 0.492,
+   "TFLOPs": 0.0,
+   "dram_GBs": 52.7,
+   "all_GBs": 52.7,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "same bytes as pre_norm_s: isolates the per-op floor"
+  },
+  "AttentionPairBias.qkv@1876": {
+   "us": 18.32,
+   "GFLOP": 0.3775,
+   "dram_MB": 2.408,
+   "all_MB": 2.408,
+   "TFLOPs": 20.6,
+   "dram_GBs": 131.4,
+   "all_GBs": 131.4,
+   "AI_dram": 156.7,
+   "AI_all": 156.73,
+   "note": "mt=10 kt=12 nt=48"
+  },
+  "AttentionPairBias.o_proj@2001": {
+   "us": 11.96,
+   "GFLOP": 0.0944,
+   "dram_MB": 0.786,
+   "all_MB": 0.786,
+   "TFLOPs": 7.89,
+   "dram_GBs": 65.7,
+   "all_GBs": 65.7,
+   "AI_dram": 120.0,
+   "AI_all": 120.0,
+   "note": "mt=10 kt=12 nt=12"
+  },
+  "transition_s.layer_norm@2038": {
+   "us": 14.58,
+   "GFLOP": 0.0,
+   "dram_MB": 0.246,
+   "all_MB": 0.492,
+   "TFLOPs": 0.0,
+   "dram_GBs": 16.9,
+   "all_GBs": 33.7,
+   "AI_dram": 0.0,
+   "AI_all": 0.0,
+   "note": "3D path, no chunking"
+  },
+  "transition_s.fc1_silu@2046": {
+   "us": 23.46,
+   "GFLOP": 0.3775,
+   "dram_MB": 1.18,
+   "all_MB": 2.408,
+   "TFLOPs": 16.09,
+   "dram_GBs": 50.3,
+   "all_GBs": 102.7,
+   "AI_dram": 320.0,
+   "AI_all": 156.73,
+   "note": "mt=10"
+  },
+  "transition_s.multiply_@2064": {
+   "us": 13.51,
+   "GFLOP": 0.0005,
+   "dram_MB": 0.0,
+   "all_MB": 2.949,
+   "TFLOPs": 0.04,
+   "dram_GBs": 0.0,
+   "all_GBs": 218.2,
+   "AI_dram": null,
+   "AI_all": 0.17,
+   "note": ""
+  },
+  "transition_s.fc3@2066": {
+   "us": 19.5,
+   "GFLOP": 0.3775,
+   "dram_MB": 1.425,
+   "all_MB": 2.408,
+   "TFLOPs": 19.36,
+   "dram_GBs": 73.1,
+   "all_GBs": 123.5,
+   "AI_dram": 264.8,
+   "AI_all": 156.73,
+   "note": "mt=10 kt=48 nt=12"
+  }
+ }
+}

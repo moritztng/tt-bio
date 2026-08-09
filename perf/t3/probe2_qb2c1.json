@@ -1,0 +1,290 @@
+{
+ "[mt300] layer_norm@2038 DRAM->L1": {
+  "us": 39.34,
+  "TFLOPs": 0.0,
+  "dram_GBs": 125.0,
+  "all_GBs": 249.9,
+  "AI_dram": 0.0,
+  "dram_MB": 4.92,
+  "GFLOP": 0.0,
+  "note": "ledger scored 0.0 s"
+ },
+ "[mt300] CONTROL clone DRAM->L1": {
+  "us": 17.42,
+  "TFLOPs": 0.0,
+  "dram_GBs": 282.1,
+  "all_GBs": 564.2,
+  "AI_dram": 0.0,
+  "dram_MB": 4.92,
+  "GFLOP": 0.0,
+  "note": "same bytes as the norm"
+ },
+ "[mt300] fc1 activation=silu @2046": {
+  "us": 250.65,
+  "TFLOPs": 20.08,
+  "dram_GBs": 2.1,
+  "all_GBs": 100.1,
+  "AI_dram": 9600.0,
+  "dram_MB": 0.52,
+  "GFLOP": 5.0332,
+  "note": "ledger scored 0.0 s"
+ },
+ "[mt300] fc1 CONTROL no activation": {
+  "us": 77.81,
+  "TFLOPs": 64.68,
+  "dram_GBs": 6.7,
+  "all_GBs": 322.6,
+  "AI_dram": 9600.0,
+  "dram_MB": 0.52,
+  "GFLOP": 5.0332,
+  "note": "prices the fused silu"
+ },
+ "[mt300] fc2@2055": {
+  "us": 78.59,
+  "TFLOPs": 64.05,
+  "dram_GBs": 6.7,
+  "all_GBs": 319.4,
+  "AI_dram": 9600.0,
+  "dram_MB": 0.52,
+  "GFLOP": 5.0332,
+  "note": "ledger scored 0.0 s"
+ },
+ "[mt300] multiply_@2064": {
+  "us": 63.84,
+  "TFLOPs": 0.15,
+  "dram_GBs": 0.0,
+  "all_GBs": 923.9,
+  "AI_dram": null,
+  "dram_MB": 0.0,
+  "GFLOP": 0.0098,
+  "note": "all L1"
+ },
+ "[mt300] CONTROL clone L1->L1": {
+  "us": 37.1,
+  "TFLOPs": 0.0,
+  "dram_GBs": 0.0,
+  "all_GBs": 1059.8,
+  "AI_dram": null,
+  "dram_MB": 0.0,
+  "GFLOP": 0.0,
+  "note": "L1 copy roof"
+ },
+ "[mt300] fc3@2066 (W1's AI-930.9 row)": {
+  "us": 93.49,
+  "TFLOPs": 53.83,
+  "dram_GBs": 58.2,
+  "all_GBs": 268.5,
+  "AI_dram": 925.3,
+  "dram_MB": 5.44,
+  "GFLOP": 5.0332,
+  "note": "in L1, out DRAM"
+ },
+ "occ_fc1 kt8 nt32_mt300": [
+  {
+   "cores": 64,
+   "us": 109.75
+  },
+  {
+   "cores": 100,
+   "us": 77.61
+  },
+  {
+   "cores": 110,
+   "us": 80.2
+  }
+ ],
+ "occ_fc3 kt32 nt8_mt300": [
+  {
+   "cores": 16,
+   "us": 305.75
+  },
+  {
+   "cores": 36,
+   "us": 166.35
+  },
+  {
+   "cores": 64,
+   "us": 115.51
+  },
+  {
+   "cores": 100,
+   "us": 93.36
+  },
+  {
+   "cores": 110,
+   "us": 94.65
+  }
+ ],
+ "[mt280] layer_norm@2038 DRAM->L1": {
+  "us": 37.96,
+  "TFLOPs": 0.0,
+  "dram_GBs": 120.8,
+  "all_GBs": 241.7,
+  "AI_dram": 0.0,
+  "dram_MB": 4.59,
+  "GFLOP": 0.0,
+  "note": "ledger scored 0.0 s"
+ },
+ "[mt280] CONTROL clone DRAM->L1": {
+  "us": 17.36,
+  "TFLOPs": 0.0,
+  "dram_GBs": 264.3,
+  "all_GBs": 528.5,
+  "AI_dram": 0.0,
+  "dram_MB": 4.59,
+  "GFLOP": 0.0,
+  "note": "same bytes as the norm"
+ },
+ "[mt280] fc1 activation=silu @2046": {
+  "us": 233.57,
+  "TFLOPs": 20.11,
+  "dram_GBs": 2.2,
+  "all_GBs": 100.4,
+  "AI_dram": 8960.0,
+  "dram_MB": 0.52,
+  "GFLOP": 4.6976,
+  "note": "ledger scored 0.0 s"
+ },
+ "[mt280] fc1 CONTROL no activation": {
+  "us": 63.24,
+  "TFLOPs": 74.28,
+  "dram_GBs": 8.3,
+  "all_GBs": 371.0,
+  "AI_dram": 8960.0,
+  "dram_MB": 0.52,
+  "GFLOP": 4.6976,
+  "note": "prices the fused silu"
+ },
+ "[mt280] fc2@2055": {
+  "us": 63.6,
+  "TFLOPs": 73.87,
+  "dram_GBs": 8.2,
+  "all_GBs": 368.9,
+  "AI_dram": 8960.0,
+  "dram_MB": 0.52,
+  "GFLOP": 4.6976,
+  "note": "ledger scored 0.0 s"
+ },
+ "[mt280] multiply_@2064": {
+  "us": 59.34,
+  "TFLOPs": 0.15,
+  "dram_GBs": 0.0,
+  "all_GBs": 927.8,
+  "AI_dram": null,
+  "dram_MB": 0.0,
+  "GFLOP": 0.0092,
+  "note": "all L1"
+ },
+ "[mt280] CONTROL clone L1->L1": {
+  "us": 34.48,
+  "TFLOPs": 0.0,
+  "dram_GBs": 0.0,
+  "all_GBs": 1064.4,
+  "AI_dram": null,
+  "dram_MB": 0.0,
+  "GFLOP": 0.0,
+  "note": "L1 copy roof"
+ },
+ "[mt280] fc3@2066 (W1's AI-930.9 row)": {
+  "us": 90.66,
+  "TFLOPs": 51.81,
+  "dram_GBs": 56.4,
+  "all_GBs": 258.8,
+  "AI_dram": 919.0,
+  "dram_MB": 5.11,
+  "GFLOP": 4.6976,
+  "note": "in L1, out DRAM"
+ },
+ "add_ x5 @2223..2239": {
+  "us": 337.23,
+  "TFLOPs": 0.07,
+  "dram_GBs": 434.3,
+  "all_GBs": 434.3,
+  "AI_dram": 0.2,
+  "dram_MB": 146.47,
+  "GFLOP": 0.0244,
+  "note": "in-place, 2R+1W all DRAM"
+ },
+ "CONTROL clone DRAM->DRAM same bytes": {
+  "us": 249.37,
+  "TFLOPs": 0.0,
+  "dram_GBs": 391.6,
+  "all_GBs": 391.6,
+  "AI_dram": 0.0,
+  "dram_MB": 97.65,
+  "GFLOP": 0.0,
+  "note": "W6's copy-roof control, re-measured"
+ },
+ "AttentionPairBias.z_norm@1893": {
+  "us": 323.18,
+  "TFLOPs": 0.0,
+  "dram_GBs": 302.2,
+  "all_GBs": 302.2,
+  "AI_dram": 0.0,
+  "dram_MB": 97.65,
+  "GFLOP": 0.0,
+  "note": "1R+1W DRAM; the biggest norm in the block"
+ },
+ "AttentionPairBias.z_proj@1900": {
+  "us": 449.78,
+  "TFLOPs": 3.47,
+  "dram_GBs": 122.2,
+  "all_GBs": 122.2,
+  "AI_dram": 28.4,
+  "dram_MB": 54.94,
+  "GFLOP": 1.5624,
+  "note": "nt=1"
+ },
+ "occ_z_proj": [
+  {
+   "cores": 1,
+   "grid": "1x1",
+   "us": 1953.45
+  },
+  {
+   "cores": 10,
+   "grid": "1x10",
+   "us": 907.36
+  },
+  {
+   "cores": 20,
+   "grid": "2x10",
+   "us": 943.65
+  },
+  {
+   "cores": 40,
+   "grid": "4x10",
+   "us": 460.47
+  },
+  {
+   "cores": 80,
+   "grid": "8x10",
+   "us": 444.71
+  },
+  {
+   "cores": 110,
+   "grid": "11x10",
+   "us": 452.08
+  }
+ ],
+ "z_proj CONTROL same M,K but nt=32": {
+  "us": 1674.23,
+  "TFLOPs": 29.86,
+  "dram_GBs": 146.1,
+  "all_GBs": 146.1,
+  "AI_dram": 204.4,
+  "dram_MB": 244.65,
+  "GFLOP": 49.9961,
+  "note": "32x the FLOPs of z_proj -- how much slower?"
+ },
+ "permute@1906 (0,3,1,2) on (1,298,320,32)": {
+  "us": 9618.89,
+  "TFLOPs": 0.0,
+  "dram_GBs": 1.3,
+  "all_GBs": 1.3,
+  "AI_dram": 0.0,
+  "dram_MB": 12.21,
+  "GFLOP": 0.0,
+  "note": "measured with its input clone included -- upper bound"
+ }
+}

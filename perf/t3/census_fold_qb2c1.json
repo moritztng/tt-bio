@@ -1,0 +1,10102 @@
+{
+ "fold_s": 27.263215273000014,
+ "recycles": 10,
+ "n_tokens": 298,
+ "plddt": 0.783273,
+ "total_calls": 149138,
+ "rows": [
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2038",
+   "chain": [
+    "tenstorrent.py:2038",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 4840,
+   "shapes": [
+    "1x30x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2046",
+   "chain": [
+    "tenstorrent.py:2046",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 4840,
+   "shapes": [
+    "1x30x320x256:L1",
+    "256x1024:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2055",
+   "chain": [
+    "tenstorrent.py:2055",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 4840,
+   "shapes": [
+    "1x30x320x256:L1",
+    "256x1024:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2064",
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 4840,
+   "shapes": [
+    "1x30x320x1024:L1",
+    "1x30x320x1024:L1"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2066",
+   "chain": [
+    "tenstorrent.py:2066",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 4840,
+   "shapes": [
+    "1x30x320x1024:L1",
+    "1024x256:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1311",
+   "chain": [
+    "tenstorrent.py:1311",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x128:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1313",
+   "chain": [
+    "tenstorrent.py:1313",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1316",
+   "chain": [
+    "tenstorrent.py:1316",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1324",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1327",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1330",
+   "chain": [
+    "tenstorrent.py:1330",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x32x320x320:L1",
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1357",
+   "chain": [
+    "tenstorrent.py:1357",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1367",
+   "chain": [
+    "tenstorrent.py:1367",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1311",
+   "chain": [
+    "tenstorrent.py:1311",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x128:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1313",
+   "chain": [
+    "tenstorrent.py:1313",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1316",
+   "chain": [
+    "tenstorrent.py:1316",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1324",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1327",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1330",
+   "chain": [
+    "tenstorrent.py:1330",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x32x320x320:L1",
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1357",
+   "chain": [
+    "tenstorrent.py:1357",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1367",
+   "chain": [
+    "tenstorrent.py:1367",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 3840,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2038",
+   "chain": [
+    "tenstorrent.py:2038",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2028"
+   ],
+   "calls": 800,
+   "shapes": [
+    "1x30x320x64:DRA",
+    "32x64:DRA",
+    "32x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2046",
+   "chain": [
+    "tenstorrent.py:2046",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2028"
+   ],
+   "calls": 800,
+   "shapes": [
+    "1x30x320x64:L1",
+    "64x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2055",
+   "chain": [
+    "tenstorrent.py:2055",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2028"
+   ],
+   "calls": 800,
+   "shapes": [
+    "1x30x320x64:L1",
+    "64x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2064",
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2028"
+   ],
+   "calls": 800,
+   "shapes": [
+    "1x30x320x128:L1",
+    "1x30x320x128:L1"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2066",
+   "chain": [
+    "tenstorrent.py:2066",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2028"
+   ],
+   "calls": 800,
+   "shapes": [
+    "1x30x320x128:L1",
+    "128x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1437",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 484,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1440",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 484,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1437",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 484,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1440",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 484,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1629",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 484,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1629",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306"
+   ],
+   "calls": 484,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1271",
+   "chain": [
+    "tenstorrent.py:1271",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:947",
+   "chain": [
+    "tenstorrent.py:947",
+    "tenstorrent.py:1376",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1430",
+   "chain": [
+    "tenstorrent.py:1430",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1442",
+   "chain": [
+    "tenstorrent.py:1442",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2223",
+   "chain": [
+    "tenstorrent.py:2223",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1271",
+   "chain": [
+    "tenstorrent.py:1271",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:947",
+   "chain": [
+    "tenstorrent.py:947",
+    "tenstorrent.py:1376",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1430",
+   "chain": [
+    "tenstorrent.py:1430",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1442",
+   "chain": [
+    "tenstorrent.py:1442",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2227",
+   "chain": [
+    "tenstorrent.py:2227",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1513",
+   "chain": [
+    "tenstorrent.py:1513",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1571",
+   "chain": [
+    "tenstorrent.py:1571",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1578",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1582",
+   "chain": [
+    "tenstorrent.py:1582",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1627",
+   "chain": [
+    "tenstorrent.py:1627",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA",
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1716",
+   "chain": [
+    "tenstorrent.py:1716",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2231",
+   "chain": [
+    "tenstorrent.py:2231",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1513",
+   "chain": [
+    "tenstorrent.py:1513",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1570",
+   "chain": [
+    "tenstorrent.py:1570",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1571",
+   "chain": [
+    "tenstorrent.py:1571",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1578",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1582",
+   "chain": [
+    "tenstorrent.py:1582",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1627",
+   "chain": [
+    "tenstorrent.py:1627",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA",
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1715",
+   "chain": [
+    "tenstorrent.py:1715",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1716",
+   "chain": [
+    "tenstorrent.py:1716",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2235",
+   "chain": [
+    "tenstorrent.py:2235",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:2145",
+   "chain": [
+    "tenstorrent.py:2145",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:2148",
+   "chain": [
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": []
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2239",
+   "chain": [
+    "tenstorrent.py:2239",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2242",
+   "chain": [
+    "tenstorrent.py:2242",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:DRA",
+    "32x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:1876",
+   "chain": [
+    "tenstorrent.py:1876",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x1536:DRA",
+    "32x1536:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1893",
+   "chain": [
+    "tenstorrent.py:1893",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:1900",
+   "chain": [
+    "tenstorrent.py:1900",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1906",
+   "chain": [
+    "tenstorrent.py:1906",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "transpose",
+   "site": "tenstorrent.py:1936",
+   "chain": [
+    "tenstorrent.py:1936",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x320x32:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "tenstorrent.py:1937",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x320x32:DRA",
+    "1x16x32x320:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:1940",
+   "chain": [
+    "tenstorrent.py:1940",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x320x320:DRA",
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1941",
+   "chain": [
+    "tenstorrent.py:1941",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "softmax",
+   "site": "tenstorrent.py:1942",
+   "chain": [
+    "tenstorrent.py:1942",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "tenstorrent.py:1945",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x320x320:DRA",
+    "1x16x320x32:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:1950",
+   "chain": [
+    "tenstorrent.py:1950",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x320x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1951",
+   "chain": [
+    "tenstorrent.py:1951",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x320x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1952",
+   "chain": [
+    "tenstorrent.py:1952",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x16x32x320:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1953",
+   "chain": [
+    "tenstorrent.py:1953",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x384x320:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2001",
+   "chain": [
+    "tenstorrent.py:2001",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x384:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:2009",
+   "chain": [
+    "tenstorrent.py:2009",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:DRA",
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2011",
+   "chain": [
+    "tenstorrent.py:2011",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x384:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2255",
+   "chain": [
+    "tenstorrent.py:2255",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:DRA",
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2038",
+   "chain": [
+    "tenstorrent.py:2038",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:DRA",
+    "32x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2046",
+   "chain": [
+    "tenstorrent.py:2046",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:L1",
+    "384x1536:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2055",
+   "chain": [
+    "tenstorrent.py:2055",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:L1",
+    "384x1536:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2064",
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x1536:L1",
+    "1x320x1536:L1"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2066",
+   "chain": [
+    "tenstorrent.py:2066",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:2223"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x1536:L1",
+    "1536x384:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2259",
+   "chain": [
+    "tenstorrent.py:2259",
+    "tenstorrent.py:2306",
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 480,
+   "shapes": [
+    "1x320x384:DRA",
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2038",
+   "chain": [
+    "tenstorrent.py:2038",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2138"
+   ],
+   "calls": 400,
+   "shapes": [
+    "1x30x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2046",
+   "chain": [
+    "tenstorrent.py:2046",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2138"
+   ],
+   "calls": 400,
+   "shapes": [
+    "1x30x320x256:L1",
+    "256x1024:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2055",
+   "chain": [
+    "tenstorrent.py:2055",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2138"
+   ],
+   "calls": 400,
+   "shapes": [
+    "1x30x320x256:L1",
+    "256x1024:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2064",
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2138"
+   ],
+   "calls": 400,
+   "shapes": [
+    "1x30x320x1024:L1",
+    "1x30x320x1024:L1"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2066",
+   "chain": [
+    "tenstorrent.py:2066",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2138"
+   ],
+   "calls": 400,
+   "shapes": [
+    "1x30x320x1024:L1",
+    "1024x256:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:386",
+   "chain": [
+    "protenix.py:386",
+    "protenix.py:385",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551"
+   ],
+   "calls": 384,
+   "shapes": [
+    "78x32x128:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1311",
+   "chain": [
+    "tenstorrent.py:1311",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x128:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1313",
+   "chain": [
+    "tenstorrent.py:1313",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1316",
+   "chain": [
+    "tenstorrent.py:1316",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1324",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1327",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1330",
+   "chain": [
+    "tenstorrent.py:1330",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x32x320x320:L1",
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1357",
+   "chain": [
+    "tenstorrent.py:1357",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1367",
+   "chain": [
+    "tenstorrent.py:1367",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1311",
+   "chain": [
+    "tenstorrent.py:1311",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x128:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1313",
+   "chain": [
+    "tenstorrent.py:1313",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1316",
+   "chain": [
+    "tenstorrent.py:1316",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1324",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1327",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1330",
+   "chain": [
+    "tenstorrent.py:1330",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x32x320x320:L1",
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1357",
+   "chain": [
+    "tenstorrent.py:1357",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1367",
+   "chain": [
+    "tenstorrent.py:1367",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 320,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:2809",
+   "chain": [
+    "tenstorrent.py:2809",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2807",
+   "chain": [
+    "tenstorrent.py:2807",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2813",
+   "chain": [
+    "tenstorrent.py:2813",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "softmax",
+   "site": "tenstorrent.py:2816",
+   "chain": [
+    "tenstorrent.py:2816",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "1x320x320:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:2824",
+   "chain": [
+    "tenstorrent.py:2824",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "128x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2822",
+   "chain": [
+    "tenstorrent.py:2822",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "35x320x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2828",
+   "chain": [
+    "tenstorrent.py:2828",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "35x320x32:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:2829",
+   "chain": [
+    "tenstorrent.py:2829",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "35x32x320:DRA",
+    "1x320x320:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2838",
+   "chain": [
+    "tenstorrent.py:2838",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "35x32x320:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:2841",
+   "chain": [
+    "tenstorrent.py:2841",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "128x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2839",
+   "chain": [
+    "tenstorrent.py:2839",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "35x320x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:2845",
+   "chain": [
+    "tenstorrent.py:2845",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "35x320x32:DRA",
+    "35x320x32:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:2849",
+   "chain": [
+    "tenstorrent.py:2849",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "64x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2847",
+   "chain": [
+    "tenstorrent.py:2847",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 240,
+   "shapes": [
+    "35x320x32:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "tenstorrent.py:2853",
+   "chain": [
+    "tenstorrent.py:2853",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 210,
+   "shapes": [
+    "35x320x128:DRA",
+    "35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:1094",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:1094",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:1094",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x768:DRA",
+    "32x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:1094",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x768:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:1094",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:1094",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:1876",
+   "chain": [
+    "tenstorrent.py:1876",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "768x3072:DRA",
+    "32x3072:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:1913",
+   "chain": [
+    "tenstorrent.py:1913",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1916",
+   "chain": [
+    "tenstorrent.py:1916",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x64:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "tenstorrent.py:1917",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x64:DRA",
+    "1x16x64x320:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:1920",
+   "chain": [
+    "tenstorrent.py:1920",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "tenstorrent.py:1921",
+   "chain": [
+    "tenstorrent.py:1921",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x320:DRA",
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "softmax",
+   "site": "tenstorrent.py:1922",
+   "chain": [
+    "tenstorrent.py:1922",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "tenstorrent.py:1923",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x320:DRA",
+    "1x16x320x64:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:1950",
+   "chain": [
+    "tenstorrent.py:1950",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x64:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1951",
+   "chain": [
+    "tenstorrent.py:1951",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x320x64:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1952",
+   "chain": [
+    "tenstorrent.py:1952",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x16x64x320:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1953",
+   "chain": [
+    "tenstorrent.py:1953",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x768x320:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2001",
+   "chain": [
+    "tenstorrent.py:2001",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "768x768:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:2009",
+   "chain": [
+    "tenstorrent.py:2009",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2011",
+   "chain": [
+    "tenstorrent.py:2011",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "768x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1091",
+   "chain": [
+    "protenix.py:1091",
+    "protenix.py:1097",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x768:DRA",
+    "32x768:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:1098",
+   "chain": [
+    "protenix.py:1098",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:1098",
+   "chain": [
+    "protenix.py:1098",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:1099",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:1099",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:1099",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x768:DRA",
+    "32x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:1099",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x768:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:1099",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:1099",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1091",
+   "chain": [
+    "protenix.py:1091",
+    "protenix.py:1100",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "768x1536:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1091",
+   "chain": [
+    "protenix.py:1091",
+    "protenix.py:1101",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "768x1536:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:1100",
+   "chain": [
+    "protenix.py:1100",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x1536:DRA",
+    "1x320x1536:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1091",
+   "chain": [
+    "protenix.py:1091",
+    "protenix.py:1102",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x768:DRA",
+    "32x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1091",
+   "chain": [
+    "protenix.py:1091",
+    "protenix.py:1103",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x1536:DRA",
+    "1536x768:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:1103",
+   "chain": [
+    "protenix.py:1103",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:1103",
+   "chain": [
+    "protenix.py:1103",
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 192,
+   "shapes": [
+    "1x320x768:DRA",
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1311",
+   "chain": [
+    "tenstorrent.py:1311",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x128:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1313",
+   "chain": [
+    "tenstorrent.py:1313",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1316",
+   "chain": [
+    "tenstorrent.py:1316",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1324",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1327",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1330",
+   "chain": [
+    "tenstorrent.py:1330",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x32x320x320:L1",
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1357",
+   "chain": [
+    "tenstorrent.py:1357",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1367",
+   "chain": [
+    "tenstorrent.py:1367",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1311",
+   "chain": [
+    "tenstorrent.py:1311",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x128:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1313",
+   "chain": [
+    "tenstorrent.py:1313",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1316",
+   "chain": [
+    "tenstorrent.py:1316",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1324",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1327",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1330",
+   "chain": [
+    "tenstorrent.py:1330",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x32x320x320:L1",
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1357",
+   "chain": [
+    "tenstorrent.py:1357",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1367",
+   "chain": [
+    "tenstorrent.py:1367",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 160,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1271",
+   "chain": [
+    "tenstorrent.py:1271",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "32x64:DRA",
+    "32x64:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:947",
+   "chain": [
+    "tenstorrent.py:947",
+    "tenstorrent.py:1376",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 80,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1430",
+   "chain": [
+    "tenstorrent.py:1430",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "32x64:DRA",
+    "32x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1437",
+    "tenstorrent.py:2222",
+    "protenix.py:2028"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "64x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1440",
+    "tenstorrent.py:2222",
+    "protenix.py:2028"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "64x64:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1442",
+   "chain": [
+    "tenstorrent.py:1442",
+    "tenstorrent.py:2222",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2223",
+   "chain": [
+    "tenstorrent.py:2223",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1271",
+   "chain": [
+    "tenstorrent.py:1271",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "32x64:DRA",
+    "32x64:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:947",
+   "chain": [
+    "tenstorrent.py:947",
+    "tenstorrent.py:1376",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 80,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1430",
+   "chain": [
+    "tenstorrent.py:1430",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "32x64:DRA",
+    "32x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1437",
+    "tenstorrent.py:2226",
+    "protenix.py:2028"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "64x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1440",
+    "tenstorrent.py:2226",
+    "protenix.py:2028"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "64x64:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1442",
+   "chain": [
+    "tenstorrent.py:1442",
+    "tenstorrent.py:2226",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2227",
+   "chain": [
+    "tenstorrent.py:2227",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1513",
+   "chain": [
+    "tenstorrent.py:1513",
+    "tenstorrent.py:2230",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1571",
+   "chain": [
+    "tenstorrent.py:1571",
+    "tenstorrent.py:2230",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA",
+    "32x64:DRA",
+    "32x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1578",
+    "tenstorrent.py:2230",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA",
+    "64x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1582",
+   "chain": [
+    "tenstorrent.py:1582",
+    "tenstorrent.py:2230",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1627",
+   "chain": [
+    "tenstorrent.py:1627",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2230",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA",
+    "298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1629",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2230",
+    "protenix.py:2028"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA",
+    "64x64:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1716",
+   "chain": [
+    "tenstorrent.py:1716",
+    "tenstorrent.py:2230",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2231",
+   "chain": [
+    "tenstorrent.py:2231",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1513",
+   "chain": [
+    "tenstorrent.py:1513",
+    "tenstorrent.py:2234",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1570",
+   "chain": [
+    "tenstorrent.py:1570",
+    "tenstorrent.py:2234",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1571",
+   "chain": [
+    "tenstorrent.py:1571",
+    "tenstorrent.py:2234",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA",
+    "32x64:DRA",
+    "32x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1578",
+    "tenstorrent.py:2234",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA",
+    "64x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1582",
+   "chain": [
+    "tenstorrent.py:1582",
+    "tenstorrent.py:2234",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1627",
+   "chain": [
+    "tenstorrent.py:1627",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2234",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA",
+    "298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1629",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2234",
+    "protenix.py:2028"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA",
+    "64x64:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1715",
+   "chain": [
+    "tenstorrent.py:1715",
+    "tenstorrent.py:2234",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1716",
+   "chain": [
+    "tenstorrent.py:1716",
+    "tenstorrent.py:2234",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2235",
+   "chain": [
+    "tenstorrent.py:2235",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:2145",
+   "chain": [
+    "tenstorrent.py:2145",
+    "tenstorrent.py:2238",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:2148",
+   "chain": [
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852"
+   ],
+   "calls": 80,
+   "shapes": []
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2239",
+   "chain": [
+    "tenstorrent.py:2239",
+    "protenix.py:2028",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 80,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2038",
+   "chain": [
+    "tenstorrent.py:2038",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:2074",
+    "protenix.py:2137"
+   ],
+   "calls": 60,
+   "shapes": [
+    "1x18x320x128:DRA",
+    "32x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2046",
+   "chain": [
+    "tenstorrent.py:2046",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:2074",
+    "protenix.py:2137"
+   ],
+   "calls": 60,
+   "shapes": [
+    "1x18x320x128:L1",
+    "128x512:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2055",
+   "chain": [
+    "tenstorrent.py:2055",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:2074",
+    "protenix.py:2137"
+   ],
+   "calls": 60,
+   "shapes": [
+    "1x18x320x128:L1",
+    "128x512:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2064",
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:2074",
+    "protenix.py:2137"
+   ],
+   "calls": 60,
+   "shapes": [
+    "1x18x320x512:L1",
+    "1x18x320x512:L1"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2066",
+   "chain": [
+    "tenstorrent.py:2066",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:2074",
+    "protenix.py:2137"
+   ],
+   "calls": 60,
+   "shapes": [
+    "1x18x320x512:L1",
+    "512x128:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:383",
+   "chain": [
+    "protenix.py:383",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 48,
+   "shapes": [
+    "1x2576x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:384",
+   "chain": [
+    "protenix.py:384",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 48,
+   "shapes": [
+    "1x2496x128:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "protenix.py:385",
+   "chain": [
+    "protenix.py:385",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 48,
+   "shapes": []
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:394",
+   "chain": [
+    "protenix.py:394",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 48,
+   "shapes": [
+    "75x128x128:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:395",
+   "chain": [
+    "protenix.py:395",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 48,
+   "shapes": [
+    "75x128x4x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:416",
+   "chain": [
+    "protenix.py:416",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 48,
+   "shapes": [
+    "75x4x32x128:DRA",
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:383",
+   "chain": [
+    "protenix.py:383",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 48,
+   "shapes": [
+    "1x2576x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:384",
+   "chain": [
+    "protenix.py:384",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 48,
+   "shapes": [
+    "1x2496x128:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "protenix.py:385",
+   "chain": [
+    "protenix.py:385",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 48,
+   "shapes": []
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:394",
+   "chain": [
+    "protenix.py:394",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 48,
+   "shapes": [
+    "75x128x128:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:395",
+   "chain": [
+    "protenix.py:395",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 48,
+   "shapes": [
+    "75x128x4x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:416",
+   "chain": [
+    "protenix.py:416",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 48,
+   "shapes": [
+    "75x4x32x128:DRA",
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2026",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x64:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2025",
+   "chain": [
+    "protenix.py:2025",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:2029",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "32x64:DRA",
+    "32x64:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:2887",
+   "chain": [
+    "tenstorrent.py:2887",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2893",
+   "chain": [
+    "tenstorrent.py:2893",
+    "tenstorrent.py:2968",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "35x320x128:DRA",
+    "32x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2900",
+   "chain": [
+    "tenstorrent.py:2900",
+    "tenstorrent.py:2968",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "35x320x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2906",
+   "chain": [
+    "tenstorrent.py:2906",
+    "tenstorrent.py:2968",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "35x320x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2986",
+   "chain": [
+    "tenstorrent.py:2986",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "35x320x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2987",
+   "chain": [
+    "tenstorrent.py:2987",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "35x320x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:2989",
+   "chain": [
+    "tenstorrent.py:2989",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "32x298x35:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:3011",
+   "chain": [
+    "tenstorrent.py:3011",
+    "tenstorrent.py:3033",
+    "tenstorrent.py:3074",
+    "protenix.py:2134",
+    "protenix.py:2220"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x32x64:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:3012",
+   "chain": [
+    "tenstorrent.py:3012",
+    "tenstorrent.py:3033",
+    "tenstorrent.py:3074",
+    "protenix.py:2134",
+    "protenix.py:2220"
+   ],
+   "calls": 40,
+   "shapes": [
+    "9536x64:DRA",
+    "9536x64:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:3035",
+   "chain": [
+    "tenstorrent.py:3035",
+    "tenstorrent.py:3074",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "9536x9536:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:3037",
+   "chain": [
+    "tenstorrent.py:3037",
+    "tenstorrent.py:3074",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x1024x320:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:3039",
+   "chain": [
+    "tenstorrent.py:3039",
+    "tenstorrent.py:3074",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x1024:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:3043",
+   "chain": [
+    "tenstorrent.py:3043",
+    "tenstorrent.py:3074",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x1024:DRA",
+    "1024x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:3082",
+   "chain": [
+    "tenstorrent.py:3082",
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2134",
+   "chain": [
+    "protenix.py:2134",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1271",
+   "chain": [
+    "tenstorrent.py:1271",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:947",
+   "chain": [
+    "tenstorrent.py:947",
+    "tenstorrent.py:1376",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 40,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1430",
+   "chain": [
+    "tenstorrent.py:1430",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1437",
+    "tenstorrent.py:2222",
+    "protenix.py:2138"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1440",
+    "tenstorrent.py:2222",
+    "protenix.py:2138"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1442",
+   "chain": [
+    "tenstorrent.py:1442",
+    "tenstorrent.py:2222",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2223",
+   "chain": [
+    "tenstorrent.py:2223",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1271",
+   "chain": [
+    "tenstorrent.py:1271",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:947",
+   "chain": [
+    "tenstorrent.py:947",
+    "tenstorrent.py:1376",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 40,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1430",
+   "chain": [
+    "tenstorrent.py:1430",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1437",
+    "tenstorrent.py:2226",
+    "protenix.py:2138"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1178",
+    "tenstorrent.py:1440",
+    "tenstorrent.py:2226",
+    "protenix.py:2138"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1442",
+   "chain": [
+    "tenstorrent.py:1442",
+    "tenstorrent.py:2226",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2227",
+   "chain": [
+    "tenstorrent.py:2227",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1513",
+   "chain": [
+    "tenstorrent.py:1513",
+    "tenstorrent.py:2230",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1571",
+   "chain": [
+    "tenstorrent.py:1571",
+    "tenstorrent.py:2230",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1578",
+    "tenstorrent.py:2230",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1582",
+   "chain": [
+    "tenstorrent.py:1582",
+    "tenstorrent.py:2230",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1627",
+   "chain": [
+    "tenstorrent.py:1627",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2230",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA",
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1629",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2230",
+    "protenix.py:2138"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1716",
+   "chain": [
+    "tenstorrent.py:1716",
+    "tenstorrent.py:2230",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2231",
+   "chain": [
+    "tenstorrent.py:2231",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1513",
+   "chain": [
+    "tenstorrent.py:1513",
+    "tenstorrent.py:2234",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1570",
+   "chain": [
+    "tenstorrent.py:1570",
+    "tenstorrent.py:2234",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1571",
+   "chain": [
+    "tenstorrent.py:1571",
+    "tenstorrent.py:2234",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1578",
+    "tenstorrent.py:2234",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1582",
+   "chain": [
+    "tenstorrent.py:1582",
+    "tenstorrent.py:2234",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1627",
+   "chain": [
+    "tenstorrent.py:1627",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2234",
+    "protenix.py:2138",
+    "protenix.py:2220"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA",
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1629",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2234",
+    "protenix.py:2138"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1715",
+   "chain": [
+    "tenstorrent.py:1715",
+    "tenstorrent.py:2234",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1716",
+   "chain": [
+    "tenstorrent.py:1716",
+    "tenstorrent.py:2234",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2235",
+   "chain": [
+    "tenstorrent.py:2235",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:2145",
+   "chain": [
+    "tenstorrent.py:2145",
+    "tenstorrent.py:2238",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:2148",
+   "chain": [
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 40,
+   "shapes": []
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2239",
+   "chain": [
+    "tenstorrent.py:2239",
+    "protenix.py:2138",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 40,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1311",
+   "chain": [
+    "tenstorrent.py:1311",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x128:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1313",
+   "chain": [
+    "tenstorrent.py:1313",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1316",
+   "chain": [
+    "tenstorrent.py:1316",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1324",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1327",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1330",
+   "chain": [
+    "tenstorrent.py:1330",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x32x320x320:L1",
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1357",
+   "chain": [
+    "tenstorrent.py:1357",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1367",
+   "chain": [
+    "tenstorrent.py:1367",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1311",
+   "chain": [
+    "tenstorrent.py:1311",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x128:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1313",
+   "chain": [
+    "tenstorrent.py:1313",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1316",
+   "chain": [
+    "tenstorrent.py:1316",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1",
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1324",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1264",
+   "chain": [
+    "tenstorrent.py:1264",
+    "tenstorrent.py:1327",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1330",
+   "chain": [
+    "tenstorrent.py:1330",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x32x320x320:L1",
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1357",
+   "chain": [
+    "tenstorrent.py:1357",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x32x320x320:L1"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1367",
+   "chain": [
+    "tenstorrent.py:1367",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 32,
+   "shapes": [
+    "1x298x320x32:L1"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2030",
+   "chain": [
+    "protenix.py:2030",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "clone",
+   "site": "protenix.py:2070",
+   "chain": [
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:2789",
+   "chain": [
+    "tenstorrent.py:2789",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:2790",
+   "chain": [
+    "tenstorrent.py:2790",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2791",
+   "chain": [
+    "tenstorrent.py:2791",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 30,
+   "shapes": [
+    "35x320x128:DRA",
+    "32x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2798",
+   "chain": [
+    "tenstorrent.py:2798",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 30,
+   "shapes": [
+    "298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:2854",
+   "chain": [
+    "tenstorrent.py:2854",
+    "protenix.py:2070",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 30,
+   "shapes": [
+    "35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:2069",
+   "chain": [
+    "protenix.py:2069",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2069",
+   "chain": [
+    "protenix.py:2069",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x35x320x128:DRA",
+    "1x35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:2145",
+   "chain": [
+    "tenstorrent.py:2145",
+    "protenix.py:2074",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:2148",
+   "chain": [
+    "tenstorrent.py:2148",
+    "protenix.py:2074",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852"
+   ],
+   "calls": 30,
+   "shapes": []
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:2074",
+   "chain": [
+    "protenix.py:2074",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2073",
+   "chain": [
+    "protenix.py:2073",
+    "protenix.py:2137",
+    "protenix.py:2220",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 30,
+   "shapes": [
+    "1x35x320x128:DRA",
+    "1x35x320x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:409",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:410",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:411",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:357",
+   "chain": [
+    "protenix.py:357",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:358",
+   "chain": [
+    "protenix.py:358",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x32x4x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:414",
+   "chain": [
+    "protenix.py:414",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x128x32:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "protenix.py:414",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x32:DRA",
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:415",
+   "chain": [
+    "protenix.py:415",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "softmax",
+   "site": "protenix.py:417",
+   "chain": [
+    "protenix.py:417",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "protenix.py:417",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x128:DRA",
+    "75x4x128x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:418",
+   "chain": [
+    "protenix.py:418",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:419",
+   "chain": [
+    "protenix.py:419",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x32x32x32:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:420",
+   "chain": [
+    "protenix.py:420",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:428",
+   "chain": [
+    "protenix.py:428",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:430",
+   "chain": [
+    "protenix.py:430",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:431",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:432",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:433",
+   "chain": [
+    "protenix.py:433",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:434",
+   "chain": [
+    "protenix.py:434",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:868"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:437",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:438",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:439",
+   "chain": [
+    "protenix.py:439",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x256:DRA",
+    "1x2400x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:439",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x256:DRA",
+    "256x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:440",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:441",
+   "chain": [
+    "protenix.py:441",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:442",
+   "chain": [
+    "protenix.py:442",
+    "protenix.py:551",
+    "protenix.py:868",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1800",
+   "chain": [
+    "tenstorrent.py:1800",
+    "protenix.py:1076",
+    "protenix.py:1075",
+    "protenix.py:881",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:1804",
+   "chain": [
+    "tenstorrent.py:1804",
+    "protenix.py:1076",
+    "protenix.py:1075",
+    "protenix.py:881",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1807",
+   "chain": [
+    "tenstorrent.py:1807",
+    "protenix.py:1076",
+    "protenix.py:1075",
+    "protenix.py:881",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:409",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:410",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:411",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:357",
+   "chain": [
+    "protenix.py:357",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:358",
+   "chain": [
+    "protenix.py:358",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x32x4x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:414",
+   "chain": [
+    "protenix.py:414",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x128x32:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "protenix.py:414",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x32:DRA",
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:415",
+   "chain": [
+    "protenix.py:415",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "softmax",
+   "site": "protenix.py:417",
+   "chain": [
+    "protenix.py:417",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "protenix.py:417",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x128:DRA",
+    "75x4x128x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:418",
+   "chain": [
+    "protenix.py:418",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x4x32x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:419",
+   "chain": [
+    "protenix.py:419",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "75x32x32x32:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:420",
+   "chain": [
+    "protenix.py:420",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:428",
+   "chain": [
+    "protenix.py:428",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:430",
+   "chain": [
+    "protenix.py:430",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:431",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:432",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:433",
+   "chain": [
+    "protenix.py:433",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:434",
+   "chain": [
+    "protenix.py:434",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:902"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:437",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:438",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:439",
+   "chain": [
+    "protenix.py:439",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x256:DRA",
+    "1x2400x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:439",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x256:DRA",
+    "256x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:440",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:441",
+   "chain": [
+    "protenix.py:441",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:442",
+   "chain": [
+    "protenix.py:442",
+    "protenix.py:551",
+    "protenix.py:902",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 24,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2038",
+   "chain": [
+    "tenstorrent.py:2038",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:1751",
+    "protenix.py:1859"
+   ],
+   "calls": 20,
+   "shapes": [
+    "1x30x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2046",
+   "chain": [
+    "tenstorrent.py:2046",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:1751",
+    "protenix.py:1859"
+   ],
+   "calls": 20,
+   "shapes": [
+    "1x30x320x256:L1",
+    "256x512:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2055",
+   "chain": [
+    "tenstorrent.py:2055",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:1751",
+    "protenix.py:1859"
+   ],
+   "calls": 20,
+   "shapes": [
+    "1x30x320x256:L1",
+    "256x512:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2064",
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:1751",
+    "protenix.py:1859"
+   ],
+   "calls": 20,
+   "shapes": [
+    "1x30x320x512:L1",
+    "1x30x320x512:L1"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2066",
+   "chain": [
+    "tenstorrent.py:2066",
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2148",
+    "protenix.py:1751",
+    "protenix.py:1859"
+   ],
+   "calls": 20,
+   "shapes": [
+    "1x30x320x512:L1",
+    "512x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2038",
+   "chain": [
+    "tenstorrent.py:2038",
+    "tenstorrent.py:2084",
+    "protenix.py:862",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 16,
+   "shapes": [
+    "1x320x384:DRA",
+    "32x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2046",
+   "chain": [
+    "tenstorrent.py:2046",
+    "tenstorrent.py:2084",
+    "protenix.py:862",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 16,
+   "shapes": [
+    "1x320x384:L1",
+    "384x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2055",
+   "chain": [
+    "tenstorrent.py:2055",
+    "tenstorrent.py:2084",
+    "protenix.py:862",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 16,
+   "shapes": [
+    "1x320x384:L1",
+    "384x768:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2064",
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2084",
+    "protenix.py:862",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 16,
+   "shapes": [
+    "1x320x768:L1",
+    "1x320x768:L1"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2066",
+   "chain": [
+    "tenstorrent.py:2066",
+    "tenstorrent.py:2084",
+    "protenix.py:862",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 16,
+   "shapes": [
+    "1x320x768:L1",
+    "768x384:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:862",
+   "chain": [
+    "protenix.py:862",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 16,
+   "shapes": [
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:862",
+   "chain": [
+    "protenix.py:862",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 16,
+   "shapes": [
+    "1x320x384:DRA",
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:868",
+   "chain": [
+    "protenix.py:868",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 16,
+   "shapes": [
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:902",
+   "chain": [
+    "protenix.py:902",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 16,
+   "shapes": [
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:2216",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 10,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2216",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 10,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:2217",
+   "chain": [
+    "protenix.py:2217",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 10,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2217",
+   "chain": [
+    "protenix.py:2217",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 10,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:2022",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 10,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:2031",
+   "chain": [
+    "protenix.py:2031",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 10,
+   "shapes": [
+    "1x298x320x64:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2032",
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 10,
+   "shapes": [
+    "1x298x320x64:DRA",
+    "64x256:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2219",
+   "chain": [
+    "protenix.py:2219",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 10,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:2221",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 10,
+   "shapes": [
+    "320x384:DRA",
+    "32x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2221",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 10,
+   "shapes": [
+    "320x384:DRA",
+    "384x384:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2222",
+   "chain": [
+    "protenix.py:2222",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 10,
+   "shapes": [
+    "320x384:DRA",
+    "320x384:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:2223",
+   "chain": [
+    "protenix.py:2223",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 10,
+   "shapes": [
+    "320x384:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:2224",
+   "chain": [
+    "protenix.py:2224",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 10,
+   "shapes": [
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:858",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:858",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "32x256:DRA",
+    "256x384:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:860",
+   "chain": [
+    "protenix.py:860",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:860",
+   "chain": [
+    "protenix.py:860",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:867",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "2400x32:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:867",
+   "chain": [
+    "protenix.py:867",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "2400x128:DRA",
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:870",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x768:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:870",
+   "chain": [
+    "protenix.py:870",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "1x2400x768:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "protenix.py:870",
+   "chain": [
+    "protenix.py:870",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x2400:DRA",
+    "2400x768:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:874",
+   "chain": [
+    "protenix.py:874",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:874",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:874",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x384:DRA",
+    "384x768:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:873",
+   "chain": [
+    "protenix.py:873",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x768:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:873",
+   "chain": [
+    "protenix.py:873",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x768:DRA",
+    "320x768:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:883",
+   "chain": [
+    "protenix.py:883",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x768:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:791",
+   "chain": [
+    "protenix.py:791",
+    "protenix.py:886",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "1x320x768:DRA",
+    "32x768:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:899",
+   "chain": [
+    "protenix.py:899",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "1x320x768:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:899",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "320x768:DRA",
+    "768x128:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "protenix.py:899",
+   "chain": [
+    "protenix.py:899",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "2400x320:DRA",
+    "320x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:901",
+   "chain": [
+    "protenix.py:901",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:899",
+   "chain": [
+    "protenix.py:899",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 8,
+   "shapes": [
+    "2400x128:DRA",
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:904",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:905",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 8,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:390",
+   "chain": [
+    "protenix.py:390",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 6,
+   "shapes": [
+    "1x2576x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:393",
+   "chain": [
+    "protenix.py:393",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 6,
+   "shapes": [
+    "1x9600x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:394",
+   "chain": [
+    "protenix.py:394",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 6,
+   "shapes": [
+    "75x128x4x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:395",
+   "chain": [
+    "protenix.py:395",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 6,
+   "shapes": [
+    "75x128x4x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:416",
+   "chain": [
+    "protenix.py:416",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 6,
+   "shapes": [
+    "75x4x32x128:DRA",
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2178",
+    "protenix.py:2178",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x128:DRA",
+    "128x64:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:228",
+   "chain": [
+    "protenix.py:228",
+    "protenix.py:227",
+    "protenix.py:1013",
+    "protenix.py:818",
+    "protenix.py:845"
+   ],
+   "calls": 4,
+   "shapes": [
+    "78x32x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1271",
+   "chain": [
+    "tenstorrent.py:1271",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:947",
+   "chain": [
+    "tenstorrent.py:947",
+    "tenstorrent.py:1376",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1430",
+   "chain": [
+    "tenstorrent.py:1430",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1442",
+   "chain": [
+    "tenstorrent.py:1442",
+    "tenstorrent.py:2222",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2223",
+   "chain": [
+    "tenstorrent.py:2223",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1271",
+   "chain": [
+    "tenstorrent.py:1271",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:947",
+   "chain": [
+    "tenstorrent.py:947",
+    "tenstorrent.py:1376",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1430",
+   "chain": [
+    "tenstorrent.py:1430",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1442",
+   "chain": [
+    "tenstorrent.py:1442",
+    "tenstorrent.py:2226",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2227",
+   "chain": [
+    "tenstorrent.py:2227",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1513",
+   "chain": [
+    "tenstorrent.py:1513",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1571",
+   "chain": [
+    "tenstorrent.py:1571",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1578",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1582",
+   "chain": [
+    "tenstorrent.py:1582",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1627",
+   "chain": [
+    "tenstorrent.py:1627",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA",
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1716",
+   "chain": [
+    "tenstorrent.py:1716",
+    "tenstorrent.py:2230",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2231",
+   "chain": [
+    "tenstorrent.py:2231",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1513",
+   "chain": [
+    "tenstorrent.py:1513",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1570",
+   "chain": [
+    "tenstorrent.py:1570",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1571",
+   "chain": [
+    "tenstorrent.py:1571",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:595",
+   "chain": [
+    "tenstorrent.py:595",
+    "tenstorrent.py:1578",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1582",
+   "chain": [
+    "tenstorrent.py:1582",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1627",
+   "chain": [
+    "tenstorrent.py:1627",
+    "tenstorrent.py:1713",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA",
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1715",
+   "chain": [
+    "tenstorrent.py:1715",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1716",
+   "chain": [
+    "tenstorrent.py:1716",
+    "tenstorrent.py:2234",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2235",
+   "chain": [
+    "tenstorrent.py:2235",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:2145",
+   "chain": [
+    "tenstorrent.py:2145",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:2148",
+   "chain": [
+    "tenstorrent.py:2148",
+    "tenstorrent.py:2238",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": []
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2239",
+   "chain": [
+    "tenstorrent.py:2239",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2242",
+   "chain": [
+    "tenstorrent.py:2242",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:DRA",
+    "32x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:1876",
+   "chain": [
+    "tenstorrent.py:1876",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x1536:DRA",
+    "32x1536:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1893",
+   "chain": [
+    "tenstorrent.py:1893",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "32x256:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:1900",
+   "chain": [
+    "tenstorrent.py:1900",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "256x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1906",
+   "chain": [
+    "tenstorrent.py:1906",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x298x320x32:DRA"
+   ]
+  },
+  {
+   "op": "transpose",
+   "site": "tenstorrent.py:1936",
+   "chain": [
+    "tenstorrent.py:1936",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x320x32:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "tenstorrent.py:1937",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x320x32:DRA",
+    "1x16x32x320:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:1940",
+   "chain": [
+    "tenstorrent.py:1940",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x320x320:DRA",
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1941",
+   "chain": [
+    "tenstorrent.py:1941",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "softmax",
+   "site": "tenstorrent.py:1942",
+   "chain": [
+    "tenstorrent.py:1942",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x320x320:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "tenstorrent.py:1945",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x320x320:DRA",
+    "1x16x320x32:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:1950",
+   "chain": [
+    "tenstorrent.py:1950",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x320x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1951",
+   "chain": [
+    "tenstorrent.py:1951",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x320x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1952",
+   "chain": [
+    "tenstorrent.py:1952",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x16x32x320:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1953",
+   "chain": [
+    "tenstorrent.py:1953",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x384x320:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2001",
+   "chain": [
+    "tenstorrent.py:2001",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x384:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:2009",
+   "chain": [
+    "tenstorrent.py:2009",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:DRA",
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2011",
+   "chain": [
+    "tenstorrent.py:2011",
+    "tenstorrent.py:2249",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:DRA",
+    "384x384:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2255",
+   "chain": [
+    "tenstorrent.py:2255",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:DRA",
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2038",
+   "chain": [
+    "tenstorrent.py:2038",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:DRA",
+    "32x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2046",
+   "chain": [
+    "tenstorrent.py:2046",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:L1",
+    "384x1536:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2055",
+   "chain": [
+    "tenstorrent.py:2055",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:L1",
+    "384x1536:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2064",
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x1536:L1",
+    "1x320x1536:L1"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2066",
+   "chain": [
+    "tenstorrent.py:2066",
+    "tenstorrent.py:2084",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2306",
+    "protenix.py:1286"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x1536:L1",
+    "1536x384:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2259",
+   "chain": [
+    "tenstorrent.py:2259",
+    "tenstorrent.py:2306",
+    "protenix.py:1286",
+    "protenix.py:1946",
+    "protenix.py:1946"
+   ],
+   "calls": 4,
+   "shapes": [
+    "1x320x384:DRA",
+    "1x320x384:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:425",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:426",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:409",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:410",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:411",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:357",
+   "chain": [
+    "protenix.py:357",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:358",
+   "chain": [
+    "protenix.py:358",
+    "protenix.py:412",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x4x32:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:402",
+   "chain": [
+    "protenix.py:402",
+    "protenix.py:413",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:404",
+    "protenix.py:413",
+    "protenix.py:427",
+    "protenix.py:551"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:405",
+   "chain": [
+    "protenix.py:405",
+    "protenix.py:413",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:414",
+   "chain": [
+    "protenix.py:414",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x4x128x32:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "protenix.py:414",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x4x32x32:DRA",
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:415",
+   "chain": [
+    "protenix.py:415",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "softmax",
+   "site": "protenix.py:417",
+   "chain": [
+    "protenix.py:417",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x4x32x128:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:372",
+   "chain": [
+    "tenstorrent.py:372",
+    "protenix.py:417",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x4x32x128:DRA",
+    "75x4x128x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:418",
+   "chain": [
+    "protenix.py:418",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x4x32x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:419",
+   "chain": [
+    "protenix.py:419",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x32x32:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:420",
+   "chain": [
+    "protenix.py:420",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:428",
+   "chain": [
+    "protenix.py:428",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:430",
+   "chain": [
+    "protenix.py:430",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 3,
+   "shapes": [
+    "2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:431",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:432",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:433",
+   "chain": [
+    "protenix.py:433",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:434",
+   "chain": [
+    "protenix.py:434",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2561",
+   "chain": [
+    "tenstorrent.py:2561",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2564",
+   "chain": [
+    "tenstorrent.py:2564",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2570",
+   "chain": [
+    "tenstorrent.py:2570",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2578",
+   "chain": [
+    "tenstorrent.py:2578",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2585",
+   "chain": [
+    "tenstorrent.py:2585",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2587",
+   "chain": [
+    "tenstorrent.py:2587",
+    "protenix.py:351",
+    "protenix.py:436",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:437",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:438",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x256:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:439",
+   "chain": [
+    "protenix.py:439",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x256:DRA",
+    "1x2400x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:439",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x256:DRA",
+    "256x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:440",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x128:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:441",
+   "chain": [
+    "protenix.py:441",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:442",
+   "chain": [
+    "protenix.py:442",
+    "protenix.py:551",
+    "protenix.py:674",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 3,
+   "shapes": [
+    "1x2400x128:DRA",
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:402",
+   "chain": [
+    "protenix.py:402",
+    "protenix.py:453",
+    "protenix.py:453",
+    "protenix.py:833",
+    "protenix.py:845"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:404",
+    "protenix.py:453",
+    "protenix.py:453",
+    "protenix.py:833"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:405",
+   "chain": [
+    "protenix.py:405",
+    "protenix.py:453",
+    "protenix.py:453",
+    "protenix.py:833",
+    "protenix.py:845"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:402",
+   "chain": [
+    "protenix.py:402",
+    "protenix.py:453",
+    "protenix.py:453",
+    "protenix.py:834",
+    "protenix.py:845"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:404",
+    "protenix.py:453",
+    "protenix.py:453",
+    "protenix.py:834"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:405",
+   "chain": [
+    "protenix.py:405",
+    "protenix.py:453",
+    "protenix.py:453",
+    "protenix.py:834",
+    "protenix.py:845"
+   ],
+   "calls": 3,
+   "shapes": [
+    "75x32x128x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:652",
+   "chain": [
+    "protenix.py:652",
+    "protenix.py:673",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 2,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "75x32x32x32:DRA"
+   ]
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:2145",
+   "chain": [
+    "tenstorrent.py:2145",
+    "protenix.py:1751",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 2,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:2148",
+   "chain": [
+    "tenstorrent.py:2148",
+    "protenix.py:1751",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 2,
+   "shapes": []
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:1751",
+   "chain": [
+    "protenix.py:1751",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 2,
+   "shapes": [
+    "1x298x320x256:DRA",
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:819",
+   "chain": [
+    "protenix.py:819",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 2,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "75x32x32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:609",
+    "protenix.py:666",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x32:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:610",
+    "protenix.py:666",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x32:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:609",
+   "chain": [
+    "protenix.py:609",
+    "protenix.py:666",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x128:DRA",
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:611",
+    "protenix.py:666",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x416:DRA",
+    "416x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:611",
+   "chain": [
+    "protenix.py:611",
+    "protenix.py:666",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x128:DRA",
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:668",
+   "chain": [
+    "protenix.py:668",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:617",
+    "protenix.py:671",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:618",
+    "protenix.py:671",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:618",
+   "chain": [
+    "protenix.py:618",
+    "protenix.py:671",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "307200x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:619",
+    "protenix.py:671",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:619",
+   "chain": [
+    "protenix.py:619",
+    "protenix.py:671",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "307200x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:672",
+   "chain": [
+    "protenix.py:672",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:204",
+   "chain": [
+    "protenix.py:204",
+    "protenix.py:641",
+    "protenix.py:648",
+    "protenix.py:673",
+    "protenix.py:1833"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:232",
+   "chain": [
+    "protenix.py:232",
+    "protenix.py:644",
+    "protenix.py:649",
+    "protenix.py:673",
+    "protenix.py:1833"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x2576x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:240",
+   "chain": [
+    "protenix.py:240",
+    "protenix.py:644",
+    "protenix.py:649",
+    "protenix.py:673",
+    "protenix.py:1833"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x9600x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:650",
+    "protenix.py:673",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:651",
+    "protenix.py:673",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x128x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:653",
+    "protenix.py:673",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:654",
+    "protenix.py:673",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:655",
+    "protenix.py:673",
+    "protenix.py:1833",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:656",
+   "chain": [
+    "protenix.py:656",
+    "protenix.py:673",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "75x32x128x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:675",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x2400x128:DRA",
+    "128x384:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:676",
+   "chain": [
+    "protenix.py:676",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x2400x384:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "protenix.py:677",
+   "chain": [
+    "protenix.py:677",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x2400:DRA",
+    "2400x384:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "protenix.py:679",
+   "chain": [
+    "protenix.py:679",
+    "protenix.py:1833",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": []
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:609",
+    "protenix.py:1841",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x32:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:610",
+    "protenix.py:1841",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x32:DRA",
+    "32x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:609",
+   "chain": [
+    "protenix.py:609",
+    "protenix.py:1841",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x128:DRA",
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:611",
+    "protenix.py:1841",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x416:DRA",
+    "416x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:611",
+   "chain": [
+    "protenix.py:611",
+    "protenix.py:1841",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x128:DRA",
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:617",
+    "protenix.py:1843",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:618",
+    "protenix.py:1843",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:618",
+   "chain": [
+    "protenix.py:618",
+    "protenix.py:1843",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "307200x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:601",
+   "chain": [
+    "protenix.py:601",
+    "protenix.py:619",
+    "protenix.py:1843",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:619",
+   "chain": [
+    "protenix.py:619",
+    "protenix.py:1843",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "307200x32:DRA",
+    "307200x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2440",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x480:DRA",
+    "480x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2442",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x384:DRA",
+    "384x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:2442",
+   "chain": [
+    "protenix.py:2442",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2443",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x384:DRA",
+    "384x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:2443",
+   "chain": [
+    "protenix.py:2443",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x256:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2444",
+   "chain": [
+    "protenix.py:2444",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x32x256:DRA",
+    "1x320x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2445",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x160:DRA",
+    "160x256:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2445",
+   "chain": [
+    "protenix.py:2445",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x256:DRA",
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2446",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x32:DRA",
+    "32x256:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2446",
+   "chain": [
+    "protenix.py:2446",
+    "protenix.py:2160",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x256:DRA",
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2194",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x35x320x64:DRA",
+    "64x128:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:2195",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x480:DRA",
+    "480x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:2194",
+   "chain": [
+    "protenix.py:2194",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x35x320x128:DRA",
+    "320x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:2210",
+   "chain": [
+    "protenix.py:2210",
+    "protenix.py:1852",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1689",
+   "chain": [
+    "protenix.py:1689",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x160:DRA",
+    "160x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:1694",
+   "chain": [
+    "protenix.py:1694",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "protenix.py:1737",
+   "chain": [
+    "protenix.py:1737",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": []
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:1738",
+   "chain": [
+    "protenix.py:1738",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x512:DRA",
+    "32x512:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1740",
+   "chain": [
+    "protenix.py:1740",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x512:DRA",
+    "512x256:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:1746",
+   "chain": [
+    "protenix.py:1746",
+    "protenix.py:1859",
+    "protenix.py:1891",
+    "worker.py:887",
+    "worker.py:490"
+   ],
+   "calls": 1,
+   "shapes": [
+    "298x320x256:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:812",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x864:DRA",
+    "32x864:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:812",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x864:DRA",
+    "864x384:DRA"
+   ]
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:311",
+   "chain": [
+    "protenix.py:311",
+    "protenix.py:816",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x384:DRA",
+    "32x384:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:816",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "320x384:DRA",
+    "384x128:DRA"
+   ]
+  },
+  {
+   "op": "matmul",
+   "site": "protenix.py:817",
+   "chain": [
+    "protenix.py:817",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x320:DRA",
+    "320x128:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:817",
+   "chain": [
+    "protenix.py:817",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x128:DRA",
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:201",
+   "chain": [
+    "protenix.py:201",
+    "protenix.py:1010",
+    "protenix.py:818",
+    "protenix.py:845",
+    "protenix.py:2412"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:204",
+   "chain": [
+    "protenix.py:204",
+    "protenix.py:1010",
+    "protenix.py:818",
+    "protenix.py:845",
+    "protenix.py:2412"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x2400x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:216",
+   "chain": [
+    "protenix.py:216",
+    "protenix.py:1013",
+    "protenix.py:818",
+    "protenix.py:845",
+    "protenix.py:2412"
+   ],
+   "calls": 1,
+   "shapes": [
+    "2400x128:DRA"
+   ]
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:225",
+   "chain": [
+    "protenix.py:225",
+    "protenix.py:1013",
+    "protenix.py:818",
+    "protenix.py:845",
+    "protenix.py:2412"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x2576x128:DRA"
+   ]
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:226",
+   "chain": [
+    "protenix.py:226",
+    "protenix.py:1013",
+    "protenix.py:818",
+    "protenix.py:845",
+    "protenix.py:2412"
+   ],
+   "calls": 1,
+   "shapes": [
+    "1x2496x128:DRA"
+   ]
+  },
+  {
+   "op": "concat",
+   "site": "protenix.py:227",
+   "chain": [
+    "protenix.py:227",
+    "protenix.py:1013",
+    "protenix.py:818",
+    "protenix.py:845",
+    "protenix.py:2412"
+   ],
+   "calls": 1,
+   "shapes": []
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:819",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:820",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x128x128:DRA",
+    "128x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:821",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:822",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:306",
+   "chain": [
+    "protenix.py:306",
+    "protenix.py:823",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "32x32:DRA"
+   ]
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:825",
+   "chain": [
+    "protenix.py:825",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "protenix.py:1919",
+    "worker.py:887"
+   ],
+   "calls": 1,
+   "shapes": [
+    "75x32x128x32:DRA",
+    "75x32x128x32:DRA"
+   ]
+  }
+ ]
+}
