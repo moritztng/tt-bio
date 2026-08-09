@@ -1,0 +1,235 @@
+
+##############################################################################
+# FULL PARITY GATE — 2 legs, workers ['tt-quietbox2:0']
+##############################################################################
+leg                               kind       ref           verdict               wall  detail
+--------------------------------------------------------------------------------------------------------------
+opendde-prot-prod                 structure  cached        PASS                  112s  prot_no_msa: X=4.907 R=1.499 D=5.826 within=True [improves committed GAP-evidenced — not a drift]
+
+======================================================================
+[opendde-abag] docking 1ahw_abag.yaml (200 steps, 5 samples)
+======================================================================
+18:11:33  [tt-quietbox2:tt0] loading model…
+18:11:36  [tt-quietbox2:tt0] 1ahw_abag
+18:11:36  [tt-quietbox2:tt0]   msa
+18:11:40  [tt-quietbox2:tt0]   prep
+18:11:48  [tt-quietbox2:tt0]   trunk 0/10
+18:12:14  [tt-quietbox2:tt0]   trunk 1/10
+18:12:40  [tt-quietbox2:tt0]   trunk 2/10
+18:13:07  [tt-quietbox2:tt0]   trunk 3/10
+18:13:33  [tt-quietbox2:tt0]   trunk 4/10
+18:13:59  [tt-quietbox2:tt0]   trunk 5/10
+18:14:26  [tt-quietbox2:tt0]   trunk 6/10
+18:14:53  [tt-quietbox2:tt0]   trunk 7/10
+18:15:19  [tt-quietbox2:tt0]   trunk 8/10
+18:15:46  [tt-quietbox2:tt0]   trunk 9/10
+18:16:31  [tt-quietbox2:tt0]   diffusion 0/200
+18:16:32  [tt-quietbox2:tt0]   diffusion 1/200
+18:16:33  [tt-quietbox2:tt0]   diffusion 2/200
+18:16:33  [tt-quietbox2:tt0]   diffusion 3/200
+18:16:34  [tt-quietbox2:tt0]   diffusion 4/200
+18:16:34  [tt-quietbox2:tt0]   diffusion 5/200
+18:16:35  [tt-quietbox2:tt0]   diffusion 6/200
+18:16:35  [tt-quietbox2:tt0]   diffusion 7/200
+18:16:36  [tt-quietbox2:tt0]   diffusion 8/200
+18:16:36  [tt-quietbox2:tt0]   diffusion 9/200
+18:16:37  [tt-quietbox2:tt0]   diffusion 10/200
+18:16:38  [tt-quietbox2:tt0]   diffusion 11/200
+18:16:38  [tt-quietbox2:tt0]   diffusion 12/200
+18:16:39  [tt-quietbox2:tt0]   diffusion 13/200
+18:16:39  [tt-quietbox2:tt0]   diffusion 14/200
+18:16:40  [tt-quietbox2:tt0]   diffusion 15/200
+18:16:40  [tt-quietbox2:tt0]   diffusion 16/200
+18:16:41  [tt-quietbox2:tt0]   diffusion 17/200
+18:16:41  [tt-quietbox2:tt0]   diffusion 18/200
+18:16:42  [tt-quietbox2:tt0]   diffusion 19/200
+18:16:42  [tt-quietbox2:tt0]   diffusion 20/200
+18:16:43  [tt-quietbox2:tt0]   diffusion 21/200
+18:16:43  [tt-quietbox2:tt0]   diffusion 22/200
+18:16:44  [tt-quietbox2:tt0]   diffusion 23/200
+18:16:44  [tt-quietbox2:tt0]   diffusion 24/200
+18:16:45  [tt-quietbox2:tt0]   diffusion 25/200
+18:16:45  [tt-quietbox2:tt0]   diffusion 26/200
+18:16:46  [tt-quietbox2:tt0]   diffusion 27/200
+18:16:46  [tt-quietbox2:tt0]   diffusion 28/200
+18:16:47  [tt-quietbox2:tt0]   diffusion 29/200
+18:16:47  [tt-quietbox2:tt0]   diffusion 30/200
+18:16:48  [tt-quietbox2:tt0]   diffusion 31/200
+18:16:48  [tt-quietbox2:tt0]   diffusion 32/200
+18:16:49  [tt-quietbox2:tt0]   diffusion 33/200
+18:16:50  [tt-quietbox2:tt0]   diffusion 34/200
+18:16:50  [tt-quietbox2:tt0]   diffusion 35/200
+18:16:51  [tt-quietbox2:tt0]   diffusion 36/200
+18:16:51  [tt-quietbox2:tt0]   diffusion 37/200
+18:16:52  [tt-quietbox2:tt0]   diffusion 38/200
+18:16:52  [tt-quietbox2:tt0]   diffusion 39/200
+18:16:53  [tt-quietbox2:tt0]   diffusion 40/200
+18:16:53  [tt-quietbox2:tt0]   diffusion 41/200
+18:16:54  [tt-quietbox2:tt0]   diffusion 42/200
+18:16:54  [tt-quietbox2:tt0]   diffusion 43/200
+18:16:55  [tt-quietbox2:tt0]   diffusion 44/200
+18:16:55  [tt-quietbox2:tt0]   diffusion 45/200
+18:16:56  [tt-quietbox2:tt0]   diffusion 46/200
+18:16:56  [tt-quietbox2:tt0]   diffusion 47/200
+18:16:57  [tt-quietbox2:tt0]   diffusion 48/200
+18:16:57  [tt-quietbox2:tt0]   diffusion 49/200
+18:16:58  [tt-quietbox2:tt0]   diffusion 50/200
+18:16:58  [tt-quietbox2:tt0]   diffusion 51/200
+18:16:59  [tt-quietbox2:tt0]   diffusion 52/200
+18:16:59  [tt-quietbox2:tt0]   diffusion 53/200
+18:17:00  [tt-quietbox2:tt0]   diffusion 54/200
+18:17:00  [tt-quietbox2:tt0]   diffusion 55/200
+18:17:01  [tt-quietbox2:tt0]   diffusion 56/200
+18:17:02  [tt-quietbox2:tt0]   diffusion 57/200
+18:17:02  [tt-quietbox2:tt0]   diffusion 58/200
+18:17:03  [tt-quietbox2:tt0]   diffusion 59/200
+18:17:03  [tt-quietbox2:tt0]   diffusion 60/200
+18:17:04  [tt-quietbox2:tt0]   diffusion 61/200
+18:17:04  [tt-quietbox2:tt0]   diffusion 62/200
+18:17:05  [tt-quietbox2:tt0]   diffusion 63/200
+18:17:05  [tt-quietbox2:tt0]   diffusion 64/200
+18:17:06  [tt-quietbox2:tt0]   diffusion 65/200
+18:17:06  [tt-quietbox2:tt0]   diffusion 66/200
+18:17:07  [tt-quietbox2:tt0]   diffusion 67/200
+18:17:07  [tt-quietbox2:tt0]   diffusion 68/200
+18:17:08  [tt-quietbox2:tt0]   diffusion 69/200
+18:17:08  [tt-quietbox2:tt0]   diffusion 70/200
+18:17:09  [tt-quietbox2:tt0]   diffusion 71/200
+18:17:09  [tt-quietbox2:tt0]   diffusion 72/200
+18:17:10  [tt-quietbox2:tt0]   diffusion 73/200
+18:17:10  [tt-quietbox2:tt0]   diffusion 74/200
+18:17:11  [tt-quietbox2:tt0]   diffusion 75/200
+18:17:11  [tt-quietbox2:tt0]   diffusion 76/200
+18:17:12  [tt-quietbox2:tt0]   diffusion 77/200
+18:17:13  [tt-quietbox2:tt0]   diffusion 78/200
+18:17:13  [tt-quietbox2:tt0]   diffusion 79/200
+18:17:14  [tt-quietbox2:tt0]   diffusion 80/200
+18:17:14  [tt-quietbox2:tt0]   diffusion 81/200
+18:17:15  [tt-quietbox2:tt0]   diffusion 82/200
+18:17:15  [tt-quietbox2:tt0]   diffusion 83/200
+18:17:16  [tt-quietbox2:tt0]   diffusion 84/200
+18:17:16  [tt-quietbox2:tt0]   diffusion 85/200
+18:17:17  [tt-quietbox2:tt0]   diffusion 86/200
+18:17:17  [tt-quietbox2:tt0]   diffusion 87/200
+18:17:18  [tt-quietbox2:tt0]   diffusion 88/200
+18:17:18  [tt-quietbox2:tt0]   diffusion 89/200
+18:17:19  [tt-quietbox2:tt0]   diffusion 90/200
+18:17:19  [tt-quietbox2:tt0]   diffusion 91/200
+18:17:20  [tt-quietbox2:tt0]   diffusion 92/200
+18:17:20  [tt-quietbox2:tt0]   diffusion 93/200
+18:17:21  [tt-quietbox2:tt0]   diffusion 94/200
+18:17:21  [tt-quietbox2:tt0]   diffusion 95/200
+18:17:22  [tt-quietbox2:tt0]   diffusion 96/200
+18:17:22  [tt-quietbox2:tt0]   diffusion 97/200
+18:17:23  [tt-quietbox2:tt0]   diffusion 98/200
+18:17:23  [tt-quietbox2:tt0]   diffusion 99/200
+18:17:24  [tt-quietbox2:tt0]   diffusion 100/200
+18:17:24  [tt-quietbox2:tt0]   diffusion 101/200
+18:17:25  [tt-quietbox2:tt0]   diffusion 102/200
+18:17:25  [tt-quietbox2:tt0]   diffusion 103/200
+18:17:26  [tt-quietbox2:tt0]   diffusion 104/200
+18:17:26  [tt-quietbox2:tt0]   diffusion 105/200
+18:17:27  [tt-quietbox2:tt0]   diffusion 106/200
+18:17:28  [tt-quietbox2:tt0]   diffusion 107/200
+18:17:28  [tt-quietbox2:tt0]   diffusion 108/200
+18:17:29  [tt-quietbox2:tt0]   diffusion 109/200
+18:17:29  [tt-quietbox2:tt0]   diffusion 110/200
+18:17:30  [tt-quietbox2:tt0]   diffusion 111/200
+18:17:30  [tt-quietbox2:tt0]   diffusion 112/200
+18:17:31  [tt-quietbox2:tt0]   diffusion 113/200
+18:17:31  [tt-quietbox2:tt0]   diffusion 114/200
+18:17:32  [tt-quietbox2:tt0]   diffusion 115/200
+18:17:32  [tt-quietbox2:tt0]   diffusion 116/200
+18:17:33  [tt-quietbox2:tt0]   diffusion 117/200
+18:17:33  [tt-quietbox2:tt0]   diffusion 118/200
+18:17:34  [tt-quietbox2:tt0]   diffusion 119/200
+18:17:34  [tt-quietbox2:tt0]   diffusion 120/200
+18:17:35  [tt-quietbox2:tt0]   diffusion 121/200
+18:17:35  [tt-quietbox2:tt0]   diffusion 122/200
+18:17:36  [tt-quietbox2:tt0]   diffusion 123/200
+18:17:36  [tt-quietbox2:tt0]   diffusion 124/200
+18:17:37  [tt-quietbox2:tt0]   diffusion 125/200
+18:17:38  [tt-quietbox2:tt0]   diffusion 126/200
+18:17:38  [tt-quietbox2:tt0]   diffusion 127/200
+18:17:39  [tt-quietbox2:tt0]   diffusion 128/200
+18:17:39  [tt-quietbox2:tt0]   diffusion 129/200
+18:17:40  [tt-quietbox2:tt0]   diffusion 130/200
+18:17:40  [tt-quietbox2:tt0]   diffusion 131/200
+18:17:41  [tt-quietbox2:tt0]   diffusion 132/200
+18:17:41  [tt-quietbox2:tt0]   diffusion 133/200
+18:17:42  [tt-quietbox2:tt0]   diffusion 134/200
+18:17:42  [tt-quietbox2:tt0]   diffusion 135/200
+18:17:43  [tt-quietbox2:tt0]   diffusion 136/200
+18:17:43  [tt-quietbox2:tt0]   diffusion 137/200
+18:17:44  [tt-quietbox2:tt0]   diffusion 138/200
+18:17:44  [tt-quietbox2:tt0]   diffusion 139/200
+18:17:45  [tt-quietbox2:tt0]   diffusion 140/200
+18:17:45  [tt-quietbox2:tt0]   diffusion 141/200
+18:17:46  [tt-quietbox2:tt0]   diffusion 142/200
+18:17:46  [tt-quietbox2:tt0]   diffusion 143/200
+18:17:47  [tt-quietbox2:tt0]   diffusion 144/200
+18:17:47  [tt-quietbox2:tt0]   diffusion 145/200
+18:17:48  [tt-quietbox2:tt0]   diffusion 146/200
+18:17:48  [tt-quietbox2:tt0]   diffusion 147/200
+18:17:49  [tt-quietbox2:tt0]   diffusion 148/200
+18:17:49  [tt-quietbox2:tt0]   diffusion 149/200
+18:17:50  [tt-quietbox2:tt0]   diffusion 150/200
+18:17:50  [tt-quietbox2:tt0]   diffusion 151/200
+18:17:51  [tt-quietbox2:tt0]   diffusion 152/200
+18:17:51  [tt-quietbox2:tt0]   diffusion 153/200
+18:17:52  [tt-quietbox2:tt0]   diffusion 154/200
+18:17:52  [tt-quietbox2:tt0]   diffusion 155/200
+18:17:53  [tt-quietbox2:tt0]   diffusion 156/200
+18:17:54  [tt-quietbox2:tt0]   diffusion 157/200
+18:17:54  [tt-quietbox2:tt0]   diffusion 158/200
+18:17:55  [tt-quietbox2:tt0]   diffusion 159/200
+18:17:55  [tt-quietbox2:tt0]   diffusion 160/200
+18:17:55  [tt-quietbox2:tt0]   diffusion 161/200
+18:17:56  [tt-quietbox2:tt0]   diffusion 162/200
+18:17:56  [tt-quietbox2:tt0]   diffusion 163/200
+18:17:57  [tt-quietbox2:tt0]   diffusion 164/200
+18:17:57  [tt-quietbox2:tt0]   diffusion 165/200
+18:17:58  [tt-quietbox2:tt0]   diffusion 166/200
+18:17:58  [tt-quietbox2:tt0]   diffusion 167/200
+18:17:58  [tt-quietbox2:tt0]   diffusion 168/200
+18:17:59  [tt-quietbox2:tt0]   diffusion 169/200
+18:17:59  [tt-quietbox2:tt0]   diffusion 170/200
+18:18:00  [tt-quietbox2:tt0]   diffusion 171/200
+18:18:00  [tt-quietbox2:tt0]   diffusion 172/200
+18:18:01  [tt-quietbox2:tt0]   diffusion 173/200
+18:18:01  [tt-quietbox2:tt0]   diffusion 174/200
+18:18:01  [tt-quietbox2:tt0]   diffusion 175/200
+18:18:02  [tt-quietbox2:tt0]   diffusion 176/200
+18:18:02  [tt-quietbox2:tt0]   diffusion 177/200
+18:18:03  [tt-quietbox2:tt0]   diffusion 178/200
+18:18:03  [tt-quietbox2:tt0]   diffusion 179/200
+18:18:04  [tt-quietbox2:tt0]   diffusion 180/200
+18:18:04  [tt-quietbox2:tt0]   diffusion 181/200
+18:18:04  [tt-quietbox2:tt0]   diffusion 182/200
+18:18:05  [tt-quietbox2:tt0]   diffusion 183/200
+18:18:05  [tt-quietbox2:tt0]   diffusion 184/200
+18:18:06  [tt-quietbox2:tt0]   diffusion 185/200
+18:18:06  [tt-quietbox2:tt0]   diffusion 186/200
+18:18:06  [tt-quietbox2:tt0]   diffusion 187/200
+18:18:07  [tt-quietbox2:tt0]   diffusion 188/200
+18:18:07  [tt-quietbox2:tt0]   diffusion 189/200
+18:18:08  [tt-quietbox2:tt0]   diffusion 190/200
+18:18:08  [tt-quietbox2:tt0]   diffusion 191/200
+18:18:09  [tt-quietbox2:tt0]   diffusion 192/200
+18:18:09  [tt-quietbox2:tt0]   diffusion 193/200
+18:18:09  [tt-quietbox2:tt0]   diffusion 194/200
+18:18:10  [tt-quietbox2:tt0]   diffusion 195/200
+18:18:10  [tt-quietbox2:tt0]   diffusion 196/200
+18:18:11  [tt-quietbox2:tt0]   diffusion 197/200
+18:18:11  [tt-quietbox2:tt0]   diffusion 198/200
+18:18:11  [tt-quietbox2:tt0]   diffusion 199/200
+18:18:30  [tt-quietbox2:tt0]   saving
+18:18:30  [tt-quietbox2:tt0] ✓ 1ahw_abag — 414.6s
+
+Done: 1 ok, 0 failed — /home/ttuser/.coworker/wt/perfwar-dit-attention-fusion/.base/opendde_results_1ahw_abag/results.json
+opendde-abag                      abag       in-process    PASS                  423s  global DockQ=0.693 [reproduces committed]
+
+##############################################################################
+# Tally: {'PASS': 2}    total wall 8.9 min
+# GATE PASS — every fast-path leg reproduces within its floor
+##############################################################################
