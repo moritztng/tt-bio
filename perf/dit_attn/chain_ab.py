@@ -8,7 +8,7 @@ Shapes come from W10's diffusion ledger (state/perfwar/diffusion-ledger-298aa.md
 
 opendde reuses Protenix-v2's diffusion stack verbatim on the structural-token axis, so both models
 run the same code; they take different branches of ``AttentionPairBias.__call__`` only because the
-DiT dtype differs (``self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention``).
+DiT dtype differs (``self.dtype == ttnn.float32 and self.raw_matmul_attention``).
 
 No model and no checkpoint: q/k/v/bias are random at the exact production shape, dtype and memory
 config, so an arm's number here is an op-chain time, not a fold time. Every timed region

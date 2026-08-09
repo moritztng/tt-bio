@@ -235,7 +235,7 @@ def _fp32_softmax_attention(
     only the softmax reduction and the additive bias it consumes upcast to fp32. The
     additive ``bias`` arrives pre-baked by ``sqrt(h)`` (z_weight * sqrt(h)), so it is
     multiplied by ``scale_inv`` to recover the raw reference ``z`` before the add —
-    the same undo the fp32_raw_matmul_attention path applies. Replaces the fused
+    the same undo the raw_matmul_attention path applies. Replaces the fused
     ``ttnn.transformer.scaled_dot_product_attention`` call (bf16 softmax) when the
     BOLTZ2_FP32_SOFTMAX gate is on.
     """
@@ -1460,7 +1460,7 @@ class AttentionPairBias(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         dtype: ttnn.DataType | None = None,
-        fp32_raw_matmul_attention: bool = False,
+        raw_matmul_attention: bool = False,
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
     ):
@@ -1468,7 +1468,7 @@ class AttentionPairBias(Module):
         self.fp32_softmax = fp32_softmax
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
-        self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
+        self.raw_matmul_attention = raw_matmul_attention
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
         self.atom_level = atom_level
@@ -1637,11 +1637,13 @@ class AttentionPairBias(Module):
                     core_grid=CORE_GRID_MAIN,
                 )
                 z = ttnn.permute(z, (0, 3, 1, 2))
-            if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
-                # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
-                # path computes attention as raw matmul. SDPA scales its additive mask
-                # along with QK, so z_weight carries sqrt(head_dim) compensation. Undo
-                # that compensation before adding z after the explicit QK scale.
+            if self.raw_matmul_attention:
+                # The diffusion DiT computes attention as raw matmul + softmax + matmul,
+                # for both the fp32 (Protenix-v2) and bf16 (OpenDDE) diffusion dtypes.
+                # ttnn SDPA rejects fp32 inputs, and its arithmetic is what ba6ede96
+                # removed from the trunk. SDPA scales its additive mask along with QK,
+                # so z_weight carries sqrt(head_dim) compensation. Undo that
+                # compensation before adding z after the explicit QK scale.
                 if self.compute_pair_bias:
                     z = ttnn.multiply(z, self.head_dim ** -0.5)
                 if seq_mask is not None:

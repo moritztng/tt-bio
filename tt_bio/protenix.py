@@ -766,7 +766,7 @@ class DiffusionModule(_KeyedWeights):
                 AdaLN(False, remap_adaln(sub(A + "layernorm_a.")), self._dit_ckc, dtype=self._dit_dtype),
                 AttentionPairBias(self.DIT_HEAD_DIM, self.DIT_N_HEADS, True, False,
                                   PW.remap_attention_pair_bias(sub(A)), self._dit_ckc,
-                                  dtype=self._dit_dtype, fp32_raw_matmul_attention=True),
+                                  dtype=self._dit_dtype, raw_matmul_attention=True),
                 AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
 
