@@ -37,8 +37,8 @@ def main():
     ap.add_argument("--n", type=int, default=320)
     ap.add_argument("--c", type=int, default=64)
     ap.add_argument("--hidden", type=int, default=256)
-    ap.add_argument("--gx", type=int, default=13)
-    ap.add_argument("--gy", type=int, default=10)
+    ap.add_argument("--gx", type=int, default=0)   # 0 = whatever this card reports
+    ap.add_argument("--gy", type=int, default=0)
     ap.add_argument("--dst", default="dram", choices=["dram", "l1"])
     ap.add_argument("--out", default="fused_ab.json")
     a = ap.parse_args()
@@ -46,11 +46,13 @@ def main():
     npairs = HID // C
     dev = get_device()
     dg = dev.compute_with_storage_grid_size()
-    grid = (a.gx, a.gy)
+    # Kernels on a dispatch core are rejected outright ("Kernels cannot be placed on dispatch
+    # cores"), and the card grid is not the same on every card: card 0 reports 11x10.
+    grid = (a.gx or dg.x, a.gy or dg.y)
     dmc = DRAM if a.dst == "dram" else L1
-    res = {"n": N, "c": C, "hidden": HID, "npairs": npairs, "grid": f"{a.gx}x{a.gy}",
+    res = {"n": N, "c": C, "hidden": HID, "npairs": npairs, "grid": f"{grid[0]}x{grid[1]}",
            "card_grid": f"{dg.x}x{dg.y}", "dst": a.dst, "arms": {}}
-    print(f"card grid {dg.x}x{dg.y}, using {a.gx}x{a.gy}; N={N} C={C} hidden={HID} "
+    print(f"card grid {dg.x}x{dg.y}, using {grid[0]}x{grid[1]}; N={N} C={C} hidden={HID} "
           f"npairs={npairs} dst={a.dst}", flush=True)
 
     torch.manual_seed(0)
