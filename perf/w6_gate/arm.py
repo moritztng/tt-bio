@@ -43,7 +43,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 TARGET = REPO / "tt_bio" / "tenstorrent.py"
-BASE_REF = "origin/main"
+# PINNED, deliberately. This was "origin/main", and origin/main moved under the campaign: a
+# sibling worktree fetched at 2026-08-09 16:37:31 UTC and fast-forwarded it from 96482b1e to
+# 83499742 (W2's trimul merge, which carries "a one-block accumulator concat aliased its input,
+# and it broke every real fold" -- a fix that changes fold output). Every arm measured in this
+# gate was built from 96482b1e, so the base stays pinned to it or the arms stop being comparable
+# with each other. Re-point it and re-run the whole sweep; do not mix bases.
+BASE_REF = "96482b1e"
 W6_REF = "origin/wk/perfwar-attention-block-fusion"
 
 
