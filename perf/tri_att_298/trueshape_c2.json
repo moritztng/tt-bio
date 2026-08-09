@@ -1,0 +1,15 @@
+{
+ "shape_note": "pair tensor [298, 320, 256]; q/k/v [298, 8, 320, 32]; bias [1, 8, 320, 320]",
+ "sdpa_prod_us": 2856.9,
+ "sdpa_nomask_us": 1656.6,
+ "sdpa_chunk320_us": 1731.4,
+ "sdpa_materialised_mask_us": 2823.2,
+ "heads_us": 744.4,
+ "permute_dram_us": 1383.2,
+ "permute_l1_us": 471.7,
+ "clone_dram_us": 252.1,
+ "qkv_us": 865.3,
+ "gate_us": 359.8,
+ "bias_us": 413.6,
+ "gate_multiply_us": 367.9
+}
