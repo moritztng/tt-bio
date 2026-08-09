@@ -1,0 +1,154 @@
+{
+ "unit": "298 aa esmfold2 production fold",
+ "cores": 110,
+ "rows": [
+  {
+   "site": "esmfold2.py:71",
+   "a_padded": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "b_padded": [
+    1,
+    16,
+    64,
+    320
+   ],
+   "dtype": "FLOAT32",
+   "batch": 16,
+   "mt": 10,
+   "kt": 2,
+   "nt": 10,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 1608,
+   "probed": 2,
+   "arms": [
+    {
+     "arm": "grid",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=10/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=10/bw=2",
+     "in0_block_w": 2,
+     "exact": false
+    },
+    {
+     "arm": "reuse/pcm=5/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=5/bw=2",
+     "in0_block_w": 2,
+     "exact": false
+    },
+    {
+     "arm": "reuse/pcm=2/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=2/bw=2",
+     "in0_block_w": 2,
+     "exact": false
+    }
+   ],
+   "naive_predicted": {
+    "factory": "mcast2d",
+    "in0_block_w": 1,
+    "cores": 100,
+    "pcf": 8
+   },
+   "partitions_by_in0_block_w": true,
+   "exact_in0_block_w": [
+    1
+   ],
+   "inexact_in0_block_w": [
+    2
+   ]
+  },
+  {
+   "site": "esmfold2.py:75",
+   "a_padded": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "b_padded": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "dtype": "FLOAT32",
+   "batch": 16,
+   "mt": 10,
+   "kt": 10,
+   "nt": 2,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 1608,
+   "probed": 2,
+   "arms": [
+    {
+     "arm": "grid",
+     "in0_block_w": 1,
+     "exact": false
+    },
+    {
+     "arm": "reuse/pcm=10/bw=1",
+     "in0_block_w": 1,
+     "exact": false
+    },
+    {
+     "arm": "reuse/pcm=10/bw=2",
+     "in0_block_w": 2,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=5/bw=1",
+     "in0_block_w": 1,
+     "exact": false
+    },
+    {
+     "arm": "reuse/pcm=5/bw=2",
+     "in0_block_w": 2,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=2/bw=1",
+     "in0_block_w": 1,
+     "exact": false
+    },
+    {
+     "arm": "reuse/pcm=2/bw=2",
+     "in0_block_w": 2,
+     "exact": true
+    }
+   ],
+   "naive_predicted": {
+    "factory": "mcast1d_in1",
+    "in0_block_w": 2,
+    "cores": 10,
+    "pcf": 8
+   },
+   "partitions_by_in0_block_w": true,
+   "exact_in0_block_w": [
+    2
+   ],
+   "inexact_in0_block_w": [
+    1
+   ]
+  }
+ ]
+}
