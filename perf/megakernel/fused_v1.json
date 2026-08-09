@@ -1,0 +1,42 @@
+{
+  "n": 320,
+  "c": 64,
+  "grid": "10x10",
+  "rows": [
+    {
+      "arm": "ttnn chain (production)",
+      "ms": 0.5447,
+      "eff_gbs": 144.4
+    },
+    {
+      "arm": "ttnn chain, no inner swap",
+      "ms": 0.5851,
+      "eff_gbs": 134.4
+    },
+    {
+      "arm": "v1a",
+      "ms": 0.2208,
+      "moved_mb": 78.6,
+      "eff_gbs": 356.2,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b + inner-swap transpose",
+      "ms": 0.2704
+    },
+    {
+      "arm": "v1b",
+      "ms": 0.2503,
+      "moved_mb": 78.6,
+      "eff_gbs": 314.2,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b-nogate",
+      "ms": 0.1709,
+      "moved_mb": 78.6,
+      "eff_gbs": 460.2,
+      "note": "nogate diagnostic, no correctness bar"
+    }
+  ]
+}
