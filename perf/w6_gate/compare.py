@@ -32,38 +32,49 @@ from test_structure import _kabsch_deviations, _tm_score, get_ca_atoms  # noqa: 
 ARM_ORDER = ["BASE", "CTRL", "C1", "C2", "C2FIX", "C3", "C4", "ALL", "ALLFIX"]
 
 
-def _ca(tag: str) -> np.ndarray | None:
-    """CA coordinates of the rank-0 model, in entity-position order."""
+def _ca_by_pos(tag: str) -> dict[int, np.ndarray] | None:
+    """CA coordinates of the rank-0 model, keyed by entity position (label_seq_id)."""
     cifs = sorted((OUT / tag).glob("*.cif"))
     best = [c for c in cifs if "_model_" not in c.name] or cifs
     if not best:
         return None
     chains = get_ca_atoms(str(best[0]))
-    rows = []
+    out = {}
     for cid in sorted(chains):
-        rows += [chains[cid][p] for p in sorted(chains[cid])]
-    return np.asarray(rows, dtype=float)
+        out.update(chains[cid])           # monomer targets, so one chain
+    return out
 
 
-def _gt_ca() -> np.ndarray | None:
+def _flat(d: dict[int, np.ndarray] | None) -> np.ndarray | None:
+    return None if d is None else np.asarray([d[k] for k in sorted(d)], dtype=float)
+
+
+def _gt_ca() -> dict[int, np.ndarray] | None:
     p = HERE / "gt" / "1hcl.cif"
     if not p.is_file():
         return None
     chains = get_ca_atoms(str(p))
     cid = max(chains, key=lambda c: len(chains[c]))
-    return np.asarray([chains[cid][k] for k in sorted(chains[cid])], dtype=float)
+    return chains[cid]
 
 
-def _vs_gt(pred: np.ndarray, gt: np.ndarray) -> tuple[float, float] | None:
-    """CA-RMSD / TM against the ground truth, on the overlapping prefix.
+def _vs_gt(pred: dict | None, gt: dict | None, L: int) -> tuple[float, float, int] | None:
+    """CA-RMSD / TM against the ground truth, joined on entity position.
 
-    1HCL resolves fewer residues than CDK2 has, so an index-wise pairing is only honest when the
-    two have the same length. Say N/A rather than align approximately and quote a number.
+    1HCL leaves residues unresolved, so the crystal has fewer CAs than CDK2 has residues. Join on
+    label_seq_id and superpose the shared positions; an index-wise pairing of two different-length
+    lists would silently offset the whole chain. TM is normalised by the prediction's length, so
+    unresolved crystal residues count against nothing.
     """
-    if gt is None or pred is None or len(gt) != len(pred):
+    if gt is None or pred is None:
         return None
-    dev = _kabsch_deviations(pred, gt)
-    return float(np.sqrt((dev ** 2).mean())), _tm_score(dev, len(gt))
+    shared = sorted(set(pred) & set(gt))
+    if len(shared) < 30:
+        return None
+    P = np.asarray([pred[i] for i in shared], dtype=float)
+    Q = np.asarray([gt[i] for i in shared], dtype=float)
+    dev = _kabsch_deviations(P, Q)
+    return float(np.sqrt((dev ** 2).mean())), _tm_score(dev, L), len(shared)
 
 
 def score(model: str, size: str) -> list[dict] | None:
@@ -76,7 +87,7 @@ def score(model: str, size: str) -> list[dict] | None:
         return None
 
     base_xyz = np.load(OUT / f"BASE_{model}_{size}" / "coords.npy")
-    base_ca = _ca(f"BASE_{model}_{size}")
+    base_ca = _flat(_ca_by_pos(f"BASE_{model}_{size}"))
     base = recs["BASE"]
     gt = _gt_ca() if size == "298" else None
 
@@ -84,7 +95,8 @@ def score(model: str, size: str) -> list[dict] | None:
     for arm, r in recs.items():
         d = OUT / f"{arm}_{model}_{size}"
         xyz = np.load(d / "coords.npy") if (d / "coords.npy").is_file() else None
-        ca = _ca(f"{arm}_{model}_{size}")
+        ca_pos = _ca_by_pos(f"{arm}_{model}_{size}")
+        ca = _flat(ca_pos)
         row = {"arm": arm}
         if xyz is not None and xyz.shape == base_xyz.shape:
             row["exact"] = bool(np.array_equal(xyz, base_xyz))
@@ -100,9 +112,11 @@ def score(model: str, size: str) -> list[dict] | None:
         row["warm_median_s"] = r["warm_median_s"]
         row["speedup_vs_base"] = (round(base["warm_median_s"] / r["warm_median_s"], 4)
                                   if r["warm_median_s"] else None)
-        g = _vs_gt(ca, gt)
+        g = _vs_gt(ca_pos, gt, len(ca) if ca is not None else 0)
         if g:
-            row["ca_rmsd_vs_1hcl_A"], row["tm_vs_1hcl"] = round(g[0], 3), round(g[1], 4)
+            row["ca_rmsd_vs_1hcl_A"] = round(g[0], 3)
+            row["tm_vs_1hcl"] = round(g[1], 4)
+            row["n_gt_ca"] = g[2]
         rows.append(row)
 
     band = next((r for r in rows if r["arm"] == "CTRL"), None)
@@ -140,6 +154,7 @@ def main() -> int:
                 cols = ["arm", "exact", "max_abs_delta_A", "ca_rmsd_vs_base_A", "tm_vs_base",
                         "d_plddt", "d_ptm", "warm_median_s", "speedup_vs_base",
                         "ca_rmsd_vs_1hcl_A", "tm_vs_1hcl", "verdict"]
+                # n_gt_ca is a constant per (model, size); it belongs in the caption, not a column
                 cols = [c for c in cols if any(c in r for r in rows)]
                 print("| " + " | ".join(cols) + " |")
                 print("|" + "---|" * len(cols))
