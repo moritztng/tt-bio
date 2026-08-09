@@ -1,0 +1,133 @@
+{
+  "shape": {
+    "heads": 16,
+    "M": 608,
+    "N": 608,
+    "head_dim": 32,
+    "grid": "13x10"
+  },
+  "chain": [
+    {
+      "op": "permute k",
+      "us": 32.1,
+      "read_MB": 0.6,
+      "write_MB": 0.6,
+      "GFLOP": 0.0,
+      "pct_write_roof": 7.4,
+      "pct_read_roof": 5.0,
+      "eff_GBs": 38.8
+    },
+    {
+      "op": "1346 q@kT",
+      "us": 69.2,
+      "read_MB": 1.2,
+      "write_MB": 11.8,
+      "GFLOP": 0.379,
+      "pct_write_roof": 64.8,
+      "pct_read_roof": 4.7,
+      "eff_GBs": 188.9
+    },
+    {
+      "op": "typecast->f32",
+      "us": 110.2,
+      "read_MB": 11.8,
+      "write_MB": 23.7,
+      "GFLOP": 0.0,
+      "pct_write_roof": 81.4,
+      "pct_read_roof": 27.7,
+      "eff_GBs": 322.0
+    },
+    {
+      "op": "multiply scale",
+      "us": 138.1,
+      "read_MB": 23.7,
+      "write_MB": 23.7,
+      "GFLOP": 0.0,
+      "pct_write_roof": 65.0,
+      "pct_read_roof": 44.3,
+      "eff_GBs": 342.6
+    },
+    {
+      "op": "add bias",
+      "us": 182.0,
+      "read_MB": 47.3,
+      "write_MB": 23.7,
+      "GFLOP": 0.0,
+      "pct_write_roof": 49.3,
+      "pct_read_roof": 67.2,
+      "eff_GBs": 389.9
+    },
+    {
+      "op": "softmax f32",
+      "us": 145.7,
+      "read_MB": 23.7,
+      "write_MB": 23.7,
+      "GFLOP": 0.0,
+      "pct_write_roof": 61.6,
+      "pct_read_roof": 42.0,
+      "eff_GBs": 324.7
+    },
+    {
+      "op": "typecast->bf16",
+      "us": 95.3,
+      "read_MB": 23.7,
+      "write_MB": 11.8,
+      "GFLOP": 0.0,
+      "pct_write_roof": 47.1,
+      "pct_read_roof": 64.2,
+      "eff_GBs": 372.4
+    },
+    {
+      "op": "1358 attn@v",
+      "us": 238.2,
+      "read_MB": 12.5,
+      "write_MB": 0.6,
+      "GFLOP": 0.379,
+      "pct_write_roof": 1.0,
+      "pct_read_roof": 13.5,
+      "eff_GBs": 54.9
+    }
+  ],
+  "chain_total_us": 978.7,
+  "alternatives": {
+    "scale_mask_softmax f32": {
+      "err": "\nttnn.scale_mask_softmax(): incompatible function arguments.\n\nCalled with:\n  scale_mask_softmax(ttnn.Tensor, float, ttnn.Tensor)\n\nAvailable signatures:\n  scale_mask_softmax(input_tensor: ttnn.Tensor, scale: float | None = None, mask: ttnn.Tensor | No"
+    },
+    "scale_mask_softmax bf16": {
+      "err": "\nttnn.scale_mask_softmax(): incompatible function arguments.\n\nCalled with:\n  scale_mask_softmax(ttnn.Tensor, float, ttnn.Tensor)\n\nAvailable signatures:\n  scale_mask_softmax(input_tensor: ttnn.Tensor, scale: float | None = None, mask: ttnn.Tensor | No"
+    },
+    "sdpa mask=bf16 q128 k512": {
+      "us": 582.4,
+      "note": "flash attention, scores never reach DRAM",
+      "speedup_vs_chain": 1.68
+    },
+    "sdpa mask=bf16 q256 k512": {
+      "us": 860.4,
+      "note": "flash attention, scores never reach DRAM",
+      "speedup_vs_chain": 1.14
+    },
+    "sdpa mask=bf16 q512 k1024": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 3817984 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/.loca"
+    },
+    "sdpa mask=bf16 q32 k4032": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 1942016 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/.loca"
+    },
+    "sdpa mask=bf16 default": {
+      "us": 145.3,
+      "note": "flash attention, default chunking",
+      "speedup_vs_chain": 6.74
+    },
+    "sdpa mask=f32 default": {
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/transformer/sdpa/device/sdpa_device_operation.cpp:76: mask.dtype() == DataType::BFLOAT16 || mask.dtype() == DataType::BFLOAT8_B || mask.dtype() == DataType::BFLOAT4_B\ninfo:\nWhen mask is provided to SDPA, i"
+    }
+  },
+  "model": {
+    "qkT_flops": 378535936,
+    "qkT_bytes_in": 1245184,
+    "qkT_bytes_out": 11829248,
+    "qkT_AI_flop_per_byte": 29.0,
+    "qkT_write_floor_us": 44.9,
+    "write_roof_GBs": 263.6,
+    "read_roof_GBs": 386.8
+  }
+}

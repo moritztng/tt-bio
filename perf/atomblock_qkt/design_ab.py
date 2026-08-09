@@ -72,9 +72,14 @@ with torch.no_grad():
         return wall, x.detach().clone().float()
 
     run(args.warmup, 7)
-    walls, x = [], None
+    walls, x, first = [], None, None
     for i in range(args.reps):
         w, x = run(args.timesteps, 42)
+        if first is None:
+            first = x
+        else:
+            print(f"  determinism rep1-vs-rep{i+1} maxabs "
+                  f"{(x - first).abs().max().item():.3e}", flush=True)
         walls.append(w)
         print(f"  rep {i+1} {w*1e3:9.1f} ms  ({w/(args.timesteps-1)*1e3:7.2f} ms/step)", flush=True)
 

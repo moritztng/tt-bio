@@ -1,0 +1,67 @@
+{
+  "0.05": {
+    "entropy_eff_keys": 127.3,
+    "chain": {
+      "std_ratio": 1.0213,
+      "pcc": 0.9996819,
+      "max_abs": 0.005334
+    },
+    "sdpa": {
+      "std_ratio": 0.99795,
+      "pcc": 0.9998731,
+      "max_abs": 0.002446
+    }
+  },
+  "0.25": {
+    "entropy_eff_keys": 123.6,
+    "chain": {
+      "std_ratio": 1.01633,
+      "pcc": 0.9995481,
+      "max_abs": 0.005881
+    },
+    "sdpa": {
+      "std_ratio": 0.99466,
+      "pcc": 0.9997431,
+      "max_abs": 0.004953
+    }
+  },
+  "0.5": {
+    "entropy_eff_keys": 112.7,
+    "chain": {
+      "std_ratio": 1.01809,
+      "pcc": 0.9995729,
+      "max_abs": 0.007476
+    },
+    "sdpa": {
+      "std_ratio": 0.99677,
+      "pcc": 0.9997471,
+      "max_abs": 0.005542
+    }
+  },
+  "1.0": {
+    "entropy_eff_keys": 78.8,
+    "chain": {
+      "std_ratio": 1.0096,
+      "pcc": 0.9995817,
+      "max_abs": 0.010464
+    },
+    "sdpa": {
+      "std_ratio": 0.98943,
+      "pcc": 0.9997146,
+      "max_abs": 0.016323
+    }
+  },
+  "2.0": {
+    "entropy_eff_keys": 26.6,
+    "chain": {
+      "std_ratio": 0.99656,
+      "pcc": 0.9997481,
+      "max_abs": 0.026437
+    },
+    "sdpa": {
+      "std_ratio": 0.9861,
+      "pcc": 0.999797,
+      "max_abs": 0.029948
+    }
+  }
+}
