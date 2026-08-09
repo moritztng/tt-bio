@@ -1,0 +1,128 @@
+{
+  "n": 320,
+  "c": 64,
+  "grid": "10x10",
+  "mb": 26.2144,
+  "rows": [
+    {
+      "arm": "tpb= 4 depth=2 copy",
+      "ms": 0.028,
+      "eff_gbs": 937.3,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb= 4 depth=2 R=256B",
+      "ms": 0.0251,
+      "eff_gbs": 1043.7,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb= 4 depth=4 copy",
+      "ms": 0.0279,
+      "eff_gbs": 938.7,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb= 4 depth=4 R=256B",
+      "ms": 0.0253,
+      "eff_gbs": 1035.5,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb= 8 depth=2 copy",
+      "ms": 0.0476,
+      "eff_gbs": 550.2,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb= 8 depth=2 R=256B",
+      "ms": 0.0287,
+      "eff_gbs": 913.3,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb= 8 depth=4 copy",
+      "ms": 0.0282,
+      "eff_gbs": 928.8,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb= 8 depth=4 R=256B",
+      "ms": 0.0303,
+      "eff_gbs": 866.1,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb=16 depth=2 copy",
+      "ms": 0.0546,
+      "eff_gbs": 480.0,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb=16 depth=2 R=256B",
+      "ms": 0.0402,
+      "eff_gbs": 651.8,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb=16 depth=4 copy",
+      "ms": 0.0368,
+      "eff_gbs": 711.4,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb=16 depth=4 R=256B",
+      "ms": 0.0411,
+      "eff_gbs": 638.3,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb=32 depth=2 copy",
+      "ms": 0.0568,
+      "eff_gbs": 461.3,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb=32 depth=2 R=256B",
+      "ms": 0.0622,
+      "eff_gbs": 421.6,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb=32 depth=4 copy",
+      "ms": 0.055,
+      "eff_gbs": 476.4,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb=32 depth=4 R=256B",
+      "ms": 0.0625,
+      "eff_gbs": 419.4,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb=64 depth=2 copy",
+      "ms": 0.0793,
+      "eff_gbs": 330.5,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb=64 depth=2 R=256B",
+      "ms": 0.0871,
+      "eff_gbs": 301.0,
+      "note": "perm"
+    },
+    {
+      "arm": "tpb=64 depth=4 copy",
+      "ms": 0.0781,
+      "eff_gbs": 335.6,
+      "note": "exact"
+    },
+    {
+      "arm": "tpb=64 depth=4 R=256B",
+      "ms": 0.0867,
+      "eff_gbs": 302.3,
+      "note": "perm"
+    }
+  ]
+}
