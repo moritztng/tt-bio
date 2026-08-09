@@ -554,12 +554,19 @@ class AtomTransformer(_KeyedWeights, Module):
         # the pair bias z_pre is broadcast over M in _attention_m rather than replicated,
         # and p is read ONLY when there is no precomputed z_pre, so replicate it lazily.
         z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
-        s_m = ttnn.to_layout(ttnn.concat([s] * multiplicity, dim=0), ttnn.TILE_LAYOUT)        # (M,N,c_atom)
-        p_m = p if z_pre is not None else ttnn.to_layout(
+        # Sample batching (one target, M samples) hands in a shared s/p/bias with a leading
+        # dim of 1 and they are replicated here. Prediction batching (M different targets,
+        # protenix._merge_conds) hands in tensors that already carry the M members, so pass
+        # those straight through -- same shapes, no copy.
+        nb_ = NP // self.N_QUERIES
+        s_m = s if s.shape[0] == multiplicity else ttnn.to_layout(
+            ttnn.concat([s] * multiplicity, dim=0), ttnn.TILE_LAYOUT)                         # (M,N,c_atom)
+        p_m = p if (z_pre is not None or p.shape[0] == multiplicity * nb_) else ttnn.to_layout(
             ttnn.concat([p] * multiplicity, dim=0), ttnn.TILE_LAYOUT)                         # (M*nb,nq,nk,c_ap)
         # pad_bias is (nb,1,nq,nk) -- H-broadcast, so ~H times smaller than z_pre; keep the
         # replication here so the (sc + z) + pad add order matches the M=1 path exactly.
-        pad_bias = ttnn.to_layout(ttnn.concat([pad_bias] * multiplicity, dim=0), ttnn.TILE_LAYOUT)
+        if pad_bias.shape[0] != multiplicity * nb_:
+            pad_bias = ttnn.to_layout(ttnn.concat([pad_bias] * multiplicity, dim=0), ttnn.TILE_LAYOUT)
         x = a
         for b in range(self.n_blocks):
             x = self._block_m(x, s_m, p_m, b, N, NP, multiplicity, pad_bias,
@@ -1143,10 +1150,14 @@ class DiffusionModule(_KeyedWeights):
         E = "atom_attention_encoder."
         mt = cond["mask_trunked"].float()
         c_la = cond["c_la_dev"]; p = cond["p_dev"]
-        rep = lambda t: ttnn.to_layout(ttnn.concat([t] * M, dim=0), ttnn.TILE_LAYOUT)
-        # c_la_dev is 2D (N,128) (see _atom_cond). It is sample-invariant, so it is kept at
-        # (1,N,128) and broadcast over M wherever it is consumed.
-        c_la_1 = ttnn.reshape(c_la, (1, N, 128))
+        # A merged cond (protenix._merge_conds) already carries one entry per member, so
+        # every replication below is a pass-through there; sample batching keeps its
+        # leading dim of 1 and gets the copy.
+        rep = lambda t: t if t.shape[0] == M else ttnn.to_layout(
+            ttnn.concat([t] * M, dim=0), ttnn.TILE_LAYOUT)
+        # c_la_dev is 2D (N,128) (see _atom_cond) and sample-invariant, so it is kept at
+        # (1,N,128) and broadcast over M. Merged it is already (M,N,128).
+        c_la_1 = c_la if len(c_la.shape) == 3 else ttnn.reshape(c_la, (1, N, 128))
 
         # 1) single conditioning: shared (t-independent base + per-step fourier(t_hat)).
         wf = self._w["diffusion_conditioning.fourier_embedding.w"]
@@ -1155,7 +1166,10 @@ class DiffusionModule(_KeyedWeights):
         fou = torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf))
         nn_ = self._lin(self._ln(T(fou), "diffusion_conditioning.layernorm_n.weight"),
                         "diffusion_conditioning.linear_no_bias_n.weight")
-        ss = ttnn.reshape(ttnn.add(cond["ss_base"], nn_), (1, NT, cond["ss_base"].shape[-1]))
+        _ssb = cond["ss_base"]
+        _cs = _ssb.shape[-1]
+        ss = (ttnn.add(_ssb, ttnn.reshape(nn_, (1, 1, _cs))) if len(_ssb.shape) == 3
+              else ttnn.reshape(ttnn.add(_ssb, nn_), (1, NT, _cs)))
         for t in self._cond_transitions:
             ss = ttnn.add(ss, ttnn.reshape(t(ss), tuple(ss.shape)))
         s_single = ss   # (1, NT, c) shared across M
@@ -1166,13 +1180,16 @@ class DiffusionModule(_KeyedWeights):
         q_out = self.atxE(q_l, c_la_1, p, mt,
                           bias_cache=cond.get("atxE_bias"), multiplicity=M)   # (M,N,128)
         qo_lin = ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight"))   # (M,N,768)
-        Smean_m = ttnn.to_layout(
-            ttnn.concat([ttnn.reshape(cond["Smean_dev"], (1, NT, N))] * M, dim=0), ttnn.TILE_LAYOUT)
+        _smean = cond["Smean_dev"]
+        Smean_m = _smean if len(_smean.shape) == 3 else ttnn.to_layout(
+            ttnn.concat([ttnn.reshape(_smean, (1, NT, N))] * M, dim=0), ttnn.TILE_LAYOUT)
         a_tok = ttnn.matmul(Smean_m, qo_lin, compute_kernel_config=self.compute_kernel_config,
                            core_grid=CORE_GRID_MAIN)                          # (M,NT,768)
+        _Ms = s_single.shape[0]                       # 1 when shared, M when merged
         s_bias = ttnn.reshape(
-            self._lin(self._ln(ttnn.reshape(s_single, (NT, s_single.shape[-1])), "layernorm_s.weight"),
-                      "linear_no_bias_s.weight"), (1, NT, 768))
+            self._lin(self._ln(ttnn.reshape(s_single, (_Ms * NT, s_single.shape[-1])),
+                               "layernorm_s.weight"),
+                      "linear_no_bias_s.weight"), (_Ms, NT, 768))
         a_tok = ttnn.add(a_tok, s_bias)                                       # (M,NT,768), s_bias bcast
 
         # 3) token DiT (device_dit path): M-leading a_t/s_t; per-block biases broadcast.
@@ -1199,8 +1216,9 @@ class DiffusionModule(_KeyedWeights):
         # 4) atom decoder: q = S_dev @ lin(a_t) + q_out.
         DE = "atom_attention_decoder."
         a_lin = self._lin(ttnn.reshape(a_t, (M, NT, 768)), DE + "linear_no_bias_a.weight")
-        S_m = ttnn.to_layout(
-            ttnn.concat([ttnn.reshape(cond["S_dev"], (1, N, NT))] * M, dim=0), ttnn.TILE_LAYOUT)
+        _sdev = cond["S_dev"]
+        S_m = _sdev if len(_sdev.shape) == 3 else ttnn.to_layout(
+            ttnn.concat([ttnn.reshape(_sdev, (1, N, NT))] * M, dim=0), ttnn.TILE_LAYOUT)
         q = ttnn.add(ttnn.matmul(S_m, a_lin, compute_kernel_config=self.compute_kernel_config,
                                  core_grid=CORE_GRID_MAIN), q_out)            # (M,N,128)
         qd = self.atxD(q, c_la_1, p, mt,
@@ -1750,24 +1768,61 @@ class Protenix:
         return torch.stack([ztok[aq[b][:, None].expand(NQ, NK), ak[b][None, :].expand(NQ, NK)]
                             for b in range(nb)], 0)                            # (nb,nq,nk,16)
 
-    def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
-             return_confidence=False, n_cycles=None, trace=False,
-             max_parallel_samples=None):
-        """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
-        iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
-        coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
-        conf is a dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N),
-        ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
-        trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
-        dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
-        opened with a trace region: get_device(trace_region_size=1 << 30)."""
-        import torch
-        if trace:
-            import tt_bio.tenstorrent as _TTd
-            if _TTd.trace_region_size() <= 0:
-                raise ValueError(
-                    "fold(trace=True) needs a device opened with a trace region; "
-                    "call get_device(trace_region_size=1 << 30) before folding.")
+    def fold_many(self, feats_list, *, n_step=200, seed=None, progress_fn=None,
+                  return_confidence=False, n_cycles=None):
+        """Fold B targets with ONE batched diffusion trajectory. Returns a list of B coord
+        tensors (1,N,3), or (coords, confs) when return_confidence.
+
+        The trunk runs per target: its pair ops already fill the grid at production N, so a
+        batch dimension buys nothing there (measured: per-prediction cost at B=8 is 0.93x for
+        the pair transition and 1.07x for tri-attention). The diffusion is the opposite -- its
+        tensors are atom- and token-sized and leave the grid idle -- so the B conditionings are
+        stacked on the sampler's multiplicity axis and one denoise per step covers all B.
+
+        All targets must share the atom count and the token count; bucket before calling.
+        Each member draws its own host RNG stream, so member b sees exactly the noise
+        fold(feats_list[b], seed=seed) would have drawn alone.
+        """
+        B = len(feats_list)
+        if B == 1:
+            out = self.fold(feats_list[0], n_step=n_step, n_sample=1, seed=seed,
+                            progress_fn=progress_fn, return_confidence=return_confidence,
+                            n_cycles=n_cycles)
+            return ([out[0]], [out[1]]) if return_confidence else [out]
+        conds, auxs = [], []
+        for feats in feats_list:
+            cond, aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
+            conds.append(cond)
+            auxs.append(aux)
+        merged = merge_conds(self.diffusion, conds)
+        N = auxs[0]["N"]
+        # One batched forward per step: the merged conditioning covers all B members, so the
+        # per-step chunking knob (max_parallel_samples) does not apply here -- a chunk would
+        # slice the coordinate stream but not the conditioning. DRAM is the limit on B.
+        coords = edm_sample(self.diffusion, merged, N, n_step=n_step, multiplicity=B,
+                            max_parallel_samples=B, member_seeds=[seed] * B,
+                            progress_fn=progress_fn)
+        out = [coords[b:b + 1] for b in range(B)]
+        if not return_confidence:
+            return out
+        confs = [self._confidence_for(auxs[b], feats_list[b], out[b][0]) for b in range(B)]
+        return out, confs
+
+    def _confidence_for(self, aux, feats, coords):
+        """Confidence head for one prediction's coords (N,3). Same device/host split fold()
+        uses: the device path needs NT>=128, below which bf16 distance-embed rounding moves
+        the pLDDT head."""
+        s_inputs, s_trunk, z_trunk = aux["s_inputs"], aux["s_trunk"], aux["z_trunk"]
+        if self.confidence_head.device_confidence_enabled() and aux["NT"] >= 128:
+            z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
+            return self.confidence_head.confidence_device(s_inputs, s_trunk, z_base_dev, coords, feats)
+        return self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords, feats)
+
+    def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None):
+        """Trunk plus the t-independent diffusion conditioning for one target: everything
+        fold() does before the sampler. Returns (cond, aux); aux carries what the confidence
+        head needs. fold() and fold_many() share this so a batched fold runs the same trunk
+        as a single one."""
         fi = self._atom_feat_inputs(feats)
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
         mt = fi["mt"]; S = fi["S"]
@@ -1813,6 +1868,29 @@ class Protenix:
             cond["dit_z"] = self.diffusion._dit_z_device(pair_z)
         else:
             cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
+        return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
+
+    def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
+             return_confidence=False, n_cycles=None, trace=False,
+             max_parallel_samples=None):
+        """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
+        iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
+        coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
+        conf is a dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N),
+        ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
+        trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
+        dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
+        opened with a trace region: get_device(trace_region_size=1 << 30)."""
+        import torch
+        if trace:
+            import tt_bio.tenstorrent as _TTd
+            if _TTd.trace_region_size() <= 0:
+                raise ValueError(
+                    "fold(trace=True) needs a device opened with a trace region; "
+                    "call get_device(trace_region_size=1 << 30) before folding.")
+        cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
+        N, NT = _aux["N"], _aux["NT"]
+        s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
         import os as _os, time as _time
         if _os.environ.get("TT_PROTENIX_DBG_COND"):
             self._dbg_cond = cond
@@ -2159,8 +2237,52 @@ class Trunk(_KeyedWeights):
         return s, z3
 
 
+def merge_conds(diffusion_module, conds):
+    """Stack B per-target diffusion conditionings into one M=B conditioning.
+
+    The M-aware denoise already builds exactly these shapes when it replicates a shared
+    conditioning over M samples, so nothing downstream changes: per-member tensors gain a
+    leading B (c_la, ss_base, the atom<->token pooling matrices, the DiT pair biases) and
+    the windowed atom-pair biases concatenate along their block dim to B*nb. Every target
+    must share the atom count N and the token count NT.
+
+    Returns a cond dict the batched denoise consumes directly. Host entries (shapes only,
+    on this path) come from member 0.
+    """
+    B = len(conds)
+    for c in conds:
+        diffusion_module._atom_cond(c)
+        if diffusion_module.device_dit and c.get("dit_z") is not None and "dit_block_biases" not in c:
+            c["dit_block_biases"] = diffusion_module._dit_block_biases(
+                c["dit_z"], c.get("structural_pair_attn_bias"))
+    N = conds[0]["c_l"].shape[0]
+    NT = conds[0]["s_inputs"].shape[0]
+    for i, c in enumerate(conds[1:], 1):
+        if c["c_l"].shape[0] != N or c["s_inputs"].shape[0] != NT:
+            raise ValueError(
+                f"batch member {i} has (atoms, tokens) "
+                f"({c['c_l'].shape[0]}, {c['s_inputs'].shape[0]}), member 0 has ({N}, {NT}); "
+                "bucket targets by shape before batching")
+    cat = lambda ts: ttnn.to_layout(ttnn.concat(ts, dim=0), ttnn.TILE_LAYOUT)
+    m = dict(conds[0])
+    m["c_la_dev"] = cat([ttnn.reshape(c["c_la_dev"], (1, N, 128)) for c in conds])
+    m["ss_base"] = cat([ttnn.reshape(c["ss_base"], (1, NT, c["ss_base"].shape[-1])) for c in conds])
+    m["Smean_dev"] = cat([ttnn.reshape(c["Smean_dev"], (1, NT, N)) for c in conds])
+    m["S_dev"] = cat([ttnn.reshape(c["S_dev"], (1, N, NT)) for c in conds])
+    m["p_dev"] = cat([c["p_dev"] for c in conds])
+    for key in ("atxE_bias", "atxD_bias"):
+        z_pre = [c[key][0] for c in conds]
+        m[key] = ([cat([z[b] for z in z_pre]) for b in range(len(z_pre[0]))],
+                  cat([c[key][1] for c in conds]))
+    if conds[0].get("dit_block_biases") is not None:
+        m["dit_block_biases"] = [cat([c["dit_block_biases"][b] for c in conds])
+                                 for b in range(len(conds[0]["dit_block_biases"]))]
+    m["_members"] = B
+    return m
+
+
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
-               n_step=200, gamma0=0.8, gamma_min=1.0,
+               member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
                rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
@@ -2228,7 +2350,30 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     _sds = _os.environ.get("TT_BIO_SHARED_DRAW_SEED")
     if _sds:
         torch.manual_seed(int(_sds))
-    x = sigmas[0] * torch.randn(shape)
+    # member_seeds gives each batch member its own host RNG stream, advanced in the order a
+    # standalone fold advances it: initial noise, then per step the augmentation and eps. A
+    # batch of DIFFERENT targets then draws exactly what each target would have drawn alone,
+    # so a batched member is comparable to its own single fold rather than to a different
+    # noise stream (memory diffusion-port-parity-shared-draws). Samples of one target keep
+    # the single-stream behaviour (member_seeds=None).
+    _per_member = None
+    if member_seeds is not None:
+        assert len(member_seeds) == M, f"member_seeds {len(member_seeds)} != multiplicity {M}"
+        _states = []
+        for _sd in member_seeds:
+            torch.manual_seed(int(_sds) if _sds else (0 if _sd is None else int(_sd)))
+            _states.append(torch.get_rng_state())
+
+        def _per_member(fn):
+            outs = []
+            for _b in range(M):
+                torch.set_rng_state(_states[_b])
+                outs.append(fn())
+                _states[_b] = torch.get_rng_state()
+            return outs
+        x = sigmas[0] * torch.cat(_per_member(lambda: torch.randn((1, n_atoms, 3))), 0)
+    else:
+        x = sigmas[0] * torch.randn(shape)
     if dump_fn is not None:                          # optional trajectory dump (default off)
         for _m in range(M):                          # preserve the (1,N,3) per-sample dump contract
             dump_fn(-1, x[_m:_m + 1].detach().cpu())  # step -1 == initial noise frame
@@ -2244,12 +2389,23 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
         sigma_tm, sigma_t, gamma = sigmas[k].item(), sigmas[k + 1].item(), gammas[k + 1].item()
-        R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
+        if _per_member is not None:
+            _aug = _per_member(lambda: compute_random_augmentation(1, device=x.device, dtype=x.dtype))
+            R = torch.cat([a[0] for a in _aug], 0)
+            tr = torch.cat([a[1] for a in _aug], 0)
+        else:
+            R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
         x = x - x.mean(dim=-2, keepdim=True)
         x = torch.einsum("bmd,bds->bms", x, R) + tr
         t_hat = sigma_tm * (1 + gamma)
         noise_var = noise_scale ** 2 * (t_hat ** 2 - sigma_tm ** 2)
-        eps = (noise_var ** 0.5) * torch.randn(shape) if noise_var > 0 else torch.zeros(shape)
+        if noise_var <= 0:
+            eps = torch.zeros(shape)
+        elif _per_member is not None:
+            eps = (noise_var ** 0.5) * torch.cat(
+                _per_member(lambda: torch.randn((1, n_atoms, 3))), 0)
+        else:
+            eps = (noise_var ** 0.5) * torch.randn(shape)
         x_noisy = x + eps
         denoised = torch.zeros_like(x_noisy)
         for _chunk in chunks:
