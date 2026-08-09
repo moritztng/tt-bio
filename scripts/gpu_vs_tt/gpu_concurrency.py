@@ -235,6 +235,15 @@ def launcher(args) -> int:
     # JSON), so an N-way point measures N different proteins, not N copies of one.
     # Direct answer to "did the MPS speedup only appear because it was always the
     # same prediction".
+    # protenix prepends the query to the alignment and does not dedupe it against the
+    # a3m's own rows, so the depth it actually consumes is unique(rows) + 1, not the
+    # header count. prot117.a3m happens to carry a duplicate row (35 rows, 34 unique)
+    # so the two agree there at 35; a hand-built a3m with 35 distinct rows lands on 36
+    # and trips gpu_bench's fairness assertion. Compute the real expectation.
+    def _msa_depth(a3m: Path) -> int:
+        rows = a3m.read_text().split("\n")
+        return len({rows[i + 1] for i, l in enumerate(rows) if l.startswith(">")}) + 1
+
     target_of_worker = None
     if args.targets:
         names = [t.strip() for t in args.targets.split(",") if t.strip()]
@@ -247,9 +256,14 @@ def launcher(args) -> int:
             a3m_i = (distinct_dir / f"{nm}.a3m").resolve()
             rows = a3m_i.read_text().split("\n")
             assert rows[1] == seq_i, f"{a3m_i} query row does not match its .seq"
-            per_worker.append((nm, seq_i, a3m_i, a3m_i.read_text().count(">")))
+            per_worker.append((nm, seq_i, a3m_i, _msa_depth(a3m_i)))
         n_msa = per_worker[0][3]
         assert all(p[3] == n_msa for p in per_worker), "all targets need the same n_msa"
+        # The control is only a control if it folds at the same alignment depth as the
+        # same-target point it is compared against.
+        assert n_msa == _msa_depth(Path(args.msa_a3m).resolve()), \
+            f"distinct targets consume {n_msa} MSA rows, prot117 consumes " \
+            f"{_msa_depth(Path(args.msa_a3m).resolve())}"
         target_of_worker = {}
         for i, (nm, seq_i, a3m_i, _n) in enumerate(per_worker):
             gpu_bench.write_input_json(run_dir / f"input_w{i}.json", a3m_i, seq_i, nm)
@@ -259,7 +273,7 @@ def launcher(args) -> int:
         a3m = Path(args.msa_a3m).resolve()
         rows = a3m.read_text().split("\n")
         assert rows[1] == seq, f"{a3m} query row does not match {args.seq_file}"
-        n_msa = a3m.read_text().count(">")
+        n_msa = _msa_depth(a3m)
         gpu_bench.write_input_json(run_dir / "input.json", a3m, seq, args.name)
 
     sampler = SmiSampler()
