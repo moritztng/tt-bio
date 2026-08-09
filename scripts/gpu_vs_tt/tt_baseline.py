@@ -236,8 +236,13 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
         def hoisted():
             t0 = time.perf_counter()
             with torch.no_grad(), state._maybe_ref_bf16():
+                # Fresh top-level mapping per fold. The GPU leg had to do this because
+                # protenix's forward deletes the MSA keys out of the feature dict in
+                # place; if this fold does the same, reusing one dict would quietly
+                # fold folds 2..n without an MSA and report a fast, wrong number. The
+                # pLDDT check in tt_concurrency is what actually proves it did not.
                 _coords, conf = state.model.fold(
-                    feats_h, n_step=SAMPLING_STEPS, n_sample=samples, seed=SEED,
+                    dict(feats_h), n_step=SAMPLING_STEPS, n_sample=samples, seed=SEED,
                     progress_fn=_noop, return_confidence=True,
                     n_cycles=RECYCLING_STEPS,
                     max_parallel_samples=cfg.get("max_parallel_samples"), trace=False)
