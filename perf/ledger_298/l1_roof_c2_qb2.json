@@ -1,0 +1,68 @@
+{
+  "runs": [
+    {
+      "rows": 320,
+      "cols": 352,
+      "MB_per_tensor": 0.225,
+      "cores": 110,
+      "binary_add_us": 11.77,
+      "binary_GBs": 57.4,
+      "unary_us": 10.72,
+      "unary_GBs": 42.0
+    },
+    {
+      "rows": 640,
+      "cols": 704,
+      "MB_per_tensor": 0.901,
+      "cores": 110,
+      "binary_add_us": 12.02,
+      "binary_GBs": 224.9,
+      "unary_us": 10.75,
+      "unary_GBs": 167.7
+    },
+    {
+      "rows": 1280,
+      "cols": 1408,
+      "MB_per_tensor": 3.604,
+      "cores": 110,
+      "binary_add_us": 11.76,
+      "binary_GBs": 919.6,
+      "unary_us": 13.88,
+      "unary_GBs": 519.5
+    },
+    {
+      "rows": 2560,
+      "cols": 2816,
+      "MB_per_tensor": 14.418,
+      "cores": 110,
+      "binary_add_us": 11.7,
+      "binary_GBs": 3696.0,
+      "unary_us": 44.43,
+      "unary_GBs": 649.0
+    },
+    {
+      "rows": 1280,
+      "cols": 5632,
+      "MB_per_tensor": 14.418,
+      "cores": 110,
+      "binary_add_us": 11.78,
+      "binary_GBs": 3670.9,
+      "unary_us": 44.45,
+      "unary_GBs": 648.7
+    },
+    {
+      "rows": 5120,
+      "cols": 2816,
+      "MB_per_tensor": 28.836,
+      "cores": 110,
+      "binary_add_us": 11.99,
+      "binary_GBs": 7213.1,
+      "unary_us": 85.05,
+      "unary_GBs": 678.1
+    }
+  ],
+  "l1_op_roof_GBs": 7213.1,
+  "binary_peak_GBs": 7213.1,
+  "unary_peak_GBs": 678.1,
+  "note": "achievable-op roof for L1<->L1 traffic, not an SRAM hardware roof"
+}

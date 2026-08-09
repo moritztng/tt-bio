@@ -1,0 +1,99 @@
+{
+  "device": {
+    "compute_grid": "11x10",
+    "core_grid_main": "11x10",
+    "ttnn": "?"
+  },
+  "compute_roof": {
+    "runs": {
+      "2048_op_ckc_oDRAM": {
+        "ms": 0.212,
+        "tflops": 81.02
+      },
+      "2048_op_ckc_oL1": {
+        "ms": 0.2473,
+        "tflops": 69.48
+      },
+      "2048_plain_ckc_oDRAM": {
+        "ms": 0.2597,
+        "tflops": 66.14
+      },
+      "2048_plain_ckc_oL1": {
+        "ms": 1.1555,
+        "tflops": 14.87
+      },
+      "4096_op_ckc_oDRAM": {
+        "ms": 1.348,
+        "tflops": 101.96
+      },
+      "4096_op_ckc_oL1": {
+        "ms": 23.3754,
+        "tflops": 5.88
+      },
+      "4096_plain_ckc_oDRAM": {
+        "ms": 1.8228,
+        "tflops": 75.4
+      },
+      "4096_plain_ckc_oL1": {
+        "ms": 2.4926,
+        "tflops": 55.14
+      },
+      "6144_op_ckc_oDRAM": {
+        "ms": 5.0347,
+        "tflops": 92.13
+      },
+      "6144_op_ckc_oL1": {
+        "ms": 85.379,
+        "tflops": 5.43
+      },
+      "6144_plain_ckc_oDRAM": {
+        "ms": 6.5419,
+        "tflops": 70.91
+      },
+      "6144_plain_ckc_oL1": {
+        "ms": 85.0425,
+        "tflops": 5.45
+      }
+    },
+    "peak_TFLOPs": 95.28,
+    "note": "fp32 square matmul, HiFi4 + fp32_dest_acc + packer_l1_acc, CORE_GRID_MAIN, DRAM result (roof_fp32.py); the diffusion stage is entirely fp32"
+  },
+  "dram_roofs": {
+    "runs": [
+      {
+        "MB": 8.0,
+        "read_GBs": 283.5,
+        "write_GBs": 216.6,
+        "dram2dram_rw_GBs": 321.2
+      },
+      {
+        "MB": 16.0,
+        "read_GBs": 320.6,
+        "write_GBs": 237.2,
+        "dram2dram_rw_GBs": 340.1
+      },
+      {
+        "MB": 32.0,
+        "read_GBs": 375.7,
+        "write_GBs": 256.5,
+        "dram2dram_rw_GBs": 383.4
+      },
+      {
+        "MB": 48.0,
+        "read_GBs": 385.2,
+        "write_GBs": 261.3,
+        "dram2dram_rw_GBs": 392.0
+      },
+      {
+        "MB": 64.0,
+        "read_GBs": 390.0,
+        "write_GBs": 263.6,
+        "dram2dram_rw_GBs": 394.8
+      }
+    ],
+    "read_peak_GBs": 405.2,
+    "write_peak_GBs": 272.4,
+    "note": "fp32 tensors, 134 MB (roof_fp32.py); beats the bf16 ladder peaks 396.9/263.6"
+  },
+  "machine_balance_FLOP_per_byte_read": 261.4
+}
