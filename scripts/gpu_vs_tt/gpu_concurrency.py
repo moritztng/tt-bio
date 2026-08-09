@@ -334,6 +334,17 @@ def launcher(args) -> int:
     sampler.stop()
     wall_s = time.monotonic() - t_launch
 
+    # Keep the tail of every worker's log in the result, the way the TT leg already
+    # does. Without it a failed point on a rented box records only rc=1, and the
+    # instance is destroyed long before anyone can ask it why -- which is exactly how
+    # the 298 aa leg came back as three "no results" JSONs with no diagnosis in them.
+    tails = {}
+    for i, _p, _log in procs:
+        try:
+            tails[i] = (run_dir / f"w{i}.log").read_text(errors="replace").splitlines()[-15:]
+        except OSError as exc:
+            tails[i] = [f"<log unreadable: {exc}>"]
+
     results = conc.load_worker_results(run_dir)
     agg = conc.aggregate(results) if results else dict(clean=False, reason="no results")
     if agg.get("window_start") is not None:
@@ -346,7 +357,7 @@ def launcher(args) -> int:
         folds_per_worker=args.folds, diffusion_samples=args.samples,
         n_msa=n_msa, seed=gpu_bench.SEED, recycling_steps=gpu_bench.CYCLES,
         sampling_steps=gpu_bench.STEPS,
-        worker_rcs=rcs, wall_s=round(wall_s, 2),
+        worker_rcs=rcs, worker_log_tails=tails, wall_s=round(wall_s, 2),
         omp_num_threads=omp, host_cpu_cores=os.cpu_count() or 0,
         container_cpu_cores=cores,
         cold_s=[r.get("cold_s") for r in results],
