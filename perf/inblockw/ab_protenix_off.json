@@ -1,0 +1,21 @@
+{
+ "model": "protenix-v2",
+ "arm": "off",
+ "target": "/home/ttuser/.coworker/wt/perfwar-inblockw-tuning/examples/prot300.yaml",
+ "cold_s": 34.801,
+ "times": [
+  33.536,
+  33.808,
+  34.145
+ ],
+ "median_s": 33.808,
+ "min_s": 33.536,
+ "plddt": 0.840781,
+ "n_tokens": 298,
+ "cif_sha16": "d49af9baa50f00cc",
+ "fired_calls_per_fold": 0,
+ "grid": [
+  11,
+  10
+ ]
+}

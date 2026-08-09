@@ -61,12 +61,16 @@ def main() -> int:
         plddt = m["plddt"]
     cif = sorted(Path(meta["struct_dir"]).glob("*.cif"))
     sha = hashlib.sha256(cif[0].read_bytes()).hexdigest()[:16] if cif else None
+    kept = a.out.with_suffix(".cif")
+    if cif:
+        kept.write_bytes(cif[0].read_bytes())
 
     res = dict(model=a.model, arm=a.arm, target=str(a.target),
                cold_s=round(cold_s, 3), times=[round(t, 3) for t in times],
                median_s=round(statistics.median(times), 3),
                min_s=round(min(times), 3), plddt=plddt,
                n_tokens=cold_m.get("n_tokens"), cif_sha16=sha,
+               cif_path=str(a.out.with_suffix(".cif")),
                fired_calls_per_fold=fired["n"] // max(1, a.repeat),
                grid=list(T.COMPUTE_GRID_MAIN))
     a.out.write_text(json.dumps(res, indent=1))

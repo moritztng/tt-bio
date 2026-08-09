@@ -1,0 +1,22 @@
+{
+ "model": "opendde",
+ "arm": "on",
+ "target": "/home/ttuser/.coworker/wt/perfwar-inblockw-tuning/examples/prot300.yaml",
+ "cold_s": 53.039,
+ "times": [
+  49.509,
+  49.332,
+  49.479
+ ],
+ "median_s": 49.479,
+ "min_s": 49.332,
+ "plddt": 0.798043,
+ "n_tokens": 298,
+ "cif_sha16": "8eb89af5178eef54",
+ "cif_path": "perf/inblockw/ab_opendde_on.cif",
+ "fired_calls_per_fold": 9896,
+ "grid": [
+  11,
+  10
+ ]
+}
