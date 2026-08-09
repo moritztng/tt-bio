@@ -122,7 +122,11 @@ def main():
                     ("noex + seq write pages", dict(no_exchange=True, seq_write=True)),
                     ("noex + seq read pages", dict(no_exchange=True, seq_read=True)),
                     ("noex + seq both", dict(no_exchange=True, seq_read=True, seq_write=True)),
-                    ("full + seq write pages", dict(seq_write=True))):
+                    ("full + seq write pages", dict(seq_write=True)),
+                    ("noex + write stride 2", dict(no_exchange=True, seq_write=True, seq_stride=2)),
+                    ("noex + write stride 4", dict(no_exchange=True, seq_write=True, seq_stride=4)),
+                    ("noex + write stride 8", dict(no_exchange=True, seq_write=True, seq_stride=8)),
+                    ("noex + write stride 16", dict(no_exchange=True, seq_write=True, seq_stride=16))):
         def arm(kw=kw):
             for i, s in enumerate(src):
                 F.fused_output(s, dst, i, grid=grid, **kw)

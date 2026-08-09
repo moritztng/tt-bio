@@ -166,10 +166,12 @@ void kernel_main() {
         const uint32_t mid = get_read_ptr(cb_mid);
         for (uint32_t ii = 0; ii < 32; ++ii) {
 #ifdef SEQWRITE
-            // Timing control only, WRONG data: consecutive pages instead of the real
-            // stride-(N_JT*HT) ones, to test whether the destination pages of one group all
-            // land on the same DRAM bank.
-            noc_async_write(mid + ii * 2048, dst.get_noc_addr(g * 32 + ii), tb);
+            // Timing control only, WRONG data. Walks the destination with a chosen page
+            // stride instead of the real stride-(N_JT*HT) one. Stride 1 touches every DRAM
+            // bank, stride 8 touches one; the curve between them says how much bank spread
+            // is worth, which is what a cross-chunk batching change would buy.
+            noc_async_write(mid + ii * 2048,
+                            dst.get_noc_addr(((g * 32 + ii) * SEQSTRIDE) % DSTPAGES), tb);
 #else
             noc_async_write(mid + ii * 2048,
                             dst.get_noc_addr((it * 32 + ii) * (N_JT * HT)
@@ -190,11 +192,11 @@ _PROGRAM_CACHE: dict[tuple, object] = {}
 
 
 def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
-             seq_read=False, seq_write=False):
+             seq_read=False, seq_write=False, seq_stride=1):
     gx, gy = grid
     key = (src.buffer_address(), dst.buffer_address(), n, c, ct_off, gx, gy,
            int(dst.shape[-1]), src.memory_config().buffer_type, dst.memory_config().buffer_type,
-           no_exchange, rbatch, depth, seq_read, seq_write)
+           no_exchange, rbatch, depth, seq_read, seq_write, seq_stride)
     got = _PROGRAM_CACHE.get(key)
     if got is not None:
         return got
@@ -236,6 +238,8 @@ def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
         defines.append(("SEQREAD", "1"))
     if seq_write:
         defines.append(("SEQWRITE", "1"))
+        defines.append(("SEQSTRIDE", str(seq_stride)))
+        defines.append(("DSTPAGES", str(int(dst.shape[1]) * nt * ht)))
     K = ttnn.KernelDescriptor
     kernels = [
         K(kernel_source=READER_SRC, source_type=K.SourceType.SOURCE_CODE, core_ranges=cores,
@@ -260,7 +264,7 @@ def applicable(n, c, hidden, dtype, fast_mode):
 
 
 def fused_output(x_chunk, dst, chunk_index, grid=(13, 10), no_exchange=False,
-                 rbatch=8, depth=2, seq_read=False, seq_write=False):
+                 rbatch=8, depth=2, seq_read=False, seq_write=False, seq_stride=1):
     """Write permute(x_chunk, (0,2,3,1)) into columns [chunk_index*C, +C) of `dst`.
 
     x_chunk is [1, C, N, N]; dst is [1, N, N, hidden] and is returned unchanged so the
@@ -273,6 +277,6 @@ def fused_output(x_chunk, dst, chunk_index, grid=(13, 10), no_exchange=False,
     c = int(x_chunk.shape[1])
     ct_off = chunk_index * (c // 32)
     pd = _program(x_chunk, dst, n, c, ct_off, grid, no_exchange, rbatch, depth,
-                  seq_read, seq_write)
+                  seq_read, seq_write, seq_stride)
     ttnn.generic_op([x_chunk, dst], pd)
     return dst
