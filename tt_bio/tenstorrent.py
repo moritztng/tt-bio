@@ -415,6 +415,43 @@ def _fp32_softmax_attention(
     return o
 
 
+def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
+    """L1 for a pair-tensor dim0/dim1 transpose when it fits, else DRAM.
+
+    ttnn's dim0/dim1 permute is a real element transpose, not a tile-block copy: tiling
+    covers the last two dims, so swapping the untiled batch dim with the tile-row dim moves
+    single rows between tiles. Its writes are therefore row-granular scatter, and DRAM
+    punishes that. Measured on a Blackhole P300c chip at the 298-aa pair shape
+    320x320x256 bf16 (median of 9 synced calls): 1.479 ms to DRAM = 70.9 GB/s, against
+    0.281 ms for a plain ttnn.clone of the same tensor = 373.3 GB/s, so the transpose runs
+    at 19% of the copy roof. Into L1 the same permute is 0.600 ms, 2.47x. ttnn.permute,
+    ttnn.transpose(0,1) and the 4-D (0,2,1,3) form all land on the same kernel and the same
+    1.48 ms, so this is the only lever short of a new kernel.
+
+    A memory config cannot change a value: verified bit-identical (torch.equal) against the
+    DRAM permute.
+
+    Not cached: ttnn.Tensor hashes by object identity, so an lru_cache here would miss on
+    every call and pin every tensor it ever saw for the life of the process.
+    """
+    try:
+        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:
+        return ttnn.DRAM_MEMORY_CONFIG
+    shape = [int(d) for d in t.shape]
+    if len(shape) < 2:
+        return ttnn.DRAM_MEMORY_CONFIG
+    volume = 1
+    for d in shape[:-2]:
+        volume *= d
+    volume *= ((shape[-2] + 31) // 32) * 32 * ((shape[-1] + 31) // 32) * 32
+    elem = 4 if t.dtype == ttnn.float32 else 2
+    # 2.5x headroom: the consumer still needs its circular buffers on every core.
+    if 2.5 * volume * elem <= per_core * COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]:
+        return ttnn.L1_MEMORY_CONFIG
+    return ttnn.DRAM_MEMORY_CONFIG
+
+
 @lru_cache(maxsize=None)
 def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
@@ -1537,13 +1574,15 @@ class TriangleAttention(Module):
             def normed_rows(s, e):
                 blk = x[:, s:e, :] if self.ending else x[s:e, :, :]
                 if self.ending:
-                    blk = ttnn.permute(blk, (1, 0, 2))
+                    blk = ttnn.permute(blk, (1, 0, 2),
+                                       memory_config=_transpose_memory_config(blk))
                 return ttnn.layer_norm(
                     blk,
                     weight=self.layer_norm_weight,
                     bias=self.layer_norm_bias,
                     epsilon=1e-5,
                     compute_kernel_config=self.compute_kernel_config,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
                 )
 
             bias_parts = []
@@ -1567,13 +1606,17 @@ class TriangleAttention(Module):
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
             if self.ending:
-                x = ttnn.permute(x, (1, 0, 2))  # THIS CAUSES CACHE -> RESHAPE PROBLEM
+                x = ttnn.permute(x, (1, 0, 2), memory_config=_transpose_memory_config(x))
+            # Explicit DRAM: for the ending variant x is the L1 transpose result
+            # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
+            # for the qkv projection, whose 157 MB does not fit.
             x = ttnn.layer_norm(
                 x,
                 weight=self.layer_norm_weight,
                 bias=self.layer_norm_bias,
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             triangle_bias = _pair_proj_linear(
                 x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
@@ -1712,7 +1755,7 @@ class TriangleAttention(Module):
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g)
         if self.ending:
-            x = ttnn.permute(x, (1, 0, 2))
+            x = ttnn.permute(x, (1, 0, 2), memory_config=_transpose_memory_config(x))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
 
