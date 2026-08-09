@@ -970,6 +970,22 @@ class DiffusionModule(_KeyedWeights):
                 pass
             self._trace = None
 
+    @staticmethod
+    def _cond_token(cond):
+        """Identity token for one fold's conditioning.
+
+        A captured trace bakes in the DEVICE BUFFERS of the cond it was recorded against
+        (c_la_dev, p_dev, S_dev, dit_z, the per-block DiT biases), so it is valid for that
+        cond only. Keying the cached trace on the atom count N alone let a second fold of a
+        same-size target replay the FIRST fold's conditioning out of buffers that fold had
+        already released -- silently wrong coordinates, no error. The token is a bare object
+        stored on the cond dict, so the cache holds no device memory alive.
+        """
+        tok = cond.get("_trace_token")
+        if tok is None:
+            tok = cond["_trace_token"] = object()
+        return tok
+
     def _capture_trace(self, fou, r_noisy, cond, N):
         fou_dev = self._up(fou); r_dev = self._up(r_noisy)   # persistent input buffers
         _ = self._denoise_device(r_dev, fou_dev, cond)       # warmup / compile
@@ -978,7 +994,8 @@ class DiffusionModule(_KeyedWeights):
         tid = ttnn.begin_trace_capture(self.dev, cq_id=0)
         out = self._denoise_device(r_dev, fou_dev, cond)     # record
         ttnn.end_trace_capture(self.dev, tid, cq_id=0)
-        self._trace = {"N": N, "tid": tid, "in_fou": fou_dev, "in_r": r_dev, "out": out}
+        self._trace = {"N": N, "tid": tid, "in_fou": fou_dev, "in_r": r_dev, "out": out,
+                       "cond": self._cond_token(cond)}
         return self._trace
 
     def denoise_traced(self, x_noisy, t_hat, cond):
@@ -994,7 +1011,7 @@ class DiffusionModule(_KeyedWeights):
         fou = torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf)).contiguous()          # (1,fdim)
         r_noisy = (x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1))[0].contiguous()  # (N,3)
         tr = getattr(self, "_trace", None)
-        if tr is None or tr["N"] != N:
+        if tr is None or tr["N"] != N or tr.get("cond") is not self._cond_token(cond):
             if tr is not None:
                 self._release_trace()
             tr = self._capture_trace(fou, r_noisy, cond, N)

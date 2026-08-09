@@ -1,0 +1,94 @@
+{
+  "model": "protenix-v2",
+  "target": "examples/prot300.yaml",
+  "ttnn": null,
+  "hardware": "blackhole",
+  "visible": "2,3",
+  "trace_region_bytes": 1073741824,
+  "arms": [
+    "eager",
+    "traced",
+    "traced",
+    "eager"
+  ],
+  "cold_s": 35.5,
+  "n_tokens": 298,
+  "n_residues": 298,
+  "cold_plddt": 0.840781,
+  "folds": [
+    {
+      "arm": "eager",
+      "fold_s": 34.2367,
+      "stage_s": 7.7837,
+      "n_step": 200,
+      "trace_flag": false,
+      "plddt": 0.840781,
+      "capture_s": 0.0,
+      "captures": 0
+    },
+    {
+      "arm": "traced",
+      "fold_s": 34.263,
+      "stage_s": 7.8283,
+      "n_step": 200,
+      "trace_flag": true,
+      "plddt": 0.840781,
+      "capture_s": 0.1343,
+      "captures": 1
+    },
+    {
+      "arm": "traced",
+      "fold_s": 34.0706,
+      "stage_s": 7.6942,
+      "n_step": 200,
+      "trace_flag": true,
+      "plddt": 0.752343,
+      "capture_s": 0.0,
+      "captures": 0
+    },
+    {
+      "arm": "eager",
+      "fold_s": 34.1771,
+      "stage_s": 7.7426,
+      "n_step": 200,
+      "trace_flag": false,
+      "plddt": 0.840781,
+      "capture_s": 0.0,
+      "captures": 0
+    }
+  ],
+  "parity": [
+    {
+      "arm": "eager",
+      "coords_hash": "05c6de456f5c",
+      "bit_exact_vs_arm0": true,
+      "max_abs_delta_vs_arm0": 0.0
+    },
+    {
+      "arm": "traced",
+      "coords_hash": "05c6de456f5c",
+      "bit_exact_vs_arm0": true,
+      "max_abs_delta_vs_arm0": 0.0
+    },
+    {
+      "arm": "traced",
+      "coords_hash": "153bf230bb05",
+      "bit_exact_vs_arm0": false,
+      "max_abs_delta_vs_arm0": 165.37631225585938
+    },
+    {
+      "arm": "eager",
+      "coords_hash": "05c6de456f5c",
+      "bit_exact_vs_arm0": true,
+      "max_abs_delta_vs_arm0": 0.0
+    }
+  ],
+  "eager_stage_median_s": 7.7631,
+  "eager_fold_median_s": 34.2069,
+  "traced_stage_median_s": 7.7613,
+  "traced_fold_median_s": 34.1668,
+  "stage_delta_ms_per_fold": 1.8,
+  "stage_ratio_eager_over_traced": 1.0002,
+  "capture_s_first_traced": 0.1343,
+  "net_ms_per_fold_incl_capture": -132.5
+}

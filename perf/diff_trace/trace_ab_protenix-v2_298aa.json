@@ -1,0 +1,260 @@
+{
+  "model": "protenix-v2",
+  "target": "examples/prot300.yaml",
+  "steps": 200,
+  "arch": "blackhole",
+  "ttnn": "?",
+  "trace_region_bytes": 1073741824,
+  "dispatch_floor": {
+    "us_per_call": 8.389,
+    "spread_us": [
+      8.363,
+      8.572
+    ],
+    "reps": 4000
+  },
+  "roofs": {
+    "matmul_bf16_2048_TFLOPs": 92.39,
+    "matmul_bf16_4096_TFLOPs": 111.23,
+    "compute_roof_bf16_TFLOPs": 111.23,
+    "dram_read_GBs": 329.5,
+    "dram_read_MB": 25.2,
+    "dram_write_GBs": 251.7,
+    "dram_write_MB": 25.2,
+    "machine_balance_FLOP_per_byte": 337.6
+  },
+  "load_s": 1.11,
+  "trunk_s": 26.181,
+  "N_atoms": 2398,
+  "NT_tokens": 298,
+  "device_dit": true,
+  "dit_z_present": true,
+  "warm": {
+    "eager_3step_s": 1.117,
+    "traced_3step_s": 0.22,
+    "capture_s": 0.104,
+    "captures": 1
+  },
+  "recapture_during_ab": {
+    "s": 0.0,
+    "n": 0
+  },
+  "eager_after_trace_s": 7.699,
+  "stage_s": {
+    "eager": [
+      7.7239,
+      7.7367,
+      7.6976
+    ],
+    "traced": [
+      7.6597,
+      7.6502,
+      7.654
+    ],
+    "eager_median": 7.7239,
+    "traced_median": 7.654,
+    "ratio_eager_over_traced": 1.0091,
+    "delta_ms_per_fold": 69.9
+  },
+  "capture_cost_s": 0.104,
+  "parity": {
+    "noise_hash_eager": "daed56fc6170",
+    "noise_hash_traced": "daed56fc6170",
+    "shared_draws": true,
+    "final_bit_exact": true,
+    "final_max_abs_delta": 0.0,
+    "eager_repeat_bit_exact": true,
+    "eager_repeat_max_abs_delta": 0.0,
+    "steps_bit_exact": 200,
+    "steps_total": 200,
+    "worst_step": {
+      "step": 0,
+      "max_abs_delta": 0.0,
+      "pcc": 1.0,
+      "bit_exact": true
+    },
+    "min_pcc": 1.0,
+    "trajectory": [
+      {
+        "step": 0,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 10,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 20,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 30,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 40,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 50,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 60,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 70,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 80,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 90,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 100,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 110,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 120,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 130,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 140,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 150,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 160,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 170,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 180,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      },
+      {
+        "step": 190,
+        "max_abs_delta": 0.0,
+        "pcc": 1.0,
+        "bit_exact": true
+      }
+    ]
+  },
+  "device_replay_ms": 37.7223,
+  "denoise_wall": {
+    "eager": {
+      "ms_median_steps20_24": 38.0414,
+      "ms_all_median": 38.0478
+    },
+    "traced": {
+      "ms_median_steps20_24": 37.9734,
+      "ms_all_median": 37.9692
+    }
+  },
+  "step_budget_ms": {
+    "eager_stage_per_step": 38.62,
+    "traced_stage_per_step": 38.27,
+    "eager_denoise_wall": 38.0414,
+    "traced_denoise_wall": 37.9734,
+    "device_only_replay": 37.7223,
+    "host_sampler_per_step_eager": 0.578,
+    "host_roundtrip_per_step_traced": 0.251
+  },
+  "wrapped_ops": {
+    "ttnn": 59,
+    "experimental": 3,
+    "transformer": 3
+  },
+  "calls": {
+    "eager": {
+      "per_step": 1901.0,
+      "per_fold": 380200.0,
+      "top": {
+        "linear": 1584,
+        "deallocate": 1416,
+        "multiply": 696,
+        "layer_norm": 552,
+        "add": 408,
+        "permute": 408,
+        "slice": 360,
+        "reshape": 292,
+        "multiply_": 272,
+        "add_": 264,
+        "to_memory_config": 264,
+        "matmul": 248
+      }
+    },
+    "traced": {
+      "per_step": 6.0,
+      "per_fold": 1200.0,
+      "top": {
+        "from_torch": 8,
+        "copy_host_to_device_tensor": 8,
+        "execute_trace": 4,
+        "to_torch": 4
+      }
+    }
+  },
+  "dispatch_floor_share": {
+    "eager_floor_ms_per_step": 15.947,
+    "eager_step_wall_ms": 38.0414,
+    "pct_of_step_wall": 41.9
+  }
+}
