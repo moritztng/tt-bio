@@ -1,0 +1,31 @@
+{
+  "result_MB": 25.17,
+  "matmul": {
+    "oDRAM": {
+      "ms": 0.17443,
+      "tflops": 36.94
+    },
+    "oL1": {
+      "ms": 0.07856,
+      "tflops": 82.01
+    }
+  },
+  "measured_penalty_ms": 0.09587,
+  "movement": {
+    "L1 -> DRAM": {
+      "ms": 0.09571,
+      "write_GBs": 262.9
+    },
+    "L1 -> L1": {
+      "ms": 0.04097,
+      "write_GBs": 614.3
+    }
+  },
+  "predicted_penalty_ms": 0.05474,
+  "predicted_over_measured": 0.571,
+  "serialized_model_ms": 0.17427,
+  "overlapped_model_ms": 0.09571,
+  "serialized_model_error_pct": -0.09,
+  "overlapped_model_error_pct": -45.13,
+  "device_profiler": "not attempted"
+}
