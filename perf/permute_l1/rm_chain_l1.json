@@ -1,0 +1,23 @@
+{
+ "arm": "rm_chain_l1",
+ "B": 320,
+ "M": 320,
+ "C": 256,
+ "MB": 50.0,
+ "grid": [
+  11,
+  10
+ ],
+ "ttnn": "0.68.0",
+ "rows": 0,
+ "iters": 8,
+ "untilize_ms": 0.14834650005468575,
+ "untilize_gbps": 706.8424260858584,
+ "rm_permute_ms": 0.36466150004343945,
+ "rm_permute_gbps": 287.54776686738,
+ "tilize_ms": 0.20282350010347727,
+ "tilize_gbps": 516.9894018518729,
+ "chain_ms": 0.7158315002016025,
+ "piece_bytes": 512,
+ "bit_exact": true
+}
