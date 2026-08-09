@@ -1,0 +1,82 @@
+{
+  "conf_device": true,
+  "parity": false,
+  "target": "/home/ttuser/.coworker/wt/perfwar-confidence-head-einsum/examples/prot300.yaml",
+  "ttnn": "0.68.0",
+  "git": "40a1b14c2fbd601ab92d6f7a881a9c8b7f316692",
+  "visible": "2,3",
+  "meta": {
+    "hardware": "blackhole",
+    "load_s": 1.31,
+    "n_msa": 35
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "cold": true,
+      "s": 35.553,
+      "plddt": 0.848161,
+      "cif_sha": "5dae86794b79b01c",
+      "n_tokens": 298
+    },
+    {
+      "fold": 1,
+      "cold": false,
+      "s": 33.715,
+      "plddt": 0.848161,
+      "cif_sha": "5dae86794b79b01c",
+      "n_tokens": 298
+    }
+  ],
+  "head_calls": [],
+  "stage": [
+    {
+      "path": "confidence_device",
+      "ms": 242.94
+    },
+    {
+      "path": "confidence",
+      "ms": 510.22
+    },
+    {
+      "path": "confidence_device",
+      "ms": 199.24
+    },
+    {
+      "path": "confidence",
+      "ms": 492.09
+    }
+  ],
+  "vs_host": [
+    {
+      "plddt_dev": 0.848161,
+      "plddt_host": 0.840781,
+      "pcc_plddt_atom": 0.98015807,
+      "maxabs_plddt_atom": 0.169956,
+      "meanabs_plddt_atom": 0.022987,
+      "pcc_pae": 0.98230389,
+      "maxabs_pae": 13.243074,
+      "meanabs_pae": 0.868665,
+      "pcc_pde": 0.97076531,
+      "maxabs_pde": 3.291613,
+      "meanabs_pde": 0.146644,
+      "ptm_dev": 0.906213,
+      "ptm_host": 0.907925
+    },
+    {
+      "plddt_dev": 0.848161,
+      "plddt_host": 0.840781,
+      "pcc_plddt_atom": 0.98015807,
+      "maxabs_plddt_atom": 0.169956,
+      "meanabs_plddt_atom": 0.022987,
+      "pcc_pae": 0.98230389,
+      "maxabs_pae": 13.243074,
+      "meanabs_pae": 0.868665,
+      "pcc_pde": 0.97076531,
+      "maxabs_pde": 3.291613,
+      "meanabs_pde": 0.146644,
+      "ptm_dev": 0.906213,
+      "ptm_host": 0.907925
+    }
+  ]
+}

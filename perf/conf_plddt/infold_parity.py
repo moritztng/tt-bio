@@ -100,6 +100,45 @@ def install_parity_patch():
     CH._plddt_logits = _plddt_logits
 
 
+def install_host_compare(VS):
+    """Run the host confidence path on the same inputs, same fold, and compare every head.
+
+    The device path only gets z_base_dev, so z_trunk is stashed as z_base_device() builds it.
+    This is the arm that answers whether TT_PROTENIX_CONF_DEVICE can default on: the host path is
+    the validated one, and the question is what the device path does to pLDDT at production N.
+    """
+    import torch
+    import tt_bio.protenix as P
+    CH = P.ConfidenceHead
+    orig_z, orig_dev, orig_host = CH.z_base_device, CH.confidence_device, CH.confidence
+
+    def z_base_device(self, s_inputs, s_trunk, z_trunk):
+        self._ab_in = (s_inputs, s_trunk, z_trunk)
+        return orig_z(self, s_inputs, s_trunk, z_trunk)
+
+    def pcc(a, b):
+        a = a.flatten().double(); b = b.flatten().double()
+        return float(((a - a.mean()) * (b - b.mean())).sum()
+                     / ((a - a.mean()).norm() * (b - b.mean()).norm() + 1e-12))
+
+    def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
+        d = orig_dev(self, s_inputs, s_trunk, z_base_dev, coords, feats)
+        si, st, zt = self._ab_in
+        h = orig_host(self, si, st, zt, coords, feats)
+        rec = {"plddt_dev": round(float(d["plddt"]), 6), "plddt_host": round(float(h["plddt"]), 6)}
+        for k in ("plddt_atom", "pae", "pde"):
+            a, b = d[k].float(), h[k].float()
+            rec[f"pcc_{k}"] = round(pcc(a, b), 8)
+            rec[f"maxabs_{k}"] = round(float((a - b).abs().max()), 6)
+            rec[f"meanabs_{k}"] = round(float((a - b).abs().mean()), 6)
+        rec["ptm_dev"], rec["ptm_host"] = round(float(d["ptm"]), 6), round(float(h["ptm"]), 6)
+        VS.append(rec)
+        return d
+
+    CH.z_base_device = z_base_device
+    CH.confidence_device = confidence_device
+
+
 def install_stage_timer():
     import tt_bio.protenix as P
     CH = P.ConfidenceHead
@@ -127,6 +166,7 @@ def main():
     ap.add_argument("--folds", type=int, default=2, help="warm folds after the cold one")
     ap.add_argument("--conf-device", type=int, default=1)
     ap.add_argument("--parity", type=int, default=1, help="run the three-form A/B in the head")
+    ap.add_argument("--vs-host", type=int, default=0, help="also run the host path per sample")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -137,7 +177,10 @@ def main():
     tb = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tb)
 
+    VS = []
     install_stage_timer()
+    if a.conf_device and a.vs_host:
+        install_host_compare(VS)
     if a.conf_device and a.parity:
         install_parity_patch()
 
@@ -160,7 +203,7 @@ def main():
                target=str(a.target), ttnn=tb._ttnn_version(), git=tb._git_sha(),
                visible=os.environ.get("TT_VISIBLE_DEVICES"), meta={k: meta[k] for k in
                ("hardware", "load_s", "n_msa") if k in meta},
-               folds=folds, head_calls=CALLS, stage=STAGE)
+               folds=folds, head_calls=CALLS, stage=STAGE, vs_host=VS)
     a.out.write_text(json.dumps(out, indent=2) + "\n")
 
     if CALLS:
@@ -170,6 +213,11 @@ def main():
               f"distinct atom types {CALLS[0]['n_types']}")
         print(f"  torch.equal new==old {eq[0]}   new==core_grid {eq[1]}")
         print(f"  median ms: new {med('ms_new')}  old {med('ms_old')}  core_grid {med('ms_grid')}")
+    for r in VS:
+        print(f"device vs host: plddt {r['plddt_dev']} vs {r['plddt_host']}, "
+              f"per-atom PCC {r['pcc_plddt_atom']} max|d| {r['maxabs_plddt_atom']}, "
+              f"pae PCC {r['pcc_pae']}, pde PCC {r['pcc_pde']}, "
+              f"pTM {r['ptm_dev']} vs {r['ptm_host']}")
     if STAGE:
         s = sorted(x["ms"] for x in STAGE)
         print(f"confidence stage ({STAGE[0]['path']}): median {s[len(s) // 2]:.1f} ms "

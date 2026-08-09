@@ -1,0 +1,54 @@
+{
+  "conf_device": false,
+  "parity": false,
+  "target": "/home/ttuser/.coworker/wt/perfwar-confidence-head-einsum/examples/prot300.yaml",
+  "ttnn": "0.68.0",
+  "git": "40a1b14c2fbd601ab92d6f7a881a9c8b7f316692",
+  "visible": "2,3",
+  "meta": {
+    "hardware": "blackhole",
+    "load_s": 1.24,
+    "n_msa": 35
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "cold": true,
+      "s": 34.695,
+      "plddt": 0.840781,
+      "cif_sha": "d49af9baa50f00cc",
+      "n_tokens": 298
+    },
+    {
+      "fold": 1,
+      "cold": false,
+      "s": 33.463,
+      "plddt": 0.840781,
+      "cif_sha": "d49af9baa50f00cc",
+      "n_tokens": 298
+    },
+    {
+      "fold": 2,
+      "cold": false,
+      "s": 33.658,
+      "plddt": 0.840781,
+      "cif_sha": "d49af9baa50f00cc",
+      "n_tokens": 298
+    }
+  ],
+  "head_calls": [],
+  "stage": [
+    {
+      "path": "confidence",
+      "ms": 531.88
+    },
+    {
+      "path": "confidence",
+      "ms": 517.64
+    },
+    {
+      "path": "confidence",
+      "ms": 541.21
+    }
+  ]
+}
