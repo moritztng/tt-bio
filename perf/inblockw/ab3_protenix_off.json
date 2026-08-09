@@ -1,0 +1,23 @@
+{
+ "model": "protenix-v2",
+ "arm": "off",
+ "scope": "trunk",
+ "target": "/home/ttuser/.coworker/wt/perfwar-inblockw-tuning/examples/prot300.yaml",
+ "cold_s": 34.822,
+ "times": [
+  33.589,
+  33.646,
+  33.608
+ ],
+ "median_s": 33.608,
+ "min_s": 33.589,
+ "plddt": 0.840781,
+ "n_tokens": 298,
+ "cif_sha16": "d49af9baa50f00cc",
+ "cif_path": "perf/inblockw/ab3_protenix_off.cif",
+ "fired_calls_per_fold": 0,
+ "grid": [
+  11,
+  10
+ ]
+}
