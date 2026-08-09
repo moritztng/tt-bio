@@ -40,12 +40,27 @@ void kernel_main() {
     constexpr auto src_args = TensorAccessorArgs<0>();
     const uint32_t tb = get_local_cb_interface(cb_in).fifo_page_size;
     const auto src = TensorAccessor(src_args, src_addr, tb);
+#ifdef PAIR
+    // Two channel chunks in one launch. They are identical in shape, layout and memory
+    // config, so one set of TensorAccessor compile-time args serves both and only the base
+    // address differs. Odd groups take chunk b, so a core alternates chunks every group and
+    // the grid keeps both chunks' destination column stripes -- 4 DRAM banks -- live.
+    const auto src_b = TensorAccessor(src_args, get_arg_val<uint32_t>(3), tb);
+#define SRC_NOC(page) ((g & 1) ? src_b.get_noc_addr(page) : src.get_noc_addr(page))
+#else
+#define SRC_NOC(page) (src.get_noc_addr(page))
+#endif
     const uint32_t raw = get_write_ptr(cb_raw);
 
     for (uint32_t g = first_g; g < first_g + n_g; ++g) {
-        const uint32_t jt = g % N_JT;
-        const uint32_t it = (g / N_JT) % N_IT;
-        const uint32_t ct = g / (N_JT * N_IT);          // channel tile inside this chunk
+#ifdef PAIR
+        const uint32_t gg = g >> 1;
+#else
+        const uint32_t gg = g;
+#endif
+        const uint32_t jt = gg % N_JT;
+        const uint32_t it = (gg / N_JT) % N_IT;
+        const uint32_t ct = gg / (N_JT * N_IT);         // channel tile inside this chunk
 #ifdef NOEXCHANGE
         // Timing control only: the same whole-tile NOC traffic and the same transpose, with
         // the exchange skipped. The result is WRONG on purpose -- this arm exists to split
@@ -54,9 +69,9 @@ void kernel_main() {
         const uint32_t direct = get_write_ptr(cb_in);
         for (uint32_t cc = 0; cc < 32; ++cc) {
 #ifdef SEQREAD
-            noc_async_read(src.get_noc_addr(g * 32 + cc), direct + cc * 2048, tb);
+            noc_async_read(SRC_NOC(g * 32 + cc), direct + cc * 2048, tb);
 #else
-            noc_async_read(src.get_noc_addr((ct * 32 + cc) * (N_IT * N_JT) + it * N_JT + jt),
+            noc_async_read(SRC_NOC((ct * 32 + cc) * (N_IT * N_JT) + it * N_JT + jt),
                            direct + cc * 2048, tb);
 #endif
         }
@@ -67,7 +82,7 @@ void kernel_main() {
 #else
         // 32 whole tiles, one per channel in this channel tile.
         for (uint32_t cc = 0; cc < 32; ++cc) {
-            noc_async_read(src.get_noc_addr((ct * 32 + cc) * (N_IT * N_JT) + it * N_JT + jt),
+            noc_async_read(SRC_NOC((ct * 32 + cc) * (N_IT * N_JT) + it * N_JT + jt),
                            raw + cc * 2048, tb);
         }
         noc_async_read_barrier();
@@ -82,8 +97,12 @@ void kernel_main() {
         // tile apart, so the inner loop is two adds -- no multiply, no shift, no mask. The
         // first form of this loop recomputed both addresses per piece and the op measured
         // ~30 ns per piece per core.
+        // EXCH_N is 32 in production. HALFEXCH sets it to 16: tiles 16-31 are left
+        // unexchanged, so the data is WRONG on purpose. It prices how much of the op the
+        // exchange actually occupies once the bank fix stops hiding it, i.e. whether
+        // splitting the exchange across both dataflow RISCs is worth a kernel change.
         noc_async_read_one_packet_set_state(get_noc_addr(raw), 32);
-        for (uint32_t cc = 0; cc < 32; ++cc) {
+        for (uint32_t cc = 0; cc < EXCH_N; ++cc) {
             const uint32_t s_base = raw + cc * 2048;
             uint32_t sa = s_base;                                     // face (0,0), row 0
             uint32_t da = dst + ((cc >> 4) * 1024) + ((cc & 15) * 32);  // row cc of tile 0
@@ -154,23 +173,33 @@ void kernel_main() {
     const uint32_t first_g  = get_arg_val<uint32_t>(1);
     const uint32_t n_g      = get_arg_val<uint32_t>(2);
     const uint32_t ct_off   = get_arg_val<uint32_t>(3);   // column tile offset = the concat
+#ifdef PAIR
+    const uint32_t ct_off_b = get_arg_val<uint32_t>(4);
+#endif
     constexpr uint32_t cb_mid = 2;
     constexpr auto dst_args = TensorAccessorArgs<0>();
     const uint32_t tb = get_local_cb_interface(cb_mid).fifo_page_size;
     const auto dst = TensorAccessor(dst_args, dst_addr, tb);
     for (uint32_t g = first_g; g < first_g + n_g; ++g) {
-        const uint32_t jt = g % N_JT;
-        const uint32_t it = (g / N_JT) % N_IT;
-        const uint32_t ct = g / (N_JT * N_IT);
+#ifdef PAIR
+        const uint32_t gg      = g >> 1;
+        const uint32_t ct_mine = (g & 1) ? ct_off_b : ct_off;
+#else
+        const uint32_t gg      = g;
+        const uint32_t ct_mine = ct_off;
+#endif
+        const uint32_t jt = gg % N_JT;
+        const uint32_t it = (gg / N_JT) % N_IT;
+        const uint32_t ct = gg / (N_JT * N_IT);
 #ifdef CTSPREAD
         // Timing control only, WRONG data (the chunks overwrite each other). Walks this
         // chunk's groups across CTSPREAD column stripes instead of only its own, so the
         // grid reaches CTSPREAD x (C/32) DRAM banks with the real 32-write group pattern
         // left intact. CTSPREAD=2 is the bank spread two chunks in flight would reach,
         // 4 is what all four would.
-        const uint32_t ct_base = (ct_off + CTSTEP * (g % CTSPREAD)) % HT;
+        const uint32_t ct_base = (ct_mine + CTSTEP * (g % CTSPREAD)) % HT;
 #else
-        const uint32_t ct_base = ct_off;
+        const uint32_t ct_base = ct_mine;
 #endif
         cb_wait_front(cb_mid, 32);
         const uint32_t mid = get_read_ptr(cb_mid);
@@ -202,11 +231,13 @@ _PROGRAM_CACHE: dict[tuple, object] = {}
 
 
 def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
-             seq_read=False, seq_write=False, seq_stride=1, ct_spread=1):
+             seq_read=False, seq_write=False, seq_stride=1, ct_spread=1, half_exch=False,
+             src_b=None, ct_off_b=0):
     gx, gy = grid
     key = (src.buffer_address(), dst.buffer_address(), n, c, ct_off, gx, gy,
            int(dst.shape[-1]), src.memory_config().buffer_type, dst.memory_config().buffer_type,
-           no_exchange, rbatch, depth, seq_read, seq_write, seq_stride, ct_spread)
+           no_exchange, rbatch, depth, seq_read, seq_write, seq_stride, ct_spread,
+           half_exch, None if src_b is None else src_b.buffer_address(), ct_off_b)
     got = _PROGRAM_CACHE.get(key)
     if got is not None:
         return got
@@ -214,6 +245,10 @@ def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
     ct_per_chunk = c // 32
     ht = int(dst.shape[-1]) // 32
     n_groups = ct_per_chunk * nt * nt
+    if src_b is not None:
+        # One group per (chunk, channel tile, it, jt). Cores take contiguous runs of the
+        # doubled space, so every core alternates chunks and both stripes stay live.
+        n_groups *= 2
     cores = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0),
                                               ttnn.CoreCoord(gx - 1, gy - 1))])
     base, rem = divmod(n_groups, gx * gy)
@@ -236,12 +271,20 @@ def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
     for y in range(gy):
         for x in range(gx):
             gpc = base + (1 if idx < rem else 0)
-            r_rt[x][y] = [src.buffer_address(), first, gpc]
+            r_args = [src.buffer_address(), first, gpc]
+            w_args = [dst.buffer_address(), first, gpc, ct_off]
+            if src_b is not None:
+                r_args.append(src_b.buffer_address())
+                w_args.append(ct_off_b)
+            r_rt[x][y] = r_args
             c_rt[x][y] = [gpc]
-            w_rt[x][y] = [dst.buffer_address(), first, gpc, ct_off]
+            w_rt[x][y] = w_args
             first += gpc
             idx += 1
-    defines = [("N_IT", str(nt)), ("N_JT", str(nt)), ("HT", str(ht)), ("RBATCH", str(rbatch))]
+    defines = [("N_IT", str(nt)), ("N_JT", str(nt)), ("HT", str(ht)), ("RBATCH", str(rbatch)),
+               ("EXCH_N", "16" if half_exch else "32")]
+    if src_b is not None:
+        defines.append(("PAIR", "1"))
     if no_exchange:
         defines.append(("NOEXCHANGE", "1"))
     if seq_read:
@@ -278,7 +321,7 @@ def applicable(n, c, hidden, dtype, fast_mode):
 
 def fused_output(x_chunk, dst, chunk_index, grid=(13, 10), no_exchange=False,
                  rbatch=8, depth=2, seq_read=False, seq_write=False, seq_stride=1,
-                 ct_spread=1):
+                 ct_spread=1, half_exch=False):
     """Write permute(x_chunk, (0,2,3,1)) into columns [chunk_index*C, +C) of `dst`.
 
     x_chunk is [1, C, N, N]; dst is [1, N, N, hidden] and is returned unchanged so the
@@ -291,6 +334,28 @@ def fused_output(x_chunk, dst, chunk_index, grid=(13, 10), no_exchange=False,
     c = int(x_chunk.shape[1])
     ct_off = chunk_index * (c // 32)
     pd = _program(x_chunk, dst, n, c, ct_off, grid, no_exchange, rbatch, depth,
-                  seq_read, seq_write, seq_stride, ct_spread)
+                  seq_read, seq_write, seq_stride, ct_spread, half_exch)
     ttnn.generic_op([x_chunk, dst], pd)
+    return dst
+
+
+def fused_output_pair(x_a, x_b, dst, chunk_a, chunk_b, grid=(13, 10), **kw):
+    """Two channel chunks in one launch, so twice as many DRAM banks stay busy.
+
+    A chunk's destination pages are `i*NT*HT + jt*HT + ct`, and HT is a multiple of the
+    bank count, so page % banks is decided by `ct` alone: one chunk of C=64 reaches 2 of
+    this card's 8 DRAM banks and the writer sits at a third of the L1->DRAM copy roof.
+    Two chunks interleaved at group granularity reach 4, measured at 1.13x on the op.
+
+    The CBs are not widened -- cb_in and cb_mid at depth 2 are already 320 KB per core --
+    so this costs no L1 in the kernel. It does hold the earlier chunk alive across the next
+    chunk's triangle matmul, which is +13.1 MB of peak at 298 aa.
+    """
+    n = int(x_a.shape[2])
+    c = int(x_a.shape[1])
+    assert x_b.shape == x_a.shape and x_b.layout == x_a.layout
+    assert x_b.memory_config() == x_a.memory_config()
+    pd = _program(x_a, dst, n, c, chunk_a * (c // 32), grid,
+                  src_b=x_b, ct_off_b=chunk_b * (c // 32), **kw)
+    ttnn.generic_op([x_a, x_b, dst], pd)
     return dst

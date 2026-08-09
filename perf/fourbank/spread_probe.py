@@ -89,17 +89,38 @@ def main():
         res["arms"][name] = {"ms": ms, "gbs": rw / (ms * 1e-3) / 1e9}
         print(f"{name:38s} {ms:9.4f} ms  {rw/(ms*1e-3)/1e9:8.1f} GB/s  {note}", flush=True)
 
+    # exch: 32 = production, 16 = HALFEXCH (half the exchange, wrong data), 0 = none.
+    # The 32/16/0 triple at each bank count says whether the exchange is linear in the work it
+    # does once the bank fix stops the slow write from hiding it, which is what decides whether
+    # splitting it across both dataflow RISCs is worth a kernel change.
     for spread in (1, 2, 4):
-        for noex in (False, True):
-            def arm(spread=spread, noex=noex):
+        for exch in (32, 16, 0):
+            def arm(spread=spread, exch=exch):
                 for i, s in enumerate(src):
-                    F.fused_output(s, dst, i, grid=grid, ct_spread=spread, no_exchange=noex)
-            lbl = f"ct_spread={spread} ({spread*(C//32)} banks){' noex' if noex else ''}"
+                    F.fused_output(s, dst, i, grid=grid, ct_spread=spread,
+                                   no_exchange=(exch == 0), half_exch=(exch == 16))
+            tag = {32: "", 16: " half_exch", 0: " noex"}[exch]
+            lbl = f"ct_spread={spread} ({spread*(C//32)} banks){tag}"
             try:
                 rec(lbl, timed(dev, arm),
-                    "REAL DATA" if (spread == 1 and not noex) else "wrong data, timing only")
+                    "REAL DATA" if (spread == 1 and exch == 32) else "wrong data, timing only")
             except Exception as e:                                        # noqa: BLE001
                 print(f"  {lbl} ERR {str(e)[:100]}", flush=True)
+
+    # The real thing: two chunks per launch, correct data, 4 banks live. Must land within
+    # ~5% of the ct_spread=2 control or the group->chunk mapping is not producing the spread.
+    def pair_arm(**kw):
+        for i in range(0, npairs - 1, 2):
+            F.fused_output_pair(src[i], src[i + 1], dst, i, i + 1, grid=grid, **kw)
+        if npairs % 2:
+            F.fused_output(src[-1], dst, npairs - 1, grid=grid, **kw)
+
+    pair_arm()
+    res["bit_exact_pair"] = bool(torch.equal(ref, ttnn.to_torch(dst)))
+    print(f"bit-exact, paired: {res['bit_exact_pair']}", flush=True)
+    rec("PAIR (4 banks)", timed(dev, pair_arm), "REAL DATA")
+    rec("PAIR (4 banks) half_exch", timed(dev, lambda: pair_arm(half_exch=True)),
+        "wrong data, timing only")
 
     perm = ttnn.from_torch(torch.randn(1, N, N, C), layout=ttnn.TILE_LAYOUT, device=dev,
                            dtype=ttnn.bfloat16, memory_config=L1)
