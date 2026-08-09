@@ -1,0 +1,35 @@
+{
+  "arm": "ALLFIX",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "n_residues": 117,
+  "cold_s": 17.344,
+  "warm_s": [
+    10.991,
+    11.291,
+    10.991
+  ],
+  "warm_median_s": 10.991,
+  "warm_min_s": 10.991,
+  "confidence": {
+    "complex_plddt": 0.879112,
+    "plddt": 0.879112,
+    "ptm": 0.90906,
+    "iptm": 0.0,
+    "confidence_score": 0.90906
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 3.48,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 50.6
+}

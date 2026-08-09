@@ -120,6 +120,78 @@
       "verdict": "outside control band"
     }
   ],
+  "protenix-v2/117": [
+    {
+      "arm": "BASE",
+      "exact": true,
+      "max_abs_delta_A": 0.0,
+      "ca_rmsd_vs_base_A": 6.05314834163554e-15,
+      "tm_vs_base": 1.0,
+      "plddt": 0.888699,
+      "d_plddt": 0.0,
+      "ptm": 0.917966,
+      "d_ptm": 0.0,
+      "warm_median_s": 11.471,
+      "speedup_vs_base": 1.0,
+      "verdict": "reference"
+    },
+    {
+      "arm": "C2FIX",
+      "exact": true,
+      "max_abs_delta_A": 0.0,
+      "ca_rmsd_vs_base_A": 6.05314834163554e-15,
+      "tm_vs_base": 1.0,
+      "plddt": 0.888699,
+      "d_plddt": 0.0,
+      "ptm": 0.917966,
+      "d_ptm": 0.0,
+      "warm_median_s": 11.15,
+      "speedup_vs_base": 1.0288,
+      "verdict": "bit-exact"
+    },
+    {
+      "arm": "C3",
+      "exact": false,
+      "max_abs_delta_A": 2.0914764404296875,
+      "ca_rmsd_vs_base_A": 0.06830398930196695,
+      "tm_vs_base": 0.9997077928088194,
+      "plddt": 0.879625,
+      "d_plddt": -0.009074,
+      "ptm": 0.909325,
+      "d_ptm": -0.008641,
+      "warm_median_s": 11.262,
+      "speedup_vs_base": 1.0186,
+      "verdict": "no control band measured"
+    },
+    {
+      "arm": "C4",
+      "exact": false,
+      "max_abs_delta_A": 1.4742395877838135,
+      "ca_rmsd_vs_base_A": 0.07442826200065968,
+      "tm_vs_base": 0.9996532108193797,
+      "plddt": 0.86864,
+      "d_plddt": -0.020059,
+      "ptm": 0.899848,
+      "d_ptm": -0.018118,
+      "warm_median_s": 11.478,
+      "speedup_vs_base": 0.9994,
+      "verdict": "no control band measured"
+    },
+    {
+      "arm": "ALLFIX",
+      "exact": false,
+      "max_abs_delta_A": 2.0852622985839844,
+      "ca_rmsd_vs_base_A": 0.08758393355400823,
+      "tm_vs_base": 0.9995231174022557,
+      "plddt": 0.879112,
+      "d_plddt": -0.009587,
+      "ptm": 0.90906,
+      "d_ptm": -0.008906,
+      "warm_median_s": 10.991,
+      "speedup_vs_base": 1.0437,
+      "verdict": "no control band measured"
+    }
+  ],
   "opendde/298": [
     {
       "arm": "BASE",
@@ -239,6 +311,78 @@
       "tm_vs_1hcl": 0.8707,
       "n_gt_ca": 294,
       "verdict": "inside envelope"
+    }
+  ],
+  "opendde/117": [
+    {
+      "arm": "BASE",
+      "exact": true,
+      "max_abs_delta_A": 0.0,
+      "ca_rmsd_vs_base_A": 5.376567761287666e-15,
+      "tm_vs_base": 1.0,
+      "plddt": 0.833669,
+      "d_plddt": 0.0,
+      "ptm": 0.81286,
+      "d_ptm": 0.0,
+      "warm_median_s": 12.662,
+      "speedup_vs_base": 1.0,
+      "verdict": "reference"
+    },
+    {
+      "arm": "C2FIX",
+      "exact": true,
+      "max_abs_delta_A": 0.0,
+      "ca_rmsd_vs_base_A": 5.376567761287666e-15,
+      "tm_vs_base": 1.0,
+      "plddt": 0.833669,
+      "d_plddt": 0.0,
+      "ptm": 0.81286,
+      "d_ptm": 0.0,
+      "warm_median_s": 12.481,
+      "speedup_vs_base": 1.0145,
+      "verdict": "bit-exact"
+    },
+    {
+      "arm": "C3",
+      "exact": false,
+      "max_abs_delta_A": 8.97469186782837,
+      "ca_rmsd_vs_base_A": 0.627549583406398,
+      "tm_vs_base": 0.9816759338372987,
+      "plddt": 0.834393,
+      "d_plddt": 0.000724,
+      "ptm": 0.815384,
+      "d_ptm": 0.002524,
+      "warm_median_s": 12.641,
+      "speedup_vs_base": 1.0017,
+      "verdict": "no control band measured"
+    },
+    {
+      "arm": "C4",
+      "exact": false,
+      "max_abs_delta_A": 6.506190657615662,
+      "ca_rmsd_vs_base_A": 0.2977872526328697,
+      "tm_vs_base": 0.9947797597806493,
+      "plddt": 0.833733,
+      "d_plddt": 6.4e-05,
+      "ptm": 0.813332,
+      "d_ptm": 0.000472,
+      "warm_median_s": 12.54,
+      "speedup_vs_base": 1.0097,
+      "verdict": "no control band measured"
+    },
+    {
+      "arm": "ALLFIX",
+      "exact": false,
+      "max_abs_delta_A": 5.562948703765869,
+      "ca_rmsd_vs_base_A": 0.6239516802784955,
+      "tm_vs_base": 0.9814499349538447,
+      "plddt": 0.833175,
+      "d_plddt": -0.000494,
+      "ptm": 0.812712,
+      "d_ptm": -0.000148,
+      "warm_median_s": 12.34,
+      "speedup_vs_base": 1.0261,
+      "verdict": "no control band measured"
     }
   ]
 }
