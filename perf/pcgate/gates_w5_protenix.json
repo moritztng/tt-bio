@@ -1,0 +1,77 @@
+{
+  "model": "protenix-v2",
+  "n_aa": 298,
+  "branch": "wk/perfwar-l1-residency-298aa",
+  "device_l1_unreserved": 1532416,
+  "grid": [
+    11,
+    10
+  ],
+  "any_decision_changed": true,
+  "rows": [
+    {
+      "shape": "l1_resident_linear (1, 298, 298, 256)@(256, 256)",
+      "gate": "_l1_resident_matmul_config (VETO)",
+      "calls": 2096,
+      "samples": 12,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "production": [
+        "False"
+      ],
+      "live_budget": [
+        "False"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "tri_att_row_block (298, 298, 256)@(256, 768)",
+      "gate": "_l1_resident_row_block (SEARCH bound)",
+      "calls": 1048,
+      "samples": 12,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "production": [
+        "34"
+      ],
+      "live_budget": [
+        "33"
+      ],
+      "changed": true,
+      "note": ""
+    },
+    {
+      "shape": "l1_resident_linear (1, 298, 298, 64)@(64, 64)",
+      "gate": "_l1_resident_matmul_config (VETO)",
+      "calls": 320,
+      "samples": 12,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "production": [
+        "False"
+      ],
+      "live_budget": [
+        "False"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "tri_att_row_block (298, 298, 64)@(64, 192)",
+      "gate": "_l1_resident_row_block (SEARCH bound)",
+      "calls": 160,
+      "samples": 12,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "production": [
+        "231"
+      ],
+      "live_budget": [
+        "214"
+      ],
+      "changed": true,
+      "note": ""
+    }
+  ]
+}
