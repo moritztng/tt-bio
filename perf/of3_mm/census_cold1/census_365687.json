@@ -1,0 +1,352 @@
+[
+ {
+  "site": "openfold3_diffusion_transformer.py:184",
+  "a": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "b": [
+   1,
+   16,
+   64,
+   320
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 4800,
+  "B": 16,
+  "Mt": 10,
+  "Kt": 2,
+  "Nt": 10
+ },
+ {
+  "site": "openfold3_diffusion_transformer.py:193",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 4800,
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 2
+ },
+ {
+  "site": "openfold3_atom_transformer.py:153",
+  "a": [
+   1,
+   75,
+   4,
+   32,
+   32
+  ],
+  "b": [
+   1,
+   75,
+   4,
+   32,
+   128
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 1200,
+  "B": 300,
+  "Mt": 1,
+  "Kt": 1,
+  "Nt": 4
+ },
+ {
+  "site": "openfold3_atom_transformer.py:159",
+  "a": [
+   1,
+   75,
+   4,
+   32,
+   128
+  ],
+  "b": [
+   1,
+   75,
+   4,
+   128,
+   32
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 1200,
+  "B": 300,
+  "Mt": 1,
+  "Kt": 4,
+  "Nt": 1
+ },
+ {
+  "site": "tenstorrent.py:1189",
+  "a": [
+   1,
+   64,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   64,
+   320,
+   320
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.L1",
+  "b_buf": "BufferType.L1",
+  "hint": "program_config",
+  "calls": 912,
+  "B": 64,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 10
+ },
+ {
+  "site": "tenstorrent.py:259",
+  "a": [
+   298,
+   4,
+   320,
+   32
+  ],
+  "b": [
+   298,
+   4,
+   32,
+   320
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 488,
+  "B": 1192,
+  "Mt": 10,
+  "Kt": 1,
+  "Nt": 10
+ },
+ {
+  "site": "tenstorrent.py:272",
+  "a": [
+   298,
+   4,
+   320,
+   320
+  ],
+  "b": [
+   298,
+   4,
+   320,
+   32
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 488,
+  "B": 1192,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 1
+ },
+ {
+  "site": "openfold3_diffusion_module.py:339",
+  "a": [
+   1,
+   320,
+   2400
+  ],
+  "b": [
+   1,
+   2400,
+   768
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 200,
+  "B": 1,
+  "Mt": 10,
+  "Kt": 75,
+  "Nt": 24
+ },
+ {
+  "site": "tenstorrent.py:1796",
+  "a": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "b": [
+   1,
+   16,
+   32,
+   320
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 192,
+  "B": 16,
+  "Mt": 10,
+  "Kt": 1,
+  "Nt": 10
+ },
+ {
+  "site": "tenstorrent.py:1804",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 192,
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 1
+ },
+ {
+  "site": "tenstorrent.py:2688",
+  "a": [
+   1,
+   32,
+   320
+  ],
+  "b": [
+   1,
+   320,
+   320
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "core_grid",
+  "calls": 96,
+  "B": 1,
+  "Mt": 1,
+  "Kt": 10,
+  "Nt": 10
+ },
+ {
+  "site": "tenstorrent.py:2871",
+  "a": [
+   9536,
+   32
+  ],
+  "b": [
+   9536,
+   32
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 16,
+  "B": 1,
+  "Mt": 298,
+  "Kt": 1,
+  "Nt": 1
+ },
+ {
+  "site": "openfold3_atom_transformer.py:153",
+  "a": [
+   1,
+   75,
+   4,
+   32,
+   32
+  ],
+  "b": [
+   1,
+   75,
+   4,
+   32,
+   128
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 3,
+  "B": 300,
+  "Mt": 1,
+  "Kt": 1,
+  "Nt": 4
+ },
+ {
+  "site": "openfold3_atom_transformer.py:159",
+  "a": [
+   1,
+   75,
+   4,
+   32,
+   128
+  ],
+  "b": [
+   1,
+   75,
+   4,
+   128,
+   32
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 3,
+  "B": 300,
+  "Mt": 1,
+  "Kt": 4,
+  "Nt": 1
+ }
+]

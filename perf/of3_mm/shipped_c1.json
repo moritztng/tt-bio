@@ -1,0 +1,240 @@
+[
+ {
+  "case": "triatt_qk",
+  "note": "trunk tri-att q@kT (tenstorrent.py:259)",
+  "a": [
+   298,
+   4,
+   320,
+   32
+  ],
+  "b": [
+   298,
+   4,
+   32,
+   320
+  ],
+  "B": 1192,
+  "Mt": 10,
+  "Kt": 1,
+  "Nt": 10,
+  "per_core_M": 10,
+  "per_core_N": 10,
+  "in0_block_w": 1,
+  "out_subblock": [
+   2,
+   2
+  ],
+  "grid": [
+   13,
+   10
+  ],
+  "blocks": 1192,
+  "cores_engaged": 130,
+  "ms_auto": 1.6287698002997786,
+  "ms_shipped": 0.9068953993846662,
+  "speedup": 1.79598419112602,
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
+ },
+ {
+  "case": "triatt_av",
+  "note": "trunk tri-att attn@v (tenstorrent.py:272)",
+  "a": [
+   298,
+   4,
+   320,
+   320
+  ],
+  "b": [
+   298,
+   4,
+   320,
+   32
+  ],
+  "B": 1192,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 1,
+  "per_core_M": 10,
+  "per_core_N": 1,
+  "in0_block_w": 1,
+  "out_subblock": [
+   2,
+   1
+  ],
+  "grid": [
+   13,
+   10
+  ],
+  "blocks": 1192,
+  "cores_engaged": 130,
+  "ms_auto": 5.1646828003867995,
+  "ms_shipped": 0.6957327997952234,
+  "speedup": 7.423371159023884,
+  "bit_exact": false,
+  "maxabs_vs_auto": 0.001953125,
+  "rel_l2_vs_auto": 0.0011459470202960878
+ },
+ {
+  "case": "atom_qk",
+  "note": "atom-tf q@kT rank-5 (:153)",
+  "a": [
+   1,
+   75,
+   4,
+   32,
+   32
+  ],
+  "b": [
+   1,
+   75,
+   4,
+   32,
+   128
+  ],
+  "B": 300,
+  "Mt": 1,
+  "Kt": 1,
+  "Nt": 4,
+  "per_core_M": 1,
+  "per_core_N": 4,
+  "in0_block_w": 1,
+  "out_subblock": [
+   1,
+   4
+  ],
+  "grid": [
+   13,
+   10
+  ],
+  "blocks": 300,
+  "cores_engaged": 130,
+  "ms_auto": 0.3143249996355735,
+  "ms_shipped": 0.03727139992406592,
+  "speedup": 8.433410075177125,
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
+ },
+ {
+  "case": "atom_av",
+  "note": "atom-tf attn@v rank-5 (:159)",
+  "a": [
+   1,
+   75,
+   4,
+   32,
+   128
+  ],
+  "b": [
+   1,
+   75,
+   4,
+   128,
+   32
+  ],
+  "B": 300,
+  "Mt": 1,
+  "Kt": 4,
+  "Nt": 1,
+  "per_core_M": 1,
+  "per_core_N": 1,
+  "in0_block_w": 1,
+  "out_subblock": [
+   1,
+   1
+  ],
+  "grid": [
+   13,
+   10
+  ],
+  "blocks": 300,
+  "cores_engaged": 130,
+  "ms_auto": 0.5244113999651745,
+  "ms_shipped": 0.0546050003322307,
+  "speedup": 9.603724874544863,
+  "bit_exact": false,
+  "maxabs_vs_auto": 0.0009765625,
+  "rel_l2_vs_auto": 0.001104276202309511
+ },
+ {
+  "case": "dit_qk",
+  "note": "DiT q@kT (:184)",
+  "a": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "b": [
+   1,
+   16,
+   64,
+   320
+  ],
+  "B": 16,
+  "Mt": 10,
+  "Kt": 2,
+  "Nt": 10,
+  "per_core_M": 2,
+  "per_core_N": 10,
+  "in0_block_w": 1,
+  "out_subblock": [
+   2,
+   2
+  ],
+  "grid": [
+   13,
+   10
+  ],
+  "blocks": 80,
+  "cores_engaged": 80,
+  "ms_auto": 0.048597199929645285,
+  "ms_shipped": 0.06510900057037361,
+  "speedup": 0.746397571824476,
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
+ },
+ {
+  "case": "dit_av",
+  "note": "DiT attn@v (:193)",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 2,
+  "per_core_M": 2,
+  "per_core_N": 2,
+  "in0_block_w": 1,
+  "out_subblock": [
+   2,
+   2
+  ],
+  "grid": [
+   13,
+   10
+  ],
+  "blocks": 80,
+  "cores_engaged": 80,
+  "ms_auto": 0.1021163996483665,
+  "ms_shipped": 0.049419200513511896,
+  "speedup": 2.0663304664438362,
+  "bit_exact": false,
+  "maxabs_vs_auto": 0.0009765625,
+  "rel_l2_vs_auto": 0.0011491309089308197
+ }
+]
