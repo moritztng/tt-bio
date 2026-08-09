@@ -1,0 +1,106 @@
+{
+  "fp32": [
+    {
+      "op": "QK^T",
+      "in0_block_w": 1,
+      "out_subblock_w": 1,
+      "base_us": 321.59,
+      "us": 115.15,
+      "speedup": 2.79,
+      "bit_exact": true,
+      "maxabs": 0.0
+    },
+    {
+      "op": "QK^T",
+      "in0_block_w": 1,
+      "out_subblock_w": 4,
+      "base_us": 321.59,
+      "us": 113.8,
+      "speedup": 2.83,
+      "bit_exact": true,
+      "maxabs": 0.0
+    },
+    {
+      "op": "A@V",
+      "in0_block_w": 1,
+      "out_subblock_w": 1,
+      "base_us": 526.71,
+      "us": 124.32,
+      "speedup": 4.24,
+      "bit_exact": false,
+      "maxabs": 0.021923065185546875
+    },
+    {
+      "op": "A@V",
+      "in0_block_w": 2,
+      "out_subblock_w": 1,
+      "base_us": 526.71,
+      "us": 114.31,
+      "speedup": 4.61,
+      "bit_exact": true,
+      "maxabs": 0.0
+    },
+    {
+      "op": "A@V",
+      "in0_block_w": 4,
+      "out_subblock_w": 1,
+      "base_us": 526.71,
+      "us": 108.05,
+      "speedup": 4.87,
+      "bit_exact": false,
+      "maxabs": 0.015621185302734375
+    }
+  ],
+  "bf16": [
+    {
+      "op": "QK^T",
+      "in0_block_w": 1,
+      "out_subblock_w": 1,
+      "base_us": 295.81,
+      "us": 67.67,
+      "speedup": 4.37,
+      "bit_exact": true,
+      "maxabs": 0.0
+    },
+    {
+      "op": "QK^T",
+      "in0_block_w": 1,
+      "out_subblock_w": 4,
+      "base_us": 295.81,
+      "us": 72.35,
+      "speedup": 4.09,
+      "bit_exact": true,
+      "maxabs": 0.0
+    },
+    {
+      "op": "A@V",
+      "in0_block_w": 1,
+      "out_subblock_w": 1,
+      "base_us": 494.04,
+      "us": 69.35,
+      "speedup": 7.12,
+      "bit_exact": false,
+      "maxabs": 0.125
+    },
+    {
+      "op": "A@V",
+      "in0_block_w": 2,
+      "out_subblock_w": 1,
+      "base_us": 494.04,
+      "us": 67.04,
+      "speedup": 7.37,
+      "bit_exact": true,
+      "maxabs": 0.0
+    },
+    {
+      "op": "A@V",
+      "in0_block_w": 4,
+      "out_subblock_w": 1,
+      "base_us": 494.04,
+      "us": 67.85,
+      "speedup": 7.28,
+      "bit_exact": false,
+      "maxabs": 0.125
+    }
+  ]
+}

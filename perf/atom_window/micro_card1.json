@@ -1,0 +1,355 @@
+{
+  "card": "qb2-card1",
+  "ttnn": "?",
+  "grid": "11x10",
+  "pipeline_fp32": {
+    "ops": [
+      {
+        "op": "permute k (:413)",
+        "us": 28.44
+      },
+      {
+        "op": "matmul QK^T (:414)",
+        "us": 320.52
+      },
+      {
+        "op": "multiply scale (:415)",
+        "us": 30.78
+      },
+      {
+        "op": "add z (:416)",
+        "us": 37.62
+      },
+      {
+        "op": "add pad_bias (:416)",
+        "us": 37.65
+      },
+      {
+        "op": "softmax (:417)",
+        "us": 31.12
+      },
+      {
+        "op": "matmul A@V (:417)",
+        "us": 524.42
+      }
+    ],
+    "total_us": 1010.55
+  },
+  "batch_fp32": [
+    {
+      "nb": 1,
+      "units": 4,
+      "qk_us": 7.87,
+      "qk_us_per_unit": 1.967,
+      "av_us": 9.31,
+      "av_us_per_unit": 2.327
+    },
+    {
+      "nb": 2,
+      "units": 8,
+      "qk_us": 11.38,
+      "qk_us_per_unit": 1.422,
+      "av_us": 16.36,
+      "av_us_per_unit": 2.045
+    },
+    {
+      "nb": 4,
+      "units": 16,
+      "qk_us": 20.25,
+      "qk_us_per_unit": 1.266,
+      "av_us": 30.56,
+      "av_us_per_unit": 1.91
+    },
+    {
+      "nb": 8,
+      "units": 32,
+      "qk_us": 36.98,
+      "qk_us_per_unit": 1.156,
+      "av_us": 58.76,
+      "av_us_per_unit": 1.836
+    },
+    {
+      "nb": 16,
+      "units": 64,
+      "qk_us": 70.8,
+      "qk_us_per_unit": 1.106,
+      "av_us": 114.0,
+      "av_us_per_unit": 1.781
+    },
+    {
+      "nb": 32,
+      "units": 128,
+      "qk_us": 138.39,
+      "qk_us_per_unit": 1.081,
+      "av_us": 225.03,
+      "av_us_per_unit": 1.758
+    },
+    {
+      "nb": 64,
+      "units": 256,
+      "qk_us": 273.79,
+      "qk_us_per_unit": 1.07,
+      "av_us": 447.94,
+      "av_us_per_unit": 1.75
+    },
+    {
+      "nb": 75,
+      "units": 300,
+      "qk_us": 320.23,
+      "qk_us_per_unit": 1.067,
+      "av_us": 524.48,
+      "av_us_per_unit": 1.748
+    },
+    {
+      "nb": 128,
+      "units": 512,
+      "qk_us": 544.76,
+      "qk_us_per_unit": 1.064,
+      "av_us": 896.91,
+      "av_us_per_unit": 1.752
+    },
+    {
+      "nb": 256,
+      "units": 1024,
+      "qk_us": 1086.2,
+      "qk_us_per_unit": 1.061,
+      "av_us": 1784.71,
+      "av_us_per_unit": 1.743
+    }
+  ],
+  "rank_fp32": [
+    {
+      "shape": "[75,4]",
+      "us": 322.97
+    },
+    {
+      "shape": "[300,1]",
+      "us": 322.89
+    },
+    {
+      "shape": "[1,300]",
+      "us": 322.72
+    },
+    {
+      "shape": "[300] 3D",
+      "us": 320.41
+    }
+  ],
+  "mshape_fp32": [
+    {
+      "nq": 32,
+      "units": 300,
+      "us": 320.46
+    },
+    {
+      "nq": 64,
+      "units": 150,
+      "us": 182.13
+    },
+    {
+      "nq": 128,
+      "units": 75,
+      "us": 94.89
+    },
+    {
+      "nq": 256,
+      "units": 37,
+      "us": 55.2
+    },
+    {
+      "nq": 512,
+      "units": 18,
+      "us": 77.15
+    },
+    {
+      "nq": 1200,
+      "units": 8,
+      "us": 49.39
+    },
+    {
+      "nq": 2400,
+      "units": 4,
+      "us": 41.92
+    },
+    {
+      "nq": 9600,
+      "units": 1,
+      "us": 36.44
+    }
+  ],
+  "pipeline_bf16": {
+    "ops": [
+      {
+        "op": "permute k (:413)",
+        "us": 15.35
+      },
+      {
+        "op": "matmul QK^T (:414)",
+        "us": 295.6
+      },
+      {
+        "op": "multiply scale (:415)",
+        "us": 19.06
+      },
+      {
+        "op": "add z (:416)",
+        "us": 21.25
+      },
+      {
+        "op": "add pad_bias (:416)",
+        "us": 20.84
+      },
+      {
+        "op": "softmax (:417)",
+        "us": 17.87
+      },
+      {
+        "op": "matmul A@V (:417)",
+        "us": 493.32
+      }
+    ],
+    "total_us": 883.29
+  },
+  "batch_bf16": [
+    {
+      "nb": 1,
+      "units": 4,
+      "qk_us": 7.9,
+      "qk_us_per_unit": 1.976,
+      "av_us": 8.81,
+      "av_us_per_unit": 2.202
+    },
+    {
+      "nb": 2,
+      "units": 8,
+      "qk_us": 10.8,
+      "qk_us_per_unit": 1.35,
+      "av_us": 15.39,
+      "av_us_per_unit": 1.924
+    },
+    {
+      "nb": 4,
+      "units": 16,
+      "qk_us": 19.02,
+      "qk_us_per_unit": 1.189,
+      "av_us": 28.7,
+      "av_us_per_unit": 1.794
+    },
+    {
+      "nb": 8,
+      "units": 32,
+      "qk_us": 34.19,
+      "qk_us_per_unit": 1.069,
+      "av_us": 54.67,
+      "av_us_per_unit": 1.709
+    },
+    {
+      "nb": 16,
+      "units": 64,
+      "qk_us": 65.17,
+      "qk_us_per_unit": 1.018,
+      "av_us": 106.98,
+      "av_us_per_unit": 1.672
+    },
+    {
+      "nb": 32,
+      "units": 128,
+      "qk_us": 127.92,
+      "qk_us_per_unit": 0.999,
+      "av_us": 211.64,
+      "av_us_per_unit": 1.653
+    },
+    {
+      "nb": 64,
+      "units": 256,
+      "qk_us": 252.5,
+      "qk_us_per_unit": 0.986,
+      "av_us": 421.1,
+      "av_us_per_unit": 1.645
+    },
+    {
+      "nb": 75,
+      "units": 300,
+      "qk_us": 295.78,
+      "qk_us_per_unit": 0.986,
+      "av_us": 492.89,
+      "av_us_per_unit": 1.643
+    },
+    {
+      "nb": 128,
+      "units": 512,
+      "qk_us": 501.73,
+      "qk_us_per_unit": 0.98,
+      "av_us": 838.73,
+      "av_us_per_unit": 1.638
+    },
+    {
+      "nb": 256,
+      "units": 1024,
+      "qk_us": 1000.52,
+      "qk_us_per_unit": 0.977,
+      "av_us": 1674.23,
+      "av_us_per_unit": 1.635
+    }
+  ],
+  "rank_bf16": [
+    {
+      "shape": "[75,4]",
+      "us": 297.8
+    },
+    {
+      "shape": "[300,1]",
+      "us": 297.8
+    },
+    {
+      "shape": "[1,300]",
+      "us": 295.48
+    },
+    {
+      "shape": "[300] 3D",
+      "us": 295.37
+    }
+  ],
+  "mshape_bf16": [
+    {
+      "nq": 32,
+      "units": 300,
+      "us": 295.38
+    },
+    {
+      "nq": 64,
+      "units": 150,
+      "us": 165.64
+    },
+    {
+      "nq": 128,
+      "units": 75,
+      "us": 86.48
+    },
+    {
+      "nq": 256,
+      "units": 37,
+      "us": 46.51
+    },
+    {
+      "nq": 512,
+      "units": 18,
+      "us": 52.92
+    },
+    {
+      "nq": 1200,
+      "units": 8,
+      "us": 31.53
+    },
+    {
+      "nq": 2400,
+      "units": 4,
+      "us": 25.77
+    },
+    {
+      "nq": 9600,
+      "units": 1,
+      "us": 22.17
+    }
+  ]
+}
