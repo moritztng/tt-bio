@@ -28,7 +28,9 @@ import tt_bio.tenstorrent as T  # noqa: E402
 from tt_bio.tenstorrent import get_device  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--n", type=int, default=320)
+ap.add_argument("--n", type=int, nargs="+", default=[320])
+ap.add_argument("--synthetic-c", type=int, nargs="*", default=[],
+                help="also run a synthetic TriangleAttention at these c_z (128 boltz2, 384 opendde)")
 ap.add_argument("--warm", type=int, default=3)
 ap.add_argument("--iters", type=int, default=5)
 ap.add_argument("--reps", type=int, default=3)
@@ -57,92 +59,96 @@ dev = get_device()
 ckc = ttnn.init_device_compute_kernel_config(
     dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
 layer, c_z = build_layer(ckc)
-N = args.n
-torch.manual_seed(0)
-s_t, z_t = torch.randn(1, N, 384), torch.randn(1, N, N, c_z)
-mk_s = lambda: ttnn.from_torch(s_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-mk_z = lambda: ttnn.from_torch(z_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-
 real_row = T._tri_att_row_block
 ARMS = (("BASE", lambda x, w, d: 0), ("ROW", real_row))
+print(f"grid={T.COMPUTE_GRID_MAIN} l1_unreserved={ttnn.get_max_worker_l1_unreserved_size()}",
+      flush=True)
 
-print(f"N={N} c_z={c_z} grid={T.COMPUTE_GRID_MAIN} "
-      f"l1_unreserved={ttnn.get_max_worker_l1_unreserved_size()}", flush=True)
 
-# ---- what the chooser picks -------------------------------------------------------------
-z_probe = mk_z()
-xv = ttnn.reshape(z_probe, tuple(z_probe.shape)[1:])
-tri = layer.triangle_attention_start
-rows = real_row(xv, tri.qkv_weight, ttnn.bfloat16)
-whole = T._l1_resident_linear_config(xv, tri.qkv_weight, ttnn.bfloat16)
-info = {"row_block": rows, "whole_tensor_fits": whole is not None,
-        "blocks": (N // rows) if rows else 0}
-print(f"chooser: whole_tensor_fits={info['whole_tensor_fits']} row_block={rows} "
-      f"({info['blocks']} blocks)", flush=True)
-del xv, z_probe
+def synth_tri_att(c, ending=False):
+    """TriangleAttention with random weights at a c_z the protenix checkpoint does not have."""
+    h, hd = c // 32, 32
+    sd = {
+        "layer_norm.weight": torch.ones(c), "layer_norm.bias": torch.zeros(c),
+        "linear_q.weight": torch.randn(h * hd, c) * 0.05,
+        "linear_k.weight": torch.randn(h * hd, c) * 0.05,
+        "linear_v.weight": torch.randn(h * hd, c) * 0.05,
+        "linear_g.weight": torch.randn(h * hd, c) * 0.05,
+        "linear_o.weight": torch.randn(c, h * hd) * 0.05,
+        "linear.weight": torch.randn(h, c) * 0.05,
+    }
+    return T.TriangleAttention(hd, h, ending, sd, ckc)
 
-# ---- bit-exactness ----------------------------------------------------------------------
-print("=== bit-exactness (torch.equal, ROW vs BASE) ===", flush=True)
-SITES = (
-    ("tri_att start", lambda z: layer.triangle_attention_start(z, None)),
-    ("tri_att end", lambda z: layer.triangle_attention_end(z, None)),
-    ("BLOCK (s,z)", None),
-)
-num = {}
-for name, call in SITES:
-    got = {}
+
+def run(tag, mod, N, c, whole_block=None):
+    """bit-exactness then interleaved timing for one module at one size."""
+    torch.manual_seed(0)
+    z_t = torch.randn(1, N, N, c)
+    mk_z = lambda: ttnn.from_torch(z_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    zp = mk_z()
+    xv = ttnn.reshape(zp, tuple(zp.shape)[1:])
+    rows = real_row(xv, mod.qkv_weight, ttnn.bfloat16)
+    whole = T._l1_resident_linear_config(xv, mod.qkv_weight, ttnn.bfloat16) is not None
+    ttnn.deallocate(zp)
+    got, times = {}, {}
     for arm, fn in ARMS:
         T._tri_att_row_block = fn
-        z = mk_z()
-        if call is None:
-            so, zo = layer(mk_s(), z)
-            got[arm] = (ttnn.to_torch(so), ttnn.to_torch(zo))
-        else:
-            got[arm] = (ttnn.to_torch(call(z)),)
-    num[name] = all(bool(torch.equal(a, b)) for a, b in zip(got["BASE"], got["ROW"]))
-    print(f"  {name:14s} bit_exact={num[name]}", flush=True)
-T._tri_att_row_block = real_row
+        got[arm] = ttnn.to_torch(mod(mk_z(), None))
+        z0 = mk_z()
+        times[arm] = timed(dev, lambda: mod(z0, None))
+        ttnn.deallocate(z0)
+    T._tri_att_row_block = real_row
+    eq = bool(torch.equal(got["BASE"], got["ROW"]))
+    sp = round(times["BASE"] / times["ROW"], 4)
+    print(f"  {tag:22s} N={N:4d} c={c:3d} whole_fits={str(whole):5s} rows={rows:4d} "
+          f"BASE {times['BASE']:8.4f}  ROW {times['ROW']:8.4f}  {sp:6.3f}x  bit_exact={eq}",
+          flush=True)
+    return {"tag": tag, "n": N, "c": c, "whole_fits": whole, "row_block": rows,
+            "BASE_ms": round(times["BASE"], 4), "ROW_ms": round(times["ROW"], 4),
+            "speedup": sp, "bit_exact": eq}
 
-if args.skip_timing:
-    out = {"n": N, "c_z": c_z, "grid": list(T.COMPUTE_GRID_MAIN), "chooser": info, "numerics": num}
-    print(json.dumps(out, indent=2), flush=True)
-    if args.out:
-        json.dump(out, open(args.out, "w"), indent=2)
-    sys.exit(0)
 
-# ---- timing ------------------------------------------------------------------------------
-print("=== interleaved A/B ===", flush=True)
-z0 = mk_z()
-WORK = (
-    ("tri_att start", lambda: layer.triangle_attention_start(z0, None)),
-    ("tri_att end", lambda: layer.triangle_attention_end(z0, None)),
-    ("BLOCK (s,z)", None),
-)
-res = {}
-for rep in range(args.reps):
+out = []
+print("=== protenix-v2 layer 0 (c_z=256) ===", flush=True)
+for N in args.n:
+    out.append(run("tri_att start", layer.triangle_attention_start, N, c_z))
+    out.append(run("tri_att end", layer.triangle_attention_end, N, c_z))
+    # whole Pairformer block, both arms, fresh state each time
+    torch.manual_seed(0)
+    s_t, z_t = torch.randn(1, N, 384), torch.randn(1, N, N, c_z)
+    res, blk = {}, {}
     for arm, fn in ARMS:
         T._tri_att_row_block = fn
-        for name, wfn in WORK:
-            if wfn is None:
-                st = {"s": mk_s(), "z": mk_z()}
+        st = {"s": ttnn.from_torch(s_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16),
+              "z": ttnn.from_torch(z_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)}
+        so, zo = layer(st["s"], st["z"])
+        blk[arm] = (ttnn.to_torch(so), ttnn.to_torch(zo))
+        st = {"s": ttnn.from_torch(s_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16),
+              "z": ttnn.from_torch(z_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)}
 
-                def wfn():  # noqa: F811
-                    st["s"], st["z"] = layer(st["s"], st["z"])
-            res.setdefault(name, {}).setdefault(arm, []).append(round(timed(dev, wfn), 4))
-        print(f"  rep{rep} {arm}: " +
-              "  ".join(f"{n}={res[n][arm][-1]:.4f}" for n, _ in WORK), flush=True)
-T._tri_att_row_block = real_row
+        def wfn(st=st):
+            st["s"], st["z"] = layer(st["s"], st["z"])
+        res[arm] = timed(dev, wfn)
+    T._tri_att_row_block = real_row
+    eq = all(bool(torch.equal(a, b)) for a, b in zip(blk["BASE"], blk["ROW"]))
+    sp = round(res["BASE"] / res["ROW"], 4)
+    print(f"  {'BLOCK (s,z)':22s} N={N:4d} c={c_z:3d} {'':18s}"
+          f"BASE {res['BASE']:8.4f}  ROW {res['ROW']:8.4f}  {sp:6.3f}x  bit_exact={eq}", flush=True)
+    out.append({"tag": "BLOCK", "n": N, "c": c_z, "BASE_ms": round(res["BASE"], 4),
+                "ROW_ms": round(res["ROW"], 4), "speedup": sp, "bit_exact": eq})
 
-print("=== result (median of reps) ===", flush=True)
-summary = {}
-for name, _ in WORK:
-    b, r = med(res[name]["BASE"]), med(res[name]["ROW"])
-    summary[name] = {"BASE_ms": b, "ROW_ms": r, "speedup": round(b / r, 4),
-                     "raw": res[name]}
-    print(f"  {name:14s} BASE {b:8.4f}  ROW {r:8.4f}  {b / r:6.3f}x", flush=True)
+for c in args.synthetic_c:
+    print(f"=== synthetic TriangleAttention (c_z={c}) ===", flush=True)
+    m = synth_tri_att(c)
+    for N in args.n:
+        out.append(run(f"synth c={c}", m, N, c))
+    del m
 
-out = {"n": N, "c_z": c_z, "grid": list(T.COMPUTE_GRID_MAIN), "chooser": info,
-       "numerics": num, "timing": summary}
+print("=== summary ===", flush=True)
+bad = [r for r in out if not r["bit_exact"]]
+print(f"  bit-exact: {len(out) - len(bad)}/{len(out)}" + (f"  FAILURES: {bad}" if bad else ""), flush=True)
 if args.out:
-    json.dump(out, open(args.out, "w"), indent=2)
+    json.dump({"grid": list(T.COMPUTE_GRID_MAIN),
+               "l1_unreserved": ttnn.get_max_worker_l1_unreserved_size(), "runs": out},
+              open(args.out, "w"), indent=2)
     print("wrote", args.out, flush=True)

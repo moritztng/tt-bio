@@ -1,0 +1,221 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "l1_unreserved": 1532416,
+  "runs": [
+    {
+      "tag": "tri_att start",
+      "n": 128,
+      "c": 256,
+      "whole_fits": false,
+      "row_block": 64,
+      "BASE_ms": 0.9614,
+      "ROW_ms": 0.922,
+      "speedup": 1.0428,
+      "bit_exact": true
+    },
+    {
+      "tag": "tri_att end",
+      "n": 128,
+      "c": 256,
+      "whole_fits": false,
+      "row_block": 64,
+      "BASE_ms": 1.2477,
+      "ROW_ms": 1.3073,
+      "speedup": 0.9544,
+      "bit_exact": true
+    },
+    {
+      "tag": "BLOCK",
+      "n": 128,
+      "c": 256,
+      "BASE_ms": 6.6315,
+      "ROW_ms": 6.6765,
+      "speedup": 0.9933,
+      "bit_exact": true
+    },
+    {
+      "tag": "tri_att start",
+      "n": 256,
+      "c": 256,
+      "whole_fits": false,
+      "row_block": 32,
+      "BASE_ms": 3.9511,
+      "ROW_ms": 3.8959,
+      "speedup": 1.0142,
+      "bit_exact": true
+    },
+    {
+      "tag": "tri_att end",
+      "n": 256,
+      "c": 256,
+      "whole_fits": false,
+      "row_block": 32,
+      "BASE_ms": 5.7936,
+      "ROW_ms": 5.6862,
+      "speedup": 1.0189,
+      "bit_exact": true
+    },
+    {
+      "tag": "BLOCK",
+      "n": 256,
+      "c": 256,
+      "BASE_ms": 25.7985,
+      "ROW_ms": 25.7337,
+      "speedup": 1.0025,
+      "bit_exact": true
+    },
+    {
+      "tag": "tri_att start",
+      "n": 320,
+      "c": 256,
+      "whole_fits": false,
+      "row_block": 32,
+      "BASE_ms": 7.2372,
+      "ROW_ms": 6.5425,
+      "speedup": 1.1062,
+      "bit_exact": true
+    },
+    {
+      "tag": "tri_att end",
+      "n": 320,
+      "c": 256,
+      "whole_fits": false,
+      "row_block": 32,
+      "BASE_ms": 10.1817,
+      "ROW_ms": 9.4017,
+      "speedup": 1.083,
+      "bit_exact": true
+    },
+    {
+      "tag": "BLOCK",
+      "n": 320,
+      "c": 256,
+      "BASE_ms": 45.338,
+      "ROW_ms": 43.8302,
+      "speedup": 1.0344,
+      "bit_exact": true
+    },
+    {
+      "tag": "tri_att start",
+      "n": 384,
+      "c": 256,
+      "whole_fits": false,
+      "row_block": 24,
+      "BASE_ms": 11.1991,
+      "ROW_ms": 9.6835,
+      "speedup": 1.1565,
+      "bit_exact": true
+    },
+    {
+      "tag": "tri_att end",
+      "n": 384,
+      "c": 256,
+      "whole_fits": false,
+      "row_block": 24,
+      "BASE_ms": 15.6434,
+      "ROW_ms": 13.9871,
+      "speedup": 1.1184,
+      "bit_exact": true
+    },
+    {
+      "tag": "BLOCK",
+      "n": 384,
+      "c": 256,
+      "BASE_ms": 77.9663,
+      "ROW_ms": 74.7354,
+      "speedup": 1.0432,
+      "bit_exact": true
+    },
+    {
+      "tag": "synth c=128",
+      "n": 128,
+      "c": 128,
+      "whole_fits": true,
+      "row_block": 0,
+      "BASE_ms": 0.3572,
+      "ROW_ms": 0.3617,
+      "speedup": 0.9874,
+      "bit_exact": true
+    },
+    {
+      "tag": "synth c=128",
+      "n": 256,
+      "c": 128,
+      "whole_fits": false,
+      "row_block": 64,
+      "BASE_ms": 1.8612,
+      "ROW_ms": 1.7534,
+      "speedup": 1.0614,
+      "bit_exact": true
+    },
+    {
+      "tag": "synth c=128",
+      "n": 320,
+      "c": 128,
+      "whole_fits": false,
+      "row_block": 80,
+      "BASE_ms": 3.4358,
+      "ROW_ms": 2.9441,
+      "speedup": 1.167,
+      "bit_exact": true
+    },
+    {
+      "tag": "synth c=128",
+      "n": 384,
+      "c": 128,
+      "whole_fits": false,
+      "row_block": 64,
+      "BASE_ms": 5.5779,
+      "ROW_ms": 5.1075,
+      "speedup": 1.0921,
+      "bit_exact": true
+    },
+    {
+      "tag": "synth c=384",
+      "n": 128,
+      "c": 384,
+      "whole_fits": false,
+      "row_block": 0,
+      "BASE_ms": 1.3013,
+      "ROW_ms": 1.3162,
+      "speedup": 0.9887,
+      "bit_exact": true
+    },
+    {
+      "tag": "synth c=384",
+      "n": 256,
+      "c": 384,
+      "whole_fits": false,
+      "row_block": 0,
+      "BASE_ms": 5.6021,
+      "ROW_ms": 5.6571,
+      "speedup": 0.9903,
+      "bit_exact": true
+    },
+    {
+      "tag": "synth c=384",
+      "n": 320,
+      "c": 384,
+      "whole_fits": false,
+      "row_block": 0,
+      "BASE_ms": 10.3535,
+      "ROW_ms": 10.3531,
+      "speedup": 1.0,
+      "bit_exact": true
+    },
+    {
+      "tag": "synth c=384",
+      "n": 384,
+      "c": 384,
+      "whole_fits": false,
+      "row_block": 0,
+      "BASE_ms": 15.9834,
+      "ROW_ms": 15.9878,
+      "speedup": 0.9997,
+      "bit_exact": true
+    }
+  ]
+}
