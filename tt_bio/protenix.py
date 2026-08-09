@@ -404,6 +404,46 @@ class AtomTransformer(_KeyedWeights, Module):
         z = self._lin(z, apb + "linear_nobias_z.weight")          # (nb,nq,nk,H)
         return ttnn.permute(z, (0, 3, 1, 2))                       # (nb,H,nq,nk)
 
+    def _bmm(self, a, b, in0_block_w=1):
+        """Batched matmul that puts the batch on the core grid instead of a serial loop.
+
+        ttnn's default batched matmul parallelises only within ONE batch element's output tile
+        grid and walks the batch serially. The windowed atom attention is 75 windows x 4 heads
+        of a single-tile problem, so at most 4 of the 110 cores hold work at any instant and the
+        op costs a flat ~1 us per window-head however many cores are idle: measured 1.067 us at
+        nb=1 and at nb=256 alike. An explicit MatmulMultiCoreReuseProgramConfig maps
+        batch x M-blocks x N-blocks onto the grid, so the batch is chunked to at most one block
+        per core and the two matmuls run 2.8x / 4.6x faster (fp32) with torch.equal parity.
+
+        in0_block_w has to equal the K blocking the default picks (2 tiles for the 4-tile K of
+        A@V), or the accumulation order changes and the result stops being bit-identical.
+        Anything that does not fit the config falls back to the plain matmul.
+        """
+        ncores = CORE_GRID_MAIN.x * CORE_GRID_MAIN.y
+        nb, h = a.shape[0], a.shape[1]
+        m_t, k_t, n_t = a.shape[-2] // 32, a.shape[-1] // 32, b.shape[-1] // 32
+        if (h > ncores or k_t % in0_block_w or a.shape[-2] % 32 or a.shape[-1] % 32
+                or b.shape[-1] % 32 or b.shape[0] != nb or b.shape[1] != h):
+            return ttnn.matmul(a, b, compute_kernel_config=self.compute_kernel_config)
+        per = max(1, ncores // h)
+        g = (nb + per - 1) // per
+        per = (nb + g - 1) // g
+        pc = ttnn.MatmulMultiCoreReuseProgramConfig(
+            compute_with_storage_grid_size=(CORE_GRID_MAIN.x, CORE_GRID_MAIN.y),
+            in0_block_w=in0_block_w, out_subblock_h=1, out_subblock_w=1,
+            per_core_M=m_t, per_core_N=n_t)
+        if g == 1:
+            return ttnn.matmul(a, b, program_config=pc,
+                               compute_kernel_config=self.compute_kernel_config)
+        outs = []
+        for c in range(0, nb, per):
+            e = min(c + per, nb)
+            outs.append(ttnn.matmul(
+                ttnn.slice(a, [c, 0, 0, 0], [e, h, a.shape[2], a.shape[3]]),
+                ttnn.slice(b, [c, 0, 0, 0], [e, h, b.shape[2], b.shape[3]]),
+                program_config=pc, compute_kernel_config=self.compute_kernel_config))
+        return ttnn.concat(outs, dim=0)
+
     def _attention(self, q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=None):
         H, dh = self.N_HEADS, self.HEAD_DIM
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
@@ -411,10 +451,10 @@ class AtomTransformer(_KeyedWeights, Module):
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
         Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)   # precomputed (fixed p) or inline
-        sc = ttnn.matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = self._bmm(Qb, ttnn.permute(Kb, (0, 1, 3, 2)))
         sc = ttnn.multiply(sc, dh ** -0.5)
         sc = ttnn.add(ttnn.add(sc, z), pad_bias)
-        o = ttnn.matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
+        o = self._bmm(ttnn.softmax(sc, dim=-1), Vb, in0_block_w=2)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, H * dh])
@@ -495,7 +535,7 @@ class AtomTransformer(_KeyedWeights, Module):
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
         Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)
-        sc = ttnn.matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = self._bmm(Qb, ttnn.permute(Kb, (0, 1, 3, 2)))
         sc = ttnn.multiply(sc, dh ** -0.5)
         if z.shape[0] != sc.shape[0]:
             # z is the sample-INVARIANT precomputed bias, still (nb,H,nq,nk). Fold the
@@ -509,7 +549,7 @@ class AtomTransformer(_KeyedWeights, Module):
         else:
             sc = ttnn.add(sc, z)
         sc = ttnn.add(sc, pad_bias)
-        o = ttnn.matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
+        o = self._bmm(ttnn.softmax(sc, dim=-1), Vb, in0_block_w=2)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
         o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)

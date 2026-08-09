@@ -1,0 +1,147 @@
+{
+  "card": "qb2-card1",
+  "grid": "11x10",
+  "pc_probe": [
+    {
+      "nb": 1,
+      "base_us": 7.18,
+      "pc": {
+        "11x10": {
+          "us": 6.41,
+          "bit_exact": true
+        },
+        "10x10": {
+          "us": 5.76,
+          "bit_exact": true
+        },
+        "8x8": {
+          "us": 5.79,
+          "bit_exact": true
+        }
+      }
+    },
+    {
+      "nb": 4,
+      "base_us": 7.29,
+      "pc": {
+        "11x10": {
+          "us": 6.02,
+          "bit_exact": true
+        },
+        "10x10": {
+          "us": 5.88,
+          "bit_exact": true
+        },
+        "8x8": {
+          "us": 6.19,
+          "bit_exact": true
+        }
+      }
+    },
+    {
+      "nb": 16,
+      "base_us": 18.61,
+      "pc": {
+        "11x10": {
+          "us": 6.45,
+          "bit_exact": true
+        },
+        "10x10": {
+          "us": 6.33,
+          "bit_exact": true
+        },
+        "8x8": {
+          "us": 8.28,
+          "bit_exact": true
+        }
+      }
+    },
+    {
+      "nb": 64,
+      "base_us": 65.72,
+      "pc": {
+        "11x10": {
+          "us": 9.05,
+          "bit_exact": true
+        },
+        "10x10": {
+          "us": 9.19,
+          "bit_exact": true
+        },
+        "8x8": {
+          "us": 9.44,
+          "bit_exact": true
+        }
+      }
+    },
+    {
+      "nb": 100,
+      "base_us": 101.02,
+      "pc": {
+        "11x10": {
+          "us": 10.21,
+          "bit_exact": true
+        },
+        "10x10": {
+          "us": 9.44,
+          "bit_exact": true
+        }
+      }
+    },
+    {
+      "nb": 110,
+      "base_us": 110.4,
+      "pc": {
+        "11x10": {
+          "us": 9.68,
+          "bit_exact": true
+        }
+      }
+    }
+  ],
+  "sdpa_bf16": {
+    "baseline_us": 848.53,
+    "runs": [
+      {
+        "cfg": "auto",
+        "us": 59.18,
+        "speedup": 14.34,
+        "pcc": 0.7584462,
+        "max_abs": 1.585938,
+        "bit_exact": false
+      },
+      {
+        "cfg": "11x10/q32k128",
+        "us": 40.29,
+        "speedup": 21.06,
+        "pcc": 0.7649931,
+        "max_abs": 1.572876,
+        "bit_exact": false
+      },
+      {
+        "cfg": "11x10/q32k32",
+        "us": 59.82,
+        "speedup": 14.19,
+        "pcc": 0.7605498,
+        "max_abs": 1.570312,
+        "bit_exact": false
+      },
+      {
+        "cfg": "8x8/q32k128",
+        "us": 41.37,
+        "speedup": 20.51,
+        "pcc": 0.7649931,
+        "max_abs": 1.572876,
+        "bit_exact": false
+      },
+      {
+        "cfg": "8x8/q32k32",
+        "us": 80.09,
+        "speedup": 10.6,
+        "pcc": 0.7621332,
+        "max_abs": 1.570312,
+        "bit_exact": false
+      }
+    ]
+  }
+}

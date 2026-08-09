@@ -1,0 +1,18 @@
+{
+  "card": "qb2-card1",
+  "ncores": 110,
+  "fp32": {
+    "v0_us": 997.44,
+    "v1_us": 421.23,
+    "speedup": 2.368,
+    "bit_exact": false,
+    "saved_ms_per_fold": 691.5
+  },
+  "bf16": {
+    "v0_us": 868.68,
+    "v1_us": 275.71,
+    "speedup": 3.151,
+    "bit_exact": false,
+    "saved_ms_per_fold": 711.6
+  }
+}
