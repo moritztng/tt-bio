@@ -1,0 +1,97 @@
+{
+  "side": "tenstorrent",
+  "model": "protenix-v2",
+  "mode": "parity",
+  "batch": 8,
+  "machine": "tt-quietbox",
+  "visible_devices": "3",
+  "target": "/home/ttuser/.coworker/wt/tt-bio-multiprediction-throughput/examples/prot.yaml",
+  "ttnn_version": "0.67.4",
+  "tt_bio_git": "64b6be937eb0563ad7f68a23e06d23120c6c9824",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "recycling_override": 10,
+  "seed": 0,
+  "n_msa": 35,
+  "load_s": 3.46,
+  "cold_s": 18.551,
+  "plddt_cold": 0.888699,
+  "n_tokens": 117,
+  "date": "2026-08-09",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "seed_floor": {
+    "seed_a": 0,
+    "seed_b": 1,
+    "max_abs": 36.8859977722168,
+    "rmsd": 20.71114158630371,
+    "pcc": -0.27551526207149135
+  },
+  "parity": [
+    {
+      "member": 0,
+      "max_abs": 1.9228630065917969,
+      "rmsd": 0.16661407053470612,
+      "pcc": 0.9999164919752026,
+      "bit_exact": false,
+      "plddt": 0.888678
+    },
+    {
+      "member": 1,
+      "max_abs": 1.9228630065917969,
+      "rmsd": 0.16661407053470612,
+      "pcc": 0.9999164919752026,
+      "bit_exact": false,
+      "plddt": 0.888678
+    },
+    {
+      "member": 2,
+      "max_abs": 1.9228630065917969,
+      "rmsd": 0.16661407053470612,
+      "pcc": 0.9999164919752026,
+      "bit_exact": false,
+      "plddt": 0.888678
+    },
+    {
+      "member": 3,
+      "max_abs": 1.9228630065917969,
+      "rmsd": 0.16661407053470612,
+      "pcc": 0.9999164919752026,
+      "bit_exact": false,
+      "plddt": 0.888678
+    },
+    {
+      "member": 4,
+      "max_abs": 1.9228630065917969,
+      "rmsd": 0.16661407053470612,
+      "pcc": 0.9999164919752026,
+      "bit_exact": false,
+      "plddt": 0.888678
+    },
+    {
+      "member": 5,
+      "max_abs": 1.9228630065917969,
+      "rmsd": 0.16661407053470612,
+      "pcc": 0.9999164919752026,
+      "bit_exact": false,
+      "plddt": 0.888678
+    },
+    {
+      "member": 6,
+      "max_abs": 1.9228630065917969,
+      "rmsd": 0.16661407053470612,
+      "pcc": 0.9999164919752026,
+      "bit_exact": false,
+      "plddt": 0.888678
+    },
+    {
+      "member": 7,
+      "max_abs": 1.9228630065917969,
+      "rmsd": 0.16661407053470612,
+      "pcc": 0.9999164919752026,
+      "bit_exact": false,
+      "plddt": 0.888678
+    }
+  ],
+  "plddt_single": 0.888699
+}

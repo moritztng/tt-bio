@@ -96,13 +96,28 @@ def main() -> int:
             many, many_conf = state.model.fold_many(
                 [feats] * B, n_step=args.steps, seed=tt_baseline.SEED,
                 return_confidence=True, n_cycles=args.cycles)
+        with torch.no_grad():                      # seed-to-seed floor: the same fold, seed+1
+            other = state.model.fold(
+                feats, n_step=args.steps, n_sample=1, seed=tt_baseline.SEED + 1,
+                n_cycles=args.cycles)
         ref = single[0].float()
+        _d = other[0].float() - ref
+        # A different seed lands in a different global frame (the sampler applies a random
+        # rigid augmentation every step), so only the superposed RMSD is a usable floor.
+        from tt_bio.openfold3_fold import kabsch_rmsd
+        out["seed_floor"] = dict(seed_a=tt_baseline.SEED, seed_b=tt_baseline.SEED + 1,
+                                 max_abs=float(_d.abs().max()),
+                                 rmsd_unaligned=float((_d.pow(2).sum(-1).mean()).sqrt()),
+                                 rmsd_kabsch=kabsch_rmsd(other[0].float(), ref),
+                                 pcc=_pcc(other[0].float(), ref))
+        out["batch_vs_single_rmsd_kabsch"] = None
         rows = []
         for b in range(B):
             got = many[b][0].float()
             d = (got - ref)
             rows.append(dict(member=b, max_abs=float(d.abs().max()),
                              rmsd=float((d.pow(2).sum(-1).mean()).sqrt()),
+                             rmsd_kabsch=kabsch_rmsd(got, ref),
                              pcc=_pcc(got, ref), bit_exact=bool(torch.equal(got, ref)),
                              plddt=round(float(many_conf[b]["plddt"]), 6)))
         out["parity"] = rows
