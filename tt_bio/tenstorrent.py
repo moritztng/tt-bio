@@ -1817,10 +1817,11 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
+            # The silu rides on the multiply below, which already reads x_1: as a linear
+            # epilogue it costs 0.170 ms against a 0.100 ms matmul, 1.7x the matmul itself.
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
-                activation="silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
                 dtype=dtype,
@@ -1835,7 +1836,9 @@ class Transition(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
-            x = ttnn.multiply_(x_1, x_2)
+            x = ttnn.multiply_(
+                x_1, x_2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU]
+            )
             ttnn.deallocate(x_2)
             x_dram = ttnn.linear(
                 x,
