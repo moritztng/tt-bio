@@ -1,0 +1,20 @@
+{
+ "grid_cores": 130,
+ "read_ladder_GBs": {
+  "64": 377.2,
+  "96": 393.5,
+  "128": 392.5
+ },
+ "write_ladder_GBs": {},
+ "compute": {
+  "bfloat16": {
+   "N": 6144,
+   "TFLOPs": 134.42
+  },
+  "float32": {
+   "N": 4096,
+   "TFLOPs": 110.29
+  }
+ },
+ "machine_balance_FLOP_per_byte": 341.6
+}
