@@ -8,7 +8,7 @@ REP="${2:-3}"
 WT=/home/ttuser/.coworker/wt/perfwar-dit-attention-fusion
 BASE="$WT/.base"
 P=/home/ttuser/tt-bio-dev/env/bin/python3
-BASE_REF=638fd2f9   # tt_bio/ here is identical to origin/main; verified with git diff --stat
+BASE_REF=${BASE_REF:-origin/main}   # the baseline arm folds whatever this points at
 
 # The baseline worktree is disposable. Recreate it if it is not there, and copy in the
 # harness, which does not exist at BASE_REF.

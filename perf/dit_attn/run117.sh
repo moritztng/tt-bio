@@ -3,7 +3,7 @@
 set -u
 WT=/home/ttuser/.coworker/wt/perfwar-dit-attention-fusion
 BASE="$WT/.base"
-BASE_REF=638fd2f9
+BASE_REF=${BASE_REF:-origin/main}   # the baseline arm folds whatever this points at
 P=/home/ttuser/tt-bio-dev/env/bin/python3
 
 if [ ! -d "$BASE/tt_bio" ]; then
