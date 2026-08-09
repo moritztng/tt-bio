@@ -1,0 +1,35 @@
+{
+  "arm": "CTRL",
+  "model": "opendde",
+  "size": "298",
+  "n_tokens": 298,
+  "n_atoms": 2398,
+  "n_residues": 298,
+  "cold_s": 62.757,
+  "warm_s": [
+    53.439,
+    53.384,
+    53.346
+  ],
+  "warm_median_s": 53.384,
+  "warm_min_s": 53.346,
+  "confidence": {
+    "complex_plddt": 0.791857,
+    "plddt": 0.791857,
+    "ptm": 0.845274,
+    "iptm": 0.0,
+    "confidence_score": 0.845274
+  },
+  "coords_shape": [
+    2398,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 5.08,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 222.9
+}
