@@ -1,0 +1,42 @@
+{
+ "n": 320,
+ "c": 64,
+ "hidden": 256,
+ "npairs": 4,
+ "grid": "11x10",
+ "card_grid": "11x10",
+ "dst": "dram",
+ "arms": {
+  "production permute+running concat": {
+   "ms": 1.168860500001756,
+   "gbs": 280.3414094320988,
+   "bytes": 327680000,
+   "note": "the chain being replaced"
+  },
+  "fused output op": {
+   "ms": 0.6635909994656686,
+   "gbs": 158.01540419389744,
+   "bytes": 104857600,
+   "note": "reads each chunk once, writes the stripe"
+  },
+  "fused, exchange skipped (WRONG data)": {
+   "ms": 0.5170465001356206,
+   "gbs": 202.80110197534648,
+   "bytes": 104857600,
+   "note": "the op's whole-tile floor"
+  },
+  "BOUND clone x4 L1->DRAM": {
+   "ms": 0.20891350050078472,
+   "gbs": 501.91873549888714,
+   "bytes": 104857600,
+   "note": "the fused op's byte floor"
+  },
+  "roof clone DRAM->DRAM": {
+   "ms": 0.27038850021199323,
+   "gbs": 387.8034750656492,
+   "bytes": 104857600,
+   "note": "copy roof"
+  }
+ },
+ "bit_exact_vs_ttnn_chain": true
+}

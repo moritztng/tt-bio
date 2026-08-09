@@ -1,0 +1,69 @@
+{
+ "n": 320,
+ "c": 64,
+ "cz": 256,
+ "n_pairs": 4,
+ "arms": {
+  "roof_clone_L1->L1": {
+   "ms": 0.02506937494217709,
+   "gbs": 1045.6742563571659,
+   "bytes": 26214400,
+   "note": "copy roof, L1 dest"
+  },
+  "roof_clone_L1->DRAM": {
+   "ms": 0.05109574999551114,
+   "gbs": 513.0446270443821,
+   "bytes": 26214400,
+   "note": "copy roof, DRAM dest"
+  },
+  "permute(0,2,3,1)->L1": {
+   "ms": 0.14780462504404568,
+   "gbs": 177.35845540819935,
+   "bytes": 26214400,
+   "note": ""
+  },
+  "permute(0,2,3,1)->DRAM": {
+   "ms": 0.2748612499772207,
+   "gbs": 95.37321103710521,
+   "bytes": 26214400,
+   "note": ""
+  },
+  "transpose(1,2)+(2,3)->L1": {
+   "ms": 0.17237049996765563,
+   "gbs": 304.16341549068994,
+   "bytes": 52428800,
+   "note": "two passes"
+  },
+  "transpose(1,2)+(2,3)->DRAM": {
+   "ms": 0.3439796249722349,
+   "gbs": 152.4183300224015,
+   "bytes": 52428800,
+   "note": "two passes"
+  },
+  "concat_running (production)": {
+   "ms": 0.5910135000704031,
+   "gbs": 377.01744541107234,
+   "bytes": 222822400,
+   "note": "4 chunks, O(n^2)"
+  },
+  "concat_single (W2)": {
+   "ms": 0.21013424998272967,
+   "gbs": 499.0028993779831,
+   "bytes": 104857600,
+   "note": "4 chunks, O(n)"
+  },
+  "qkv minimal_matmul": {
+   "ms": 0.8565117500438646,
+   "gbs": 244.84801287228092,
+   "bytes": 209715200,
+   "note": "[102400,256]@[256,768] DRAM"
+  },
+  "nlp_create_qkv_heads": {
+   "ms": 0.8262904998446174,
+   "gbs": 380.7048490320957,
+   "bytes": 314572800,
+   "note": "read+rewrite 157MB"
+  }
+ },
+ "transpose2_bit_exact_vs_permute": true
+}

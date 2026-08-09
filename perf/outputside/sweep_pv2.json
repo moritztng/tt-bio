@@ -1,0 +1,96 @@
+{
+ "n": 320,
+ "c": 64,
+ "hidden": 256,
+ "npairs": 4,
+ "grid": "11x10",
+ "card_grid": "11x10",
+ "dst": "dram",
+ "arms": {
+  "production permute+running concat": {
+   "ms": 1.167307500509196,
+   "gbs": 280.7143789079239,
+   "bytes": 327680000,
+   "note": "the chain being replaced"
+  },
+  "fused output op": {
+   "ms": 0.6596134999199421,
+   "gbs": 158.96824430174132,
+   "bytes": 104857600,
+   "note": "reads each chunk once, writes the stripe"
+  },
+  "  rbatch=1 depth=1": {
+   "ms": 0.6637514998146798,
+   "gbs": 157.97719482257494,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=2 depth=1": {
+   "ms": 0.6630699999732315,
+   "gbs": 158.13956294845667,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=4 depth=1": {
+   "ms": 0.6639970006290241,
+   "gbs": 157.9187856280454,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=8 depth=1": {
+   "ms": 0.6596134999199421,
+   "gbs": 158.96824430174132,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=1 depth=2": {
+   "ms": 0.6650235000051907,
+   "gbs": 157.67502952780097,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=2 depth=2": {
+   "ms": 0.6682904995614081,
+   "gbs": 156.90422064778255,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=4 depth=2": {
+   "ms": 0.6621479997193092,
+   "gbs": 158.359762537152,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=8 depth=2": {
+   "ms": 0.6627495004067896,
+   "gbs": 158.2160377874889,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "fused, exchange skipped (WRONG data)": {
+   "ms": 0.5196515003262903,
+   "gbs": 201.78446503889566,
+   "bytes": 104857600,
+   "note": "the op's whole-tile floor"
+  },
+  "BOUND clone x4 L1->DRAM": {
+   "ms": 0.20774150016222848,
+   "gbs": 504.7503744707491,
+   "bytes": 104857600,
+   "note": "the fused op's byte floor"
+  },
+  "roof clone DRAM->DRAM": {
+   "ms": 0.2661127500687144,
+   "gbs": 394.0344834019572,
+   "bytes": 104857600,
+   "note": "copy roof"
+  }
+ },
+ "bit_exact_vs_ttnn_chain": true,
+ "best_config": {
+  "ms": 0.6596134999199421,
+  "rbatch": 8,
+  "depth": 1,
+  "bit_exact": true
+ }
+}
