@@ -73,7 +73,7 @@ def main():
     mk_z = lambda: ttnn.from_torch(torch.randn(1, N, N, c_z), layout=ttnn.TILE_LAYOUT,
                                    device=dev, dtype=ttnn.bfloat16)
     s, z = mk_s(), mk_z()
-    print(f"layer built: c_z={c_z} N={N} n_pairs={layer.triangle_multiplication_start.n_pairs}",
+    print(f"layer built: c_z={c_z} N={N} hidden={layer.triangle_multiplication_start._hidden}",
           flush=True)
 
     rows = []
@@ -106,11 +106,13 @@ def main():
     # --- inside trimul: the per-channel-chunk layout ops -------------------------------
     tm = layer.triangle_multiplication_start
     from tt_bio.tenstorrent import (_triangle_mul_memory_config,
-                                    _triangle_mul_program_config)
+                                    _triangle_mul_program_config, _trimul_chunk_size)
     mc = _triangle_mul_memory_config(N)
+    C_eff = _trimul_chunk_size(N, tm._hidden)
     pc = _triangle_mul_program_config((N + 31) // 32)
-    rows.append(dict(part="trimul memory_config", note=str(mc.buffer_type)))
-    print(f"  trimul buffer_type = {mc.buffer_type}, n_pairs = {tm.n_pairs}", flush=True)
+    rows.append(dict(part="trimul memory_config", note=str(mc.buffer_type), chunk=C_eff))
+    print(f"  trimul buffer_type = {mc.buffer_type}, chunk = {C_eff}, "
+          f"n_pairs = {tm._hidden // C_eff}", flush=True)
 
     zn = ttnn.layer_norm(z0, weight=tm.in_norm_weight, bias=tm.in_norm_bias, epsilon=1e-5,
                          compute_kernel_config=ckc)
@@ -118,10 +120,10 @@ def main():
         z0, weight=tm.in_norm_weight, bias=tm.in_norm_bias, epsilon=1e-5,
         compute_kernel_config=ckc))
     add("trimul: minimal_matmul x1", lambda: ttnn.experimental.minimal_matmul(
-        zn, tm.gp_in_weight_fused_chunks[0], memory_config=mc, dtype=ttnn.bfloat16,
+        zn, tm._gp_in_chunks(C_eff)[0], memory_config=mc, dtype=ttnn.bfloat16,
         compute_kernel_config=ckc))
 
-    gp = ttnn.experimental.minimal_matmul(zn, tm.gp_in_weight_fused_chunks[0],
+    gp = ttnn.experimental.minimal_matmul(zn, tm._gp_in_chunks(C_eff)[0],
                                           memory_config=mc, dtype=ttnn.bfloat16,
                                           compute_kernel_config=ckc)
     add("trimul: chunk(4) x1", lambda: ttnn.chunk(gp, chunks=4, dim=-1))

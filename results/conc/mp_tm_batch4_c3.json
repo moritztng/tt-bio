@@ -1,0 +1,42 @@
+{
+  "side": "tenstorrent",
+  "model": "protenix-v2",
+  "mode": "throughput",
+  "batch": 4,
+  "machine": "tt-quietbox",
+  "visible_devices": "3",
+  "target": "/home/ttuser/.coworker/wt/tt-bio-multiprediction-throughput/examples/prot.yaml",
+  "ttnn_version": "0.67.4",
+  "tt_bio_git": "a44da6eb36484bb121ab7cb399799f17249a71bb",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "recycling_override": 10,
+  "seed": 0,
+  "n_msa": 35,
+  "load_s": 3.37,
+  "cold_s": 17.909,
+  "plddt_cold": 0.888699,
+  "n_tokens": 117,
+  "date": "2026-08-09",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "serial_latency_s": [
+    11.407,
+    11.333,
+    11.392
+  ],
+  "serial_folds_per_s": 0.08778,
+  "batch_wall_s": [
+    29.071,
+    28.994,
+    29.063
+  ],
+  "batch_folds_per_s": 0.13763,
+  "speedup_vs_serial": 1.5679,
+  "batch_plddt": [
+    0.888684,
+    0.888684,
+    0.888684,
+    0.888684
+  ]
+}

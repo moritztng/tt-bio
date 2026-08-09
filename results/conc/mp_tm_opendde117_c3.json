@@ -1,0 +1,83 @@
+{
+  "side": "tenstorrent",
+  "model": "opendde",
+  "machine": "tt-quietbox",
+  "cards": [
+    3
+  ],
+  "n_concurrent": 1,
+  "folds_per_worker": 3,
+  "diffusion_samples": 1,
+  "target": "/home/ttuser/.coworker/wt/tt-bio-multiprediction-throughput/examples/prot.yaml",
+  "ttnn_version": "0.67.4",
+  "tt_bio_git": "03068c22993a885bfe5cb1513da86935b7e19f2c",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "seed": 0,
+  "worker_rcs": {
+    "0": 0
+  },
+  "worker_log_tails": {
+    "0": [
+      "2026-08-09 01:53:08.672 | info     |          Fabric | ",
+      "=== Physical Mesh 0 Internal Graph Adjacency Map ===",
+      "Total nodes: 1",
+      "Degree histogram: {0:1}",
+      " (topology_solver.tpp:89)",
+      "2026-08-09 01:53:08.672 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)",
+      "2026-08-09 01:53:08.672 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)",
+      "2026-08-09 01:53:08.672 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)",
+      "2026-08-09 01:53:08.672 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)",
+      "2026-08-09 01:53:08.876 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)",
+      "2026-08-09 01:53:19.161 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-09 01:53:23.789 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-09 01:53:42.879 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-09 01:54:32.077 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)",
+      "2026-08-09 01:54:32.077 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)"
+    ]
+  },
+  "wall_s": 85.84,
+  "cold_s": [
+    35.722
+  ],
+  "load_s": [
+    5.94
+  ],
+  "plddt": [
+    0.833669
+  ],
+  "card_of_worker": {
+    "0": "3"
+  },
+  "date": "2026-08-09",
+  "n_workers": 1,
+  "agg_folds_per_s": 0.07859,
+  "agg_folds_per_s_window": 0.07859,
+  "window_s": 38.174,
+  "window_start": 5968.399750729,
+  "window_end": 6006.57360869,
+  "min_worker_coverage": 1.0,
+  "min_duty_cycle": 1.0,
+  "tail_skew_s": 0.0,
+  "latency_min_s": 12.647,
+  "latency_median_s": 12.709,
+  "latency_max_s": 12.817,
+  "total_folds": 3,
+  "clean": true,
+  "reason": null,
+  "per_worker": [
+    {
+      "worker": 0,
+      "n_folds": 3,
+      "busy_s": 38.174,
+      "span_s": 38.174,
+      "duty_cycle": 1.0,
+      "mean_latency_s": 12.72462,
+      "median_latency_s": 12.7093,
+      "rate_folds_per_s": 0.07859,
+      "first_start": 5968.39975,
+      "last_end": 6006.57361
+    }
+  ],
+  "tt_smi_samples_in_window": 7
+}

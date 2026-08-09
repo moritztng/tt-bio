@@ -1,0 +1,71 @@
+{
+  "side": "tenstorrent",
+  "model": "protenix-v2",
+  "mode": "parity",
+  "batch": 4,
+  "machine": "tt-quietbox",
+  "visible_devices": "3",
+  "target": "/home/ttuser/.coworker/wt/tt-bio-multiprediction-throughput/examples/prot.yaml",
+  "ttnn_version": "0.67.4",
+  "tt_bio_git": "03068c22993a885bfe5cb1513da86935b7e19f2c",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "recycling_override": 10,
+  "seed": 0,
+  "n_msa": 35,
+  "load_s": 3.36,
+  "cold_s": 17.8,
+  "plddt_cold": 0.888699,
+  "n_tokens": 117,
+  "date": "2026-08-09",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "seed_floor": {
+    "seed_a": 0,
+    "seed_b": 1,
+    "max_abs": 36.8859977722168,
+    "rmsd_unaligned": 20.71114158630371,
+    "rmsd_kabsch": 0.776499111019072,
+    "pcc": -0.27551526207149135
+  },
+  "batch_vs_single_rmsd_kabsch": null,
+  "parity": [
+    {
+      "member": 0,
+      "max_abs": 1.9469079971313477,
+      "rmsd": 0.15022194385528564,
+      "rmsd_kabsch": 0.14280902818753619,
+      "pcc": 0.9999321197333222,
+      "bit_exact": false,
+      "plddt": 0.888684
+    },
+    {
+      "member": 1,
+      "max_abs": 1.9469079971313477,
+      "rmsd": 0.15022194385528564,
+      "rmsd_kabsch": 0.14280902818753619,
+      "pcc": 0.9999321197333222,
+      "bit_exact": false,
+      "plddt": 0.888684
+    },
+    {
+      "member": 2,
+      "max_abs": 1.9469079971313477,
+      "rmsd": 0.15022194385528564,
+      "rmsd_kabsch": 0.14280902818753619,
+      "pcc": 0.9999321197333222,
+      "bit_exact": false,
+      "plddt": 0.888684
+    },
+    {
+      "member": 3,
+      "max_abs": 1.9469079971313477,
+      "rmsd": 0.15022194385528564,
+      "rmsd_kabsch": 0.14280902818753619,
+      "pcc": 0.9999321197333222,
+      "bit_exact": false,
+      "plddt": 0.888684
+    }
+  ],
+  "plddt_single": 0.888699
+}
