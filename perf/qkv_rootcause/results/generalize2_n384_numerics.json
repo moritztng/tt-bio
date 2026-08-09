@@ -1,0 +1,27 @@
+{
+  "n": 384,
+  "grid": [
+    13,
+    10
+  ],
+  "admissions": {
+    "trimul p_out": false,
+    "trimul g_out": false,
+    "transition fc3": false,
+    "trimul p_out c128": false
+  },
+  "numerics": {
+    "trimul p_out": true,
+    "trimul g_out": true,
+    "minitri NEW": true,
+    "tri_mul c128 NEW": true,
+    "tri_mul start HEAD": true,
+    "tri_mul start NEW": true,
+    "tri_mul end HEAD": true,
+    "tri_mul end NEW": true,
+    "transition_z HEAD": true,
+    "transition_z NEW": true,
+    "BLOCK (s,z) HEAD": true,
+    "BLOCK (s,z) NEW": true
+  }
+}

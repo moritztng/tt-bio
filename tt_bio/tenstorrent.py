@@ -328,6 +328,12 @@ def _l1_resident_matmul_config(
     # Output CB, its fp32 accumulation, and the L1-resident output tensor itself are fixed per
     # core; the in0 and in1 CBs scale with the K block.
     fixed = per_core_M * n_tiles * (2 * tile + 4096) + 128 * 1024
+    # Every call site keeps one same-shape sibling result live while this projection runs
+    # (the p/g gate pairs, qkv ahead of g), and ttnn's static CBs do not account
+    # interleaved L1 buffers: without this term the sibling's share pushes the next
+    # projection's CB allocation over per-core L1 (measured: MiniTriangularUpdate g_in at
+    # 384 tokens, c=128, crashes without it).
+    fixed += m_tiles * n_tiles * tile // num_cores
     per_block = (per_core_M + n_tiles) * tile
     if fixed + in0_block_w * per_block >= l1:
         return None
@@ -364,6 +370,25 @@ def _l1_resident_linear_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype, full_k: bo
         return _l1_resident_matmul_config(m // 32, k // 32, n // 32, 2, full_k)
     except Exception:
         return None
+
+
+def _l1_resident_linear(x, w, dtype, compute_kernel_config, full_k: bool = False):
+    """ttnn.linear with the L1-resident config where the guard admits it, the auto config
+    otherwise. Bit-exact against the auto-config baseline either way: full_k=False keeps
+    its in0_block_w=1 K blocking, so the config only moves where the result lands.
+
+    Only for projections whose result is consumed immediately. A result accumulated
+    across chunks (the row-blocked paths) would pile up one L1 chunk per slot."""
+    cfg = _l1_resident_linear_config(x, w, dtype, full_k=full_k)
+    if cfg is not None:
+        return ttnn.linear(
+            x, w, compute_kernel_config=compute_kernel_config, dtype=dtype,
+            memory_config=ttnn.L1_MEMORY_CONFIG, program_config=cfg,
+        )
+    return ttnn.linear(
+        x, w, compute_kernel_config=compute_kernel_config, dtype=dtype,
+        memory_config=ttnn.DRAM_MEMORY_CONFIG, core_grid=CORE_GRID_MAIN,
+    )
 
 
 def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
@@ -1149,24 +1174,12 @@ class TriangleMultiplication(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        p_out = ttnn.linear(
-            x,
-            self.out_p_weight,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            dtype=_dtype(),
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        # Both results are consumed by the multiply_ right below, so the L1-resident
+        # config applies (full_k=False keeps the auto config's K blocking: bit-exact).
+        p_out = _l1_resident_linear(x, self.out_p_weight, _dtype(), self.compute_kernel_config)
         ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
-        g_out = ttnn.linear(
-            x_norm_in,
-            self.g_out_weight,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            dtype=_dtype(),
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        g_out = _l1_resident_linear(x_norm_in, self.g_out_weight, _dtype(), self.compute_kernel_config)
         ttnn.deallocate(x_norm_in)
         x = ttnn.multiply_(
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
@@ -1367,28 +1380,17 @@ class TriangleAttention(Module):
             # blocks, so keeping the result in L1 under the same blocking changes not a bit.
             # Only the non-chunked path may use it — the chunked path accumulates the result
             # across chunks, so an L1 result would pile up one chunk per L1 slot.
-            o_cfg = (
-                _l1_resident_linear_config(o_in, self.o_weight, _dtype(), full_k=False)
+            x_out = (
+                _l1_resident_linear(o_in, self.o_weight, _dtype(), self.compute_kernel_config)
                 if l1
-                else None
-            )
-            if o_cfg is not None:
-                x_out = ttnn.linear(
-                    o_in,
-                    self.o_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
-                    memory_config=ttnn.L1_MEMORY_CONFIG,
-                    program_config=o_cfg,
-                )
-            else:
-                x_out = ttnn.linear(
+                else ttnn.linear(
                     o_in,
                     self.o_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
                     core_grid=CORE_GRID_MAIN,
                 )
+            )
             ttnn.deallocate(o_in)
             return x_out
 
@@ -1822,6 +1824,11 @@ class Transition(Module):
             ttnn.deallocate(x_norm)
             x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
+            # fc3 stays on the auto config: the 4D path accumulates the per-chunk
+            # results before the final concat, and L1-resident chunks pile up until the
+            # next chunk's static CBs no longer fit (measured: c_z=256 crashes at 256
+            # tokens). The per-op guard cannot see that cross-chunk pile-up, so this
+            # call site is not eligible, not just under-budget.
             x_dram = ttnn.linear(
                 x,
                 self.fc3_weight,
@@ -2139,20 +2146,10 @@ class MiniTriangularUpdate(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        p = ttnn.linear(
-            x_norm,
-            self.p_in_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            dtype=ttnn.bfloat16,
-            core_grid=CORE_GRID_MAIN,
-        )
-        g = ttnn.linear(
-            x_norm,
-            self.g_in_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            dtype=ttnn.bfloat16,
-            core_grid=CORE_GRID_MAIN,
-        )
+        # Both results are consumed by the multiply_ right below, so the L1-resident
+        # config applies (full_k=False keeps the auto config's K blocking: bit-exact).
+        p = _l1_resident_linear(x_norm, self.p_in_weight, ttnn.bfloat16, self.compute_kernel_config)
+        g = _l1_resident_linear(x_norm, self.g_in_weight, ttnn.bfloat16, self.compute_kernel_config)
         ttnn.deallocate(x_norm)
         x_gated = ttnn.multiply_(
             p, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
@@ -2185,20 +2182,9 @@ class MiniTriangularUpdate(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        p_out = ttnn.linear(
-            x,
-            self.p_out_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            dtype=ttnn.bfloat16,
-            core_grid=CORE_GRID_MAIN,
-        )
-        g_out = ttnn.linear(
-            x,
-            self.g_out_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            dtype=ttnn.bfloat16,
-            core_grid=CORE_GRID_MAIN,
-        )
+        # Same immediately-consumed shape class as p_in/g_in above.
+        p_out = _l1_resident_linear(x, self.p_out_weight, ttnn.bfloat16, self.compute_kernel_config)
+        g_out = _l1_resident_linear(x, self.g_out_weight, ttnn.bfloat16, self.compute_kernel_config)
         ttnn.deallocate(x)
         return ttnn.multiply_(
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
