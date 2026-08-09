@@ -65,6 +65,18 @@ _DIFFUSION_FP32_DEVICE = False
 # boltz-reference-selective-fp32-softmax the softmax is the remaining mismatch. Set
 # BOLTZ2_FP32_SOFTMAX=1 to A/B; default OFF until a leg closes against it.
 _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
+# A/B hook, kept for the record, NOT recommended for merge as it stands.
+# The tri-attention SDPA is DRAM-read-bound and 77% of what it reads is the pair bias:
+# ttnn's SDPA reader re-fetches the broadcast [1,h,S,S] bias once per (batch, head), so at
+# 298 aa it moves 524 MB against 157 MB of q/k/v. Narrowing the bias element cuts the term
+# that binds the op: bfloat8_b is 1.405x on the SDPA call but only 1.024x on the Pairformer
+# block, because at N=320 the two SDPA calls are 3.6 ms of a 43.2 ms block. Against that it
+# costs z rmsd/std 0.04179 on one block, about 2x the 0.0185-0.0217 reduction-order band
+# this sprint has already accepted. bfloat4_b is 0.41440, dead. Measured qb2 card 1,
+# state/perfwar/sdpa-kernel-298aa.md. TT_BIO_SDPA_BIAS_DTYPE=bfloat8_b to A/B.
+_SDPA_BIAS_DTYPE = {"bfloat8_b": ttnn.bfloat8_b, "bfloat4_b": ttnn.bfloat4_b}.get(
+    os.environ.get("TT_BIO_SDPA_BIAS_DTYPE", "")
+)
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
@@ -1310,6 +1322,12 @@ class TriangleAttention(Module):
             triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
+
+        if _SDPA_BIAS_DTYPE is not None and not (_FP32_SOFTMAX or self.fp32_softmax):
+            # Cast here, after the permute that builds the bias, not before it: the permute
+            # is a sub-tile move and block-float layouts make it slower (0.0835 vs 0.0465 ms
+            # on [1,S,S,h] -> [1,h,S,S]). Casting the result costs ~0.006 ms.
+            triangle_bias = ttnn.typecast(triangle_bias, _SDPA_BIAS_DTYPE)
 
         def attend(qkv_in, bias):
             qkv_in = ttnn.unsqueeze(qkv_in, 1)
