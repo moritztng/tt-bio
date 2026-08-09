@@ -1,0 +1,54 @@
+{
+  "watcher": {
+    "iters": 46500,
+    "logs": [
+      "generated/watcher/watcher.log"
+    ],
+    "bytes": 77005,
+    "k_id_lines": 529,
+    "sample": [
+      "Device 0 idleth core(x= 0,y= 3) virtual(x=23,y=25):   GW,   W,   X,   X,   X  rmsg:H0D|ee h_id:  0 smsg:D k_ids:  0|  0",
+      "Device 0 idleth core(x= 0,y= 1) virtual(x=21,y=25):   GW,   W,   X,   X,   X  rmsg:H0D|ee h_id:  0 smsg:D k_ids:  0|  0",
+      "Device 0 idleth core(x= 0,y= 0) virtual(x=20,y=25):   GW,   W,   X,   X,   X  rmsg:H0D|ee h_id:  0 smsg:D k_ids:  0|  0"
+    ]
+  },
+  "knee_l1_mul": [
+    {
+      "cores": 9,
+      "gy": 3,
+      "gx": 3,
+      "mul_us": 122.665
+    },
+    {
+      "cores": 16,
+      "gy": 4,
+      "gx": 4,
+      "mul_us": 123.177
+    },
+    {
+      "cores": 24,
+      "gy": 6,
+      "gx": 4,
+      "mul_us": 122.445
+    },
+    {
+      "cores": 36,
+      "gy": 6,
+      "gx": 6,
+      "mul_us": 122.567
+    },
+    {
+      "cores": 48,
+      "gy": 8,
+      "gx": 6,
+      "mul_us": 122.344
+    },
+    {
+      "cores": 64,
+      "gy": 8,
+      "gx": 8,
+      "mul_us": 122.983
+    }
+  ],
+  "knee_dram_read": []
+}

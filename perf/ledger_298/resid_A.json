@@ -1,0 +1,40 @@
+[
+  {
+    "m": 1,
+    "rows": 320,
+    "cols": 352,
+    "tiles": 110,
+    "tiles_per_core": 1,
+    "MB_per_tensor": 0.225,
+    "add_once_correct": true,
+    "chain_eager_us_per_op": 11.42,
+    "chain_value_max": 64.0,
+    "chain_value_min": 64.0,
+    "chain_correct_N": true,
+    "indep_add_eager_us": 12.3,
+    "indep_add_traced_us": 6.51,
+    "chain_dep_traced_us": 6.45,
+    "mul_s_eager_us": 9.42,
+    "mul_s_traced_us": 6.64,
+    "alloc_add_eager_us": 30.54
+  },
+  {
+    "m": 8,
+    "rows": 2560,
+    "cols": 2816,
+    "tiles": 7040,
+    "tiles_per_core": 64,
+    "MB_per_tensor": 14.418,
+    "add_once_correct": true,
+    "chain_eager_us_per_op": 11.41,
+    "chain_value_max": 64.0,
+    "chain_value_min": 64.0,
+    "chain_correct_N": true,
+    "indep_add_eager_us": 10.12,
+    "indep_add_traced_us": 6.59,
+    "chain_dep_traced_us": 6.57,
+    "mul_s_eager_us": 43.11,
+    "mul_s_traced_us": 43.13,
+    "alloc_add_eager_us": 29.61
+  }
+]

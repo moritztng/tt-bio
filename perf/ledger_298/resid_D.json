@@ -1,0 +1,73 @@
+{
+  "knee_dram_read": [
+    {
+      "cores": 1,
+      "gy": 1,
+      "gx": 1,
+      "MB": 14.42,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not eno"
+    },
+    {
+      "cores": 4,
+      "gy": 2,
+      "gx": 2,
+      "MB": 14.42,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not eno"
+    },
+    {
+      "cores": 8,
+      "gy": 2,
+      "gx": 4,
+      "MB": 14.42,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not eno"
+    },
+    {
+      "cores": 16,
+      "gy": 4,
+      "gx": 4,
+      "MB": 14.42,
+      "read_us": 54.672,
+      "read_GBs": 263.7
+    },
+    {
+      "cores": 32,
+      "gy": 4,
+      "gx": 8,
+      "MB": 14.42,
+      "read_us": 44.904,
+      "read_GBs": 321.1
+    },
+    {
+      "cores": 32,
+      "gy": 8,
+      "gx": 4,
+      "MB": 14.42,
+      "read_us": 50.09,
+      "read_GBs": 287.8
+    },
+    {
+      "cores": 64,
+      "gy": 8,
+      "gx": 8,
+      "MB": 14.42,
+      "read_us": 45.735,
+      "read_GBs": 315.2
+    },
+    {
+      "cores": 80,
+      "gy": 10,
+      "gx": 8,
+      "MB": 14.42,
+      "read_us": 45.986,
+      "read_GBs": 313.5
+    },
+    {
+      "cores": 110,
+      "gy": 10,
+      "gx": 11,
+      "MB": 14.42,
+      "read_us": 44.294,
+      "read_GBs": 325.5
+    }
+  ]
+}

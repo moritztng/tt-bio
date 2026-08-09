@@ -1,0 +1,29 @@
+[
+  {
+    "shape": "320x320x256",
+    "tag": "pair z 320x320x256",
+    "MB": 52.43,
+    "reallocate_us": 1.721,
+    "reallocate_GBs": 60928.3,
+    "clone_plus_dealloc_us": 265.928,
+    "deallocate_us_host": 0.657
+  },
+  {
+    "shape": "320x320x128",
+    "tag": "pair 320x320x128",
+    "MB": 26.21,
+    "reallocate_us": 1.666,
+    "reallocate_GBs": 31469.9,
+    "clone_plus_dealloc_us": 134.379,
+    "deallocate_us_host": 0.503
+  },
+  {
+    "shape": "320x320x32",
+    "tag": "small 320x320x32",
+    "MB": 6.55,
+    "reallocate_us": 1.659,
+    "reallocate_GBs": 7900.7,
+    "clone_plus_dealloc_us": 34.822,
+    "deallocate_us_host": 0.498
+  }
+]

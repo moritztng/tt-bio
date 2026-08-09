@@ -1,0 +1,78 @@
+{
+  "knee_l1_mul": [
+    {
+      "cores": 8,
+      "gy": 2,
+      "gx": 4,
+      "tiles_per_core": 220,
+      "mul_us": 142.827,
+      "add_us": 14.429
+    },
+    {
+      "cores": 16,
+      "gy": 4,
+      "gx": 4,
+      "tiles_per_core": 110,
+      "mul_us": 73.183,
+      "add_us": 10.444
+    },
+    {
+      "cores": 32,
+      "gy": 8,
+      "gx": 4,
+      "tiles_per_core": 55,
+      "mul_us": 38.745,
+      "add_us": 10.491
+    },
+    {
+      "cores": 110,
+      "gy": 10,
+      "gx": 11,
+      "tiles_per_core": 16,
+      "mul_us": 12.879,
+      "add_us": 11.077
+    }
+  ],
+  "knee_dram_read": [
+    {
+      "cores": 1,
+      "MB": 46.14,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+    },
+    {
+      "cores": 2,
+      "MB": 46.14,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+    },
+    {
+      "cores": 4,
+      "MB": 46.14,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+    },
+    {
+      "cores": 8,
+      "MB": 46.14,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+    },
+    {
+      "cores": 16,
+      "MB": 46.14,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+    },
+    {
+      "cores": 32,
+      "MB": 46.14,
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/clone/device/clone_de"
+    },
+    {
+      "cores": 32,
+      "MB": 46.14,
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/clone/device/clone_de"
+    },
+    {
+      "cores": 64,
+      "MB": 46.14,
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/clone/device/clone_de"
+    }
+  ]
+}
