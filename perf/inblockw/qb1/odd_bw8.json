@@ -1,0 +1,24 @@
+{
+ "model": "opendde",
+ "arm": "off",
+ "scope": "both",
+ "target": "/home/ttuser/.coworker/wt/perfwar-inblockw-qb1-land/examples/prot300.yaml",
+ "cold_s": 54.908,
+ "times": [
+  42.819,
+  43.198,
+  43.357
+ ],
+ "median_s": 43.198,
+ "min_s": 42.819,
+ "plddt": 0.790013,
+ "n_tokens": 298,
+ "cif_sha16": "daff45b709d1ec72",
+ "cif_path": "perf/inblockw/qb1/odd_bw8.cif",
+ "fired_calls_per_fold": 0,
+ "pair_proj_bw": 8,
+ "grid": [
+  13,
+  10
+ ]
+}
