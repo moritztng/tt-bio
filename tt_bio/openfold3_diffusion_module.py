@@ -337,7 +337,8 @@ class OF3DiffusionModule(Module):
         # --- linear_q aggregation (fresh): ai = atom_to_token_mean @ relu(linear_q(ql)). ---
         qproj = lin(ql_enc, self.w_lq, activation="relu")      # [1, n_atom, 768]
         ai = ttnn.matmul(atom_to_token_mean_tt, qproj,
-                         compute_kernel_config=self.compute_kernel_config)  # [1, n_token, 768]
+                         compute_kernel_config=self.compute_kernel_config,
+                         core_grid=CORE_GRID_MAIN)                          # [1, n_token, 768]
         ttnn.deallocate(qproj)
         # Glue: ai += linear_s(LN_s(si)) (si tile-padded; slice the result to n_token).
         si_ln = ttnn.layer_norm(si, weight=self.ln_s_w, epsilon=1e-5,

@@ -1,0 +1,294 @@
+[
+ {
+  "case": "pf_qk",
+  "B": 16,
+  "Mt": 10,
+  "Nt": 10,
+  "grid": [
+   11,
+   10
+  ],
+  "ms_auto": 0.02478413996868767,
+  "arms": [
+   {
+    "per_core_M": 1,
+    "blocks": 160,
+    "cores": 110,
+    "wraps": true,
+    "ms": 0.024059739953372627,
+    "speedup": 1.0301083892310938,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   },
+   {
+    "per_core_M": 2,
+    "blocks": 80,
+    "cores": 80,
+    "wraps": false,
+    "ms": 0.020518940000329167,
+    "speedup": 1.2078664866845013,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   },
+   {
+    "per_core_M": 5,
+    "blocks": 32,
+    "cores": 32,
+    "wraps": false,
+    "ms": 0.021224099982646294,
+    "speedup": 1.167735733856899,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   },
+   {
+    "per_core_M": 10,
+    "blocks": 16,
+    "cores": 16,
+    "wraps": false,
+    "ms": 0.029033059981884435,
+    "speedup": 0.8536523530124646,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   }
+  ]
+ },
+ {
+  "case": "pf_av",
+  "B": 16,
+  "Mt": 10,
+  "Nt": 1,
+  "grid": [
+   11,
+   10
+  ],
+  "ms_auto": 0.07147686003008857,
+  "arms": [
+   {
+    "per_core_M": 1,
+    "blocks": 160,
+    "cores": 110,
+    "wraps": true,
+    "ms": 0.019568720017559826,
+    "speedup": 3.6526078336216887,
+    "bit_exact": false,
+    "maxabs": 0.0009765625,
+    "rel_l2": 0.0009596802646112037
+   },
+   {
+    "per_core_M": 2,
+    "blocks": 80,
+    "cores": 80,
+    "wraps": false,
+    "ms": 0.014131479983916506,
+    "speedup": 5.057988272384683,
+    "bit_exact": false,
+    "maxabs": 0.0009765625,
+    "rel_l2": 0.0011423063752702214
+   },
+   {
+    "per_core_M": 5,
+    "blocks": 32,
+    "cores": 32,
+    "wraps": false,
+    "ms": 0.015577680023852736,
+    "speedup": 4.588414957852667,
+    "bit_exact": false,
+    "maxabs": 0.0009765625,
+    "rel_l2": 0.0011423063752702214
+   },
+   {
+    "per_core_M": 10,
+    "blocks": 16,
+    "cores": 16,
+    "wraps": false,
+    "ms": 0.021634680015267804,
+    "speedup": 3.3038094383483676,
+    "bit_exact": false,
+    "maxabs": 0.0009765625,
+    "rel_l2": 0.0011423063752702214
+   }
+  ]
+ },
+ {
+  "case": "dit_od_qk",
+  "B": 16,
+  "Mt": 19,
+  "Nt": 19,
+  "grid": [
+   11,
+   10
+  ],
+  "ms_auto": 0.07339194002270233,
+  "arms": [
+   {
+    "per_core_M": 1,
+    "blocks": 304,
+    "cores": 110,
+    "wraps": true,
+    "ms": 0.11977688001934439,
+    "speedup": 0.612738785739362,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   },
+   {
+    "per_core_M": 19,
+    "blocks": 16,
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on"
+   }
+  ]
+ },
+ {
+  "case": "dit_od_av",
+  "B": 16,
+  "Mt": 19,
+  "Nt": 2,
+  "grid": [
+   11,
+   10
+  ],
+  "ms_auto": 0.2446006199897965,
+  "arms": [
+   {
+    "per_core_M": 1,
+    "blocks": 304,
+    "cores": 110,
+    "wraps": true,
+    "ms": 0.09974706001230516,
+    "speedup": 2.4522088165768667,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   },
+   {
+    "per_core_M": 19,
+    "blocks": 16,
+    "cores": 16,
+    "wraps": false,
+    "ms": 0.07162474001233932,
+    "speedup": 3.4150297780858594,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   }
+  ]
+ },
+ {
+  "case": "dit_px_qk",
+  "B": 16,
+  "Mt": 10,
+  "Nt": 10,
+  "grid": [
+   11,
+   10
+  ],
+  "ms_auto": 0.04756739996082615,
+  "arms": [
+   {
+    "per_core_M": 1,
+    "blocks": 160,
+    "cores": 110,
+    "wraps": true,
+    "ms": 0.06874039994727354,
+    "speedup": 0.6919860809263857,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   },
+   {
+    "per_core_M": 2,
+    "blocks": 80,
+    "cores": 80,
+    "wraps": false,
+    "ms": 0.05179510000743903,
+    "speedup": 0.9183764478492042,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   },
+   {
+    "per_core_M": 5,
+    "blocks": 32,
+    "cores": 32,
+    "wraps": false,
+    "ms": 0.043943260025116615,
+    "speedup": 1.0824731695745398,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   },
+   {
+    "per_core_M": 10,
+    "blocks": 16,
+    "cores": 16,
+    "wraps": false,
+    "ms": 0.05880435994185973,
+    "speedup": 0.8089094075312845,
+    "bit_exact": true,
+    "maxabs": 0.0,
+    "rel_l2": 0.0
+   }
+  ]
+ },
+ {
+  "case": "dit_px_av",
+  "B": 16,
+  "Mt": 10,
+  "Nt": 2,
+  "grid": [
+   11,
+   10
+  ],
+  "ms_auto": 0.11095135996583849,
+  "arms": [
+   {
+    "per_core_M": 1,
+    "blocks": 160,
+    "cores": 110,
+    "wraps": true,
+    "ms": 0.05915402005484793,
+    "speedup": 1.875635161616468,
+    "bit_exact": false,
+    "maxabs": 0.00014409422874450684,
+    "rel_l2": 0.00025417977689382395
+   },
+   {
+    "per_core_M": 2,
+    "blocks": 80,
+    "cores": 80,
+    "wraps": false,
+    "ms": 0.033796220013755374,
+    "speedup": 3.282951759713964,
+    "bit_exact": false,
+    "maxabs": 0.00014409422874450684,
+    "rel_l2": 0.00030553793384171726
+   },
+   {
+    "per_core_M": 5,
+    "blocks": 32,
+    "cores": 32,
+    "wraps": false,
+    "ms": 0.029489939988707192,
+    "speedup": 3.7623460749098148,
+    "bit_exact": false,
+    "maxabs": 0.00014409422874450684,
+    "rel_l2": 0.00030553793384171726
+   },
+   {
+    "per_core_M": 10,
+    "blocks": 16,
+    "cores": 16,
+    "wraps": false,
+    "ms": 0.04373344003397506,
+    "speedup": 2.536991370439738,
+    "bit_exact": false,
+    "maxabs": 0.00014409422874450684,
+    "rel_l2": 0.00030553793384171726
+   }
+  ]
+ }
+]
