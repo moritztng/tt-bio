@@ -1,0 +1,84 @@
+{
+  "n": 320,
+  "c": 64,
+  "c_z": 256,
+  "rows": [
+    {
+      "part": "clone (copy roof, no reorder)",
+      "ms": 0.0515,
+      "moved_mb": 26.21,
+      "eff_gbs": 509.2,
+      "note": ""
+    },
+    {
+      "part": "permute(0,3,1,2)  [production 'a']",
+      "ms": 0.2078,
+      "moved_mb": 26.21,
+      "eff_gbs": 126.2,
+      "note": ""
+    },
+    {
+      "part": "permute(0,3,2,1)  [production 'b']",
+      "ms": 0.1778,
+      "moved_mb": 26.21,
+      "eff_gbs": 147.4,
+      "note": ""
+    },
+    {
+      "part": "half1: transpose(-2,-1)  [1,N,N,C]->[1,N,C,N]",
+      "ms": 0.0696,
+      "moved_mb": 26.21,
+      "eff_gbs": 376.7,
+      "note": ""
+    },
+    {
+      "part": "half2: permute(0,2,1,3)  [1,N,C,N]->[1,C,N,N]",
+      "ms": 0.1759,
+      "moved_mb": 26.21,
+      "eff_gbs": 149.1,
+      "note": ""
+    },
+    {
+      "part": "half1+half2 (pair)",
+      "ms": 0.1781,
+      "moved_mb": 26.21,
+      "eff_gbs": 147.2,
+      "note": "exact_vs_permute0312=True"
+    },
+    {
+      "part": "transpose(1,3) [single-op 'b']",
+      "ms": 0.1618,
+      "moved_mb": 26.21,
+      "eff_gbs": 162.0,
+      "note": "exact_vs_permute0321=True"
+    },
+    {
+      "part": "chunk(gp_in_fused, 4, dim=-1)",
+      "ms": 0.1106,
+      "moved_mb": 104.86,
+      "eff_gbs": 948.3,
+      "note": ""
+    },
+    {
+      "part": "multiply(p, g, SIGMOID(b))  [one gate]",
+      "ms": 0.1304,
+      "moved_mb": 39.32,
+      "eff_gbs": 301.6,
+      "note": ""
+    },
+    {
+      "part": "multiply(a, mask_u)  [mask]",
+      "ms": 0.1882,
+      "moved_mb": 26.21,
+      "eff_gbs": 139.3,
+      "note": ""
+    },
+    {
+      "part": "reallocate",
+      "ms": 0.063,
+      "moved_mb": null,
+      "eff_gbs": null,
+      "note": ""
+    }
+  ]
+}

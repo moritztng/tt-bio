@@ -1,0 +1,60 @@
+{
+  "n": 320,
+  "c": 64,
+  "reps": 16,
+  "rows": [
+    {
+      "part": "clone (L1 copy roof)",
+      "ms": 0.0224,
+      "moved_mb": 26.21,
+      "eff_gbs": 1168.9
+    },
+    {
+      "part": "permute(0,3,1,2) 'a'",
+      "ms": 0.1603,
+      "moved_mb": 26.21,
+      "eff_gbs": 163.5
+    },
+    {
+      "part": "permute(0,3,2,1) 'b'",
+      "ms": 0.1291,
+      "moved_mb": 26.21,
+      "eff_gbs": 203.1
+    },
+    {
+      "part": "transpose(-2,-1)  [whole-tile half]",
+      "ms": 0.0396,
+      "moved_mb": 26.21,
+      "eff_gbs": 661.6
+    },
+    {
+      "part": "permute(0,2,1,3)  [sub-tile half]",
+      "ms": 0.1275,
+      "moved_mb": 26.21,
+      "eff_gbs": 205.6
+    },
+    {
+      "part": "transpose(1,3) 'b' one op",
+      "ms": 0.1295,
+      "moved_mb": 26.21,
+      "eff_gbs": 202.5
+    },
+    {
+      "part": "gate multiply(p,g,SIGMOID)",
+      "ms": 0.0923,
+      "moved_mb": 39.32,
+      "eff_gbs": 426.1
+    },
+    {
+      "part": "mask multiply(a,mask_u)",
+      "ms": 0.1255,
+      "moved_mb": 26.21,
+      "eff_gbs": 208.8
+    },
+    {
+      "part": "generic_op_smoke",
+      "max_abs_diff": 0.0,
+      "exact": true
+    }
+  ]
+}
