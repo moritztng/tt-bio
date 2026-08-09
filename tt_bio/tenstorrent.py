@@ -67,9 +67,12 @@ _DIFFUSION_FP32_DEVICE = False
 _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
-# ttnn.experimental.minimal_matmul for the two trimul output projections.
-# A/B'd by perf/trimul_kernel/w2_routes.py; see _trimul_out_proj.
-_TRIMUL_MM_OUT = True
+# KILLED AT FOLD LEVEL, kept only as the A/B toggle. ttnn.experimental.minimal_matmul for the
+# two trimul output projections is 1.117x per trimul and 1.0384x on the Pairformer block, but it
+# is not bit-exact, and at 298 aa it moves the folded structure by 4.05 A all-atom RMSD against a
+# run-to-run noise floor of exactly 0.0 (perf/trimul_kernel/w2_fold_parity.py). That is a
+# different fold, not a rounding difference. See _trimul_out_proj.
+_TRIMUL_MM_OUT = False
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
@@ -685,6 +688,12 @@ def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
         return ttnn.from_torch(
             torch.cat(acc, dim=dim), layout=ttnn.TILE_LAYOUT,
             device=get_device(), dtype=ttnn.bfloat16)
+    if len(acc) == 1:
+        # ttnn.concat of a single tensor aliases its input, so the deallocate below would
+        # free the very buffer being returned. One block is the real case for any trimul
+        # whose hidden width equals its chunk width (n_pairs == 1, e.g. the protenix
+        # template pair stack) and for a row-blocked tail shorter than one row block.
+        return acc[0]
     out = ttnn.concat(acc, dim=dim)
     for t in acc:
         ttnn.deallocate(t)
