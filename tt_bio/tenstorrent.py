@@ -383,6 +383,7 @@ def _batched_reuse_config(
     per_core_M trades DRAM traffic against occupancy. in1 is re-read once per output block, so a
     small per_core_M multiplies the in1 traffic, and a large one leaves most of the grid idle. The
     cost below picks the crossover and reproduces the measured optimum on all four applied classes.
+    per_core_M=1 is excluded whenever Mt > 1: it is not slow, it is wrong (see the loop below).
 
     in0_block_w mirrors the width ttnn's own narrow-shape path picks, so the K accumulation order
     is unchanged and the result is bit-exact against today's call.
@@ -399,7 +400,12 @@ def _batched_reuse_config(
     tile, acc_tile = 1024 * elem_bytes, 4096
     best = ()
     for p in range(1, m_tiles + 1):
-        if m_tiles % p:
+        if m_tiles % p or (p == 1 and m_tiles > 1):
+            # per_core_M=1 against a multi-tile M returns wrong results in a live fold: measured
+            # on the DiT attention at 298 and 580 tokens, 4.7-11.9% of elements differ by up to
+            # 26.9 absolute, while per_core_M in {2, 5, 19} on the same call is torch.equal. It
+            # does not reproduce on tensors built in isolation, so it depends on device state the
+            # op-level harness does not recreate. Until it is understood, do not emit it.
             continue
         # CB footprint, matmul_multicore_reuse_optimized_program_factory.cpp:286-306: in0 and in1
         # are double-buffered one K block at a time, the output and the fp32 accumulator are whole.

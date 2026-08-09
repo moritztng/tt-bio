@@ -1,0 +1,50 @@
+{
+ "model": "opendde",
+ "rows": [
+  {
+   "key": "(1, 16, 580, 580)x(1, 16, 580, 64) pcm=19 bw=1",
+   "checked": 8,
+   "calls": 4800,
+   "mismatched": 0,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "n_elem": 4751360
+  },
+  {
+   "key": "(75, 4, 32, 32)x(75, 4, 32, 128) pcm=1 bw=1",
+   "checked": 8,
+   "calls": 1203,
+   "mismatched": 0,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "n_elem": 9830400
+  },
+  {
+   "key": "(75, 4, 32, 128)x(75, 4, 128, 32) pcm=1 bw=2",
+   "checked": 8,
+   "calls": 1203,
+   "mismatched": 0,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "n_elem": 2457600
+  },
+  {
+   "key": "(1, 16, 298, 298)x(1, 16, 298, 32) pcm=2 bw=2",
+   "checked": 8,
+   "calls": 484,
+   "mismatched": 0,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "n_elem": 1220608
+  },
+  {
+   "key": "(1, 8, 580, 580)x(1, 8, 580, 64) pcm=1 bw=1",
+   "checked": 4,
+   "calls": 4,
+   "mismatched": 4,
+   "max_abs": 25.358154296875,
+   "n_diff": 55268,
+   "n_elem": 1187840
+  }
+ ]
+}
