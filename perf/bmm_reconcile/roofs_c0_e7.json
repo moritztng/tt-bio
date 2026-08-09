@@ -1,0 +1,97 @@
+{
+  "device": {
+    "compute_grid": "13x10",
+    "core_grid_main": "11x10",
+    "ttnn": "?"
+  },
+  "compute_roof": {
+    "runs": {
+      "2048_op_ckc_oDRAM": {
+        "ms": 0.1935,
+        "tflops": 88.77
+      },
+      "2048_op_ckc_oL1": {
+        "ms": 0.2443,
+        "tflops": 70.33
+      },
+      "2048_plain_ckc_oDRAM": {
+        "ms": 0.2196,
+        "tflops": 78.22
+      },
+      "2048_plain_ckc_oL1": {
+        "ms": 1.163,
+        "tflops": 14.77
+      },
+      "4096_op_ckc_oDRAM": {
+        "ms": 1.0671,
+        "tflops": 128.79
+      },
+      "4096_op_ckc_oL1": {
+        "ms": 24.7789,
+        "tflops": 5.55
+      },
+      "4096_plain_ckc_oDRAM": {
+        "ms": 1.4343,
+        "tflops": 95.82
+      },
+      "4096_plain_ckc_oL1": {
+        "ms": 2.324,
+        "tflops": 59.14
+      },
+      "6144_op_ckc_oDRAM": {
+        "ms": 3.4108,
+        "tflops": 136.0
+      },
+      "6144_op_ckc_oL1": {
+        "ms": 83.988,
+        "tflops": 5.52
+      },
+      "6144_plain_ckc_oDRAM": {
+        "ms": 4.7813,
+        "tflops": 97.01
+      },
+      "6144_plain_ckc_oL1": {
+        "ms": 84.6923,
+        "tflops": 5.48
+      }
+    },
+    "peak_TFLOPs": 136.0
+  },
+  "dram_roofs": {
+    "runs": [
+      {
+        "MB": 8.0,
+        "read_GBs": 272.3,
+        "write_GBs": 204.6,
+        "dram2dram_rw_GBs": 328.9
+      },
+      {
+        "MB": 16.0,
+        "read_GBs": 328.9,
+        "write_GBs": 233.0,
+        "dram2dram_rw_GBs": 368.3
+      },
+      {
+        "MB": 32.0,
+        "read_GBs": 362.2,
+        "write_GBs": 250.7,
+        "dram2dram_rw_GBs": 388.9
+      },
+      {
+        "MB": 48.0,
+        "read_GBs": 382.4,
+        "write_GBs": 260.1,
+        "dram2dram_rw_GBs": 400.5
+      },
+      {
+        "MB": 64.0,
+        "read_GBs": 382.5,
+        "write_GBs": 264.8,
+        "dram2dram_rw_GBs": 403.4
+      }
+    ],
+    "read_peak_GBs": 382.5,
+    "write_peak_GBs": 264.8
+  },
+  "machine_balance_FLOP_per_byte_read": 355.6
+}
