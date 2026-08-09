@@ -391,6 +391,53 @@ def _l1_resident_linear(x, w, dtype, compute_kernel_config, full_k: bool = False
     )
 
 
+@lru_cache(maxsize=None)
+def _l1_resident_row_block(rows: int, cols: int, k_tiles: int, n_tiles: int, elem_bytes: int) -> int:
+    """Rows of the pair tensor per block so a projection's result stays in L1, or 0.
+
+    The whole-tensor L1 residency dies with sequence length: at 128 tokens the qkv result
+    is 25 MB and fits, at 320 tokens it is 157 MB and no per-core budget admits it, so the
+    projection writes it to DRAM for nlp_create_qkv_heads to read straight back. The result
+    is a row block of the pair tensor though, and every op between the projection and the
+    output projection is row-local or row-batched, so splitting the pair tensor into row
+    blocks bounds the resident result to one block and makes residency independent of
+    sequence length.
+
+    Returns the largest block that divides `rows` and that _l1_resident_matmul_config admits
+    at full K, or 0 if none does. Larger blocks mean fewer dispatches, so search downwards.
+    """
+    if rows <= 0 or cols <= 0:
+        return 0
+    for r in range(rows, 0, -1):
+        if rows % r:
+            continue
+        m_tiles = r * cols // 32
+        if m_tiles <= 0:
+            continue
+        if _l1_resident_matmul_config(m_tiles, k_tiles, n_tiles, elem_bytes, True) is not None:
+            return r
+    return 0
+
+
+def _tri_att_row_block(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> int:
+    """_l1_resident_row_block for a concrete tri-attention projection, or 0.
+
+    0 when the whole tensor already fits (blocking would only add dispatches) or when the
+    shapes are outside the guard's class."""
+    if dtype != ttnn.bfloat16:
+        return 0
+    try:
+        if _l1_resident_linear_config(x, w, dtype) is not None:
+            return 0
+        rows, cols, k = int(x.shape[0]), int(x.shape[1]), int(x.shape[-1])
+        n = int(w.shape[-1])
+        if k % 32 or n % 32 or (rows * cols) % 32:
+            return 0
+        return _l1_resident_row_block(rows, cols, k // 32, n // 32, 2)
+    except Exception:
+        return 0
+
+
 def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     """Retune L1-edge thresholds and chunk sizes for grids smaller than the
     11x10 Blackhole baseline (e.g. Wormhole 8x8 has ~55% of its aggregate L1),
@@ -457,6 +504,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _sdpa_program_config_for_lengths.cache_clear()
     _triangle_mul_program_config.cache_clear()
     _l1_resident_matmul_config.cache_clear()
+    _l1_resident_row_block.cache_clear()
 
 
 def set_fast_mode(enabled: bool) -> None:
@@ -1255,6 +1303,14 @@ class TriangleAttention(Module):
         x = ttnn.reshape(x, tuple(x.shape)[1:])
         S = x.shape[0]
         need_chunk = S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID)
+        # Row-block for L1 residency, not for memory safety: the projections' results only
+        # fit L1 one row block at a time past ~128 tokens (_l1_resident_row_block). 0 when
+        # the whole tensor already fits, or when nothing fits and blocking would not help.
+        # It rides the whole-tensor prologue below, NOT the memory-safety chunk path: that
+        # path re-norms the pair tensor a second time to keep it off the device, which costs
+        # more than the residency wins (measured 0.91-0.98x at 320 tokens).
+        l1_rows = 0 if (need_chunk or self.affinity) else _tri_att_row_block(
+            x, self.qkv_weight, _dtype())
         if need_chunk:
             # Large-sequence path: never materialise the full layer_norm output.
             # layer_norm is row-local, so norming a row block is bit-identical to
@@ -1394,6 +1450,26 @@ class TriangleAttention(Module):
             ttnn.deallocate(o_in)
             return x_out
 
+        def proj_l1(x_in: ttnn.Tensor, w: ttnn.Tensor) -> ttnn.Tensor:
+            # minimal_matmul accumulates the whole K in one block, so the full-K L1
+            # config is bit-exact against it (_l1_resident_matmul_config).
+            cfg = _l1_resident_linear_config(x_in, w, _dtype())
+            if cfg is not None:
+                return ttnn.linear(
+                    x_in,
+                    w,
+                    compute_kernel_config=self.compute_kernel_config,
+                    dtype=_dtype(),
+                    memory_config=ttnn.L1_MEMORY_CONFIG,
+                    program_config=cfg,
+                )
+            return ttnn.experimental.minimal_matmul(
+                input_tensor=x_in,
+                weight_tensor=w,
+                compute_kernel_config=self.compute_kernel_config,
+                dtype=_dtype(),
+            )
+
         if need_chunk:
             if not self.affinity and attn_mask is not None:
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
@@ -1405,18 +1481,8 @@ class TriangleAttention(Module):
             for s in range(0, S, chunk):
                 end = min(s + chunk, S)
                 x_chunk = normed_rows(s, end)
-                qkv_chunk = ttnn.experimental.minimal_matmul(
-                    input_tensor=x_chunk,
-                    weight_tensor=self.qkv_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
-                )
-                g_chunk = ttnn.experimental.minimal_matmul(
-                    input_tensor=x_chunk,
-                    weight_tensor=self.g_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
-                )
+                qkv_chunk = proj_l1(x_chunk, self.qkv_weight)
+                g_chunk = proj_l1(x_chunk, self.g_weight)
                 ttnn.deallocate(x_chunk)
                 if self.affinity:
                     bias = ttnn.add(triangle_bias, attn_mask[s:end, :, :])
@@ -1442,27 +1508,32 @@ class TriangleAttention(Module):
                 return ttnn.reshape(x, (1, *x.shape))
             x = ttnn.concat(parts, dim=0)
             del parts
+        elif l1_rows:
+            # Row-blocked so the projections keep their results in L1 (see
+            # _l1_resident_row_block). The layer_norm and the triangle bias above are the
+            # whole-tensor ones, so only the projection -> head split -> SDPA -> output
+            # chain is blocked, and every op in it is row-local or row-batched: bit-exact
+            # against the whole-tensor chain, verified with torch.equal at 320 and 384
+            # tokens. Measured on the chain alone at 320 tokens: 1.24x.
+            if attn_mask is not None:
+                triangle_bias = ttnn.add(triangle_bias, attn_mask)
+            rows, cols = int(x.shape[1]), int(x.shape[2])
+            parts = []
+            for start in range(0, S, l1_rows):
+                x_blk = ttnn.slice(x, [start, 0, 0], [start + l1_rows, rows, cols])
+                qkv_blk = proj_l1(x_blk, self.qkv_weight)
+                g_blk = proj_l1(x_blk, self.g_weight)
+                ttnn.deallocate(x_blk)
+                o_blk = attend(qkv_blk, triangle_bias)
+                ttnn.deallocate(qkv_blk)
+                parts.append(gate_and_project(o_blk, g_blk))
+            ttnn.deallocate(x)
+            ttnn.deallocate(triangle_bias)
+            x = ttnn.concat(parts, dim=0)
+            for part in parts:
+                ttnn.deallocate(part)
+            del parts
         else:
-            def proj_l1(x_in: ttnn.Tensor, w: ttnn.Tensor) -> ttnn.Tensor:
-                # minimal_matmul accumulates the whole K in one block, so the full-K L1
-                # config is bit-exact against it (_l1_resident_matmul_config).
-                cfg = _l1_resident_linear_config(x_in, w, _dtype())
-                if cfg is not None:
-                    return ttnn.linear(
-                        x_in,
-                        w,
-                        compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
-                        memory_config=ttnn.L1_MEMORY_CONFIG,
-                        program_config=cfg,
-                    )
-                return ttnn.experimental.minimal_matmul(
-                    input_tensor=x_in,
-                    weight_tensor=w,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
-                )
-
             qkv = proj_l1(x, self.qkv_weight)
             g = proj_l1(x, self.g_weight)
             ttnn.deallocate(x)
