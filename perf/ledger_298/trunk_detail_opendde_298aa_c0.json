@@ -1,0 +1,385 @@
+{
+  "model": "opendde",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox",
+  "visible_devices": "0",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "2a0e999e7e0e9a9618a6cc917a802d5399a22322",
+  "ttnn_version": "0.67.4",
+  "input": "prot300.yaml (298aa, single protein, MSA on)",
+  "target": "examples/prot300.yaml",
+  "n_msa": 35,
+  "n_tokens": 298,
+  "n_residues": 298,
+  "msa_cache": [
+    "425f6b0c8f93f94f.a3m",
+    "fe22d91e18cd544a.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 4.96,
+  "cold_s": 58.38,
+  "warm_times_s": [
+    45.407,
+    45.607
+  ],
+  "warm_min_s": 45.407,
+  "warm_median_s": 45.607,
+  "warm_max_s": 45.607,
+  "cold_metrics": {
+    "complex_plddt": 0.796026,
+    "plddt": 0.796026,
+    "ptm": 0.849587,
+    "iptm": 0.0,
+    "confidence_score": 0.849587,
+    "n_residues": 298,
+    "n_chains": 1,
+    "n_tokens": 298,
+    "msa": true,
+    "n_atoms": 2398,
+    "samples": 1
+  },
+  "date": "2026-08-09",
+  "folds": [
+    {
+      "total_s": 58.18,
+      "stages": {
+        "atom_feat_host": [
+          1,
+          0.002
+        ],
+        "to_host": [
+          8,
+          0.182
+        ],
+        "relp_host": [
+          2,
+          0.185
+        ],
+        "trunk": [
+          1,
+          35.278
+        ],
+        "expand_refine": [
+          1,
+          7.56
+        ],
+        "diff_pair_cond": [
+          1,
+          1.053
+        ],
+        "plm_z_term": [
+          1,
+          0.066
+        ],
+        "diffusion": [
+          1,
+          10.433
+        ],
+        "confidence": [
+          1,
+          1.114
+        ]
+      },
+      "gross": {
+        "atom_feat_host": [
+          1,
+          0.002
+        ],
+        "to_host": [
+          9,
+          0.374
+        ],
+        "relp_host": [
+          2,
+          0.185
+        ],
+        "trunk_template": [
+          10,
+          1.319
+        ],
+        "trunk_msa": [
+          10,
+          4.73
+        ],
+        "pf_stack": [
+          12,
+          30.419
+        ],
+        "trunk": [
+          1,
+          35.278
+        ],
+        "exp_pair_features": [
+          5,
+          0.009
+        ],
+        "exp_pair_project": [
+          5,
+          1.19
+        ],
+        "exp_pair_init_bias": [
+          5,
+          4.118
+        ],
+        "exp_attn_bias": [
+          5,
+          0.016
+        ],
+        "expander": [
+          1,
+          5.779
+        ],
+        "expand_refine": [
+          1,
+          7.56
+        ],
+        "diff_pair_cond": [
+          1,
+          1.053
+        ],
+        "plm_z_term": [
+          1,
+          0.066
+        ],
+        "diffusion": [
+          1,
+          10.433
+        ],
+        "confidence": [
+          1,
+          1.114
+        ]
+      },
+      "unattributed_s": 2.307
+    },
+    {
+      "total_s": 45.33,
+      "stages": {
+        "atom_feat_host": [
+          1,
+          0.002
+        ],
+        "to_host": [
+          8,
+          0.171
+        ],
+        "relp_host": [
+          2,
+          0.155
+        ],
+        "trunk": [
+          1,
+          32.432
+        ],
+        "expand_refine": [
+          1,
+          1.686
+        ],
+        "diff_pair_cond": [
+          1,
+          0.707
+        ],
+        "plm_z_term": [
+          1,
+          0.061
+        ],
+        "diffusion": [
+          1,
+          8.302
+        ],
+        "confidence": [
+          1,
+          1.108
+        ]
+      },
+      "gross": {
+        "atom_feat_host": [
+          1,
+          0.002
+        ],
+        "to_host": [
+          9,
+          0.352
+        ],
+        "relp_host": [
+          2,
+          0.155
+        ],
+        "trunk_template": [
+          10,
+          0.715
+        ],
+        "trunk_msa": [
+          10,
+          2.927
+        ],
+        "pf_stack": [
+          12,
+          29.638
+        ],
+        "trunk": [
+          1,
+          32.432
+        ],
+        "exp_pair_features": [
+          5,
+          0.008
+        ],
+        "exp_pair_project": [
+          5,
+          0.023
+        ],
+        "exp_pair_init_bias": [
+          5,
+          0.227
+        ],
+        "exp_attn_bias": [
+          5,
+          0.012
+        ],
+        "expander": [
+          1,
+          0.49
+        ],
+        "expand_refine": [
+          1,
+          1.686
+        ],
+        "diff_pair_cond": [
+          1,
+          0.707
+        ],
+        "plm_z_term": [
+          1,
+          0.061
+        ],
+        "diffusion": [
+          1,
+          8.302
+        ],
+        "confidence": [
+          1,
+          1.108
+        ]
+      },
+      "unattributed_s": 0.706
+    },
+    {
+      "total_s": 45.531,
+      "stages": {
+        "atom_feat_host": [
+          1,
+          0.002
+        ],
+        "to_host": [
+          8,
+          0.174
+        ],
+        "relp_host": [
+          2,
+          0.159
+        ],
+        "trunk": [
+          1,
+          32.428
+        ],
+        "expand_refine": [
+          1,
+          1.781
+        ],
+        "diff_pair_cond": [
+          1,
+          0.705
+        ],
+        "plm_z_term": [
+          1,
+          0.066
+        ],
+        "diffusion": [
+          1,
+          8.347
+        ],
+        "confidence": [
+          1,
+          1.16
+        ]
+      },
+      "gross": {
+        "atom_feat_host": [
+          1,
+          0.002
+        ],
+        "to_host": [
+          9,
+          0.356
+        ],
+        "relp_host": [
+          2,
+          0.159
+        ],
+        "trunk_template": [
+          10,
+          0.715
+        ],
+        "trunk_msa": [
+          10,
+          2.929
+        ],
+        "pf_stack": [
+          12,
+          29.64
+        ],
+        "trunk": [
+          1,
+          32.428
+        ],
+        "exp_pair_features": [
+          5,
+          0.009
+        ],
+        "exp_pair_project": [
+          5,
+          0.022
+        ],
+        "exp_pair_init_bias": [
+          5,
+          0.225
+        ],
+        "exp_attn_bias": [
+          5,
+          0.102
+        ],
+        "expander": [
+          1,
+          0.585
+        ],
+        "expand_refine": [
+          1,
+          1.781
+        ],
+        "diff_pair_cond": [
+          1,
+          0.705
+        ],
+        "plm_z_term": [
+          1,
+          0.066
+        ],
+        "diffusion": [
+          1,
+          8.347
+        ],
+        "confidence": [
+          1,
+          1.16
+        ]
+      },
+      "unattributed_s": 0.709
+    }
+  ]
+}
