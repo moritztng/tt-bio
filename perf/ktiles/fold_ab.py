@@ -17,7 +17,8 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, choices=["protenix-v2", "opendde"])
-    ap.add_argument("--arm", required=True, choices=["on", "off", "on-no-b8"])
+    ap.add_argument("--arm", required=True,
+                    choices=["on", "off", "on-no-b8", "atom-only", "dit-only"])
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -30,6 +31,15 @@ def main():
             x, y, compute_kernel_config=compute_kernel_config)
         T.batched_matmul = plain
         P.batched_matmul = plain
+    if a.arm in ("atom-only", "dit-only"):
+        # Attribution across the eight applied sites. tenstorrent.py holds the four DiT ones,
+        # protenix.py the four atom-window ones, so rebinding one module's name splits them.
+        plain = lambda x, y, compute_kernel_config=None: ttnn.matmul(
+            x, y, compute_kernel_config=compute_kernel_config)
+        if a.arm == "atom-only":
+            T.batched_matmul = plain
+        else:
+            P.batched_matmul = plain
     if a.arm == "on-no-b8":
         # Bisecting the opendde fold-parity break: decline the one applied class no op-level
         # torch.equal covers, B=8 Mt=19 Kt=19 Nt=2 (4 calls per fold).
