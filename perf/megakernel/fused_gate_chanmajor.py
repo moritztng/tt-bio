@@ -48,10 +48,17 @@ void kernel_main() {
     const uint32_t gp_addr = get_arg_val<uint32_t>(0);
     const uint32_t first_g = get_arg_val<uint32_t>(1);
     const uint32_t n_g     = get_arg_val<uint32_t>(2);
+    const uint32_t mk_addr = get_arg_val<uint32_t>(3);
     constexpr uint32_t cb_in = 0;
     constexpr auto gp_args = TensorAccessorArgs<0>();
     const uint32_t tb = get_local_cb_interface(cb_in).fifo_page_size;
     const auto gp = TensorAccessor(gp_args, gp_addr, tb);
+#ifdef MASKED
+    // mask_bc is [1,H,H,32]: one col-tile, value mask[i,j] repeated across the 32
+    // channels, so transpose_wh gives (c,j) with mask[i,j] -- the same unpack path the
+    // g and p tiles take, no config switch in the compute kernel.
+    const auto mk = TensorAccessor(gp_args, mk_addr, tb);
+#endif
     for (uint32_t g = first_g; g < first_g + n_g; ++g) {
         const uint32_t o   = g / GROUPS_PER_OP;
         const uint32_t id  = g % GROUPS_PER_OP;
@@ -62,18 +69,28 @@ void kernel_main() {
         const uint32_t ctp = P_CT_OFF + o * CT_PER_OP + Cg;
         // RB i's per barrier: 2 tiles per barrier is read-latency-bound, not
         // bandwidth-bound (milestone 2 measured 460 vs 906 GB/s for the same structure).
+#ifdef MASKED
+        const uint32_t per = (o == 0) ? 3 : 2;   // the mask applies to `a` only
+#else
+        const uint32_t per = 2;
+#endif
         for (uint32_t ii = 0; ii < 32; ii += RB) {
-            cb_reserve_back(cb_in, 2 * RB);
+            cb_reserve_back(cb_in, per * RB);
             uint32_t l1 = get_write_ptr(cb_in);
             for (uint32_t k = 0; k < RB; ++k) {
-                const uint32_t row = (I * 32 + ii + k) * (N_JT * GP_COL_TILES)
-                                     + J * GP_COL_TILES;
+                const uint32_t i = I * 32 + ii + k;
+                const uint32_t row = i * (N_JT * GP_COL_TILES) + J * GP_COL_TILES;
                 noc_async_read(gp.get_noc_addr(row + ctg), l1, tb);
                 noc_async_read(gp.get_noc_addr(row + ctp), l1 + tb, tb);
-                l1 += 2 * tb;
+#ifdef MASKED
+                if (o == 0) {
+                    noc_async_read(mk.get_noc_addr(i * N_JT + J), l1 + 2 * tb, tb);
+                }
+#endif
+                l1 += per * tb;
             }
             noc_async_read_barrier();
-            cb_push_back(cb_in, 2 * RB);
+            cb_push_back(cb_in, per * RB);
         }
     }
 }
@@ -91,24 +108,34 @@ COMPUTE = r"""
 void kernel_main() {
     constexpr uint32_t cb_in  = 0;
     constexpr uint32_t cb_mid = 1;
-    const uint32_t n_tiles = get_arg_val<uint32_t>(0);
+    const uint32_t n_tiles   = get_arg_val<uint32_t>(0);
+    const uint32_t n_masked  = get_arg_val<uint32_t>(1);
     constexpr uint32_t CB_BATCH = CBATCH;   // tiles per CB handshake
     init_sfpu(cb_in, cb_mid);
     for (uint32_t t0 = 0; t0 < n_tiles; t0 += CB_BATCH) {
-    cb_wait_front(cb_in, 2 * CB_BATCH);
+    const uint32_t per = (t0 < n_masked) ? MASK_PER : 2;
+    cb_wait_front(cb_in, per * CB_BATCH);
     cb_reserve_back(cb_mid, CB_BATCH);
     for (uint32_t t = 0; t < CB_BATCH; ++t) {
         tile_regs_acquire();
         transpose_wh_init_short(cb_in);
 #ifdef NOGATE
-        transpose_wh_tile(cb_in, 2 * t + 1, 0);   // p^T only: how much is the gate?
+        transpose_wh_tile(cb_in, per * t + 1, 0);   // p^T only: how much is the gate?
 #else
-        transpose_wh_tile(cb_in, 2 * t + 0, 0);   // dst0 = g^T
-        transpose_wh_tile(cb_in, 2 * t + 1, 1);   // dst1 = p^T
+        transpose_wh_tile(cb_in, per * t + 0, 0);   // dst0 = g^T
+        transpose_wh_tile(cb_in, per * t + 1, 1);   // dst1 = p^T
         sigmoid_tile_init();
         sigmoid_tile(0);
         mul_binary_tile_init();
         mul_binary_tile(0, 1, 0);
+#ifdef MASKED
+        if (per == 3) {
+            transpose_wh_init_short(cb_in);
+            transpose_wh_tile(cb_in, per * t + 2, 2);   // dst2 = broadcast mask
+            mul_binary_tile_init();
+            mul_binary_tile(0, 2, 0);
+        }
+#endif
 #endif
         tile_regs_commit();
         tile_regs_wait();
@@ -116,7 +143,7 @@ void kernel_main() {
         tile_regs_release();
     }
     cb_push_back(cb_mid, CB_BATCH);
-    cb_pop_front(cb_in, 2 * CB_BATCH);
+    cb_pop_front(cb_in, per * CB_BATCH);
     }
 }
 """
@@ -186,7 +213,7 @@ void kernel_main() {
 
 
 def build(dev, gp, out_a, out_b, gx, gy, exchange, n_jt, n_it, ct_per_op,
-          gp_col_tiles, nogate=False, rb=8, cbatch=None):
+          gp_col_tiles, nogate=False, rb=8, cbatch=None, mask_bc=None):
     groups_per_op = n_it * n_jt * ct_per_op
     n_groups = 2 * groups_per_op
     ncores = gx * gy
@@ -195,9 +222,10 @@ def build(dev, gp, out_a, out_b, gx, gy, exchange, n_jt, n_it, ct_per_op,
                                               ttnn.CoreCoord(gx - 1, gy - 1))])
     fmt = lambda i: ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.bfloat16,
                                             page_size=TB)
+    per_max = 3 if mask_bc is not None else 2
     cbs = [
-        ttnn.CBDescriptor(total_size=4 * max(rb, cbatch or rb) * TB, core_ranges=cores,
-                          format_descriptors=[fmt(0)]),
+        ttnn.CBDescriptor(total_size=2 * per_max * max(rb, cbatch or rb) * TB,
+                          core_ranges=cores, format_descriptors=[fmt(0)]),
         ttnn.CBDescriptor(total_size=64 * TB, core_ranges=cores, format_descriptors=[fmt(1)]),
         ttnn.CBDescriptor(total_size=32 * TB, core_ranges=cores, format_descriptors=[fmt(2)]),
     ]
@@ -206,8 +234,11 @@ def build(dev, gp, out_a, out_b, gx, gy, exchange, n_jt, n_it, ct_per_op,
     for y in range(gy):
         for x in range(gx):
             gpc = base + (1 if c < rem else 0)
-            r_rt[x][y] = [gp.buffer_address(), first, gpc]
-            c_rt[x][y] = [gpc * 32]
+            r_rt[x][y] = [gp.buffer_address(), first, gpc,
+                          mask_bc.buffer_address() if mask_bc is not None else 0]
+            # tiles this core spends on the masked operand (group ids < groups_per_op)
+            n_masked = max(0, min(first + gpc, groups_per_op) - first) * 32
+            c_rt[x][y] = [gpc * 32, n_masked]
             w_rt[x][y] = [out_a.buffer_address(), out_b.buffer_address(), first, gpc]
             first += gpc
             c += 1
@@ -216,7 +247,10 @@ def build(dev, gp, out_a, out_b, gx, gy, exchange, n_jt, n_it, ct_per_op,
                ("N_JT", str(n_jt)), ("N_IT", str(n_it)),
                ("GP_COL_TILES", str(gp_col_tiles)),
                ("P_CT_OFF", str(2 * ct_per_op)), ("RB", str(rb)),
-               ("CBATCH", str(cbatch if cbatch else rb))]
+               ("CBATCH", str(cbatch if cbatch else rb)),
+               ("MASK_PER", "3" if mask_bc is not None else "2")]
+    if mask_bc is not None:
+        defines.append(("MASKED", "1"))
     if exchange:
         defines.append(("EXCHANGE", "1"))
     if nogate:
@@ -317,6 +351,79 @@ def main():
         print("  [%-26s] %8.4f ms   (%.1f MB payload -> %6.1f GB/s)" % (
             tag, ms, moved_all, moved_all / ms), flush=True)
 
+    # the broadcast mask: mask_bc[0,i,j,c] = mask[i,j], one col-tile of 32 channels
+    mask_2d = torch.ones(1, N, N)
+    mask_2d[:, 298:, :] = 0
+    mask_2d[:, :, 298:] = 0            # the 298 aa pad pattern the trunk actually builds
+    mask_bc = ttnn.from_torch(mask_2d.unsqueeze(-1).expand(1, N, N, 32).contiguous(),
+                              layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,
+                              memory_config=L1)
+    assert (list(ttnn.TensorAccessorArgs(mask_bc).get_compile_time_args())
+            == list(ttnn.TensorAccessorArgs(gp).get_compile_time_args())), \
+        "mask accessor differs from gp's; the reader reuses one accessor definition"
+    mask_u = ttnn.from_torch(mask_2d.unsqueeze(-1), layout=ttnn.TILE_LAYOUT, device=dev,
+                             dtype=ttnn.bfloat16, memory_config=L1)
+    m_bf = mask_2d.unsqueeze(-1).to(torch.bfloat16)
+
+    def baseline_masked():
+        ca, cbb, pa, pb = ttnn.chunk(gp, chunks=4, dim=-1)
+        aa = ttnn.multiply_(pa, ca, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        bb = ttnn.multiply_(pb, cbb, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(ca)
+        ttnn.deallocate(cbb)
+        aa = ttnn.multiply_(aa, mask_u)
+        ap = ttnn.permute(aa, (0, 3, 1, 2), memory_config=L1)
+        ttnn.deallocate(aa)
+        bp = ttnn.permute(bb, (0, 3, 2, 1), memory_config=L1)
+        ttnn.deallocate(bb)
+        ttnn.deallocate(ap)
+        ttnn.deallocate(bp)
+
+    ms = amort(baseline_masked, a.reps)
+    rows.append(dict(arm="ttnn chain + mask (production)", ms=round(ms, 4)))
+    print("  [%-26s] %8.4f ms" % ("ttnn chain + mask", ms), flush=True)
+
+    # reference for the masked kernel
+    mref_a = ttnn.to_torch(ttnn.multiply(
+        ttnn.multiply(*[t for t in ttnn.chunk(gp, chunks=4, dim=-1)][2:3] +
+                      [ttnn.chunk(gp, chunks=4, dim=-1)[0]],
+                      memory_config=L1,
+                      input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]),
+        mask_u, memory_config=L1))
+
+    for arm, rb, gr, cbat in [("v1b-masked", 1, "13x10", 1)]:
+        gx, gy = (int(v) for v in gr.split("x"))
+        oa = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16,
+                                            ttnn.TILE_LAYOUT, dev, L1)
+        ob = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16,
+                                            ttnn.TILE_LAYOUT, dev, L1)
+        try:
+            pd, _, _, _ = build(dev, gp, oa, ob, gx, gy, True, n_jt, n_it, ct_per_op,
+                                gp_col_tiles, False, rb, cbat, mask_bc)
+            ttnn.generic_op([gp, oa, ob], pd)
+            got = ttnn.to_torch(oa)
+            ok = torch.equal(got, mref_a.permute(0, 3, 1, 2).contiguous())
+            okb = torch.equal(ttnn.to_torch(ob), ref_b_t.permute(0, 3, 1, 2).contiguous())
+            print("  [%s] a exact_vs_ttnn_chain+mask=%s | b exact_vs_ttnn_chain=%s"
+                  % (arm, ok, okb), flush=True)
+            ms = amort(lambda: ttnn.generic_op([gp, oa, ob], pd), a.reps)
+
+            def masked_plus():
+                ttnn.generic_op([gp, oa, ob], pd)
+                t = ttnn.transpose(ob, -2, -1, memory_config=L1)
+                ttnn.deallocate(t)
+
+            ms2 = amort(masked_plus, a.reps)
+            rows.append(dict(arm=arm, ms=round(ms, 4), ms_with_inner_swap=round(ms2, 4),
+                             a_exact=bool(ok), b_exact=bool(okb)))
+            print("  [%s] %8.4f ms   (+inner-swap transpose %8.4f ms)" % (arm, ms, ms2),
+                  flush=True)
+        except Exception as e:
+            print("  [%s] FAILED %s: %s" % (arm, type(e).__name__, str(e)[:400]), flush=True)
+            rows.append(dict(arm=arm, error=f"{type(e).__name__}: {str(e)[:300]}"))
+        ttnn.deallocate(oa)
+        ttnn.deallocate(ob)
+
     combos = [(arm, int(rb), gr, int(cb)) for arm in a.arms.split(",")
               for rb in a.rb.split(",") for gr in a.grids.split(",")
               for cb in a.cbatch.split(",")]
@@ -332,7 +439,7 @@ def main():
                                            ttnn.TILE_LAYOUT, dev, L1)
         try:
             pd, _r_rt, _w_rt, _g = build(dev, gp, oa, ob, gx, gy, exch, n_jt, n_it,
-                                         ct_per_op, gp_col_tiles, nogate, rb, cbat)
+                                         ct_per_op, gp_col_tiles, nogate, rb, cbat, None)
             ttnn.generic_op([gp, oa, ob], pd)
             ga, gb = ttnn.to_torch(oa), ttnn.to_torch(ob)
             if exch:
@@ -439,6 +546,32 @@ def main():
     except Exception as e:
         print("  reuse test FAILED %s: %s" % (type(e).__name__, str(e)[:300]), flush=True)
         rows.append(dict(arm="descriptor reuse", error=f"{type(e).__name__}: {str(e)[:200]}"))
+
+    # Descriptors cannot be mutated, so the model path needs an address-keyed cache.
+    # That only works if the allocator hands back repeating addresses. Measure it, with a
+    # matmul in the loop so the allocator is perturbed the way the real chunk loop does.
+    print("\n=== do buffer addresses repeat across allocations? ===", flush=True)
+    try:
+        w = ttnn.from_torch(torch.randn(4 * C, 4 * C), layout=ttnn.TILE_LAYOUT, device=dev,
+                            dtype=ttnn.bfloat16, memory_config=L1)
+        seen = {}
+        for it in range(20):
+            oa = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16,
+                                                ttnn.TILE_LAYOUT, dev, L1)
+            ob = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16,
+                                                ttnn.TILE_LAYOUT, dev, L1)
+            tmp = ttnn.matmul(gp, w, memory_config=L1, dtype=ttnn.bfloat16)
+            key = (gp.buffer_address(), oa.buffer_address(), ob.buffer_address())
+            seen[key] = seen.get(key, 0) + 1
+            for t in (tmp, oa, ob):
+                ttnn.deallocate(t)
+        print("  20 alloc/dealloc cycles produced %d distinct address triples: %s"
+              % (len(seen), sorted(seen.values(), reverse=True)), flush=True)
+        rows.append(dict(arm="address determinism", cycles=20, distinct=len(seen),
+                         counts=sorted(seen.values(), reverse=True)))
+        ttnn.deallocate(w)
+    except Exception as e:
+        print("  address test FAILED %s: %s" % (type(e).__name__, str(e)[:250]), flush=True)
 
     if a.out:
         Path(a.out).write_text(json.dumps(dict(n=N, c=C, grid=a.grid, rows=rows), indent=2) + "\n")
