@@ -1,0 +1,23 @@
+{
+  "model": "protenix-v2",
+  "target": "prot300.yaml",
+  "arch": "blackhole",
+  "times": {
+    "BASE": [
+      34.289,
+      34.214,
+      34.227
+    ],
+    "GO": [
+      33.407,
+      33.332,
+      33.329
+    ]
+  },
+  "median": {
+    "BASE": 34.227,
+    "GO": 33.332
+  },
+  "ratio": 1.0269,
+  "whole_model_bit_exact": true
+}
