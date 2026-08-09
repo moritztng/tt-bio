@@ -388,7 +388,7 @@ def _tuned_subblock(h: int, w: int) -> tuple[int, int]:
 
 @lru_cache(maxsize=None)
 def _tuned_matmul_config(mt: int, kt: int, nt: int, elem_bytes: int,
-                         grid: tuple[int, int], l1: int):
+                         grid: tuple[int, int], l1: int, batch: int = 1):
     """Program config for an (mt x kt) @ (kt x nt) tile matmul, or None to keep ttnn's choice.
 
     `ttnn.linear(core_grid=...)` makes ttnn derive `in0_block_w = 1`: one K tile per inner block,
@@ -401,10 +401,13 @@ def _tuned_matmul_config(mt: int, kt: int, nt: int, elem_bytes: int,
 
     - `mt >= 4 * cores`: 1D M-split, `in1` multicast. Measured 1.12x-1.93x at mt = 512 and
       mt = 3200, which is the whole pair track.
-    - `mt <= 32`: 2D MxN split. A 1D M-split cannot fill the grid here and `core_grid=` already
-      picks 2D; only the block width is wrong. Measured 1.16x-1.53x at mt = 10.
-    - in between (the atom track): None. Both shapes measured there were neutral or worse and
-      both sit under `_TUNED_MIN_TILE_MACS` anyway.
+    - `mt <= 32`: 2D MxN split. A 1D M-split leaves each core under four rows of
+      output here, and `core_grid=` already picks 2D; only the block width is wrong. Measured
+      1.16x-1.53x at mt = 10 and 1.10x-1.74x at mt = 280/300, the width the real fold runs the
+      Pairformer Transition at once it is chunked (perf/inblockw/validate_chunked.py). `mt` is
+      the FOLDED row count, so a rank-4 operand needs `fuse_batch`; without it the factory would
+      block on the last dim only. The atom track sits in this band too but stays out on
+      `_TUNED_MIN_TILE_MACS`.
 
     See state/perfwar-inblockw-tuning.md for the ladder and the roofline placement.
     """
@@ -433,15 +436,24 @@ def _tuned_matmul_config(mt: int, kt: int, nt: int, elem_bytes: int,
                     )
         return None
 
-    if mt > 32:
-        return None
-
     per_core_M = -(-mt // gy)
     per_core_N = -(-nt // gx)
+    if mt > 32:
+        # The band 33 <= mt < 4*cores is where the CHUNKED Pairformer Transition actually runs
+        # (mt = 300/280, 1512 of 4704 linear calls in a 298 aa protenix-v2 fold -- see
+        # perf/inblockw/census.py). perf/inblockw/validate_chunked.py measures 1.10x-1.77x
+        # available there, `2D bw8` best or within 3% on 7 of 8 real shapes. It is gated off
+        # because the config that fits standalone does not fit in-fold: with the pair tensor and
+        # its chunk buffers resident the static CB region collides with a live L1 buffer, and the
+        # runtime recovery below fires on more shapes than it can absorb. Turning this on needs an
+        # L1 budget that knows what the block already holds, not a constant.
+        return None
+
+    budget = l1 - _TUNED_L1_SLACK
     for bw in [d for d in range(min(_TUNED_BW_CAP, kt), 0, -1) if kt % d == 0]:
-        need = (per_core_M * per_core_N * (tile + _TUNED_FP32_TILE) * 2
-                + (per_core_M + per_core_N) * bw * tile * 2 + _TUNED_L1_SLACK)
-        if need > l1:
+        need = (per_core_M * per_core_N * (tile + _TUNED_FP32_TILE)
+                + (per_core_M + per_core_N) * bw * tile * 2)
+        if need > budget:
             continue
         sh, sw = _tuned_subblock(per_core_M, per_core_N)
         return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
@@ -449,7 +461,7 @@ def _tuned_matmul_config(mt: int, kt: int, nt: int, elem_bytes: int,
             in0_block_w=bw, out_subblock_h=sh, out_subblock_w=sw,
             out_block_h=per_core_M, out_block_w=per_core_N,
             per_core_M=per_core_M, per_core_N=per_core_N,
-            transpose_mcast=False, fused_activation=None, fuse_batch=False,
+            transpose_mcast=False, fused_activation=None, fuse_batch=batch != 1,
         )
     return None
 
@@ -471,8 +483,14 @@ def _tuned_config_for(x: ttnn.Tensor, w: ttnn.Tensor):
     if m % 32 or k % 32 or n % 32 or int(wp[0]) != k:
         return None
     elem = 4 if ttnn.float32 in (x.dtype, w.dtype) else 2
+    batch = 1
+    for d in xp[:-2]:
+        batch *= int(d)
     return _tuned_matmul_config(m // 32, k // 32, n // 32, elem, COMPUTE_GRID_MAIN,
-                                int(ttnn.get_max_worker_l1_unreserved_size()))
+                                int(ttnn.get_max_worker_l1_unreserved_size()), batch)
+
+
+_TUNED_L1_REJECTED: set = set()
 
 
 def _linear(x: ttnn.Tensor, w: ttnn.Tensor, **kw):
@@ -480,12 +498,29 @@ def _linear(x: ttnn.Tensor, w: ttnn.Tensor, **kw):
 
     Falls back to the exact call the site would have made otherwise. `core_grid=` is dropped only
     when a config replaces it, because ttnn rejects both together.
+
+    The L1 fit cannot be decided statically. `get_max_worker_l1_unreserved_size()` is the device's
+    budget, not the budget at this point in the block: the chunked Pairformer Transition runs with
+    the pair tensor and its chunk buffers already resident, and a CB set that allocates standalone
+    throws "circular buffers ... clash with L1 buffers" inside a real fold. So the shape gate is
+    optimistic and this catches that one throw, records the shape, and never tries it again. The
+    throw happens at program creation, before any dispatch, which is why recovery is clean.
     """
     pc = _tuned_config_for(x, w)
     if pc is None:
         return ttnn.linear(x, w, **kw)
-    kw.pop("core_grid", None)
-    return ttnn.linear(x, w, program_config=pc, **kw)
+    key = (tuple(x.padded_shape), tuple(w.padded_shape))
+    if key in _TUNED_L1_REJECTED:
+        return ttnn.linear(x, w, **kw)
+    tuned = dict(kw)
+    tuned.pop("core_grid", None)
+    try:
+        return ttnn.linear(x, w, program_config=pc, **tuned)
+    except RuntimeError as e:
+        if "circular buffer" not in str(e):
+            raise
+        _TUNED_L1_REJECTED.add(key)
+        return ttnn.linear(x, w, **kw)
 
 
 
