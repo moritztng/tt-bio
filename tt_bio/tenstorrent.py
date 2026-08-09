@@ -232,6 +232,147 @@ def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConf
     return _sdpa_program_config_for_lengths(q_len, k_len)
 
 
+# Kill switch for the batched program config, so a parity gate that spawns one fold per leg can
+# A/B it without a checkout.
+_BATCHED_MATMUL_ON = os.environ.get("TT_BIO_BATCHED_MATMUL", "1") != "0"
+
+# Output blocks at which a batched matmul reaches the DRAM roof on a p150a. Below it the grid is
+# under-occupied and the op falls off the read roof; above it, in1 is re-read from DRAM once per
+# extra block for no occupancy gain. Measured on qb1 card 0 at ttnn 0.67.4: every class with more
+# than one legal per_core_M is fastest at 32 blocks -- DiT attn@v 0.0337 / 0.0295 / 0.0429 ms at
+# 80 / 32 / 16 blocks, AttentionPairBias attn@v 0.0305 / 0.0269 / 0.0434, DiT q@k^T 0.0510 /
+# 0.0434 / 0.0580 (perf/bmm_reconcile/pcm_sweep_c0.json).
+_BATCHED_MATMUL_SATURATION_BLOCKS = 32
+
+
+def _batched_matmul_block_w(m_tiles: int, k_tiles: int, n_tiles: int) -> int:
+    """The K-block width ttnn itself would pick, which is what keeps the result bit-exact.
+
+    `packer_l1_acc=True` packs each K block's partial back to L1 at the output dtype, so two
+    configs agree bit for bit only if they walk the same K blocks. ttnn 0.67.4 picks the width in
+    two places (`ttnn/cpp/ttnn/operations/matmul/device/config/matmul_program_config.cpp` at tag
+    v0.67.4): its 1D factories take `Kt % 2 == 0 ? 2 : 1` (`get_mcast_1d_config`, line 330) and its
+    all-DRAM 2D factory starts at `Kt % num_cores_x == 0 ? Kt / num_cores_x : 1` and then lets
+    `get_multi_dim_per_core_factor` widen it to whatever the per-core CB budget allows (line 1158,
+    1176). The 1D value is reproduced exactly here. The 2D one is not computable outside that
+    function, so it is read off the device instead: a wide output block leaves no CB room to widen
+    into, and the three 2D classes these models issue measure `torch.equal` at 2 when `Nt <= 4`
+    (DiT attn@v) and at 1 otherwise (DiT q@k^T, the trimul class) --
+    `perf/bmm_reconcile/width_probe_c0.json`. **Adding a call site means adding its class to
+    tests/test_batched_matmul_hw.py**, which is what pins this per shape.
+    """
+    if k_tiles % 2:
+        return 1
+    height, width = m_tiles * 32, n_tiles * 32
+    narrow = max(height, width) > 8 * min(height, width) or min(height, width) <= 32
+    return 2 if narrow or n_tiles <= 4 else 1
+
+
+@lru_cache(maxsize=None)
+def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int,
+                           grid: tuple[int, int], l1: int):
+    gx, gy = grid
+    cores = gx * gy
+    if batch < 2 or batch * m_tiles < cores:
+        return None
+    block_w = _batched_matmul_block_w(m_tiles, k_tiles, n_tiles)
+    tile, acc_tile = 1024 * elem_bytes, 4096
+    legal = []
+    for p in range(1, m_tiles + 1):
+        # This factory returns WRONG RESULTS, not just slow ones, whenever a core gets more than
+        # one output block and M is split within a batch element. Both dataflow kernels name their
+        # per-core loop counter `batch` but the factory passes the per-core BLOCK count into it
+        # (matmul_multicore_reuse_optimized_program_factory.cpp:508-547), and each iteration then
+        # advances by a whole batch stride: `in0_tensor_start_tile_id += MtKt`
+        # (reader_bmm_tile_layout_in0.cpp:115), `in1_tensor_start_tile_id += KtNt` and
+        # `out_tensor_start_tile_id += MtNt` (reader_writer_bmm_tile_layout_in1.cpp). That is only
+        # the right stride when one block IS one batch element. Two legal escapes:
+        #   p == m_tiles     -- one block per batch element, so the stride is correct;
+        #   blocks <= cores  -- every core gets one block, so it never increments.
+        if m_tiles % p or (p != m_tiles and batch * m_tiles // p > cores):
+            continue
+        # CB footprint, matmul_multicore_reuse_optimized_program_factory.cpp:286-306: in0 and in1
+        # are double-buffered one K block at a time, the output and the fp32 accumulator are whole.
+        if 2 * (p + n_tiles) * block_w * tile + p * n_tiles * (tile + acc_tile) > l1:
+            continue
+        legal.append(p)
+    if not legal:
+        return None
+    # Take the fewest blocks that still saturate the grid; if nothing does, take the most blocks.
+    saturating = [p for p in legal if batch * m_tiles // p >= _BATCHED_MATMUL_SATURATION_BLOCKS]
+    per_core_M = max(saturating) if saturating else min(legal)
+    # out_subblock_h * out_subblock_w must fit the dest register file, which fp32_dest_acc_en
+    # halves to 4 tiles. Take the widest legal w, then the tallest h that still fits.
+    sub_w = max(w for w in range(1, min(4, n_tiles) + 1) if n_tiles % w == 0)
+    sub_h = max(h for h in range(1, min(4 // sub_w, per_core_M) + 1) if per_core_M % h == 0)
+    return ttnn.MatmulMultiCoreReuseProgramConfig(
+        compute_with_storage_grid_size=grid,
+        in0_block_w=block_w,
+        out_subblock_h=sub_h,
+        out_subblock_w=sub_w,
+        per_core_M=per_core_M,
+        per_core_N=n_tiles,
+    )
+
+
+def _batched_matmul_config(batch: int, m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int):
+    """Program config that spreads a both-sides-batched matmul over the grid, or None.
+
+    ttnn never picks this factory itself for DRAM-interleaved batched operands. The config it does
+    pick is derived from ONE batch element and then walks the whole batch serially inside whichever
+    cores that element engaged, so OpenFold3's trunk triangle attention runs 1192 batch elements
+    through 10 of 130 cores and the windowed atom attention runs 300 of them through one.
+    `MatmulMultiCoreReuseProgramConfig` gives every batch element its own `per_core_M x per_core_N`
+    output block instead, which puts the batch on the grid.
+
+    `per_core_N` has to equal `Nt` -- this factory does not split N -- so the only knobs are
+    `per_core_M`, which trades in1 re-reads against occupancy, and `in0_block_w`, which is the one
+    thing that decides bit-exactness. Both are measured, not guessed:
+    `perf/bmm_reconcile/pcm_sweep_c0.json` and `width_probe_c0.json`.
+    """
+    try:
+        l1 = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:
+        return None
+    return _batched_matmul_search(batch, m_tiles, k_tiles, n_tiles, elem_bytes,
+                                  tuple(COMPUTE_GRID_MAIN), l1)
+
+
+def _dram_interleaved(t: ttnn.Tensor) -> bool:
+    mc = t.memory_config()
+    return mc.buffer_type == ttnn.BufferType.DRAM and not mc.is_sharded()
+
+
+def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
+                   dtype=None) -> ttnn.Tensor:
+    """`ttnn.matmul` for a batched attention matmul, with the batch spread over the core grid.
+
+    Drop-in for `ttnn.matmul(a, b, compute_kernel_config=..., dtype=...)` on batched
+    DRAM-interleaved operands, and falls back to exactly that call whenever the chooser declines.
+    Measured on qb1 card 0 at ttnn 0.67.4, 298 aa shapes: 9.5x on the OpenFold3 trunk triangle
+    attention attn@v, 1.83x on its q@k^T, 8-14x on the windowed atom attention, 3.8x on the DiT
+    attn@v. Every applied class is `torch.equal` against the call it replaces.
+
+    Any rank >= 4 is in range: every leading dim is one batch element, so the openfold3 atom
+    transformer's rank-5 `[1,nb,H,Q,dh]` operands are 300 batch elements and not an unsupported
+    shape. The leading dims must match on both sides -- the factory reads the batch off in0 alone,
+    so a broadcast in1 would stride through memory it does not own.
+    """
+    sa, sb = tuple(a.shape), tuple(b.shape)
+    cfg = None
+    if (_BATCHED_MATMUL_ON and len(sa) >= 4 and len(sa) == len(sb) and sa[:-2] == sb[:-2]
+            and a.dtype == b.dtype and _dram_interleaved(a) and _dram_interleaved(b)):
+        batch = 1
+        for d in sa[:-2]:
+            batch *= d
+        cfg = _batched_matmul_config(
+            batch, -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32),
+            4 if a.dtype == ttnn.float32 else 2)
+    kw = {} if dtype is None else {"dtype": dtype}
+    return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,
+                       **kw)
+
+
 def _fp32_softmax_attention(
     q: ttnn.Tensor,
     k: ttnn.Tensor,
@@ -256,7 +397,7 @@ def _fp32_softmax_attention(
     """
     kt = ttnn.permute(k, (0, 1, 3, 2))
     # bf16 operands, fp32_dest_acc -> bf16 scores (the existing einsum recipe).
-    sc = ttnn.matmul(q, kt, compute_kernel_config=compute_kernel_config)
+    sc = batched_matmul(q, kt, compute_kernel_config=compute_kernel_config)
     ttnn.deallocate(kt)
     sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
     sc = ttnn.multiply(sc, scale_inv)
@@ -269,7 +410,7 @@ def _fp32_softmax_attention(
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
     ttnn.deallocate(sc)
-    o = ttnn.matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
+    o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o
 
@@ -1773,14 +1914,14 @@ class AttentionPairBias(Module):
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
                 kt = ttnn.permute(k, (0, 1, 3, 2))
-                sc = ttnn.matmul(q, kt,
-                                 compute_kernel_config=self.compute_kernel_config)
+                sc = batched_matmul(q, kt,
+                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
                 sc = ttnn.multiply(sc, self.head_dim ** -0.5)
                 sc = ttnn.add(sc, z)
                 attn = ttnn.softmax(sc, dim=-1)
-                o = ttnn.matmul(attn, v,
-                                compute_kernel_config=self.compute_kernel_config)
+                o = batched_matmul(attn, v,
+                                   compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
                 ttnn.deallocate(sc)
             else:
@@ -1793,7 +1934,7 @@ class AttentionPairBias(Module):
                 # PCC-clean (0.99993 vs 0.98128). SDPA scales its additive mask along
                 # with QK, so (q@k^T + z) * head_dim**-0.5 reproduces it exactly.
                 kt = ttnn.transpose(k, -2, -1)
-                logits = ttnn.matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+                logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
                 if z is not None:
                     logits = ttnn.add_(logits, z)
@@ -1801,7 +1942,7 @@ class AttentionPairBias(Module):
                 probs = ttnn.softmax(logits, dim=-1,
                                      compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(logits)
-                o = ttnn.matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
+                o = batched_matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(probs)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
