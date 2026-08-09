@@ -1,0 +1,44 @@
+[
+  {
+    "n": 128,
+    "chunk": 32,
+    "n_pairs": 8,
+    "exact_cover": true,
+    "hidden2": 512,
+    "covered": 512,
+    "serial_ms": 8.859,
+    "pipe_ms": 8.294,
+    "bit_exact_vs_chunk32": true,
+    "max_abs_vs_chunk32": 0.0,
+    "dram_gib": 2.407,
+    "speedup_vs_chunk32": 1.0
+  },
+  {
+    "n": 128,
+    "chunk": 64,
+    "n_pairs": 4,
+    "exact_cover": true,
+    "hidden2": 512,
+    "covered": 512,
+    "serial_ms": 7.543,
+    "pipe_ms": 7.443,
+    "bit_exact_vs_chunk32": true,
+    "max_abs_vs_chunk32": 0.0,
+    "dram_gib": 2.437,
+    "speedup_vs_chunk32": 1.1143
+  },
+  {
+    "n": 128,
+    "chunk": 128,
+    "n_pairs": 2,
+    "exact_cover": true,
+    "hidden2": 512,
+    "covered": 512,
+    "serial_ms": 7.232,
+    "pipe_ms": 7.077,
+    "bit_exact_vs_chunk32": true,
+    "max_abs_vs_chunk32": 0.0,
+    "dram_gib": 2.462,
+    "speedup_vs_chunk32": 1.172
+  }
+]

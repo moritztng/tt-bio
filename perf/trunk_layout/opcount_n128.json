@@ -1,0 +1,31 @@
+{
+  "n": 128,
+  "c_z": 256,
+  "ttnn_ops": 503,
+  "nodes": 5459,
+  "tally": {
+    "ttnn.layer_norm": 13,
+    "ttnn.experimental.minimal_matmul": 20,
+    "ttnn.chunk": 17,
+    "ttnn.deallocate": 230,
+    "ttnn.multiply_": 42,
+    "ttnn.permute": 55,
+    "ttnn.reallocate": 32,
+    "ttnn.matmul": 18,
+    "ttnn.clone": 2,
+    "ttnn.concat": 15,
+    "ttnn.linear": 27,
+    "ttnn.add_": 8,
+    "ttnn.reshape": 5,
+    "ttnn.unsqueeze": 5,
+    "ttnn.experimental.nlp_create_qkv_heads": 3,
+    "ttnn.transformer.scaled_dot_product_attention": 2,
+    "ttnn.experimental.nlp_concat_heads": 2,
+    "ttnn.squeeze": 2,
+    "ttnn.transpose": 1,
+    "ttnn.softmax": 1,
+    "ttnn.Tensor.__getitem__": 1,
+    "ttnn.slice": 1,
+    "ttnn.multiply": 1
+  }
+}

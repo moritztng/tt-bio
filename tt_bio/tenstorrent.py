@@ -70,6 +70,13 @@ _TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
+# Largest chunk * seq_len^2 whose trimul working set still fits in L1 beside the triangle
+# matmul's circular buffers. Everything the chunk loop holds there scales with that product,
+# so one budget covers all of it. Measured on a 13x10 Blackhole grid: chunk 64 at seq 320 and
+# chunk 128 at seq 224 both fit; chunk 64 at seq 352 and chunk 128 at seq 256 both throw
+# "statically allocated circular buffers clash with L1 buffers". Scaled by core count below,
+# since on a smaller grid the same bytes land on fewer cores.
+TRIANGLE_MULT_L1_CHUNK_BUDGET = 64 * 320 * 320
 # Set by _apply_grid_thresholds: True on grids smaller than 11x10 (e.g. Wormhole).
 # Tightens the L1-edge chunking thresholds and chunk sizes above this comment block.
 _IS_SMALL_GRID = False
@@ -131,16 +138,46 @@ def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryCo
     return ttnn.DRAM_MEMORY_CONFIG if large_seq_len else ttnn.L1_MEMORY_CONFIG
 
 
-def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
+def _trimul_l1_max_seq() -> int:
+    """Longest sequence whose trimul chunks still live in L1."""
     if _FAST_MODE:
-        l1_max_seq = (
+        return (
             TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
             else TRIANGLE_MULT_L1_MAX_SEQ_FAST
         )
-    else:
-        l1_max_seq = TRIANGLE_MULT_L1_MAX_SEQ
-    return ttnn.L1_MEMORY_CONFIG if seq_len <= l1_max_seq else ttnn.DRAM_MEMORY_CONFIG
+    return TRIANGLE_MULT_L1_MAX_SEQ
+
+
+def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
+    return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
+
+
+def _trimul_chunk_size(seq_len: int, hidden: int) -> int:
+    """Hidden-channel chunk width for the trimul at this sequence length.
+
+    The chunk loop is bound by per-op overhead at production sizes rather than by
+    arithmetic: at 117 aa the two trimuls are 52% of a Pairformer block and their matmuls
+    are under half of that, the rest being one fused input matmul, a 4-way split, three
+    channel moves and a concat per chunk. Widening the chunk removes those per-chunk ops
+    without touching any arithmetic, because channels are independent in the triangle
+    product and a different chunking is just a different partition of the same sum
+    (verified bit-exact at 32 / 64 / 128 on real layer-0 weights,
+    perf/trunk_layout/trimul_chunk_ab.py). Measured on a p150a at 117 aa: 8.29 -> 7.08 ms
+    per Pairformer block.
+
+    Only the L1 path widens. Above _trimul_l1_max_seq the chunks live in DRAM, where the
+    same op-count saving comes with a larger live footprint, and the large targets that
+    run there are the ones already sitting on the DRAM ceiling.
+    """
+    if seq_len > _trimul_l1_max_seq():
+        return TRIANGLE_MULT_CHUNK_SIZE
+    gx, gy = COMPUTE_GRID_MAIN
+    budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
+    c = TRIANGLE_MULT_CHUNK_SIZE
+    while hidden % (c * 2) == 0 and (c * 2) * seq_len * seq_len <= budget:
+        c *= 2
+    return c
 
 
 @lru_cache(maxsize=None)
@@ -795,16 +832,31 @@ class TriangleMultiplication(Module):
         g_in_t, p_in_t = [
             self.weights[k].t() for k in ["g_in.weight", "p_in.weight"]
         ]
-        C = TRIANGLE_MULT_CHUNK_SIZE
-        self.n_pairs = g_in_t.shape[1] // C // 2
-        self.gp_in_weight_fused_chunks = [
+        # The chunk width is a per-call decision (_trimul_chunk_size), so the fused input
+        # weights are built per width on first use and kept. Each variant is the same
+        # g_in/p_in bytes in a different column order -- 0.5 MB per trimul at c_z=256 --
+        # and a fold holds one sequence length, so in practice one variant exists.
+        self._g_in_t, self._p_in_t = g_in_t, p_in_t
+        self._hidden = g_in_t.shape[1] // 2
+        self._gp_cache: dict[int, list[ttnn.Tensor]] = {}
+        self.g_out_weight = self.torch_to_tt("g_out.weight")
+        self.out_p_weight = self.torch_to_tt("p_out.weight")
+
+    def _gp_in_chunks(self, C: int) -> list[ttnn.Tensor]:
+        """Fused [g_a | g_b | p_a | p_b] input weights for a chunk width of C."""
+        cached = self._gp_cache.get(C)
+        if cached is not None:
+            return cached
+        g, p = self._g_in_t, self._p_in_t
+        n_pairs = g.shape[1] // C // 2
+        chunks = [
             ttnn.from_torch(
                 torch.cat(
                     [
-                        g_in_t[:, i * C : (i + 1) * C],
-                        g_in_t[:, (i + self.n_pairs) * C : (i + self.n_pairs + 1) * C],
-                        p_in_t[:, i * C : (i + 1) * C],
-                        p_in_t[:, (i + self.n_pairs) * C : (i + self.n_pairs + 1) * C],
+                        g[:, i * C : (i + 1) * C],
+                        g[:, (i + n_pairs) * C : (i + n_pairs + 1) * C],
+                        p[:, i * C : (i + 1) * C],
+                        p[:, (i + n_pairs) * C : (i + n_pairs + 1) * C],
                     ],
                     dim=1,
                 ),
@@ -812,10 +864,10 @@ class TriangleMultiplication(Module):
                 device=self.device,
                 dtype=ttnn.bfloat16,
             )
-            for i in range(self.n_pairs)
+            for i in range(n_pairs)
         ]
-        self.g_out_weight = self.torch_to_tt("g_out.weight")
-        self.out_p_weight = self.torch_to_tt("p_out.weight")
+        self._gp_cache[C] = chunks
+        return chunks
 
     def _transform_chunk(
         self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig
@@ -864,6 +916,8 @@ class TriangleMultiplication(Module):
         H = x_norm_in.shape[1]
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
+        gp_in_chunks = self._gp_in_chunks(_trimul_chunk_size(H, self._hidden))
+        n_pairs = len(gp_in_chunks)
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
         if H > SEQ_LEN_MORE_CHUNKING:
@@ -883,10 +937,10 @@ class TriangleMultiplication(Module):
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
         x_chunks = [] if large_seq else None
-        for i in range(self.n_pairs):
+        for i in range(n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
                 x_norm_in,
-                self.gp_in_weight_fused_chunks[i],
+                gp_in_chunks[i],
                 memory_config=memory_config,
                 dtype=_dtype(),
                 compute_kernel_config=self.compute_kernel_config,

@@ -1,0 +1,172 @@
+{
+  "n": 128,
+  "c_z": 256,
+  "block_pipe_ms": 8.3009,
+  "rows": [
+    {
+      "part": "BLOCK (s,z)",
+      "serial_ms": 8.8677,
+      "pipe_ms": 8.3009
+    },
+    {
+      "part": "trimul start",
+      "serial_ms": 2.4994,
+      "pipe_ms": 2.172,
+      "share_of_block": 0.2617
+    },
+    {
+      "part": "trimul end",
+      "serial_ms": 2.4965,
+      "pipe_ms": 2.1611,
+      "share_of_block": 0.2603
+    },
+    {
+      "part": "tri_att start",
+      "serial_ms": 1.0508,
+      "pipe_ms": 0.9983,
+      "share_of_block": 0.1203
+    },
+    {
+      "part": "tri_att end",
+      "serial_ms": 1.4256,
+      "pipe_ms": 1.3728,
+      "share_of_block": 0.1654
+    },
+    {
+      "part": "transition_z",
+      "serial_ms": 1.2397,
+      "pipe_ms": 1.1013,
+      "share_of_block": 0.1327
+    },
+    {
+      "part": "s attention_pair_bias",
+      "serial_ms": 0.4354,
+      "pipe_ms": 0.3837,
+      "share_of_block": 0.0462
+    },
+    {
+      "part": "s transition",
+      "serial_ms": 0.1284,
+      "pipe_ms": 0.0946,
+      "share_of_block": 0.0114
+    },
+    {
+      "part": "trimul memory_config",
+      "note": "BufferType.L1"
+    },
+    {
+      "part": "trimul: layer_norm(z)",
+      "serial_ms": 0.0958,
+      "pipe_ms": 0.0653,
+      "share_of_block": 0.0079
+    },
+    {
+      "part": "trimul: minimal_matmul x1",
+      "serial_ms": 0.0966,
+      "pipe_ms": 0.0629,
+      "share_of_block": 0.0076
+    },
+    {
+      "part": "trimul: chunk(4) x1",
+      "serial_ms": 0.085,
+      "pipe_ms": 0.0611,
+      "share_of_block": 0.0074
+    },
+    {
+      "part": "trimul: permute(0,3,1,2) x1",
+      "serial_ms": 0.045,
+      "pipe_ms": 0.0197,
+      "share_of_block": 0.0024
+    },
+    {
+      "part": "trimul: permute(0,3,2,1) x1",
+      "serial_ms": 0.0468,
+      "pipe_ms": 0.0196,
+      "share_of_block": 0.0024
+    },
+    {
+      "part": "trimul: chunk matmul x1",
+      "serial_ms": 0.0776,
+      "pipe_ms": 0.0479,
+      "share_of_block": 0.0058
+    },
+    {
+      "part": "trimul: permute(0,2,3,1) x1",
+      "serial_ms": 0.0464,
+      "pipe_ms": 0.0191,
+      "share_of_block": 0.0023
+    },
+    {
+      "part": "trimul: reallocate x1",
+      "serial_ms": 0.0457,
+      "pipe_ms": 0.022,
+      "share_of_block": 0.0027
+    },
+    {
+      "part": "trimul: concat acc(32ch) + 32ch",
+      "serial_ms": 0.0473,
+      "pipe_ms": 0.0207,
+      "share_of_block": 0.0025
+    },
+    {
+      "part": "trimul: concat acc(160ch) + 32ch",
+      "serial_ms": 0.0682,
+      "pipe_ms": 0.0378,
+      "share_of_block": 0.0046
+    },
+    {
+      "part": "trimul: concat acc(288ch) + 32ch",
+      "serial_ms": 0.1054,
+      "pipe_ms": 0.0579,
+      "share_of_block": 0.007
+    },
+    {
+      "part": "tri_att: layer_norm(z)",
+      "serial_ms": 0.1158,
+      "pipe_ms": 0.0671,
+      "share_of_block": 0.0081
+    },
+    {
+      "part": "tri_att: bias linear",
+      "serial_ms": 0.1331,
+      "pipe_ms": 0.0852,
+      "share_of_block": 0.0103
+    },
+    {
+      "part": "tri_att: bias permute(0,3,1,2)",
+      "serial_ms": 0.0622,
+      "pipe_ms": 0.0326,
+      "share_of_block": 0.0039
+    },
+    {
+      "part": "tri_att: qkv linear",
+      "serial_ms": 0.3023,
+      "pipe_ms": 0.2553,
+      "share_of_block": 0.0308
+    },
+    {
+      "part": "tri_att: nlp_create_qkv_heads",
+      "serial_ms": 0.2116,
+      "pipe_ms": 0.1541,
+      "share_of_block": 0.0186
+    },
+    {
+      "part": "tri_att: SDPA",
+      "serial_ms": 0.2527,
+      "pipe_ms": 0.1982,
+      "share_of_block": 0.0239
+    },
+    {
+      "part": "tri_att: nlp_concat_heads",
+      "serial_ms": 0.1126,
+      "pipe_ms": 0.072,
+      "share_of_block": 0.0087
+    },
+    {
+      "part": "tri_att: out linear",
+      "serial_ms": 0.1682,
+      "pipe_ms": 0.1364,
+      "share_of_block": 0.0164
+    }
+  ]
+}
