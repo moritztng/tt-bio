@@ -1,0 +1,59 @@
+{
+  "legs": [
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "PASS",
+      "detail": "prot: X=2.840 R=2.763 D=2.671 within=True",
+      "wall": 248.19627858900094,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=1.773 R=1.923 D=1.461 within=True",
+      "wall": 261.3922619090008,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "PASS",
+      "detail": "hsa: X=0.697 R=0.695 D=0.579 within=True",
+      "wall": 1259.070723885001,
+      "committed": "NO-DATA",
+      "report": "protenix-hsa-msa.json"
+    },
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/trpcage_no_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "GAP",
+      "detail": "prot_no_msa: X=3.258 R=1.499 D=2.183 within=False",
+      "wall": 252.3387211909976,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "global DockQ=0.698",
+      "wall": 499.0442392219993,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    }
+  ],
+  "tally": {
+    "PASS": 4,
+    "BLOCKED-REF-REGEN-NEEDED": 1,
+    "GAP": 1
+  },
+  "total_wall_s": 2520.0435332099987,
+  "workers": [
+    "tt-quietbox2:0"
+  ]
+}
