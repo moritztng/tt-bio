@@ -1,0 +1,22 @@
+{
+  "model": "protenix-v2",
+  "arm": "off",
+  "target": "examples/prot300.yaml",
+  "n_aa": 298,
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "cold_s": 38.121,
+  "warm_s": [
+    31.769,
+    31.954,
+    31.848
+  ],
+  "median_ms": 31848.3,
+  "min_ms": 31769.1,
+  "plddt": 0.840781,
+  "cif_sha256_16": "d49af9baa50f00cc",
+  "n_tokens": 298,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350"
+}

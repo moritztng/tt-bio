@@ -1,0 +1,71 @@
+{
+  "model": "protenix-v2",
+  "bw": 1,
+  "n_aa": 298,
+  "hardware": "blackhole",
+  "applied_calls": 4832,
+  "declined_calls": 0,
+  "any_mismatch": false,
+  "rows": [
+    {
+      "shape": "(1, 298, 298, 256)@(256, 256)",
+      "calls": 2096,
+      "checked": 6,
+      "mismatched": 0,
+      "max_abs": 0.0,
+      "n_diff": 0,
+      "n_elem": 136402944,
+      "cfg": "pcm=25 bw=1 obh=5 obw=8 sh=1 sw=4"
+    },
+    {
+      "shape": "(298, 298, 256)@(256, 8)",
+      "calls": 1048,
+      "checked": 6,
+      "mismatched": 0,
+      "max_abs": 0.0,
+      "n_diff": 0,
+      "n_elem": 4262592,
+      "cfg": "pcm=25 bw=1 obh=5 obw=1 sh=1 sw=1"
+    },
+    {
+      "shape": "(298, 298, 256)@(256, 256)",
+      "calls": 1048,
+      "checked": 6,
+      "mismatched": 0,
+      "max_abs": 0.0,
+      "n_diff": 0,
+      "n_elem": 136402944,
+      "cfg": "pcm=25 bw=1 obh=5 obw=8 sh=1 sw=4"
+    },
+    {
+      "shape": "(1, 298, 298, 64)@(64, 64)",
+      "calls": 320,
+      "checked": 6,
+      "mismatched": 0,
+      "max_abs": 0.0,
+      "n_diff": 0,
+      "n_elem": 34100736,
+      "cfg": "pcm=25 bw=1 obh=5 obw=2 sh=1 sw=2"
+    },
+    {
+      "shape": "(298, 298, 64)@(64, 2)",
+      "calls": 160,
+      "checked": 6,
+      "mismatched": 0,
+      "max_abs": 0.0,
+      "n_diff": 0,
+      "n_elem": 1065648,
+      "cfg": "pcm=25 bw=1 obh=5 obw=1 sh=1 sw=1"
+    },
+    {
+      "shape": "(298, 298, 64)@(64, 64)",
+      "calls": 160,
+      "checked": 6,
+      "mismatched": 0,
+      "max_abs": 0.0,
+      "n_diff": 0,
+      "n_elem": 34100736,
+      "cfg": "pcm=25 bw=1 obh=5 obw=2 sh=1 sw=2"
+    }
+  ]
+}
