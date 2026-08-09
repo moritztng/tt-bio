@@ -45,9 +45,11 @@ def main() -> int:
     ap.add_argument("--size", required=True, choices=list(SIZES))
     ap.add_argument("--repeat", type=int, default=3, help="warm folds after the cold one")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--tag", default="",
+                    help="suffix for the result name, for paired rounds")
     args = ap.parse_args()
 
-    tag = f"{args.arm}_{args.model}_{args.size}"
+    tag = f"{args.arm}_{args.model}_{args.size}{args.tag}"
     OUT.mkdir(parents=True, exist_ok=True)
     js = OUT / f"{tag}.json"
     if js.exists() and not args.force:
