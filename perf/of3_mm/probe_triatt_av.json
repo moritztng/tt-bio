@@ -1,0 +1,56 @@
+[
+ {
+  "case": "triatt_av",
+  "note": "trunk tri-att attn@v",
+  "a": [
+   320,
+   4,
+   320,
+   320
+  ],
+  "b": [
+   320,
+   4,
+   320,
+   32
+  ],
+  "B": 1280,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 1,
+  "arms": {
+   "auto": {
+    "ms": 5.552521333205125
+   },
+   "grid11": {
+    "ms": 0.7641843330929987,
+    "bit_exact": false,
+    "pcc_vs_auto": 1.0006486177444458,
+    "maxabs_vs_auto": 0.001953125,
+    "pcc_vs_fp32": 1.0008784532546997
+   },
+   "grid13": {
+    "ms": 0.7576306670671329,
+    "bit_exact": false,
+    "pcc_vs_auto": 1.0006486177444458,
+    "maxabs_vs_auto": 0.001953125,
+    "pcc_vs_fp32": 1.0008784532546997
+   },
+   "reuse_Mt_Nt_k1": {
+    "ms": 0.7272813333353648,
+    "bit_exact": false,
+    "pcc_vs_auto": 1.0006486177444458,
+    "maxabs_vs_auto": 0.001953125,
+    "pcc_vs_fp32": 1.0008784532546997
+   },
+   "reuse_Mt_Nt_kall": {
+    "ms": 0.7367843342459915,
+    "bit_exact": false,
+    "pcc_vs_auto": 1.0006483793258667,
+    "maxabs_vs_auto": 0.001953125,
+    "pcc_vs_fp32": 1.0008785724639893
+   }
+  },
+  "auto_pcc_vs_fp32": 1.0008783340454102
+ }
+]

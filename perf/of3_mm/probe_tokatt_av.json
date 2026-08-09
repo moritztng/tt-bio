@@ -1,0 +1,47 @@
+[
+ {
+  "case": "tokatt_av",
+  "note": "trunk token apb attn@v",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 1,
+  "arms": {
+   "auto": {
+    "ms": 0.08211860040319152
+   },
+   "grid11": {
+    "ms": 0.05718499960494228,
+    "bit_exact": false
+   },
+   "grid13": {
+    "ms": 0.030963600147515535,
+    "bit_exact": false
+   },
+   "reuse_Mt_Nt_k1": {
+    "ms": 0.033073400118155405,
+    "bit_exact": false
+   },
+   "reuse_Mt_Nt_kall": {
+    "ms": 0.047681399883003905,
+    "bit_exact": false
+   },
+   "reuse_M5_Nt_k1": {
+    "ms": 0.055856999824754894,
+    "bit_exact": false
+   }
+  }
+ }
+]

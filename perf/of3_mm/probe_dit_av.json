@@ -1,0 +1,47 @@
+[
+ {
+  "case": "dit_av",
+  "note": "DiT attn@v",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 2,
+  "arms": {
+   "auto": {
+    "ms": 0.10886420059250668
+   },
+   "grid11": {
+    "ms": 0.039291400025831535,
+    "bit_exact": false
+   },
+   "grid13": {
+    "ms": 0.03506939974613488,
+    "bit_exact": false
+   },
+   "reuse_Mt_Nt_k1": {
+    "ms": 0.03196960024069995,
+    "bit_exact": false
+   },
+   "reuse_Mt_Nt_kall": {
+    "ms": 0.04421720004756935,
+    "bit_exact": false
+   },
+   "reuse_M5_Nt_k1": {
+    "ms": 0.08034880011109635,
+    "bit_exact": false
+   }
+  }
+ }
+]

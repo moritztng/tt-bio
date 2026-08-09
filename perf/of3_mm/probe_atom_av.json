@@ -1,0 +1,45 @@
+[
+ {
+  "case": "atom_av",
+  "note": "atom-tf attn@v rank5",
+  "a": [
+   1,
+   75,
+   4,
+   32,
+   128
+  ],
+  "b": [
+   1,
+   75,
+   4,
+   128,
+   32
+  ],
+  "B": 300,
+  "Mt": 1,
+  "Kt": 4,
+  "Nt": 1,
+  "arms": {
+   "auto": {
+    "ms": 0.527237200003583
+   },
+   "grid11": {
+    "ms": 0.04924519962514751,
+    "bit_exact": false
+   },
+   "grid13": {
+    "ms": 0.038515200139954686,
+    "bit_exact": false
+   },
+   "reuse_Mt_Nt_k1": {
+    "ms": 0.052706999849760905,
+    "bit_exact": false
+   },
+   "reuse_Mt_Nt_kall": {
+    "ms": 0.03092740007559769,
+    "bit_exact": false
+   }
+  }
+ }
+]
