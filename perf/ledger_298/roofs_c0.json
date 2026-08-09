@@ -1,0 +1,97 @@
+{
+  "device": {
+    "compute_grid": "13x10",
+    "core_grid_main": "11x10",
+    "ttnn": "?"
+  },
+  "compute_roof": {
+    "runs": {
+      "2048_op_ckc_oDRAM": {
+        "ms": 0.194,
+        "tflops": 88.55
+      },
+      "2048_op_ckc_oL1": {
+        "ms": 0.2467,
+        "tflops": 69.65
+      },
+      "2048_plain_ckc_oDRAM": {
+        "ms": 0.2237,
+        "tflops": 76.79
+      },
+      "2048_plain_ckc_oL1": {
+        "ms": 1.1721,
+        "tflops": 14.66
+      },
+      "4096_op_ckc_oDRAM": {
+        "ms": 1.068,
+        "tflops": 128.69
+      },
+      "4096_op_ckc_oL1": {
+        "ms": 25.0413,
+        "tflops": 5.49
+      },
+      "4096_plain_ckc_oDRAM": {
+        "ms": 1.4575,
+        "tflops": 94.3
+      },
+      "4096_plain_ckc_oL1": {
+        "ms": 2.342,
+        "tflops": 58.68
+      },
+      "6144_op_ckc_oDRAM": {
+        "ms": 3.4208,
+        "tflops": 135.6
+      },
+      "6144_op_ckc_oL1": {
+        "ms": 84.2274,
+        "tflops": 5.51
+      },
+      "6144_plain_ckc_oDRAM": {
+        "ms": 4.7822,
+        "tflops": 97.0
+      },
+      "6144_plain_ckc_oL1": {
+        "ms": 83.6291,
+        "tflops": 5.55
+      }
+    },
+    "peak_TFLOPs": 135.6
+  },
+  "dram_roofs": {
+    "runs": [
+      {
+        "MB": 8.0,
+        "read_GBs": 245.5,
+        "write_GBs": 195.2,
+        "dram2dram_rw_GBs": 326.8
+      },
+      {
+        "MB": 16.0,
+        "read_GBs": 326.5,
+        "write_GBs": 230.6,
+        "dram2dram_rw_GBs": 369.0
+      },
+      {
+        "MB": 32.0,
+        "read_GBs": 363.6,
+        "write_GBs": 252.6,
+        "dram2dram_rw_GBs": 386.7
+      },
+      {
+        "MB": 48.0,
+        "read_GBs": 378.8,
+        "write_GBs": 259.1,
+        "dram2dram_rw_GBs": 399.4
+      },
+      {
+        "MB": 64.0,
+        "read_GBs": 386.8,
+        "write_GBs": 263.6,
+        "dram2dram_rw_GBs": 402.4
+      }
+    ],
+    "read_peak_GBs": 386.8,
+    "write_peak_GBs": 263.6
+  },
+  "machine_balance_FLOP_per_byte_read": 350.6
+}
