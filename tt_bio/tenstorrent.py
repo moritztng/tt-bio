@@ -73,6 +73,9 @@ _TRIMUL_RAW_CHANNEL_MOVES = False
 # run-to-run noise floor of exactly 0.0 (perf/trimul_kernel/w2_fold_parity.py). That is a
 # different fold, not a rounding difference. See _trimul_out_proj.
 _TRIMUL_MM_OUT = False
+# Widest inner K block the pair-track projection config may use. 1 keeps the contraction
+# order of the production call, so the change is bit-exact; None disables the config.
+_PAIR_PROJ_BW: int | None = 1
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
@@ -353,6 +356,111 @@ def _tri_att_qkv_l1_config(
     )
 
 
+
+@lru_cache(maxsize=None)
+def _pair_proj_program_config(
+    m_tiles: int, k_tiles: int, n_tiles: int, in0_block_w: int, elem_bytes: int
+) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
+    """Program config for a tall pair-track projection, or None if the shape is outside it.
+
+    `ttnn.linear(core_grid=...)` derives `in0_block_w = 1` and `out_block_h = per_core_M` for
+    these shapes, and both are the worst legal choice on a 102400x256 @ 256x256 pair-track
+    projection. At `in0_block_w = 1` a core builds each output tile in Kt inner blocks, so the
+    in1 multicast barrier, the DEST clear and the packer pass that folds the partial through
+    `packer_l1_acc` are all paid Kt times per output tile instead of once. At
+    `out_block_h = per_core_M` a core finishes its whole output block before the writer moves
+    any of it, so a 52.4 MB DRAM write has only the tail of the op to hide behind.
+
+    Dropping `out_block_h` to 5 alone is 0.7521 -> 0.5957 ms on that class, 1.263x, and it is
+    `torch.equal` against the production call: with `in0_block_w` unchanged the contraction is
+    accumulated in the same order, only the drain schedule moves. Raising `in0_block_w` on top
+    is a further 1.55x and is NOT bit-exact (perf/pf_matmul/proj_ab.py).
+
+    Returns None whenever anything does not divide or the circular buffers do not fit, so a
+    shape outside the measured set keeps today's behaviour.
+    """
+    gx, gy = COMPUTE_GRID_MAIN
+    num_cores = gx * gy
+    if m_tiles < num_cores or k_tiles % in0_block_w:
+        return None  # a 1D M-split cannot fill the grid below one tile row per core
+    # per_core_M need not divide m_tiles -- only ceil(m_tiles/per_core_M) <= num_cores is
+    # required -- but out_block_h must divide per_core_M, and 5 is the measured optimum. The
+    # production shape is a batched (298, 298, c_z), so m_tiles = 2980 and the smallest legal
+    # per_core_M is 23, a prime that would force out_block_h to 1 or 23. Rounding up to the next
+    # multiple of 5 costs 120 of 130 cores instead of 130 and buys the drain schedule.
+    per_core_M = -(-(-(-m_tiles // num_cores)) // 5) * 5
+    if per_core_M > m_tiles or -(-m_tiles // per_core_M) > num_cores:
+        return None
+    out_block_h = 5
+    out_block_w = n_tiles
+    sh = max(h for h in range(min(4, out_block_h), 0, -1) if out_block_h % h == 0)
+    sw = max(w for w in range(min(4 // sh, out_block_w), 0, -1) if out_block_w % w == 0)
+    try:
+        l1 = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:
+        return None
+    tile = 1024 * elem_bytes
+    # in0 and in1 are double-buffered per K block; the output block carries its bf16 tile plus
+    # the fp32 partial the packer accumulates into.
+    need = (2 * in0_block_w * (out_block_h + out_block_w) * tile
+            + out_block_h * out_block_w * (tile + 4096) + 128 * 1024)
+    if need > l1:
+        return None
+    return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+        compute_with_storage_grid_size=(gx, gy),
+        in0_block_w=in0_block_w,
+        out_subblock_h=sh,
+        out_subblock_w=sw,
+        out_block_h=out_block_h,
+        out_block_w=out_block_w,
+        per_core_M=per_core_M,
+        per_core_N=n_tiles,
+        fuse_batch=True,
+        fused_activation=None,
+        mcast_in0=False,
+    )
+
+
+def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor) -> object | None:
+    """_pair_proj_program_config for a concrete operand pair, or None if it does not apply."""
+    if _PAIR_PROJ_BW is None or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+        return None
+    try:
+        xs, ws = list(x.shape), list(w.shape)
+        if len(xs) < 2 or len(ws) != 2:
+            return None
+        # Tiles as ttnn stores them: the last two dims are the tile grid and every leading dim is
+        # batch, which fuse_batch flattens into M. The pair track is (B, N_tok, N_tok, c_z), so
+        # a logical 298 pads to 320 per batch row and m_tiles is 298 x 10, not (298 x 298)/32.
+        batch = 1
+        for d in xs[:-2]:
+            batch *= int(d)
+        m_tiles = batch * -(-int(xs[-2]) // 32)
+        k_tiles = -(-int(xs[-1]) // 32)
+        n_tiles = -(-int(ws[-1]) // 32)
+        if k_tiles != -(-int(ws[-2]) // 32):
+            return None
+        bw = max((d for d in (k_tiles, 8, 4, 2, 1)
+                  if d <= _PAIR_PROJ_BW and k_tiles % d == 0), default=1)
+        return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2)
+    except Exception:
+        return None
+
+
+def _pair_proj_linear(x, w, ckc, dtype):
+    """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows."""
+    cfg = _pair_proj_config(x, w)
+    if cfg is not None:
+        return ttnn.linear(
+            x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+            compute_kernel_config=ckc, program_config=cfg,
+        )
+    return ttnn.linear(
+        x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
+    )
+
+
 def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
     """_tri_att_qkv_l1_config for a concrete operand pair, or None if it does not apply."""
     if dtype != ttnn.bfloat16:
@@ -436,6 +544,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _sdpa_program_config_for_lengths.cache_clear()
     _triangle_mul_program_config.cache_clear()
     _tri_att_qkv_l1_config.cache_clear()
+    _pair_proj_program_config.cache_clear()
 
 
 def set_fast_mode(enabled: bool) -> None:
@@ -925,10 +1034,7 @@ def _trimul_out_proj(
             x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
             compute_kernel_config=ckc,
         )
-    return ttnn.linear(
-        x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
-        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
-    )
+    return _pair_proj_linear(x, weight, ckc, _dtype())
 
 
 class TriangleMultiplication(Module):
@@ -1303,12 +1409,8 @@ class TriangleAttention(Module):
             for s in range(0, S, chunk):
                 e = min(s + chunk, S)
                 xc = normed_rows(s, e)
-                b = ttnn.linear(
-                    xc,
-                    self.bias_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=ttnn.bfloat16,
-                    core_grid=CORE_GRID_MAIN,
+                b = _pair_proj_linear(
+                    xc, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
                 )
                 ttnn.deallocate(xc)
                 # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an
@@ -1332,12 +1434,8 @@ class TriangleAttention(Module):
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
             )
-            triangle_bias = ttnn.linear(
-                x,
-                self.bias_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                dtype=ttnn.bfloat16,
-                core_grid=CORE_GRID_MAIN,
+            triangle_bias = _pair_proj_linear(
+                x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
             )
             triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
@@ -1387,12 +1485,8 @@ class TriangleAttention(Module):
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
-            x_out = ttnn.linear(
-                o_in,
-                self.o_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                dtype=_dtype(),
-                core_grid=CORE_GRID_MAIN,
+            x_out = _pair_proj_linear(
+                o_in, self.o_weight, self.compute_kernel_config, _dtype()
             )
             ttnn.deallocate(o_in)
             return x_out
