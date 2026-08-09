@@ -1,0 +1,91 @@
+{
+ "grid": "11x10",
+ "H_permute": {
+  "L1_permute_0312": {
+   "us": 97.2,
+   "gbps": 134.9
+  },
+  "L1_permute_0321": {
+   "us": 83.1,
+   "gbps": 157.8
+  },
+  "L1_permute_0213_wholetile": {
+   "us": 79.8,
+   "gbps": 164.2
+  },
+  "L1_transpose_m2_m1": {
+   "us": 14.9,
+   "gbps": 880.2
+  },
+  "L1_clone": {
+   "us": 15.5,
+   "gbps": 845.0
+  },
+  "L1_typecast_same": {
+   "us": 15.3,
+   "gbps": 859.2
+  },
+  "L1_untilize": {
+   "us": 65.0,
+   "gbps": 201.7
+  },
+  "L1_tilize": {
+   "us": 44.1,
+   "gbps": 297.0
+  },
+  "L1_roundtrip_us": 109.1,
+  "DRAM_permute_0312": {
+   "us": 149.7,
+   "gbps": 87.6
+  },
+  "DRAM_permute_0321": {
+   "us": 538.4,
+   "gbps": 24.3
+  },
+  "DRAM_permute_0213_wholetile": {
+   "us": 138.1,
+   "gbps": 94.9
+  },
+  "DRAM_transpose_m2_m1": {
+   "us": 39.6,
+   "gbps": 330.7
+  },
+  "DRAM_clone": {
+   "us": 37.4,
+   "gbps": 350.3
+  },
+  "DRAM_typecast_same": {
+   "us": 39.3,
+   "gbps": 333.3
+  },
+  "DRAM_untilize": {
+   "us": 80.6,
+   "gbps": 162.7
+  },
+  "DRAM_tilize": {
+   "us": 199.1,
+   "gbps": 65.8
+  },
+  "DRAM_roundtrip_us": 279.7
+ },
+ "N_d2d": [
+  {
+   "MB": 8.0,
+   "d2d_rw_gbps": 309.7,
+   "d2d_perdir_gbps": 154.9,
+   "ms": 0.0516
+  },
+  {
+   "MB": 16.0,
+   "d2d_rw_gbps": 334.9,
+   "d2d_perdir_gbps": 167.5,
+   "ms": 0.0955
+  },
+  {
+   "MB": 32.0,
+   "d2d_rw_gbps": 378.1,
+   "d2d_perdir_gbps": 189.0,
+   "ms": 0.1693
+  }
+ ]
+}
