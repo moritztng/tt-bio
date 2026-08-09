@@ -32,7 +32,7 @@ import ttnn
 from . import protenix_weights as PW
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, _linear)
+                          MSA_CHUNK_SIZE)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -303,7 +303,7 @@ class _KeyedWeights:
                                dtype=getattr(self, "dtype", ttnn.bfloat16))
 
     def _lin(self, x, wkey, bkey=None, activation=None):
-        return _linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
+        return ttnn.linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
                            activation=activation, compute_kernel_config=self.compute_kernel_config,
                            dtype=getattr(self, "dtype", ttnn.bfloat16), core_grid=CORE_GRID_MAIN)
 
@@ -425,7 +425,7 @@ class AtomTransformer(_KeyedWeights, Module):
         q_norm = self._adaln(a, s, apb + "layernorm_a.")
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
         o = self._attention(q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=z_pre)
-        g = _linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
+        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
                         compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
@@ -520,7 +520,7 @@ class AtomTransformer(_KeyedWeights, Module):
         q_norm = self._adaln(a, s, apb + "layernorm_a.")
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
         o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
-        g = _linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
+        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
                         compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
@@ -598,7 +598,7 @@ class AtomFeaturization(Module):
         self.w_v = self.torch_to_tt("linear_no_bias_v.weight", dtype=dtype)
 
     def _lin_nb(self, x, w):
-        return _linear(
+        return ttnn.linear(
             x, w, compute_kernel_config=self.compute_kernel_config,
             dtype=self.dtype, core_grid=CORE_GRID_MAIN,
         )
@@ -1088,7 +1088,7 @@ class DiffusionModule(_KeyedWeights):
         wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
 
         def linb(x, wk, bk=None, act=None):
-            return _linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
+            return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t)
@@ -1116,7 +1116,7 @@ class DiffusionModule(_KeyedWeights):
         wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
 
         def linb(x, wk, bk=None, act=None):
-            return _linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
+            return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t)
@@ -1343,7 +1343,7 @@ class ConfidenceHead:
         b = None
         if bias:
             b = self._wtt(wkey.replace(".weight", ".bias"), False) if (wkey.replace(".weight", ".bias") in self._w) else None
-        return _linear(x, self._wtt(wkey), bias=b,
+        return ttnn.linear(x, self._wtt(wkey), bias=b,
                            compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
 
     def _device_resident(self, s_inputs, s_trunk, z_base_dev, feats):
@@ -1686,7 +1686,7 @@ class Protenix:
         from .tenstorrent import Transition
         C = "diffusion_module.diffusion_conditioning."
         T = self.diffusion._up
-        relpe = _linear(T(relp), T(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
+        relpe = ttnn.linear(T(relp), T(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
                             compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
                             core_grid=CORE_GRID_MAIN)
         if self.diffusion._diffusion_fp32:
@@ -1705,7 +1705,7 @@ class Protenix:
                 if C + "linear_no_bias_z_trunk.weight" in self._w:
                     zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                          epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-                    zt = _linear(zn, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
+                    zt = ttnn.linear(zn, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
                                      compute_kernel_config=self.compute_kernel_config,
                                      dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
                     ttnn.deallocate(zn)
@@ -1713,7 +1713,7 @@ class Protenix:
                 ttnn.deallocate(zt)
                 zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                                      compute_kernel_config=self.compute_kernel_config)
-                pb = _linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
+                pb = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
                                  compute_kernel_config=self.compute_kernel_config,
                                  dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
                 ttnn.deallocate(zc)
@@ -1731,13 +1731,13 @@ class Protenix:
         if C + "linear_no_bias_z_trunk.weight" in self._w:
             zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-            z_trunk_tt = _linear(zt, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
+            z_trunk_tt = ttnn.linear(zt, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
                                      compute_kernel_config=self.compute_kernel_config,
                                      dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
         zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
         zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
-        pz = _linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
+        pz = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
                          compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
                          core_grid=CORE_GRID_MAIN)
         # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path

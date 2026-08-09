@@ -56,12 +56,17 @@ def main() -> int:
             fired["n"] += 1
         return tuned(x, w, **kw)
 
+    mods = [m for m in (T, P) if hasattr(m, "_linear")]
     if a.arm == "off":
-        T._linear = P._linear = plain
+        for m in mods:
+            m._linear = plain
     elif a.scope == "trunk":
-        T._linear, P._linear = counting, plain
+        T._linear = counting
+        if hasattr(P, "_linear"):
+            P._linear = plain
     else:
-        T._linear = P._linear = counting
+        for m in mods:
+            m._linear = counting
 
     one_fold, meta, _state = B.build_fold(a.model, ROOT / f".msa_ab", a.target, a.a3m)
     cold_s, cold_m = one_fold()

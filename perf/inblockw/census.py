@@ -87,7 +87,7 @@ def main() -> int:
     # protenix.py does `from .tenstorrent import _linear`, so its 12 sites hold their own
     # module-level binding: patching T._linear alone would silently miss every one of them.
     import tt_bio.protenix as P
-    patched = [(T, T._linear), (P, P._linear)]
+    patched = [(m, m._linear) for m in (T, P) if hasattr(m, "_linear")]
     for mod, _ in patched:
         mod._linear = spy   # the switched call sites only; ttnn.linear itself is untouched
     try:
