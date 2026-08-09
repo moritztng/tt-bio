@@ -5,7 +5,8 @@ W11 (`perf/w6_gate/arm.py`, branch `wk/perfwar-w6-fold-parity-gate`) split W6's 
 changes and found exactly one that survives a fold gate: C2, the pair-tensor dim0/dim1 permute
 into L1, and only with the D2 defect fixed. This script is that arm and nothing else, rebuilt
 from `main` at BASE_REF instead of W11's pinned 96482b1e, because main has since taken W2's
-trimul merge and L1's pair-track program config and the baseline moved with them.
+trimul merge, L1's pair-track program config and E7's batched_matmul, and the baseline
+moved with each of them.
 
   BASE    current main, untouched
   C2FIX   the permute-into-L1 helper + its three call sites, with:
@@ -38,7 +39,7 @@ REPO = Path(__file__).resolve().parent.parent.parent
 TARGET = REPO / "tt_bio" / "tenstorrent.py"
 # The main tip this leg re-measured against. Pinned so BASE and C2FIX stay comparable if main
 # moves under the run; re-point it and re-run the whole sweep, do not mix bases.
-BASE_REF = "a8ccd374"
+BASE_REF = "f7c485c5"
 W6_REF = "origin/wk/perfwar-attention-block-fusion"
 
 
