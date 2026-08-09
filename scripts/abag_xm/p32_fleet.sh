@@ -44,7 +44,8 @@ SRC=$H/deepn_src_oomfix
 B=$H/p32; mkdir -p $B $B/claims
 NCHIP=${1:-32}
 STAGGER=${2:-8}
-CHIPS=${CHIPS:-$(seq -s' ' 0 $((NCHIP-1)))}
+# default excludes chips quarantined during p31 (hang-prone; 18 died to PCI rescan)
+CHIPS=${CHIPS:-"1 3 4 5 6 7 8 9 11 12 13 14 15 17 19 20 21 22 23 24 25 26 27 28 29 30 31"}
 PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
 MSA=$H/abag_xm/msa_cache
