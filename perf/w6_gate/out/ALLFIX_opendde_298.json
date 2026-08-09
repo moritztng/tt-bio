@@ -1,0 +1,35 @@
+{
+  "arm": "ALLFIX",
+  "model": "opendde",
+  "size": "298",
+  "n_tokens": 298,
+  "n_atoms": 2398,
+  "n_residues": 298,
+  "cold_s": 58.29,
+  "warm_s": [
+    50.933,
+    50.676,
+    50.846
+  ],
+  "warm_median_s": 50.846,
+  "warm_min_s": 50.676,
+  "confidence": {
+    "complex_plddt": 0.793895,
+    "plddt": 0.793895,
+    "ptm": 0.847125,
+    "iptm": 0.0,
+    "confidence_score": 0.847125
+  },
+  "coords_shape": [
+    2398,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 5.08,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 210.7
+}
