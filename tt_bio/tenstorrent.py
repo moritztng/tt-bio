@@ -1618,7 +1618,8 @@ class AttentionPairBias(Module):
                 qkv,
                 num_heads=self.n_heads,
                 num_kv_heads=self.n_heads,
-                transpose_k_heads=False,
+                # the raw-matmul path wants k^T; the head split does the transpose for free
+                transpose_k_heads=self.raw_matmul_attention,
             )
             ttnn.deallocate(qkv)
             # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
@@ -1648,10 +1649,8 @@ class AttentionPairBias(Module):
                     z = ttnn.multiply(z, self.head_dim ** -0.5)
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
-                kt = ttnn.permute(k, (0, 1, 3, 2))
-                sc = ttnn.matmul(q, kt,
+                sc = ttnn.matmul(q, k,
                                  compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(kt)
                 sc = ttnn.multiply(sc, self.head_dim ** -0.5)
                 sc = ttnn.add(sc, z)
                 attn = ttnn.softmax(sc, dim=-1)
