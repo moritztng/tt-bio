@@ -266,7 +266,7 @@ def _fp32_softmax_attention(
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
     ttnn.deallocate(sc)
-    o = ttnn.matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
+    o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o
 
@@ -459,19 +459,32 @@ def _batched_matmul_config(
 _BATCHED_MATMUL_ON = os.environ.get("TT_BIO_BATCHED_MATMUL", "1") != "0"
 
 
-def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None) -> ttnn.Tensor:
+def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
+                   dtype=None) -> ttnn.Tensor:
     """ttnn.matmul for a batched attention matmul, with the batch spread over the core grid.
 
-    Drop-in for `ttnn.matmul(a, b, compute_kernel_config=...)` on batched DRAM-interleaved
-    operands. Falls back to exactly that call whenever _batched_matmul_config declines.
+    Drop-in for `ttnn.matmul(a, b, compute_kernel_config=..., dtype=...)` on batched
+    DRAM-interleaved operands. Falls back to exactly that call whenever the chooser declines.
+
+    Any rank >= 4 is in range: every leading dim is one batch, so the openfold3 atom
+    transformer's rank-5 [1,nb,H,Q,dh] operands are 300 batch elements, not an unsupported
+    shape. ttnn accepts the config at rank 5 and returns bit-exact (perf/ktiles/of3_classes.py).
+    The leading dims must match on both sides -- the factory reads the batch off in0 alone, so
+    a broadcast in1 would stride through memory it does not own.
     """
-    sa, sb = a.shape, b.shape
+    sa, sb = tuple(a.shape), tuple(b.shape)
     cfg = None
-    if len(sa) == 4 and len(sb) == 4 and a.dtype == b.dtype and _BATCHED_MATMUL_ON:
+    if (len(sa) >= 4 and len(sa) == len(sb) and sa[:-2] == sb[:-2]
+            and a.dtype == b.dtype and _BATCHED_MATMUL_ON):
+        batch = 1
+        for d in sa[:-2]:
+            batch *= d
         cfg = _batched_matmul_config(
-            sa[0] * sa[1], -(-sa[2] // 32), -(-sa[3] // 32), -(-sb[3] // 32),
+            batch, -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32),
             4 if a.dtype == ttnn.float32 else 2)
-    return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg)
+    kw = {} if dtype is None else {"dtype": dtype}
+    return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,
+                       **kw)
 
 
 def _apply_grid_thresholds(grid: tuple[int, int]) -> None:

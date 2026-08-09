@@ -1,0 +1,141 @@
+{
+ "rank4": [
+  {
+   "label": "of3 DiT AV            (diffusion_transformer.py:193)",
+   "a": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "b": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "dtype": "DataType.FLOAT32",
+   "applied": true,
+   "per_core_M": 5,
+   "per_core_N": 2,
+   "in0_block_w": 2,
+   "blocks": 32,
+   "bit_exact": true
+  },
+  {
+   "label": "of3 DiT QK^T          (declines, Nt=10)",
+   "a": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "b": [
+    1,
+    16,
+    64,
+    320
+   ],
+   "dtype": "DataType.FLOAT32",
+   "applied": false
+  },
+  {
+   "label": "of3 triatt AV         (tenstorrent.py:269)",
+   "a": [
+    298,
+    4,
+    298,
+    298
+   ],
+   "b": [
+    298,
+    4,
+    298,
+    32
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "applied": true,
+   "per_core_M": 10,
+   "per_core_N": 1,
+   "in0_block_w": 2,
+   "blocks": 1192,
+   "bit_exact": true
+  },
+  {
+   "label": "of3 triatt QK^T       (declines, Nt=10)",
+   "a": [
+    298,
+    4,
+    298,
+    32
+   ],
+   "b": [
+    298,
+    4,
+    32,
+    298
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "applied": false
+  },
+  {
+   "label": "of3 APB AV            (tenstorrent.py:269)",
+   "a": [
+    1,
+    16,
+    298,
+    298
+   ],
+   "b": [
+    1,
+    16,
+    298,
+    32
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "applied": true,
+   "per_core_M": 5,
+   "per_core_N": 1,
+   "in0_block_w": 2,
+   "blocks": 32,
+   "bit_exact": true
+  },
+  {
+   "label": "of3 APB QK^T          (declines, Nt=10)",
+   "a": [
+    1,
+    16,
+    298,
+    32
+   ],
+   "b": [
+    1,
+    16,
+    32,
+    298
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "applied": false
+  },
+  {
+   "label": "of3 trimul-class      (declines, Nt=10)",
+   "a": [
+    1,
+    64,
+    298,
+    298
+   ],
+   "b": [
+    1,
+    64,
+    298,
+    298
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "applied": false
+  }
+ ],
+ "rank5_cfg_built": true,
+ "rank5_accepted": true,
+ "rank5_bit_exact": true
+}

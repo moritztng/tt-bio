@@ -56,7 +56,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype
+from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, batched_matmul
 from .openfold3_atom_transformer import remap_of3_adaln
 
 C_A = 768
@@ -190,7 +190,7 @@ class _DiTBlock(Module):
         attn = ttnn.softmax(sc, dim=-1, numeric_stable=True)
         ttnn.deallocate(sc)
         attn = ttnn.typecast(attn, self._act_dtype)
-        o = ttnn.matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
+        o = batched_matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(attn); ttnn.deallocate(v)
         # Slice padded head_dim 64->48, merge heads -> [1, N, 768].
         o = o[:, :, :, :HEAD_DIM]

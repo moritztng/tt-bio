@@ -31,6 +31,18 @@ CASES = [
     ((1, 16, 608, 608), (1, 16, 608, 64), BF16, True),  # DiT AV, opendde
     ((1, 8, 608, 608), (1, 8, 608, 64), BF16, True),    # DiT AV, opendde tail chunk
     ((1, 16, 608, 64), (1, 16, 64, 608), BF16, False),  # DiT QK^T: 0.65x, must decline
+    # openfold3, read off a real 298 aa fold by perf/ktiles/of3_shapes.py. Its tri-attention is
+    # the shared raw-attention helper rather than the fused SDPA the other models take, so these
+    # are the only trunk sites in the audit.
+    ((1, 16, 320, 320), (1, 16, 320, 64), F32, True),    # DiT AV, openfold3_diffusion_transformer
+    ((298, 4, 298, 298), (298, 4, 298, 32), BF16, True), # tri-attention AV, tenstorrent.py:269
+    ((1, 16, 298, 298), (1, 16, 298, 32), BF16, True),   # AttentionPairBias AV, tenstorrent.py:269
+    ((298, 4, 298, 32), (298, 4, 32, 298), BF16, False), # tri-attention QK^T: Nt=10, declines
+    ((1, 64, 298, 298), (1, 64, 298, 298), BF16, False), # trimul class: Nt=10, declines
+    # rank 5: the openfold3 atom transformer's windowed attention. ttnn accepts the config here
+    # and returns bit-exact, so rank is not the gate -- every leading dim is one batch element.
+    ((1, 75, 4, 32, 32), (1, 75, 4, 32, 128), F32, True),   # atom AV
+    ((1, 75, 4, 32, 128), (1, 75, 4, 128, 32), F32, True),  # atom QK^T
 ]
 
 
@@ -48,12 +60,15 @@ def test_batched_matmul_config():
             b = ttnn.from_torch(torch.randn(sb), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev,
                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
             m_tiles = -(-sa[-2] // 32)
-            cfg = T._batched_matmul_config(sa[0] * sa[1], m_tiles, -(-sa[-1] // 32),
+            batch = 1
+            for d in sa[:-2]:
+                batch *= d
+            cfg = T._batched_matmul_config(batch, m_tiles, -(-sa[-1] // 32),
                                           -(-sb[-1] // 32), 4 if dt == F32 else 2)
             assert (cfg is not None) == want, f"{sa}x{sb} {dt}: expected applied={want}"
             if cfg is not None:
                 gx, gy = T.COMPUTE_GRID_MAIN
-                blocks = sa[0] * sa[1] * m_tiles // cfg.per_core_M
+                blocks = batch * m_tiles // cfg.per_core_M
                 assert cfg.per_core_M == m_tiles or blocks <= gx * gy, (
                     f"{sa}x{sb}: per_core_M={cfg.per_core_M} splits Mt={m_tiles} and puts "
                     f"{blocks} blocks on {gx * gy} cores, so a core takes more than one block "
