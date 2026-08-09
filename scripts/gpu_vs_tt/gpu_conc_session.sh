@@ -14,9 +14,10 @@
 #   BUDGET_S=1500   wall clock from session start after which no new point is started
 #   MODEL           protenix-v2 (default) | opendde
 #   FOLDS=4         timed folds per worker per point
-#   NS="1 2 4 8"    concurrency values for the plain sweep
-#   MPS_NS="4 8 2"  concurrency values for the MPS sweep (4 first: most informative)
-#   TARGETS300=1    also run the 298-aa target at N=1,4 if the budget allows
+#   NS="1"          concurrency values for the plain sweep (N=1 doubles as the control)
+#   MPS_NS="8 4 2"  concurrency values for the MPS sweep (8 first: the disputed headline)
+#   DISTINCT_LEG=1  also run MPS N=8 with 8 DIFFERENT targets (the same-input control)
+#   TARGETS300=1    also run the 298-aa target (plain N=1 + MPS N=4,8) if budget allows
 #   SAMPLES_LEG=1   also sweep diffusion samples 2 and 4 at N=1 (see the state doc)
 #   SKIP_SETUP=1    reuse an already-provisioned instance
 #   RESULTS/RUNROOT/PY  overrides, used to smoke-test the driver off the rental
@@ -29,9 +30,12 @@ mkdir -p "$RESULTS"
 MODEL=${MODEL:-protenix-v2}
 CKPT=${CKPT:-/root/ckpt/protenix-v2.pt}
 FOLDS=${FOLDS:-4}
-NS=${NS:-"1 2 4 8"}
-MPS_NS=${MPS_NS:-"4 8 2"}
+NS=${NS:-"1"}
+MPS_NS=${MPS_NS:-"8 4 2"}
 BUDGET_S=${BUDGET_S:-1500}
+DISTINCT_LEG=${DISTINCT_LEG:-1}
+DISTINCT_N=${DISTINCT_N:-8}
+DISTINCT_TARGETS=${DISTINCT_TARGETS:-bk6_104,cytc_104,fkbp_107,barn_110,mlta_112,mltb_116,prt7_117,rnsa_124}
 TARGETS300=${TARGETS300:-0}
 START=$(date +%s)
 
@@ -92,6 +96,26 @@ point(){    # point <mode> <n> <target> [samples]
       --out "$RESULTS/conc_${MODEL}_${tgt}_${mode}_${tag}.json" 2>&1 | tee -a "$RESULTS/conc.log"
 }
 
+# The same-input control. Worker i folds target i out of fixtures/distinct/ instead of
+# all N workers folding one copy of prot117, so an N-way point measures N different
+# proteins. If throughput holds against the same-target point at the same N, the MPS
+# speedup is not an artefact of repeating one prediction. The eight targets are 103-124
+# aa (mean 111.6, so ~5% shorter than prot117's 117) and all carry n_msa=35, matching
+# every other point's MSA depth.
+dpoint(){   # dpoint <mode> <n>
+  local mode=$1 n=$2
+  if ! have_budget; then
+    echo "== SKIP $mode N=$n distinct: $(el)s past BUDGET_S=$BUDGET_S ==" | tee -a "$RESULTS/conc.log"
+    return
+  fi
+  echo "== $mode N=$n DISTINCT targets at $(el)s ==" | tee -a "$RESULTS/conc.log"
+  $PY gpu_concurrency.py --model "$MODEL" --n "$n" --folds "$FOLDS" --mode "$mode" \
+      --checkpoint "$CKPT" --name distinct --label "8 distinct targets, 103-124 aa" \
+      --targets "$DISTINCT_TARGETS" \
+      --run-dir "$RUNROOT/run-${mode}-distinct-n${n}" \
+      --out "$RESULTS/conc_${MODEL}_distinct_${mode}_n${n}.json" 2>&1 | tee -a "$RESULTS/conc.log"
+}
+
 # ---- plain: N processes time-slicing. The honest "customer just runs more jobs" case.
 # N=1 first because it doubles as the harness check: it must reproduce the committed
 # 6.147 s warm median for protenix-v2 L2 at 117 aa. If it does not, nothing after it
@@ -109,7 +133,19 @@ if command -v nvidia-cuda-mps-control >/dev/null 2>&1; then
   nvidia-cuda-mps-control -d 2>&1 | tee -a "$RESULTS/conc.log"
   sleep 2
   echo get_server_list | nvidia-cuda-mps-control 2>&1 | tee -a "$RESULTS/mps_state.txt"
-  for n in $MPS_NS; do point mps "$n" prot117; done
+  # N=8 first: it is the point the disputed headline quotes, and its distinct-targets
+  # control runs immediately after it so the pair is measured back to back under the
+  # same MPS daemon. If the budget dies early these are the two points worth having.
+  for n in $MPS_NS; do
+    point mps "$n" prot117
+    [ "$DISTINCT_LEG" = "1" ] && [ "$n" = "$DISTINCT_N" ] && dpoint mps "$n"
+  done
+  # (c) the size the BD pitch quotes. Runs inside the MPS block because stopping and
+  # restarting the daemon around it would cost a minute of paid time for nothing.
+  if [ "$TARGETS300" = "1" ]; then
+    for n in 4 8; do point mps "$n" prot300; done
+  fi
+  echo get_server_list | nvidia-cuda-mps-control 2>&1 | tee -a "$RESULTS/mps_state.txt"
   echo quit | nvidia-cuda-mps-control 2>&1 | tee -a "$RESULTS/mps_state.txt"
 else
   echo "MPS UNAVAILABLE: nvidia-cuda-mps-control not on PATH in this container" \
@@ -117,17 +153,17 @@ else
 fi
 unset CUDA_MPS_PIPE_DIRECTORY CUDA_MPS_LOG_DIRECTORY
 
-# ---- in-process batching, the third throughput lever. Off by default: it changes the
-# unit from folds to samples of one target, and it is only publishable as a comparison if
-# the TT side ran the same sweep (it is free there).
-if [ "${SAMPLES_LEG:-0}" = "1" ]; then
-  for s in 2 4; do point plain 1 prot117 "$s"; done
+# ---- 298-aa single-process baseline. The MPS points at this size already ran above; this
+# is the N=1 denominator they are measured against.
+if [ "$TARGETS300" = "1" ]; then
+  point plain 1 prot300
 fi
 
-# ---- 298-aa repeat, only if the clock allows. Two points is enough to say whether the
-# concurrency headroom survives at a compute-heavier size.
-if [ "$TARGETS300" = "1" ]; then
-  for n in 1 4; do point plain "$n" prot300; done
+# ---- in-process batching, the third throughput lever, and the lowest-priority leg: it
+# changes the unit from folds to samples of one target, and it is only publishable as a
+# comparison if the TT side ran the same sweep (it is free there).
+if [ "${SAMPLES_LEG:-0}" = "1" ]; then
+  for s in 2 4; do point plain 1 prot117 "$s"; done
 fi
 
 # ---- MIG, deliberately last: enabling it needs a GPU reset, so a success here would end

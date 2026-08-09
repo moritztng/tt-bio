@@ -59,7 +59,7 @@ def _worker(args) -> int:
 
     one_fold, meta, state = tt_baseline.build_fold(
         args.model, msa_dir, Path(args.target), Path(args.msa_a3m),
-        samples=args.samples)
+        samples=args.samples, hoist=args.hoist, instrument=args.instrument)
 
     cold_s, cold_metrics = one_fold()
     assert cold_metrics.get("msa"), "fold ran without an MSA -- cache seeding failed"
@@ -78,6 +78,7 @@ def _worker(args) -> int:
         n_tokens=cold_metrics.get("n_tokens"),
         n_residues=cold_metrics.get("n_residues"),
         card_info={k: meta[k] for k in ("card_type", "aiclk_mhz") if k in meta},
+        phase_times=meta.get("phase_times"),
         pid=os.getpid(),
     ))
     state.reset()
@@ -190,6 +191,10 @@ def launcher(args) -> int:
                "--model", args.model, "--samples", str(args.samples),
                "--target", args.target, "--msa-a3m", args.msa_a3m,
                "--cards", args.cards, "--run-dir", str(run_dir)]
+        if args.hoist:
+            cmd.append("--hoist")
+        if args.instrument:
+            cmd.append("--instrument")
         log = open(run_dir / f"w{i}.log", "wb")
         procs.append((i, card, subprocess.Popen(cmd, stdout=log,
                                                 stderr=subprocess.STDOUT, env=env), log))
@@ -216,6 +221,10 @@ def launcher(args) -> int:
         side="tenstorrent", model=args.model, machine=socket.gethostname(),
         cards=cards, n_concurrent=n, folds_per_worker=args.folds,
         diffusion_samples=args.samples, target=args.target,
+        timed_region=("model.fold only (featurization hoisted, CIF write suppressed)"
+                      if args.hoist else
+                      "predict_one (featurize + fold + CIF write)"),
+        phase_times=[r.get("phase_times") for r in results],
         ttnn_version=_ttnn_version(), tt_bio_git=tt_baseline._git_sha(),
         recycling_steps=tt_baseline.RECYCLING_STEPS,
         sampling_steps=tt_baseline.SAMPLING_STEPS, seed=tt_baseline.SEED,
@@ -247,6 +256,12 @@ def main() -> int:
     ap.add_argument("--folds", type=int, default=5, help="timed folds per worker")
     ap.add_argument("--samples", type=int, default=1,
                     help="diffusion samples per fold; >1 is the in-process batching lever")
+    ap.add_argument("--hoist", action="store_true",
+                    help="time model.fold only (featurization hoisted out, CIF write "
+                         "suppressed), matching the GPU harness's timed region")
+    ap.add_argument("--instrument", action="store_true",
+                    help="raw timed region, but record the per-fold featurize/fold/write "
+                         "split in each worker's result")
     ap.add_argument("--target", default=str(REPO_ROOT / "examples" / "prot.yaml"))
     ap.add_argument("--msa-a3m", default=str(HERE / "fixtures" / "prot117.a3m"))
     ap.add_argument("--run-dir", default=None)

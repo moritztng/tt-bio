@@ -68,7 +68,8 @@ def _worker(args) -> int:
     model_name = {"protenix-v2": "protenix-v2", "opendde": "opendde_v1"}[args.model]
 
     one_fold, meta, _runner = gpu_bench.build_fold(
-        args.model, model_name, rung, str(run_dir / "input.json"),
+        args.model, model_name, rung,
+        args.input_json or str(run_dir / "input.json"),
         run_dir / f"w{wid}" / "dump", args.checkpoint, args.n_msa, samples=args.samples)
 
     # Cold fold: per-process CUDA context init and first-kernel autotune. Never timed --
@@ -230,12 +231,36 @@ def launcher(args) -> int:
                 p.unlink()
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    seq = Path(args.seq_file).read_text().strip()
-    a3m = Path(args.msa_a3m).resolve()
-    rows = a3m.read_text().split("\n")
-    assert rows[1] == seq, f"{a3m} query row does not match {args.seq_file}"
-    n_msa = a3m.read_text().count(">")
-    gpu_bench.write_input_json(run_dir / "input.json", a3m, seq, args.name)
+    # Distinct-targets control: worker i folds target i (its own seq + a3m + input
+    # JSON), so an N-way point measures N different proteins, not N copies of one.
+    # Direct answer to "did the MPS speedup only appear because it was always the
+    # same prediction".
+    target_of_worker = None
+    if args.targets:
+        names = [t.strip() for t in args.targets.split(",") if t.strip()]
+        assert len(names) == args.n, \
+            f"distinct mode wants exactly one target per worker: {len(names)} vs N={args.n}"
+        distinct_dir = HERE / "fixtures" / "distinct"
+        per_worker = []
+        for i, nm in enumerate(names):
+            seq_i = (distinct_dir / f"{nm}.seq").read_text().strip()
+            a3m_i = (distinct_dir / f"{nm}.a3m").resolve()
+            rows = a3m_i.read_text().split("\n")
+            assert rows[1] == seq_i, f"{a3m_i} query row does not match its .seq"
+            per_worker.append((nm, seq_i, a3m_i, a3m_i.read_text().count(">")))
+        n_msa = per_worker[0][3]
+        assert all(p[3] == n_msa for p in per_worker), "all targets need the same n_msa"
+        target_of_worker = {}
+        for i, (nm, seq_i, a3m_i, _n) in enumerate(per_worker):
+            gpu_bench.write_input_json(run_dir / f"input_w{i}.json", a3m_i, seq_i, nm)
+            target_of_worker[i] = nm
+    else:
+        seq = Path(args.seq_file).read_text().strip()
+        a3m = Path(args.msa_a3m).resolve()
+        rows = a3m.read_text().split("\n")
+        assert rows[1] == seq, f"{a3m} query row does not match {args.seq_file}"
+        n_msa = a3m.read_text().count(">")
+        gpu_bench.write_input_json(run_dir / "input.json", a3m, seq, args.name)
 
     sampler = SmiSampler()
     sampler.start()
@@ -260,6 +285,8 @@ def launcher(args) -> int:
                "--worker-id", str(i), "--n", str(args.n), "--folds", str(args.folds),
                "--model", args.model, "--rung", args.rung, "--samples", str(args.samples),
                "--run-dir", str(run_dir), "--n-msa", str(n_msa)]
+        if target_of_worker is not None:
+            cmd += ["--input-json", str(run_dir / f"input_w{i}.json")]
         if args.checkpoint:
             cmd += ["--checkpoint", args.checkpoint]
         log = open(run_dir / f"w{i}.log", "wb")
@@ -301,6 +328,7 @@ def launcher(args) -> int:
     out = dict(
         side="gpu", mode=args.mode, model=args.model, rung=args.rung,
         target=args.name, label=args.label, n_concurrent=args.n,
+        target_of_worker=target_of_worker,
         folds_per_worker=args.folds, diffusion_samples=args.samples,
         n_msa=n_msa, seed=gpu_bench.SEED, recycling_steps=gpu_bench.CYCLES,
         sampling_steps=gpu_bench.STEPS,
@@ -344,6 +372,10 @@ def main() -> int:
                     help="threads per worker; 0 = an equal share of the host's cores")
     ap.add_argument("--msa-a3m", default=str(HERE / "fixtures" / "prot117.a3m"))
     ap.add_argument("--seq-file", default=str(HERE / "fixtures" / "prot117.seq"))
+    ap.add_argument("--targets", default=None,
+                    help="comma-separated names under fixtures/distinct/ for the "
+                         "distinct-targets control: worker i folds target i, so N must "
+                         "equal the number of names")
     ap.add_argument("--name", default="prot117")
     ap.add_argument("--label", default="prot.yaml sequence (117 aa)")
     ap.add_argument("--checkpoint", default=None)
@@ -353,6 +385,7 @@ def main() -> int:
     # worker-only
     ap.add_argument("--worker-id", type=int, default=None)
     ap.add_argument("--n-msa", dest="n_msa", type=int, default=None)
+    ap.add_argument("--input-json", default=None)
     args = ap.parse_args()
 
     if args.run_dir is None:

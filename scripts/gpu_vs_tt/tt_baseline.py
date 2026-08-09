@@ -113,19 +113,38 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
 
 
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
-               samples: int = DIFFUSION_SAMPLES):
+               samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
+               instrument: bool = False):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
 
     Split out of ``measure`` so the multi-card fan-out driver (``tt_concurrency.py``)
     folds through exactly the same path as the single-card latency baseline. Aggregate
     throughput and per-fold latency have to come from the same fold or the box-level
     number cannot be checked against the per-card one.
+
+    ``hoist`` changes the timed region to match the GPU harness exactly: featurization
+    (chain read, MSA resolve, build_complex_features) runs ONCE up front and the CIF
+    write is suppressed, so a timed fold is ``model.fold`` only -- the same boundary as
+    the GPU leg's ``runner.predict`` + ``cuda.synchronize()``. The first call to
+    ``one_fold`` is still the full ``predict_one`` (cold fold: validates the MSA cache
+    and warms every kernel); only the timed calls switch to the hoisted region. The raw
+    ``predict_one`` boundary stays the default; the committed numbers used it.
+
+    ``instrument`` (raw mode only) wraps the three phases of ``_predict_protenix_one``
+    with timers -- build_complex_features, model.fold, _write_protenix_structure -- and
+    appends one ``{feat, fold, write, total}`` entry per fold to ``meta["phase_times"]``,
+    so the host/device split is measured on the same folds the raw number comes from.
+    Monkeypatches module attributes inside this worker process only; production code is
+    untouched. protenix-v2 only (the disputed model).
     """
     import torch  # noqa: F401
     torch.set_grad_enabled(False)
     from tt_bio.tenstorrent import get_device, arch_name
     from tt_bio.worker import _WorkerState, _ensure_local_artifacts
     from tt_bio import esmfold2 as _E
+
+    if (hoist or instrument) and model != "protenix-v2":
+        raise ValueError("hoist/instrument are protenix-v2 only (the disputed model)")
 
     _noop = lambda *a, **k: None
     _E.set_progress(_noop)
@@ -161,16 +180,98 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
     job_cfg = dict(cfg)
 
+    phase_times: list[dict] = []
+    if instrument:
+        import tt_bio.main as _main
+        import tt_bio.protenix_data as _pd
+
+        _orig_feat, _orig_write = _pd.build_complex_features, _main._write_protenix_structure
+        _cur: dict[str, float] = {}
+
+        def _timed_feat(*a, **k):
+            t = time.perf_counter()
+            try:
+                return _orig_feat(*a, **k)
+            finally:
+                _cur["feat"] = _cur.get("feat", 0.0) + time.perf_counter() - t
+
+        def _timed_write(*a, **k):
+            t = time.perf_counter()
+            try:
+                return _orig_write(*a, **k)
+            finally:
+                _cur["write"] = _cur.get("write", 0.0) + time.perf_counter() - t
+
+        _orig_model_fold = state.model.fold
+
+        def _timed_fold(*a, **k):
+            t = time.perf_counter()
+            try:
+                return _orig_model_fold(*a, **k)
+            finally:
+                _cur["fold"] = _cur.get("fold", 0.0) + time.perf_counter() - t
+
+        _pd.build_complex_features = _timed_feat
+        _main._write_protenix_structure = _timed_write
+        state.model.fold = _timed_fold
+
+    hoisted = None
+    if hoist:
+        from tt_bio.main import (_read_bio_chains, _read_bio_constraints,
+                                 _resolve_a3m_text)
+        from tt_bio.protenix_data import build_complex_features
+
+        chains = _read_bio_chains(target)
+        bonds = _read_bio_constraints(target)
+        chain_specs = [(cseq, _resolve_a3m_text(spec, cseq, msa_dir)
+                        if mt == "protein" else None, mt)
+                       for _cid, cseq, spec, mt in chains]
+        t_feat = time.perf_counter()
+        feats_h = build_complex_features(
+            chain_specs, mol_dir=cfg.get("mol_dir"),
+            chain_ids=[cid for cid, _s, _sp, _mt in chains], bonds=bonds)
+        feat_once_s = time.perf_counter() - t_feat
+        n_res = sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand")
+
+        def hoisted():
+            t0 = time.perf_counter()
+            with torch.no_grad(), state._maybe_ref_bf16():
+                _coords, conf = state.model.fold(
+                    feats_h, n_step=SAMPLING_STEPS, n_sample=samples, seed=SEED,
+                    progress_fn=_noop, return_confidence=True,
+                    n_cycles=RECYCLING_STEPS,
+                    max_parallel_samples=cfg.get("max_parallel_samples"), trace=False)
+            confs = conf if isinstance(conf, list) else [conf]
+            metrics = {"plddt": confs[0]["plddt"], "msa": True,
+                       "n_tokens": int(feats_h["restype"].shape[0]),
+                       "n_residues": n_res, "samples": samples}
+            return time.perf_counter() - t0, metrics
+
+    cold_done = {"v": False}
+
     def one_fold():
         job_cfg["struct_dir"] = str(struct_dir)
         for p in struct_dir.glob("*"):
             p.unlink()
+        if hoist and cold_done["v"]:
+            return hoisted()
         t0 = time.perf_counter()
         metrics, _best, _feats = state.predict_one(target, job_cfg)
-        return time.perf_counter() - t0, metrics
+        total = time.perf_counter() - t0
+        cold_done["v"] = True
+        if instrument:
+            cur = {k: round(v, 4) for k, v in _cur.items()}
+            cur["total"] = round(total, 4)
+            phase_times.append(cur)
+            _cur.clear()
+        return total, metrics
 
     return one_fold, dict(hardware=hw, load_s=round(load_s, 2), n_msa=n_msa,
                           msa_dir=str(msa_dir), diffusion_samples=samples,
+                          timed_region=("model.fold only (featurization hoisted, "
+                                        "CIF write suppressed)" if hoist else
+                                        "predict_one (featurize + fold + CIF write)"),
+                          phase_times=phase_times if instrument else None,
                           **_card_info()), state
 
 
