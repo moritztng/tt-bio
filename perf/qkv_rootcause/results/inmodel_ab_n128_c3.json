@@ -1,0 +1,94 @@
+{
+  "n": 128,
+  "grid": [
+    13,
+    10
+  ],
+  "timing": {
+    "tri_att start": {
+      "off_ms": 1.0225,
+      "on_ms": 1.0202,
+      "speedup": 1.0023,
+      "saved_ms": 0.0023,
+      "raw": {
+        "OFF": [
+          1.0019,
+          1.0225
+        ],
+        "ON": [
+          1.0202,
+          1.0075
+        ]
+      }
+    },
+    "tri_att end": {
+      "off_ms": 1.3905,
+      "on_ms": 1.3895,
+      "speedup": 1.0007,
+      "saved_ms": 0.001,
+      "raw": {
+        "OFF": [
+          1.3875,
+          1.3905
+        ],
+        "ON": [
+          1.3839,
+          1.3895
+        ]
+      }
+    },
+    "s attention_pair_bias": {
+      "off_ms": 0.8583,
+      "on_ms": 0.7357,
+      "speedup": 1.1666,
+      "saved_ms": 0.1226,
+      "raw": {
+        "OFF": [
+          0.8583,
+          0.7538
+        ],
+        "ON": [
+          0.6674,
+          0.7357
+        ]
+      }
+    },
+    "BLOCK (s,z)": {
+      "off_ms": 6.9458,
+      "on_ms": 6.9492,
+      "speedup": 0.9995,
+      "saved_ms": -0.0034,
+      "raw": {
+        "OFF": [
+          6.9417,
+          6.9458
+        ],
+        "ON": [
+          6.9492,
+          6.9399
+        ]
+      }
+    }
+  },
+  "numerics": {
+    "tri_att start": {
+      "bit_exact": false,
+      "pcc": 0.020684672,
+      "max_abs_diff": 46.34375,
+      "rel_fro": 2.39409447
+    },
+    "tri_att end": {
+      "bit_exact": false,
+      "pcc": 0.004687194,
+      "max_abs_diff": 42.0625,
+      "rel_fro": 2.27937388
+    },
+    "s attention_pair_bias": {
+      "bit_exact": false,
+      "pcc": 0.999793087,
+      "max_abs_diff": 0.054688,
+      "rel_fro": 0.02085194
+    }
+  },
+  "program_config": "MatmulMultiCoreReuseMultiCast1DProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=8,out_subblock_h=1,out_subblock_w=4,out_block_h=4,out_block_w=24,per_core_M=4,per_core_N=24,fuse_batch=1,fused_activation=std::nullopt,mcast_in0=0,gather_in0=0,hop_cores={},num_global_cb_receivers=1,untilize_out=0)"
+}

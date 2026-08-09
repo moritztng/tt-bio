@@ -1,0 +1,133 @@
+{
+  "device": {
+    "compute_grid": "13x10",
+    "core_grid_main": "11x10",
+    "ttnn": "?"
+  },
+  "dram_bandwidth": {
+    "runs": {
+      "clone_4096x4096": {
+        "MB": 67.1,
+        "ms": 0.169,
+        "GBs": 397.2
+      },
+      "add_4096x4096": {
+        "MB": 100.7,
+        "ms": 0.2443,
+        "GBs": 412.0
+      },
+      "mul_4096x4096": {
+        "MB": 100.7,
+        "ms": 0.2413,
+        "GBs": 417.2
+      },
+      "clone_8192x4096": {
+        "MB": 134.2,
+        "ms": 0.3334,
+        "GBs": 402.6
+      },
+      "add_8192x4096": {
+        "MB": 201.3,
+        "ms": 0.4705,
+        "GBs": 427.9
+      },
+      "mul_8192x4096": {
+        "MB": 201.3,
+        "ms": 0.4715,
+        "GBs": 427.0
+      },
+      "clone_8192x8192": {
+        "MB": 268.4,
+        "ms": 0.6583,
+        "GBs": 407.8
+      },
+      "add_8192x8192": {
+        "MB": 402.7,
+        "ms": 0.9396,
+        "GBs": 428.6
+      },
+      "mul_8192x8192": {
+        "MB": 402.7,
+        "ms": 0.9597,
+        "GBs": 419.6
+      },
+      "clone_16384x8192": {
+        "MB": 536.9,
+        "ms": 1.3049,
+        "GBs": 411.4
+      },
+      "add_16384x8192": {
+        "MB": 805.3,
+        "ms": 1.8501,
+        "GBs": 435.3
+      },
+      "mul_16384x8192": {
+        "MB": 805.3,
+        "ms": 1.8608,
+        "GBs": 432.8
+      }
+    },
+    "peak_GBs": 435.3,
+    "datasheet_GBs": 512.0,
+    "pct_of_datasheet": 85.0
+  },
+  "ladder": {
+    "prod_auto_xDRAM_oDRAM": {
+      "ms": 0.2361,
+      "tflops": 27.28,
+      "pcc_vs_fp32_torch": 0.99999854,
+      "max_abs_err_vs_fp32_torch": 0.29839,
+      "rel_fro_err": 0.00172639,
+      "bit_exact_vs_production": null
+    },
+    "bw1_g13x10_xDRAM_oDRAM": {
+      "ms": 0.2291,
+      "tflops": 28.12,
+      "pcc_vs_fp32_torch": 0.99999854,
+      "max_abs_err_vs_fp32_torch": 0.29839,
+      "rel_fro_err": 0.00172639,
+      "bit_exact_vs_production": true
+    },
+    "bw8_g13x10_xDRAM_oDRAM": {
+      "ms": 0.1724,
+      "tflops": 37.38,
+      "pcc_vs_fp32_torch": 0.99999857,
+      "max_abs_err_vs_fp32_torch": 0.2629,
+      "rel_fro_err": 0.00169024,
+      "bit_exact_vs_production": false
+    },
+    "bw8_g13x10_xDRAM_oL1": {
+      "ms": 0.0766,
+      "tflops": 84.06,
+      "pcc_vs_fp32_torch": 0.99999857,
+      "max_abs_err_vs_fp32_torch": 0.2629,
+      "rel_fro_err": 0.00169024,
+      "bit_exact_vs_production": false
+    },
+    "bw8_g13x10_xL1_oL1": {
+      "ms": 0.0627,
+      "tflops": 102.77,
+      "pcc_vs_fp32_torch": 0.99999857,
+      "max_abs_err_vs_fp32_torch": 0.2629,
+      "rel_fro_err": 0.00169024,
+      "bit_exact_vs_production": false
+    },
+    "bw8_g13x10_xL1_oDRAM": {
+      "ms": 0.1709,
+      "tflops": 37.7,
+      "pcc_vs_fp32_torch": 0.99999857,
+      "max_abs_err_vs_fp32_torch": 0.2629,
+      "rel_fro_err": 0.00169024,
+      "bit_exact_vs_production": false
+    }
+  },
+  "roofline": {
+    "GFLOP": 6.4425,
+    "dram_bytes_MB": 33.948,
+    "arith_intensity_FLOP_per_byte": 189.8,
+    "compute_roof_TFLOPs": 100.6,
+    "measured_bw_roof_GBs": 435.3,
+    "machine_balance_FLOP_per_byte": 231.1,
+    "roofline_at_AI_TFLOPs": 82.61
+  }
+}
