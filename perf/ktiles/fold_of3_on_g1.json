@@ -1,0 +1,22 @@
+{
+ "model": "openfold3",
+ "arm": "on",
+ "target": "examples/prot300.yaml",
+ "n_aa": 298,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "cold_s": 79.628,
+ "warm_s": [
+  70.537,
+  76.909,
+  77.375
+ ],
+ "median_ms": 76908.6,
+ "min_ms": 70537.2,
+ "plddt": 0.785251,
+ "cif_sha256_16": "57512ae57c8dce00",
+ "n_tokens": 298,
+ "hardware": "blackhole",
+ "card_type": "p150a",
+ "aiclk_mhz": "1350"
+}

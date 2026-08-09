@@ -16,26 +16,38 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True, choices=["protenix-v2", "opendde"])
+    ap.add_argument("--model", required=True,
+                    choices=["protenix-v2", "opendde", "openfold3"])
     ap.add_argument("--arm", required=True,
                     choices=["on", "off", "on-no-b8", "atom-only", "dit-only"])
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
+    if a.arm == "off":
+        # Must precede the tt_bio import: the kill switch is read once at module import.
+        # Rebinding the module attribute below covers protenix.py/tenstorrent.py, but the
+        # openfold3 modules import the name into their own namespace, so only the env var
+        # reaches every site uniformly. The two are the same call -- cfg=None makes
+        # batched_matmul exactly ttnn.matmul(a, b, compute_kernel_config=...).
+        import os
+        os.environ["TT_BIO_BATCHED_MATMUL"] = "0"
+
     import ttnn
     import tt_bio.tenstorrent as T
     import tt_bio.protenix as P
     if a.arm == "off":
-        plain = lambda x, y, compute_kernel_config=None: ttnn.matmul(
-            x, y, compute_kernel_config=compute_kernel_config)
+        plain = lambda x, y, compute_kernel_config=None, dtype=None: ttnn.matmul(
+            x, y, compute_kernel_config=compute_kernel_config,
+            **({} if dtype is None else {"dtype": dtype}))
         T.batched_matmul = plain
         P.batched_matmul = plain
     if a.arm in ("atom-only", "dit-only"):
         # Attribution across the eight applied sites. tenstorrent.py holds the four DiT ones,
         # protenix.py the four atom-window ones, so rebinding one module's name splits them.
-        plain = lambda x, y, compute_kernel_config=None: ttnn.matmul(
-            x, y, compute_kernel_config=compute_kernel_config)
+        plain = lambda x, y, compute_kernel_config=None, dtype=None: ttnn.matmul(
+            x, y, compute_kernel_config=compute_kernel_config,
+            **({} if dtype is None else {"dtype": dtype}))
         if a.arm == "atom-only":
             T.batched_matmul = plain
         else:
