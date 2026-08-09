@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """In-model A/B: one real Pairformer block, three arms.
 
-  base    production: permute per chunk then one concat
-  fused   the fused output op, one launch per channel chunk
-  pair    the fused output op, two chunks per launch (4 DRAM banks, half the launches)
+  base        production: permute per chunk then one concat
+  fused       the fused output op, one launch per channel chunk
+  fused_dram  ditto, with every chunk given a DRAM result instead of an L1 one
+  pair        two chunks per launch: 4 DRAM banks, half the launches, held chunk in DRAM
 
 All arms in one process, same device, same allocator, same weights, alternating so allocator
 drift cannot favour one. Parity is torch.equal on both block outputs after a whole block --
@@ -67,10 +68,12 @@ def main():
         return (ttnn.from_torch(s0, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16),
                 ttnn.from_torch(z0, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16))
 
-    ARMS = {"base": (False, False), "fused": (True, False), "pair": (True, True)}
+    ARMS = {"base": (False, False, False), "fused": (True, False, False),
+            "fused_dram": (True, False, True), "pair": (True, True, False)}
 
     def select(arm):
-        T._TRIMUL_OUT_FUSED, T._TRIMUL_OUT_PAIR = ARMS[arm]
+        (T._TRIMUL_OUT_FUSED, T._TRIMUL_OUT_PAIR,
+         T._TRIMUL_OUT_CHUNK_DRAM) = ARMS[arm]
 
     def one_block(arm):
         select(arm)
@@ -81,7 +84,7 @@ def main():
     # ---- parity first, on a clean block per arm ----
     res = {"model": a.model, "n": N, "c_z": c_z, "grid": f"{dg.x}x{dg.y}"}
     ref_s, ref_z = one_block("base")
-    for arm in ("fused", "pair"):
+    for arm in ("fused", "fused_dram", "pair"):
         got_s, got_z = one_block(arm)
         exact = bool(torch.equal(ref_s, got_s) and torch.equal(ref_z, got_z))
         res[f"bit_exact_block_{arm}"] = exact
@@ -125,6 +128,10 @@ def main():
     res["ms_per_fold_pair_over_fused"] = dp * 480
     print(f"pair over fused: {dp:.4f} ms/block = {dp*480:.1f} ms/fold "
           f"({med['fused']/med['pair']:.4f}x)", flush=True)
+    dd = med["fused"] - med["fused_dram"]
+    res["ms_per_fold_chunk_dram_alone"] = dd * 480
+    print(f"of which the DRAM chunk result alone: {dd:.4f} ms/block = {dd*480:.1f} ms/fold",
+          flush=True)
     Path(a.out).write_text(json.dumps(res, indent=1))
 
 

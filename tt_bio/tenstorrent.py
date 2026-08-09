@@ -91,6 +91,10 @@ _TRIMUL_OUT_FUSED = os.environ.get("TT_BIO_TRIMUL_OUT_FUSED", "0") == "1"
 # is +13.1 MB of L1 peak at 298 aa. Set TT_BIO_TRIMUL_OUT_PAIR=0 to A/B against one chunk
 # per launch.
 _TRIMUL_OUT_PAIR = os.environ.get("TT_BIO_TRIMUL_OUT_PAIR", "1") == "1"
+# Control arm: give EVERY channel chunk a DRAM result, not only the held-back one. It
+# separates what the pair wins from the bank spread and the launch count from what it wins
+# by taking 13.1 MB of chunk out of L1.
+_TRIMUL_OUT_CHUNK_DRAM = os.environ.get("TT_BIO_TRIMUL_OUT_CHUNK_DRAM", "0") == "1"
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -1115,11 +1119,12 @@ class TriangleMultiplication(Module):
             # buffer region. Asking the matmul for a DRAM result costs no extra op.
             hold_back = (out_fused and _TRIMUL_OUT_PAIR and pending is None
                          and i + 1 < n_pairs)
+            chunk_dram = hold_back or (out_fused and _TRIMUL_OUT_CHUNK_DRAM)
             x_chunk = ttnn.matmul(
                 a_chunk,
                 b_chunk,
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.DRAM_MEMORY_CONFIG if hold_back else memory_config,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG if chunk_dram else memory_config,
                 program_config=program_config,
                 dtype=ttnn.bfloat16,
             )
