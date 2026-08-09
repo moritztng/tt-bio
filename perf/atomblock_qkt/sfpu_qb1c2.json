@@ -1,0 +1,24 @@
+{
+  "clone DRAM->DRAM": {
+    "us": 645.6,
+    "eff_GBs": 402.9,
+    "G_elem_per_s": 100.7
+  },
+  "multiply (FPU)": {
+    "us": 704.7,
+    "eff_GBs": 369.1,
+    "G_elem_per_s": 92.3
+  },
+  "exp (SFPU)": {
+    "us": 850.5,
+    "eff_GBs": 305.8,
+    "G_elem_per_s": 76.5
+  },
+  "softmax bf16": {
+    "us": 673.1,
+    "eff_GBs": 386.4,
+    "G_elem_per_s": 96.6
+  },
+  "sfpu_exp_cost_us": 204.9,
+  "sfpu_exp_G_elem_per_s": 317.4
+}
