@@ -1,0 +1,77 @@
+{
+ "model": "opendde",
+ "rows": [
+  {
+   "batch": 16,
+   "Mt": 19,
+   "Kt": 2,
+   "Nt": 19,
+   "elem_bytes": 2,
+   "applied": false,
+   "calls": 4800
+  },
+  {
+   "batch": 16,
+   "Mt": 19,
+   "Kt": 19,
+   "Nt": 2,
+   "elem_bytes": 2,
+   "applied": true,
+   "calls": 4800
+  },
+  {
+   "batch": 300,
+   "Mt": 1,
+   "Kt": 1,
+   "Nt": 4,
+   "elem_bytes": 2,
+   "applied": true,
+   "calls": 1203
+  },
+  {
+   "batch": 300,
+   "Mt": 1,
+   "Kt": 4,
+   "Nt": 1,
+   "elem_bytes": 2,
+   "applied": true,
+   "calls": 1203
+  },
+  {
+   "batch": 16,
+   "Mt": 10,
+   "Kt": 1,
+   "Nt": 10,
+   "elem_bytes": 2,
+   "applied": false,
+   "calls": 484
+  },
+  {
+   "batch": 16,
+   "Mt": 10,
+   "Kt": 10,
+   "Nt": 1,
+   "elem_bytes": 2,
+   "applied": true,
+   "calls": 484
+  },
+  {
+   "batch": 8,
+   "Mt": 19,
+   "Kt": 2,
+   "Nt": 19,
+   "elem_bytes": 2,
+   "applied": false,
+   "calls": 4
+  },
+  {
+   "batch": 8,
+   "Mt": 19,
+   "Kt": 19,
+   "Nt": 2,
+   "elem_bytes": 2,
+   "applied": true,
+   "calls": 4
+  }
+ ]
+}

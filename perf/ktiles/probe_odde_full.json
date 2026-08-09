@@ -1,0 +1,261 @@
+{
+ "model": "opendde",
+ "rows": [
+  {
+   "a": [
+    1,
+    16,
+    580,
+    64
+   ],
+   "b": [
+    1,
+    16,
+    64,
+    580
+   ],
+   "a_padded": [
+    1,
+    16,
+    608,
+    64
+   ],
+   "b_padded": [
+    1,
+    16,
+    64,
+    608
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "site": "tenstorrent.py:1754",
+   "applied": false,
+   "per_core_M": null,
+   "calls": 4800,
+   "padding": "PADDED"
+  },
+  {
+   "a": [
+    1,
+    16,
+    580,
+    580
+   ],
+   "b": [
+    1,
+    16,
+    580,
+    64
+   ],
+   "a_padded": [
+    1,
+    16,
+    608,
+    608
+   ],
+   "b_padded": [
+    1,
+    16,
+    608,
+    64
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "site": "tenstorrent.py:1762",
+   "applied": true,
+   "per_core_M": 19,
+   "calls": 4800,
+   "padding": "PADDED"
+  },
+  {
+   "a": [
+    75,
+    4,
+    32,
+    32
+   ],
+   "b": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "a_padded": [
+    75,
+    4,
+    32,
+    32
+   ],
+   "b_padded": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "site": "protenix.py:414",
+   "applied": true,
+   "per_core_M": 1,
+   "calls": 1203,
+   "padding": "exact"
+  },
+  {
+   "a": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "b": [
+    75,
+    4,
+    128,
+    32
+   ],
+   "a_padded": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "b_padded": [
+    75,
+    4,
+    128,
+    32
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "site": "protenix.py:417",
+   "applied": true,
+   "per_core_M": 1,
+   "calls": 1203,
+   "padding": "exact"
+  },
+  {
+   "a": [
+    1,
+    16,
+    298,
+    32
+   ],
+   "b": [
+    1,
+    16,
+    32,
+    298
+   ],
+   "a_padded": [
+    1,
+    16,
+    320,
+    32
+   ],
+   "b_padded": [
+    1,
+    16,
+    32,
+    320
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "site": "tenstorrent.py:1754",
+   "applied": false,
+   "per_core_M": null,
+   "calls": 484,
+   "padding": "PADDED"
+  },
+  {
+   "a": [
+    1,
+    16,
+    298,
+    298
+   ],
+   "b": [
+    1,
+    16,
+    298,
+    32
+   ],
+   "a_padded": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "b_padded": [
+    1,
+    16,
+    320,
+    32
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "site": "tenstorrent.py:1762",
+   "applied": true,
+   "per_core_M": 5,
+   "calls": 484,
+   "padding": "PADDED"
+  },
+  {
+   "a": [
+    1,
+    8,
+    580,
+    64
+   ],
+   "b": [
+    1,
+    8,
+    64,
+    580
+   ],
+   "a_padded": [
+    1,
+    8,
+    608,
+    64
+   ],
+   "b_padded": [
+    1,
+    8,
+    64,
+    608
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "site": "tenstorrent.py:1754",
+   "applied": false,
+   "per_core_M": null,
+   "calls": 4,
+   "padding": "PADDED"
+  },
+  {
+   "a": [
+    1,
+    8,
+    580,
+    580
+   ],
+   "b": [
+    1,
+    8,
+    580,
+    64
+   ],
+   "a_padded": [
+    1,
+    8,
+    608,
+    608
+   ],
+   "b_padded": [
+    1,
+    8,
+    608,
+    64
+   ],
+   "dtype": "DataType.BFLOAT16",
+   "site": "tenstorrent.py:1762",
+   "applied": true,
+   "per_core_M": 1,
+   "calls": 4,
+   "padding": "PADDED"
+  }
+ ]
+}

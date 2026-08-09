@@ -32,7 +32,7 @@ import ttnn
 from . import protenix_weights as PW
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE)
+                          MSA_CHUNK_SIZE, batched_matmul)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -411,10 +411,10 @@ class AtomTransformer(_KeyedWeights, Module):
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
         Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)   # precomputed (fixed p) or inline
-        sc = ttnn.matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
         sc = ttnn.multiply(sc, dh ** -0.5)
         sc = ttnn.add(ttnn.add(sc, z), pad_bias)
-        o = ttnn.matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
+        o = batched_matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, H * dh])
@@ -495,7 +495,7 @@ class AtomTransformer(_KeyedWeights, Module):
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
         Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)
-        sc = ttnn.matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
         sc = ttnn.multiply(sc, dh ** -0.5)
         if z.shape[0] != sc.shape[0]:
             # z is the sample-INVARIANT precomputed bias, still (nb,H,nq,nk). Fold the
@@ -509,7 +509,7 @@ class AtomTransformer(_KeyedWeights, Module):
         else:
             sc = ttnn.add(sc, z)
         sc = ttnn.add(sc, pad_bias)
-        o = ttnn.matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
+        o = batched_matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
         o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)

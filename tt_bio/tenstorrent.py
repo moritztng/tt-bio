@@ -370,6 +370,96 @@ def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
         return None
 
 
+# One DRAM tile read costs about 0.05 of one per-core 32x32x32 tile MAC on Blackhole. Both scale
+# with the element size, so the ratio is the same in fp32 and bf16. Measured on qb1 card 2 by
+# perf/ktiles/sweep_pcm.py; it is only used to rank per_core_M candidates against each other.
+_TILE_READ_PER_TILE_MAC = 0.05
+
+
+@lru_cache(maxsize=None)
+def _batched_reuse_config(
+    batch: int, m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int
+) -> ttnn.MatmulMultiCoreReuseProgramConfig | None:
+    """Program config that spreads a both-sides-batched matmul's batch over the grid, or None.
+
+    ttnn never picks this factory by itself for DRAM-interleaved batched operands. The config it
+    does pick splits M and N only and leaves B as a sequential loop inside one core's kernel, so
+    the windowed atom attention ([75,4,32,128] @ [75,4,128,32]) runs 300 back-to-back 32x32
+    matmuls on one core of 130. MatmulMultiCoreReuseProgramConfig splits B*Mt/per_core_M output
+    blocks over the grid instead.
+
+    per_core_N has to equal Nt -- the factory does not split N -- so the config only pays off when
+    N is narrow. Measured on qb1 card 2: 3.5x-24x at Nt in 1..4, 1.08x at Nt=10, and at Nt=19
+    nothing fits L1 and the default wins. Hence the Nt <= 4 gate.
+
+    per_core_M trades DRAM traffic against occupancy. in1 is re-read once per output block, so a
+    small per_core_M multiplies the in1 traffic, and a large one leaves most of the grid idle. The
+    cost below picks the crossover and reproduces the measured optimum on all four applied classes.
+    per_core_M=1 is excluded whenever Mt > 1: it is not slow, it is wrong (see the loop below).
+
+    in0_block_w mirrors the width ttnn's own narrow-shape path picks, so the K accumulation order
+    is unchanged and the result is bit-exact against today's call.
+    """
+    gx, gy = COMPUTE_GRID_MAIN
+    cores = gx * gy
+    if batch < 2 or n_tiles > 4 or batch * m_tiles < cores:
+        return None
+    block_w = 2 if k_tiles % 2 == 0 else 1
+    try:
+        l1 = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:
+        return None
+    tile, acc_tile = 1024 * elem_bytes, 4096
+    best = ()
+    for p in range(1, m_tiles + 1):
+        if m_tiles % p or (p == 1 and m_tiles > 1):
+            # per_core_M=1 against a multi-tile M returns wrong results in a live fold: measured
+            # on the DiT attention at 298 and 580 tokens, 4.7-11.9% of elements differ by up to
+            # 26.9 absolute, while per_core_M in {2, 5, 19} on the same call is torch.equal. It
+            # does not reproduce on tensors built in isolation, so it depends on device state the
+            # op-level harness does not recreate. Until it is understood, do not emit it.
+            continue
+        # CB footprint, matmul_multicore_reuse_optimized_program_factory.cpp:286-306: in0 and in1
+        # are double-buffered one K block at a time, the output and the fp32 accumulator are whole.
+        if 2 * (p + n_tiles) * block_w * tile + p * n_tiles * (tile + acc_tile) > l1:
+            continue
+        blocks = batch * m_tiles // p
+        reads = batch * m_tiles * k_tiles + blocks * k_tiles * n_tiles
+        cost = max(_TILE_READ_PER_TILE_MAC * reads, -(-blocks // cores) * p * n_tiles * k_tiles)
+        if not best or cost < best[0]:
+            best = (cost, p)
+    if not best:
+        return None
+    per_core_M = best[1]
+    # out_subblock_h * out_subblock_w must fit the dest register file, which fp32_dest_acc_en
+    # halves to 4 tiles. Take the widest legal w, then the tallest h that still fits.
+    sub_w = max(w for w in range(1, min(4, n_tiles) + 1) if n_tiles % w == 0)
+    sub_h = max(h for h in range(1, min(4 // sub_w, per_core_M) + 1) if per_core_M % h == 0)
+    return ttnn.MatmulMultiCoreReuseProgramConfig(
+        compute_with_storage_grid_size=COMPUTE_GRID_MAIN,
+        in0_block_w=block_w,
+        out_subblock_h=sub_h,
+        out_subblock_w=sub_w,
+        per_core_M=per_core_M,
+        per_core_N=n_tiles,
+    )
+
+
+def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None) -> ttnn.Tensor:
+    """ttnn.matmul for a batched attention matmul, with the batch spread over the core grid.
+
+    Drop-in for `ttnn.matmul(a, b, compute_kernel_config=...)` on batched DRAM-interleaved
+    operands. Falls back to exactly that call whenever _batched_reuse_config declines.
+    """
+    sa, sb = a.shape, b.shape
+    cfg = None
+    if len(sa) == 4 and len(sb) == 4 and a.dtype == b.dtype:
+        cfg = _batched_reuse_config(
+            sa[0] * sa[1], -(-sa[2] // 32), -(-sa[3] // 32), -(-sb[3] // 32),
+            4 if a.dtype == ttnn.float32 else 2)
+    return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg)
+
+
 def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     """Retune L1-edge thresholds and chunk sizes for grids smaller than the
     11x10 Blackhole baseline (e.g. Wormhole 8x8 has ~55% of its aggregate L1),
@@ -1679,14 +1769,14 @@ class AttentionPairBias(Module):
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
                 kt = ttnn.permute(k, (0, 1, 3, 2))
-                sc = ttnn.matmul(q, kt,
-                                 compute_kernel_config=self.compute_kernel_config)
+                sc = batched_matmul(q, kt,
+                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
                 sc = ttnn.multiply(sc, self.head_dim ** -0.5)
                 sc = ttnn.add(sc, z)
                 attn = ttnn.softmax(sc, dim=-1)
-                o = ttnn.matmul(attn, v,
-                                compute_kernel_config=self.compute_kernel_config)
+                o = batched_matmul(attn, v,
+                                   compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
                 ttnn.deallocate(sc)
             else:
@@ -1699,7 +1789,7 @@ class AttentionPairBias(Module):
                 # PCC-clean (0.99993 vs 0.98128). SDPA scales its additive mask along
                 # with QK, so (q@k^T + z) * head_dim**-0.5 reproduces it exactly.
                 kt = ttnn.transpose(k, -2, -1)
-                logits = ttnn.matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+                logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
                 if z is not None:
                     logits = ttnn.add_(logits, z)
@@ -1707,7 +1797,7 @@ class AttentionPairBias(Module):
                 probs = ttnn.softmax(logits, dim=-1,
                                      compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(logits)
-                o = ttnn.matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
+                o = batched_matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(probs)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
