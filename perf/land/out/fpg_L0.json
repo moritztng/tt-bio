@@ -1,0 +1,223 @@
+{
+  "legs": [
+    {
+      "leg": "esmc-300m",
+      "verdict": "PASS",
+      "detail": "min per-res PCC=0.99918",
+      "wall": 11.19257692800602,
+      "committed": "PASS",
+      "report": "esmc-300m.json"
+    },
+    {
+      "leg": "esmc-600m",
+      "verdict": "PASS",
+      "detail": "min per-res PCC=0.99938",
+      "wall": 16.235447510000085,
+      "committed": "PASS",
+      "report": "esmc-600m.json"
+    },
+    {
+      "leg": "saprot-35m",
+      "verdict": "PASS",
+      "detail": "X_emb=0.99914",
+      "wall": 7.337564934998227,
+      "committed": null,
+      "report": "saprot-35m.json"
+    },
+    {
+      "leg": "saprot-650m",
+      "verdict": "PASS",
+      "detail": "X_emb=0.99964",
+      "wall": 15.886545901004865,
+      "committed": null,
+      "report": "saprot-650m.json"
+    },
+    {
+      "leg": "esmfold2-trpcage",
+      "verdict": "PASS",
+      "detail": "4 proteins scored (4 within floor)",
+      "wall": 959.1387654759965,
+      "committed": "PASS",
+      "report": "esmfold2-trpcage.json"
+    },
+    {
+      "leg": "boltz2-trpcage-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/trpcage_no_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-prot-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/prot_no_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-hsa-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/hsa_no_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/prot.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/ubq.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/hsa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/ubq.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-prot-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/prot.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-7xi5-tmpl",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/7xi5_tmpl.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-7xi5-notmpl",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/7xi5_notmpl.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-8hel-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/8hel_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-8hel-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/8hel_nomsa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-9bk6-complex-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/9bk6.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed5: predict exited 255",
+      "wall": 0.017046305001713336,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-msa",
+      "verdict": "ERROR",
+      "detail": "seed5: predict exited 255",
+      "wall": 0.016349785997590516,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed5: predict exited 255",
+      "wall": 0.016191599002922885,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-msa",
+      "verdict": "ERROR",
+      "detail": "seed5: predict exited 255",
+      "wall": 0.016710390002117492,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed5: predict exited 255",
+      "wall": 0.016513314003532287,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-tryp-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-msa",
+      "verdict": "ERROR",
+      "detail": "seed5: predict exited 255",
+      "wall": 0.01638311600254383,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-tryp-msa.json"
+    },
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/trpcage_no_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/prot_no_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "global DockQ=0.833",
+      "wall": 495.08167831299943,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    },
+    {
+      "leg": "boltzgen",
+      "verdict": "ERROR",
+      "detail": "design run exited 1 after 13s",
+      "wall": 12.686772486995324,
+      "committed": "PASS",
+      "report": "boltzgen.json"
+    },
+    {
+      "leg": "capacity",
+      "verdict": "PASS",
+      "detail": "peak 8.72 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.72 GiB; capacity:9ivj 5.48 GiB)",
+      "wall": 1876.496915402,
+      "committed": null,
+      "report": "capacity.json"
+    },
+    {
+      "leg": "rfd3-featurizer",
+      "verdict": "PASS",
+      "detail": "43/43 f keys bit-exact",
+      "wall": 0.1759717550012283,
+      "committed": "PASS",
+      "report": "rfd3-featurizer.json"
+    }
+  ],
+  "tally": {
+    "PASS": 8,
+    "BLOCKED-REF-REGEN-NEEDED": 15,
+    "ERROR": 7
+  },
+  "total_wall_s": 3394.3382344120037,
+  "workers": [
+    "qb1:3"
+  ]
+}

@@ -1,0 +1,156 @@
+{
+ "unit": "298-token RFD3 design, 8 timesteps",
+ "cores": 110,
+ "rows": [
+  {
+   "site": "rfd3/model.py:1331",
+   "a_padded": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "b_padded": [
+    1,
+    16,
+    64,
+    320
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 16,
+   "mt": 10,
+   "kt": 2,
+   "nt": 10,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 252,
+   "probed": 0,
+   "arms": null
+  },
+  {
+   "site": "rfd3/model.py:1358",
+   "a_padded": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "b_padded": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 16,
+   "mt": 10,
+   "kt": 10,
+   "nt": 2,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 252,
+   "probed": 0,
+   "arms": null
+  },
+  {
+   "site": "rfd3/model.py:1346",
+   "a_padded": [
+    1,
+    4,
+    4032,
+    32
+   ],
+   "b_padded": [
+    1,
+    4,
+    32,
+    4032
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 4,
+   "mt": 126,
+   "kt": 1,
+   "nt": 126,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 63,
+   "probed": 0,
+   "arms": null
+  },
+  {
+   "site": "rfd3/model.py:1358",
+   "a_padded": [
+    1,
+    4,
+    4032,
+    4032
+   ],
+   "b_padded": [
+    1,
+    4,
+    4032,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 4,
+   "mt": 126,
+   "kt": 126,
+   "nt": 1,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 63,
+   "probed": 0,
+   "arms": null
+  },
+  {
+   "site": "rfd3/model.py:491",
+   "a_padded": [
+    1,
+    16,
+    320,
+    32
+   ],
+   "b_padded": [
+    1,
+    16,
+    32,
+    320
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 16,
+   "mt": 10,
+   "kt": 1,
+   "nt": 10,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 30,
+   "probed": 0,
+   "arms": null
+  },
+  {
+   "site": "rfd3/model.py:501",
+   "a_padded": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "b_padded": [
+    1,
+    16,
+    320,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 16,
+   "mt": 10,
+   "kt": 10,
+   "nt": 1,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 30,
+   "probed": 0,
+   "arms": null
+  }
+ ]
+}

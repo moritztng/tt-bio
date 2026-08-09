@@ -1,0 +1,17 @@
+
+======================================================================
+[capacity] 9j4c_abag.yaml on protenix-v2, 50 samples / 5 per batch, budget 10.5 GiB
+======================================================================
+
+======================================================================
+[capacity] 9ivj.yaml on opendde-abag, 8 samples / 2 per batch, budget 12.0 GiB
+======================================================================
+
+##############################################################################
+RELEASE GATE — capacity (9j4c_abag on protenix-v2, 9ivj on opendde-abag, 6 steps)
+##############################################################################
+leg                     peak DRAM   CIFs   PAEs     budget     wall  result
+capacity:9j4c_abag       8.73 GiB     50      1 <=10.5 GiB    1198s  PASS
+capacity:9ivj            5.48 GiB      8      1 <=12.0 GiB     753s  PASS
+##############################################################################
+GATE PASS — largest-input folds fit the DRAM budget and wrote every sample

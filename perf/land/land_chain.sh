@@ -36,7 +36,7 @@ gates () {  # armtag treedir fused
   if [ ! -s "$fj" ]; then
     echo "=== $(date -u +%H:%M:%S) full_parity_gate $tag" >>"$CLOG"
     PYTHONPATH=$PWD OPENDDE_DOCKQ_PYTHON=$HOME/w6_dockq_py \
-      timeout 21600 "$PY" scripts/full_parity_gate.py --legacy-rdx --seeds 5 --workers qb1:3 \
+      timeout 21600 "$PY" scripts/full_parity_gate.py --legacy-rdx --seeds 0,1,2,3,4 --workers qb1:3 \
         --workdir "/home/ttuser/land_fpg_${tag}" --out "$fj" \
         >"$WT/perf/land/out/fpg_${tag}.log" 2>&1
     echo "=== $(date -u +%H:%M:%S) full_parity_gate $tag rc=$?" >>"$CLOG"

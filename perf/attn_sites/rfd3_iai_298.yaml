@@ -1,0 +1,3 @@
+m298:
+  input: scripts/rfd3_port/parity_artifacts/iai_protein/IAI_protein.pdb
+  contig: 'A1-10,278,A31-40'

@@ -1,0 +1,38 @@
+{
+  "arm": "L2o",
+  "commit": "c42ed26a97709c1a04f139cde30f72df028e8229",
+  "fused": "0",
+  "model": "opendde",
+  "size": "298",
+  "n_tokens": 298,
+  "n_atoms": 2398,
+  "cold_s": 54.27,
+  "warm_s": [
+    46.66,
+    45.844,
+    45.17,
+    45.76,
+    47.521
+  ],
+  "warm_median_s": 45.844,
+  "warm_min_s": 45.17,
+  "confidence": {
+    "complex_plddt": 0.796026,
+    "plddt": 0.796026,
+    "ptm": 0.849587,
+    "iptm": 0.0,
+    "confidence_score": 0.849587
+  },
+  "coords_shape": [
+    2398,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 6,
+  "load_s": 5.24,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 285.2
+}
