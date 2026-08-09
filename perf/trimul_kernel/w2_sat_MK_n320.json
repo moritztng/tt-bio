@@ -1,0 +1,205 @@
+[
+  {
+    "part": "matmul",
+    "name": "PRODUCTION pc grid 11x10 pcM=pcN=1 sub 1x1 blk_w=10",
+    "pipe_ms": 0.141,
+    "serial_ms": 0.175,
+    "tflops": 29.74,
+    "bit_exact": true
+  },
+  {
+    "part": "matmul",
+    "name": "no program_config, core_grid=CORE_GRID_MAIN",
+    "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 5 clash with L1 buffers on core range [(x=0,y=0) - (x=5,y=9)]. L1 buffe"
+  },
+  {
+    "part": "matmul",
+    "name": "no program_config, ttnn default placement",
+    "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=1,y=1)]. L1 buffe"
+  },
+  {
+    "part": "matmul",
+    "name": "grid 5x5 pcM=2 pcN=2 sub 2x2 blk_w=10",
+    "pipe_ms": 0.2945,
+    "serial_ms": 0.3223,
+    "tflops": 14.24,
+    "bit_exact": true
+  },
+  {
+    "part": "matmul",
+    "name": "grid 5x5 pcM=2 pcN=2 sub 1x2 blk_w=10",
+    "pipe_ms": 0.2879,
+    "serial_ms": 0.339,
+    "tflops": 14.57,
+    "bit_exact": true
+  },
+  {
+    "part": "matmul",
+    "name": "grid 5x5 pcM=2 pcN=2 sub 2x1 blk_w=10",
+    "pipe_ms": 0.2883,
+    "serial_ms": 0.3319,
+    "tflops": 14.55,
+    "bit_exact": true
+  },
+  {
+    "part": "matmul",
+    "name": "grid 5x2 pcM=5 pcN=2 sub 5x2 blk_w=10",
+    "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count\ninfo:\nout_subblock_w"
+  },
+  {
+    "part": "matmul",
+    "name": "grid 2x5 pcM=2 pcN=5 sub 2x5 blk_w=10",
+    "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count\ninfo:\nout_subblock_w"
+  },
+  {
+    "part": "matmul",
+    "name": "grid 4x4 pcM=3 pcN=3 sub 3x3 blk_w=10",
+    "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count\ninfo:\nout_subblock_w"
+  },
+  {
+    "part": "matmul",
+    "name": "grid 3x3 pcM=4 pcN=4 sub 4x4 blk_w=10",
+    "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count\ninfo:\nout_subblock_w"
+  },
+  {
+    "part": "matmul",
+    "name": "grid 10x5 pcM=2 pcN=1 sub 2x1 blk_w=10",
+    "pipe_ms": 0.1765,
+    "serial_ms": 0.213,
+    "tflops": 23.77,
+    "bit_exact": true
+  },
+  {
+    "part": "matmul",
+    "name": "grid 5x10 pcM=1 pcN=2 sub 1x2 blk_w=10",
+    "pipe_ms": 0.2268,
+    "serial_ms": 0.2759,
+    "tflops": 18.5,
+    "bit_exact": true
+  },
+  {
+    "part": "matmul",
+    "name": "grid 10x10 pcM=1 pcN=1 sub 1x1 blk_w=10",
+    "pipe_ms": 0.1441,
+    "serial_ms": 0.1977,
+    "tflops": 29.12,
+    "bit_exact": true
+  },
+  {
+    "part": "matmul",
+    "name": "grid 2x2 pcM=5 pcN=5 sub 5x5 blk_w=10",
+    "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count\ninfo:\nout_subblock_w"
+  },
+  {
+    "part": "matmul",
+    "name": "PRODUCTION grid, blk_w=1 (K order changes)",
+    "pipe_ms": 0.3947,
+    "serial_ms": 0.4469,
+    "tflops": 10.63,
+    "bit_exact": false
+  },
+  {
+    "part": "matmul",
+    "name": "PRODUCTION grid, blk_w=2 (K order changes)",
+    "pipe_ms": 0.2499,
+    "serial_ms": 0.3009,
+    "tflops": 16.79,
+    "bit_exact": false
+  },
+  {
+    "part": "matmul",
+    "name": "PRODUCTION grid, blk_w=5 (K order changes)",
+    "pipe_ms": 0.1683,
+    "serial_ms": 0.1992,
+    "tflops": 24.92,
+    "bit_exact": false
+  },
+  {
+    "part": "matmul",
+    "name": "MultiCoreReuse (batch-parallel) grid 11x10",
+    "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 27 clash with L1 buffers on core range [(x=0,y=0) - (x=5,y=9)]. L1 buff"
+  },
+  {
+    "part": "matmul",
+    "name": "MultiCoreReuse (batch-parallel) grid 8x8",
+    "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 29 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buff"
+  },
+  {
+    "part": "matmul",
+    "name": "PRODUCTION config, operands + result in DRAM",
+    "pipe_ms": 0.1723,
+    "serial_ms": 0.2267,
+    "tflops": 24.35,
+    "bit_exact": true
+  },
+  {
+    "part": "k_sweep",
+    "K": 64,
+    "backend": "linear",
+    "pipe_ms": 0.101,
+    "tflops": 8.31
+  },
+  {
+    "part": "k_sweep",
+    "K": 64,
+    "backend": "minimal_matmul",
+    "pipe_ms": 0.2462,
+    "tflops": 3.41
+  },
+  {
+    "part": "k_sweep",
+    "K": 128,
+    "backend": "linear",
+    "pipe_ms": 0.2805,
+    "tflops": 11.96
+  },
+  {
+    "part": "k_sweep",
+    "K": 128,
+    "backend": "minimal_matmul",
+    "pipe_ms": 0.2456,
+    "tflops": 13.66
+  },
+  {
+    "part": "k_sweep",
+    "K": 256,
+    "backend": "linear",
+    "pipe_ms": 0.6547,
+    "tflops": 20.5
+  },
+  {
+    "part": "k_sweep",
+    "K": 256,
+    "backend": "minimal_matmul",
+    "pipe_ms": 0.3813,
+    "tflops": 35.2
+  },
+  {
+    "part": "k_sweep",
+    "K": 512,
+    "backend": "linear",
+    "pipe_ms": 1.411,
+    "tflops": 38.05
+  },
+  {
+    "part": "k_sweep",
+    "K": 512,
+    "backend": "minimal_matmul",
+    "pipe_ms": 0.7416,
+    "tflops": 72.39
+  },
+  {
+    "part": "k_sweep",
+    "K": 1024,
+    "backend": "linear",
+    "pipe_ms": 3.1613,
+    "tflops": 67.93
+  },
+  {
+    "part": "k_sweep",
+    "K": 1024,
+    "backend": "minimal_matmul",
+    "pipe_ms": 1.8162,
+    "tflops": 118.24
+  }
+]

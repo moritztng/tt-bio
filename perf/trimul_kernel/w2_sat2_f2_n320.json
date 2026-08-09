@@ -1,0 +1,47 @@
+[
+  {
+    "part": "f2",
+    "name": "minimal_matmul  -> 4C  [PRODUCTION gp_in]",
+    "pipe_ms": 0.2912,
+    "tflops": 46.09,
+    "out_w": 256
+  },
+  {
+    "part": "f2",
+    "name": "minimal_matmul  -> 2C  [half width, x2 = split]",
+    "pipe_ms": 0.2838,
+    "tflops": 23.65,
+    "out_w": 128
+  },
+  {
+    "part": "f2",
+    "name": "linear          -> 4C",
+    "pipe_ms": 0.5175,
+    "tflops": 25.94,
+    "out_w": 256
+  },
+  {
+    "part": "f2",
+    "name": "linear          -> 2C",
+    "pipe_ms": 0.5118,
+    "tflops": 13.11,
+    "out_w": 128
+  },
+  {
+    "part": "f2",
+    "name": "linear+sigmoid  -> 2C  [activation in the packer]",
+    "pipe_ms": 0.7325,
+    "tflops": 9.16,
+    "out_w": 128
+  },
+  {
+    "part": "f2",
+    "name": "minimal_matmul+sigmoid -> 2C  [activation=]",
+    "error": "ttnn.experimental.minimal_matmul(): incompatible function arguments. Called with: minimal_matmul(ttnn.Tensor, ttnn.Tensor, memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buff"
+  },
+  {
+    "part": "f2",
+    "name": "minimal_matmul+sigmoid -> 2C  [fused_activation=]",
+    "error": "ttnn.experimental.minimal_matmul(): incompatible function arguments. Called with: minimal_matmul(ttnn.Tensor, ttnn.Tensor, memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buff"
+  }
+]

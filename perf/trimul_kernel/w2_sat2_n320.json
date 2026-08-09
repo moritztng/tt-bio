@@ -1,0 +1,104 @@
+[
+  {
+    "part": "f1",
+    "name": "production",
+    "pipe_ms": 0.142,
+    "tflops": 29.53,
+    "bit_exact": true
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 1x1 blk_w=10",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 5 clash with L1 buffers on core range [(x=0,y=0) - (x=5,y=9)]. L1 buffer allocated at 1265664 and sta"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 2x2 blk_w=10",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=5,y=9)]. L1 buffer allocated at 1265664 and sta"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 5x1 blk_w=10",
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count info: out_subblock_w 1 times out_subblock_h 5 need"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 1x5 blk_w=10",
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count info: out_subblock_w 5 times out_subblock_h 1 need"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=5 pcN=10 sub 1x1 blk_w=10",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 9 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 958464 and sta"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=5 sub 1x1 blk_w=10",
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:877: N == per_core_N info: Error: N, 10, is not equal to per_core_N, 5 backtrace: --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/bui"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=5 pcN=5 sub 1x1 blk_w=10",
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:877: N == per_core_N info: Error: N, 10, is not equal to per_core_N, 5 backtrace: --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/bui"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 2x5 blk_w=10",
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count info: out_subblock_w 5 times out_subblock_h 2 need"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 5x2 blk_w=10",
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1020: (program_config.out_subblock_w * program_config.out_subblock_h) <= available_reg_count info: out_subblock_w 2 times out_subblock_h 5 need"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 1x2 blk_w=5",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 11 clash with L1 buffers on core range [(x=0,y=0) - (x=5,y=9)]. L1 buffer allocated at 1060864 and st"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 2x2 blk_w=5",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 13 clash with L1 buffers on core range [(x=0,y=0) - (x=5,y=9)]. L1 buffer allocated at 1060864 and st"
+  },
+  {
+    "part": "f1",
+    "name": "MultiCoreReuse pcM=10 pcN=10 sub 4x2 blk_w=2",
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:947: M % program_config.out_subblock_h == 0 info: out_subblock_h (4) needs to divide M (10) evenly and does not. Please update your program con"
+  },
+  {
+    "part": "f2",
+    "name": "minimal_matmul  -> 4C  [PRODUCTION gp_in]",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 15 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 buf"
+  },
+  {
+    "part": "f2",
+    "name": "minimal_matmul  -> 2C  [half width, x2 = split]",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 17 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 buf"
+  },
+  {
+    "part": "f2",
+    "name": "linear          -> 4C",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 19 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buf"
+  },
+  {
+    "part": "f2",
+    "name": "linear          -> 2C",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 21 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buf"
+  },
+  {
+    "part": "f2",
+    "name": "linear+sigmoid  -> 2C  [activation in the packer]",
+    "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 23 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buf"
+  },
+  {
+    "part": "f2",
+    "name": "minimal_matmul+sigmoid -> 2C  [activation=]",
+    "error": "ttnn.experimental.minimal_matmul(): incompatible function arguments. Called with: minimal_matmul(ttnn.Tensor, ttnn.Tensor, memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buff"
+  },
+  {
+    "part": "f2",
+    "name": "minimal_matmul+sigmoid -> 2C  [fused_activation=]",
+    "error": "ttnn.experimental.minimal_matmul(): incompatible function arguments. Called with: minimal_matmul(ttnn.Tensor, ttnn.Tensor, memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buff"
+  }
+]
