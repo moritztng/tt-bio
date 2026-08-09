@@ -1,0 +1,41 @@
+{
+ "steps": 200,
+ "rows": [
+  {
+   "target": "examples/8hel_nomsa.yaml",
+   "on": {
+    "arm": "on",
+    "rc": 0,
+    "wall_s": 100.4,
+    "cif_sha256_16": "1ed8583fc1d98c94",
+    "n_cif": 1
+   },
+   "off": {
+    "arm": "off",
+    "rc": 0,
+    "wall_s": 98.7,
+    "cif_sha256_16": "1ed8583fc1d98c94",
+    "n_cif": 1
+   },
+   "verdict": "BIT-EXACT"
+  },
+  {
+   "target": "examples/ubq.yaml",
+   "on": {
+    "arm": "on",
+    "rc": 0,
+    "wall_s": 100.3,
+    "cif_sha256_16": "bc4448c516a7fccc",
+    "n_cif": 1
+   },
+   "off": {
+    "arm": "off",
+    "rc": 0,
+    "wall_s": 103.6,
+    "cif_sha256_16": "bc4448c516a7fccc",
+    "n_cif": 1
+   },
+   "verdict": "BIT-EXACT"
+  }
+ ]
+}

@@ -1,0 +1,41 @@
+{
+ "steps": 200,
+ "rows": [
+  {
+   "target": "examples/7xi5_tmpl.yaml",
+   "on": {
+    "arm": "on",
+    "rc": 0,
+    "wall_s": 102.2,
+    "cif_sha256_16": "217145f748ee306b",
+    "n_cif": 1
+   },
+   "off": {
+    "arm": "off",
+    "rc": 0,
+    "wall_s": 99.2,
+    "cif_sha256_16": "217145f748ee306b",
+    "n_cif": 1
+   },
+   "verdict": "BIT-EXACT"
+  },
+  {
+   "target": "examples/9bk6.yaml",
+   "on": {
+    "arm": "on",
+    "rc": 0,
+    "wall_s": 122.1,
+    "cif_sha256_16": "66970ba93dacdcd3",
+    "n_cif": 1
+   },
+   "off": {
+    "arm": "off",
+    "rc": 0,
+    "wall_s": 86.6,
+    "cif_sha256_16": "66970ba93dacdcd3",
+    "n_cif": 1
+   },
+   "verdict": "BIT-EXACT"
+  }
+ ]
+}
