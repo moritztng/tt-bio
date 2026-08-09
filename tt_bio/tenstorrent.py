@@ -441,12 +441,18 @@ def _tuned_matmul_config(mt: int, kt: int, nt: int, elem_bytes: int,
     if mt > 32:
         # The band 33 <= mt < 4*cores is where the CHUNKED Pairformer Transition actually runs
         # (mt = 300/280, 1512 of 4704 linear calls in a 298 aa protenix-v2 fold -- see
-        # perf/inblockw/census.py). perf/inblockw/validate_chunked.py measures 1.10x-1.77x
-        # available there, `2D bw8` best or within 3% on 7 of 8 real shapes. It is gated off
-        # because the config that fits standalone does not fit in-fold: with the pair tensor and
-        # its chunk buffers resident the static CB region collides with a live L1 buffer, and the
-        # runtime recovery below fires on more shapes than it can absorb. Turning this on needs an
-        # L1 budget that knows what the block already holds, not a constant.
+        # perf/inblockw/census.py), and 1.10x-1.79x is available there at the op
+        # (perf/inblockw/validate_chunked.py). It stays off because it is worth nothing at the
+        # fold: measured A/B 0.999x on protenix-v2 and 0.997x on opendde, arms overlapping on
+        # both. The gate's own host time, ~6 us x ~19750 calls = ~120 ms/fold, eats a quarter of
+        # the projected saving by itself.
+        #
+        # The L1 clash that first blocked the band is understood and is NOT a tt-metal defect:
+        # ttnn allocates the output tensor before the program factory places a single circular
+        # buffer, so a budget read from `largest_contiguous_bytes_free_per_bank` is optimistic by
+        # the output's per-bank bytes. `get_max_worker_l1_unreserved_size()` is the device's
+        # budget, not this point in the block's. Any static program-config gate here is using one
+        # of those two wrong numbers.
         return None
 
     budget = l1 - _TUNED_L1_SLACK
