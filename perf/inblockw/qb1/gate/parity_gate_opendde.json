@@ -1,0 +1,27 @@
+{
+  "legs": [
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "PASS",
+      "detail": "prot_no_msa: X=8.211 R=1.499 D=8.174 within=True",
+      "wall": 301.9434174420021,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "global DockQ=0.832",
+      "wall": 455.88494778099994,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    }
+  ],
+  "tally": {
+    "PASS": 2
+  },
+  "total_wall_s": 757.8289600040007,
+  "workers": [
+    "tt-quietbox:0"
+  ]
+}
