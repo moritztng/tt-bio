@@ -121,6 +121,17 @@ def main():
     rec("PAIR (4 banks)", timed(dev, pair_arm), "REAL DATA")
     rec("PAIR (4 banks) half_exch", timed(dev, lambda: pair_arm(half_exch=True)),
         "wrong data, timing only")
+    rec("PAIR (4 banks) noex", timed(dev, lambda: pair_arm(no_exchange=True)),
+        "wrong data, timing only")
+
+    # Pairing does two things at once: it doubles the bank spread AND halves the launch
+    # count. Sending both chunks of a pair to the SAME column stripe keeps the halved launch
+    # count with the 2-bank spread of today, so the difference to PAIR is the banks alone.
+    def pair_same_stripe():
+        for i in range(0, npairs - 1, 2):
+            F.fused_output_pair(src[i], src[i + 1], dst, i, i, grid=grid)
+    rec("PAIR (2 banks, one stripe)", timed(dev, pair_same_stripe),
+        "wrong data, timing only")
 
     perm = ttnn.from_torch(torch.randn(1, N, N, C), layout=ttnn.TILE_LAYOUT, device=dev,
                            dtype=ttnn.bfloat16, memory_config=L1)

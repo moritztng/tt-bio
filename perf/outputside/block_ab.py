@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""In-model A/B: one real Pairformer block with and without the fused output op.
+"""In-model A/B: one real Pairformer block, three arms.
 
-Both arms in one process, same device, same allocator, same weights, alternating so allocator
+  base    production: permute per chunk then one concat
+  fused   the fused output op, one launch per channel chunk
+  pair    the fused output op, two chunks per launch (4 DRAM banks, half the launches)
+
+All arms in one process, same device, same allocator, same weights, alternating so allocator
 drift cannot favour one. Parity is torch.equal on both block outputs after a whole block --
 the fused op replaces a permute and a concat and does no arithmetic, so bit-exactness is the
-bar. This is the step W4's input-side leg died at, on the L1 budget.
+bar. `pair` holds one chunk across the next triangle matmul, so this is also the L1-budget
+test: it is the step W4's input-side leg died at.
 """
 import argparse, json, statistics, sys, time
 from pathlib import Path
@@ -62,30 +67,35 @@ def main():
         return (ttnn.from_torch(s0, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16),
                 ttnn.from_torch(z0, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16))
 
-    def one_block(fused):
-        T._TRIMUL_OUT_FUSED = fused
+    ARMS = {"base": (False, False), "fused": (True, False), "pair": (True, True)}
+
+    def select(arm):
+        T._TRIMUL_OUT_FUSED, T._TRIMUL_OUT_PAIR = ARMS[arm]
+
+    def one_block(arm):
+        select(arm)
         s, z = fresh()
         so, zo = layer(s, z)
-        out = (ttnn.to_torch(so), ttnn.to_torch(zo))
-        return out
+        return ttnn.to_torch(so), ttnn.to_torch(zo)
 
-    # ---- parity first, on a clean block each way ----
-    ref_s, ref_z = one_block(False)
-    got_s, got_z = one_block(True)
-    exact = bool(torch.equal(ref_s, got_s) and torch.equal(ref_z, got_z))
-    res = {"model": a.model, "n": N, "c_z": c_z, "grid": f"{dg.x}x{dg.y}",
-           "bit_exact_block": exact}
-    print(f"bit-exact whole block (s and z): {exact}", flush=True)
-    if not exact:
-        dz = (ref_z.float() - got_z.float()).abs()
-        res["z_max_abs_diff"] = float(dz.max())
-        res["z_frac_wrong"] = float((dz > 0).float().mean())
-        print(f"  z max|diff| {dz.max():.4g}  fraction wrong {(dz>0).float().mean():.5f}",
-              flush=True)
+    # ---- parity first, on a clean block per arm ----
+    res = {"model": a.model, "n": N, "c_z": c_z, "grid": f"{dg.x}x{dg.y}"}
+    ref_s, ref_z = one_block("base")
+    for arm in ("fused", "pair"):
+        got_s, got_z = one_block(arm)
+        exact = bool(torch.equal(ref_s, got_s) and torch.equal(ref_z, got_z))
+        res[f"bit_exact_block_{arm}"] = exact
+        print(f"bit-exact whole block (s and z), {arm}: {exact}", flush=True)
+        if not exact:
+            dz = (ref_z.float() - got_z.float()).abs()
+            res[f"z_max_abs_diff_{arm}"] = float(dz.max())
+            res[f"z_frac_wrong_{arm}"] = float((dz > 0).float().mean())
+            print(f"  z max|diff| {dz.max():.4g}  fraction wrong "
+                  f"{(dz>0).float().mean():.5f}", flush=True)
 
     # ---- timing: alternate the arms so allocator state cannot favour one ----
-    def wall(fused):
-        T._TRIMUL_OUT_FUSED = fused
+    def wall(arm):
+        select(arm)
         s, z = fresh()
         for _ in range(a.warm):
             s, z = layer(s, z)
@@ -97,19 +107,24 @@ def main():
         ttnn.synchronize_device(dev)
         return (time.perf_counter() - t0) * 1e3 / 3
 
-    base, fus = [], []
+    runs = {k: [] for k in ARMS}
     for _ in range(a.reps):
-        base.append(wall(False))
-        fus.append(wall(True))
-    b, f = statistics.median(base), statistics.median(fus)
-    res["block_ms_baseline"] = b
-    res["block_ms_fused"] = f
-    res["speedup"] = b / f
-    res["ms_per_fold"] = (b - f) * 480
-    print(f"block  baseline {b:.4f} ms   fused {f:.4f} ms   {b/f:.4f}x", flush=True)
-    print(f"       saved {(b-f):.4f} ms/block  x480 = {(b-f)*480:.1f} ms/fold", flush=True)
-    print(f"       baseline arms {[round(x,3) for x in base]}", flush=True)
-    print(f"       fused arms    {[round(x,3) for x in fus]}", flush=True)
+        for arm in ARMS:
+            runs[arm].append(wall(arm))
+    med = {k: statistics.median(v) for k, v in runs.items()}
+    res["block_ms"] = med
+    res["runs"] = runs
+    b = med["base"]
+    for arm in ARMS:
+        res[f"speedup_{arm}"] = b / med[arm]
+        res[f"ms_per_fold_{arm}"] = (b - med[arm]) * 480
+        print(f"{arm:6s} {med[arm]:9.4f} ms/block  {b/med[arm]:7.4f}x  "
+              f"{(b-med[arm])*480:8.1f} ms/fold   {[round(x,3) for x in runs[arm]]}",
+              flush=True)
+    dp = med["fused"] - med["pair"]
+    res["ms_per_fold_pair_over_fused"] = dp * 480
+    print(f"pair over fused: {dp:.4f} ms/block = {dp*480:.1f} ms/fold "
+          f"({med['fused']/med['pair']:.4f}x)", flush=True)
     Path(a.out).write_text(json.dumps(res, indent=1))
 
 

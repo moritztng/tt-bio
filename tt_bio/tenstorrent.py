@@ -85,6 +85,12 @@ _TRIMUL_OUT_MOVE_DRAM = False
 # result (tt_bio/trimul_out_fused.py). Bit-exact against the permute + concat chain it
 # replaces. Set TT_BIO_TRIMUL_OUT_FUSED=1 to A/B.
 _TRIMUL_OUT_FUSED = os.environ.get("TT_BIO_TRIMUL_OUT_FUSED", "0") == "1"
+# Two channel chunks per launch. A chunk of C=64 reaches 2 of the 8 DRAM banks, and one
+# launch per chunk pays the pipeline ramp four times per trimul; pairing fixes both and is
+# 1.34x on the op. It holds the earlier chunk alive across the next triangle matmul, so it
+# is +13.1 MB of L1 peak at 298 aa. Set TT_BIO_TRIMUL_OUT_PAIR=0 to A/B against one chunk
+# per launch.
+_TRIMUL_OUT_PAIR = os.environ.get("TT_BIO_TRIMUL_OUT_PAIR", "1") == "1"
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -1070,6 +1076,8 @@ class TriangleMultiplication(Module):
             and trimul_out_fused.applicable(
                 H, _trimul_chunk_size(H, self._hidden), self._hidden, _dtype(), _FAST_MODE)
         )
+        # The chunk held back for the next pair, or None.
+        pending = None
         if out_fused:
             x = ttnn.allocate_tensor_on_device(
                 ttnn.Shape([1, H, H, self._hidden]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
@@ -1101,11 +1109,17 @@ class TriangleMultiplication(Module):
             b_chunk = self._transform_chunk(
                 b_chunk, (0, 3) + ((1, 2) if self.ending else (2, 1)), memory_config=memory_config,
             )
+            # A chunk held back for a paired output launch goes straight to DRAM. Keeping
+            # it in L1 across the next chunk's input projection adds 13.1 MB of residency at
+            # 298 aa, and that projection's static circular buffers then clash with the L1
+            # buffer region. Asking the matmul for a DRAM result costs no extra op.
+            hold_back = (out_fused and _TRIMUL_OUT_PAIR and pending is None
+                         and i + 1 < n_pairs)
             x_chunk = ttnn.matmul(
                 a_chunk,
                 b_chunk,
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=memory_config,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG if hold_back else memory_config,
                 program_config=program_config,
                 dtype=ttnn.bfloat16,
             )
@@ -1118,7 +1132,16 @@ class TriangleMultiplication(Module):
             # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
             # single permute is marginally faster, so keep it there.
             if out_fused:
-                trimul_out_fused.fused_output(x_chunk, x, i, grid=COMPUTE_GRID_MAIN)
+                if hold_back:
+                    pending = (x_chunk, i)
+                    continue
+                if pending is not None:
+                    trimul_out_fused.fused_output_pair(
+                        pending[0], x_chunk, x, pending[1], i, grid=COMPUTE_GRID_MAIN)
+                    ttnn.deallocate(pending[0])
+                    pending = None
+                else:
+                    trimul_out_fused.fused_output(x_chunk, x, i, grid=COMPUTE_GRID_MAIN)
                 ttnn.deallocate(x_chunk)
                 continue
             if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:

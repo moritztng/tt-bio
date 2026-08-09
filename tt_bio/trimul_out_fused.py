@@ -41,11 +41,12 @@ void kernel_main() {
     const uint32_t tb = get_local_cb_interface(cb_in).fifo_page_size;
     const auto src = TensorAccessor(src_args, src_addr, tb);
 #ifdef PAIR
-    // Two channel chunks in one launch. They are identical in shape, layout and memory
-    // config, so one set of TensorAccessor compile-time args serves both and only the base
-    // address differs. Odd groups take chunk b, so a core alternates chunks every group and
-    // the grid keeps both chunks' destination column stripes -- 4 DRAM banks -- live.
-    const auto src_b = TensorAccessor(src_args, get_arg_val<uint32_t>(3), tb);
+    // Two channel chunks in one launch. Odd groups take chunk b, so a core alternates chunks
+    // every group and the grid keeps both chunks' destination column stripes -- 4 DRAM banks
+    // -- live. The two chunks get their own accessor args because they are not in the same
+    // memory: the held-back chunk is in DRAM and the fresh one is in L1.
+    constexpr auto src_b_args = TensorAccessorArgs<src_args.next_compile_time_args_offset()>();
+    const auto src_b = TensorAccessor(src_b_args, get_arg_val<uint32_t>(3), tb);
 #define SRC_NOC(page) ((g & 1) ? src_b.get_noc_addr(page) : src.get_noc_addr(page))
 #else
 #define SRC_NOC(page) (src.get_noc_addr(page))
@@ -236,8 +237,9 @@ def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
     gx, gy = grid
     key = (src.buffer_address(), dst.buffer_address(), n, c, ct_off, gx, gy,
            int(dst.shape[-1]), src.memory_config().buffer_type, dst.memory_config().buffer_type,
-           no_exchange, rbatch, depth, seq_read, seq_write, seq_stride, ct_spread,
-           half_exch, None if src_b is None else src_b.buffer_address(), ct_off_b)
+           no_exchange, rbatch, depth, seq_read, seq_write, seq_stride, ct_spread, half_exch,
+           None if src_b is None else (src_b.buffer_address(),
+                                       src_b.memory_config().buffer_type), ct_off_b)
     got = _PROGRAM_CACHE.get(key)
     if got is not None:
         return got
@@ -296,10 +298,13 @@ def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
         defines.append(("SEQWRITE", "1"))
         defines.append(("SEQSTRIDE", str(seq_stride)))
         defines.append(("DSTPAGES", str(int(dst.shape[1]) * nt * ht)))
+    reader_cta = list(ttnn.TensorAccessorArgs(src).get_compile_time_args())
+    if src_b is not None:
+        reader_cta += list(ttnn.TensorAccessorArgs(src_b).get_compile_time_args())
     K = ttnn.KernelDescriptor
     kernels = [
         K(kernel_source=READER_SRC, source_type=K.SourceType.SOURCE_CODE, core_ranges=cores,
-          compile_time_args=list(ttnn.TensorAccessorArgs(src).get_compile_time_args()),
+          compile_time_args=reader_cta,
           defines=defines, runtime_args=r_rt, config=ttnn.ReaderConfigDescriptor()),
         K(kernel_source=COMPUTE_SRC, source_type=K.SourceType.SOURCE_CODE, core_ranges=cores,
           compile_time_args=[], defines=defines, runtime_args=c_rt,
@@ -348,13 +353,13 @@ def fused_output_pair(x_a, x_b, dst, chunk_a, chunk_b, grid=(13, 10), **kw):
     Two chunks interleaved at group granularity reach 4, measured at 1.13x on the op.
 
     The CBs are not widened -- cb_in and cb_mid at depth 2 are already 320 KB per core --
-    so this costs no L1 in the kernel. It does hold the earlier chunk alive across the next
-    chunk's triangle matmul, which is +13.1 MB of peak at 298 aa.
+    so this costs no L1 in the kernel. The two chunks may sit in different memories: at 298 aa
+    the held-back chunk has to be in DRAM, because 13.1 MB of extra L1 residency pushes the
+    input projection's static circular buffers into the L1 buffer region and the block throws.
     """
     n = int(x_a.shape[2])
     c = int(x_a.shape[1])
     assert x_b.shape == x_a.shape and x_b.layout == x_a.layout
-    assert x_b.memory_config() == x_a.memory_config()
     pd = _program(x_a, dst, n, c, chunk_a * (c // 32), grid,
                   src_b=x_b, ct_off_b=chunk_b * (c // 32), **kw)
     ttnn.generic_op([x_a, x_b, dst], pd)
