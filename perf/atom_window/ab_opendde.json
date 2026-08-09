@@ -1,5 +1,5 @@
 {
-  "model": "protenix-v2",
+  "model": "opendde",
   "card": "qb2-card1",
   "ttnn": "?",
   "bmm_calls_per_fold": 2406,
@@ -8,17 +8,17 @@
     "(75, 4, 32, 128)x(75, 4, 128, 32)": 1203
   },
   "A": [
-    33.5099,
-    33.4978
+    50.2509,
+    50.2265
   ],
   "B": [
-    34.248,
-    34.2546
+    51.0495,
+    51.063
   ],
-  "median_A_s": 33.5038,
-  "median_B_s": 34.2513,
-  "saved_ms_per_fold": 747.5,
-  "speedup": 1.0223,
+  "median_A_s": 50.2387,
+  "median_B_s": 51.0563,
+  "saved_ms_per_fold": 817.6,
+  "speedup": 1.0163,
   "coords_bit_exact": true,
   "coords_max_abs": 0.0
 }
