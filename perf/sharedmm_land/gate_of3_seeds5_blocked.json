@@ -1,0 +1,53 @@
+{
+  "legs": [
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/ubq.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-prot-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/prot.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-7xi5-tmpl",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/7xi5_tmpl.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-7xi5-notmpl",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/7xi5_notmpl.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-8hel-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/8hel_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-8hel-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/8hel_nomsa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "openfold3-9bk6-complex-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed5 missing structures/9bk6.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    }
+  ],
+  "tally": {
+    "BLOCKED-REF-REGEN-NEEDED": 7
+  },
+  "total_wall_s": 0.0006000809953548014,
+  "workers": [
+    "tt-quietbox:2"
+  ]
+}
