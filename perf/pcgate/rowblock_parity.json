@@ -1,0 +1,39 @@
+{
+  "cols": 298,
+  "c_in": 256,
+  "c_out": 768,
+  "arms": [
+    33,
+    34,
+    50
+  ],
+  "all_bit_exact": true,
+  "rows": [
+    {
+      "rows": 33,
+      "per_core_M": 3,
+      "cores_used": 110,
+      "role": "reference"
+    },
+    {
+      "rows": 34,
+      "per_core_M": 4,
+      "cores_used": 85,
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "n_diff": 0,
+      "n_elem": 68201472,
+      "vs": 33
+    },
+    {
+      "rows": 50,
+      "per_core_M": 5,
+      "cores_used": 100,
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "n_diff": 0,
+      "n_elem": 68201472,
+      "vs": 33
+    }
+  ]
+}
