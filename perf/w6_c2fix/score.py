@@ -63,15 +63,26 @@ def main() -> int:
         print(f"      warm C2FIX {[round(x, 2) for x in c]}")
 
     print("\n=== bit-exactness (rank-0 coordinates, full float precision) ===")
+    # Every (model, size) the run produced, paired rounds included. A round is its own comparison:
+    # the two arms of round r folded the same target with the same seed, so BASE_r vs C2FIX_r is a
+    # clean torch.equal-grade check and there are as many of them as there were rounds.
+    ok = bad = 0
     for size in ("298", "117"):
         for m in ("protenix-v2", "opendde"):
-            a = OUT / f"BASE_{m}_{size}" / "coords.npy"
-            z = OUT / f"C2FIX_{m}_{size}" / "coords.npy"
-            if not (a.is_file() and z.is_file()):
-                continue
-            A, B = np.load(a), np.load(z)
-            print(f"  {m:12s} {size:>3s}  shape {A.shape}  array_equal={np.array_equal(A, B)}"
-                  f"  max abs delta {np.abs(A - B).max():.3e} A")
+            tags = sorted({d.name.split(f"_{m}_{size}")[-1]
+                           for d in OUT.glob(f"BASE_{m}_{size}*")
+                           if d.is_dir() and (d / "coords.npy").is_file()})
+            for tag in tags:
+                a = OUT / f"BASE_{m}_{size}{tag}" / "coords.npy"
+                z = OUT / f"C2FIX_{m}_{size}{tag}" / "coords.npy"
+                if not z.is_file():
+                    continue
+                A, B = np.load(a), np.load(z)
+                eq = np.array_equal(A, B)
+                ok, bad = ok + eq, bad + (not eq)
+                print(f"  {m:12s} {size:>3s}{tag:<4s}  shape {A.shape}  array_equal={eq}"
+                      f"  max abs delta {np.abs(A - B).max():.3e} A")
+    print(f"  -- {ok} bit-exact, {bad} divergent")
     return 0
 
 
