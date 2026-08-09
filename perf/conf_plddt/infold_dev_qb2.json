@@ -1,0 +1,94 @@
+{
+  "conf_device": true,
+  "parity": true,
+  "target": "/home/ttuser/.coworker/wt/perfwar-confidence-head-einsum/examples/prot300.yaml",
+  "ttnn": "0.68.0",
+  "git": "fdb9ebe6aa6ab82932dc7f6341ab6b2b9d8d9992",
+  "visible": "2,3",
+  "meta": {
+    "hardware": "blackhole",
+    "load_s": 1.33,
+    "n_msa": 35
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "cold": true,
+      "s": 40.081,
+      "plddt": 0.848161,
+      "cif_sha": "5dae86794b79b01c",
+      "n_tokens": 298
+    },
+    {
+      "fold": 1,
+      "cold": false,
+      "s": 33.509,
+      "plddt": 0.848161,
+      "cif_sha": "5dae86794b79b01c",
+      "n_tokens": 298
+    },
+    {
+      "fold": 2,
+      "cold": false,
+      "s": 33.573,
+      "plddt": 0.848161,
+      "cif_sha": "5dae86794b79b01c",
+      "n_tokens": 298
+    }
+  ],
+  "head_calls": [
+    {
+      "n_atom": 2398,
+      "n_types": 14,
+      "ms_new": 7.8124,
+      "ms_old": 34.9899,
+      "ms_grid": 5.5355,
+      "equal_new_old": false,
+      "equal_new_grid": true,
+      "equal_old_grid": false,
+      "max_abs_new_old": 0.03125,
+      "max_abs_new_grid": 0.0,
+      "ref_absmax": 10.0
+    },
+    {
+      "n_atom": 2398,
+      "n_types": 14,
+      "ms_new": 0.2507,
+      "ms_old": 15.6499,
+      "ms_grid": 5.5026,
+      "equal_new_old": false,
+      "equal_new_grid": true,
+      "equal_old_grid": false,
+      "max_abs_new_old": 0.03125,
+      "max_abs_new_grid": 0.0,
+      "ref_absmax": 10.0
+    },
+    {
+      "n_atom": 2398,
+      "n_types": 14,
+      "ms_new": 0.2335,
+      "ms_old": 15.6243,
+      "ms_grid": 5.5083,
+      "equal_new_old": false,
+      "equal_new_grid": true,
+      "equal_old_grid": false,
+      "max_abs_new_old": 0.03125,
+      "max_abs_new_grid": 0.0,
+      "ref_absmax": 10.0
+    }
+  ],
+  "stage": [
+    {
+      "path": "confidence_device",
+      "ms": 3991.09
+    },
+    {
+      "path": "confidence_device",
+      "ms": 225.6
+    },
+    {
+      "path": "confidence_device",
+      "ms": 230.58
+    }
+  ]
+}

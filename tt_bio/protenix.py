@@ -1367,18 +1367,32 @@ class ConfidenceHead:
         mask = feats["distogram_rep_atom_mask"].bool()
         idx = torch.nonzero(mask, as_tuple=False).reshape(-1).to(torch.int32)   # (N,)
         idx_dev = ttnn.from_torch(idx.reshape(1, N), layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        # plddt per-atom-type weight table (24, 384, 50) -> flat (24, 384*50) for embedding gather
+        # plddt head, as three dense sample-invariant tensors. They replace a per-atom weight
+        # gather -- embedding -> reshape -> to_layout -> batched (N_atom,1,384)@(N_atom,384,50) --
+        # that materialised one copy of a 24-matrix weight table per atom and then ran the matmul
+        # on 2 of 110 cores: 550 MB of traffic for 0.09 GFLOP of real work. Running every atom
+        # against all 24 type matrices densely and selecting with a one-hot is 62x faster in a
+        # 298 aa fold and bit-identical:
+        #     out[n,b] = sum_t onehot[n,t] * (sum_c aln[n,c] * pw[t,c,b])
+        # Bins are padded 50 -> 64 so the type axis lands on tile faces. pw_flat is zero in the pad
+        # columns, so the one-hot can cover the whole 64-wide block.
+        # (state/perfwar-confidence-head-einsum.md)
         pw = self._g("plddt_weight")                                       # (n_tokatom, 384, 50)
         n_ta, c, nb = pw.shape
-        pw_dev = ttnn.from_torch(pw.reshape(n_ta, c * nb).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
-                                 device=self.dev, dtype=ttnn.bfloat16)
-        a2ta = feats["atom_to_tokatom_idx"].long().to(torch.int32).reshape(-1, 1)  # (N_atom,1)
-        a2ta_dev = ttnn.from_torch(a2ta, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        nbp = ((nb + 31) // 32) * 32                                       # 50 -> 64
+        pw_flat_h = torch.zeros(c, n_ta * nbp)
+        for t in range(n_ta):
+            pw_flat_h[:, t * nbp:t * nbp + nb] = pw[t]
+        a2ta = feats["atom_to_tokatom_idx"].long().reshape(-1)             # (N_atom,)
+        n_atom = a2ta.shape[0]
+        mask_h = torch.zeros(n_atom, n_ta * nbp)
+        mask_h[torch.arange(n_atom).unsqueeze(1),
+               a2ta.unsqueeze(1) * nbp + torch.arange(nbp).unsqueeze(0)] = 1.0
         a2t = feats["atom_to_token_idx"].long().to(torch.int32).reshape(-1, 1)     # (N_atom,1) -> s_single gather
         a2t_dev = ttnn.from_torch(a2t, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, idx_dev=idx_dev, N=N,
-                     pw_dev=pw_dev, a2ta_dev=a2ta_dev, a2t_dev=a2t_dev,
-                     pw_shape=(n_ta, c, nb))
+        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, idx_dev=idx_dev, N=N, a2t_dev=a2t_dev,
+                     pw_flat=T(pw_flat_h), plddt_mask=T(mask_h),
+                     s_sel=T(torch.eye(nbp).repeat(n_ta, 1)), n_bins=nb)
         return cache
 
     def z_base_device(self, s_inputs, s_trunk, z_trunk):
@@ -1391,6 +1405,19 @@ class ConfidenceHead:
         z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
                   + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0)).unsqueeze(0).contiguous()
         return ttnn.from_torch(z_base.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+
+    def _plddt_logits(self, aln, rc):
+        """pLDDT bin logits, out[n,b] = sum_c aln[n,c] * plddt_weight[type[n], c, b].
+
+        Dense against all 24 atom-type matrices, one-hot select, block-sum. Bit-identical to the
+        per-atom gather it replaces: the c-reduction is the same 384-long one over the same bf16
+        operands, packer_l1_acc + fp32_dest_acc make it blocking-invariant, the mask multiplies by
+        exactly 1.0 or 0.0, and the block-sum's other 23 addends are exactly 0.0.
+        Returns (N_atom, 64); the caller trims to rc["n_bins"] = 50."""
+        import ttnn
+        y = ttnn.matmul(aln, rc["pw_flat"], compute_kernel_config=self.compute_kernel_config)
+        y = ttnn.multiply(y, rc["plddt_mask"])
+        return ttnn.matmul(y, rc["s_sel"], compute_kernel_config=self.compute_kernel_config)
 
     def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """Device-resident confidence forward. z_base_dev is the RESIDENT bf16
@@ -1455,19 +1482,12 @@ class ConfidenceHead:
         aln = ttnn.layer_norm(a, weight=self._wtt("plddt_ln.weight", False),
                               bias=(self._wtt("plddt_ln.bias", False) if "plddt_ln.bias" in self._w else None),
                               epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        n_ta, c, nb = rc["pw_shape"]
-        pw_g = ttnn.embedding(rc["a2ta_dev"], rc["pw_dev"], layout=ttnn.ROW_MAJOR_LAYOUT,
-                              memory_config=ttnn.DRAM_MEMORY_CONFIG)          # (N_atom,1, c*nb)
-        pw_g = ttnn.reshape(pw_g, (a.shape[0], c, nb))                       # (N_atom, 384, 50)
-        pw_g = ttnn.to_layout(pw_g, ttnn.TILE_LAYOUT)
-        # einsum nc,ncb->nb  ==  batched (N_atom,1,384) @ (N_atom,384,50) -> (N_atom,1,50)
-        aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
-        plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
+        plddt_logits = self._plddt_logits(aln, rc)                           # (N_atom, 64)
         dram_peak("confidence: heads done, before download")
         # ---- download the small finals; post-process on host (small, exact) ----
         pae_h = torch.Tensor(ttnn.to_torch(pae_logits)).float().reshape(N, N, -1)
         pde_h = torch.Tensor(ttnn.to_torch(pde_logits)).float().reshape(N, N, -1)
-        plddt_h = torch.Tensor(ttnn.to_torch(plddt_logits)).float().reshape(a.shape[0], -1)  # (N_atom,50)
+        plddt_h = torch.Tensor(ttnn.to_torch(plddt_logits)).float().reshape(a.shape[0], -1)[:, :rc["n_bins"]]
         return self._postprocess(pae_h, pde_h, plddt_h, feats)
 
     def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats):
