@@ -439,6 +439,26 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     )
 
 
+@lru_cache(maxsize=1)
+def _l1_bank_bytes() -> int:
+    """Bytes of L1 a program config may plan for, per bank.
+
+    `ttnn.get_max_worker_l1_unreserved_size()` is not that number. On Blackhole it reads 1532416 B
+    while the L1 allocator reports 1461760 B per bank, so a gate sized against it can admit a
+    config that does not fit on a completely idle device, let alone beside live activations. Read
+    the allocator instead, once, and fall back to the device number only if the view is
+    unavailable.
+
+    Deliberately the idle capacity and not the live free number: a gate that reads free L1 per call
+    pays a `get_memory_view` pipeline drain (~6 us, measured by E6) for a decision that a 298 aa
+    fold never changes, and both gates below leave 3.4x-7.8x headroom (perf/pcgate).
+    """
+    try:
+        return int(ttnn.get_memory_view(get_device(), ttnn.BufferType.L1).total_bytes_per_bank)
+    except Exception:
+        return int(ttnn.get_max_worker_l1_unreserved_size())
+
+
 @lru_cache(maxsize=None)
 def _tri_att_qkv_l1_config(
     m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int
@@ -469,13 +489,13 @@ def _tri_att_qkv_l1_config(
     )
     if not per_core_M or -(-m_tiles // per_core_M) > num_cores:
         return None
-    try:
-        l1 = int(ttnn.get_max_worker_l1_unreserved_size())
-    except Exception:
-        return None
+    l1 = _l1_bank_bytes()
     tile = 1024 * elem_bytes
-    # Output CB plus the fp32 accumulation CB are fixed; in0 and in1 scale with the K block.
+    # Output CB plus the fp32 accumulation CB are fixed; in0 and in1 scale with the K block. The
+    # result itself is L1-resident and ttnn allocates it BEFORE the program factory places a
+    # single circular buffer, so its per-bank share comes off the budget too (E6).
     fixed = per_core_M * n_tiles * (tile + 4096) + 128 * 1024
+    fixed += -(-(m_tiles * n_tiles) // num_cores) * tile
     per_block = (per_core_M + n_tiles) * tile
     if fixed + k_tiles * per_block > l1:
         return None
@@ -536,13 +556,11 @@ def _pair_proj_program_config(
     out_block_w = n_tiles
     sh = max(h for h in range(min(4, out_block_h), 0, -1) if out_block_h % h == 0)
     sw = max(w for w in range(min(4 // sh, out_block_w), 0, -1) if out_block_w % w == 0)
-    try:
-        l1 = int(ttnn.get_max_worker_l1_unreserved_size())
-    except Exception:
-        return None
+    l1 = _l1_bank_bytes()
     tile = 1024 * elem_bytes
     # in0 and in1 are double-buffered per K block; the output block carries its bf16 tile plus
-    # the fp32 partial the packer accumulates into.
+    # the fp32 partial the packer accumulates into. No output term: `_pair_proj_linear` writes
+    # the result to DRAM, so it takes no L1 bank space (E6's correction applies to L1 outputs).
     need = (2 * in0_block_w * (out_block_h + out_block_w) * tile
             + out_block_h * out_block_w * (tile + 4096) + 128 * 1024)
     if need > l1:
@@ -685,6 +703,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _sdpa_program_config_for_lengths.cache_clear()
     _triangle_mul_program_config.cache_clear()
     _tri_att_qkv_l1_config.cache_clear()
+    _l1_bank_bytes.cache_clear()
     _pair_proj_program_config.cache_clear()
 
 

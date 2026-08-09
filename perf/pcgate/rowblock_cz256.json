@@ -1,0 +1,139 @@
+{
+  "cols": 298,
+  "c_in": 256,
+  "c_out": 768,
+  "grid": [
+    11,
+    10
+  ],
+  "device_l1_unreserved": 1532416,
+  "free_per_bank_idle": 1461760,
+  "largest_r_that_builds": 50,
+  "best_r": 50,
+  "rows": [
+    {
+      "rows": 17,
+      "per_core_M": 2,
+      "cores_used": 85,
+      "out_bytes_per_bank": 77824,
+      "status": "ok",
+      "block_ms": 0.0397,
+      "whole_ms": 0.7145,
+      "blocks_per_tensor": 18
+    },
+    {
+      "rows": 20,
+      "per_core_M": 2,
+      "cores_used": 100,
+      "out_bytes_per_bank": 90112,
+      "status": "ok",
+      "block_ms": 0.0405,
+      "whole_ms": 0.6069,
+      "blocks_per_tensor": 15
+    },
+    {
+      "rows": 33,
+      "per_core_M": 3,
+      "cores_used": 110,
+      "out_bytes_per_bank": 147456,
+      "status": "ok",
+      "block_ms": 0.0573,
+      "whole_ms": 0.573,
+      "blocks_per_tensor": 10
+    },
+    {
+      "rows": 34,
+      "per_core_M": 4,
+      "cores_used": 85,
+      "out_bytes_per_bank": 153600,
+      "status": "ok",
+      "block_ms": 0.0704,
+      "whole_ms": 0.6334,
+      "blocks_per_tensor": 9
+    },
+    {
+      "rows": 40,
+      "per_core_M": 4,
+      "cores_used": 100,
+      "out_bytes_per_bank": 180224,
+      "status": "ok",
+      "block_ms": 0.0741,
+      "whole_ms": 0.5925,
+      "blocks_per_tensor": 8
+    },
+    {
+      "rows": 50,
+      "per_core_M": 5,
+      "cores_used": 100,
+      "out_bytes_per_bank": 225280,
+      "status": "ok",
+      "block_ms": 0.0888,
+      "whole_ms": 0.5329,
+      "blocks_per_tensor": 6
+    },
+    {
+      "rows": 60,
+      "per_core_M": 6,
+      "cores_used": 100,
+      "out_bytes_per_bank": 268288,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+    },
+    {
+      "rows": 68,
+      "per_core_M": 8,
+      "cores_used": 85,
+      "out_bytes_per_bank": 305152,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    },
+    {
+      "rows": 75,
+      "per_core_M": 10,
+      "cores_used": 75,
+      "out_bytes_per_bank": 335872,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    },
+    {
+      "rows": 85,
+      "per_core_M": 10,
+      "cores_used": 85,
+      "out_bytes_per_bank": 380928,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    },
+    {
+      "rows": 100,
+      "per_core_M": 10,
+      "cores_used": 100,
+      "out_bytes_per_bank": 448512,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    },
+    {
+      "rows": 120,
+      "per_core_M": 12,
+      "cores_used": 100,
+      "out_bytes_per_bank": 536576,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    },
+    {
+      "rows": 149,
+      "per_core_M": 149,
+      "cores_used": 10,
+      "out_bytes_per_bank": 667648,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    },
+    {
+      "rows": 298,
+      "per_core_M": 149,
+      "cores_used": 20,
+      "out_bytes_per_bank": 1333248,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    }
+  ]
+}
