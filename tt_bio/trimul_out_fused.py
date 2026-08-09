@@ -162,6 +162,16 @@ void kernel_main() {
         const uint32_t jt = g % N_JT;
         const uint32_t it = (g / N_JT) % N_IT;
         const uint32_t ct = g / (N_JT * N_IT);
+#ifdef CTSPREAD
+        // Timing control only, WRONG data (the chunks overwrite each other). Walks this
+        // chunk's groups across CTSPREAD column stripes instead of only its own, so the
+        // grid reaches CTSPREAD x (C/32) DRAM banks with the real 32-write group pattern
+        // left intact. CTSPREAD=2 is the bank spread two chunks in flight would reach,
+        // 4 is what all four would.
+        const uint32_t ct_base = (ct_off + CTSTEP * (g % CTSPREAD)) % HT;
+#else
+        const uint32_t ct_base = ct_off;
+#endif
         cb_wait_front(cb_mid, 32);
         const uint32_t mid = get_read_ptr(cb_mid);
         for (uint32_t ii = 0; ii < 32; ++ii) {
@@ -175,7 +185,7 @@ void kernel_main() {
 #else
             noc_async_write(mid + ii * 2048,
                             dst.get_noc_addr((it * 32 + ii) * (N_JT * HT)
-                                             + jt * HT + ct_off + ct),
+                                             + jt * HT + ct_base + ct),
                             tb);
 #endif
         }
@@ -192,11 +202,11 @@ _PROGRAM_CACHE: dict[tuple, object] = {}
 
 
 def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
-             seq_read=False, seq_write=False, seq_stride=1):
+             seq_read=False, seq_write=False, seq_stride=1, ct_spread=1):
     gx, gy = grid
     key = (src.buffer_address(), dst.buffer_address(), n, c, ct_off, gx, gy,
            int(dst.shape[-1]), src.memory_config().buffer_type, dst.memory_config().buffer_type,
-           no_exchange, rbatch, depth, seq_read, seq_write, seq_stride)
+           no_exchange, rbatch, depth, seq_read, seq_write, seq_stride, ct_spread)
     got = _PROGRAM_CACHE.get(key)
     if got is not None:
         return got
@@ -236,6 +246,9 @@ def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
         defines.append(("NOEXCHANGE", "1"))
     if seq_read:
         defines.append(("SEQREAD", "1"))
+    if ct_spread > 1:
+        defines.append(("CTSPREAD", str(ct_spread)))
+        defines.append(("CTSTEP", str(ct_per_chunk)))
     if seq_write:
         defines.append(("SEQWRITE", "1"))
         defines.append(("SEQSTRIDE", str(seq_stride)))
@@ -264,7 +277,8 @@ def applicable(n, c, hidden, dtype, fast_mode):
 
 
 def fused_output(x_chunk, dst, chunk_index, grid=(13, 10), no_exchange=False,
-                 rbatch=8, depth=2, seq_read=False, seq_write=False, seq_stride=1):
+                 rbatch=8, depth=2, seq_read=False, seq_write=False, seq_stride=1,
+                 ct_spread=1):
     """Write permute(x_chunk, (0,2,3,1)) into columns [chunk_index*C, +C) of `dst`.
 
     x_chunk is [1, C, N, N]; dst is [1, N, N, hidden] and is returned unchanged so the
@@ -277,6 +291,6 @@ def fused_output(x_chunk, dst, chunk_index, grid=(13, 10), no_exchange=False,
     c = int(x_chunk.shape[1])
     ct_off = chunk_index * (c // 32)
     pd = _program(x_chunk, dst, n, c, ct_off, grid, no_exchange, rbatch, depth,
-                  seq_read, seq_write, seq_stride)
+                  seq_read, seq_write, seq_stride, ct_spread)
     ttnn.generic_op([x_chunk, dst], pd)
     return dst
