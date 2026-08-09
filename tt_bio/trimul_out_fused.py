@@ -46,6 +46,25 @@ void kernel_main() {
         const uint32_t jt = g % N_JT;
         const uint32_t it = (g / N_JT) % N_IT;
         const uint32_t ct = g / (N_JT * N_IT);          // channel tile inside this chunk
+#ifdef NOEXCHANGE
+        // Timing control only: the same whole-tile NOC traffic and the same transpose, with
+        // the exchange skipped. The result is WRONG on purpose -- this arm exists to split
+        // the op's cost into whole-tile movement and exchange.
+        cb_reserve_back(cb_in, 32);
+        const uint32_t direct = get_write_ptr(cb_in);
+        for (uint32_t cc = 0; cc < 32; ++cc) {
+#ifdef SEQREAD
+            noc_async_read(src.get_noc_addr(g * 32 + cc), direct + cc * 2048, tb);
+#else
+            noc_async_read(src.get_noc_addr((ct * 32 + cc) * (N_IT * N_JT) + it * N_JT + jt),
+                           direct + cc * 2048, tb);
+#endif
+        }
+        noc_async_read_barrier();
+        cb_push_back(cb_in, 32);
+    }
+}
+#else
         // 32 whole tiles, one per channel in this channel tile.
         for (uint32_t cc = 0; cc < 32; ++cc) {
             noc_async_read(src.get_noc_addr((ct * 32 + cc) * (N_IT * N_JT) + it * N_JT + jt),
@@ -56,24 +75,37 @@ void kernel_main() {
         const uint32_t dst = get_write_ptr(cb_in);
         // Exchange: tile index c <-> intra-tile row i. Tile cc row ii becomes tile ii row cc.
         // A 32 B piece is one face row = 16 j values; both sides keep the same column face,
-        // so j never moves.
+        // so j never moves and there is nothing wider to move.
+        //
+        // Both addresses are strength-reduced to pointer increments. Within a source tile the
+        // rows of one face are 32 B apart, and the destinations for consecutive ii are one
+        // tile apart, so the inner loop is two adds -- no multiply, no shift, no mask. The
+        // first form of this loop recomputed both addresses per piece and the op measured
+        // ~30 ns per piece per core.
         noc_async_read_one_packet_set_state(get_noc_addr(raw), 32);
         for (uint32_t cc = 0; cc < 32; ++cc) {
-            const uint32_t s_row = (cc & 15) * 32, s_fr = (cc >> 4) * 2;
-            for (uint32_t ii = 0; ii < 32; ++ii) {
-                const uint32_t d_row = (ii & 15) * 32, d_fr = (ii >> 4) * 2;
-                noc_async_read_one_packet_with_state(
-                    raw + cc * 2048 + d_fr * 512 + d_row,
-                    dst + ii * 2048 + s_fr * 512 + s_row);
-                noc_async_read_one_packet_with_state(
-                    raw + cc * 2048 + (d_fr + 1) * 512 + d_row,
-                    dst + ii * 2048 + (s_fr + 1) * 512 + s_row);
+            const uint32_t s_base = raw + cc * 2048;
+            uint32_t sa = s_base;                                     // face (0,0), row 0
+            uint32_t da = dst + ((cc >> 4) * 1024) + ((cc & 15) * 32);  // row cc of tile 0
+            for (uint32_t ii = 0; ii < 16; ++ii) {
+                noc_async_read_one_packet_with_state(sa, da);
+                noc_async_read_one_packet_with_state(sa + 512, da + 512);
+                sa += 32;
+                da += 2048;
+            }
+            sa = s_base + 1024;                                       // face (1,0), row 0
+            for (uint32_t ii = 16; ii < 32; ++ii) {
+                noc_async_read_one_packet_with_state(sa, da);
+                noc_async_read_one_packet_with_state(sa + 512, da + 512);
+                sa += 32;
+                da += 2048;
             }
         }
         noc_async_read_barrier();
         cb_push_back(cb_in, 32);
     }
 }
+#endif
 """
 
 COMPUTE_SRC = r"""
@@ -92,13 +124,20 @@ void kernel_main() {
     for (uint32_t g = 0; g < n_g; ++g) {
         cb_wait_front(cb_in, 32);
         cb_reserve_back(cb_mid, 32);
-        for (uint32_t t = 0; t < 32; ++t) {
+        // RBATCH tiles per dst-register acquire. One tile per acquire makes the
+        // acquire/commit/wait/release handshake the per-tile cost, and this op pushes 25,600
+        // tiles per trimul through it.
+        for (uint32_t t0 = 0; t0 < 32; t0 += RBATCH) {
             tile_regs_acquire();
             transpose_wh_init_short(cb_in);
-            transpose_wh_tile(cb_in, t, 0);       // (c,j) -> (j,c)
+            for (uint32_t r = 0; r < RBATCH; ++r) {
+                transpose_wh_tile(cb_in, t0 + r, r);   // (c,j) -> (j,c)
+            }
             tile_regs_commit();
             tile_regs_wait();
-            pack_tile(0, cb_mid, t);
+            for (uint32_t r = 0; r < RBATCH; ++r) {
+                pack_tile(r, cb_mid, t0 + r);
+            }
             tile_regs_release();
         }
         cb_push_back(cb_mid, 32);
@@ -126,10 +165,17 @@ void kernel_main() {
         cb_wait_front(cb_mid, 32);
         const uint32_t mid = get_read_ptr(cb_mid);
         for (uint32_t ii = 0; ii < 32; ++ii) {
+#ifdef SEQWRITE
+            // Timing control only, WRONG data: consecutive pages instead of the real
+            // stride-(N_JT*HT) ones, to test whether the destination pages of one group all
+            // land on the same DRAM bank.
+            noc_async_write(mid + ii * 2048, dst.get_noc_addr(g * 32 + ii), tb);
+#else
             noc_async_write(mid + ii * 2048,
                             dst.get_noc_addr((it * 32 + ii) * (N_JT * HT)
                                              + jt * HT + ct_off + ct),
                             tb);
+#endif
         }
         noc_async_write_barrier();
         cb_pop_front(cb_mid, 32);
@@ -143,10 +189,12 @@ void kernel_main() {
 _PROGRAM_CACHE: dict[tuple, object] = {}
 
 
-def _program(src, dst, n, c, ct_off, grid):
+def _program(src, dst, n, c, ct_off, grid, no_exchange=False, rbatch=8, depth=2,
+             seq_read=False, seq_write=False):
     gx, gy = grid
     key = (src.buffer_address(), dst.buffer_address(), n, c, ct_off, gx, gy,
-           int(dst.shape[-1]), src.memory_config().buffer_type, dst.memory_config().buffer_type)
+           int(dst.shape[-1]), src.memory_config().buffer_type, dst.memory_config().buffer_type,
+           no_exchange, rbatch, depth, seq_read, seq_write)
     got = _PROGRAM_CACHE.get(key)
     if got is not None:
         return got
@@ -162,10 +210,15 @@ def _program(src, dst, n, c, ct_off, grid):
         return ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.bfloat16,
                                        page_size=TILE_BYTES)
 
-    # 32 tiles each: raw (reader scratch), exchanged, transposed. 192 KB per core, against
+    # cb_raw is reader scratch and is never handed on, so it stays one group deep. cb_in and
+    # cb_mid are `depth` groups deep: at depth 1 the reader, compute kernel and writer run
+    # strictly one after another per group and the op costs read + transpose + write instead
+    # of their maximum. At depth 2 that is (32 + 64 + 64) x 2 KB = 320 KB per core, against
     # the ~340 KB a real Pairformer block leaves above its buffer high-water mark.
     cbs = [ttnn.CBDescriptor(total_size=32 * TILE_BYTES, core_ranges=cores,
-                             format_descriptors=[fmt(i)]) for i in (0, 1, 2)]
+                             format_descriptors=[fmt(0)])]
+    cbs += [ttnn.CBDescriptor(total_size=depth * 32 * TILE_BYTES, core_ranges=cores,
+                              format_descriptors=[fmt(i)]) for i in (1, 2)]
     r_rt, c_rt, w_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     idx, first = 0, 0
     for y in range(gy):
@@ -176,7 +229,13 @@ def _program(src, dst, n, c, ct_off, grid):
             w_rt[x][y] = [dst.buffer_address(), first, gpc, ct_off]
             first += gpc
             idx += 1
-    defines = [("N_IT", str(nt)), ("N_JT", str(nt)), ("HT", str(ht))]
+    defines = [("N_IT", str(nt)), ("N_JT", str(nt)), ("HT", str(ht)), ("RBATCH", str(rbatch))]
+    if no_exchange:
+        defines.append(("NOEXCHANGE", "1"))
+    if seq_read:
+        defines.append(("SEQREAD", "1"))
+    if seq_write:
+        defines.append(("SEQWRITE", "1"))
     K = ttnn.KernelDescriptor
     kernels = [
         K(kernel_source=READER_SRC, source_type=K.SourceType.SOURCE_CODE, core_ranges=cores,
@@ -200,15 +259,20 @@ def applicable(n, c, hidden, dtype, fast_mode):
             and dtype == ttnn.bfloat16 and not fast_mode)
 
 
-def fused_output(x_chunk, dst, chunk_index, grid=(13, 10)):
+def fused_output(x_chunk, dst, chunk_index, grid=(13, 10), no_exchange=False,
+                 rbatch=8, depth=2, seq_read=False, seq_write=False):
     """Write permute(x_chunk, (0,2,3,1)) into columns [chunk_index*C, +C) of `dst`.
 
     x_chunk is [1, C, N, N]; dst is [1, N, N, hidden] and is returned unchanged so the
     caller can keep the ttnn dataflow shape.
+
+    `no_exchange` skips the sub-tile exchange and produces WRONG data. It exists so the op's
+    cost can be split into whole-tile movement and exchange; never set it in the model.
     """
     n = int(x_chunk.shape[2])
     c = int(x_chunk.shape[1])
     ct_off = chunk_index * (c // 32)
-    pd = _program(x_chunk, dst, n, c, ct_off, grid)
+    pd = _program(x_chunk, dst, n, c, ct_off, grid, no_exchange, rbatch, depth,
+                  seq_read, seq_write)
     ttnn.generic_op([x_chunk, dst], pd)
     return dst

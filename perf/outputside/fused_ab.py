@@ -115,6 +115,55 @@ def main():
     rec("fused output op", timed(dev, fused_arm, issues=2, reps=5), 2 * full_B,
         "reads each chunk once, writes the stripe")
 
+    # Where the whole-tile half of the op loses to a clone of the same bytes. Both controls
+    # produce WRONG data: they swap the real page index for a sequential one, so a big drop
+    # means the real index pattern is hitting a bank the sequential one spreads over.
+    for lbl, kw in (("noex", dict(no_exchange=True)),
+                    ("noex + seq write pages", dict(no_exchange=True, seq_write=True)),
+                    ("noex + seq read pages", dict(no_exchange=True, seq_read=True)),
+                    ("noex + seq both", dict(no_exchange=True, seq_read=True, seq_write=True)),
+                    ("full + seq write pages", dict(seq_write=True))):
+        def arm(kw=kw):
+            for i, s in enumerate(src):
+                F.fused_output(s, dst, i, grid=grid, **kw)
+        try:
+            rec(f"  {lbl} (WRONG data)", timed(dev, arm, issues=2, reps=5), 2 * full_B)
+        except Exception as e:                                            # noqa: BLE001
+            print(f"  {lbl} ERR {str(e)[:80]}", flush=True)
+
+    # RBATCH: tiles per dst-register acquire. DEPTH: groups of CB, i.e. whether the reader,
+    # compute kernel and writer overlap at all.
+    best = None
+    for depth in (1, 2):
+        for rb in (1, 2, 4, 8):
+            def arm(rb=rb, depth=depth):
+                for i, s in enumerate(src):
+                    F.fused_output(s, dst, i, grid=grid, rbatch=rb, depth=depth)
+            try:
+                ms = timed(dev, arm, issues=2, reps=5)
+            except Exception as e:                                        # noqa: BLE001
+                print(f"  rbatch={rb} depth={depth} ERR {str(e)[:80]}", flush=True)
+                continue
+            rec(f"  rbatch={rb} depth={depth}", ms, 2 * full_B)
+            if best is None or ms < best[0]:
+                best = (ms, rb, depth)
+    if best:
+        res["best_config"] = {"ms": best[0], "rbatch": best[1], "depth": best[2]}
+        # parity at the winning configuration, not just at the default
+        for i, s in enumerate(src):
+            F.fused_output(s, dst, i, grid=grid, rbatch=best[1], depth=best[2])
+        ok = bool(torch.equal(ref, ttnn.to_torch(dst)))
+        res["best_config"]["bit_exact"] = ok
+        print(f"best rbatch={best[1]} depth={best[2]} {best[0]:.4f} ms, bit-exact {ok}", flush=True)
+
+    # Splits the op: same whole-tile NOC traffic and the same transpose, exchange skipped.
+    # Produces wrong data on purpose, so it runs after the parity check and never feeds one.
+    def noex_arm():
+        for i, s in enumerate(src):
+            F.fused_output(s, dst, i, grid=grid, no_exchange=True)
+    rec("fused, exchange skipped (WRONG data)", timed(dev, noex_arm, issues=2, reps=5),
+        2 * full_B, "the op's whole-tile floor")
+
     # the byte floor: same traffic, no reordering
     perm = ttnn.from_torch(torch.randn(1, N, N, C), layout=ttnn.TILE_LAYOUT, device=dev,
                            dtype=ttnn.bfloat16, memory_config=L1)

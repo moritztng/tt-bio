@@ -6,6 +6,7 @@ from typing import Callable, Mapping
 from math import pi
 from functools import lru_cache
 from types import MappingProxyType
+from . import trimul_out_fused
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -67,6 +68,11 @@ _DIFFUSION_FP32_DEVICE = False
 _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
+# Release-gated (DEFAULT OFF): fuse the trimul's output-side channel move and concat into
+# one generic_op that writes each channel chunk straight into its column stripe of the
+# result (tt_bio/trimul_out_fused.py). Bit-exact against the permute + concat chain it
+# replaces. Set TT_BIO_TRIMUL_OUT_FUSED=1 to A/B.
+_TRIMUL_OUT_FUSED = os.environ.get("TT_BIO_TRIMUL_OUT_FUSED", "0") == "1"
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -1013,6 +1019,21 @@ class TriangleMultiplication(Module):
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
         x_chunks = [] if large_seq else None
+        # The fused output op replaces the permute AND the concat: it reads the triangle
+        # matmul's [1,C,H,H] result and writes it straight into columns [i*C,(i+1)*C) of a
+        # destination allocated once. It only applies on the L1 (small-L) path, where the
+        # running concat is what production does.
+        out_fused = (
+            _TRIMUL_OUT_FUSED
+            and not large_seq
+            and not _TRIMUL_RAW_CHANNEL_MOVES
+            and trimul_out_fused.applicable(
+                H, _trimul_chunk_size(H, self._hidden), self._hidden, _dtype(), _FAST_MODE)
+        )
+        if out_fused:
+            x = ttnn.allocate_tensor_on_device(
+                ttnn.Shape([1, H, H, self._hidden]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                self.device, ttnn.DRAM_MEMORY_CONFIG)
         for i in range(n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
                 x_norm_in,
@@ -1056,6 +1077,10 @@ class TriangleMultiplication(Module):
             # equivalent transpose(1,2) then transpose(2,3) is ~2.6ms (the inner
             # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
             # single permute is marginally faster, so keep it there.
+            if out_fused:
+                trimul_out_fused.fused_output(x_chunk, x, i, grid=COMPUTE_GRID_MAIN)
+                ttnn.deallocate(x_chunk)
+                continue
             if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:
                 x_chunk = ttnn.transpose(x_chunk, 1, 2, memory_config=memory_config)
                 x_chunk_t = ttnn.transpose(x_chunk, 2, 3, memory_config=memory_config)
