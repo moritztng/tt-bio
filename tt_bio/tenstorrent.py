@@ -7,6 +7,8 @@ from math import pi
 from functools import lru_cache
 from types import MappingProxyType
 
+from tt_bio import trimul_fused
+
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
 TRIANGLE_ATT_CHUNK_SIZE = 512
@@ -65,6 +67,10 @@ _DIFFUSION_FP32_DEVICE = False
 # boltz-reference-selective-fp32-softmax the softmax is the remaining mismatch. Set
 # BOLTZ2_FP32_SOFTMAX=1 to A/B; default OFF until a leg closes against it.
 _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
+# A/B toggle for the fused trimul input kernel (tt_bio/trimul_fused.py). Off by default
+# until the block and fold numbers are in; env var rather than an arg so it can be flipped
+# for a back-to-back run without touching a call chain that is 6 frames deep.
+_TRIMUL_FUSED = os.environ.get("TT_BIO_TRIMUL_FUSED", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
@@ -1013,6 +1019,9 @@ class TriangleMultiplication(Module):
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
         x_chunks = [] if large_seq else None
+        use_fused = _TRIMUL_FUSED and trimul_fused.applicable(
+            H, _trimul_chunk_size(H, self._hidden), memory_config, _dtype(), _FAST_MODE
+        )
         for i in range(n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
                 x_norm_in,
@@ -1021,25 +1030,35 @@ class TriangleMultiplication(Module):
                 dtype=_dtype(),
                 compute_kernel_config=self.compute_kernel_config,
             )
-            g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
-            ttnn.deallocate(gp_in_fused)
-            a_chunk = ttnn.multiply_(
-                p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
-            )
-            b_chunk = ttnn.multiply_(
-                p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
-            )
-            ttnn.deallocate(g_in_a)
-            ttnn.deallocate(g_in_b)
-            if mask_u is not None:
-                a_chunk = ttnn.multiply_(a_chunk, mask_u)
+            if use_fused:
+                # One kernel for the 4-way chunk, both gates, the mask and both channel
+                # moves. Bit-exact with the branch below (torch.equal, per-operand).
+                a_chunk, b_chunk = trimul_fused.fused_inputs(
+                    gp_in_fused, mask, self.ending
+                )
+                ttnn.deallocate(gp_in_fused)
+            else:
+                g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
+                ttnn.deallocate(gp_in_fused)
+                a_chunk = ttnn.multiply_(
+                    p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                )
+                b_chunk = ttnn.multiply_(
+                    p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                )
+                ttnn.deallocate(g_in_a)
+                ttnn.deallocate(g_in_b)
+                if mask_u is not None:
+                    a_chunk = ttnn.multiply_(a_chunk, mask_u)
 
-            a_chunk = self._transform_chunk(
-                a_chunk, (0, 3) + ((2, 1) if self.ending else (1, 2)), memory_config=memory_config,
-            )
-            b_chunk = self._transform_chunk(
-                b_chunk, (0, 3) + ((1, 2) if self.ending else (2, 1)), memory_config=memory_config,
-            )
+                a_chunk = self._transform_chunk(
+                    a_chunk, (0, 3) + ((2, 1) if self.ending else (1, 2)),
+                    memory_config=memory_config,
+                )
+                b_chunk = self._transform_chunk(
+                    b_chunk, (0, 3) + ((1, 2) if self.ending else (2, 1)),
+                    memory_config=memory_config,
+                )
             x_chunk = ttnn.matmul(
                 a_chunk,
                 b_chunk,
