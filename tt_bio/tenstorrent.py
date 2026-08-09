@@ -1001,18 +1001,19 @@ class TriangleMultiplication(Module):
             x_norm_in = ttnn.reallocate(x_norm_in)
         # Unsqueeze mask once before chunk loop (mask is [1,S,S] or [1,S])
         mask_u = ttnn.unsqueeze(mask, -1) if mask is not None else None
-        # On the DRAM (large-L) path, collect the per-channel output chunks and
-        # concat them ONCE at the end. The running concat below copies the
-        # accumulator on every step (O(n_pairs^2) channel-bytes moved); a single
-        # concat of all chunks copies each chunk once (O(n_pairs)). Bit-exact
-        # (same chunk order). Kept only for DRAM: at small L the chunks live in
-        # L1 and holding all of them at once would blow the L1 budget.
+        # Collect the per-channel output chunks and concat them ONCE at the end. A
+        # running concat copies the accumulator on every step (O(n_pairs^2)
+        # channel-bytes moved); one concat of all chunks copies each chunk once.
+        # Bit-exact either way (same chunk order). On the L1 path the chunks are
+        # moved to DRAM as they are produced, so holding all n_pairs of them costs
+        # no L1: measured 7.05 -> 6.94 ms per trimul at 298 aa
+        # (perf/trimul_kernel/opsplit298.py).
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         # Assemble the per-channel chunks on the host when the full result is large
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
-        x_chunks = [] if large_seq else None
+        x_chunks = []
         for i in range(n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
                 x_norm_in,
@@ -1063,24 +1064,21 @@ class TriangleMultiplication(Module):
                 x_chunk = x_chunk_t
             else:
                 x_chunk = ttnn.permute(x_chunk, (0, 2, 3, 1), memory_config=memory_config)
-            if x_chunks is not None:
+            if large_seq:
                 _acc_append(x_chunks, x_chunk, host_acc)
-            elif i == 0:
-                x = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-                ttnn.deallocate(x_chunk)
             else:
-                x_old = x
-                x = ttnn.concat([x_old, x_chunk], dim=-1)
-                ttnn.deallocate(x_old)
+                # L1-resident chunk: move it to DRAM so all n_pairs can be held at
+                # once for the single concat.
+                moved = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 ttnn.deallocate(x_chunk)
-        if x_chunks is not None:
-            if H > SEQ_LEN_MORE_CHUNKING:
-                # x_norm_in is dead on the row-blocked tail path (both norms are
-                # recomputed per row block from x_in). Freeing it before the
-                # concat drops that peak from 4 pair-tensor multiples to 3 --
-                # the difference between fitting and the 9i3p/9j4c refusal.
-                ttnn.deallocate(x_norm_in)
-            x = _acc_concat(x_chunks, -1, host_acc)
+                x_chunks.append(moved)
+        if H > SEQ_LEN_MORE_CHUNKING:
+            # x_norm_in is dead on the row-blocked tail path (both norms are
+            # recomputed per row block from x_in). Freeing it before the concat
+            # drops that peak from 4 pair-tensor multiples to 3 -- the difference
+            # between fitting and the 9i3p/9j4c refusal.
+            ttnn.deallocate(x_norm_in)
+        x = _acc_concat(x_chunks, -1, host_acc)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if H > SEQ_LEN_MORE_CHUNKING:
             # Row-block the output projections instead of computing them full-size.

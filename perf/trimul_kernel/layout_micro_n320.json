@@ -1,0 +1,96 @@
+[
+  {
+    "name": "clone  (the L1 copy roof)",
+    "serial_ms": 0.0515,
+    "pipe_ms": 0.0243,
+    "gbs_each_way": 539.6,
+    "bit_exact": null,
+    "note": ""
+  },
+  {
+    "name": "transpose(-2,-1)  [tile-local]",
+    "serial_ms": 0.0702,
+    "pipe_ms": 0.0236,
+    "gbs_each_way": 555.4,
+    "bit_exact": null,
+    "note": ""
+  },
+  {
+    "name": "permute(0,3,1,2)  [production]",
+    "serial_ms": 0.2086,
+    "pipe_ms": 0.1651,
+    "gbs_each_way": 79.4,
+    "bit_exact": true,
+    "note": ""
+  },
+  {
+    "name": "  = transpose . permute(0,2,1,3)",
+    "serial_ms": 0.1782,
+    "pipe_ms": 0.1466,
+    "gbs_each_way": 89.4,
+    "bit_exact": true,
+    "note": ""
+  },
+  {
+    "name": "permute(0,3,2,1)  [production]",
+    "serial_ms": 0.1633,
+    "pipe_ms": 0.1297,
+    "gbs_each_way": 101.0,
+    "bit_exact": true,
+    "note": ""
+  },
+  {
+    "name": "  = transpose . permute(0,2,1,3) . transpose",
+    "serial_ms": 0.2023,
+    "pipe_ms": 0.1661,
+    "gbs_each_way": 78.9,
+    "bit_exact": true,
+    "note": ""
+  },
+  {
+    "name": "permute(0,2,3,1)  [production, out]",
+    "serial_ms": 0.1574,
+    "pipe_ms": 0.126,
+    "gbs_each_way": 104.0,
+    "bit_exact": true,
+    "note": ""
+  },
+  {
+    "name": "  = permute(0,2,1,3) . transpose",
+    "serial_ms": 0.2013,
+    "pipe_ms": 0.1501,
+    "gbs_each_way": 87.3,
+    "bit_exact": true,
+    "note": ""
+  },
+  {
+    "name": "permute(0,2,1,3) alone  [whole-tile move]",
+    "serial_ms": 0.1858,
+    "pipe_ms": 0.1315,
+    "gbs_each_way": 99.7,
+    "bit_exact": null,
+    "note": ""
+  },
+  {
+    "name": "linear -> DRAM  [production]",
+    "serial_ms": 0.695,
+    "pipe_ms": 0.6525,
+    "tflops": 20.57,
+    "gbs_w": 80.4
+  },
+  {
+    "name": "linear -> L1",
+    "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 23 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buf"
+  },
+  {
+    "name": "minimal_matmul -> DRAM",
+    "serial_ms": 0.435,
+    "pipe_ms": 0.3756,
+    "tflops": 35.73,
+    "gbs_w": 139.6
+  },
+  {
+    "name": "minimal_matmul -> L1",
+    "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 27 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 buf"
+  }
+]
