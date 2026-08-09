@@ -1,0 +1,113 @@
+{
+  "n": 320,
+  "c": 64,
+  "grid": "10x10",
+  "rows": [
+    {
+      "arm": "ttnn chain (production)",
+      "ms": 0.5446,
+      "eff_gbs": 144.4
+    },
+    {
+      "arm": "ttnn chain, no inner swap",
+      "ms": 0.5835,
+      "eff_gbs": 134.8
+    },
+    {
+      "arm": "v1b rb=1 10x10 + inner-swap transpose",
+      "ms": 0.2702
+    },
+    {
+      "arm": "v1b rb=1 10x10",
+      "ms": 0.2523,
+      "moved_mb": 78.6,
+      "eff_gbs": 311.8,
+      "host_build_ms": 0.728,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b rb=1 13x10 + inner-swap transpose",
+      "ms": 0.2632
+    },
+    {
+      "arm": "v1b rb=1 13x10",
+      "ms": 0.242,
+      "moved_mb": 78.6,
+      "eff_gbs": 324.9,
+      "host_build_ms": 0.93,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b rb=4 10x10 + inner-swap transpose",
+      "ms": 0.2704
+    },
+    {
+      "arm": "v1b rb=4 10x10",
+      "ms": 0.2524,
+      "moved_mb": 78.6,
+      "eff_gbs": 311.6,
+      "host_build_ms": 0.661,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b rb=4 13x10 + inner-swap transpose",
+      "ms": 0.2681
+    },
+    {
+      "arm": "v1b rb=4 13x10",
+      "ms": 0.2478,
+      "moved_mb": 78.6,
+      "eff_gbs": 317.4,
+      "host_build_ms": 0.849,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b rb=8 10x10 + inner-swap transpose",
+      "ms": 0.2737
+    },
+    {
+      "arm": "v1b rb=8 10x10",
+      "ms": 0.2558,
+      "moved_mb": 78.6,
+      "eff_gbs": 307.4,
+      "host_build_ms": 0.665,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b rb=8 13x10 + inner-swap transpose",
+      "ms": 0.2788
+    },
+    {
+      "arm": "v1b rb=8 13x10",
+      "ms": 0.2596,
+      "moved_mb": 78.6,
+      "eff_gbs": 302.9,
+      "host_build_ms": 0.856,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b rb=16 10x10 + inner-swap transpose",
+      "ms": 0.2945
+    },
+    {
+      "arm": "v1b rb=16 10x10",
+      "ms": 0.276,
+      "moved_mb": 78.6,
+      "eff_gbs": 284.9,
+      "host_build_ms": 0.738,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    },
+    {
+      "arm": "v1b rb=16 13x10 + inner-swap transpose",
+      "ms": 0.3044
+    },
+    {
+      "arm": "v1b rb=16 13x10",
+      "ms": 0.2861,
+      "moved_mb": 78.6,
+      "eff_gbs": 274.9,
+      "host_build_ms": 0.942,
+      "note": "exact_vs_torch a=False b=False | exact_vs_ttnn_chain=True | maxdiff=1.562e-02"
+    }
+  ]
+}

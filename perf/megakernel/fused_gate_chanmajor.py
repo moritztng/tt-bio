@@ -60,14 +60,20 @@ void kernel_main() {
         const uint32_t I   = id / (CT_PER_OP * N_JT);
         const uint32_t ctg = o * CT_PER_OP + Cg;
         const uint32_t ctp = P_CT_OFF + o * CT_PER_OP + Cg;
-        for (uint32_t ii = 0; ii < 32; ++ii) {
-            const uint32_t row = (I * 32 + ii) * (N_JT * GP_COL_TILES) + J * GP_COL_TILES;
-            cb_reserve_back(cb_in, 2);
-            const uint32_t l1 = get_write_ptr(cb_in);
-            noc_async_read(gp.get_noc_addr(row + ctg), l1, tb);
-            noc_async_read(gp.get_noc_addr(row + ctp), l1 + tb, tb);
+        // RB i's per barrier: 2 tiles per barrier is read-latency-bound, not
+        // bandwidth-bound (milestone 2 measured 460 vs 906 GB/s for the same structure).
+        for (uint32_t ii = 0; ii < 32; ii += RB) {
+            cb_reserve_back(cb_in, 2 * RB);
+            uint32_t l1 = get_write_ptr(cb_in);
+            for (uint32_t k = 0; k < RB; ++k) {
+                const uint32_t row = (I * 32 + ii + k) * (N_JT * GP_COL_TILES)
+                                     + J * GP_COL_TILES;
+                noc_async_read(gp.get_noc_addr(row + ctg), l1, tb);
+                noc_async_read(gp.get_noc_addr(row + ctp), l1 + tb, tb);
+                l1 += 2 * tb;
+            }
             noc_async_read_barrier();
-            cb_push_back(cb_in, 2);
+            cb_push_back(cb_in, 2 * RB);
         }
     }
 }
@@ -86,28 +92,31 @@ void kernel_main() {
     constexpr uint32_t cb_in  = 0;
     constexpr uint32_t cb_mid = 1;
     const uint32_t n_tiles = get_arg_val<uint32_t>(0);
+    constexpr uint32_t CB_BATCH = CBATCH;   // tiles per CB handshake
     init_sfpu(cb_in, cb_mid);
-    for (uint32_t t = 0; t < n_tiles; ++t) {
-        cb_wait_front(cb_in, 2);
+    for (uint32_t t0 = 0; t0 < n_tiles; t0 += CB_BATCH) {
+    cb_wait_front(cb_in, 2 * CB_BATCH);
+    cb_reserve_back(cb_mid, CB_BATCH);
+    for (uint32_t t = 0; t < CB_BATCH; ++t) {
         tile_regs_acquire();
         transpose_wh_init_short(cb_in);
 #ifdef NOGATE
-        transpose_wh_tile(cb_in, 1, 0);   // p^T only: how much of the op is the gate?
+        transpose_wh_tile(cb_in, 2 * t + 1, 0);   // p^T only: how much is the gate?
 #else
-        transpose_wh_tile(cb_in, 0, 0);   // dst0 = g^T
-        transpose_wh_tile(cb_in, 1, 1);   // dst1 = p^T
+        transpose_wh_tile(cb_in, 2 * t + 0, 0);   // dst0 = g^T
+        transpose_wh_tile(cb_in, 2 * t + 1, 1);   // dst1 = p^T
         sigmoid_tile_init();
         sigmoid_tile(0);
         mul_binary_tile_init();
         mul_binary_tile(0, 1, 0);
 #endif
         tile_regs_commit();
-        cb_reserve_back(cb_mid, 1);
         tile_regs_wait();
-        pack_tile(0, cb_mid);
+        pack_tile(0, cb_mid, t);
         tile_regs_release();
-        cb_push_back(cb_mid, 1);
-        cb_pop_front(cb_in, 2);
+    }
+    cb_push_back(cb_mid, CB_BATCH);
+    cb_pop_front(cb_in, 2 * CB_BATCH);
     }
 }
 """
@@ -177,34 +186,37 @@ void kernel_main() {
 
 
 def build(dev, gp, out_a, out_b, gx, gy, exchange, n_jt, n_it, ct_per_op,
-          gp_col_tiles, nogate=False):
+          gp_col_tiles, nogate=False, rb=8, cbatch=None):
     groups_per_op = n_it * n_jt * ct_per_op
     n_groups = 2 * groups_per_op
     ncores = gx * gy
-    assert n_groups % ncores == 0, f"{n_groups} groups over {ncores} cores is uneven"
-    gpc = n_groups // ncores
+    base, rem = divmod(n_groups, ncores)   # uneven split so any grid can be used
     cores = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0),
                                               ttnn.CoreCoord(gx - 1, gy - 1))])
     fmt = lambda i: ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.bfloat16,
                                             page_size=TB)
     cbs = [
-        ttnn.CBDescriptor(total_size=4 * TB, core_ranges=cores, format_descriptors=[fmt(0)]),
+        ttnn.CBDescriptor(total_size=4 * max(rb, cbatch or rb) * TB, core_ranges=cores,
+                          format_descriptors=[fmt(0)]),
         ttnn.CBDescriptor(total_size=64 * TB, core_ranges=cores, format_descriptors=[fmt(1)]),
         ttnn.CBDescriptor(total_size=32 * TB, core_ranges=cores, format_descriptors=[fmt(2)]),
     ]
     r_rt, c_rt, w_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    c = 0
+    c, first = 0, 0
     for y in range(gy):
         for x in range(gx):
-            first = c * gpc
+            gpc = base + (1 if c < rem else 0)
             r_rt[x][y] = [gp.buffer_address(), first, gpc]
             c_rt[x][y] = [gpc * 32]
             w_rt[x][y] = [out_a.buffer_address(), out_b.buffer_address(), first, gpc]
+            first += gpc
             c += 1
+    assert first == n_groups
     defines = [("GROUPS_PER_OP", str(groups_per_op)), ("CT_PER_OP", str(ct_per_op)),
                ("N_JT", str(n_jt)), ("N_IT", str(n_it)),
                ("GP_COL_TILES", str(gp_col_tiles)),
-               ("P_CT_OFF", str(2 * ct_per_op))]
+               ("P_CT_OFF", str(2 * ct_per_op)), ("RB", str(rb)),
+               ("CBATCH", str(cbatch if cbatch else rb))]
     if exchange:
         defines.append(("EXCHANGE", "1"))
     if nogate:
@@ -219,7 +231,8 @@ def build(dev, gp, out_a, out_b, gx, gy, exchange, n_jt, n_it, ct_per_op,
     writer = K(kernel_source=WRITER, source_type=K.SourceType.SOURCE_CODE, core_ranges=cores,
                 compile_time_args=list(ttnn.TensorAccessorArgs(out_a).get_compile_time_args()),
                 defines=defines, runtime_args=w_rt, config=ttnn.WriterConfigDescriptor())
-    return ttnn.ProgramDescriptor(kernels=[reader, compute, writer], semaphores=[], cbs=cbs)
+    pd = ttnn.ProgramDescriptor(kernels=[reader, compute, writer], semaphores=[], cbs=cbs)
+    return pd, r_rt, w_rt, (gx, gy)
 
 
 def main():
@@ -229,6 +242,9 @@ def main():
     ap.add_argument("--grid", default="10x10")
     ap.add_argument("--reps", type=int, default=8)
     ap.add_argument("--arms", default="v1a,v1b")
+    ap.add_argument("--rb", default="8")
+    ap.add_argument("--grids", default="10x10")
+    ap.add_argument("--cbatch", default="0", help="0 = same as rb")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     gx, gy = (int(v) for v in a.grid.split("x"))
@@ -301,7 +317,12 @@ def main():
         print("  [%-26s] %8.4f ms   (%.1f MB payload -> %6.1f GB/s)" % (
             tag, ms, moved_all, moved_all / ms), flush=True)
 
-    for arm in a.arms.split(","):
+    combos = [(arm, int(rb), gr, int(cb)) for arm in a.arms.split(",")
+              for rb in a.rb.split(",") for gr in a.grids.split(",")
+              for cb in a.cbatch.split(",")]
+    for arm, rb, gr, cbat in combos:
+        cbat = cbat or rb
+        gx, gy = (int(v) for v in gr.split("x"))
         exch = arm.startswith("v1b")
         nogate = arm.endswith("-nogate")
         shape = [1, C, N, N] if exch else [1, N, C, N]
@@ -310,8 +331,8 @@ def main():
         ob = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), ttnn.bfloat16,
                                            ttnn.TILE_LAYOUT, dev, L1)
         try:
-            pd = build(dev, gp, oa, ob, gx, gy, exch, n_jt, n_it, ct_per_op,
-                       gp_col_tiles, nogate)
+            pd, _r_rt, _w_rt, _g = build(dev, gp, oa, ob, gx, gy, exch, n_jt, n_it,
+                                         ct_per_op, gp_col_tiles, nogate, rb, cbat)
             ttnn.generic_op([gp, oa, ob], pd)
             ga, gb = ttnn.to_torch(oa), ttnn.to_torch(ob)
             if exch:
@@ -329,7 +350,8 @@ def main():
                         % (torch.equal(ga, ex_a), torch.equal(gb, ex_b),
                            torch.equal(ga, tt_a.contiguous()),
                            (ga.float() - ex_a.float()).abs().max()))
-            print(f"  [{arm}] {note}", flush=True)
+            tag = f"{arm} rb={rb} cb={cbat} {gr}"
+            print(f"  [{tag}] {note}", flush=True)
             for _ in range(2):
                 for _ in range(a.reps):
                     ttnn.generic_op([gp, oa, ob], pd)
@@ -349,18 +371,74 @@ def main():
                     t = ttnn.transpose(ob, -2, -1, memory_config=L1)
                     ttnn.deallocate(t)
                 ms2 = amort(fused_plus, a.reps)
-                rows.append(dict(arm=arm + " + inner-swap transpose", ms=round(ms2, 4)))
-                print("  [%s + inner-swap transpose] %8.4f ms" % (arm, ms2), flush=True)
+                rows.append(dict(arm=tag + " + inner-swap transpose", ms=round(ms2, 4)))
+                print("  [%s + inner-swap transpose] %8.4f ms" % (tag, ms2), flush=True)
             moved = (N * N * 4 * C * 2 + 2 * N * N * C * 2) / 1e6
-            rows.append(dict(arm=arm, ms=round(ms, 4), moved_mb=round(moved, 1),
-                             eff_gbs=round(moved / ms, 1), note=note))
-            print("  [%s] %8.4f ms   %.1f MB   %7.1f GB/s" % (arm, ms, moved, moved / ms),
-                  flush=True)
+            t0 = time.perf_counter()
+            for _ in range(10):
+                build(dev, gp, oa, ob, gx, gy, exch, n_jt, n_it, ct_per_op,
+                      gp_col_tiles, nogate, rb, cbat)[0]
+            host_ms = (time.perf_counter() - t0) * 1e3 / 10
+            rows.append(dict(arm=tag, ms=round(ms, 4), moved_mb=round(moved, 1),
+                             eff_gbs=round(moved / ms, 1), host_build_ms=round(host_ms, 3),
+                             note=note))
+            print("  [%s] %8.4f ms   %.1f MB   %7.1f GB/s   host build %.3f ms" % (
+                tag, ms, moved, moved / ms, host_ms), flush=True)
         except Exception as e:
             print(f"  [{arm}] FAILED {type(e).__name__}: {str(e)[:600]}", flush=True)
             rows.append(dict(arm=arm, error=f"{type(e).__name__}: {str(e)[:400]}"))
         ttnn.deallocate(oa)
         ttnn.deallocate(ob)
+
+    # Can one descriptor be reused across allocations by mutating its runtime args?
+    # This decides whether the op can go in the model: the host build is ~0.8 ms, 3x the
+    # device time, and a 298 aa fold launches this 3840 times.
+    print("\n=== descriptor reuse: mutate runtime args instead of rebuilding ===", flush=True)
+    try:
+        gx0, gy0 = 13, 10
+        oa = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16,
+                                            ttnn.TILE_LAYOUT, dev, L1)
+        ob = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16,
+                                            ttnn.TILE_LAYOUT, dev, L1)
+        pd, r_rt, w_rt, _ = build(dev, gp, oa, ob, gx0, gy0, True, n_jt, n_it, ct_per_op,
+                                  gp_col_tiles, False, 1, 1)
+        ttnn.generic_op([gp, oa, ob], pd)
+        base_ok = torch.equal(ttnn.to_torch(oa), ref_a_t.permute(0, 3, 1, 2).contiguous())
+        # new allocations at different addresses
+        ttnn.deallocate(oa)
+        ttnn.deallocate(ob)
+        pad = ttnn.allocate_tensor_on_device(ttnn.Shape([1, 32, N, N]), ttnn.bfloat16,
+                                             ttnn.TILE_LAYOUT, dev, L1)
+        oa2 = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16,
+                                             ttnn.TILE_LAYOUT, dev, L1)
+        ob2 = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16,
+                                             ttnn.TILE_LAYOUT, dev, L1)
+        moved_addr = (oa2.buffer_address() != oa.buffer_address()
+                      if False else True)
+        t0 = time.perf_counter()
+        for _ in range(20):
+            first = 0
+            c = 0
+            base, rem = divmod(2 * n_it * n_jt * ct_per_op, gx0 * gy0)
+            for y in range(gy0):
+                for x in range(gx0):
+                    gpc = base + (1 if c < rem else 0)
+                    w_rt[x][y] = [oa2.buffer_address(), ob2.buffer_address(), first, gpc]
+                    first += gpc
+                    c += 1
+        mut_ms = (time.perf_counter() - t0) * 1e3 / 20
+        ttnn.generic_op([gp, oa2, ob2], pd)
+        reuse_ok = torch.equal(ttnn.to_torch(oa2), ref_a_t.permute(0, 3, 1, 2).contiguous())
+        print("  first run exact=%s | after mutating runtime args exact=%s | "
+              "mutation cost %.3f ms vs full build ~0.81 ms" % (base_ok, reuse_ok, mut_ms),
+              flush=True)
+        rows.append(dict(arm="descriptor reuse", first_exact=bool(base_ok),
+                         reuse_exact=bool(reuse_ok), mutate_ms=round(mut_ms, 3)))
+        for t in (pad, oa2, ob2):
+            ttnn.deallocate(t)
+    except Exception as e:
+        print("  reuse test FAILED %s: %s" % (type(e).__name__, str(e)[:300]), flush=True)
+        rows.append(dict(arm="descriptor reuse", error=f"{type(e).__name__}: {str(e)[:200]}"))
 
     if a.out:
         Path(a.out).write_text(json.dumps(dict(n=N, c=C, grid=a.grid, rows=rows), indent=2) + "\n")
