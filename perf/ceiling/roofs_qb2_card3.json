@@ -1,0 +1,62 @@
+{
+  "ttnn": "?",
+  "compute": {
+    "runs": {
+      "2048_op_ckc_oL1": {
+        "ms": 0.245,
+        "tflops": 70.11
+      },
+      "2048_op_ckc_oDRAM": {
+        "ms": 0.2089,
+        "tflops": 82.22
+      },
+      "2048_plain_ckc_oL1": {
+        "ms": 1.1538,
+        "tflops": 14.89
+      },
+      "3072_op_ckc_oL1": {
+        "ms": 11.4324,
+        "tflops": 5.07
+      },
+      "3072_op_ckc_oDRAM": {
+        "ms": 0.607,
+        "tflops": 95.52
+      },
+      "3072_plain_ckc_oL1": {
+        "ms": 1.7272,
+        "tflops": 33.57
+      },
+      "4096_op_ckc_oL1": {
+        "ms": 23.1881,
+        "tflops": 5.93
+      },
+      "4096_op_ckc_oDRAM": {
+        "ms": 1.3735,
+        "tflops": 100.07
+      },
+      "4096_plain_ckc_oL1": {
+        "ms": 2.3893,
+        "tflops": 57.52
+      }
+    },
+    "peak_TFLOPs": 100.07
+  },
+  "dram": {
+    "runs": {
+      "16MB": {
+        "read_GBs": 318.8,
+        "write_GBs": 237.9
+      },
+      "32MB": {
+        "read_GBs": 375.3,
+        "write_GBs": 259.1
+      },
+      "64MB": {
+        "read_GBs": 392.2,
+        "write_GBs": 266.3
+      }
+    },
+    "read_GBs": 392.2,
+    "write_GBs": 266.3
+  }
+}

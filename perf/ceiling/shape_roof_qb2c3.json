@@ -1,0 +1,112 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "classes": {
+    "trimul.in_proj      [1,320,320,256]@[256,128]": {
+      "gflop_per_call": 6.71,
+      "tflop_per_fold_logical": 48.79,
+      "variants": {
+        "matmul->DRAM": 3.22,
+        "matmul->L1": 3.27,
+        "matmul+grid->DRAM": 11.27,
+        "minimal_matmul->DRAM": 26.99,
+        "minimal_matmul->L1": 28.25
+      },
+      "best": "minimal_matmul->L1",
+      "best_tflops": 28.25
+    },
+    "transition.up       [1,30,320,256]@[256,1024]": {
+      "gflop_per_call": 5.03,
+      "tflop_per_fold_logical": 44.21,
+      "variants": {
+        "matmul->DRAM": 18.13,
+        "matmul->L1": 4.88,
+        "matmul+grid->DRAM": 27.98,
+        "minimal_matmul->DRAM": 42.61,
+        "minimal_matmul->L1": 55.72
+      },
+      "best": "minimal_matmul->L1",
+      "best_tflops": 55.72
+    },
+    "triatt.qkv          [320,320,256]@[256,768]": {
+      "gflop_per_call": 40.27,
+      "tflop_per_fold_logical": 36.6,
+      "variants": {
+        "matmul->DRAM": 14.85,
+        "matmul+grid->DRAM": 22.08,
+        "minimal_matmul->DRAM": 47.08
+      },
+      "best": "minimal_matmul->DRAM",
+      "best_tflops": 47.08
+    },
+    "trimul.out_proj     [1,320,320,256]@[256,256]": {
+      "gflop_per_call": 13.42,
+      "tflop_per_fold_logical": 24.4,
+      "variants": {
+        "matmul->DRAM": 4.31,
+        "matmul->L1": 4.57,
+        "matmul+grid->DRAM": 20.25,
+        "minimal_matmul->DRAM": 36.88
+      },
+      "best": "minimal_matmul->DRAM",
+      "best_tflops": 36.88
+    },
+    "transition.down     [1,30,320,1024]@[1024,256]": {
+      "gflop_per_call": 5.03,
+      "tflop_per_fold_logical": 22.1,
+      "variants": {
+        "matmul->DRAM": 5.82,
+        "matmul->L1": 5.9,
+        "matmul+grid->DRAM": 23.65,
+        "minimal_matmul->DRAM": 44.8,
+        "minimal_matmul->L1": 47.26
+      },
+      "best": "minimal_matmul->L1",
+      "best_tflops": 47.26
+    },
+    "triatt.out          [320,320,256]@[256,256]": {
+      "gflop_per_call": 13.42,
+      "tflop_per_fold_logical": 24.4,
+      "variants": {
+        "matmul->DRAM": 4.31,
+        "matmul->L1": 4.57,
+        "matmul+grid->DRAM": 20.24,
+        "minimal_matmul->DRAM": 36.87
+      },
+      "best": "minimal_matmul->DRAM",
+      "best_tflops": 36.87
+    },
+    "trimul.tri_matmul   [1,32,320,320]@[1,32,320,320]": {
+      "gflop_per_call": 2.1,
+      "tflop_per_fold_logical": 14.74,
+      "variants": {
+        "matmul->DRAM": 8.77,
+        "matmul->L1": 1.6,
+        "matmul+grid->DRAM": 23.43
+      },
+      "best": "matmul+grid->DRAM",
+      "best_tflops": 23.43
+    },
+    "attnpairbias.qkv    [1,320,768]@[768,3072]": {
+      "gflop_per_call": 1.51,
+      "tflop_per_fold_logical": 6.75,
+      "variants": {
+        "matmul->DRAM": 30.77,
+        "matmul->L1": 37.69,
+        "matmul+grid->DRAM": 24.01,
+        "minimal_matmul->DRAM": 29.07,
+        "minimal_matmul->L1": 29.64
+      },
+      "best": "matmul->L1",
+      "best_tflops": 37.69
+    }
+  },
+  "sdpa_320_8_320_32": {
+    "ms": 1.797,
+    "gflop": 33.55,
+    "tflops": 18.67
+  }
+}

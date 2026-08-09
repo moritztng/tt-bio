@@ -1,0 +1,11 @@
+{
+  "total_params": 464442431,
+  "groups": {
+    "other": 779792,
+    "diffusion": 204956257,
+    "pairformer_stack": 247189248,
+    "msa_module": 10761600,
+    "confidence": 755534
+  },
+  "n_blocks": 48
+}

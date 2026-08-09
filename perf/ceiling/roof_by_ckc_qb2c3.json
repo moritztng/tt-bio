@@ -1,0 +1,41 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "runs": {
+    "4096_HiFi4_fp32acc_packer(production)": {
+      "ms": 1.3581,
+      "tflops": 101.2
+    },
+    "4096_HiFi4_plain": {
+      "ms": 1.8307,
+      "tflops": 75.08
+    },
+    "4096_HiFi2_plain": {
+      "ms": 1.2998,
+      "tflops": 105.74
+    },
+    "4096_LoFi_plain": {
+      "ms": 1.0614,
+      "tflops": 129.48
+    },
+    "6144_HiFi4_fp32acc_packer(production)": {
+      "ms": 5.2638,
+      "tflops": 88.12
+    },
+    "6144_HiFi4_plain": {
+      "ms": 6.5928,
+      "tflops": 70.36
+    },
+    "6144_HiFi2_plain": {
+      "ms": 4.5386,
+      "tflops": 102.2
+    },
+    "6144_LoFi_plain": {
+      "ms": 3.8656,
+      "tflops": 120.0
+    }
+  }
+}
