@@ -1,0 +1,84 @@
+{
+ "grid": "11x10",
+ "cores": 110,
+ "shape": [
+  1,
+  320,
+  320,
+  32
+ ],
+ "tiles": 3200,
+ "routes": {
+  "in_0312__permute": {
+   "us": 98.25,
+   "us_per_tile_core": 3.1574
+  },
+  "in_0312__t13_then_twh": {
+   "us": 95.12,
+   "us_per_tile_core": 3.0498
+  },
+  "in_0321__permute": {
+   "us": 84.54,
+   "us_per_tile_core": 2.6862
+  },
+  "in_0321__t13": {
+   "us": 84.12,
+   "us_per_tile_core": 2.6715
+  },
+  "out_0231__permute": {
+   "us": 81.15,
+   "us_per_tile_core": 2.5695
+  },
+  "out_0231__twh_then_t13": {
+   "us": 94.91,
+   "us_per_tile_core": 3.0426
+  }
+ },
+ "parity": {
+  "in_0312__permute vs in_0312__t13_then_twh": {
+   "shape_a": [
+    1,
+    32,
+    320,
+    320
+   ],
+   "shape_b": [
+    1,
+    32,
+    320,
+    320
+   ],
+   "torch_equal": true
+  },
+  "in_0321__permute vs in_0321__t13": {
+   "shape_a": [
+    1,
+    32,
+    320,
+    320
+   ],
+   "shape_b": [
+    1,
+    32,
+    320,
+    320
+   ],
+   "torch_equal": true
+  },
+  "out_0231__permute vs out_0231__twh_then_t13": {
+   "shape_a": [
+    1,
+    320,
+    320,
+    32
+   ],
+   "shape_b": [
+    1,
+    320,
+    320,
+    32
+   ],
+   "torch_equal": true
+  }
+ }
+}
