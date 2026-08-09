@@ -14,6 +14,19 @@ Read it before running anything; the numbers only mean something under those con
 | `make_inputs.py` | any host | Turns one tt-bio YAML into matched inputs for both stacks, sharing a single MSA file |
 | `gpu_setup.sh` | rented GPU box | Unattended, version-pinned install of Protenix + OpenDDE + cuEquivariance + weights |
 
+## Throughput at concurrency
+
+`../../scripts/gpu_vs_tt/` measures both sides as throughput, not only latency: N concurrent
+folds on one device, one process per fold, with a shared barrier and the same aggregate
+estimator on both sides (`conc.py`). `tt_concurrency.py` is the Tenstorrent leg (one process
+per card; a second process on the same chip is refused by the device lease, so per-card
+concurrency is 1 by construction). `gpu_concurrency.py` driven by `gpu_conc_session.sh` is the
+NVIDIA leg (plain concurrent processes, then the same sweep under MPS).
+
+The fairness rule: each side is quoted at its own best intra-device concurrency, measured with
+the same estimator, and one device vs one device is the headline unit. Per-box numbers are
+secondary and labelled as such.
+
 ## Quick start
 
 Populate the MSA cache once (free, on any host with network), then build the inputs:
