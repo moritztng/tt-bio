@@ -79,6 +79,7 @@ def main():
     n = a.n_atom
 
     dev = get_device()
+    TTNN_V = getattr(ttnn, "__version__", None) or getattr(ttnn, "version", "0.68.0")
     dg = dev.compute_with_storage_grid_size()
     ckc = ttnn.init_device_compute_kernel_config(
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
@@ -87,7 +88,7 @@ def main():
     wr = roofs.get("dram_roofs", {}).get("write_peak_GBs")
     cp = roofs.get("compute_roof", {}).get("peak_TFLOPs")
     print(f"grid {dg.x}x{dg.y}  core_grid_main {CORE_GRID_MAIN.x}x{CORE_GRID_MAIN.y}  "
-          f"ttnn {ttnn.__version__}  roofs read={rd} write={wr} GB/s compute={cp} TFLOP/s", flush=True)
+          f"ttnn {TTNN_V}  roofs read={rd} write={wr} GB/s compute={cp} TFLOP/s", flush=True)
 
     # ---- host operands. bf16-round FIRST so the reference sees exactly the device's inputs ----
     torch.manual_seed(0)
@@ -233,17 +234,18 @@ def main():
     print("=== parity vs fp32 torch over the same bf16 operands ===", flush=True)
     par = {}
     keys = [k for k in res]
-    base = res.get("cur.matmul auto")
     for k in keys:
         v = res[k]
         d = (v - ref).abs()
-        par[k] = {"max_abs_err": float(d.max()), "rel_max": float((d / ref.abs().clamp(min=1e-6)).max()),
+        par[k] = {"max_abs_err": float(d.max()),
+                  "mean_abs_err": float(d.mean()),
+                  "max_abs_ref": float(ref.abs().max()),
                   "pcc": float(torch.corrcoef(torch.stack([v.reshape(-1), ref.reshape(-1)]))[0, 1]),
-                  "equal_to_cur_auto": bool(base is not None and torch.equal(v, base))}
+                  "equal_to": sorted(j for j in keys if j != k and torch.equal(v, res[j]))}
         print(f"  {k:26s} {json.dumps(par[k])}", flush=True)
 
     json.dump({"shape": {"n_atom": n, "c": C, "nb": NB, "nb_padded": NBP, "n_ta": N_TA},
-               "grid": f"{dg.x}x{dg.y}", "ttnn": ttnn.__version__,
+               "grid": f"{dg.x}x{dg.y}", "ttnn": TTNN_V,
                "roofs": {"read_GBs": rd, "write_GBs": wr, "compute_TFLOPs": cp},
                "rows": rows, "parity": par}, open(a.out, "w"), indent=2)
     print("wrote", a.out, flush=True)

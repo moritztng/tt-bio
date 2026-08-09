@@ -1,0 +1,201 @@
+{
+  "shape": {
+    "n_atom": 2398,
+    "c": 384,
+    "nb": 50,
+    "nb_padded": 64,
+    "n_ta": 24
+  },
+  "grid": "11x10",
+  "ttnn": "0.68.0",
+  "roofs": {
+    "read_GBs": 390.8,
+    "write_GBs": 264.2,
+    "compute_TFLOPs": 100.57
+  },
+  "rows": [
+    {
+      "arm": "cur.embedding",
+      "ms": 0.5961,
+      "read_MB": 0.92,
+      "write_MB": 92.08,
+      "GFLOP_padded": 0.0,
+      "AI_FLOP_per_byte": 0.0,
+      "note": "gather 24-row table -> per-atom",
+      "pct_read_roof": 0.4,
+      "pct_write_roof": 58.5,
+      "pct_compute_roof": 0.0
+    },
+    {
+      "arm": "cur.to_layout(in1)",
+      "ms": 1.9451,
+      "read_MB": 92.08,
+      "write_MB": 117.87,
+      "GFLOP_padded": 0.0,
+      "AI_FLOP_per_byte": 0.0,
+      "note": "RM->TILE, 50 -> 64 pad",
+      "pct_read_roof": 12.1,
+      "pct_write_roof": 22.9,
+      "pct_compute_roof": 0.0
+    },
+    {
+      "arm": "cur.reshape(in0)",
+      "ms": 0.385,
+      "read_MB": 1.84,
+      "write_MB": 58.93,
+      "GFLOP_padded": 0.0,
+      "AI_FLOP_per_byte": 0.0,
+      "note": "(n,384)->(n,1,384): 1 row per tile",
+      "pct_read_roof": 1.2,
+      "pct_write_roof": 57.9,
+      "pct_compute_roof": 0.0
+    },
+    {
+      "arm": "cur.matmul auto",
+      "ms": 10.662,
+      "read_MB": 176.8,
+      "write_MB": 9.82,
+      "GFLOP_padded": 3.772,
+      "AI_FLOP_per_byte": 20.21,
+      "note": "B=n, Mt=1, Nt=2, both operands DRAM-interleaved",
+      "pct_read_roof": 4.2,
+      "pct_write_roof": 0.3,
+      "pct_compute_roof": 0.4
+    },
+    {
+      "arm": "cur.matmul core_grid",
+      "ms": 0.4972,
+      "read_MB": 176.8,
+      "write_MB": 9.82,
+      "GFLOP_padded": 3.772,
+      "AI_FLOP_per_byte": 20.21,
+      "note": "B=n, Mt=1, Nt=2, both operands DRAM-interleaved",
+      "pct_read_roof": 91.0,
+      "pct_write_roof": 7.5,
+      "pct_compute_roof": 7.5
+    },
+    {
+      "arm": "cur.matmul pcfg",
+      "ms": 0.4967,
+      "read_MB": 176.8,
+      "write_MB": 9.82,
+      "GFLOP_padded": 3.772,
+      "AI_FLOP_per_byte": 20.21,
+      "note": "B=n, Mt=1, Nt=2, both operands DRAM-interleaved",
+      "pct_read_roof": 91.1,
+      "pct_write_roof": 7.5,
+      "pct_compute_roof": 7.6
+    },
+    {
+      "arm": "ctrl_b1 (in1 batch 1)",
+      "ms": 0.3189,
+      "read_MB": 58.98,
+      "write_MB": 9.82,
+      "GFLOP_padded": 3.772,
+      "AI_FLOP_per_byte": 54.82,
+      "note": "isolates the per-atom weight materialisation",
+      "pct_read_roof": 47.3,
+      "pct_write_roof": 11.7,
+      "pct_compute_roof": 11.8
+    },
+    {
+      "arm": "ctrl_dense (no batch)",
+      "ms": 0.0175,
+      "read_MB": 1.89,
+      "write_MB": 0.31,
+      "GFLOP_padded": 0.118,
+      "AI_FLOP_per_byte": 53.68,
+      "note": "isolates the 31/32 M-padding waste",
+      "pct_read_roof": 27.7,
+      "pct_write_roof": 6.7,
+      "pct_compute_roof": 6.7
+    },
+    {
+      "arm": "reform.matmul_all",
+      "ms": 0.0673,
+      "read_MB": 3.02,
+      "write_MB": 7.37,
+      "GFLOP_padded": 2.831,
+      "AI_FLOP_per_byte": 272.54,
+      "note": "(n,384)@(384,1536), dense, full grid",
+      "pct_read_roof": 11.5,
+      "pct_write_roof": 41.4,
+      "pct_compute_roof": 41.8
+    },
+    {
+      "arm": "reform.mask",
+      "ms": 0.0638,
+      "read_MB": 14.73,
+      "write_MB": 7.37,
+      "GFLOP_padded": 0.0,
+      "AI_FLOP_per_byte": 0.0,
+      "note": "one-hot select of the atom's 64-wide block",
+      "pct_read_roof": 59.1,
+      "pct_write_roof": 43.7,
+      "pct_compute_roof": 0.0
+    },
+    {
+      "arm": "reform.blocksum",
+      "ms": 0.0494,
+      "read_MB": 7.56,
+      "write_MB": 0.31,
+      "GFLOP_padded": 0.472,
+      "AI_FLOP_per_byte": 59.96,
+      "note": "sum the 24 blocks; 23 addends are exactly 0",
+      "pct_read_roof": 39.2,
+      "pct_write_roof": 2.4,
+      "pct_compute_roof": 9.5
+    },
+    {
+      "arm": "reform TOTAL",
+      "ms": 0.1806,
+      "read_MB": 25.32,
+      "write_MB": 15.04,
+      "GFLOP_padded": 3.303,
+      "AI_FLOP_per_byte": 81.84,
+      "note": "sum of the three rungs",
+      "pct_read_roof": 35.9,
+      "pct_write_roof": 31.5,
+      "pct_compute_roof": 18.2
+    }
+  ],
+  "parity": {
+    "cur.matmul auto": {
+      "max_abs_err": 0.012835025787353516,
+      "mean_abs_err": 0.0011624237522482872,
+      "max_abs_ref": 4.633354187011719,
+      "pcc": 0.9999989867210388,
+      "equal_to": []
+    },
+    "cur.matmul core_grid": {
+      "max_abs_err": 0.012835025787353516,
+      "mean_abs_err": 0.001160695101134479,
+      "max_abs_ref": 4.633354187011719,
+      "pcc": 0.9999986290931702,
+      "equal_to": [
+        "cur.matmul pcfg",
+        "reform"
+      ]
+    },
+    "cur.matmul pcfg": {
+      "max_abs_err": 0.012835025787353516,
+      "mean_abs_err": 0.001160695101134479,
+      "max_abs_ref": 4.633354187011719,
+      "pcc": 0.9999986290931702,
+      "equal_to": [
+        "cur.matmul core_grid",
+        "reform"
+      ]
+    },
+    "reform": {
+      "max_abs_err": 0.012835025787353516,
+      "mean_abs_err": 0.001160695101134479,
+      "max_abs_ref": 4.633354187011719,
+      "pcc": 0.9999986290931702,
+      "equal_to": [
+        "cur.matmul core_grid",
+        "cur.matmul pcfg"
+      ]
+    }
+  }
+}
