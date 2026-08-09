@@ -84,13 +84,18 @@ def main() -> int:
             )
         return out
 
-    orig_wrapper = T._linear
-    T._linear = spy   # the switched call sites only; ttnn.linear itself is untouched
+    # protenix.py does `from .tenstorrent import _linear`, so its 12 sites hold their own
+    # module-level binding: patching T._linear alone would silently miss every one of them.
+    import tt_bio.protenix as P
+    patched = [(T, T._linear), (P, P._linear)]
+    for mod, _ in patched:
+        mod._linear = spy   # the switched call sites only; ttnn.linear itself is untouched
     try:
         one_fold, meta, _state = B.build_fold(a.model, ROOT / ".msa_census", a.target, a.a3m)
         t, metrics = one_fold()
     finally:
-        T._linear = orig_wrapper
+        for mod, orig in patched:
+            mod._linear = orig
 
     rows = []
     for key, n in counts.most_common():

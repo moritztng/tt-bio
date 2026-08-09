@@ -25,6 +25,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="protenix-v2")
     ap.add_argument("--arm", choices=["on", "off"], required=True)
+    ap.add_argument("--scope", choices=["both", "trunk"], default="both",
+                    help="both = tenstorrent.pys 51 sites + protenix.pys 12; trunk = the 51 "
+                         "only, which is what pass 2 measured. The difference isolates the 12.")
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--target", type=Path, default=ROOT / "examples" / "prot300.yaml")
     ap.add_argument("--a3m", type=Path,
@@ -36,19 +39,29 @@ def main() -> int:
     import tt_bio.tenstorrent as T
     import tt_baseline as B
 
-    fired = {"n": 0}
-    if a.arm == "off":
-        def plain(x, w, **kw):
-            return ttnn.linear(x, w, **kw)
-        T._linear = plain
-    else:
-        tuned = T._linear
+    # protenix.py holds its own module-level `_linear` binding (`from .tenstorrent import
+    # _linear`), so patching T._linear alone leaves its 12 sites tuned in every arm. Both
+    # bindings have to be set for an arm to mean what it says.
+    import tt_bio.protenix as P
 
-        def counting(x, w, **kw):
-            if T._tuned_config_for(x, w) is not None:
-                fired["n"] += 1
-            return tuned(x, w, **kw)
-        T._linear = counting
+    fired = {"n": 0}
+
+    def plain(x, w, **kw):
+        return ttnn.linear(x, w, **kw)
+
+    tuned = T._linear
+
+    def counting(x, w, **kw):
+        if T._tuned_config_for(x, w) is not None:
+            fired["n"] += 1
+        return tuned(x, w, **kw)
+
+    if a.arm == "off":
+        T._linear = P._linear = plain
+    elif a.scope == "trunk":
+        T._linear, P._linear = counting, plain
+    else:
+        T._linear = P._linear = counting
 
     one_fold, meta, _state = B.build_fold(a.model, ROOT / f".msa_ab", a.target, a.a3m)
     cold_s, cold_m = one_fold()
@@ -65,7 +78,7 @@ def main() -> int:
     if cif:
         kept.write_bytes(cif[0].read_bytes())
 
-    res = dict(model=a.model, arm=a.arm, target=str(a.target),
+    res = dict(model=a.model, arm=a.arm, scope=a.scope, target=str(a.target),
                cold_s=round(cold_s, 3), times=[round(t, 3) for t in times],
                median_s=round(statistics.median(times), 3),
                min_s=round(min(times), 3), plddt=plddt,
