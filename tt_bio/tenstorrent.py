@@ -461,6 +461,111 @@ def _pair_proj_linear(x, w, ckc, dtype):
     )
 
 
+def _cb_bytes_2d(out_block_h: int, out_block_w: int, in0_block_w: int, k_tiles: int,
+                 elem_bytes: int) -> int:
+    """Static L1 the 2D mcast matmul factory allocates per core, exactly.
+
+    `matmul_multicore_reuse_mcast_2d_program_factory.cpp`, `create_program_mcast_in0_in1`: in0 and
+    in1 are double-buffered only when there is more than one K block to prefetch, and with
+    `fp32_dest_acc_en` the fp32 partial gets its own circular buffer instead of sharing the
+    output's. Checked against the addresses the clash reports, exact on every config measured
+    (`perf/chunked_transition/cb_model.py`).
+    """
+    tile = 1024 * elem_bytes
+    depth = 2 if k_tiles // in0_block_w > 1 else 1
+    return (depth * in0_block_w * (out_block_h + out_block_w) * tile
+            + out_block_h * out_block_w * (tile + 4096))
+
+
+@lru_cache(maxsize=None)
+def _transition_program_config(
+    m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int, budget: int, silu: bool
+) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig | None:
+    """Program config for one leg of the chunked Transition, or None if it does not fit.
+
+    `ttnn.linear(core_grid=...)` derives `in0_block_w = 1` here, so a core pays a multicast
+    barrier and a DEST re-prime per K tile instead of per K block; widening it is worth 1.15x on
+    the up projections and 1.73x-1.81x on the down projections at the shapes the fold runs
+    (`perf/chunked_transition/ladder.py`).
+
+    `out_block_h` is capped at half `per_core_M` so a core drains at least two output blocks: at
+    `out_block_h = per_core_M` the writer only starts once all the maths is done, and that config
+    is also the one whose circular buffers do not fit beside the activations the swiglu keeps in
+    L1. `budget` is what is actually free at this point in the block, minus this op's own output.
+    """
+    gx, gy = COMPUTE_GRID_MAIN
+    if m_tiles < 2 * gy or n_tiles < 1 or k_tiles < 1:
+        return None
+    per_core_M = -(-m_tiles // gy)
+    per_core_N = -(-n_tiles // gx)
+    if per_core_M < 2 or -(-n_tiles // per_core_N) > gx:
+        return None
+    in0_block_w = max(d for d in range(1, min(k_tiles, 8) + 1) if k_tiles % d == 0)
+    out_block_w = per_core_N
+    out_block_h = 0
+    for d in range(per_core_M // 2, 0, -1):
+        if per_core_M % d == 0 and _cb_bytes_2d(d, out_block_w, in0_block_w, k_tiles,
+                                                elem_bytes) <= budget:
+            out_block_h = d
+            break
+    if not out_block_h:
+        return None
+    # fp32_dest_acc_en holds 4 tiles in DEST, so out_subblock_h * out_subblock_w <= 4.
+    sh = max(h for h in range(min(4, out_block_h), 0, -1) if out_block_h % h == 0)
+    sw = max(w for w in range(min(4 // sh, out_block_w), 0, -1) if out_block_w % w == 0)
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy),
+        in0_block_w=in0_block_w,
+        out_subblock_h=sh,
+        out_subblock_w=sw,
+        out_block_h=out_block_h,
+        out_block_w=out_block_w,
+        per_core_M=per_core_M,
+        per_core_N=per_core_N,
+        transpose_mcast=False,
+        fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None,
+        fuse_batch=True,
+    )
+
+
+def _transition_linear(x, w, ckc, dtype, memory_config, activation=None):
+    """`ttnn.linear` for one leg of the chunked Transition, with a config sized to live L1.
+
+    The budget is `largest_contiguous_bytes_free_per_bank` -- the block's free L1, not
+    `get_max_worker_l1_unreserved_size()`, which is the device's -- minus this op's own output,
+    which ttnn allocates before the program factory places a single circular buffer. Measuring the
+    free space and forgetting the output is what made the earlier attempt at this band throw
+    `Statically allocated circular buffers ... clash with L1 buffers` inside a real fold.
+    """
+    cfg = None
+    if x.dtype == ttnn.bfloat16 and w.dtype == ttnn.bfloat16 and dtype == ttnn.bfloat16:
+        try:
+            xs, ws = list(x.padded_shape), list(w.padded_shape)
+            if len(ws) == 2 and len(xs) >= 2:
+                m_tiles = 1
+                for d in xs[:-2]:
+                    m_tiles *= int(d)
+                m_tiles *= -(-int(xs[-2]) // 32)
+                k_tiles = -(-int(xs[-1]) // 32)
+                n_tiles = -(-int(ws[-1]) // 32)
+                if k_tiles == -(-int(ws[-2]) // 32):
+                    mv = ttnn.get_memory_view(x.device(), ttnn.BufferType.L1)
+                    out_bytes = 0
+                    if memory_config.buffer_type == ttnn.BufferType.L1:
+                        out_bytes = -(-(m_tiles * n_tiles) // mv.num_banks) * 2048
+                    budget = (mv.largest_contiguous_bytes_free_per_bank - out_bytes) // 65536
+                    cfg = _transition_program_config(m_tiles, k_tiles, n_tiles, 2,
+                                                     budget * 65536, activation == "silu")
+        except Exception:
+            cfg = None
+    if cfg is not None:
+        return ttnn.linear(x, w, compute_kernel_config=ckc, dtype=dtype,
+                           memory_config=memory_config, program_config=cfg)
+    return ttnn.linear(x, w, compute_kernel_config=ckc, dtype=dtype,
+                       memory_config=memory_config, core_grid=CORE_GRID_MAIN,
+                       activation=activation)
+
+
 def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
     """_tri_att_qkv_l1_config for a concrete operand pair, or None if it does not apply."""
     if dtype != ttnn.bfloat16:
@@ -545,6 +650,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _triangle_mul_program_config.cache_clear()
     _tri_att_qkv_l1_config.cache_clear()
     _pair_proj_program_config.cache_clear()
+    _transition_program_config.cache_clear()
 
 
 def set_fast_mode(enabled: bool) -> None:
@@ -1902,33 +2008,20 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
-            x_1 = ttnn.linear(
-                x_norm,
-                self.fc1_weight,
-                activation="silu",
-                compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=dtype,
-                core_grid=CORE_GRID_MAIN,
+            x_1 = _transition_linear(
+                x_norm, self.fc1_weight, self.compute_kernel_config, dtype,
+                ttnn.L1_MEMORY_CONFIG, activation="silu",
             )
-            x_2 = ttnn.linear(
-                x_norm,
-                self.fc2_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
-                dtype=dtype,
-                core_grid=CORE_GRID_MAIN,
+            x_2 = _transition_linear(
+                x_norm, self.fc2_weight, self.compute_kernel_config, dtype,
+                ttnn.L1_MEMORY_CONFIG,
             )
             ttnn.deallocate(x_norm)
             x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
-            x_dram = ttnn.linear(
-                x,
-                self.fc3_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                dtype=dtype,
-                core_grid=CORE_GRID_MAIN,
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
+            x_dram = _transition_linear(
+                x, self.fc3_weight, self.compute_kernel_config, dtype,
+                ttnn.DRAM_MEMORY_CONFIG,
             )
             ttnn.deallocate(x)
             return x_dram

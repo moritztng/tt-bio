@@ -1,0 +1,19 @@
+{
+ "arm": "on",
+ "model": "opendde",
+ "cold_s": 61.78,
+ "warm_s": [
+  49.133,
+  49.431
+ ],
+ "median_s": 49.282,
+ "plddt": 0.802415,
+ "cif_sha16": "d223266ba4cbdda3",
+ "fired": {
+  "hits": 108483,
+  "misses": 39,
+  "maxsize": null,
+  "currsize": 39
+ },
+ "date": "2026-08-09 19:08"
+}

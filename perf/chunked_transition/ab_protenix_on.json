@@ -1,0 +1,20 @@
+{
+ "arm": "on",
+ "model": "protenix-v2",
+ "cold_s": 47.49,
+ "warm_s": [
+  33.439,
+  34.334,
+  33.508
+ ],
+ "median_s": 33.508,
+ "plddt": 0.860943,
+ "cif_sha16": "d28ed4e0325ab730",
+ "fired": {
+  "hits": 78987,
+  "misses": 21,
+  "maxsize": null,
+  "currsize": 21
+ },
+ "date": "2026-08-09 18:55"
+}

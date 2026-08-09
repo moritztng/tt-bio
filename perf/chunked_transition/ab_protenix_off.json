@@ -1,0 +1,15 @@
+{
+ "arm": "off",
+ "model": "protenix-v2",
+ "cold_s": 36.49,
+ "warm_s": [
+  33.473,
+  33.507,
+  33.458
+ ],
+ "median_s": 33.473,
+ "plddt": 0.840781,
+ "cif_sha16": "d49af9baa50f00cc",
+ "fired": null,
+ "date": "2026-08-09 19:01"
+}

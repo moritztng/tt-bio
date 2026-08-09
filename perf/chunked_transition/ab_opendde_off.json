@@ -1,0 +1,14 @@
+{
+ "arm": "off",
+ "model": "opendde",
+ "cold_s": 53.43,
+ "warm_s": [
+  49.272,
+  49.025
+ ],
+ "median_s": 49.149,
+ "plddt": 0.802893,
+ "cif_sha16": "6b9a68605b5deb01",
+ "fired": null,
+ "date": "2026-08-09 19:11"
+}
