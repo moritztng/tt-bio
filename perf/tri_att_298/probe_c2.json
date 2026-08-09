@@ -1,0 +1,322 @@
+{
+ "device": {
+  "TT_VISIBLE_DEVICES": "2",
+  "compute_grid": "13x10",
+  "arch": "Arch.BLACKHOLE",
+  "core_grid_main": "11x10",
+  "l1_unreserved": 1532448,
+  "id": 1
+ },
+ "roofs": {
+  "compute_square": {
+   "2048": {
+    "ms": 0.1972,
+    "tflops": 87.1
+   },
+   "4096": {
+    "ms": 1.072,
+    "tflops": 128.2
+   },
+   "6144": {
+    "ms": 3.4221,
+    "tflops": 135.55
+   }
+  },
+  "compute_peak_TFLOPs": 135.55,
+  "compute_shape_specific": {
+   "102400x256x768": {
+    "ms": 1.6987,
+    "tflops": 23.7
+   },
+   "102400x256x256": {
+    "ms": 0.9264,
+    "tflops": 14.49
+   },
+   "102400x256x32": {
+    "ms": 0.288,
+    "tflops": 5.82
+   },
+   "6144x6144x6144": {
+    "ms": 3.4181,
+    "tflops": 135.71
+   }
+  },
+  "dram": [
+   {
+    "MB": 16.0,
+    "read_GBs": 323.5,
+    "copy_rw_GBs": 368.4,
+    "write_GBs": 233.8
+   },
+   {
+    "MB": 32.0,
+    "read_GBs": 368.3,
+    "copy_rw_GBs": 389.9,
+    "write_GBs": 251.4
+   },
+   {
+    "MB": 64.0,
+    "read_GBs": 389.4,
+    "copy_rw_GBs": 402.3,
+    "write_GBs": 263.8
+   },
+   {
+    "MB": 95.99,
+    "read_GBs": 396.9,
+    "copy_rw_GBs": 408.5,
+    "write_GBs": 268.1
+   },
+   {
+    "MB": 128.0,
+    "read_GBs": 400.8,
+    "copy_rw_GBs": 410.2,
+    "write_GBs": 269.6
+   }
+  ],
+  "read_peak_GBs": 400.8,
+  "write_peak_GBs": 269.6,
+  "copy_peak_GBs": 410.2,
+  "machine_balance_FLOP_per_byte": 338.2
+ },
+ "sdpa": {
+  "prod_mask_us": 2975.1,
+  "prod_nomask_us": 1718.0,
+  "prod_materialised_mask_us": 2994.7,
+  "batch_sweep": [
+   {
+    "b": 40,
+    "mask_us": 444.3,
+    "nomask_us": 279.2
+   },
+   {
+    "b": 80,
+    "mask_us": 846.3,
+    "nomask_us": 548.8
+   },
+   {
+    "b": 160,
+    "mask_us": 1544.8,
+    "nomask_us": 1022.1
+   },
+   {
+    "b": 320,
+    "mask_us": 2962.4,
+    "nomask_us": 1749.4
+   }
+  ],
+  "slope_mask_us_per_b": 8.9932,
+  "slope_nomask_us_per_b": 5.2507,
+  "slope_bias_us_per_b": 3.7425,
+  "implied_bias_GBs_if_per_batch_head": 437.8,
+  "grid_sweep": [
+   {
+    "grid": "11x10",
+    "cores": 110,
+    "us": 3027.1
+   },
+   {
+    "grid": "10x10",
+    "cores": 100,
+    "us": 3085.8
+   },
+   {
+    "grid": "8x8",
+    "cores": 64,
+    "us": 3362.3
+   },
+   {
+    "grid": "6x6",
+    "cores": 36,
+    "us": 4991.0
+   },
+   {
+    "grid": "4x4",
+    "cores": 16,
+    "us": 11106.1
+   },
+   {
+    "grid": "2x2",
+    "cores": 4,
+    "us": 44172.3
+   },
+   {
+    "grid": "1x1",
+    "cores": 1,
+    "us": 176033.0
+   }
+  ],
+  "chunk_sweep": [
+   {
+    "chunk": 32,
+    "us": 4714.0
+   },
+   {
+    "chunk": 64,
+    "us": 2967.6
+   },
+   {
+    "chunk": 128,
+    "us": 3049.0
+   },
+   {
+    "chunk": 256,
+    "us": 6985.0
+   },
+   {
+    "chunk": 320,
+    "us": 1857.0
+   }
+  ]
+ },
+ "heads": {
+  "dram_n128": {
+   "us": 160.0,
+   "in_MB": 25.17,
+   "rw_GBs": 314.6
+  },
+  "dram_n192": {
+   "us": 302.1,
+   "in_MB": 56.62,
+   "rw_GBs": 374.9
+  },
+  "dram_n256": {
+   "us": 620.5,
+   "in_MB": 100.66,
+   "rw_GBs": 324.4
+  },
+  "dram_n320": {
+   "us": 802.8,
+   "in_MB": 157.29,
+   "rw_GBs": 391.8
+  },
+  "l1_n128": {
+   "us": 51.5,
+   "rw_GBs": 976.4
+  },
+  "l1_n192": {
+   "us": 97.4,
+   "rw_GBs": 1162.4
+  },
+  "l1_n256": {
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memor"
+  },
+  "l1_n320": {
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memor"
+  }
+ },
+ "matmuls": {
+  "qkv": {
+   "us": 930.3,
+   "read_MB": 52.82,
+   "write_MB": 157.29,
+   "read_GBs": 56.8,
+   "write_GBs": 169.1,
+   "rw_GBs": 225.9,
+   "tflops": 43.28,
+   "AI_FLOP_per_byte": 191.64
+  },
+  "qkv_grid_sweep": [
+   {
+    "grid": "11x10",
+    "cores": 110,
+    "us": 1855.5
+   },
+   {
+    "grid": "8x8",
+    "cores": 64,
+    "us": 1979.7
+   },
+   {
+    "grid": "6x6",
+    "cores": 36,
+    "us": 10227.1
+   },
+   {
+    "grid": "4x4",
+    "cores": 16,
+    "us": 2903.2
+   },
+   {
+    "grid": "2x2",
+    "cores": 4,
+    "us": 8859.6
+   }
+  ],
+  "gate": {
+   "us": 388.2,
+   "read_MB": 52.56,
+   "write_MB": 52.43,
+   "read_GBs": 135.4,
+   "write_GBs": 135.1,
+   "rw_GBs": 270.5,
+   "tflops": 34.58,
+   "AI_FLOP_per_byte": 127.84
+  },
+  "gate_grid_sweep": [
+   {
+    "grid": "11x10",
+    "cores": 110,
+    "us": 693.0
+   },
+   {
+    "grid": "8x8",
+    "cores": 64,
+    "us": 752.0
+   },
+   {
+    "grid": "6x6",
+    "cores": 36,
+    "us": 3576.8
+   },
+   {
+    "grid": "4x4",
+    "cores": 16,
+    "us": 1000.3
+   },
+   {
+    "grid": "2x2",
+    "cores": 4,
+    "us": 3017.0
+   }
+  ],
+  "triangle_bias": {
+   "us": 417.3,
+   "cfg": "MatmulMultiCoreReuseMultiCast1DProgramConfig(compute_with_st",
+   "read_MB": 52.45,
+   "write_MB": 6.55,
+   "read_GBs": 125.7,
+   "rw_GBs": 141.4,
+   "tflops": 4.02,
+   "AI_FLOP_per_byte": 28.44
+  },
+  "triangle_bias_grid_sweep": [
+   {
+    "grid": "11x10",
+    "cores": 110,
+    "us": 493.3
+   },
+   {
+    "grid": "8x8",
+    "cores": 64,
+    "us": 540.4
+   },
+   {
+    "grid": "6x6",
+    "cores": 36,
+    "us": 559.6
+   },
+   {
+    "grid": "4x4",
+    "cores": 16,
+    "us": 484.2
+   }
+  ],
+  "gate_multiply_": {
+   "us": 377.1,
+   "read_MB": 104.86,
+   "write_MB": 52.43,
+   "read_GBs": 278.0,
+   "rw_GBs": 417.1
+  }
+ }
+}
