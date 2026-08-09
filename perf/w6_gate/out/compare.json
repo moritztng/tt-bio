@@ -1,0 +1,102 @@
+{
+  "protenix-v2/298": [
+    {
+      "arm": "BASE",
+      "exact": true,
+      "max_abs_delta_A": 0.0,
+      "ca_rmsd_vs_base_A": 7.313014825289979e-15,
+      "tm_vs_base": 1.0,
+      "plddt": 0.840781,
+      "d_plddt": 0.0,
+      "ptm": 0.907925,
+      "d_ptm": 0.0,
+      "warm_median_s": 32.187,
+      "speedup_vs_base": 1.0,
+      "verdict": "reference"
+    },
+    {
+      "arm": "CTRL",
+      "exact": false,
+      "max_abs_delta_A": 12.191191673278809,
+      "ca_rmsd_vs_base_A": 1.9157550609304344,
+      "tm_vs_base": 0.9696766928759556,
+      "plddt": 0.850546,
+      "d_plddt": 0.009765,
+      "ptm": 0.917519,
+      "d_ptm": 0.009594,
+      "warm_median_s": 36.999,
+      "speedup_vs_base": 0.8699,
+      "verdict": "control band"
+    },
+    {
+      "arm": "C1",
+      "exact": false,
+      "max_abs_delta_A": 12.191191673278809,
+      "ca_rmsd_vs_base_A": 1.9157550609304344,
+      "tm_vs_base": 0.9696766928759556,
+      "plddt": 0.850546,
+      "d_plddt": 0.009765,
+      "ptm": 0.917519,
+      "d_ptm": 0.009594,
+      "warm_median_s": 36.964,
+      "speedup_vs_base": 0.8708,
+      "verdict": "inside envelope"
+    },
+    {
+      "arm": "C2FIX",
+      "exact": true,
+      "max_abs_delta_A": 0.0,
+      "ca_rmsd_vs_base_A": 7.313014825289979e-15,
+      "tm_vs_base": 1.0,
+      "plddt": 0.840781,
+      "d_plddt": 0.0,
+      "ptm": 0.907925,
+      "d_ptm": 0.0,
+      "warm_median_s": 30.964,
+      "speedup_vs_base": 1.0395,
+      "verdict": "bit-exact"
+    },
+    {
+      "arm": "C3",
+      "exact": false,
+      "max_abs_delta_A": 18.29421329498291,
+      "ca_rmsd_vs_base_A": 3.0064477568733614,
+      "tm_vs_base": 0.9138658899697703,
+      "plddt": 0.862036,
+      "d_plddt": 0.021255,
+      "ptm": 0.920682,
+      "d_ptm": 0.012757,
+      "warm_median_s": 31.334,
+      "speedup_vs_base": 1.0272,
+      "verdict": "outside control band"
+    },
+    {
+      "arm": "C4",
+      "exact": false,
+      "max_abs_delta_A": 19.33663761615753,
+      "ca_rmsd_vs_base_A": 2.9176424039326903,
+      "tm_vs_base": 0.8973591222612428,
+      "plddt": 0.842485,
+      "d_plddt": 0.001704,
+      "ptm": 0.910349,
+      "d_ptm": 0.002424,
+      "warm_median_s": 31.5,
+      "speedup_vs_base": 1.0218,
+      "verdict": "outside control band"
+    },
+    {
+      "arm": "ALLFIX",
+      "exact": false,
+      "max_abs_delta_A": 24.641810417175293,
+      "ca_rmsd_vs_base_A": 3.038449468135674,
+      "tm_vs_base": 0.9107226992810776,
+      "plddt": 0.867504,
+      "d_plddt": 0.026723,
+      "ptm": 0.924912,
+      "d_ptm": 0.016987,
+      "warm_median_s": 35.106,
+      "speedup_vs_base": 0.9169,
+      "verdict": "outside control band"
+    }
+  ]
+}

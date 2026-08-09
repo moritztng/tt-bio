@@ -1,0 +1,5 @@
+{"arm": "ALL", "model": "protenix-v2", "size": "298", "result": "CRASH",
+ "where": "tt_bio.tenstorrent._configure_active_compute_grid, at device open, before any fold",
+ "error": "AttributeError: 'function' object has no attribute 'cache_clear' (_triangle_mul_program_config)",
+ "cause": "defect D2 -- W6 inserted _transpose_memory_config directly under the @lru_cache line that decorated _triangle_mul_program_config, so that function lost its cache and the cache_clear() call in _configure_active_compute_grid raises",
+ "note": "carried by change C2 alone; reproduced identically on arm ALL, which is byte-for-byte origin/wk/perfwar-attention-block-fusion:tt_bio/tenstorrent.py"}
