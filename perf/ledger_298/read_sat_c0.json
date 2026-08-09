@@ -1,0 +1,27 @@
+[
+  {
+    "MB": 64.0,
+    "read_GBs": 389.3,
+    "dram2dram_rw_GBs": 402.7
+  },
+  {
+    "MB": 79.99,
+    "read_GBs": 394.6,
+    "dram2dram_rw_GBs": 406.4
+  },
+  {
+    "MB": 95.99,
+    "read_GBs": 397.1,
+    "dram2dram_rw_GBs": 407.9
+  },
+  {
+    "MB": 111.99,
+    "read_GBs": 399.2,
+    "dram2dram_rw_GBs": 410.8
+  },
+  {
+    "MB": 128.0,
+    "read_GBs": 400.6,
+    "dram2dram_rw_GBs": 411.1
+  }
+]
