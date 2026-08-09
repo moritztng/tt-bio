@@ -70,8 +70,12 @@ _TRIMUL_RAW_CHANNEL_MOVES = False
 # ttnn.experimental.minimal_matmul for the two trimul output projections.
 # A/B'd by perf/trimul_kernel/w2_routes.py; see _trimul_out_proj.
 _TRIMUL_MM_OUT = True
-# Let the trimul output channel move write straight to DRAM instead of L1 + clone.
-_TRIMUL_OUT_MOVE_DRAM = True
+# MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
+# Letting the output channel move write straight to DRAM drops the separate clone that used
+# to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
+# DRAM, and that costs more than the clone saves: 7.122 -> 7.431 (start) / 7.863 (end) ms per
+# trimul at 298 aa. Bit-exact either way, and still a loss.
+_TRIMUL_OUT_MOVE_DRAM = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
