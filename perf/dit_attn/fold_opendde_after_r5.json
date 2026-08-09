@@ -1,0 +1,24 @@
+{
+  "model": "opendde",
+  "tag": "after_r5",
+  "host": "tt-quietbox2",
+  "card": null,
+  "aiclk_mhz": null,
+  "n_tokens": 298,
+  "n_residues": 298,
+  "cold_s": 49.773,
+  "load_s": 2.32,
+  "warm_s": [
+    48.154,
+    48.096,
+    48.301,
+    48.105,
+    48.122
+  ],
+  "median_s": 48.122,
+  "min_s": 48.096,
+  "plddt": 0.802911,
+  "n_atoms": 2398,
+  "coords_npy": "/home/ttuser/.coworker/wt/perfwar-dit-attention-fusion/perf/dit_attn/fold_opendde_after_r5.npy",
+  "stamp": "2026-08-09T17:15:58Z"
+}

@@ -14,6 +14,7 @@ BASE_REF=${BASE_REF:-origin/main}   # the baseline arm folds whatever this point
 # harness, which does not exist at BASE_REF.
 if [ ! -d "$BASE/tt_bio" ]; then
   git -C "$WT" worktree add -q --detach "$BASE" "$BASE_REF" || exit 1
+  mkdir -p "$BASE/perf/dit_attn"   # this dir only exists on the working branch
   cp "$WT/perf/dit_attn/ab_fold.py" "$BASE/perf/dit_attn/ab_fold.py"
 fi
 

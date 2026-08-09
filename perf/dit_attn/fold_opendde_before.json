@@ -6,17 +6,17 @@
   "aiclk_mhz": null,
   "n_tokens": 298,
   "n_residues": 298,
-  "cold_s": 52.7,
-  "load_s": 2.17,
+  "cold_s": 50.774,
+  "load_s": 2.12,
   "warm_s": [
-    51.048,
-    51.053,
-    51.081
+    49.135,
+    49.059,
+    49.083
   ],
-  "median_s": 51.053,
-  "min_s": 51.048,
+  "median_s": 49.083,
+  "min_s": 49.059,
   "plddt": 0.802893,
   "n_atoms": 2398,
   "coords_npy": "/home/ttuser/.coworker/wt/perfwar-dit-attention-fusion/perf/dit_attn/fold_opendde_before.npy",
-  "stamp": "2026-08-09T16:04:27Z"
+  "stamp": "2026-08-09T17:06:10Z"
 }

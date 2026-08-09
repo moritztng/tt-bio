@@ -6,17 +6,17 @@
   "aiclk_mhz": null,
   "n_tokens": 298,
   "n_residues": 298,
-  "cold_s": 35.549,
-  "load_s": 1.29,
+  "cold_s": 34.988,
+  "load_s": 1.28,
   "warm_s": [
-    34.217,
-    34.271,
-    34.276
+    33.699,
+    33.774,
+    33.748
   ],
-  "median_s": 34.271,
-  "min_s": 34.217,
+  "median_s": 33.748,
+  "min_s": 33.699,
   "plddt": 0.840781,
   "n_atoms": 2398,
   "coords_npy": "/home/ttuser/.coworker/wt/perfwar-dit-attention-fusion/perf/dit_attn/fold_protenix-v2_before.npy",
-  "stamp": "2026-08-09T15:52:22Z"
+  "stamp": "2026-08-09T16:58:27Z"
 }
