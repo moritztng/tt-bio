@@ -1,0 +1,60 @@
+{
+  "legs": [
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=1.1674 env=0.0424 ratio=27.55; kabsch_rmsd r=27.55",
+      "wall": 64.10981037900274,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=1.1116 env=0.0000 ratio=inf; kabsch_rmsd r=inf",
+      "wall": 76.14147812699957,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst kabsch_rmsd: num=0.0518 env=0.0524 ratio=0.99; kabsch_rmsd r=0.99",
+      "wall": 258.5029877809975,
+      "committed": "NO-DATA",
+      "report": "protenix-hsa-msa.json"
+    },
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=5.3151 env=0.0000 ratio=inf; kabsch_rmsd r=inf",
+      "wall": 36.05268084199997,
+      "committed": "GAP-evidenced",
+      "report": "opendde-trpcage-nomsa.json"
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=10.8183 env=0.0000 ratio=inf; kabsch_rmsd r=inf",
+      "wall": 58.09218964599859,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "global DockQ=0.833",
+      "wall": 511.87816513800135,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    }
+  ],
+  "tally": {
+    "GAP": 4,
+    "PASS": 2
+  },
+  "total_wall_s": 1004.7796118539991,
+  "workers": [
+    "tt-quietbox:2"
+  ]
+}

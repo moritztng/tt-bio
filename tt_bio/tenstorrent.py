@@ -454,6 +454,11 @@ def _batched_matmul_config(
     )
 
 
+# Kill switch for the batched program config, so a parity gate can A/B it across processes.
+# The fold harness rebinds the name in-process, which a gate that spawns one fold per leg cannot do.
+_BATCHED_MATMUL_ON = os.environ.get("TT_BIO_BATCHED_MATMUL", "1") != "0"
+
+
 def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None) -> ttnn.Tensor:
     """ttnn.matmul for a batched attention matmul, with the batch spread over the core grid.
 
@@ -462,7 +467,7 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None) -
     """
     sa, sb = a.shape, b.shape
     cfg = None
-    if len(sa) == 4 and len(sb) == 4 and a.dtype == b.dtype:
+    if len(sa) == 4 and len(sb) == 4 and a.dtype == b.dtype and _BATCHED_MATMUL_ON:
         cfg = _batched_matmul_config(
             sa[0] * sa[1], -(-sa[2] // 32), -(-sa[3] // 32), -(-sb[3] // 32),
             4 if a.dtype == ttnn.float32 else 2)

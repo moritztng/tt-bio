@@ -1,0 +1,36 @@
+{
+  "mode": "integration_envelope",
+  "kind": "structure",
+  "target": "hsa",
+  "margin": 0.5,
+  "verdict": "PASS",
+  "metrics": {
+    "kabsch_rmsd": {
+      "numerator": 0.05175146604387882,
+      "envelope": 0.0523948010411138,
+      "bound": 0.1285922015616707,
+      "ratio": 0.9877213963131541,
+      "margin": 0.5,
+      "abs_floor": 0.05,
+      "pass": true
+    }
+  },
+  "sample_match": {
+    "numerator": {
+      "n_samples": 5,
+      "matched_rank": 0,
+      "rank0_rmsd": 0.05175146604387882,
+      "ambiguity": 7.400813875308129,
+      "rank_flip": false,
+      "identification_safe": true
+    },
+    "envelope": {
+      "n_samples": 5,
+      "matched_rank": 0,
+      "rank0_rmsd": 0.0523948010411138,
+      "ambiguity": 6.828492682756652,
+      "rank_flip": false,
+      "identification_safe": true
+    }
+  }
+}

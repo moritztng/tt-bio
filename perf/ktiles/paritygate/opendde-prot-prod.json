@@ -1,0 +1,36 @@
+{
+  "mode": "integration_envelope",
+  "kind": "structure",
+  "target": "prot_no_msa",
+  "margin": 0.5,
+  "verdict": "GAP",
+  "metrics": {
+    "kabsch_rmsd": {
+      "numerator": 10.818319557679429,
+      "envelope": 7.148588117794596e-15,
+      "bound": 0.05000000000001072,
+      "ratio": Infinity,
+      "margin": 0.5,
+      "abs_floor": 0.05,
+      "pass": false
+    }
+  },
+  "sample_match": {
+    "numerator": {
+      "n_samples": 1,
+      "matched_rank": 0,
+      "rank0_rmsd": 10.818319557679429,
+      "ambiguity": Infinity,
+      "rank_flip": false,
+      "identification_safe": true
+    },
+    "envelope": {
+      "n_samples": 1,
+      "matched_rank": 0,
+      "rank0_rmsd": 7.148588117794596e-15,
+      "ambiguity": Infinity,
+      "rank_flip": false,
+      "identification_safe": true
+    }
+  }
+}
