@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, choices=["protenix-v2", "opendde"])
-    ap.add_argument("--arm", required=True, choices=["on", "off"])
+    ap.add_argument("--arm", required=True, choices=["on", "off", "on-no-b8"])
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -30,6 +30,12 @@ def main():
             x, y, compute_kernel_config=compute_kernel_config)
         T.batched_matmul = plain
         P.batched_matmul = plain
+    if a.arm == "on-no-b8":
+        # Bisecting the opendde fold-parity break: decline the one applied class no op-level
+        # torch.equal covers, B=8 Mt=19 Kt=19 Nt=2 (4 calls per fold).
+        orig = T._batched_reuse_config
+        T._batched_reuse_config = (
+            lambda b, mt, kt, nt, eb: None if b == 8 else orig(b, mt, kt, nt, eb))
 
     import tt_baseline as B
     msa_dir = Path(tempfile.mkdtemp(prefix="ktiles-msa-"))
