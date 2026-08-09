@@ -1,0 +1,44 @@
+{
+  "legs": [
+    {
+      "leg": "boltz2-hsa-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst kabsch_rmsd: num=0.7599 env=1.3315 ratio=0.57; kabsch_rmsd r=0.57",
+      "wall": 96.23105101999681,
+      "committed": "PASS",
+      "report": "boltz2-hsa-nomsa.json"
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst kabsch_rmsd: num=0.0518 env=0.0524 ratio=0.99; kabsch_rmsd r=0.99",
+      "wall": 248.4462321739993,
+      "committed": "NO-DATA",
+      "report": "protenix-hsa-msa.json"
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=10.8183 env=0.0000 ratio=inf; kabsch_rmsd r=inf",
+      "wall": 60.0899729140001,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "global DockQ=0.833",
+      "wall": 462.1818046420012,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    }
+  ],
+  "tally": {
+    "PASS": 3,
+    "GAP": 1
+  },
+  "total_wall_s": 866.9504713770002,
+  "workers": [
+    "tt-quietbox:0"
+  ]
+}
