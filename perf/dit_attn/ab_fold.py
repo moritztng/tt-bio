@@ -54,9 +54,15 @@ def main():
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--tag", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--size", default="298", choices=["117", "298"],
+                    help="117 aa is the small-N non-regression check: core_grid on a 2-tile-wide "
+                         "output is exactly the kind of change that can invert at small N")
     a = ap.parse_args()
 
     target, a3m = (ROOT / p for p in TARGETS[a.model])
+    if a.size == "117":
+        target = ROOT / "examples/prot.yaml"
+        a3m = ROOT / "scripts/gpu_vs_tt/fixtures/prot117.a3m"
     msa_dir = ROOT / "perf" / "dit_attn" / "msa_cache"
     one_fold, meta, _state = build_fold(a.model, msa_dir, target, a3m)
 
