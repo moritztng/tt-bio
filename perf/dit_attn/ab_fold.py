@@ -12,7 +12,7 @@ before and after arms can be compared in float64 without re-running anything.
       python3 perf/dit_attn/ab_fold.py --model protenix-v2 --repeat 3 --tag after \
         --out perf/dit_attn/fold_protenix-v2_after.json
 """
-import argparse, json, statistics as st, sys, time
+import argparse, json, os, statistics as st, sys, time
 from pathlib import Path
 
 import numpy as np
@@ -87,6 +87,17 @@ def main():
                stamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     Path(a.out).write_text(json.dumps(res, indent=2))
     print(json.dumps(res, indent=2), flush=True)
+
+    # Close the card, then leave without running interpreter shutdown: the spawn worker
+    # pool and the device-lease flock deadlock each other at exit and the process sits in
+    # locks_lock_inode_wait forever, holding the card against the next arm.
+    try:
+        from tt_bio.tenstorrent import cleanup
+        cleanup()
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)
 
 
 if __name__ == "__main__":
