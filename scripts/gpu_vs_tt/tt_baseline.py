@@ -171,6 +171,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
     return one_fold, dict(hardware=hw, load_s=round(load_s, 2), n_msa=n_msa,
                           msa_dir=str(msa_dir), diffusion_samples=samples,
+                          job_cfg=job_cfg, struct_dir=str(struct_dir),
                           **_card_info()), state
 
 
