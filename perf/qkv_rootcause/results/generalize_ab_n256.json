@@ -1,0 +1,122 @@
+{
+  "n": 256,
+  "grid": [
+    13,
+    10
+  ],
+  "timing": {
+    "tri_att start": {
+      "PROD": {
+        "ms": 3.939,
+        "raw": [
+          3.939,
+          3.9413,
+          3.933
+        ]
+      },
+      "G": {
+        "ms": 3.9365,
+        "raw": [
+          3.9369,
+          3.9365,
+          3.9337
+        ],
+        "speedup_vs_prod": 1.0006
+      },
+      "GO": {
+        "ms": 3.7934,
+        "raw": [
+          3.7934,
+          3.7952,
+          3.7928
+        ],
+        "speedup_vs_prod": 1.0384
+      }
+    },
+    "tri_att end": {
+      "PROD": {
+        "ms": 5.7522,
+        "raw": [
+          5.7558,
+          5.7522,
+          5.7508
+        ]
+      },
+      "G": {
+        "ms": 5.7499,
+        "raw": [
+          5.7499,
+          5.7609,
+          5.7491
+        ],
+        "speedup_vs_prod": 1.0004
+      },
+      "GO": {
+        "ms": 5.0073,
+        "raw": [
+          5.0025,
+          5.0098,
+          5.0073
+        ],
+        "speedup_vs_prod": 1.1488
+      }
+    },
+    "BLOCK (s,z)": {
+      "PROD": {
+        "ms": 24.9239,
+        "raw": [
+          24.9239,
+          24.9281,
+          24.9198
+        ]
+      },
+      "G": {
+        "ms": 24.9212,
+        "raw": [
+          24.9124,
+          24.9212,
+          24.9317
+        ],
+        "speedup_vs_prod": 1.0001
+      },
+      "GO": {
+        "ms": 23.88,
+        "raw": [
+          23.8776,
+          23.88,
+          23.8903
+        ],
+        "speedup_vs_prod": 1.0437
+      }
+    }
+  },
+  "numerics": {
+    "qkv": {
+      "config": null
+    },
+    "g": {
+      "config": null
+    },
+    "o": {
+      "bit_exact": true
+    },
+    "tri_att start G": {
+      "bit_exact": true
+    },
+    "tri_att start GO": {
+      "bit_exact": true
+    },
+    "tri_att end G": {
+      "bit_exact": true
+    },
+    "tri_att end GO": {
+      "bit_exact": true
+    },
+    "BLOCK (s,z) G": {
+      "bit_exact": true
+    },
+    "BLOCK (s,z) GO": {
+      "bit_exact": true
+    }
+  }
+}

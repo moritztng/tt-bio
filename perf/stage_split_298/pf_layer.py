@@ -21,6 +21,7 @@ pair track; n_tri_heads = c_z // 32).
 import argparse
 import collections
 import json
+import os
 import time
 
 import torch
@@ -30,6 +31,8 @@ from tt_bio import protenix_weights as PW
 from tt_bio.tenstorrent import PairformerLayer, get_device
 
 CKPT = "/home/ttuser/.boltz/protenix-v2.pt"
+if not os.path.exists(CKPT):
+    CKPT = os.path.expanduser("~/.boltz/protenix-v2.pt")
 TRI_HEAD_DIM = 32
 
 

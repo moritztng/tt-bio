@@ -58,10 +58,10 @@ s_t, z_t = torch.randn(1, N, 384), torch.randn(1, N, N, c_z)
 mk_s = lambda: ttnn.from_torch(s_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
 mk_z = lambda: ttnn.from_torch(z_t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
 
-on_cfg = T._qkv_l1_config
-off_cfg = lambda x, w, dtype: None
+on_cfg = T._l1_resident_linear_config
+off_cfg = lambda x, w, dtype, full_k=True: None
 print(f"N={N} c_z={c_z} grid={T.COMPUTE_GRID_MAIN}", flush=True)
-print(f"config for the tri-att qkv shape: {T._tri_att_qkv_l1_config(N * N // 32, c_z // 32, 8 * 32 * 3 // 32, 2)}",
+print(f"config for the tri-att qkv shape: {T._l1_resident_matmul_config(N * N // 32, c_z // 32, 8 * 32 * 3 // 32, 2, True)}",
       flush=True)
 
 # ---- correctness first, on fresh inputs, before anything has been mutated -----------------
@@ -72,7 +72,7 @@ for name, call in (("tri_att start", lambda z: layer.triangle_attention_start(z,
                    ("BLOCK (s,z)", None)):
     got = {}
     for arm, fn in (("OFF", off_cfg), ("ON", on_cfg)):
-        T._qkv_l1_config = fn
+        T._l1_resident_linear_config = fn
         z = mk_z()
         if call is None:
             so, zo = layer(mk_s(), z)
@@ -97,7 +97,7 @@ WORK = [("tri_att start", lambda: layer.triangle_attention_start(z0, None)),
         ("BLOCK (s,z)", None)]
 res = {}
 for arm in ("OFF", "ON", "OFF", "ON", "OFF", "ON"):
-    T._qkv_l1_config = off_cfg if arm == "OFF" else on_cfg
+    T._l1_resident_linear_config = off_cfg if arm == "OFF" else on_cfg
     for name, fn in WORK:
         if fn is None:
             st = {"s": mk_s(), "z": mk_z()}
@@ -116,7 +116,7 @@ for name, _ in WORK:
     print(f"  {name:16s} off {off:7.4f} ms  on {on:7.4f} ms  {off/on:5.3f}x  saved {off-on:+.4f} ms",
           flush=True)
 
-T._qkv_l1_config = on_cfg
+T._l1_resident_linear_config = on_cfg
 if args.out:
     json.dump({"n": N, "grid": list(T.COMPUTE_GRID_MAIN), "timing": summary, "numerics": num},
               open(args.out, "w"), indent=2)
