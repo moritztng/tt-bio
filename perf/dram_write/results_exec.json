@@ -1,0 +1,66 @@
+{
+  "host": "qb1 card 3", "instrument": "tt-metal v0.71.0-dev20260516-4-g6e89ea5a01f source build, Tracy device profiler",
+  "note": "the 0.67.4 wheel numbers were reproduced on this build first; see validate_src",
+
+  "validate_src_vs_wheel": {
+    "K256_obh4": {"t_dram_us": 176.2, "t_l1_us": 77.6, "delta_us": 98.6, "doc_0674": [172.0, 78.3, 93.7]},
+    "K256_obh1": {"t_dram_us": 226.8, "t_l1_us": 107.8, "delta_us": 118.9},
+    "K2048_obh1": {"t_dram_us": 615.9, "t_l1_us": 522.9, "delta_us": 93.1},
+    "K4096_obh1": {"t_dram_us": 1064.2, "t_l1_us": 946.9, "delta_us": 117.3}
+  },
+
+  "device_roofs_same_instrument_as_op": {
+    "method": "ttnn.clone, DEVICE KERNEL DURATION from the profiler, not host wall clock",
+    "read_25.166MB_gbps": 406.8, "read_50.331MB_gbps": 410.9,
+    "write_25.166MB_gbps": 274.8, "write_50.331MB_gbps": 277.6,
+    "cores": 130,
+    "clone_per_risc_us": {"write_25MB": {"KERNEL": 91.6, "BRISC": 91.6, "NCRISC": 91.3}},
+    "prior_host_timed_roofs": {"read_gbps": 388.3, "write_gbps": 263.4, "comment": "host timing was ~5% pessimistic; directions confirmed"}
+  },
+
+  "per_risc_timeline_us": {
+    "K256_obh4_DRAM": {"KERNEL": 167.5, "BRISC": 167.5, "NCRISC": 36.0, "TRISC0": 73.3, "TRISC1": 73.5, "TRISC2": 74.1, "cores": 128,
+                       "last_TRISC_end": 73.7, "last_BRISC_end": 167.5, "tail_after_compute": 93.7},
+    "K256_obh4_L1":   {"KERNEL": 72.9, "BRISC": 72.9, "NCRISC": 34.2, "TRISC1": 71.7, "cores": 128,
+                       "last_TRISC_end": 72.3, "last_BRISC_end": 72.9, "tail_after_compute": 0.6},
+    "K4096_obh1_DRAM": {"KERNEL": 1044.9, "BRISC": 1044.9, "NCRISC": 995.2, "TRISC1": 1013.6,
+                        "last_TRISC_end": 1013.7, "last_BRISC_end": 1044.6, "tail_after_compute": 30.9},
+    "K4096_obh1_L1":   {"KERNEL": 928.2, "BRISC": 928.2, "TRISC1": 926.3, "last_TRISC_end": 926.0, "tail_after_compute": 1.8}
+  },
+
+  "writeback_retirement_curve_K256_obh4": {
+    "method": "DeviceZoneScopedN around the writer's per-subblock wait and write barrier, all 128 cores, 3072 subblocks",
+    "OUT_SECTION_span_us": [14.3, 167.9],
+    "per_core_median_SB_WAIT_us": {"dram": 17.8, "l1": 39.7},
+    "per_core_median_SB_DRAIN_us": {"dram": 41.0, "l1": 7.0},
+    "cum_MB_by_us": {"20": 0.43, "30": 2.06, "40": 3.53, "50": 5.40, "60": 7.22, "70": 8.95, "80": 10.55,
+                     "90": 12.44, "100": 14.20, "110": 15.95, "120": 17.73, "130": 19.56, "140": 21.09,
+                     "150": 22.72, "160": 24.30, "170": 25.17},
+    "MB_retired_before_compute_ends": 9.63, "fraction_before_compute_ends": 0.383,
+    "gbps_during_compute": 130.6, "gbps_after_compute": 165.1, "gbps_whole_writeback": 163.9,
+    "l1_arm_gbps_whole_writeback": 429.7
+  },
+
+  "hypothesis_tests": {
+    "coupled_barrier_depth_wait_whole_group": {
+      "comment": "wait for D subblocks then issue D then one barrier -- loses the early start",
+      "t_dram_us_by_D": {"1": 171.98, "2": 171.40, "3": 172.97, "4": 172.92, "6": 175.03, "12": 181.03, "24": 199.90},
+      "t_l1_us_by_D": {"1": 77.36, "24": 92.12}
+    },
+    "pipelined_barrier_depth_wait_per_subblock": {
+      "comment": "wait per subblock (early start kept), barrier held D subblocks behind",
+      "t_dram_us_by_D": {"1": 171.98, "2": 170.89, "4": 169.79, "8": 169.86, "12": 168.96, "24": 168.86},
+      "t_l1_us_by_D": {"1": 77.36, "24": 77.37},
+      "verdict": "1.8% at D=24. in-flight depth is not the limiter."
+    },
+    "dram_bank_alignment": {
+      "comment": "bank = tile_id%8; at N_t=24 both per_core_M*N_t and N_t are 0 mod 8 so every core writes the same bank at the same moment. N_t=25/27 break that.",
+      "us_per_MB_by_N_t": {"24": 6.387, "25": 6.584, "26": 6.578, "27": 6.685, "28": 6.392},
+      "core_stride_mod8_by_N_t": {"24": 0, "25": 4, "26": 0, "27": 4, "28": 0},
+      "verdict": "flat. bank lockstep is not the limiter."
+    }
+  },
+
+  "parity": {"pcc_vs_torch_bf16_all_variants": "1.000 (float32 accumulation over 12.6M elements reads 1.0008)",
+             "note": "every kernel variant measured produced the same result as the stock kernel; all variants were reverted"}
+}
