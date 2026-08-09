@@ -20,6 +20,8 @@ import argparse, json, statistics, sys, tempfile
 from collections import defaultdict
 from pathlib import Path
 
+# Recreate the reference tree this probe imports (untracked, it is another branch):
+#   git archive origin/wk/perfwar-l1-residency-298aa tt_bio | tar -x -C perf/pcgate/_w5ref
 W5 = Path(__file__).resolve().parent / "_w5ref"
 sys.path.insert(0, str(W5))
 ROOT = Path(__file__).resolve().parents[2]
