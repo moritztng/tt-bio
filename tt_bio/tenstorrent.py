@@ -355,19 +355,30 @@ def _l1_resident_matmul_config(
     )
 
 
+def _linear_tiles(x: ttnn.Tensor, w: ttnn.Tensor) -> tuple[int, int, int]:
+    """(m_tiles, k_tiles, n_tiles) a ttnn matmul actually runs for this operand pair.
+
+    TILE_LAYOUT pads the last two dims to 32 independently, and fuse_batch folds the
+    leading dims into M *after* that padding. So the M a tall projection runs is
+    prod(leading) * ceil32(rows), not the logical product of every dim but the last.
+    The distinction is the whole ballgame on the trunk: the pair tensor is
+    [S, S, c_z], so the logical M is S*S -- a multiple of 32 only when S is, i.e.
+    never at a real target size (298 -> 88804, 117 -> 13689). Deriving tiles by
+    dividing the logical M threw the L1-resident path away on every real fold."""
+    xs, ws = list(x.shape), list(w.shape)
+    batch = 1
+    for d in xs[:-2]:
+        batch *= int(d)
+    rows = int(xs[-2]) if len(xs) > 1 else 1
+    return batch * -(-rows // 32), -(-int(xs[-1]) // 32), -(-int(ws[-1]) // 32)
+
+
 def _l1_resident_linear_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype, full_k: bool = True):
     """_l1_resident_matmul_config for a concrete operand pair, or None if it does not apply."""
     if dtype != ttnn.bfloat16:
         return None  # the CB budget above is sized in bf16 tiles
     try:
-        xs, ws = list(x.shape), list(w.shape)
-        m = 1
-        for d in xs[:-1]:
-            m *= int(d)
-        k, n = int(xs[-1]), int(ws[-1])
-        if m % 32 or k % 32 or n % 32:
-            return None
-        return _l1_resident_matmul_config(m // 32, k // 32, n // 32, 2, full_k)
+        return _l1_resident_matmul_config(*_linear_tiles(x, w), 2, full_k)
     except Exception:
         return None
 
@@ -403,18 +414,17 @@ def _l1_resident_row_block(rows: int, cols: int, k_tiles: int, n_tiles: int, ele
     blocks bounds the resident result to one block and makes residency independent of
     sequence length.
 
-    Returns the largest block that divides `rows` and that _l1_resident_matmul_config admits
-    at full K, or 0 if none does. Larger blocks mean fewer dispatches, so search downwards.
+    Returns the largest block `_l1_resident_matmul_config` admits at full K, or 0 if none
+    does. Larger blocks mean fewer dispatches, so search downwards. The block need not
+    divide the sequence: the caller clamps the last slice and re-derives its program config
+    from its own shape, so a ragged tail falls back to minimal_matmul on its own. Requiring
+    an exact divisor is what killed this at 298 tokens, whose only divisors are 2 and 149.
     """
     if rows <= 0 or cols <= 0:
         return 0
+    col_tiles = -(-cols // 32)
     for r in range(rows, 0, -1):
-        if rows % r:
-            continue
-        m_tiles = r * cols // 32
-        if m_tiles <= 0:
-            continue
-        if _l1_resident_matmul_config(m_tiles, k_tiles, n_tiles, elem_bytes, True) is not None:
+        if _l1_resident_matmul_config(r * col_tiles, k_tiles, n_tiles, elem_bytes, True) is not None:
             return r
     return 0
 
@@ -429,11 +439,9 @@ def _tri_att_row_block(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> int:
     try:
         if _l1_resident_linear_config(x, w, dtype) is not None:
             return 0
-        rows, cols, k = int(x.shape[0]), int(x.shape[1]), int(x.shape[-1])
-        n = int(w.shape[-1])
-        if k % 32 or n % 32 or (rows * cols) % 32:
-            return 0
-        return _l1_resident_row_block(rows, cols, k // 32, n // 32, 2)
+        rows, cols = int(x.shape[0]), int(x.shape[1])
+        _m, k_tiles, n_tiles = _linear_tiles(x, w)
+        return _l1_resident_row_block(rows, cols, k_tiles, n_tiles, 2)
     except Exception:
         return 0
 
@@ -1520,7 +1528,7 @@ class TriangleAttention(Module):
             rows, cols = int(x.shape[1]), int(x.shape[2])
             parts = []
             for start in range(0, S, l1_rows):
-                x_blk = ttnn.slice(x, [start, 0, 0], [start + l1_rows, rows, cols])
+                x_blk = ttnn.slice(x, [start, 0, 0], [min(start + l1_rows, S), rows, cols])
                 qkv_blk = proj_l1(x_blk, self.qkv_weight)
                 g_blk = proj_l1(x_blk, self.g_weight)
                 ttnn.deallocate(x_blk)
