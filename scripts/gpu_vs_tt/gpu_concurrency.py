@@ -235,14 +235,20 @@ def launcher(args) -> int:
     # JSON), so an N-way point measures N different proteins, not N copies of one.
     # Direct answer to "did the MPS speedup only appear because it was always the
     # same prediction".
-    # protenix prepends the query to the alignment and does not dedupe it against the
-    # a3m's own rows, so the depth it actually consumes is unique(rows) + 1, not the
-    # header count. prot117.a3m happens to carry a duplicate row (35 rows, 34 unique)
-    # so the two agree there at 35; a hand-built a3m with 35 distinct rows lands on 36
-    # and trips gpu_bench's fairness assertion. Compute the real expectation.
+    # protenix dedupes the alignment and then prepends the query without deduping that,
+    # so the depth it consumes is unique(rows) + 1 rather than the header count. The
+    # dedupe happens on the ungapped, uppercase sequence: a3m lowercase letters are
+    # insertions and dots are insertion padding, and two rows that differ only there
+    # collapse into one. Matching that matters -- prot300.a3m has 35 rows that are all
+    # distinct as raw strings but only 34 once normalised, so a raw-string count
+    # predicts 36 and protenix actually consumes 35, which is what failed every 298 aa
+    # attempt. Verified against four measured points: prot117 35, prot300 35, the
+    # distinct fixtures 35, and their untrimmed 35-distinct-row version 36.
     def _msa_depth(a3m: Path) -> int:
         rows = a3m.read_text().split("\n")
-        return len({rows[i + 1] for i, l in enumerate(rows) if l.startswith(">")}) + 1
+        seqs = (rows[i + 1] for i, l in enumerate(rows) if l.startswith(">"))
+        norm = {"".join(c for c in s if not c.islower() and c != ".").upper() for s in seqs}
+        return len(norm) + 1
 
     target_of_worker = None
     if args.targets:
