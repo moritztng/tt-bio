@@ -1,0 +1,253 @@
+{
+  "model": "opendde",
+  "target": "prot300.yaml",
+  "wall_s": 58.774,
+  "error": null,
+  "metrics": {
+    "complex_plddt": 0.633277,
+    "plddt": 0.633277,
+    "ptm": 0.598636,
+    "iptm": 0.0,
+    "confidence_score": 0.598636,
+    "n_residues": 298,
+    "n_chains": 1,
+    "n_tokens": 298,
+    "msa": true,
+    "n_atoms": 2398,
+    "samples": 1
+  },
+  "arch": "blackhole",
+  "grid": [
+    11,
+    10
+  ],
+  "matmul_guard": [
+    {
+      "site": "__call__:1235",
+      "m": 88804,
+      "k": 64,
+      "n": 64,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "__call__:1235",
+      "m": 88804,
+      "k": 384,
+      "n": 384,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "__call__:1235",
+      "m": 336400,
+      "k": 384,
+      "n": 384,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 8
+    },
+    {
+      "site": "__call__:1238",
+      "m": 88804,
+      "k": 64,
+      "n": 64,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "__call__:1238",
+      "m": 88804,
+      "k": 384,
+      "n": 384,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "__call__:1238",
+      "m": 336400,
+      "k": 384,
+      "n": 384,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 8
+    },
+    {
+      "site": "_tri_att_row_block:440",
+      "m": 88804,
+      "k": 64,
+      "n": 192,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "_tri_att_row_block:440",
+      "m": 88804,
+      "k": 384,
+      "n": 1152,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "_tri_att_row_block:440",
+      "m": 336400,
+      "k": 384,
+      "n": 1152,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 8
+    },
+    {
+      "site": "gate_and_project:1448",
+      "m": 88804,
+      "k": 384,
+      "n": 384,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "gate_and_project:1448",
+      "m": 336400,
+      "k": 384,
+      "n": 384,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 8
+    },
+    {
+      "site": "proj_l1:1464",
+      "m": 19966,
+      "k": 64,
+      "n": 64,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": true,
+      "calls": 16
+    },
+    {
+      "site": "proj_l1:1464",
+      "m": 19966,
+      "k": 64,
+      "n": 192,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": true,
+      "calls": 16
+    },
+    {
+      "site": "proj_l1:1464",
+      "m": 68838,
+      "k": 64,
+      "n": 64,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": true,
+      "calls": 16
+    },
+    {
+      "site": "proj_l1:1464",
+      "m": 68838,
+      "k": 64,
+      "n": 192,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": true,
+      "calls": 16
+    },
+    {
+      "site": "proj_l1:1464",
+      "m": 88804,
+      "k": 384,
+      "n": 384,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "proj_l1:1464",
+      "m": 88804,
+      "k": 384,
+      "n": 1152,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "proj_l1:1464",
+      "m": 336400,
+      "k": 384,
+      "n": 384,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 8
+    },
+    {
+      "site": "proj_l1:1464",
+      "m": 336400,
+      "k": 384,
+      "n": 1152,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 8
+    }
+  ],
+  "row_block": [
+    {
+      "site": "__call__:1320",
+      "rows": 298,
+      "m": 88804,
+      "k": 64,
+      "n": 192,
+      "dtype": "DataType.BFLOAT16",
+      "block": 231,
+      "calls": 16
+    },
+    {
+      "site": "__call__:1320",
+      "rows": 298,
+      "m": 88804,
+      "k": 384,
+      "n": 1152,
+      "dtype": "DataType.BFLOAT16",
+      "block": 0,
+      "calls": 112
+    },
+    {
+      "site": "__call__:1320",
+      "rows": 580,
+      "m": 336400,
+      "k": 384,
+      "n": 1152,
+      "dtype": "DataType.BFLOAT16",
+      "block": 0,
+      "calls": 8
+    }
+  ],
+  "counts": {
+    "l1": 64,
+    "fallback": 768,
+    "row_blocked": 16
+  }
+}

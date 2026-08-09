@@ -1,0 +1,122 @@
+{
+  "n": 192,
+  "grid": [
+    13,
+    10
+  ],
+  "timing": {
+    "tri_att start": {
+      "PROD": {
+        "ms": 2.1148,
+        "raw": [
+          2.1148,
+          2.1296,
+          2.1148
+        ]
+      },
+      "G": {
+        "ms": 2.0661,
+        "raw": [
+          2.0661,
+          2.0665,
+          2.0654
+        ],
+        "speedup_vs_prod": 1.0236
+      },
+      "GO": {
+        "ms": 1.9862,
+        "raw": [
+          1.9814,
+          1.9886,
+          1.9862
+        ],
+        "speedup_vs_prod": 1.0647
+      }
+    },
+    "tri_att end": {
+      "PROD": {
+        "ms": 3.0938,
+        "raw": [
+          3.0938,
+          3.1,
+          3.0874
+        ]
+      },
+      "G": {
+        "ms": 3.0415,
+        "raw": [
+          3.0415,
+          3.0409,
+          3.0455
+        ],
+        "speedup_vs_prod": 1.0172
+      },
+      "GO": {
+        "ms": 2.6472,
+        "raw": [
+          2.6448,
+          2.6512,
+          2.6472
+        ],
+        "speedup_vs_prod": 1.1687
+      }
+    },
+    "BLOCK (s,z)": {
+      "PROD": {
+        "ms": 13.9345,
+        "raw": [
+          13.9346,
+          13.9345,
+          13.9239
+        ]
+      },
+      "G": {
+        "ms": 13.8335,
+        "raw": [
+          13.831,
+          13.8371,
+          13.8335
+        ],
+        "speedup_vs_prod": 1.0073
+      },
+      "GO": {
+        "ms": 13.2859,
+        "raw": [
+          13.2859,
+          13.2795,
+          13.2883
+        ],
+        "speedup_vs_prod": 1.0488
+      }
+    }
+  },
+  "numerics": {
+    "qkv": {
+      "config": null
+    },
+    "g": {
+      "bit_exact": true
+    },
+    "o": {
+      "bit_exact": true
+    },
+    "tri_att start G": {
+      "bit_exact": true
+    },
+    "tri_att start GO": {
+      "bit_exact": true
+    },
+    "tri_att end G": {
+      "bit_exact": true
+    },
+    "tri_att end GO": {
+      "bit_exact": true
+    },
+    "BLOCK (s,z) G": {
+      "bit_exact": true
+    },
+    "BLOCK (s,z) GO": {
+      "bit_exact": true
+    }
+  }
+}

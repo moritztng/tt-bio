@@ -1,0 +1,173 @@
+{
+  "model": "protenix-v2",
+  "target": "prot300.yaml",
+  "wall_s": 7.838,
+  "error": null,
+  "metrics": {
+    "complex_plddt": 0.461986,
+    "plddt": 0.461986,
+    "ptm": 0.380289,
+    "iptm": 0.0,
+    "confidence_score": 0.380289,
+    "n_residues": 298,
+    "n_chains": 1,
+    "n_tokens": 298,
+    "msa": true,
+    "n_atoms": 2398,
+    "samples": 1
+  },
+  "arch": "blackhole",
+  "grid": [
+    11,
+    10
+  ],
+  "matmul_guard": [
+    {
+      "site": "__call__:1227",
+      "m": 88804,
+      "k": 64,
+      "n": 64,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "__call__:1227",
+      "m": 88804,
+      "k": 256,
+      "n": 256,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "__call__:1230",
+      "m": 88804,
+      "k": 64,
+      "n": 64,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "__call__:1230",
+      "m": 88804,
+      "k": 256,
+      "n": 256,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "_tri_att_row_block:430",
+      "m": 88804,
+      "k": 64,
+      "n": 192,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "_tri_att_row_block:430",
+      "m": 88804,
+      "k": 256,
+      "n": 768,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "gate_and_project:1440",
+      "m": 88804,
+      "k": 64,
+      "n": 64,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "gate_and_project:1440",
+      "m": 88804,
+      "k": 256,
+      "n": 256,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": false,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "proj_l1:1456",
+      "m": 88804,
+      "k": 64,
+      "n": 64,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "proj_l1:1456",
+      "m": 88804,
+      "k": 64,
+      "n": 192,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 16
+    },
+    {
+      "site": "proj_l1:1456",
+      "m": 88804,
+      "k": 256,
+      "n": 256,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 112
+    },
+    {
+      "site": "proj_l1:1456",
+      "m": 88804,
+      "k": 256,
+      "n": 768,
+      "dtype": "DataType.BFLOAT16",
+      "full_k": true,
+      "admitted": false,
+      "calls": 112
+    }
+  ],
+  "row_block": [
+    {
+      "site": "__call__:1312",
+      "rows": 298,
+      "m": 88804,
+      "k": 64,
+      "n": 192,
+      "dtype": "DataType.BFLOAT16",
+      "block": 0,
+      "calls": 16
+    },
+    {
+      "site": "__call__:1312",
+      "rows": 298,
+      "m": 88804,
+      "k": 256,
+      "n": 768,
+      "dtype": "DataType.BFLOAT16",
+      "block": 0,
+      "calls": 112
+    }
+  ],
+  "counts": {
+    "l1": 0,
+    "fallback": 768,
+    "row_blocked": 0
+  }
+}

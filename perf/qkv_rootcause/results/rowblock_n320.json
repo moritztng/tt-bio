@@ -1,0 +1,71 @@
+{
+  "n": 320,
+  "c_z": 256,
+  "grid": [
+    11,
+    10
+  ],
+  "chooser": {
+    "row_block": 32,
+    "whole_tensor_fits": false,
+    "blocks": 10
+  },
+  "numerics": {
+    "tri_att start": true,
+    "tri_att end": true,
+    "BLOCK (s,z)": true
+  },
+  "timing": {
+    "tri_att start": {
+      "BASE_ms": 7.434,
+      "ROW_ms": 6.5252,
+      "speedup": 1.1393,
+      "raw": {
+        "BASE": [
+          7.2657,
+          7.466,
+          7.434
+        ],
+        "ROW": [
+          6.5252,
+          6.4982,
+          6.6346
+        ]
+      }
+    },
+    "tri_att end": {
+      "BASE_ms": 10.2922,
+      "ROW_ms": 9.447,
+      "speedup": 1.0895,
+      "raw": {
+        "BASE": [
+          10.1475,
+          10.3548,
+          10.2922
+        ],
+        "ROW": [
+          9.447,
+          9.4273,
+          9.4577
+        ]
+      }
+    },
+    "BLOCK (s,z)": {
+      "BASE_ms": 45.3008,
+      "ROW_ms": 43.8266,
+      "speedup": 1.0336,
+      "raw": {
+        "BASE": [
+          45.3008,
+          45.3354,
+          45.2748
+        ],
+        "ROW": [
+          43.805,
+          43.8266,
+          43.9447
+        ]
+      }
+    }
+  }
+}

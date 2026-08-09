@@ -1,0 +1,66 @@
+{
+  "n": 320,
+  "c": 256,
+  "grid": [
+    11,
+    10
+  ],
+  "res": {
+    "whole": {
+      "rows": 0,
+      "ms": 4.963,
+      "l1": false,
+      "bit_exact": true,
+      "speedup": 1.0
+    },
+    "2x160r": {
+      "rows": 160,
+      "ms": 5.6743,
+      "l1": false,
+      "bit_exact": true,
+      "speedup": 0.8746
+    },
+    "4x80r": {
+      "rows": 80,
+      "ms": 5.9405,
+      "l1": false,
+      "bit_exact": true,
+      "speedup": 0.8355
+    },
+    "5x64r": {
+      "rows": 64,
+      "ms": 6.1034,
+      "l1": false,
+      "bit_exact": true,
+      "speedup": 0.8132
+    },
+    "8x40r": {
+      "rows": 40,
+      "ms": 6.3153,
+      "l1": false,
+      "bit_exact": true,
+      "speedup": 0.7859
+    },
+    "10x32r": {
+      "rows": 32,
+      "ms": 3.9889,
+      "l1": true,
+      "bit_exact": true,
+      "speedup": 1.2442
+    },
+    "16x20r": {
+      "rows": 20,
+      "ms": 4.2131,
+      "l1": true,
+      "bit_exact": true,
+      "speedup": 1.178
+    },
+    "20x16r": {
+      "rows": 16,
+      "ms": 6.6688,
+      "l1": false,
+      "bit_exact": true,
+      "speedup": 0.7442
+    }
+  }
+}

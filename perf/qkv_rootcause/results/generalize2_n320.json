@@ -1,0 +1,113 @@
+{
+  "n": 320,
+  "grid": [
+    13,
+    10
+  ],
+  "admissions": {
+    "trimul p_out": false,
+    "trimul g_out": false,
+    "transition fc3": false,
+    "trimul p_out c128": true
+  },
+  "timing": {
+    "tri_mul start": {
+      "PROD": {
+        "ms": 7.2157,
+        "raw": [
+          7.2157,
+          7.215,
+          7.2272
+        ]
+      },
+      "HEAD": {
+        "ms": 7.2226,
+        "raw": [
+          7.2302,
+          7.2226,
+          7.2142
+        ],
+        "speedup_vs_prod": 0.999
+      },
+      "NEW": {
+        "ms": 7.2166,
+        "raw": [
+          7.212,
+          7.2166,
+          7.217
+        ],
+        "speedup_vs_prod": 0.9999
+      }
+    },
+    "transition_z": {
+      "PROD": {
+        "ms": 5.5899,
+        "raw": [
+          5.5898,
+          5.5899,
+          5.6108
+        ]
+      },
+      "HEAD": {
+        "ms": 5.5989,
+        "raw": [
+          5.6209,
+          5.5955,
+          5.5989
+        ],
+        "speedup_vs_prod": 0.9984
+      },
+      "NEW": {
+        "ms": 5.6006,
+        "raw": [
+          5.5889,
+          5.6016,
+          5.6006
+        ],
+        "speedup_vs_prod": 0.9981
+      }
+    },
+    "BLOCK (s,z)": {
+      "PROD": {
+        "ms": 40.28,
+        "raw": [
+          40.2858,
+          40.28,
+          40.2663
+        ]
+      },
+      "HEAD": {
+        "ms": 40.2844,
+        "raw": [
+          40.2844,
+          40.2611,
+          40.2845
+        ],
+        "speedup_vs_prod": 0.9999
+      },
+      "NEW": {
+        "ms": 40.2732,
+        "raw": [
+          40.2572,
+          40.2732,
+          40.2835
+        ],
+        "speedup_vs_prod": 1.0002
+      }
+    }
+  },
+  "numerics": {
+    "trimul p_out": true,
+    "trimul g_out": true,
+    "minitri NEW": true,
+    "tri_mul c128 NEW": true,
+    "tri_mul start HEAD": true,
+    "tri_mul start NEW": true,
+    "tri_mul end HEAD": true,
+    "tri_mul end NEW": true,
+    "transition_z HEAD": true,
+    "transition_z NEW": true,
+    "BLOCK (s,z) HEAD": true,
+    "BLOCK (s,z) NEW": true
+  }
+}
