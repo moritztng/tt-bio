@@ -1,0 +1,28 @@
+{
+  "model": "opendde",
+  "arm": "off",
+  "target": "examples/prot300.yaml",
+  "n_aa": 298,
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "cold_s": 52.002,
+  "warm_s": [
+    44.337,
+    44.385,
+    44.369
+  ],
+  "median_ms": 44369.4,
+  "min_ms": 44337.4,
+  "plddt": 0.796026,
+  "cif_sha256_16": "8a1ba594b0da2c66",
+  "msa": true,
+  "n_tokens": 298,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "loadavg": [
+    3.87109375,
+    5.7685546875,
+    8.26171875
+  ]
+}
