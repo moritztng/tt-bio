@@ -1,0 +1,22 @@
+{
+  "model": "protenix-v2",
+  "tag": "117_after",
+  "host": "tt-quietbox2",
+  "card": null,
+  "aiclk_mhz": null,
+  "n_tokens": 117,
+  "n_residues": 117,
+  "cold_s": 10.301,
+  "load_s": 1.29,
+  "warm_s": [
+    8.194,
+    8.182,
+    8.161
+  ],
+  "median_s": 8.182,
+  "min_s": 8.161,
+  "plddt": 0.888746,
+  "n_atoms": 900,
+  "coords_npy": "/home/ttuser/.coworker/wt/perfwar-dit-attention-fusion/perf/dit_attn/fold117_protenix-v2_after.npy",
+  "stamp": "2026-08-09T16:33:55Z"
+}
