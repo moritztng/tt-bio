@@ -1,0 +1,358 @@
+[
+ {
+  "case": "pf_qk",
+  "note": "Pairformer s-track q@kT, tenstorrent.py:1796 -- protenix-v2 484, opendde 484, OF3 192",
+  "a": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "b": [
+   1,
+   16,
+   32,
+   320
+  ],
+  "arm": "batched",
+  "dtype": "bf16",
+  "B": 16,
+  "Mt": 10,
+  "Kt": 1,
+  "Nt": 10,
+  "calls_per_fold": 484,
+  "per_core_M": 2,
+  "per_core_N": 10,
+  "in0_block_w": 1,
+  "out_subblock": [
+   2,
+   2
+  ],
+  "grid": [
+   11,
+   10
+  ],
+  "blocks": 80,
+  "cores_engaged": 80,
+  "ms_auto": 0.024220480045187287,
+  "ms_shipped": 0.01957815999048762,
+  "speedup": 1.2371172805286716,
+  "ms_auto_all": [
+   0.025039660031325184,
+   0.024262139995698817,
+   0.024220480045187287
+  ],
+  "ms_shipped_all": [
+   0.02084299994749017,
+   0.019713820001925342,
+   0.01957815999048762
+  ],
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
+ },
+ {
+  "case": "pf_av",
+  "note": "Pairformer s-track attn@v, tenstorrent.py:1804",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "arm": "batched",
+  "dtype": "bf16",
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 1,
+  "calls_per_fold": 484,
+  "per_core_M": 2,
+  "per_core_N": 1,
+  "in0_block_w": 1,
+  "out_subblock": [
+   2,
+   1
+  ],
+  "grid": [
+   11,
+   10
+  ],
+  "blocks": 80,
+  "cores_engaged": 80,
+  "ms_auto": 0.07005621999269351,
+  "ms_shipped": 0.013194120037951507,
+  "speedup": 5.309654587890979,
+  "ms_auto_all": [
+   0.07069906001561321,
+   0.07005621999269351,
+   0.0701872799982084
+  ],
+  "ms_shipped_all": [
+   0.014302839990705252,
+   0.01320251998549793,
+   0.013194120037951507
+  ],
+  "bit_exact": false,
+  "maxabs_vs_auto": 0.0009765625,
+  "rel_l2_vs_auto": 0.0011423063752702214
+ },
+ {
+  "case": "dit_od_qk",
+  "note": "opendde token DiT q@kT, same tenstorrent.py:1796",
+  "a": [
+   1,
+   16,
+   608,
+   64
+  ],
+  "b": [
+   1,
+   16,
+   64,
+   608
+  ],
+  "arm": "batched",
+  "dtype": "bf16",
+  "B": 16,
+  "Mt": 19,
+  "Kt": 2,
+  "Nt": 19,
+  "calls_per_fold": 4800,
+  "per_core_M": null,
+  "per_core_N": null,
+  "in0_block_w": null,
+  "out_subblock": null,
+  "grid": [
+   11,
+   10
+  ],
+  "blocks": null,
+  "cores_engaged": null,
+  "ms_auto": 0.07223721993796062,
+  "ms_shipped": 0.07244599997648038,
+  "speedup": 0.9971181288326817,
+  "ms_auto_all": [
+   0.0731912400078727,
+   0.07253197996760719,
+   0.07223721993796062
+  ],
+  "ms_shipped_all": [
+   0.07292731999768876,
+   0.07261072001711,
+   0.07244599997648038
+  ],
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
+ },
+ {
+  "case": "dit_od_av",
+  "note": "opendde token DiT attn@v, same tenstorrent.py:1804",
+  "a": [
+   1,
+   16,
+   608,
+   608
+  ],
+  "b": [
+   1,
+   16,
+   608,
+   64
+  ],
+  "arm": "batched",
+  "dtype": "bf16",
+  "B": 16,
+  "Mt": 19,
+  "Kt": 19,
+  "Nt": 2,
+  "calls_per_fold": 4800,
+  "per_core_M": 19,
+  "per_core_N": 2,
+  "in0_block_w": 1,
+  "out_subblock": [
+   1,
+   2
+  ],
+  "grid": [
+   11,
+   10
+  ],
+  "blocks": 16,
+  "cores_engaged": 16,
+  "ms_auto": 0.2441047599859303,
+  "ms_shipped": 0.07093730004271492,
+  "speedup": 3.44113406964943,
+  "ms_auto_all": [
+   0.24456184000882786,
+   0.2441047599859303,
+   0.2441975600231672
+  ],
+  "ms_shipped_all": [
+   0.07164527996792458,
+   0.0709869999991497,
+   0.07093730004271492
+  ],
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
+ },
+ {
+  "case": "dit_px_qk",
+  "note": "protenix-v2 fp32 token DiT q@kT, tenstorrent.py:1776 -- the sibling branch, unhinted",
+  "a": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "b": [
+   1,
+   16,
+   64,
+   320
+  ],
+  "arm": "batched",
+  "dtype": "fp32",
+  "B": 16,
+  "Mt": 10,
+  "Kt": 2,
+  "Nt": 10,
+  "calls_per_fold": 4800,
+  "per_core_M": 2,
+  "per_core_N": 10,
+  "in0_block_w": 1,
+  "out_subblock": [
+   2,
+   2
+  ],
+  "grid": [
+   11,
+   10
+  ],
+  "blocks": 80,
+  "cores_engaged": 80,
+  "ms_auto": 0.04707914005848579,
+  "ms_shipped": 0.05122167996887583,
+  "speedup": 0.9191252627225971,
+  "ms_auto_all": [
+   0.047918339987518266,
+   0.047539419974782504,
+   0.04707914005848579
+  ],
+  "ms_shipped_all": [
+   0.052495320051093586,
+   0.05135774001246318,
+   0.05122167996887583
+  ],
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
+ },
+ {
+  "case": "dit_px_av",
+  "note": "protenix-v2 fp32 token DiT attn@v, tenstorrent.py:1782",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "arm": "batched",
+  "dtype": "fp32",
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 2,
+  "calls_per_fold": 4800,
+  "per_core_M": 2,
+  "per_core_N": 2,
+  "in0_block_w": 1,
+  "out_subblock": [
+   2,
+   2
+  ],
+  "grid": [
+   11,
+   10
+  ],
+  "blocks": 80,
+  "cores_engaged": 80,
+  "ms_auto": 0.11028940003598109,
+  "ms_shipped": 0.03336662004585378,
+  "speedup": 3.3053812428234224,
+  "ms_auto_all": [
+   0.11113744003523607,
+   0.11028940003598109,
+   0.11033390001102816
+  ],
+  "ms_shipped_all": [
+   0.03495026001473889,
+   0.03336662004585378,
+   0.03344476004713215
+  ],
+  "bit_exact": false,
+  "maxabs_vs_auto": 0.00014409422874450684,
+  "rel_l2_vs_auto": 0.00030553793384171726
+ },
+ {
+  "case": "atok_of3",
+  "note": "openfold3_diffusion_module.py:339 atom->token aggregation; protenix.py:870 is the same shape and already passes core_grid",
+  "a": [
+   1,
+   320,
+   2400
+  ],
+  "b": [
+   1,
+   2400,
+   768
+  ],
+  "arm": "core_grid",
+  "dtype": "fp32",
+  "B": 1,
+  "Mt": 10,
+  "Kt": 75,
+  "Nt": 24,
+  "calls_per_fold": 200,
+  "per_core_M": null,
+  "per_core_N": null,
+  "in0_block_w": null,
+  "out_subblock": null,
+  "grid": [
+   11,
+   10
+  ],
+  "blocks": null,
+  "cores_engaged": null,
+  "ms_auto": 0.07256122000399046,
+  "ms_shipped": 0.04539949994068593,
+  "speedup": 1.598282362113924,
+  "ms_auto_all": [
+   0.07340284006204456,
+   0.07291149995580781,
+   0.07256122000399046
+  ],
+  "ms_shipped_all": [
+   0.046251739986473694,
+   0.045462019988917746,
+   0.04539949994068593
+  ],
+  "bit_exact": false,
+  "maxabs_vs_auto": 0.000461578369140625,
+  "rel_l2_vs_auto": 0.0003038831789327534
+ }
+]

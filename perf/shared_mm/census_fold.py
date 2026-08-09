@@ -28,18 +28,22 @@ def main():
     ap.add_argument("--target", default=str(ROOT / "examples" / "prot300.yaml"))
     ap.add_argument("--a3m", default=str(ROOT / "scripts" / "gpu_vs_tt" / "fixtures" / "prot300.a3m"))
     ap.add_argument("--msa-dir", default=str(Path.home() / ".tt_bio_msa_cache"))
+    ap.add_argument("--folds", type=int, default=2,
+                    help="2 = census the warm fold (cold fold discarded); 1 = census the cold fold, "
+                         "which issues the same calls and halves the device time")
     a = ap.parse_args()
 
     base = _load_baseline()
     one_fold, meta, _state = base.build_fold(a.model, Path(a.msa_dir), Path(a.target), Path(a.a3m))
-    t = time.perf_counter()
-    one_fold()
-    print(f"cold fold {time.perf_counter() - t:.3f} s", flush=True)
     import builtins
-    builtins._census_reset()
+    if a.folds > 1:
+        t = time.perf_counter()
+        one_fold()
+        print(f"cold fold {time.perf_counter() - t:.3f} s", flush=True)
+        builtins._census_reset()
     t = time.perf_counter()
     one_fold()
-    print(f"warm fold {time.perf_counter() - t:.3f} s (censused)", flush=True)
+    print(f"censused fold {time.perf_counter() - t:.3f} s", flush=True)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,355 @@
+[
+ {
+  "site": "tenstorrent.py:1267",
+  "a": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.L1",
+  "b_buf": "BufferType.L1",
+  "hint": "program_config",
+  "calls": 8704,
+  "B": 32,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 10
+ },
+ {
+  "site": "tenstorrent.py:1854",
+  "a": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "b": [
+   1,
+   16,
+   64,
+   320
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 4800,
+  "B": 16,
+  "Mt": 10,
+  "Kt": 2,
+  "Nt": 10
+ },
+ {
+  "site": "tenstorrent.py:1860",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 4800,
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 2
+ },
+ {
+  "site": "protenix.py:414",
+  "a": [
+   75,
+   4,
+   32,
+   32
+  ],
+  "b": [
+   75,
+   4,
+   32,
+   128
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 1200,
+  "B": 300,
+  "Mt": 1,
+  "Kt": 1,
+  "Nt": 4
+ },
+ {
+  "site": "protenix.py:417",
+  "a": [
+   75,
+   4,
+   32,
+   128
+  ],
+  "b": [
+   75,
+   4,
+   128,
+   32
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 1200,
+  "B": 300,
+  "Mt": 1,
+  "Kt": 4,
+  "Nt": 1
+ },
+ {
+  "site": "tenstorrent.py:352",
+  "a": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "b": [
+   1,
+   16,
+   32,
+   320
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "program_config",
+  "calls": 484,
+  "B": 16,
+  "Mt": 10,
+  "Kt": 1,
+  "Nt": 10
+ },
+ {
+  "site": "tenstorrent.py:352",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "program_config",
+  "calls": 484,
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 1
+ },
+ {
+  "site": "tenstorrent.py:2766",
+  "a": [
+   35,
+   32,
+   320
+  ],
+  "b": [
+   1,
+   320,
+   320
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "core_grid",
+  "calls": 240,
+  "B": 35,
+  "Mt": 1,
+  "Kt": 10,
+  "Nt": 10
+ },
+ {
+  "site": "protenix.py:870",
+  "a": [
+   320,
+   2400
+  ],
+  "b": [
+   2400,
+   768
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "core_grid",
+  "calls": 200,
+  "B": 1,
+  "Mt": 10,
+  "Kt": 75,
+  "Nt": 24
+ },
+ {
+  "site": "protenix.py:899",
+  "a": [
+   2400,
+   320
+  ],
+  "b": [
+   320,
+   128
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "core_grid",
+  "calls": 200,
+  "B": 1,
+  "Mt": 75,
+  "Kt": 10,
+  "Nt": 4
+ },
+ {
+  "site": "tenstorrent.py:2949",
+  "a": [
+   9536,
+   64
+  ],
+  "b": [
+   9536,
+   64
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 40,
+  "B": 1,
+  "Mt": 298,
+  "Kt": 2,
+  "Nt": 2
+ },
+ {
+  "site": "protenix.py:414",
+  "a": [
+   75,
+   4,
+   32,
+   32
+  ],
+  "b": [
+   75,
+   4,
+   32,
+   128
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 3,
+  "B": 300,
+  "Mt": 1,
+  "Kt": 1,
+  "Nt": 4
+ },
+ {
+  "site": "protenix.py:417",
+  "a": [
+   75,
+   4,
+   32,
+   128
+  ],
+  "b": [
+   75,
+   4,
+   128,
+   32
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "none",
+  "calls": 3,
+  "B": 300,
+  "Mt": 1,
+  "Kt": 4,
+  "Nt": 1
+ },
+ {
+  "site": "protenix.py:677",
+  "a": [
+   320,
+   2400
+  ],
+  "b": [
+   2400,
+   384
+  ],
+  "a_dtype": "DataType.BFLOAT16",
+  "b_dtype": "DataType.BFLOAT16",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "core_grid",
+  "calls": 1,
+  "B": 1,
+  "Mt": 10,
+  "Kt": 75,
+  "Nt": 12
+ },
+ {
+  "site": "protenix.py:817",
+  "a": [
+   2400,
+   320
+  ],
+  "b": [
+   320,
+   128
+  ],
+  "a_dtype": "DataType.FLOAT32",
+  "b_dtype": "DataType.FLOAT32",
+  "a_buf": "BufferType.DRAM",
+  "b_buf": "BufferType.DRAM",
+  "hint": "core_grid",
+  "calls": 1,
+  "B": 1,
+  "Mt": 75,
+  "Kt": 10,
+  "Nt": 4
+ }
+]

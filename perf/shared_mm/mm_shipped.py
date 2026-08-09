@@ -15,10 +15,10 @@ import ttnn
 import tt_bio.tenstorrent as T
 
 
-def mk(dev, shape, seed):
+def mk(dev, shape, seed, dtype):
     g = torch.Generator().manual_seed(seed)
     t = (torch.rand(shape, generator=g, dtype=torch.float32) - 0.5) * 0.2
-    return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,
+    return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype,
                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
 
@@ -55,14 +55,18 @@ def main():
     rows = []
     for case in json.load(open(a.cases)):
         ash, bsh = case["a"], case["b"]
-        ta, tb = mk(dev, ash, 1), mk(dev, bsh, 2)
+        dt = ttnn.float32 if case.get("dtype") == "fp32" else ttnn.bfloat16
+        arm = case.get("arm", "batched")
+        ta, tb = mk(dev, ash, 1, dt), mk(dev, bsh, 2, dt)
         B = 1
         for d in ash[:-2]:
             B *= d
         Mt, Kt, Nt = ash[-2] // 32, ash[-1] // 32, bsh[-1] // 32
-        pc = T._batched_matmul_program_config(B, Mt, Nt, T.COMPUTE_GRID_MAIN)
+        pc = T._batched_matmul_program_config(B, Mt, Nt, T.COMPUTE_GRID_MAIN) if arm == "batched" else None
         blocks = B * (Mt // pc.per_core_M) if pc is not None else None
-        row = dict(case=case["name"], note=case.get("note", ""), a=ash, b=bsh,
+        fixed = (lambda: T.batched_matmul(ta, tb, compute_kernel_config=cfg)) if arm == "batched"             else (lambda: ttnn.matmul(ta, tb, compute_kernel_config=cfg, core_grid=T.CORE_GRID_MAIN))
+        row = dict(case=case["name"], note=case.get("note", ""), a=ash, b=bsh, arm=arm,
+                   dtype=case.get("dtype", "bf16"),
                    B=B, Mt=Mt, Kt=Kt, Nt=Nt, calls_per_fold=case.get("calls"),
                    per_core_M=(pc.per_core_M if pc else None),
                    per_core_N=(pc.per_core_N if pc else None),
@@ -78,7 +82,7 @@ def main():
             if r == 0:
                 t_auto = ttnn.to_torch(o_auto)
             ttnn.deallocate(o_auto)
-            ms, o_new = time_arm(dev, lambda: T.batched_matmul(ta, tb, compute_kernel_config=cfg), a.iters)
+            ms, o_new = time_arm(dev, fixed, a.iters)
             new.append(ms)
             if r == 0:
                 t_new = ttnn.to_torch(o_new)

@@ -1,0 +1,123 @@
+[
+ {
+  "name": "pf_qk",
+  "a": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "b": [
+   1,
+   16,
+   32,
+   320
+  ],
+  "calls": 484,
+  "note": "Pairformer s-track q@kT, tenstorrent.py:1796 -- protenix-v2 484, opendde 484, OF3 192"
+ },
+ {
+  "name": "pf_av",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   32
+  ],
+  "calls": 484,
+  "note": "Pairformer s-track attn@v, tenstorrent.py:1804"
+ },
+ {
+  "name": "dit_od_qk",
+  "a": [
+   1,
+   16,
+   608,
+   64
+  ],
+  "b": [
+   1,
+   16,
+   64,
+   608
+  ],
+  "calls": 4800,
+  "note": "opendde token DiT q@kT, same tenstorrent.py:1796"
+ },
+ {
+  "name": "dit_od_av",
+  "a": [
+   1,
+   16,
+   608,
+   608
+  ],
+  "b": [
+   1,
+   16,
+   608,
+   64
+  ],
+  "calls": 4800,
+  "note": "opendde token DiT attn@v, same tenstorrent.py:1804"
+ },
+ {
+  "name": "dit_px_qk",
+  "a": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "b": [
+   1,
+   16,
+   64,
+   320
+  ],
+  "calls": 4800,
+  "dtype": "fp32",
+  "note": "protenix-v2 fp32 token DiT q@kT, tenstorrent.py:1776 -- the sibling branch, unhinted"
+ },
+ {
+  "name": "dit_px_av",
+  "a": [
+   1,
+   16,
+   320,
+   320
+  ],
+  "b": [
+   1,
+   16,
+   320,
+   64
+  ],
+  "calls": 4800,
+  "dtype": "fp32",
+  "note": "protenix-v2 fp32 token DiT attn@v, tenstorrent.py:1782"
+ },
+ {
+  "name": "atok_of3",
+  "a": [
+   1,
+   320,
+   2400
+  ],
+  "b": [
+   1,
+   2400,
+   768
+  ],
+  "calls": 200,
+  "arm": "core_grid",
+  "note": "openfold3_diffusion_module.py:339 atom->token aggregation; protenix.py:870 is the same shape and already passes core_grid",
+  "dtype": "fp32"
+ }
+]
