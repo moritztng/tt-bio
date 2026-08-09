@@ -67,6 +67,18 @@ _DIFFUSION_FP32_DEVICE = False
 _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
+# KILLED AT FOLD LEVEL, kept only as the A/B toggle. ttnn.experimental.minimal_matmul for the
+# two trimul output projections is 1.117x per trimul and 1.0384x on the Pairformer block, but it
+# is not bit-exact, and at 298 aa it moves the folded structure by 4.05 A all-atom RMSD against a
+# run-to-run noise floor of exactly 0.0 (perf/trimul_kernel/w2_fold_parity.py). That is a
+# different fold, not a rounding difference. See _trimul_out_proj.
+_TRIMUL_MM_OUT = False
+# MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
+# Letting the output channel move write straight to DRAM drops the separate clone that used
+# to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
+# DRAM, and that costs more than the clone saves: 7.122 -> 7.431 (start) / 7.863 (end) ms per
+# trimul at 298 aa. Bit-exact either way, and still a loss.
+_TRIMUL_OUT_MOVE_DRAM = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -676,6 +688,12 @@ def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
         return ttnn.from_torch(
             torch.cat(acc, dim=dim), layout=ttnn.TILE_LAYOUT,
             device=get_device(), dtype=ttnn.bfloat16)
+    if len(acc) == 1:
+        # ttnn.concat of a single tensor aliases its input, so the deallocate below would
+        # free the very buffer being returned. One block is the real case for any trimul
+        # whose hidden width equals its chunk width (n_pairs == 1, e.g. the protenix
+        # template pair stack) and for a row-blocked tail shorter than one row block.
+        return acc[0]
     out = ttnn.concat(acc, dim=dim)
     for t in acc:
         ttnn.deallocate(t)
@@ -892,6 +910,27 @@ class Module:
         )
 
 
+def _trimul_out_proj(
+    x: ttnn.Tensor, weight: ttnn.Tensor, ckc: ttnn.DeviceComputeKernelConfig
+) -> ttnn.Tensor:
+    """The trimul output projection: [1,L,L,c_z] @ [c_z,c_z], no bias.
+
+    `ttnn.linear(core_grid=...)` reaches 20.6 TFLOP/s on this shape where
+    `minimal_matmul` reaches 35.7 (perf/trimul_kernel/layout_micro.py), the same
+    1.7x gap the tri-attention projections show. Not bit-exact: the two kernels
+    block the contraction differently, so bf16 accumulates in a different order.
+    """
+    if _TRIMUL_MM_OUT:
+        return ttnn.experimental.minimal_matmul(
+            x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
+            compute_kernel_config=ckc,
+        )
+    return ttnn.linear(
+        x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
+        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
+    )
+
+
 class TriangleMultiplication(Module):
     def __init__(
         self,
@@ -1001,18 +1040,19 @@ class TriangleMultiplication(Module):
             x_norm_in = ttnn.reallocate(x_norm_in)
         # Unsqueeze mask once before chunk loop (mask is [1,S,S] or [1,S])
         mask_u = ttnn.unsqueeze(mask, -1) if mask is not None else None
-        # On the DRAM (large-L) path, collect the per-channel output chunks and
-        # concat them ONCE at the end. The running concat below copies the
-        # accumulator on every step (O(n_pairs^2) channel-bytes moved); a single
-        # concat of all chunks copies each chunk once (O(n_pairs)). Bit-exact
-        # (same chunk order). Kept only for DRAM: at small L the chunks live in
-        # L1 and holding all of them at once would blow the L1 budget.
+        # Collect the per-channel output chunks and concat them ONCE at the end. A
+        # running concat copies the accumulator on every step (O(n_pairs^2)
+        # channel-bytes moved); one concat of all chunks copies each chunk once.
+        # Bit-exact either way (same chunk order). On the L1 path the chunks are
+        # moved to DRAM as they are produced, so holding all n_pairs of them costs
+        # no L1: measured 7.05 -> 6.94 ms per trimul at 298 aa
+        # (perf/trimul_kernel/opsplit298.py).
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         # Assemble the per-channel chunks on the host when the full result is large
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
-        x_chunks = [] if large_seq else None
+        x_chunks = []
         for i in range(n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
                 x_norm_in,
@@ -1062,25 +1102,31 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(x_chunk)
                 x_chunk = x_chunk_t
             else:
-                x_chunk = ttnn.permute(x_chunk, (0, 2, 3, 1), memory_config=memory_config)
-            if x_chunks is not None:
+                # The channel move is the last touch of the chunk before the concat, so
+                # on the L1 path it writes its result straight to DRAM: the separate
+                # clone that used to move it there was a whole extra round trip of the
+                # chunk (13.1 MB each way at 298 aa) for no arithmetic. Index-only, so
+                # bit-exact either way.
+                x_chunk = ttnn.permute(
+                    x_chunk, (0, 2, 3, 1),
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG if _TRIMUL_OUT_MOVE_DRAM
+                    else memory_config,
+                )
+            if large_seq or _TRIMUL_OUT_MOVE_DRAM:
                 _acc_append(x_chunks, x_chunk, host_acc)
-            elif i == 0:
-                x = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-                ttnn.deallocate(x_chunk)
             else:
-                x_old = x
-                x = ttnn.concat([x_old, x_chunk], dim=-1)
-                ttnn.deallocate(x_old)
+                # L1-resident chunk: move it to DRAM so all n_pairs can be held at
+                # once for the single concat.
+                moved = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 ttnn.deallocate(x_chunk)
-        if x_chunks is not None:
-            if H > SEQ_LEN_MORE_CHUNKING:
-                # x_norm_in is dead on the row-blocked tail path (both norms are
-                # recomputed per row block from x_in). Freeing it before the
-                # concat drops that peak from 4 pair-tensor multiples to 3 --
-                # the difference between fitting and the 9i3p/9j4c refusal.
-                ttnn.deallocate(x_norm_in)
-            x = _acc_concat(x_chunks, -1, host_acc)
+                x_chunks.append(moved)
+        if H > SEQ_LEN_MORE_CHUNKING:
+            # x_norm_in is dead on the row-blocked tail path (both norms are
+            # recomputed per row block from x_in). Freeing it before the concat
+            # drops that peak from 4 pair-tensor multiples to 3 -- the difference
+            # between fitting and the 9i3p/9j4c refusal.
+            ttnn.deallocate(x_norm_in)
+        x = _acc_concat(x_chunks, -1, host_acc)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if H > SEQ_LEN_MORE_CHUNKING:
             # Row-block the output projections instead of computing them full-size.
@@ -1141,24 +1187,10 @@ class TriangleMultiplication(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        p_out = ttnn.linear(
-            x,
-            self.out_p_weight,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            dtype=_dtype(),
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config)
         ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
-        g_out = ttnn.linear(
-            x_norm_in,
-            self.g_out_weight,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            dtype=_dtype(),
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        g_out = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config)
         ttnn.deallocate(x_norm_in)
         x = ttnn.multiply_(
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]

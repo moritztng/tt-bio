@@ -1,0 +1,56 @@
+[
+  {
+    "part": "eltwise",
+    "name": "clone            1r1w  [the L1 copy roof]",
+    "pipe_ms": 0.0236,
+    "serial_ms": 0.0485,
+    "traffic_mb": 26.2,
+    "gbs_aggregate": 1109.8,
+    "note": ""
+  },
+  {
+    "part": "eltwise",
+    "name": "sigmoid          1r1w  SFPU",
+    "pipe_ms": 0.0548,
+    "serial_ms": 0.1005,
+    "traffic_mb": 26.2,
+    "gbs_aggregate": 478.3,
+    "note": ""
+  },
+  {
+    "part": "eltwise",
+    "name": "exp              1r1w  SFPU",
+    "pipe_ms": 0.0479,
+    "serial_ms": 0.0753,
+    "traffic_mb": 26.2,
+    "gbs_aggregate": 547.8,
+    "note": ""
+  },
+  {
+    "part": "eltwise",
+    "name": "add              2r1w  FPU, out-of-place",
+    "pipe_ms": 0.0338,
+    "serial_ms": 0.0701,
+    "traffic_mb": 39.3,
+    "gbs_aggregate": 1164.8,
+    "note": ""
+  },
+  {
+    "part": "eltwise",
+    "name": "multiply         2r1w  FPU, out-of-place",
+    "pipe_ms": 0.0392,
+    "serial_ms": 0.0771,
+    "traffic_mb": 39.3,
+    "gbs_aggregate": 1002.8,
+    "note": ""
+  },
+  {
+    "part": "eltwise",
+    "name": "multiply+SIGMOID 2r1w  out-of-place [production math]",
+    "pipe_ms": 0.0956,
+    "serial_ms": 0.1631,
+    "traffic_mb": 39.3,
+    "gbs_aggregate": 411.4,
+    "note": ""
+  }
+]

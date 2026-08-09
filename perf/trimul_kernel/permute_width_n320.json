@@ -1,0 +1,48 @@
+[
+  {
+    "c": 32,
+    "mib": 6.25,
+    "clone_ms": 0.0195,
+    "clone_gbs": 336.6,
+    "permute_ms": 0.0845,
+    "permute_gbs": 77.5,
+    "ratio": 4.34,
+    "ms_per_channel": 0.002641
+  },
+  {
+    "c": 64,
+    "mib": 12.5,
+    "clone_ms": 0.0238,
+    "clone_gbs": 550.9,
+    "permute_ms": 0.1617,
+    "permute_gbs": 81.0,
+    "ratio": 6.8,
+    "ms_per_channel": 0.002527
+  },
+  {
+    "c": 128,
+    "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 26214400 B L1 buffer across 130 banks, where each bank needs to store 202752 B"
+  },
+  {
+    "c": 256,
+    "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 52428800 B L1 buffer across 130 banks, where each bank needs to store 403456 B"
+  },
+  {
+    "c": 64,
+    "mem": "dram",
+    "clone_ms": 0.0682,
+    "clone_gbs": 192.2,
+    "permute_ms": 0.2954,
+    "permute_gbs": 44.4,
+    "ratio": 4.33
+  },
+  {
+    "c": 256,
+    "mem": "dram",
+    "clone_ms": 0.2546,
+    "clone_gbs": 205.9,
+    "permute_ms": 1.1927,
+    "permute_gbs": 44.0,
+    "ratio": 4.68
+  }
+]
