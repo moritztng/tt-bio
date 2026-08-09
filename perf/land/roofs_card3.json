@@ -1,0 +1,97 @@
+{
+  "device": {
+    "compute_grid": "13x10",
+    "core_grid_main": "11x10",
+    "ttnn": "?"
+  },
+  "compute_roof": {
+    "runs": {
+      "2048_op_ckc_oDRAM": {
+        "ms": 0.1941,
+        "tflops": 88.53
+      },
+      "2048_op_ckc_oL1": {
+        "ms": 0.2457,
+        "tflops": 69.91
+      },
+      "2048_plain_ckc_oDRAM": {
+        "ms": 0.2232,
+        "tflops": 76.96
+      },
+      "2048_plain_ckc_oL1": {
+        "ms": 1.17,
+        "tflops": 14.68
+      },
+      "4096_op_ckc_oDRAM": {
+        "ms": 1.0693,
+        "tflops": 128.54
+      },
+      "4096_op_ckc_oL1": {
+        "ms": 24.9703,
+        "tflops": 5.5
+      },
+      "4096_plain_ckc_oDRAM": {
+        "ms": 1.4441,
+        "tflops": 95.17
+      },
+      "4096_plain_ckc_oL1": {
+        "ms": 2.3228,
+        "tflops": 59.17
+      },
+      "6144_op_ckc_oDRAM": {
+        "ms": 3.4127,
+        "tflops": 135.92
+      },
+      "6144_op_ckc_oL1": {
+        "ms": 84.1886,
+        "tflops": 5.51
+      },
+      "6144_plain_ckc_oDRAM": {
+        "ms": 4.7612,
+        "tflops": 97.42
+      },
+      "6144_plain_ckc_oL1": {
+        "ms": 84.8831,
+        "tflops": 5.46
+      }
+    },
+    "peak_TFLOPs": 135.92
+  },
+  "dram_roofs": {
+    "runs": [
+      {
+        "MB": 8.0,
+        "read_GBs": 277.5,
+        "write_GBs": 200.6,
+        "dram2dram_rw_GBs": 334.2
+      },
+      {
+        "MB": 16.0,
+        "read_GBs": 333.4,
+        "write_GBs": 236.1,
+        "dram2dram_rw_GBs": 370.3
+      },
+      {
+        "MB": 32.0,
+        "read_GBs": 368.7,
+        "write_GBs": 253.0,
+        "dram2dram_rw_GBs": 387.1
+      },
+      {
+        "MB": 48.0,
+        "read_GBs": 381.6,
+        "write_GBs": 259.5,
+        "dram2dram_rw_GBs": 396.3
+      },
+      {
+        "MB": 64.0,
+        "read_GBs": 388.8,
+        "write_GBs": 264.2,
+        "dram2dram_rw_GBs": 402.9
+      }
+    ],
+    "read_peak_GBs": 388.8,
+    "write_peak_GBs": 264.2
+  },
+  "machine_balance_FLOP_per_byte_read": 349.6
+}

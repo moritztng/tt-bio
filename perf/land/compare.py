@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 OUT = Path(__file__).resolve().parent / "out"
-ORDER = ["L0", "L1F", "L2", "L2F", "L3", "L3F"]
+ORDER = ["L00", "L0", "L1F", "L2", "L2F", "L3", "L3F", "L4", "L4F"]
 
 
 def _kabsch_rmsd(a: np.ndarray, b: np.ndarray) -> float:
