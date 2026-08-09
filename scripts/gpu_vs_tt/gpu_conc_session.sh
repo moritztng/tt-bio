@@ -95,20 +95,30 @@ if [ "$TARGETS300" = "1" ] && [ ! -s "$CCD_PKL" ]; then
     echo "== unpacking prebuilt CCD cache from $CCD_CACHE ==" | tee -a "$RESULTS/conc.log"
     mkdir -p /root/common && tar xzf "$CCD_CACHE" -C / 2>&1 | tail -2 | tee -a "$RESULTS/conc.log"
   fi
+  # protenix downloads components.cif and then builds the pickle locally, but it publishes
+  # the finished pickle at the same prefix (142 MB, verified 2026-08-09). Fetching it takes
+  # a couple of minutes against ~55 for the build, so always try that first.
   if [ ! -s "$CCD_PKL" ]; then
-    echo "== building the CCD cache in one process, expect ~55 min at $(el)s ==" \
+    echo "== fetching the prebuilt CCD cache at $(el)s ==" | tee -a "$RESULTS/conc.log"
+    mkdir -p /root/common
+    for f in components.cif components.cif.rdkit_mol.pkl; do
+      [ -s "/root/common/$f" ] || curl -fsSL --retry 3 -o "/root/common/$f" \
+        "https://protenix.tos-cn-beijing.volces.com/common/$f" \
+        || echo "  fetch FAILED: $f" | tee -a "$RESULTS/conc.log"
+    done
+    ls -l /root/common | tee -a "$RESULTS/conc.log"
+  fi
+  # Last resort only: build it in ONE process. ~55 min, so expect to pay for it.
+  if [ ! -s "$CCD_PKL" ]; then
+    echo "== prebuilt fetch failed, building in one process, expect ~55 min at $(el)s ==" \
       | tee -a "$RESULTS/conc.log"
     $PY gpu_concurrency.py --model "$MODEL" --n 1 --folds 1 --mode plain \
         --checkpoint "$CKPT" --name prot300 --label "CCD cache warm" \
         --msa-a3m "$(pwd)/fixtures/prot300.a3m" --seq-file "$(pwd)/fixtures/prot300.seq" \
         --run-dir "$RUNROOT/run-ccd-warm" --out "$RESULTS/ccd_warm.json" \
         > "$RESULTS/ccd_warm.log" 2>&1
-    echo "== CCD cache warm done at $(el)s, pkl $( [ -s "$CCD_PKL" ] && echo present || echo MISSING) ==" \
+    echo "== CCD warm done at $(el)s, pkl $( [ -s "$CCD_PKL" ] && echo present || echo MISSING) ==" \
       | tee -a "$RESULTS/conc.log"
-    # Hand it back so the next rental can skip the build: tar it up next to the results.
-    tar czf "$RESULTS/ccd_cache.tgz" /root/common 2>/dev/null && \
-      echo "== CCD cache tarred to $RESULTS/ccd_cache.tgz, pull it and pass as CCD_CACHE ==" \
-        | tee -a "$RESULTS/conc.log"
   fi
 fi
 
