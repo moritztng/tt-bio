@@ -1,0 +1,154 @@
+{
+  "shape": {
+    "heads": 4,
+    "M": 4032,
+    "N": 4032,
+    "head_dim": 32,
+    "grid": "13x10"
+  },
+  "dram_roofs": {
+    "runs": [
+      {
+        "MB": 16.0,
+        "read_GBs": 327.6,
+        "write_GBs": 229.8
+      },
+      {
+        "MB": 32.0,
+        "read_GBs": 364.3,
+        "write_GBs": 252.2
+      },
+      {
+        "MB": 64.0,
+        "read_GBs": 388.4,
+        "write_GBs": 264.9
+      }
+    ],
+    "read_peak_GBs": 388.4,
+    "write_peak_GBs": 264.9
+  },
+  "chain": [
+    {
+      "op": "permute k",
+      "us": 39.2,
+      "read_MB": 1.0,
+      "write_MB": 1.0,
+      "GFLOP": 0.0,
+      "pct_write_roof": 9.9,
+      "pct_read_roof": 6.8,
+      "eff_GBs": 52.7
+    },
+    {
+      "op": "1346 q@kT",
+      "us": 477.6,
+      "read_MB": 2.1,
+      "write_MB": 130.1,
+      "GFLOP": 4.162,
+      "pct_write_roof": 102.8,
+      "pct_read_roof": 1.1,
+      "eff_GBs": 276.6
+    },
+    {
+      "op": "typecast->f32",
+      "us": 1074.3,
+      "read_MB": 130.1,
+      "write_MB": 260.1,
+      "GFLOP": 0.0,
+      "pct_write_roof": 91.4,
+      "pct_read_roof": 31.2,
+      "eff_GBs": 363.2
+    },
+    {
+      "op": "multiply scale",
+      "us": 1325.2,
+      "read_MB": 260.1,
+      "write_MB": 260.1,
+      "GFLOP": 0.0,
+      "pct_write_roof": 74.1,
+      "pct_read_roof": 50.5,
+      "eff_GBs": 392.6
+    },
+    {
+      "op": "add bias",
+      "us": 1789.6,
+      "read_MB": 520.2,
+      "write_MB": 260.1,
+      "GFLOP": 0.0,
+      "pct_write_roof": 54.9,
+      "pct_read_roof": 74.8,
+      "eff_GBs": 436.1
+    },
+    {
+      "op": "softmax f32",
+      "us": 2421.3,
+      "read_MB": 260.1,
+      "write_MB": 260.1,
+      "GFLOP": 0.0,
+      "pct_write_roof": 40.6,
+      "pct_read_roof": 27.7,
+      "eff_GBs": 214.9
+    },
+    {
+      "op": "typecast->bf16",
+      "us": 897.8,
+      "read_MB": 260.1,
+      "write_MB": 130.1,
+      "GFLOP": 0.0,
+      "pct_write_roof": 54.7,
+      "pct_read_roof": 74.6,
+      "eff_GBs": 434.6
+    },
+    {
+      "op": "1358 attn@v",
+      "us": 553.6,
+      "read_MB": 131.1,
+      "write_MB": 1.0,
+      "GFLOP": 4.162,
+      "pct_write_roof": 0.7,
+      "pct_read_roof": 61.0,
+      "eff_GBs": 238.6
+    }
+  ],
+  "chain_total_us": 8539.4,
+  "alternatives": {
+    "scale_mask_softmax f32": {
+      "err": "\nttnn.scale_mask_softmax(): incompatible function arguments.\n\nCalled with:\n  scale_mask_softmax(ttnn.Tensor, float, ttnn.Tensor)\n\nAvailable signatures:\n  scale_mask_softmax(input_tensor: ttnn.Tensor, scale: float | None = None, mask: ttnn.Tensor | No"
+    },
+    "scale_mask_softmax bf16": {
+      "err": "\nttnn.scale_mask_softmax(): incompatible function arguments.\n\nCalled with:\n  scale_mask_softmax(ttnn.Tensor, float, ttnn.Tensor)\n\nAvailable signatures:\n  scale_mask_softmax(input_tensor: ttnn.Tensor, scale: float | None = None, mask: ttnn.Tensor | No"
+    },
+    "sdpa mask=bf16 q128 k512": {
+      "us": 1767.3,
+      "note": "flash attention, scores never reach DRAM",
+      "speedup_vs_chain": 4.83
+    },
+    "sdpa mask=bf16 q256 k512": {
+      "us": 2338.6,
+      "note": "flash attention, scores never reach DRAM",
+      "speedup_vs_chain": 3.65
+    },
+    "sdpa mask=bf16 q512 k1024": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 3817984 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/.loca"
+    },
+    "sdpa mask=bf16 q32 k4032": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 1942016 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/.loca"
+    },
+    "sdpa mask=bf16 default": {
+      "us": 1168.2,
+      "note": "flash attention, default chunking",
+      "speedup_vs_chain": 7.31
+    },
+    "sdpa mask=f32 default": {
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/transformer/sdpa/device/sdpa_device_operation.cpp:76: mask.dtype() == DataType::BFLOAT16 || mask.dtype() == DataType::BFLOAT8_B || mask.dtype() == DataType::BFLOAT4_B\ninfo:\nWhen mask is provided to SDPA, i"
+    }
+  },
+  "model": {
+    "qkT_flops": 4161798144,
+    "qkT_bytes_in": 2064384,
+    "qkT_bytes_out": 130056192,
+    "qkT_AI_flop_per_byte": 31.5,
+    "qkT_write_floor_us": 491.0,
+    "write_roof_GBs": 264.9,
+    "read_roof_GBs": 388.4
+  }
+}

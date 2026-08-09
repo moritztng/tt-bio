@@ -1,0 +1,26 @@
+{
+  "A_scale_SC": {
+    "max_abs": 0.020525,
+    "pcc": 0.92520229
+  },
+  "B_mask_predivided": {
+    "max_abs": 0.003051,
+    "pcc": 0.999256943
+  },
+  "C_prescaled_q": {
+    "max_abs": 0.002751,
+    "pcc": 0.999249579
+  },
+  "D_prescaled_q_noscale": {
+    "max_abs": 0.020586,
+    "pcc": 0.920258132
+  },
+  "A_vs_scaled_bias": {
+    "max_abs": 0.001483,
+    "pcc": 0.999832617
+  },
+  "E_nomask": {
+    "max_abs": 0.001117,
+    "pcc": 0.999900239
+  }
+}

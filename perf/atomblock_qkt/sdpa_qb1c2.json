@@ -1,0 +1,204 @@
+{
+  "shape": {
+    "heads": 4,
+    "M": 4032,
+    "N": 4032,
+    "head_dim": 32,
+    "n_keys": 128
+  },
+  "shipped_us": 8486.6,
+  "sdpa": [
+    {
+      "cfg": "default",
+      "us": 1167.5,
+      "speedup": 7.27,
+      "pct_mask_read_roof": 28.7,
+      "max_abs": 0.06958,
+      "mean_abs": 0.0097611,
+      "rel_to_peak": 0.448113,
+      "pcc": 0.91699746,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q32_k128",
+      "us": 1193.3,
+      "speedup": 7.11,
+      "pct_mask_read_roof": 28.1,
+      "max_abs": 0.068359,
+      "mean_abs": 0.00974296,
+      "rel_to_peak": 0.440252,
+      "pcc": 0.917332732,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q32_k256",
+      "us": 1091.5,
+      "speedup": 7.78,
+      "pct_mask_read_roof": 30.7,
+      "max_abs": 0.068359,
+      "mean_abs": 0.00973872,
+      "rel_to_peak": 0.440252,
+      "pcc": 0.917388441,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q32_k512",
+      "us": 1158.3,
+      "speedup": 7.33,
+      "pct_mask_read_roof": 28.9,
+      "max_abs": 0.068604,
+      "mean_abs": 0.00973027,
+      "rel_to_peak": 0.441824,
+      "pcc": 0.917489431,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q32_k1024",
+      "us": 1259.5,
+      "speedup": 6.74,
+      "pct_mask_read_roof": 26.6,
+      "max_abs": 0.068115,
+      "mean_abs": 0.00971285,
+      "rel_to_peak": 0.438679,
+      "pcc": 0.917673669,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q64_k128",
+      "us": 1137.6,
+      "speedup": 7.46,
+      "pct_mask_read_roof": 29.4,
+      "max_abs": 0.068359,
+      "mean_abs": 0.00974296,
+      "rel_to_peak": 0.440252,
+      "pcc": 0.917332732,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q64_k256",
+      "us": 1205.8,
+      "speedup": 7.04,
+      "pct_mask_read_roof": 27.8,
+      "max_abs": 0.068359,
+      "mean_abs": 0.00973872,
+      "rel_to_peak": 0.440252,
+      "pcc": 0.917388441,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q64_k512",
+      "us": 1300.1,
+      "speedup": 6.53,
+      "pct_mask_read_roof": 25.8,
+      "max_abs": 0.068604,
+      "mean_abs": 0.00973027,
+      "rel_to_peak": 0.441824,
+      "pcc": 0.917489431,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q64_k1024",
+      "us": 1627.3,
+      "speedup": 5.22,
+      "pct_mask_read_roof": 20.6,
+      "max_abs": 0.068115,
+      "mean_abs": 0.00971285,
+      "rel_to_peak": 0.438679,
+      "pcc": 0.917673669,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q128_k128",
+      "us": 1341.4,
+      "speedup": 6.33,
+      "pct_mask_read_roof": 25.0,
+      "max_abs": 0.068359,
+      "mean_abs": 0.00974296,
+      "rel_to_peak": 0.440252,
+      "pcc": 0.917332732,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q128_k256",
+      "us": 1395.6,
+      "speedup": 6.08,
+      "pct_mask_read_roof": 24.0,
+      "max_abs": 0.068359,
+      "mean_abs": 0.00973872,
+      "rel_to_peak": 0.440252,
+      "pcc": 0.917388441,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q128_k512",
+      "us": 1768.7,
+      "speedup": 4.8,
+      "pct_mask_read_roof": 18.9,
+      "max_abs": 0.068604,
+      "mean_abs": 0.00973027,
+      "rel_to_peak": 0.441824,
+      "pcc": 0.917489431,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q128_k1024",
+      "us": 2551.2,
+      "speedup": 3.33,
+      "pct_mask_read_roof": 13.1,
+      "max_abs": 0.068115,
+      "mean_abs": 0.00971285,
+      "rel_to_peak": 0.438679,
+      "pcc": 0.917673669,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q256_k128",
+      "us": 2013.7,
+      "speedup": 4.21,
+      "pct_mask_read_roof": 16.6,
+      "max_abs": 0.068359,
+      "mean_abs": 0.00974296,
+      "rel_to_peak": 0.440252,
+      "pcc": 0.917332732,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q256_k256",
+      "us": 2097.3,
+      "speedup": 4.05,
+      "pct_mask_read_roof": 16.0,
+      "max_abs": 0.068359,
+      "mean_abs": 0.00973872,
+      "rel_to_peak": 0.440252,
+      "pcc": 0.917388441,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q256_k512",
+      "us": 2324.0,
+      "speedup": 3.65,
+      "pct_mask_read_roof": 14.4,
+      "max_abs": 0.068604,
+      "mean_abs": 0.00973027,
+      "rel_to_peak": 0.441824,
+      "pcc": 0.917489431,
+      "bit_exact": false
+    },
+    {
+      "cfg": "q256_k1024",
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2097664 B which is beyond max L1 si"
+    }
+  ],
+  "best": {
+    "cfg": "q32_k256",
+    "us": 1091.5,
+    "speedup": 7.78,
+    "pct_mask_read_roof": 30.7,
+    "max_abs": 0.068359,
+    "mean_abs": 0.00973872,
+    "rel_to_peak": 0.440252,
+    "pcc": 0.917388441,
+    "bit_exact": false
+  },
+  "bias_typecast_us": 1071.7
+}

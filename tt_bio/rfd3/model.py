@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 import os
+from functools import lru_cache
 
 import torch
 import torch.nn.functional as F
@@ -888,6 +889,24 @@ def _pad_key_axis(x, width, axis, value):
     return ttnn.pad(x, pad, value)
 
 
+@lru_cache(maxsize=None)
+def _atom_sdpa_config(q_len, k_len):
+    """Chunking for the atom-block SDPA.
+
+    The work unit is one (head, q-chunk) pair, so a 4-head block needs a small q chunk to
+    fill the grid: at the production 4032-atom shape, q_chunk=32 gives 504 units and
+    1.09 ms, where 128 gives 126 units and 1.34 ms and 256 gives 63 and 2.01 ms. On the
+    key axis 256 beats both 128 (1.19 ms) and 512 (1.16 ms); q512/k1024 and q32/k4032 do
+    not fit L1 at all. Chunking changes only the online-softmax reduction order.
+    """
+    return ttnn.SDPAProgramConfig(
+        compute_with_storage_grid_size=get_device().compute_with_storage_grid_size(),
+        q_chunk_size=min(32, _align_tile(q_len)),
+        k_chunk_size=min(256, _align_tile(k_len)),
+        exp_approx_mode=False,
+    )
+
+
 def _merge_heads(x, shape):
     """[..., n_head, rows, head_dim] -> `shape` (the heads folded back into channels).
 
@@ -1203,6 +1222,15 @@ class RFD3AtomBlock(Module):
         self.fp32_residual = fp32_residual
         self.n_head = n_head
         self.head_dim = c_a // n_head
+        # Fuse the attention into one SDPA call where the head dim is a tile multiple.
+        # The token DiT's head_dim=48 would need channel padding on q/k/v, and its score
+        # matrix is 320x320 against the atom track's 4032x4032, so it keeps the unfused
+        # chain. See __call__ for the cost. RFD3_FUSED_ATTENTION=0 restores the unfused
+        # chain everywhere, which is what the A/B and the parity gate compare against.
+        self._fused_attention = (
+            self.head_dim % 32 == 0
+            and os.environ.get("RFD3_FUSED_ATTENTION", "1") == "1"
+        )
         a = "attention_pair_bias."
         self.a_ln_s = self.torch_to_tt(a + "ada_ln_1.ln_s.weight", dtype=dt)
         self.a_gain_w = self.torch_to_tt(a + "ada_ln_1.to_gain.0.weight", dtype=dt)
@@ -1212,6 +1240,13 @@ class RFD3AtomBlock(Module):
         self.k_w = self.torch_to_tt(a + "to_k.weight", dtype=dt)
         self.v_w = self.torch_to_tt(a + "to_v.weight", dtype=dt)
         self.b_w = self.torch_to_tt(a + "to_b.weight", dtype=dt)
+        if self._fused_attention:
+            # ttnn's SDPA applies `scale` to the additive mask as well as the scores --
+            # it computes softmax(scale*(q@k^T + mask)), not softmax(scale*q@k^T + mask)
+            # (measured: PCC 0.99983 against the former, 0.9252 against the latter).
+            # Baking sqrt(head_dim) into the bias projection cancels it exactly, which is
+            # the same idiom AttentionPairBias uses at tenstorrent.py:1645.
+            self.b_w = ttnn.multiply_(self.b_w, self.head_dim**0.5)
         self.g_w = self.torch_to_tt(a + "to_g.0.weight", dtype=dt)
         self.q_ln = self.torch_to_tt(a + "ln_q.weight", dtype=dt)
         self.k_ln = self.torch_to_tt(a + "ln_k.weight", dtype=dt)
@@ -1242,8 +1277,8 @@ class RFD3AtomBlock(Module):
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
-    def _sparse_bias_f32(self, p, dense_bias, attn_idx_dev, cache):
-        """The dense fp32 attention bias for one atom block, built once per pair stream.
+    def _sparse_bias(self, p, dense_bias, attn_idx_dev, cache):
+        """The dense attention bias for one atom block, built once per pair stream.
 
         The decoder runs its three atom blocks twice per diffusion step (n_recycle=2) and
         `_sparse_qk_inputs` hands both calls the SAME gathered pair features and the SAME
@@ -1275,11 +1310,15 @@ class RFD3AtomBlock(Module):
         # gives pair_bias at neighbours (as the dense path does) and leaves -1e4, whose
         # exp underflows to zero, everywhere else.
         bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
-        bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
-        ttnn.deallocate(bias)
+        if not self._fused_attention:
+            # the unfused chain adds the bias to fp32 scores; SDPA takes it bf16 and the
+            # upcast (1.07 ms on a 130 MB bias) disappears with it.
+            bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+            ttnn.deallocate(bias)
+            bias = bias_f
         if cache is not None:
-            cache[id(self)] = (key, p, bias_f)
-        return bias_f
+            cache[id(self)] = (key, p, bias)
+        return bias
 
     def __call__(self, q, c, p, additive_mask=None, sparse_qk=None, bias_cache=None):
         ckc, dt = self.compute_kernel_config, self.dtype
@@ -1328,13 +1367,10 @@ class RFD3AtomBlock(Module):
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
             bias = _pad_key_axis(
                 ttnn.add(pair_bias, additive_mask), n_key, 3, -1e4)
-            scores = ttnn.matmul(
-                qq, ttnn.permute(kk, (0, 1, 3, 2)),
-                compute_kernel_config=ckc,
-            )
-            bias_f = ttnn.typecast(
-                bias, ttnn.float32, memory_config=bias.memory_config()
-            )
+            if not self._fused_attention:
+                bias = ttnn.typecast(
+                    bias, ttnn.float32, memory_config=bias.memory_config()
+                )
         else:
             # Only the pair-bias projection is sparsified. QK stays dense: it
             # reduces over head_dim (a single tile deep), so its dot-product tree
@@ -1342,20 +1378,34 @@ class RFD3AtomBlock(Module):
             # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
             # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
             n_keys, attn_idx_dev, dense_bias = sparse_qk
-            bias_f = self._sparse_bias_f32(p, dense_bias, attn_idx_dev, bias_cache)
+            bias = self._sparse_bias(p, dense_bias, attn_idx_dev, bias_cache)
+        if self._fused_attention:
+            # The score matrix is [1, n_head, L, L]: 130 MB at 4032 atoms. The unfused
+            # chain below lands it in DRAM and reads it back five more times, for
+            # 8.54 ms per call on qb1 card 2 (q@k^T 478 us, fp32 upcast 1074, scale 1325,
+            # +bias 1790, softmax 2421, downcast 898, attn@v 554). The q@k^T alone runs at
+            # 102.8% of that card's 264.9 GB/s DRAM write roof, so no matmul config can
+            # move it -- the op is saturated and the only lever is not writing the matrix.
+            # SDPA keeps it in L1: 1.09 ms, 7.8x on the chain.
+            out = ttnn.transformer.scaled_dot_product_attention(
+                qq, kk, vv, attn_mask=bias, is_causal=False,
+                scale=self.head_dim**-0.5, compute_kernel_config=ckc,
+                program_config=_atom_sdpa_config(length, n_key),
+            )
+        else:
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
             )
-        scores = ttnn.typecast(
-            scores, ttnn.float32, memory_config=scores.memory_config()
-        )
-        scores = ttnn.multiply(scores, self.head_dim**-0.5)
-        scores = ttnn.add(scores, bias_f)
-        attention = ttnn.softmax(scores, dim=-1)
-        attention = ttnn.typecast(
-            attention, dt, memory_config=attention.memory_config()
-        )
-        out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt)
+            scores = ttnn.typecast(
+                scores, ttnn.float32, memory_config=scores.memory_config()
+            )
+            scores = ttnn.multiply(scores, self.head_dim**-0.5)
+            scores = ttnn.add(scores, bias)
+            attention = ttnn.softmax(scores, dim=-1)
+            attention = ttnn.typecast(
+                attention, dt, memory_config=attention.memory_config()
+            )
+            out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt)
         out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
         out = _tuned_linear(
@@ -1539,7 +1589,7 @@ class CompactStreamingDecoder(Module):
         self._design_state = None  # {"key", "valid", "pack_idx_dev", "unpack_idx_dev", "upcast_mask_dev"}
         self._trace_state = None   # {"id", "shape", "a", "q", "c", "p", "mask", "output"}
         self._mask_cache = {}      # one -1e4 scatter template, see _mask_template
-        self._bias_cache = {}      # one dense bias per atom block, see _sparse_bias_f32
+        self._bias_cache = {}      # one dense bias per atom block, see _sparse_bias
         self.upcast = [
             GatedCrossAttention(
                 self.scope(f"upcast.{i}.gca"), ckc,
@@ -1861,7 +1911,7 @@ class CompactStreamingDecoder(Module):
                 a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
                 # The two recycle calls in a step share p and the neighbour index, so
                 # each atom block's dense bias is bit-identical between them; build it
-                # on the first call only (see GatedCrossAttention._sparse_bias_f32).
+                # on the first call only (see GatedCrossAttention._sparse_bias).
                 q = self.run_device(
                     a, q, c, p, None, upcast_mask_dev, pack_idx_dev,
                     unpack_idx_dev, valid, length, sparse_qk=sparse_qk,

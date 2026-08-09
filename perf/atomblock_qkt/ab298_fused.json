@@ -1,0 +1,19 @@
+{
+ "leg": "fused",
+ "L": 4031,
+ "contig": "A1-10,278,A31-40",
+ "batch": 1,
+ "timesteps": 6,
+ "steps": 5,
+ "walls_s": [
+  1.3427079130051425,
+  1.3473305369989248
+ ],
+ "median_s": 1.3450192250020336,
+ "ms_per_step": 269.0038450004067,
+ "fused_flags": [
+  true,
+  true,
+  true
+ ]
+}

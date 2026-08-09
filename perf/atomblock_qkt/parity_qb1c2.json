@@ -1,0 +1,90 @@
+{
+  "dense": {
+    "shipped_vs_torch": {
+      "max_abs": 0.001649,
+      "mean_abs": 0.0002492,
+      "pcc": 0.999640434,
+      "ref_absmax": 0.04777
+    },
+    "softmax_vs_torch": {
+      "max_abs": 0.000547,
+      "mean_abs": 1.631e-05,
+      "pcc": 0.999121265,
+      "ref_absmax": 0.01136
+    },
+    "softmax_stable_vs_torch": {
+      "max_abs": 0.000547,
+      "mean_abs": 1.631e-05,
+      "pcc": 0.999121265,
+      "ref_absmax": 0.01136
+    },
+    "sdpa default": {
+      "max_abs": 0.020525,
+      "mean_abs": 0.00339701,
+      "pcc": 0.92520229,
+      "ref_absmax": 0.04777
+    },
+    "sdpa exp_approx=False": {
+      "max_abs": 0.020586,
+      "mean_abs": 0.00338084,
+      "pcc": 0.925681803,
+      "ref_absmax": 0.04777
+    },
+    "sdpa exp_approx=True": {
+      "max_abs": 0.020525,
+      "mean_abs": 0.00338207,
+      "pcc": 0.925606752,
+      "ref_absmax": 0.04777
+    },
+    "sdpa fp32_dest_acc": {
+      "max_abs": 0.020708,
+      "mean_abs": 0.00340127,
+      "pcc": 0.925121968,
+      "ref_absmax": 0.04777
+    }
+  },
+  "sparse": {
+    "shipped_vs_torch": {
+      "max_abs": 0.005147,
+      "mean_abs": 0.00063015,
+      "pcc": 0.999691544,
+      "ref_absmax": 0.14853
+    },
+    "softmax_vs_torch": {
+      "max_abs": 0.003891,
+      "mean_abs": 1.573e-05,
+      "pcc": 0.999782354,
+      "ref_absmax": 0.06556
+    },
+    "softmax_stable_vs_torch": {
+      "max_abs": 0.003891,
+      "mean_abs": 1.573e-05,
+      "pcc": 0.999782354,
+      "ref_absmax": 0.06556
+    },
+    "sdpa default": {
+      "max_abs": 0.060753,
+      "mean_abs": 0.00957187,
+      "pcc": 0.918740163,
+      "ref_absmax": 0.14853
+    },
+    "sdpa exp_approx=False": {
+      "max_abs": 0.061668,
+      "mean_abs": 0.00952942,
+      "pcc": 0.919409804,
+      "ref_absmax": 0.14853
+    },
+    "sdpa exp_approx=True": {
+      "max_abs": 0.060753,
+      "mean_abs": 0.00953912,
+      "pcc": 0.919237853,
+      "ref_absmax": 0.14853
+    },
+    "sdpa fp32_dest_acc": {
+      "max_abs": 0.060814,
+      "mean_abs": 0.00957605,
+      "pcc": 0.918701764,
+      "ref_absmax": 0.14853
+    }
+  }
+}
