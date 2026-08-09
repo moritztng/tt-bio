@@ -31,9 +31,9 @@
   ],
   "blocks": 1192,
   "cores_engaged": 130,
-  "ms_auto": 1.6287698002997786,
-  "ms_shipped": 0.9068953993846662,
-  "speedup": 1.79598419112602,
+  "ms_auto": 1.6297512000164716,
+  "ms_shipped": 0.8915507000589666,
+  "speedup": 1.8279960970348414,
   "bit_exact": true,
   "maxabs_vs_auto": 0.0,
   "rel_l2_vs_auto": 0.0
@@ -59,7 +59,7 @@
   "Nt": 1,
   "per_core_M": 10,
   "per_core_N": 1,
-  "in0_block_w": 1,
+  "in0_block_w": 2,
   "out_subblock": [
    2,
    1
@@ -70,12 +70,12 @@
   ],
   "blocks": 1192,
   "cores_engaged": 130,
-  "ms_auto": 5.1646828003867995,
-  "ms_shipped": 0.6957327997952234,
-  "speedup": 7.423371159023884,
-  "bit_exact": false,
-  "maxabs_vs_auto": 0.001953125,
-  "rel_l2_vs_auto": 0.0011459470202960878
+  "ms_auto": 5.145052433363162,
+  "ms_shipped": 0.6497039000047758,
+  "speedup": 7.919072724244601,
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
  },
  {
   "case": "atom_qk",
@@ -111,9 +111,9 @@
   ],
   "blocks": 300,
   "cores_engaged": 130,
-  "ms_auto": 0.3143249996355735,
-  "ms_shipped": 0.03727139992406592,
-  "speedup": 8.433410075177125,
+  "ms_auto": 0.3044634333491558,
+  "ms_shipped": 0.029014566704669655,
+  "speedup": 10.493468210233688,
   "bit_exact": true,
   "maxabs_vs_auto": 0.0,
   "rel_l2_vs_auto": 0.0
@@ -141,7 +141,7 @@
   "Nt": 1,
   "per_core_M": 1,
   "per_core_N": 1,
-  "in0_block_w": 1,
+  "in0_block_w": 2,
   "out_subblock": [
    1,
    1
@@ -152,12 +152,12 @@
   ],
   "blocks": 300,
   "cores_engaged": 130,
-  "ms_auto": 0.5244113999651745,
-  "ms_shipped": 0.0546050003322307,
-  "speedup": 9.603724874544863,
-  "bit_exact": false,
-  "maxabs_vs_auto": 0.0009765625,
-  "rel_l2_vs_auto": 0.001104276202309511
+  "ms_auto": 0.5116047666282005,
+  "ms_shipped": 0.03919736664101947,
+  "speedup": 13.052018808141403,
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
  },
  {
   "case": "dit_qk",
@@ -191,9 +191,9 @@
   ],
   "blocks": 80,
   "cores_engaged": 80,
-  "ms_auto": 0.048597199929645285,
-  "ms_shipped": 0.06510900057037361,
-  "speedup": 0.746397571824476,
+  "ms_auto": 0.0407913333522932,
+  "ms_shipped": 0.04273900000650126,
+  "speedup": 0.9544288201897146,
   "bit_exact": true,
   "maxabs_vs_auto": 0.0,
   "rel_l2_vs_auto": 0.0
@@ -219,7 +219,7 @@
   "Nt": 2,
   "per_core_M": 2,
   "per_core_N": 2,
-  "in0_block_w": 1,
+  "in0_block_w": 2,
   "out_subblock": [
    2,
    2
@@ -230,11 +230,11 @@
   ],
   "blocks": 80,
   "cores_engaged": 80,
-  "ms_auto": 0.1021163996483665,
-  "ms_shipped": 0.049419200513511896,
-  "speedup": 2.0663304664438362,
-  "bit_exact": false,
-  "maxabs_vs_auto": 0.0009765625,
-  "rel_l2_vs_auto": 0.0011491309089308197
+  "ms_auto": 0.0940814999921713,
+  "ms_shipped": 0.046385266735645324,
+  "speedup": 2.0282625629459456,
+  "bit_exact": true,
+  "maxabs_vs_auto": 0.0,
+  "rel_l2_vs_auto": 0.0
  }
 ]

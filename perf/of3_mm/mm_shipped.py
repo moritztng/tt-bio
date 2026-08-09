@@ -66,7 +66,7 @@ def main():
         for d in ash[:-2]:
             B *= d
         Mt, Kt, Nt = ash[-2] // 32, ash[-1] // 32, bsh[-1] // 32
-        pc = T._batched_matmul_program_config(B, Mt, Nt, T.COMPUTE_GRID_MAIN)
+        pc = T._batched_matmul_program_config(B, Mt, Kt, Nt, T.COMPUTE_GRID_MAIN)
         gx, gy = T.COMPUTE_GRID_MAIN
         blocks = B * (Mt // pc.per_core_M) if pc is not None else None
         row = dict(case=name, note=note, a=ash, b=bsh, B=B, Mt=Mt, Kt=Kt, Nt=Nt,

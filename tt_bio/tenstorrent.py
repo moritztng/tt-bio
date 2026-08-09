@@ -291,8 +291,21 @@ def _out_subblock(per_core_M: int, per_core_N: int) -> tuple[int, int]:
     return best
 
 
+def _in0_block_w(Kt: int) -> int:
+    """K-block width that reproduces ttnn's own K split, so the result stays bit-exact.
+
+    `packer_l1_acc=True` packs each K block's partial back to L1 at the output dtype, so two
+    configs agree bit for bit only if they walk the same K blocks in the same order. ttnn's narrow
+    1D factory takes 2 tiles per K block and its 2D factory takes 1, and the shapes reaching here
+    split that way. Verified by `torch.equal` against ttnn's own choice at every shape OpenFold3
+    issues (`perf/of3_mm/mm_bitexact.py`, Kt = 1, 2, 4, 10); re-run it before adding a call site.
+    It is also the faster choice at Kt > 2: 0.650 vs 0.670 ms on the trunk triangle attention.
+    """
+    return 2 if Kt > 2 and Kt % 2 == 0 else 1
+
+
 @lru_cache(maxsize=None)
-def _batched_matmul_program_config(B: int, Mt: int, Nt: int, grid: tuple[int, int]):
+def _batched_matmul_program_config(B: int, Mt: int, Kt: int, Nt: int, grid: tuple[int, int]):
     """Spread a batched matmul across the core grid, one output block per batch element.
 
     ttnn derives a program config from ONE batch element and then walks the whole batch serially
@@ -316,7 +329,7 @@ def _batched_matmul_program_config(B: int, Mt: int, Nt: int, grid: tuple[int, in
     h, w = _out_subblock(per_core_M, Nt)
     return ttnn.MatmulMultiCoreReuseProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
-        in0_block_w=1,
+        in0_block_w=_in0_block_w(Kt),
         out_subblock_h=h,
         out_subblock_w=w,
         per_core_M=per_core_M,
@@ -346,7 +359,8 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, **kwargs) -> ttnn.Tensor:
                 B *= int(ash[i])
             if B > 1:
                 cfg = _batched_matmul_program_config(
-                    B, int(ash[-2]) // 32, int(bsh[-1]) // 32, COMPUTE_GRID_MAIN)
+                    B, int(ash[-2]) // 32, int(ash[-1]) // 32, int(bsh[-1]) // 32,
+                    COMPUTE_GRID_MAIN)
                 if cfg is not None:
                     kwargs["program_config"] = cfg
     return ttnn.matmul(a, b, **kwargs)

@@ -1,0 +1,185 @@
+[
+ {
+  "case": "triatt_qk",
+  "B": 1192,
+  "Mt": 10,
+  "Kt": 1,
+  "Nt": 10,
+  "arms": {
+   "auto": {
+    "ms": 1.6284968999874156,
+    "bit_exact": true
+   },
+   "block_k1": {
+    "ms": 0.891168699915094,
+    "bit_exact": true,
+    "speedup": 1.827372191306282
+   },
+   "core_grid": {
+    "ms": 0.890480699915012,
+    "bit_exact": true,
+    "speedup": 1.8287840490454654
+   }
+  }
+ },
+ {
+  "case": "triatt_av",
+  "B": 1192,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 1,
+  "arms": {
+   "auto": {
+    "ms": 5.145302500022808,
+    "bit_exact": true
+   },
+   "block_k1": {
+    "ms": 0.6703092333433839,
+    "bit_exact": false,
+    "speedup": 7.676013165384802
+   },
+   "block_kall": {
+    "ms": 0.6582261000100212,
+    "bit_exact": false,
+    "speedup": 7.816922634858255
+   },
+   "block_k5": {
+    "ms": 0.6583250999635007,
+    "bit_exact": false,
+    "speedup": 7.815747113862249
+   },
+   "block_k2": {
+    "ms": 0.6497919333924074,
+    "bit_exact": true,
+    "speedup": 7.9183846945597205
+   },
+   "core_grid": {
+    "ms": 0.6671656333007074,
+    "bit_exact": false,
+    "speedup": 7.71218156811698
+   }
+  }
+ },
+ {
+  "case": "atom_qk",
+  "B": 300,
+  "Mt": 1,
+  "Kt": 1,
+  "Nt": 4,
+  "arms": {
+   "auto": {
+    "ms": 0.3046521333696243,
+    "bit_exact": true
+   },
+   "block_k1": {
+    "ms": 0.03417546661997524,
+    "bit_exact": true,
+    "speedup": 8.914351828968387
+   },
+   "core_grid": {
+    "ms": 0.04351030001998879,
+    "bit_exact": true,
+    "speedup": 7.001839408821958
+   }
+  }
+ },
+ {
+  "case": "atom_av",
+  "B": 300,
+  "Mt": 1,
+  "Kt": 4,
+  "Nt": 1,
+  "arms": {
+   "auto": {
+    "ms": 0.5113594666909194,
+    "bit_exact": true
+   },
+   "block_k1": {
+    "ms": 0.037099433393450454,
+    "bit_exact": false,
+    "speedup": 13.783484541874296
+   },
+   "block_kall": {
+    "ms": 0.037790066683858946,
+    "bit_exact": false,
+    "speedup": 13.531584132116215
+   },
+   "block_k2": {
+    "ms": 0.0338974665889206,
+    "bit_exact": true,
+    "speedup": 15.085477416122224
+   },
+   "core_grid": {
+    "ms": 0.045835566682702236,
+    "bit_exact": false,
+    "speedup": 11.156390194340064
+   }
+  }
+ },
+ {
+  "case": "dit_qk",
+  "B": 16,
+  "Mt": 10,
+  "Kt": 2,
+  "Nt": 10,
+  "arms": {
+   "auto": {
+    "ms": 0.03944936664386963,
+    "bit_exact": true
+   },
+   "block_k1": {
+    "ms": 0.03243250005956118,
+    "bit_exact": true,
+    "speedup": 1.2163529352169034
+   },
+   "block_kall": {
+    "ms": 0.030304833368669886,
+    "bit_exact": false,
+    "speedup": 1.3017516435069285
+   },
+   "core_grid": {
+    "ms": 0.03728806659637485,
+    "bit_exact": true,
+    "speedup": 1.057962244888956
+   }
+  }
+ },
+ {
+  "case": "dit_av",
+  "B": 16,
+  "Mt": 10,
+  "Kt": 10,
+  "Nt": 2,
+  "arms": {
+   "auto": {
+    "ms": 0.09444113323600808,
+    "bit_exact": true
+   },
+   "block_k1": {
+    "ms": 0.0323454666310378,
+    "bit_exact": false,
+    "speedup": 2.919764129956469
+   },
+   "block_kall": {
+    "ms": 0.029291866667335853,
+    "bit_exact": false,
+    "speedup": 3.2241418516806895
+   },
+   "block_k5": {
+    "ms": 0.03370346676092595,
+    "bit_exact": false,
+    "speedup": 2.8021192569275466
+   },
+   "block_k2": {
+    "ms": 0.0327928333717864,
+    "bit_exact": true,
+    "speedup": 2.8799320926401357
+   },
+   "core_grid": {
+    "ms": 0.03221679993051415,
+    "bit_exact": false,
+    "speedup": 2.9314250155105612
+   }
+  }
+ }
+]

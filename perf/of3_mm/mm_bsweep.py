@@ -52,11 +52,11 @@ def main():
         # DiT q@kT tile shape: Mt=10, Kt=2, Nt=10
         ta, tb = mk(dev, [B, 320, 64], 1), mk(dev, [B, 64, 320], 2)
         ms_auto = time_arm(dev, lambda: ttnn.matmul(ta, tb, compute_kernel_config=cfg), a.iters)
-        pc = T._batched_matmul_program_config(B, 10, 10, T.COMPUTE_GRID_MAIN)
+        pc = T._batched_matmul_program_config(B, 10, 2, 10, T.COMPUTE_GRID_MAIN)
         ms_blk = time_arm(dev, lambda: ttnn.matmul(ta, tb, compute_kernel_config=cfg,
                                                    program_config=pc), a.iters)
         # per_core_M = Mt (one block per batch element, never split)
-        pcM = T._batched_matmul_program_config(10 ** 9, 10, 10, T.COMPUTE_GRID_MAIN)
+        pcM = T._batched_matmul_program_config(10 ** 9, 10, 2, 10, T.COMPUTE_GRID_MAIN)
         ms_mt = time_arm(dev, lambda: ttnn.matmul(ta, tb, compute_kernel_config=cfg,
                                                   program_config=pcM), a.iters)
         row = dict(B=B, per_core_M=pc.per_core_M, ms_auto=ms_auto, ms_block=ms_blk,
