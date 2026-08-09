@@ -1,0 +1,1139 @@
+{
+ "grid_cores": 130,
+ "rows": [
+  {
+   "site": "tenstorrent.py:1702",
+   "chain": [
+    "tenstorrent.py:1702",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412"
+   ],
+   "a": {
+    "padded": [
+     1,
+     16,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     16,
+     64,
+     608
+    ],
+    "logical": [
+     1,
+     16,
+     64,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     16,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 4800,
+   "batch": 16,
+   "mt": 19,
+   "kt": 2,
+   "nt": 19,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 130,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:1710",
+   "chain": [
+    "tenstorrent.py:1710",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412"
+   ],
+   "a": {
+    "padded": [
+     1,
+     16,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     16,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     16,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 4800,
+   "batch": 16,
+   "mt": 19,
+   "kt": 19,
+   "nt": 2,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 38,
+   "reuse_cores": 130
+  },
+  {
+   "site": "protenix.py:414",
+   "chain": [
+    "protenix.py:414",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "a": {
+    "padded": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 1203,
+   "batch": 300,
+   "mt": 1,
+   "kt": 1,
+   "nt": 4,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 4,
+   "reuse_cores": 130
+  },
+  {
+   "site": "protenix.py:417",
+   "chain": [
+    "protenix.py:417",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "a": {
+    "padded": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     75,
+     4,
+     128,
+     32
+    ],
+    "logical": [
+     75,
+     4,
+     128,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 1203,
+   "batch": 300,
+   "mt": 1,
+   "kt": 4,
+   "nt": 1,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 1,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:1702",
+   "chain": [
+    "tenstorrent.py:1702",
+    "tenstorrent.py:2014",
+    "tenstorrent.py:2071",
+    "protenix.py:2223"
+   ],
+   "a": {
+    "padded": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     32,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 484,
+   "batch": 16,
+   "mt": 10,
+   "kt": 1,
+   "nt": 10,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 100,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:1710",
+   "chain": [
+    "tenstorrent.py:1710",
+    "tenstorrent.py:2014",
+    "tenstorrent.py:2071",
+    "protenix.py:2223"
+   ],
+   "a": {
+    "padded": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 484,
+   "batch": 16,
+   "mt": 10,
+   "kt": 10,
+   "nt": 1,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 10,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:1702",
+   "chain": [
+    "tenstorrent.py:1702",
+    "tenstorrent.py:2014",
+    "tenstorrent.py:2071",
+    "opendde.py:396"
+   ],
+   "a": {
+    "padded": [
+     1,
+     8,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     8,
+     64,
+     608
+    ],
+    "logical": [
+     1,
+     8,
+     64,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     8,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 4,
+   "batch": 8,
+   "mt": 19,
+   "kt": 2,
+   "nt": 19,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 130,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:1710",
+   "chain": [
+    "tenstorrent.py:1710",
+    "tenstorrent.py:2014",
+    "tenstorrent.py:2071",
+    "opendde.py:396"
+   ],
+   "a": {
+    "padded": [
+     1,
+     8,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     8,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     8,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 4,
+   "batch": 8,
+   "mt": 19,
+   "kt": 19,
+   "nt": 2,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 38,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:1083",
+   "chain": [
+    "tenstorrent.py:1083",
+    "tenstorrent.py:1987",
+    "protenix.py:2028",
+    "protenix.py:2219"
+   ],
+   "a": {
+    "padded": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": true,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 6448,
+   "batch": 64,
+   "mt": 10,
+   "kt": 10,
+   "nt": 10,
+   "b_batched": true,
+   "dram_interleaved": false,
+   "hinted": true,
+   "trips": false,
+   "auto_cores_max": 100,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:2594",
+   "chain": [
+    "tenstorrent.py:2594",
+    "protenix.py:2070",
+    "protenix.py:2126",
+    "protenix.py:2220"
+   ],
+   "a": {
+    "padded": [
+     35,
+     32,
+     320
+    ],
+    "logical": [
+     35,
+     8,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     298,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     35,
+     32,
+     320
+    ],
+    "logical": [
+     35,
+     8,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": true,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": true,
+   "n": 320,
+   "batch": 35,
+   "mt": 1,
+   "kt": 10,
+   "nt": 10,
+   "b_batched": false,
+   "dram_interleaved": true,
+   "hinted": true,
+   "trips": false,
+   "auto_cores_max": 10,
+   "reuse_cores": 130
+  },
+  {
+   "site": "protenix.py:870",
+   "chain": [
+    "protenix.py:870",
+    "protenix.py:2412",
+    "opendde.py:526",
+    "worker.py:725"
+   ],
+   "a": {
+    "padded": [
+     608,
+     2400
+    ],
+    "logical": [
+     580,
+     2398
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     2400,
+     768
+    ],
+    "logical": [
+     2398,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     608,
+     768
+    ],
+    "logical": [
+     580,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": true,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 200,
+   "batch": 1,
+   "mt": 19,
+   "kt": 75,
+   "nt": 24,
+   "b_batched": false,
+   "dram_interleaved": true,
+   "hinted": true,
+   "trips": false,
+   "auto_cores_max": 130,
+   "reuse_cores": 130
+  },
+  {
+   "site": "protenix.py:899",
+   "chain": [
+    "protenix.py:899",
+    "protenix.py:2412",
+    "opendde.py:526",
+    "worker.py:725"
+   ],
+   "a": {
+    "padded": [
+     2400,
+     608
+    ],
+    "logical": [
+     2398,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     608,
+     128
+    ],
+    "logical": [
+     580,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     2400,
+     128
+    ],
+    "logical": [
+     2398,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": true,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 200,
+   "batch": 1,
+   "mt": 75,
+   "kt": 19,
+   "nt": 4,
+   "b_batched": false,
+   "dram_interleaved": true,
+   "hinted": true,
+   "trips": false,
+   "auto_cores_max": 130,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:1083",
+   "chain": [
+    "tenstorrent.py:1083",
+    "tenstorrent.py:1987",
+    "tenstorrent.py:2071",
+    "opendde.py:396"
+   ],
+   "a": {
+    "padded": [
+     1,
+     32,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     32,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     32,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     32,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     32,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     32,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": true,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 96,
+   "batch": 32,
+   "mt": 19,
+   "kt": 19,
+   "nt": 19,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": true,
+   "trips": false,
+   "auto_cores_max": 130,
+   "reuse_cores": 130
+  },
+  {
+   "site": "tenstorrent.py:2777",
+   "chain": [
+    "tenstorrent.py:2777",
+    "tenstorrent.py:2798",
+    "tenstorrent.py:2839",
+    "protenix.py:2134"
+   ],
+   "a": {
+    "padded": [
+     9536,
+     64
+    ],
+    "logical": [
+     9536,
+     35
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     9536,
+     64
+    ],
+    "logical": [
+     9536,
+     35
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     9536,
+     9536
+    ],
+    "logical": [
+     9536,
+     9536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": true,
+   "n": 40,
+   "batch": 1,
+   "mt": 298,
+   "kt": 2,
+   "nt": 298,
+   "b_batched": false,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": false,
+   "auto_cores_max": 130,
+   "reuse_cores": 130
+  },
+  {
+   "site": "protenix.py:677",
+   "chain": [
+    "protenix.py:677",
+    "opendde.py:459",
+    "worker.py:725",
+    "worker.py:488"
+   ],
+   "a": {
+    "padded": [
+     320,
+     2400
+    ],
+    "logical": [
+     298,
+     2398
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     2400,
+     384
+    ],
+    "logical": [
+     2398,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     320,
+     384
+    ],
+    "logical": [
+     298,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": true,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 1,
+   "batch": 1,
+   "mt": 10,
+   "kt": 75,
+   "nt": 12,
+   "b_batched": false,
+   "dram_interleaved": true,
+   "hinted": true,
+   "trips": false,
+   "auto_cores_max": 120,
+   "reuse_cores": 120
+  },
+  {
+   "site": "protenix.py:817",
+   "chain": [
+    "protenix.py:817",
+    "protenix.py:845",
+    "protenix.py:2412",
+    "opendde.py:526"
+   ],
+   "a": {
+    "padded": [
+     2400,
+     608
+    ],
+    "logical": [
+     2398,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     608,
+     128
+    ],
+    "logical": [
+     580,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     2400,
+     128
+    ],
+    "logical": [
+     2398,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": true,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 1,
+   "batch": 1,
+   "mt": 75,
+   "kt": 19,
+   "nt": 4,
+   "b_batched": false,
+   "dram_interleaved": true,
+   "hinted": true,
+   "trips": false,
+   "auto_cores_max": 130,
+   "reuse_cores": 130
+  }
+ ]
+}

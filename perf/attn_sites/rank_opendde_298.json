@@ -1,0 +1,1044 @@
+{
+ "grid_cores": 130,
+ "roofs": {
+  "host": "pc",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "compute_bf16_TFLOPs": 135.79,
+  "compute_fp32_TFLOPs": 113.16,
+  "dram_read_GBs": 383.2,
+  "dram_write_GBs": 250.1,
+  "machine_balance_FLOP_per_byte_read": 354.4,
+  "fp32_runs": {
+   "2048": {
+    "ms": 0.271,
+    "tflops": 63.39
+   },
+   "4096": {
+    "ms": 1.2146,
+    "tflops": 113.16
+   }
+  },
+  "raw": {
+   "device": {
+    "compute_grid": "13x10",
+    "core_grid_main": "11x10",
+    "ttnn": "?"
+   },
+   "compute_roof": {
+    "runs": {
+     "2048_op_ckc_oDRAM": {
+      "ms": 0.1917,
+      "tflops": 89.64
+     },
+     "2048_op_ckc_oL1": {
+      "ms": 0.2432,
+      "tflops": 70.63
+     },
+     "2048_plain_ckc_oDRAM": {
+      "ms": 0.2189,
+      "tflops": 78.49
+     },
+     "2048_plain_ckc_oL1": {
+      "ms": 1.1721,
+      "tflops": 14.66
+     },
+     "4096_op_ckc_oDRAM": {
+      "ms": 1.081,
+      "tflops": 127.14
+     },
+     "4096_op_ckc_oL1": {
+      "ms": 24.3298,
+      "tflops": 5.65
+     },
+     "4096_plain_ckc_oDRAM": {
+      "ms": 1.4426,
+      "tflops": 95.27
+     },
+     "4096_plain_ckc_oL1": {
+      "ms": 2.3274,
+      "tflops": 59.05
+     },
+     "6144_op_ckc_oDRAM": {
+      "ms": 3.416,
+      "tflops": 135.79
+     },
+     "6144_op_ckc_oL1": {
+      "ms": 84.4491,
+      "tflops": 5.49
+     },
+     "6144_plain_ckc_oDRAM": {
+      "ms": 4.757,
+      "tflops": 97.51
+     },
+     "6144_plain_ckc_oL1": {
+      "ms": 84.4104,
+      "tflops": 5.5
+     }
+    },
+    "peak_TFLOPs": 135.79
+   },
+   "dram_roofs": {
+    "runs": [
+     {
+      "MB": 8.0,
+      "read_GBs": 274.2,
+      "write_GBs": 214.7,
+      "dram2dram_rw_GBs": 341.3
+     },
+     {
+      "MB": 16.0,
+      "read_GBs": 343.5,
+      "write_GBs": 237.2,
+      "dram2dram_rw_GBs": 360.1
+     },
+     {
+      "MB": 32.0,
+      "read_GBs": 358.0,
+      "write_GBs": 244.4,
+      "dram2dram_rw_GBs": 390.1
+     },
+     {
+      "MB": 48.0,
+      "read_GBs": 355.7,
+      "write_GBs": 247.2,
+      "dram2dram_rw_GBs": 384.7
+     },
+     {
+      "MB": 64.0,
+      "read_GBs": 383.2,
+      "write_GBs": 250.1,
+      "dram2dram_rw_GBs": 382.0
+     }
+    ],
+    "read_peak_GBs": 383.2,
+    "write_peak_GBs": 250.1
+   },
+   "machine_balance_FLOP_per_byte_read": 354.4
+  }
+ },
+ "rows": [
+  {
+   "site": "tenstorrent.py:1710",
+   "chain": [
+    "tenstorrent.py:1710",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412"
+   ],
+   "a": {
+    "padded": [
+     1,
+     16,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     16,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     16,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 4800,
+   "batch": 16,
+   "mt": 19,
+   "kt": 19,
+   "nt": 2,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 38,
+   "reuse_cores": 130,
+   "roofline": {
+    "flops": 757071872.0,
+    "bytes": 14319616,
+    "ai": 52.869565217391305,
+    "balance": 354.3580375782881,
+    "t_mem_s": 3.086964509394572e-05,
+    "t_comp_s": 5.575313881729141e-06,
+    "binding": "memory",
+    "floor_s": 3.086964509394572e-05
+   },
+   "auto_us": 248.2301031704992,
+   "grid_us": 72.02660199254751,
+   "reuse_per_core_M": 19,
+   "reuse_blocks": 16,
+   "reuse_in0_block_w": 1,
+   "reuse_us": 72.84460007213056,
+   "pcm_sweep": [
+    {
+     "per_core_M": 19,
+     "blocks": 16,
+     "cores": 16,
+     "us": 71.63389818742871,
+     "ms_fold": 343.8427112996578
+    }
+   ],
+   "pcm_best": {
+    "per_core_M": 19,
+    "blocks": 16,
+    "cores": 16,
+    "us": 71.63389818742871,
+    "ms_fold": 343.8427112996578
+   },
+   "auto_ms_fold": 1191.5044952183962,
+   "auto_pct_floor": 12.435899070928803,
+   "grid_ms_fold": 345.72768956422806,
+   "grid_pct_floor": 42.85867199057892,
+   "reuse_ms_fold": 349.6540803462267,
+   "reuse_pct_floor": 42.3773966270371
+  },
+  {
+   "site": "protenix.py:417",
+   "chain": [
+    "protenix.py:417",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "a": {
+    "padded": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     75,
+     4,
+     128,
+     32
+    ],
+    "logical": [
+     75,
+     4,
+     128,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 1203,
+   "batch": 300,
+   "mt": 1,
+   "kt": 4,
+   "nt": 1,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 1,
+   "reuse_cores": 130,
+   "roofline": {
+    "flops": 78643200.0,
+    "bytes": 5529600,
+    "ai": 14.222222222222221,
+    "balance": 354.3580375782881,
+    "t_mem_s": 8.869978522161073e-06,
+    "t_comp_s": 5.791531040577362e-07,
+    "binding": "memory",
+    "floor_s": 8.869978522161073e-06
+   },
+   "auto_us": 493.5826989822089,
+   "grid_us": 22.230198374018073,
+   "reuse_per_core_M": 1,
+   "reuse_blocks": 300,
+   "reuse_in0_block_w": 2,
+   "reuse_us": 18.563447520136833,
+   "pcm_sweep": [
+    {
+     "per_core_M": 1,
+     "blocks": 300,
+     "cores": 130,
+     "us": 18.410146003589034,
+     "ms_fold": 22.147405642317608
+    }
+   ],
+   "pcm_best": {
+    "per_core_M": 1,
+    "blocks": 300,
+    "cores": 130,
+    "us": 18.410146003589034,
+    "ms_fold": 22.147405642317608
+   },
+   "auto_ms_fold": 593.7799868755973,
+   "auto_pct_floor": 1.7970602576734138,
+   "grid_ms_fold": 26.742928643943742,
+   "grid_pct_floor": 39.90058196029421,
+   "reuse_ms_fold": 22.33182736672461,
+   "reuse_pct_floor": 47.78195705587176
+  },
+  {
+   "site": "protenix.py:414",
+   "chain": [
+    "protenix.py:414",
+    "protenix.py:427",
+    "protenix.py:551",
+    "protenix.py:674"
+   ],
+   "a": {
+    "padded": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "logical": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 1203,
+   "batch": 300,
+   "mt": 1,
+   "kt": 1,
+   "nt": 4,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 4,
+   "reuse_cores": 130,
+   "roofline": {
+    "flops": 78643200.0,
+    "bytes": 5529600,
+    "ai": 14.222222222222221,
+    "balance": 354.3580375782881,
+    "t_mem_s": 1.6239830581337403e-05,
+    "t_comp_s": 5.791531040577362e-07,
+    "binding": "memory",
+    "floor_s": 1.6239830581337403e-05
+   },
+   "auto_us": 296.7435459140688,
+   "grid_us": 17.470400780439377,
+   "reuse_per_core_M": 1,
+   "reuse_blocks": 300,
+   "reuse_in0_block_w": 1,
+   "reuse_us": 18.834450747817755,
+   "pcm_sweep": [
+    {
+     "per_core_M": 1,
+     "blocks": 300,
+     "cores": 130,
+     "us": 19.335898105055094,
+     "ms_fold": 23.261085420381278
+    }
+   ],
+   "pcm_best": {
+    "per_core_M": 1,
+    "blocks": 300,
+    "cores": 130,
+    "us": 19.335898105055094,
+    "ms_fold": 23.261085420381278
+   },
+   "auto_ms_fold": 356.9824857346248,
+   "auto_pct_floor": 5.47268198582494,
+   "grid_ms_fold": 21.01689213886857,
+   "grid_pct_floor": 92.95625661616319,
+   "reuse_ms_fold": 22.65784424962476,
+   "reuse_pct_floor": 86.22407310294953
+  },
+  {
+   "site": "tenstorrent.py:1702",
+   "chain": [
+    "tenstorrent.py:1702",
+    "protenix.py:1095",
+    "protenix.py:883",
+    "protenix.py:2412"
+   ],
+   "a": {
+    "padded": [
+     1,
+     16,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     16,
+     64,
+     608
+    ],
+    "logical": [
+     1,
+     16,
+     64,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     16,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     16,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 4800,
+   "batch": 16,
+   "mt": 19,
+   "kt": 2,
+   "nt": 19,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 130,
+   "reuse_cores": 130,
+   "roofline": {
+    "flops": 757071872.0,
+    "bytes": 14319616,
+    "ai": 52.869565217391305,
+    "balance": 354.3580375782881,
+    "t_mem_s": 5.054750909657014e-05,
+    "t_comp_s": 5.575313881729141e-06,
+    "binding": "memory",
+    "floor_s": 5.054750909657014e-05
+   },
+   "auto_us": 72.15335499495268,
+   "grid_us": 72.78805132955313,
+   "reuse_per_core_M": 19,
+   "reuse_blocks": 16,
+   "reuse_in0_block_w": 2,
+   "reuse_us": null,
+   "reuse_err": "L1 CB overflow",
+   "pcm_sweep": [
+    {
+     "per_core_M": 19,
+     "blocks": 16,
+     "cores": 16,
+     "us": null,
+     "err": "L1 CB overflow"
+    }
+   ],
+   "pcm_best": null,
+   "auto_ms_fold": 346.33610397577286,
+   "auto_pct_floor": 70.05566005919762,
+   "grid_ms_fold": 349.382646381855,
+   "grid_pct_floor": 69.44478959563385,
+   "reuse_ms_fold": null,
+   "reuse_pct_floor": null
+  },
+  {
+   "site": "tenstorrent.py:1710",
+   "chain": [
+    "tenstorrent.py:1710",
+    "tenstorrent.py:2014",
+    "tenstorrent.py:2071",
+    "protenix.py:2223"
+   ],
+   "a": {
+    "padded": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 484,
+   "batch": 16,
+   "mt": 10,
+   "kt": 10,
+   "nt": 1,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 10,
+   "reuse_cores": 130,
+   "roofline": {
+    "flops": 104857600.0,
+    "bytes": 3932160,
+    "ai": 26.666666666666668,
+    "balance": 354.3580375782881,
+    "t_mem_s": 8.551148225469728e-06,
+    "t_comp_s": 7.722041387436484e-07,
+    "binding": "memory",
+    "floor_s": 8.551148225469728e-06
+   },
+   "auto_us": 69.27599897608161,
+   "grid_us": 22.169650765135884,
+   "reuse_per_core_M": 10,
+   "reuse_blocks": 16,
+   "reuse_in0_block_w": 2,
+   "reuse_us": 21.553999977186322,
+   "pcm_sweep": [
+    {
+     "per_core_M": 10,
+     "blocks": 16,
+     "cores": 16,
+     "us": 21.632149582728744,
+     "ms_fold": 10.469960398040712
+    },
+    {
+     "per_core_M": 5,
+     "blocks": 32,
+     "cores": 32,
+     "us": 16.45350130274892,
+     "ms_fold": 7.963494630530477
+    },
+    {
+     "per_core_M": 2,
+     "blocks": 80,
+     "cores": 80,
+     "us": 20.61220002360642,
+     "ms_fold": 9.976304811425507
+    }
+   ],
+   "pcm_best": {
+    "per_core_M": 5,
+    "blocks": 32,
+    "cores": 32,
+    "us": 16.45350130274892,
+    "ms_fold": 7.963494630530477
+   },
+   "auto_ms_fold": 33.5295835044235,
+   "auto_pct_floor": 12.343594248885703,
+   "grid_ms_fold": 10.730110970325768,
+   "grid_pct_floor": 38.57141601399202,
+   "reuse_ms_fold": 10.43213598895818,
+   "reuse_pct_floor": 39.67313832476862
+  },
+  {
+   "site": "tenstorrent.py:1702",
+   "chain": [
+    "tenstorrent.py:1702",
+    "tenstorrent.py:2014",
+    "tenstorrent.py:2071",
+    "protenix.py:2223"
+   ],
+   "a": {
+    "padded": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     32,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     298,
+     298
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 484,
+   "batch": 16,
+   "mt": 10,
+   "kt": 1,
+   "nt": 10,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 100,
+   "reuse_cores": 130,
+   "roofline": {
+    "flops": 104857600.0,
+    "bytes": 3932160,
+    "ai": 26.666666666666668,
+    "balance": 354.3580375782881,
+    "t_mem_s": 1.3957074038860448e-05,
+    "t_comp_s": 7.722041387436484e-07,
+    "binding": "memory",
+    "floor_s": 1.3957074038860448e-05
+   },
+   "auto_us": 24.923199089244008,
+   "grid_us": 28.907647356390953,
+   "reuse_per_core_M": 10,
+   "reuse_blocks": 16,
+   "reuse_in0_block_w": 1,
+   "reuse_us": 28.536951867863536,
+   "pcm_sweep": [
+    {
+     "per_core_M": 10,
+     "blocks": 16,
+     "cores": 16,
+     "us": 28.7222967017442,
+     "ms_fold": 13.901591603644192
+    },
+    {
+     "per_core_M": 5,
+     "blocks": 32,
+     "cores": 32,
+     "us": 21.328101865947247,
+     "ms_fold": 10.322801303118467
+    },
+    {
+     "per_core_M": 2,
+     "blocks": 80,
+     "cores": 80,
+     "us": 21.601602202281356,
+     "ms_fold": 10.455175465904176
+    }
+   ],
+   "pcm_best": {
+    "per_core_M": 5,
+    "blocks": 32,
+    "cores": 32,
+    "us": 21.328101865947247,
+    "ms_fold": 10.322801303118467
+   },
+   "auto_ms_fold": 12.0628283591941,
+   "auto_pct_floor": 56.00033121303372,
+   "grid_ms_fold": 13.991301320493221,
+   "grid_pct_floor": 48.28159783046057,
+   "reuse_ms_fold": 13.811884704045951,
+   "reuse_pct_floor": 48.90877660475714
+  },
+  {
+   "site": "tenstorrent.py:1710",
+   "chain": [
+    "tenstorrent.py:1710",
+    "tenstorrent.py:2014",
+    "tenstorrent.py:2071",
+    "opendde.py:396"
+   ],
+   "a": {
+    "padded": [
+     1,
+     8,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     8,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     8,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 4,
+   "batch": 8,
+   "mt": 19,
+   "kt": 19,
+   "nt": 2,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 38,
+   "reuse_cores": 130,
+   "roofline": {
+    "flops": 378535936.0,
+    "bytes": 7159808,
+    "ai": 52.869565217391305,
+    "balance": 354.3580375782881,
+    "t_mem_s": 1.543482254697286e-05,
+    "t_comp_s": 2.7876569408645704e-06,
+    "binding": "memory",
+    "floor_s": 1.543482254697286e-05
+   },
+   "auto_us": 124.80305158533156,
+   "grid_us": 64.43305173888803,
+   "reuse_per_core_M": 19,
+   "reuse_blocks": 8,
+   "reuse_in0_block_w": 1,
+   "reuse_us": 63.36255464702844,
+   "pcm_sweep": [
+    {
+     "per_core_M": 19,
+     "blocks": 8,
+     "cores": 8,
+     "us": 63.698203302919865,
+     "ms_fold": 0.25479281321167946
+    }
+   ],
+   "pcm_best": {
+    "per_core_M": 19,
+    "blocks": 8,
+    "cores": 8,
+    "us": 63.698203302919865,
+    "ms_fold": 0.25479281321167946
+   },
+   "auto_ms_fold": 0.49921220634132624,
+   "auto_pct_floor": 12.367343867725552,
+   "grid_ms_fold": 0.2577322069555521,
+   "grid_pct_floor": 23.954821524707175,
+   "reuse_ms_fold": 0.25345021858811373,
+   "reuse_pct_floor": 24.35953321793145
+  },
+  {
+   "site": "tenstorrent.py:1702",
+   "chain": [
+    "tenstorrent.py:1702",
+    "tenstorrent.py:2014",
+    "tenstorrent.py:2071",
+    "opendde.py:396"
+   ],
+   "a": {
+    "padded": [
+     1,
+     8,
+     608,
+     64
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "b": {
+    "padded": [
+     1,
+     8,
+     64,
+     608
+    ],
+    "logical": [
+     1,
+     8,
+     64,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "out": {
+    "padded": [
+     1,
+     8,
+     608,
+     608
+    ],
+    "logical": [
+     1,
+     8,
+     580,
+     580
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "core_grid": false,
+   "program_config": false,
+   "transpose_a": false,
+   "transpose_b": false,
+   "n": 4,
+   "batch": 8,
+   "mt": 19,
+   "kt": 2,
+   "nt": 19,
+   "b_batched": true,
+   "dram_interleaved": true,
+   "hinted": false,
+   "trips": true,
+   "auto_cores_max": 130,
+   "reuse_cores": 130,
+   "roofline": {
+    "flops": 378535936.0,
+    "bytes": 7159808,
+    "ai": 52.869565217391305,
+    "balance": 354.3580375782881,
+    "t_mem_s": 2.527375454828507e-05,
+    "t_comp_s": 2.7876569408645704e-06,
+    "binding": "memory",
+    "floor_s": 2.527375454828507e-05
+   },
+   "auto_us": 38.360204780474305,
+   "grid_us": 37.814147071912885,
+   "reuse_per_core_M": 19,
+   "reuse_blocks": 8,
+   "reuse_in0_block_w": 2,
+   "reuse_us": null,
+   "reuse_err": "L1 CB overflow",
+   "pcm_sweep": [
+    {
+     "per_core_M": 19,
+     "blocks": 8,
+     "cores": 8,
+     "us": null,
+     "err": "L1 CB overflow"
+    }
+   ],
+   "pcm_best": null,
+   "auto_ms_fold": 0.15344081912189722,
+   "auto_pct_floor": 65.88534835233632,
+   "grid_ms_fold": 0.15125658828765154,
+   "grid_pct_floor": 66.83677011204516,
+   "reuse_ms_fold": null,
+   "reuse_pct_floor": null
+  }
+ ]
+}

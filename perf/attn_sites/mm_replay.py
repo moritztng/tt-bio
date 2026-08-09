@@ -72,6 +72,23 @@ def subblock(m, n, fp32_dest_acc):
     return best
 
 
+def legal_per_core_M(mt, batch, cores):
+    """Every per_core_M that clears G1's correctness predicate, largest first.
+
+    The predicate admits two disjoint cases and the second one is the interesting one: with
+    per_core_M == Mt the block count is exactly the batch, so a B=16 site gets 16 cores no matter
+    how big the grid is. Splitting M raises the block count -- and therefore the engaged-core count
+    -- for as long as the total stays inside the grid, which is what makes an occupancy-bound site
+    reachable at all.
+    """
+    out = []
+    for pcm in sorted((d for d in range(1, mt + 1) if mt % d == 0), reverse=True):
+        blocks = batch * (mt // pcm)
+        if pcm == mt or blocks <= cores:
+            out.append((pcm, blocks))
+    return out
+
+
 def reuse_config(mt, kt, nt, batch, cores, fp32_dest_acc):
     """MatmulMultiCoreReuseProgramConfig, or None when no legal per_core_M is safe.
 
@@ -130,6 +147,9 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--all", action="store_true", help="replay hinted classes too, as controls")
+    ap.add_argument("--sweep-pcm", action="store_true",
+                    help="time every legal per_core_M, not just the largest divisor -- per_core_M "
+                         "is what sets the engaged-core count")
     args = ap.parse_args()
 
     census = json.loads(Path(args.census).read_text())
@@ -164,12 +184,48 @@ def main() -> int:
         # try/except -- the predicate above has to be right before the call is made (G1).
         if pc is not None:
             rec.update(reuse_per_core_M=pcm, reuse_blocks=blocks, reuse_in0_block_w=bw)
-            rec["reuse_us"] = timed(lambda: ttnn.matmul(a, b, compute_kernel_config=ckc,
-                                                        program_config=pc),
-                                    dev, reps=args.reps) * 1e6
+            # An illegal SHAPE for this factory raises TT_FATAL and aborts, which the predicate
+            # above prevents. A legal shape whose CBs do not fit L1 raises a catchable RuntimeError
+            # instead, and that is a per-site verdict worth recording rather than a crash: it is the
+            # same condition `can_cbs_fit_in_l1` silently falls back on when core_grid= is used.
+            try:
+                rec["reuse_us"] = timed(lambda: ttnn.matmul(a, b, compute_kernel_config=ckc,
+                                                            program_config=pc),
+                                        dev, reps=args.reps) * 1e6
+            except RuntimeError as e:                                     # noqa: BLE001
+                rec["reuse_us"] = None
+                rec["reuse_err"] = "L1 CB overflow" if "max L1 size" in str(e) else str(e)[:160]
         else:
             rec["reuse_us"] = None
             rec["reuse_skip"] = "no per_core_M clears G1's correctness predicate"
+        if args.sweep_pcm:
+            # per_core_M sets the engaged-core count (blocks = batch * Mt/per_core_M), so the arm
+            # above -- largest divisor first -- is the LEAST parallel legal choice. Sweep the rest.
+            sweep = []
+            for pcm, blocks in legal_per_core_M(row["mt"], row["batch"], cores):
+                h, w = subblock(pcm, row["nt"], True)
+                cfg = ttnn.MatmulMultiCoreReuseProgramConfig(
+                    compute_with_storage_grid_size=(CORE_GRID_MAIN.x, CORE_GRID_MAIN.y),
+                    in0_block_w=2 if row["kt"] % 2 == 0 else 1, out_subblock_h=h, out_subblock_w=w,
+                    per_core_M=pcm, per_core_N=row["nt"])
+                try:
+                    us = timed(lambda: ttnn.matmul(a, b, compute_kernel_config=ckc,
+                                                   program_config=cfg), dev, reps=args.reps) * 1e6
+                except RuntimeError as e:                                 # noqa: BLE001
+                    why = "L1 CB overflow" if "max L1 size" in str(e) else str(e)[:120]
+                    sweep.append({"per_core_M": pcm, "blocks": blocks,
+                                  "cores": min(blocks, cores), "us": None, "err": why})
+                    print(f"    pcm={pcm:<3} blocks={blocks:<5} "
+                          f"cores={min(blocks, cores):<4} REJECTED: {why}", flush=True)
+                    continue
+                sweep.append({"per_core_M": pcm, "blocks": blocks,
+                              "cores": min(blocks, cores), "us": us,
+                              "ms_fold": us * row["n"] / 1000.0})
+                print(f"    pcm={pcm:<3} blocks={blocks:<5} cores={min(blocks, cores):<4} "
+                      f"{us:8.1f} us", flush=True)
+            rec["pcm_sweep"] = sweep
+            ok = [s for s in sweep if s["us"]]
+            rec["pcm_best"] = min(ok, key=lambda s: s["us"]) if ok else None
         for arm in ("auto", "grid", "reuse"):
             us = rec.get(f"{arm}_us")
             rec[f"{arm}_ms_fold"] = (us * row["n"] / 1000.0) if us else None

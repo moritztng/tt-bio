@@ -183,7 +183,9 @@ def main() -> int:
         sys.path.insert(0, str(REPO / "scripts" / "gpu_vs_tt"))
         import tt_baseline as TB
         msa_dir = REPO / "perf" / "attn_sites" / "_msa"
-        one_fold, meta = TB.build_fold(
+        # build_fold returns (one_fold, meta, state); `state` holds the loaded model and the open
+        # device and has to stay referenced for the lifetime of the folds.
+        one_fold, meta, _state = TB.build_fold(
             args.fold, msa_dir, REPO / "examples" / "prot300.yaml",
             Path(TB.FIXTURES) / "prot300.a3m")
         print(f"[census] cold fold ({meta})", flush=True)
