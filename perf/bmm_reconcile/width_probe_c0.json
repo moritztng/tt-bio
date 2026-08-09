@@ -1,0 +1,185 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cases": [
+    {
+      "a": [
+        1,
+        64,
+        298,
+        298
+      ],
+      "b": [
+        1,
+        64,
+        298,
+        298
+      ],
+      "note": "trimul class, 2D branch, square",
+      "batch": 64,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 10,
+      "narrow": false,
+      "arms": {
+        "pM=5,bw=1": {
+          "ms": 0.14986,
+          "bit_exact": true,
+          "blocks": 128
+        },
+        "pM=5,bw=2": {
+          "ms": 0.14451,
+          "bit_exact": false,
+          "blocks": 128
+        },
+        "pM=5,bw=10": {
+          "ms": 0.14896,
+          "bit_exact": false,
+          "blocks": 128
+        },
+        "pM=10,bw=1": {
+          "ms": 0.1318,
+          "bit_exact": true,
+          "blocks": 64
+        },
+        "pM=10,bw=2": {
+          "ms": 0.12512,
+          "bit_exact": false,
+          "blocks": 64
+        },
+        "pM=10,bw=10": {
+          "ms": 0.10796,
+          "bit_exact": false,
+          "blocks": 64
+        }
+      },
+      "baseline_ms": 0.61135,
+      "iters": 195
+    },
+    {
+      "a": [
+        1,
+        16,
+        320,
+        320
+      ],
+      "b": [
+        1,
+        16,
+        320,
+        64
+      ],
+      "note": "DiT attn@v, 2D branch, Nt=2",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 2,
+      "narrow": false,
+      "arms": {
+        "pM=2,bw=1": {
+          "ms": 0.03422,
+          "bit_exact": false,
+          "blocks": 80
+        },
+        "pM=2,bw=2": {
+          "ms": 0.03369,
+          "bit_exact": true,
+          "blocks": 80
+        },
+        "pM=2,bw=10": {
+          "ms": 0.03375,
+          "bit_exact": false,
+          "blocks": 80
+        },
+        "pM=5,bw=1": {
+          "ms": 0.02932,
+          "bit_exact": false,
+          "blocks": 32
+        },
+        "pM=5,bw=2": {
+          "ms": 0.0289,
+          "bit_exact": true,
+          "blocks": 32
+        },
+        "pM=5,bw=10": {
+          "ms": 0.03211,
+          "bit_exact": false,
+          "blocks": 32
+        },
+        "pM=10,bw=1": {
+          "ms": 0.04206,
+          "bit_exact": false,
+          "blocks": 16
+        },
+        "pM=10,bw=2": {
+          "ms": 0.04268,
+          "bit_exact": true,
+          "blocks": 16
+        },
+        "pM=10,bw=10": {
+          "ms": 0.04766,
+          "bit_exact": false,
+          "blocks": 16
+        }
+      },
+      "baseline_ms": 0.11086,
+      "iters": 1000
+    },
+    {
+      "a": [
+        1,
+        16,
+        320,
+        64
+      ],
+      "b": [
+        1,
+        16,
+        64,
+        320
+      ],
+      "note": "DiT q@kT, 2D branch, Nt=10",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 2,
+      "Nt": 10,
+      "narrow": false,
+      "arms": {
+        "pM=2,bw=1": {
+          "ms": 0.05097,
+          "bit_exact": true,
+          "blocks": 80
+        },
+        "pM=2,bw=2": {
+          "ms": 0.05166,
+          "bit_exact": false,
+          "blocks": 80
+        },
+        "pM=5,bw=1": {
+          "ms": 0.04342,
+          "bit_exact": true,
+          "blocks": 32
+        },
+        "pM=5,bw=2": {
+          "ms": 0.04373,
+          "bit_exact": false,
+          "blocks": 32
+        },
+        "pM=10,bw=1": {
+          "ms": 0.05783,
+          "bit_exact": true,
+          "blocks": 16
+        },
+        "pM=10,bw=2": {
+          "ms": 0.05555,
+          "bit_exact": false,
+          "blocks": 16
+        }
+      },
+      "baseline_ms": 0.04741,
+      "iters": 1755
+    }
+  ]
+}

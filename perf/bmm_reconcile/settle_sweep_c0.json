@@ -1,0 +1,352 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "l1_unreserved": 1532448,
+  "shapes": {
+    "trunk_triatt_qkT": {
+      "note": "tenstorrent.py:259 fp32_softmax q@kT -- E1 applies (1.83x), G1 declines (Nt=10)",
+      "a": [
+        298,
+        4,
+        298,
+        32
+      ],
+      "b": [
+        298,
+        4,
+        32,
+        298
+      ],
+      "padded_a": [
+        298,
+        4,
+        320,
+        32
+      ],
+      "padded_b": [
+        298,
+        4,
+        32,
+        320
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls_per_fold": 488,
+      "batch": 1192,
+      "Mt": 10,
+      "Kt": 1,
+      "Nt": 10,
+      "configs": {
+        "ttnn": "declined",
+        "G1": "declined",
+        "E1": "per_core_M=10 per_core_N=10 in0_block_w=1 subblock=2x2"
+      },
+      "ms": {
+        "ttnn": 1.6428,
+        "E1": 0.9031
+      },
+      "bit_exact": {
+        "ttnn": true,
+        "G1": true,
+        "E1": true
+      },
+      "ms_all": {
+        "ttnn": [
+          1.6279,
+          2.4857,
+          1.6436,
+          1.6428,
+          1.6355,
+          1.6461,
+          1.6332
+        ],
+        "E1": [
+          0.9018,
+          1.4947,
+          0.9049,
+          0.9057,
+          0.9011,
+          0.9012,
+          0.9031
+        ]
+      },
+      "speedup": {
+        "ttnn": 1.0,
+        "E1": 1.819
+      },
+      "sweep": {
+        "per_core_M=1": "unsafe (block-stride rule)",
+        "per_core_M=2": "unsafe (block-stride rule)",
+        "per_core_M=5": "unsafe (block-stride rule)",
+        "per_core_M=10,in0_block_w=1": {
+          "ms": 0.9022,
+          "bit_exact": true
+        }
+      }
+    },
+    "dit_qkT": {
+      "note": "openfold3_diffusion_transformer.py:184 -- G1's Nt=10 1.10x point",
+      "a": [
+        1,
+        16,
+        320,
+        64
+      ],
+      "b": [
+        1,
+        16,
+        64,
+        320
+      ],
+      "padded_a": [
+        1,
+        16,
+        320,
+        64
+      ],
+      "padded_b": [
+        1,
+        16,
+        64,
+        320
+      ],
+      "dtype": "DataType.FLOAT32",
+      "calls_per_fold": 4800,
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 2,
+      "Nt": 10,
+      "configs": {
+        "ttnn": "declined",
+        "G1": "declined",
+        "E1": "per_core_M=2 per_core_N=10 in0_block_w=1 subblock=2x2"
+      },
+      "ms": {
+        "ttnn": 0.0565,
+        "E1": 0.0583
+      },
+      "bit_exact": {
+        "ttnn": true,
+        "G1": true,
+        "E1": true
+      },
+      "ms_all": {
+        "ttnn": [
+          0.0562,
+          0.0573,
+          0.0563,
+          0.056,
+          0.0565,
+          0.0575,
+          0.0568
+        ],
+        "E1": [
+          0.0587,
+          0.0655,
+          0.0583,
+          0.0581,
+          0.058,
+          0.06,
+          0.058
+        ]
+      },
+      "speedup": {
+        "ttnn": 1.0,
+        "E1": 0.969
+      },
+      "sweep": {
+        "per_core_M=1": "unsafe (block-stride rule)",
+        "per_core_M=2,in0_block_w=1": {
+          "ms": 0.0589,
+          "bit_exact": true
+        },
+        "per_core_M=2,in0_block_w=2": {
+          "ms": 0.0605,
+          "bit_exact": false
+        },
+        "per_core_M=5,in0_block_w=1": {
+          "ms": 0.0524,
+          "bit_exact": true
+        },
+        "per_core_M=5,in0_block_w=2": {
+          "ms": 0.06,
+          "bit_exact": false
+        },
+        "per_core_M=10,in0_block_w=1": {
+          "ms": 0.067,
+          "bit_exact": true
+        },
+        "per_core_M=10,in0_block_w=2": {
+          "ms": 0.0664,
+          "bit_exact": false
+        }
+      }
+    },
+    "dit580_qkT": {
+      "note": "580 aa DiT q@kT -- G1's Nt=19 0.65x point, not issued by the 298 aa fold",
+      "a": [
+        1,
+        16,
+        608,
+        64
+      ],
+      "b": [
+        1,
+        16,
+        64,
+        608
+      ],
+      "padded_a": [
+        1,
+        16,
+        608,
+        64
+      ],
+      "padded_b": [
+        1,
+        16,
+        64,
+        608
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls_per_fold": 0,
+      "batch": 16,
+      "Mt": 19,
+      "Kt": 2,
+      "Nt": 19,
+      "configs": {
+        "ttnn": "declined",
+        "G1": "declined",
+        "E1": "declined"
+      },
+      "ms": {
+        "ttnn": 0.0806
+      },
+      "bit_exact": {
+        "ttnn": true,
+        "G1": true,
+        "E1": true
+      },
+      "ms_all": {
+        "ttnn": [
+          0.0821,
+          0.0812,
+          0.0808,
+          0.0794,
+          0.0792,
+          0.0806,
+          0.0802
+        ]
+      },
+      "speedup": {
+        "ttnn": 1.0
+      },
+      "sweep": {
+        "per_core_M=1": "unsafe (block-stride rule)",
+        "per_core_M=19,in0_block_w=1": "rejected: RuntimeError",
+        "per_core_M=19,in0_block_w=2": "rejected: RuntimeError"
+      }
+    },
+    "trunk_triatt_av": {
+      "note": "tenstorrent.py:272 attn@v -- both legs apply, control",
+      "a": [
+        298,
+        4,
+        298,
+        298
+      ],
+      "b": [
+        298,
+        4,
+        298,
+        32
+      ],
+      "padded_a": [
+        298,
+        4,
+        320,
+        320
+      ],
+      "padded_b": [
+        298,
+        4,
+        320,
+        32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls_per_fold": 488,
+      "batch": 1192,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 1,
+      "configs": {
+        "ttnn": "declined",
+        "G1": "per_core_M=10 per_core_N=1 in0_block_w=2 subblock=2x1",
+        "E1": "per_core_M=10 per_core_N=1 in0_block_w=2 subblock=2x1"
+      },
+      "ms": {
+        "ttnn": 6.9914,
+        "G1": 0.7536,
+        "E1": 0.7387
+      },
+      "bit_exact": {
+        "ttnn": true,
+        "G1": true,
+        "E1": true
+      },
+      "ms_all": {
+        "ttnn": [
+          7.1895,
+          6.989,
+          6.9914,
+          6.9961,
+          7.1706,
+          6.991,
+          6.9893
+        ],
+        "G1": [
+          0.7482,
+          0.7749,
+          0.7515,
+          0.7617,
+          0.7536,
+          0.7366,
+          0.7545
+        ],
+        "E1": [
+          0.7383,
+          0.7428,
+          0.7387,
+          0.7511,
+          0.735,
+          0.7416,
+          0.7372
+        ]
+      },
+      "speedup": {
+        "ttnn": 1.0,
+        "G1": 9.277,
+        "E1": 9.464
+      },
+      "sweep": {
+        "per_core_M=1": "unsafe (block-stride rule)",
+        "per_core_M=2": "unsafe (block-stride rule)",
+        "per_core_M=5": "unsafe (block-stride rule)",
+        "per_core_M=10,in0_block_w=1": {
+          "ms": 1.4993,
+          "bit_exact": false
+        },
+        "per_core_M=10,in0_block_w=2": {
+          "ms": 0.7549,
+          "bit_exact": true
+        },
+        "per_core_M=10,in0_block_w=10": {
+          "ms": 0.753,
+          "bit_exact": false
+        }
+      }
+    }
+  }
+}

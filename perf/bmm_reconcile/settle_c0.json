@@ -1,0 +1,294 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "l1_unreserved": 1532448,
+  "shapes": {
+    "trunk_triatt_qkT": {
+      "note": "tenstorrent.py:259 fp32_softmax q@kT -- E1 applies (1.83x), G1 declines (Nt=10)",
+      "a": [
+        298,
+        4,
+        298,
+        32
+      ],
+      "b": [
+        298,
+        4,
+        32,
+        298
+      ],
+      "padded_a": [
+        298,
+        4,
+        320,
+        32
+      ],
+      "padded_b": [
+        298,
+        4,
+        32,
+        320
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls_per_fold": 488,
+      "batch": 1192,
+      "Mt": 10,
+      "Kt": 1,
+      "Nt": 10,
+      "configs": {
+        "ttnn": "declined",
+        "G1": "declined",
+        "E1": "per_core_M=10 per_core_N=10 in0_block_w=1 subblock=2x2"
+      },
+      "ms": {
+        "ttnn": 1.6395,
+        "E1": 0.9121
+      },
+      "bit_exact": {
+        "ttnn": true,
+        "G1": true,
+        "E1": true
+      },
+      "ms_all": {
+        "ttnn": [
+          1.6315,
+          1.6395,
+          1.6305,
+          1.6338,
+          1.6561,
+          1.6662,
+          1.6512
+        ],
+        "E1": [
+          0.8979,
+          0.9017,
+          0.9026,
+          0.9121,
+          0.9199,
+          0.9215,
+          0.9239
+        ]
+      },
+      "speedup": {
+        "ttnn": 1.0,
+        "E1": 1.798
+      }
+    },
+    "dit_qkT": {
+      "note": "openfold3_diffusion_transformer.py:184 -- G1's Nt=10 1.10x point",
+      "a": [
+        1,
+        16,
+        320,
+        64
+      ],
+      "b": [
+        1,
+        16,
+        64,
+        320
+      ],
+      "padded_a": [
+        1,
+        16,
+        320,
+        64
+      ],
+      "padded_b": [
+        1,
+        16,
+        64,
+        320
+      ],
+      "dtype": "DataType.FLOAT32",
+      "calls_per_fold": 4800,
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 2,
+      "Nt": 10,
+      "configs": {
+        "ttnn": "declined",
+        "G1": "declined",
+        "E1": "per_core_M=2 per_core_N=10 in0_block_w=1 subblock=2x2"
+      },
+      "ms": {
+        "ttnn": 0.0645,
+        "E1": 0.0651
+      },
+      "bit_exact": {
+        "ttnn": true,
+        "G1": true,
+        "E1": true
+      },
+      "ms_all": {
+        "ttnn": [
+          0.0659,
+          0.0649,
+          0.0625,
+          0.0645,
+          0.0624,
+          0.0629,
+          0.0661
+        ],
+        "E1": [
+          0.0665,
+          0.0648,
+          0.0652,
+          0.0636,
+          0.0651,
+          0.0658,
+          0.0646
+        ]
+      },
+      "speedup": {
+        "ttnn": 1.0,
+        "E1": 0.991
+      }
+    },
+    "dit580_qkT": {
+      "note": "580 aa DiT q@kT -- G1's Nt=19 0.65x point, not issued by the 298 aa fold",
+      "a": [
+        1,
+        16,
+        608,
+        64
+      ],
+      "b": [
+        1,
+        16,
+        64,
+        608
+      ],
+      "padded_a": [
+        1,
+        16,
+        608,
+        64
+      ],
+      "padded_b": [
+        1,
+        16,
+        64,
+        608
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls_per_fold": 0,
+      "batch": 16,
+      "Mt": 19,
+      "Kt": 2,
+      "Nt": 19,
+      "configs": {
+        "ttnn": "declined",
+        "G1": "declined",
+        "E1": "declined"
+      },
+      "ms": {
+        "ttnn": 0.0853
+      },
+      "bit_exact": {
+        "ttnn": true,
+        "G1": true,
+        "E1": true
+      },
+      "ms_all": {
+        "ttnn": [
+          0.0868,
+          0.0864,
+          0.0842,
+          0.0851,
+          0.0853,
+          0.0841,
+          0.0875
+        ]
+      },
+      "speedup": {
+        "ttnn": 1.0
+      }
+    },
+    "trunk_triatt_av": {
+      "note": "tenstorrent.py:272 attn@v -- both legs apply, control",
+      "a": [
+        298,
+        4,
+        298,
+        298
+      ],
+      "b": [
+        298,
+        4,
+        298,
+        32
+      ],
+      "padded_a": [
+        298,
+        4,
+        320,
+        320
+      ],
+      "padded_b": [
+        298,
+        4,
+        320,
+        32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls_per_fold": 488,
+      "batch": 1192,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 1,
+      "configs": {
+        "ttnn": "declined",
+        "G1": "per_core_M=10 per_core_N=1 in0_block_w=2 subblock=2x1",
+        "E1": "per_core_M=10 per_core_N=1 in0_block_w=2 subblock=2x1"
+      },
+      "ms": {
+        "ttnn": 7.0124,
+        "G1": 0.7618,
+        "E1": 0.7629
+      },
+      "bit_exact": {
+        "ttnn": true,
+        "G1": true,
+        "E1": true
+      },
+      "ms_all": {
+        "ttnn": [
+          6.999,
+          6.9879,
+          7.009,
+          7.0124,
+          7.0189,
+          7.0157,
+          7.0143
+        ],
+        "G1": [
+          0.7618,
+          0.745,
+          0.7803,
+          0.78,
+          0.773,
+          0.7582,
+          0.7588
+        ],
+        "E1": [
+          0.7359,
+          0.7487,
+          0.7629,
+          0.7633,
+          0.7666,
+          0.7564,
+          0.765
+        ]
+      },
+      "speedup": {
+        "ttnn": 1.0,
+        "G1": 9.205,
+        "E1": 9.192
+      }
+    }
+  }
+}

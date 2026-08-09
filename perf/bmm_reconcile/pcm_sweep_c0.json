@@ -1,0 +1,374 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "l1_unreserved": 1532448,
+  "cases": [
+    {
+      "a": [
+        75,
+        4,
+        32,
+        128
+      ],
+      "b": [
+        75,
+        4,
+        128,
+        32
+      ],
+      "label": "protenix atom q@kT",
+      "dtype": "fp32",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "in0_block_w": 2,
+      "arms": {
+        "pM=1": {
+          "ms": 0.03909,
+          "blocks": 300,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.55727,
+      "iters": 220
+    },
+    {
+      "a": [
+        75,
+        4,
+        32,
+        32
+      ],
+      "b": [
+        75,
+        4,
+        32,
+        128
+      ],
+      "label": "protenix atom attn@v",
+      "dtype": "fp32",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "in0_block_w": 1,
+      "arms": {
+        "pM=1": {
+          "ms": 0.03839,
+          "blocks": 300,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.3271,
+      "iters": 365
+    },
+    {
+      "a": [
+        1,
+        16,
+        320,
+        320
+      ],
+      "b": [
+        1,
+        16,
+        320,
+        64
+      ],
+      "label": "DiT attn@v fp32",
+      "dtype": "fp32",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 2,
+      "in0_block_w": 2,
+      "arms": {
+        "pM=2": {
+          "ms": 0.03373,
+          "blocks": 80,
+          "bit_exact": true
+        },
+        "pM=5": {
+          "ms": 0.02954,
+          "blocks": 32,
+          "bit_exact": true
+        },
+        "pM=10": {
+          "ms": 0.04285,
+          "blocks": 16,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.11088,
+      "iters": 1000
+    },
+    {
+      "a": [
+        1,
+        16,
+        320,
+        64
+      ],
+      "b": [
+        1,
+        16,
+        64,
+        320
+      ],
+      "label": "DiT q@kT fp32",
+      "dtype": "fp32",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 2,
+      "Nt": 10,
+      "in0_block_w": 1,
+      "arms": {
+        "pM=2": {
+          "ms": 0.05104,
+          "blocks": 80,
+          "bit_exact": true
+        },
+        "pM=5": {
+          "ms": 0.04337,
+          "blocks": 32,
+          "bit_exact": true
+        },
+        "pM=10": {
+          "ms": 0.05802,
+          "blocks": 16,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.0473,
+      "iters": 1765
+    },
+    {
+      "a": [
+        1,
+        16,
+        608,
+        608
+      ],
+      "b": [
+        1,
+        16,
+        608,
+        64
+      ],
+      "label": "opendde DiT attn@v",
+      "dtype": "bf16",
+      "batch": 16,
+      "Mt": 19,
+      "Kt": 19,
+      "Nt": 2,
+      "in0_block_w": 1,
+      "arms": {
+        "pM=19": {
+          "ms": 0.0708,
+          "blocks": 16,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.24998,
+      "iters": 480
+    },
+    {
+      "a": [
+        1,
+        8,
+        608,
+        608
+      ],
+      "b": [
+        1,
+        8,
+        608,
+        64
+      ],
+      "label": "opendde DiT attn@v tail",
+      "dtype": "bf16",
+      "batch": 8,
+      "Mt": 19,
+      "Kt": 19,
+      "Nt": 2,
+      "in0_block_w": 1,
+      "arms": {
+        "pM=19": {
+          "ms": 0.06293,
+          "blocks": 8,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.12517,
+      "iters": 905
+    },
+    {
+      "a": [
+        298,
+        4,
+        298,
+        298
+      ],
+      "b": [
+        298,
+        4,
+        298,
+        32
+      ],
+      "label": "OF3 tri-att attn@v",
+      "dtype": "bf16",
+      "batch": 1192,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 1,
+      "in0_block_w": 2,
+      "arms": {
+        "pM=10": {
+          "ms": 0.7357,
+          "blocks": 1192,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 6.98851,
+      "iters": 40
+    },
+    {
+      "a": [
+        298,
+        4,
+        298,
+        32
+      ],
+      "b": [
+        298,
+        4,
+        32,
+        298
+      ],
+      "label": "OF3 tri-att q@kT",
+      "dtype": "bf16",
+      "batch": 1192,
+      "Mt": 10,
+      "Kt": 1,
+      "Nt": 10,
+      "in0_block_w": 1,
+      "arms": {
+        "pM=10": {
+          "ms": 0.89116,
+          "blocks": 1192,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 1.62939,
+      "iters": 75
+    },
+    {
+      "a": [
+        1,
+        16,
+        298,
+        298
+      ],
+      "b": [
+        1,
+        16,
+        298,
+        32
+      ],
+      "label": "OF3 AttnPairBias attn@v",
+      "dtype": "bf16",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 1,
+      "in0_block_w": 2,
+      "arms": {
+        "pM=2": {
+          "ms": 0.03046,
+          "blocks": 80,
+          "bit_exact": true
+        },
+        "pM=5": {
+          "ms": 0.0269,
+          "blocks": 32,
+          "bit_exact": true
+        },
+        "pM=10": {
+          "ms": 0.04343,
+          "blocks": 16,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.09541,
+      "iters": 1200
+    },
+    {
+      "a": [
+        1,
+        75,
+        4,
+        32,
+        32
+      ],
+      "b": [
+        1,
+        75,
+        4,
+        32,
+        128
+      ],
+      "label": "OF3 atom attn@v rank5",
+      "dtype": "fp32",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "in0_block_w": 1,
+      "arms": {
+        "pM=1": {
+          "ms": 0.03858,
+          "blocks": 300,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.32755,
+      "iters": 365
+    },
+    {
+      "a": [
+        1,
+        75,
+        4,
+        32,
+        128
+      ],
+      "b": [
+        1,
+        75,
+        4,
+        128,
+        32
+      ],
+      "label": "OF3 atom q@kT rank5",
+      "dtype": "fp32",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "in0_block_w": 2,
+      "arms": {
+        "pM=1": {
+          "ms": 0.03975,
+          "blocks": 300,
+          "bit_exact": true
+        }
+      },
+      "baseline_ms": 0.55721,
+      "iters": 220
+    }
+  ]
+}
