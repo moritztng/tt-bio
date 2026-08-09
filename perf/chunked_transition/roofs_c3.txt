@@ -1,0 +1,88 @@
+2026-08-09 19:20:30.689 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-09 19:20:30.741 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 19:20:30.746 | info     |             UMD | Established firmware bundle version: 19.9.0 (topology_discovery.cpp:471)
+2026-08-09 19:20:30.746 | info     |             UMD | Firmware bundle version 19.9.0 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 19:20:30.748 | warning  |             UMD | Board 0x46131931005 has 1 chips, but expected 2 chips for board type p300. (cluster_descriptor.cpp:1229)
+2026-08-09 19:20:30.749 | warning  |          Device | Using CUSTOM cluster type for P300 board with 1 chips (tt_cluster.cpp:198)
+2026-08-09 19:20:30.749 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-09 19:20:30.749 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 19:20:30.754 | info     |             UMD | Established firmware bundle version: 19.9.0 (topology_discovery.cpp:471)
+2026-08-09 19:20:30.754 | info     |             UMD | Firmware bundle version 19.9.0 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 19:20:30.755 | warning  |             UMD | Board 0x46131931005 has 1 chips, but expected 2 chips for board type p300. (cluster_descriptor.cpp:1229)
+2026-08-09 19:20:30.757 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 19:20:30.762 | info     |             UMD | Established firmware bundle version: 19.9.0 (topology_discovery.cpp:471)
+2026-08-09 19:20:30.762 | info     |             UMD | Firmware bundle version 19.9.0 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 19:20:30.768 | warning  |             UMD | Board 0x46131931005 has 1 chips, but expected 2 chips for board type p300. (cluster_descriptor.cpp:1229)
+2026-08-09 19:20:30.769 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x420 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-09 19:20:30.779 | info     |             UMD | Initializing iommu for sysmem (size: 0x40000000). (silicon_sysmem_manager.cpp:275)
+2026-08-09 19:20:30.779 | info     |             UMD | Allocating sysmem without hugepages (size: 0x40000000). (silicon_sysmem_manager.cpp:281)
+2026-08-09 19:20:30.932 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[3] and remote chip ids {} (cluster.cpp:180)
+2026-08-09 19:20:30.932 | info     |             UMD | IOMMU: enabled (cluster.cpp:155)
+2026-08-09 19:20:30.932 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-09 19:20:30.932 | warning  |          Device | Using CUSTOM cluster type for P300 board with 1 chips (tt_cluster.cpp:198)
+2026-08-09 19:20:30.932 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-09 19:20:30.967 | info     |             UMD | Mapped sysmem without hugepages to IOVA 0x40000000; NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:329)
+2026-08-09 19:20:31.106 | info     |     Distributed | Using custom mesh graph descriptor: /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto (metal_env.cpp:326)
+2026-08-09 19:20:31.107 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 19:20:31.110 | info     |             UMD | Established firmware bundle version: 19.9.0 (topology_discovery.cpp:471)
+2026-08-09 19:20:31.110 | info     |             UMD | Firmware bundle version 19.9.0 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 19:20:31.112 | warning  |             UMD | Board 0x46131931005 has 1 chips, but expected 2 chips for board type p300. (cluster_descriptor.cpp:1229)
+2026-08-09 19:20:31.113 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-09 19:20:31.113 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-09 19:20:31.113 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-09 19:20:31.113 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-09 19:20:31.113 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-09 19:20:31.113 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-09 19:20:31.113 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-09 19:20:31.113 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-09 19:20:31.113 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-09 19:20:31.113 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+2026-08-09 19:20:31.117 | info     |    BuildKernels | Using pre-compiled firmware from: /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/tt_metal/pre-compiled/6745986192171285359/ (build_env_manager.cpp:259)
+2026-08-09 19:20:31.187 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:967)
+compute_grid=11x10 core_grid_main=11x10
+=== compute roof: square bf16 matmul, HiFi4 ===
+  N=2048  op_ckc_oDRAM        0.2125 ms    80.86 TFLOP/s
+  N=2048  op_ckc_oL1          0.2468 ms    69.62 TFLOP/s
+  N=2048  plain_ckc_oDRAM     0.2574 ms    66.73 TFLOP/s
+  N=2048  plain_ckc_oL1       1.1561 ms    14.86 TFLOP/s
+  N=4096  op_ckc_oDRAM        1.3402 ms   102.55 TFLOP/s
+  N=4096  op_ckc_oL1         23.5573 ms     5.83 TFLOP/s
+  N=4096  plain_ckc_oDRAM     1.8112 ms    75.88 TFLOP/s
+  N=4096  plain_ckc_oL1       2.4723 ms    55.59 TFLOP/s
+  N=6144  op_ckc_oDRAM        5.0044 ms    92.69 TFLOP/s
+  N=6144  op_ckc_oL1         85.4174 ms     5.43 TFLOP/s
+  N=6144  plain_ckc_oDRAM     6.4741 ms    71.65 TFLOP/s
+  N=6144  plain_ckc_oL1      85.2015 ms     5.44 TFLOP/s
+MEASURED_HiFi4_COMPUTE_ROOF 102.55 TFLOP/s
+
+=== directional DRAM roofs ===
+  {"MB": 8.0, "read_GBs": 280.3, "write_GBs": 217.8, "dram2dram_rw_GBs": 324.9}
+  {"MB": 16.0, "read_GBs": 320.3, "write_GBs": 238.5, "dram2dram_rw_GBs": 338.6}
+  {"MB": 32.0, "read_GBs": 374.3, "write_GBs": 259.4, "dram2dram_rw_GBs": 382.1}
+  {"MB": 48.0, "read_GBs": 384.3, "write_GBs": 262.1, "dram2dram_rw_GBs": 387.1}
+  {"MB": 64.0, "read_GBs": 391.2, "write_GBs": 266.8, "dram2dram_rw_GBs": 396.1}
+MEASURED_DRAM_READ_ROOF 391.2 GB/s   MEASURED_DRAM_WRITE_ROOF 266.8 GB/s
+MACHINE_BALANCE 262.1 FLOP/byte (read)
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/perfwar-chunked-transition-cb/perf/ledger_298/roofs_card.py", line 107, in <module>
+    json.dump(res, open(sys.argv[1], "w"), indent=2)
+IndexError: list index out of range
+2026-08-09 19:20:39.297 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-09 19:20:39.298 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
