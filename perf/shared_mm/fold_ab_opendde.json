@@ -1,0 +1,55 @@
+{
+ "model": "opendde",
+ "off_s": [
+  49.54794672499702,
+  49.514905289001035,
+  49.249881159001234
+ ],
+ "on_s": [
+  48.86548984299952,
+  48.62145406900163,
+  48.55864540299808
+ ],
+ "off_mean": 49.437577724333096,
+ "on_mean": 48.68186310499974,
+ "ratio": 1.0155235352784955,
+ "saved_ms": 755.7146193333538,
+ "meta": {
+  "hardware": "blackhole",
+  "load_s": 3.16,
+  "n_msa": 35,
+  "msa_dir": "/home/ttuser/.tt_bio_msa_cache",
+  "diffusion_samples": 1,
+  "job_cfg": {
+   "model": "opendde",
+   "fast": false,
+   "output_format": "cif",
+   "recycling_steps": 10,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "trace": false,
+   "msa_dir": "/home/ttuser/.tt_bio_msa_cache",
+   "struct_dir": "/tmp/ttbase-opendde-o0sv1yq7/out",
+   "use_msa_server": true,
+   "msa_db_path": null,
+   "use_envdb": false,
+   "msa_endpoint": null,
+   "single_sequence": false,
+   "msa_server_url": "https://api.colabfold.com",
+   "msa_pairing_strategy": "greedy",
+   "msa_server_username": null,
+   "msa_server_password": null,
+   "api_key_value": null,
+   "max_msa_seqs": 8192,
+   "write_pae": false,
+   "write_pde": false,
+   "write_embeddings": false,
+   "method": null,
+   "opendde_ckpt": null
+  },
+  "struct_dir": "/tmp/ttbase-opendde-o0sv1yq7/out",
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": null
+ }
+}
