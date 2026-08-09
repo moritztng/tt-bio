@@ -1,33 +1,30 @@
 # Pairformer matmul dataflow — qb1 card 1, ttnn 0.67.4, 13x10 grid
 
-`proj_ab.py` runs every Pairformer matmul class at 298 aa (N_tok padded to 320) through
-`ttnn.linear(core_grid=)`, `ttnn.experimental.minimal_matmul`, and a sweep of explicit
-`MatmulMultiCoreReuseMultiCast1DProgramConfig`s. Roofs are measured in the same process.
+`ttnn.linear(core_grid=CORE_GRID_MAIN)` derives `in0_block_w = 1` and `out_block_h = per_core_M` on
+the pair-track projections. An explicit 1D program config is 1.22x at `in0_block_w = 1` (bit-exact)
+and 1.84x at `in0_block_w = 8` (not).
 
-    TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3 perf/pf_matmul/proj_ab.py --cz 256
-    TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3 perf/pf_matmul/proj_ab.py --cz 384
+    TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3 perf/pf_matmul/prodshape.py --c-z 256 --bias-pad 1 --out prodshape_cz256.json
+    TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3 perf/pf_matmul/infold_pp.py --model protenix-v2 --bw 1 --out x.json
+    TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3 perf/pf_matmul/fold_ab.py --model protenix-v2 --arm off  --out fold_off.json
+    TT_VISIBLE_DEVICES=1 PYTHONPATH=. python3 perf/pf_matmul/fold_ab.py --model protenix-v2 --arm bw1  --out fold_bw1.json
 
-Roofs this card: compute square 122.56 TFLOP/s, DRAM read+write 391.9 GB/s, and 35.47 TFLOP/s at
-K=256, which is the rate that actually bounds a trunk matmul.
+Fold A/B, protenix-v2, 298 aa: **31848.3 -> 31333.0 ms, 515 ms/fold, identical CIF sha256.**
 
-The four classes that reach ttnn through `core_grid=` are 1.70-2.09x off. `core_grid=` resolves to
-`in0_block_w=1, out_block=per_core`; `1d_bw1_obh25_obw8` reproduces it bit-exactly and to 0.01% in
-time, which is how we know.
+Roofs this card: square compute 122.59 TFLOP/s, DRAM copy 392.4 GB/s, and 35.5 TFLOP/s at K=256,
+which is the rate that actually bounds a trunk matmul.
 
-| class | shape | prod | tuned | x | n/blk | ms/fold |
+| class (production shape) | mt/kt/nt | prod | bw1 | bw8 | minimal_matmul | calls/fold |
 |---|---|---:|---:|---:|---:|---:|
-| trimul.out_proj (pv2) | 102400x256 @ 256x256 | 0.7521 | 0.3835 | 1.961 | 4 | 708 |
-| triatt.out (pv2) | 102400x256 @ 256x256 | 0.7518 | 0.3855 | 1.950 | 2 | 352 |
-| triatt.triangle_bias (pv2) | 102400x256 @ 256x32 | 0.4811 | 0.2302 | 2.090 | 2 | 241 |
-| trimul.out_proj (opendde) | 102400x384 @ 384x384 | 1.1384 | 0.5854 | 1.945 | 4 | 1062 |
-| triatt.out (opendde) | 102400x384 @ 384x384 | 1.1377 | 0.5853 | 1.944 | 2 | 530 |
+| `trimul.out_proj` `(1,298,298,256)@(256,256)` | 2980/8/8 | 0.7036 | 0.5759 | 0.3820 | 0.3559 | 2096 |
+| `triatt.out` `(298,298,256)@(256,256)` | 2980/8/8 | 0.6989 | 0.5724 | 0.3693 | 0.3495 | 1048 |
+| `triatt.triangle_bias` `(298,298,256)@(256,8)` | 2980/8/1 | 0.4439 | 0.3964 | 0.2181 | 0.2272 | 1048 |
 
-Bit-exact subset (`out_block` only, `in0_block_w` left at 1): 534 ms/fold on protenix-v2, 945 on
-opendde, `torch.equal` against production at the op.
+`proj_ab.py` and its two JSON files measured a flattened `102400x256` stand-in. Production passes a
+batched tensor, so `m_tiles` is 298x10 = 2980, not 3200. Use `prodshape.py`.
 
-Do not apply this globally. opendde's `transition.up` (mt=160) is *faster* on production
-`core_grid=`, which correctly picks the 2D split there; a blanket swap costs 522 ms/fold.
-`triatt.qkv`, `triatt.gate` and `trimul.in_proj` are already at their shape-achievable rate on
-`minimal_matmul` and every tuned linear is slower.
+Do not apply the config globally. opendde's `transition.up` (mt=160) is *faster* on production
+`core_grid=`, which correctly picks the 2D split there. `triatt.qkv`, `triatt.gate` and
+`trimul.in_proj` are already at their shape-achievable rate on `minimal_matmul`.
 
 Plan, mechanism and acceptance checks: `~/.coworker/state/perfwar-pairformer-matmul-dataflow.md`.

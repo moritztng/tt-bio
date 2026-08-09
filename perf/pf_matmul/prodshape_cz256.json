@@ -1,0 +1,191 @@
+{
+  "card": "qb1 card 1",
+  "grid": [
+    13,
+    10
+  ],
+  "roofs": {
+    "compute_square_TFLOPs": 122.59,
+    "dram_rw_clone_GBs": 392.4
+  },
+  "rows": [
+    {
+      "label": "trimul.out_proj  p_out+g_out",
+      "in0": [
+        1,
+        298,
+        298,
+        256
+      ],
+      "n_out": 256,
+      "mt": 2980,
+      "kt": 8,
+      "nt": 8,
+      "per_core_M": 25,
+      "blocks": 120,
+      "num_cores": 130,
+      "GFLOP": 12.499,
+      "MB": 97.78,
+      "AI_flop_per_byte": 127.8,
+      "calls_per_fold": 2096,
+      "ms": {
+        "prod_core_grid": 0.7036,
+        "cfg_bw1": 0.5759,
+        "cfg_bw2": 0.4477,
+        "cfg_bw4": 0.4113,
+        "cfg_bw8": 0.382,
+        "minimal_matmul": 0.3559
+      },
+      "bit_exact": {
+        "cfg_bw1": true,
+        "cfg_bw2": false,
+        "cfg_bw4": false,
+        "cfg_bw8": false
+      },
+      "TFLOPs": {
+        "prod_core_grid": 17.77,
+        "cfg_bw1": 21.7,
+        "cfg_bw2": 27.92,
+        "cfg_bw4": 30.39,
+        "cfg_bw8": 32.72,
+        "minimal_matmul": 35.12
+      },
+      "GBs": {
+        "prod_core_grid": 139.0,
+        "cfg_bw1": 169.8,
+        "cfg_bw2": 218.4,
+        "cfg_bw4": 237.7,
+        "cfg_bw8": 256.0,
+        "minimal_matmul": 274.8
+      }
+    },
+    {
+      "label": "triatt.out       x_out",
+      "in0": [
+        298,
+        298,
+        256
+      ],
+      "n_out": 256,
+      "mt": 2980,
+      "kt": 8,
+      "nt": 8,
+      "per_core_M": 25,
+      "blocks": 120,
+      "num_cores": 130,
+      "GFLOP": 12.499,
+      "MB": 97.78,
+      "AI_flop_per_byte": 127.8,
+      "calls_per_fold": 1048,
+      "ms": {
+        "prod_core_grid": 0.6989,
+        "cfg_bw1": 0.5724,
+        "cfg_bw2": 0.4489,
+        "cfg_bw4": 0.4079,
+        "cfg_bw8": 0.3693,
+        "minimal_matmul": 0.3495
+      },
+      "bit_exact": {
+        "cfg_bw1": true,
+        "cfg_bw2": false,
+        "cfg_bw4": false,
+        "cfg_bw8": false
+      },
+      "TFLOPs": {
+        "prod_core_grid": 17.88,
+        "cfg_bw1": 21.84,
+        "cfg_bw2": 27.84,
+        "cfg_bw4": 30.64,
+        "cfg_bw8": 33.85,
+        "minimal_matmul": 35.76
+      },
+      "GBs": {
+        "prod_core_grid": 139.9,
+        "cfg_bw1": 170.8,
+        "cfg_bw2": 217.8,
+        "cfg_bw4": 239.7,
+        "cfg_bw8": 264.8,
+        "minimal_matmul": 279.8
+      }
+    },
+    {
+      "label": "triatt.bias      heads",
+      "in0": [
+        298,
+        298,
+        256
+      ],
+      "n_out": 8,
+      "mt": 2980,
+      "kt": 8,
+      "nt": 1,
+      "per_core_M": 25,
+      "blocks": 120,
+      "num_cores": 130,
+      "GFLOP": 1.562,
+      "MB": 54.94,
+      "AI_flop_per_byte": 28.4,
+      "calls_per_fold": 1048,
+      "ms": {
+        "prod_core_grid": 0.4439,
+        "cfg_bw1": 0.3964,
+        "cfg_bw2": 0.2861,
+        "cfg_bw4": 0.2671,
+        "cfg_bw8": 0.2181,
+        "minimal_matmul": 0.2272
+      },
+      "bit_exact": {
+        "cfg_bw1": true,
+        "cfg_bw2": false,
+        "cfg_bw4": false,
+        "cfg_bw8": false
+      },
+      "TFLOPs": {
+        "prod_core_grid": 3.52,
+        "cfg_bw1": 3.94,
+        "cfg_bw2": 5.46,
+        "cfg_bw4": 5.85,
+        "cfg_bw8": 7.16,
+        "minimal_matmul": 6.88
+      },
+      "GBs": {
+        "prod_core_grid": 123.8,
+        "cfg_bw1": 138.6,
+        "cfg_bw2": 192.0,
+        "cfg_bw4": 205.7,
+        "cfg_bw8": 251.9,
+        "minimal_matmul": 241.8
+      }
+    }
+  ],
+  "bias_width_sweep": [
+    {
+      "n_out": 8,
+      "nt": 1,
+      "ms": 0.3943,
+      "MB": 54.94,
+      "GBs": 139.3
+    },
+    {
+      "n_out": 32,
+      "nt": 1,
+      "ms": 0.3994,
+      "MB": 54.94,
+      "GBs": 137.6
+    },
+    {
+      "n_out": 64,
+      "nt": 2,
+      "ms": 0.3871,
+      "MB": 61.06,
+      "GBs": 157.7
+    },
+    {
+      "n_out": 128,
+      "nt": 4,
+      "ms": 0.4065,
+      "MB": 73.3,
+      "GBs": 180.3
+    }
+  ]
+}
