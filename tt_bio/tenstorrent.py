@@ -370,6 +370,125 @@ def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
         return None
 
 
+_TUNED_FP32_TILE = 4096        # fp32 accumulation tile: fp32_dest_acc_en + packer_l1_acc
+_TUNED_L1_SLACK = 192 * 1024   # semaphores, dispatch, and the block's other live allocations
+_TUNED_BW_CAP = 16             # past 16 K tiles the ladder is flat and L1 gets tight
+_TUNED_MIN_TILE_MACS = 12288   # below this the op is under ~0.06 ms and the lever is unmeasurable
+
+
+def _largest_divisor(n: int, cap: int) -> int:
+    return max((d for d in range(min(cap, n), 0, -1) if n % d == 0), default=1)
+
+
+def _tuned_subblock(h: int, w: int) -> tuple[int, int]:
+    """out_subblock_h * out_subblock_w <= 4: with fp32_dest_acc_en the DEST file holds 4 tiles."""
+    sh = _largest_divisor(h, 4)
+    return sh, _largest_divisor(w, max(1, 4 // sh))
+
+
+@lru_cache(maxsize=None)
+def _tuned_matmul_config(mt: int, kt: int, nt: int, elem_bytes: int,
+                         grid: tuple[int, int], l1: int):
+    """Program config for an (mt x kt) @ (kt x nt) tile matmul, or None to keep ttnn's choice.
+
+    `ttnn.linear(core_grid=...)` makes ttnn derive `in0_block_w = 1`: one K tile per inner block,
+    so the weight block is re-multicast and the fp32 accumulator re-primed once per K tile, with
+    too little compute in a block to cover either. Choosing the block width instead is worth
+    1.12x-1.93x on the 298 aa Pairformer shapes. `core_grid` and `program_config` are mutually
+    exclusive (matmul_device_operation.cpp asserts on both), so this replaces the grid argument.
+
+    Fires in the two regimes measured on hardware and stays out of the way everywhere else:
+
+    - `mt >= 4 * cores`: 1D M-split, `in1` multicast. Measured 1.12x-1.93x at mt = 512 and
+      mt = 3200, which is the whole pair track.
+    - `mt <= 32`: 2D MxN split. A 1D M-split cannot fill the grid here and `core_grid=` already
+      picks 2D; only the block width is wrong. Measured 1.16x-1.53x at mt = 10.
+    - in between (the atom track): None. Both shapes measured there were neutral or worse and
+      both sit under `_TUNED_MIN_TILE_MACS` anyway.
+
+    See state/perfwar-inblockw-tuning.md for the ladder and the roofline placement.
+    """
+    gx, gy = grid
+    cores = gx * gy
+    if min(mt, kt, nt) < 1 or mt * kt * nt < _TUNED_MIN_TILE_MACS:
+        return None
+    tile = 1024 * elem_bytes
+
+    if mt >= 4 * cores:
+        per_core_M = -(-mt // cores)
+        for bw in [d for d in range(min(_TUNED_BW_CAP, kt), 0, -1) if kt % d == 0]:
+            for ob_w in [d for d in range(nt, 0, -1) if nt % d == 0]:
+                for ob_h in [d for d in range(per_core_M, 0, -1) if per_core_M % d == 0]:
+                    need = (ob_h * ob_w * (tile + _TUNED_FP32_TILE) * 2
+                            + (ob_h + ob_w) * bw * tile * 2 + _TUNED_L1_SLACK)
+                    if need > l1:
+                        continue
+                    sh, sw = _tuned_subblock(ob_h, ob_w)
+                    return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                        compute_with_storage_grid_size=(gx, gy),
+                        in0_block_w=bw, out_subblock_h=sh, out_subblock_w=sw,
+                        out_block_h=ob_h, out_block_w=ob_w,
+                        per_core_M=per_core_M, per_core_N=nt,
+                        fuse_batch=True, fused_activation=None, mcast_in0=False,
+                    )
+        return None
+
+    if mt > 32:
+        return None
+
+    per_core_M = -(-mt // gy)
+    per_core_N = -(-nt // gx)
+    for bw in [d for d in range(min(_TUNED_BW_CAP, kt), 0, -1) if kt % d == 0]:
+        need = (per_core_M * per_core_N * (tile + _TUNED_FP32_TILE) * 2
+                + (per_core_M + per_core_N) * bw * tile * 2 + _TUNED_L1_SLACK)
+        if need > l1:
+            continue
+        sh, sw = _tuned_subblock(per_core_M, per_core_N)
+        return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=(gx, gy),
+            in0_block_w=bw, out_subblock_h=sh, out_subblock_w=sw,
+            out_block_h=per_core_M, out_block_w=per_core_N,
+            per_core_M=per_core_M, per_core_N=per_core_N,
+            transpose_mcast=False, fused_activation=None, fuse_batch=False,
+        )
+    return None
+
+
+def _tuned_config_for(x: ttnn.Tensor, w: ttnn.Tensor):
+    """_tuned_matmul_config for a concrete operand pair, or None if it does not apply.
+
+    Uses PADDED shapes. A guard written against the logical length has silently disabled the
+    optimisation it was written for twice here already (`_tri_att_qkv_l1_config` at 298 aa, and
+    W6's SDPA band guard on `q.shape[2] == 298` when the tiles are 320).
+    """
+    xp, wp = tuple(x.padded_shape), tuple(w.padded_shape)
+    if len(wp) != 2 or len(xp) < 2:
+        return None            # a rank-3+ weight is a real batched matmul, not this
+    m = 1
+    for d in xp[:-1]:
+        m *= int(d)
+    k, n = int(xp[-1]), int(wp[-1])
+    if m % 32 or k % 32 or n % 32 or int(wp[0]) != k:
+        return None
+    elem = 4 if ttnn.float32 in (x.dtype, w.dtype) else 2
+    return _tuned_matmul_config(m // 32, k // 32, n // 32, elem, COMPUTE_GRID_MAIN,
+                                int(ttnn.get_max_worker_l1_unreserved_size()))
+
+
+def _linear(x: ttnn.Tensor, w: ttnn.Tensor, **kw):
+    """`ttnn.linear` with a tuned `in0_block_w` where one is known to help.
+
+    Falls back to the exact call the site would have made otherwise. `core_grid=` is dropped only
+    when a config replaces it, because ttnn rejects both together.
+    """
+    pc = _tuned_config_for(x, w)
+    if pc is None:
+        return ttnn.linear(x, w, **kw)
+    kw.pop("core_grid", None)
+    return ttnn.linear(x, w, program_config=pc, **kw)
+
+
+
 def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     """Retune L1-edge thresholds and chunk sizes for grids smaller than the
     11x10 Blackhole baseline (e.g. Wormhole 8x8 has ~55% of its aggregate L1),
@@ -436,6 +555,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _sdpa_program_config_for_lengths.cache_clear()
     _triangle_mul_program_config.cache_clear()
     _tri_att_qkv_l1_config.cache_clear()
+    _tuned_matmul_config.cache_clear()
 
 
 def set_fast_mode(enabled: bool) -> None:
@@ -887,7 +1007,7 @@ class Module:
         """Shared linear projection on this module's kernel config and core grid."""
         if dtype is None:
             dtype = _dtype(ttnn.bfloat16)
-        return ttnn.linear(
+        return _linear(
             x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
             dtype=dtype, core_grid=CORE_GRID_MAIN, **kw,
         )
@@ -925,7 +1045,7 @@ def _trimul_out_proj(
             x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
             compute_kernel_config=ckc,
         )
-    return ttnn.linear(
+    return _linear(
         x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
         compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
     )
@@ -1148,7 +1268,7 @@ class TriangleMultiplication(Module):
                     epsilon=1e-5,
                     compute_kernel_config=self.compute_kernel_config,
                 )
-                g_block = ttnn.linear(
+                g_block = _linear(
                     z_rows,
                     self.g_out_weight,
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
@@ -1164,7 +1284,7 @@ class TriangleMultiplication(Module):
                     epsilon=1e-5,
                     compute_kernel_config=self.compute_kernel_config,
                 )
-                p_block = ttnn.linear(
+                p_block = _linear(
                     x_rows,
                     self.out_p_weight,
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
@@ -1303,7 +1423,7 @@ class TriangleAttention(Module):
             for s in range(0, S, chunk):
                 e = min(s + chunk, S)
                 xc = normed_rows(s, e)
-                b = ttnn.linear(
+                b = _linear(
                     xc,
                     self.bias_weight,
                     compute_kernel_config=self.compute_kernel_config,
@@ -1332,7 +1452,7 @@ class TriangleAttention(Module):
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
             )
-            triangle_bias = ttnn.linear(
+            triangle_bias = _linear(
                 x,
                 self.bias_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -1387,7 +1507,7 @@ class TriangleAttention(Module):
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
-            x_out = ttnn.linear(
+            x_out = _linear(
                 o_in,
                 self.o_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -1566,7 +1686,7 @@ class AttentionPairBias(Module):
             z, weight=self.z_norm_weight, bias=self.z_norm_bias, epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        z = ttnn.linear(
+        z = _linear(
             z, self.z_weight, compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
         )
         return ttnn.permute(z, (0, 3, 1, 2))
@@ -1638,7 +1758,7 @@ class AttentionPairBias(Module):
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         if not self.atom_level:
-            qkv = ttnn.linear(
+            qkv = _linear(
                 s,
                 self.qkv_weight,
                 bias=self.qkv_bias,
@@ -1662,7 +1782,7 @@ class AttentionPairBias(Module):
                     epsilon=1e-5,
                     compute_kernel_config=self.compute_kernel_config,
                 )
-                z = ttnn.linear(
+                z = _linear(
                     z,
                     self.z_weight,
                     compute_kernel_config=self.compute_kernel_config,
@@ -1730,7 +1850,7 @@ class AttentionPairBias(Module):
             s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
             s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
 
-            q = ttnn.linear(
+            q = _linear(
                 s,
                 self.q_weight,
                 bias=self.q_bias,
@@ -1738,7 +1858,7 @@ class AttentionPairBias(Module):
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
             )
-            kv = ttnn.linear(
+            kv = _linear(
                 s_kv,
                 self.kv_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -1763,7 +1883,7 @@ class AttentionPairBias(Module):
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
-        g = ttnn.linear(
+        g = _linear(
             s,
             self.g_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -1773,7 +1893,7 @@ class AttentionPairBias(Module):
             o = ttnn.typecast(o, ttnn.bfloat16)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
-        x = ttnn.linear(
+        x = _linear(
             o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
@@ -1808,7 +1928,7 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
-            x_1 = ttnn.linear(
+            x_1 = _linear(
                 x_norm,
                 self.fc1_weight,
                 activation="silu",
@@ -1817,7 +1937,7 @@ class Transition(Module):
                 dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
-            x_2 = ttnn.linear(
+            x_2 = _linear(
                 x_norm,
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -1828,7 +1948,7 @@ class Transition(Module):
             ttnn.deallocate(x_norm)
             x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
-            x_dram = ttnn.linear(
+            x_dram = _linear(
                 x,
                 self.fc3_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -2145,14 +2265,14 @@ class MiniTriangularUpdate(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        p = ttnn.linear(
+        p = _linear(
             x_norm,
             self.p_in_weight,
             compute_kernel_config=self.compute_kernel_config,
             dtype=ttnn.bfloat16,
             core_grid=CORE_GRID_MAIN,
         )
-        g = ttnn.linear(
+        g = _linear(
             x_norm,
             self.g_in_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -2191,14 +2311,14 @@ class MiniTriangularUpdate(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        p_out = ttnn.linear(
+        p_out = _linear(
             x,
             self.p_out_weight,
             compute_kernel_config=self.compute_kernel_config,
             dtype=ttnn.bfloat16,
             core_grid=CORE_GRID_MAIN,
         )
-        g_out = ttnn.linear(
+        g_out = _linear(
             x,
             self.g_out_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -2332,7 +2452,7 @@ class AdaLN(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        s_scale = ttnn.linear(
+        s_scale = _linear(
             s,
             self.s_scale_weight,
             bias=self.s_scale_bias,
@@ -2340,7 +2460,7 @@ class AdaLN(Module):
             memory_config=memory_config,
             #core_grid=ttnn.CoreGrid(y=10, x=11), CAUSES ACCURACY ISSUE
         )
-        s_bias = ttnn.linear(
+        s_bias = _linear(
             s,
             self.s_bias_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -2381,20 +2501,20 @@ class ConditionedTransitionBlock(Module):
         self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False
     ) -> ttnn.Tensor:
         a = self.adaln(a, s, large_seq_len=large_seq_len)
-        a_swish = ttnn.linear(
+        a_swish = _linear(
             a,
             self.swish_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
-        gates = ttnn.linear(
+        gates = _linear(
             a,
             self.gates_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
         a_swish = ttnn.multiply_(gates, a_swish, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
-        a_b = ttnn.linear(
+        a_b = _linear(
             a,
             self.a_to_b_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -2403,14 +2523,14 @@ class ConditionedTransitionBlock(Module):
         ttnn.deallocate(a)
         b = ttnn.multiply_(a_swish, a_b)
         ttnn.deallocate(a_b)
-        s = ttnn.linear(
+        s = _linear(
             s,
             self.output_projection_weight,
             bias=self.output_projection_bias,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
-        b_a = ttnn.linear(
+        b_a = _linear(
             b,
             self.b_to_a_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -2469,7 +2589,7 @@ class DiffusionTransformerLayer(Module):
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
         if self.s_o is None:
-            s_o = ttnn.linear(
+            s_o = _linear(
                 s,
                 self.output_projection_weight,
                 bias=self.output_projection_bias,
@@ -2569,7 +2689,7 @@ class PairWeightedAveraging(Module):
         )
         o_out = None
         for i in range(self.n_heads):
-            b = ttnn.linear(
+            b = _linear(
                 z,
                 self.z_weight[:, i : i + 1],
                 compute_kernel_config=self.compute_kernel_config,
@@ -2584,7 +2704,7 @@ class PairWeightedAveraging(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 numeric_stable=True,
             )
-            v = ttnn.linear(
+            v = _linear(
                 m,
                 self.m_weight[:, i * self.head_dim : (i + 1) * self.head_dim],
                 compute_kernel_config=self.compute_kernel_config,
@@ -2601,7 +2721,7 @@ class PairWeightedAveraging(Module):
             ttnn.deallocate(v)
             ttnn.deallocate(w)
             o = ttnn.permute(o, (0, 2, 1))
-            g = ttnn.linear(
+            g = _linear(
                 m,
                 self.g_weight[:, i * self.head_dim : (i + 1) * self.head_dim],
                 compute_kernel_config=self.compute_kernel_config,
@@ -2609,7 +2729,7 @@ class PairWeightedAveraging(Module):
             )
             o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g)
-            o = ttnn.linear(
+            o = _linear(
                 o,
                 self.o_weight[i * self.head_dim : (i + 1) * self.head_dim, :],
                 compute_kernel_config=self.compute_kernel_config,
@@ -2662,13 +2782,13 @@ class OuterProductMean(Module):
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
             )
-            ac = ttnn.linear(
+            ac = _linear(
                 mc,
                 self.a_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
-            bc = ttnn.linear(
+            bc = _linear(
                 mc,
                 self.b_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -2805,7 +2925,7 @@ class OuterProductMean(Module):
             o_bias = self.o_bias
             if self.scale_bias:
                 o_bias = ttnn.multiply(self.o_bias, scale)
-            out = ttnn.linear(
+            out = _linear(
                 z,
                 self.o_weight,
                 bias=o_bias,
@@ -2980,7 +3100,7 @@ class MSA(Module):
         # decomposed into floor + k*m_feat rather than guessed at. No-op unless
         # TT_BIO_DRAM_PEAK is set.
         dram_peak(f"msa floor [depth={m.shape[1]} tokens={m.shape[2]}]")
-        m = ttnn.linear(
+        m = _linear(
             m,
             self.msa_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -2988,7 +3108,7 @@ class MSA(Module):
         )
         m = ttnn.add_(
             m,
-            ttnn.linear(
+            _linear(
                 emb,
                 self.s_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -3124,7 +3244,7 @@ class Diffusion(Module):
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
             )
-            self._s_conditioned = ttnn.linear(
+            self._s_conditioned = _linear(
                 s,
                 self.conditioner_embed_weight,
                 bias=self.conditioner_embed_bias,
@@ -3133,7 +3253,7 @@ class Diffusion(Module):
             )
             ttnn.deallocate(s)
             self._c_reshaped = ttnn.reshape(c, (B, NW, ATOM_WINDOW, -1))
-        r_to_q = ttnn.linear(
+        r_to_q = _linear(
             r,
             self.r_to_q_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -3150,7 +3270,7 @@ class Diffusion(Module):
             large_seq_len=large_seq_len,
         )
         q = ttnn.reshape(q, (B, NW * ATOM_WINDOW, D))
-        a = ttnn.linear(
+        a = _linear(
             q,
             self.atom_to_token_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -3165,7 +3285,7 @@ class Diffusion(Module):
         )
         a = ttnn.permute(a, (0, 2, 1))
         times = ttnn.unsqueeze(times, 1)
-        fourier = ttnn.linear(
+        fourier = _linear(
             times,
             self.conditioner_fourier_embed_weight,
             bias=self.conditioner_fourier_embed_bias,
@@ -3181,7 +3301,7 @@ class Diffusion(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        fourier = ttnn.linear(
+        fourier = _linear(
             fourier,
             self.conditioner_fourier_single_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -3203,7 +3323,7 @@ class Diffusion(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        s_to_a = ttnn.linear(
+        s_to_a = _linear(
             s_to_a,
             self.s_to_a_linear_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -3233,7 +3353,7 @@ class Diffusion(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        a_to_q = ttnn.linear(
+        a_to_q = _linear(
             a,
             self.a_to_q_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -3267,7 +3387,7 @@ class Diffusion(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        r_update = ttnn.linear(
+        r_update = _linear(
             r_update,
             self.feat_to_pos_linear_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -3962,7 +4082,7 @@ class TrunkRecycle:
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        x_rec = ttnn.linear(
+        x_rec = _linear(
             x_norm,
             recycle_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -4046,7 +4166,7 @@ class TemplateRecycle:
         ckc = self.compute_kernel_config
         z_n = ttnn.layer_norm(z, weight=self.z_norm_w, bias=self.z_norm_b,
                               epsilon=1e-5, compute_kernel_config=ckc)
-        z_p = ttnn.linear(z_n, self.z_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        z_p = _linear(z_n, self.z_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(z_n)
         mask_tt, attn_tt = tmpl["mask_tt"], tmpl["attn_tt"]
         u_acc = None
@@ -4069,7 +4189,7 @@ class TemplateRecycle:
         u = ttnn.multiply(u_acc, 1.0 / tmpl["num_templates"])
         ttnn.deallocate(u_acc)
         u = ttnn.relu(u)
-        u = ttnn.linear(u, self.u_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        u = _linear(u, self.u_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         return u
 
 
@@ -4145,7 +4265,7 @@ class TokenDistanceRecycle:
         ckc = self.compute_kernel_config
         z_n = ttnn.layer_norm(z, weight=self.z_norm_w, bias=self.z_norm_b,
                               epsilon=1e-5, compute_kernel_config=ckc)
-        z_p = ttnn.linear(z_n, self.z_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        z_p = _linear(z_n, self.z_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(z_n)
         v = ttnn.add(z_p, td["a_ij_tt"])
         ttnn.deallocate(z_p)
@@ -4157,7 +4277,7 @@ class TokenDistanceRecycle:
                              epsilon=1e-5, compute_kernel_config=ckc)
         u = ttnn.relu(v2)
         ttnn.deallocate(v2)
-        u = ttnn.linear(u, self.u_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        u = _linear(u, self.u_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         return u
 
 
