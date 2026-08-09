@@ -1,0 +1,83 @@
+{
+  "side": "tenstorrent",
+  "model": "protenix-v2",
+  "machine": "tt-quietbox",
+  "cards": [
+    3
+  ],
+  "n_concurrent": 1,
+  "folds_per_worker": 3,
+  "diffusion_samples": 1,
+  "target": "/home/ttuser/.coworker/wt/tt-bio-multiprediction-throughput/examples/prot300.yaml",
+  "ttnn_version": "0.67.4",
+  "tt_bio_git": "03068c22993a885bfe5cb1513da86935b7e19f2c",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "seed": 0,
+  "worker_rcs": {
+    "0": 0
+  },
+  "worker_log_tails": {
+    "0": [
+      " (topology_solver.tpp:89)",
+      "2026-08-09 01:50:40.830 | info     |          Fabric | ",
+      "=== Physical Mesh 0 Internal Graph Adjacency Map ===",
+      "Total nodes: 1",
+      "Degree histogram: {0:1}",
+      " (topology_solver.tpp:89)",
+      "2026-08-09 01:50:40.830 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)",
+      "2026-08-09 01:50:40.830 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)",
+      "2026-08-09 01:50:40.830 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)",
+      "2026-08-09 01:50:40.830 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)",
+      "2026-08-09 01:50:41.034 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)",
+      "2026-08-09 01:50:53.682 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-09 01:50:55.578 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-09 01:53:06.326 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)",
+      "2026-08-09 01:53:06.326 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)"
+    ]
+  },
+  "wall_s": 147.67,
+  "cold_s": [
+    42.95
+  ],
+  "load_s": [
+    3.46
+  ],
+  "plddt": [
+    0.840781
+  ],
+  "card_of_worker": {
+    "0": "3"
+  },
+  "date": "2026-08-09",
+  "n_workers": 1,
+  "agg_folds_per_s": 0.03139,
+  "agg_folds_per_s_window": 0.03139,
+  "window_s": 95.564,
+  "window_start": 5825.282058444,
+  "window_end": 5920.846443483,
+  "min_worker_coverage": 1.0,
+  "min_duty_cycle": 1.0,
+  "tail_skew_s": 0.0,
+  "latency_min_s": 31.765,
+  "latency_median_s": 31.813,
+  "latency_max_s": 31.986,
+  "total_folds": 3,
+  "clean": true,
+  "reason": null,
+  "per_worker": [
+    {
+      "worker": 0,
+      "n_folds": 3,
+      "busy_s": 95.564,
+      "span_s": 95.564,
+      "duty_cycle": 1.0,
+      "mean_latency_s": 31.85479,
+      "median_latency_s": 31.8133,
+      "rate_folds_per_s": 0.03139,
+      "first_start": 5825.28206,
+      "last_end": 5920.84644
+    }
+  ],
+  "tt_smi_samples_in_window": 16
+}

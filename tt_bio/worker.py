@@ -769,19 +769,14 @@ class _WorkerState:
                      pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
-    def _predict_protenix_one(self, path: Path, cfg: dict[str, Any]):
-        """Protenix-v2 protein fold: sequence(s) -> (optional per-chain MSA) -> on-device fold
-        -> structure. Rides the same MSA stage as ESMFold2/Boltz-2: each chain whose
-        {seq_hash}.a3m is not cached is searched into the shared msa_dir, resolved, and
-        featurized. Multi-chain inputs fold as a true complex (per-chain asym/entity/sym +
-        block-diagonal MSA via build_complex_features)."""
+    def _protenix_inputs(self, path: Path, cfg: dict[str, Any]):
+        """Sequences -> (optional per-chain MSA) -> model-ready features for one target.
+        Shared by the single and batched protenix entry points."""
         import hashlib
-        import types
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
-                                 _read_bio_constraints, _resolve_a3m_text,
-                                 _write_protenix_structure)
+                                 _read_bio_constraints, _resolve_a3m_text)
         from tt_bio.protenix_data import build_complex_features
 
         chains = _read_bio_chains(path)
@@ -813,36 +808,18 @@ class _WorkerState:
         report_progress("prep")
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
                                        chain_ids=[cid for cid, _s, _sp, _mt in chains], bonds=bonds)
+        return feats, chains, chain_specs
 
-        # One shared progress path: report_progress has exactly the progress_fn
-        # signature, so hand it straight to the model — trunk iterations report
-        # as "trunk", diffusion steps as "diffusion" (no remapping that would
-        # hide the trunk phase).
-        n_sample = int(cfg["diffusion_samples"])
-        # Integration-parity envelope: the bf16 CPU reference must run the whole
-        # protenix fold under bf16 autocast (mirroring the boltz2 path at
-        # predict_step), otherwise the bf16 ref runs in fp32, the envelope
-        # denominator collapses to ~0 and any device residual reads as a false GAP.
-        # On device (accelerator == "tenstorrent") and on the fp32 reference this
-        # is a nullcontext, so those paths are untouched.
-        with torch.no_grad(), self._maybe_ref_bf16():
-            coords, conf = self.model.fold(
-                feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-                seed=cfg.get("seed") or 0, progress_fn=report_progress,
-                return_confidence=True, n_cycles=cfg.get("recycling_steps"),
-                max_parallel_samples=cfg.get("max_parallel_samples"),
-                # Without this --trace was a silent no-op for --model protenix-v2: main.py
-                # reserves the trace region and puts "trace" in the worker config, and
-                # Protenix.fold accepts trace=, but this call site never forwarded it, so
-                # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
-                # above forwards it, which is why the flag looked plumbed.
-                trace=cfg.get("trace", False),
-            )
-        confs = conf if isinstance(conf, list) else [conf]
+    def _protenix_emit(self, path: Path, cfg: dict[str, Any], feats, chains, chain_specs,
+                       coords, confs):
+        """Rank samples, write structures, build the metrics row for one target."""
+        import types
+
+        from tt_bio.main import _write_protenix_structure
 
         # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers,
         # falling back to pLDDT only if neither is available. Picks the best sample
-        # and orders all_runs — mirrors Boltz-2's confidence_score ranking.
+        # and orders all_runs -- mirrors Boltz-2's confidence_score ranking.
         def _score(c):
             ptm, iptm = c.get("ptm", 0.0), c.get("iptm", 0.0)
             if iptm > 0.0:
@@ -875,7 +852,7 @@ class _WorkerState:
             "n_residues": sum(len(cseq) for _c, cseq, _s, mt in chains if mt != "ligand"),
             "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
             "msa": any(a for _, a, _ in chain_specs),
-            "n_atoms": int(coords.shape[1]), "samples": n_sample,
+            "n_atoms": int(coords[0].shape[-2]), "samples": len(confs),
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
@@ -884,6 +861,67 @@ class _WorkerState:
             np.savez(struct_dir / f"{stem}_pae.npz",
                      pae=best["pae"].numpy(), pde=best["pde"].numpy())
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
+
+    def _predict_protenix_one(self, path: Path, cfg: dict[str, Any]):
+        """Protenix-v2 protein fold: sequence(s) -> (optional per-chain MSA) -> on-device fold
+        -> structure. Rides the same MSA stage as ESMFold2/Boltz-2: each chain whose
+        {seq_hash}.a3m is not cached is searched into the shared msa_dir, resolved, and
+        featurized. Multi-chain inputs fold as a true complex (per-chain asym/entity/sym +
+        block-diagonal MSA via build_complex_features)."""
+        from tt_bio.esmfold2 import report_progress
+
+        feats, chains, chain_specs = self._protenix_inputs(path, cfg)
+
+        # One shared progress path: report_progress has exactly the progress_fn
+        # signature, so hand it straight to the model -- trunk iterations report
+        # as "trunk", diffusion steps as "diffusion" (no remapping that would
+        # hide the trunk phase).
+        n_sample = int(cfg["diffusion_samples"])
+        # Integration-parity envelope: the bf16 CPU reference must run the whole
+        # protenix fold under bf16 autocast (mirroring the boltz2 path at
+        # predict_step), otherwise the bf16 ref runs in fp32, the envelope
+        # denominator collapses to ~0 and any device residual reads as a false GAP.
+        # On device (accelerator == "tenstorrent") and on the fp32 reference this
+        # is a nullcontext, so those paths are untouched.
+        with torch.no_grad(), self._maybe_ref_bf16():
+            coords, conf = self.model.fold(
+                feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
+                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                return_confidence=True, n_cycles=cfg.get("recycling_steps"),
+                max_parallel_samples=cfg.get("max_parallel_samples"),
+                # Without this --trace was a silent no-op for --model protenix-v2: main.py
+                # reserves the trace region and puts "trace" in the worker config, and
+                # Protenix.fold accepts trace=, but this call site never forwarded it, so
+                # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
+                # above forwards it, which is why the flag looked plumbed.
+                trace=cfg.get("trace", False),
+            )
+        confs = conf if isinstance(conf, list) else [conf]
+        return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)
+
+    def predict_many(self, paths: list, cfg: dict[str, Any]):
+        """Fold several targets in one batched diffusion trajectory. Returns one
+        (metrics, best, feats) tuple per input path, in input order.
+
+        Only protenix-v2 has a batched path today; anything else folds serially through
+        predict_one, so callers can always use this entry point. Targets must share their
+        atom and token counts (bucket first) -- a mismatch raises.
+        """
+        if cfg.get("model") != "protenix-v2" or len(paths) == 1 or int(cfg["diffusion_samples"]) != 1:
+            return [self.predict_one(p, cfg) for p in paths]
+
+        from tt_bio.esmfold2 import report_progress
+
+        prepared = [self._protenix_inputs(p, cfg) for p in paths]
+        with torch.no_grad(), self._maybe_ref_bf16():
+            coords, confs = self.model.fold_many(
+                [f for f, _c, _s in prepared], n_step=cfg["sampling_steps"],
+                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                return_confidence=True, n_cycles=cfg.get("recycling_steps"))
+        return [self._protenix_emit(p, cfg, prepared[b][0], prepared[b][1], prepared[b][2],
+                                    coords[b], [confs[b]])
+                for b, p in enumerate(paths)]
+
 
     def _predict_openfold3_one(self, path: Path, cfg: dict[str, Any]):
         """OpenFold3 fold: sequence(s) -> per-chain MSA -> fixture-free on-device fold
