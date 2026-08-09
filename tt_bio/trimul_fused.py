@@ -209,11 +209,13 @@ def _mask_broadcast(mask: ttnn.Tensor, h: int) -> ttnn.Tensor:
     if got is not None:
         return got
     m = ttnn.to_torch(mask).reshape(1, h, h, 1).expand(1, h, h, 32).contiguous()
-    # DRAM, not L1: this lives for the whole fold, and 6.5 MB of permanently held L1 pushes
-    # the buffer high-water mark past what minimal_matmul's own circular buffers need on a
-    # 13x10 grid, which fails at enqueue rather than at allocation.
+    # Must live where gp_in_fused lives: the reader addresses it with gp's TensorAccessor
+    # compile-time args, which encode the buffer type. Putting this in DRAM while gp is in
+    # L1 makes the reader interpret DRAM offsets as L1 ones and it silently reads garbage
+    # (found as inf in the masked operand, with the unmasked one still bit-exact).
+    # _program asserts the two accessors agree, so this cannot recur quietly.
     bc = ttnn.from_torch(m, layout=ttnn.TILE_LAYOUT, device=mask.device(),
-                         dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                         dtype=ttnn.bfloat16, memory_config=ttnn.L1_MEMORY_CONFIG)
     _MASK_CACHE[key] = bc
     return bc
 
@@ -270,6 +272,11 @@ def _program(gp, out_a, out_b, mask_bc, h, c, grid):
                ("MASK_PER", "3" if mask_bc is not None else "2")]
     if mask_bc is not None:
         defines.append(("MASKED", "1"))
+    if mask_bc is not None:
+        assert (list(ttnn.TensorAccessorArgs(mask_bc).get_compile_time_args())
+                == list(ttnn.TensorAccessorArgs(gp).get_compile_time_args())), (
+            "the reader addresses the broadcast mask with gp's accessor, so the two must "
+            "have the same buffer type and page layout")
     K = ttnn.KernelDescriptor
     kernels = [
         K(kernel_source=READER_SRC, source_type=K.SourceType.SOURCE_CODE, core_ranges=cores,

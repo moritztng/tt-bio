@@ -71,6 +71,7 @@ _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # until the block and fold numbers are in; env var rather than an arg so it can be flipped
 # for a back-to-back run without touching a call chain that is 6 frames deep.
 _TRIMUL_FUSED = os.environ.get("TT_BIO_TRIMUL_FUSED", "0") == "1"
+_TRIMUL_FUSED_CHUNK = int(os.environ.get("TT_BIO_TRIMUL_FUSED_CHUNK", "32"))
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
@@ -998,7 +999,20 @@ class TriangleMultiplication(Module):
         H = x_norm_in.shape[1]
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
-        gp_in_chunks = self._gp_in_chunks(_trimul_chunk_size(H, self._hidden))
+        # The fused input kernel needs gp_in_fused live while it writes both channel-major
+        # operands, where the op chain frees gp_in_fused as soon as it is split. At the
+        # production chunk width of 64 that extra 26 MB does not fit in L1 next to z and
+        # x_norm_in at 298 aa, and pushing the operands to DRAM changes the consuming
+        # matmul's blocking, so the result stops being bit-exact. Halving the chunk width
+        # keeps the whole thing in L1: chunking is a partition of independent channels, so
+        # 32 and 64 give identical numbers.
+        chunk_w = _trimul_chunk_size(H, self._hidden)
+        use_fused = _TRIMUL_FUSED and trimul_fused.applicable(
+            H, _TRIMUL_FUSED_CHUNK, memory_config, _dtype(), _FAST_MODE
+        ) and self._hidden % _TRIMUL_FUSED_CHUNK == 0
+        if use_fused:
+            chunk_w = _TRIMUL_FUSED_CHUNK
+        gp_in_chunks = self._gp_in_chunks(chunk_w)
         n_pairs = len(gp_in_chunks)
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
@@ -1019,9 +1033,6 @@ class TriangleMultiplication(Module):
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
         x_chunks = [] if large_seq else None
-        use_fused = _TRIMUL_FUSED and trimul_fused.applicable(
-            H, _trimul_chunk_size(H, self._hidden), memory_config, _dtype(), _FAST_MODE
-        )
         for i in range(n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
                 x_norm_in,
@@ -1034,7 +1045,7 @@ class TriangleMultiplication(Module):
                 # One kernel for the 4-way chunk, both gates, the mask and both channel
                 # moves. Bit-exact with the branch below (torch.equal, per-operand).
                 a_chunk, b_chunk = trimul_fused.fused_inputs(
-                    gp_in_fused, mask, self.ending
+                    gp_in_fused, mask, self.ending, out_in_l1=True
                 )
                 ttnn.deallocate(gp_in_fused)
             else:

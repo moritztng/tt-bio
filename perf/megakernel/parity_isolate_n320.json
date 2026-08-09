@@ -1,0 +1,17 @@
+{
+  "n": 320,
+  "rows": [
+    {
+      "arm": "ttnn chain, width 64 (production)",
+      "note": "reference"
+    },
+    {
+      "arm": "ttnn chain, width 32",
+      "note": "exact=True maxdiff=0.000e+00 mean|d|=0.000e+00"
+    },
+    {
+      "arm": "fused kernel, width 32",
+      "note": "exact=False maxdiff=6.862e+01 mean|d|=3.227e+00"
+    }
+  ]
+}
