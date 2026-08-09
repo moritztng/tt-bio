@@ -18,6 +18,8 @@
 #   MPS_NS="8 4 2"  concurrency values for the MPS sweep (8 first: the disputed headline)
 #   DISTINCT_LEG=1  also run MPS N=8 with 8 DIFFERENT targets (the same-input control)
 #   TARGETS300=1    also run the 298-aa target (plain N=1 + MPS N=4,8) if budget allows
+#   CCD_CACHE=path  tarball of /root/common (prebuilt protenix chemical-component cache);
+#                   without it the 298-aa leg spends ~55 min building it on a fresh instance
 #   SAMPLES_LEG=1   also sweep diffusion samples 2 and 4 at N=1 (see the state doc)
 #   SKIP_SETUP=1    reuse an already-provisioned instance
 #   RESULTS/RUNROOT/PY  overrides, used to smoke-test the driver off the rental
@@ -75,6 +77,40 @@ fi
 # Warm the JIT extension cache once in the launcher (~2 min build) so N workers at a
 # point do not serialize against the same torch-extensions lock on paid time.
 $PY -c "import runner.inference" >/dev/null 2>&1 || true
+
+# Protenix's chemical-component cache: a 490 MB components.cif download followed by an
+# rdkit_mol.pkl build. prot117 never needs it; prot300 does, and it is built lazily inside
+# the first worker that asks for it. That is what killed every 298 aa attempt so far -- run
+# N workers at a 298 aa point and all N race to write the same path, and each of them exits
+# rc=1 (root-caused 2026-08-09 on instance 47229750; the earlier failures reported rc=1 at
+# ~68 s with no reason, because worker log tails were not being captured yet).
+#
+# The pickle build is the expensive part: measured at ~1.65%/min, so ~55 minutes on a fresh
+# instance, which is far more than the 298 aa measurement itself costs. So: unpack a
+# prebuilt cache if one was shipped, otherwise build it in ONE process before any point
+# runs. Set CCD_CACHE to a tarball of /root/common to skip the build entirely.
+CCD_PKL=${CCD_PKL:-/root/common/components.cif.rdkit_mol.pkl}
+if [ "$TARGETS300" = "1" ] && [ ! -s "$CCD_PKL" ]; then
+  if [ -n "${CCD_CACHE:-}" ] && [ -s "${CCD_CACHE}" ]; then
+    echo "== unpacking prebuilt CCD cache from $CCD_CACHE ==" | tee -a "$RESULTS/conc.log"
+    mkdir -p /root/common && tar xzf "$CCD_CACHE" -C / 2>&1 | tail -2 | tee -a "$RESULTS/conc.log"
+  fi
+  if [ ! -s "$CCD_PKL" ]; then
+    echo "== building the CCD cache in one process, expect ~55 min at $(el)s ==" \
+      | tee -a "$RESULTS/conc.log"
+    $PY gpu_concurrency.py --model "$MODEL" --n 1 --folds 1 --mode plain \
+        --checkpoint "$CKPT" --name prot300 --label "CCD cache warm" \
+        --msa-a3m "$(pwd)/fixtures/prot300.a3m" --seq-file "$(pwd)/fixtures/prot300.seq" \
+        --run-dir "$RUNROOT/run-ccd-warm" --out "$RESULTS/ccd_warm.json" \
+        > "$RESULTS/ccd_warm.log" 2>&1
+    echo "== CCD cache warm done at $(el)s, pkl $( [ -s "$CCD_PKL" ] && echo present || echo MISSING) ==" \
+      | tee -a "$RESULTS/conc.log"
+    # Hand it back so the next rental can skip the build: tar it up next to the results.
+    tar czf "$RESULTS/ccd_cache.tgz" /root/common 2>/dev/null && \
+      echo "== CCD cache tarred to $RESULTS/ccd_cache.tgz, pull it and pass as CCD_CACHE ==" \
+        | tee -a "$RESULTS/conc.log"
+  fi
+fi
 
 point(){    # point <mode> <n> <target> [samples]
   local mode=$1 n=$2 tgt=$3 s=${4:-1} label tag
