@@ -4,9 +4,11 @@ Locks three things the perfwar D3 leg had to measure the hard way:
 
   1. the chooser fires at the real 298 aa diffusion shapes, in both models and both dtypes -- a
      config that silently declines is a silent 1.7 s/fold regression;
-  2. it never returns per_core_M=1 against a multi-tile M. That is not a tuning preference: on
-     live operands it returns wrong results (up to 26.9 absolute on the DiT attention), and it
-     does not reproduce on tensors built in isolation, so only this assertion catches it;
+  2. it never emits a config where a core takes more than one output block while M is split
+     within a batch element. That is not a tuning preference: both dataflow kernels advance by a
+     whole batch stride once per BLOCK, so such a config returns wrong results (up to 26.9
+     absolute on the DiT attention). It does not reproduce on tensors built in isolation, so only
+     this assertion catches it;
   3. every config it does return is bit-exact against the plain ttnn.matmul it replaces.
 
 Run: TT_VISIBLE_DEVICES=<card> python3 tests/test_batched_matmul_hw.py
@@ -46,13 +48,16 @@ def test_batched_matmul_config():
             b = ttnn.from_torch(torch.randn(sb), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev,
                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
             m_tiles = -(-sa[-2] // 32)
-            cfg = T._batched_reuse_config(sa[0] * sa[1], m_tiles, -(-sa[-1] // 32),
+            cfg = T._batched_matmul_config(sa[0] * sa[1], m_tiles, -(-sa[-1] // 32),
                                           -(-sb[-1] // 32), 4 if dt == F32 else 2)
             assert (cfg is not None) == want, f"{sa}x{sb} {dt}: expected applied={want}"
             if cfg is not None:
-                assert not (cfg.per_core_M == 1 and m_tiles > 1), (
-                    f"{sa}x{sb}: per_core_M=1 against Mt={m_tiles} returns wrong results on live "
-                    f"operands")
+                gx, gy = T.COMPUTE_GRID_MAIN
+                blocks = sa[0] * sa[1] * m_tiles // cfg.per_core_M
+                assert cfg.per_core_M == m_tiles or blocks <= gx * gy, (
+                    f"{sa}x{sb}: per_core_M={cfg.per_core_M} splits Mt={m_tiles} and puts "
+                    f"{blocks} blocks on {gx * gy} cores, so a core takes more than one block "
+                    f"and the kernels stride by a whole batch per block -- wrong results")
                 ref = ttnn.to_torch(ttnn.matmul(a, b, compute_kernel_config=ckc))
                 got = ttnn.to_torch(T.batched_matmul(a, b, compute_kernel_config=ckc))
                 assert torch.equal(ref, got), f"{sa}x{sb} {dt}: not bit-exact"

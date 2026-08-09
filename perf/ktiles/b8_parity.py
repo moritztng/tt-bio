@@ -45,7 +45,7 @@ def main(out_path):
                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ref = ttnn.to_torch(ttnn.matmul(a, b, compute_kernel_config=ckc))
         base = timeit(lambda: ttnn.deallocate(ttnn.matmul(a, b, compute_kernel_config=ckc)), dev)
-        chosen = T._batched_reuse_config(B, 19, 19, 2, 2)
+        chosen = T._batched_matmul_config(B, 19, 19, 2, 2)
         print(f"\nB={B}  default {base:.4f} ms   chooser picks "
               f"{'None' if chosen is None else f'per_core_M={chosen.per_core_M} bw={chosen.in0_block_w}'}",
               flush=True)

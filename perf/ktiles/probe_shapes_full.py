@@ -33,7 +33,7 @@ def main():
         pb = tuple(int(d) for d in y.padded_shape) if hasattr(y, "padded_shape") else sb
         cfg = None
         if len(sa) == 4 and len(sb) == 4 and x.dtype == y.dtype:
-            cfg = T._batched_reuse_config(sa[0] * sa[1], -(-sa[2] // 32), -(-sa[3] // 32),
+            cfg = T._batched_matmul_config(sa[0] * sa[1], -(-sa[2] // 32), -(-sa[3] // 32),
                                           -(-sb[3] // 32), 4 if x.dtype == T.ttnn.float32 else 2)
         seen[(sa, sb, pa, pb, str(x.dtype), f"{Path(f.f_code.co_filename).name}:{f.f_lineno}",
               cfg is not None, None if cfg is None else cfg.per_core_M)] += 1

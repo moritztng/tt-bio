@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Which (batch, Mt, Kt, Nt) keys does batched_matmul actually see in a real 298 aa fold, and
-which of them does _batched_reuse_config take? The op-isolated A/B used shapes lifted from the
+which of them does _batched_matmul_config take? The op-isolated A/B used shapes lifted from the
 qb2 diffusion ledger; this checks they are the shapes the fold really runs."""
 import argparse, json, sys
 from collections import Counter
@@ -21,14 +21,14 @@ def main():
     import tt_bio.protenix as P
 
     seen = Counter()
-    orig = T._batched_reuse_config
+    orig = T._batched_matmul_config
 
     def spy(batch, mt, kt, nt, eb):
         cfg = orig(batch, mt, kt, nt, eb)
         seen[(batch, mt, kt, nt, eb, cfg is not None)] += 1
         return cfg
 
-    T._batched_reuse_config = spy
+    T._batched_matmul_config = spy
     # batched_matmul closes over the module global, so rebinding the name is enough.
     import tt_baseline as B
     msa_dir = Path(tempfile.mkdtemp(prefix="ktiles-probe-"))

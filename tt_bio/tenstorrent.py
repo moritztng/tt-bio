@@ -377,7 +377,7 @@ _TILE_READ_PER_TILE_MAC = 0.05
 
 
 @lru_cache(maxsize=None)
-def _batched_reuse_config(
+def _batched_matmul_config(
     batch: int, m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int
 ) -> ttnn.MatmulMultiCoreReuseProgramConfig | None:
     """Program config that spreads a both-sides-batched matmul's batch over the grid, or None.
@@ -412,12 +412,21 @@ def _batched_reuse_config(
     tile, acc_tile = 1024 * elem_bytes, 4096
     best = ()
     for p in range(1, m_tiles + 1):
-        if m_tiles % p or (p == 1 and m_tiles > 1):
-            # per_core_M=1 against a multi-tile M returns wrong results in a live fold: measured
-            # on the DiT attention at 298 and 580 tokens, 4.7-11.9% of elements differ by up to
-            # 26.9 absolute, while per_core_M in {2, 5, 19} on the same call is torch.equal. It
-            # does not reproduce on tensors built in isolation, so it depends on device state the
-            # op-level harness does not recreate. Until it is understood, do not emit it.
+        # This factory returns WRONG RESULTS, not just slow ones, whenever a core gets more than
+        # one output block and M is split within a batch element. Both dataflow kernels name their
+        # per-core loop counter `batch` but the factory passes the per-core BLOCK count into it
+        # (matmul_multicore_reuse_optimized_program_factory.cpp:508-547), and each iteration then
+        # advances by a whole batch stride: `in0_tensor_start_tile_id += MtKt`
+        # (reader_bmm_tile_layout_in0.cpp:115), `in1_tensor_start_tile_id += KtNt` and
+        # `out_tensor_start_tile_id += MtNt` (reader_writer_bmm_tile_layout_in1.cpp). That is only
+        # the right stride when one block IS one batch element. Two legal escapes:
+        #   p == m_tiles              -- one block per batch element, so the stride is correct;
+        #   blocks <= cores           -- every core gets one block, so it never increments.
+        # Confirmed by measurement before it was read out of the source: p=1 against m_tiles=10
+        # (160 blocks / 130 cores) and m_tiles=19 (304 blocks) corrupted 4.7-11.9% of elements by
+        # up to 26.9 absolute in a live fold, while p in {2, 5, 19} on the same call -- all of
+        # which land one block per core -- is torch.equal.
+        if m_tiles % p or (p != m_tiles and batch * m_tiles // p > cores):
             continue
         # CB footprint, matmul_multicore_reuse_optimized_program_factory.cpp:286-306: in0 and in1
         # are double-buffered one K block at a time, the output and the fp32 accumulator are whole.
@@ -449,12 +458,12 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None) -
     """ttnn.matmul for a batched attention matmul, with the batch spread over the core grid.
 
     Drop-in for `ttnn.matmul(a, b, compute_kernel_config=...)` on batched DRAM-interleaved
-    operands. Falls back to exactly that call whenever _batched_reuse_config declines.
+    operands. Falls back to exactly that call whenever _batched_matmul_config declines.
     """
     sa, sb = a.shape, b.shape
     cfg = None
     if len(sa) == 4 and len(sb) == 4 and a.dtype == b.dtype:
-        cfg = _batched_reuse_config(
+        cfg = _batched_matmul_config(
             sa[0] * sa[1], -(-sa[2] // 32), -(-sa[3] // 32), -(-sb[3] // 32),
             4 if a.dtype == ttnn.float32 else 2)
     return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg)

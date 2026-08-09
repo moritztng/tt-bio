@@ -34,7 +34,7 @@ def main():
         sa, sb = tuple(int(d) for d in x.shape), tuple(int(d) for d in y.shape)
         cfg = None
         if len(sa) == 4 and len(sb) == 4 and x.dtype == y.dtype:
-            cfg = T._batched_reuse_config(sa[0] * sa[1], -(-sa[2] // 32), -(-sa[3] // 32),
+            cfg = T._batched_matmul_config(sa[0] * sa[1], -(-sa[2] // 32), -(-sa[3] // 32),
                                           -(-sb[3] // 32), 4 if x.dtype == ttnn.float32 else 2)
         if cfg is not None and a.force_pcm and (-(-sa[2] // 32)) % a.force_pcm == 0:
             cfg = ttnn.MatmulMultiCoreReuseProgramConfig(

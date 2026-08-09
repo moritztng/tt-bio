@@ -33,8 +33,8 @@ def main():
     if a.arm == "on-no-b8":
         # Bisecting the opendde fold-parity break: decline the one applied class no op-level
         # torch.equal covers, B=8 Mt=19 Kt=19 Nt=2 (4 calls per fold).
-        orig = T._batched_reuse_config
-        T._batched_reuse_config = (
+        orig = T._batched_matmul_config
+        T._batched_matmul_config = (
             lambda b, mt, kt, nt, eb: None if b == 8 else orig(b, mt, kt, nt, eb))
 
     import tt_baseline as B

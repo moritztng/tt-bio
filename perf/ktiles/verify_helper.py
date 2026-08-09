@@ -52,7 +52,7 @@ def main(out_path):
         batch = 1
         for d in sa[:-2]:
             batch *= d
-        cfg = T._batched_reuse_config(batch, sa[-2] // 32, sa[-1] // 32, sb[-1] // 32,
+        cfg = T._batched_matmul_config(batch, sa[-2] // 32, sa[-1] // 32, sb[-1] // 32,
                                       4 if dt == F32 else 2)
         base = timeit(lambda: ttnn.deallocate(ttnn.matmul(a, b, compute_kernel_config=ckc)), dev)
         new = timeit(lambda: ttnn.deallocate(T.batched_matmul(a, b, compute_kernel_config=ckc)), dev)
