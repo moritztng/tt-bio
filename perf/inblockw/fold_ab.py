@@ -33,6 +33,10 @@ def main() -> int:
     ap.add_argument("--a3m", type=Path,
                     default=ROOT / "scripts/gpu_vs_tt/fixtures/prot300.a3m")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--pair-proj-bw", type=int, default=None,
+                    help="override _PAIR_PROJ_BW. Main ships 1 (the bit-exact out_block_h=5 half "
+                         "only); raising it turns on the in0_block_w half at the four pair-track "
+                         "sites perfwar-l1 already landed.")
     a = ap.parse_args()
 
     import ttnn
@@ -43,6 +47,9 @@ def main() -> int:
     # _linear`), so patching T._linear alone leaves its 12 sites tuned in every arm. Both
     # bindings have to be set for an arm to mean what it says.
     import tt_bio.protenix as P
+
+    if a.pair_proj_bw is not None:
+        T._PAIR_PROJ_BW = a.pair_proj_bw
 
     fired = {"n": 0}
 
@@ -90,6 +97,7 @@ def main() -> int:
                n_tokens=cold_m.get("n_tokens"), cif_sha16=sha,
                cif_path=str(a.out.with_suffix(".cif")),
                fired_calls_per_fold=fired["n"] // max(1, a.repeat),
+               pair_proj_bw=T._PAIR_PROJ_BW,
                grid=list(T.COMPUTE_GRID_MAIN))
     a.out.write_text(json.dumps(res, indent=1))
     print(json.dumps(res))
