@@ -1,0 +1,26 @@
+{
+ "model": "protenix-v2",
+ "n": 320,
+ "c_z": 0,
+ "block_wall_s": 0.039614990000700345,
+ "reps": 4,
+ "n_ops": 0,
+ "sum_s": 0,
+ "fatal": null,
+ "step_walls_s": [
+  0.03957747099775588,
+  0.03962120000142022,
+  0.03958540100211394,
+  0.039614990000700345,
+  0.039634159998968244
+ ],
+ "marks": {
+  "cold_fold_s": 39.027,
+  "stage_cold_s": 11.1444,
+  "warm_fold_s": 32.206,
+  "stage_warm_s": 8.2962
+ },
+ "steps_per_fold": 200,
+ "stage_warm_s": 8.2962,
+ "records": []
+}

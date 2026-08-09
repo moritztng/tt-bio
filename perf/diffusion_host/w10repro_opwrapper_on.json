@@ -1,0 +1,26 @@
+{
+ "model": "protenix-v2",
+ "n": 320,
+ "c_z": 0,
+ "block_wall_s": 0.03972298000007868,
+ "reps": 4,
+ "n_ops": 1547,
+ "sum_s": 0.04999868906645588,
+ "fatal": null,
+ "step_walls_s": [
+  0.039705490999040194,
+  0.03972298000007868,
+  0.039749439998558955,
+  0.0397044220007956,
+  0.03981516900239512
+ ],
+ "marks": {
+  "cold_fold_s": 38.772,
+  "stage_cold_s": 10.9975,
+  "warm_fold_s": 34.177,
+  "stage_warm_s": 10.2287
+ },
+ "steps_per_fold": 200,
+ "stage_warm_s": 10.2287,
+ "records": "stripped: 1547 op records; this arm is about the stage wall, not the ops"
+}
