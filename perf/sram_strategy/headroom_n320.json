@@ -1,0 +1,34 @@
+{
+  "n": 320,
+  "c_z": 256,
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "l1_per_core_B": 1532416,
+  "aggregate_L1_MB": 168.56576,
+  "pair_tensor_MB": 52.4288,
+  "headroom": {
+    "block": {
+      "headroom_MB": 18.59375,
+      "per_core_KB": 169.0340909090909
+    },
+    "trimul_start": {
+      "headroom_MB": 18.59375,
+      "per_core_KB": 169.0340909090909
+    },
+    "tri_att_start": {
+      "headroom_MB": 44.84375,
+      "per_core_KB": 407.6704545454545
+    },
+    "transition_z": {
+      "headroom_MB": 31.71875,
+      "per_core_KB": 288.3522727272727
+    },
+    "attention_pair_bias": {
+      "headroom_MB": 135.625,
+      "per_core_KB": 1232.9545454545455
+    }
+  }
+}

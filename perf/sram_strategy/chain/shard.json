@@ -1,0 +1,12 @@
+{
+  "arm": "shard",
+  "n": 320,
+  "grid_main": [
+    11,
+    10
+  ],
+  "c_z": 256,
+  "h_chunk": 32,
+  "mode": "shard",
+  "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/layernorm/device/layernorm_device_operation.cpp:152: a.memory_config().memory_layout() != TensorMemoryLayout::HEIGHT_SHARDED info: Height sharded inputs are not supported. backtrace: --- /home/ttuser/tt-bio/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x70004e95d668] --- ttnn::prim::LayerNormDeviceOperation::vali"
+}

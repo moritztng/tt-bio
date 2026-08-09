@@ -1,0 +1,12 @@
+{
+  "arm": "shardm",
+  "n": 320,
+  "grid_main": [
+    11,
+    10
+  ],
+  "c_z": 256,
+  "h_chunk": 32,
+  "mode": "shardm",
+  "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:643: program_config.out_block_w == per_core_N || program_config.out_block_h == 1 info: Error: out_block_w must be equal to per_core_N or out_block_h must be equal to 1. backtrace: --- /home/ttuser/tt-bio/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7191e575d668] --- /home/ttuser/tt-b"
+}

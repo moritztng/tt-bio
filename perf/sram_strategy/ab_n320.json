@@ -1,0 +1,40 @@
+{
+  "n": 320,
+  "c_z": 256,
+  "grid": [
+    11,
+    10
+  ],
+  "variants": {
+    "base": {
+      "median_ms": 45.29669199996533,
+      "min_ms": 45.193029999836654,
+      "ms": [
+        45.46417599999586,
+        45.281454000132726,
+        45.29669199996533,
+        45.193029999836654,
+        45.39537699997709,
+        45.37727299998551,
+        45.19473300001664
+      ],
+      "bit_exact": "ref",
+      "speedup_vs_base": 1.0
+    },
+    "chunk64": {
+      "error": "FAIL RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "chunk128": {
+      "error": "FAIL RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "l1norm": {
+      "error": "FAIL RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "oneconcat": {
+      "error": "FAIL RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "best": {
+      "error": "FAIL RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    }
+  }
+}

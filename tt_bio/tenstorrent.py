@@ -67,6 +67,12 @@ _DIFFUSION_FP32_DEVICE = False
 _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
+# W7 (perf/sram_strategy) placement gates. All three change WHERE bytes live, never the
+# arithmetic or its order, so every variant must be bit-exact against the default.
+# Set from perf/sram_strategy/sram_ab.py; production leaves them at the defaults.
+_TRIMUL_CHUNK_OVERRIDE = 0      # >0: force the hidden-channel chunk width
+_TRIMUL_L1_NORM = False         # keep the trimul's normalised pair tensor in L1
+_TRIMUL_ONE_CONCAT = False      # one concat of all channel chunks instead of a running one
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -170,6 +176,8 @@ def _trimul_chunk_size(seq_len: int, hidden: int) -> int:
     same op-count saving comes with a larger live footprint, and the large targets that
     run there are the ones already sitting on the DRAM ceiling.
     """
+    if _TRIMUL_CHUNK_OVERRIDE:
+        return _TRIMUL_CHUNK_OVERRIDE
     if seq_len > _trimul_l1_max_seq():
         return TRIANGLE_MULT_CHUNK_SIZE
     gx, gy = COMPUTE_GRID_MAIN
@@ -988,6 +996,7 @@ class TriangleMultiplication(Module):
             bias=self.in_norm_bias,
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
+            memory_config=(ttnn.L1_MEMORY_CONFIG if _TRIMUL_L1_NORM else None),
         )
         H = x_norm_in.shape[1]
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
@@ -1012,7 +1021,7 @@ class TriangleMultiplication(Module):
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
-        x_chunks = [] if large_seq else None
+        x_chunks = [] if (large_seq or _TRIMUL_ONE_CONCAT) else None
         for i in range(n_pairs):
             gp_in_fused = ttnn.experimental.minimal_matmul(
                 x_norm_in,

@@ -1,0 +1,12 @@
+{
+  "arm": "shardm",
+  "n": 320,
+  "grid_main": [
+    11,
+    10
+  ],
+  "c_z": 256,
+  "h_chunk": 32,
+  "mode": "shardm",
+  "error": "RuntimeError: Invalid sharding core_grid"
+}

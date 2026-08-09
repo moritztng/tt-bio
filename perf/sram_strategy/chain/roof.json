@@ -1,0 +1,13 @@
+{
+  "arm": "roof",
+  "n": 320,
+  "grid_main": [
+    11,
+    10
+  ],
+  "dense_4096_TFLOPs": 113.78919494638794,
+  "fc1_linear_TFLOPs": 73.25560441775696,
+  "fc1_minmm_TFLOPs": 54.76061835984003,
+  "fc3_linear_TFLOPs": 80.62535143095337,
+  "fc3_minmm_TFLOPs": 45.044607568440455
+}

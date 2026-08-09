@@ -1,0 +1,12 @@
+{
+  "arm": "l1",
+  "n": 320,
+  "grid_main": [
+    11,
+    10
+  ],
+  "c_z": 256,
+  "h_chunk": 32,
+  "mode": "l1",
+  "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 9 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 843776 and static circular buffer region ends at 844288 backtrace: --- /home/ttuser/tt-bio/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x754005ad3f55] --"
+}
