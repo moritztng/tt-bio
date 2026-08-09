@@ -1,0 +1,83 @@
+{
+  "n": 320,
+  "c_z": 256,
+  "rows": [
+    {
+      "part": "C=64 clone (copy roof, no reorder)",
+      "ms": 0.0511,
+      "moved_mb": 26.21,
+      "eff_gbs": 501.1,
+      "note": ""
+    },
+    {
+      "part": "C=64 permute(0,3,1,2)  [production]",
+      "ms": 0.2069,
+      "moved_mb": 26.21,
+      "eff_gbs": 123.8,
+      "note": ""
+    },
+    {
+      "part": "C=64 reshape+transpose2D+reshape",
+      "ms": 0.8551,
+      "moved_mb": 26.21,
+      "eff_gbs": 29.9,
+      "note": "exact=True"
+    },
+    {
+      "part": "C=64 transpose(-2,-1)+permute(0,2,1,3)",
+      "ms": 0.1757,
+      "moved_mb": 26.21,
+      "eff_gbs": 145.7,
+      "note": "exact=True"
+    },
+    {
+      "part": "C=256 clone (copy roof, no reorder)",
+      "ms": 0.106,
+      "moved_mb": 104.86,
+      "eff_gbs": 965.7,
+      "note": ""
+    },
+    {
+      "part": "C=256 permute(0,3,1,2)  [production]",
+      "ms": 0.6749,
+      "moved_mb": 104.86,
+      "eff_gbs": 151.7,
+      "note": ""
+    },
+    {
+      "part": "C=256 reshape+transpose2D+reshape",
+      "ms": 3.1724,
+      "moved_mb": 104.86,
+      "eff_gbs": 32.3,
+      "note": "exact=True"
+    },
+    {
+      "part": "C=256 transpose(-2,-1)+permute(0,2,1,3)",
+      "ms": 0.5897,
+      "moved_mb": 104.86,
+      "eff_gbs": 173.7,
+      "note": "exact=True"
+    },
+    {
+      "part": "proj: minimal_matmul x1 chunk (C=64)",
+      "ms": 0.2872,
+      "moved_mb": null,
+      "eff_gbs": null,
+      "note": ""
+    },
+    {
+      "part": "proj: transpose x_norm -> [c_z, H*H]",
+      "ms": 0.3575,
+      "moved_mb": 104.86,
+      "eff_gbs": 286.5,
+      "note": ""
+    },
+    {
+      "part": "proj: matmul [4h,c_z]x[c_z,H*H] (all channels)",
+      "ms": 1.5737,
+      "moved_mb": null,
+      "eff_gbs": null,
+      "note": ""
+    }
+  ]
+}
