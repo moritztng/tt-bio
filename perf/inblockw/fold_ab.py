@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="protenix-v2")
-    ap.add_argument("--arm", choices=["on", "off"], required=True)
+    ap.add_argument("--arm", choices=["off"], default="off")
     ap.add_argument("--scope", choices=["both", "trunk"], default="both",
                     help="both = tenstorrent.pys 51 sites + protenix.pys 12; trunk = the 51 "
                          "only, which is what pass 2 measured. The difference isolates the 12.")
@@ -53,27 +53,12 @@ def main() -> int:
 
     fired = {"n": 0}
 
-    def plain(x, w, **kw):
-        return ttnn.linear(x, w, **kw)
-
-    tuned = T._linear
-
-    def counting(x, w, **kw):
-        if T._tuned_config_for(x, w) is not None:
-            fired["n"] += 1
-        return tuned(x, w, **kw)
-
-    mods = [m for m in (T, P) if hasattr(m, "_linear")]
-    if a.arm == "off":
-        for m in mods:
-            m._linear = plain
-    elif a.scope == "trunk":
-        T._linear = counting
-        if hasattr(P, "_linear"):
-            P._linear = plain
-    else:
-        for m in mods:
-            m._linear = counting
+    # The 51-site `_linear` wrapper this harness used to switch is gone: it measured 0.978x on
+    # qb1 and was dropped (commit bbd2722d has it, if the arm is ever wanted again). What is
+    # left to sweep is `_PAIR_PROJ_BW`, handled above, so `--arm off` is now the only arm and
+    # names the untouched code path.
+    assert not hasattr(T, "_linear") and not hasattr(P, "_linear"), \
+        "the _linear wrapper is back; this harness no longer switches it"
 
     one_fold, meta, _state = B.build_fold(a.model, ROOT / f".msa_ab", a.target, a.a3m)
     cold_s, cold_m = one_fold()
