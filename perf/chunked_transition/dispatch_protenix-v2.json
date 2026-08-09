@@ -1,0 +1,38 @@
+{
+ "on": [
+  {
+   "fold_s": 4.329,
+   "module_s": 0.334,
+   "issue_s": 0.036,
+   "linear_calls": 2202,
+   "module_calls": 137,
+   "plddt": 0.393266
+  },
+  {
+   "fold_s": 4.385,
+   "module_s": 0.338,
+   "issue_s": 0.035,
+   "linear_calls": 2202,
+   "module_calls": 137,
+   "plddt": 0.393266
+  }
+ ],
+ "off": [
+  {
+   "fold_s": 4.397,
+   "module_s": 0.412,
+   "issue_s": 0.091,
+   "linear_calls": 2202,
+   "module_calls": 137,
+   "plddt": 0.39198
+  },
+  {
+   "fold_s": 4.436,
+   "module_s": 0.352,
+   "issue_s": 0.022,
+   "linear_calls": 2202,
+   "module_calls": 137,
+   "plddt": 0.39198
+  }
+ ]
+}
