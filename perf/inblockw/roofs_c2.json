@@ -1,0 +1,97 @@
+{
+  "device": {
+    "compute_grid": "11x10",
+    "core_grid_main": "11x10",
+    "ttnn": "?"
+  },
+  "compute_roof": {
+    "runs": {
+      "2048_op_ckc_oDRAM": {
+        "ms": 0.212,
+        "tflops": 81.03
+      },
+      "2048_op_ckc_oL1": {
+        "ms": 0.2483,
+        "tflops": 69.2
+      },
+      "2048_plain_ckc_oDRAM": {
+        "ms": 0.2588,
+        "tflops": 66.39
+      },
+      "2048_plain_ckc_oL1": {
+        "ms": 1.1565,
+        "tflops": 14.86
+      },
+      "4096_op_ckc_oDRAM": {
+        "ms": 1.3608,
+        "tflops": 101.0
+      },
+      "4096_op_ckc_oL1": {
+        "ms": 23.159,
+        "tflops": 5.93
+      },
+      "4096_plain_ckc_oDRAM": {
+        "ms": 1.8118,
+        "tflops": 75.86
+      },
+      "4096_plain_ckc_oL1": {
+        "ms": 2.4902,
+        "tflops": 55.19
+      },
+      "6144_op_ckc_oDRAM": {
+        "ms": 5.1421,
+        "tflops": 90.21
+      },
+      "6144_op_ckc_oL1": {
+        "ms": 85.4496,
+        "tflops": 5.43
+      },
+      "6144_plain_ckc_oDRAM": {
+        "ms": 6.5566,
+        "tflops": 70.75
+      },
+      "6144_plain_ckc_oL1": {
+        "ms": 85.1846,
+        "tflops": 5.45
+      }
+    },
+    "peak_TFLOPs": 101.0
+  },
+  "dram_roofs": {
+    "runs": [
+      {
+        "MB": 8.0,
+        "read_GBs": 283.5,
+        "write_GBs": 218.2,
+        "dram2dram_rw_GBs": 325.0
+      },
+      {
+        "MB": 16.0,
+        "read_GBs": 316.5,
+        "write_GBs": 232.3,
+        "dram2dram_rw_GBs": 337.8
+      },
+      {
+        "MB": 32.0,
+        "read_GBs": 376.7,
+        "write_GBs": 257.6,
+        "dram2dram_rw_GBs": 384.6
+      },
+      {
+        "MB": 48.0,
+        "read_GBs": 385.6,
+        "write_GBs": 261.8,
+        "dram2dram_rw_GBs": 392.8
+      },
+      {
+        "MB": 64.0,
+        "read_GBs": 390.8,
+        "write_GBs": 264.0,
+        "dram2dram_rw_GBs": 394.3
+      }
+    ],
+    "read_peak_GBs": 390.8,
+    "write_peak_GBs": 264.0
+  },
+  "machine_balance_FLOP_per_byte_read": 258.4
+}

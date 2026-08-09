@@ -1,0 +1,3107 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "l1": 1532416,
+ "shapes": [
+  {
+   "label": "pair proj c_z 102400x128@128x128",
+   "mt": 3200,
+   "kt": 4,
+   "nt": 4,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.2987749994645128,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.21111700152687263,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.22670900034427177,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob30x4",
+     "ms": 0.2119389992003562,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob15x4",
+     "ms": 0.22515599994221702,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob10x4",
+     "ms": 0.21414399998320732,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob6x4",
+     "ms": 0.22450399956142064,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob30x2",
+     "ms": 0.3297580005892087,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob15x2",
+     "ms": 0.3132740002911305,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob10x2",
+     "ms": 0.29510700005630497,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob6x2",
+     "ms": 0.3048269991268171,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob30x1",
+     "ms": 0.519370998517843,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob15x1",
+     "ms": 0.5132980004418641,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob10x1",
+     "ms": 0.4861130000790581,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw4 ob6x1",
+     "ms": 0.5022360001021298,
+     "rmsd": 0.00032774481223896146
+    },
+    {
+     "name": "1D bw2 ob30x4",
+     "ms": 0.21252000078675337,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob15x4",
+     "ms": 0.2351359999011038,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob10x4",
+     "ms": 0.225195999519201,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob6x4",
+     "ms": 0.238922999415081,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob30x2",
+     "ms": 0.3323920009279391,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob15x2",
+     "ms": 0.32032800118031446,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob10x2",
+     "ms": 0.3025719997822307,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob6x2",
+     "ms": 0.30892500035406556,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob30x1",
+     "ms": 0.5288499996822793,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob15x1",
+     "ms": 0.5266960015433142,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob10x1",
+     "ms": 0.4969450001226505,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw2 ob6x1",
+     "ms": 0.49349899927619845,
+     "rmsd": 0.00032910623122006655
+    },
+    {
+     "name": "1D bw1 ob30x4",
+     "ms": 0.2998370000568684,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob15x4",
+     "ms": 0.2713390003918903,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob10x4",
+     "ms": 0.2516790009394754,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob6x4",
+     "ms": 0.25654899945948273,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob30x2",
+     "ms": 0.3987359996244777,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob15x2",
+     "ms": 0.3716809987963643,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob10x2",
+     "ms": 0.3354880009283079,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob6x2",
+     "ms": 0.3466709986241767,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob30x1",
+     "ms": 0.6099930014897836,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob15x1",
+     "ms": 0.6337209997582249,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob10x1",
+     "ms": 0.5639099999825703,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "1D bw1 ob6x1",
+     "ms": 0.58161599918094,
+     "rmsd": 0.0003298994852229953
+    },
+    {
+     "name": "2D bw4",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw2",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw1",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 4,
+    "out_block_h": 15,
+    "out_block_w": 4,
+    "per_core_M": 30,
+    "per_core_N": 4,
+    "sub": [
+     3,
+     1
+    ]
+   },
+   "base_ms": 0.2987749994645128,
+   "best_name": "no core_grid",
+   "best_ms": 0.21111700152687263,
+   "helper_ms": 0.22670900034427177,
+   "helper_vs_base": 1.3178788623777808,
+   "helper_vs_best": 1.0738547758097752,
+   "rmsd_base": 0.0003298994852229953,
+   "rmsd_helper": 0.00032774481223896146
+  },
+  {
+   "label": "pair trans up 102400x128@128x512",
+   "mt": 3200,
+   "kt": 4,
+   "nt": 16,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.7771510008751648,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.7403769996017218,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.6936919999134261,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob30x16",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw4 ob15x16",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw4 ob10x16",
+     "ms": 0.6901249998918502,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob6x16",
+     "ms": 0.7245150009111967,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw4 ob15x8",
+     "ms": 0.7317389990930678,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob10x8",
+     "ms": 0.7204670000646729,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob6x8",
+     "ms": 0.766389001000789,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob30x4",
+     "ms": 1.2893559996882686,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob15x4",
+     "ms": 1.2995670003874693,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob10x4",
+     "ms": 1.2836940004490316,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw4 ob6x4",
+     "ms": 1.313273998675868,
+     "rmsd": 0.00032636671676300466
+    },
+    {
+     "name": "1D bw2 ob30x16",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw2 ob15x16",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw2 ob10x16",
+     "ms": 0.7278610009961994,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw2 ob6x16",
+     "ms": 0.773482001022785,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw2 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw2 ob15x8",
+     "ms": 0.7782020002196077,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw2 ob10x8",
+     "ms": 0.7620599990332266,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw2 ob6x8",
+     "ms": 0.8184030011761934,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw2 ob30x4",
+     "ms": 1.3358480009628693,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw2 ob15x4",
+     "ms": 1.358393999908003,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw2 ob10x4",
+     "ms": 1.3391140000749147,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw2 ob6x4",
+     "ms": 1.3950880002084887,
+     "rmsd": 0.0003278717922512442
+    },
+    {
+     "name": "1D bw1 ob30x16",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw1 ob15x16",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw1 ob10x16",
+     "ms": 0.7773399993311614,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "1D bw1 ob6x16",
+     "ms": 0.8113480016618269,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "1D bw1 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw1 ob15x8",
+     "ms": 0.8437740016233874,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "1D bw1 ob10x8",
+     "ms": 0.8194349993573269,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "1D bw1 ob6x8",
+     "ms": 0.870637000843999,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "1D bw1 ob30x4",
+     "ms": 1.450497999030631,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "1D bw1 ob15x4",
+     "ms": 1.4263100001699058,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "1D bw1 ob10x4",
+     "ms": 1.3842949992977083,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "1D bw1 ob6x4",
+     "ms": 1.4442760002566501,
+     "rmsd": 0.0003285300626885146
+    },
+    {
+     "name": "2D bw4",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw2",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw1",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 4,
+    "out_block_h": 5,
+    "out_block_w": 16,
+    "per_core_M": 30,
+    "per_core_N": 16,
+    "sub": [
+     1,
+     4
+    ]
+   },
+   "base_ms": 0.7771510008751648,
+   "best_name": "1D bw4 ob10x16",
+   "best_ms": 0.6901249998918502,
+   "helper_ms": 0.6936919999134261,
+   "helper_vs_base": 1.120311321122565,
+   "helper_vs_best": 1.005168628903655,
+   "rmsd_base": 0.0003285300626885146,
+   "rmsd_helper": 0.00032636671676300466
+  },
+  {
+   "label": "pair trans down 102400x512@512x128",
+   "mt": 3200,
+   "kt": 16,
+   "nt": 4,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 1.028437000059057,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.7991740003490122,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.532674999703886,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob30x4",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw16 ob15x4",
+     "ms": 0.5628760009130929,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob10x4",
+     "ms": 0.5353910000849282,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob6x4",
+     "ms": 0.532444999407744,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob30x2",
+     "ms": 1.011050000670366,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob15x2",
+     "ms": 0.9821519997785799,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob10x2",
+     "ms": 0.9636249997129198,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob6x2",
+     "ms": 0.9371109990752302,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob30x1",
+     "ms": 1.8610150000313297,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob15x1",
+     "ms": 1.8377380001766142,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob10x1",
+     "ms": 1.8157340000470867,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw16 ob6x1",
+     "ms": 1.792066999769304,
+     "rmsd": 0.0006553447456099093
+    },
+    {
+     "name": "1D bw8 ob30x4",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw8 ob15x4",
+     "ms": 0.5943800006207312,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob10x4",
+     "ms": 0.5205809993640287,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob6x4",
+     "ms": 0.5051490006735548,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob30x2",
+     "ms": 0.995628999589826,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob15x2",
+     "ms": 0.9527120000711875,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob10x2",
+     "ms": 0.9381030013173586,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob6x2",
+     "ms": 0.9130109992838698,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob30x1",
+     "ms": 1.8232779984828085,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob15x1",
+     "ms": 1.779809999788995,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob10x1",
+     "ms": 1.7680170003586682,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw8 ob6x1",
+     "ms": 1.737594999212888,
+     "rmsd": 0.000658373290207237
+    },
+    {
+     "name": "1D bw4 ob30x4",
+     "ms": 0.7015249993855832,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob15x4",
+     "ms": 0.5864329996256856,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob10x4",
+     "ms": 0.6111629991210066,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob6x4",
+     "ms": 0.597725000261562,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob30x2",
+     "ms": 1.2150509992352454,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob15x2",
+     "ms": 1.205931999720633,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob10x2",
+     "ms": 1.1306900014460552,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob6x2",
+     "ms": 1.0830139999598032,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob30x1",
+     "ms": 2.4275050000142073,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob15x1",
+     "ms": 2.3610719999851426,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob10x1",
+     "ms": 2.3390660007862607,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw4 ob6x1",
+     "ms": 2.2435030004999135,
+     "rmsd": 0.0006596973398700356
+    },
+    {
+     "name": "1D bw2 ob30x4",
+     "ms": 0.7866169999033445,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob15x4",
+     "ms": 0.7502720000047702,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob10x4",
+     "ms": 0.7117850000213366,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob6x4",
+     "ms": 0.6576159994438058,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob30x2",
+     "ms": 1.4134989996819058,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob15x2",
+     "ms": 1.3396399990597274,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob10x2",
+     "ms": 1.2719850001303712,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob6x2",
+     "ms": 1.1487760002637515,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob30x1",
+     "ms": 2.774472999590216,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob15x1",
+     "ms": 2.6397510009701364,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob10x1",
+     "ms": 2.4618830011604587,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw2 ob6x1",
+     "ms": 2.154942998458864,
+     "rmsd": 0.000660435005556792
+    },
+    {
+     "name": "1D bw1 ob30x4",
+     "ms": 1.0243750002700835,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob15x4",
+     "ms": 0.8974089996627299,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob10x4",
+     "ms": 0.8349029994860757,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob6x4",
+     "ms": 0.8261250004579779,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob30x2",
+     "ms": 1.663281998844468,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob15x2",
+     "ms": 1.5330090009229025,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob10x2",
+     "ms": 1.4550519990734756,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob6x2",
+     "ms": 1.430612001058762,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob30x1",
+     "ms": 3.0785529997956473,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob15x1",
+     "ms": 2.8725780011882307,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob10x1",
+     "ms": 2.737205000812537,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "1D bw1 ob6x1",
+     "ms": 2.7301810005155858,
+     "rmsd": 0.0006609265692532063
+    },
+    {
+     "name": "2D bw16",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw4",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw2",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw1",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 16,
+    "out_block_h": 6,
+    "out_block_w": 4,
+    "per_core_M": 30,
+    "per_core_N": 4,
+    "sub": [
+     3,
+     1
+    ]
+   },
+   "base_ms": 1.028437000059057,
+   "best_name": "1D bw8 ob6x4",
+   "best_ms": 0.5051490006735548,
+   "helper_ms": 0.532674999703886,
+   "helper_vs_base": 1.9307025871887458,
+   "helper_vs_best": 1.0544908512015831,
+   "rmsd_base": 0.0006609265692532063,
+   "rmsd_helper": 0.0006553447456099093
+  },
+  {
+   "label": "trimul in 102400x128@128x256",
+   "mt": 3200,
+   "kt": 4,
+   "nt": 8,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.4381830003694631,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.37429400072142016,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.3761080006370321,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw4 ob15x8",
+     "ms": 0.38695900002494454,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob10x8",
+     "ms": 0.37040600000182167,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob6x8",
+     "ms": 0.4048060000059195,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob30x4",
+     "ms": 0.6674950000160607,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob15x4",
+     "ms": 0.6704009992972715,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob10x4",
+     "ms": 0.653888000670122,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob6x4",
+     "ms": 0.6738080010109115,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob30x2",
+     "ms": 0.8280479996756185,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob15x2",
+     "ms": 0.8409639995079488,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob10x2",
+     "ms": 0.8287990003736923,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw4 ob6x2",
+     "ms": 0.8661339998070616,
+     "rmsd": 0.00032537561492063105
+    },
+    {
+     "name": "1D bw2 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw2 ob15x8",
+     "ms": 0.3982420003012521,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob10x8",
+     "ms": 0.39206899964483455,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob6x8",
+     "ms": 0.4213090014673071,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob30x4",
+     "ms": 0.6840169990027789,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob15x4",
+     "ms": 0.691371998982504,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob10x4",
+     "ms": 0.6843979990662774,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob6x4",
+     "ms": 0.7102500003384193,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob30x2",
+     "ms": 0.8422859991696896,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob15x2",
+     "ms": 0.8598210006312001,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob10x2",
+     "ms": 0.845643000502605,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw2 ob6x2",
+     "ms": 0.8814339998934884,
+     "rmsd": 0.0003267891879659146
+    },
+    {
+     "name": "1D bw1 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw1 ob15x8",
+     "ms": 0.4585429996950552,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob10x8",
+     "ms": 0.43227999958617147,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob6x8",
+     "ms": 0.4547059998003533,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob30x4",
+     "ms": 0.7806819994584657,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob15x4",
+     "ms": 0.7502400003431831,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob10x4",
+     "ms": 0.722904998838203,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob6x4",
+     "ms": 0.7464919999620179,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob30x2",
+     "ms": 0.9697410005173879,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob15x2",
+     "ms": 0.9345599992229836,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob10x2",
+     "ms": 0.8962129995779833,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "1D bw1 ob6x2",
+     "ms": 0.9435089996259194,
+     "rmsd": 0.0003277449868619442
+    },
+    {
+     "name": "2D bw4",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw2",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw1",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 4,
+    "out_block_h": 10,
+    "out_block_w": 8,
+    "per_core_M": 30,
+    "per_core_N": 8,
+    "sub": [
+     2,
+     2
+    ]
+   },
+   "base_ms": 0.4381830003694631,
+   "best_name": "1D bw4 ob10x8",
+   "best_ms": 0.37040600000182167,
+   "helper_ms": 0.3761080006370321,
+   "helper_vs_base": 1.165045677378018,
+   "helper_vs_best": 1.0153939208198095,
+   "rmsd_base": 0.0003277449868619442,
+   "rmsd_helper": 0.00032537561492063105
+  },
+  {
+   "label": "trimul out 102400x256@256x256",
+   "mt": 3200,
+   "kt": 8,
+   "nt": 8,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.6788760001654737,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.5386640004871879,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.4443639991222881,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw8 ob15x8",
+     "ms": 0.43313099922670517,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob10x8",
+     "ms": 0.4243340008542873,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob6x8",
+     "ms": 0.44433299990487285,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob30x4",
+     "ms": 0.7750690001557814,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob15x4",
+     "ms": 0.7388470003206749,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob10x4",
+     "ms": 0.7135160012694541,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob6x4",
+     "ms": 0.7319119995372603,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob30x2",
+     "ms": 1.11231800110545,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob15x2",
+     "ms": 1.053890000548563,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob10x2",
+     "ms": 1.0203220008406788,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw8 ob6x2",
+     "ms": 1.06816900006379,
+     "rmsd": 0.00046311505138874054
+    },
+    {
+     "name": "1D bw4 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw4 ob15x8",
+     "ms": 0.4973899995093234,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob10x8",
+     "ms": 0.47512600031041075,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob6x8",
+     "ms": 0.4841840000153752,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob30x4",
+     "ms": 0.880190000316361,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob15x4",
+     "ms": 0.8011909994820599,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob10x4",
+     "ms": 0.7690959992032731,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob6x4",
+     "ms": 0.7792060005158419,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob30x2",
+     "ms": 1.2223880003148224,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob15x2",
+     "ms": 1.1250919997110032,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob10x2",
+     "ms": 1.1091899996245047,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw4 ob6x2",
+     "ms": 1.1305530006211484,
+     "rmsd": 0.0004650036571547389
+    },
+    {
+     "name": "1D bw2 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw2 ob15x8",
+     "ms": 0.5639139999402687,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob10x8",
+     "ms": 0.5132220012455946,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob6x8",
+     "ms": 0.5394540003180737,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob30x4",
+     "ms": 0.9720339985506143,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob15x4",
+     "ms": 0.8987870005512377,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob10x4",
+     "ms": 0.8522539992554812,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob6x4",
+     "ms": 0.889588000063668,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob30x2",
+     "ms": 1.4315470016299514,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob15x2",
+     "ms": 1.3707149992114864,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob10x2",
+     "ms": 1.3779889995930716,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw2 ob6x2",
+     "ms": 1.3133299999026349,
+     "rmsd": 0.00046594568993896246
+    },
+    {
+     "name": "1D bw1 ob30x8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw1 ob15x8",
+     "ms": 0.700518001394812,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob10x8",
+     "ms": 0.6576409996341681,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob6x8",
+     "ms": 0.6924319986865157,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob30x4",
+     "ms": 1.2800330005120486,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob15x4",
+     "ms": 1.2129370006732643,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob10x4",
+     "ms": 1.1235269994358532,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob6x4",
+     "ms": 1.1280260005150922,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob30x2",
+     "ms": 1.921691999086761,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob15x2",
+     "ms": 1.7945750005310401,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob10x2",
+     "ms": 1.7233130001841346,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "1D bw1 ob6x2",
+     "ms": 1.6767190008977195,
+     "rmsd": 0.0004663750878535211
+    },
+    {
+     "name": "2D bw8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw4",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw2",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw1",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 8,
+    "out_block_h": 6,
+    "out_block_w": 8,
+    "per_core_M": 30,
+    "per_core_N": 8,
+    "sub": [
+     3,
+     1
+    ]
+   },
+   "base_ms": 0.6788760001654737,
+   "best_name": "1D bw8 ob10x8",
+   "best_ms": 0.4243340008542873,
+   "helper_ms": 0.4443639991222881,
+   "helper_vs_base": 1.527747525691541,
+   "helper_vs_best": 1.0472033780646273,
+   "rmsd_base": 0.0004663750878535211,
+   "rmsd_helper": 0.00046311505138874054
+  },
+  {
+   "label": "pair->bias nt1 102400x128@128x32",
+   "mt": 3200,
+   "kt": 4,
+   "nt": 1,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.17290700088778976,
+     "rmsd": 0.0003269029257353395
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.14029199883225374,
+     "rmsd": 0.0003261842648498714
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.13960999967821408,
+     "rmsd": 0.0003245577390771359
+    },
+    {
+     "name": "1D bw4 ob30x1",
+     "ms": 0.13860800027032383,
+     "rmsd": 0.0003245577390771359
+    },
+    {
+     "name": "1D bw4 ob15x1",
+     "ms": 0.15272699965862557,
+     "rmsd": 0.0003245577390771359
+    },
+    {
+     "name": "1D bw4 ob10x1",
+     "ms": 0.13968100029160269,
+     "rmsd": 0.0003245577390771359
+    },
+    {
+     "name": "1D bw4 ob6x1",
+     "ms": 0.13604299965663813,
+     "rmsd": 0.0003245577390771359
+    },
+    {
+     "name": "1D bw2 ob30x1",
+     "ms": 0.13654400027007796,
+     "rmsd": 0.0003261842648498714
+    },
+    {
+     "name": "1D bw2 ob15x1",
+     "ms": 0.1575759997649584,
+     "rmsd": 0.0003261842648498714
+    },
+    {
+     "name": "1D bw2 ob10x1",
+     "ms": 0.14177500088408124,
+     "rmsd": 0.0003261842648498714
+    },
+    {
+     "name": "1D bw2 ob6x1",
+     "ms": 0.13961000149720348,
+     "rmsd": 0.0003261842648498714
+    },
+    {
+     "name": "1D bw1 ob30x1",
+     "ms": 0.17304800167039502,
+     "rmsd": 0.0003269029257353395
+    },
+    {
+     "name": "1D bw1 ob15x1",
+     "ms": 0.1695809987722896,
+     "rmsd": 0.0003269029257353395
+    },
+    {
+     "name": "1D bw1 ob10x1",
+     "ms": 0.15327800065279007,
+     "rmsd": 0.0003269029257353395
+    },
+    {
+     "name": "1D bw1 ob6x1",
+     "ms": 0.15532199904555455,
+     "rmsd": 0.0003269029257353395
+    },
+    {
+     "name": "2D bw4",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw2",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw1",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 4,
+    "out_block_h": 30,
+    "out_block_w": 1,
+    "per_core_M": 30,
+    "per_core_N": 1,
+    "sub": [
+     3,
+     1
+    ]
+   },
+   "base_ms": 0.17290700088778976,
+   "best_name": "1D bw4 ob6x1",
+   "best_ms": 0.13604299965663813,
+   "helper_ms": 0.13960999967821408,
+   "helper_vs_base": 1.238500116655839,
+   "helper_vs_best": 1.0262196513644861,
+   "rmsd_base": 0.0003269029257353395,
+   "rmsd_helper": 0.0003245577390771359
+  },
+  {
+   "label": "117 pair trimul 16384x256@256x256",
+   "mt": 512,
+   "kt": 8,
+   "nt": 8,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.14954099970054813,
+     "rmsd": 0.0004663508152589202
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.11846699999296106,
+     "rmsd": 0.000465739838546142
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.09261599916499108,
+     "rmsd": 0.00046281170216389
+    },
+    {
+     "name": "1D bw8 ob5x8",
+     "ms": 0.09841700011747889,
+     "rmsd": 0.00046281170216389
+    },
+    {
+     "name": "1D bw8 ob1x8",
+     "ms": 0.11749599980248604,
+     "rmsd": 0.00046281170216389
+    },
+    {
+     "name": "1D bw8 ob5x4",
+     "ms": 0.15156399967963807,
+     "rmsd": 0.00046281170216389
+    },
+    {
+     "name": "1D bw8 ob1x4",
+     "ms": 0.1745509998727357,
+     "rmsd": 0.00046281170216389
+    },
+    {
+     "name": "1D bw8 ob5x2",
+     "ms": 0.19695499941008165,
+     "rmsd": 0.00046281170216389
+    },
+    {
+     "name": "1D bw8 ob1x2",
+     "ms": 0.23222599884320516,
+     "rmsd": 0.00046281170216389
+    },
+    {
+     "name": "1D bw4 ob5x8",
+     "ms": 0.09559200043440796,
+     "rmsd": 0.00046460205339826643
+    },
+    {
+     "name": "1D bw4 ob1x8",
+     "ms": 0.11674500092340168,
+     "rmsd": 0.00046460205339826643
+    },
+    {
+     "name": "1D bw4 ob5x4",
+     "ms": 0.16320800023095217,
+     "rmsd": 0.00046460205339826643
+    },
+    {
+     "name": "1D bw4 ob1x4",
+     "ms": 0.18008199913310818,
+     "rmsd": 0.00046460205339826643
+    },
+    {
+     "name": "1D bw4 ob5x2",
+     "ms": 0.22232599985727575,
+     "rmsd": 0.00046460205339826643
+    },
+    {
+     "name": "1D bw4 ob1x2",
+     "ms": 0.23923000117065385,
+     "rmsd": 0.00046460205339826643
+    },
+    {
+     "name": "1D bw2 ob5x8",
+     "ms": 0.11950999942200724,
+     "rmsd": 0.000465739838546142
+    },
+    {
+     "name": "1D bw2 ob1x8",
+     "ms": 0.13081200086162426,
+     "rmsd": 0.000465739838546142
+    },
+    {
+     "name": "1D bw2 ob5x4",
+     "ms": 0.1811339989217231,
+     "rmsd": 0.000465739838546142
+    },
+    {
+     "name": "1D bw2 ob1x4",
+     "ms": 0.1991500012081815,
+     "rmsd": 0.000465739838546142
+    },
+    {
+     "name": "1D bw2 ob5x2",
+     "ms": 0.24445000053674448,
+     "rmsd": 0.000465739838546142
+    },
+    {
+     "name": "1D bw2 ob1x2",
+     "ms": 0.27798799965239596,
+     "rmsd": 0.000465739838546142
+    },
+    {
+     "name": "1D bw1 ob5x8",
+     "ms": 0.14946000010240823,
+     "rmsd": 0.0004663508152589202
+    },
+    {
+     "name": "1D bw1 ob1x8",
+     "ms": 0.15352899936260656,
+     "rmsd": 0.0004663508152589202
+    },
+    {
+     "name": "1D bw1 ob5x4",
+     "ms": 0.2295499998581363,
+     "rmsd": 0.0004663508152589202
+    },
+    {
+     "name": "1D bw1 ob1x4",
+     "ms": 0.2567849987826776,
+     "rmsd": 0.0004663508152589202
+    },
+    {
+     "name": "1D bw1 ob5x2",
+     "ms": 0.3105529995082179,
+     "rmsd": 0.0004663508152589202
+    },
+    {
+     "name": "1D bw1 ob1x2",
+     "ms": 0.37663599869119935,
+     "rmsd": 0.0004663508152589202
+    },
+    {
+     "name": "2D bw8",
+     "ms": 0.10652399942046031,
+     "rmsd": 0.00046281170216389
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.12554199929581955,
+     "rmsd": 0.00046460205339826643
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.11474999882921111,
+     "rmsd": 0.000465739838546142
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.13344800026970915,
+     "rmsd": 0.0004663508152589202
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 8,
+    "out_block_h": 5,
+    "out_block_w": 8,
+    "per_core_M": 5,
+    "per_core_N": 8,
+    "sub": [
+     1,
+     4
+    ]
+   },
+   "base_ms": 0.14954099970054813,
+   "best_name": "HELPER",
+   "best_ms": 0.09261599916499108,
+   "helper_ms": 0.09261599916499108,
+   "helper_vs_base": 1.6146346316919586,
+   "helper_vs_best": 1.0,
+   "rmsd_base": 0.0004663508152589202,
+   "rmsd_helper": 0.00046281170216389
+  },
+  {
+   "label": "117 pair trans down 16384x512@512x128",
+   "mt": 512,
+   "kt": 16,
+   "nt": 4,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.18941100097435992,
+     "rmsd": 0.0006592926220037043
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.13684400073543657,
+     "rmsd": 0.0006588809192180634
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.11062200064770877,
+     "rmsd": 0.0006543034687638283
+    },
+    {
+     "name": "1D bw16 ob5x4",
+     "ms": 0.11495100079628173,
+     "rmsd": 0.0006543034687638283
+    },
+    {
+     "name": "1D bw16 ob1x4",
+     "ms": 0.10277599903929513,
+     "rmsd": 0.0006543034687638283
+    },
+    {
+     "name": "1D bw16 ob5x2",
+     "ms": 0.1772559990058653,
+     "rmsd": 0.0006543034687638283
+    },
+    {
+     "name": "1D bw16 ob1x2",
+     "ms": 0.17184499847644474,
+     "rmsd": 0.0006543034687638283
+    },
+    {
+     "name": "1D bw16 ob5x1",
+     "ms": 0.3115250001428649,
+     "rmsd": 0.0006543034687638283
+    },
+    {
+     "name": "1D bw16 ob1x1",
+     "ms": 0.3062640007556183,
+     "rmsd": 0.0006543034687638283
+    },
+    {
+     "name": "1D bw8 ob5x4",
+     "ms": 0.10448000102769583,
+     "rmsd": 0.0006568658864125609
+    },
+    {
+     "name": "1D bw8 ob1x4",
+     "ms": 0.10343699977966025,
+     "rmsd": 0.0006568658864125609
+    },
+    {
+     "name": "1D bw8 ob5x2",
+     "ms": 0.18249599997943733,
+     "rmsd": 0.0006568658864125609
+    },
+    {
+     "name": "1D bw8 ob1x2",
+     "ms": 0.1676560004852945,
+     "rmsd": 0.0006568658864125609
+    },
+    {
+     "name": "1D bw8 ob5x1",
+     "ms": 0.3112940012215404,
+     "rmsd": 0.0006568658864125609
+    },
+    {
+     "name": "1D bw8 ob1x1",
+     "ms": 0.300863999655121,
+     "rmsd": 0.0006568658864125609
+    },
+    {
+     "name": "1D bw4 ob5x4",
+     "ms": 0.13680499978363514,
+     "rmsd": 0.0006584288785234094
+    },
+    {
+     "name": "1D bw4 ob1x4",
+     "ms": 0.12232499830133747,
+     "rmsd": 0.0006584288785234094
+    },
+    {
+     "name": "1D bw4 ob5x2",
+     "ms": 0.20941000002494548,
+     "rmsd": 0.0006584288785234094
+    },
+    {
+     "name": "1D bw4 ob1x2",
+     "ms": 0.20071200015081558,
+     "rmsd": 0.0006584288785234094
+    },
+    {
+     "name": "1D bw4 ob5x1",
+     "ms": 0.3787700006796513,
+     "rmsd": 0.0006584288785234094
+    },
+    {
+     "name": "1D bw4 ob1x1",
+     "ms": 0.36845000067842193,
+     "rmsd": 0.0006584288785234094
+    },
+    {
+     "name": "1D bw2 ob5x4",
+     "ms": 0.13336700067156926,
+     "rmsd": 0.0006588809192180634
+    },
+    {
+     "name": "1D bw2 ob1x4",
+     "ms": 0.13851800031261519,
+     "rmsd": 0.0006588809192180634
+    },
+    {
+     "name": "1D bw2 ob5x2",
+     "ms": 0.21027199909440242,
+     "rmsd": 0.0006588809192180634
+    },
+    {
+     "name": "1D bw2 ob1x2",
+     "ms": 0.21696499970857985,
+     "rmsd": 0.0006588809192180634
+    },
+    {
+     "name": "1D bw2 ob5x1",
+     "ms": 0.3711240005941363,
+     "rmsd": 0.0006588809192180634
+    },
+    {
+     "name": "1D bw2 ob1x1",
+     "ms": 0.3839700002572499,
+     "rmsd": 0.0006588809192180634
+    },
+    {
+     "name": "1D bw1 ob5x4",
+     "ms": 0.18987099974765442,
+     "rmsd": 0.0006592926220037043
+    },
+    {
+     "name": "1D bw1 ob1x4",
+     "ms": 0.1799909987312276,
+     "rmsd": 0.0006592926220037043
+    },
+    {
+     "name": "1D bw1 ob5x2",
+     "ms": 0.29285800155776087,
+     "rmsd": 0.0006592926220037043
+    },
+    {
+     "name": "1D bw1 ob1x2",
+     "ms": 0.30777800020587165,
+     "rmsd": 0.0006592926220037043
+    },
+    {
+     "name": "1D bw1 ob5x1",
+     "ms": 0.5067160000180593,
+     "rmsd": 0.0006592926220037043
+    },
+    {
+     "name": "1D bw1 ob1x1",
+     "ms": 0.5459750009322306,
+     "rmsd": 0.0006592926220037043
+    },
+    {
+     "name": "2D bw16",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw8",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.16386800052714534,
+     "rmsd": 0.0006584288785234094
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.14126299902272876,
+     "rmsd": 0.0006588809192180634
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.16809699991426896,
+     "rmsd": 0.0006592926220037043
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 16,
+    "out_block_h": 5,
+    "out_block_w": 4,
+    "per_core_M": 5,
+    "per_core_N": 4,
+    "sub": [
+     1,
+     4
+    ]
+   },
+   "base_ms": 0.18941100097435992,
+   "best_name": "1D bw16 ob1x4",
+   "best_ms": 0.10277599903929513,
+   "helper_ms": 0.11062200064770877,
+   "helper_vs_base": 1.7122362628168852,
+   "helper_vs_best": 1.0763407963119271,
+   "rmsd_base": 0.0006592926220037043,
+   "rmsd_helper": 0.0006543034687638283
+  },
+  {
+   "label": "atom proj 4480x128@128x128",
+   "mt": 140,
+   "kt": 4,
+   "nt": 4,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.036223000279278494,
+     "rmsd": 0.00032444566022604704
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.03650299913715571,
+     "rmsd": 0.00032416239264421165
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.03573199865058996,
+     "rmsd": 0.0003222923551220447
+    },
+    {
+     "name": "1D bw4 ob2x4",
+     "ms": 0.037525000152527355,
+     "rmsd": 0.0003222923551220447
+    },
+    {
+     "name": "1D bw4 ob1x4",
+     "ms": 0.04005000118922908,
+     "rmsd": 0.0003222923551220447
+    },
+    {
+     "name": "1D bw4 ob2x2",
+     "ms": 0.04086199987796135,
+     "rmsd": 0.0003222923551220447
+    },
+    {
+     "name": "1D bw4 ob1x2",
+     "ms": 0.048367000999860466,
+     "rmsd": 0.0003222923551220447
+    },
+    {
+     "name": "1D bw4 ob2x1",
+     "ms": 0.04988000000594184,
+     "rmsd": 0.0003222923551220447
+    },
+    {
+     "name": "1D bw4 ob1x1",
+     "ms": 0.06398900040949229,
+     "rmsd": 0.0003222923551220447
+    },
+    {
+     "name": "1D bw2 ob2x4",
+     "ms": 0.0341180002578767,
+     "rmsd": 0.00032416239264421165
+    },
+    {
+     "name": "1D bw2 ob1x4",
+     "ms": 0.04131300011067651,
+     "rmsd": 0.00032416239264421165
+    },
+    {
+     "name": "1D bw2 ob2x2",
+     "ms": 0.039419001041096635,
+     "rmsd": 0.00032416239264421165
+    },
+    {
+     "name": "1D bw2 ob1x2",
+     "ms": 0.04804600030183792,
+     "rmsd": 0.00032416239264421165
+    },
+    {
+     "name": "1D bw2 ob2x1",
+     "ms": 0.04761499985761475,
+     "rmsd": 0.00032416239264421165
+    },
+    {
+     "name": "1D bw2 ob1x1",
+     "ms": 0.06852800106571522,
+     "rmsd": 0.00032416239264421165
+    },
+    {
+     "name": "1D bw1 ob2x4",
+     "ms": 0.03846700019494165,
+     "rmsd": 0.00032444566022604704
+    },
+    {
+     "name": "1D bw1 ob1x4",
+     "ms": 0.046843999371048994,
+     "rmsd": 0.00032444566022604704
+    },
+    {
+     "name": "1D bw1 ob2x2",
+     "ms": 0.046213001041905954,
+     "rmsd": 0.00032444566022604704
+    },
+    {
+     "name": "1D bw1 ob1x2",
+     "ms": 0.060091000705142505,
+     "rmsd": 0.00032444566022604704
+    },
+    {
+     "name": "1D bw1 ob2x1",
+     "ms": 0.055851998695288785,
+     "rmsd": 0.00032444566022604704
+    },
+    {
+     "name": "1D bw1 ob1x1",
+     "ms": 0.0842989993543597,
+     "rmsd": 0.00032444566022604704
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.035751998439081945,
+     "rmsd": 0.0003222923551220447
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.03377800021553412,
+     "rmsd": 0.00032416239264421165
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.03917799949704204,
+     "rmsd": 0.00032444566022604704
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 4,
+    "out_block_h": 2,
+    "out_block_w": 4,
+    "per_core_M": 2,
+    "per_core_N": 4,
+    "sub": [
+     2,
+     2
+    ]
+   },
+   "base_ms": 0.036223000279278494,
+   "best_name": "2D bw2",
+   "best_ms": 0.03377800021553412,
+   "helper_ms": 0.03573199865058996,
+   "helper_vs_base": 1.0137412304721563,
+   "helper_vs_best": 1.0578482569301784,
+   "rmsd_base": 0.00032444566022604704,
+   "rmsd_helper": 0.0003222923551220447
+  },
+  {
+   "label": "atom trans up 4480x128@128x512",
+   "mt": 140,
+   "kt": 4,
+   "nt": 16,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.051312999858055264,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.056252998547279276,
+     "rmsd": 0.0003295309143140912
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.05910900108574424,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "1D bw4 ob2x16",
+     "ms": 0.06140299956314266,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "1D bw4 ob1x16",
+     "ms": 0.0638980000076117,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "1D bw4 ob2x8",
+     "ms": 0.06539099922520109,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "1D bw4 ob1x8",
+     "ms": 0.07264499981829431,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "1D bw4 ob2x4",
+     "ms": 0.09164400034933351,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "1D bw4 ob1x4",
+     "ms": 0.09899799988488667,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "1D bw2 ob2x16",
+     "ms": 0.06337699960567988,
+     "rmsd": 0.0003289026499260217
+    },
+    {
+     "name": "1D bw2 ob1x16",
+     "ms": 0.06379799924616236,
+     "rmsd": 0.0003289026499260217
+    },
+    {
+     "name": "1D bw2 ob2x8",
+     "ms": 0.06752499939466361,
+     "rmsd": 0.0003289026499260217
+    },
+    {
+     "name": "1D bw2 ob1x8",
+     "ms": 0.07150300007197075,
+     "rmsd": 0.0003289026499260217
+    },
+    {
+     "name": "1D bw2 ob2x4",
+     "ms": 0.08967900066636503,
+     "rmsd": 0.0003289026499260217
+    },
+    {
+     "name": "1D bw2 ob1x4",
+     "ms": 0.10787599967443384,
+     "rmsd": 0.0003289026499260217
+    },
+    {
+     "name": "1D bw1 ob2x16",
+     "ms": 0.06061200110707432,
+     "rmsd": 0.0003295309143140912
+    },
+    {
+     "name": "1D bw1 ob1x16",
+     "ms": 0.07236500096041709,
+     "rmsd": 0.0003295309143140912
+    },
+    {
+     "name": "1D bw1 ob2x8",
+     "ms": 0.06737500007147901,
+     "rmsd": 0.0003295309143140912
+    },
+    {
+     "name": "1D bw1 ob1x8",
+     "ms": 0.08401899867749307,
+     "rmsd": 0.0003295309143140912
+    },
+    {
+     "name": "1D bw1 ob2x4",
+     "ms": 0.10200500037171878,
+     "rmsd": 0.0003295309143140912
+    },
+    {
+     "name": "1D bw1 ob1x4",
+     "ms": 0.1257919993804535,
+     "rmsd": 0.0003295309143140912
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.05385799886425957,
+     "rmsd": 0.0003276708594057709
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.05268600034469273,
+     "rmsd": 0.0003289026499260217
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.05183400025998708,
+     "rmsd": 0.0003295309143140912
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast1D",
+    "in0_block_w": 4,
+    "out_block_h": 2,
+    "out_block_w": 16,
+    "per_core_M": 2,
+    "per_core_N": 16,
+    "sub": [
+     2,
+     2
+    ]
+   },
+   "base_ms": 0.051312999858055264,
+   "best_name": "BASE core_grid",
+   "best_ms": 0.051312999858055264,
+   "helper_ms": 0.05910900108574424,
+   "helper_vs_base": 0.8681080531816127,
+   "helper_vs_best": 1.1519303344036538,
+   "rmsd_base": 0.0003276708594057709,
+   "rmsd_helper": 0.0003276708594057709
+  },
+  {
+   "label": "117 atom proj 1792x128@128x128",
+   "mt": 56,
+   "kt": 4,
+   "nt": 4,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.0281470001937123,
+     "rmsd": 0.00033055804669857025
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.02717400093388278,
+     "rmsd": 0.0003299639211036265
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.0299299990729196,
+     "rmsd": 0.0003285265702288598
+    },
+    {
+     "name": "1D bw4 ob1x4",
+     "ms": 0.026884001272264868,
+     "rmsd": 0.0003285265702288598
+    },
+    {
+     "name": "1D bw4 ob1x2",
+     "ms": 0.03020000076503493,
+     "rmsd": 0.0003285265702288598
+    },
+    {
+     "name": "1D bw4 ob1x1",
+     "ms": 0.03407800068089273,
+     "rmsd": 0.0003285265702288598
+    },
+    {
+     "name": "1D bw2 ob1x4",
+     "ms": 0.030249999326770194,
+     "rmsd": 0.0003299639211036265
+    },
+    {
+     "name": "1D bw2 ob1x2",
+     "ms": 0.027055000828113407,
+     "rmsd": 0.0003299639211036265
+    },
+    {
+     "name": "1D bw2 ob1x1",
+     "ms": 0.037465000787051395,
+     "rmsd": 0.0003299639211036265
+    },
+    {
+     "name": "1D bw1 ob1x4",
+     "ms": 0.026232999516651034,
+     "rmsd": 0.00033055804669857025
+    },
+    {
+     "name": "1D bw1 ob1x2",
+     "ms": 0.03550099972926546,
+     "rmsd": 0.00033055804669857025
+    },
+    {
+     "name": "1D bw1 ob1x1",
+     "ms": 0.04162400000495836,
+     "rmsd": 0.00033055804669857025
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.025119999918388203,
+     "rmsd": 0.0003285265702288598
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.027594998755375855,
+     "rmsd": 0.0003299639211036265
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.028918000680278055,
+     "rmsd": 0.00033055804669857025
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast",
+    "in0_block_w": 4,
+    "out_block_h": 6,
+    "out_block_w": 1,
+    "per_core_M": 6,
+    "per_core_N": 1,
+    "sub": [
+     3,
+     1
+    ]
+   },
+   "base_ms": 0.0281470001937123,
+   "best_name": "2D bw4",
+   "best_ms": 0.025119999918388203,
+   "helper_ms": 0.0299299990729196,
+   "helper_vs_base": 0.9404277001525022,
+   "helper_vs_best": 1.1914808586846535,
+   "rmsd_base": 0.00033055804669857025,
+   "rmsd_helper": 0.0003285265702288598
+  },
+  {
+   "label": "single proj 320x768@768x768",
+   "mt": 10,
+   "kt": 24,
+   "nt": 24,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.033186001019203104,
+     "rmsd": 0.0008098951075226068
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.04556099884212017,
+     "rmsd": 0.0008105550659820437
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.032343999919248745,
+     "rmsd": 0.0008076793164946139
+    },
+    {
+     "name": "1D bw24 ob1x24",
+     "ms": 0.07991999882506207,
+     "rmsd": 0.0008035388309508562
+    },
+    {
+     "name": "1D bw24 ob1x12",
+     "ms": 0.07992000064405147,
+     "rmsd": 0.0008035388309508562
+    },
+    {
+     "name": "1D bw24 ob1x8",
+     "ms": 0.08456000068690628,
+     "rmsd": 0.0008035388309508562
+    },
+    {
+     "name": "1D bw12 ob1x24",
+     "ms": 0.06458000098064076,
+     "rmsd": 0.0008076793164946139
+    },
+    {
+     "name": "1D bw12 ob1x12",
+     "ms": 0.07215500045276713,
+     "rmsd": 0.0008076793164946139
+    },
+    {
+     "name": "1D bw12 ob1x8",
+     "ms": 0.07285599895112682,
+     "rmsd": 0.0008076793164946139
+    },
+    {
+     "name": "1D bw8 ob1x24",
+     "ms": 0.06473999928857666,
+     "rmsd": 0.0008089359034784138
+    },
+    {
+     "name": "1D bw8 ob1x12",
+     "ms": 0.06588199903490022,
+     "rmsd": 0.0008089359034784138
+    },
+    {
+     "name": "1D bw8 ob1x8",
+     "ms": 0.07345700032601599,
+     "rmsd": 0.0008089359034784138
+    },
+    {
+     "name": "1D bw6 ob1x24",
+     "ms": 0.059379000958870165,
+     "rmsd": 0.0008094477234408259
+    },
+    {
+     "name": "1D bw6 ob1x12",
+     "ms": 0.06587200005014893,
+     "rmsd": 0.0008094477234408259
+    },
+    {
+     "name": "1D bw6 ob1x8",
+     "ms": 0.06763499914086424,
+     "rmsd": 0.0008094477234408259
+    },
+    {
+     "name": "1D bw4 ob1x24",
+     "ms": 0.061643000663025305,
+     "rmsd": 0.0008098951075226068
+    },
+    {
+     "name": "1D bw4 ob1x12",
+     "ms": 0.06619200030399952,
+     "rmsd": 0.0008098951075226068
+    },
+    {
+     "name": "1D bw4 ob1x8",
+     "ms": 0.07097199886629824,
+     "rmsd": 0.0008098951075226068
+    },
+    {
+     "name": "1D bw3 ob1x24",
+     "ms": 0.0633569998171879,
+     "rmsd": 0.0008103308500722051
+    },
+    {
+     "name": "1D bw3 ob1x12",
+     "ms": 0.071664000643068,
+     "rmsd": 0.0008103308500722051
+    },
+    {
+     "name": "1D bw3 ob1x8",
+     "ms": 0.07697399996686727,
+     "rmsd": 0.0008103308500722051
+    },
+    {
+     "name": "1D bw2 ob1x24",
+     "ms": 0.06433899943658616,
+     "rmsd": 0.0008107194444164634
+    },
+    {
+     "name": "1D bw2 ob1x12",
+     "ms": 0.07203400127764326,
+     "rmsd": 0.0008107194444164634
+    },
+    {
+     "name": "1D bw2 ob1x8",
+     "ms": 0.08216399874072522,
+     "rmsd": 0.0008107194444164634
+    },
+    {
+     "name": "1D bw1 ob1x24",
+     "ms": 0.07138299952202942,
+     "rmsd": 0.0008105550659820437
+    },
+    {
+     "name": "1D bw1 ob1x12",
+     "ms": 0.08798599992587697,
+     "rmsd": 0.0008105550659820437
+    },
+    {
+     "name": "1D bw1 ob1x8",
+     "ms": 0.10145299893338233,
+     "rmsd": 0.0008105550659820437
+    },
+    {
+     "name": "2D bw24",
+     "ms": 0.038938000216148794,
+     "rmsd": 0.0008035388309508562
+    },
+    {
+     "name": "2D bw12",
+     "ms": 0.03041099989786744,
+     "rmsd": 0.0008076793164946139
+    },
+    {
+     "name": "2D bw8",
+     "ms": 0.03439900137891527,
+     "rmsd": 0.0008089359034784138
+    },
+    {
+     "name": "2D bw6",
+     "ms": 0.0331170012941584,
+     "rmsd": 0.0008094477234408259
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.034357999538769946,
+     "rmsd": 0.0008098951075226068
+    },
+    {
+     "name": "2D bw3",
+     "ms": 0.03453899989835918,
+     "rmsd": 0.0008103308500722051
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.037094001527293585,
+     "rmsd": 0.0008107194444164634
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.043015999835915864,
+     "rmsd": 0.0008105550659820437
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast",
+    "in0_block_w": 12,
+    "out_block_h": 1,
+    "out_block_w": 3,
+    "per_core_M": 1,
+    "per_core_N": 3,
+    "sub": [
+     1,
+     3
+    ]
+   },
+   "base_ms": 0.033186001019203104,
+   "best_name": "2D bw12",
+   "best_ms": 0.03041099989786744,
+   "helper_ms": 0.032343999919248745,
+   "helper_vs_base": 1.0260326830959847,
+   "helper_vs_best": 1.0635625276338532,
+   "rmsd_base": 0.0008098951075226068,
+   "rmsd_helper": 0.0008076793164946139
+  },
+  {
+   "label": "single trans up 320x768@768x3072",
+   "mt": 10,
+   "kt": 24,
+   "nt": 96,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.08264499956567306,
+     "rmsd": 0.0008072094642557204
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.06480999945779331,
+     "rmsd": 0.0008070073672570288
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.05390800106397364,
+     "rmsd": 0.0008043369161896408
+    },
+    {
+     "name": "1D bw24 ob1x96",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw24 ob1x48",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw24 ob1x32",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw12 ob1x96",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw12 ob1x48",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw12 ob1x32",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw8 ob1x96",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw8 ob1x48",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw8 ob1x32",
+     "ms": 0.2024750010605203,
+     "rmsd": 0.0008052317425608635
+    },
+    {
+     "name": "1D bw6 ob1x96",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw6 ob1x48",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw6 ob1x32",
+     "ms": 0.19325699940964114,
+     "rmsd": 0.0008060085820034146
+    },
+    {
+     "name": "1D bw4 ob1x96",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw4 ob1x48",
+     "ms": 0.18819599972630385,
+     "rmsd": 0.000806222902610898
+    },
+    {
+     "name": "1D bw4 ob1x32",
+     "ms": 0.2005520000238903,
+     "rmsd": 0.000806222902610898
+    },
+    {
+     "name": "1D bw3 ob1x96",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw3 ob1x48",
+     "ms": 0.18895799985330086,
+     "rmsd": 0.0008067037560977042
+    },
+    {
+     "name": "1D bw3 ob1x32",
+     "ms": 0.1963239992619492,
+     "rmsd": 0.0008067037560977042
+    },
+    {
+     "name": "1D bw2 ob1x96",
+     "ms": 0.18330700004298706,
+     "rmsd": 0.0008070073672570288
+    },
+    {
+     "name": "1D bw2 ob1x48",
+     "ms": 0.19343699932505842,
+     "rmsd": 0.0008070073672570288
+    },
+    {
+     "name": "1D bw2 ob1x32",
+     "ms": 0.20264600061636884,
+     "rmsd": 0.0008070073672570288
+    },
+    {
+     "name": "1D bw1 ob1x96",
+     "ms": 0.19700500160979573,
+     "rmsd": 0.0008072094642557204
+    },
+    {
+     "name": "1D bw1 ob1x48",
+     "ms": 0.2109830002154922,
+     "rmsd": 0.0008072094642557204
+    },
+    {
+     "name": "1D bw1 ob1x32",
+     "ms": 0.22851799985801335,
+     "rmsd": 0.0008072094642557204
+    },
+    {
+     "name": "2D bw24",
+     "ms": 0.05500000042957254,
+     "rmsd": 0.0008009737939573824
+    },
+    {
+     "name": "2D bw12",
+     "ms": 0.05679400055669248,
+     "rmsd": 0.0008043369161896408
+    },
+    {
+     "name": "2D bw8",
+     "ms": 0.05103199873701669,
+     "rmsd": 0.0008052317425608635
+    },
+    {
+     "name": "2D bw6",
+     "ms": 0.05350699939299375,
+     "rmsd": 0.0008060085820034146
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.05029099884268362,
+     "rmsd": 0.000806222902610898
+    },
+    {
+     "name": "2D bw3",
+     "ms": 0.05655300083162729,
+     "rmsd": 0.0008067037560977042
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.052875999244861305,
+     "rmsd": 0.0008070073672570288
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.06022100023983512,
+     "rmsd": 0.0008072094642557204
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast",
+    "in0_block_w": 12,
+    "out_block_h": 1,
+    "out_block_w": 9,
+    "per_core_M": 1,
+    "per_core_N": 9,
+    "sub": [
+     1,
+     3
+    ]
+   },
+   "base_ms": 0.08264499956567306,
+   "best_name": "2D bw4",
+   "best_ms": 0.05029099884268362,
+   "helper_ms": 0.05390800106397364,
+   "helper_vs_base": 1.5330748299792583,
+   "helper_vs_best": 1.0719214631748406,
+   "rmsd_base": 0.0008072094642557204,
+   "rmsd_helper": 0.0008043369161896408
+  },
+  {
+   "label": "single trans down 320x3072@3072x768",
+   "mt": 10,
+   "kt": 96,
+   "nt": 24,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.05926799894950818,
+     "rmsd": 0.0016146632842719555
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.09890799992717803,
+     "rmsd": 0.0016162754036486149
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.05117200089443941,
+     "rmsd": 0.0016124401008710265
+    },
+    {
+     "name": "1D bw32 ob1x24",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw32 ob1x12",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw32 ob1x8",
+     "ms": 0.20212500021443702,
+     "rmsd": 0.0016105032991617918
+    },
+    {
+     "name": "1D bw24 ob1x24",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw24 ob1x12",
+     "ms": 0.1939390003826702,
+     "rmsd": 0.0016120958607643843
+    },
+    {
+     "name": "1D bw24 ob1x8",
+     "ms": 0.1924759999383241,
+     "rmsd": 0.0016120958607643843
+    },
+    {
+     "name": "1D bw16 ob1x24",
+     "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "name": "1D bw16 ob1x12",
+     "ms": 0.1813729995774338,
+     "rmsd": 0.0016124401008710265
+    },
+    {
+     "name": "1D bw16 ob1x8",
+     "ms": 0.18577199989522342,
+     "rmsd": 0.0016124401008710265
+    },
+    {
+     "name": "1D bw12 ob1x24",
+     "ms": 0.17185499928018544,
+     "rmsd": 0.001613431959412992
+    },
+    {
+     "name": "1D bw12 ob1x12",
+     "ms": 0.18158400052925572,
+     "rmsd": 0.001613431959412992
+    },
+    {
+     "name": "1D bw12 ob1x8",
+     "ms": 0.1854920010373462,
+     "rmsd": 0.001613431959412992
+    },
+    {
+     "name": "1D bw8 ob1x24",
+     "ms": 0.16925900126807392,
+     "rmsd": 0.0016137838829308748
+    },
+    {
+     "name": "1D bw8 ob1x12",
+     "ms": 0.17745600052876398,
+     "rmsd": 0.0016137838829308748
+    },
+    {
+     "name": "1D bw8 ob1x8",
+     "ms": 0.18802600061462726,
+     "rmsd": 0.0016137838829308748
+    },
+    {
+     "name": "1D bw6 ob1x24",
+     "ms": 0.16972999947029166,
+     "rmsd": 0.0016134775942191482
+    },
+    {
+     "name": "1D bw6 ob1x12",
+     "ms": 0.18235500101582147,
+     "rmsd": 0.0016134775942191482
+    },
+    {
+     "name": "1D bw6 ob1x8",
+     "ms": 0.1939979993039742,
+     "rmsd": 0.0016134775942191482
+    },
+    {
+     "name": "1D bw4 ob1x24",
+     "ms": 0.17688399930193555,
+     "rmsd": 0.0016146632842719555
+    },
+    {
+     "name": "1D bw4 ob1x12",
+     "ms": 0.1894590004667407,
+     "rmsd": 0.0016146632842719555
+    },
+    {
+     "name": "1D bw4 ob1x8",
+     "ms": 0.2068939993478125,
+     "rmsd": 0.0016146632842719555
+    },
+    {
+     "name": "1D bw3 ob1x24",
+     "ms": 0.17932900118466932,
+     "rmsd": 0.0016145110130310059
+    },
+    {
+     "name": "1D bw3 ob1x12",
+     "ms": 0.20111300000280607,
+     "rmsd": 0.0016145110130310059
+    },
+    {
+     "name": "1D bw3 ob1x8",
+     "ms": 0.22237499979382847,
+     "rmsd": 0.0016145110130310059
+    },
+    {
+     "name": "1D bw2 ob1x24",
+     "ms": 0.1896600006148219,
+     "rmsd": 0.0016138881910592318
+    },
+    {
+     "name": "1D bw2 ob1x12",
+     "ms": 0.21849699987797067,
+     "rmsd": 0.0016138881910592318
+    },
+    {
+     "name": "1D bw2 ob1x8",
+     "ms": 0.2526949992898153,
+     "rmsd": 0.0016138881910592318
+    },
+    {
+     "name": "1D bw1 ob1x24",
+     "ms": 0.22077199901104905,
+     "rmsd": 0.0016162754036486149
+    },
+    {
+     "name": "1D bw1 ob1x12",
+     "ms": 0.2714040001592366,
+     "rmsd": 0.0016162754036486149
+    },
+    {
+     "name": "1D bw1 ob1x8",
+     "ms": 0.3291890006948961,
+     "rmsd": 0.0016162754036486149
+    },
+    {
+     "name": "2D bw32",
+     "ms": 0.05094199877930805,
+     "rmsd": 0.0016105032991617918
+    },
+    {
+     "name": "2D bw24",
+     "ms": 0.0506409996887669,
+     "rmsd": 0.0016120958607643843
+    },
+    {
+     "name": "2D bw16",
+     "ms": 0.05546099964703899,
+     "rmsd": 0.0016124401008710265
+    },
+    {
+     "name": "2D bw12",
+     "ms": 0.05164299909665715,
+     "rmsd": 0.001613431959412992
+    },
+    {
+     "name": "2D bw8",
+     "ms": 0.05628299913951196,
+     "rmsd": 0.0016137838829308748
+    },
+    {
+     "name": "2D bw6",
+     "ms": 0.05345700083125848,
+     "rmsd": 0.0016134775942191482
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.061052000091876835,
+     "rmsd": 0.0016146632842719555
+    },
+    {
+     "name": "2D bw3",
+     "ms": 0.06196400136104785,
+     "rmsd": 0.0016145110130310059
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.07355700108746532,
+     "rmsd": 0.0016138881910592318
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.09565199979988392,
+     "rmsd": 0.0016162754036486149
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast",
+    "in0_block_w": 16,
+    "out_block_h": 1,
+    "out_block_w": 3,
+    "per_core_M": 1,
+    "per_core_N": 3,
+    "sub": [
+     1,
+     3
+    ]
+   },
+   "base_ms": 0.05926799894950818,
+   "best_name": "2D bw24",
+   "best_ms": 0.0506409996887669,
+   "helper_ms": 0.05117200089443941,
+   "helper_vs_base": 1.158211481152939,
+   "helper_vs_best": 1.010485598802077,
+   "rmsd_base": 0.0016146632842719555,
+   "rmsd_helper": 0.0016124401008710265
+  },
+  {
+   "label": "117 single proj 128x768@768x768",
+   "mt": 4,
+   "kt": 24,
+   "nt": 24,
+   "variants": [
+    {
+     "name": "BASE core_grid",
+     "ms": 0.02974900053231977,
+     "rmsd": 0.0008089398615993559
+    },
+    {
+     "name": "no core_grid",
+     "ms": 0.037845999031560495,
+     "rmsd": 0.0008088989416137338
+    },
+    {
+     "name": "HELPER",
+     "ms": 0.03480900159047451,
+     "rmsd": 0.0008057458326220512
+    },
+    {
+     "name": "1D bw24 ob1x24",
+     "ms": 0.07680399903620128,
+     "rmsd": 0.0008022210677154362
+    },
+    {
+     "name": "1D bw24 ob1x12",
+     "ms": 0.07989900041138753,
+     "rmsd": 0.0008022210677154362
+    },
+    {
+     "name": "1D bw24 ob1x8",
+     "ms": 0.07934899986139499,
+     "rmsd": 0.0008022210677154362
+    },
+    {
+     "name": "1D bw12 ob1x24",
+     "ms": 0.06491000021924265,
+     "rmsd": 0.0008057458326220512
+    },
+    {
+     "name": "1D bw12 ob1x12",
+     "ms": 0.06621200009249151,
+     "rmsd": 0.0008057458326220512
+    },
+    {
+     "name": "1D bw12 ob1x8",
+     "ms": 0.07171300057962071,
+     "rmsd": 0.0008057458326220512
+    },
+    {
+     "name": "1D bw8 ob1x24",
+     "ms": 0.0585469988436671,
+     "rmsd": 0.0008069726172834635
+    },
+    {
+     "name": "1D bw8 ob1x12",
+     "ms": 0.06549099998665042,
+     "rmsd": 0.0008069726172834635
+    },
+    {
+     "name": "1D bw8 ob1x8",
+     "ms": 0.06528099947900046,
+     "rmsd": 0.0008069726172834635
+    },
+    {
+     "name": "1D bw6 ob1x24",
+     "ms": 0.05842700011271518,
+     "rmsd": 0.0008081942796707153
+    },
+    {
+     "name": "1D bw6 ob1x12",
+     "ms": 0.06249499892874155,
+     "rmsd": 0.0008081942796707153
+    },
+    {
+     "name": "1D bw6 ob1x8",
+     "ms": 0.06559100074809976,
+     "rmsd": 0.0008081942796707153
+    },
+    {
+     "name": "1D bw4 ob1x24",
+     "ms": 0.05597200106421951,
+     "rmsd": 0.0008089398615993559
+    },
+    {
+     "name": "1D bw4 ob1x12",
+     "ms": 0.06101199869590346,
+     "rmsd": 0.0008089398615993559
+    },
+    {
+     "name": "1D bw4 ob1x8",
+     "ms": 0.06591100100195035,
+     "rmsd": 0.0008089398615993559
+    },
+    {
+     "name": "1D bw3 ob1x24",
+     "ms": 0.05700400106434245,
+     "rmsd": 0.0008087372989393771
+    },
+    {
+     "name": "1D bw3 ob1x12",
+     "ms": 0.06430800021917094,
+     "rmsd": 0.0008087372989393771
+    },
+    {
+     "name": "1D bw3 ob1x8",
+     "ms": 0.06988899986026809,
+     "rmsd": 0.0008087372989393771
+    },
+    {
+     "name": "1D bw2 ob1x24",
+     "ms": 0.057544999435776845,
+     "rmsd": 0.0008088989416137338
+    },
+    {
+     "name": "1D bw2 ob1x12",
+     "ms": 0.06702399878122378,
+     "rmsd": 0.0008088989416137338
+    },
+    {
+     "name": "1D bw2 ob1x8",
+     "ms": 0.0720450007065665,
+     "rmsd": 0.0008088989416137338
+    },
+    {
+     "name": "1D bw1 ob1x24",
+     "ms": 0.06415800089598633,
+     "rmsd": 0.0008095932425931096
+    },
+    {
+     "name": "1D bw1 ob1x12",
+     "ms": 0.07649299914191943,
+     "rmsd": 0.0008095932425931096
+    },
+    {
+     "name": "1D bw1 ob1x8",
+     "ms": 0.09008000051835552,
+     "rmsd": 0.0008095932425931096
+    },
+    {
+     "name": "2D bw24",
+     "ms": 0.029237999115139246,
+     "rmsd": 0.0008022210677154362
+    },
+    {
+     "name": "2D bw12",
+     "ms": 0.029127999368938617,
+     "rmsd": 0.0008057458326220512
+    },
+    {
+     "name": "2D bw8",
+     "ms": 0.029209000786067918,
+     "rmsd": 0.0008069726172834635
+    },
+    {
+     "name": "2D bw6",
+     "ms": 0.030672001230414025,
+     "rmsd": 0.0008081942796707153
+    },
+    {
+     "name": "2D bw4",
+     "ms": 0.030901999707566574,
+     "rmsd": 0.0008089398615993559
+    },
+    {
+     "name": "2D bw3",
+     "ms": 0.02990000029967632,
+     "rmsd": 0.0008087372989393771
+    },
+    {
+     "name": "2D bw2",
+     "ms": 0.0315630004479317,
+     "rmsd": 0.0008088989416137338
+    },
+    {
+     "name": "2D bw1",
+     "ms": 0.03881699922203552,
+     "rmsd": 0.0008095932425931096
+    }
+   ],
+   "helper_cfg": {
+    "kind": "MultiCoreReuseMultiCast",
+    "in0_block_w": 12,
+    "out_block_h": 1,
+    "out_block_w": 3,
+    "per_core_M": 1,
+    "per_core_N": 3,
+    "sub": [
+     1,
+     3
+    ]
+   },
+   "base_ms": 0.02974900053231977,
+   "best_name": "2D bw12",
+   "best_ms": 0.029127999368938617,
+   "helper_ms": 0.03480900159047451,
+   "helper_vs_base": 0.8546352717126076,
+   "helper_vs_best": 1.1950357849703188,
+   "rmsd_base": 0.0008089398615993559,
+   "rmsd_helper": 0.0008057458326220512
+  }
+ ]
+}
