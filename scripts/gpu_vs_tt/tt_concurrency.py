@@ -59,25 +59,39 @@ def _worker(args) -> int:
 
     one_fold, meta, state = tt_baseline.build_fold(
         args.model, msa_dir, Path(args.target), Path(args.msa_a3m),
-        samples=args.samples)
+        samples=args.samples, hoist=args.hoist, instrument=args.instrument)
 
     cold_s, cold_metrics = one_fold()
     assert cold_metrics.get("msa"), "fold ran without an MSA -- cache seeding failed"
 
     released = conc.barrier(run_dir, wid, args.n)
-    folds = []
+    folds, plddts = [], []
     for _ in range(args.folds):
         t0 = time.monotonic()
-        one_fold()
+        _t, m = one_fold()
         folds.append([t0, time.monotonic()])
+        plddts.append(m.get("plddt"))
+
+    # Every timed fold must reproduce the cold fold's pLDDT. Under --hoist the
+    # featurization is done once and reused, so this is what rules out a fold that
+    # mutates the features it was handed: a fold running on emptied features would
+    # still be timed, just fast and wrong. It is a free integrity check on the raw
+    # path too, where each fold re-featurizes from scratch.
+    cold_plddt = cold_metrics.get("plddt")
+    devs = [abs(p - cold_plddt) for p in plddts if p is not None and cold_plddt is not None]
+    plddt_max_dev = round(max(devs), 6) if devs else None
+    assert plddt_max_dev is not None and plddt_max_dev < 1.0, (
+        f"timed folds diverged from the cold fold: pLDDT {cold_plddt} vs {plddts}")
 
     conc.write_worker_result(run_dir, wid, dict(
         worker=wid, card=os.environ.get("TT_VISIBLE_DEVICES"), released=released,
         folds=folds, cold_s=round(cold_s, 3), load_s=meta["load_s"],
         n_msa=meta["n_msa"], plddt=cold_metrics.get("plddt"),
+        plddt_timed=plddts, plddt_max_dev=plddt_max_dev,
         n_tokens=cold_metrics.get("n_tokens"),
         n_residues=cold_metrics.get("n_residues"),
         card_info={k: meta[k] for k in ("card_type", "aiclk_mhz") if k in meta},
+        phase_times=meta.get("phase_times"),
         pid=os.getpid(),
     ))
     state.reset()
@@ -190,6 +204,10 @@ def launcher(args) -> int:
                "--model", args.model, "--samples", str(args.samples),
                "--target", args.target, "--msa-a3m", args.msa_a3m,
                "--cards", args.cards, "--run-dir", str(run_dir)]
+        if args.hoist:
+            cmd.append("--hoist")
+        if args.instrument:
+            cmd.append("--instrument")
         log = open(run_dir / f"w{i}.log", "wb")
         procs.append((i, card, subprocess.Popen(cmd, stdout=log,
                                                 stderr=subprocess.STDOUT, env=env), log))
@@ -216,6 +234,11 @@ def launcher(args) -> int:
         side="tenstorrent", model=args.model, machine=socket.gethostname(),
         cards=cards, n_concurrent=n, folds_per_worker=args.folds,
         diffusion_samples=args.samples, target=args.target,
+        timed_region=("model.fold only (featurization hoisted, CIF write suppressed)"
+                      if args.hoist else
+                      "predict_one (featurize + fold + CIF write)"),
+        phase_times=[r.get("phase_times") for r in results],
+        plddt_max_dev=max([r.get("plddt_max_dev") or 0.0 for r in results] or [0.0]),
         ttnn_version=_ttnn_version(), tt_bio_git=tt_baseline._git_sha(),
         recycling_steps=tt_baseline.RECYCLING_STEPS,
         sampling_steps=tt_baseline.SAMPLING_STEPS, seed=tt_baseline.SEED,
@@ -247,6 +270,12 @@ def main() -> int:
     ap.add_argument("--folds", type=int, default=5, help="timed folds per worker")
     ap.add_argument("--samples", type=int, default=1,
                     help="diffusion samples per fold; >1 is the in-process batching lever")
+    ap.add_argument("--hoist", action="store_true",
+                    help="time model.fold only (featurization hoisted out, CIF write "
+                         "suppressed), matching the GPU harness's timed region")
+    ap.add_argument("--instrument", action="store_true",
+                    help="raw timed region, but record the per-fold featurize/fold/write "
+                         "split in each worker's result")
     ap.add_argument("--target", default=str(REPO_ROOT / "examples" / "prot.yaml"))
     ap.add_argument("--msa-a3m", default=str(HERE / "fixtures" / "prot117.a3m"))
     ap.add_argument("--run-dir", default=None)

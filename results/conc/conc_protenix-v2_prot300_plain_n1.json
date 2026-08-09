@@ -1,0 +1,97 @@
+{
+  "side": "gpu",
+  "mode": "plain",
+  "model": "protenix-v2",
+  "rung": "L2-bf16-fusion-cache",
+  "target": "prot300",
+  "label": "CDK2 / PDB 1HCL (298 aa)",
+  "n_concurrent": 1,
+  "target_of_worker": null,
+  "folds_per_worker": 4,
+  "diffusion_samples": 1,
+  "n_msa": 35,
+  "seed": 0,
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "worker_rcs": {
+    "0": 0
+  },
+  "worker_log_tails": {
+    "0": [
+      "2026-08-09 02:48:54,330 [/root/venv-protenix/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Distributed environment: world size: 1, global rank: 0, local rank: 0",
+      "2026-08-09 02:48:54,330 [/root/venv-protenix/lib/python3.11/site-packages/runner/inference.py:98] INFO root: LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]",
+      "2026-08-09 02:48:54,330 [/root/venv-protenix/lib/python3.11/site-packages/runner/inference.py:123] INFO root: Kernels will be compiled when fast_layernorm is first called.",
+      "2026-08-09 02:48:54,330 [/root/venv-protenix/lib/python3.11/site-packages/runner/inference.py:127] INFO root: Finished environment initialization.",
+      "2026-08-09 02:49:47,156 [/root/venv-protenix/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Loading from /root/ckpt/protenix-v2.pt, strict: False",
+      "2026-08-09 02:49:48,415 [/root/venv-protenix/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Sampled key: module.input_embedder.atom_attention_encoder.linear_no_bias_ref_pos.weight",
+      "2026-08-09 02:49:48,527 [/root/venv-protenix/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Finish loading checkpoint.",
+      "2026-08-09 02:49:48,536 [/root/venv-protenix/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Model parameters: 464.44M",
+      "2026-08-09 02:49:48,544 [/root/venv-protenix/lib/python3.11/site-packages/protenix/data/inference/infer_dataloader.py:283] INFO protenix.data.inference.infer_dataloader: Featurizing prot300...",
+      "2026-08-09 02:49:55,311 [/root/venv-protenix/lib/python3.11/site-packages/protenix/data/constraint/constraint_featurizer.py:392] INFO protenix.data.constraint.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0",
+      "2026-08-09 02:49:55,354 [/root/venv-protenix/lib/python3.11/site-packages/protenix/data/template/template_featurizer.py:684] INFO protenix.data.template.template_featurizer: Calling InferenceTemplateFeaturizer.make_template_feature",
+      "train scheduler 16.0",
+      "inference scheduler 16.0",
+      "Diffusion Module has 16.0"
+    ]
+  },
+  "wall_s": 105.2,
+  "omp_num_threads": 26,
+  "host_cpu_cores": 224,
+  "container_cpu_cores": 26,
+  "cold_s": [
+    10.199
+  ],
+  "load_s": [
+    55.87
+  ],
+  "peak_alloc_gib": [
+    3.557
+  ],
+  "compute_apps_at_barrier": [
+    "4813, 4176 MiB"
+  ],
+  "mps": null,
+  "date": "2026-08-09",
+  "n_workers": 1,
+  "agg_folds_per_s": 0.14163,
+  "agg_folds_per_s_window": 0.14163,
+  "window_s": 28.242,
+  "window_start": 6846917.641189224,
+  "window_end": 6846945.883026522,
+  "min_worker_coverage": 1.0,
+  "min_duty_cycle": 1.0,
+  "tail_skew_s": 0.0,
+  "latency_min_s": 7.03,
+  "latency_median_s": 7.066,
+  "latency_max_s": 7.08,
+  "total_folds": 4,
+  "clean": true,
+  "reason": null,
+  "per_worker": [
+    {
+      "worker": 0,
+      "n_folds": 4,
+      "busy_s": 28.242,
+      "span_s": 28.242,
+      "duty_cycle": 1.0,
+      "mean_latency_s": 7.06046,
+      "median_latency_s": 7.066,
+      "rate_folds_per_s": 0.14163,
+      "first_start": 6846917.64119,
+      "last_end": 6846945.88303
+    }
+  ],
+  "host_cpu_busy_pct": 0.67,
+  "host_cpu_busy_cores": 1.5,
+  "smi_samples_in_window": 27,
+  "utilization_gpu_mean": 68.07,
+  "utilization_gpu_max": 100.0,
+  "utilization_memory_mean": 22.48,
+  "utilization_memory_max": 48.0,
+  "memory_used_mean": 4266.52,
+  "memory_used_max": 4296.0,
+  "power_draw_mean": 350.77,
+  "power_draw_max": 588.54,
+  "clocks_sm_mean": 1980.0,
+  "clocks_sm_max": 1980.0
+}
