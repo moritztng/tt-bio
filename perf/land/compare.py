@@ -13,7 +13,11 @@ from pathlib import Path
 import numpy as np
 
 OUT = Path(__file__).resolve().parent / "out"
-ORDER = ["L00", "L0", "L1F", "L2", "L2F", "L3", "L3F", "L4", "L4F"]
+# Session-1 tags, then their session-2 repeats (suffix b) and the opendde arms (suffix o).
+# A tag is a label, not a file: fold_arm.py keys its JSON on (tag, model, size), so the same
+# arm name is reused across models and only the sessions need distinguishing.
+_ARMS = ["L00", "L0", "L1F", "L2", "L2F", "L3", "L3F", "L4", "L4F"]
+ORDER = _ARMS + [t + s for s in ("b", "c", "o") for t in _ARMS]
 
 
 def _kabsch_rmsd(a: np.ndarray, b: np.ndarray) -> float:
@@ -30,6 +34,8 @@ def main() -> int:
     ap.add_argument("--model", required=True)
     ap.add_argument("--size", default="298")
     ap.add_argument("--md", action="store_true")
+    ap.add_argument("--base", default=None,
+                    help="baseline tag; defaults to L0, or L0o when that is all there is")
     args = ap.parse_args()
 
     recs = {}
@@ -37,11 +43,12 @@ def main() -> int:
         js = OUT / f"{tag}_{args.model}_{args.size}.json"
         if js.exists():
             recs[tag] = json.loads(js.read_text())
-    if "L0" not in recs:
-        return print("no L0 baseline yet") or 1
+    btag = args.base or ("L0" if "L0" in recs else "L0o")
+    if btag not in recs:
+        return print(f"no {btag} baseline yet") or 1
 
-    base = recs["L0"]
-    base_c = np.load(OUT / f"L0_{args.model}_{args.size}" / "coords.npy")
+    base = recs[btag]
+    base_c = np.load(OUT / f"{btag}_{args.model}_{args.size}" / "coords.npy")
     rows = []
     for tag, r in recs.items():
         c = np.load(OUT / f"{tag}_{args.model}_{args.size}" / "coords.npy")
@@ -61,8 +68,8 @@ def main() -> int:
     if not args.md:
         print(json.dumps(rows, indent=2))
         return 0
-    print(f"| arm | commit | fused | warm median (s) | vs L0 | ms/fold | bit-exact | "
-          f"max abs Δ (Å) | RMSD vs L0 (Å) | pLDDT |")
+    print(f"| arm | commit | fused | warm median (s) | vs base | ms/fold | bit-exact | "
+          f"max abs Δ (Å) | RMSD vs base (Å) | pLDDT |")
     print("|---|---|---|---:|---:|---:|---|---:|---:|---:|")
     for r in rows:
         print(f"| {r['arm']} | {r['commit']} | {r['fused']} | {r['warm_median_s']} | "
