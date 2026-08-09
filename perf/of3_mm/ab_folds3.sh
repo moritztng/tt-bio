@@ -4,11 +4,11 @@
 WT=/home/ttuser/.coworker/wt/perfwar-of3-matmul-sites
 F="tt_bio/tenstorrent.py tt_bio/openfold3_atom_transformer.py tt_bio/openfold3_diffusion_transformer.py"
 cd $WT || exit 1
-for i in 1 2 3; do
+for i in 1 2; do
   git checkout -q 3a48eb33 -- $F
-  sh perf/of3_mm/run_fold.sh ab2_base_$i 0 > perf/of3_mm/logs/ab2_base_$i.log 2>&1
+  sh perf/of3_mm/run_fold.sh ab3_base_$i 0 > perf/of3_mm/logs/ab3_base_$i.log 2>&1
   git checkout -q HEAD -- $F
-  sh perf/of3_mm/run_fold.sh ab2_fix_$i 0 > perf/of3_mm/logs/ab2_fix_$i.log 2>&1
+  sh perf/of3_mm/run_fold.sh ab3_fix_$i 0 > perf/of3_mm/logs/ab3_fix_$i.log 2>&1
 done
 git checkout -q HEAD -- $F
 echo AB_DONE

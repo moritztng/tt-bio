@@ -27,7 +27,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, batched_matmul
+from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype
 
 
 def remap_of3_adaln(sd: dict) -> dict:
@@ -150,13 +150,13 @@ class OF3AtomTransformer(Module):
             Q = self._heads(self._lin(a_qn, apb + "mha.linear_q.weight", apb + "mha.linear_q.bias"), nb, nq)
             K = self._heads(self._lin(a_kn, apb + "mha.linear_k.weight"), nb, nk)
             V = self._heads(self._lin(a_kn, apb + "mha.linear_v.weight"), nb, nk)
-            sc = batched_matmul(Q, ttnn.permute(K, (0, 1, 2, 4, 3)),
-                                compute_kernel_config=self.compute_kernel_config)
+            sc = ttnn.matmul(Q, ttnn.permute(K, (0, 1, 2, 4, 3)),
+                             compute_kernel_config=self.compute_kernel_config)
             sc = ttnn.multiply(sc, scale)
             sc = ttnn.add(sc, mask_bias)
             sc = ttnn.add(sc, z_bias[b])
             attn = ttnn.softmax(sc, dim=-1)
-            o = batched_matmul(attn, V, compute_kernel_config=self.compute_kernel_config)
+            o = ttnn.matmul(attn, V, compute_kernel_config=self.compute_kernel_config)
             ttnn.deallocate(sc); ttnn.deallocate(attn)
             # o: [1,nb,H,Q,dh] -> [1,nb,Q,H,dh]; gate with sigmoid(linear_g(a_qn)).
             o = ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT)

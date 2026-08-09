@@ -56,7 +56,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, batched_matmul
+from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype
 from .openfold3_atom_transformer import remap_of3_adaln
 
 C_A = 768
@@ -181,8 +181,8 @@ class _DiTBlock(Module):
         # softmax precision is the lever. Compute scores in bf16 (fp32 dest acc), cast
         # up for a numerically-stable fp32 softmax, cast back for attn@V.
         scale = HEAD_DIM ** -0.5
-        sc = batched_matmul(q, ttnn.permute(k, (0, 1, 3, 2)),
-                            compute_kernel_config=self.compute_kernel_config)
+        sc = ttnn.matmul(q, ttnn.permute(k, (0, 1, 3, 2)),
+                         compute_kernel_config=self.compute_kernel_config)
         sc = ttnn.multiply(sc, scale)
         sc = ttnn.add(sc, zb)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(zb)
@@ -190,7 +190,7 @@ class _DiTBlock(Module):
         attn = ttnn.softmax(sc, dim=-1, numeric_stable=True)
         ttnn.deallocate(sc)
         attn = ttnn.typecast(attn, self._act_dtype)
-        o = batched_matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
+        o = ttnn.matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(attn); ttnn.deallocate(v)
         # Slice padded head_dim 64->48, merge heads -> [1, N, 768].
         o = o[:, :, :, :HEAD_DIM]
