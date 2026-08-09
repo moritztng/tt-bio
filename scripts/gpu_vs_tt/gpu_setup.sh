@@ -23,19 +23,27 @@ export PATH=/opt/conda/bin:$PATH
 # cuequivariance 0.8.0 -- one env cannot serve both. --system-site-packages
 # reuses the image's torch 2.7.1+cu128 (== both packages' pinned torch), so no
 # multi-GB torch download on the clock.
-for V in protenix opendde; do
+# SETUP_MODELS trims the install to what the session will actually run. The throughput
+# pass rents ~40 min of H200 and only needs protenix-v2, so building the opendde venv and
+# pulling its checkpoint would spend paid minutes on an unused environment.
+SETUP_MODELS=${SETUP_MODELS:-"protenix opendde"}
+for V in $SETUP_MODELS; do
   python3 -m venv --system-site-packages /root/venv-$V
   /root/venv-$V/bin/pip install --no-cache-dir --upgrade pip -q
 done
-/root/venv-protenix/bin/pip install --no-cache-dir -q protenix==2.0.0 huggingface_hub==0.34.4
-/root/venv-opendde/bin/pip install --no-cache-dir -q "opendde[gpu]==1.0.3" huggingface_hub==0.34.4
-/root/venv-protenix/bin/python3 -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda, torch.cuda.get_device_name(0))"
+case " $SETUP_MODELS " in *" protenix "*)
+  /root/venv-protenix/bin/pip install --no-cache-dir -q protenix==2.0.0 huggingface_hub==0.34.4 ;;
+esac
+case " $SETUP_MODELS " in *" opendde "*)
+  /root/venv-opendde/bin/pip install --no-cache-dir -q "opendde[gpu]==1.0.3" huggingface_hub==0.34.4 ;;
+esac
+python3 -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda, torch.cuda.get_device_name(0))"
 
 # Weights. Protenix-v2's official checkpoint URL is gated (403); the public HF
 # mirror TMF001/protenix-v2-weights carries the SAME protenix-v2.pt the TT side
 # runs (tt_bio/main.py PROTENIX_REPO). OpenDDE's opendde.pt is public on HF.
 mkdir -p /root/ckpt
-if [ ! -s /root/ckpt/protenix-v2.pt ]; then
+if [ ! -s /root/ckpt/protenix-v2.pt ] && [[ " $SETUP_MODELS " == *" protenix "* ]]; then
   /root/venv-protenix/bin/python3 - <<'EOF'
 from huggingface_hub import hf_hub_download
 p = hf_hub_download("TMF001/protenix-v2-weights", "protenix-v2.pt",
@@ -43,7 +51,7 @@ p = hf_hub_download("TMF001/protenix-v2-weights", "protenix-v2.pt",
 print("protenix ckpt:", p)
 EOF
 fi
-if [ ! -s /root/ckpt/opendde.pt ]; then
+if [ ! -s /root/ckpt/opendde.pt ] && [[ " $SETUP_MODELS " == *" opendde "* ]]; then
   /root/venv-opendde/bin/python3 - <<'EOF'
 from huggingface_hub import hf_hub_download
 p = hf_hub_download("aurekaresearch/OpenDDE", "opendde.pt",
@@ -53,19 +61,31 @@ EOF
 fi
 
 # Smoke: imports resolve, CLIs answer, GPU visible to torch.
-/root/venv-protenix/bin/protenix --help >/dev/null && echo "protenix CLI ok"
-/root/venv-opendde/bin/opendde --help >/dev/null && echo "opendde CLI ok"
-/root/venv-protenix/bin/python3 -c "
+if [[ " $SETUP_MODELS " == *" protenix "* ]]; then
+  /root/venv-protenix/bin/protenix --help >/dev/null && echo "protenix CLI ok"
+  /root/venv-protenix/bin/python3 -c "
 import runner.inference as ri
 print('protenix runner import ok:', ri.InferenceRunner.__name__)" || \
-/root/venv-protenix/bin/python3 -c "
+  /root/venv-protenix/bin/python3 -c "
 import protenix.runner.inference as ri
 print('protenix runner import ok (pkg path):', ri.InferenceRunner.__name__)"
-/root/venv-opendde/bin/python3 -c "
+fi
+if [[ " $SETUP_MODELS " == *" opendde "* ]]; then
+  /root/venv-opendde/bin/opendde --help >/dev/null && echo "opendde CLI ok"
+  /root/venv-opendde/bin/python3 -c "
 import runner.inference as ri
 print('opendde runner import ok:', ri.InferenceRunner.__name__)" || \
-/root/venv-opendde/bin/python3 -c "
+  /root/venv-opendde/bin/python3 -c "
 import opendde.runner.inference as ri
 print('opendde runner import ok (pkg path):', ri.InferenceRunner.__name__)" || true
+fi
+
+# GPU-sharing facilities, recorded before anything is measured. MPS decides whether the
+# mps leg can run at all; the MIG lines are the "what state is this card in" half of the
+# MIG question (the "can we change it" half is attempted at the very END of the session,
+# because a successful MIG toggle needs a GPU reset and would end the run).
+echo "== gpu sharing probe =="
+command -v nvidia-cuda-mps-control && echo "MPS control binary PRESENT" || echo "MPS control binary ABSENT"
+nvidia-smi --query-gpu=mig.mode.current,mig.mode.pending,compute_mode --format=csv || true
 
 echo "== gpu_setup done: $(date -u +%FT%TZ) =="

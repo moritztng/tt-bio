@@ -112,11 +112,18 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
     return text.count(">")
 
 
-def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
-            target: Path, a3m: Path, label: str) -> dict:
+def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
+               samples: int = DIFFUSION_SAMPLES):
+    """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
+
+    Split out of ``measure`` so the multi-card fan-out driver (``tt_concurrency.py``)
+    folds through exactly the same path as the single-card latency baseline. Aggregate
+    throughput and per-fold latency have to come from the same fold or the box-level
+    number cannot be checked against the per-card one.
+    """
     import torch  # noqa: F401
     torch.set_grad_enabled(False)
-    from tt_bio.tenstorrent import get_device, arch_name, cleanup
+    from tt_bio.tenstorrent import get_device, arch_name
     from tt_bio.worker import _WorkerState, _ensure_local_artifacts
     from tt_bio import esmfold2 as _E
 
@@ -134,7 +141,7 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
     cfg = dict(
         model=model, fast=False, output_format="cif",
         recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
-        diffusion_samples=DIFFUSION_SAMPLES, seed=SEED, trace=False,
+        diffusion_samples=samples, seed=SEED, trace=False,
         msa_dir=str(msa_dir), struct_dir=str(struct_dir),
         use_msa_server=True, msa_db_path=None, use_envdb=False, msa_endpoint=None,
         single_sequence=False, msa_server_url="https://api.colabfold.com",
@@ -161,6 +168,17 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
         t0 = time.perf_counter()
         metrics, _best, _feats = state.predict_one(target, job_cfg)
         return time.perf_counter() - t0, metrics
+
+    return one_fold, dict(hardware=hw, load_s=round(load_s, 2), n_msa=n_msa,
+                          msa_dir=str(msa_dir), diffusion_samples=samples,
+                          **_card_info()), state
+
+
+def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
+            target: Path, a3m: Path, label: str) -> dict:
+    one_fold, meta, state = build_fold(model, msa_dir, target, a3m)
+    from tt_bio.tenstorrent import cleanup
+    hw, load_s, n_msa = meta["hardware"], meta["load_s"], meta["n_msa"]
 
     # Cold fold: first-kernel compile. Never counted in the warm numbers. The MSA
     # cache was seeded above, so no fold here -- cold or warm -- runs a search.

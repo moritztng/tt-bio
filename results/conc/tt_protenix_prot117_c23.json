@@ -1,0 +1,133 @@
+{
+  "side": "tenstorrent",
+  "model": "protenix-v2",
+  "machine": "tt-quietbox",
+  "cards": [
+    2,
+    3
+  ],
+  "n_concurrent": 2,
+  "folds_per_worker": 5,
+  "diffusion_samples": 1,
+  "target": "/home/ttuser/wt-conc/examples/prot.yaml",
+  "ttnn_version": "0.67.4",
+  "tt_bio_git": "3956bbdf317d45871c8bf9a97ca8b9653546e642",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "seed": 0,
+  "worker_rcs": {
+    "0": 0,
+    "1": 0
+  },
+  "worker_log_tails": {
+    "0": [
+      "2026-08-08 18:50:11.223 | info     |          Fabric | ",
+      "=== Physical Mesh 0 Internal Graph Adjacency Map ===",
+      "Total nodes: 1",
+      "Degree histogram: {0:1}",
+      " (topology_solver.tpp:89)",
+      "2026-08-08 18:50:11.223 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)",
+      "2026-08-08 18:50:11.223 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)",
+      "2026-08-08 18:50:11.223 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)",
+      "2026-08-08 18:50:11.223 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)",
+      "2026-08-08 18:50:11.229 | warning  |       Inspector | Failed to start Inspector RPC server: ::bind(sockfd, &addr.generic, addrlen): Address already in use; toString() = 127.0.0.1:50051 (data.cpp:47)",
+      "2026-08-08 18:50:11.371 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)",
+      "2026-08-08 18:50:19.714 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-08 18:50:20.725 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-08 18:51:38.863 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)",
+      "2026-08-08 18:51:38.863 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)"
+    ],
+    "1": [
+      " (topology_solver.tpp:89)",
+      "2026-08-08 18:50:10.717 | info     |          Fabric | ",
+      "=== Physical Mesh 0 Internal Graph Adjacency Map ===",
+      "Total nodes: 1",
+      "Degree histogram: {0:1}",
+      " (topology_solver.tpp:89)",
+      "2026-08-08 18:50:10.717 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)",
+      "2026-08-08 18:50:10.717 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)",
+      "2026-08-08 18:50:10.717 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)",
+      "2026-08-08 18:50:10.717 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)",
+      "2026-08-08 18:50:10.949 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)",
+      "2026-08-08 18:50:19.153 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-08 18:50:20.123 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)",
+      "2026-08-08 18:51:38.826 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)",
+      "2026-08-08 18:51:38.826 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)"
+    ]
+  },
+  "wall_s": 90.37,
+  "cold_s": [
+    18.787,
+    18.645
+  ],
+  "load_s": [
+    3.71,
+    3.64
+  ],
+  "plddt": [
+    0.888699,
+    0.888699
+  ],
+  "card_of_worker": {
+    "0": "2",
+    "1": "3"
+  },
+  "date": "2026-08-08",
+  "n_workers": 2,
+  "agg_folds_per_s": 0.16235,
+  "agg_folds_per_s_window": 0.16235,
+  "window_s": 61.559,
+  "window_start": 452.45680394,
+  "window_end": 514.015637692,
+  "min_worker_coverage": 1.0,
+  "min_duty_cycle": 1.0,
+  "tail_skew_s": 0.057,
+  "latency_min_s": 12.278,
+  "latency_median_s": 12.321,
+  "latency_max_s": 12.364,
+  "total_folds": 10,
+  "clean": true,
+  "reason": null,
+  "per_worker": [
+    {
+      "worker": 0,
+      "n_folds": 5,
+      "busy_s": 61.629,
+      "span_s": 61.629,
+      "duty_cycle": 1.0,
+      "mean_latency_s": 12.32578,
+      "median_latency_s": 12.3355,
+      "rate_folds_per_s": 0.08113,
+      "first_start": 452.44358,
+      "last_end": 514.07247
+    },
+    {
+      "worker": 1,
+      "n_folds": 5,
+      "busy_s": 61.559,
+      "span_s": 61.559,
+      "duty_cycle": 1.0,
+      "mean_latency_s": 12.31177,
+      "median_latency_s": 12.3088,
+      "rate_folds_per_s": 0.08122,
+      "first_start": 452.4568,
+      "last_end": 514.01564
+    }
+  ],
+  "tt_smi_samples_in_window": 9,
+  "power_mean_per_card": 78.0,
+  "power_max_per_card": 105.0,
+  "power_sum_mean_all_cards": 156.0,
+  "voltage_mean_per_card": 0.81,
+  "voltage_max_per_card": 0.81,
+  "voltage_sum_mean_all_cards": 1.61,
+  "current_mean_per_card": 97.33,
+  "current_max_per_card": 131.0,
+  "current_sum_mean_all_cards": 194.67,
+  "aiclk_mean_per_card": 1349.61,
+  "aiclk_max_per_card": 1350.0,
+  "aiclk_sum_mean_all_cards": 2699.22,
+  "asic_temperature_mean_per_card": 51.87,
+  "asic_temperature_max_per_card": 53.9,
+  "asic_temperature_sum_mean_all_cards": 103.73
+}
