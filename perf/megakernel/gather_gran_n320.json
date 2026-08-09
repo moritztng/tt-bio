@@ -1,0 +1,58 @@
+{
+  "n": 320,
+  "c": 64,
+  "tpb": 32,
+  "grid": "10x10",
+  "reps": 16,
+  "mb": 26.2144,
+  "rows": [
+    {
+      "arm": "copy (no exchange)",
+      "ms": 0.0561,
+      "eff_gbs": 467.6,
+      "note": "exact_copy=True"
+    },
+    {
+      "arm": "exchange R=32B",
+      "ms": 0.1226,
+      "eff_gbs": 213.9,
+      "note": "is_permutation=True differs=True"
+    },
+    {
+      "arm": "exchange R=64B",
+      "ms": 0.0869,
+      "eff_gbs": 301.5,
+      "note": "is_permutation=True differs=True"
+    },
+    {
+      "arm": "exchange R=128B",
+      "ms": 0.07,
+      "eff_gbs": 374.6,
+      "note": "is_permutation=True differs=True"
+    },
+    {
+      "arm": "exchange R=256B",
+      "ms": 0.0601,
+      "eff_gbs": 436.2,
+      "note": "is_permutation=True differs=True"
+    },
+    {
+      "arm": "exchange R=512B",
+      "ms": 0.0586,
+      "eff_gbs": 447.0,
+      "note": "is_permutation=True differs=True"
+    },
+    {
+      "arm": "exchange R=1024B",
+      "ms": 0.0576,
+      "eff_gbs": 455.5,
+      "note": "is_permutation=True differs=True"
+    },
+    {
+      "arm": "exchange R=2048B",
+      "ms": 0.0564,
+      "eff_gbs": 464.7,
+      "note": "is_permutation=True differs=False"
+    }
+  ]
+}
