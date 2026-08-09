@@ -1,0 +1,126 @@
+{
+ "n": 320,
+ "c": 64,
+ "hidden": 256,
+ "npairs": 4,
+ "grid": "11x10",
+ "card_grid": "11x10",
+ "dst": "dram",
+ "arms": {
+  "production permute+running concat": {
+   "ms": 1.1673970002448186,
+   "gbs": 280.6928576407864,
+   "bytes": 327680000,
+   "note": "the chain being replaced"
+  },
+  "fused output op": {
+   "ms": 0.6588264996025828,
+   "gbs": 159.1581396061819,
+   "bytes": 104857600,
+   "note": "reads each chunk once, writes the stripe"
+  },
+  "  noex (WRONG data)": {
+   "ms": 0.5165804996067891,
+   "gbs": 202.98404620347756,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  noex + seq write pages (WRONG data)": {
+   "ms": 0.26252550014760345,
+   "gbs": 399.4187229089914,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  noex + seq read pages (WRONG data)": {
+   "ms": 0.5316044998835423,
+   "gbs": 197.2473897850206,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  noex + seq both (WRONG data)": {
+   "ms": 0.2661375001480337,
+   "gbs": 393.9978392435303,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  full + seq write pages (WRONG data)": {
+   "ms": 0.4740189997392008,
+   "gbs": 221.20969846713172,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=1 depth=1": {
+   "ms": 0.6631155001741718,
+   "gbs": 158.1287120757371,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=2 depth=1": {
+   "ms": 0.6683355004497571,
+   "gbs": 156.89365585014707,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=4 depth=1": {
+   "ms": 0.6662164996669162,
+   "gbs": 157.39267948545998,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=8 depth=1": {
+   "ms": 0.6601694994969876,
+   "gbs": 158.83436008463838,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=1 depth=2": {
+   "ms": 0.6594980004592799,
+   "gbs": 158.99608479021362,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=2 depth=2": {
+   "ms": 0.6629999998040148,
+   "gbs": 158.15625947359922,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=4 depth=2": {
+   "ms": 0.662563999867416,
+   "gbs": 158.260334127696,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "  rbatch=8 depth=2": {
+   "ms": 0.6576545001735212,
+   "gbs": 159.441773716037,
+   "bytes": 104857600,
+   "note": ""
+  },
+  "fused, exchange skipped (WRONG data)": {
+   "ms": 0.5346199995983625,
+   "gbs": 196.13482488267385,
+   "bytes": 104857600,
+   "note": "the op's whole-tile floor"
+  },
+  "BOUND clone x4 L1->DRAM": {
+   "ms": 0.20845300059590954,
+   "gbs": 503.027539542444,
+   "bytes": 104857600,
+   "note": "the fused op's byte floor"
+  },
+  "roof clone DRAM->DRAM": {
+   "ms": 0.27088675005870755,
+   "gbs": 387.0901768996634,
+   "bytes": 104857600,
+   "note": "copy roof"
+  }
+ },
+ "bit_exact_vs_ttnn_chain": true,
+ "best_config": {
+  "ms": 0.6576545001735212,
+  "rbatch": 8,
+  "depth": 2,
+  "bit_exact": true
+ }
+}
