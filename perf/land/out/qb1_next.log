@@ -1,0 +1,557 @@
+=== 21:38:18 queued, waiting for card 3
+=== 21:43:49 card 3 free, starting
+=== 21:43:49 fold117 L0 protenix-v2
+=== 21:44:15 queued, waiting for card 3
+=== 21:44:15 card 3 free, starting
+=== 21:44:15 fold117 L0 protenix-v2
+{
+  "arm": "L0",
+  "commit": "834997427f3bddcf9183db14ba215023c0cd3209",
+  "fused": "0",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 17.888,
+  "warm_s": [
+    11.463,
+    11.534,
+    11.292
+  ],
+  "warm_median_s": 11.463,
+  "warm_min_s": 11.292,
+  "confidence": {
+    "complex_plddt": 0.888699,
+    "plddt": 0.888699,
+    "ptm": 0.917966,
+    "iptm": 0.0,
+    "confidence_score": 0.917966
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 3.52,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 52.2
+}
+{
+  "arm": "L0",
+  "commit": "834997427f3bddcf9183db14ba215023c0cd3209",
+  "fused": "0",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 18.062,
+  "warm_s": [
+    11.425,
+    11.576,
+    11.418
+  ],
+  "warm_median_s": 11.425,
+  "warm_min_s": 11.418,
+  "confidence": {
+    "complex_plddt": 0.888699,
+    "plddt": 0.888699,
+    "ptm": 0.917966,
+    "iptm": 0.0,
+    "confidence_score": 0.917966
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 3.69,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 52.5
+}
+=== 21:45:48 fold117 L0 protenix-v2 rc=0
+=== 21:45:48 fold117 L2 protenix-v2
+{
+  "arm": "L2",
+  "commit": "c42ed26a97709c1a04f139cde30f72df028e8229",
+  "fused": "0",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 18.175,
+  "warm_s": [
+    11.66,
+    11.616,
+    11.062
+  ],
+  "warm_median_s": 11.616,
+  "warm_min_s": 11.062,
+  "confidence": {
+    "complex_plddt": 0.882555,
+    "plddt": 0.882555,
+    "ptm": 0.912074,
+    "iptm": 0.0,
+    "confidence_score": 0.912074
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 3.51,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 52.5
+}
+=== 21:46:50 fold117 L2 protenix-v2 rc=0
+=== 21:46:50 fold117 L3 protenix-v2
+{
+  "arm": "L3",
+  "commit": "92c92d9e95d0148173b3cea4633c41bbe8533d93",
+  "fused": "0",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 19.753,
+  "warm_s": [
+    14.247,
+    14.421,
+    14.145
+  ],
+  "warm_median_s": 14.247,
+  "warm_min_s": 14.145,
+  "confidence": {
+    "complex_plddt": 0.882555,
+    "plddt": 0.882555,
+    "ptm": 0.912074,
+    "iptm": 0.0,
+    "confidence_score": 0.912074
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 3.41,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 62.6
+}
+=== 21:48:02 fold117 L3 protenix-v2 rc=0
+=== 21:48:02 fold117 L4 protenix-v2
+{
+  "arm": "L4",
+  "commit": "0e9ee663ed9cfc009a30bfbd45ce221e7f55c6a1",
+  "fused": "0",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 20.862,
+  "warm_s": [
+    15.394,
+    14.488,
+    15.668
+  ],
+  "warm_median_s": 15.394,
+  "warm_min_s": 14.488,
+  "confidence": {
+    "complex_plddt": 0.882555,
+    "plddt": 0.882555,
+    "ptm": 0.912074,
+    "iptm": 0.0,
+    "confidence_score": 0.912074
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 5.86,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 66.4
+}
+=== 21:49:20 fold117 L4 protenix-v2 rc=0
+=== 21:49:20 fold117 L4F protenix-v2
+{
+  "arm": "L4F",
+  "commit": "0e9ee663ed9cfc009a30bfbd45ce221e7f55c6a1",
+  "fused": "1",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 21.011,
+  "warm_s": [
+    15.88,
+    15.025,
+    15.452
+  ],
+  "warm_median_s": 15.452,
+  "warm_min_s": 15.025,
+  "confidence": {
+    "complex_plddt": 0.882555,
+    "plddt": 0.882555,
+    "ptm": 0.912074,
+    "iptm": 0.0,
+    "confidence_score": 0.912074
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 7.19,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 67.4
+}
+=== 21:50:41 fold117 L4F protenix-v2 rc=0
+=== 21:50:41 fold117 L0o opendde
+{
+  "arm": "L0o",
+  "commit": "834997427f3bddcf9183db14ba215023c0cd3209",
+  "fused": "0",
+  "model": "opendde",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 23.001,
+  "warm_s": [
+    16.536,
+    16.505,
+    15.542
+  ],
+  "warm_median_s": 16.505,
+  "warm_min_s": 15.542,
+  "confidence": {
+    "complex_plddt": 0.833669,
+    "plddt": 0.833669,
+    "ptm": 0.81286,
+    "iptm": 0.0,
+    "confidence_score": 0.81286
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 7.7,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 71.6
+}
+=== 21:52:06 fold117 L0o opendde rc=0
+=== 21:52:06 fold117 L4o opendde
+{
+  "arm": "L4o",
+  "commit": "0e9ee663ed9cfc009a30bfbd45ce221e7f55c6a1",
+  "fused": "0",
+  "model": "opendde",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 21.241,
+  "warm_s": [
+    15.27,
+    14.977,
+    15.078
+  ],
+  "warm_median_s": 15.078,
+  "warm_min_s": 14.977,
+  "confidence": {
+    "complex_plddt": 0.833669,
+    "plddt": 0.833669,
+    "ptm": 0.812163,
+    "iptm": 0.0,
+    "confidence_score": 0.812163
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 7.3,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 66.6
+}
+=== 21:53:26 fold117 L4o opendde rc=0
+=== 21:53:26 117 aa attribution, protenix-v2
+| arm | commit | fused | warm median (s) | vs base | ms/fold | bit-exact | max abs Δ (Å) | RMSD vs base (Å) | pLDDT |
+|---|---|---|---:|---:|---:|---|---:|---:|---:|
+| L0 | 83499742 | 0 | 11.425 | 1.0x | 0.0 | yes | 0.0 | 0.0 | 0.888699 |
+| L2 | c42ed26a | 0 | 11.616 | 0.9836x | -191.0 | no | 2.0114 | 0.1539 | 0.882555 |
+| L3 | 92c92d9e | 0 | 14.247 | 0.8019x | -2822.0 | no | 2.0114 | 0.1539 | 0.882555 |
+| L4 | 0e9ee663 | 0 | 15.394 | 0.7422x | -3969.0 | no | 2.0114 | 0.1539 | 0.882555 |
+| L4F | 0e9ee663 | 1 | 15.452 | 0.7394x | -4027.0 | no | 2.0114 | 0.1539 | 0.882555 |
+=== 21:53:26 117 aa attribution, opendde
+| arm | commit | fused | warm median (s) | vs base | ms/fold | bit-exact | max abs Δ (Å) | RMSD vs base (Å) | pLDDT |
+|---|---|---|---:|---:|---:|---|---:|---:|---:|
+| L0o | 83499742 | 0 | 16.505 | 1.0x | 0.0 | yes | 0.0 | 0.0 | 0.833669 |
+| L4o | 0e9ee663 | 0 | 15.078 | 1.0946x | 1427.0 | no | 15.0846 | 0.649 | 0.833669 |
+=== 21:53:26 replay tokens
+2026-08-09 21:53:28.055 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-09 21:53:28.176 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 21:53:28.180 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-09 21:53:28.180 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 21:53:28.184 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-09 21:53:28.185 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 21:53:28.188 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-09 21:53:28.188 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 21:53:28.193 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 21:53:28.196 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-09 21:53:28.196 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 21:53:28.212 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-09 21:53:28.273 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-09 21:53:28.274 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-09 21:53:28.274 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-09 21:53:28.275 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-09 21:53:28.276 | info     |             UMD | Mapped hugepage 0x140000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-09 21:53:28.503 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:329)
+2026-08-09 21:53:28.503 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:391)
+2026-08-09 21:53:28.503 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 21:53:28.505 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-09 21:53:28.505 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 21:53:28.509 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-09 21:53:28.509 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-09 21:53:28.509 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-09 21:53:28.509 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-09 21:53:28.509 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-09 21:53:28.509 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-09 21:53:28.509 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)
+2026-08-09 21:53:28.509 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)
+2026-08-09 21:53:28.509 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)
+2026-08-09 21:53:28.510 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)
+2026-08-09 21:53:28.537 | warning  |       Inspector | Failed to start Inspector RPC server: ::bind(sockfd, &addr.generic, addrlen): Address already in use; toString() = 127.0.0.1:50051 (data.cpp:47)
+2026-08-09 21:53:28.677 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)
+# grid 11x10 = 110 cores, L1/core 1499136 B (ttnn's budget is this minus the allocator base)
+rfd3:491       trunk pairformer q@kT            B=   16 Mt/Kt/Nt=10/1/10 naive=mcast2d(bw=1) auto=    29.2 us  best=reuse/pcm=5/bw=1 x1.16 exact=True
+    grid                                   40.5 us  x0.72  exact=True  cores~16
+    reuse/pcm=10/bw=1                      39.8 us  x0.73  exact=True  cores~16
+    reuse/pcm=5/bw=1                       25.1 us  x1.16  exact=True  cores~32
+    reuse/pcm=2/bw=1                      100.3 us  x0.29  exact=True  cores~80
+rfd3:501       trunk pairformer attn@v          B=   16 Mt/Kt/Nt=10/10/1 naive=mcast1d_in1(bw=2) auto=    96.8 us  best=reuse/pcm=2/bw=1 x4.49 exact=False
+    grid                                   48.7 us  x1.99  exact=False  cores~16
+    reuse/pcm=10/bw=1                      46.6 us  x2.08  exact=False  cores~16
+    reuse/pcm=10/bw=2                      44.8 us  x2.16  exact=True  cores~16
+    reuse/pcm=5/bw=1                       28.5 us  x3.39  exact=False  cores~32
+    reuse/pcm=5/bw=2                       26.8 us  x3.61  exact=True  cores~32
+    reuse/pcm=2/bw=1                       21.6 us  x4.49  exact=False  cores~80
+    reuse/pcm=2/bw=2                       22.8 us  x4.24  exact=True  cores~80
+rfd3:1331      token DiT q@kT                   B=   16 Mt/Kt/Nt=10/2/10 naive=mcast2d(bw=1) auto=    51.0 us  best=reuse/pcm=2/bw=2 x1.87 exact=False
+    grid                                   48.6 us  x1.05  exact=True  cores~16
+    reuse/pcm=10/bw=1                      48.5 us  x1.05  exact=True  cores~16
+    reuse/pcm=10/bw=2                      46.5 us  x1.10  exact=False  cores~16
+    reuse/pcm=5/bw=1                       29.9 us  x1.71  exact=True  cores~32
+    reuse/pcm=5/bw=2                       28.4 us  x1.80  exact=False  cores~32
+    reuse/pcm=2/bw=1                       29.6 us  x1.72  exact=True  cores~80
+    reuse/pcm=2/bw=2                       27.3 us  x1.87  exact=False  cores~80
+rfd3:1358      token DiT attn@v                 B=   16 Mt/Kt/Nt=10/10/2 naive=mcast1d_in1(bw=2) auto=    92.7 us  best=reuse/pcm=5/bw=1 x4.65 exact=False
+    grid                                   25.0 us  x3.71  exact=False  cores~16
+    reuse/pcm=10/bw=1                      33.9 us  x2.74  exact=False  cores~16
+    reuse/pcm=10/bw=2                      24.4 us  x3.79  exact=True  cores~16
+    reuse/pcm=5/bw=1                       19.9 us  x4.65  exact=False  cores~32
+    reuse/pcm=5/bw=2                       21.8 us  x4.25  exact=True  cores~32
+    reuse/pcm=2/bw=1                       20.6 us  x4.49  exact=False  cores~80
+    reuse/pcm=2/bw=2                       20.5 us  x4.52  exact=True  cores~80
+rfd3:1331      atom block q@kT                  B=    4 Mt/Kt/Nt=38/1/38 naive=mcast2d(bw=1) auto=    48.5 us  best=auto x1.00 exact=True
+    grid(NO-OP: cbs do not fit, ttnn falls back)     56.7 us  x0.86  exact=True  cores~None
+    reuse/pcm=2/bw=1                       68.6 us  x0.71  exact=True  cores~76
+rfd3:1358      atom block attn@v                B=    4 Mt/Kt/Nt=38/38/1 naive=mcast1d_in1(bw=2) auto=    72.1 us  best=reuse/pcm=2/bw=1 x1.71 exact=False
+    grid                                  143.3 us  x0.50  exact=False  cores~4
+    reuse/pcm=38/bw=1                     136.2 us  x0.53  exact=False  cores~4
+    reuse/pcm=38/bw=2                     131.3 us  x0.55  exact=True  cores~4
+    reuse/pcm=19/bw=1                     114.3 us  x0.63  exact=False  cores~8
+    reuse/pcm=19/bw=2                     111.9 us  x0.64  exact=True  cores~8
+    reuse/pcm=2/bw=1                       42.2 us  x1.71  exact=False  cores~76
+    reuse/pcm=2/bw=2                       49.5 us  x1.45  exact=True  cores~76
+esmfold2:71    token attn-pair-bias q@kT        B=   16 Mt/Kt/Nt=10/2/10 naive=mcast2d(bw=1) auto=    49.6 us  best=reuse/pcm=5/bw=2 x1.10 exact=False
+    grid                                   60.1 us  x0.82  exact=True  cores~16
+    reuse/pcm=10/bw=1                      59.7 us  x0.83  exact=True  cores~16
+    reuse/pcm=10/bw=2                      57.2 us  x0.87  exact=False  cores~16
+    reuse/pcm=5/bw=1                       45.4 us  x1.09  exact=True  cores~32
+    reuse/pcm=5/bw=2                       45.0 us  x1.10  exact=False  cores~32
+    reuse/pcm=2/bw=1                       52.8 us  x0.94  exact=True  cores~80
+    reuse/pcm=2/bw=2                       53.4 us  x0.93  exact=False  cores~80
+esmfold2:75    token attn-pair-bias attn@v      B=   16 Mt/Kt/Nt=10/10/2 naive=mcast1d_in1(bw=2) auto=   113.1 us  best=reuse/pcm=5/bw=2 x3.74 exact=True
+    grid                                   44.1 us  x2.57  exact=False  cores~16
+    reuse/pcm=10/bw=1                      43.6 us  x2.60  exact=False  cores~16
+    reuse/pcm=10/bw=2                      45.0 us  x2.51  exact=True  cores~16
+    reuse/pcm=5/bw=1                       30.5 us  x3.71  exact=False  cores~32
+    reuse/pcm=5/bw=2                       30.2 us  x3.74  exact=True  cores~32
+    reuse/pcm=2/bw=1                       35.5 us  x3.19  exact=False  cores~80
+    reuse/pcm=2/bw=2                       35.1 us  x3.22  exact=True  cores~80
+wrote /home/ttuser/.coworker/wt/perfwar-qb1-rebaseline-and-land/perf/attn_sites/rfd3_esm_qb1c3_tokens.json
+2026-08-09 21:53:49.076 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-09 21:53:49.076 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+=== 21:53:49 replay tokens rc=0
+=== 21:53:49 replay atom4032
+2026-08-09 21:53:50.959 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-09 21:53:51.080 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 21:53:51.084 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-09 21:53:51.084 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 21:53:51.088 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-09 21:53:51.088 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 21:53:51.091 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-09 21:53:51.091 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 21:53:51.097 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 21:53:51.101 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-09 21:53:51.101 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 21:53:51.121 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-09 21:53:51.191 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-09 21:53:51.191 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-09 21:53:51.191 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-09 21:53:51.192 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-09 21:53:51.193 | info     |             UMD | Mapped hugepage 0x140000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-09 21:53:51.514 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:329)
+2026-08-09 21:53:51.514 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:391)
+2026-08-09 21:53:51.515 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-09 21:53:51.516 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-09 21:53:51.516 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-09 21:53:51.521 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-09 21:53:51.521 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-09 21:53:51.521 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-09 21:53:51.521 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-09 21:53:51.521 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-09 21:53:51.521 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-09 21:53:51.521 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)
+2026-08-09 21:53:51.521 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)
+2026-08-09 21:53:51.521 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)
+2026-08-09 21:53:51.521 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)
+2026-08-09 21:53:51.523 | warning  |       Inspector | Failed to start Inspector RPC server: ::bind(sockfd, &addr.generic, addrlen): Address already in use; toString() = 127.0.0.1:50051 (data.cpp:47)
+2026-08-09 21:53:51.665 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)
+# grid 11x10 = 110 cores, L1/core 1499136 B (ttnn's budget is this minus the allocator base)
+rfd3:491       trunk pairformer q@kT            B=   16 Mt/Kt/Nt=10/1/10 naive=mcast2d(bw=1) auto=    28.9 us  best=reuse/pcm=2/bw=1 x1.37 exact=True
+    grid                                   40.5 us  x0.71  exact=True  cores~16
+    reuse/pcm=10/bw=1                      39.8 us  x0.73  exact=True  cores~16
+    reuse/pcm=5/bw=1                       25.2 us  x1.15  exact=True  cores~32
+    reuse/pcm=2/bw=1                       21.1 us  x1.37  exact=True  cores~80
+rfd3:501       trunk pairformer attn@v          B=   16 Mt/Kt/Nt=10/10/1 naive=mcast1d_in1(bw=2) auto=    96.4 us  best=reuse/pcm=2/bw=1 x4.51 exact=False
+    grid                                   47.4 us  x2.03  exact=False  cores~16
+    reuse/pcm=10/bw=1                      47.2 us  x2.04  exact=False  cores~16
+    reuse/pcm=10/bw=2                      44.8 us  x2.15  exact=True  cores~16
+    reuse/pcm=5/bw=1                       29.1 us  x3.32  exact=False  cores~32
+    reuse/pcm=5/bw=2                       27.9 us  x3.46  exact=True  cores~32
+    reuse/pcm=2/bw=1                       21.4 us  x4.51  exact=False  cores~80
+    reuse/pcm=2/bw=2                      190.3 us  x0.51  exact=True  cores~80
+rfd3:1331      token DiT q@kT                   B=   16 Mt/Kt/Nt=10/2/10 naive=mcast2d(bw=1) auto=    49.9 us  best=reuse/pcm=2/bw=2 x1.80 exact=False
+    grid                                   48.6 us  x1.03  exact=True  cores~16
+    reuse/pcm=10/bw=1                     181.9 us  x0.27  exact=True  cores~16
+    reuse/pcm=10/bw=2                      46.6 us  x1.07  exact=False  cores~16
+    reuse/pcm=5/bw=1                       29.9 us  x1.67  exact=True  cores~32
+    reuse/pcm=5/bw=2                       28.7 us  x1.74  exact=False  cores~32
+    reuse/pcm=2/bw=1                       28.0 us  x1.78  exact=True  cores~80
+    reuse/pcm=2/bw=2                       27.8 us  x1.80  exact=False  cores~80
+rfd3:1358      token DiT attn@v                 B=   16 Mt/Kt/Nt=10/10/2 naive=mcast1d_in1(bw=2) auto=    93.1 us  best=reuse/pcm=2/bw=2 x4.82 exact=True
+    grid                                   25.4 us  x3.66  exact=False  cores~16
+    reuse/pcm=10/bw=1                      24.1 us  x3.87  exact=False  cores~16
+    reuse/pcm=10/bw=2                      24.0 us  x3.87  exact=True  cores~16
+    reuse/pcm=5/bw=1                       21.5 us  x4.33  exact=False  cores~32
+    reuse/pcm=5/bw=2                       19.7 us  x4.73  exact=True  cores~32
+    reuse/pcm=2/bw=1                       20.4 us  x4.57  exact=False  cores~80
+    reuse/pcm=2/bw=2                       19.3 us  x4.82  exact=True  cores~80
+rfd3:1331      atom block q@kT                  B=    4 Mt/Kt/Nt=126/1/126 naive=mcast2d(bw=1) auto=   458.0 us  best=auto x1.00 exact=True
+    grid(NO-OP: cbs do not fit, ttnn falls back)    465.8 us  x0.98  exact=True  cores~None
+rfd3:1358      atom block attn@v                B=    4 Mt/Kt/Nt=126/126/1 naive=mcast1d_in1(bw=2) auto=   528.7 us  best=reuse/pcm=6/bw=2 x1.42 exact=True
+    grid                                 1384.3 us  x0.38  exact=False  cores~4
+    reuse/pcm=126/bw=1                   1382.4 us  x0.38  exact=False  cores~4
+    reuse/pcm=63/bw=1                    1185.3 us  x0.45  exact=False  cores~8
+    reuse/pcm=63/bw=2                    1158.4 us  x0.46  exact=True  cores~8
+    reuse/pcm=42/bw=1                     926.3 us  x0.57  exact=False  cores~12
+    reuse/pcm=42/bw=2                     900.9 us  x0.59  exact=True  cores~12
+    reuse/pcm=21/bw=1                     528.3 us  x1.00  exact=False  cores~24
+    reuse/pcm=21/bw=2                     517.8 us  x1.02  exact=True  cores~24
+    reuse/pcm=18/bw=1                     486.4 us  x1.09  exact=False  cores~28
+    reuse/pcm=18/bw=2                     479.0 us  x1.10  exact=True  cores~28
+    reuse/pcm=14/bw=1                     443.0 us  x1.19  exact=False  cores~36
+    reuse/pcm=14/bw=2                     438.1 us  x1.21  exact=True  cores~36
+    reuse/pcm=9/bw=1                      411.2 us  x1.29  exact=False  cores~56
+    reuse/pcm=9/bw=2                      408.3 us  x1.30  exact=True  cores~56
+    reuse/pcm=7/bw=1                      403.2 us  x1.31  exact=False  cores~72
+    reuse/pcm=7/bw=2                      398.4 us  x1.33  exact=True  cores~72
+    reuse/pcm=6/bw=1                      383.6 us  x1.38  exact=False  cores~84
+    reuse/pcm=6/bw=2                      372.0 us  x1.42  exact=True  cores~84
+esmfold2:71    token attn-pair-bias q@kT        B=   16 Mt/Kt/Nt=10/2/10 naive=mcast2d(bw=1) auto=    50.4 us  best=reuse/pcm=5/bw=1 x1.11 exact=True
+    grid                                   60.7 us  x0.83  exact=True  cores~16
+    reuse/pcm=10/bw=1                      60.5 us  x0.83  exact=True  cores~16
+    reuse/pcm=10/bw=2                      60.0 us  x0.84  exact=False  cores~16
+    reuse/pcm=5/bw=1                       45.2 us  x1.11  exact=True  cores~32
+    reuse/pcm=5/bw=2                       46.3 us  x1.09  exact=False  cores~32
+    reuse/pcm=2/bw=1                       52.5 us  x0.96  exact=True  cores~80
+    reuse/pcm=2/bw=2                       53.5 us  x0.94  exact=False  cores~80
+esmfold2:75    token attn-pair-bias attn@v      B=   16 Mt/Kt/Nt=10/10/2 naive=mcast1d_in1(bw=2) auto=   112.3 us  best=reuse/pcm=5/bw=2 x3.73 exact=True
+    grid                                   44.0 us  x2.55  exact=False  cores~16
+    reuse/pcm=10/bw=1                      44.0 us  x2.55  exact=False  cores~16
+    reuse/pcm=10/bw=2                      44.5 us  x2.53  exact=True  cores~16
+    reuse/pcm=5/bw=1                       31.0 us  x3.62  exact=False  cores~32
+    reuse/pcm=5/bw=2                       30.1 us  x3.73  exact=True  cores~32
+    reuse/pcm=2/bw=1                       35.7 us  x3.15  exact=False  cores~80
+    reuse/pcm=2/bw=2                       35.3 us  x3.18  exact=True  cores~80
+wrote /home/ttuser/.coworker/wt/perfwar-qb1-rebaseline-and-land/perf/attn_sites/rfd3_esm_qb1c3_atom4032.json
+2026-08-09 21:54:09.870 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-09 21:54:09.870 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+=== 21:54:10 replay atom4032 rc=0
+=== 21:54:10 QB1 NEXT COMPLETE
