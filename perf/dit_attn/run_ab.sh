@@ -8,6 +8,14 @@ REP="${2:-3}"
 WT=/home/ttuser/.coworker/wt/perfwar-dit-attention-fusion
 BASE="$WT/.base"
 P=/home/ttuser/tt-bio-dev/env/bin/python3
+BASE_REF=638fd2f9   # tt_bio/ here is identical to origin/main; verified with git diff --stat
+
+# The baseline worktree is disposable. Recreate it if it is not there, and copy in the
+# harness, which does not exist at BASE_REF.
+if [ ! -d "$BASE/tt_bio" ]; then
+  git -C "$WT" worktree add -q --detach "$BASE" "$BASE_REF" || exit 1
+  cp "$WT/perf/dit_attn/ab_fold.py" "$BASE/perf/dit_attn/ab_fold.py"
+fi
 
 export TT_MESH_GRAPH_DESC_PATH=/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto
 export TT_VISIBLE_DEVICES=0
