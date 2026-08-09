@@ -1642,13 +1642,10 @@ class AttentionPairBias(Module):
                 # The diffusion DiT computes attention as raw matmul + softmax + matmul,
                 # for both the fp32 (Protenix-v2) and bf16 (OpenDDE) diffusion dtypes.
                 # ttnn SDPA rejects fp32 inputs, and its arithmetic is what ba6ede96
-                # removed from the trunk. SDPA scales its additive mask along with QK,
-                # so z_weight carries sqrt(head_dim) compensation. Undo that
-                # compensation before adding z after the explicit QK scale.
-                if self.compute_pair_bias:
-                    z = ttnn.multiply(z, self.head_dim ** -0.5)
+                # removed from the trunk. The pair bias arrives at reference scale
+                # (scale_pair_bias=False), so there is no per-call rescale of it.
                 if seq_mask is not None:
-                    z = ttnn.add_(z, seq_mask)
+                    z = ttnn.add(z, seq_mask)
                 sc = ttnn.matmul(q, k,
                                  compute_kernel_config=self.compute_kernel_config)
                 sc = ttnn.multiply(sc, self.head_dim ** -0.5)

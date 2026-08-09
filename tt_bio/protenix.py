@@ -766,7 +766,8 @@ class DiffusionModule(_KeyedWeights):
                 AdaLN(False, remap_adaln(sub(A + "layernorm_a.")), self._dit_ckc, dtype=self._dit_dtype),
                 AttentionPairBias(self.DIT_HEAD_DIM, self.DIT_N_HEADS, True, False,
                                   PW.remap_attention_pair_bias(sub(A)), self._dit_ckc,
-                                  dtype=self._dit_dtype, raw_matmul_attention=True),
+                                  dtype=self._dit_dtype, raw_matmul_attention=True,
+                                  scale_pair_bias=False),
                 AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
 
@@ -1067,11 +1068,10 @@ class DiffusionModule(_KeyedWeights):
         =True). Mirrors the host _dit_pair_biases / the _atom_cond hoist."""
         extra = None
         if extra_attn_bias is not None:
-            # AttentionPairBias scales projected masks by sqrt(head_dim) to
-            # compensate ttnn SDPA's mask scaling. Match it for this direct bias.
+            # The DiT bias is at reference scale (scale_pair_bias=False), so this
+            # direct bias goes in unscaled, exactly as the host _dit_pair_biases adds it.
             extra = self._up_dit(extra_attn_bias.float().reshape(
-                1, 1, extra_attn_bias.shape[-2], extra_attn_bias.shape[-1])
-                * self.DIT_HEAD_DIM ** 0.5)
+                1, 1, extra_attn_bias.shape[-2], extra_attn_bias.shape[-1]))
         return [ttnn.add(apb.compute_bias(z_dev), extra) if extra is not None
                 else apb.compute_bias(z_dev) for (_, apb, _, _, _) in self._dit]
 
