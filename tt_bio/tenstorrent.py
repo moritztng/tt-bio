@@ -283,6 +283,81 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     )
 
 
+@lru_cache(maxsize=None)
+def _tri_att_qkv_l1_config(
+    m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int
+) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
+    """Program config for a tri-attention qkv projection whose result can stay in L1, or None.
+
+    The projection is tall and narrow (16384x256 @ 256x768 at 128 tokens), so it costs almost
+    nothing to compute and almost everything to write down: 25.17 MB of the op's 33.95 MB of DRAM
+    traffic is the result. Keeping it in L1, and letting nlp_create_qkv_heads read it there, takes
+    the projection + head-split + SDPA chain from 0.519 ms to 0.264 ms at 128 tokens, measured on
+    card 3.
+
+    Two guards, both hard:
+
+    - `in0_block_w` must come out as the whole of K. A narrower K block is a different
+      accumulation order and would not be bit-exact against the minimal_matmul this replaces; the
+      output CB grows with per_core_M, so past ~128 tokens the whole K stops fitting and the
+      projection falls back. That makes the fit test and the bit-exactness test the same test.
+    - the result and the q/k/v that follow it must both fit in aggregate L1 with room to spare,
+      since the rest of the block is still allocating.
+    """
+    gx, gy = COMPUTE_GRID_MAIN
+    num_cores = gx * gy
+    if k_tiles >= num_cores or m_tiles < n_tiles * 8 or n_tiles > 64:
+        return None
+    per_core_M = next(
+        (p for p in range(max(1, -(-m_tiles // num_cores)), m_tiles + 1) if m_tiles % p == 0), 0
+    )
+    if not per_core_M or -(-m_tiles // per_core_M) > num_cores:
+        return None
+    try:
+        l1 = int(ttnn.get_max_worker_l1_unreserved_size())
+    except Exception:
+        return None
+    tile = 1024 * elem_bytes
+    # Output CB plus the fp32 accumulation CB are fixed; in0 and in1 scale with the K block.
+    fixed = per_core_M * n_tiles * (tile + 4096) + 128 * 1024
+    per_block = (per_core_M + n_tiles) * tile
+    if fixed + k_tiles * per_block > l1:
+        return None
+    if 2 * m_tiles * n_tiles * tile > 0.6 * num_cores * l1:
+        return None
+    out_subblock_w = max((w for w in range(min(4, n_tiles), 0, -1) if n_tiles % w == 0), default=1)
+    return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+        compute_with_storage_grid_size=(gx, gy),
+        in0_block_w=k_tiles,
+        out_subblock_h=1,
+        out_subblock_w=out_subblock_w,
+        out_block_h=per_core_M,
+        out_block_w=n_tiles,
+        per_core_M=per_core_M,
+        per_core_N=n_tiles,
+        fuse_batch=True,
+        fused_activation=None,
+        mcast_in0=False,
+    )
+
+
+def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
+    """_tri_att_qkv_l1_config for a concrete operand pair, or None if it does not apply."""
+    if dtype != ttnn.bfloat16:
+        return None  # the CB budget above is sized in bf16 tiles
+    try:
+        xs, ws = list(x.shape), list(w.shape)
+        m = 1
+        for d in xs[:-1]:
+            m *= int(d)
+        k, n = int(xs[-1]), int(ws[-1])
+        if m % 32 or k % 32 or n % 32:
+            return None
+        return _tri_att_qkv_l1_config(m // 32, k // 32, n // 32, 2)
+    except Exception:
+        return None
+
+
 def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     """Retune L1-edge thresholds and chunk sizes for grids smaller than the
     11x10 Blackhole baseline (e.g. Wormhole 8x8 has ~55% of its aggregate L1),
@@ -348,6 +423,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _sdpa_program_config.cache_clear()
     _sdpa_program_config_for_lengths.cache_clear()
     _triangle_mul_program_config.cache_clear()
+    _tri_att_qkv_l1_config.cache_clear()
 
 
 def set_fast_mode(enabled: bool) -> None:
@@ -1237,9 +1313,12 @@ class TriangleAttention(Module):
 
         def attend(qkv_in, bias):
             qkv_in = ttnn.unsqueeze(qkv_in, 1)
+            # The head split follows the projection: when the projection kept its result in L1
+            # (see _tri_att_qkv_l1_config) reading it back out to DRAM here would hand back the
+            # whole win, and the chunked path's qkv is in DRAM so this is a no-op for it.
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv_in, num_heads=self.n_heads, num_kv_heads=self.n_heads,
-                transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                transpose_k_heads=False, memory_config=qkv_in.memory_config(),
             )
             ttnn.deallocate(qkv_in)
             if _FP32_SOFTMAX or self.fp32_softmax:
@@ -1335,12 +1414,23 @@ class TriangleAttention(Module):
             x = ttnn.concat(parts, dim=0)
             del parts
         else:
-            qkv = ttnn.experimental.minimal_matmul(
-                input_tensor=x,
-                weight_tensor=self.qkv_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                dtype=_dtype(),
-            )
+            qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
+            if qkv_cfg is not None:
+                qkv = ttnn.linear(
+                    x,
+                    self.qkv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    dtype=_dtype(),
+                    memory_config=ttnn.L1_MEMORY_CONFIG,
+                    program_config=qkv_cfg,
+                )
+            else:
+                qkv = ttnn.experimental.minimal_matmul(
+                    input_tensor=x,
+                    weight_tensor=self.qkv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    dtype=_dtype(),
+                )
             g = ttnn.experimental.minimal_matmul(
                 input_tensor=x,
                 weight_tensor=self.g_weight,

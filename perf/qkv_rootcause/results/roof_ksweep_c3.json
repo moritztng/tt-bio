@@ -1,0 +1,29 @@
+{
+  "roof_saturation": {
+    "6144": {
+      "ms": 3.4263,
+      "tflops": 135.38
+    },
+    "8192": {
+      "ms": 8.019,
+      "tflops": 137.11
+    }
+  },
+  "k_sweep_L1_resident": {
+    "256": {
+      "k_tiles": 8,
+      "GFLOP": 6.442,
+      "ms": 0.0669,
+      "tflops": 96.28
+    },
+    "512": {
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    "1024": {
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    "2048": {
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    }
+  }
+}
