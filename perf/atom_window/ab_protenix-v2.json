@@ -1,0 +1,24 @@
+{
+  "model": "protenix-v2",
+  "card": "qb2-card1",
+  "ttnn": "?",
+  "bmm_calls_per_fold": 2406,
+  "bmm_shapes": {
+    "(75, 4, 32, 32)x(75, 4, 32, 128)": 1203,
+    "(75, 4, 32, 128)x(75, 4, 128, 32)": 1203
+  },
+  "A": [
+    33.5602,
+    33.5946
+  ],
+  "B": [
+    35.7437,
+    34.2413
+  ],
+  "median_A_s": 33.5774,
+  "median_B_s": 34.9925,
+  "saved_ms_per_fold": 1415.1,
+  "speedup": 1.0421,
+  "coords_bit_exact": true,
+  "coords_max_abs": 0.0
+}
