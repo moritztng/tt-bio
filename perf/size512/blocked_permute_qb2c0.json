@@ -1,0 +1,225 @@
+{
+ "host": "qb2",
+ "chip": 0,
+ "ttnn": "0.68.0",
+ "core_grid_main": "11x10",
+ "l1_budget_bytes": 168565760,
+ "runs": [
+  {
+   "N": 384,
+   "R": null,
+   "calls": 1,
+   "dest": "dram",
+   "ms": 2.1473,
+   "note": "full-tensor DRAM permute -- what production takes at this size"
+  },
+  {
+   "N": 384,
+   "R": 32,
+   "calls": 12,
+   "dest": "l1",
+   "block_shape": [
+    384,
+    32,
+    256
+   ],
+   "block_MB": 6.29,
+   "fit_test_2p5x": true,
+   "ms": 1.3173,
+   "vs_full_dram": 1.63,
+   "per_call_us": 109.8
+  },
+  {
+   "N": 384,
+   "R": 64,
+   "calls": 6,
+   "dest": "l1",
+   "block_shape": [
+    384,
+    64,
+    256
+   ],
+   "block_MB": 12.58,
+   "fit_test_2p5x": true,
+   "ms": 1.3016,
+   "vs_full_dram": 1.65,
+   "per_call_us": 216.9
+  },
+  {
+   "N": 384,
+   "R": 128,
+   "calls": 3,
+   "dest": "l1",
+   "block_shape": [
+    384,
+    128,
+    256
+   ],
+   "block_MB": 25.17,
+   "fit_test_2p5x": true,
+   "ms": 1.2686,
+   "vs_full_dram": 1.693,
+   "per_call_us": 422.9
+  },
+  {
+   "N": 384,
+   "R": 256,
+   "calls": 2,
+   "dest": "l1",
+   "block_shape": [
+    384,
+    256,
+    256
+   ],
+   "block_MB": 50.33,
+   "fit_test_2p5x": true,
+   "ms": 1.2562,
+   "vs_full_dram": 1.709,
+   "per_call_us": 628.1
+  },
+  {
+   "N": 448,
+   "R": null,
+   "calls": 1,
+   "dest": "dram",
+   "ms": 2.9148,
+   "note": "full-tensor DRAM permute -- what production takes at this size"
+  },
+  {
+   "N": 448,
+   "R": 32,
+   "calls": 14,
+   "dest": "l1",
+   "block_shape": [
+    448,
+    32,
+    256
+   ],
+   "block_MB": 7.34,
+   "fit_test_2p5x": true,
+   "ms": 1.7453,
+   "vs_full_dram": 1.67,
+   "per_call_us": 124.7
+  },
+  {
+   "N": 448,
+   "R": 64,
+   "calls": 7,
+   "dest": "l1",
+   "block_shape": [
+    448,
+    64,
+    256
+   ],
+   "block_MB": 14.68,
+   "fit_test_2p5x": true,
+   "ms": 1.7136,
+   "vs_full_dram": 1.701,
+   "per_call_us": 244.8
+  },
+  {
+   "N": 448,
+   "R": 128,
+   "calls": 4,
+   "dest": "l1",
+   "block_shape": [
+    448,
+    128,
+    256
+   ],
+   "block_MB": 29.36,
+   "fit_test_2p5x": true,
+   "ms": 1.6967,
+   "vs_full_dram": 1.718,
+   "per_call_us": 424.2
+  },
+  {
+   "N": 448,
+   "R": 256,
+   "calls": 2,
+   "dest": "l1",
+   "block_shape": [
+    448,
+    256,
+    256
+   ],
+   "block_MB": 58.72,
+   "fit_test_2p5x": true,
+   "ms": 1.6895,
+   "vs_full_dram": 1.725,
+   "per_call_us": 844.7
+  },
+  {
+   "N": 512,
+   "R": null,
+   "calls": 1,
+   "dest": "dram",
+   "ms": 4.0203,
+   "note": "full-tensor DRAM permute -- what production takes at this size"
+  },
+  {
+   "N": 512,
+   "R": 32,
+   "calls": 16,
+   "dest": "l1",
+   "block_shape": [
+    512,
+    32,
+    256
+   ],
+   "block_MB": 8.39,
+   "fit_test_2p5x": true,
+   "ms": 2.2665,
+   "vs_full_dram": 1.774,
+   "per_call_us": 141.7
+  },
+  {
+   "N": 512,
+   "R": 64,
+   "calls": 8,
+   "dest": "l1",
+   "block_shape": [
+    512,
+    64,
+    256
+   ],
+   "block_MB": 16.78,
+   "fit_test_2p5x": true,
+   "ms": 2.2436,
+   "vs_full_dram": 1.792,
+   "per_call_us": 280.4
+  },
+  {
+   "N": 512,
+   "R": 128,
+   "calls": 4,
+   "dest": "l1",
+   "block_shape": [
+    512,
+    128,
+    256
+   ],
+   "block_MB": 33.55,
+   "fit_test_2p5x": true,
+   "ms": 2.1924,
+   "vs_full_dram": 1.834,
+   "per_call_us": 548.1
+  },
+  {
+   "N": 512,
+   "R": 256,
+   "calls": 2,
+   "dest": "l1",
+   "block_shape": [
+    512,
+    256,
+    256
+   ],
+   "block_MB": 67.11,
+   "fit_test_2p5x": true,
+   "ms": 2.2431,
+   "vs_full_dram": 1.792,
+   "per_call_us": 1121.6
+  }
+ ]
+}

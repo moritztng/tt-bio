@@ -1,0 +1,161 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "chip": 0,
+ "note": "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number",
+ "runs": [
+  {
+   "size": 384,
+   "arm": "on",
+   "fold_s": 50.763,
+   "n_tokens": 384,
+   "plddt": 0.819551,
+   "cif_sha256": {
+    "cdk2x2_384.cif": "db7e68aa4ecc4829"
+   },
+   "grid": [
+    11,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 40394.98
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 36054.52
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 20220.54
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 13644.98
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 3039.74
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 94.75
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x384x384x256": {
+     "L1": 494
+    },
+    "l1_layer_norm|h=1.5|384x384x256": {
+     "L1": 30
+    },
+    "pair_proj_out_l1|1x384x384x256@16": {
+     "L1": 484
+    },
+    "pair_proj_out_l1|1x384x384x256@256": {
+     "DRAM": 2096
+    },
+    "pair_proj_out_l1|1x384x384x256@64": {
+     "L1": 40
+    },
+    "pair_proj_out_l1|1x384x384x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|384x384x256@1": {
+     "L1": 240
+    },
+    "pair_proj_out_l1|384x384x256@256": {
+     "DRAM": 1048
+    },
+    "pair_proj_out_l1|384x384x64@64": {
+     "L1": 160
+    },
+    "transpose|384x384x256": {
+     "DRAM": 1048
+    },
+    "transpose|384x384x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 40394.98,
+   "block_calls": 604
+  },
+  {
+   "size": 384,
+   "arm": "off",
+   "fold_s": 53.501,
+   "n_tokens": 384,
+   "plddt": 0.819551,
+   "cif_sha256": {
+    "cdk2x2_384.cif": "db7e68aa4ecc4829"
+   },
+   "grid": [
+    11,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 41633.3
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 36615.02
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 20568.75
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 13932.98
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 3646.44
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 1189.24
+    }
+   },
+   "decisions": {
+    "transpose|384x384x256": {
+     "DRAM": 1048
+    },
+    "transpose|384x384x64": {
+     "DRAM": 160
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 41633.3,
+   "block_calls": 604
+  },
+  {
+   "size": 448,
+   "arm": "cold",
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 1151 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 518144 and static circular buffer region ends at 799232\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55"
+  }
+ ],
+ "ratios": {
+  "384": {
+   "on_block_ms": [
+    40394.98
+   ],
+   "off_block_ms": [
+    41633.3
+   ],
+   "on_fold_s": [
+    50.763
+   ],
+   "off_fold_s": [
+    53.501
+   ],
+   "off_over_on_block": 1.0307,
+   "off_minus_on_block_ms": 1238.32,
+   "off_over_on_fold": 1.0539
+  }
+ }
+}
