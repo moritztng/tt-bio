@@ -3,7 +3,7 @@ import contextlib
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
-from math import pi
+from math import pi, prod
 from functools import lru_cache
 from types import MappingProxyType
 
@@ -141,12 +141,12 @@ _TRIMUL_OUT_MOVE_DRAM = False
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
-# Largest chunk * seq_len^2 whose trimul working set still fits in L1 beside the triangle
-# matmul's circular buffers. Everything the chunk loop holds there scales with that product,
-# so one budget covers all of it. Measured on a 13x10 Blackhole grid: chunk 64 at seq 320 and
-# chunk 128 at seq 224 both fit; chunk 64 at seq 352 and chunk 128 at seq 256 both throw
-# "statically allocated circular buffers clash with L1 buffers". Scaled by core count below,
-# since on a smaller grid the same bytes land on fewer cores.
+# Largest batch * chunk * seq_len^2 whose trimul working set still fits in L1 beside the
+# triangle matmul's circular buffers. Everything the chunk loop holds there scales with that
+# product, so one budget covers all of it. Measured on a 13x10 Blackhole grid at batch 1:
+# chunk 64 at seq 320 and chunk 128 at seq 224 both fit; chunk 64 at seq 352 and chunk 128 at
+# seq 256 both throw "statically allocated circular buffers clash with L1 buffers". Scaled by
+# core count below, since on a smaller grid the same bytes land on fewer cores.
 TRIANGLE_MULT_L1_CHUNK_BUDGET = 64 * 320 * 320
 # Set by _apply_grid_thresholds: True on grids smaller than 11x10 (e.g. Wormhole).
 # Tightens the L1-edge chunking thresholds and chunk sizes above this comment block.
@@ -224,8 +224,8 @@ def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
 
 
-def _trimul_chunk_size(seq_len: int, hidden: int) -> int:
-    """Hidden-channel chunk width for the trimul at this sequence length.
+def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
+    """Hidden-channel chunk width for the trimul at this sequence length and batch.
 
     The chunk loop is bound by per-op overhead at production sizes rather than by
     arithmetic: at 117 aa the two trimuls are 52% of a Pairformer block and their matmuls
@@ -240,13 +240,22 @@ def _trimul_chunk_size(seq_len: int, hidden: int) -> int:
     Only the L1 path widens. Above _trimul_l1_max_seq the chunks live in DRAM, where the
     same op-count saving comes with a larger live footprint, and the large targets that
     run there are the ones already sitting on the DRAM ceiling.
+
+    `batch` is the leading dimension of the pair tensor, and it is part of the budget: every
+    tensor the chunk loop keeps in L1 is [batch, chunk, seq, seq], so a batched caller holds
+    `batch` times the bytes at the same width. ESMFold2's confidence head replicates the pair
+    state to one copy per diffusion sample before its own trimul trunk, so it arrives here at
+    batch = --diffusion_samples; pricing only chunk * seq_len^2 widened a 117 aa fold at 5
+    samples from chunk 32 to 128 and the channel loop's input matmul then threw the
+    circular-buffer clash. Narrowing instead of widening is free of any parity decision --
+    the chunk width is a partition of an independent-channel sum, bit-exact at every width.
     """
     if seq_len > _trimul_l1_max_seq():
         return TRIANGLE_MULT_CHUNK_SIZE
     gx, gy = COMPUTE_GRID_MAIN
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
     c = TRIANGLE_MULT_CHUNK_SIZE
-    while hidden % (c * 2) == 0 and (c * 2) * seq_len * seq_len <= budget:
+    while hidden % (c * 2) == 0 and batch * (c * 2) * seq_len * seq_len <= budget:
         c *= 2
     return c
 
@@ -1586,7 +1595,10 @@ class TriangleMultiplication(Module):
         H = x_norm_in.shape[1]
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
-        gp_in_chunks = self._gp_in_chunks(_trimul_chunk_size(H, self._hidden))
+        # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
+        # budget has to see the batch a confidence head arrives with, not just H.
+        batch = prod(list(x_norm_in.shape)[:-3])
+        gp_in_chunks = self._gp_in_chunks(_trimul_chunk_size(H, self._hidden, batch))
         n_pairs = len(gp_in_chunks)
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
