@@ -1,0 +1,8 @@
+=== 07:47:24 bg_L0_a rc=1 tt_throw=YES files=9
+=== 07:54:25 bg_L2_a rc=124 tt_throw=no files=89
+=== 07:54:38 bg_L0_b rc=1 tt_throw=YES files=9
+=== 07:47:24 bg_L0_a rc=1 tt_throw=YES files=9
+=== 07:54:38 bg_L0_b rc=1 tt_throw=YES files=9
+=== 07:54:49 bg_MAIN_a (arm MAIN = cc39a867, cap 300 s)
+=== 07:59:50 bg_MAIN_a rc=124 tt_throw=no files=69
+=== 07:59:50 bg_MAIN_b (arm MAIN = cc39a867, cap 300 s)
