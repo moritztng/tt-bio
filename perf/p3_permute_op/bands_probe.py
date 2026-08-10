@@ -205,7 +205,10 @@ def main() -> int:
     # it sits as far from the 338 FLOP/byte machine balance as an op can. The binding roof is the
     # copy roof at the same shape and the same buffer types, measured here.
     R["F_roofs"] = []
-    for (N, C, mck) in [(298, 64, "dram"), (298, 64, "l1"), (640, 32, "dram")]:
+    # 320 is the fold's own padded pair sequence (298 rounds up to 10 tiles = 320); H1 in the state
+    # doc asks whether the isolated 0.99x at 298 into L1 is an artefact of a ragged 298 vs an exact 320.
+    for (N, C, mck) in [(298, 64, "dram"), (298, 64, "l1"), (320, 64, "l1"), (320, 64, "dram"),
+                        (640, 32, "dram")]:
         mc = MC[mck]
         t = torch.randn(1, N, N, C, dtype=torch.float32).to(torch.bfloat16)
         x = ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16, device=dev,
