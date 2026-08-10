@@ -15,20 +15,18 @@ result has to be read against.
 
 ## THE ANSWER IN ONE PARAGRAPH
 
-**`size512-ab`'s +476.96 ms does not survive scrutiny and the survival fraction of that flag set at
-512 aa is 8.2 %, not 27.6 %.** Measured on this card in this session, `off:ab5` — its exact five flags —
-is worth **+141.66 ms/fold** at 512 aa against **+1721.6 ms/fold** for the same five at 298 aa, and
-**every milliampere of the 512 aa figure is on the c=64 template track**; the c_z=256 pair track reads
-zero at every site, because the capacity gates refuse there. The block wall `size512-ab` quoted its
-number on **cannot resolve it**: over 7 `on` arms its A/A spread is **326.59 ms**, 2.3x the effect. The
-one flag that does survive, and grows, is **`_NARROW_PROJ_BW` at +405.0 ms/fold**, which the org's
-ledger credits with 31.5 — it is not capacity-gated, so it is 12.9x larger at 512 aa than the number
-on the books.
-
-**This leg is a throwaway experiment harness under `perf/survival512/`, not production. Nothing in
-`tt_bio/` is touched, nothing is proposed for merge, and every flag is flipped from outside on module
-globals that production reads at call time.** The word "merged" appears throughout because the
-question is whether the org's *merged* 685.1 ms/fold survives; the code that answers it is a probe.
+**`size512-ab`'s +476.96 ms was never a measurement — it is 29x inside its own wall's drift band — and
+the survival fraction it was reaching for is 36.2 %, not 27.6 %.** Re-taken on one card in one session
+at both sizes, `off:ab5` (its exact five flags) is worth **119.96 ms/fold at 512 aa against 330.94 at
+298 aa**. Re-taken on `block:PairformerLayer`, the wall it used, the 512 aa arm reads **-75.93 ms against
+a 7-arm A/A floor of 2 189.67** and cannot resolve anything, while the 298 aa arm reads **+1 738.09
+against that leg's own 1 729.03** — so its denominator was right and its numerator was drift.
+**The org's own merged 685.1 family does better than anyone expected: 119.1 %, it grows at 512 aa.** The
+two fractions differ because `size512-ab` swapped `_NARROW_PROJ_BW` out for C2FIX, and
+**`_NARROW_PROJ_BW` is the only flag in either family that is not capacity-gated: 60.37 ms/fold at
+298 aa to 407.89 at 512 aa, 6.76x**, where the three L1 `layer_norm` flags go **275.26 to exactly zero**
+(census: 0 of 524 calls reach L1). What survives is not what shrank least, it is the one lever that
+never depended on a tensor fitting anywhere.
 
 Scope: **protenix**-v2, the **trunk**. Card qb2 chip 0, ttnn **0.68.0**, 11x10 grid, 110 cores.
 qb1 runs 0.67.4, so **every absolute here is a ratio** and owes a qb1 re-take before it drives a
@@ -494,8 +492,8 @@ Read as totals in ms/fold, resolved sites only, with the unresolved remainder na
 | `_PAIR_PROJ_L1_OUT` | **+28.6** (+13.3 unresolved) | trimul `c=64` body; the triatt `c=64` body reads +13.27 against a 13.99 floor |
 | C2FIX `_transpose_memory_config` | **+82.8** (+16.1 unresolved) | triatt `c=64` body, the one site the census leaves live |
 | `_NARROW_PROJ_BW` | **+405.0** | 247.92 + 130.07 + 27.00 over **764 counted calls** |
-| **`off:ab5`**, `size512-ab`'s exact five | **+123.1** on the two `c=64` bodies; **+141.66** on `stage:template` | replaces **+476.96** |
-| **`off:family`**, the merged 685.1 five | **+442.2** | 248.45 + 122.38 + 21.27 + 16.44 + 33.62 |
+| **`off:ab5`**, `size512-ab`'s exact five | **+119.96** over the matched site set (**+123.12** on the two `c=64` bodies alone) | replaces **+476.96** |
+| **`off:family`**, the merged 685.1 five | **+443.87** | 248.45 + 1.58 + 122.38 + 0.06 + 21.27 + 0.07 + 16.44 + 33.62 |
 
 **VERDICT — CONFIRMED (S4), and this is the cross-check the leg was required to pass before quoting
 anything else.** `off:projl1` reads **+28.56 ms/fold** on `body:TriangleMultiplication` c64, 0.1785
@@ -512,40 +510,87 @@ inside S6's predicted 80-120 band, and the census says why: 160 of its 1208 tran
 `off:ab5` sum to 82.75 + 13.27 - 6.16 = **89.86** against **+91.89** measured, a 2.03 ms miss on a 13.99
 floor. On `body:TriangleMultiplication` c64 they sum to 16.05 + 28.56 - 9.14 = **35.47** against
 **+31.23**, a 4.24 ms miss on a 23.44 floor. Over both bodies, singles **125.33** against the set's
-**123.12**, a miss of **1.8 %**. `off:family` against its singles: **442.2** against 405.0 + 41.8 + 0.0 =
-**446.8**, **1.0 %**. **The five flags do not interact at 512 aa**, which is expected once the census
+**123.12**, a miss of **1.8 %**. `off:family` over the matched site set against its singles:
+**443.87** against 407.89 + 39.78 + (-30.14) = **417.53**, **6.3 %** — the largest non-additivity in the
+leg, carried by `lin|pwa|c256@1` (130.07 alone against 122.38 in the set) and `lin|template|c256@64`
+(27.00 against 21.27), i.e. the two smallest-output narrow sites. **The five flags do not interact at 512 aa**, which is expected once the census
 shows them touching disjoint sites, and it means each single is quotable on its own.
 
 **VERDICT — CONFIRMED (S5), and it is the finding the org did not expect.** `_NARROW_PROJ_BW = 1` is
 worth **+405.0 ms/fold at 512 aa**, inside S5's registered 270-420 band, at **0.512 / 0.542 / 0.675
 ms/call** across its three sites against a predicted 0.35-0.55. The org's ledger credits it with
-**31.5 ms/fold** (X2, 298 aa). It is **12.9x larger at 512 aa than the number on the books**, and it is
-the only member of either family whose mechanism is not capacity-gated: the census shows its tuned
-program config returned at all 764 calls at both sizes, where every other flag's fit test refuses.
+**31.5 ms/fold** (X2, 298 aa, a qb1 absolute). Measured on one card in one session at both sizes it
+goes **60.37 ms/fold at 298 aa to 407.89 at 512 aa, a growth of 6.76x** against a 2.56x growth in bytes,
+and it is the only member of either family whose mechanism is not capacity-gated: the census shows its
+tuned program config returned at all 764 calls at both sizes, where every other flag's fit test
+refuses. **Against the ledger's 31.5 it is 12.9x, but 6.76x is the honest figure** — it divides two
+measurements from the same instrument, where the 12.9x mixes this card with qb1.
 
-### 6.4 The survival fractions — each a ratio of two measurements
+### 6.4 The survival fractions — matched instrument, both sizes, one card, one session
 
-Both are ratios, which is what qb2 at 0.68.0 is good for and why this leg can answer its question here
-without owning an absolute. **A survival fraction is a ratio of two measurements on the same card**, so
-the ttnn version and the grid cancel out of it.
+**The chained 298 aa run landed after all**, 9 timed folds with 5 `on` arms, all at plDDT 0.859489 and
+CIF `8139d61b6c90f893`. So both sizes are measured on the same card in the same session with the same
+harness, and every fraction below is **a ratio of two measurements on the same card** — which is what
+qb2 at 0.68.0 is good for, and why the grid and the ttnn version cancel out of it.
+
+**The 298 aa census is the positive control, and it is total.** All 12 census classes take **L1** at
+298 aa: 484 + 30 + 10 `_l1_layer_norm`, 484 + 240 + 40 `_narrow_proj_linear`, 2096 + 1048 + 320 + 160
+`_pair_proj_linear(l1_out)`, 1048 + 160 `_transpose_memory_config`. At 512 aa **640 of those 5356 calls
+survive** and the rest refuse. Same instrument, same code, two sizes.
+
+**Matched site set at both sizes** — the six `c_z=256` leaf walls plus the two `c=64` bodies, summed.
+This is the instrument that resolves at both sizes, so it is the one the fractions are taken on.
 
 | set | 298 aa | 512 aa | survival |
 |---|---:|---:|---:|
-| **`size512-ab`'s five** (C2FIX + `_PAIR_PROJ_L1_OUT` + 3 norms) | **1 729.03 ms/fold**, its own qb2-chip-0 arm | **141.66 ms/fold** (`stage:template`), **123.12** (resolved bodies) | **8.2 % / 7.1 %** |
-| **the merged five** (`_PAIR_PROJ_L1_OUT` + `_NARROW_PROJ_BW` + 3 norms) | **685.1 ms/fold**, org ledger X7 561.8 + X2 31.5 + X10 91.8 | **442.2 ms/fold** | **64.5 %** |
+| **`off:ab5`**, `size512-ab`'s five (C2FIX + `_PAIR_PROJ_L1_OUT` + 3 norms) | **330.94 ms/fold** | **119.96 ms/fold** | **36.2 %** |
+| **`off:family`**, the merged five (`_PAIR_PROJ_L1_OUT` + `_NARROW_PROJ_BW` + 3 norms) | **372.63 ms/fold** | **443.87 ms/fold** | **119.1 %** |
+| the three L1 `layer_norm` flags alone | **275.26 ms/fold** | **-30.14, unresolved = 0** | **0 %** |
+| `_NARROW_PROJ_BW` alone | **60.37 ms/fold** | **407.89 ms/fold** | **675.7 %, i.e. 6.76x** |
 
-**VERDICT — KILLED: the 27.6 % survival fraction, and the +476.96 ms it was computed from.** The
-correct figure for that flag set is **8.2 %**, a factor of **3.4** smaller, and it is 8.2 % for a reason
-the census gives independently of any wall: at 512 aa four of that set's five members refuse, and the
-whole surviving effect is 640 device calls on the `c=64` template track. **`size512-ab`'s +476.96 was
-never resolvable** at 0.64 % of a wall whose 7-arm drift band is 2.93 %, and the direction of its error
-is now known as well as its size.
+**VERDICT — KILLED: the +476.96 ms, and the 27.6 % is killed as a measurement while landing close to the
+truth for the wrong reason.** Both of `size512-ab`'s figures were taken on `block:PairformerLayer`.
+Re-taken on that same wall in this session:
 
-**But the org's own merged 685.1 survives far better than the withdrawn number implied: 64.5 %.** The
-two fractions differ because the two sets differ in exactly one slot. `size512-ab` swapped
-`_NARROW_PROJ_BW` out for C2FIX, and `_NARROW_PROJ_BW` is the one flag that is not capacity-gated. **The
-27.6 % was measured on the set that excludes the only member that survives**, so as a statement about
-what Moritz merged it was answering a different question, not merely answering it imprecisely.
+| `block:PairformerLayer`, `off:ab5` | delta | A/A floor | resolved? |
+|---|---:|---:|---|
+| 298 aa | **+1 738.09 ms** | 436.30 | **yes**, 4.0x the floor |
+| 512 aa | **-75.93 ms** | **2 189.67** | **no**, 29x inside the floor |
+
+Two things follow, and they point in opposite directions. **The 298 aa denominator is confirmed
+independently: +1 738.09 against `size512-ab`'s own 1 729.03, 0.5 % apart** on the same wall on the same
+chip, which is as strong a cross-validation of a predecessor's number as this leg produced. And **the
+512 aa numerator is not measurable on that wall at all** — the effect is 29x inside the wall's own
+7-arm drift band, so on its own instrument the fraction is bounded only by |survival| < 126 %, which
+settles nothing. **`size512-ab` did not measure +476.96 ms; it measured its own drift.**
+
+**On the instrument that does resolve, the survival of that flag set is 36.2 %, which is *higher* than
+the 27.6 % it replaces, not lower.** The withdrawn number was wrong by ~4x in the numerator, and its
+denominator was too large by a compensating factor, because both were block-wall figures carrying
+everything inside a `PairformerLayer` rather than the sites the flags touch. **So the honest correction
+is not "27.6 % was 3.4x too big" — it is "27.6 % was unmeasurable on its instrument, and the answer it
+was reaching for is 36.2 %."** That distinction matters for `CLOSEOUT.md`: the org's decision to move
+its centre of gravity to 512 aa was not built on a number that was directionally wrong, it was built on
+a number that could not have been right or wrong.
+
+**VERDICT — CONFIRMED: the merged 685.1 family does not merely survive at 512 aa, it grows — 119.1 %.**
+Same instrument, same card, same session. The two fractions differ by 3.3x because the two sets differ
+in exactly one slot: `size512-ab` swapped `_NARROW_PROJ_BW` out for C2FIX, and `_NARROW_PROJ_BW` is the
+one flag that is not capacity-gated. **It measured the set that excludes the only member that survives.**
+
+**The decomposition that explains all four rows, and it is two numbers.** Splitting each set by track:
+
+| track | `off:ab5` 298 aa | `off:ab5` 512 aa | `off:family` 298 aa | `off:family` 512 aa |
+|---|---:|---:|---:|---:|
+| `c_z=256` pair track (six leaf walls) | **290.93** | **-3.16** | 356.35 | **393.80** |
+| `c=64` template track (two bodies) | **40.01** | **123.12** | 16.28 | **50.07** |
+
+**The surviving part did not shrink — it grew 3.08x, and by the same factor in both sets** (123.12/40.01
+= 3.079, 50.07/16.28 = 3.076, independently measured). Bytes grow 2.56x from padded 320 to padded 512,
+so a track that stays L1-resident getting 3.08x more expensive to run on DRAM is exactly what the byte
+model predicts. **What collapses is the `c_z=256` pair track, 290.93 to zero**, and the census gives the
+reason with no timing argument at all: every `c_z=256` gate refuses at 512 aa. `off:family` keeps its
+pair track only because `_NARROW_PROJ_BW` lives there and is not gated.
 
 ### 6.5 Where the surviving effect sits, and what holds it there
 
@@ -574,18 +619,17 @@ is **an occupancy repair measured against an occupancy defect**, and the residua
 roof it still leaves on the table is a transaction-granularity problem, the third instance in this org
 of `perfwar-l1-destination-priced-as-free-fake-mystery`, here on the read side.
 
-### 6.6 The 298 aa same-session denominator
+### 6.6 The 298 aa denominator, and how it was taken
 
 The 298 aa arm set (`on, off:family, on, off:narrowbw, on, off:ab5, on, off:norms, on`) was chained to
-start on the same card in the same session the moment the 512 aa run released the device, writing
-`perf/survival512/surv_298_qb2c0.json` after every fold. **At the time of writing its cold fold has
-completed at plDDT 0.859489, matching §1.5 and both predecessors, and its timed arms are still
-running.** Nothing in §6.4 waits on it: the `size512-ab` row uses **that leg's own 298 aa qb2-chip-0
-measurement**, which is the same denominator the withdrawn 27.6 % was computed against, so the fraction
-this doc replaces it with changes only the numerator and is an apples-to-apples correction. What the
-chained run adds when it lands is a second, independent 298 aa denominator for both sets from this
-instrument, and §1.5 has already shown this instrument reproducing X10's merged 91.8 ms/fold at 298 aa
-on this card to within 25 %.
+start on the same card in the same session the moment the 512 aa run released the device, and it
+completed: `perf/survival512/surv_298_qb2c0.json`, 9 timed folds, **5 `on` arms**, all plDDT 0.859489
+and CIF `8139d61b6c90f893`, matching §1.5 and both predecessors. Its site-wall A/A spreads are
+**0.12-6.66 ms** against 512 aa's 0.17-23.44, and its `block:PairformerLayer` spread is **436.30 ms**
+against 2 189.67 — the floor scales with the wall, as it should. Every fraction in §6.4 is taken from
+this run and the 512 aa run only, never from another leg's number, and the one predecessor figure it
+touches (`size512-ab`'s 1 729.03) is used as a **check** on the 298 aa block wall rather than as an
+input.
 
 ---
 
@@ -597,12 +641,12 @@ Counts measured this pass, not assumed: 484 + 240 + 40 = **764** narrow `c_z=256
 
 | # | item | ms/fold at 512 aa | state |
 |---:|---|---:|---|
-| 1 | **`_NARROW_PROJ_BW` = 1**, already on main and already ON | **+405.0** | **A valuation, not a candidate, and the org's largest 512 aa number.** The ledger credits it with 31.5 (X2, 298 aa). **Correct the ledger: this flag is size-independent and 12.9x larger at 512 aa.** |
+| 1 | **`_NARROW_PROJ_BW` = 1**, already on main and already ON | **+405.0** | **A valuation, not a candidate, and the org's largest 512 aa number.** Same instrument, same card: **60.37 at 298 aa to 407.89 at 512 aa, 6.76x**, against a 2.56x growth in bytes. The ledger credits it with 31.5 (X2, qb1, 298 aa). **Correct the ledger: this flag is size-independent and gets better with size.** |
 | 2 | **a size-independent route to an L1 `layer_norm` source** | up to **+498** (0.6516 ms/call x 764 counted calls, isolated) | **The prize the 1.5x fit test forgoes.** The census proves all 524 norms refuse at 512 aa; §1.3 shows the allocation **succeeds** in isolation at padded 512. The gate is a static budget decision, not an allocator failure. Charter §4.10 prefers exactly this class of fix. Phase 3 work, not this leg's. |
 | 3 | **C2FIX `_transpose_memory_config` at 512 aa, template track only** | **+82.8** (+16.1 unresolved) | **`z-rowblock`'s op. Reported and handed over, not pursued**, see §7.1. |
 | 4 | `_PAIR_PROJ_L1_OUT` at 512 aa, template track | **+28.6** (+13.3 unresolved) | Already on main and already ON. Reproduces the sibling's +29.7 to 3.8 %; **this is the leg's instrument cross-check as much as it is a valuation.** |
 | 5 | the three L1 `layer_norm` flags at 512 aa | **0.0 each** | **Dead by construction**, census 0 of 524 on L1. Not a regression: they are 298-aa-only wins whose fit test is doing its job. Item 2 is the way to recover them. |
-| 6 | `size512-ab`'s **+476.96 ms** and its **27.6 %** | **-335.3 correction** | **RETIRED and replaced: +141.66 ms, 8.2 %.** Strike both from `CLOSEOUT.md`. |
+| 6 | `size512-ab`'s **+476.96 ms** and its **27.6 %** | **not a measurement** | **RETIRED. The +476.96 is 29x inside its own wall's 2 189.67 ms floor and is drift.** Its 298 aa denominator is confirmed (+1 738.09 vs 1 729.03, 0.5 %). **Replace 27.6 % with 36.2 %**, taken on the site walls that resolve at both sizes, and add the merged family's **119.1 %** beside it. Fix both in `CLOSEOUT.md`. |
 
 ### 7.1 The boundary with `z-rowblock`, respected
 
