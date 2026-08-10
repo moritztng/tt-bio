@@ -11,8 +11,8 @@ fold. Usage:
 
 Safe on a LIVE window since 2026-08-10: every cell with a fold running right now is skipped, so
 neither its claim nor its outdir is touched. That is what lets a stranded residual be re-exposed
-to the running driver's slots instead of waiting for the window to end. Set DRY=1 to report
-without changing anything.
+to the running driver's slots instead of waiting for the window to end. Pass --dry-run to report
+without changing anything; there is no DRY env var, so a typo there purges for real.
 """
 import json, pathlib, re, shutil, subprocess, sys
 
