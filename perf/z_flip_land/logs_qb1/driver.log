@@ -1,0 +1,8 @@
+PREFLIGHT OK  grid=13x10 arch=blackhole nodes=[1] flip=ON
+=== START gate 2026-08-10T14:53:11Z
+=== END gate rc=0 2026-08-10T14:57:56Z
+=== START sweep_protenix-v2 2026-08-10T14:57:56Z
+=== END sweep_protenix-v2 rc=0 2026-08-10T15:04:27Z
+=== START sweep_esmfold2 2026-08-10T15:04:27Z
+=== END sweep_esmfold2 rc=0 2026-08-10T15:12:10Z
+=== START control_protenix-v2 2026-08-10T15:12:10Z
