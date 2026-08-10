@@ -125,11 +125,20 @@ def main():
 
     D = json.load(open(args.ops))
     agg, meta = defaultdict(lambda: {"n": 0, "s": 0.0}), {}
+    # Drop the rows whose re-run failed. They used to arrive as 0.0 s with the reason in `error`,
+    # and summing them here dragged every class average down by however many of its calls the
+    # instrument had lost -- silently, because the class still reported its full call count.
+    dropped = [r for r in D["records"] if r.get("error") or r["s"] is None]
     for rec in D["records"]:
+        if rec.get("error") or rec["s"] is None:
+            continue
         key = classkey(rec)
         agg[key]["n"] += 1
         agg[key]["s"] += rec["s"]
         meta.setdefault(key, rec)
+    if dropped:
+        print(f"dropped {len(dropped)} of {len(D['records'])} records the harness could not "
+              f"re-run; they are absent from every class below, not scored as free", flush=True)
 
     measured_block_s = D["block_wall_s"]
     scale = args.calls_per_fold

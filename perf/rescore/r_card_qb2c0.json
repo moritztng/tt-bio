@@ -1,0 +1,1582 @@
+{
+ "device": {
+  "compute_grid": "11x10",
+  "core_grid_main": "11x10",
+  "cores": 110,
+  "l1_bytes_per_bank": 1461760,
+  "pair_proj_bw_main": 16
+ },
+ "t_start": 1786322877.6079278,
+ "A_square_roof": {
+  "2048_dram": {
+   "ms": 0.2134,
+   "tflops": 80.49
+  },
+  "2048_l1": {
+   "ms": 0.2491,
+   "tflops": 68.97
+  },
+  "4096_dram": {
+   "ms": 1.342,
+   "tflops": 102.41
+  },
+  "4096_l1": {
+   "ms": 23.6716,
+   "tflops": 5.81
+  },
+  "6144_dram": {
+   "ms": 4.9392,
+   "tflops": 93.91
+  },
+  "6144_l1": {
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memor"
+  }
+ },
+ "B_q9": {
+  "sweep": [
+   {
+    "M": 124992,
+    "K": 256,
+    "N": 32,
+    "nt": 1,
+    "mt": 3906,
+    "buf": "dram",
+    "gflop": 2.048,
+    "out_MB": 8.0,
+    "in0_MB": 64.0,
+    "AI_flop_per_byte": 28.4,
+    "legs": {
+     "core_grid": {
+      "ms": 0.5977,
+      "tflops": 3.43,
+      "write_gbps": 13.4,
+      "read_gbps": 107.1,
+      "cores": 110
+     },
+     "bw8_obh5_pcm40": {
+      "ms": 0.2875,
+      "tflops": 7.12,
+      "write_gbps": 27.8,
+      "read_gbps": 222.6,
+      "cores": 98
+     },
+     "bw8_obh2_pcm36": {
+      "ms": 0.2752,
+      "tflops": 7.44,
+      "write_gbps": 29.1,
+      "read_gbps": 232.6,
+      "cores": 109
+     },
+     "bw8_obh1_pcm36": {
+      "ms": 0.2723,
+      "tflops": 7.52,
+      "write_gbps": 29.4,
+      "read_gbps": 235.1,
+      "cores": 109
+     },
+     "bw1_obh5_pcm40": {
+      "ms": 0.4968,
+      "tflops": 4.12,
+      "write_gbps": 16.1,
+      "read_gbps": 128.9,
+      "cores": 98
+     }
+    },
+    "best": "bw8_obh1_pcm36",
+    "best_tflops": 7.52,
+    "best_write_gbps": 29.4,
+    "best_cores": 109,
+    "target_out_MB": 8
+   },
+   {
+    "M": 124992,
+    "K": 256,
+    "N": 32,
+    "nt": 1,
+    "mt": 3906,
+    "buf": "l1",
+    "gflop": 2.048,
+    "out_MB": 8.0,
+    "in0_MB": 64.0,
+    "AI_flop_per_byte": 28.4,
+    "legs": {
+     "core_grid": {
+      "ms": 0.5806,
+      "tflops": 3.53,
+      "write_gbps": 13.8,
+      "read_gbps": 110.2,
+      "cores": 110
+     },
+     "bw8_obh5_pcm40": {
+      "ms": 0.279,
+      "tflops": 7.34,
+      "write_gbps": 28.7,
+      "read_gbps": 229.5,
+      "cores": 98
+     },
+     "bw8_obh2_pcm36": {
+      "ms": 0.2731,
+      "tflops": 7.5,
+      "write_gbps": 29.3,
+      "read_gbps": 234.4,
+      "cores": 109
+     },
+     "bw8_obh1_pcm36": {
+      "ms": 0.2723,
+      "tflops": 7.52,
+      "write_gbps": 29.4,
+      "read_gbps": 235.1,
+      "cores": 109
+     },
+     "bw1_obh5_pcm40": {
+      "ms": 0.4939,
+      "tflops": 4.15,
+      "write_gbps": 16.2,
+      "read_gbps": 129.6,
+      "cores": 98
+     }
+    },
+    "best": "bw8_obh1_pcm36",
+    "best_tflops": 7.52,
+    "best_write_gbps": 29.4,
+    "best_cores": 109,
+    "target_out_MB": 8
+   },
+   {
+    "M": 15616,
+    "K": 256,
+    "N": 256,
+    "nt": 8,
+    "mt": 488,
+    "buf": "dram",
+    "gflop": 2.047,
+    "out_MB": 8.0,
+    "in0_MB": 8.0,
+    "AI_flop_per_byte": 127.0,
+    "legs": {
+     "core_grid": {
+      "ms": 0.1243,
+      "tflops": 16.46,
+      "write_gbps": 64.3,
+      "read_gbps": 65.4,
+      "cores": 110
+     },
+     "bw8_obh5_pcm5": {
+      "ms": 0.0793,
+      "tflops": 25.81,
+      "write_gbps": 100.8,
+      "read_gbps": 102.5,
+      "cores": 98
+     },
+     "bw8_obh2_pcm6": {
+      "ms": 0.0896,
+      "tflops": 22.85,
+      "write_gbps": 89.3,
+      "read_gbps": 90.7,
+      "cores": 82
+     },
+     "bw8_obh1_pcm5": {
+      "ms": 0.0997,
+      "tflops": 20.53,
+      "write_gbps": 80.2,
+      "read_gbps": 81.5,
+      "cores": 98
+     },
+     "bw1_obh5_pcm5": {
+      "ms": 0.1246,
+      "tflops": 16.43,
+      "write_gbps": 64.2,
+      "read_gbps": 65.2,
+      "cores": 98
+     }
+    },
+    "best": "bw8_obh5_pcm5",
+    "best_tflops": 25.81,
+    "best_write_gbps": 100.8,
+    "best_cores": 98,
+    "target_out_MB": 8
+   },
+   {
+    "M": 15616,
+    "K": 256,
+    "N": 256,
+    "nt": 8,
+    "mt": 488,
+    "buf": "l1",
+    "gflop": 2.047,
+    "out_MB": 8.0,
+    "in0_MB": 8.0,
+    "AI_flop_per_byte": 127.0,
+    "legs": {
+     "core_grid": {
+      "ms": 0.0885,
+      "tflops": 23.13,
+      "write_gbps": 90.4,
+      "read_gbps": 91.9,
+      "cores": 110
+     },
+     "bw8_obh5_pcm5": {
+      "ms": 0.0575,
+      "tflops": 35.62,
+      "write_gbps": 139.1,
+      "read_gbps": 141.4,
+      "cores": 98
+     },
+     "bw8_obh2_pcm6": {
+      "ms": 0.055,
+      "tflops": 37.19,
+      "write_gbps": 145.3,
+      "read_gbps": 147.7,
+      "cores": 82
+     },
+     "bw8_obh1_pcm5": {
+      "ms": 0.0593,
+      "tflops": 34.49,
+      "write_gbps": 134.7,
+      "read_gbps": 136.9,
+      "cores": 98
+     },
+     "bw1_obh5_pcm5": {
+      "ms": 0.0883,
+      "tflops": 23.17,
+      "write_gbps": 90.5,
+      "read_gbps": 92.0,
+      "cores": 98
+     }
+    },
+    "best": "bw8_obh2_pcm6",
+    "best_tflops": 37.19,
+    "best_write_gbps": 145.3,
+    "best_cores": 82,
+    "target_out_MB": 8
+   },
+   {
+    "M": 3904,
+    "K": 256,
+    "N": 1024,
+    "nt": 32,
+    "mt": 122,
+    "buf": "dram",
+    "gflop": 2.047,
+    "out_MB": 8.0,
+    "in0_MB": 2.0,
+    "AI_flop_per_byte": 194.6,
+    "legs": {
+     "core_grid": {
+      "ms": 0.0557,
+      "tflops": 36.74,
+      "write_gbps": 143.5,
+      "read_gbps": 45.3,
+      "cores": 110
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh2_pcm2": {
+      "ms": 0.082,
+      "tflops": 24.97,
+      "write_gbps": 97.5,
+      "read_gbps": 30.8,
+      "cores": 61
+     },
+     "bw8_obh1_pcm2": {
+      "ms": 0.0999,
+      "tflops": 20.48,
+      "write_gbps": 80.0,
+      "read_gbps": 25.3,
+      "cores": 61
+     },
+     "bw1_obh5_pcm5": {
+      "ms": 0.1284,
+      "tflops": 15.95,
+      "write_gbps": 62.3,
+      "read_gbps": 19.7,
+      "cores": 25
+     }
+    },
+    "best": "core_grid",
+    "best_tflops": 36.74,
+    "best_write_gbps": 143.5,
+    "best_cores": 110,
+    "target_out_MB": 8
+   },
+   {
+    "M": 3904,
+    "K": 256,
+    "N": 1024,
+    "nt": 32,
+    "mt": 122,
+    "buf": "l1",
+    "gflop": 2.047,
+    "out_MB": 8.0,
+    "in0_MB": 2.0,
+    "AI_flop_per_byte": 194.6,
+    "legs": {
+     "core_grid": {
+      "ms": 0.0375,
+      "tflops": 54.57,
+      "write_gbps": 213.2,
+      "read_gbps": 67.3,
+      "cores": 110
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh2_pcm2": {
+      "ms": 0.0505,
+      "tflops": 40.55,
+      "write_gbps": 158.4,
+      "read_gbps": 50.0,
+      "cores": 61
+     },
+     "bw8_obh1_pcm2": {
+      "ms": 0.0684,
+      "tflops": 29.92,
+      "write_gbps": 116.9,
+      "read_gbps": 36.9,
+      "cores": 61
+     },
+     "bw1_obh5_pcm5": {
+      "ms": 0.1083,
+      "tflops": 18.9,
+      "write_gbps": 73.8,
+      "read_gbps": 23.3,
+      "cores": 25
+     }
+    },
+    "best": "core_grid",
+    "best_tflops": 54.57,
+    "best_write_gbps": 213.2,
+    "best_cores": 110,
+    "target_out_MB": 8
+   },
+   {
+    "M": 1952,
+    "K": 256,
+    "N": 2048,
+    "nt": 64,
+    "mt": 61,
+    "buf": "dram",
+    "gflop": 2.047,
+    "out_MB": 8.0,
+    "in0_MB": 1.0,
+    "AI_flop_per_byte": 203.8,
+    "legs": {
+     "core_grid": {
+      "ms": 0.0551,
+      "tflops": 37.12,
+      "write_gbps": 145.0,
+      "read_gbps": 37.1,
+      "cores": 110
+     }
+    },
+    "best": "core_grid",
+    "best_tflops": 37.12,
+    "best_write_gbps": 145.0,
+    "best_cores": 110,
+    "target_out_MB": 8
+   },
+   {
+    "M": 1952,
+    "K": 256,
+    "N": 2048,
+    "nt": 64,
+    "mt": 61,
+    "buf": "l1",
+    "gflop": 2.047,
+    "out_MB": 8.0,
+    "in0_MB": 1.0,
+    "AI_flop_per_byte": 203.8,
+    "legs": {
+     "core_grid": {
+      "ms": 0.0336,
+      "tflops": 60.85,
+      "write_gbps": 237.7,
+      "read_gbps": 60.9,
+      "cores": 110
+     }
+    },
+    "best": "core_grid",
+    "best_tflops": 60.85,
+    "best_write_gbps": 237.7,
+    "best_cores": 110,
+    "target_out_MB": 8
+   },
+   {
+    "M": 374976,
+    "K": 256,
+    "N": 32,
+    "nt": 1,
+    "mt": 11718,
+    "buf": "dram",
+    "gflop": 6.144,
+    "out_MB": 24.0,
+    "in0_MB": 191.99,
+    "AI_flop_per_byte": 28.4,
+    "legs": {
+     "core_grid": {
+      "ms": 2.0737,
+      "tflops": 2.96,
+      "write_gbps": 11.6,
+      "read_gbps": 92.6,
+      "cores": 110
+     },
+     "bw8_obh5_pcm110": {
+      "ms": 0.8003,
+      "tflops": 7.68,
+      "write_gbps": 30.0,
+      "read_gbps": 239.9,
+      "cores": 107
+     },
+     "bw8_obh2_pcm108": {
+      "ms": 0.8012,
+      "tflops": 7.67,
+      "write_gbps": 30.0,
+      "read_gbps": 239.7,
+      "cores": 109
+     },
+     "bw8_obh1_pcm107": {
+      "ms": 0.7988,
+      "tflops": 7.69,
+      "write_gbps": 30.0,
+      "read_gbps": 240.4,
+      "cores": 110
+     },
+     "bw1_obh5_pcm110": {
+      "ms": 1.2391,
+      "tflops": 4.96,
+      "write_gbps": 19.4,
+      "read_gbps": 155.0,
+      "cores": 107
+     }
+    },
+    "best": "bw8_obh1_pcm107",
+    "best_tflops": 7.69,
+    "best_write_gbps": 30.0,
+    "best_cores": 110,
+    "target_out_MB": 24
+   },
+   {
+    "M": 374976,
+    "K": 256,
+    "N": 32,
+    "nt": 1,
+    "mt": 11718,
+    "buf": "l1",
+    "gflop": 6.144,
+    "out_MB": 24.0,
+    "in0_MB": 191.99,
+    "AI_flop_per_byte": 28.4,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh5_pcm110": {
+      "ms": 0.7994,
+      "tflops": 7.69,
+      "write_gbps": 30.0,
+      "read_gbps": 240.2,
+      "cores": 107
+     },
+     "bw8_obh2_pcm108": {
+      "ms": 0.7984,
+      "tflops": 7.7,
+      "write_gbps": 30.1,
+      "read_gbps": 240.5,
+      "cores": 109
+     },
+     "bw8_obh1_pcm107": {
+      "ms": 0.797,
+      "tflops": 7.71,
+      "write_gbps": 30.1,
+      "read_gbps": 240.9,
+      "cores": 110
+     },
+     "bw1_obh5_pcm110": {
+      "ms": 1.196,
+      "tflops": 5.14,
+      "write_gbps": 20.1,
+      "read_gbps": 160.5,
+      "cores": 107
+     }
+    },
+    "best": "bw8_obh1_pcm107",
+    "best_tflops": 7.71,
+    "best_write_gbps": 30.1,
+    "best_cores": 110,
+    "target_out_MB": 24
+   },
+   {
+    "M": 46848,
+    "K": 256,
+    "N": 256,
+    "nt": 8,
+    "mt": 1464,
+    "buf": "dram",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 23.99,
+    "AI_flop_per_byte": 127.7,
+    "legs": {
+     "core_grid": {
+      "ms": 0.3552,
+      "tflops": 17.29,
+      "write_gbps": 67.5,
+      "read_gbps": 67.9,
+      "cores": 110
+     },
+     "bw8_obh5_pcm15": {
+      "ms": 0.198,
+      "tflops": 31.01,
+      "write_gbps": 121.1,
+      "read_gbps": 121.8,
+      "cores": 98
+     },
+     "bw8_obh2_pcm14": {
+      "ms": 0.2295,
+      "tflops": 26.75,
+      "write_gbps": 104.5,
+      "read_gbps": 105.1,
+      "cores": 105
+     },
+     "bw8_obh1_pcm14": {
+      "ms": 0.2705,
+      "tflops": 22.7,
+      "write_gbps": 88.7,
+      "read_gbps": 89.2,
+      "cores": 105
+     },
+     "bw1_obh5_pcm15": {
+      "ms": 0.3053,
+      "tflops": 20.11,
+      "write_gbps": 78.6,
+      "read_gbps": 79.0,
+      "cores": 98
+     }
+    },
+    "best": "bw8_obh5_pcm15",
+    "best_tflops": 31.01,
+    "best_write_gbps": 121.1,
+    "best_cores": 98,
+    "target_out_MB": 24
+   },
+   {
+    "M": 46848,
+    "K": 256,
+    "N": 256,
+    "nt": 8,
+    "mt": 1464,
+    "buf": "l1",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 23.99,
+    "AI_flop_per_byte": 127.7,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh5_pcm15": {
+      "ms": 0.1355,
+      "tflops": 45.31,
+      "write_gbps": 177.0,
+      "read_gbps": 177.9,
+      "cores": 98
+     },
+     "bw8_obh2_pcm14": {
+      "ms": 0.1253,
+      "tflops": 49.02,
+      "write_gbps": 191.5,
+      "read_gbps": 192.5,
+      "cores": 105
+     },
+     "bw8_obh1_pcm14": {
+      "ms": 0.1467,
+      "tflops": 41.86,
+      "write_gbps": 163.5,
+      "read_gbps": 164.4,
+      "cores": 105
+     },
+     "bw1_obh5_pcm15": {
+      "ms": 0.2026,
+      "tflops": 30.3,
+      "write_gbps": 118.4,
+      "read_gbps": 119.0,
+      "cores": 98
+     }
+    },
+    "best": "bw8_obh2_pcm14",
+    "best_tflops": 49.02,
+    "best_write_gbps": 191.5,
+    "best_cores": 105,
+    "target_out_MB": 24
+   },
+   {
+    "M": 11712,
+    "K": 256,
+    "N": 1024,
+    "nt": 32,
+    "mt": 366,
+    "buf": "dram",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 6.0,
+    "AI_flop_per_byte": 201.3,
+    "legs": {
+     "core_grid": {
+      "ms": 0.227,
+      "tflops": 27.05,
+      "write_gbps": 105.7,
+      "read_gbps": 28.7,
+      "cores": 110
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh2_pcm4": {
+      "ms": 0.2036,
+      "tflops": 30.16,
+      "write_gbps": 117.8,
+      "read_gbps": 32.0,
+      "cores": 92
+     },
+     "bw8_obh1_pcm4": {
+      "ms": 0.2391,
+      "tflops": 25.68,
+      "write_gbps": 100.3,
+      "read_gbps": 27.3,
+      "cores": 92
+     },
+     "bw1_obh5_pcm5": {
+      "ms": 0.2343,
+      "tflops": 26.2,
+      "write_gbps": 102.4,
+      "read_gbps": 27.8,
+      "cores": 74
+     }
+    },
+    "best": "bw8_obh2_pcm4",
+    "best_tflops": 30.16,
+    "best_write_gbps": 117.8,
+    "best_cores": 92,
+    "target_out_MB": 24
+   },
+   {
+    "M": 11712,
+    "K": 256,
+    "N": 1024,
+    "nt": 32,
+    "mt": 366,
+    "buf": "l1",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 6.0,
+    "AI_flop_per_byte": 201.3,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh2_pcm4": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh1_pcm4": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw1_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     }
+    },
+    "best": null,
+    "best_tflops": null,
+    "best_write_gbps": null,
+    "best_cores": null,
+    "target_out_MB": 24
+   },
+   {
+    "M": 5856,
+    "K": 256,
+    "N": 2048,
+    "nt": 64,
+    "mt": 183,
+    "buf": "dram",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 3.0,
+    "AI_flop_per_byte": 219.0,
+    "legs": {
+     "core_grid": {
+      "ms": 0.1412,
+      "tflops": 43.5,
+      "write_gbps": 169.9,
+      "read_gbps": 28.7,
+      "cores": 110
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh2_pcm2": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh1_pcm2": {
+      "ms": 0.2272,
+      "tflops": 27.02,
+      "write_gbps": 105.6,
+      "read_gbps": 17.8,
+      "cores": 92
+     },
+     "bw1_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     }
+    },
+    "best": "core_grid",
+    "best_tflops": 43.5,
+    "best_write_gbps": 169.9,
+    "best_cores": 110,
+    "target_out_MB": 24
+   },
+   {
+    "M": 5856,
+    "K": 256,
+    "N": 2048,
+    "nt": 64,
+    "mt": 183,
+    "buf": "l1",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 3.0,
+    "AI_flop_per_byte": 219.0,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh2_pcm2": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh1_pcm2": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw1_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     }
+    },
+    "best": null,
+    "best_tflops": null,
+    "best_write_gbps": null,
+    "best_cores": null,
+    "target_out_MB": 24
+   }
+  ],
+  "t2_repro": {
+   "102400_core_grid_dram": {
+    "ms": 0.6574,
+    "tflops": 20.42,
+    "out_gbps": 79.7,
+    "cores": null
+   },
+   "102400_core_grid_l1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+   },
+   "102400_bw8_obh5_dram": {
+    "ms": 0.3995,
+    "tflops": 33.59,
+    "out_gbps": 131.2,
+    "cores": 107
+   },
+   "102400_bw8_obh5_l1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+   },
+   "102400_bw1_obh5_dram": {
+    "ms": 0.6103,
+    "tflops": 21.99,
+    "out_gbps": 85.9,
+    "cores": 107
+   },
+   "102400_bw1_obh5_l1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+   },
+   "204800_core_grid_dram": {
+    "ms": 4.2706,
+    "tflops": 6.29,
+    "out_gbps": 24.6,
+    "cores": null
+   },
+   "204800_core_grid_l1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+   },
+   "204800_bw8_obh5_dram": {
+    "ms": 0.7804,
+    "tflops": 34.39,
+    "out_gbps": 134.4,
+    "cores": 107
+   },
+   "204800_bw8_obh5_l1": {
+    "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not eno"
+   },
+   "204800_bw1_obh5_dram": {
+    "ms": 1.1798,
+    "tflops": 22.75,
+    "out_gbps": 88.9,
+    "cores": 107
+   },
+   "204800_bw1_obh5_l1": {
+    "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not eno"
+   }
+  }
+ },
+ "configs": {
+  "triangle_mul_pc_10": {
+   "in0_block_w": 10,
+   "out_block_h": 1,
+   "out_block_w": 1,
+   "per_core_M": 1,
+   "per_core_N": 1,
+   "grid": "(x=11,y=10)"
+  }
+ },
+ "C_k320_nt10": {
+  "unbatched": [
+   {
+    "mt": 320,
+    "buf": "l1",
+    "ms": 0.0354,
+    "tflops": 59.28,
+    "out_MB": 6.55,
+    "write_gbps": 185.3
+   },
+   {
+    "mt": 320,
+    "buf": "dram",
+    "ms": 0.0632,
+    "tflops": 33.2,
+    "out_MB": 6.55,
+    "write_gbps": 103.7
+   },
+   {
+    "mt": 1280,
+    "buf": "l1",
+    "ms": 0.7866,
+    "tflops": 10.66,
+    "out_MB": 26.21,
+    "write_gbps": 33.3
+   },
+   {
+    "mt": 1280,
+    "buf": "dram",
+    "ms": 0.7902,
+    "tflops": 10.62,
+    "out_MB": 26.21,
+    "write_gbps": 33.2
+   }
+  ],
+  "batched": {
+   "b1_prod_pc": {
+    "us": 14.98,
+    "tflops": 4.37,
+    "bytes_MB": 0.614,
+    "l1_gbps": 41.0,
+    "AI": 106.7
+   },
+   "b1_default": {
+    "us": 46.04,
+    "tflops": 1.42,
+    "bytes_MB": 0.614,
+    "l1_gbps": 13.3,
+    "AI": 106.7
+   },
+   "b8_prod_pc": {
+    "us": 23.42,
+    "tflops": 22.38,
+    "bytes_MB": 4.915,
+    "l1_gbps": 209.9,
+    "AI": 106.7
+   },
+   "b8_default": {
+    "us": 332.48,
+    "tflops": 1.58,
+    "bytes_MB": 4.915,
+    "l1_gbps": 14.8,
+    "AI": 106.7
+   },
+   "b32_prod_pc": {
+    "us": 74.07,
+    "tflops": 28.31,
+    "bytes_MB": 19.661,
+    "l1_gbps": 265.4,
+    "AI": 106.7
+   },
+   "b32_default": {
+    "us": 1308.52,
+    "tflops": 1.6,
+    "bytes_MB": 19.661,
+    "l1_gbps": 15.0,
+    "AI": 106.7
+   }
+  },
+  "swept": [
+   {
+    "M": 12480,
+    "K": 320,
+    "N": 320,
+    "nt": 10,
+    "mt": 390,
+    "buf": "l1",
+    "gflop": 2.556,
+    "out_MB": 7.99,
+    "in0_MB": 7.99,
+    "AI_flop_per_byte": 158.0,
+    "legs": {
+     "core_grid": {
+      "ms": 0.0538,
+      "tflops": 47.5,
+      "write_gbps": 148.4,
+      "read_gbps": 152.2,
+      "cores": 110
+     },
+     "bw10_obh5_pcm5": {
+      "ms": 0.0683,
+      "tflops": 37.41,
+      "write_gbps": 116.9,
+      "read_gbps": 119.9,
+      "cores": 78
+     },
+     "bw10_obh2_pcm4": {
+      "ms": 0.0578,
+      "tflops": 44.23,
+      "write_gbps": 138.2,
+      "read_gbps": 141.8,
+      "cores": 98
+     },
+     "bw10_obh1_pcm4": {
+      "ms": 0.0625,
+      "tflops": 40.88,
+      "write_gbps": 127.7,
+      "read_gbps": 131.0,
+      "cores": 98
+     },
+     "bw1_obh5_pcm5": {
+      "ms": 0.0578,
+      "tflops": 44.2,
+      "write_gbps": 138.1,
+      "read_gbps": 141.7,
+      "cores": 78
+     }
+    },
+    "best": "core_grid",
+    "best_tflops": 47.5,
+    "best_write_gbps": 148.4,
+    "best_cores": 110,
+    "target_out_MB": 8
+   },
+   {
+    "M": 12480,
+    "K": 320,
+    "N": 320,
+    "nt": 10,
+    "mt": 390,
+    "buf": "dram",
+    "gflop": 2.556,
+    "out_MB": 7.99,
+    "in0_MB": 7.99,
+    "AI_flop_per_byte": 158.0,
+    "legs": {
+     "core_grid": {
+      "ms": 0.0919,
+      "tflops": 27.8,
+      "write_gbps": 86.9,
+      "read_gbps": 89.1,
+      "cores": 110
+     },
+     "bw10_obh5_pcm5": {
+      "ms": 0.0856,
+      "tflops": 29.87,
+      "write_gbps": 93.3,
+      "read_gbps": 95.7,
+      "cores": 78
+     },
+     "bw10_obh2_pcm4": {
+      "ms": 0.0855,
+      "tflops": 29.88,
+      "write_gbps": 93.4,
+      "read_gbps": 95.8,
+      "cores": 98
+     },
+     "bw10_obh1_pcm4": {
+      "ms": 0.1006,
+      "tflops": 25.41,
+      "write_gbps": 79.4,
+      "read_gbps": 81.4,
+      "cores": 98
+     },
+     "bw1_obh5_pcm5": {
+      "ms": 0.092,
+      "tflops": 27.77,
+      "write_gbps": 86.8,
+      "read_gbps": 89.0,
+      "cores": 78
+     }
+    },
+    "best": "bw10_obh2_pcm4",
+    "best_tflops": 29.88,
+    "best_write_gbps": 93.4,
+    "best_cores": 98,
+    "target_out_MB": 8
+   },
+   {
+    "M": 37472,
+    "K": 320,
+    "N": 320,
+    "nt": 10,
+    "mt": 1171,
+    "buf": "l1",
+    "gflop": 7.674,
+    "out_MB": 23.98,
+    "in0_MB": 23.98,
+    "AI_flop_per_byte": 159.3,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw10_obh5_pcm15": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw10_obh2_pcm12": {
+      "ms": 0.1543,
+      "tflops": 49.75,
+      "write_gbps": 155.5,
+      "read_gbps": 156.8,
+      "cores": 98
+     },
+     "bw10_obh1_pcm11": {
+      "ms": 0.1918,
+      "tflops": 40.02,
+      "write_gbps": 125.1,
+      "read_gbps": 126.1,
+      "cores": 107
+     },
+     "bw1_obh5_pcm15": {
+      "ms": 0.1581,
+      "tflops": 48.53,
+      "write_gbps": 151.6,
+      "read_gbps": 152.9,
+      "cores": 79
+     }
+    },
+    "best": "bw10_obh2_pcm12",
+    "best_tflops": 49.75,
+    "best_write_gbps": 155.5,
+    "best_cores": 98,
+    "target_out_MB": 24
+   },
+   {
+    "M": 37472,
+    "K": 320,
+    "N": 320,
+    "nt": 10,
+    "mt": 1171,
+    "buf": "dram",
+    "gflop": 7.674,
+    "out_MB": 23.98,
+    "in0_MB": 23.98,
+    "AI_flop_per_byte": 159.3,
+    "legs": {
+     "core_grid": {
+      "ms": 0.259,
+      "tflops": 29.63,
+      "write_gbps": 92.6,
+      "read_gbps": 93.4,
+      "cores": 110
+     },
+     "bw10_obh5_pcm15": {
+      "ms": 0.2035,
+      "tflops": 37.71,
+      "write_gbps": 117.9,
+      "read_gbps": 118.9,
+      "cores": 79
+     },
+     "bw10_obh2_pcm12": {
+      "ms": 0.2425,
+      "tflops": 31.64,
+      "write_gbps": 98.9,
+      "read_gbps": 99.7,
+      "cores": 98
+     },
+     "bw10_obh1_pcm11": {
+      "ms": 0.2577,
+      "tflops": 29.78,
+      "write_gbps": 93.1,
+      "read_gbps": 93.9,
+      "cores": 107
+     },
+     "bw1_obh5_pcm15": {
+      "ms": 0.2643,
+      "tflops": 29.04,
+      "write_gbps": 90.7,
+      "read_gbps": 91.5,
+      "cores": 79
+     }
+    },
+    "best": "bw10_obh5_pcm15",
+    "best_tflops": 37.71,
+    "best_write_gbps": 117.9,
+    "best_cores": 79,
+    "target_out_MB": 24
+   }
+  ]
+ },
+ "D_write_roofs": {
+  "unary_clone_L1_to_DRAM": [
+   {
+    "MB": 4.0,
+    "write_gbps": 176.4,
+    "ms": 0.0227
+   },
+   {
+    "MB": 8.0,
+    "write_gbps": 211.3,
+    "ms": 0.0378
+   },
+   {
+    "MB": 16.0,
+    "write_gbps": 236.2,
+    "ms": 0.0677
+   },
+   {
+    "MB": 23.99,
+    "write_gbps": 254.5,
+    "ms": 0.0943
+   },
+   {
+    "MB": 32.0,
+    "write_gbps": 259.8,
+    "ms": 0.1232
+   }
+  ],
+  "matmul_writer": {
+   "minimal_matmul": {
+    "ms": 0.3111,
+    "write_gbps": 168.5,
+    "rw_gbps": 189.6
+   },
+   "linear_core_grid": {
+    "ms": 0.333,
+    "write_gbps": 157.5,
+    "rw_gbps": 177.2
+   },
+   "linear_1dmcast_pc": {
+    "ms": 0.3418,
+    "write_gbps": 153.4,
+    "rw_gbps": 172.6
+   }
+  }
+ },
+ "E_read_combined": {
+  "read": [
+   {
+    "MB": 8.0,
+    "read_gbps": 267.9,
+    "ms": 0.0298
+   },
+   {
+    "MB": 16.0,
+    "read_gbps": 314.7,
+    "ms": 0.0508
+   },
+   {
+    "MB": 32.0,
+    "read_gbps": 365.7,
+    "ms": 0.0875
+   },
+   {
+    "MB": 48.0,
+    "read_gbps": 379.2,
+    "ms": 0.1266
+   }
+  ],
+  "combined": [
+   {
+    "MB": 8.0,
+    "ms": 0.0509,
+    "rw_gbps": 314.1
+   },
+   {
+    "MB": 16.0,
+    "ms": 0.0958,
+    "rw_gbps": 334.0
+   },
+   {
+    "MB": 32.0,
+    "ms": 0.1684,
+    "rw_gbps": 379.9
+   },
+   {
+    "MB": 48.0,
+    "ms": 0.248,
+    "rw_gbps": 387.1
+   }
+  ]
+ },
+ "F_rows_true_shape": {
+  "contraction_1043": {
+   "us": 72.18,
+   "tflops": 29.05,
+   "gflop": 2.097,
+   "bytes_MB": 19.661,
+   "l1_gbps": 272.4,
+   "AI": 106.7,
+   "cores": 100
+  },
+  "proj_true_fold_bw16": {
+   "rows": 298,
+   "m_tiles": 2980,
+   "M": 95360,
+   "us": 386.63,
+   "tflops": 32.33,
+   "gflop": 12.499,
+   "out_MB": 48.82,
+   "in_MB": 48.96,
+   "AI": 127.8,
+   "write_gbps": 126.3,
+   "read_gbps": 126.6,
+   "in0_block_w": 8,
+   "per_core_M": 30,
+   "cores": 100
+  },
+  "proj_true_fold_bw1": {
+   "rows": 298,
+   "m_tiles": 2980,
+   "M": 95360,
+   "us": 584.96,
+   "tflops": 21.37,
+   "gflop": 12.499,
+   "out_MB": 48.82,
+   "in_MB": 48.96,
+   "AI": 127.8,
+   "write_gbps": 83.5,
+   "read_gbps": 83.7,
+   "in0_block_w": 1,
+   "per_core_M": 30,
+   "cores": 100
+  },
+  "proj_harness_square_bw16": {
+   "rows": 320,
+   "m_tiles": 3200,
+   "M": 102400,
+   "us": 399.98,
+   "tflops": 33.56,
+   "gflop": 13.422,
+   "out_MB": 52.43,
+   "in_MB": 52.56,
+   "AI": 127.8,
+   "write_gbps": 131.1,
+   "read_gbps": 131.4,
+   "in0_block_w": 8,
+   "per_core_M": 30,
+   "cores": 107
+  },
+  "proj_harness_square_bw1": {
+   "rows": 320,
+   "m_tiles": 3200,
+   "M": 102400,
+   "us": 608.4,
+   "tflops": 22.06,
+   "gflop": 13.422,
+   "out_MB": 52.43,
+   "in_MB": 52.56,
+   "AI": 127.8,
+   "write_gbps": 86.2,
+   "read_gbps": 86.4,
+   "in0_block_w": 1,
+   "per_core_M": 30,
+   "cores": 107
+  }
+ },
+ "G_core_util": {
+  "contraction": [
+   {
+    "grid": "11x10",
+    "cores": 110,
+    "per_core_M": 1,
+    "per_core_N": 1,
+    "us": 74.36,
+    "tflops": 28.2
+   },
+   {
+    "grid": "10x10",
+    "cores": 100,
+    "per_core_M": 1,
+    "per_core_N": 1,
+    "us": 73.73,
+    "tflops": 28.44
+   },
+   {
+    "grid": "5x10",
+    "cores": 50,
+    "per_core_M": 1,
+    "per_core_N": 2,
+    "us": 114.41,
+    "tflops": 18.33
+   },
+   {
+    "grid": "10x5",
+    "cores": 50,
+    "per_core_M": 2,
+    "per_core_N": 1,
+    "us": 88.6,
+    "tflops": 23.67
+   },
+   {
+    "grid": "5x5",
+    "cores": 25,
+    "per_core_M": 2,
+    "per_core_N": 2,
+    "us": 146.15,
+    "tflops": 14.35
+   },
+   {
+    "grid": "2x2",
+    "cores": 4,
+    "per_core_M": 5,
+    "per_core_N": 5,
+    "us": 544.21,
+    "tflops": 3.85
+   }
+  ],
+  "projection": [
+   {
+    "grid": "11x10",
+    "cores": 110,
+    "cores_used": 100,
+    "per_core_M": 30,
+    "us": 385.67,
+    "tflops": 32.41
+   },
+   {
+    "grid": "10x10",
+    "cores": 100,
+    "cores_used": 100,
+    "per_core_M": 30,
+    "us": 375.5,
+    "tflops": 33.29
+   },
+   {
+    "grid": "11x5",
+    "cores": 55,
+    "cores_used": 55,
+    "per_core_M": 55,
+    "us": 430.33,
+    "tflops": 29.04
+   },
+   {
+    "grid": "5x10",
+    "cores": 50,
+    "cores_used": 50,
+    "per_core_M": 60,
+    "us": 395.63,
+    "tflops": 31.59
+   },
+   {
+    "grid": "5x5",
+    "cores": 25,
+    "cores_used": 25,
+    "per_core_M": 120,
+    "us": 573.42,
+    "tflops": 21.8
+   }
+  ]
+ },
+ "H_stability": {
+  "elapsed_min": 0.8,
+  "sweep": [
+   {
+    "M": 46848,
+    "K": 256,
+    "N": 256,
+    "nt": 8,
+    "mt": 1464,
+    "buf": "dram",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 23.99,
+    "AI_flop_per_byte": 127.7,
+    "legs": {
+     "core_grid": {
+      "ms": 0.3568,
+      "tflops": 17.21,
+      "write_gbps": 67.2,
+      "read_gbps": 67.6,
+      "cores": 110
+     },
+     "bw8_obh5_pcm15": {
+      "ms": 0.1987,
+      "tflops": 30.91,
+      "write_gbps": 120.7,
+      "read_gbps": 121.4,
+      "cores": 98
+     },
+     "bw8_obh2_pcm14": {
+      "ms": 0.2283,
+      "tflops": 26.89,
+      "write_gbps": 105.1,
+      "read_gbps": 105.6,
+      "cores": 105
+     },
+     "bw8_obh1_pcm14": {
+      "ms": 0.2691,
+      "tflops": 22.82,
+      "write_gbps": 89.2,
+      "read_gbps": 89.6,
+      "cores": 105
+     },
+     "bw1_obh5_pcm15": {
+      "ms": 0.3035,
+      "tflops": 20.23,
+      "write_gbps": 79.0,
+      "read_gbps": 79.5,
+      "cores": 98
+     }
+    },
+    "best": "bw8_obh5_pcm15",
+    "best_tflops": 30.91,
+    "best_write_gbps": 120.7,
+    "best_cores": 98
+   },
+   {
+    "M": 46848,
+    "K": 256,
+    "N": 256,
+    "nt": 8,
+    "mt": 1464,
+    "buf": "l1",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 23.99,
+    "AI_flop_per_byte": 127.7,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh5_pcm15": {
+      "ms": 0.1357,
+      "tflops": 45.24,
+      "write_gbps": 176.7,
+      "read_gbps": 177.7,
+      "cores": 98
+     },
+     "bw8_obh2_pcm14": {
+      "ms": 0.1246,
+      "tflops": 49.28,
+      "write_gbps": 192.5,
+      "read_gbps": 193.6,
+      "cores": 105
+     },
+     "bw8_obh1_pcm14": {
+      "ms": 0.1477,
+      "tflops": 41.58,
+      "write_gbps": 162.4,
+      "read_gbps": 163.3,
+      "cores": 105
+     },
+     "bw1_obh5_pcm15": {
+      "ms": 0.2032,
+      "tflops": 30.22,
+      "write_gbps": 118.1,
+      "read_gbps": 118.7,
+      "cores": 98
+     }
+    },
+    "best": "bw8_obh2_pcm14",
+    "best_tflops": 49.28,
+    "best_write_gbps": 192.5,
+    "best_cores": 105
+   },
+   {
+    "M": 11712,
+    "K": 256,
+    "N": 1024,
+    "nt": 32,
+    "mt": 366,
+    "buf": "dram",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 6.0,
+    "AI_flop_per_byte": 201.3,
+    "legs": {
+     "core_grid": {
+      "ms": 0.2281,
+      "tflops": 26.92,
+      "write_gbps": 105.2,
+      "read_gbps": 28.6,
+      "cores": 110
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh2_pcm4": {
+      "ms": 0.205,
+      "tflops": 29.95,
+      "write_gbps": 117.0,
+      "read_gbps": 31.8,
+      "cores": 92
+     },
+     "bw8_obh1_pcm4": {
+      "ms": 0.2396,
+      "tflops": 25.63,
+      "write_gbps": 100.1,
+      "read_gbps": 27.2,
+      "cores": 92
+     },
+     "bw1_obh5_pcm5": {
+      "ms": 0.2346,
+      "tflops": 26.17,
+      "write_gbps": 102.2,
+      "read_gbps": 27.8,
+      "cores": 74
+     }
+    },
+    "best": "bw8_obh2_pcm4",
+    "best_tflops": 29.95,
+    "best_write_gbps": 117.0,
+    "best_cores": 92
+   },
+   {
+    "M": 11712,
+    "K": 256,
+    "N": 1024,
+    "nt": 32,
+    "mt": 366,
+    "buf": "l1",
+    "gflop": 6.14,
+    "out_MB": 23.99,
+    "in0_MB": 6.0,
+    "AI_flop_per_byte": 201.3,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh2_pcm4": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw8_obh1_pcm4": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     },
+     "bw1_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated"
+     }
+    },
+    "best": null,
+    "best_tflops": null,
+    "best_write_gbps": null,
+    "best_cores": null
+   }
+  ]
+ },
+ "t_end": 1786322923.9912589
+}

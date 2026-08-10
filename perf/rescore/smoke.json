@@ -1,0 +1,36 @@
+{
+ "device": {
+  "compute_grid": "11x10",
+  "core_grid_main": "11x10",
+  "cores": 110,
+  "l1_bytes_per_bank": 1461760,
+  "pair_proj_bw_main": 16
+ },
+ "t_start": 1786322795.1287992,
+ "A_square_roof": {
+  "2048_dram": {
+   "ms": 0.2131,
+   "tflops": 80.61
+  },
+  "2048_l1": {
+   "ms": 0.2473,
+   "tflops": 69.48
+  },
+  "4096_dram": {
+   "ms": 1.3462,
+   "tflops": 102.09
+  },
+  "4096_l1": {
+   "ms": 23.5704,
+   "tflops": 5.83
+  },
+  "6144_dram": {
+   "ms": 4.9514,
+   "tflops": 93.68
+  },
+  "6144_l1": {
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memor"
+  }
+ },
+ "t_end": 1786322796.4409282
+}

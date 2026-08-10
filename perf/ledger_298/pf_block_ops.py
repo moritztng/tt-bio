@@ -13,17 +13,24 @@ reps, because at that size a single dispatch is a large fraction of the measurem
 outputs are freed by refcount, never by ttnn.deallocate -- see bench() for why that matters.
 
 Recorded per call: op name, call index, the padded shape / dtype / buffer type of every tensor
-argument and of the output, the measured seconds, the innermost tt_bio call site and the tt_bio
-frame chain above it (so a row can be traced to its submodule as well as its line).
+argument and of the output, the measured seconds (`null` if the re-run failed), the innermost tt_bio
+call site and the tt_bio frame chain above it (so a row can be traced to its submodule as well as
+its line).
+
+The summary is four numbers and never a single coverage percentage: block wall, per-op sum, ops
+DROPPED because they could not be re-run, and the genuinely UNATTRIBUTED remainder. Those last two
+are different things and adding them together is how 62 dropped rows once read as inter-op overlap.
 
     TT_VISIBLE_DEVICES=0 python3 perf/ledger_298/pf_block_ops.py \
-        --model protenix-v2 --n 320 --out perf/ledger_298/ops_pv2_320.json
+        --model protenix-v2 --tokens 298 --out perf/ledger_298/ops_pv2_298.json
 """
 import argparse
 import json
+import math
 import sys
 import time
 import traceback
+from collections import defaultdict
 from pathlib import Path
 
 import torch
@@ -58,6 +65,18 @@ def desc(t):
                 "dtype": str(t.dtype).split(".")[-1], "buf": buf, "layout": lay}
     except Exception:                                            # noqa: BLE001
         return None
+
+
+DTYPE_BYTES = {"bfloat16": 2, "float32": 4, "uint32": 4, "int32": 4, "uint16": 2, "uint8": 1,
+               "bfloat8_b": 1, "bfloat4_b": 1}
+
+
+def nbytes(rec):
+    """Padded bytes the op's tensors carry -- what a dropped row still tells us."""
+    ts = list(rec.get("in") or [])
+    if rec.get("out"):
+        ts.append(rec["out"])
+    return sum(math.prod(t["shape"]) * DTYPE_BYTES.get(t["dtype"], 2) for t in ts)
 
 
 def tensor_args(a, kw):
@@ -116,8 +135,11 @@ def wrap(name, fn):
                     dt = bench(STATE["reps"] * 8)
             except Exception as e:                               # noqa: BLE001
                 # An op we cannot safely re-run is still worth a row: shapes are recorded, time is
-                # not, and the row is excluded from the sum rather than silently guessed.
-                err, dt = f"{type(e).__name__}: {e}"[:200], 0.0
+                # `null`, and the row is DROPPED from the sum. It used to be recorded as 0.0 s with
+                # the reason in `error`, which no consumer filtered on, so a dropout was summed as
+                # a free op and the coverage line then read as inter-op overlap. 62 of 272 rows on
+                # qb2 card 0 at --reps 4. `null` cannot be silently added up.
+                err, dt = f"{type(e).__name__}: {e}"[:200], None
                 ttnn.synchronize_device(dev)
             first = out[0] if isinstance(out, (list, tuple)) and out else out
             RECORDS.append({"i": STATE["idx"], "op": name, "site": site, "chain": chain, "s": dt,
@@ -164,7 +186,15 @@ def build(model, ckc):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", choices=["protenix-v2", "opendde"], default="protenix-v2")
-    ap.add_argument("--n", type=int, default=320)
+    ap.add_argument("--tokens", type=int, default=298,
+                    help="real token count. TILE_LAYOUT pads only the last two dims, so a pair "
+                         "tensor built [1, tokens, tokens, c_z] carries the shape a fold carries: "
+                         "the column axis pads to a tile multiple and the row axis stays at "
+                         "`tokens`. At 298 aa that is [1, 298, 320, c_z], 48.82 MB.")
+    ap.add_argument("--n", type=int, default=0,
+                    help="build the square block [1, n, n, c_z] instead. This is what the harness "
+                         "did before and it is 320/298 = 1.074x heavy on the row axis at 298 aa, "
+                         "so every byte model derived from it is 7.4 %% high. Kept for comparison.")
     ap.add_argument("--warm", type=int, default=3)
     ap.add_argument("--reps", type=int, default=4)
     ap.add_argument("--small-us", type=float, default=60.0)
@@ -176,11 +206,12 @@ def main():
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
         fp32_dest_acc_en=True, packer_l1_acc=True)
     layer, c_z = build(args.model, ckc)
-    N = args.n
+    N = args.n or args.tokens
     torch.manual_seed(0)
     s = ttnn.from_torch(torch.randn(1, N, 384), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     z = ttnn.from_torch(torch.randn(1, N, N, c_z), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-    print(f"model={args.model} c_z={c_z} N={N}", flush=True)
+    print(f"model={args.model} c_z={c_z} tokens={N} z padded={list(z.padded_shape)} "
+          f"({math.prod(z.padded_shape) * 2 / 1e6:.2f} MB)", flush=True)
 
     for _ in range(args.warm):
         s, z = layer(s, z)
@@ -209,11 +240,31 @@ def main():
     if fatal:
         print(f"PARTIAL PASS, died after {len(RECORDS)} ops: {fatal}", flush=True)
 
-    tot = sum(r["s"] for r in RECORDS)
-    print(f"ops={len(RECORDS)}  sum={tot * 1e3:.3f} ms  block={block_s * 1e3:.3f} ms  "
-          f"coverage={100 * tot / block_s:.1f}%", flush=True)
-    json.dump({"model": args.model, "n": N, "c_z": c_z, "block_wall_s": block_s,
-               "reps": args.reps, "n_ops": len(RECORDS), "sum_s": tot, "fatal": fatal,
+    # Four numbers, not one coverage percentage. A dropped op and an unattributed remainder have
+    # nothing to do with each other: the first is instrument failure, the second is real block time
+    # no row accounts for. Reporting their sum as "coverage" is what made 62 dropped rows read as
+    # inter-op overlap.
+    timed_recs = [r for r in RECORDS if r["s"] is not None]
+    dropped = [r for r in RECORDS if r["s"] is None]
+    tot = sum(r["s"] for r in timed_recs)
+    drop_b = sum(nbytes(r) for r in dropped)
+    unattr = block_s - tot
+    print(f"ops={len(RECORDS)}  timed={len(timed_recs)}  block wall={block_s * 1e3:.3f} ms  "
+          f"per-op sum={tot * 1e3:.3f} ms  dropped={len(dropped)} ops "
+          f"({drop_b / 1e6:.2f} MB moved, time unknown)  "
+          f"unattributed={unattr * 1e3:.3f} ms ({100 * unattr / block_s:.1f}% of the block wall)",
+          flush=True)
+    if dropped:
+        by_site = defaultdict(int)
+        for r in dropped:
+            by_site[(r["op"], r["site"])] += 1
+        for (op, site), n in sorted(by_site.items(), key=lambda kv: -kv[1]):
+            print(f"  dropped x{n:<3} {op} @ {site}", flush=True)
+    json.dump({"model": args.model, "n": N, "tokens": N, "c_z": c_z, "block_wall_s": block_s,
+               "z_padded_shape": list(z.padded_shape),
+               "reps": args.reps, "n_ops": len(RECORDS), "n_timed": len(timed_recs),
+               "n_dropped": len(dropped), "dropped_bytes": drop_b,
+               "sum_s": tot, "unattributed_s": unattr, "fatal": fatal,
                "records": RECORDS}, open(args.out, "w"), indent=1)
 
 

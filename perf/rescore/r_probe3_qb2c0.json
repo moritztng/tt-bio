@@ -1,0 +1,23 @@
+{
+ "minimal_matmul_1329": {
+  "us": 271.57,
+  "calls_per_block": 16,
+  "block_ms": 4.345
+ },
+ "chunk_1336": {
+  "us": 49.98,
+  "calls_per_block": 16,
+  "block_ms": 0.8
+ },
+ "layer_norm_2063": {
+  "us": 35.83,
+  "calls_per_block": 10,
+  "block_ms": 0.358
+ },
+ "linear_2071_2080": {
+  "us": 74.8,
+  "calls_per_block": 20,
+  "block_ms": 1.496
+ },
+ "dropped_block_ms_bound": 6.999
+}
