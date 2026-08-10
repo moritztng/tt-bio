@@ -1,0 +1,362 @@
+{
+ "ttnn": "0.67.4",
+ "host": "qb1",
+ "chip": "3",
+ "note": "qb1 at ttnn 0.67.4 -- campaign absolute",
+ "runs": [
+  {
+   "size": 298,
+   "arm": "on",
+   "fold_s": 55.994,
+   "n_tokens": 298,
+   "plddt": 0.859489,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "grid": [
+    13,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 20976.36
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 18544.93
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 7870.32
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 7552.81
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 4107.98
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 332.6
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x298x298x256": {
+     "L1": 494
+    },
+    "l1_layer_norm|h=1.5|298x298x256": {
+     "L1": 30
+    },
+    "pair_proj_out_l1|1x298x298x256@16": {
+     "L1": 484
+    },
+    "pair_proj_out_l1|1x298x298x256@256": {
+     "L1": 2096
+    },
+    "pair_proj_out_l1|1x298x298x256@64": {
+     "L1": 40
+    },
+    "pair_proj_out_l1|1x298x298x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|298x298x256@1": {
+     "L1": 240
+    },
+    "pair_proj_out_l1|298x298x256@256": {
+     "L1": 1048
+    },
+    "pair_proj_out_l1|298x298x64@64": {
+     "L1": 160
+    },
+    "transpose|298x298x256": {
+     "L1": 1048
+    },
+    "transpose|298x298x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [],
+   "l1_free_per_bank_at_rowblock_peak": [],
+   "block_wall_ms": 20976.36,
+   "block_calls": 604
+  },
+  {
+   "size": 298,
+   "arm": "rb_fit",
+   "fold_s": 55.287,
+   "n_tokens": 298,
+   "plddt": 0.859489,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "grid": [
+    13,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 21254.32
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 18805.41
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 7912.64
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 7615.85
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 4179.9
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 305.35
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x298x298x256": {
+     "L1": 494
+    },
+    "l1_layer_norm|h=1.5|298x298x256": {
+     "L1": 30
+    },
+    "pair_proj_out_l1|1x298x298x256@16": {
+     "L1": 484
+    },
+    "pair_proj_out_l1|1x298x298x256@256": {
+     "L1": 2096
+    },
+    "pair_proj_out_l1|1x298x298x256@64": {
+     "L1": 40
+    },
+    "pair_proj_out_l1|1x298x298x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|298x298x256@1": {
+     "L1": 240
+    },
+    "pair_proj_out_l1|298x298x256@256": {
+     "L1": 1048
+    },
+    "pair_proj_out_l1|298x298x64@64": {
+     "L1": 160
+    },
+    "transpose|298x298x256": {
+     "L1": 1048
+    },
+    "transpose|298x298x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [],
+   "l1_free_per_bank_at_rowblock_peak": [],
+   "block_wall_ms": 21254.32,
+   "block_calls": 604
+  },
+  {
+   "size": 384,
+   "arm": "on",
+   "fold_s": 75.883,
+   "n_tokens": 384,
+   "plddt": 0.819551,
+   "cif_sha256": {
+    "cdk2x2_384.cif": "db7e68aa4ecc4829"
+   },
+   "grid": [
+    13,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 43785.88
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 38311.18
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 20855.47
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 13613.67
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 4436.35
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 446.72
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x384x384x256": {
+     "L1": 494
+    },
+    "l1_layer_norm|h=1.5|384x384x256": {
+     "L1": 30
+    },
+    "pair_proj_out_l1|1x384x384x256@16": {
+     "L1": 484
+    },
+    "pair_proj_out_l1|1x384x384x256@256": {
+     "L1": 2
+    },
+    "pair_proj_out_l1|1x384x384x256@64": {
+     "L1": 40
+    },
+    "pair_proj_out_l1|1x384x384x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|384x384x256@1": {
+     "L1": 240
+    },
+    "pair_proj_out_l1|384x384x256@256": {
+     "L1": 1048
+    },
+    "pair_proj_out_l1|384x384x64@64": {
+     "L1": 160
+    },
+    "transpose|384x384x256": {
+     "L1": 1048
+    },
+    "transpose|384x384x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [
+    "((1, 384, 384, 256), (256, 256), 'DataType.BFLOAT16')"
+   ],
+   "l1_free_per_bank_at_rowblock_peak": [],
+   "block_wall_ms": 43785.88,
+   "block_calls": 604
+  },
+  {
+   "size": 384,
+   "arm": "rb_fit",
+   "fold_s": 78.106,
+   "n_tokens": 384,
+   "plddt": 0.819551,
+   "cif_sha256": {
+    "cdk2x2_384.cif": "db7e68aa4ecc4829"
+   },
+   "grid": [
+    13,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 39231.89
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 34632.64
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 19624.59
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 12497.53
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 4804.71
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 306.16
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x384x384x256": {
+     "L1": 494
+    },
+    "l1_layer_norm|h=1.5|384x384x256": {
+     "L1": 30
+    },
+    "pair_proj_out_l1|1x384x384x256@16": {
+     "L1": 484
+    },
+    "pair_proj_out_l1|1x384x384x256@256": {
+     "L1": 2
+    },
+    "pair_proj_out_l1|1x384x384x256@64": {
+     "L1": 40
+    },
+    "pair_proj_out_l1|1x384x384x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|384x384x256@1": {
+     "L1": 240
+    },
+    "pair_proj_out_l1|384x384x256@256": {
+     "L1": 1048
+    },
+    "pair_proj_out_l1|384x384x64@64": {
+     "L1": 160
+    },
+    "transpose|384x384x256": {
+     "L1": 1048
+    },
+    "transpose|384x384x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [
+    "((1, 384, 384, 256), (256, 256), 'DataType.BFLOAT16')"
+   ],
+   "l1_free_per_bank_at_rowblock_peak": [],
+   "block_wall_ms": 39231.89,
+   "block_calls": 604
+  }
+ ],
+ "ratios": {
+  "384": {
+   "on_block_ms": [
+    43785.88
+   ],
+   "off_block_ms": [],
+   "on_fold_s": [
+    75.883
+   ],
+   "off_fold_s": [],
+   "rb_fit_block_ms": [
+    39231.89
+   ],
+   "on_minus_rb_fit_block_ms": 4553.99,
+   "on_over_rb_fit_block": 1.1161,
+   "on_minus_rb_fit_fold_s": -2.223
+  },
+  "298": {
+   "on_block_ms": [
+    20976.36
+   ],
+   "off_block_ms": [],
+   "on_fold_s": [
+    55.994
+   ],
+   "off_fold_s": [],
+   "rb_fit_block_ms": [
+    21254.32
+   ],
+   "on_minus_rb_fit_block_ms": -277.96,
+   "on_over_rb_fit_block": 0.9869,
+   "on_minus_rb_fit_fold_s": 0.707
+  }
+ }
+}

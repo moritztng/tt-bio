@@ -504,6 +504,99 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     return _l1_memory_config_if_it_fits(t, 2.5)
 
 
+# --- the row-blocked pair transpose -------------------------------------------------------------
+# `_transpose_memory_config` refuses L1 for the pair tensor once it is large enough, and the DRAM
+# fallback is the slowest thing in the region: the permute's writes are row-granular scatter with a
+# 32 B transaction, which DRAM punishes. A row block of the OUTPUT is a column strip of the input
+# followed by the same (1, 0, 2) permute, so blocking is pure reordering and each block's permute
+# lands in L1 at any N. The blocked form is entered only where the unblocked one would go to DRAM,
+# so every size that fits today keeps today's code path byte for byte.
+_TRANSPOSE_ROWBLOCK = True          # False restores the unblocked permute exactly, for the A/B
+_TRANSPOSE_ROWBLOCK_R = 0           # 0 = the measured default below
+_TRANSPOSE_ROWBLOCK_GROUP = 0       # 0 = the largest group the L1 budget takes at _..._GH headroom
+_TRANSPOSE_ROWBLOCK_R_DEFAULT = 64  # measured on qb1 card 3, ttnn 0.67.4; see perf/rowblock/
+_TRANSPOSE_ROWBLOCK_H = 2.5         # per-block headroom, the same the unblocked path asks for
+_TRANSPOSE_ROWBLOCK_GH = 2.5        # headroom for the whole live group
+
+
+def _l1_budget_bytes() -> int:
+    return int(ttnn.get_max_worker_l1_unreserved_size()) * COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+
+
+def _rowblock_bytes(t: ttnn.Tensor, rows: int) -> int:
+    """Tile-padded bytes of one permuted row block: [rows, t.shape[0], t.shape[-1]]."""
+    shape = [int(d) for d in t.shape]
+    elem = 4 if t.dtype == ttnn.float32 else 2
+    return rows * ((shape[0] + 31) // 32) * 32 * ((shape[-1] + 31) // 32) * 32 * elem
+
+
+def _rowblock_plan(t: ttnn.Tensor):
+    """(R, group) for a blocked (1, 0, 2) transpose, or None to keep the unblocked permute.
+
+    R is rows of the output per block. `group` is how many permuted blocks are held in L1 before
+    they are flushed to DRAM together: `group == ceil(S/R)` holds the whole result and needs one
+    concat, `group == 1` spills each block as it is made. It is a fit computation, not a headroom
+    gamble -- as N grows the group falls on its own and the form degrades to one live block.
+    """
+    if len(t.shape) != 3:
+        return None
+    S = int(t.shape[1])
+    R = _TRANSPOSE_ROWBLOCK_R or _TRANSPOSE_ROWBLOCK_R_DEFAULT
+    if R >= S:
+        return None
+    try:
+        budget = _l1_budget_bytes()
+    except Exception:                                                          # noqa: BLE001
+        return None
+    blk = _rowblock_bytes(t, R)
+    if _TRANSPOSE_ROWBLOCK_H * blk > budget:
+        return None                        # not even one block is resident: nothing to win
+    nblk = -(-S // R)
+    if _TRANSPOSE_ROWBLOCK_GROUP:
+        group = min(_TRANSPOSE_ROWBLOCK_GROUP, nblk)
+    else:
+        group = max(1, min(nblk, int(budget // (_TRANSPOSE_ROWBLOCK_GH * blk))))
+    return R, group
+
+
+def _rowblock_flush(live: list) -> ttnn.Tensor:
+    """Move one group of L1-resident blocks out to DRAM, freeing the L1 as it goes."""
+    if len(live) == 1:
+        out = ttnn.to_memory_config(live[0], ttnn.DRAM_MEMORY_CONFIG)
+    else:
+        out = ttnn.concat(live, dim=0, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    for t in live:
+        ttnn.deallocate(t)
+    return out
+
+
+def _pair_transpose(x: ttnn.Tensor) -> ttnn.Tensor:
+    """The pair tensor's (1, 0, 2) transpose, L1-resident at any N."""
+    mc = _transpose_memory_config(x)
+    to_l1 = mc.buffer_type == ttnn.BufferType.L1
+    plan = None if (to_l1 or not _TRANSPOSE_ROWBLOCK) else _rowblock_plan(x)
+    if plan is None:
+        return ttnn.permute(x, (1, 0, 2), memory_config=mc)
+    R, group = plan
+    S = int(x.shape[1])
+    live, pieces = [], []
+    for s in range(0, S, R):
+        b = x[:, s:min(s + R, S), :]
+        live.append(ttnn.permute(b, (1, 0, 2), memory_config=ttnn.L1_MEMORY_CONFIG))
+        ttnn.deallocate(b)
+        if len(live) == group:
+            pieces.append(_rowblock_flush(live))
+            live = []
+    if live:
+        pieces.append(_rowblock_flush(live))
+    if len(pieces) == 1:
+        return pieces[0]
+    out = ttnn.concat(pieces, dim=0, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    for pc in pieces:
+        ttnn.deallocate(pc)
+    return out
+
+
 def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
     """`ttnn.layer_norm` writing to L1 when it fits, else to DRAM. Returns (tensor, in_l1).
 
@@ -1887,7 +1980,7 @@ class TriangleAttention(Module):
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
             if self.ending:
-                x = ttnn.permute(x, (1, 0, 2), memory_config=_transpose_memory_config(x))
+                x = _pair_transpose(x)
             # Explicit DRAM: for the ending variant x is the L1 transpose result
             # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
             # for the qkv projection, whose 157 MB does not fit.
@@ -2036,7 +2129,7 @@ class TriangleAttention(Module):
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g)
         if self.ending:
-            x = ttnn.permute(x, (1, 0, 2), memory_config=_transpose_memory_config(x))
+            x = _pair_transpose(x)
         x = ttnn.reshape(x, (1, *x.shape))
         return x
 
