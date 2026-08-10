@@ -65,24 +65,28 @@ def check_model(model, rep, fails, infos):
         # The cost headline is only quotable in its per-target form. Rung 512's panel tops
         # out near 137 against rung 256's 153, so the two rungs never carry the same target
         # count and an extensive (summed) denominator is never comparable between the pairs.
-        cph = g.get("cost_h_per_target")
-        lo_same = g.get("cost_h_per_target_lo_same_panel")
+        cph, rate = g.get("cost_h_per_target"), g.get("s_per_sample_hi")
+        rate_lo = g.get("s_per_sample_lo_same_panel")
         if cph is None:
             fails.append(f"{model}: {PAIR} carries no cost_h_per_target -- some target in the "
-                         f"paired set has no measured wall time, so the cost headline has no "
-                         f"basis. Do not quote a marginal cost for this model.")
+                         f"paired set has no measured wall time or no billed sample count, so "
+                         f"the cost headline has no basis. Do not quote a marginal cost here.")
         else:
-            print(f"  cost basis: {cph:.2f} card-h/target at 512"
-                  + (f", {lo_same:.2f} at 256 over the same {g['common_targets']} targets"
-                     f" ({cph / lo_same:.2f}x)" if lo_same else ""))
-            prev_cph = (gains.get(PREV_PAIR) or {}).get("cost_h_per_target")
-            if prev_cph:
-                print(f"  vs {PREV_PAIR}: {prev_cph:.2f} card-h/target")
-                infos.append(f"{model}: the two pairs' costs are per-target and so comparable in "
-                             f"units, but they are measured on different target sets "
-                             f"({gains[PREV_PAIR]['common_targets']} vs {g['common_targets']}). "
-                             f"For a panel-clean read of what the second 256 samples cost, use "
-                             f"cost_h_per_target_lo_same_panel, not the {PREV_PAIR} pair.")
+            print(f"  cost basis: {g['step_samples']} samples x {rate:.1f} s = "
+                  f"{cph:.2f} card-h/target"
+                  + (f"; a sample costs {rate_lo:.1f} s at 256 over the same "
+                     f"{g['common_targets']} targets ({rate / rate_lo:.2f}x)" if rate_lo else ""))
+            prev = gains.get(PREV_PAIR) or {}
+            if prev.get("marginal_oracle_per_1000cs"):
+                print(f"  vs {PREV_PAIR}: {prev['marginal_oracle_per_1000cs']:+.6f}/1000 card-s "
+                      f"per target at {prev['s_per_sample_hi']:.1f} s/sample")
+            # A doubling that keeps buying the same absolute gain must halve its
+            # cost-efficiency, since it pays twice the samples for it. That is the
+            # expected shape, not a finding; say so, so nobody reports it as one.
+            if rate_lo and abs(rate / rate_lo - 1) > 0.15:
+                infos.append(f"{model}: a sample costs {rate / rate_lo:.2f}x more at 512 than at "
+                             f"256 on the same targets. That is a fold-rate change, not a "
+                             f"property of the doubling; check the window before quoting it.")
     elif nt512 is not None and nt512 < POWER_MIN:
         infos.append(f"{model}: {PAIR} absent because rung {EXPECT_DEPTH} has {nt512} targets "
                      f"< POWER_MIN {POWER_MIN}. Label latency, not a defect.")

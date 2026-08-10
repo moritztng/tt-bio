@@ -267,6 +267,7 @@ def galaxy64_pools(model: str):
     if not mdir_root.is_dir():
         return out
     walls = {}
+    billed = {}
     fj = GALAXY64 / "fleet_results.jsonl"
     skip = _reuse_skip(model)
     if fj.exists():
@@ -289,9 +290,16 @@ def galaxy64_pools(model: str):
                 if ck in skip:
                     continue
                 per_chunk[ck] = max(per_chunk.get(ck, 0.0), r["seconds"])
+        # How many samples that wall time actually bought, which is NOT the rung: the
+        # skip set removes the nested linked chunks, so rung 256 bills chunks 1-3 (192
+        # samples; chunk 0 is a link off rung 64) while rung 512 bills chunks 4-7 (256).
+        # Dividing a gain by raw card-hours therefore compares 192 bought samples against
+        # 256 and reads the difference as the folds getting dearer. Per sample the two
+        # rungs are 33.1 s and 32.7 s, i.e. the same.
         for (t, rung, _c), s in per_chunk.items():
             k = (t, rung)
             walls[k] = walls.get(k, 0.0) + s
+            billed[k] = billed.get(k, 0) + (CHUNK_SAMPLES if _c is not None else rung)
     meta = {}
     for out_dir in sorted(mdir_root.iterdir()):
         if not out_dir.is_dir():
@@ -333,7 +341,7 @@ def galaxy64_pools(model: str):
         if len(m["chunks"]) < max(1, k[1] // 64):
             del out[k]
     for k in out:
-        out[k] = {"pool": out[k], "wall_s": walls.get(k)}
+        out[k] = {"pool": out[k], "wall_s": walls.get(k), "billed_n": billed.get(k)}
     return out
 
 
@@ -649,33 +657,45 @@ def main():
                 # 137 against rung 256's 153), so per-target is the only form that is
                 # ever quotable. Sum-over-targets gain / sum-over-targets cost gives
                 # the same number, which is the check that the units now close.
-                w_hi = [pools[(t, hi)]["wall_s"] for t in both]
-                w_lo = [pools[(t, lo)]["wall_s"] for t in both]
-                if all(w for w in w_hi):
-                    h_hi = sum(w_hi) / len(both) / 3600
-                    gains[f"{lo}->{hi}"]["cost_h_per_target"] = round(h_hi, 4)
-                    if h_hi > 0:
-                        gains[f"{lo}->{hi}"]["marginal_oracle_per_1000cs"] = \
-                            round(g["oracle"][1] / (h_hi * 3.6), 6)
-                    # Same target set at the lower rung, so "did the second 256
-                    # samples cost more than the first 256" is answerable without the
-                    # panel-composition confound (rung 512's panel is overlay-heavy
-                    # hard targets, which are slower per sample for reasons that have
-                    # nothing to do with the doubling).
-                    if all(w for w in w_lo):
-                        gains[f"{lo}->{hi}"]["cost_h_per_target_lo_same_panel"] = \
-                            round(sum(w_lo) / len(both) / 3600, 4)
+                # Priced as (samples the step adds) x (measured seconds per sample at
+                # rung hi). Billing rung hi's raw wall time instead would charge the
+                # step for whatever the window happened to re-fold rather than link:
+                # rung 256 bought 192 samples, rung 512 bought 256, so raw card-hours
+                # make the 512 step look 1.31x dearer when per sample the two rungs
+                # are within 2 pct. The sample rate is also panel-robust, which the
+                # raw cost is not -- rung 512's panel is overlay-heavy hard targets.
+                def _rate(n):
+                    w = [pools[(t, n)].get("wall_s") for t in both]
+                    b = [pools[(t, n)].get("billed_n") for t in both]
+                    if not all(w) or not all(b):
+                        return None
+                    return sum(w) / sum(b)
+
+                r_hi, r_lo = _rate(hi), _rate(lo)
+                if r_hi:
+                    step_cs = (hi - lo) * r_hi / 1000
+                    gains[f"{lo}->{hi}"]["s_per_sample_hi"] = round(r_hi, 2)
+                    gains[f"{lo}->{hi}"]["step_samples"] = hi - lo
+                    gains[f"{lo}->{hi}"]["cost_h_per_target"] = round(step_cs * 1000 / 3600, 4)
+                    gains[f"{lo}->{hi}"]["marginal_oracle_per_1000cs"] = \
+                        round(g["oracle"][1] / step_cs, 6)
+                    # Same target set at the lower rung, so "is a sample getting dearer
+                    # as the ladder deepens" is answerable with no panel and no
+                    # sample-count confound.
+                    if r_lo:
+                        gains[f"{lo}->{hi}"]["s_per_sample_lo_same_panel"] = round(r_lo, 2)
             if gains:
                 report[model + "__pairwise_gain_ci"] = gains
                 print("  pairwise adjacent-rung gain CIs (stop-rule basis):")
                 for pair, d in gains.items():
                     o = d["gain_ci"]["oracle"]
                     marg = d.get("marginal_oracle_per_1000cs")
-                    cph = d.get("cost_h_per_target")
+                    cph, rate = d.get("cost_h_per_target"), d.get("s_per_sample_hi")
                     print(f"    {pair:<12} nt={d['common_targets']:<4} "
                           f"oracle gain {o[1]:+.4f} [{o[0]:+.4f},{o[2]:+.4f}]"
                           + (f"  marginal {marg:+.6f}/1000 card-s per target "
-                             f"({cph:.2f} card-h/target)" if marg is not None else ""))
+                             f"({d['step_samples']} samples x {rate:.1f} s = "
+                             f"{cph:.2f} card-h/target)" if marg is not None else ""))
             ds = deep_stats(pools, model)
             report[model + "__deep"] = ds
             print(f"  within-fold oracle curve (top rung N={ds['top_rung']}, "
