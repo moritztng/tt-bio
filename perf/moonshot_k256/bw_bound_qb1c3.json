@@ -1,0 +1,208 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "dram_roof": {
+    "32MB": {
+      "read_GBs": 364.4,
+      "write_GBs": 252.1
+    },
+    "64MB": {
+      "read_GBs": 389.4,
+      "write_GBs": 263.7
+    }
+  },
+  "shapes": {
+    "trimul.in_proj  @[256,128]": {
+      "m": 102400,
+      "k": 256,
+      "n": 128,
+      "gflop": 6.71,
+      "AI_bf16_flop_per_byte": 85.3,
+      "arms": {
+        "bf16 -> DRAM": {
+          "tflops": [
+            26.68,
+            26.61
+          ],
+          "read_GBs": 208.4,
+          "write_GBs": 104.2
+        },
+        "bf16 -> L1": {
+          "tflops": [
+            26.82,
+            26.84
+          ],
+          "read_GBs": 209.7,
+          "write_GBs": 0.0
+        },
+        "bf16 -> bfp8 DRAM": {
+          "tflops": [
+            27.18,
+            27.15
+          ],
+          "read_GBs": 212.3,
+          "write_GBs": 56.4
+        },
+        "bfp8 -> bfp8 DRAM": {
+          "tflops": [
+            27.52,
+            27.67
+          ],
+          "read_GBs": 114.8,
+          "write_GBs": 57.4
+        },
+        "bfp8 -> bfp8 L1": {
+          "tflops": [
+            28.0,
+            27.95
+          ],
+          "read_GBs": 116.2,
+          "write_GBs": 0.0
+        }
+      }
+    },
+    "trimul.out_proj @[256,256]": {
+      "m": 102400,
+      "k": 256,
+      "n": 256,
+      "gflop": 13.42,
+      "AI_bf16_flop_per_byte": 128.0,
+      "arms": {
+        "bf16 -> DRAM": {
+          "tflops": [
+            35.3,
+            35.06
+          ],
+          "read_GBs": 137.9,
+          "write_GBs": 137.9
+        },
+        "bf16 -> L1": {
+          "tflops": [
+            52.56,
+            52.81
+          ],
+          "read_GBs": 206.3,
+          "write_GBs": 0.0
+        },
+        "bf16 -> bfp8 DRAM": {
+          "tflops": [
+            52.0,
+            52.16
+          ],
+          "read_GBs": 203.8,
+          "write_GBs": 108.2
+        },
+        "bfp8 -> bfp8 DRAM": {
+          "tflops": [
+            54.39,
+            54.68
+          ],
+          "read_GBs": 113.5,
+          "write_GBs": 113.5
+        },
+        "bfp8 -> bfp8 L1": {
+          "tflops": [
+            55.06,
+            55.08
+          ],
+          "read_GBs": 114.3,
+          "write_GBs": 0.0
+        }
+      }
+    },
+    "triatt.qkv      @[256,768]": {
+      "m": 102400,
+      "k": 256,
+      "n": 768,
+      "gflop": 40.27,
+      "AI_bf16_flop_per_byte": 192.0,
+      "arms": {
+        "bf16 -> DRAM": {
+          "tflops": [
+            42.54,
+            26.96
+          ],
+          "read_GBs": 55.4,
+          "write_GBs": 166.2
+        },
+        "bf16 -> bfp8 DRAM": {
+          "tflops": [
+            66.58,
+            66.58
+          ],
+          "read_GBs": 86.7,
+          "write_GBs": 138.2
+        },
+        "bfp8 -> bfp8 DRAM": {
+          "tflops": [
+            34.48,
+            42.1
+          ],
+          "read_GBs": 29.1,
+          "write_GBs": 87.4
+        },
+        "bfp8 -> bfp8 L1": {
+          "tflops": [
+            69.18,
+            69.88
+          ],
+          "read_GBs": 48.3,
+          "write_GBs": 0.0
+        }
+      }
+    },
+    "transition.up   @[256,1024]": {
+      "m": 9600,
+      "k": 256,
+      "n": 1024,
+      "gflop": 5.03,
+      "AI_bf16_flop_per_byte": 204.8,
+      "arms": {
+        "bf16 -> DRAM": {
+          "tflops": [
+            39.61,
+            39.4
+          ],
+          "read_GBs": 38.7,
+          "write_GBs": 154.7
+        },
+        "bf16 -> L1": {
+          "tflops": [
+            52.84,
+            52.73
+          ],
+          "read_GBs": 51.6,
+          "write_GBs": 0.0
+        },
+        "bf16 -> bfp8 DRAM": {
+          "tflops": [
+            45.71,
+            46.14
+          ],
+          "read_GBs": 45.1,
+          "write_GBs": 95.8
+        },
+        "bfp8 -> bfp8 DRAM": {
+          "tflops": [
+            53.9,
+            52.57
+          ],
+          "read_GBs": 28.0,
+          "write_GBs": 111.8
+        },
+        "bfp8 -> bfp8 L1": {
+          "tflops": [
+            62.61,
+            64.12
+          ],
+          "read_GBs": 33.3,
+          "write_GBs": 0.0
+        }
+      }
+    }
+  },
+  "read_roof_GBs": 389.4,
+  "write_roof_GBs": 263.7
+}
