@@ -21,5 +21,6 @@
     "shared_draw_seed": 0,
     "target_id": "trpcage_no_msa",
     "yaml": "examples/trpcage_no_msa.yaml"
-  }
+  },
+  "settings_tag": "nomsa_200step_1sample_3recycle_bf16"
 }

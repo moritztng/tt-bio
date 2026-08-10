@@ -10,8 +10,10 @@ fold, and the tally tests force the blocked path with a monkeypatched
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -155,3 +157,50 @@ def test_staged_msa_legs_sharing_a_sequence_do_not_share_one_a3m(tmp_path, monke
     for leg in (prot_leg, of3_leg):
         assert staged[leg.id].read_bytes() == bytes_by_fixture[leg.fixture], (
             f"{leg.id} staged another fixture's MSA")
+
+def test_every_committed_fixture_names_its_own_settings_tag():
+    """The legacy R/D/X scorer refuses a fixture whose meta.json does not name its own
+    settings tag, so a committed fixture without one is silently unscoreable under
+    --legacy-rdx. boltz2-{trpcage,prot,hsa}-nomsa hard-ERRORed for exactly that reason the
+    first time the gate could reach them: regen_envelope_refs wrote their meta.json flat,
+    with no settings_tag, and nothing checked."""
+    import json
+
+    root = REPO / "docs" / "implementation-parity-data" / "ref-fixtures"
+    bad = []
+    for meta_path in sorted(root.glob("*/*/*/meta.json")):
+        tag = json.loads(meta_path.read_text()).get("settings_tag")
+        if tag != meta_path.parent.name:
+            bad.append(f"{meta_path.parent.relative_to(root)}: meta.json says {tag!r}")
+    assert not bad, "fixtures whose meta.json does not name their own directory:\n" + "\n".join(bad)
+
+
+def test_scorer_env_names_the_driver(tmp_path, monkeypatch):
+    """A spawned scorer must inherit TT_BIO_PARENT_PID so it can arm its parent-death
+    guard; without it a scorer outliving a SIGKILLed driver held card 1 for 1 h 43 m.
+    pin_card=None is the point: that is the branch that does not rebuild env."""
+    mod = _load()
+    leg = mod.Leg(id="esmc-300m", model="esmc-300m", kind="esmc", yaml="")
+    captured = {}
+
+    class _Proc:
+        returncode = 0
+
+    def fake_run(cmd, **kw):
+        captured.update(kw.get("env") or {})
+        return _Proc()
+
+    monkeypatch.setattr(mod, "subprocess", types.SimpleNamespace(
+        run=fake_run, STDOUT=subprocess.STDOUT, TimeoutExpired=subprocess.TimeoutExpired))
+    env = {**os.environ, "TT_BIO_PARENT_PID": str(os.getpid())}
+    mod.run_inprocess(leg, tmp_path / "out.json", tmp_path / "log.txt", env, pin_card=None)
+    assert captured.get("TT_BIO_PARENT_PID") == str(os.getpid())
+
+
+def test_regen_envelope_meta_carries_the_settings_tag():
+    """regen_envelope_refs must stamp settings_tag on the flat (envelope-native) path too,
+    or every fixture it writes becomes unscoreable under --legacy-rdx."""
+    src = SCRIPT.read_text()
+    assert 'meta.setdefault("settings_tag", base.name)' in src, (
+        "the envelope regen no longer stamps settings_tag onto the meta.json it writes"
+    )

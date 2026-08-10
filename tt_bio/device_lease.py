@@ -31,6 +31,7 @@ import errno
 import fcntl
 import json
 import os
+import signal
 import socket
 import threading
 import time
@@ -188,3 +189,61 @@ class DeviceLease:
 
     def __exit__(self, *exc):
         self.release()
+
+
+# ---------------------------------------------------------------------------
+# Process-lifetime guard: who may still be holding a card
+# ---------------------------------------------------------------------------
+_ARMED = False
+
+
+def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
+    """Die with the process that owns this one, from inside any call.
+
+    PR_SET_PDEATHSIG is delivered by the kernel the moment the parent dies, so it
+    covers the case a between-jobs ``getppid()`` check cannot: a process orphaned in
+    the middle of device work, still holding its chip and its card lease. One was
+    found holding /dev/tenstorrent/0 and card 3's flock for 6 h at 100% CPU; another,
+    a gate scorer, held card 1 for 1 h 43 m and killed the next gate's first leg with
+    DeviceInUseError.
+
+    The kernel sends the signal when the parent THREAD that created us exits, not when
+    the parent process does, so a caller spawning from a thread pool must not let that
+    thread return while the child is still alive.
+    """
+    if not parent_pid:
+        return
+    try:
+        import ctypes
+
+        ctypes.CDLL(None).prctl(1, int(signal.SIGTERM))  # 1 = PR_SET_PDEATHSIG
+    except Exception:
+        pass
+    # The parent can die between our spawn and the prctl above. man 2 prctl: no signal
+    # is sent if it is already gone, so re-check by hand.
+    if os.getppid() != parent_pid:
+        os._exit(exit_code)
+
+
+def arm_orphan_guard() -> None:
+    """A process about to take a card must not outlive whoever wanted the result.
+
+    ``TT_BIO_PARENT_PID`` names the process that spawned us: the predict CLI for its
+    workers, a gate driver for its scorers and folds. Arm only when the value really is
+    our parent. A stale value inherited from a dead grandparent means we are a detached
+    fleet job, and those must keep running, so the test is exact rather than "the
+    variable is set".
+
+    SIGTERM keeps its default disposition here on purpose. A Python handler only runs
+    when the interpreter does, and a process wedged inside a ttnn call would then hold
+    its card forever, which is the failure this guard exists to end. Workers can afford
+    a handler because ``run_worker_loop``'s heartbeat backstops it.
+    """
+    global _ARMED
+    if _ARMED:
+        return
+    parent = int(os.environ.get("TT_BIO_PARENT_PID") or 0)
+    if not parent or parent != os.getppid():
+        return
+    _ARMED = True
+    install_parent_death_guard(parent)

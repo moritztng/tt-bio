@@ -26,5 +26,6 @@
     "shared_draw_seed": 0,
     "target_id": "affinity_dhfr",
     "yaml": "examples/affinity_dhfr.yaml"
-  }
+  },
+  "settings_tag": "nomsa_200step_5affsample_3recycle_bf16_mwcorr"
 }
