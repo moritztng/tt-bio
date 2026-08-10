@@ -1,0 +1,52 @@
+{
+  "cif_a": "perf/p3_sdpa/fold_c64/prot300.cif",
+  "cif_b": "perf/p3_sdpa/fold_c64b/prot300.cif",
+  "n_atoms_a": 2398,
+  "n_atoms_b": 2398,
+  "all_atom": {
+    "n": 2398,
+    "kabsch_rmsd_A": 1.0195237480276257e-14,
+    "unaligned_rmsd_A": 0.0
+  },
+  "ca": {
+    "n": 298,
+    "kabsch_rmsd_A": 7.234554808811695e-15,
+    "unaligned_rmsd_A": 0.0,
+    "tm_score": 1.0,
+    "lddt": 1.0
+  },
+  "trunk": {
+    "s": {
+      "rms_of_reference": 233.83332397499044,
+      "rmsd": 0.0,
+      "relative_rmsd": 0.0,
+      "max_abs_deviation": 0.0,
+      "max_abs_of_reference": 1360.0,
+      "pcc": 1.0000000000000004,
+      "torch_equal": true,
+      "n": 114432
+    },
+    "z": {
+      "rms_of_reference": 21.416065931021752,
+      "rmsd": 0.0,
+      "relative_rmsd": 0.0,
+      "max_abs_deviation": 0.0,
+      "max_abs_of_reference": 2040.0,
+      "pcc": 0.9999999999995244,
+      "torch_equal": true,
+      "n": 22733824
+    }
+  },
+  "trunk_shapes": {
+    "s": [
+      298,
+      384
+    ],
+    "z": [
+      1,
+      298,
+      298,
+      256
+    ]
+  }
+}

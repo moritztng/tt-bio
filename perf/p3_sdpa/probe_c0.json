@@ -1,0 +1,122 @@
+{
+ "grid": {
+  "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+  "loadavg": [
+   3.50732421875,
+   4.15771484375,
+   2.7685546875
+  ],
+  "compute_with_storage": "(x=13,y=10)"
+ },
+ "roofs": {
+  "card": "qb1 TT_VISIBLE_DEVICES=0",
+  "note": "measured this pass on this card, not inherited",
+  "compute_square_4096_TFLOPs": 127.85,
+  "dram": [
+   {
+    "MB": 32.0,
+    "read_GBs": 351.2,
+    "copy_rw_GBs": 381.3,
+    "write_GBs": 246.7,
+    "l1_to_l1_GBs": 1100.3
+   },
+   {
+    "MB": 64.0,
+    "read_GBs": 379.0,
+    "copy_rw_GBs": 398.2,
+    "write_GBs": 261.0,
+    "l1_to_l1_GBs": 1225.1
+   },
+   {
+    "MB": 128.0,
+    "read_GBs": 396.7,
+    "copy_rw_GBs": 408.4,
+    "write_GBs": 268.1,
+    "l1_err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+   }
+  ],
+  "read_peak_GBs": 396.7,
+  "copy_peak_GBs": 408.4,
+  "clone_write_peak_GBs": 268.1,
+  "l1_to_l1_peak_GBs": 1225.1,
+  "mm_writer_95360x32x2048_GBs": 200.7,
+  "mm_writer_95360x32x4096_GBs": 199.9,
+  "mm_writer_write_peak_GBs": 200.7,
+  "machine_balance_FLOP_per_byte": 322.3
+ },
+ "sdpa_ab": {
+  "shape": "q/k/v [298, 8, 320, 32], bias [1, 8, 320, 320] DRAM",
+  "calls_per_fold": 1048,
+  "chunk64_bias_us": 2765.5,
+  "chunk64_nobias_us": 1651.8,
+  "chunk64_biasleg_us": 1113.7,
+  "chunk64_biasleg_GBs": 438.4,
+  "chunk320_bias_us": 1735.3,
+  "chunk320_nobias_us": 598.0,
+  "chunk320_biasleg_us": 1137.3,
+  "chunk320_biasleg_GBs": 429.3,
+  "delta_us_per_call": 1030.2,
+  "probe_ms_per_fold": 1079.6,
+  "core_leg_speedup": 2.76,
+  "grid_ladder_chunk64_us": {
+   "1x1": 163676.5,
+   "2x2": 41366.1,
+   "4x4": 10560.6,
+   "6x6": 5040.7,
+   "8x8": 3202.3,
+   "11x10": 2815.2
+  },
+  "core_equivalents_chunk64_of_110": 58.1,
+  "grid_ladder_chunk320_us": {
+   "1x1": 55631.2,
+   "2x2": 13985.3,
+   "4x4": 3649.7,
+   "6x6": 2120.4,
+   "8x8": 1916.2,
+   "11x10": 1737.1
+  },
+  "core_equivalents_chunk320_of_110": 32.0
+ },
+ "alignment": {
+  "method": "logical key length 298 vs 320, both padded to 320 tiles, same program config",
+  "chunk64_klogical298_us": 2788.9,
+  "chunk64_klogical320_us": 2752.8,
+  "chunk64_penalty_us": 36.1,
+  "chunk64_penalty_ms_per_fold": 37.8,
+  "chunk64_penalty_ratio": 1.013,
+  "chunk320_klogical298_us": 1738.9,
+  "chunk320_klogical320_us": 1719.8,
+  "chunk320_penalty_us": 19.1,
+  "chunk320_penalty_ms_per_fold": 20.0,
+  "chunk320_penalty_ratio": 1.011
+ },
+ "l1_split": {
+  "shape": "x [298, 320, 256] -> qkv [298, 320, 768] -> 3 x [298, 8, 320, 32]",
+  "qkv_bytes": 146472960,
+  "pair_dram_us": 1623.0,
+  "pair_dram_ms_per_fold": 1700.9,
+  "proj_dram_us": 898.2,
+  "split_dram_us": 768.3,
+  "proj_dram_ms_per_fold": 941.3,
+  "split_dram_ms_per_fold": 805.2,
+  "l1_chunk32_us": 2358.8,
+  "l1_chunk32_ms_per_fold": 2472.0,
+  "l1_chunk32_vs_baseline": 0.688,
+  "l1_chunk64_us": 1967.4,
+  "l1_chunk64_ms_per_fold": 2061.8,
+  "l1_chunk64_vs_baseline": 0.825,
+  "l1_chunk96_err": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 133 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 buffer allocated at 1085440 and static circular buffer region ends at 1159680\nbacktrace:",
+  "split32_l1_us": 35.9,
+  "split32_dram_us": 95.3,
+  "split32_l1_GBs": 877.2,
+  "split32_dram_GBs": 330.0,
+  "split32_speedup": 2.66,
+  "split32_torch_equal": true,
+  "split32_n_differing": 0,
+  "split32_n_elements": 7864320,
+  "split32_max_abs_diff": 0.0,
+  "chunked_pair_torch_equal": true,
+  "chunked_pair_max_abs_diff": 0.0,
+  "chunked_pair_n_differing": 0
+ }
+}

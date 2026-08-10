@@ -226,15 +226,24 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
     )
 
 
+# Triangle-attention SDPA chunk in the 256 < seq <= 384 band, where a 298-aa protein pads to 320.
+# 64 is production. 320 makes the whole row one chunk, which removes the online-softmax rescale and
+# the chunk-pair loop; it is faster but NOT bit-exact, because the reduction order changes. The
+# fold-level accuracy cost is measured in perf/p3_sdpa. Read once per TriangleAttention at
+# construction, so a driver sets it before the model is built.
+SDPA_TRI_MID_CHUNK = 64
+
+
 @lru_cache(maxsize=None)
-def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
+def _tri_att_sdpa_program_config(q_len: int, k_len: int,
+                                 mid_chunk: int = SDPA_TRI_MID_CHUNK) -> ttnn.SDPAProgramConfig:
     # Microbench M7/M7b/M7c (Blackhole 13x10, tri-att shape batch=seq, h=8, d=32):
     # the 256-cap is optimal at >=512 (0.59x regression at 64) and 128 is best at
     # <=128, but in the 256<seq<=384 band (298-aa proteins pad to 320, 2 chunks of
-    # 256+64 padded) q_chunk=k_chunk=64 is 2.45x faster. Chunking only changes the
-    # online-softmax reduction order (measured PCC 0.9999 vs the 256 config).
+    # 256+64 padded) q_chunk=k_chunk=64 is 2.45x faster than the 256 cap. That sweep
+    # stopped at 256 and never tried 320, which is faster again -- see perf/p3_sdpa.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
-        return _sdpa_program_config(q_chunk_size=64, k_chunk_size=64)
+        return _sdpa_program_config(q_chunk_size=mid_chunk, k_chunk_size=mid_chunk)
     return _sdpa_program_config_for_lengths(q_len, k_len)
 
 
@@ -1615,6 +1624,7 @@ class TriangleAttention(Module):
         self.ending = ending
         self.affinity = affinity
         self.fp32_softmax = fp32_softmax
+        self.sdpa_mid_chunk = SDPA_TRI_MID_CHUNK
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -1761,7 +1771,8 @@ class TriangleAttention(Module):
             else:
                 o = ttnn.transformer.scaled_dot_product_attention(
                     q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
-                    program_config=_tri_att_sdpa_program_config(q.shape[2], k.shape[2]),
+                    program_config=_tri_att_sdpa_program_config(
+                        q.shape[2], k.shape[2], self.sdpa_mid_chunk),
                 )
             ttnn.deallocate(q)
             ttnn.deallocate(k)
