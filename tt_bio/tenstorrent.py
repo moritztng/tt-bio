@@ -1187,7 +1187,10 @@ def get_device(trace_region_size=0):
         # how they were launched (fleet worker, detached campaign, cross-host fanout, manual).
         # The flock is auto-released by the kernel on any process death, so a crashed/killed
         # holder never leaves a phantom claim. See tt_bio/device_lease.py.
-        from tt_bio.device_lease import DeviceLease
+        # And a process that takes a card must not outlive whoever wanted the result:
+        # an orphaned holder keeps its flock and defers every later job on that card.
+        from tt_bio.device_lease import DeviceLease, arm_orphan_guard
+        arm_orphan_guard()
         _device_lease = DeviceLease().acquire()
         try:
             _device = _open_and_init_device(trace_region_size)
