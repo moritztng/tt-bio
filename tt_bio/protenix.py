@@ -394,16 +394,19 @@ class AtomTransformer(_KeyedWeights, Module):
         nb = NP // nq
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
         Lp = self.PAD_LEFT + NP + nk
-        x = ttnn.pad(x, [[0, 0], [self.PAD_LEFT, Lp - self.PAD_LEFT - N], [0, 0]], 0.0)
         if x.dtype == ttnn.float32:
+            # fp32 needs only the first NP+nk-nq rows (= nb+bpw-1 nq-blocks); pad straight to that
+            # length and skip the trim slice (it existed only because the shared pad went to Lp).
             blocks_per_window = nk // nq
-            x = ttnn.slice(x, [0, 0, 0], [1, NP + nk - nq, H * dh])
+            Lf = NP + nk - nq
+            x = ttnn.pad(x, [[0, 0], [self.PAD_LEFT, Lf - self.PAD_LEFT - N], [0, 0]], 0.0)
             x = ttnn.reshape(x, (nb + blocks_per_window - 1, nq, H * dh))
             x = ttnn.concat([
                 ttnn.slice(x, [i, 0, 0], [i + nb, nq, H * dh])
                 for i in range(blocks_per_window)
             ], dim=1)
         else:
+            x = ttnn.pad(x, [[0, 0], [self.PAD_LEFT, Lp - self.PAD_LEFT - N], [0, 0]], 0.0)
             x = ttnn.reshape(x, (Lp, H * dh))                      # gather table (Lp, H*dh)
             idx = self._kv_window_idx(nb, nq, nk, NP)              # (1, nb*nk) uint32
             x = ttnn.embedding(idx, x, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
