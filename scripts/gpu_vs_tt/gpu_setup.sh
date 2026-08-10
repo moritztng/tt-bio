@@ -11,10 +11,25 @@ nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
 
 # CUDA toolchain. The runtime image has no nvcc/CUDA_HOME, but both vendors
 # JIT-compile a fused layernorm CUDA extension at import (their own dockers use
-# devel images). conda cuda-compiler matches the image's cu128 torch.
-if [ ! -x /opt/conda/bin/nvcc ]; then
+# devel images). It needs more than nvcc: torch's cpp_extension pulls in
+# cuda_runtime_api.h and, through ATen's CUDAContextLight.h, cusparse.h. The
+# cuda-compiler metapackage ships neither, so a 2026-08-10 session died at the
+# first fold with "fatal error: cuda_runtime_api.h: No such file or directory".
+# cuda-toolkit is the metapackage that carries the headers. Gate on a header,
+# not on nvcc, or a box that already has nvcc skips the fix.
+if [ ! -f /opt/conda/include/cuda_runtime_api.h ] || [ ! -f /opt/conda/include/cusparse.h ]; then
   apt-get update -qq && apt-get install -y -qq build-essential
-  /opt/conda/bin/conda install -y -n base -c nvidia "cuda-compiler=12.8"
+  /opt/conda/bin/conda install -y -n base -c nvidia "cuda-toolkit=12.8"
+fi
+# conda's nvidia channel lays CUDA out as targets/x86_64-linux/{include,lib},
+# not as CUDA_HOME/{include,lib64}, which is the only layout torch's
+# cpp_extension knows. Link the two views together; skip names that already
+# exist under include/ (CL/ is a real directory there and ln refuses it).
+if [ -d /opt/conda/targets/x86_64-linux/include ]; then
+  for f in /opt/conda/targets/x86_64-linux/include/*; do
+    b=$(basename "$f"); [ -e "/opt/conda/include/$b" ] || ln -sfn "$f" "/opt/conda/include/$b"
+  done
+  [ -e /opt/conda/lib64 ] || ln -sfn /opt/conda/targets/x86_64-linux/lib /opt/conda/lib64
 fi
 export CUDA_HOME=/opt/conda
 export PATH=/opt/conda/bin:$PATH
