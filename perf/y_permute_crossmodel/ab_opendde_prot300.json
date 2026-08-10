@@ -1,0 +1,238 @@
+{
+ "wheel": "0.68.0",
+ "host": "qb2",
+ "card": "2",
+ "model": "opendde",
+ "target": "examples/prot300.yaml",
+ "label": "opendde_prot300",
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "l1_max_seq": 352,
+ "meta": {
+  "hardware": "blackhole",
+  "card_type": null,
+  "aiclk_mhz": null,
+  "load_s": 2.35,
+  "n_msa": 35,
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "diffusion_samples": 1
+ },
+ "aa": [
+  {
+   "round": 0,
+   "a_s": 46.0155,
+   "b_s": 46.104,
+   "apparent_delta_ms": -88.4,
+   "load": [
+    1.05,
+    0.97,
+    0.93
+   ]
+  },
+  {
+   "round": 1,
+   "a_s": 46.119,
+   "b_s": 46.1269,
+   "apparent_delta_ms": -7.9,
+   "load": [
+    1.04,
+    1.0,
+    0.94
+   ]
+  }
+ ],
+ "rounds": [
+  {
+   "round": 0,
+   "base_s": 46.1643,
+   "wire_s": 45.5093,
+   "delta_ms": 655.0,
+   "eligible_served_base": 0,
+   "eligible_served_wire": 13088,
+   "plddt_base": 0.799654,
+   "plddt_wire": 0.799654,
+   "cif_sha_identical": true,
+   "load": [
+    1.07,
+    1.02,
+    0.95
+   ]
+  },
+  {
+   "round": 1,
+   "base_s": 46.1907,
+   "wire_s": 45.4478,
+   "delta_ms": 742.9,
+   "eligible_served_base": 0,
+   "eligible_served_wire": 13088,
+   "plddt_base": 0.799654,
+   "plddt_wire": 0.799654,
+   "cif_sha_identical": true,
+   "load": [
+    1.57,
+    1.12,
+    1.0
+   ]
+  },
+  {
+   "round": 2,
+   "base_s": 46.8235,
+   "wire_s": 45.6975,
+   "delta_ms": 1126.0,
+   "eligible_served_base": 0,
+   "eligible_served_wire": 13088,
+   "plddt_base": 0.799654,
+   "plddt_wire": 0.799654,
+   "cif_sha_identical": true,
+   "load": [
+    2.42,
+    1.54,
+    1.16
+   ]
+  }
+ ],
+ "cold": {
+  "base_s": 49.964,
+  "wire_s": 45.646,
+  "n_tokens": 298,
+  "n_residues": 298,
+  "plddt_base": 0.799654,
+  "plddt_wire": 0.799654,
+  "cif_sha_base": [
+   [
+    "prot300.cif",
+    "1c6acc27c7fca07a"
+   ]
+  ],
+  "cif_sha_wire": [
+   [
+    "prot300.cif",
+    "1c6acc27c7fca07a"
+   ]
+  ],
+  "cif_sha_identical": true,
+  "load": [
+   1.24,
+   0.96,
+   0.92
+  ]
+ },
+ "census": {
+  "channel_move_calls_per_fold": 13088,
+  "eligible_served_per_fold": 13088,
+  "refused_per_fold": 0,
+  "by_shape": [
+   {
+    "N": 298,
+    "C": 32,
+    "in": "L1",
+    "out": "L1",
+    "dtype": "BFLOAT16",
+    "layout": "TILE",
+    "eligible": true,
+    "calls": 12896
+   },
+   {
+    "N": 580,
+    "C": 32,
+    "in": "DRAM",
+    "out": "DRAM",
+    "dtype": "BFLOAT16",
+    "layout": "TILE",
+    "eligible": true,
+    "calls": 192
+   }
+  ],
+  "reject_reasons": {},
+  "trimul_invocations_per_fold": {
+   "1x298x298x64": 160,
+   "1x298x298x384": 1048,
+   "1x580x580x384": 8
+  },
+  "trimul_invocations_total": 1216
+ },
+ "aa_summary": {
+  "a_median_s": 46.119,
+  "b_median_s": 46.1269,
+  "apparent_delta_ms_on_medians": -7.9,
+  "max_abs_apparent_delta_ms": 88.4,
+  "all_folds_spread_ms": 111.4,
+  "folds": [
+   46.0155,
+   46.119,
+   46.104,
+   46.1269
+  ]
+ },
+ "summary": {
+  "base_median_s": 46.1907,
+  "wire_median_s": 45.5093,
+  "delta_ms_median": 681.4,
+  "delta_ms_paired_mean": 841.3,
+  "delta_ms_min": 655.0,
+  "delta_ms_max": 1126.0,
+  "signs": [
+   1,
+   1,
+   1
+  ],
+  "ratio": 1.01497,
+  "base_folds": [
+   46.1643,
+   46.1907,
+   46.8235
+  ],
+  "wire_folds": [
+   45.5093,
+   45.4478,
+   45.6975
+  ]
+ },
+ "parity": {
+  "n_coord_sets": 12,
+  "max_abs_delta_all_pairs": 0.0,
+  "torch_equal_first_vs_last": true,
+  "shape": [
+   1,
+   2398,
+   3
+  ]
+ },
+ "block_wall": {
+  "shape": [
+   1,
+   298,
+   298,
+   384
+  ],
+  "base_ms": [
+   14.1664,
+   14.1394,
+   14.1581
+  ],
+  "wire_ms": [
+   13.7116,
+   13.7126,
+   13.7061
+  ],
+  "base_median_ms": 14.1581,
+  "wire_median_ms": 13.7116,
+  "delta_ms_per_call": 0.4465,
+  "ratio": 1.0326,
+  "eligible_served_per_block": 12.0,
+  "invocations_of_this_shape_per_fold": 1048,
+  "implied_delta_ms_per_fold_this_shape_only": 468.0,
+  "load": [
+   2.42,
+   1.54,
+   1.16
+  ]
+ }
+}

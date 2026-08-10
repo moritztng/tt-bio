@@ -55,6 +55,10 @@ def main() -> int:
     ap.add_argument("--block-sets", type=int, default=3)
     ap.add_argument("--label", default="")
     ap.add_argument("--out", default="")
+    ap.add_argument("--fast", action="store_true", help="fold on the --fast path (bf8 pair track, "
+                    "wider L1 residency window -- changes which N are eligible)")
+    ap.add_argument("--no-seed", action="store_true", help="do not seed the MSA cache (targets "
+                    "declaring `msa: empty` fold single-sequence and read no a3m)")
     a = ap.parse_args()
 
     label = a.label or f"{a.model}_{Path(a.target).stem}"
@@ -99,9 +103,75 @@ def main() -> int:
 
     T.TriangleMultiplication.__call__ = _grab_tm
 
+    # `build_fold` was written for protenix-v2 and its cfg dict carries no Boltz-2 hyperparameters,
+    # so `_WorkerState.load_model` raises KeyError('conf_kwargs') for boltz2. Inject exactly the
+    # dicts `tt_bio.main` builds, at this harness's own recycling/sampling settings. Nothing in
+    # production changes; the patch lives in this process.
+    if a.model == "boltz2":
+        from tt_bio import worker as _W
+        from tt_baseline import RECYCLING_STEPS, SAMPLING_STEPS, DIFFUSION_SAMPLES
+
+        _diffusion = {"step_scale": 1.5, "gamma_0": 0.8, "gamma_min": 1.0, "noise_scale": 1.003,
+                      "rho": 7, "sigma_min": 0.0001, "sigma_max": 160.0, "sigma_data": 16.0,
+                      "P_mean": -1.2, "P_std": 1.5, "coordinate_augmentation": True,
+                      "alignment_reverse_diff": True, "synchronize_sigmas": True}
+        _pairformer = {"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True}
+        _msa = {"subsample_msa": True, "num_subsampled_msa": 1024, "use_paired_feature": True,
+                "msa_s": 64, "msa_blocks": 4, "msa_dropout": 0.15, "z_dropout": 0.25,
+                "pairwise_head_width": 32, "pairwise_num_heads": 4,
+                "activation_checkpointing": True}
+        _steering = {"fk_steering": False, "physical_guidance_update": False,
+                     "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
+                     "fk_resampling_interval": 3, "num_gd_steps": 20}
+        _conf_kwargs = dict(
+            predict_args={"recycling_steps": RECYCLING_STEPS, "sampling_steps": SAMPLING_STEPS,
+                          "diffusion_samples": DIFFUSION_SAMPLES, "max_parallel_samples": None},
+            diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
+            steering_args=_steering, use_kernels=True, use_tenstorrent=True, trace=False,
+            diffusion_trace=False)
+        _aff_kwargs = dict(
+            predict_args={"recycling_steps": 5, "sampling_steps": 200, "diffusion_samples": 5,
+                          "max_parallel_samples": 1},
+            diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
+            steering_args=dict(_steering, contact_guidance_update=False),
+            affinity_mw_correction=False, use_tenstorrent=True, trace=False,
+            diffusion_trace=False)
+        _orig_load_model = _W._WorkerState.load_model
+
+        def _load_model(self, cfg):
+            cfg.setdefault("conf_kwargs", _conf_kwargs)
+            cfg.setdefault("aff_kwargs", _aff_kwargs)
+            cfg.setdefault("use_potentials", False)
+            return _orig_load_model(self, cfg)
+
+        _W._WorkerState.load_model = _load_model
+
+    import tt_baseline as _TB
+    if a.no_seed:
+        _TB.seed_msa_cache = lambda *_a, **_k: 0
+    if a.fast:
+        # build_fold hardcodes fast=False; flip it in the cfg the worker actually loads.
+        from tt_bio import worker as _W2
+        _prev_bind = _W2._WorkerState.bind_run
+
+        def _bind(self, run_id, cfg):
+            cfg["fast"] = True
+            return _prev_bind(self, run_id, cfg)
+
+        _W2._WorkerState.bind_run = _bind
+        _prev_lm = _W2._WorkerState.load_model
+
+        def _lm(self, cfg):
+            cfg["fast"] = True
+            return _prev_lm(self, cfg)
+
+        _W2._WorkerState.load_model = _lm
+
     from tt_baseline import build_fold
     t_load = time.perf_counter()
     one_fold, meta, state = build_fold(a.model, msa_dir, target, a3m)
+    if a.fast:
+        meta["job_cfg"]["fast"] = True
     print(f"model loaded in {time.perf_counter() - t_load:.1f}s", flush=True)
 
     coords: list = []
@@ -281,7 +351,10 @@ def main() -> int:
         for _ in range(a.block_sets):
             b, _c = block(False); bs.append(b)
             w, c = block(True); ws.append(w); cps.append(c)
-        n_tm = sum(TM_CALLS.values()) or 1
+        # TM_CALLS accumulates over every fold in the session, so the per-fold conversion has to
+        # come from the ONE cold fold the census was taken on, at the shape the block wall used.
+        shape_key = "x".join(str(d) for d in grab["shape"])
+        n_tm = R["census"]["trimul_invocations_per_fold"].get(shape_key, 0) or 1
         R["block_wall"] = {
             "shape": grab["shape"], "base_ms": [round(v, 4) for v in bs],
             "wire_ms": [round(v, 4) for v in ws],
@@ -289,8 +362,8 @@ def main() -> int:
             "delta_ms_per_call": round(med(bs) - med(ws), 4),
             "ratio": round(med(bs) / med(ws), 4),
             "eligible_served_per_block": med(cps),
-            "trimul_invocations_per_fold_measured": n_tm,
-            "implied_delta_ms_per_fold": round((med(bs) - med(ws)) * n_tm, 1),
+            "invocations_of_this_shape_per_fold": n_tm,
+            "implied_delta_ms_per_fold_this_shape_only": round((med(bs) - med(ws)) * n_tm, 1),
             "load": load()}
         print("block_wall:", json.dumps(R["block_wall"]), flush=True)
 

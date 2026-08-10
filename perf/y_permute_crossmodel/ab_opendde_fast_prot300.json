@@ -1,0 +1,183 @@
+{
+ "wheel": "0.68.0",
+ "host": "qb2",
+ "card": "2",
+ "model": "opendde",
+ "target": "examples/prot300.yaml",
+ "label": "opendde_fast_prot300",
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "l1_max_seq": 352,
+ "meta": {
+  "hardware": "blackhole",
+  "card_type": null,
+  "aiclk_mhz": null,
+  "load_s": 2.44,
+  "n_msa": 35,
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "diffusion_samples": 1
+ },
+ "aa": [],
+ "rounds": [
+  {
+   "round": 0,
+   "base_s": 45.819,
+   "wire_s": 45.2186,
+   "delta_ms": 600.4,
+   "eligible_served_base": 0,
+   "eligible_served_wire": 13088,
+   "plddt_base": 0.804129,
+   "plddt_wire": 0.804129,
+   "cif_sha_identical": true,
+   "load": [
+    1.26,
+    1.1,
+    1.31
+   ]
+  },
+  {
+   "round": 1,
+   "base_s": 45.791,
+   "wire_s": 45.2061,
+   "delta_ms": 584.8,
+   "eligible_served_base": 0,
+   "eligible_served_wire": 13088,
+   "plddt_base": 0.804129,
+   "plddt_wire": 0.804129,
+   "cif_sha_identical": true,
+   "load": [
+    1.06,
+    1.07,
+    1.27
+   ]
+  }
+ ],
+ "cold": {
+  "base_s": 49.134,
+  "wire_s": 45.274,
+  "n_tokens": 298,
+  "n_residues": 298,
+  "plddt_base": 0.804129,
+  "plddt_wire": 0.804129,
+  "cif_sha_base": [
+   [
+    "prot300.cif",
+    "3bc07f90a783d54b"
+   ]
+  ],
+  "cif_sha_wire": [
+   [
+    "prot300.cif",
+    "3bc07f90a783d54b"
+   ]
+  ],
+  "cif_sha_identical": true,
+  "load": [
+   0.98,
+   1.0,
+   1.31
+  ]
+ },
+ "census": {
+  "channel_move_calls_per_fold": 13088,
+  "eligible_served_per_fold": 13088,
+  "refused_per_fold": 0,
+  "by_shape": [
+   {
+    "N": 298,
+    "C": 32,
+    "in": "L1",
+    "out": "L1",
+    "dtype": "BFLOAT16",
+    "layout": "TILE",
+    "eligible": true,
+    "calls": 12896
+   },
+   {
+    "N": 580,
+    "C": 32,
+    "in": "DRAM",
+    "out": "DRAM",
+    "dtype": "BFLOAT16",
+    "layout": "TILE",
+    "eligible": true,
+    "calls": 192
+   }
+  ],
+  "reject_reasons": {},
+  "trimul_invocations_per_fold": {
+   "1x298x298x64": 160,
+   "1x298x298x384": 1048,
+   "1x580x580x384": 8
+  },
+  "trimul_invocations_total": 1216
+ },
+ "summary": {
+  "base_median_s": 45.819,
+  "wire_median_s": 45.2186,
+  "delta_ms_median": 600.4,
+  "delta_ms_paired_mean": 592.6,
+  "delta_ms_min": 584.8,
+  "delta_ms_max": 600.4,
+  "signs": [
+   1,
+   1
+  ],
+  "ratio": 1.01328,
+  "base_folds": [
+   45.819,
+   45.791
+  ],
+  "wire_folds": [
+   45.2186,
+   45.2061
+  ]
+ },
+ "parity": {
+  "n_coord_sets": 6,
+  "max_abs_delta_all_pairs": 0.0,
+  "torch_equal_first_vs_last": true,
+  "shape": [
+   1,
+   2398,
+   3
+  ]
+ },
+ "block_wall": {
+  "shape": [
+   1,
+   298,
+   298,
+   384
+  ],
+  "base_ms": [
+   14.0878,
+   14.1702,
+   14.1288
+  ],
+  "wire_ms": [
+   13.707,
+   13.7081,
+   13.6883
+  ],
+  "base_median_ms": 14.1288,
+  "wire_median_ms": 13.707,
+  "delta_ms_per_call": 0.4218,
+  "ratio": 1.0308,
+  "eligible_served_per_block": 12.0,
+  "invocations_of_this_shape_per_fold": 1048,
+  "implied_delta_ms_per_fold_this_shape_only": 442.1,
+  "load": [
+   1.05,
+   1.07,
+   1.27
+  ]
+ }
+}
