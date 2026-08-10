@@ -619,9 +619,9 @@ def main():
                 # = x3.6). Skipped when the pair has no measured cost basis
                 # (ARK/tier_a rungs carry wall_s=None -> card_h 0.0).
                 #
-                # The denominator is pts[hi]["card_h"] alone, NOT hi minus lo.
+                # The denominator is rung hi's own cost alone, NOT hi minus lo.
                 # _reuse_skip drops the NESTED linked chunks from the walls sum, so
-                # per-rung card_h IS the marginal cost of arriving at that rung: at
+                # rung hi's wall_s IS the marginal cost of arriving at that rung: at
                 # 512 it counts chunks 4-7 only, because 0-3 are hardlinks of the 256
                 # rung. Subtracting lo would then bill the step for samples it never
                 # re-folded. Chunks 4-7 count whether they were folded in this window
@@ -632,20 +632,50 @@ def main():
                 # had card_h[lo] == 0.0 exactly, so the delta happened to equal
                 # card_h[hi]. 256->512 is the first pair with real wall data on both
                 # sides, where the delta goes small or negative and the campaign's
-                # cost headline would be inflated or silently dropped.
-                cost_h = pts[hi]["card_h"]
-                if cost_h > 0:
-                    gains[f"{lo}->{hi}"]["marginal_oracle_per_1000cs"] = \
-                        round(g["oracle"][1] / (cost_h * 3.6), 5)
+                # cost headline would be inflated or silently dropped. It is also the
+                # first pair whose two rungs sit on different panels, which is what
+                # exposed the units defect fixed below.
+                #
+                # The denominator is PER-TARGET, restricted to `both`. It used to be
+                # pts[hi]["card_h"], a SUM over rung hi's whole panel, divided into a
+                # gain that is a MEAN over `both`. Mixing an extensive numerator basis
+                # with an intensive one makes the metric scale as 1/n_targets[hi], so
+                # two pairs on different panels are not comparable: on the partial
+                # opendde run it read 1e-05 at 128->256 (269.7 card-h / 153 targets)
+                # against 3e-05 at 256->512 (130.6 / 58), i.e. the second doubling
+                # looked 3x cheaper per unit gain. Per target it is 1.72e-03 against
+                # 1.55e-03: the 512 step is about 10 pct DEARER, the opposite call.
+                # The panels can never be made to match (the 512 panel tops out near
+                # 137 against rung 256's 153), so per-target is the only form that is
+                # ever quotable. Sum-over-targets gain / sum-over-targets cost gives
+                # the same number, which is the check that the units now close.
+                w_hi = [pools[(t, hi)]["wall_s"] for t in both]
+                w_lo = [pools[(t, lo)]["wall_s"] for t in both]
+                if all(w for w in w_hi):
+                    h_hi = sum(w_hi) / len(both) / 3600
+                    gains[f"{lo}->{hi}"]["cost_h_per_target"] = round(h_hi, 4)
+                    if h_hi > 0:
+                        gains[f"{lo}->{hi}"]["marginal_oracle_per_1000cs"] = \
+                            round(g["oracle"][1] / (h_hi * 3.6), 6)
+                    # Same target set at the lower rung, so "did the second 256
+                    # samples cost more than the first 256" is answerable without the
+                    # panel-composition confound (rung 512's panel is overlay-heavy
+                    # hard targets, which are slower per sample for reasons that have
+                    # nothing to do with the doubling).
+                    if all(w for w in w_lo):
+                        gains[f"{lo}->{hi}"]["cost_h_per_target_lo_same_panel"] = \
+                            round(sum(w_lo) / len(both) / 3600, 4)
             if gains:
                 report[model + "__pairwise_gain_ci"] = gains
                 print("  pairwise adjacent-rung gain CIs (stop-rule basis):")
                 for pair, d in gains.items():
                     o = d["gain_ci"]["oracle"]
                     marg = d.get("marginal_oracle_per_1000cs")
+                    cph = d.get("cost_h_per_target")
                     print(f"    {pair:<12} nt={d['common_targets']:<4} "
                           f"oracle gain {o[1]:+.4f} [{o[0]:+.4f},{o[2]:+.4f}]"
-                          + (f"  marginal {marg:+.5f}/1000 card-s" if marg is not None else ""))
+                          + (f"  marginal {marg:+.6f}/1000 card-s per target "
+                             f"({cph:.2f} card-h/target)" if marg is not None else ""))
             ds = deep_stats(pools, model)
             report[model + "__deep"] = ds
             print(f"  within-fold oracle curve (top rung N={ds['top_rung']}, "
