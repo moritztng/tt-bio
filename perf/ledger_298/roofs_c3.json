@@ -1,0 +1,81 @@
+{
+  "device": {
+    "compute_grid": "13x10",
+    "core_grid_main": "13x10",
+    "arch": "Arch.BLACKHOLE"
+  },
+  "compute_roof": {
+    "runs": {
+      "bf16_2048": {
+        "ms": 0.1661,
+        "tflops": 103.41
+      },
+      "bf16_4096": {
+        "ms": 2.997,
+        "tflops": 45.86
+      },
+      "bf16_6144": {
+        "ms": 3.1547,
+        "tflops": 147.04
+      },
+      "fp32_2048": {
+        "ms": 0.2107,
+        "tflops": 81.54
+      },
+      "fp32_4096": {
+        "ms": 1.249,
+        "tflops": 110.04
+      },
+      "fp32_6144": {
+        "ms": 4.1511,
+        "tflops": 111.74
+      }
+    },
+    "bf16_peak_TFLOPs": 147.04,
+    "fp32_peak_TFLOPs": 111.74,
+    "fp32_over_bf16": 0.76
+  },
+  "dram_roofs": {
+    "runs": [
+      {
+        "MB": 8.0,
+        "read_GBs": 279.2,
+        "write_GBs": 197.5
+      },
+      {
+        "MB": 16.0,
+        "read_GBs": 329.8,
+        "write_GBs": 234.2
+      },
+      {
+        "MB": 32.0,
+        "read_GBs": 365.0,
+        "write_GBs": 252.3
+      },
+      {
+        "MB": 48.0,
+        "read_GBs": 380.1,
+        "write_GBs": 260.4
+      },
+      {
+        "MB": 64.0,
+        "read_GBs": 387.5,
+        "write_GBs": 261.0
+      },
+      {
+        "MB": 95.99,
+        "read_GBs": 395.1,
+        "write_GBs": 266.5
+      },
+      {
+        "MB": 128.0,
+        "read_GBs": 398.4,
+        "write_GBs": 268.2
+      }
+    ],
+    "read_peak_GBs": 398.4,
+    "write_peak_GBs": 268.2
+  },
+  "machine_balance_bf16": 369.1,
+  "machine_balance_fp32": 280.5
+}
