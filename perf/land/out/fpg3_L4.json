@@ -1,0 +1,53 @@
+{
+  "legs": [
+    {
+      "leg": "boltz2-hsa-nomsa",
+      "verdict": "ERROR",
+      "detail": "scorer returned no report (see log)",
+      "wall": 458.71023062000313,
+      "committed": "PASS",
+      "report": "boltz2-hsa-nomsa.json"
+    },
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "PASS",
+      "detail": "prot: X=2.927 R=2.763 D=2.693 within=True",
+      "wall": 289.9349701020037,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=1.806 R=1.923 D=1.530 within=True",
+      "wall": 326.45117202700203,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "GAP",
+      "detail": "prot_no_msa: X=8.537 R=1.499 D=5.706 within=False",
+      "wall": 283.90242164999654,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "global DockQ=0.833",
+      "wall": 518.8097605899966,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    }
+  ],
+  "tally": {
+    "ERROR": 1,
+    "PASS": 3,
+    "GAP": 1
+  },
+  "total_wall_s": 1877.8103848380051,
+  "workers": [
+    "tt-quietbox:3"
+  ]
+}
