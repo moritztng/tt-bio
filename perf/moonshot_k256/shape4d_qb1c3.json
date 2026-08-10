@@ -1,0 +1,510 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "load_start": 35.39,
+  "cases": [
+    {
+      "label": "298aa in_proj  4D [1,320,320,256]@[256,256] -> L1",
+      "seq": 320,
+      "N": 256,
+      "out": "L1",
+      "m_tiles_per_batch": 10,
+      "M_total": 102400,
+      "rows": [
+        {
+          "config": "default",
+          "ms": 0.2656,
+          "tflops": 50.53,
+          "aa": 0.0277
+        },
+        {
+          "config": [
+            1,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.4346,
+          "tflops": 30.88,
+          "gain": 0.6112,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.015
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2981,
+          "tflops": 45.03,
+          "gain": 0.8912,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0504
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.225,
+          "tflops": 59.64,
+          "gain": 1.1803,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0144
+        },
+        {
+          "config": [
+            5,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2314,
+          "tflops": 58.0,
+          "gain": 1.1478,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.1653
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2017,
+          "tflops": 66.54,
+          "gain": 1.3169,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0408
+        },
+        {
+          "config": [
+            10,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2118,
+          "tflops": 63.37,
+          "gain": 1.2541,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0414
+        }
+      ]
+    },
+    {
+      "label": "298aa in_proj  2D    [102400,256]@[256,256] -> L1",
+      "seq": null,
+      "N": 256,
+      "out": "L1",
+      "m_tiles_per_batch": 3200,
+      "M_total": 102400,
+      "rows": [
+        {
+          "config": "default",
+          "ms": 0.2642,
+          "tflops": 50.8,
+          "aa": 0.0202
+        },
+        {
+          "config": [
+            1,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.4405,
+          "tflops": 30.47,
+          "gain": 0.5999,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 4.0388
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2947,
+          "tflops": 45.54,
+          "gain": 0.8965,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0208
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2337,
+          "tflops": 57.44,
+          "gain": 1.1309,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0714
+        },
+        {
+          "config": [
+            5,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2151,
+          "tflops": 62.41,
+          "gain": 1.2285,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 5.4225
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2209,
+          "tflops": 60.77,
+          "gain": 1.1964,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 5.8783
+        },
+        {
+          "config": [
+            10,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2039,
+          "tflops": 65.81,
+          "gain": 1.2956,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0111
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2207,
+          "tflops": 60.8,
+          "gain": 1.197,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0305
+        }
+      ]
+    },
+    {
+      "label": "512aa in_proj  4D [1,512,512,256]@[256,128] -> DRAM",
+      "seq": 512,
+      "N": 128,
+      "out": "DRAM",
+      "m_tiles_per_batch": 16,
+      "M_total": 262144,
+      "rows": [
+        {
+          "config": "default",
+          "ms": 0.61,
+          "tflops": 28.16,
+          "aa": 0.0139
+        },
+        {
+          "config": [
+            1,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 1.0433,
+          "tflops": 16.47,
+          "gain": 0.5847,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0071
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.7194,
+          "tflops": 23.88,
+          "gain": 0.8479,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0094
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.5297,
+          "tflops": 32.43,
+          "gain": 1.1517,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0948
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.5545,
+          "tflops": 30.98,
+          "gain": 1.1,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0935
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.6013,
+          "tflops": 28.57,
+          "gain": 1.0144,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 2.8741
+        }
+      ]
+    },
+    {
+      "label": "512aa in_proj  2D    [262144,256]@[256,128] -> DRAM",
+      "seq": null,
+      "N": 128,
+      "out": "DRAM",
+      "m_tiles_per_batch": 8192,
+      "M_total": 262144,
+      "rows": [
+        {
+          "config": "default",
+          "ms": 0.6108,
+          "tflops": 28.13,
+          "aa": 0.0081
+        },
+        {
+          "config": [
+            1,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 1.0469,
+          "tflops": 16.41,
+          "gain": 0.5834,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0119
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.7048,
+          "tflops": 24.38,
+          "gain": 0.8667,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0123
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.5909,
+          "tflops": 29.08,
+          "gain": 1.0337,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 1.6376
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.529,
+          "tflops": 32.48,
+          "gain": 1.1547,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 5.5141
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.5586,
+          "tflops": 30.76,
+          "gain": 1.0934,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0544
+        }
+      ]
+    },
+    {
+      "label": "512aa chunk64  4D [1,512,512,256]@[256,256] -> DRAM",
+      "seq": 512,
+      "N": 256,
+      "out": "DRAM",
+      "m_tiles_per_batch": 16,
+      "M_total": 262144,
+      "rows": [
+        {
+          "config": "default",
+          "ms": 0.9165,
+          "tflops": 37.49,
+          "aa": 0.0231
+        },
+        {
+          "config": [
+            1,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 1.1394,
+          "tflops": 30.16,
+          "gain": 0.8043,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0108
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.8005,
+          "tflops": 42.92,
+          "gain": 1.1448,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0134
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.824,
+          "tflops": 41.7,
+          "gain": 1.1123,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0149
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.9002,
+          "tflops": 38.17,
+          "gain": 1.018,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.0268
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.9821,
+          "tflops": 34.98,
+          "gain": 0.9331,
+          "bit_exact": true,
+          "max_abs": 0.0,
+          "aa": 0.032
+        }
+      ]
+    }
+  ],
+  "load_end": 38.99
+}
