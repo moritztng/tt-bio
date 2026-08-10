@@ -20,6 +20,12 @@ Arms:
          _TEMPLATE_L1_NORM = False          (X10)
        `_PAIR_PROJ_BW` and `_NARROW_PROJ_BW` are identical in both arms: they are program config,
        not capacity, and moving them would change parity as well as the thing under test.
+  rb_fit  every L1 gate exactly as `on` leaves it, plus `_TRANSPOSE_ROWBLOCK`: the row-blocked
+          pair transpose at its shipping default, R=64 and the group the L1 budget takes at 2.5x
+          headroom. This is the arm a merge would ship.
+  rb_max  the same, with the group forced to every block, so the whole transposed tensor is L1
+          resident and the assembly is a single concat. Fastest in the probe and the largest L1
+          footprint; measured here so the interaction checks can price the difference.
 
 The headline instrument is the block wall, `PairformerLayer.__call__` synchronised on both sides and
 summed over its executions, not the fold wall -- this harness's fold-wall A/A floor is 758.3 ms and
@@ -38,6 +44,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 WALL = defaultdict(lambda: {"n": 0, "s": 0.0})
 DEC = defaultdict(Counter)
 STATE = {"dev": None, "gates": "on"}
+HOST, CHIP, PROVENANCE = "qb1", "3", ""
 
 
 def timed_call(key, fn, *a, **kw):
@@ -67,7 +74,13 @@ def main():
     ap.add_argument("--arms", default="on,on,off", help="comma list, run in this order per size")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--host", default="qb1")
+    ap.add_argument("--chip", default="3")
     a = ap.parse_args()
+    global HOST, CHIP, PROVENANCE
+    HOST, CHIP = a.host, a.chip
+    PROVENANCE = ("qb1 at ttnn 0.67.4 -- campaign absolute" if a.host == "qb1" else
+                  "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number")
 
     import ttnn
     import tt_bio.tenstorrent as T
@@ -100,6 +113,39 @@ def main():
                 f"@{int(list(w.shape)[-1])}"]["L1" if cfg is not None else "DRAM"] += 1
         return cfg
 
+    # `_pair_transpose` looks `_rowblock_plan` up as a module global, so this reads the branch the
+    # fold actually took -- blocked or not, and at which (R, group).
+    ORIG_PLAN = T._rowblock_plan
+
+    def plan(t):
+        pl = ORIG_PLAN(t)
+        DEC[f"rowblock|{'x'.join(str(int(d)) for d in t.shape)}"][
+            f"blocked R={pl[0]},group={pl[1]}" if pl else "unblocked"] += 1
+        return pl
+
+    # Peak L1 occupancy is the moment a group is live and not yet flushed, which is exactly the
+    # entry to `_rowblock_flush`. `get_memory_view` drains the pipeline, so sample a few times.
+    ORIG_FLUSH = T._rowblock_flush
+    L1FREE = {"n": 0, "samples": []}
+
+    def flush(live):
+        if L1FREE["n"] < 8:
+            L1FREE["n"] += 1
+            try:
+                mv = ttnn.get_memory_view(STATE["dev"], ttnn.BufferType.L1)
+                L1FREE["samples"].append({
+                    "live_blocks": len(live),
+                    "banks": int(mv.num_banks),
+                    "total_bytes_per_bank": int(mv.total_bytes_per_bank),
+                    "free_bytes_per_bank": int(mv.total_bytes_free_per_bank),
+                    "largest_contiguous_free_per_bank": int(
+                        mv.largest_contiguous_bytes_free_per_bank)})
+            except Exception as e:                                              # noqa: BLE001
+                L1FREE["samples"].append({"error": f"{type(e).__name__}: {e}"[:120]})
+        return ORIG_FLUSH(live)
+
+    T._rowblock_plan = plan
+    T._rowblock_flush = flush
     T._transpose_memory_config = tmc
     T._l1_layer_norm = ln
     P._l1_layer_norm = ln          # protenix.py imports it by name, so patch both namespaces
@@ -122,18 +168,20 @@ def main():
 
     def set_arm(name):
         STATE["gates"] = name
-        on = name == "on"
+        on = name != "off"          # every arm but `off` leaves production's L1 gates alone
         T._PAIR_PROJ_L1_OUT = on
         T._PAIR_BIAS_L1_NORM = on
         T._PWA_L1_NORM = on
         T._TEMPLATE_L1_NORM = on
+        T._TRANSPOSE_ROWBLOCK = name.startswith("rb")
+        T._TRANSPOSE_ROWBLOCK_R = 0                     # 0 = the shipping default, R=64
+        T._TRANSPOSE_ROWBLOCK_GROUP = 10 ** 6 if name == "rb_max" else 0   # clamped to ceil(S/R)
         T._pair_proj_program_config.cache_clear()
         T._L1_OUT_REFUSED.clear()
+        L1FREE["n"], L1FREE["samples"] = 0, []
 
     import importlib.metadata as im
-    res = {"ttnn": im.version("ttnn"), "host": "qb2", "chip": 0,
-           "note": "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number",
-           "runs": []}
+    res = {"ttnn": im.version("ttnn"), "host": HOST, "chip": CHIP, "note": PROVENANCE, "runs": []}
 
     for size in [int(s) for s in a.sizes.split(",")]:
         tgt = a.fixdir / f"cdk2x2_{size}.yaml"
@@ -176,7 +224,8 @@ def main():
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
                                for k, v in sorted(WALL.items(), key=lambda kv: -kv[1]["s"])},
                    "decisions": {k: dict(v) for k, v in sorted(DEC.items())},
-                   "l1_out_refused": [str(k) for k in T._L1_OUT_REFUSED]}
+                   "l1_out_refused": [str(k) for k in T._L1_OUT_REFUSED],
+                   "l1_free_per_bank_at_rowblock_peak": L1FREE["samples"]}
             blk = rec["wall_ms"].get("block:PairformerLayer", {})
             rec["block_wall_ms"] = blk.get("ms")
             rec["block_calls"] = blk.get("calls")
@@ -202,6 +251,15 @@ def main():
             e["off_over_on_block"] = round(st.median(off) / st.median(on), 4)
             e["off_minus_on_block_ms"] = round(st.median(off) - st.median(on), 2)
             e["off_over_on_fold"] = round(st.median(offf) / st.median(onf), 4)
+        for arm in sorted({r["arm"] for r in res["runs"] if r["size"] == size} - {"on", "off"}):
+            b = [r["block_wall_ms"] for r in res["runs"]
+                 if r["size"] == size and r["arm"] == arm and r.get("block_wall_ms")]
+            f = [r["fold_s"] for r in res["runs"] if r["size"] == size and r["arm"] == arm]
+            if b and on:
+                e[f"{arm}_block_ms"] = b
+                e[f"on_minus_{arm}_block_ms"] = round(st.median(on) - st.median(b), 2)
+                e[f"on_over_{arm}_block"] = round(st.median(on) / st.median(b), 4)
+                e[f"on_minus_{arm}_fold_s"] = round(st.median(onf) - st.median(f), 3)
         ratios[size] = e
     res["ratios"] = ratios
     a.out.write_text(json.dumps(res, indent=1))
