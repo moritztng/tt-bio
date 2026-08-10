@@ -1,0 +1,11 @@
+2026-08-10 14:27:37.479 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+model loaded in 3.3s
+head: {"wheel": "0.68.0", "host": "tt-quietbox2", "card": "1", "model": "boltz2", "grid": [11, 10], "reblock_permute_constant": true, "enabled_at_import": true, "l1_max_seq": 352}
+ON : {"target": "perf/size512/fixtures/cdk2x2_298.yaml", "rc_ok": true, "wall_s": 25.93, "n_tokens": null, "plddt": null, "channel_move_calls": 6048, "calls_served": 6048, "calls_refused": 0, "pair_shape": [320, 128], "l1_out_refused_n": 0, "l1_layer_norm": {"l1": 756, "dram": 0}, "transpose_memory_config": "BufferType.L1", "trimul_throws": [], "error": null}
+     shapes: [{"N": 320, "C": 32, "in": "L1", "out": "L1", "dtype": "BFLOAT16", "layout": "TILE", "eligible": true, "calls": 6048}]
+OFF: {"target": "perf/size512/fixtures/cdk2x2_298.yaml", "rc_ok": true, "wall_s": 26.12, "plddt": null, "calls_served": 0, "cif_sha_identical_to_on": true, "same_failure_signature": true, "error": null}
+ON : {"target": "perf/size512/fixtures/cdk2x2_384.yaml", "rc_ok": true, "wall_s": 37.17, "n_tokens": null, "plddt": null, "channel_move_calls": 12096, "calls_served": 12096, "calls_refused": 0, "pair_shape": [384, 128], "l1_out_refused_n": 0, "l1_layer_norm": {"l1": 756, "dram": 0}, "transpose_memory_config": "BufferType.L1", "trimul_throws": [], "error": null}
+     shapes: [{"N": 384, "C": 32, "in": "DRAM", "out": "DRAM", "dtype": "BFLOAT16", "layout": "TILE", "eligible": true, "calls": 12096}]
+OFF: {"target": "perf/size512/fixtures/cdk2x2_384.yaml", "rc_ok": true, "wall_s": 38.4, "plddt": null, "calls_served": 0, "cif_sha_identical_to_on": true, "same_failure_signature": true, "error": null}
+wrote perf/z_flip_land/control_boltz2_qb2c1.json

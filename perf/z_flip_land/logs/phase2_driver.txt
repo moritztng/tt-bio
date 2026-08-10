@@ -1,0 +1,9 @@
+=== START control_openfold3 2026-08-10T14:22:21Z
+=== END control_openfold3 rc=0 2026-08-10T14:27:36Z
+=== START control_boltz2 2026-08-10T14:27:36Z
+=== END control_boltz2 rc=0 2026-08-10T14:29:50Z
+=== START control_opendde 2026-08-10T14:29:50Z
+=== END control_opendde rc=0 2026-08-10T14:34:08Z
+=== START fpg_hsa 2026-08-10T14:34:08Z
+=== END fpg_hsa rc=1 2026-08-10T14:34:10Z
+PHASE2_DONE 2026-08-10T14:34:10Z

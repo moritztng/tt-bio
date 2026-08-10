@@ -1,0 +1,291 @@
+{
+ "wheel": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "model": "boltz2",
+ "reblock_permute_constant": true,
+ "enabled_at_import": true,
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "l1_max_seq": 352,
+ "meta": {
+  "hardware": "blackhole",
+  "card_type": null,
+  "aiclk_mhz": null,
+  "load_s": 3.32
+ },
+ "rows": [
+  {
+   "target": "examples/prot.yaml",
+   "kernel_on": true,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 7.41,
+   "n_tokens": null,
+   "n_residues": null,
+   "plddt": null,
+   "cif_sha": [
+    [
+     "prot.cif",
+     "f516b1532927ef29"
+    ]
+   ],
+   "channel_move_calls": 1512,
+   "calls_served": 0,
+   "calls_refused": 1512,
+   "by_shape": [
+    {
+     "N": 128,
+     "C": 128,
+     "in": "L1",
+     "out": "L1",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": false,
+     "calls": 1512
+    }
+   ],
+   "reject_reasons": {
+    "window_BufferType.L1:[1, 128, 128, 128]": 1512
+   },
+   "trimul_invocations": {
+    "1x128x128x128": 1512
+   },
+   "trimul_invocations_total": 1512,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 756,
+    "dram": 0
+   },
+   "pair_shape": [
+    128,
+    128
+   ],
+   "transpose_memory_config": "BufferType.L1",
+   "transpose_l1_expected": true,
+   "load": [
+    7.27,
+    14.23,
+    8.77
+   ]
+  },
+  {
+   "target": "perf/size512/fixtures/cdk2x2_298.yaml",
+   "kernel_on": true,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 48.4,
+   "n_tokens": null,
+   "n_residues": null,
+   "plddt": null,
+   "cif_sha": [
+    [
+     "cdk2x2_298.cif",
+     "32ff9f3e6f491178"
+    ]
+   ],
+   "channel_move_calls": 6048,
+   "calls_served": 6048,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 320,
+     "C": 32,
+     "in": "L1",
+     "out": "L1",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": true,
+     "calls": 6048
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x320x320x128": 1512
+   },
+   "trimul_invocations_total": 1512,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 756,
+    "dram": 0
+   },
+   "pair_shape": [
+    320,
+    128
+   ],
+   "transpose_memory_config": "BufferType.L1",
+   "transpose_l1_expected": true,
+   "load": [
+    4.99,
+    12.56,
+    8.49
+   ]
+  },
+  {
+   "target": "perf/size512/fixtures/cdk2x2_384.yaml",
+   "kernel_on": true,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 59.21,
+   "n_tokens": null,
+   "n_residues": null,
+   "plddt": null,
+   "cif_sha": [
+    [
+     "cdk2x2_384.cif",
+     "678f3c3400c0e852"
+    ]
+   ],
+   "channel_move_calls": 12096,
+   "calls_served": 12096,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 384,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": true,
+     "calls": 12096
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x384x384x128": 1512
+   },
+   "trimul_invocations_total": 1512,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 756,
+    "dram": 0
+   },
+   "pair_shape": [
+    384,
+    128
+   ],
+   "transpose_memory_config": "BufferType.L1",
+   "transpose_l1_expected": false,
+   "load": [
+    3.62,
+    10.75,
+    8.12
+   ]
+  },
+  {
+   "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+   "kernel_on": true,
+   "rc_ok": false,
+   "error": "RuntimeError('TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\\ninfo:\\nStatically allocated circular buffers in program 1935 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840\\nbacktrace:\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7e52d84d3f55]\\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::d",
+   "wall_s": 8.5,
+   "n_tokens": null,
+   "n_residues": null,
+   "plddt": null,
+   "cif_sha": [],
+   "channel_move_calls": 80,
+   "calls_served": 80,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 512,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": true,
+     "calls": 80
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x512x512x128": 10
+   },
+   "trimul_invocations_total": 10,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 5,
+    "dram": 0
+   },
+   "pair_shape": [
+    512,
+    128
+   ],
+   "transpose_memory_config": "BufferType.L1",
+   "transpose_l1_expected": false,
+   "load": [
+    3.51,
+    10.49,
+    8.06
+   ]
+  },
+  {
+   "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+   "kernel_on": false,
+   "rc_ok": false,
+   "error": "RuntimeError('TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\\ninfo:\\nStatically allocated circular buffers in program 2337 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840\\nbacktrace:\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7e52d84d3f55]\\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::d",
+   "wall_s": 1.73,
+   "n_tokens": null,
+   "n_residues": null,
+   "plddt": null,
+   "cif_sha": [],
+   "channel_move_calls": 80,
+   "calls_served": 0,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 512,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": false,
+     "calls": 80
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x512x512x128": 10
+   },
+   "trimul_invocations_total": 10,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 5,
+    "dram": 0
+   },
+   "pair_shape": [
+    512,
+    128
+   ],
+   "transpose_memory_config": "BufferType.L1",
+   "transpose_l1_expected": false,
+   "load": [
+    3.51,
+    10.49,
+    8.06
+   ],
+   "control_for": "perf/size512/fixtures/cdk2x2_512.yaml",
+   "cif_sha_identical_to_on": true,
+   "same_failure_signature": false
+  }
+ ]
+}

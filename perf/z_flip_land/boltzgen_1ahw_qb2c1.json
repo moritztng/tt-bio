@@ -1,0 +1,63 @@
+{
+ "wheel": "0.68.0",
+ "host": "qb2",
+ "model": "boltzgen",
+ "card": "1",
+ "spec": "perf/z_flip_land/binder_1ahw_A.yaml",
+ "protocol": "protein-anything",
+ "num_designs": 1,
+ "aa": [],
+ "rounds": [],
+ "cold": {
+  "base_s": 98.213,
+  "wire_s": 76.829
+ },
+ "census": {
+  "channel_move_calls_per_design": 5408,
+  "eligible_served_per_design": 4768,
+  "refused_per_design": 640,
+  "by_shape": [
+   {
+    "N": 128,
+    "C": 64,
+    "in": "L1",
+    "out": "L1",
+    "dtype": "BFLOAT16",
+    "layout": "TILE",
+    "eligible": false,
+    "calls": 16
+   },
+   {
+    "N": 128,
+    "C": 128,
+    "in": "L1",
+    "out": "L1",
+    "dtype": "BFLOAT16",
+    "layout": "TILE",
+    "eligible": false,
+    "calls": 624
+   },
+   {
+    "N": 320,
+    "C": 32,
+    "in": "L1",
+    "out": "L1",
+    "dtype": "BFLOAT16",
+    "layout": "TILE",
+    "eligible": true,
+    "calls": 4768
+   }
+  ],
+  "reject_reasons": {
+   "window_BufferType.L1:[1, 128, 128, 64]": 16,
+   "window_BufferType.L1:[1, 128, 128, 128]": 624
+  },
+  "trimul_invocations_per_design": {
+   "1x128x128x64": 16,
+   "1x128x128x128": 624,
+   "1x320x320x64": 48,
+   "1x320x320x128": 1168
+  },
+  "hook_saw_calls": true
+ }
+}
