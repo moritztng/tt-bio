@@ -1,0 +1,104 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox",
+  "visible_devices": "3",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "94e93276b00a2298b0e7565bded8283bba71243b",
+  "ttnn_version": "0.67.4",
+  "input": "cdk2x2_512.yaml (512 aa fast, single protein, MSA on)",
+  "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "425f6b0c8f93f94f.a3m",
+    "4e5c2b391bde62d4.a3m",
+    "fe22d91e18cd544a.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 7.16,
+  "cold_s": 132.63,
+  "warm_times_s": [
+    72.901,
+    72.405
+  ],
+  "warm_min_s": 72.405,
+  "warm_median_s": 72.901,
+  "warm_max_s": 72.901,
+  "cold_metrics": {
+    "complex_plddt": 0.812093,
+    "plddt": 0.812093,
+    "ptm": 0.706272,
+    "iptm": 0.0,
+    "confidence_score": 0.706272,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "compute_grid": [
+    13,
+    10
+  ],
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": [
+    {
+      "feat": 0.0493,
+      "template": 27.2288,
+      "msa_module": 28.298,
+      "pairformer": 46.7737,
+      "trunk_cond": 109.1082,
+      "diffusion": 19.7772,
+      "confidence": 3.2889,
+      "fold": 132.2421,
+      "write": 0.3158,
+      "total": 132.6273
+    },
+    {
+      "feat": 0.1132,
+      "template": 1.6603,
+      "msa_module": 4.5699,
+      "pairformer": 41.3326,
+      "trunk_cond": 53.0709,
+      "diffusion": 16.412,
+      "confidence": 3.0477,
+      "fold": 72.6018,
+      "write": 0.1517,
+      "total": 72.9009
+    },
+    {
+      "feat": 0.0698,
+      "template": 1.6592,
+      "msa_module": 4.5754,
+      "pairformer": 41.3369,
+      "trunk_cond": 53.481,
+      "diffusion": 16.3235,
+      "confidence": 2.3141,
+      "fold": 72.1854,
+      "write": 0.1191,
+      "total": 72.4054
+    }
+  ],
+  "cif_sha256": {
+    "cdk2x2_512.cif": "2b117561443a160f"
+  },
+  "loadavg_before": [
+    40.34,
+    36.04,
+    33.6
+  ],
+  "loadavg_after": [
+    38.37,
+    37.63,
+    34.6
+  ],
+  "date": "2026-08-10"
+}
