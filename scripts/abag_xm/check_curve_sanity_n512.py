@@ -55,13 +55,55 @@ def check_model(model, rep, fails, infos):
         print(f"{PAIR}: nt={g['common_targets']} degenerate={g['degenerate']}")
         print(f"  oracle gain {o[1]:+.4f} [{o[0]:+.4f},{o[2]:+.4f}]")
         print(f"  user   gain {u[1]:+.4f} [{u[0]:+.4f},{u[2]:+.4f}]")
-        print(f"  gap change (oracle-user, midpoints) {o[1] - u[1]:+.4f}")
+        gp = g["gain_ci"].get("gap")
+        if gp is None:
+            fails.append(f"{model}: {PAIR} carries no `gap` metric -- the report predates "
+                         f"pass 37. Re-run the analysis; the gap CI cannot be recovered by "
+                         f"subtracting the oracle and user intervals, they are paired.")
+        else:
+            print(f"  gap    grow {gp[1]:+.4f} [{gp[0]:+.4f},{gp[2]:+.4f}]"
+                  f"   <- the campaign's headline quantity")
         if g["degenerate"]:
             fails.append(f"{model}: {PAIR} is degenerate (common_targets "
                          f"{g['common_targets']} < 8) -- its CI cannot clear the stop rule")
         if PREV_PAIR in gains:
-            po, pu = gains[PREV_PAIR]["gain_ci"]["oracle"], gains[PREV_PAIR]["gain_ci"]["user"]
-            print(f"  vs {PREV_PAIR}: oracle {po[1]:+.4f}  gap {po[1] - pu[1]:+.4f}")
+            pg = gains[PREV_PAIR]["gain_ci"]
+            print(f"  vs {PREV_PAIR}: oracle {pg['oracle'][1]:+.4f}"
+                  + (f"  gap {pg['gap'][1]:+.4f}" if "gap" in pg else ""))
+
+        # STOP RULE. The p27 convention is gain(lo->hi) against the seed-noise floor at
+        # the LOW rung (boltz2 +0.0228 vs 0.0132 and protenix-v2 +0.0382 vs 0.0212 are
+        # both floor[128]). For 256->512 that comparator is floor[256], which needs a
+        # 512-deep pool and so exists for the first time in this campaign.
+        #
+        # Read it off within_fold_common, NOT seed_noise_floor_med. The latter computes
+        # each m on whichever targets are deep enough for it, so floor[128] is the whole
+        # panel while floor[256] is only the targets that reached 512 -- different sets,
+        # and the two already swapped order once as labelling filled in (pass 35 had
+        # floor[256] > floor[128], pass 36 and 37 the other way). within_fold_common
+        # holds every m on one fixed panel. At and below rung 128 the two agree to within
+        # a few percent because nearly every target reaches 256, which is why the p27
+        # verdicts stand unchanged under either.
+        deep = rep.get(model + "__deep") or {}
+        common = deep.get("within_fold_common") or {}
+        floors = common.get("floor_med") or {}
+        lo_rung = PAIR.split("->")[0]
+        floor = floors.get(lo_rung)
+        if floor is None:
+            fails.append(f"{model}: no panel-matched floor at m={lo_rung} in "
+                         f"within_fold_common -- the stop rule has no comparator.")
+        elif common.get("n_targets") != g["common_targets"]:
+            fails.append(f"{model}: the floor panel ({common.get('n_targets')} targets at "
+                         f"depth {common.get('depth')}) is not the gain panel "
+                         f"({g['common_targets']}). Comparing them is a panel confound; "
+                         f"recompute the floor on the pair's own target set before "
+                         f"calling the stop rule. Suspect a per-model rung exclusion.")
+        else:
+            verdict = "ABOVE floor, still climbing" if o[1] > floor else "BELOW floor"
+            strict = "yes" if o[0] > floor else "no"
+            print(f"  stop rule: oracle gain {o[1]:+.4f} vs floor[{lo_rung}] {floor:.4f} "
+                  f"on the same {common['n_targets']} targets -> {verdict} "
+                  f"(CI lower bound also above floor: {strict})")
         # The cost headline is only quotable in its per-target form. Rung 512's panel tops
         # out near 137 against rung 256's 153, so the two rungs never carry the same target
         # count and an extensive (summed) denominator is never comparable between the pairs.
