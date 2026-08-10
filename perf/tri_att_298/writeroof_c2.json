@@ -1,0 +1,76 @@
+{
+ "matmul_writer": {
+  "minimal_matmul": {
+   "ms": 0.2998,
+   "write_GBs": 174.9,
+   "rw_GBs": 196.8
+  },
+  "linear_core_grid": {
+   "ms": 0.3343,
+   "write_GBs": 156.8,
+   "rw_GBs": 176.5
+  }
+ },
+ "unary_writer": [
+  {
+   "MB": 8.0,
+   "write_GBs": 191.6
+  },
+  {
+   "MB": 16.0,
+   "write_GBs": 232.9
+  },
+  {
+   "MB": 32.0,
+   "write_GBs": 247.1
+  },
+  {
+   "MB": 64.0,
+   "write_GBs": 261.0
+  },
+  {
+   "MB": 128.0,
+   "write_GBs": 269.8
+  }
+ ],
+ "permute_control": {
+  "permute_to_DRAM": {
+   "us": 1496.4,
+   "rw_GBs": 65.3
+  },
+  "permute_to_L1": {
+   "us": 475.1,
+   "rw_GBs": 205.5
+  },
+  "clone_to_DRAM": {
+   "us": 250.3,
+   "rw_GBs": 390.1
+  },
+  "clone_to_L1": {
+   "us": 134.5,
+   "rw_GBs": 726.1
+  }
+ },
+ "chunk_sweep_mask_ab": [
+  {
+   "chunk": 64,
+   "mask_us": 2796.7,
+   "nomask_us": 1619.7
+  },
+  {
+   "chunk": 128,
+   "mask_us": 2971.8,
+   "nomask_us": 1099.7
+  },
+  {
+   "chunk": 256,
+   "mask_us": 6944.9,
+   "nomask_us": 1063.4
+  },
+  {
+   "chunk": 320,
+   "mask_us": 1728.9,
+   "nomask_us": 571.9
+  }
+ ]
+}

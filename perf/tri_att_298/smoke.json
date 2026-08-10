@@ -1,0 +1,48 @@
+{
+ "device": {
+  "TT_VISIBLE_DEVICES": "2",
+  "compute_grid": "13x10",
+  "arch": "Arch.BLACKHOLE",
+  "core_grid_main": "11x10",
+  "l1_unreserved": 1532448,
+  "id": 1
+ },
+ "permutes": {
+  "dram2dram_n128": {
+   "us": 201.4,
+   "MB": 8.39,
+   "rw_GBs": 83.3
+  },
+  "clone_dram_n128": {
+   "us": 63.0,
+   "rw_GBs": 266.1
+  },
+  "dram2l1_n128": {
+   "us": 96.1,
+   "rw_GBs": 174.6,
+   "speedup_vs_dram": 2.096
+  },
+  "l12l1_n128": {
+   "us": 91.1,
+   "rw_GBs": 184.2
+  },
+  "dram2dram_n320": {
+   "us": 1429.2,
+   "MB": 52.43,
+   "rw_GBs": 73.4
+  },
+  "clone_dram_n320": {
+   "us": 262.4,
+   "rw_GBs": 399.5
+  },
+  "dram2l1_n320": {
+   "us": 496.6,
+   "rw_GBs": 211.2,
+   "speedup_vs_dram": 2.878
+  },
+  "l12l1_n320": {
+   "us": 495.8,
+   "rw_GBs": 211.5
+  }
+ }
+}
