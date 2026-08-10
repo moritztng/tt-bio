@@ -1,0 +1,731 @@
+{
+  "host": "qb1",
+  "card": 3,
+  "wheel": "0.67.4",
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "compute_grid_main": [
+    13,
+    10
+  ],
+  "A_bare_utility": {
+    "13x10": {
+      "cores": 130,
+      "n_failing_Nt_of_64": 5,
+      "failing": [
+        {
+          "Nt": 20,
+          "units": 400,
+          "N_lo": 609,
+          "N_hi": 640,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 30,
+          "units": 900,
+          "N_lo": 929,
+          "N_hi": 960,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 40,
+          "units": 1600,
+          "N_lo": 1249,
+          "N_hi": 1280,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 50,
+          "units": 2500,
+          "N_lo": 1569,
+          "N_hi": 1600,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 60,
+          "units": 3600,
+          "N_lo": 1889,
+          "N_hi": 1920,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        }
+      ]
+    },
+    "11x10": {
+      "cores": 110,
+      "n_failing_Nt_of_64": 5,
+      "failing": [
+        {
+          "Nt": 20,
+          "units": 400,
+          "N_lo": 609,
+          "N_hi": 640,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 30,
+          "units": 900,
+          "N_lo": 929,
+          "N_hi": 960,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 40,
+          "units": 1600,
+          "N_lo": 1249,
+          "N_hi": 1280,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 50,
+          "units": 2500,
+          "N_lo": 1569,
+          "N_hi": 1600,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 60,
+          "units": 3600,
+          "N_lo": 1889,
+          "N_hi": 1920,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        }
+      ]
+    },
+    "7x10": {
+      "cores": 70,
+      "n_failing_Nt_of_64": 6,
+      "failing": [
+        {
+          "Nt": 10,
+          "units": 100,
+          "N_lo": 289,
+          "N_hi": 320,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 20,
+          "units": 400,
+          "N_lo": 609,
+          "N_hi": 640,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 30,
+          "units": 900,
+          "N_lo": 929,
+          "N_hi": 960,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 40,
+          "units": 1600,
+          "N_lo": 1249,
+          "N_hi": 1280,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 50,
+          "units": 2500,
+          "N_lo": 1569,
+          "N_hi": 1600,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 60,
+          "units": 3600,
+          "N_lo": 1889,
+          "N_hi": 1920,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        }
+      ]
+    }
+  },
+  "B_plan": {
+    "8": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "10": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "19": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "20": {
+      "sub_grid": [
+        13,
+        9
+      ],
+      "cores": 117,
+      "pct_of_full_grid": 90.0,
+      "hole_on_full_grid": true
+    },
+    "21": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "29": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "30": {
+      "sub_grid": [
+        13,
+        8
+      ],
+      "cores": 104,
+      "pct_of_full_grid": 80.0,
+      "hole_on_full_grid": true
+    },
+    "31": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "39": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "40": {
+      "sub_grid": [
+        13,
+        9
+      ],
+      "cores": 117,
+      "pct_of_full_grid": 90.0,
+      "hole_on_full_grid": true
+    },
+    "41": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "49": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "50": {
+      "sub_grid": [
+        13,
+        9
+      ],
+      "cores": 117,
+      "pct_of_full_grid": 90.0,
+      "hole_on_full_grid": true
+    },
+    "51": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "59": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "60": {
+      "sub_grid": [
+        12,
+        10
+      ],
+      "cores": 120,
+      "pct_of_full_grid": 92.3,
+      "hole_on_full_grid": true
+    },
+    "61": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "64": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    }
+  },
+  "C_prefix_crash": {
+    "reproduced": true,
+    "Nt": 20,
+    "N": 640,
+    "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+    "python_frames": [
+      "File \"/home/ttuser/.coworker/wt/protenix-trunk--z-permute-bands/tt_bio/reblock_permute.py\", line 234, in reblock_permute",
+      "File \"/home/ttuser/.coworker/wt/protenix-trunk--z-permute-bands/tt_bio/reblock_permute.py\", line 222, in _prepare",
+      "File \"/home/ttuser/.coworker/wt/protenix-trunk--z-permute-bands/tt_bio/reblock_permute.py\", line 147, in _build",
+      "return (gg.x, gg.y, ttnn.split_work_to_cores(crs(gg.x, gg.y), units))",
+      "--- tt::tt_metal::split_work_to_cores(tt::tt_metal::CoreRangeSet const&, unsigned int, bool)"
+    ]
+  },
+  "D_parity": [
+    {
+      "N": 298,
+      "C": 64,
+      "out": "dram",
+      "Nt": 10,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 298,
+      "C": 64,
+      "out": "l1",
+      "Nt": 10,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 320,
+      "C": 64,
+      "out": "l1",
+      "Nt": 10,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 288,
+      "C": 64,
+      "out": "l1",
+      "Nt": 9,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 352,
+      "C": 64,
+      "out": "l1",
+      "Nt": 11,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 287,
+      "C": 64,
+      "out": "dram",
+      "Nt": 9,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 353,
+      "C": 64,
+      "out": "dram",
+      "Nt": 12,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 608,
+      "C": 64,
+      "out": "dram",
+      "Nt": 19,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 609,
+      "C": 64,
+      "out": "dram",
+      "Nt": 20,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 640,
+      "C": 64,
+      "out": "dram",
+      "Nt": 20,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 641,
+      "C": 64,
+      "out": "dram",
+      "Nt": 21,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 928,
+      "C": 32,
+      "out": "dram",
+      "Nt": 29,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 929,
+      "C": 32,
+      "out": "dram",
+      "Nt": 30,
+      "eligible": true,
+      "plan_cores": 104,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 960,
+      "C": 32,
+      "out": "dram",
+      "Nt": 30,
+      "eligible": true,
+      "plan_cores": 104,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 961,
+      "C": 32,
+      "out": "dram",
+      "Nt": 31,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1248,
+      "C": 32,
+      "out": "dram",
+      "Nt": 39,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1249,
+      "C": 32,
+      "out": "dram",
+      "Nt": 40,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1280,
+      "C": 32,
+      "out": "dram",
+      "Nt": 40,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1281,
+      "C": 32,
+      "out": "dram",
+      "Nt": 41,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1568,
+      "C": 32,
+      "out": "dram",
+      "Nt": 49,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1569,
+      "C": 32,
+      "out": "dram",
+      "Nt": 50,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1600,
+      "C": 32,
+      "out": "dram",
+      "Nt": 50,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1601,
+      "C": 32,
+      "out": "dram",
+      "Nt": 51,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1888,
+      "C": 32,
+      "out": "dram",
+      "Nt": 59,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1889,
+      "C": 32,
+      "out": "dram",
+      "Nt": 60,
+      "eligible": true,
+      "plan_cores": 120,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1920,
+      "C": 32,
+      "out": "dram",
+      "Nt": 60,
+      "eligible": true,
+      "plan_cores": 120,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1921,
+      "C": 32,
+      "out": "dram",
+      "Nt": 61,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    }
+  ],
+  "E_fallthrough": {
+    "eligible_after_forced_none": false,
+    "served_delta": 0,
+    "fell_through_delta": 2,
+    "work_split_rejects": {
+      "work_split:[1, 320, 320, 64]": 2
+    },
+    "torch_equal_vs_stock": true
+  },
+  "F_roofs": [
+    {
+      "N": 298,
+      "C": 64,
+      "out": "dram",
+      "padded_bytes_one_way": 13107200,
+      "clone_us": 93.73,
+      "stock_permute_us": 321.27,
+      "kernel_us": 190.74,
+      "copy_roof_GBs_rw": 279.7,
+      "stock_GBs_rw": 81.6,
+      "kernel_GBs_rw": 137.4,
+      "cores_engaged": 130,
+      "work_groups": 100,
+      "kernel_pct_of_copy_roof": 49.1,
+      "stock_pct_of_copy_roof": 29.2,
+      "clone_thru_us": 251.37,
+      "stock_thru_us": 404.58,
+      "kernel_thru_us": 127.95,
+      "copy_roof_GBs_rw_thru": 104.3,
+      "ratio_stock_over_kernel_synced": 1.6843,
+      "ratio_stock_over_kernel_thru": 3.1621,
+      "kernel_GBs_rw_thru": 204.9,
+      "kernel_pct_of_copy_roof_thru": 196.4
+    },
+    {
+      "N": 298,
+      "C": 64,
+      "out": "l1",
+      "padded_bytes_one_way": 13107200,
+      "clone_us": 63.62,
+      "stock_permute_us": 185.64,
+      "kernel_us": 187.32,
+      "copy_roof_GBs_rw": 412.1,
+      "stock_GBs_rw": 141.2,
+      "kernel_GBs_rw": 139.9,
+      "cores_engaged": 130,
+      "work_groups": 100,
+      "kernel_pct_of_copy_roof": 33.9,
+      "stock_pct_of_copy_roof": 34.3,
+      "clone_thru_us": 33.22,
+      "stock_thru_us": 363.22,
+      "kernel_thru_us": 367.33,
+      "copy_roof_GBs_rw_thru": 789.0,
+      "ratio_stock_over_kernel_synced": 0.991,
+      "ratio_stock_over_kernel_thru": 0.9888,
+      "kernel_GBs_rw_thru": 71.4,
+      "kernel_pct_of_copy_roof_thru": 9.0
+    },
+    {
+      "N": 640,
+      "C": 32,
+      "out": "dram",
+      "padded_bytes_one_way": 26214400,
+      "clone_us": 161.31,
+      "stock_permute_us": 639.64,
+      "kernel_us": 325.65,
+      "copy_roof_GBs_rw": 325.0,
+      "stock_GBs_rw": 82.0,
+      "kernel_GBs_rw": 161.0,
+      "cores_engaged": 117,
+      "work_groups": 400,
+      "kernel_pct_of_copy_roof": 49.5,
+      "stock_pct_of_copy_roof": 25.2,
+      "clone_thru_us": 129.14,
+      "stock_thru_us": 598.98,
+      "kernel_thru_us": 258.73,
+      "copy_roof_GBs_rw_thru": 406.0,
+      "ratio_stock_over_kernel_synced": 1.9642,
+      "ratio_stock_over_kernel_thru": 2.3151,
+      "kernel_GBs_rw_thru": 202.6,
+      "kernel_pct_of_copy_roof_thru": 49.9
+    }
+  ],
+  "G_interaction": {
+    "L1_OUT_REFUSED": [],
+    "transpose_memory_config_buffer_type": "BufferType.L1",
+    "free_l1_idle": {
+      "largest_contiguous_bytes_free_per_bank": 1461760,
+      "total_bytes_free_per_bank": 1461760,
+      "total_bytes_per_bank": 1461760
+    },
+    "free_l1_with_kernel_output_live": {
+      "largest_contiguous_bytes_free_per_bank": 1359360,
+      "total_bytes_free_per_bank": 1359360,
+      "total_bytes_per_bank": 1461760
+    },
+    "free_l1_after": {
+      "largest_contiguous_bytes_free_per_bank": 1461760,
+      "total_bytes_free_per_bank": 1461760,
+      "total_bytes_per_bank": 1461760
+    }
+  },
+  "stats": {
+    "served": 136,
+    "fell_through": 2,
+    "rejects": {
+      "work_split:[1, 320, 320, 64]": 2
+    }
+  }
+}

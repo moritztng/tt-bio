@@ -35,6 +35,23 @@ def throw_text(fn):
         return str(e).strip().splitlines()[0][:240]
 
 
+def thruput(device, fn, reps=15, warmup=3):
+    """K calls enqueued back to back, ONE sync at the end -- what a fold actually does.
+
+    `timeit` syncs on both sides of every call, so it charges host and per-call dispatch serially.
+    On this op the two instruments disagree in SIGN at an L1 destination (`y-permute-crossmodel`),
+    which is why both are reported.
+    """
+    for _ in range(warmup):
+        fn()
+    ttnn.synchronize_device(device)
+    t0 = time.perf_counter()
+    for _ in range(reps):
+        fn()
+    ttnn.synchronize_device(device)
+    return (time.perf_counter() - t0) * 1e6 / reps
+
+
 def timeit(device, fn, reps=15, warmup=3):
     for _ in range(warmup):
         fn()
@@ -113,10 +130,14 @@ def main() -> int:
     try:
         RP.reblock_permute(x640, ttnn.DRAM_MEMORY_CONFIG)
         R["C_prefix_crash"] = {"reproduced": False}
-    except Exception:                                                          # noqa: BLE001
-        tb = traceback.format_exc().strip().splitlines()
-        R["C_prefix_crash"] = {"reproduced": True, "Nt": 20, "N": 640,
-                               "traceback_tail": tb[-6:]}
+    except Exception as e:                                                     # noqa: BLE001
+        tb = traceback.format_exc().splitlines()
+        R["C_prefix_crash"] = {
+            "reproduced": True, "Nt": 20, "N": 640,
+            "throw": str(e).strip().splitlines()[0][:240],
+            "python_frames": [l.strip() for l in tb
+                              if "reblock_permute.py" in l or "split_work_to_cores" in l],
+        }
     RP._split_plan = real_plan
     RP._SPLIT_CACHE.clear()
     ttnn.deallocate(x640)
@@ -194,9 +215,12 @@ def main() -> int:
         by = Nt_ * 32 * Nt_ * 32 * C * 2
         clone_us = timeit(dev, lambda: ttnn.deallocate(ttnn.clone(x, memory_config=mc)))
         stock_us = timeit(dev, lambda: ttnn.deallocate(ttnn.permute(x, (0, 3, 1, 2), memory_config=mc)))
+        clone_thru = thruput(dev, lambda: ttnn.deallocate(ttnn.clone(x, memory_config=mc)))
+        stock_thru = thruput(dev, lambda: ttnn.deallocate(ttnn.permute(x, (0, 3, 1, 2), memory_config=mc)))
         RP.set_enabled(True)
-        kern_us = timeit(dev, lambda: ttnn.deallocate(RP.reblock_permute(x, mc))) \
-            if RP.eligible(x, mc) else None
+        elig_here = RP.eligible(x, mc)
+        kern_us = timeit(dev, lambda: ttnn.deallocate(RP.reblock_permute(x, mc))) if elig_here else None
+        kern_thru = thruput(dev, lambda: ttnn.deallocate(RP.reblock_permute(x, mc))) if elig_here else None
         RP.set_enabled(False)
         p = RP._split_plan(dev, Nt_ * Nt_)
         row = {"N": N, "C": C, "out": mck, "padded_bytes_one_way": by,
@@ -210,8 +234,16 @@ def main() -> int:
         for k in ("kernel", "stock"):
             v = row[f"{k}_GBs_rw"]
             row[f"{k}_pct_of_copy_roof"] = None if v is None else round(100 * v / row["copy_roof_GBs_rw"], 1)
+        row["clone_thru_us"] = round(clone_thru, 2)
+        row["stock_thru_us"] = round(stock_thru, 2)
+        row["kernel_thru_us"] = None if kern_thru is None else round(kern_thru, 2)
+        row["copy_roof_GBs_rw_thru"] = round(2 * by / clone_thru / 1e3, 1)
         if kern_us:
-            row["ratio_stock_over_kernel"] = round(stock_us / kern_us, 4)
+            row["ratio_stock_over_kernel_synced"] = round(stock_us / kern_us, 4)
+            row["ratio_stock_over_kernel_thru"] = round(stock_thru / kern_thru, 4)
+            row["kernel_GBs_rw_thru"] = round(2 * by / kern_thru / 1e3, 1)
+            row["kernel_pct_of_copy_roof_thru"] = round(
+                100 * (2 * by / kern_thru / 1e3) / row["copy_roof_GBs_rw_thru"], 1)
         ttnn.deallocate(x)
         R["F_roofs"].append(row)
         print("F:", row, flush=True)
