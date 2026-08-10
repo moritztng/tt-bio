@@ -70,6 +70,9 @@ def throughput_us(device, fn, k=40, warmup=5):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
+    ap.add_argument("--channels", type=int, default=32,
+                    help="chunk channel width. 64 is what a 13x10-grid 298 aa fold constructs; "
+                         "32 is what an 11x10 grid does, and what X6 measured.")
     a = ap.parse_args()
 
     RP = load_rp()
@@ -80,10 +83,12 @@ def main():
     print("wheel", WHEEL, "grid", R["device_grid"], flush=True)
 
     MC = {"l1": ttnn.L1_MEMORY_CONFIG, "dram": ttnn.DRAM_MEMORY_CONFIG}
+    C = a.channels
+    R["channels"] = C
     for N in (298, 320):
-        ref = torch.randn(1, N, N, 32, dtype=torch.bfloat16)
+        ref = torch.randn(1, N, N, C, dtype=torch.bfloat16)
         gold = ref.permute(0, 3, 1, 2).contiguous()
-        nbytes = N * N * 32 * 2
+        nbytes = N * N * C * 2
         for where in ("l1", "dram"):
             mc = MC[where]
             x = ttnn.from_torch(ref, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16, device=device,
@@ -97,7 +102,7 @@ def main():
                 ttnn.permute(x, (0, 3, 1, 2), memory_config=mc))
             clone = lambda x=x, mc=mc: ttnn.deallocate(ttnn.clone(x, memory_config=mc))
 
-            row = {"N": N, "buf": where, "torch_equal": eq,
+            row = {"N": N, "C": C, "buf": where, "torch_equal": eq,
                    "wired_synced_us": round(timeit(device, wired), 2),
                    "stock_synced_us": round(timeit(device, stock), 2),
                    "wired_thru_us": round(throughput_us(device, wired), 2),
@@ -112,13 +117,13 @@ def main():
             ttnn.deallocate(x)
 
     # Host cost on the cache-hit path, on this wheel's bindings.
-    ref = torch.randn(1, 298, 298, 32, dtype=torch.bfloat16)
+    ref = torch.randn(1, 298, 298, C, dtype=torch.bfloat16)
     x = ttnn.from_torch(ref, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16, device=device,
                         memory_config=ttnn.L1_MEMORY_CONFIG)
     ts = []
     for _ in range(300):
         t0 = time.perf_counter()
-        out = ttnn.allocate_tensor_on_device(ttnn.Shape([1, 32, 298, 298]), ttnn.bfloat16,
+        out = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, 298, 298]), ttnn.bfloat16,
                                             ttnn.TILE_LAYOUT, device, ttnn.L1_MEMORY_CONFIG)
         entry = RP._prepare(x, out, device)
         pd = entry["pd"]
