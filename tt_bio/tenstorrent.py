@@ -626,6 +626,95 @@ def _pair_proj_linear(x, w, ckc, dtype):
     )
 
 
+@lru_cache(maxsize=None)
+def _attn_value_program_config(
+    m_tiles: int, k_tiles: int, n_tiles: int, batch: int, elem_bytes: int
+) -> ttnn.MatmulMultiCoreReuseProgramConfig | None:
+    """Program config for a batched `attn @ v`, or None if the shape is outside it.
+
+    `attn @ v` in a manual attention block has N = head_dim/32, one or two tiles. ttnn's config
+    builder sees a single N block, takes its 1D `mcast_in1` branch and sets `per_core_M = 1`, so
+    the op engages exactly `Mt` cores -- 10 of 110 at 298 tokens -- and walks the head batch
+    serially inside each of them. That is an occupancy defect, not a bandwidth one: the naive
+    path runs at 9% of this card's DRAM read roof.
+
+    Splitting M across the grid with `MatmulMultiCoreReuseProgramConfig` fixes it, and the one
+    field that must not move is `in0_block_w`. It is the K-blocking, and the K-blocking is the
+    only thing a config can change that regroups the fp32 accumulation (RFD3 p15), so mirroring
+    ttnn's own value makes the tuned arm bitwise identical to the shipped path. Measured over 8
+    shape classes x ~50 arms on two cards and two ttnn versions: every arm whose `in0_block_w`
+    matched came back `torch.equal`, every arm that differed did not, no exception. The same
+    result rules out `core_grid=` here, which hard-codes the K block to 1.
+
+    `per_core_M` is the smallest legal split. G1's correctness predicate bounds it: the reuse
+    factory's dataflow kernels advance a whole batch stride per per-core loop iteration while the
+    factory hands them a per-core block count, so the answer is only right when each core gets
+    exactly one block. It is not always the fastest legal split -- a per-shape sweep beats it by
+    13-18% at two of the four live classes (perf/attn_sites/) -- but no closed-form rule
+    reproduced the measured ordering across dtype and N, so the rest of the margin is left to a
+    calibrating variant instead of guessed at.
+
+    Engaged-core count is deliberately not a gate. At the RFD3 atom block (Mt=126, batch=4) the
+    naive path already spreads one M-tile per core over 126 of them and the tuned split uses 84,
+    yet the tuned split is 1.41x faster: each core owns one whole batch element instead of
+    walking all four serially, and a per_core_M of 6 amortises the write barrier the 1-tile
+    output block pays on every tile.
+    """
+    gx, gy = COMPUTE_GRID_MAIN
+    num_cores = gx * gy
+    # The mirror is only correct if ttnn takes a 1D branch. N must fit in one block of the square
+    # factor its builder picks (8 for every shape here; 16 never fits L1) and M must not, or the
+    # shape lands on MatmulMultiCore and there is no naive `in0_block_w` to mirror.
+    if n_tiles > 8 or m_tiles <= 8 or n_tiles >= m_tiles:
+        return None
+    in0_block_w = 2 if k_tiles % 2 == 0 else 1
+    per_core_M = next(
+        (p for p in range(1, m_tiles + 1)
+         if m_tiles % p == 0 and batch * (m_tiles // p) <= num_cores),
+        0,
+    )
+    if not per_core_M:
+        return None
+    tile = 1024 * elem_bytes
+    # ttnn's own get_estimated_size_of_cbs for DRAM-interleaved operands: in0 and in1 double
+    # buffered per K block, plus the output tile and the fp32 partial the packer accumulates
+    # into (both models run fp32_dest_acc_en=True).
+    need = (2 * in0_block_w * (per_core_M + n_tiles) * tile
+            + per_core_M * n_tiles * (tile + 4096))
+    if need > _l1_bank_bytes():
+        return None
+    sh = max(h for h in range(min(4, per_core_M), 0, -1) if per_core_M % h == 0)
+    sw = max(w for w in range(min(4 // sh, n_tiles), 0, -1) if n_tiles % w == 0)
+    return ttnn.MatmulMultiCoreReuseProgramConfig(
+        compute_with_storage_grid_size=(gx, gy),
+        in0_block_w=in0_block_w,
+        out_subblock_h=sh,
+        out_subblock_w=sw,
+        per_core_M=per_core_M,
+        per_core_N=n_tiles,
+    )
+
+
+def attn_value_matmul(attn, v, ckc, dtype):
+    """`attn @ v` on the tuned config where the shape allows, otherwise exactly as before."""
+    cfg = None
+    try:
+        a_s, v_s = list(attn.shape), list(v.shape)
+        if len(a_s) >= 3 and len(a_s) == len(v_s) and attn.dtype == v.dtype:
+            batch = 1
+            for d in a_s[:-2]:
+                batch *= int(d)
+            cfg = _attn_value_program_config(
+                -(-int(a_s[-2]) // 32), -(-int(a_s[-1]) // 32), -(-int(v_s[-1]) // 32),
+                batch, 4 if attn.dtype == ttnn.float32 else 2,
+            )
+    except Exception:
+        cfg = None
+    if cfg is None:
+        return ttnn.matmul(attn, v, compute_kernel_config=ckc, dtype=dtype)
+    return ttnn.matmul(attn, v, compute_kernel_config=ckc, dtype=dtype, program_config=cfg)
+
+
 def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
     """_tri_att_qkv_l1_config for a concrete operand pair, or None if it does not apply."""
     if dtype != ttnn.bfloat16:
@@ -711,6 +800,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _tri_att_qkv_l1_config.cache_clear()
     _l1_bank_bytes.cache_clear()
     _pair_proj_program_config.cache_clear()
+    _attn_value_program_config.cache_clear()
 
 
 def set_fast_mode(enabled: bool) -> None:

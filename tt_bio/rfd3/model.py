@@ -24,7 +24,7 @@ import torch.nn.functional as F
 
 import ttnn
 
-from ..tenstorrent import Module, get_device, CORE_GRID_MAIN
+from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -498,7 +498,7 @@ class PairformerAttention(Module):
         attn = ttnn.softmax(sc, dim=-1)                    # fp32 softmax reduction
         attn_bf = ttnn.typecast(attn, self.dtype, memory_config=attn.memory_config())
         ttnn.deallocate(attn)
-        o = ttnn.matmul(attn_bf, v, compute_kernel_config=ckc, dtype=self.dtype)  # [1,16,I,24]
+        o = attn_value_matmul(attn_bf, v, ckc, self.dtype)  # [1,16,I,24]
         ttnn.deallocate(attn_bf)
         # merge heads: [1,16,I,24] -> [1,I,384], then gate. The gate is elementwise, so
         # applying it after the merge is bit-identical and saves splitting `g` into heads.
@@ -1355,7 +1355,7 @@ class RFD3AtomBlock(Module):
         attention = ttnn.typecast(
             attention, dt, memory_config=attention.memory_config()
         )
-        out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt)
+        out = attn_value_matmul(attention, vv, ckc, dt)
         out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
         out = _tuned_linear(

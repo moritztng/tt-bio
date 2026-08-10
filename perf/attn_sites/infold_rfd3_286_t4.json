@@ -1,0 +1,320 @@
+{
+ "unit": "286-token RFD3 design, 4 timesteps",
+ "cores": 110,
+ "rows": [
+  {
+   "site": "rfd3/model.py:1331",
+   "a_padded": [
+    1,
+    16,
+    288,
+    64
+   ],
+   "b_padded": [
+    1,
+    16,
+    64,
+    288
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 16,
+   "mt": 9,
+   "kt": 2,
+   "nt": 9,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 108,
+   "probed": 1,
+   "arms": [
+    {
+     "arm": "grid",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=9/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=9/bw=2",
+     "in0_block_w": 2,
+     "exact": false
+    },
+    {
+     "arm": "reuse/pcm=3/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=3/bw=2",
+     "in0_block_w": 2,
+     "exact": false
+    }
+   ],
+   "naive_predicted": {
+    "factory": "mcast2d",
+    "in0_block_w": 1,
+    "cores": 81,
+    "pcf": 8
+   },
+   "partitions_by_in0_block_w": true,
+   "exact_in0_block_w": [
+    1
+   ],
+   "inexact_in0_block_w": [
+    2
+   ]
+  },
+  {
+   "site": "rfd3/model.py:1358",
+   "a_padded": [
+    1,
+    16,
+    288,
+    288
+   ],
+   "b_padded": [
+    1,
+    16,
+    288,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 16,
+   "mt": 9,
+   "kt": 9,
+   "nt": 2,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 108,
+   "probed": 1,
+   "arms": [
+    {
+     "arm": "grid",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=9/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=3/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    }
+   ],
+   "naive_predicted": {
+    "factory": "mcast1d_in1",
+    "in0_block_w": 1,
+    "cores": 9,
+    "pcf": 8
+   },
+   "partitions_by_in0_block_w": true,
+   "exact_in0_block_w": [
+    1
+   ],
+   "inexact_in0_block_w": []
+  },
+  {
+   "site": "rfd3/model.py:1346",
+   "a_padded": [
+    1,
+    4,
+    3872,
+    32
+   ],
+   "b_padded": [
+    1,
+    4,
+    32,
+    3872
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 4,
+   "mt": 121,
+   "kt": 1,
+   "nt": 121,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 27,
+   "probed": 1,
+   "arms": [
+    {
+     "arm": "grid(cbs-do-not-fit:silent-fallback)",
+     "in0_block_w": 1,
+     "exact": true
+    }
+   ],
+   "naive_predicted": {
+    "factory": "mcast2d",
+    "in0_block_w": 1,
+    "cores": 130,
+    "pcf": 8
+   },
+   "partitions_by_in0_block_w": true,
+   "exact_in0_block_w": [
+    1
+   ],
+   "inexact_in0_block_w": []
+  },
+  {
+   "site": "rfd3/model.py:1358",
+   "a_padded": [
+    1,
+    4,
+    3872,
+    3872
+   ],
+   "b_padded": [
+    1,
+    4,
+    3872,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 4,
+   "mt": 121,
+   "kt": 121,
+   "nt": 1,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 27,
+   "probed": 1,
+   "arms": [
+    {
+     "arm": "grid",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=121/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=11/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    }
+   ],
+   "naive_predicted": {
+    "factory": "mcast1d_in1",
+    "in0_block_w": 1,
+    "cores": 121,
+    "pcf": 8
+   },
+   "partitions_by_in0_block_w": true,
+   "exact_in0_block_w": [
+    1
+   ],
+   "inexact_in0_block_w": []
+  },
+  {
+   "site": "rfd3/model.py:491",
+   "a_padded": [
+    1,
+    16,
+    288,
+    32
+   ],
+   "b_padded": [
+    1,
+    16,
+    32,
+    288
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 16,
+   "mt": 9,
+   "kt": 1,
+   "nt": 9,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 14,
+   "probed": 1,
+   "arms": [
+    {
+     "arm": "grid",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=9/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=3/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    }
+   ],
+   "naive_predicted": {
+    "factory": "mcast2d",
+    "in0_block_w": 1,
+    "cores": 81,
+    "pcf": 8
+   },
+   "partitions_by_in0_block_w": true,
+   "exact_in0_block_w": [
+    1
+   ],
+   "inexact_in0_block_w": []
+  },
+  {
+   "site": "rfd3/model.py:501",
+   "a_padded": [
+    1,
+    16,
+    288,
+    288
+   ],
+   "b_padded": [
+    1,
+    16,
+    288,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "batch": 16,
+   "mt": 9,
+   "kt": 9,
+   "nt": 1,
+   "dram_interleaved": true,
+   "hinted": false,
+   "n": 14,
+   "probed": 1,
+   "arms": [
+    {
+     "arm": "grid",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=9/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    },
+    {
+     "arm": "reuse/pcm=3/bw=1",
+     "in0_block_w": 1,
+     "exact": true
+    }
+   ],
+   "naive_predicted": {
+    "factory": "mcast1d_in1",
+    "in0_block_w": 1,
+    "cores": 9,
+    "pcf": 8
+   },
+   "partitions_by_in0_block_w": true,
+   "exact_in0_block_w": [
+    1
+   ],
+   "inexact_in0_block_w": []
+  }
+ ]
+}
