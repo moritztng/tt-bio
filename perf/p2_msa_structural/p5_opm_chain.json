@@ -1,0 +1,59 @@
+{
+ "shape": {
+  "I": 298,
+  "J": 298,
+  "C": 32,
+  "D": 32,
+  "S": 35,
+  "c_z": 256,
+  "calls_per_fold": 40,
+  "conversion": "us/call x 40 / 1000 = ms/fold"
+ },
+ "device": {
+  "host": "qb2",
+  "card": 1,
+  "ttnn": "0.68.0",
+  "grid": "11x10"
+ },
+ "A0_baseline": {
+  "matmul_3037": 743.8,
+  "to_layout_RM_3059": 35627.3,
+  "reshape_3060": 1672.4,
+  "to_layout_TILE_3061": 1266.0,
+  "permute_3062": 1028.1,
+  "linear_3068": 1719.5,
+  "chain4_us": 39593.8,
+  "chain4_ms_per_fold": 1583.8,
+  "matmul_ms_per_fold": 29.8
+ },
+ "A3_single_pass": {
+  "z_MB": 181.9,
+  "clone_dram2dram_us": 911.9,
+  "transpose_2d_us": 955.9,
+  "one_pass_ms_per_fold": 36.5
+ },
+ "A1_b_reorder": {
+  "matmul_us": 738.7,
+  "matmul_delta_pct": -0.7,
+  "reshape4d_us": 16255.2,
+  "permute_0213_us": 4005.0,
+  "final_reshape_us": 16497.1,
+  "shape_after": [
+   298,
+   298,
+   32,
+   32
+  ]
+ },
+ "A2_batched_over_i": {
+  "matmul_us": 1581.5,
+  "ratio_vs_A0": 2.13,
+  "delta_ms_per_fold": 33.5
+ },
+ "core_ladder_us": {
+  "linear_3068_4x4": 2682.2,
+  "linear_3068_8x4": 3483.0,
+  "linear_3068_11x8": 1883.7,
+  "linear_3068_11x10": 1723.4
+ }
+}

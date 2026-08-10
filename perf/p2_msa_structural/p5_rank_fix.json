@@ -1,0 +1,17 @@
+{
+ "A_to_layout_RM_rank2": 35648.3,
+ "B_reshape_tile_to_rank3": 4.4,
+ "C_to_layout_RM_rank3": 35634.7,
+ "D_reshape_RM_to_I_CD_J": 1673.5,
+ "E_to_layout_TILE": 1296.8,
+ "F_permute_021": 1026.1,
+ "final_shape": [
+  298,
+  298,
+  1024
+ ],
+ "new_chain_us": 39635.5,
+ "new_chain_ms_per_fold_x40": 1585.4,
+ "torch_equal_old_vs_new": false,
+ "max_abs_diff": 0.814453125
+}

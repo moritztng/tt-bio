@@ -1,0 +1,51 @@
+{
+ "device": {
+  "host": "qb2",
+  "card": 1,
+  "ttnn": "0.68.0"
+ },
+ "n": 298,
+ "nt": 4,
+ "depth": 35,
+ "c5": {
+  "template_baseline_ms": 82.008,
+  "template_baseline_raw_ms": [
+   82.01,
+   81.98,
+   81.95,
+   82.02,
+   82.04
+  ],
+  "template_hoisted_ms": 80.53,
+  "template_hoisted_raw_ms": [
+   80.49,
+   80.58,
+   80.53,
+   80.58,
+   80.49
+  ],
+  "delta_ms_per_stage": 1.479,
+  "delta_ms_per_fold_x10": 14.8,
+  "baseline_ms_per_fold_x10": 820.1,
+  "pct_of_stage": 1.8,
+  "torch_equal": true,
+  "max_abs_diff": 0.0,
+  "calls_removed_per_fold": 30
+ },
+ "c5_core_ladder_us": {
+  "4x4": 482.6,
+  "8x4": 448.5,
+  "11x8": 515.1,
+  "11x10": 485.6
+ },
+ "trunk_msa": {
+  "stage_ms": 349.295,
+  "ms_per_fold_x10": 3492.9,
+  "raw_ms": [
+   349.29,
+   349.3,
+   348.67
+  ],
+  "t5_pc_ms_per_fold": 1979.3
+ }
+}

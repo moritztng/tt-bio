@@ -1,0 +1,213 @@
+{
+ "device": {
+  "host": "qb2",
+  "card": 1,
+  "compute_grid": "11x10",
+  "core_grid_main": "11x10",
+  "ttnn": "0.68.0",
+  "ckc": "HiFi4 fp32_dest_acc_en=True packer_l1_acc=True"
+ },
+ "dram": {
+  "ladder": [
+   {
+    "MB": 16.0,
+    "read_GBs": 313.8,
+    "dram2dram_GBs": 336.0,
+    "write_GBs": 234.8
+   },
+   {
+    "MB": 32.0,
+    "read_GBs": 365.9,
+    "dram2dram_GBs": 380.1,
+    "write_GBs": 258.6
+   },
+   {
+    "MB": 64.0,
+    "read_GBs": 377.4,
+    "dram2dram_GBs": 394.1,
+    "write_GBs": 267.7
+   },
+   {
+    "MB": 95.99,
+    "read_GBs": 392.7,
+    "dram2dram_GBs": 390.8,
+    "write_GBs": 270.8
+   },
+   {
+    "MB": 128.0,
+    "read_GBs": 393.3,
+    "dram2dram_GBs": 399.2,
+    "write_GBs": 272.5
+   }
+  ],
+  "read_peak_GBs": 393.3,
+  "write_peak_GBs": 272.5,
+  "copy_peak_GBs": 399.2
+ },
+ "launch_floor_us": {
+  "relu_1t": 8.85,
+  "clone_1t": 4.33,
+  "relu_2t": 8.9,
+  "clone_2t": 4.34,
+  "relu_8t": 9.05,
+  "clone_8t": 4.53,
+  "relu_32t": 9.26,
+  "clone_32t": 5.21
+ },
+ "compute": {
+  "square_4096": {
+   "us": 1343.2,
+   "tflops": 102.33
+  },
+  "square_6144": {
+   "us": 4907.5,
+   "tflops": 94.52
+  },
+  "K1024_nt8_opm_consumer": {
+   "us": 1719.5,
+   "tflops": 29.08,
+   "out_write_GBs": 28.4
+  },
+  "K64_nt2_template": {
+   "us": 94.4,
+   "tflops": 8.27,
+   "out_write_GBs": 129.3
+  },
+  "K256_nt1_pwa_zbias": {
+   "us": 451.2,
+   "tflops": 3.46,
+   "out_write_GBs": 13.5
+  }
+ },
+ "c3_size_sweep": {
+  "16kB": {
+   "us": 7.35,
+   "out_kB": 16.4,
+   "GBs": 4.457
+  },
+  "160kB": {
+   "us": 8.38,
+   "out_kB": 163.8,
+   "GBs": 39.087
+  },
+  "1.6MB": {
+   "us": 11.85,
+   "out_kB": 1638.4,
+   "GBs": 276.509
+  }
+ },
+ "c3_alignment": {
+  "col_0_1_subtile": {
+   "us": 7.22,
+   "out_kB": 0.51
+  },
+  "col_1_2_subtile": {
+   "us": 202.47,
+   "out_kB": 0.51
+  },
+  "col_0_32_aligned": {
+   "us": 7.49,
+   "out_kB": 16.38
+  },
+  "col_1_33_unaligned": {
+   "us": 202.42,
+   "out_kB": 16.38
+  },
+  "col_32_64_aligned": {
+   "us": 7.39,
+   "out_kB": 16.38
+  }
+ },
+ "c3_production": {
+  "z_weight[:, i:i+1]": {
+   "src_shape": [
+    256,
+    8
+   ],
+   "us": 35.15
+  },
+  "m_weight[:, i*8:+8]": {
+   "src_shape": [
+    128,
+    64
+   ],
+   "us": 34.64
+  },
+  "g_weight[:, i*8:+8]": {
+   "src_shape": [
+    128,
+    64
+   ],
+   "us": 34.71
+  },
+  "o_weight[i*8:+8, :]": {
+   "src_shape": [
+    64,
+    128
+   ],
+   "us": 16.91
+  }
+ },
+ "c4_rows": {
+  "1x": {
+   "depth": 35,
+   "in_MB": 2.87,
+   "layer_norm_us": 26.38,
+   "linear_silu_us": 153.22,
+   "linear_plain_us": 37.29
+  },
+  "2x": {
+   "depth": 70,
+   "in_MB": 5.73,
+   "layer_norm_us": 38.6,
+   "linear_silu_us": 262.74,
+   "linear_plain_us": 60.35
+  },
+  "4x": {
+   "depth": 140,
+   "in_MB": 11.47,
+   "layer_norm_us": 63.76,
+   "linear_silu_us": 493.8,
+   "linear_plain_us": 117.96
+  }
+ },
+ "c4_minimal_matmul": {
+  "N32": {
+   "us": 287.54,
+   "out_MB": 6.55,
+   "write_GBs": 22.8,
+   "tflops": 1.46
+  },
+  "N64": {
+   "us": 287.42,
+   "out_MB": 13.11,
+   "write_GBs": 45.6,
+   "tflops": 2.92
+  },
+  "N128": {
+   "us": 289.78,
+   "out_MB": 26.21,
+   "write_GBs": 90.5,
+   "tflops": 5.79
+  },
+  "N192": {
+   "us": 289.42,
+   "out_MB": 39.32,
+   "write_GBs": 135.9,
+   "tflops": 8.7
+  },
+  "N384": {
+   "us": 448.89,
+   "out_MB": 78.64,
+   "write_GBs": 175.2,
+   "tflops": 11.21
+  }
+ },
+ "c4_core_ladder_us": {
+  "1x1": 1233.65,
+  "4x4": 108.51,
+  "8x4": 68.57,
+  "11x8": 38.76,
+  "11x10": 38.87
+ }
+}
