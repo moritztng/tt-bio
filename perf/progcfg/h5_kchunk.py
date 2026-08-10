@@ -20,9 +20,17 @@ quantify how big that error is here.
 
 Cells, per k:
   l1          k blocks -> tuned L1-output config, per-block sigmoid multiply_, one concat to DRAM
-  dram        k blocks -> tuned DRAM-output config, same, one concat to DRAM   <- K4's control
+  l1_spill    same, but each product is written straight to DRAM as it is produced and its two L1
+              operands freed, so live L1 is ONE block and not the whole tensor
+  dram        k blocks -> tuned DRAM-output config, one concat to DRAM         <- K4's control
   l1_noass    l1 without the concat                                            <- the sibling's form
 k=1 dram is production today and is the control every other cell is scored against.
+
+`l1` and `l1_noass` both hold all k product blocks in L1 until the end, so their live set is the
+WHOLE 134.22 MB tensor at every k -- they do not reduce L1 at all, and at 512:256 they both die on a
+circular-buffer clash partway through the block loop for exactly that reason. `l1_spill` is the only
+one of the three that is the thing the hand-off proposes. Same distinction z-rowblock draws between
+its variants C and D, reached here from the other direction and the hard way.
 
 Usage (qb2 chip 0):
 
@@ -134,19 +142,25 @@ def run_shape(dev, N, c, ks, ckc):
         ent = {"k": k, "rows_per_block": R, "m_tiles_per_block": m_tiles,
                "per_core_M": per_core_M, "cores_engaged": cores_engaged,
                "cores_engaged_of": ncores,
-               "live_l1_bytes_if_l1_output": 2 * (tbytes // k),
                "cfg_l1": cfg_fields(pc_l1), "cfg_dram": cfg_fields(pc_dram),
                "cfg_fields_identical": cfg_fields(pc_l1) == cfg_fields(pc_dram),
                "program_launches_per_region": 3 * k + (1 if k > 1 else 0)}
 
-        def region(pc, mc, assemble=True):
+        def region(pc, mc, assemble=True, spill=False):
             outs = []
             for bx, bg in zip(blocks_x, blocks_x2):
                 p = ttnn.linear(bx, wp, memory_config=mc, dtype=ttnn.bfloat16,
                                 compute_kernel_config=ckc, program_config=pc)
                 g = ttnn.linear(bg, wg, memory_config=mc, dtype=ttnn.bfloat16,
                                 compute_kernel_config=ckc, program_config=pc)
-                r = ttnn.multiply_(p, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+                if spill:
+                    # The product lands in DRAM directly: the two L1 operands are read once and
+                    # freed, so live L1 never exceeds one block's pair.
+                    r = ttnn.multiply(p, g, memory_config=DRAM,
+                                      input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+                    ttnn.deallocate(p)
+                else:
+                    r = ttnn.multiply_(p, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
                 ttnn.deallocate(g)
                 outs.append(r)
             if assemble:
@@ -157,18 +171,21 @@ def run_shape(dev, N, c, ks, ckc):
                 return z
             return outs
 
-        for name, pc, mc, assemble in (("l1", pc_l1, L1, True),
-                                       ("dram", pc_dram, DRAM, True),
-                                       ("l1_noass", pc_l1, L1, False)):
+        for name, pc, mc, assemble, spill in (("l1", pc_l1, L1, True, False),
+                                              ("l1_spill", pc_l1, L1, True, True),
+                                              ("dram", pc_dram, DRAM, True, False),
+                                              ("l1_noass", pc_l1, L1, False, False)):
             cell = {"program_config": cfg_fields(pc), "output": "L1" if mc is L1 else "DRAM",
-                    "assembled": assemble}
+                    "assembled": assemble, "spill_each_block_to_dram": spill,
+                    "live_l1_bytes": (2 * (tbytes // k) if spill else
+                                      tbytes + 2 * (tbytes // k)) if mc is L1 else 0}
             if pc is None:
                 cell["error"] = "no program config for this shape"
                 ent[name] = cell
                 continue
             try:
-                def one(pc=pc, mc=mc, assemble=assemble):
-                    o = region(pc, mc, assemble)
+                def one(pc=pc, mc=mc, assemble=assemble, spill=spill):
+                    o = region(pc, mc, assemble, spill)
                     if assemble:
                         ttnn.deallocate(o)
                     else:
@@ -176,7 +193,7 @@ def run_shape(dev, N, c, ks, ckc):
                             ttnn.deallocate(t)
                 cell["region_ms"] = round(timed(dev, one) * 1e3, 4)
                 if assemble:                                   # parity against the k=1 DRAM control
-                    z = region(pc, mc, True)
+                    z = region(pc, mc, True, spill)
                     got = ttnn.to_torch(z).float()
                     ttnn.deallocate(z)
                     if ref is None and name == "dram" and k == ks[0]:
@@ -207,7 +224,7 @@ def run_shape(dev, N, c, ks, ckc):
         res["control_k1_dram_ms_per_region"] = base
         sc = {}
         for kk, ent in res["cells"].items():
-            for name in ("l1", "dram", "l1_noass"):
+            for name in ("l1", "l1_spill", "dram", "l1_noass"):
                 ms = ent.get(name, {}).get("region_ms")
                 if ms:
                     sc[f"{kk}|{name}"] = {
