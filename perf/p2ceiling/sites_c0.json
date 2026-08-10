@@ -1,0 +1,436 @@
+{
+ "sites": [
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "baseline core_grid 11x10",
+   "us": 438.46,
+   "ms_fold": 105.23,
+   "calls": 240,
+   "read_GBs": 111.4,
+   "write_GBs": 13.9
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "ladder core_grid 2x2",
+   "cores": 4,
+   "us": 948.88
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "ladder core_grid 4x4",
+   "cores": 16,
+   "us": 448.34
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "ladder core_grid 6x6",
+   "cores": 36,
+   "us": 518.2
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "ladder core_grid 8x8",
+   "cores": 64,
+   "us": 499.95
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "ladder core_grid 11x10",
+   "cores": 110,
+   "us": 444.3
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "ladder core_grid 13x10",
+   "cores": 130,
+   "us": 454.83
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=1 obh=5 per_core_M=30",
+   "bw": 1,
+   "cores": 100,
+   "us": 389.03,
+   "ms_fold": 93.37,
+   "speedup": 1.127,
+   "read_GBs": 125.5
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=1 obh=10 per_core_M=30",
+   "bw": 1,
+   "cores": 100,
+   "us": 403.62,
+   "ms_fold": 96.87,
+   "speedup": 1.086,
+   "read_GBs": 121.0
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=1 obh=15 per_core_M=30",
+   "bw": 1,
+   "cores": 100,
+   "us": 420.32,
+   "ms_fold": 100.88,
+   "speedup": 1.043,
+   "read_GBs": 116.2
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=1 obh=30 per_core_M=30",
+   "bw": 1,
+   "cores": 100,
+   "us": 464.29,
+   "ms_fold": 111.43,
+   "speedup": 0.944,
+   "read_GBs": 105.2
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=2 obh=5 per_core_M=30",
+   "bw": 2,
+   "cores": 100,
+   "us": 276.3,
+   "ms_fold": 66.31,
+   "speedup": 1.587,
+   "read_GBs": 176.7
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=2 obh=10 per_core_M=30",
+   "bw": 2,
+   "cores": 100,
+   "us": 320.55,
+   "ms_fold": 76.93,
+   "speedup": 1.368,
+   "read_GBs": 152.3
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=2 obh=15 per_core_M=30",
+   "bw": 2,
+   "cores": 100,
+   "us": 316.74,
+   "ms_fold": 76.02,
+   "speedup": 1.384,
+   "read_GBs": 154.1
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=2 obh=30 per_core_M=30",
+   "bw": 2,
+   "cores": 100,
+   "us": 275.36,
+   "ms_fold": 66.09,
+   "speedup": 1.592,
+   "read_GBs": 177.3
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=4 obh=5 per_core_M=30",
+   "bw": 4,
+   "cores": 100,
+   "us": 268.15,
+   "ms_fold": 64.36,
+   "speedup": 1.635,
+   "read_GBs": 182.1
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=4 obh=10 per_core_M=30",
+   "bw": 4,
+   "cores": 100,
+   "us": 266.47,
+   "ms_fold": 63.95,
+   "speedup": 1.645,
+   "read_GBs": 183.2
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=4 obh=15 per_core_M=30",
+   "bw": 4,
+   "cores": 100,
+   "us": 268.26,
+   "ms_fold": 64.38,
+   "speedup": 1.634,
+   "read_GBs": 182.0
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=4 obh=30 per_core_M=30",
+   "bw": 4,
+   "cores": 100,
+   "us": 274.0,
+   "ms_fold": 65.76,
+   "speedup": 1.6,
+   "read_GBs": 178.2
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=8 obh=5 per_core_M=30",
+   "bw": 8,
+   "cores": 100,
+   "us": 226.91,
+   "ms_fold": 54.46,
+   "speedup": 1.932,
+   "read_GBs": 215.2
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=8 obh=10 per_core_M=30",
+   "bw": 8,
+   "cores": 100,
+   "us": 229.29,
+   "ms_fold": 55.03,
+   "speedup": 1.912,
+   "read_GBs": 212.9
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=8 obh=15 per_core_M=30",
+   "bw": 8,
+   "cores": 100,
+   "us": 234.44,
+   "ms_fold": 56.27,
+   "speedup": 1.87,
+   "read_GBs": 208.3
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "cfg": "pc bw=8 obh=30 per_core_M=30",
+   "bw": 8,
+   "cores": 100,
+   "us": 233.36,
+   "ms_fold": 56.01,
+   "speedup": 1.879,
+   "read_GBs": 209.2
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "parity": true,
+   "best_bw": 8,
+   "best_us": 226.91,
+   "torch_equal": false,
+   "rmsd": 0.020206565037369728,
+   "rel_rmsd": 0.001341600908179496,
+   "pcc": 0.9999992251396179
+  },
+  {
+   "site": "PWA z->bias @tenstorrent.py:2832",
+   "parity": true,
+   "cfg": "pc bw=1 obh=5",
+   "torch_equal": true
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "baseline core_grid 11x10",
+   "us": 477.94,
+   "ms_fold": 19.12,
+   "calls": 40,
+   "read_GBs": 102.2,
+   "write_GBs": 25.5
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "ladder core_grid 2x2",
+   "cores": 4,
+   "us": 1105.58
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "ladder core_grid 4x4",
+   "cores": 16,
+   "us": 499.67
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "ladder core_grid 6x6",
+   "cores": 36,
+   "us": 536.7
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "ladder core_grid 8x8",
+   "cores": 64,
+   "us": 518.14
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "ladder core_grid 11x10",
+   "cores": 110,
+   "us": 476.5
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "ladder core_grid 13x10",
+   "cores": 130,
+   "us": 480.39
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=1 obh=5 per_core_M=30",
+   "bw": 1,
+   "cores": 100,
+   "us": 384.68,
+   "ms_fold": 15.39,
+   "speedup": 1.242,
+   "read_GBs": 126.9
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=1 obh=10 per_core_M=30",
+   "bw": 1,
+   "cores": 100,
+   "us": 403.75,
+   "ms_fold": 16.15,
+   "speedup": 1.184,
+   "read_GBs": 120.9
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=1 obh=15 per_core_M=30",
+   "bw": 1,
+   "cores": 100,
+   "us": 435.39,
+   "ms_fold": 17.42,
+   "speedup": 1.098,
+   "read_GBs": 112.1
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=1 obh=30 per_core_M=30",
+   "bw": 1,
+   "cores": 100,
+   "us": 489.32,
+   "ms_fold": 19.57,
+   "speedup": 0.977,
+   "read_GBs": 99.8
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=2 obh=5 per_core_M=30",
+   "bw": 2,
+   "cores": 100,
+   "us": 289.76,
+   "ms_fold": 11.59,
+   "speedup": 1.649,
+   "read_GBs": 168.5
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=2 obh=10 per_core_M=30",
+   "bw": 2,
+   "cores": 100,
+   "us": 332.35,
+   "ms_fold": 13.29,
+   "speedup": 1.438,
+   "read_GBs": 146.9
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=2 obh=15 per_core_M=30",
+   "bw": 2,
+   "cores": 100,
+   "us": 331.85,
+   "ms_fold": 13.27,
+   "speedup": 1.44,
+   "read_GBs": 147.1
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=2 obh=30 per_core_M=30",
+   "bw": 2,
+   "cores": 100,
+   "us": 317.23,
+   "ms_fold": 12.69,
+   "speedup": 1.507,
+   "read_GBs": 153.9
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=4 obh=5 per_core_M=30",
+   "bw": 4,
+   "cores": 100,
+   "us": 275.55,
+   "ms_fold": 11.02,
+   "speedup": 1.734,
+   "read_GBs": 177.2
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=4 obh=10 per_core_M=30",
+   "bw": 4,
+   "cores": 100,
+   "us": 272.32,
+   "ms_fold": 10.89,
+   "speedup": 1.755,
+   "read_GBs": 179.3
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=4 obh=15 per_core_M=30",
+   "bw": 4,
+   "cores": 100,
+   "us": 293.75,
+   "ms_fold": 11.75,
+   "speedup": 1.627,
+   "read_GBs": 166.2
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=4 obh=30 per_core_M=30",
+   "bw": 4,
+   "cores": 100,
+   "us": 283.52,
+   "ms_fold": 11.34,
+   "speedup": 1.686,
+   "read_GBs": 172.2
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=8 obh=5 per_core_M=30",
+   "bw": 8,
+   "cores": 100,
+   "us": 236.54,
+   "ms_fold": 9.46,
+   "speedup": 2.021,
+   "read_GBs": 206.4
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=8 obh=10 per_core_M=30",
+   "bw": 8,
+   "cores": 100,
+   "us": 241.54,
+   "ms_fold": 9.66,
+   "speedup": 1.979,
+   "read_GBs": 202.1
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "cfg": "pc bw=8 obh=15 per_core_M=30",
+   "bw": 8,
+   "cores": 100,
+   "us": 258.43,
+   "ms_fold": 10.34,
+   "speedup": 1.849,
+   "read_GBs": 188.9
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "parity": true,
+   "best_bw": 8,
+   "best_us": 236.54,
+   "torch_equal": false,
+   "rmsd": 0.02119528129696846,
+   "rel_rmsd": 0.001327327343586276,
+   "pcc": 0.9999897480010986
+  },
+  {
+   "site": "template z proj @protenix.py:306",
+   "parity": true,
+   "cfg": "pc bw=1 obh=5",
+   "torch_equal": true
+  }
+ ]
+}

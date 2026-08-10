@@ -1,0 +1,264 @@
+{
+ "h3b": [
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "out": "L1",
+   "cfg": "cg_11x10",
+   "us": 100.19,
+   "tflops": 21.43
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "out": "DRAM",
+   "cfg": "cg_11x10",
+   "us": 136.56,
+   "tflops": 15.73
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "per_core_M": 5,
+   "cores": 103,
+   "bw": 1,
+   "out": "L1",
+   "us": 100.88,
+   "tflops": 21.29,
+   "vs_bw1": null
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "per_core_M": 5,
+   "cores": 103,
+   "bw": 1,
+   "out": "DRAM",
+   "us": 137.71,
+   "tflops": 15.59,
+   "vs_bw1": null
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "per_core_M": 5,
+   "cores": 103,
+   "bw": 2,
+   "out": "L1",
+   "us": 67.79,
+   "tflops": 31.68,
+   "vs_bw1": null
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "per_core_M": 5,
+   "cores": 103,
+   "bw": 2,
+   "out": "DRAM",
+   "us": 109.77,
+   "tflops": 19.56,
+   "vs_bw1": null
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "per_core_M": 5,
+   "cores": 103,
+   "bw": 4,
+   "out": "L1",
+   "us": 69.15,
+   "tflops": 31.05,
+   "vs_bw1": null
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "per_core_M": 5,
+   "cores": 103,
+   "bw": 4,
+   "out": "DRAM",
+   "us": 78.7,
+   "tflops": 27.29,
+   "vs_bw1": null
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "per_core_M": 5,
+   "cores": 103,
+   "bw": 8,
+   "out": "L1",
+   "us": 67.44,
+   "tflops": 31.84,
+   "vs_bw1": null
+  },
+  {
+   "M": 16384,
+   "m_tiles": 512,
+   "per_core_M": 5,
+   "cores": 103,
+   "bw": 8,
+   "out": "DRAM",
+   "us": 83.7,
+   "tflops": 25.66,
+   "vs_bw1": null
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "out": "L1",
+   "cfg": "cg_11x10",
+   "us": 250.1,
+   "tflops": 24.99
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "out": "DRAM",
+   "cfg": "cg_11x10",
+   "us": 362.36,
+   "tflops": 17.25
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "per_core_M": 15,
+   "cores": 100,
+   "bw": 1,
+   "out": "L1",
+   "us": 229.39,
+   "tflops": 27.24,
+   "vs_bw1": null
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "per_core_M": 15,
+   "cores": 100,
+   "bw": 1,
+   "out": "DRAM",
+   "us": 319.35,
+   "tflops": 19.57,
+   "vs_bw1": null
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "per_core_M": 15,
+   "cores": 100,
+   "bw": 2,
+   "out": "L1",
+   "us": 172.06,
+   "tflops": 36.32,
+   "vs_bw1": null
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "per_core_M": 15,
+   "cores": 100,
+   "bw": 2,
+   "out": "DRAM",
+   "us": 248.03,
+   "tflops": 25.2,
+   "vs_bw1": null
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "per_core_M": 15,
+   "cores": 100,
+   "bw": 4,
+   "out": "L1",
+   "us": 168.18,
+   "tflops": 37.16,
+   "vs_bw1": null
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "per_core_M": 15,
+   "cores": 100,
+   "bw": 4,
+   "out": "DRAM",
+   "us": 230.1,
+   "tflops": 27.16,
+   "vs_bw1": null
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "per_core_M": 15,
+   "cores": 100,
+   "bw": 8,
+   "out": "L1",
+   "us": 143.16,
+   "tflops": 43.65,
+   "vs_bw1": null
+  },
+  {
+   "M": 47680,
+   "m_tiles": 1490,
+   "per_core_M": 15,
+   "cores": 100,
+   "bw": 8,
+   "out": "DRAM",
+   "us": 203.56,
+   "tflops": 30.7,
+   "vs_bw1": null
+  },
+  {
+   "M": 95360,
+   "m_tiles": 2980,
+   "out": "DRAM",
+   "cfg": "cg_11x10",
+   "us": 622.18,
+   "tflops": 20.09
+  },
+  {
+   "M": 95360,
+   "m_tiles": 2980,
+   "per_core_M": 30,
+   "cores": 100,
+   "bw": 1,
+   "out": "DRAM",
+   "us": 608.37,
+   "tflops": 20.54,
+   "vs_bw1": null
+  },
+  {
+   "M": 95360,
+   "m_tiles": 2980,
+   "per_core_M": 30,
+   "cores": 100,
+   "bw": 2,
+   "out": "DRAM",
+   "us": 471.28,
+   "tflops": 26.52,
+   "vs_bw1": null
+  },
+  {
+   "M": 95360,
+   "m_tiles": 2980,
+   "per_core_M": 30,
+   "cores": 100,
+   "bw": 4,
+   "out": "DRAM",
+   "us": 423.47,
+   "tflops": 29.52,
+   "vs_bw1": null
+  },
+  {
+   "M": 95360,
+   "m_tiles": 2980,
+   "per_core_M": 30,
+   "cores": 100,
+   "bw": 8,
+   "out": "DRAM",
+   "us": 381.61,
+   "tflops": 32.75,
+   "vs_bw1": null
+  }
+ ]
+}

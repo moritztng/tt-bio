@@ -1,0 +1,73 @@
+{
+ "h2": [
+  {
+   "nt": 8,
+   "M": 102400,
+   "out": "DRAM",
+   "cfg": "cg_11x10",
+   "us": 438.33,
+   "tflops": 30.62,
+   "write_GBs": 119.6
+  },
+  {
+   "nt": 8,
+   "M": 102400,
+   "out": "DRAM",
+   "cfg": "cg_13x10",
+   "us": 831.42,
+   "tflops": 16.14,
+   "write_GBs": 63.1
+  },
+  {
+   "nt": 8,
+   "M": 102400,
+   "out": "DRAM",
+   "cfg": "pc_bw8_obh5",
+   "us": 394.33,
+   "tflops": 34.04,
+   "write_GBs": 133.0
+  },
+  {
+   "nt": 8,
+   "M": 102400,
+   "summary": true,
+   "measured_us": 394.33,
+   "compute_us": 237.7,
+   "write_us": 199.41,
+   "max_us": 237.7,
+   "sum_us": 437.11,
+   "frac_of_sum": 0.902,
+   "ratio_to_max": 1.659
+  },
+  {
+   "nt": 64,
+   "M": 12800,
+   "out": "DRAM",
+   "cfg": "cg_11x10",
+   "us": 274.57,
+   "tflops": 48.88,
+   "write_GBs": 190.9
+  },
+  {
+   "nt": 64,
+   "M": 12800,
+   "out": "DRAM",
+   "cfg": "cg_13x10",
+   "us": 269.75,
+   "tflops": 49.76,
+   "write_GBs": 194.4
+  },
+  {
+   "nt": 64,
+   "M": 12800,
+   "summary": true,
+   "measured_us": 269.75,
+   "compute_us": 157.68,
+   "write_us": 199.41,
+   "max_us": 199.41,
+   "sum_us": 357.09,
+   "frac_of_sum": 0.755,
+   "ratio_to_max": 1.353
+  }
+ ]
+}

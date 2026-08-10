@@ -1,0 +1,84 @@
+{
+ "h1": [
+  {
+   "arm": "L1_in",
+   "M": 4096,
+   "cfg": "cg_11x10",
+   "us": 44.19,
+   "tflops": 12.15,
+   "ns_per_row": 10.789
+  },
+  {
+   "arm": "L1_in",
+   "M": 4096,
+   "cfg": "pc_bw8",
+   "us": 52.75,
+   "tflops": 10.18,
+   "ns_per_row": 12.879
+  },
+  {
+   "arm": "L1_in",
+   "M": 8192,
+   "cfg": "cg_11x10",
+   "us": 49.9,
+   "tflops": 21.52,
+   "ns_per_row": 6.092
+  },
+  {
+   "arm": "L1_in",
+   "M": 8192,
+   "cfg": "pc_bw8",
+   "us": 61.96,
+   "tflops": 17.33,
+   "ns_per_row": 7.564
+  },
+  {
+   "arm": "L1_in",
+   "M": 16384,
+   "cfg": "cg_11x10",
+   "us": 81.59,
+   "tflops": 26.32,
+   "ns_per_row": 4.98
+  },
+  {
+   "arm": "L1_in",
+   "M": 16384,
+   "cfg": "pc_bw8",
+   "us": 91.73,
+   "tflops": 23.41,
+   "ns_per_row": 5.599
+  },
+  {
+   "arm": "L1_in",
+   "M": 32768,
+   "cfg": "cg_11x10",
+   "us": 152.14,
+   "tflops": 28.23,
+   "ns_per_row": 4.643
+  },
+  {
+   "arm": "L1_in",
+   "M": 32768,
+   "cfg": "pc_bw8",
+   "us": 146.4,
+   "tflops": 29.34,
+   "ns_per_row": 4.468
+  },
+  {
+   "arm": "DRAM_in",
+   "M": 16384,
+   "cfg": "cg_11x10",
+   "us": 136.25,
+   "tflops": 15.76,
+   "ns_per_row": 8.316
+  },
+  {
+   "arm": "DRAM_in",
+   "M": 16384,
+   "cfg": "pc_bw8",
+   "us": 77.87,
+   "tflops": 27.58,
+   "ns_per_row": 4.753
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "roofs": {
+  "read_GBs": 376.8,
+  "write_GBs": 264.1,
+  "copy_GBs": 399.1,
+  "compute_square_TFLOPs": 141.65,
+  "mmwrite_roof_L1_operands_GBs": 201.3,
+  "mmwrite_roof_L1_operands_cfg": "cg_13x10",
+  "mmwrite_roof_DRAM_operands_GBs": 190.8,
+  "mmwrite_roof_DRAM_operands_cfg": "cg_13x10"
+ }
+}
