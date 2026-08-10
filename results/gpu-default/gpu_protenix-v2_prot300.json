@@ -1,0 +1,203 @@
+{
+  "model": "protenix-v2",
+  "side": "gpu",
+  "model_name": "protenix-v2",
+  "gpu": "NVIDIA H200",
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8480+",
+  "cpu_count": 224,
+  "torch_version": "2.7.1+cu128",
+  "cuda_version": "12.8",
+  "input": "CDK2 / PDB 1HCL (298 aa), precomputed MSA (same a3m as TT side)",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "rungs": [
+    {
+      "rung": "L0-eager-fp32",
+      "rung_config": {
+        "name": "L0-eager-fp32",
+        "dtype": "fp32",
+        "triangle_attention": "torch",
+        "triangle_multiplicative": "torch",
+        "enable_efficient_fusion": false,
+        "enable_diffusion_shared_vars_cache": false,
+        "enable_tf32": false
+      },
+      "load_s": 199.14,
+      "resolved_config": {
+        "model_name": "protenix-v2",
+        "dtype": "fp32",
+        "triangle_attention": "torch",
+        "triangle_multiplicative": "torch",
+        "enable_efficient_fusion": false,
+        "enable_diffusion_shared_vars_cache": false,
+        "enable_tf32": false,
+        "skip_amp": {
+          "confidence_head": false,
+          "loss": true,
+          "sample_diffusion": true,
+          "sample_diffusion_training": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueq_triatt": 0,
+        "cueq_trimul": 0,
+        "triattention": 0,
+        "torch_attn": 1208
+      },
+      "cold_s": 17.257,
+      "warm_times_s": [
+        16.852,
+        16.809,
+        16.812
+      ],
+      "warm_min_s": 16.809,
+      "warm_median_s": 16.812,
+      "warm_max_s": 16.852,
+      "n_msa": 35,
+      "n_token": 298,
+      "all_atom_kabsch_rmsd_vs_L0": null,
+      "ca_kabsch_rmsd_vs_L0": null
+    },
+    {
+      "rung": "L2-bf16-fusion-cache",
+      "rung_config": {
+        "name": "L2-bf16-fusion-cache",
+        "dtype": "bf16",
+        "triangle_attention": "triattention",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": true,
+        "enable_diffusion_shared_vars_cache": true,
+        "enable_tf32": true
+      },
+      "load_s": 85.84,
+      "resolved_config": {
+        "model_name": "protenix-v2",
+        "dtype": "bf16",
+        "triangle_attention": "triattention",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": true,
+        "enable_diffusion_shared_vars_cache": true,
+        "enable_tf32": true,
+        "skip_amp": {
+          "confidence_head": false,
+          "loss": true,
+          "sample_diffusion": true,
+          "sample_diffusion_training": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueq_triatt": 0,
+        "cueq_trimul": 1208,
+        "triattention": 1208,
+        "torch_attn": 0
+      },
+      "cold_s": 19.934,
+      "warm_times_s": [
+        6.784,
+        6.815,
+        6.797
+      ],
+      "warm_min_s": 6.784,
+      "warm_median_s": 6.797,
+      "warm_max_s": 6.815,
+      "n_msa": 35,
+      "n_token": 298,
+      "all_atom_kabsch_rmsd_vs_L0": 3.3484109583681247,
+      "ca_kabsch_rmsd_vs_L0": 2.997454491003092
+    },
+    {
+      "rung": "LD-shipped-default",
+      "rung_config": {
+        "name": "LD-shipped-default",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance"
+      },
+      "load_s": 84.87,
+      "resolved_config": {
+        "model_name": "protenix-v2",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": true,
+        "enable_diffusion_shared_vars_cache": true,
+        "enable_tf32": true,
+        "skip_amp": {
+          "confidence_head": false,
+          "loss": true,
+          "sample_diffusion": true,
+          "sample_diffusion_training": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueq_triatt": 1208,
+        "cueq_trimul": 1208,
+        "triattention": 0,
+        "torch_attn": 0
+      },
+      "cold_s": 7.057,
+      "warm_times_s": [
+        7.019,
+        6.986,
+        6.998
+      ],
+      "warm_min_s": 6.986,
+      "warm_median_s": 6.998,
+      "warm_max_s": 7.019,
+      "n_msa": 35,
+      "n_token": 298,
+      "all_atom_kabsch_rmsd_vs_L0": 0.21997762010822905,
+      "ca_kabsch_rmsd_vs_L0": 0.150404151025432
+    },
+    {
+      "rung": "LB-basecfg-flags-off",
+      "rung_config": {
+        "name": "LB-basecfg-flags-off",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": false,
+        "enable_diffusion_shared_vars_cache": false,
+        "enable_tf32": false
+      },
+      "load_s": 71.81,
+      "resolved_config": {
+        "model_name": "protenix-v2",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": false,
+        "enable_diffusion_shared_vars_cache": false,
+        "enable_tf32": false,
+        "skip_amp": {
+          "confidence_head": false,
+          "loss": true,
+          "sample_diffusion": true,
+          "sample_diffusion_training": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueq_triatt": 1208,
+        "cueq_trimul": 1208,
+        "triattention": 0,
+        "torch_attn": 0
+      },
+      "cold_s": 7.454,
+      "warm_times_s": [
+        7.442,
+        7.476,
+        7.498
+      ],
+      "warm_min_s": 7.442,
+      "warm_median_s": 7.476,
+      "warm_max_s": 7.498,
+      "n_msa": 35,
+      "n_token": 298,
+      "all_atom_kabsch_rmsd_vs_L0": 1.1131828396099652,
+      "ca_kabsch_rmsd_vs_L0": 0.8859003809035161
+    }
+  ],
+  "date": "2026-08-10"
+}

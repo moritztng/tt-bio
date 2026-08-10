@@ -46,6 +46,16 @@ SEED = 0
 # the eager reference point; the later rungs are the vendor's own published
 # performance knobs. Kernel selector names differ between the two codebases
 # (protenix: triattention/cuequivariance; opendde: cuequivariance/auto).
+#
+# For protenix 2.0.0 the "defaults to ON for inference" claim is exact, and the
+# citation matters because configs_base.py says the opposite. configs_base.py is
+# the TRAINING config (fusion/cache/tf32 all False, l.131-133); inference merges
+# configs_inference.py on top of it, which sets all three True (l.32-34), and the
+# shipped `protenix predict` CLI defaults match (runner/batch_inference.py
+# l.296-299, l.643-660). LD-shipped-default below leaves those three keys OUT of
+# the rung dict entirely, so _build_configs never passes them and the resolved
+# value comes from upstream; the resolved config is recorded per rung so this is
+# auditable rather than asserted.
 LADDERS = {
     "protenix-v2": [
         dict(name="L0-eager-fp32", dtype="fp32", triangle_attention="torch",
@@ -59,6 +69,20 @@ LADDERS = {
              triangle_attention="triattention", triangle_multiplicative="cuequivariance",
              enable_efficient_fusion=True, enable_diffusion_shared_vars_cache=True,
              enable_tf32=True),
+        # What `protenix predict --model_name protenix-v2 --use_default_params true`
+        # runs. The only knob it moves against L2 is the triangle-attention kernel,
+        # which upstream defaults to cuequivariance and L2 sets to triattention.
+        dict(name="LD-shipped-default", dtype="bf16",
+             triangle_attention="cuequivariance",
+             triangle_multiplicative="cuequivariance"),
+        # configs_base.py's values for the three flags, i.e. the training config,
+        # with the default kernels. Not a shipped inference default -- it exists
+        # only to price what fusion/cache/tf32 are worth at these sizes.
+        dict(name="LB-basecfg-flags-off", dtype="bf16",
+             triangle_attention="cuequivariance",
+             triangle_multiplicative="cuequivariance",
+             enable_efficient_fusion=False, enable_diffusion_shared_vars_cache=False,
+             enable_tf32=False),
     ],
     "opendde": [
         dict(name="L0-eager-fp32", dtype="fp32", triatt_kernel="torch",
@@ -143,7 +167,80 @@ def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
     return configs
 
 
-def _ca_kabsch_rmsd(c1, c2, ca_idx1=None, ca_idx2=None) -> float:
+def _install_kernel_counters(model: str) -> dict | None:
+    """Count the triangle kernels each fold actually calls.
+
+    protenix falls back to torch silently in two places -- cuequivariance trimul
+    needs c_hidden == c_z (triangular.py:494) and the cuequivariance triangle
+    attention kernel drops to torch for unsupported head dims (layers.py:456-458)
+    -- so a rung that ASKS for a kernel is not evidence the kernel ran. Wrapping
+    the four call sites turns "we set the flag" into "the kernel was entered N
+    times". Returns None for a codebase whose module layout does not match.
+    """
+    if model != "protenix-v2":
+        return None
+    try:
+        lay = importlib.import_module("protenix.model.triangular.layers")
+        tri = importlib.import_module("protenix.model.triangular.triangular")
+    except ImportError:
+        return None
+    counts = {"cueq_triatt": 0, "cueq_trimul": 0, "triattention": 0, "torch_attn": 0}
+
+    def wrap(mod, attr, key):
+        # Restore first: run_model calls this once per rung, and re-wrapping an
+        # already-wrapped function would nest one layer per rung and keep the
+        # previous rung's dict counting.
+        orig_attr = f"_bench_orig_{attr}"
+        fn = getattr(mod, orig_attr, None) or getattr(mod, attr, None)
+        if fn is None:
+            return
+        setattr(mod, orig_attr, fn)
+        def counted(*a, **kw):
+            counts[key] += 1
+            return fn(*a, **kw)
+        setattr(mod, attr, counted)
+
+    wrap(lay, "cuequivariance_triangular_attn", "cueq_triatt")
+    wrap(lay, "_tri_attention", "triattention")
+    wrap(lay, "_attention", "torch_attn")
+    wrap(tri, "kernel_triangular_mult", "cueq_trimul")
+    return counts
+
+
+def _resolved_knobs(configs) -> dict:
+    """The knobs as upstream's config machinery actually resolved them."""
+    out = {}
+    for k in ("model_name", "dtype", "triangle_attention", "triangle_multiplicative",
+              "enable_efficient_fusion", "enable_diffusion_shared_vars_cache",
+              "enable_tf32"):
+        try:
+            v = getattr(configs, k)
+        except AttributeError:
+            v = "<absent>"
+        # protenix wraps some config leaves (ValueMaybeNone, GlobalConfigValue);
+        # this dict is written straight to JSON, so keep it primitive.
+        out[k] = v if isinstance(v, (str, bool, int, float, type(None))) else repr(v)
+    try:
+        out["skip_amp"] = {k: bool(v) for k, v in dict(configs.skip_amp).items()}
+    except Exception:
+        out["skip_amp"] = "<absent>"
+    return out
+
+
+def _ca_indices(atom_array, n_atoms: int):
+    """CA row indices into the predicted coordinate tensor, or None if the atom
+    array does not line up with it (never worth crashing a paid session over)."""
+    try:
+        names = list(atom_array.atom_name)
+    except Exception:
+        return None
+    if len(names) != n_atoms:
+        return None
+    idx = [i for i, n in enumerate(names) if n == "CA"]
+    return idx or None
+
+
+def _kabsch_rmsd(c1, c2, idx=None) -> float:
     import numpy as np
     a = np.asarray(c1, dtype=np.float64)
     b = np.asarray(c2, dtype=np.float64)
@@ -151,9 +248,9 @@ def _ca_kabsch_rmsd(c1, c2, ca_idx1=None, ca_idx2=None) -> float:
     # (N,3) and compare the first sample's atoms.
     a = a.reshape(-1, a.shape[-1])
     b = b.reshape(-1, b.shape[-1])
-    if ca_idx1 is not None:
-        a = a[ca_idx1]
-        b = b[ca_idx2]
+    if idx is not None:
+        a = a[idx]
+        b = b[idx]
     n = min(len(a), len(b))
     a, b = a[:n], b[:n]
     a = a - a.mean(0)
@@ -223,6 +320,11 @@ def build_fold(model: str, model_name: str, rung: dict, input_json: str,
     assert not err, f"featurization failed: {err}"
     new_configs = inf.update_inference_configs(configs, data["N_token"].item())
     runner.update_model_configs(new_configs)
+    # AFTER update_inference_configs, because that is where skip_amp is decided
+    # from the token count (inference.py:396-414) -- reading it earlier would
+    # record a value the fold does not run.
+    resolved = _resolved_knobs(new_configs)
+    counters = _install_kernel_counters(model)
     n_msa = int(data["N_msa"].item())
     n_token = int(data["N_token"].item())
     # Fairness is only real if both sides consume the SAME alignment rows. The
@@ -242,7 +344,8 @@ def build_fold(model: str, model_name: str, rung: dict, input_json: str,
         return time.perf_counter() - t0, pred
 
     return one_fold, dict(load_s=round(load_s, 2), n_msa=n_msa, n_token=n_token,
-                          diffusion_samples=samples), runner
+                          diffusion_samples=samples, resolved_config=resolved,
+                          kernel_counts=counters, atom_array=atom_array), runner
 
 
 def run_model(model: str, model_name: str, repeat: int, input_json: str,
@@ -252,6 +355,7 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
 
     results = []
     ref_coords = None
+    ref_ca_idx = None
     for rung in rungs:
         one_fold, meta, runner = build_fold(
             model, model_name, rung, input_json, dump_root / rung["name"],
@@ -259,34 +363,53 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
         load_s, n_msa, n_token = meta["load_s"], meta["n_msa"], meta["n_token"]
 
         cold_s, pred = one_fold()
+        # Reset after the cold fold so the counts are per-warm-fold, and the
+        # cold fold's own compile/autotune path cannot inflate them.
+        counters = meta["kernel_counts"]
+        if counters is not None:
+            for k in counters:
+                counters[k] = 0
         times = []
         for _ in range(repeat):
             t, pred = one_fold()
             times.append(t)
+        per_fold_kernels = ({k: v // max(1, repeat) for k, v in counters.items()}
+                            if counters is not None else None)
 
         coords = pred["coordinate"]
         if hasattr(coords, "cpu"):
             coords = coords.cpu().numpy()
-        rmsd = None
+        rmsd_all, rmsd_ca = None, None
         if ref_coords is None:
             ref_coords = coords
+            ref_ca_idx = _ca_indices(meta["atom_array"], coords.reshape(-1, 3).shape[0])
         else:
             try:
-                rmsd = _ca_kabsch_rmsd(ref_coords, coords)
+                rmsd_all = _kabsch_rmsd(ref_coords, coords)
+                if ref_ca_idx is not None:
+                    rmsd_ca = _kabsch_rmsd(ref_coords, coords, idx=ref_ca_idx)
             except Exception as e:
-                rmsd = f"rmsd-error: {e}"
+                rmsd_all = f"rmsd-error: {e}"
 
         ts = sorted(times)
         results.append(dict(
             rung=rung["name"], rung_config=rung, load_s=load_s,
+            resolved_config=meta["resolved_config"],
+            kernel_calls_per_fold=per_fold_kernels,
             cold_s=round(cold_s, 3), warm_times_s=[round(t, 3) for t in times],
             warm_min_s=round(ts[0], 3), warm_median_s=round(ts[len(ts) // 2], 3),
             warm_max_s=round(ts[-1], 3), n_msa=n_msa, n_token=n_token,
-            ca_kabsch_rmsd_vs_L0=rmsd,
+            # The committed 2026-08-07 numbers called this "ca_kabsch_rmsd" but
+            # passed no CA index, so it was always all-atom. Kept under its true
+            # name, with CA reported separately when the atom array lines up.
+            all_atom_kabsch_rmsd_vs_L0=rmsd_all,
+            ca_kabsch_rmsd_vs_L0=rmsd_ca,
         ))
         print(f"[{model} {rung['name']}] warm median {ts[len(ts)//2]:.2f}s "
               f"(min {ts[0]:.2f}/max {ts[-1]:.2f}) cold {cold_s:.1f}s "
-              f"rmsd_vs_L0={rmsd}", file=sys.stderr, flush=True)
+              f"rmsd_all={rmsd_all} rmsd_ca={rmsd_ca}\n"
+              f"    resolved={meta['resolved_config']}\n"
+              f"    kernels/fold={per_fold_kernels}", file=sys.stderr, flush=True)
         del runner
         torch.cuda.empty_cache()
 
