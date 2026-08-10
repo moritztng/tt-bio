@@ -86,6 +86,11 @@ include = ["tt_bio*"]
 "tt_bio.boltzgen.resources" = ["*.json"]
 "tt_bio.boltzgen.resources.config" = ["*.yaml"]
 "tt_bio.boltzgen.resources.splits" = ["*.txt"]
+# reblock_permute kernel sources: tt_bio/reblock_permute.py loads them by path
+# (KERNEL_DIR) as ttnn.generic_op kernel_source on the DEFAULT path, so a clean
+# install without them crashes on the first eligible permute. Attached to the
+# tt_bio package because tt_bio/kernels/ is not itself a package.
+"tt_bio" = ["kernels/reblock_permute/*.cpp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
