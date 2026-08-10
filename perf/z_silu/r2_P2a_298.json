@@ -1,0 +1,48 @@
+{
+ "arm": "P2a",
+ "shape": [
+  1,
+  30,
+  298,
+  256
+ ],
+ "n_out": 1024,
+ "k": 10,
+ "reps": 5,
+ "load": [
+  0.15,
+  0.67,
+  0.54
+ ],
+ "cfg": {
+  "math_approx_mode": true,
+  "fp32_dest_acc_en": true,
+  "packer_l1_acc": true,
+  "math_fidelity": "MathFidelity.HiFi4"
+ },
+ "core_grid": [
+  10,
+  11
+ ],
+ "fused_us": [
+  149.647,
+  153.479,
+  151.18,
+  150.208,
+  150.405
+ ],
+ "bare_us": [
+  75.769,
+  75.613,
+  75.835,
+  74.448,
+  74.588
+ ],
+ "fused_med_us": 150.405,
+ "bare_med_us": 75.613,
+ "silu_us": 74.792,
+ "padded_output_tiles": 9600,
+ "silu_us_per_tile": 0.00779083,
+ "fused_us_per_tile": 0.01566719,
+ "out_mean_abs": 6.380736827850342
+}

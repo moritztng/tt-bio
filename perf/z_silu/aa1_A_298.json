@@ -1,0 +1,70 @@
+{
+ "arm": "A",
+ "shape": [
+  1,
+  30,
+  298,
+  256
+ ],
+ "n_out": 1024,
+ "k": 10,
+ "reps": 5,
+ "load": [
+  0.26,
+  0.77,
+  0.57
+ ],
+ "cfg": {
+  "math_approx_mode": true,
+  "fp32_dest_acc_en": true,
+  "packer_l1_acc": true,
+  "math_fidelity": "MathFidelity.HiFi4"
+ },
+ "core_grid": [
+  10,
+  11
+ ],
+ "fused_us": [
+  249.676,
+  256.818,
+  252.315,
+  251.025,
+  253.392
+ ],
+ "bare_us": [
+  75.713,
+  79.054,
+  73.877,
+  73.049,
+  74.4
+ ],
+ "fused_med_us": 252.315,
+ "bare_med_us": 74.4,
+ "silu_us": 177.915,
+ "padded_output_tiles": 9600,
+ "silu_us_per_tile": 0.01853281,
+ "fused_us_per_tile": 0.02628281,
+ "roof_elems": 9830400,
+ "roof_bytes_bf16": 19660800,
+ "clone_us": [
+  35.415,
+  35.229,
+  35.197,
+  35.256,
+  35.237
+ ],
+ "clone_med_us": 35.237,
+ "clone_GBps_one_way": 557.97,
+ "silu_standalone_us": [
+  94.019,
+  92.966,
+  92.978,
+  92.668,
+  92.547
+ ],
+ "silu_standalone_med_us": 92.966,
+ "silu_standalone_Gelem_s_total": 105.7421,
+ "silu_standalone_Gelem_s_per_core_110": 0.9613,
+ "relu_med_us": 34.199,
+ "out_mean_abs": 6.380834102630615
+}
