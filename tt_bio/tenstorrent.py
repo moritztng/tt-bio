@@ -327,7 +327,7 @@ def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
                            grid: tuple[int, int], l1: int):
     gx, gy = grid
     cores = gx * gy
-    if batch < 2 or batch * m_tiles < cores:
+    if batch < 2 or batch * m_tiles < _BATCHED_MATMUL_SATURATION_BLOCKS:
         return None
     block_w = _batched_matmul_block_w(m_tiles, k_tiles, n_tiles)
     tile, acc_tile = 1024 * elem_bytes, 4096
