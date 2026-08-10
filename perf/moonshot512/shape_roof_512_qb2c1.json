@@ -297,8 +297,13 @@
         512,
         32
       ],
-      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2114048 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/",
-      "exec_tflop_per_fold": 144.036
+      "exec_tflop_per_fold": 144.036,
+      "tflops": 19.28,
+      "ms": 7.1304,
+      "q_chunk": 256,
+      "k_chunk": 256,
+      "source": "perf/moonshot512/sdpa_rate512_qb2c1.json \u2014 production _tri_att_sdpa_program_config; the census probe q_chunk=512 throws a CB clash",
+      "census_probe_error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2114048 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/"
     }
   },
   "flop_weighted_tflops_measured_classes": 35.56

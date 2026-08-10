@@ -1,0 +1,75 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "rows": [
+    {
+      "seq": 320,
+      "chunk": "production",
+      "ms": 2.9102,
+      "gflop_per_call": 33.55,
+      "tflops": 11.53
+    },
+    {
+      "seq": 320,
+      "chunk": "64",
+      "ms": 2.9161,
+      "gflop_per_call": 33.55,
+      "tflops": 11.51
+    },
+    {
+      "seq": 320,
+      "chunk": "128",
+      "ms": 2.9915,
+      "gflop_per_call": 33.55,
+      "tflops": 11.22
+    },
+    {
+      "seq": 320,
+      "chunk": "256",
+      "ms": 6.9542,
+      "gflop_per_call": 33.55,
+      "tflops": 4.83
+    },
+    {
+      "seq": 320,
+      "chunk": "512",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2114048 B which is beyond max L1 si"
+    },
+    {
+      "seq": 512,
+      "chunk": "production",
+      "ms": 7.1304,
+      "gflop_per_call": 137.44,
+      "tflops": 19.28
+    },
+    {
+      "seq": 512,
+      "chunk": "64",
+      "ms": 11.6283,
+      "gflop_per_call": 137.44,
+      "tflops": 11.82
+    },
+    {
+      "seq": 512,
+      "chunk": "128",
+      "ms": 8.5329,
+      "gflop_per_call": 137.44,
+      "tflops": 16.11
+    },
+    {
+      "seq": 512,
+      "chunk": "256",
+      "ms": 7.1507,
+      "gflop_per_call": 137.44,
+      "tflops": 19.22
+    },
+    {
+      "seq": 512,
+      "chunk": "512",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2114048 B which is beyond max L1 si"
+    }
+  ]
+}
