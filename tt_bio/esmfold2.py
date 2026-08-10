@@ -33,6 +33,7 @@ from tt_bio.tenstorrent import (
     Weights,
     WeightScope,
     _sdpa_program_config_for_lengths,
+    attn_value_matmul,
 )
 
 _ROW = lambda x: x.reshape(1, -1)
@@ -72,7 +73,7 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck):
     if attn_mask is not None:
         logits = ttnn.add(logits, ttnn.typecast(attn_mask, f32))
     attn = ttnn.softmax(logits, dim=-1)  # over keys
-    ctx = ttnn.matmul(attn, vf, compute_kernel_config=ck, dtype=f32)  # [B,H,L,Dp]
+    ctx = attn_value_matmul(attn, vf, ck, f32)  # [B,H,L,Dp]
     return ttnn.typecast(ctx, _DTYPE)
 
 
