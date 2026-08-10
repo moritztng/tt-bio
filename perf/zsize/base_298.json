@@ -1,0 +1,132 @@
+{
+ "host": "qb1",
+ "card": 0,
+ "ttnn": "0.67.4",
+ "fast": false,
+ "runs": [
+  {
+   "size": 298,
+   "arm": "on",
+   "fast": false,
+   "load_before": [
+    64.69,
+    65.01,
+    60.43
+   ],
+   "verdict": "ok",
+   "fold_s": 59.421,
+   "n_tokens": 298,
+   "plddt": 0.859489,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "wall_s": 59.4,
+   "load_after": [
+    64.3,
+    64.69,
+    60.6
+   ],
+   "decisions": {
+    "layer_norm|h=1.5|1x298x298x256": {
+     "L1": 494
+    },
+    "layer_norm|h=1.5|298x298x256": {
+     "L1": 30
+    },
+    "transpose|298x298x256": {
+     "L1": 1048
+    },
+    "transpose|298x298x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [],
+   "bmm_cfg_refused": [],
+   "l1_view": "<ttnn._ttnn.device.MemoryView object at 0x79fa606e9950>"
+  },
+  {
+   "size": 298,
+   "arm": "on",
+   "fast": false,
+   "load_before": [
+    65.28,
+    64.92,
+    60.75
+   ],
+   "verdict": "ok",
+   "fold_s": 44.935,
+   "n_tokens": 298,
+   "plddt": 0.859489,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "wall_s": 44.9,
+   "load_after": [
+    57.6,
+    62.57,
+    60.13
+   ],
+   "decisions": {
+    "layer_norm|h=1.5|1x298x298x256": {
+     "L1": 494
+    },
+    "layer_norm|h=1.5|298x298x256": {
+     "L1": 30
+    },
+    "transpose|298x298x256": {
+     "L1": 1048
+    },
+    "transpose|298x298x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [],
+   "bmm_cfg_refused": [],
+   "l1_view": "<ttnn._ttnn.device.MemoryView object at 0x79fa9e050c30>"
+  },
+  {
+   "size": 298,
+   "arm": "on",
+   "fast": false,
+   "load_before": [
+    62.84,
+    63.47,
+    60.48
+   ],
+   "verdict": "ok",
+   "fold_s": 49.341,
+   "n_tokens": 298,
+   "plddt": 0.859489,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "wall_s": 49.3,
+   "load_after": [
+    62.57,
+    63.11,
+    60.49
+   ],
+   "decisions": {
+    "layer_norm|h=1.5|1x298x298x256": {
+     "L1": 494
+    },
+    "layer_norm|h=1.5|298x298x256": {
+     "L1": 30
+    },
+    "transpose|298x298x256": {
+     "L1": 1048
+    },
+    "transpose|298x298x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [],
+   "bmm_cfg_refused": [],
+   "l1_view": "<ttnn._ttnn.device.MemoryView object at 0x79fa63ada310>"
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ]
+}
