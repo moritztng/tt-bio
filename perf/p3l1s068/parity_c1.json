@@ -1,0 +1,61 @@
+{
+ "card": "qb2 chip 2, ttnn 0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "shape": [
+  1,
+  298,
+  298,
+  256
+ ],
+ "pair_proj_production_today_dram": {
+  "torch_equal": false,
+  "max_abs": 0.5,
+  "rmsd": 0.021158410924323454,
+  "pcc": 0.9999991684
+ },
+ "pair_proj_l1_out_bw1": {
+  "torch_equal": true,
+  "max_abs": 0.0,
+  "rmsd": 0.0,
+  "pcc": 1.0
+ },
+ "pair_proj_l1_out_bw16cap": {
+  "torch_equal": false,
+  "max_abs": 0.5,
+  "rmsd": 0.021158410924323454,
+  "pcc": 0.9999991684
+ },
+ "layer_norm_l1_vs_dram": {
+  "torch_equal": true,
+  "max_abs": 0.0,
+  "rmsd": 0.0,
+  "pcc": 1.0
+ },
+ "narrow_proj_production_today": {
+  "torch_equal": true,
+  "max_abs": 0.0,
+  "rmsd": 0.0,
+  "pcc": 1.0
+ },
+ "narrow_proj_l1_norm_l1_out": {
+  "torch_equal": true,
+  "max_abs": 0.0,
+  "rmsd": 0.0,
+  "pcc": 1.0
+ },
+ "trimul_chain_production_today": {
+  "torch_equal": false,
+  "max_abs": 0.5,
+  "rmsd": 0.013572966060633514,
+  "pcc": 0.9999987694
+ },
+ "trimul_chain_l1_out_bw1": {
+  "torch_equal": false,
+  "max_abs": 0.375,
+  "rmsd": 0.005890524675278133,
+  "pcc": 0.9999997581
+ }
+}

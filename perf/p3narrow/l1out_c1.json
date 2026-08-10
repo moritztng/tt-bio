@@ -1,0 +1,59 @@
+{
+ "arm": "l1out",
+ "compute_grid": "13x10",
+ "core_grid_main": "11x10",
+ "l1_bank_bytes": 1461760,
+ "l1_free_empty_device": {
+  "largest_contig_per_bank": 1461760,
+  "total_free_per_bank": 1461760,
+  "bank_bytes": 1461760,
+  "banks": 130
+ },
+ "l1out_output_bytes": 48824320,
+ "l1out_max_rows_tiles": 2310,
+ "l1out_max_output_MB": 37.85,
+ "l1out": [
+  {
+   "scope": "empty_device_full_output",
+   "leg": "core_grid",
+   "us": 451.55,
+   "tflops": 27.68
+  },
+  {
+   "scope": "empty_device_full_output",
+   "leg": "1d_bw8_obh5",
+   "us": 276.47,
+   "tflops": 45.21
+  },
+  {
+   "scope": "empty_device_full_output",
+   "leg": "1d_bw8_obh2",
+   "us": 257.56,
+   "tflops": 48.53
+  },
+  {
+   "scope": "empty_device_full_output",
+   "leg": "1d_bw8_obh1",
+   "us": 312.37,
+   "tflops": 40.01
+  },
+  {
+   "scope": "empty_device_full_output",
+   "leg": "1d_bw1_obh5",
+   "us": 407.79,
+   "tflops": 30.65
+  },
+  {
+   "scope": "empty_device_full_output",
+   "leg": "1d_bw1_obh2",
+   "us": 409.05,
+   "tflops": 30.56
+  },
+  {
+   "scope": "empty_device_full_output",
+   "leg": "1d_bw1_obh1",
+   "us": 491.78,
+   "tflops": 25.42
+  }
+ ]
+}

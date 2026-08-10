@@ -1,0 +1,123 @@
+{
+ "arm": "sites",
+ "compute_grid": "13x10",
+ "core_grid_main": "11x10",
+ "l1_bank_bytes": 1461760,
+ "in0_buffer_type": "DRAM",
+ "in0_padded_shape": [
+  1,
+  298,
+  320,
+  256
+ ],
+ "sites": {
+  "pwa_z_bias": {
+   "n_cols": 1,
+   "nt": 1,
+   "legs": [
+    {
+     "leg": "baseline_core_grid",
+     "us": 437.19,
+     "cores": null,
+     "per_core_M": null,
+     "write_GBs": 14.0,
+     "read_GBs": 111.7,
+     "tflops": 3.57,
+     "torch_equal": true,
+     "rmsd": 0.0,
+     "max_abs": 0.0,
+     "pcc": 1.0,
+     "rel_rmsd_vs_std": 0.0
+    },
+    {
+     "leg": "bw1_obh5",
+     "us": 380.37,
+     "cores": 100,
+     "per_core_M": 30,
+     "write_GBs": 16.0,
+     "read_GBs": 128.4,
+     "tflops": 4.11,
+     "torch_equal": true,
+     "rmsd": 0.0,
+     "max_abs": 0.0,
+     "pcc": 0.9999999999999909,
+     "rel_rmsd_vs_std": 0.0
+    },
+    {
+     "leg": "bw8_obh5",
+     "us": 220.56,
+     "cores": 100,
+     "per_core_M": 30,
+     "write_GBs": 27.7,
+     "read_GBs": 221.4,
+     "tflops": 7.08,
+     "torch_equal": false,
+     "rmsd": 0.019152380609638992,
+     "max_abs": 0.25,
+     "pcc": 0.9999992152167475,
+     "rel_rmsd_vs_std": 0.0012868795386428969
+    }
+   ],
+   "core_grid_ladder": {
+    "2x2": 946.74,
+    "4x4": 459.52,
+    "8x5": 513.51,
+    "11x10": 456.5
+   }
+  },
+  "template_z_proj": {
+   "n_cols": 64,
+   "nt": 2,
+   "legs": [
+    {
+     "leg": "baseline_core_grid",
+     "us": 478.72,
+     "cores": null,
+     "per_core_M": null,
+     "write_GBs": 25.5,
+     "read_GBs": 102.0,
+     "tflops": 6.53,
+     "torch_equal": true,
+     "rmsd": 0.0,
+     "max_abs": 0.0,
+     "pcc": 1.0,
+     "rel_rmsd_vs_std": 0.0
+    },
+    {
+     "leg": "bw1_obh5",
+     "us": 385.2,
+     "cores": 100,
+     "per_core_M": 30,
+     "write_GBs": 31.7,
+     "read_GBs": 126.8,
+     "tflops": 8.11,
+     "torch_equal": true,
+     "rmsd": 0.0,
+     "max_abs": 0.0,
+     "pcc": 1.000000000000025,
+     "rel_rmsd_vs_std": 0.0
+    },
+    {
+     "leg": "bw8_obh5",
+     "us": 231.79,
+     "cores": 100,
+     "per_core_M": 30,
+     "write_GBs": 52.7,
+     "read_GBs": 210.6,
+     "tflops": 13.48,
+     "torch_equal": false,
+     "rmsd": 0.021358412457923498,
+     "max_abs": 0.5,
+     "pcc": 0.9999991626172219,
+     "rel_rmsd_vs_std": 0.0013306374429269993
+    }
+   ],
+   "core_grid_ladder": {
+    "2x2": 1109.59,
+    "4x4": 502.78,
+    "8x5": 537.58,
+    "11x10": 492.0
+   }
+  }
+ }
+}

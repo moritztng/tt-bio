@@ -1,0 +1,382 @@
+{
+ "arm": "wroof",
+ "compute_grid": "13x10",
+ "core_grid_main": "11x10",
+ "l1_bank_bytes": 1461760,
+ "wroof_best": {
+  "1": {
+   "leg": "1d_bw1_obh5",
+   "write_GBs": 51.9,
+   "us": 96.35,
+   "tflops": 13.28
+  },
+  "2": {
+   "leg": "1d_bw1_obh5",
+   "write_GBs": 78.1,
+   "us": 127.9,
+   "tflops": 20.0
+  },
+  "8": {
+   "leg": "minimal_matmul",
+   "write_GBs": 170.7,
+   "us": 234.25,
+   "tflops": 43.69
+  },
+  "16": {
+   "leg": "minimal_matmul",
+   "write_GBs": 173.1,
+   "us": 300.15,
+   "tflops": 44.33
+  },
+  "32": {
+   "leg": "minimal_matmul",
+   "write_GBs": 171.4,
+   "us": 303.3,
+   "tflops": 43.87
+  },
+  "64": {
+   "leg": "linear_core_grid",
+   "write_GBs": 194.2,
+   "us": 267.29,
+   "tflops": 49.71
+  },
+  "128": {
+   "leg": "linear_core_grid",
+   "write_GBs": 196.1,
+   "us": 264.63,
+   "tflops": 50.21
+  }
+ },
+ "wroof": [
+  {
+   "nt": 1,
+   "leg": "minimal_matmul",
+   "M": 78080,
+   "out_MB": 5.0,
+   "in0_MB": 39.98,
+   "us": 199.59,
+   "write_GBs": 25.0,
+   "tflops": 6.41
+  },
+  {
+   "nt": 1,
+   "leg": "linear_core_grid",
+   "M": 78080,
+   "out_MB": 5.0,
+   "in0_MB": 39.98,
+   "us": 139.0,
+   "write_GBs": 36.0,
+   "tflops": 9.2
+  },
+  {
+   "nt": 1,
+   "leg": "1d_bw1_obh5",
+   "M": 78080,
+   "out_MB": 5.0,
+   "in0_MB": 39.98,
+   "us": 96.35,
+   "write_GBs": 51.9,
+   "tflops": 13.28
+  },
+  {
+   "nt": 1,
+   "leg": "1d_bw1_obh2",
+   "M": 78080,
+   "out_MB": 5.0,
+   "in0_MB": 39.98,
+   "us": 203.48,
+   "write_GBs": 24.6,
+   "tflops": 6.29
+  },
+  {
+   "nt": 1,
+   "leg": "1d_bw8_obh5",
+   "M": 78080,
+   "out_MB": 5.0,
+   "in0_MB": 39.98,
+   "us": 132.59,
+   "write_GBs": 37.7,
+   "tflops": 9.65
+  },
+  {
+   "nt": 1,
+   "leg": "1d_bw8_obh2",
+   "M": 78080,
+   "out_MB": 5.0,
+   "in0_MB": 39.98,
+   "us": 106.16,
+   "write_GBs": 47.1,
+   "tflops": 12.05
+  },
+  {
+   "nt": 2,
+   "leg": "minimal_matmul",
+   "M": 78080,
+   "out_MB": 9.99,
+   "in0_MB": 39.98,
+   "us": 200.24,
+   "write_GBs": 49.9,
+   "tflops": 12.78
+  },
+  {
+   "nt": 2,
+   "leg": "linear_core_grid",
+   "M": 78080,
+   "out_MB": 9.99,
+   "in0_MB": 39.98,
+   "us": 173.18,
+   "write_GBs": 57.7,
+   "tflops": 14.77
+  },
+  {
+   "nt": 2,
+   "leg": "1d_bw1_obh5",
+   "M": 78080,
+   "out_MB": 9.99,
+   "in0_MB": 39.98,
+   "us": 127.9,
+   "write_GBs": 78.1,
+   "tflops": 20.0
+  },
+  {
+   "nt": 2,
+   "leg": "1d_bw1_obh2",
+   "M": 78080,
+   "out_MB": 9.99,
+   "in0_MB": 39.98,
+   "us": 269.6,
+   "write_GBs": 37.1,
+   "tflops": 9.49
+  },
+  {
+   "nt": 2,
+   "leg": "1d_bw8_obh5",
+   "M": 78080,
+   "out_MB": 9.99,
+   "in0_MB": 39.98,
+   "us": 147.08,
+   "write_GBs": 68.0,
+   "tflops": 17.4
+  },
+  {
+   "nt": 2,
+   "leg": "1d_bw8_obh2",
+   "M": 78080,
+   "out_MB": 9.99,
+   "in0_MB": 39.98,
+   "us": 172.51,
+   "write_GBs": 57.9,
+   "tflops": 14.83
+  },
+  {
+   "nt": 8,
+   "leg": "minimal_matmul",
+   "M": 78080,
+   "out_MB": 39.98,
+   "in0_MB": 39.98,
+   "us": 234.25,
+   "write_GBs": 170.7,
+   "tflops": 43.69
+  },
+  {
+   "nt": 8,
+   "leg": "linear_core_grid",
+   "M": 78080,
+   "out_MB": 39.98,
+   "in0_MB": 39.98,
+   "us": 627.4,
+   "write_GBs": 63.7,
+   "tflops": 16.31
+  },
+  {
+   "nt": 8,
+   "leg": "1d_bw1_obh5",
+   "M": 78080,
+   "out_MB": 39.98,
+   "in0_MB": 39.98,
+   "us": 351.66,
+   "write_GBs": 113.7,
+   "tflops": 29.1
+  },
+  {
+   "nt": 8,
+   "leg": "1d_bw1_obh2",
+   "M": 78080,
+   "out_MB": 39.98,
+   "in0_MB": 39.98,
+   "us": 447.37,
+   "write_GBs": 89.4,
+   "tflops": 22.88
+  },
+  {
+   "nt": 8,
+   "leg": "1d_bw8_obh5",
+   "M": 78080,
+   "out_MB": 39.98,
+   "in0_MB": 39.98,
+   "us": 320.56,
+   "write_GBs": 124.7,
+   "tflops": 31.93
+  },
+  {
+   "nt": 8,
+   "leg": "1d_bw8_obh2",
+   "M": 78080,
+   "out_MB": 39.98,
+   "in0_MB": 39.98,
+   "us": 373.95,
+   "write_GBs": 106.9,
+   "tflops": 27.37
+  },
+  {
+   "nt": 16,
+   "leg": "minimal_matmul",
+   "M": 50752,
+   "out_MB": 51.97,
+   "in0_MB": 25.99,
+   "us": 300.15,
+   "write_GBs": 173.1,
+   "tflops": 44.33
+  },
+  {
+   "nt": 16,
+   "leg": "linear_core_grid",
+   "M": 50752,
+   "out_MB": 51.97,
+   "in0_MB": 25.99,
+   "us": 434.7,
+   "write_GBs": 119.6,
+   "tflops": 30.61
+  },
+  {
+   "nt": 16,
+   "leg": "1d_bw1_obh5",
+   "M": 50752,
+   "out_MB": 51.97,
+   "in0_MB": 25.99,
+   "us": 422.9,
+   "write_GBs": 122.9,
+   "tflops": 31.46
+  },
+  {
+   "nt": 16,
+   "leg": "1d_bw1_obh2",
+   "M": 50752,
+   "out_MB": 51.97,
+   "in0_MB": 25.99,
+   "us": 492.62,
+   "write_GBs": 105.5,
+   "tflops": 27.01
+  },
+  {
+   "nt": 16,
+   "leg": "1d_bw8_obh5",
+   "M": 50752,
+   "out_MB": 51.97,
+   "in0_MB": 25.99,
+   "us": 364.11,
+   "write_GBs": 142.7,
+   "tflops": 36.54
+  },
+  {
+   "nt": 16,
+   "leg": "1d_bw8_obh2",
+   "M": 50752,
+   "out_MB": 51.97,
+   "in0_MB": 25.99,
+   "us": 462.24,
+   "write_GBs": 112.4,
+   "tflops": 28.78
+  },
+  {
+   "nt": 32,
+   "leg": "minimal_matmul",
+   "M": 25376,
+   "out_MB": 51.97,
+   "in0_MB": 12.99,
+   "us": 303.3,
+   "write_GBs": 171.4,
+   "tflops": 43.87
+  },
+  {
+   "nt": 32,
+   "leg": "linear_core_grid",
+   "M": 25376,
+   "out_MB": 51.97,
+   "in0_MB": 12.99,
+   "us": 435.47,
+   "write_GBs": 119.3,
+   "tflops": 30.55
+  },
+  {
+   "nt": 32,
+   "leg": "1d_bw1_obh5",
+   "M": 25376,
+   "out_MB": 51.97,
+   "in0_MB": 12.99,
+   "us": 455.46,
+   "write_GBs": 114.1,
+   "tflops": 29.21
+  },
+  {
+   "nt": 32,
+   "leg": "1d_bw1_obh2",
+   "M": 25376,
+   "out_MB": 51.97,
+   "in0_MB": 12.99,
+   "us": 452.95,
+   "write_GBs": 114.7,
+   "tflops": 29.37
+  },
+  {
+   "nt": 64,
+   "leg": "minimal_matmul",
+   "M": 12672,
+   "out_MB": 51.9,
+   "in0_MB": 6.49,
+   "us": 307.34,
+   "write_GBs": 168.9,
+   "tflops": 43.23
+  },
+  {
+   "nt": 64,
+   "leg": "linear_core_grid",
+   "M": 12672,
+   "out_MB": 51.9,
+   "in0_MB": 6.49,
+   "us": 267.29,
+   "write_GBs": 194.2,
+   "tflops": 49.71
+  },
+  {
+   "nt": 64,
+   "leg": "1d_bw1_obh2",
+   "M": 12672,
+   "out_MB": 51.9,
+   "in0_MB": 6.49,
+   "us": 440.02,
+   "write_GBs": 118.0,
+   "tflops": 30.2
+  },
+  {
+   "nt": 128,
+   "leg": "minimal_matmul",
+   "M": 6336,
+   "out_MB": 51.9,
+   "in0_MB": 3.24,
+   "us": 292.41,
+   "write_GBs": 177.5,
+   "tflops": 45.44
+  },
+  {
+   "nt": 128,
+   "leg": "linear_core_grid",
+   "M": 6336,
+   "out_MB": 51.9,
+   "in0_MB": 3.24,
+   "us": 264.63,
+   "write_GBs": 196.1,
+   "tflops": 50.21
+  }
+ ]
+}

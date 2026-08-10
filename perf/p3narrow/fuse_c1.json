@@ -1,0 +1,42 @@
+{
+ "arm": "fuse",
+ "compute_grid": "13x10",
+ "core_grid_main": "11x10",
+ "l1_bank_bytes": 1461760,
+ "fuse": {
+  "legs": {
+   "separate_3": 1441.5,
+   "fused_only": 1052.58,
+   "fused_plus_split": 2036.95,
+   "qkv_nt24": {
+    "us": 881.69,
+    "write_GBs": 166.1,
+    "tflops": 42.53
+   },
+   "g_nt8": {
+    "us": 375.69,
+    "write_GBs": 130.0,
+    "tflops": 33.27
+   },
+   "bias_nt1": {
+    "us": 246.92,
+    "write_GBs": 24.7,
+    "tflops": 6.33
+   }
+  },
+  "parity_vs_separate": {
+   "qkv": {
+    "torch_equal": true,
+    "max_abs": 0.0
+   },
+   "g": {
+    "torch_equal": true,
+    "max_abs": 0.0
+   },
+   "bias": {
+    "torch_equal": true,
+    "max_abs": 0.0
+   }
+  }
+ }
+}

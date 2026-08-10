@@ -1,0 +1,106 @@
+{
+ "arm": "bias_r1",
+ "l1_out": false,
+ "l1_bw": 1,
+ "bias_l1_norm": true,
+ "pair_bw": 16,
+ "narrow_bw": 1,
+ "instrument": "block",
+ "cold_s": 35.753,
+ "fold_s": [
+  29.366,
+  29.172,
+  29.284
+ ],
+ "median_fold_s": 29.284,
+ "min_fold_s": 29.172,
+ "n_tokens": 298,
+ "plddt": 0.859489,
+ "grid": [
+  13,
+  10
+ ],
+ "instrumented_fold_s": 31.528,
+ "instrumented_plddt": 0.859489,
+ "wall": {
+  "block:PairformerLayer": {
+   "calls": 604,
+   "wall_ms": 19416.88,
+   "median_us": 35601.32,
+   "us_head": [
+    9468.95,
+    9045.81,
+    8933.51,
+    8970.81,
+    8939.93,
+    8926.46
+   ]
+  },
+  "stage:Pairformer": {
+   "calls": 11,
+   "wall_ms": 17284.212,
+   "median_us": 1709921.29,
+   "us_head": [
+    1755621.42,
+    1655225.94,
+    1704457.78,
+    1735739.86,
+    1739815.2,
+    1731795.53
+   ]
+  },
+  "body:TriangleAttention": {
+   "calls": 1208,
+   "wall_ms": 7453.509,
+   "median_us": 6434.7,
+   "us_head": [
+    1826.29,
+    2076.73,
+    1819.34,
+    2049.2,
+    1828.38,
+    2047.24
+   ]
+  },
+  "body:TriangleMultiplication": {
+   "calls": 1208,
+   "wall_ms": 7008.713,
+   "median_us": 6432.76,
+   "us_head": [
+    1647.17,
+    1607.51,
+    1604.37,
+    1593.45,
+    1591.77,
+    1597.91
+   ]
+  },
+  "body:AttentionPairBias": {
+   "calls": 5284,
+   "wall_ms": 3119.714,
+   "median_us": 514.24,
+   "us_head": [
+    1560.75,
+    1418.36,
+    1389.96,
+    1333.93,
+    1342.16,
+    1337.63
+   ]
+  },
+  "body:PairWeightedAveraging": {
+   "calls": 30,
+   "wall_ms": 262.402,
+   "median_us": 9358.47,
+   "us_head": [
+    6331.17,
+    8214.53,
+    11321.71,
+    5393.17,
+    5255.91,
+    5269.55
+   ]
+  }
+ },
+ "l1_out_refused": []
+}
