@@ -69,6 +69,10 @@ _DIFFUSION_FP32_DEVICE = False
 _FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
+# The trimul channel move's hand-written kernel is the fifth knob in this class and its constant
+# lives with the code it gates, `reblock_permute.REBLOCK_PERMUTE`, because that module owns the
+# shape window `eligible()` measures and importing this one back would be circular. Bit-exact.
+# See `_channel_move` below and state/protenix-trunk--y-permute-flip.md.
 # KILLED AT FOLD LEVEL, kept only as the A/B toggle. ttnn.experimental.minimal_matmul for the
 # two trimul output projections is 1.117x per trimul and 1.0384x on the Pairformer block, but it
 # is not bit-exact, and at 298 aa it moves the folded structure by 4.05 A all-atom RMSD against a
