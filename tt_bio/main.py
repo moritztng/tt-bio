@@ -1137,12 +1137,18 @@ def _public_join_url(bind_host: str, port: int) -> str:
 
 def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: int,
                 debug: bool, log: bool, results_path: Path | None = None,
-                struct_dir: Path | None = None, model: str | None = None) -> int:
+                struct_dir: Path | None = None, model: str | None = None,
+                local_procs: list | None = None) -> int:
     """Stream events from a controller and render progress; return failed count.
 
     On every done event we fetch that job's output files from the controller
     and write them under struct_dir, and merge its result row into
     results.json. Interrupted runs preserve every protein finished so far.
+
+    ``local_procs`` are worker processes this CLI spawned itself. We own them, so
+    their exit code is an exact signal rather than a heuristic, and with all of
+    them gone no job will ever be leased -- polling on would be polling forever.
+    Callers that stream a run served by workers they did not spawn pass nothing.
     """
     from queue import Queue as ThreadQueue
 
@@ -1167,6 +1173,7 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
     cap_fh = open(cap_path, "a") if cap_path else None
     after = 0
     failed = 0
+    all_dead_seen = False
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
     rows_by_id: dict[str, dict] = {}
     if results_path is not None:
@@ -1218,6 +1225,24 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
             if snapshot.get("status") in ("ok", "failed", "canceled"):
                 failed = int(snapshot.get("failed") or 0)
                 break
+            # A worker that cannot open its chip exits (worker.run_worker_loop), and
+            # nothing respawns it on this path. With every local worker gone the run
+            # stays "running" forever and this loop polls forever -- the predict CLI
+            # hung for 7 h that way, and every OpenFold3 leg of both release gates
+            # hung with it. Require two consecutive all-dead observations so a worker
+            # exiting in the same tick the run finishes reads as a finish, not a
+            # failure; that costs 0.5 s and needs no timeout.
+            if local_procs and not any(proc.is_alive() for proc in local_procs):
+                if all_dead_seen:
+                    codes = ", ".join(f"{proc.name} exit {proc.exitcode}"
+                                      for proc in local_procs)
+                    raise RuntimeError(
+                        f"every local worker exited before the run finished ({codes}); "
+                        "no job can be served. The usual cause is a device-open "
+                        "failure: the card is leased by another process or wedged.")
+                all_dead_seen = True
+            else:
+                all_dead_seen = False
             time.sleep(0.5)
     finally:
         display.stop()
@@ -1246,7 +1271,7 @@ def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
     path — keep it the one place so the paths can't drift apart. Returns the
     number of failed jobs.
     """
-    with _scheduler_session(listen, workers, debug) as (client, public_url):
+    with _scheduler_session(listen, workers, debug) as (client, public_url, procs):
         if public_url:
             click.echo(f"Workers may join: tt-bio worker --connect {public_url}")
         # Locally-spawned workers are on this filesystem by construction, but a --listen
@@ -1256,7 +1281,7 @@ def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
             run_id = client.create_run(run_payload)["run_id"]
             failed = _stream_run(client, run_id, total=total, n_workers=len(workers),
                                  debug=debug, log=log, results_path=results_path,
-                                 struct_dir=struct_dir, model=model)
+                                 struct_dir=struct_dir, model=model, local_procs=procs)
             _persist_run_results(client, run_id, results_path)
         finally:
             # a run that dies must not leave its scaffolding in the user's results
@@ -1382,7 +1407,8 @@ def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
 @contextmanager
 def _scheduler_session(listen: str | None, workers: list, debug: bool):
     """Start an in-process scheduler, spawn local worker subprocesses against
-    it, and yield (client, public_join_url) for the duration of the run.
+    it, and yield (client, public_join_url, worker_procs) for the duration of
+    the run.
 
     The scheduler keeps its SQLite state in a private temp directory and
     discards it on exit, so a run never leaves bookkeeping artifacts in the
@@ -1399,7 +1425,7 @@ def _scheduler_session(listen: str | None, workers: list, debug: bool):
     public_url = _public_join_url(listen_host, server.port) if listen else None
     procs = _spawn_worker_processes(url, workers, debug)
     try:
-        yield ControllerClient(url), public_url
+        yield ControllerClient(url), public_url, procs
     finally:
         _stop_worker_processes(procs)
         server.shutdown()

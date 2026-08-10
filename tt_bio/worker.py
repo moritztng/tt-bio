@@ -27,8 +27,19 @@ import torch
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 
 
+_REAL_STDERR_FD: int | None = None
+
+
 def _silence_subprocess_output() -> None:
-    """Send stdout/stderr to /dev/null so kernel/library noise stays hidden."""
+    """Send stdout/stderr to /dev/null so kernel/library noise stays hidden.
+
+    Keeps one dup of the real stderr. A worker that dies before it has a run to
+    attach an event to has no other way to say why, and writing that fatal to
+    /dev/null is what left a device-open failure invisible for hours: the CLI
+    hung, the log was 0 bytes, and the traceback had already been discarded.
+    """
+    global _REAL_STDERR_FD
+    _REAL_STDERR_FD = os.dup(2)
     devnull = open(os.devnull, "w")
     sys.stdout = devnull
     sys.stderr = devnull
@@ -36,6 +47,15 @@ def _silence_subprocess_output() -> None:
     os.dup2(dn_fd, 1)
     os.dup2(dn_fd, 2)
     os.close(dn_fd)
+
+
+def _report_fatal(message: str) -> None:
+    """Write a worker-fatal to the launcher's real stderr, silenced or not."""
+    fd = _REAL_STDERR_FD if _REAL_STDERR_FD is not None else 2
+    try:
+        os.write(fd, message.encode("utf-8", "replace"))
+    except Exception:
+        pass
 
 
 def _apply_tt_environment(worker_info: dict[str, Any]) -> None:
@@ -1190,6 +1210,41 @@ def _hash_run_config(cfg: dict[str, Any]) -> str:
     return hashlib.sha256(blob).hexdigest()
 
 
+def _install_orphan_guard(dispatcher_pid: int) -> None:
+    """Die with the dispatcher, whatever this worker is in the middle of.
+
+    ``run_worker_loop``'s orphan check only runs between leases, so a worker
+    orphaned DURING a job never reaches it and keeps its chip open and its card
+    lease flocked forever. One was found holding /dev/tenstorrent/0 and card 3's
+    lease for 6 h at 100% CPU, deferring every later job pinned to that card.
+    PR_SET_PDEATHSIG is delivered by the kernel the moment the dispatcher dies,
+    from inside any call.
+
+    SIGTERM, not SIGKILL: ``_install_signal_handlers`` turns it into a
+    KeyboardInterrupt that unwinds through close_device and leaves the chip
+    clean. A worker too deep in ttnn to take the signal is caught 60 s later by
+    the heartbeat thread in ``run_worker_loop``.
+
+    The kernel delivers on the parent THREAD's exit, not the parent process's,
+    so this is only correct while workers are started from the dispatcher's main
+    thread. ``main._spawn_worker_processes`` and ``_supervise_worker_processes``
+    both are; a future caller spawning from a worker thread would see the signal
+    fire early.
+    """
+    if not dispatcher_pid:
+        return
+    try:
+        import ctypes
+
+        ctypes.CDLL(None).prctl(1, int(signal.SIGTERM))  # 1 = PR_SET_PDEATHSIG
+    except Exception:
+        pass
+    # The dispatcher can die between our spawn and the prctl above, in which case
+    # the signal was already missed.
+    if os.getppid() != dispatcher_pid:
+        os._exit(70)
+
+
 def _install_signal_handlers() -> None:
     def _raise(signum, _frame):
         raise KeyboardInterrupt(f"worker received signal {signum}")
@@ -1224,6 +1279,7 @@ def run_worker_loop(
     # worker pinned /dev/tenstorrent/3 for 2h, silently blocking later runs on
     # that card). Remote `worker --connect` processes leave the var unset.
     _dispatcher_pid = int(os.environ.get("TT_BIO_PARENT_PID") or 0)
+    _install_orphan_guard(_dispatcher_pid)
 
     client = ControllerClient(controller_url)
     worker_id = worker_info["worker_id"]
@@ -1243,7 +1299,18 @@ def run_worker_loop(
     _stop_beat = threading.Event()
 
     def _heartbeat_loop():
+        orphaned_since = None
         while not _stop_beat.wait(8.0):
+            if _dispatcher_pid and os.getppid() != _dispatcher_pid:
+                # PDEATHSIG (see _install_orphan_guard) had 60 s to unwind this
+                # cleanly and did not, so we are stuck inside a call that does not
+                # take signals. Leave anyway: an orphan has no consumer for its
+                # results, and its card lease blocks every later job on this chip.
+                orphaned_since = orphaned_since or time.monotonic()
+                if time.monotonic() - orphaned_since > 60:
+                    os._exit(70)
+                continue
+            orphaned_since = None
             try:
                 client.heartbeat(worker_info)
             except Exception:
@@ -1267,7 +1334,8 @@ def run_worker_loop(
             from tt_bio.tenstorrent import get_device as _get_device
             _get_device()
         except Exception:
-            traceback.print_exc()
+            _report_fatal(f"tt-bio worker {worker_info['label']}: device open failed\n"
+                          f"{traceback.format_exc()}")
             # The chip didn't come up with working local dispatch (e.g. a raced
             # "remote-only" bring-up). Do NOT stay online serving jobs we'd fail:
             # exit so the pool supervisor respawns us. The respawn reopens under the
