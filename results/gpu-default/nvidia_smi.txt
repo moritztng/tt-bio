@@ -1,0 +1,2 @@
+name, power.limit [W], power.draw [W]
+NVIDIA H200, 700.00 W, 135.45 W

@@ -1,0 +1,278 @@
+{
+  "wheel": "0.67.4",
+  "host": "qb1",
+  "card": 0,
+  "meta": {
+    "hardware": "blackhole",
+    "card_type": "p150a",
+    "aiclk_mhz": "1350",
+    "load_s": 3.66,
+    "n_msa": 35
+  },
+  "compute_grid_main": [
+    13,
+    10
+  ],
+  "aa": [
+    {
+      "round": 0,
+      "a_s": 29.0792,
+      "b_s": 29.0258,
+      "apparent_delta_ms": 53.3,
+      "eligible_calls": 0,
+      "load": [
+        3.98,
+        2.38,
+        2.43
+      ]
+    },
+    {
+      "round": 1,
+      "a_s": 29.1244,
+      "b_s": 29.0275,
+      "apparent_delta_ms": 96.9,
+      "eligible_calls": 0,
+      "load": [
+        3.93,
+        2.55,
+        2.48
+      ]
+    },
+    {
+      "round": 2,
+      "a_s": 29.0678,
+      "b_s": 29.2453,
+      "apparent_delta_ms": -177.5,
+      "eligible_calls": 0,
+      "load": [
+        4.66,
+        2.93,
+        2.61
+      ]
+    }
+  ],
+  "rounds": [
+    {
+      "round": 0,
+      "base_s": 29.3044,
+      "wire_s": 28.9289,
+      "delta_ms": 375.4,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 4352,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        4.23,
+        3.05,
+        2.67
+      ]
+    },
+    {
+      "round": 1,
+      "base_s": 29.3461,
+      "wire_s": 28.8895,
+      "delta_ms": 456.5,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 4352,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        5.51,
+        3.6,
+        2.88
+      ]
+    },
+    {
+      "round": 2,
+      "base_s": 29.0836,
+      "wire_s": 28.8447,
+      "delta_ms": 238.9,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 4352,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        3.44,
+        3.34,
+        2.83
+      ]
+    },
+    {
+      "round": 3,
+      "base_s": 29.2396,
+      "wire_s": 28.9303,
+      "delta_ms": 309.2,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 4352,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        3.2,
+        3.31,
+        2.85
+      ]
+    },
+    {
+      "round": 4,
+      "base_s": 29.3543,
+      "wire_s": 28.943,
+      "delta_ms": 411.4,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 4352,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        3.2,
+        3.32,
+        2.88
+      ]
+    },
+    {
+      "round": 5,
+      "base_s": 29.1555,
+      "wire_s": 28.9373,
+      "delta_ms": 218.2,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 4352,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        4.68,
+        3.74,
+        3.05
+      ]
+    },
+    {
+      "round": 6,
+      "base_s": 29.2518,
+      "wire_s": 28.9795,
+      "delta_ms": 272.4,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 4352,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        4.22,
+        3.68,
+        3.07
+      ]
+    },
+    {
+      "round": 7,
+      "base_s": 29.2324,
+      "wire_s": 28.8858,
+      "delta_ms": 346.7,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 4352,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        4.78,
+        3.88,
+        3.17
+      ]
+    }
+  ],
+  "transpose_memory_config_before": "BufferType.L1",
+  "cold": {
+    "base_s": 35.77,
+    "wire_s": 29.526,
+    "n_tokens": 298,
+    "plddt": 0.8594889044761658,
+    "eligible_calls_in_one_wire_fold": 4352,
+    "load": [
+      1.95,
+      1.86,
+      2.29
+    ]
+  },
+  "transpose_memory_config_after": "BufferType.L1",
+  "aa_summary": {
+    "a_median_s": 29.0792,
+    "b_median_s": 29.0275,
+    "apparent_delta_ms_on_medians": 51.7,
+    "max_abs_apparent_delta_ms": 177.5,
+    "a_spread_ms": 56.6,
+    "b_spread_ms": 219.5,
+    "all_folds_spread_ms": 219.5,
+    "folds": [
+      29.0792,
+      29.1244,
+      29.0678,
+      29.0258,
+      29.0275,
+      29.2453
+    ]
+  },
+  "rejects": {},
+  "summary": {
+    "base_median_s": 29.2518,
+    "wire_median_s": 28.9303,
+    "delta_ms_median": 321.5,
+    "delta_ms_paired_mean": 328.6,
+    "delta_ms_min": 218.2,
+    "delta_ms_max": 456.5,
+    "ratio": 1.01111,
+    "base_spread_ms": 270.7,
+    "wire_spread_ms": 134.8,
+    "base_folds": [
+      29.3044,
+      29.3461,
+      29.0836,
+      29.2396,
+      29.3543,
+      29.1555,
+      29.2518,
+      29.2324
+    ],
+    "wire_folds": [
+      28.9289,
+      28.8895,
+      28.8447,
+      28.9303,
+      28.943,
+      28.9373,
+      28.9795,
+      28.8858
+    ]
+  },
+  "parity": {
+    "n_coord_sets": 24,
+    "max_abs_delta_A_all_pairs": 0.0,
+    "torch_equal_first_vs_last": true,
+    "shape": [
+      1,
+      2398,
+      3
+    ]
+  },
+  "block_wall": {
+    "shape": [
+      1,
+      298,
+      298,
+      256
+    ],
+    "base_ms": [
+      6.4388,
+      6.4274,
+      6.4557
+    ],
+    "wire_ms": [
+      6.2193,
+      6.2254,
+      6.2187
+    ],
+    "base_median_ms": 6.4388,
+    "wire_median_ms": 6.2193,
+    "delta_ms_per_call": 0.2194,
+    "ratio": 1.0353,
+    "eligible_calls_per_block": 4.0,
+    "load": [
+      4.78,
+      3.88,
+      3.17
+    ],
+    "projected_ms_per_fold_x524x2": 229.9
+  }
+}

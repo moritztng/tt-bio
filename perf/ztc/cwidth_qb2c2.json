@@ -1,0 +1,447 @@
+{
+ "host": "qb2",
+ "card": "physical 2",
+ "ttnn": "0.68.0",
+ "note": "qb2 / ttnn 0.68.0 -- RATIO inputs, owe a qb1/0.67.4 re-take",
+ "core_grid_main": "11x10",
+ "cores_main": 110,
+ "prod_chunk_default": 16,
+ "why": "pass-1 parity/isolation was taken at c=64 (template), not c=256 (pair)",
+ "clash_grid": [
+  {
+   "c": 64,
+   "h": 16,
+   "x_shape": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "M": 8192,
+   "N": 256,
+   "Mt": 256,
+   "nt": 8,
+   "out_MB": 4.194,
+   "ok": true,
+   "ms": 0.0635
+  },
+  {
+   "c": 64,
+   "h": 20,
+   "x_shape": [
+    1,
+    20,
+    512,
+    64
+   ],
+   "M": 10240,
+   "N": 256,
+   "Mt": 320,
+   "nt": 8,
+   "out_MB": 5.243,
+   "ok": true,
+   "ms": 0.0655
+  },
+  {
+   "c": 64,
+   "h": 24,
+   "x_shape": [
+    1,
+    24,
+    512,
+    64
+   ],
+   "M": 12288,
+   "N": 256,
+   "Mt": 384,
+   "nt": 8,
+   "out_MB": 6.291,
+   "ok": true,
+   "ms": 0.0827
+  },
+  {
+   "c": 64,
+   "h": 28,
+   "x_shape": [
+    1,
+    28,
+    512,
+    64
+   ],
+   "M": 14336,
+   "N": 256,
+   "Mt": 448,
+   "nt": 8,
+   "out_MB": 7.34,
+   "ok": true,
+   "ms": 0.0985
+  },
+  {
+   "c": 64,
+   "h": 32,
+   "x_shape": [
+    1,
+    32,
+    512,
+    64
+   ],
+   "M": 16384,
+   "N": 256,
+   "Mt": 512,
+   "nt": 8,
+   "out_MB": 8.389,
+   "ok": true,
+   "ms": 0.0992
+  },
+  {
+   "c": 128,
+   "h": 16,
+   "x_shape": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "M": 8192,
+   "N": 512,
+   "Mt": 256,
+   "nt": 16,
+   "out_MB": 8.389,
+   "ok": true,
+   "ms": 0.121
+  },
+  {
+   "c": 128,
+   "h": 20,
+   "x_shape": [
+    1,
+    20,
+    512,
+    128
+   ],
+   "M": 10240,
+   "N": 512,
+   "Mt": 320,
+   "nt": 16,
+   "out_MB": 10.486,
+   "ok": true,
+   "ms": 0.1219
+  },
+  {
+   "c": 128,
+   "h": 24,
+   "x_shape": [
+    1,
+    24,
+    512,
+    128
+   ],
+   "M": 12288,
+   "N": 512,
+   "Mt": 384,
+   "nt": 16,
+   "out_MB": 12.583,
+   "ok": true,
+   "ms": 0.1579
+  },
+  {
+   "c": 128,
+   "h": 28,
+   "x_shape": [
+    1,
+    28,
+    512,
+    128
+   ],
+   "M": 14336,
+   "N": 512,
+   "Mt": 448,
+   "nt": 16,
+   "out_MB": 14.68,
+   "ok": true,
+   "ms": 0.1953
+  },
+  {
+   "c": 128,
+   "h": 32,
+   "x_shape": [
+    1,
+    32,
+    512,
+    128
+   ],
+   "M": 16384,
+   "N": 512,
+   "Mt": 512,
+   "nt": 16,
+   "out_MB": 16.777,
+   "ok": true,
+   "ms": 0.1974
+  },
+  {
+   "c": 256,
+   "h": 16,
+   "x_shape": [
+    1,
+    16,
+    512,
+    256
+   ],
+   "M": 8192,
+   "N": 1024,
+   "Mt": 256,
+   "nt": 32,
+   "out_MB": 16.777,
+   "ok": true,
+   "ms": 0.2102
+  },
+  {
+   "c": 256,
+   "h": 20,
+   "x_shape": [
+    1,
+    20,
+    512,
+    256
+   ],
+   "M": 10240,
+   "N": 1024,
+   "Mt": 320,
+   "nt": 32,
+   "out_MB": 20.972,
+   "ok": true,
+   "ms": 0.2551
+  },
+  {
+   "c": 256,
+   "h": 24,
+   "x_shape": [
+    1,
+    24,
+    512,
+    256
+   ],
+   "M": 12288,
+   "N": 1024,
+   "Mt": 384,
+   "nt": 32,
+   "out_MB": 25.166,
+   "ok": true,
+   "ms": 0.3389
+  },
+  {
+   "c": 256,
+   "h": 28,
+   "x_shape": [
+    1,
+    28,
+    512,
+    256
+   ],
+   "M": 14336,
+   "N": 1024,
+   "Mt": 448,
+   "nt": 32,
+   "out_MB": 29.36,
+   "ok": false,
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 29 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=7)]. L1 buffer allocated at 1236992 and s"
+  },
+  {
+   "c": 256,
+   "h": 32,
+   "x_shape": [
+    1,
+    32,
+    512,
+    256
+   ],
+   "M": 16384,
+   "N": 1024,
+   "Mt": 512,
+   "nt": 32,
+   "out_MB": 33.554,
+   "ok": false,
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 1189888 and s"
+  }
+ ],
+ "transition_parity": {
+  "c64": {
+   "c": 64,
+   "shape": [
+    1,
+    512,
+    512,
+    64
+   ],
+   "h16_ms": 2577.13,
+   "h20_ms": 1788.94,
+   "h24_ms": 1518.61,
+   "h28_ms": 1483.01,
+   "h32_ms": 773.95,
+   "h16": {
+    "n_chunks": 32,
+    "eff_h": 16,
+    "last_chunk": 16,
+    "ragged": false,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "h20": {
+    "n_chunks": 26,
+    "eff_h": 20,
+    "last_chunk": 12,
+    "ragged": true,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "h24": {
+    "n_chunks": 22,
+    "eff_h": 24,
+    "last_chunk": 8,
+    "ragged": true,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "h28": {
+    "n_chunks": 19,
+    "eff_h": 27,
+    "last_chunk": 26,
+    "ragged": true,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "h32": {
+    "n_chunks": 16,
+    "eff_h": 32,
+    "last_chunk": 32,
+    "ragged": false,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "heights_that_allocate": [
+    16,
+    20,
+    24,
+    28,
+    32
+   ]
+  },
+  "c128": {
+   "c": 128,
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "h16_ms": 983.77,
+   "h20_ms": 1893.1,
+   "h24_ms": 2225.14,
+   "h28_ms": 1534.39,
+   "h32_ms": 816.35,
+   "h16": {
+    "n_chunks": 32,
+    "eff_h": 16,
+    "last_chunk": 16,
+    "ragged": false,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "h20": {
+    "n_chunks": 26,
+    "eff_h": 20,
+    "last_chunk": 12,
+    "ragged": true,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "h24": {
+    "n_chunks": 22,
+    "eff_h": 24,
+    "last_chunk": 8,
+    "ragged": true,
+    "torch_equal_vs_h16": false,
+    "max_abs": 0.00390625,
+    "rel_rmsd": 0.0003558265161700547
+   },
+   "h28": {
+    "n_chunks": 19,
+    "eff_h": 27,
+    "last_chunk": 26,
+    "ragged": true,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "h32": {
+    "n_chunks": 16,
+    "eff_h": 32,
+    "last_chunk": 32,
+    "ragged": false,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "heights_that_allocate": [
+    16,
+    20,
+    24,
+    28,
+    32
+   ]
+  },
+  "c256": {
+   "c": 256,
+   "shape": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "h16_ms": 1033.81,
+   "h20_ms": 2367.17,
+   "h24_ms": 33.72,
+   "h28_THROW": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 869 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 991232 and s",
+   "h32_THROW": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 1189888 and s",
+   "h16": {
+    "n_chunks": 32,
+    "eff_h": 16,
+    "last_chunk": 16,
+    "ragged": false,
+    "torch_equal_vs_h16": true,
+    "max_abs": 0.0,
+    "rel_rmsd": 0.0
+   },
+   "h20": {
+    "n_chunks": 26,
+    "eff_h": 20,
+    "last_chunk": 12,
+    "ragged": true,
+    "torch_equal_vs_h16": false,
+    "max_abs": 0.015625,
+    "rel_rmsd": 0.0027214903384447098
+   },
+   "h24": {
+    "n_chunks": 22,
+    "eff_h": 24,
+    "last_chunk": 8,
+    "ragged": true,
+    "torch_equal_vs_h16": false,
+    "max_abs": 0.015625,
+    "rel_rmsd": 0.0027322559617459774
+   },
+   "heights_that_allocate": [
+    16,
+    20,
+    24
+   ]
+  }
+ }
+}

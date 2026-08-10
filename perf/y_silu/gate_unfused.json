@@ -1,0 +1,30 @@
+{
+  "legs": [
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "envelope reference incomplete: ref_fp32, ref_bf16 missing under protenix-v2/prot/msa-server_200step_5sample_10cycle_bf16 \u2014 run --regen-refs",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "envelope reference incomplete: ref_fp32, ref_bf16 missing under protenix-v2/ubq/msa-server_200step_5sample_10cycle_bf16 \u2014 run --regen-refs",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "envelope reference incomplete: ref_fp32, ref_bf16 missing under protenix-v2/hsa/msa-server_200step_5sample_10cycle_bf16 \u2014 run --regen-refs",
+      "wall": 0
+    }
+  ],
+  "tally": {
+    "BLOCKED-REF-REGEN-NEEDED": 3
+  },
+  "scored": 0,
+  "total_wall_s": 0.0007027649990050122,
+  "workers": [
+    "pc:0"
+  ]
+}

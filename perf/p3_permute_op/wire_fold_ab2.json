@@ -1,0 +1,115 @@
+{
+  "rounds": [
+    {
+      "round": 0,
+      "base_s": 30.2002,
+      "wire_s": 30.0274,
+      "delta_ms": 172.8,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 8704,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658
+    },
+    {
+      "round": 1,
+      "base_s": 30.1927,
+      "wire_s": 29.9825,
+      "delta_ms": 210.1,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 8704,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658
+    },
+    {
+      "round": 2,
+      "base_s": 30.1649,
+      "wire_s": 29.979,
+      "delta_ms": 185.9,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 8704,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658
+    },
+    {
+      "round": 3,
+      "base_s": 30.1327,
+      "wire_s": 29.9462,
+      "delta_ms": 186.5,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 8704,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658
+    }
+  ],
+  "meta": {
+    "hardware": "blackhole",
+    "card_type": null,
+    "aiclk_mhz": null,
+    "load_s": 1.23,
+    "n_msa": 35
+  },
+  "transpose_memory_config_before": "BufferType.L1",
+  "cold": {
+    "base_s": 31.452,
+    "wire_s": 29.968,
+    "n_tokens": 298,
+    "plddt": 0.8594889044761658,
+    "eligible_calls_in_one_wire_fold": 8704
+  },
+  "transpose_memory_config_after": "BufferType.L1",
+  "rejects": {},
+  "summary": {
+    "base_median_s": 30.1927,
+    "wire_median_s": 29.9825,
+    "delta_ms_median": 210.2,
+    "ratio": 1.00701,
+    "base_spread_ms": 67.5,
+    "wire_spread_ms": 81.2,
+    "base_folds": [
+      30.2002,
+      30.1927,
+      30.1649,
+      30.1327
+    ],
+    "wire_folds": [
+      30.0274,
+      29.9825,
+      29.979,
+      29.9462
+    ]
+  },
+  "parity": {
+    "n_coord_sets": 10,
+    "max_abs_delta_A_all_pairs": 0.0,
+    "torch_equal_first_vs_last": true,
+    "shape": [
+      1,
+      2398,
+      3
+    ]
+  },
+  "block_wall": {
+    "shape": [
+      1,
+      298,
+      298,
+      256
+    ],
+    "ending": false,
+    "base_ms": [
+      8.275,
+      8.2708,
+      8.2759
+    ],
+    "wire_ms": [
+      8.1011,
+      8.115,
+      8.1133
+    ],
+    "base_median_ms": 8.275,
+    "wire_median_ms": 8.1133,
+    "delta_ms_per_call": 0.1617,
+    "ratio": 1.0199,
+    "calls_per_fold_x524x2": null
+  }
+}

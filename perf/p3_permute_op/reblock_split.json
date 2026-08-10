@@ -1,0 +1,25 @@
+{
+  "N": 320,
+  "rows": [
+    {
+      "buf": "l1",
+      "generic_device_only_us": 91.31,
+      "python_descriptor_build_us": 159.71,
+      "generic_rebuilt_each_call_us": 241.09,
+      "ttnn_permute_us": 111.76,
+      "ratio_device_only": 1.224,
+      "us_per_tile_per_engaged_core": 2.853,
+      "torch_equal": true
+    },
+    {
+      "buf": "dram",
+      "generic_device_only_us": 97.37,
+      "python_descriptor_build_us": 154.16,
+      "generic_rebuilt_each_call_us": 247.75,
+      "ttnn_permute_us": 165.93,
+      "ratio_device_only": 1.704,
+      "us_per_tile_per_engaged_core": 3.043,
+      "torch_equal": true
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+ "host": "qb1",
+ "card": 0,
+ "ttnn": "0.67.4",
+ "size": 298,
+ "grid": [
+  13,
+  10
+ ],
+ "l1_idle": {
+  "tag": "idle_after_device_open",
+  "error": "TypeError: 'int' object is not callable"
+ },
+ "fold_s": 54.478,
+ "wall_s": 54.5,
+ "plddt": 0.859489,
+ "n_tokens": 298,
+ "cif_sha256": {
+  "cdk2x2_298.cif": "8139d61b6c90f893"
+ },
+ "l1_after_fold": {
+  "tag": "after_fold",
+  "error": "TypeError: 'int' object is not callable"
+ },
+ "l1_layer_norm_population": {
+  "_l1_layer_norm|h=1.5|1x298x298x256": {
+   "L1": 494
+  },
+  "_l1_layer_norm|h=1.5|298x298x256": {
+   "L1": 30
+  }
+ },
+ "l1_layer_norm_total": 524,
+ "l1_layer_norm_l1_branch": 524,
+ "l1_layer_norm_dram_branch": 0,
+ "ttnn_layer_norm_population": {
+  "default": 30284,
+  "total": 39020,
+  "L1": 7528,
+  "DRAM": 1208
+ },
+ "l1_out_refused": [],
+ "bmm_cfg_refused": []
+}

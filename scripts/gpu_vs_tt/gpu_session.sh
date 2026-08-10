@@ -22,11 +22,11 @@ cd "$(dirname "$0")"
 RESULTS=/root/bench-results
 mkdir -p "$RESULTS"
 
-TARGETS=${TARGETS:-"prot300 prot117"}
-RUNGS=${RUNGS:-L0-eager-fp32,L2-bf16-fusion-cache}
+TARGETS=${TARGETS:-"prot300 prot512"}
+RUNGS=${RUNGS:-L0-eager-fp32,L2-bf16-fusion-cache,LD-shipped-default}
 REPEAT=${REPEAT:-3}
-MODELS=${MODELS:-"protenix-v2 opendde"}
-BUDGET_S=${BUDGET_S:-2400}
+MODELS=${MODELS:-"protenix-v2"}
+BUDGET_S=${BUDGET_S:-3600}
 START=$(date +%s)
 
 echo "== session start: $(date -u +%FT%TZ) targets=$TARGETS rungs=$RUNGS =="
@@ -57,6 +57,7 @@ for MODEL in $MODELS; do
     case "$TARGET" in
       prot117) LABEL="prot.yaml sequence (117 aa)" ;;
       prot300) LABEL="CDK2 / PDB 1HCL (298 aa)" ;;
+      prot512) LABEL="CDK2 tandem dimer, cut to 512 aa (TT size512 fixture)" ;;
       *) echo "unknown TARGET=$TARGET" >&2; continue ;;
     esac
     ELAPSED=$(( $(date +%s) - START ))

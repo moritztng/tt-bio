@@ -1,0 +1,134 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "rows": [
+    {
+      "N": 320,
+      "buf": "l1",
+      "wired_wall_us": 97.04,
+      "ttnn_permute_us": 115.52,
+      "ratio_wall": 1.19,
+      "host_per_call_cached_us": 4.61,
+      "host_per_call_cold_us": 151.29,
+      "torch_equal": true
+    },
+    {
+      "N": 320,
+      "buf": "dram",
+      "wired_wall_us": 105.09,
+      "ttnn_permute_us": 168.33,
+      "ratio_wall": 1.602,
+      "host_per_call_cached_us": 4.62,
+      "host_per_call_cold_us": 148.08,
+      "torch_equal": true
+    },
+    {
+      "N": 256,
+      "buf": "l1",
+      "wired_wall_us": 94.92,
+      "ttnn_permute_us": 80.36,
+      "ratio_wall": 0.847,
+      "host_per_call_cached_us": 4.57,
+      "host_per_call_cold_us": 100.62,
+      "torch_equal": true
+    },
+    {
+      "N": 256,
+      "buf": "dram",
+      "wired_wall_us": 98.86,
+      "ttnn_permute_us": 121.35,
+      "ratio_wall": 1.228,
+      "host_per_call_cached_us": 4.6,
+      "host_per_call_cold_us": 100.62,
+      "torch_equal": true
+    }
+  ],
+  "checks": {
+    "alternating_N_through_one_cache": [
+      {
+        "N": 320,
+        "torch_equal": true
+      },
+      {
+        "N": 256,
+        "torch_equal": true
+      },
+      {
+        "N": 256,
+        "torch_equal": true
+      },
+      {
+        "N": 320,
+        "torch_equal": true
+      },
+      {
+        "N": 320,
+        "torch_equal": true
+      },
+      {
+        "N": 256,
+        "torch_equal": true
+      },
+      {
+        "N": 256,
+        "torch_equal": true
+      },
+      {
+        "N": 320,
+        "torch_equal": true
+      },
+      {
+        "N": 320,
+        "torch_equal": true
+      },
+      {
+        "N": 256,
+        "torch_equal": true
+      },
+      {
+        "N": 256,
+        "torch_equal": true
+      },
+      {
+        "N": 320,
+        "torch_equal": true
+      }
+    ],
+    "alternating_N_all_equal": true,
+    "cache_entries": 2,
+    "addr_write_mode": "in_place",
+    "alternating_buffers_one_descriptor": [
+      {
+        "buf": "A",
+        "src_addr": 1411072,
+        "torch_equal": true
+      },
+      {
+        "buf": "B",
+        "src_addr": 1349632,
+        "torch_equal": true
+      },
+      {
+        "buf": "A",
+        "src_addr": 1411072,
+        "torch_equal": true
+      },
+      {
+        "buf": "B",
+        "src_addr": 1349632,
+        "torch_equal": true
+      }
+    ],
+    "alternating_buffers_all_equal": true
+  },
+  "decompose_0321": {
+    "N": 320,
+    "buf": "l1",
+    "single_permute_us": 96.79,
+    "reblock_plus_transpose_us": 111.36,
+    "ratio": 0.869,
+    "torch_equal": true
+  }
+}

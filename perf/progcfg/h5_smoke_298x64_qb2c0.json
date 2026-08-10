@@ -1,0 +1,439 @@
+{
+  "host": "qb2",
+  "chip": 0,
+  "ttnn": "0.68.0",
+  "device_grid": [
+    11,
+    10
+  ],
+  "compute_grid_main": [
+    11,
+    10
+  ],
+  "max_worker_l1_unreserved": 1532416,
+  "l1_bank_bytes": 1461760,
+  "flags": {
+    "_PAIR_PROJ_BW": 16,
+    "_PAIR_PROJ_L1_BW": 16,
+    "_NARROW_PROJ_BW": 1,
+    "_PAIR_PROJ_L1_OUT": true
+  },
+  "note": "qb2 at 0.68.0: every figure here is a RATIO owing a qb1/0.67.4 re-take (charter 4.8)",
+  "shapes": {
+    "298:64": {
+      "N": 298,
+      "c": 64,
+      "m_tiles": 2980,
+      "k_tiles": 2,
+      "n_tiles": 2,
+      "per_core_M": 30,
+      "cores_engaged": 100,
+      "grid_cores": 110,
+      "l1_bank_bytes": 1461760,
+      "cells": {
+        "C1D_tuned_dram": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 2,
+            "out_subblock_h": 1,
+            "out_subblock_w": 2,
+            "out_block_h": 5,
+            "out_block_w": 2,
+            "per_core_M": 30,
+            "per_core_N": 2,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "DRAM",
+          "proj_ms": 0.10552150024523144,
+          "region_ms": 0.2990650000356254,
+          "region_consume_ms": 0.3830144996754825,
+          "torch_equal_vs_C1D": true
+        },
+        "C1L_tuned_l1": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 2,
+            "out_subblock_h": 1,
+            "out_subblock_w": 2,
+            "out_block_h": 5,
+            "out_block_w": 2,
+            "per_core_M": 30,
+            "per_core_N": 2,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "L1",
+          "proj_ms": 0.07093400017765816,
+          "region_ms": 0.22845700004836544,
+          "region_consume_ms": 0.29407549982352066,
+          "torch_equal_vs_C1D": true,
+          "max_abs_vs_C1D": 0.0
+        },
+        "C0D_untuned_dram": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "DRAM",
+          "proj_ms": 0.10088199996971525,
+          "region_ms": 0.28155550035080523,
+          "region_consume_ms": 0.36588100010703783,
+          "torch_equal_vs_C1D": false,
+          "max_abs_vs_C1D": 0.25
+        },
+        "C0L_untuned_l1": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "L1",
+          "proj_ms": 0.07293799990293337,
+          "region_ms": 0.2301499998793588,
+          "region_consume_ms": 0.29686599964406923,
+          "torch_equal_vs_C1D": false,
+          "max_abs_vs_C1D": 0.25
+        }
+      },
+      "sweep": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 145408,
+          "proj_ms": 0.2607854999041592
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 155648,
+          "proj_ms": 0.1772020000316843
+        },
+        "bw1_obh2_obw1": {
+          "need_bytes": 155648,
+          "proj_ms": 0.19649949990707682
+        },
+        "bw1_obh2_obw2": {
+          "need_bytes": 172032,
+          "proj_ms": 0.13791949959340855
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 165888,
+          "proj_ms": 0.1820160000534088
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 188416,
+          "proj_ms": 0.1233010002579249
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 186368,
+          "proj_ms": 0.1621669998712605
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 221184,
+          "proj_ms": 0.11187400014023297
+        },
+        "bw1_obh6_obw1": {
+          "need_bytes": 196608,
+          "proj_ms": 0.14887600036672666
+        },
+        "bw1_obh6_obw2": {
+          "need_bytes": 237568,
+          "proj_ms": 0.10941899972749525
+        },
+        "bw1_obh10_obw1": {
+          "need_bytes": 237568,
+          "proj_ms": 0.1415319998159248
+        },
+        "bw1_obh10_obw2": {
+          "need_bytes": 303104,
+          "proj_ms": 0.10332700003345963
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 288768,
+          "proj_ms": 0.1450684999326768
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 385024,
+          "proj_ms": 0.1114229999075178
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 153600,
+          "proj_ms": 0.21839700002601603
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 167936,
+          "proj_ms": 0.13781999996353989
+        },
+        "bw2_obh2_obw1": {
+          "need_bytes": 167936,
+          "proj_ms": 0.165078000009089
+        },
+        "bw2_obh2_obw2": {
+          "need_bytes": 188416,
+          "proj_ms": 0.12086149990864214
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 182272,
+          "proj_ms": 0.1663654998083075
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 208896,
+          "proj_ms": 0.11307149998174282
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 210944,
+          "proj_ms": 0.14929200006008614
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 249856,
+          "proj_ms": 0.10586200005491264
+        },
+        "bw2_obh6_obw1": {
+          "need_bytes": 225280,
+          "proj_ms": 0.14470799987975624
+        },
+        "bw2_obh6_obw2": {
+          "need_bytes": 270336,
+          "proj_ms": 0.10453449976921547
+        },
+        "bw2_obh10_obw1": {
+          "need_bytes": 282624,
+          "proj_ms": 0.13938749998487765
+        },
+        "bw2_obh10_obw2": {
+          "need_bytes": 352256,
+          "proj_ms": 0.10381299989603576
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 354304,
+          "proj_ms": 0.14454299980570795
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 454656,
+          "proj_ms": 0.10751050012913765
+        }
+      },
+      "tensor_bytes": 12206080,
+      "proj_flops": 781189120,
+      "arithmetic_intensity": 32.0,
+      "region_bytes_6T": 73236480,
+      "clone_dram_ms": 0.07299299977603368,
+      "clone_dram_GBps": 334.4452218007818,
+      "clone_l1_ms": 0.04118049992030137,
+      "clone_l1_GBps": 592.808733435632,
+      "cfg_tuned_dram": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 2,
+        "out_subblock_h": 1,
+        "out_subblock_w": 2,
+        "out_block_h": 5,
+        "out_block_w": 2,
+        "per_core_M": 30,
+        "per_core_N": 2,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_tuned_l1": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 2,
+        "out_subblock_h": 1,
+        "out_subblock_w": 2,
+        "out_block_h": 5,
+        "out_block_w": 2,
+        "per_core_M": 30,
+        "per_core_N": 2,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_fields_identical": true,
+      "l1_out_alternatives": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 268288,
+          "pct_of_bank": 18.353765323992995,
+          "proj_ms": 0.2261025001644157,
+          "region_ms": 0.5346954999367881,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 278528,
+          "pct_of_bank": 19.05429071803853,
+          "proj_ms": 0.13186799969844287,
+          "region_ms": 0.3479155002423795,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh2_obw1": {
+          "need_bytes": 278528,
+          "pct_of_bank": 19.05429071803853,
+          "proj_ms": 0.13059049979347037,
+          "region_ms": 0.3455360001680674,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh2_obw2": {
+          "need_bytes": 294912,
+          "pct_of_bank": 20.175131348511382,
+          "proj_ms": 0.08624349993624492,
+          "region_ms": 0.2578844996605767,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 288768,
+          "pct_of_bank": 19.754816112084065,
+          "proj_ms": 0.1188324999930046,
+          "region_ms": 0.3195350000169128,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 311296,
+          "pct_of_bank": 21.295971978984237,
+          "proj_ms": 0.07210099965959671,
+          "region_ms": 0.22948400010136538,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 309248,
+          "pct_of_bank": 21.15586690017513,
+          "proj_ms": 0.11813150013040286,
+          "region_ms": 0.3227514998798142,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 344064,
+          "pct_of_bank": 23.53765323992995,
+          "proj_ms": 0.07043799996608868,
+          "region_ms": 0.22536100004799664,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh6_obw1": {
+          "need_bytes": 319488,
+          "pct_of_bank": 21.856392294220665,
+          "proj_ms": 0.11604149995037005,
+          "region_ms": 0.3164385002492054,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh6_obw2": {
+          "need_bytes": 360448,
+          "pct_of_bank": 24.6584938704028,
+          "proj_ms": 0.06737149988111923,
+          "region_ms": 0.22025550015314366,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh10_obw1": {
+          "need_bytes": 360448,
+          "pct_of_bank": 24.6584938704028,
+          "proj_ms": 0.12168300008852384,
+          "region_ms": 0.3256165000493638,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh10_obw2": {
+          "need_bytes": 425984,
+          "pct_of_bank": 29.14185639229422,
+          "proj_ms": 0.0693605002197728,
+          "region_ms": 0.22249050016398542,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 411648,
+          "pct_of_bank": 28.161120840630474,
+          "proj_ms": 0.12418799997249153,
+          "region_ms": 0.3337980001560936,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 507904,
+          "pct_of_bank": 34.74605954465849,
+          "proj_ms": 0.07908950010460103,
+          "region_ms": 0.24397250035690377,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 276480,
+          "pct_of_bank": 18.914185639229423,
+          "proj_ms": 0.13849100014340365,
+          "region_ms": 0.3598540001803485,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 290816,
+          "pct_of_bank": 19.89492119089317,
+          "proj_ms": 0.0922304998312029,
+          "region_ms": 0.26796399970407947,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh2_obw1": {
+          "need_bytes": 290816,
+          "pct_of_bank": 19.89492119089317,
+          "proj_ms": 0.12388750019454164,
+          "region_ms": 0.32999049972204375,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh2_obw2": {
+          "need_bytes": 311296,
+          "pct_of_bank": 21.295971978984237,
+          "proj_ms": 0.07024750038908678,
+          "region_ms": 0.2230009999948379,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 305152,
+          "pct_of_bank": 20.875656742556917,
+          "proj_ms": 0.12322100019446225,
+          "region_ms": 0.33279050012424705,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 331776,
+          "pct_of_bank": 22.697022767075307,
+          "proj_ms": 0.07222599970191368,
+          "region_ms": 0.23094650032362551,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 333824,
+          "pct_of_bank": 22.837127845884414,
+          "proj_ms": 0.12056099967594491,
+          "region_ms": 0.32856750021892367,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 372736,
+          "pct_of_bank": 25.499124343257442,
+          "proj_ms": 0.07106399971235078,
+          "region_ms": 0.2242284999738331,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh6_obw1": {
+          "need_bytes": 348160,
+          "pct_of_bank": 23.817863397548162,
+          "proj_ms": 0.11931300014111912,
+          "region_ms": 0.3188434998264711,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh6_obw2": {
+          "need_bytes": 393216,
+          "pct_of_bank": 26.90017513134851,
+          "proj_ms": 0.06841899994469713,
+          "region_ms": 0.2239380000901292,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh10_obw1": {
+          "need_bytes": 405504,
+          "pct_of_bank": 27.740805604203153,
+          "proj_ms": 0.11725400008799625,
+          "region_ms": 0.3228515001865162,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh10_obw2": {
+          "need_bytes": 475136,
+          "pct_of_bank": 32.50437828371278,
+          "proj_ms": 0.06890499980727327,
+          "region_ms": 0.22459949968833826,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 477184,
+          "pct_of_bank": 32.64448336252189,
+          "proj_ms": 0.1179360001515306,
+          "region_ms": 0.3232169997318124,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 577536,
+          "pct_of_bank": 39.50963222416813,
+          "proj_ms": 0.07275250027305447,
+          "region_ms": 0.23204400031318073,
+          "torch_equal_vs_C1D": true
+        }
+      }
+    }
+  }
+}
