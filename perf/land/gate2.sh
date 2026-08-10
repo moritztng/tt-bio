@@ -13,7 +13,7 @@ for a in L0 L4; do
   cd "$WT/arms/$a" || continue
   PYTHONPATH=$PWD OPENDDE_DOCKQ_PYTHON=$HOME/w6_dockq_py TT_BIO_LEASE_HOLDER=worker:perfwar-qb1-rebaseline-and-land \
     timeout 21600 "$PY" scripts/full_parity_gate.py --legacy-rdx --seeds 0,1,2,3,4 \
-      --workers qb1:3 --workdir "/home/ttuser/land_fpg2_${a}" --out "$j" \
+      --workers tt-quietbox:3 --workdir "/home/ttuser/land_fpg2_${a}" --out "$j" \
       >"$WT/perf/land/out/fpg2_${a}.log" 2>&1
   echo "=== $(date -u +%H:%M:%S) full_parity_gate $a rc=$?"
   grep -E "^# Tally|GATE (PASS|FAIL)" "$WT/perf/land/out/fpg2_${a}.log" | tail -3

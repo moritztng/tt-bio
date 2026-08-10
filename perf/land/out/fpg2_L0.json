@@ -1,0 +1,251 @@
+{
+  "legs": [
+    {
+      "leg": "esmc-300m",
+      "verdict": "PASS",
+      "detail": "min per-res PCC=0.99918",
+      "wall": 12.058572608999384,
+      "committed": "PASS",
+      "report": "esmc-300m.json"
+    },
+    {
+      "leg": "esmc-600m",
+      "verdict": "PASS",
+      "detail": "min per-res PCC=0.99938",
+      "wall": 15.30570310800249,
+      "committed": "PASS",
+      "report": "esmc-600m.json"
+    },
+    {
+      "leg": "saprot-35m",
+      "verdict": "PASS",
+      "detail": "X_emb=0.99914",
+      "wall": 8.043679217000317,
+      "committed": null,
+      "report": "saprot-35m.json"
+    },
+    {
+      "leg": "saprot-650m",
+      "verdict": "PASS",
+      "detail": "X_emb=0.99964",
+      "wall": 16.328329617994314,
+      "committed": null,
+      "report": "saprot-650m.json"
+    },
+    {
+      "leg": "esmfold2-trpcage",
+      "verdict": "PASS",
+      "detail": "4 proteins scored (4 within floor)",
+      "wall": 1672.7931483680004,
+      "committed": "PASS",
+      "report": "esmfold2-trpcage.json"
+    },
+    {
+      "leg": "boltz2-trpcage-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08517006500187563,
+      "committed": "PASS",
+      "report": "boltz2-trpcage-nomsa.json"
+    },
+    {
+      "leg": "boltz2-prot-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08077969599980861,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-prot-nomsa.json"
+    },
+    {
+      "leg": "boltz2-hsa-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08262620599998627,
+      "committed": "PASS",
+      "report": "boltz2-hsa-nomsa.json"
+    },
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08647108399600256,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.09330175400100416,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08628774699900532,
+      "committed": "NO-DATA",
+      "report": "protenix-hsa-msa.json"
+    },
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08602433200576343,
+      "committed": "PASS",
+      "report": "openfold3-ubq-msa.json"
+    },
+    {
+      "leg": "openfold3-prot-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08542471100372495,
+      "committed": "PASS",
+      "report": "openfold3-prot-msa.json"
+    },
+    {
+      "leg": "openfold3-7xi5-tmpl",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08112211000116076,
+      "committed": "PASS",
+      "report": "openfold3-7xi5-tmpl.json"
+    },
+    {
+      "leg": "openfold3-7xi5-notmpl",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.09930574700410943,
+      "committed": "GAP-evidenced",
+      "report": "openfold3-7xi5-notmpl.json"
+    },
+    {
+      "leg": "openfold3-8hel-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.10244645700004185,
+      "committed": "PASS",
+      "report": "openfold3-8hel-msa.json"
+    },
+    {
+      "leg": "openfold3-8hel-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08838514400122222,
+      "committed": "PASS",
+      "report": "openfold3-8hel-nomsa.json"
+    },
+    {
+      "leg": "openfold3-9bk6-complex-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08077868600230431,
+      "committed": "PASS",
+      "report": "openfold3-9bk6-complex-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.1002500019967556,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08372513899666956,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08351763200334972,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.09893829199427273,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-nomsa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08677051999984542,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-tryp-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.08259591700334568,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-tryp-msa.json"
+    },
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/trpcage_no_msa.cif (CIFs gitignored \u2014 force-add or regen)",
+      "wall": 0
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 255; seed1: predict exited 255; seed2: predict exited 255; seed3: predict exited 255; seed4: predict exited 255",
+      "wall": 0.07928580999578116,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "ERROR",
+      "detail": "predict timed out after 1800s (flaky MSA server? set RELEASE_GATE_MSA_DIR to a dir with the cached a3m \u2014 see RELEASING.md)",
+      "wall": 1800.0652606879958,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    },
+    {
+      "leg": "boltzgen",
+      "verdict": "ERROR",
+      "detail": "design run exited 1 after 128s",
+      "wall": 127.69447411799774,
+      "committed": "PASS",
+      "report": "boltzgen.json"
+    },
+    {
+      "leg": "capacity",
+      "verdict": "ERROR",
+      "detail": "predict timed out after 1800s",
+      "wall": 2555.4315226850013,
+      "committed": null,
+      "report": "capacity.json"
+    },
+    {
+      "leg": "rfd3-featurizer",
+      "verdict": "PASS",
+      "detail": "43/43 f keys bit-exact",
+      "wall": 0.13716937299614074,
+      "committed": "PASS",
+      "report": "rfd3-featurizer.json"
+    }
+  ],
+  "tally": {
+    "PASS": 6,
+    "ERROR": 23,
+    "BLOCKED-REF-REGEN-NEEDED": 1
+  },
+  "total_wall_s": 6209.623697999006,
+  "workers": [
+    "qb1:3"
+  ]
+}
