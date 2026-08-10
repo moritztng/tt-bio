@@ -1,0 +1,150 @@
+{
+ "card": {
+  "compute_with_storage_grid_size": "13x10",
+  "core_grid_main": "11x10",
+  "l1_unreserved_per_core_B": null
+ },
+ "dram": {
+  "runs": [
+   {
+    "MB": 8.0,
+    "read_GBs": 275.4,
+    "copy_GBs": 304.7,
+    "write_unary_GBs": 202.5
+   },
+   {
+    "MB": 16.0,
+    "read_GBs": 329.3,
+    "copy_GBs": 367.9,
+    "write_unary_GBs": 233.5
+   },
+   {
+    "MB": 32.0,
+    "read_GBs": 364.0,
+    "copy_GBs": 383.8,
+    "write_unary_GBs": 251.8
+   },
+   {
+    "MB": 64.0,
+    "read_GBs": 388.3,
+    "copy_GBs": 402.7,
+    "write_unary_GBs": 263.5
+   },
+   {
+    "MB": 128.0,
+    "read_GBs": 400.4,
+    "copy_GBs": 410.0,
+    "write_unary_GBs": 269.0
+   }
+  ],
+  "read_roof_GBs": 400.4,
+  "copy_roof_GBs": 410.0,
+  "write_unary_roof_GBs": 269.0
+ },
+ "matmul_write_roof": {
+  "runs": {
+   "102400x32x256_default": {
+    "us": 336.0,
+    "out_MB": 52.43,
+    "write_GBs": 156.1
+   },
+   "102400x32x256_core_grid": {
+    "us": 341.6,
+    "out_MB": 52.43,
+    "write_GBs": 153.5
+   },
+   "65536x32x512_default": {
+    "us": 429.7,
+    "out_MB": 67.11,
+    "write_GBs": 156.2
+   },
+   "65536x32x512_core_grid": {
+    "us": 428.5,
+    "out_MB": 67.11,
+    "write_GBs": 156.6
+   },
+   "32768x64x1024_default": {
+    "us": 434.6,
+    "out_MB": 67.11,
+    "write_GBs": 154.4
+   },
+   "32768x64x1024_core_grid": {
+    "us": 450.6,
+    "out_MB": 67.11,
+    "write_GBs": 148.9
+   }
+  },
+  "roof_GBs": 156.6
+ },
+ "square_compute": {
+  "runs": {
+   "2048_oDRAM_default": {
+    "ms": 0.199,
+    "tflops": 86.35
+   },
+   "2048_oDRAM_cg_11x10": {
+    "ms": 0.1845,
+    "tflops": 93.1
+   },
+   "2048_oDRAM_cg_13x10": {
+    "ms": 0.1723,
+    "tflops": 99.71
+   },
+   "2048_oL1_default": {
+    "ms": 0.2547,
+    "tflops": 67.46
+   },
+   "2048_oL1_cg_11x10": {
+    "ms": 0.1674,
+    "tflops": 102.64
+   },
+   "2048_oL1_cg_13x10": {
+    "ms": 0.1557,
+    "tflops": 110.32
+   },
+   "4096_oDRAM_default": {
+    "ms": 1.0726,
+    "tflops": 128.13
+   },
+   "4096_oDRAM_cg_11x10": {
+    "ms": 1.1378,
+    "tflops": 120.79
+   },
+   "4096_oDRAM_cg_13x10": {
+    "ms": 0.9843,
+    "tflops": 139.63
+   },
+   "4096_oL1_default": {
+    "ms": 24.8858,
+    "tflops": 5.52
+   },
+   "4096_oL1_cg_13x10": {
+    "ms": 0.8966,
+    "tflops": 153.29
+   },
+   "6144_oDRAM_default": {
+    "ms": 3.4286,
+    "tflops": 135.29
+   },
+   "6144_oDRAM_cg_11x10": {
+    "ms": 3.8218,
+    "tflops": 121.37
+   },
+   "6144_oDRAM_cg_13x10": {
+    "ms": 3.1834,
+    "tflops": 145.71
+   },
+   "6144_oL1_default": {
+    "ms": 84.7646,
+    "tflops": 5.47
+   }
+  },
+  "square_dram_default_TFLOPs": 135.29,
+  "best_TFLOPs": 153.29,
+  "method_gain_pct": 13.3
+ },
+ "machine_balance_FLOP_per_byte": {
+  "vs_read_roof_square_default": 337.9,
+  "vs_read_roof_best": 382.8
+ }
+}

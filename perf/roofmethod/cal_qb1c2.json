@@ -1,0 +1,17 @@
+{
+ "unary_full_grid": {
+  "times_us": {
+   "1": null,
+   "4": null,
+   "8": 150.607,
+   "16": 72.658,
+   "32": 37.951,
+   "110": 21.121
+  },
+  "engaged": 110,
+  "max_grid_cores": 110,
+  "floor_limited": false,
+  "launch_floor_us": 6.4,
+  "note": ""
+ }
+}
