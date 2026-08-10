@@ -1450,6 +1450,11 @@ def _persist_run_results(client: ControllerClient, run_id: str, results_path: Pa
 @click.group()
 def cli():
     """Run biomolecular prediction, design, and embedding on Tenstorrent."""
+    # One place covers predict, design, embed and gen: if a gate driver or a parent
+    # CLI spawned us, die with it instead of polling or holding a card after it is gone.
+    from tt_bio.device_lease import arm_orphan_guard
+
+    arm_orphan_guard()
 
 
 def _run_boltzgen_cli(prog: str, args) -> None:

@@ -789,6 +789,12 @@ def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Wo
     process). Local workers use poll-based reaping; remote workers rsync output back. With
     ``resume`` (default) a seed whose output already carries a results.json is reused, so a
     bounded turn never re-folds work a prior turn finished.
+
+    Invariant, load-bearing: ``worker_run`` must never return while a fold it started is
+    still alive. Folds are spawned from a thread-pool thread, and PR_SET_PDEATHSIG (armed by
+    the spawned CLI, see tt_bio/device_lease.py) is delivered on the exit of the THREAD that
+    created the process, not of the driver. Serial-and-wait keeps that a no-op; an async
+    refactor of this function would start killing live folds.
     """
     leg_dir = workdir / leg.id
     leg_dir.mkdir(parents=True, exist_ok=True)
@@ -1387,6 +1393,10 @@ def finalize_leg(leg: Leg, verdict: str, detail: str, wall: float) -> tuple[dict
 
 
 def main() -> int:
+    # Scorers, folds and predict CLIs we spawn arm their parent-death guard off this,
+    # so none of them can outlive this driver still holding a card. Inherited through
+    # every spawn path in this file (see tt_bio/device_lease.py:arm_orphan_guard).
+    os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
     ap = argparse.ArgumentParser(description=__doc__,
                                   formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--workers", default="pc:0",

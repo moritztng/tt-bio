@@ -663,6 +663,10 @@ def run_capacity_all(keep: bool) -> dict:
 
 
 def main() -> int:
+    # Scorers, folds and predict CLIs we spawn arm their parent-death guard off this,
+    # so none of them can outlive this driver still holding a card. Inherited through
+    # every spawn path in this file (see tt_bio/device_lease.py:arm_orphan_guard).
+    os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model",
                     choices=list(MODELS) + ["boltzgen", "opendde-abag", "capacity"]
