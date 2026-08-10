@@ -59,6 +59,20 @@ LADDERS = {
              triangle_attention="triattention", triangle_multiplicative="cuequivariance",
              enable_efficient_fusion=True, enable_diffusion_shared_vars_cache=True,
              enable_tf32=True),
+        # Accuracy-isolation rungs (gpu-vs-tt-precision-fairness). At 298 aa the
+        # L2 rung fails the CA Kabsch gate vs L0 (3.205 A). skip_amp keeps the
+        # diffusion score model outside autocast at this size, so L2's diffusion
+        # is fp32 already -- but with allow_tf32=True its matmuls run TF32. The
+        # remaining L0->L2 deltas are TF32, the bf16 trunk, and the fused
+        # kernels. These two rungs separate them:
+        dict(name="L2-noTF32", dtype="bf16",
+             triangle_attention="triattention", triangle_multiplicative="cuequivariance",
+             enable_efficient_fusion=True, enable_diffusion_shared_vars_cache=True,
+             enable_tf32=False),
+        dict(name="fp32-fused", dtype="fp32",
+             triangle_attention="triattention", triangle_multiplicative="cuequivariance",
+             enable_efficient_fusion=True, enable_diffusion_shared_vars_cache=True,
+             enable_tf32=True),
     ],
     "opendde": [
         dict(name="L0-eager-fp32", dtype="fp32", triatt_kernel="torch",
@@ -250,6 +264,26 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
               rungs: list[dict], label: str, n_msa_expected: int) -> dict:
     torch = importlib.import_module("torch")
 
+    def _write(path: Path, results: list) -> None:
+        cpu = "unknown"
+        try:
+            for line in Path("/proc/cpuinfo").read_text().splitlines():
+                if line.startswith("model name"):
+                    cpu = line.split(":", 1)[1].strip()
+                    break
+        except Exception:
+            pass
+        summary = dict(
+            model=model, side="gpu", model_name=model_name,
+            gpu=torch.cuda.get_device_name(0), host_cpu=cpu,
+            cpu_count=os.cpu_count(),
+            torch_version=torch.__version__, cuda_version=torch.version.cuda,
+            input=f"{label}, precomputed MSA (same a3m as TT side)",
+            recycling_steps=CYCLES, sampling_steps=STEPS, diffusion_samples=SAMPLES,
+            seed=SEED, rungs=results, date=time.strftime("%Y-%m-%d"),
+        )
+        path.write_text(json.dumps(summary, indent=2) + "\n")
+
     results = []
     ref_coords = None
     for rung in rungs:
@@ -287,33 +321,18 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
         print(f"[{model} {rung['name']}] warm median {ts[len(ts)//2]:.2f}s "
               f"(min {ts[0]:.2f}/max {ts[-1]:.2f}) cold {cold_s:.1f}s "
               f"rmsd_vs_L0={rmsd}", file=sys.stderr, flush=True)
+        # Persist after EVERY rung: on a metered rental a crash in a later rung
+        # must not take the earlier rungs' results with it.
+        _write(out_path, results)
         del runner
         torch.cuda.empty_cache()
 
     # Host CPU matters: at these token counts a good share of the wall clock is
     # kernel-launch dispatch, so a scaling ratio taken across two different rented
-    # hosts is not clean. Recorded here so the 117-vs-300 ratio can be shown to be
+    # hosts is not clean. Recorded (inside _write) so a ratio can be shown to be
     # a within-host measurement (the 117-aa run of 2026-08-06 did not record it).
-    cpu = "unknown"
-    try:
-        for line in Path("/proc/cpuinfo").read_text().splitlines():
-            if line.startswith("model name"):
-                cpu = line.split(":", 1)[1].strip()
-                break
-    except Exception:
-        pass
-
-    summary = dict(
-        model=model, side="gpu", model_name=model_name,
-        gpu=torch.cuda.get_device_name(0), host_cpu=cpu,
-        cpu_count=os.cpu_count(),
-        torch_version=torch.__version__, cuda_version=torch.version.cuda,
-        input=f"{label}, precomputed MSA (same a3m as TT side)",
-        recycling_steps=CYCLES, sampling_steps=STEPS, diffusion_samples=SAMPLES,
-        seed=SEED, rungs=results, date=time.strftime("%Y-%m-%d"),
-    )
-    out_path.write_text(json.dumps(summary, indent=2) + "\n")
-    return summary
+    _write(out_path, results)
+    return json.loads(out_path.read_text())
 
 
 def write_input_json(path: Path, msa_a3m: Path, seq: str, name: str) -> None:
