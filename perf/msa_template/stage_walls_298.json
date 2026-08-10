@@ -1,0 +1,26 @@
+{
+  "trunk_template": {
+    "stage_ms": 71.897,
+    "ms_per_fold_x10": 719.0,
+    "raw_ms": [
+      71.922,
+      71.897,
+      71.848,
+      71.886,
+      72.049
+    ],
+    "ops_json": "perf/msa_template/ops_trunk_template_298.json"
+  },
+  "trunk_msa": {
+    "stage_ms": 197.927,
+    "ms_per_fold_x10": 1979.3,
+    "raw_ms": [
+      197.78,
+      198.089,
+      197.987,
+      197.927,
+      197.723
+    ],
+    "ops_json": "perf/msa_template/ops_trunk_msa_298.json"
+  }
+}

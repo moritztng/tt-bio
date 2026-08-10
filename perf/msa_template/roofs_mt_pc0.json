@@ -1,0 +1,400 @@
+{
+ "device": {
+  "compute_grid": "13x10",
+  "core_grid_main": "11x10",
+  "host": "pc",
+  "card": 0,
+  "ckc": "HiFi4 fp32_dest_acc_en=True packer_l1_acc=True"
+ },
+ "compute_roof": {
+  "runs": {
+   "2048_oDRAM": {
+    "ms": 0.2001,
+    "tflops": 85.84
+   },
+   "2048_oL1": {
+    "ms": 0.2403,
+    "tflops": 71.49
+   },
+   "4096_oDRAM": {
+    "ms": 1.0671,
+    "tflops": 128.8
+   },
+   "4096_oL1": {
+    "ms": 24.6082,
+    "tflops": 5.59
+   },
+   "6144_oDRAM": {
+    "ms": 3.4137,
+    "tflops": 135.88
+   },
+   "6144_oL1": {
+    "ms": 84.5626,
+    "tflops": 5.49
+   }
+  },
+  "peak_TFLOPs": 135.88
+ },
+ "dram_roofs": {
+  "runs": [
+   {
+    "MB": 16.0,
+    "read_GBs": 294.7,
+    "dram2dram_rw_GBs": 340.2,
+    "write_GBs": 223.9
+   },
+   {
+    "MB": 32.0,
+    "read_GBs": 321.3,
+    "dram2dram_rw_GBs": 387.2,
+    "write_GBs": 251.9
+   },
+   {
+    "MB": 64.0,
+    "read_GBs": 348.8,
+    "dram2dram_rw_GBs": 397.2,
+    "write_GBs": 259.5
+   },
+   {
+    "MB": 95.99,
+    "read_GBs": 347.6,
+    "dram2dram_rw_GBs": 404.7,
+    "write_GBs": 267.3
+   },
+   {
+    "MB": 128.0,
+    "read_GBs": 397.5,
+    "dram2dram_rw_GBs": 409.3,
+    "write_GBs": 268.8
+   }
+  ],
+  "read_peak_GBs": 397.5,
+  "write_peak_GBs": 268.8
+ },
+ "l1_roof": {
+  "runs": {
+   "2.0MB": {
+    "binary_GBs": 286.4,
+    "unary_GBs": 138.1,
+    "binary_us": 20.9,
+    "unary_us": 28.9
+   },
+   "8.0MB": {
+    "binary_GBs": 747.4,
+    "unary_GBs": 662.7,
+    "binary_us": 32.1,
+    "unary_us": 24.1
+   },
+   "16.0MB": {
+    "binary_GBs": 1012.6,
+    "unary_GBs": 906.9,
+    "binary_us": 47.4,
+    "unary_us": 35.3
+   }
+  },
+  "binary_peak_GBs": 1012.6,
+  "unary_peak_GBs": 906.9,
+  "l1_op_roof_GBs": 1012.6,
+  "note": "achievable-op roof for L1<->L1 traffic, not an SRAM hardware roof"
+ },
+ "k_nt_sweep": {
+  "K64_nt2": {
+   "batch": 298,
+   "M": 320,
+   "K": 64,
+   "N": 64,
+   "GFLOP": 0.781,
+   "in_MB": 12.21,
+   "out_MB": 12.21,
+   "oDRAM": {
+    "us": 100.8,
+    "tflops": 7.75,
+    "read_GBs": 121.1,
+    "write_GBs": 121.1
+   },
+   "oL1": {
+    "us": 73.5,
+    "tflops": 10.63,
+    "read_GBs": 166.2,
+    "write_GBs": 166.2
+   }
+  },
+  "K64_nt4": {
+   "batch": 298,
+   "M": 320,
+   "K": 64,
+   "N": 128,
+   "GFLOP": 1.562,
+   "in_MB": 12.21,
+   "out_MB": 24.41,
+   "oDRAM": {
+    "us": 177.9,
+    "tflops": 8.78,
+    "read_GBs": 68.6,
+    "write_GBs": 137.2
+   },
+   "oL1": {
+    "us": 80.9,
+    "tflops": 19.3,
+    "read_GBs": 150.8,
+    "write_GBs": 301.6
+   }
+  },
+  "K64_nt8": {
+   "batch": 298,
+   "M": 320,
+   "K": 64,
+   "N": 256,
+   "GFLOP": 3.125,
+   "in_MB": 12.21,
+   "out_MB": 48.82,
+   "oDRAM": {
+    "us": 331.6,
+    "tflops": 9.42,
+    "read_GBs": 36.8,
+    "write_GBs": 147.2
+   },
+   "oL1": {
+    "us": 114.7,
+    "tflops": 27.25,
+    "read_GBs": 106.5,
+    "write_GBs": 425.8
+   }
+  },
+  "K64_nt16": {
+   "batch": 298,
+   "M": 320,
+   "K": 64,
+   "N": 512,
+   "GFLOP": 6.25,
+   "in_MB": 12.21,
+   "out_MB": 97.65,
+   "oDRAM": {
+    "us": 650.3,
+    "tflops": 9.61,
+    "read_GBs": 18.8,
+    "write_GBs": 150.2
+   },
+   "oL1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+   }
+  },
+  "K64_nt32": {
+   "batch": 298,
+   "M": 320,
+   "K": 64,
+   "N": 1024,
+   "GFLOP": 12.499,
+   "in_MB": 12.21,
+   "out_MB": 195.3,
+   "oDRAM": {
+    "us": 1257.6,
+    "tflops": 9.94,
+    "read_GBs": 9.7,
+    "write_GBs": 155.3
+   },
+   "oL1": {
+    "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+   }
+  },
+  "K128_nt2": {
+   "batch": 298,
+   "M": 320,
+   "K": 128,
+   "N": 64,
+   "GFLOP": 1.562,
+   "in_MB": 24.41,
+   "out_MB": 12.21,
+   "oDRAM": {
+    "us": 186.7,
+    "tflops": 8.37,
+    "read_GBs": 130.8,
+    "write_GBs": 65.4
+   },
+   "oL1": {
+    "us": 135.4,
+    "tflops": 11.54,
+    "read_GBs": 180.2,
+    "write_GBs": 90.1
+   }
+  },
+  "K128_nt4": {
+   "batch": 298,
+   "M": 320,
+   "K": 128,
+   "N": 128,
+   "GFLOP": 3.125,
+   "in_MB": 24.41,
+   "out_MB": 24.41,
+   "oDRAM": {
+    "us": 264.9,
+    "tflops": 11.8,
+    "read_GBs": 92.2,
+    "write_GBs": 92.2
+   },
+   "oL1": {
+    "us": 155.4,
+    "tflops": 20.11,
+    "read_GBs": 157.1,
+    "write_GBs": 157.1
+   }
+  },
+  "K128_nt8": {
+   "batch": 298,
+   "M": 320,
+   "K": 128,
+   "N": 256,
+   "GFLOP": 6.25,
+   "in_MB": 24.41,
+   "out_MB": 48.82,
+   "oDRAM": {
+    "us": 395.2,
+    "tflops": 15.81,
+    "read_GBs": 61.8,
+    "write_GBs": 123.5
+   },
+   "oL1": {
+    "us": 164.7,
+    "tflops": 37.95,
+    "read_GBs": 148.3,
+    "write_GBs": 296.5
+   }
+  },
+  "K128_nt16": {
+   "batch": 298,
+   "M": 320,
+   "K": 128,
+   "N": 512,
+   "GFLOP": 12.499,
+   "in_MB": 24.41,
+   "out_MB": 97.65,
+   "oDRAM": {
+    "us": 751.9,
+    "tflops": 16.62,
+    "read_GBs": 32.5,
+    "write_GBs": 129.9
+   },
+   "oL1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+   }
+  },
+  "K128_nt32": {
+   "batch": 298,
+   "M": 320,
+   "K": 128,
+   "N": 1024,
+   "GFLOP": 24.998,
+   "in_MB": 24.41,
+   "out_MB": 195.3,
+   "oDRAM": {
+    "us": 1370.8,
+    "tflops": 18.24,
+    "read_GBs": 17.8,
+    "write_GBs": 142.5
+   },
+   "oL1": {
+    "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+   }
+  },
+  "K256_nt2": {
+   "batch": 298,
+   "M": 320,
+   "K": 256,
+   "N": 64,
+   "GFLOP": 3.125,
+   "in_MB": 48.82,
+   "out_MB": 12.21,
+   "oDRAM": {
+    "us": 490.7,
+    "tflops": 6.37,
+    "read_GBs": 99.5,
+    "write_GBs": 24.9
+   },
+   "oL1": {
+    "us": 451.5,
+    "tflops": 6.92,
+    "read_GBs": 108.1,
+    "write_GBs": 27.0
+   }
+  },
+  "K256_nt4": {
+   "batch": 298,
+   "M": 320,
+   "K": 256,
+   "N": 128,
+   "GFLOP": 6.25,
+   "in_MB": 48.82,
+   "out_MB": 24.41,
+   "oDRAM": {
+    "us": 562.2,
+    "tflops": 11.12,
+    "read_GBs": 86.8,
+    "write_GBs": 43.4
+   },
+   "oL1": {
+    "us": 452.2,
+    "tflops": 13.82,
+    "read_GBs": 108.0,
+    "write_GBs": 54.0
+   }
+  },
+  "K256_nt8": {
+   "batch": 298,
+   "M": 320,
+   "K": 256,
+   "N": 256,
+   "GFLOP": 12.499,
+   "in_MB": 48.82,
+   "out_MB": 48.82,
+   "oDRAM": {
+    "us": 628.2,
+    "tflops": 19.9,
+    "read_GBs": 77.7,
+    "write_GBs": 77.7
+   },
+   "oL1": {
+    "us": 436.6,
+    "tflops": 28.63,
+    "read_GBs": 111.8,
+    "write_GBs": 111.8
+   }
+  },
+  "K256_nt16": {
+   "batch": 298,
+   "M": 320,
+   "K": 256,
+   "N": 512,
+   "GFLOP": 24.998,
+   "in_MB": 48.82,
+   "out_MB": 97.65,
+   "oDRAM": {
+    "us": 1156.5,
+    "tflops": 21.61,
+    "read_GBs": 42.2,
+    "write_GBs": 84.4
+   },
+   "oL1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+   }
+  },
+  "K256_nt32": {
+   "batch": 298,
+   "M": 320,
+   "K": 256,
+   "N": 1024,
+   "GFLOP": 49.996,
+   "in_MB": 48.82,
+   "out_MB": 195.3,
+   "oDRAM": {
+    "us": 1646.7,
+    "tflops": 30.36,
+    "read_GBs": 29.6,
+    "write_GBs": 118.6
+   },
+   "oL1": {
+    "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+   }
+  }
+ },
+ "machine_balance_FLOP_per_byte_read": 341.8
+}
