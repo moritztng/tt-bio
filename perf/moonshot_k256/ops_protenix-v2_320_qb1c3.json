@@ -1,0 +1,10998 @@
+{
+ "model": "protenix-v2",
+ "n": 320,
+ "c_z": 256,
+ "block_wall_s": 0.03353076100271816,
+ "reps": 4,
+ "n_ops": 192,
+ "sum_s": 0.034193153052001435,
+ "fatal": null,
+ "records": [
+  {
+   "i": 0,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1623",
+   "chain": [
+    "tenstorrent.py:1623",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00033223475475097075,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 1,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 2,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 3,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010634574573487043,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 4,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0008214794943341985,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 5,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1682",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00014037275104783475,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 6,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00015038525452837348,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 7,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013502799993148074,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 8,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2601"
+   ],
+   "s": 5.073887496109819e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 9,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 10,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 11,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001022635042318143,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 12,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010214324720436707,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 13,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1682",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013925274834036827,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 14,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0004738749994430691,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 15,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013487550313584507,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 16,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2601"
+   ],
+   "s": 6.0196747654117644e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 17,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 18,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 19,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0007862025013309903,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 20,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010391575051471591,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 21,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1682",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013995275367051363,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 22,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00014916025247657672,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 23,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013697025133296847,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 24,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00016248928113782313,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 25,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 26,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 27,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001020560011966154,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 28,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010223075514659286,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 29,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1682",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001393352504237555,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 30,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00015314749907702208,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 31,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013941524957772344,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 32,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2601"
+   ],
+   "s": 6.177400064188987e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 33,
+   "op": "concat",
+   "site": "tenstorrent.py:1280",
+   "chain": [
+    "tenstorrent.py:1280",
+    "tenstorrent.py:1731",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00027638299798127264,
+   "in": [],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 34,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1785",
+   "chain": [
+    "tenstorrent.py:1785",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00033489974885014817,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 35,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1515",
+    "tenstorrent.py:1792",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 36,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1515",
+    "tenstorrent.py:1795",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 37,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1797",
+   "chain": [
+    "tenstorrent.py:1797",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.000353689247276634,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 38,
+   "op": "add_",
+   "site": "tenstorrent.py:2602",
+   "chain": [
+    "tenstorrent.py:2602"
+   ],
+   "s": 0.0002812707461998798,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 39,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1623",
+   "chain": [
+    "tenstorrent.py:1623",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0003331522530061193,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 40,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 41,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 42,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010252575157210231,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 43,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010154100164072588,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 44,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1679",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00013901774946134537,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 45,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0004500402501435019,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 46,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001357180008199066,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 47,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2605"
+   ],
+   "s": 6.170400592964143e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 48,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 49,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 50,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010303075396222994,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 51,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010440324695082381,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 52,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1679",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00014539275434799492,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 53,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001508049972471781,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 54,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00014230050146579742,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 55,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2605"
+   ],
+   "s": 6.773899804102257e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 56,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 57,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 58,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001425102527718991,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 59,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001039435010170564,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 60,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1679",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00014299275062512606,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 61,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00015701249503763393,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 62,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00013618049706565216,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 63,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2605"
+   ],
+   "s": 6.036899867467582e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 64,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 65,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 66,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2605"
+   ],
+   "s": 9.953099652193487e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 67,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2605"
+   ],
+   "s": 9.897325071506202e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 68,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1679",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001381052497890778,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 69,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00014799999917158857,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 70,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00013590024900622666,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 71,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2605"
+   ],
+   "s": 5.041546864958946e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 72,
+   "op": "concat",
+   "site": "tenstorrent.py:1280",
+   "chain": [
+    "tenstorrent.py:1280",
+    "tenstorrent.py:1731",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00027557299472391605,
+   "in": [],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 73,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1785",
+   "chain": [
+    "tenstorrent.py:1785",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00033290225110249594,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 74,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1515",
+    "tenstorrent.py:1792",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 75,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1515",
+    "tenstorrent.py:1795",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 76,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1797",
+   "chain": [
+    "tenstorrent.py:1797",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00035305174969835207,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 77,
+   "op": "add_",
+   "site": "tenstorrent.py:2606",
+   "chain": [
+    "tenstorrent.py:2606"
+   ],
+   "s": 0.00028071300039300695,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 78,
+   "op": "reshape",
+   "site": "tenstorrent.py:1868",
+   "chain": [
+    "tenstorrent.py:1868",
+    "tenstorrent.py:2609"
+   ],
+   "s": 3.63649996870663e-06,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 79,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1931",
+   "chain": [
+    "tenstorrent.py:1931",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.00033153974800370634,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 80,
+   "op": "linear",
+   "site": "tenstorrent.py:806",
+   "chain": [
+    "tenstorrent.py:806",
+    "tenstorrent.py:1939",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.00023412625159835443,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      32
+     ],
+     "logical": [
+      256,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 81,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1942",
+   "chain": [
+    "tenstorrent.py:1942",
+    "tenstorrent.py:2609"
+   ],
+   "s": 2.4887185645638965e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 82,
+   "op": "permute",
+   "site": "tenstorrent.py:1943",
+   "chain": [
+    "tenstorrent.py:1943",
+    "tenstorrent.py:2609"
+   ],
+   "s": 4.5237094127514865e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 83,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2056",
+   "chain": [
+    "tenstorrent.py:2056",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.0009364200013806112,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      768
+     ],
+     "logical": [
+      256,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 84,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2062",
+   "chain": [
+    "tenstorrent.py:2062",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.00038610374758718535,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 85,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1947",
+   "chain": [
+    "tenstorrent.py:1947",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 2.479937393218279e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 86,
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:1951",
+   "chain": [
+    "tenstorrent.py:1951",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.0008042194967856631,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 87,
+   "op": "scaled_dot_product_attention",
+   "site": "tenstorrent.py:1965",
+   "chain": [
+    "tenstorrent.py:1965",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.003003215002536308,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 88,
+   "op": "nlp_concat_heads",
+   "site": "tenstorrent.py:1982",
+   "chain": [
+    "tenstorrent.py:1982",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.0002861377506633289,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 89,
+   "op": "squeeze",
+   "site": "tenstorrent.py:1984",
+   "chain": [
+    "tenstorrent.py:1984",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 3.798687430389691e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 90,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1988",
+   "chain": [
+    "tenstorrent.py:1988",
+    "tenstorrent.py:2074",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.0003766689987969585,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 91,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1990",
+    "tenstorrent.py:2074",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 92,
+   "op": "reshape",
+   "site": "tenstorrent.py:2077",
+   "chain": [
+    "tenstorrent.py:2077",
+    "tenstorrent.py:2609"
+   ],
+   "s": 2.6337183953728527e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 93,
+   "op": "add_",
+   "site": "tenstorrent.py:2610",
+   "chain": [
+    "tenstorrent.py:2610"
+   ],
+   "s": 0.0002758507471298799,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 94,
+   "op": "reshape",
+   "site": "tenstorrent.py:1868",
+   "chain": [
+    "tenstorrent.py:1868",
+    "tenstorrent.py:2613"
+   ],
+   "s": 2.654343916219659e-06,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 95,
+   "op": "permute",
+   "site": "tenstorrent.py:1927",
+   "chain": [
+    "tenstorrent.py:1927",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 52428800 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 96,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1931",
+   "chain": [
+    "tenstorrent.py:1931",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.00025753599766176194,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 97,
+   "op": "linear",
+   "site": "tenstorrent.py:806",
+   "chain": [
+    "tenstorrent.py:806",
+    "tenstorrent.py:1939",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.00022975624597165734,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      32
+     ],
+     "logical": [
+      256,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 98,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1942",
+   "chain": [
+    "tenstorrent.py:1942",
+    "tenstorrent.py:2613"
+   ],
+   "s": 2.668719389475882e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 99,
+   "op": "permute",
+   "site": "tenstorrent.py:1943",
+   "chain": [
+    "tenstorrent.py:1943",
+    "tenstorrent.py:2613"
+   ],
+   "s": 4.529521902441047e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 100,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2056",
+   "chain": [
+    "tenstorrent.py:2056",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0015024462481960654,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      768
+     ],
+     "logical": [
+      256,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 101,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2062",
+   "chain": [
+    "tenstorrent.py:2062",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0008591562509536743,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 102,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1947",
+   "chain": [
+    "tenstorrent.py:1947",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 3.0774372135056183e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 103,
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:1951",
+   "chain": [
+    "tenstorrent.py:1951",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0008014772538444959,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 104,
+   "op": "scaled_dot_product_attention",
+   "site": "tenstorrent.py:1965",
+   "chain": [
+    "tenstorrent.py:1965",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0029881252485211007,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 105,
+   "op": "nlp_concat_heads",
+   "site": "tenstorrent.py:1982",
+   "chain": [
+    "tenstorrent.py:1982",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.00028705300064757466,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 106,
+   "op": "squeeze",
+   "site": "tenstorrent.py:1984",
+   "chain": [
+    "tenstorrent.py:1984",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 3.2933749025687575e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 107,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1988",
+   "chain": [
+    "tenstorrent.py:1988",
+    "tenstorrent.py:2074",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.001254089998838026,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 108,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1990",
+    "tenstorrent.py:2074",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 109,
+   "op": "permute",
+   "site": "tenstorrent.py:2076",
+   "chain": [
+    "tenstorrent.py:2076",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 52428800 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 110,
+   "op": "reshape",
+   "site": "tenstorrent.py:2077",
+   "chain": [
+    "tenstorrent.py:2077",
+    "tenstorrent.py:2613"
+   ],
+   "s": 2.710562512220349e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 111,
+   "op": "add_",
+   "site": "tenstorrent.py:2614",
+   "chain": [
+    "tenstorrent.py:2614"
+   ],
+   "s": 0.00027428574685472995,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 112,
+   "op": "chunk",
+   "site": "tenstorrent.py:2524",
+   "chain": [
+    "tenstorrent.py:2524",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0011419844959164038,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 113,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 114,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 115,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 116,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.522149487864226e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 117,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0006510897510452196,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 118,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 119,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 120,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 121,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.49840003461577e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 122,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 9.99784970190376e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 123,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 124,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 125,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 126,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.499150185845792e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 127,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010024825314758345,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 128,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 129,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 130,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 131,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.504150223918259e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 132,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 9.978075104299933e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 133,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 134,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 135,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 136,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.531649705721065e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 137,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0001010510022751987,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 138,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0006768467501387931,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 139,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 140,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 141,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.725399725837633e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 142,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010027574899140745,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 143,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 144,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 145,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 146,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.526400102302432e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 147,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010042575013358146,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 148,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 149,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 150,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 151,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00032325225038221106,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 152,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010243575525237247,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 153,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 154,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 155,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 156,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.528374797198921e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 157,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010150075104320422,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 158,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 77 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 159,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 160,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 161,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.47865017526783e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 162,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010135599586647004,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 163,
+   "op": "concat",
+   "site": "tenstorrent.py:2527",
+   "chain": [
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0002677432494238019,
+   "in": [],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 164,
+   "op": "add_",
+   "site": "tenstorrent.py:2618",
+   "chain": [
+    "tenstorrent.py:2618"
+   ],
+   "s": 0.0003673315004562028,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 165,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2621",
+   "chain": [
+    "tenstorrent.py:2621"
+   ],
+   "s": 1.4596968867408577e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 166,
+   "op": "linear",
+   "site": "tenstorrent.py:2237",
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2628"
+   ],
+   "s": 1.89846878129174e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      1536
+     ],
+     "logical": [
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 167,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:2244",
+   "chain": [
+    "tenstorrent.py:2244",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.4449682314298116e-06,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 168,
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:2245",
+   "chain": [
+    "tenstorrent.py:2245",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.3027438146527857e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 169,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:549",
+   "chain": [
+    "tenstorrent.py:549",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2628"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 52428800 B L1 buffer across 130 banks, where each bank needs to "
+  },
+  {
+   "i": 170,
+   "op": "linear",
+   "site": "tenstorrent.py:829",
+   "chain": [
+    "tenstorrent.py:829",
+    "tenstorrent.py:2266",
+    "tenstorrent.py:2628"
+   ],
+   "s": 9.208350093103945e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      32
+     ],
+     "logical": [
+      256,
+      16
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     16
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 171,
+   "op": "permute",
+   "site": "tenstorrent.py:2282",
+   "chain": [
+    "tenstorrent.py:2282",
+    "tenstorrent.py:2628"
+   ],
+   "s": 4.512959367275471e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      16
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 172,
+   "op": "transpose",
+   "site": "tenstorrent.py:2313",
+   "chain": [
+    "tenstorrent.py:2313",
+    "tenstorrent.py:2628"
+   ],
+   "s": 1.8693156562221702e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 173,
+   "op": "matmul",
+   "site": "tenstorrent.py:464",
+   "chain": [
+    "tenstorrent.py:464",
+    "tenstorrent.py:2314",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.085184405586915e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 174,
+   "op": "add_",
+   "site": "tenstorrent.py:2317",
+   "chain": [
+    "tenstorrent.py:2317",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.2089343474362977e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 175,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2318",
+   "chain": [
+    "tenstorrent.py:2318",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.232246879430022e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 176,
+   "op": "softmax",
+   "site": "tenstorrent.py:2319",
+   "chain": [
+    "tenstorrent.py:2319",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.4109937839966733e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 177,
+   "op": "matmul",
+   "site": "tenstorrent.py:464",
+   "chain": [
+    "tenstorrent.py:464",
+    "tenstorrent.py:2322",
+    "tenstorrent.py:2628"
+   ],
+   "s": 1.581224933033809e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 178,
+   "op": "slice",
+   "site": "tenstorrent.py:2327",
+   "chain": [
+    "tenstorrent.py:2327",
+    "tenstorrent.py:2628"
+   ],
+   "s": 1.7686312276055105e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     24
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 179,
+   "op": "permute",
+   "site": "tenstorrent.py:2328",
+   "chain": [
+    "tenstorrent.py:2328",
+    "tenstorrent.py:2628"
+   ],
+   "s": 1.856843755376758e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      24
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     24,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 180,
+   "op": "reshape",
+   "site": "tenstorrent.py:2329",
+   "chain": [
+    "tenstorrent.py:2329",
+    "tenstorrent.py:2628"
+   ],
+   "s": 1.765315573720727e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      24,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     384,
+     320
+    ],
+    "logical": [
+     1,
+     384,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 181,
+   "op": "permute",
+   "site": "tenstorrent.py:2330",
+   "chain": [
+    "tenstorrent.py:2330",
+    "tenstorrent.py:2628"
+   ],
+   "s": 0.0015393055000458844,
+   "in": [
+    {
+     "shape": [
+      1,
+      384,
+      320
+     ],
+     "logical": [
+      1,
+      384,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 182,
+   "op": "linear",
+   "site": "tenstorrent.py:2378",
+   "chain": [
+    "tenstorrent.py:2378",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.254934406664688e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      384
+     ],
+     "logical": [
+      384,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 183,
+   "op": "multiply",
+   "site": "tenstorrent.py:2386",
+   "chain": [
+    "tenstorrent.py:2386",
+    "tenstorrent.py:2628"
+   ],
+   "s": 3.136512532364577e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 184,
+   "op": "linear",
+   "site": "tenstorrent.py:2388",
+   "chain": [
+    "tenstorrent.py:2388",
+    "tenstorrent.py:2628"
+   ],
+   "s": 0.00021838121847395087,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      384
+     ],
+     "logical": [
+      384,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 185,
+   "op": "add_",
+   "site": "tenstorrent.py:2634",
+   "chain": [
+    "tenstorrent.py:2634"
+   ],
+   "s": 2.490771839802619e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 186,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 1.713159326754976e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 187,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 0.0008753209986025468,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 188,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 2.184556251449976e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 189,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 2.5704594008857384e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 190,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 1.9954375602537766e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1536,
+      384
+     ],
+     "logical": [
+      1536,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 191,
+   "op": "add_",
+   "site": "tenstorrent.py:2638",
+   "chain": [
+    "tenstorrent.py:2638"
+   ],
+   "s": 2.5379281396453734e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  }
+ ]
+}
