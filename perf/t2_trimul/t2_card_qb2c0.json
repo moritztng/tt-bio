@@ -1,0 +1,388 @@
+{
+ "device": {
+  "compute_grid": "11x10",
+  "core_grid_main": "11x10",
+  "cores": 110,
+  "l1_unreserved_per_core": 1532416
+ },
+ "A_compute_roof": {
+  "runs": {
+   "2048": {
+    "ms": 0.2132,
+    "tflops": 80.57
+   },
+   "4096": {
+    "ms": 1.3506,
+    "tflops": 101.76
+   },
+   "6144": {
+    "ms": 4.9623,
+    "tflops": 93.48
+   }
+  },
+  "peak_tflops": 101.76
+ },
+ "B_k256": {
+  "102400_core_grid": {
+   "ms": 0.6575,
+   "tflops": 20.41
+  },
+  "102400_bw8_obh5": {
+   "ms": 0.3988,
+   "tflops": 33.66
+  },
+  "204800_core_grid": {
+   "ms": 4.2464,
+   "tflops": 6.32
+  },
+  "204800_bw8_obh5": {
+   "ms": 0.781,
+   "tflops": 34.37
+  }
+ },
+ "C_read_roof": [
+  {
+   "MB": 4.0,
+   "gbps": 220.6,
+   "ms": 0.0181
+  },
+  {
+   "MB": 8.0,
+   "gbps": 265.0,
+   "ms": 0.0302
+  },
+  {
+   "MB": 16.0,
+   "gbps": 311.0,
+   "ms": 0.0515
+  },
+  {
+   "MB": 32.0,
+   "gbps": 365.9,
+   "ms": 0.0874
+  },
+  {
+   "MB": 48.0,
+   "gbps": 380.8,
+   "ms": 0.126
+  },
+  {
+   "MB": 64.0,
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+  },
+  {
+   "MB": 95.99,
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+  },
+  {
+   "MB": 128.0,
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+  }
+ ],
+ "D_write_roof": {
+  "clone_L1_to_DRAM": [
+   {
+    "MB": 4.0,
+    "write_gbps": 170.4,
+    "ms": 0.0235
+   },
+   {
+    "MB": 8.0,
+    "write_gbps": 206.3,
+    "ms": 0.0388
+   },
+   {
+    "MB": 16.0,
+    "write_gbps": 235.1,
+    "ms": 0.0681
+   },
+   {
+    "MB": 23.99,
+    "write_gbps": 254.0,
+    "ms": 0.0945
+   },
+   {
+    "MB": 32.0,
+    "write_gbps": 257.2,
+    "ms": 0.1244
+   }
+  ],
+  "minimal_matmul": {
+   "ms": 0.3111,
+   "write_gbps": 168.5,
+   "rw_gbps": 189.7,
+   "gflops": 5393.2,
+   "out_MB": 52.43,
+   "in_MB": 6.57
+  },
+  "linear_core_grid": {
+   "ms": 0.3317,
+   "write_gbps": 158.1,
+   "rw_gbps": 177.9,
+   "gflops": 5058.5,
+   "out_MB": 52.43,
+   "in_MB": 6.57
+  },
+  "linear_1dmcast_pc": {
+   "ms": 0.3389,
+   "write_gbps": 154.7,
+   "rw_gbps": 174.1,
+   "gflops": 4951.0,
+   "out_MB": 52.43,
+   "in_MB": 6.57
+  }
+ },
+ "E_pair_proj": {
+  "core_grid_legacy": {
+   "ms": 0.6609,
+   "tflops": 20.31,
+   "write_gbps": 79.3,
+   "read_gbps": 79.5,
+   "cores_from_cfg": null
+  },
+  "prod_bw1_obh5": {
+   "ms": 0.6104,
+   "tflops": 21.99,
+   "write_gbps": 85.9,
+   "read_gbps": 86.1,
+   "cores_from_cfg": 107
+  },
+  "bw8_obh5": {
+   "ms": 0.3974,
+   "tflops": 33.78,
+   "write_gbps": 131.9,
+   "read_gbps": 132.3,
+   "cores_from_cfg": 107
+  },
+  "bw1_obhPCM": {
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+  },
+  "occupancy_ab": [
+   {
+    "grid": "11x10",
+    "grid_cores": 110,
+    "cfg_cores": 107,
+    "ms": 0.6117
+   },
+   {
+    "grid": "9x10",
+    "grid_cores": 90,
+    "cfg_cores": 80,
+    "ms": 0.6468
+   },
+   {
+    "grid": "7x10",
+    "grid_cores": 70,
+    "cfg_cores": 64,
+    "ms": 0.6621
+   },
+   {
+    "grid": "5x10",
+    "grid_cores": 50,
+    "cfg_cores": 50,
+    "ms": 0.6872
+   },
+   {
+    "grid": "3x10",
+    "grid_cores": 30,
+    "cfg_cores": 30,
+    "ms": 0.7988
+   }
+  ]
+ },
+ "F_l1_rows": {
+  "permute_in_0312": {
+   "ms": 0.0985,
+   "us": 98.5,
+   "bytes_MB": 13.11,
+   "gbps": 133.1
+  },
+  "multiply_eltwise": {
+   "us": 26.6,
+   "bytes_MB": 19.66,
+   "gbps": 739.8
+  },
+  "multiply_sigmoid": {
+   "us": 58.9,
+   "gbps": 333.5
+  },
+  "clone_L1_L1": {
+   "us": 15.4,
+   "gbps": 849.5
+  },
+  "tri_matmul": {
+   "us": 72.9,
+   "tflops": 28.76,
+   "bytes_MB": 19.66,
+   "gbps": 269.6,
+   "ai_flop_per_byte": 106.7
+  },
+  "permute_out_0231": {
+   "us": 79.3,
+   "gbps": 165.3
+  },
+  "eltwise_tile_staircase": [
+   {
+    "tiles": 1,
+    "us": 11.63
+   },
+   {
+    "tiles": 2,
+    "us": 11.54
+   },
+   {
+    "tiles": 3,
+    "us": 11.56
+   },
+   {
+    "tiles": 4,
+    "us": 11.12
+   },
+   {
+    "tiles": 5,
+    "us": 11.22
+   },
+   {
+    "tiles": 6,
+    "us": 11.21
+   },
+   {
+    "tiles": 7,
+    "us": 11.38
+   },
+   {
+    "tiles": 8,
+    "us": 11.12
+   },
+   {
+    "tiles": 9,
+    "us": 11.57
+   },
+   {
+    "tiles": 10,
+    "us": 11.34
+   },
+   {
+    "tiles": 11,
+    "us": 11.34
+   },
+   {
+    "tiles": 12,
+    "us": 11.22
+   },
+   {
+    "tiles": 13,
+    "us": 11.38
+   },
+   {
+    "tiles": 14,
+    "us": 11.15
+   },
+   {
+    "tiles": 15,
+    "us": 11.67
+   },
+   {
+    "tiles": 16,
+    "us": 11.09
+   },
+   {
+    "tiles": 17,
+    "us": 11.36
+   },
+   {
+    "tiles": 18,
+    "us": 11.16
+   },
+   {
+    "tiles": 19,
+    "us": 11.3
+   },
+   {
+    "tiles": 32,
+    "us": 11.5
+   },
+   {
+    "tiles": 64,
+    "us": 11.83
+   },
+   {
+    "tiles": 110,
+    "us": 12.48
+   },
+   {
+    "tiles": 111,
+    "us": 12.23
+   },
+   {
+    "tiles": 128,
+    "us": 12.26
+   },
+   {
+    "tiles": 220,
+    "us": 12.3
+   },
+   {
+    "tiles": 221,
+    "us": 12.18
+   },
+   {
+    "tiles": 320,
+    "us": 12.51
+   },
+   {
+    "tiles": 640,
+    "us": 12.99
+   },
+   {
+    "tiles": 1280,
+    "us": 17.1
+   },
+   {
+    "tiles": 3200,
+    "us": 24.49
+   }
+  ]
+ },
+ "G_permute_width": [
+  {
+   "C": 8,
+   "us": 37.7,
+   "MB": 3.28,
+   "gbps": 86.8,
+   "us_per_MB": 11.52
+  },
+  {
+   "C": 16,
+   "us": 57.8,
+   "MB": 6.55,
+   "gbps": 113.3,
+   "us_per_MB": 8.82
+  },
+  {
+   "C": 32,
+   "us": 99.1,
+   "MB": 13.11,
+   "gbps": 132.2,
+   "us_per_MB": 7.56
+  },
+  {
+   "C": 64,
+   "us": 191.7,
+   "MB": 26.21,
+   "gbps": 136.8,
+   "us_per_MB": 7.31
+  },
+  {
+   "C": 128,
+   "us": 378.2,
+   "MB": 52.43,
+   "gbps": 138.6,
+   "us_per_MB": 7.21
+  },
+  {
+   "C": 256,
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+  }
+ ]
+}

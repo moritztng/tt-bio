@@ -1,0 +1,36 @@
+{
+ "home": "/tmp/t2home",
+ "shape": [
+  1,
+  320,
+  320,
+  32
+ ],
+ "after_device_open": [
+  "cq_dispatch",
+  "cq_dispatch_subordinate",
+  "cq_prefetch",
+  "eltwise_binary_no_bcast",
+  "reader_interleaved_no_bcast",
+  "writer_interleaved_no_bcast"
+ ],
+ "clone_control": [
+  "read_kernel",
+  "write_kernel"
+ ],
+ "transpose_m2_m1_control": [
+  "reader_unary_transpose_wh_interleaved_start_id",
+  "transpose_wh",
+  "writer_unary_interleaved_start_id"
+ ],
+ "permute_0312_PRODUCTION_in": [
+  "reader_unary_transpose_hc_interleaved_tiled_padding_aware",
+  "writer_permute_interleaved_tiled_row_invariant"
+ ],
+ "permute_0321_PRODUCTION_in_ending": [
+  "reader_permute_interleaved_tiled_generic",
+  "transpose_xw_tiled",
+  "writer_permute_interleaved_tiled_generic"
+ ],
+ "permute_0231_PRODUCTION_out": []
+}

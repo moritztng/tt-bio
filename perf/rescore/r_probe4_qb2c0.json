@@ -1,0 +1,65 @@
+{
+ "padded_gflop": 2.097,
+ "logical_gflop_298": 1.694,
+ "prod_pc": {
+  "in0_block_w": 10,
+  "per_core_M": 1,
+  "per_core_N": 1
+ },
+ "a320x320": {
+  "logical_a": [
+   320,
+   320
+  ],
+  "padded_a": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "us": 72.78,
+  "tflops_padded": 28.82
+ },
+ "a298x298": {
+  "logical_a": [
+   298,
+   298
+  ],
+  "padded_a": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "us": 113.51,
+  "tflops_padded": 18.48
+ },
+ "a298x320": {
+  "logical_a": [
+   298,
+   320
+  ],
+  "padded_a": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "us": 72.09,
+  "tflops_padded": 29.09
+ },
+ "a320x298": {
+  "logical_a": [
+   320,
+   298
+  ],
+  "padded_a": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "us": 112.14,
+  "tflops_padded": 18.7
+ }
+}
