@@ -1,0 +1,23 @@
+
+======================================================================
+[opendde-abag] docking 1ahw_abag.yaml (200 steps, 5 samples)
+======================================================================
+14:21:50  [tt-quietbox2:tt1] loading model…
+14:21:58  [tt-quietbox2:tt1] 1ahw_abag
+14:21:58  [tt-quietbox2:tt1]   msa
+14:21:58  [tt-quietbox2:tt1] ✗ 1ahw_abag — 0.3s
+
+1 failed:
+  ✗ 1ahw_abag: colabfold_search not found.
+      Install localcolabfold and/or activate the environment that provides it:
+        https://github.com/YoshitakaMo/localcolabfold
+
+Done: 0 ok, 1 failed — /home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/opendde_results_1ahw_abag/results.json
+
+##############################################################################
+RELEASE GATE — 1ahw_abag.yaml (opendde-abag), 200 steps / 5 samples, seed 0
+##############################################################################
+model            global DockQ  mean fnat     floor     wall  result
+opendde-abag              -          -       >=0.5      13s  FAIL (CIF parse failed: predict wrote no CIF output)
+##############################################################################
+GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)

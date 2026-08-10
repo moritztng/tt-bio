@@ -1,0 +1,208 @@
+2026-08-10 13:36:48.349 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+model loaded in 3.8s
+head: {"wheel": "0.68.0", "host": "tt-quietbox2", "card": "1", "model": "openfold3", "grid": [11, 10], "reblock_permute_constant": true, "enabled_at_import": true, "l1_max_seq": 352}
+  [fold] sample 0: xl_final std=7.8645 range=[-21.39,18.97]
+ON : {"target": "examples/prot.yaml", "rc_ok": true, "wall_s": 20.39, "n_tokens": 117, "plddt": 0.606133, "channel_move_calls": 1328, "calls_served": 0, "calls_refused": 1328, "pair_shape": [117, 128], "l1_out_refused_n": 0, "l1_layer_norm": {"l1": 561, "dram": 0}, "transpose_memory_config": "BufferType.L1", "trimul_throws": [], "error": null}
+     shapes: [{"N": 117, "C": 64, "in": "L1", "out": "L1", "dtype": "BFLOAT16", "layout": "TILE", "eligible": false, "calls": 176}, {"N": 117, "C": 128, "in": "L1", "out": "L1", "dtype": "BFLOAT16", "layout": "TILE", "eligible": false, "calls": 1152}]
+  [fold] sample 0: xl_final std=11.5820 range=[-32.37,35.79]
+ON : {"target": "perf/size512/fixtures/cdk2x2_298.yaml", "rc_ok": true, "wall_s": 80.04, "n_tokens": 298, "plddt": 0.804057, "channel_move_calls": 4960, "calls_served": 4960, "calls_refused": 0, "pair_shape": [298, 128], "l1_out_refused_n": 0, "l1_layer_norm": {"l1": 561, "dram": 0}, "transpose_memory_config": "BufferType.L1", "trimul_throws": [], "error": null}
+     shapes: [{"N": 298, "C": 32, "in": "L1", "out": "L1", "dtype": "BFLOAT16", "layout": "TILE", "eligible": true, "calls": 4960}]
+  [fold] sample 0: xl_final std=13.3869 range=[-34.09,32.81]
+ON : {"target": "perf/size512/fixtures/cdk2x2_384.yaml", "rc_ok": true, "wall_s": 209.13, "n_tokens": 384, "plddt": 0.751451, "channel_move_calls": 9920, "calls_served": 9920, "calls_refused": 0, "pair_shape": [384, 128], "l1_out_refused_n": 0, "l1_layer_norm": {"l1": 561, "dram": 0}, "transpose_memory_config": "BufferType.L1", "trimul_throws": [], "error": null}
+     shapes: [{"N": 384, "C": 32, "in": "DRAM", "out": "DRAM", "dtype": "BFLOAT16", "layout": "TILE", "eligible": true, "calls": 9920}]
+2026-08-10 13:42:37.934 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 2561 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840 (assert.hpp:104)
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/perf/z_flip_land/census_sweep.py", line 238, in fold
+    metrics, _b, _f = state.predict_one(target, job_cfg)
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/worker.py", line 512, in predict_one
+    return self._predict_openfold3_one(path, cfg)
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/worker.py", line 1096, in _predict_openfold3_one
+    result = model.fold(
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/openfold3_fold.py", line 310, in fold
+    s_trunk_d, z_trunk_d = self.trunk(s_init_d, z_init_d, tmpl_d, msa_d, s_input_d,
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/openfold3_trunk.py", line 172, in __call__
+    s, z = self.pairformer(s, z)                 # device 48-block Pairformer
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/tenstorrent.py", line 2645, in __call__
+    s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/tenstorrent.py", line 2588, in __call__
+    s_update = self.attention_pair_bias(
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/tenstorrent.py", line 2274, in __call__
+    logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/tenstorrent.py", line 442, in batched_matmul
+    return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 2561 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840
+backtrace:
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7a2b6a2d3f55]
+ --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)
+ --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)
+ --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7a2b6bdc9d92]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfcb339) [0x7a2b6bdcb339]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail30create_and_cache_mesh_workloadITkNS0_22DeviceOperationConceptENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm+0x1f5) [0x7a2b6bdc97f5]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x583) [0x7a2b6bdc2b23]
+ --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x7a2b6bd7c318]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6matmulERKN2tt8tt_metal6TensorES6_bbRKSt8optionalIKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSG_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x3c4) [0x7a2b6bd7b7d4]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3f67e4) [0x7a2b6c9f67e4]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3f63c9) [0x7a2b6c9f63c9]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x7a2b6c86f895]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x55fc3c80e7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa185) [0x55fc3c7704b5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x55fc3c80e7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa185) [0x55fc3c7704b5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x55fc3c79ccb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x55fc3c76a0e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x55fc3c80e7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fcea2) [0x55fc3c79cea2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x55fc3c76a0e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x96) [0x55fc3c80e756]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fcea2) [0x55fc3c79cea2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x42fa) [0x55fc3c76a62a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x96) [0x55fc3c80e756]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x12f42) [0x55fc3c779272]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x55fc3c80e7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fcea2) [0x55fc3c79cea2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x55fc3c76a0e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2732d0) [0x55fc3c7132d0]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x55fc3c79ccb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x55fc3c76a0e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8a54) [0x55fc3c76ed84]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8a54) [0x55fc3c76ed84]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x55fc3c79ccb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x42fa) [0x55fc3c76a62a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x55fc3c79ccb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x42fa) [0x55fc3c76a62a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3d4544) [0x55fc3c874544]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x40a183) [0x55fc3c8aa183]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1b3592) [0x55fc3c653592]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x109) [0x55fc3c6530c9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0xa5) [0x55fc3c652ac5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bcd89) [0x55fc3c65cd89]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bc8f2) [0x55fc3c65c8f2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x680) [0x55fc3c8b5b70]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x148028) [0x55fc3c5e8028]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7a2bafc2a1ca]
+ --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7a2bafc2a28b]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x345cdb) [0x55fc3c7e5cdb]
+
+ON : {"target": "perf/size512/fixtures/cdk2x2_512.yaml", "rc_ok": false, "wall_s": 35.04, "n_tokens": null, "plddt": null, "channel_move_calls": 144, "calls_served": 144, "calls_refused": 0, "pair_shape": [512, 128], "l1_out_refused_n": 0, "l1_layer_norm": {"l1": 4, "dram": 0}, "transpose_memory_config": "BufferType.L1", "trimul_throws": [], "error": "RuntimeError('TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\\ninfo:\\nStatically allocated circular buffers in program 2561 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840\\nbacktrace:\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7a2b6a2d3f55]\\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::d"}
+     shapes: [{"N": 512, "C": 32, "in": "DRAM", "out": "DRAM", "dtype": "BFLOAT16", "layout": "TILE", "eligible": true, "calls": 144}]
+2026-08-10 13:42:42.583 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 2561 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840 (assert.hpp:104)
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/perf/z_flip_land/census_sweep.py", line 238, in fold
+    metrics, _b, _f = state.predict_one(target, job_cfg)
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/worker.py", line 512, in predict_one
+    return self._predict_openfold3_one(path, cfg)
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/worker.py", line 1096, in _predict_openfold3_one
+    result = model.fold(
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/openfold3_fold.py", line 310, in fold
+    s_trunk_d, z_trunk_d = self.trunk(s_init_d, z_init_d, tmpl_d, msa_d, s_input_d,
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/openfold3_trunk.py", line 172, in __call__
+    s, z = self.pairformer(s, z)                 # device 48-block Pairformer
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/tenstorrent.py", line 2645, in __call__
+    s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/tenstorrent.py", line 2588, in __call__
+    s_update = self.attention_pair_bias(
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/tenstorrent.py", line 2274, in __call__
+    logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/tenstorrent.py", line 442, in batched_matmul
+    return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 2561 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840
+backtrace:
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7a2b6a2d3f55]
+ --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)
+ --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)
+ --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7a2b6bdc9d92]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail29handle_mesh_adapter_cache_hitITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm+0x15c) [0x7a2b6bdc959c]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x583) [0x7a2b6bdc2b23]
+ --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x7a2b6bd7c318]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6matmulERKN2tt8tt_metal6TensorES6_bbRKSt8optionalIKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSG_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x3c4) [0x7a2b6bd7b7d4]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3f67e4) [0x7a2b6c9f67e4]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3f63c9) [0x7a2b6c9f63c9]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x7a2b6c86f895]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x55fc3c80e7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa185) [0x55fc3c7704b5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x55fc3c80e7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa185) [0x55fc3c7704b5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x55fc3c79ccb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x55fc3c76a0e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x55fc3c80e7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fcea2) [0x55fc3c79cea2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x55fc3c76a0e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x96) [0x55fc3c80e756]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fcea2) [0x55fc3c79cea2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x42fa) [0x55fc3c76a62a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x96) [0x55fc3c80e756]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x12f42) [0x55fc3c779272]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x55fc3c80e7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x55fc3c842626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fcea2) [0x55fc3c79cea2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x55fc3c76a0e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2732d0) [0x55fc3c7132d0]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x55fc3c79ccb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x55fc3c76a0e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8a54) [0x55fc3c76ed84]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8a54) [0x55fc3c76ed84]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x55fc3c79ccb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x42fa) [0x55fc3c76a62a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x55fc3c7112d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x55fc3c79ccb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x42fa) [0x55fc3c76a62a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3d4544) [0x55fc3c874544]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x40a183) [0x55fc3c8aa183]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1b3592) [0x55fc3c653592]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x109) [0x55fc3c6530c9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0xa5) [0x55fc3c652ac5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bcd89) [0x55fc3c65cd89]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bc8f2) [0x55fc3c65c8f2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x680) [0x55fc3c8b5b70]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x148028) [0x55fc3c5e8028]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7a2bafc2a1ca]
+ --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7a2bafc2a28b]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x345cdb) [0x55fc3c7e5cdb]
+
+OFF: {"target": "perf/size512/fixtures/cdk2x2_512.yaml", "rc_ok": false, "wall_s": 4.61, "plddt": null, "calls_served": 0, "cif_sha_identical_to_on": true, "same_failure_signature": true, "error": "RuntimeError('TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\\ninfo:\\nStatically allocated circular buffers in program 2561 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840\\nbacktrace:\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7a2b6a2d3f55]\\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::d"}
+wrote perf/z_flip_land/sweep_openfold3_qb2c1.json

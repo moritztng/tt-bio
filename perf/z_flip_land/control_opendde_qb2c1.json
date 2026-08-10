@@ -1,0 +1,296 @@
+{
+ "wheel": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "model": "opendde",
+ "reblock_permute_constant": true,
+ "enabled_at_import": true,
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "l1_max_seq": 352,
+ "meta": {
+  "hardware": "blackhole",
+  "card_type": null,
+  "aiclk_mhz": null,
+  "load_s": 2.72
+ },
+ "rows": [
+  {
+   "target": "perf/size512/fixtures/cdk2x2_298.yaml",
+   "kernel_on": true,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 48.33,
+   "n_tokens": 298,
+   "n_residues": 298,
+   "plddt": 0.799654,
+   "cif_sha": [
+    [
+     "cdk2x2_298.cif",
+     "1c6acc27c7fca07a"
+    ]
+   ],
+   "channel_move_calls": 13088,
+   "calls_served": 13088,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 298,
+     "C": 32,
+     "in": "L1",
+     "out": "L1",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": true,
+     "calls": 12896
+    },
+    {
+     "N": 580,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": true,
+     "calls": 192
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x298x298x64": 160,
+    "1x298x298x384": 1048,
+    "1x580x580x384": 8
+   },
+   "trimul_invocations_total": 1216,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 534,
+    "dram": 4
+   },
+   "pair_shape": [
+    580,
+    384
+   ],
+   "transpose_memory_config": "BufferType.DRAM",
+   "transpose_l1_expected": false,
+   "load": [
+    2.41,
+    2.79,
+    3.09
+   ]
+  },
+  {
+   "target": "perf/size512/fixtures/cdk2x2_298.yaml",
+   "kernel_on": false,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 47.13,
+   "n_tokens": 298,
+   "n_residues": 298,
+   "plddt": 0.799654,
+   "cif_sha": [
+    [
+     "cdk2x2_298.cif",
+     "1c6acc27c7fca07a"
+    ]
+   ],
+   "channel_move_calls": 13088,
+   "calls_served": 0,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 298,
+     "C": 32,
+     "in": "L1",
+     "out": "L1",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": false,
+     "calls": 12896
+    },
+    {
+     "N": 580,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": false,
+     "calls": 192
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x298x298x64": 160,
+    "1x298x298x384": 1048,
+    "1x580x580x384": 8
+   },
+   "trimul_invocations_total": 1216,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 534,
+    "dram": 4
+   },
+   "pair_shape": [
+    580,
+    384
+   ],
+   "transpose_memory_config": "BufferType.DRAM",
+   "transpose_l1_expected": false,
+   "load": [
+    2.34,
+    2.71,
+    3.05
+   ],
+   "control_for": "perf/size512/fixtures/cdk2x2_298.yaml",
+   "cif_sha_identical_to_on": true,
+   "same_failure_signature": true
+  },
+  {
+   "target": "perf/size512/fixtures/cdk2x2_384.yaml",
+   "kernel_on": true,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 77.29,
+   "n_tokens": 384,
+   "n_residues": 384,
+   "plddt": 0.790503,
+   "cif_sha": [
+    [
+     "cdk2x2_384.cif",
+     "eefdf6de5d11343a"
+    ]
+   ],
+   "channel_move_calls": 25984,
+   "calls_served": 25984,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 384,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": true,
+     "calls": 25792
+    },
+    {
+     "N": 747,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": true,
+     "calls": 192
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x384x384x64": 160,
+    "1x384x384x384": 1048,
+    "1x747x747x384": 8
+   },
+   "trimul_invocations_total": 1216,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 0,
+    "dram": 538
+   },
+   "pair_shape": [
+    747,
+    384
+   ],
+   "transpose_memory_config": "BufferType.DRAM",
+   "transpose_l1_expected": false,
+   "load": [
+    2.84,
+    2.7,
+    3.01
+   ]
+  },
+  {
+   "target": "perf/size512/fixtures/cdk2x2_384.yaml",
+   "kernel_on": false,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 79.29,
+   "n_tokens": 384,
+   "n_residues": 384,
+   "plddt": 0.790503,
+   "cif_sha": [
+    [
+     "cdk2x2_384.cif",
+     "eefdf6de5d11343a"
+    ]
+   ],
+   "channel_move_calls": 25984,
+   "calls_served": 0,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 384,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": false,
+     "calls": 25792
+    },
+    {
+     "N": 747,
+     "C": 32,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": false,
+     "calls": 192
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x384x384x64": 160,
+    "1x384x384x384": 1048,
+    "1x747x747x384": 8
+   },
+   "trimul_invocations_total": 1216,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 0,
+    "dram": 538
+   },
+   "pair_shape": [
+    747,
+    384
+   ],
+   "transpose_memory_config": "BufferType.DRAM",
+   "transpose_l1_expected": false,
+   "load": [
+    3.54,
+    3.01,
+    3.09
+   ],
+   "control_for": "perf/size512/fixtures/cdk2x2_384.yaml",
+   "cif_sha_identical_to_on": true,
+   "same_failure_signature": true
+  }
+ ]
+}
