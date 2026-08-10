@@ -1,0 +1,84 @@
+{
+  "wheel": "0.67.4",
+  "host": "qb1",
+  "card": 0,
+  "device_grid": [
+    13,
+    10
+  ],
+  "shape": [
+    1,
+    298,
+    298,
+    64
+  ],
+  "bytes_one_way": 11366912,
+  "rows": [
+    {
+      "op": "clone",
+      "src": "l1",
+      "dst": "l1",
+      "synced_us": 66.3,
+      "thru_us": 33.81,
+      "thru_GBs_one_way": 336.2
+    },
+    {
+      "op": "clone",
+      "src": "l1",
+      "dst": "dram",
+      "synced_us": 94.19,
+      "thru_us": 47.32,
+      "thru_GBs_one_way": 240.2
+    },
+    {
+      "op": "reblock_permute",
+      "src": "l1",
+      "dst": "l1",
+      "synced_us": 211.92,
+      "thru_us": 104.09,
+      "thru_GBs_one_way": 109.2
+    },
+    {
+      "op": "ttnn.permute(0,3,1,2)",
+      "src": "l1",
+      "dst": "l1",
+      "synced_us": 212.01,
+      "thru_us": 154.31,
+      "thru_GBs_one_way": 73.7
+    },
+    {
+      "op": "clone",
+      "src": "dram",
+      "dst": "l1",
+      "synced_us": 77.7,
+      "thru_us": 32.56,
+      "thru_GBs_one_way": 349.1
+    },
+    {
+      "op": "clone",
+      "src": "dram",
+      "dst": "dram",
+      "synced_us": 107.77,
+      "thru_us": 61.01,
+      "thru_GBs_one_way": 186.3
+    },
+    {
+      "op": "reblock_permute",
+      "src": "dram",
+      "dst": "dram",
+      "synced_us": 233.93,
+      "thru_us": 126.71,
+      "thru_GBs_one_way": 89.7
+    },
+    {
+      "op": "ttnn.permute(0,3,1,2)",
+      "src": "dram",
+      "dst": "dram",
+      "synced_us": 340.33,
+      "thru_us": 289.47,
+      "thru_GBs_one_way": 39.3
+    }
+  ],
+  "cores_engaged": 100,
+  "cores_on_grid": 130
+}

@@ -1,0 +1,257 @@
+{
+  "wheel": "0.67.4",
+  "host": "qb1",
+  "card": 0,
+  "meta": {
+    "hardware": "blackhole",
+    "card_type": "p150a",
+    "aiclk_mhz": "1350",
+    "load_s": 3.62,
+    "n_msa": 35
+  },
+  "compute_grid_main": [
+    13,
+    10
+  ],
+  "aa": [
+    {
+      "round": 0,
+      "a_s": 29.0609,
+      "b_s": 29.1774,
+      "apparent_delta_ms": -116.5,
+      "eligible_calls": 0,
+      "load": [
+        3.9,
+        2.21,
+        2.35
+      ]
+    },
+    {
+      "round": 1,
+      "a_s": 29.229,
+      "b_s": 29.453,
+      "apparent_delta_ms": -224.0,
+      "eligible_calls": 0,
+      "load": [
+        3.38,
+        2.39,
+        2.41
+      ]
+    },
+    {
+      "round": 2,
+      "a_s": 29.1658,
+      "b_s": 29.0833,
+      "apparent_delta_ms": 82.5,
+      "eligible_calls": 0,
+      "load": [
+        5.67,
+        3.07,
+        2.63
+      ]
+    },
+    {
+      "round": 3,
+      "a_s": 29.1388,
+      "b_s": 29.2282,
+      "apparent_delta_ms": -89.4,
+      "eligible_calls": 0,
+      "load": [
+        3.35,
+        2.88,
+        2.59
+      ]
+    },
+    {
+      "round": 4,
+      "a_s": 29.2598,
+      "b_s": 29.1992,
+      "apparent_delta_ms": 60.6,
+      "eligible_calls": 0,
+      "load": [
+        3.75,
+        3.01,
+        2.65
+      ]
+    }
+  ],
+  "rounds": [
+    {
+      "round": 0,
+      "base_s": 29.1531,
+      "wire_s": 29.0584,
+      "delta_ms": 94.7,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 0,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        3.9,
+        3.08,
+        2.69
+      ]
+    },
+    {
+      "round": 1,
+      "base_s": 29.0516,
+      "wire_s": 29.0679,
+      "delta_ms": -16.3,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 0,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        3.43,
+        3.12,
+        2.73
+      ]
+    },
+    {
+      "round": 2,
+      "base_s": 29.1395,
+      "wire_s": 29.1621,
+      "delta_ms": -22.6,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 0,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        5.35,
+        3.56,
+        2.89
+      ]
+    },
+    {
+      "round": 3,
+      "base_s": 29.1246,
+      "wire_s": 29.0697,
+      "delta_ms": 54.9,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 0,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        3.39,
+        3.31,
+        2.84
+      ]
+    },
+    {
+      "round": 4,
+      "base_s": 29.1253,
+      "wire_s": 29.1107,
+      "delta_ms": 14.6,
+      "eligible_calls_base": 0,
+      "eligible_calls_wire": 0,
+      "plddt_base": 0.8594889044761658,
+      "plddt_wire": 0.8594889044761658,
+      "load": [
+        5.48,
+        3.79,
+        3.03
+      ]
+    }
+  ],
+  "transpose_memory_config_before": "BufferType.L1",
+  "cold": {
+    "base_s": 38.384,
+    "wire_s": 29.506,
+    "n_tokens": 298,
+    "plddt": 0.8594889044761658,
+    "eligible_calls_in_one_wire_fold": 0,
+    "load": [
+      2.52,
+      1.72,
+      2.22
+    ]
+  },
+  "transpose_memory_config_after": "BufferType.L1",
+  "aa_summary": {
+    "a_median_s": 29.1658,
+    "b_median_s": 29.1992,
+    "apparent_delta_ms_on_medians": -33.4,
+    "max_abs_apparent_delta_ms": 224.0,
+    "a_spread_ms": 198.9,
+    "b_spread_ms": 369.7,
+    "all_folds_spread_ms": 392.1,
+    "folds": [
+      29.0609,
+      29.229,
+      29.1658,
+      29.1388,
+      29.2598,
+      29.1774,
+      29.453,
+      29.0833,
+      29.2282,
+      29.1992
+    ]
+  },
+  "rejects": {
+    "shape:[1, 298, 298, 64]": 26112
+  },
+  "summary": {
+    "base_median_s": 29.1253,
+    "wire_median_s": 29.0697,
+    "delta_ms_median": 55.6,
+    "delta_ms_paired_mean": 25.1,
+    "delta_ms_min": -22.6,
+    "delta_ms_max": 94.7,
+    "ratio": 1.00191,
+    "base_spread_ms": 101.5,
+    "wire_spread_ms": 103.7,
+    "base_folds": [
+      29.1531,
+      29.0516,
+      29.1395,
+      29.1246,
+      29.1253
+    ],
+    "wire_folds": [
+      29.0584,
+      29.0679,
+      29.1621,
+      29.0697,
+      29.1107
+    ]
+  },
+  "parity": {
+    "n_coord_sets": 22,
+    "max_abs_delta_A_all_pairs": 0.0,
+    "torch_equal_first_vs_last": true,
+    "shape": [
+      1,
+      2398,
+      3
+    ]
+  },
+  "block_wall": {
+    "shape": [
+      1,
+      298,
+      298,
+      256
+    ],
+    "base_ms": [
+      6.4111,
+      6.4279,
+      6.4367
+    ],
+    "wire_ms": [
+      6.4274,
+      6.4511,
+      6.441
+    ],
+    "base_median_ms": 6.4279,
+    "wire_median_ms": 6.441,
+    "delta_ms_per_call": -0.0131,
+    "ratio": 0.998,
+    "eligible_calls_per_block": 0.0,
+    "load": [
+      5.48,
+      3.79,
+      3.03
+    ],
+    "projected_ms_per_fold_x524x2": -13.7
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "shape": [
+    298,
+    320,
+    256
+  ],
+  "cores": 110,
+  "one_way_MB": 48.82432,
+  "arms": {
+    "clone dram->dram": {
+      "us": 263.53,
+      "GB_s_one_way": 185.3,
+      "note": "floor"
+    },
+    "clone dram->l1": {
+      "us": 141.73,
+      "GB_s_one_way": 344.5,
+      "note": "floor"
+    },
+    "clone l1->dram": {
+      "us": 198.68,
+      "GB_s_one_way": 245.7,
+      "note": "floor"
+    },
+    "clone l1->l1": {
+      "us": 96.56,
+      "GB_s_one_way": 505.7,
+      "note": "floor"
+    },
+    "permute(1,0,2) dram->dram": {
+      "us": 1409.73,
+      "GB_s_one_way": 34.6,
+      "note": ""
+    },
+    "permute(1,0,2) dram->l1": {
+      "us": 567.17,
+      "GB_s_one_way": 86.1,
+      "note": ""
+    },
+    "permute(1,0,2) l1->dram": {
+      "us": 1262.36,
+      "GB_s_one_way": 38.7,
+      "note": ""
+    },
+    "permute(1,0,2) l1->l1": {
+      "us": 566.79,
+      "GB_s_one_way": 86.1,
+      "note": ""
+    },
+    "staged dram->L1->permute->l1": {
+      "us": 688.98,
+      "GB_s_one_way": 70.9,
+      "note": "2 stock calls"
+    },
+    "staged dram->L1->permute->dram": {
+      "us": 885.43,
+      "GB_s_one_way": 55.1,
+      "note": "3 stock calls"
+    }
+  },
+  "parity": {
+    "permute dram->dram": true,
+    "permute dram->l1": true,
+    "permute l1->dram": true,
+    "permute l1->l1": true,
+    "staged dram->l1": true,
+    "staged dram->dram": true
+  },
+  "per_core_l1_unreserved": 1532416,
+  "compute_grid_main": [
+    11,
+    10
+  ],
+  "production_dest": "BufferType.L1"
+}

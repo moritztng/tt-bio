@@ -1,0 +1,74 @@
+{
+  "wheel": "0.67.4",
+  "host": "qb1",
+  "card": 0,
+  "device_grid": [
+    13,
+    10
+  ],
+  "per_core_l1_unreserved_B": 1532448,
+  "rows": [
+    {
+      "N": 298,
+      "C": 64,
+      "buf": "l1",
+      "torch_equal": true,
+      "wired_synced_us": 167.51,
+      "stock_synced_us": 186.95,
+      "wired_thru_us": 102.87,
+      "stock_thru_us": 153.38,
+      "clone_same_buf_us": 48.74,
+      "ratio_synced": 1.116,
+      "ratio_thru": 1.491,
+      "clone_GBs": 233.2,
+      "wired_over_clone": 3.44
+    },
+    {
+      "N": 298,
+      "C": 64,
+      "buf": "dram",
+      "torch_equal": true,
+      "wired_synced_us": 183.86,
+      "stock_synced_us": 332.1,
+      "wired_thru_us": 126.3,
+      "stock_thru_us": 289.11,
+      "clone_same_buf_us": 105.91,
+      "ratio_synced": 1.806,
+      "ratio_thru": 2.289,
+      "clone_GBs": 107.3,
+      "wired_over_clone": 1.74
+    },
+    {
+      "N": 320,
+      "C": 64,
+      "buf": "l1",
+      "torch_equal": true,
+      "wired_synced_us": 164.78,
+      "stock_synced_us": 192.11,
+      "wired_thru_us": 103.09,
+      "stock_thru_us": 158.91,
+      "clone_same_buf_us": 59.71,
+      "ratio_synced": 1.166,
+      "ratio_thru": 1.541,
+      "clone_GBs": 219.5,
+      "wired_over_clone": 2.76
+    },
+    {
+      "N": 320,
+      "C": 64,
+      "buf": "dram",
+      "torch_equal": true,
+      "wired_synced_us": 187.27,
+      "stock_synced_us": 329.28,
+      "wired_thru_us": 126.16,
+      "stock_thru_us": 291.26,
+      "clone_same_buf_us": 106.33,
+      "ratio_synced": 1.758,
+      "ratio_thru": 2.309,
+      "clone_GBs": 123.3,
+      "wired_over_clone": 1.76
+    }
+  ],
+  "channels": 64,
+  "host_cached_per_call_us": 10.63
+}

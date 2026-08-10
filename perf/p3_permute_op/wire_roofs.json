@@ -1,0 +1,53 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "per_core_l1_unreserved_B": 1532416,
+  "shape": [
+    1,
+    320,
+    320,
+    32
+  ],
+  "bytes_one_way": 6553600,
+  "clone_floors": [
+    {
+      "src": "l1",
+      "dst": "l1",
+      "us": 31.5,
+      "gb_s_one_way": 208.0
+    },
+    {
+      "src": "l1",
+      "dst": "dram",
+      "us": 42.1,
+      "gb_s_one_way": 155.7
+    },
+    {
+      "src": "dram",
+      "dst": "l1",
+      "us": 33.9,
+      "gb_s_one_way": 193.3
+    },
+    {
+      "src": "dram",
+      "dst": "dram",
+      "us": 50.61,
+      "gb_s_one_way": 129.5
+    }
+  ],
+  "op": {
+    "cores_engaged": 100,
+    "of_grid": 110,
+    "tiles": 3200,
+    "wired_us": 99.47,
+    "ttnn_permute_us": 117.19,
+    "wired_gb_s_one_way": 65.9,
+    "base_gb_s_one_way": 55.9,
+    "us_per_tile_per_engaged_core": 3.109,
+    "flops": 0,
+    "arithmetic_intensity_flop_per_byte": 0.0
+  }
+}
