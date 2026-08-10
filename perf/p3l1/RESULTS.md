@@ -522,3 +522,12 @@ bound by its source, and handing it an L1-resident producer is worth more than a
 own output. Two more sites in this repo have that shape — `PairWeightedAveraging`'s per-head z->bias
 (240 calls/fold, 122.9 ms, and its `layer_norm` is computed **once** for eight consumers) and the
 template z projection — and neither is touched here.
+
+## What is not done
+
+Two things, named rather than left implicit. **The interleaved sweep was run once.** The four arms
+order correctly within it and the op walls are a sum over 484-3988 synced calls each, which is why
+I am quoting those rather than the block wall as the delivered figure — but a second sweep is owed
+before Proposal B's number is treated as settled. **The release-gated `_PAIR_PROJ_L1_BW = 16` arm
+was never run in a fold**, only in the probe, so its 740.6 ms/fold is a projection of exactly the
+kind this leg just showed over-prices by 2.3x.
