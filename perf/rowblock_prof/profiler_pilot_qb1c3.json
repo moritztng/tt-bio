@@ -1,0 +1,154 @@
+{
+ "runs": [
+  {
+   "label": "on1",
+   "arm": "on",
+   "csv": "perf/rowblock_prof/ops_on_1.csv",
+   "census_unique": [
+    [
+     "[512, 512, 256]",
+     "BufferType.DRAM",
+     "None"
+    ]
+   ],
+   "blocked_calls": 0,
+   "total_calls": 6,
+   "block_wall_ms_median": 126.46,
+   "calls_measured": 4,
+   "programs_per_call": 1.0,
+   "kernel_ms_per_call": {
+    "median": 3.967789,
+    "min": 3.943198,
+    "max": 3.983697,
+    "spread_pct_of_median": 1.0206943968038622
+   },
+   "o2o_ms_per_call_median": 0.0,
+   "ms_per_fold_x1048": 4158.242872,
+   "per_op_mean_us_per_call": {
+    "TransposeDeviceOperation in0=['1[1]', '512[512]', '512[512]', '256[256]'] out=DRAM": {
+     "n": 1.0,
+     "us": 3965.6,
+     "cores": [
+      "130"
+     ],
+     "risc_us": {
+      "BRISC": 3965.6,
+      "NCRISC": 3961.7,
+      "TRISC0": 0.0,
+      "TRISC1": 0.0,
+      "TRISC2": 0.0
+     }
+    }
+   },
+   "block_device_kernel_ms": 125.65355766666666,
+   "roofs_same_clock": {
+    "copy roof (DRAM), DRAM source": {
+     "ms": 0.650099,
+     "gbs": 412.91473452504925
+    },
+    "copy roof (L1), DRAM source": {
+     "ms": 0.328904,
+     "gbs": 816.1513876389464
+    }
+   },
+   "useful_gbs_per_call": 67.65366202688702
+  },
+  {
+   "label": "rb1",
+   "arm": "rb_fit",
+   "csv": "perf/rowblock_prof/ops_rb_fit_1.csv",
+   "census_unique": [
+    [
+     "[512, 512, 256]",
+     "BufferType.DRAM",
+     "[64, 4]"
+    ]
+   ],
+   "blocked_calls": 6,
+   "total_calls": 6,
+   "block_wall_ms_median": 125.97,
+   "calls_measured": 4,
+   "programs_per_call": 19.0,
+   "kernel_ms_per_call": {
+    "median": 3.0195005,
+    "min": 3.012913,
+    "max": 3.025295,
+    "spread_pct_of_median": 0.410067824131839
+   },
+   "o2o_ms_per_call_median": 0.0099025,
+   "ms_per_fold_x1048": 3164.4365239999997,
+   "per_op_mean_us_per_call": {
+    "SliceDeviceOperation in0=['1[1]', '512[512]', '512[512]', '256[256]'] out=DRAM": {
+     "n": 8.0,
+     "us": 671.8,
+     "cores": [
+      "130"
+     ],
+     "risc_us": {
+      "BRISC": 671.8,
+      "NCRISC": 669.7,
+      "TRISC0": 0.0,
+      "TRISC1": 0.0,
+      "TRISC2": 0.0
+     }
+    },
+    "TransposeDeviceOperation in0=['1[1]', '512[512]', '64[64]', '256[256]'] out=L1": {
+     "n": 8.0,
+     "us": 1185.6,
+     "cores": [
+      "130"
+     ],
+     "risc_us": {
+      "BRISC": 1185.6,
+      "NCRISC": 1151.9,
+      "TRISC0": 0.0,
+      "TRISC1": 0.0,
+      "TRISC2": 0.0
+     }
+    },
+    "ConcatDeviceOperation in0=['1[1]', '64[64]', '512[512]', '256[256]'] out=DRAM": {
+     "n": 2.0,
+     "us": 508.2,
+     "cores": [
+      "130"
+     ],
+     "risc_us": {
+      "BRISC": 508.2,
+      "NCRISC": 507.6,
+      "TRISC0": 0.0,
+      "TRISC1": 0.0,
+      "TRISC2": 0.0
+     }
+    },
+    "ConcatDeviceOperation in0=['1[1]', '256[256]', '512[512]', '256[256]'] out=DRAM": {
+     "n": 1.0,
+     "us": 653.7,
+     "cores": [
+      "130"
+     ],
+     "risc_us": {
+      "BRISC": 653.7,
+      "NCRISC": 653.4,
+      "TRISC0": 0.0,
+      "TRISC1": 0.0,
+      "TRISC2": 0.0
+     }
+    }
+   },
+   "block_device_kernel_ms": 123.71067099999999,
+   "roofs_same_clock": {
+    "copy roof (DRAM), DRAM source": {
+     "ms": 0.64985,
+     "gbs": 413.07294914210974
+    },
+    "copy roof (L1), DRAM source": {
+     "ms": 0.331161,
+     "gbs": 810.5889763589312
+    }
+   },
+   "useful_gbs_per_call": 88.90061650925378
+  }
+ ],
+ "aa_floors": {},
+ "census_x": 1048
+}

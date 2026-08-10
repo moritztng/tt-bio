@@ -1,0 +1,41 @@
+{
+ "arm": "rb_fit",
+ "n": 512,
+ "c_z": 256,
+ "warm": 1,
+ "iters": 2,
+ "roof_reps": 3,
+ "grid": [
+  13,
+  10
+ ],
+ "l1_budget_bytes": 199214080,
+ "pair_bytes": 134217728,
+ "marker": {
+  "op": "sqrt",
+  "shape": [
+   1,
+   1,
+   32,
+   64
+  ]
+ },
+ "n_warm_transpose_calls": 2,
+ "n_measured_transpose_calls": 4,
+ "census_unique": [
+  [
+   "[512, 512, 256]",
+   "BufferType.DRAM",
+   "[64, 4]"
+  ]
+ ],
+ "blocked_calls": 6,
+ "total_calls": 6,
+ "block_wall_ms": {
+  "series": [
+   125.01,
+   126.93
+  ],
+  "median": 125.97
+ }
+}
