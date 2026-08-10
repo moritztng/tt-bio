@@ -1,0 +1,94 @@
+{
+ "wheel": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "0",
+ "model": "esmfold2",
+ "reblock_permute_constant": true,
+ "enabled_at_import": true,
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "compute_grid_main": [
+  13,
+  10
+ ],
+ "l1_max_seq": 352,
+ "meta": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "load_s": 27.81
+ },
+ "rows": [
+  {
+   "target": "examples/prot.yaml",
+   "kernel_on": true,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 22.93,
+   "n_tokens": null,
+   "n_residues": 117,
+   "plddt": 0.6775,
+   "cif_sha": [
+    [
+     "prot.cif",
+     "7c9ed23aa766c8d2"
+    ]
+   ],
+   "channel_move_calls": 1084,
+   "calls_served": 0,
+   "calls_refused": 1084,
+   "by_shape": [
+    {
+     "N": 117,
+     "C": 256,
+     "in": "L1",
+     "out": "L1",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": false,
+     "calls": 8
+    },
+    {
+     "N": 128,
+     "C": 256,
+     "in": "L1",
+     "out": "L1",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": false,
+     "calls": 1076
+    }
+   ],
+   "reject_reasons": {
+    "window_BufferType.L1:[1, 117, 117, 256]": 8,
+    "window_BufferType.L1:[1, 128, 128, 256]": 1076
+   },
+   "trimul_invocations": {
+    "1x117x117x256": 8,
+    "1x128x128x256": 1076
+   },
+   "trimul_invocations_total": 1084,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 0,
+    "dram": 0
+   },
+   "pair_shape": [
+    128,
+    256
+   ],
+   "transpose_memory_config": "BufferType.L1",
+   "transpose_l1_expected": true,
+   "load": [
+    18.95,
+    39.75,
+    50.72
+   ]
+  }
+ ]
+}
