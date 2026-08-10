@@ -1,0 +1,64 @@
+{
+  "host": "qb2",
+  "chip": 0,
+  "ttnn": "0.68.0",
+  "grid": [
+    11,
+    10
+  ],
+  "l1_bank_bytes": 1461760,
+  "l1_total_bytes": 160793600,
+  "note": "qb2 at 0.68.0: every figure is a RATIO owing a qb1/0.67.4 re-take (charter 4.8)",
+  "B_region_under_ballast": {
+    "shape": [
+      1,
+      512,
+      512,
+      64
+    ],
+    "tensor_bytes": 33554432,
+    "two_live_L1_bytes": 67108864,
+    "l1_total_bytes": 160793600,
+    "ballast": [
+      {
+        "ballast_target_MB": 0,
+        "ballast_held_MB": 0,
+        "free_L1_MB": 160.7936,
+        "region_dram_ms": 0.7562185001006583,
+        "region_l1_ms": 0.5723414997191867,
+        "delta_ms_per_region": 0.1838770003814716
+      },
+      {
+        "ballast_target_MB": 24,
+        "ballast_held_MB": 24,
+        "free_L1_MB": 136.7936,
+        "region_dram_ms": 0.7482634996449633,
+        "region_l1_ms": 0.5712645001949568,
+        "delta_ms_per_region": 0.17699899945000652
+      },
+      {
+        "ballast_target_MB": 48,
+        "ballast_held_MB": 48,
+        "free_L1_MB": 112.7936,
+        "region_dram_ms": 0.7451219998984016,
+        "region_l1_ms": 0.56969150000441,
+        "delta_ms_per_region": 0.1754304998939915
+      },
+      {
+        "ballast_target_MB": 72,
+        "ballast_held_MB": 72,
+        "free_L1_MB": 88.7936,
+        "region_dram_ms": 0.74995700015279,
+        "region_l1_ms": 0.5702275002477109,
+        "delta_ms_per_region": 0.17972949990507914
+      },
+      {
+        "ballast_target_MB": 88,
+        "ballast_held_MB": 88,
+        "free_L1_MB": 72.7936,
+        "region_dram_ms": 0.7478224997612415,
+        "region_l1": "THROW: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 33554432 B L1 buffer across 110 banks,"
+      }
+    ]
+  }
+}
