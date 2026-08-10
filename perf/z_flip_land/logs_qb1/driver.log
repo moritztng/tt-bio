@@ -6,3 +6,11 @@ PREFLIGHT OK  grid=13x10 arch=blackhole nodes=[1] flip=ON
 === START sweep_esmfold2 2026-08-10T15:04:27Z
 === END sweep_esmfold2 rc=0 2026-08-10T15:12:10Z
 === START control_protenix-v2 2026-08-10T15:12:10Z
+=== END control_protenix-v2 rc=0 2026-08-10T15:16:06Z
+=== START control_esmfold2 2026-08-10T15:16:06Z
+=== END control_esmfold2 rc=0 2026-08-10T15:20:43Z
+=== START band 2026-08-10T15:20:43Z
+=== END band rc=0 2026-08-10T15:29:06Z
+=== START blockwall 2026-08-10T15:29:06Z
+=== END blockwall rc=1 2026-08-10T15:30:58Z
+QB1_DRIVER_DONE 2026-08-10T15:30:58Z

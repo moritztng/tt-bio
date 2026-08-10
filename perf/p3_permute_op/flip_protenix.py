@@ -310,9 +310,12 @@ def main() -> int:
         print("aa:", row, flush=True)
         flush()
     aa = [x["a_s"] for x in R["aa"]] + [x["b_s"] for x in R["aa"]]
+    # --aa-rounds 0 is the normal way to reach the block wall without paying for the fold arms, so
+    # an empty aa list is expected, not an error. It used to raise ValueError out of max().
     R["aa_summary"] = {
-        "max_abs_apparent_delta_ms": round(max(abs(x["apparent_delta_ms"]) for x in R["aa"]), 1),
-        "all_folds_spread_ms": round((max(aa) - min(aa)) * 1e3, 1),
+        "max_abs_apparent_delta_ms": round(max((abs(x["apparent_delta_ms"]) for x in R["aa"]),
+                                               default=0.0), 1),
+        "all_folds_spread_ms": round((max(aa, default=0.0) - min(aa, default=0.0)) * 1e3, 1),
         "folds": [round(v, 4) for v in aa]}
     print("aa_summary:", R["aa_summary"], flush=True)
     flush()

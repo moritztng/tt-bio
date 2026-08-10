@@ -1,0 +1,53 @@
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 15:29:09.254 | warning  |       Inspector | Failed to start Inspector RPC server: ::bind(sockfd, &addr.generic, addrlen): Address already in use; toString() = 127.0.0.1:50051 (data.cpp:47)
+model loaded in 15.0s
+grid: {'compute_grid_main': [13, 10], 'device_grid': [13, 10], 'trimul_chunk_size_298_128': 64, 'triangle_mul_memory_config_298': 'BufferType.L1', 'max_worker_l1_unreserved': 1532448, 'l1_idle': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 0, 'total_bytes_free_per_bank': 1461760, 'largest_contiguous_bytes_free_per_bank': 1461760, 'num_banks': 130}}
+roofs: {'shape': [1, 298, 298, 64], 'bytes_one_way': 11366912, 'load': [59.0, 55.95, 54.24], 'clone_l1_to_l1_us': 32.42, 'clone_l1_to_l1_GBs': 350.6, 'clone_l1_to_dram_us': 51.18, 'clone_l1_to_dram_GBs': 222.1, 'clone_dram_to_l1_us': 40.28, 'clone_dram_to_l1_GBs': 282.2, 'clone_dram_to_dram_us': 64.67, 'clone_dram_to_dram_GBs': 175.8, 'kernel_l1_us': 750.35, 'stock_permute_l1_us': 162.65, 'kernel_dram_us': 152.18, 'stock_permute_dram_us': 293.36, 'num_groups': 100, 'cores_engaged': 100, 'cores_total': 130, 'per_core_work': [1, 0], 'kernel_GBs_l1': 15.1, 'kernel_dram_minus_l1_us': -598.17, 'stock_dram_minus_l1_us': 130.71, 'clone_dram_minus_l1_us': 32.25}
+win: {'N': 256, 'C': 32, 'buffer': 'l1', 'eligible_by_gate': False, 'kernel_us': 81.9, 'stock_us': 61.35, 'ratio_stock_over_kernel': 0.749, 'torch_equal': True}
+win: {'N': 256, 'C': 32, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 81.27, 'stock_us': 122.02, 'ratio_stock_over_kernel': 1.501, 'torch_equal': True}
+win: {'N': 256, 'C': 64, 'buffer': 'l1', 'eligible_by_gate': False, 'kernel_us': 119.06, 'stock_us': 113.11, 'ratio_stock_over_kernel': 0.95, 'torch_equal': True}
+win: {'N': 256, 'C': 64, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 130.87, 'stock_us': 376.1, 'ratio_stock_over_kernel': 2.874, 'torch_equal': True}
+win: {'N': 288, 'C': 32, 'buffer': 'l1', 'eligible_by_gate': True, 'kernel_us': 325.0, 'stock_us': 73.75, 'ratio_stock_over_kernel': 0.227, 'torch_equal': True}
+win: {'N': 288, 'C': 32, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 70.28, 'stock_us': 120.83, 'ratio_stock_over_kernel': 1.719, 'torch_equal': True}
+win: {'N': 288, 'C': 64, 'buffer': 'l1', 'eligible_by_gate': True, 'kernel_us': 123.31, 'stock_us': 139.38, 'ratio_stock_over_kernel': 1.13, 'torch_equal': True}
+win: {'N': 288, 'C': 64, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 624.27, 'stock_us': 624.85, 'ratio_stock_over_kernel': 1.001, 'torch_equal': True}
+win: {'N': 298, 'C': 32, 'buffer': 'l1', 'eligible_by_gate': True, 'kernel_us': 1094.63, 'stock_us': 87.13, 'ratio_stock_over_kernel': 0.08, 'torch_equal': True}
+win: {'N': 298, 'C': 32, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 76.52, 'stock_us': 151.42, 'ratio_stock_over_kernel': 1.979, 'torch_equal': True}
+win: {'N': 298, 'C': 64, 'buffer': 'l1', 'eligible_by_gate': True, 'kernel_us': 123.55, 'stock_us': 161.42, 'ratio_stock_over_kernel': 1.307, 'torch_equal': True}
+win: {'N': 298, 'C': 64, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 135.39, 'stock_us': 723.65, 'ratio_stock_over_kernel': 5.345, 'torch_equal': True}
+win: {'N': 320, 'C': 32, 'buffer': 'l1', 'eligible_by_gate': True, 'kernel_us': 87.96, 'stock_us': 88.34, 'ratio_stock_over_kernel': 1.004, 'torch_equal': True}
+win: {'N': 320, 'C': 32, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 77.86, 'stock_us': 149.94, 'ratio_stock_over_kernel': 1.926, 'torch_equal': True}
+win: {'N': 320, 'C': 64, 'buffer': 'l1', 'eligible_by_gate': True, 'kernel_us': 295.55, 'stock_us': 169.01, 'ratio_stock_over_kernel': 0.572, 'torch_equal': True}
+win: {'N': 320, 'C': 64, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 136.28, 'stock_us': 294.59, 'ratio_stock_over_kernel': 2.162, 'torch_equal': True}
+win: {'N': 352, 'C': 32, 'buffer': 'l1', 'eligible_by_gate': True, 'kernel_us': 81.37, 'stock_us': 107.65, 'ratio_stock_over_kernel': 1.323, 'torch_equal': True}
+win: {'N': 352, 'C': 32, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 76.78, 'stock_us': 313.16, 'ratio_stock_over_kernel': 4.079, 'torch_equal': True}
+win: {'N': 352, 'C': 64, 'buffer': 'l1', 'eligible_by_gate': True, 'kernel_us': 152.43, 'stock_us': 205.35, 'ratio_stock_over_kernel': 1.347, 'torch_equal': True}
+win: {'N': 352, 'C': 64, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 148.91, 'stock_us': 811.3, 'ratio_stock_over_kernel': 5.448, 'torch_equal': True}
+win: {'N': 384, 'C': 32, 'buffer': 'l1', 'eligible_by_gate': False, 'kernel_us': 120.85, 'stock_us': 123.75, 'ratio_stock_over_kernel': 1.024, 'torch_equal': True}
+win: {'N': 384, 'C': 32, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 123.58, 'stock_us': 226.64, 'ratio_stock_over_kernel': 1.834, 'torch_equal': True}
+win: {'N': 384, 'C': 64, 'buffer': 'l1', 'eligible_by_gate': False, 'kernel_us': 899.92, 'stock_us': 248.9, 'ratio_stock_over_kernel': 0.277, 'torch_equal': True}
+win: {'N': 384, 'C': 64, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 249.07, 'stock_us': 870.71, 'ratio_stock_over_kernel': 3.496, 'torch_equal': True}
+cold_base: {'s': 50.536, 'plddt': 0.859489, 'l1_out_refused': [], 'load': [54.24, 55.0, 54.0]}
+cold_wire: {'s': 36.677, 'plddt': 0.8594889044761658, 'eligible_calls_served': 4352, 'n_tokens': 298, 'l1_out_refused': [], 'trimul_throws': [], 'norm_l1_vs_dram': {'l1': 1048, 'dram': 0}, 'l1_inside_trimul_wire_arm': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 0, 'total_bytes_free_per_bank': 1461760, 'largest_contiguous_bytes_free_per_bank': 1461760, 'num_banks': 130}, 'load': [42.55, 51.82, 52.97]}
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-qb1/perf/p3_permute_op/flip_protenix.py", line 433, in <module>
+    raise SystemExit(main())
+  File "/home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-qb1/perf/p3_permute_op/flip_protenix.py", line 314, in main
+    "max_abs_apparent_delta_ms": round(max(abs(x["apparent_delta_ms"]) for x in R["aa"]), 1),
+ValueError: max() arg is an empty sequence
