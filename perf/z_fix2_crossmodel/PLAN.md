@@ -6,11 +6,17 @@ tt-bio-l1-budget-batch-blind-defect-class, perfwar-sprint-context, perfwar-harne
 release-gate-cumulative-catches-shape-class-escape, donecheck-hostspecific-path-unsatisfiable-on-remote-host,
 tt-bio-worktree-run-recipe, verify-against-live-state-before-concluding, model-merge-approval-gate
 
-**STATUS: PLAN ONLY, NO MEASUREMENTS TAKEN.** This pass is the opus5 planning pass. Every number
-marked `TBD-<arm>` is a placeholder for the execution pass to overwrite with a measurement. The
-predictions in §3 are registered here **before the device is opened**, which is the point of writing
-them down. Nothing in this document is merged and nothing here is production: it is an experiment on
-throwaway arms built in a private worktree.
+**STATUS: ALL FOUR ARMS RUN, ALL SIX PREDICTIONS SETTLED.** §1 to §5 and §7 are the planning pass
+and are left exactly as they were written before the device was opened, which is what makes the
+predictions in §3 falsifiable rather than decorative. §6 carries the measurements. Nothing in this
+document is merged and nothing here is production: the arms are working-tree-only reverse patches in
+a private worktree, an experiment, and no merge is proposed by this leg.
+
+**The headline: P1 HOLDS. FIX-2 alone closes openfold3 and boltz2 at 512 aa, byte-identically, with
+FIX-D reverted, and the positive control fired** — `_BMM_CFG_REFUSED` came back with exactly one key
+in each, `(16, (512, 32), (32, 512), 'DataType.BFLOAT16')`, the shape class §2 named from arithmetic
+before any run. P2 also holds, so FIX-2's demonstrated value here is as the model-agnostic backstop
+rather than as the unique mechanism.
 
 Card 2 on qb2 (`ttuser@tt-quietbox2`), ttnn **0.68.0**, 11x10 grid = 110 cores. qb1 runs 0.67.4, so
 every wall-clock second below is a ratio and not a campaign absolute. This leg delivers **no gain** in
@@ -68,6 +74,16 @@ Two independent framings give the same number, which is the check that the readi
 circular-buffer region occupies `[0, 995 840)` and the lowest L1 buffer starts at 808 960, so the two
 regions **overlap by 995 840 − 808 960 = 186 880 B** — identical to the excess above. The brief's
 343 040 is not a byte count of anything.
+
+**Measured on card 2 afterwards, and it matters:** `ttnn.get_max_worker_l1_unreserved_size()` on qb2
+card 2 at ttnn 0.68.0 returns **1 532 416 B**, not qb1's 1 461 760, so `held_per_bank` at the throw is
+`1 532 416 − 808 960 = 723 456` and `held + CB = 1 719 296` against a 1 532 416 B bank. The verdict is
+unchanged and so is the excess: **186 880 B either way**, because `(bank − addr) + cb_end − bank` is
+algebraically `cb_end − addr` and the bank cancels. That is worth stating plainly — the overlap
+framing needs no bank constant at all, so it is the assumption-free form of the predicate and the one
+to quote across cards. The `held = bank − addr` identity was validated against separately instrumented
+held figures on qb1 only (the table above); on card 2 this leg reports the two addresses it measured
+and derives `held` from that identity rather than re-instrumenting the allocator.
 
 ### 1.3 An empty `_BMM_CFG_REFUSED` is the EXPECTED result in the both-fixes arm, and is not the A/A trap.
 
@@ -130,8 +146,8 @@ Two things follow that matter more than the identification itself:
 ### The roofline placement, so the reader knows what kind of defect this is
 
 The only roof this leg needs is a **capacity** roof and it is measured on card 2 rather than
-inherited: `ttnn.get_max_worker_l1_unreserved_size()` = TBD-bank B per core (qb1 at 0.67.4 reports
-1 461 760; the predicate is re-evaluated with whatever card 2 reports and the qb1 figure is used only
+inherited: `ttnn.get_max_worker_l1_unreserved_size()` = **1 532 416** B per core (qb1 at 0.67.4 reports
+1 461 760; the predicate is re-evaluated with what card 2 reports and the qb1 figure is used only
 as the cross-check). For the throwing call, with k padded 24→32:
 
 ```
@@ -176,8 +192,21 @@ site throws once the first is caught, and the predicate has a term nobody has fo
 the deliverable is the new signature plus its `held`/CB evaluation, and **not** a repair by any other
 route.
 
-Settled after measurement: **TBD-verdict** (each of P1 to P6 gets CONFIRMED or FALSIFIED with the row
-that settled it, and P1's verdict is this leg's headline).
+Settled after measurement:
+
+| # | verdict | the row that settled it |
+|---|---|---|
+| **P1** | **CONFIRMED** | arm B, `bmm_cfg_refused_n = 1` and the fold completes, both models, 512 aa (§6.3) |
+| **P2** | **CONFIRMED** | arm D, both models fold 512 aa with `mm_clash_n = 0` — the throw does not even occur (§6.2) |
+| **P3** | **CONFIRMED** | arm C, both models fold 512 aa, plus opendde (§6.4) |
+| **P4** | **CONFIRMED** | one CIF sha256 per (model, size) across every folding arm, plDDT equal to six decimals, and `torch.equal` True with `max_abs_diff` 0.0 in the isolated probe (§6.4, §6.6) |
+| **P5** | **CONFIRMED** | opendde arm A sha256 == arm C sha256, plDDT 0.754131 both, nothing refused (§6.5) |
+| **P6** | **CONFIRMED** | `_BMM_CFG_REFUSED` non-empty in arm B alone; empty in arm C at both sizes (§6.3) |
+
+Six for six, which is the outcome that carries the *least* new information — the failure mode §3
+flagged as more valuable did not occur. What it does mean is that the mental model in §2, built from a
+closed form fitted to a different model on a different grid under a different wheel, predicted every
+verdict and both byte counts correctly before the device was opened.
 
 ---
 
@@ -399,52 +428,152 @@ tree.
 
 ---
 
-## 6. Results — TBD, to be filled by the execution pass
+## 6. Results
 
-### 6.1 Verbatim throw, arm A, card 2
+Nine folds and two failures, card 2 on qb2, ttnn 0.68.0, 11x10 grid, `TT_BIO_REBLOCK_PERMUTE` at its
+default of off. Every arm's identity was read off `inspect.getsource` at startup rather than trusted
+from the patch, and all eleven runs printed the fingerprint their label demanded. Artifacts:
+`perf/z_fix2_crossmodel/arm{A,B,C,D}_{openfold3,boltz2,opendde}.json` and `bmm_equal_probe.json`.
+
+### 6.1 Verbatim throw, arm A (both fixes reverted), card 2
+
+openfold3, `perf/size512/fixtures/cdk2x2_512.yaml`:
 
 ```
-TBD-A-openfold3
+TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 1241 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840
 ```
+
+boltz2, same target:
+
 ```
-TBD-A-boltz2
+TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 917 clash with L1 buffers on core range [(x=0,y=0) - (x=2,y=9)]. L1 buffer allocated at 808960 and static circular buffer region ends at 995840
 ```
+
+Two different models, two different program ids, **the same core range and the same two addresses** —
+and identical to what `z-permute-flip-land` measured on card 1. The program id is a per-session
+counter and carries nothing; the fingerprint is the core range plus the two addresses.
+
+The Python frames, which nobody had seen before this leg, confirm the call site §2 derived rather
+than merely being consistent with it:
+
+```
+tt_bio/openfold3_trunk.py:172   in __call__
+tt_bio/tenstorrent.py:2653      in __call__
+tt_bio/tenstorrent.py:2596      in __call__
+tt_bio/tenstorrent.py:2282      logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+tt_bio/tenstorrent.py:447       in batched_matmul
+```
+
+with operands `[1,16,512,32] @ [1,16,32,512]` bf16, i.e. `batch = 16, m_tiles = 16, k_tiles = 1,
+n_tiles = 16` — the `AttentionPairBias` q@kᵀ class, exactly as predicted. The C++ frame is
+`tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region`, so the failure is raised at
+program compile before a single NOC transaction is issued, which is what the §2 placement asserted.
 
 ### 6.2 The predicate, per model, against the bank measured on card 2
 
-| model | arm | measured bank | `held_per_bank` | CB region | sum | vs bank | predicted | measured |
+`ttnn.get_max_worker_l1_unreserved_size()` on card 2 = **1 532 416 B** per core. `held_per_bank` is
+derived from the reported address by the §1.2 identity.
+
+| model, 512 aa | arm | bank | `held_per_bank` | CB region end | sum | vs bank | predicted | measured |
 |---|---|---:|---:|---:|---:|---|---|---|
-| openfold3 512 | A | TBD-bank | TBD | TBD | TBD | TBD | FAIL | TBD |
-| openfold3 512 | B | TBD-bank | TBD | TBD | TBD | TBD | ok | TBD |
-| openfold3 512 | C | TBD-bank | ≤ TBD | 995 840 | TBD | under | ok | TBD |
-| openfold3 512 | D | TBD-bank | ≤ TBD | 995 840 | TBD | under | ok | TBD |
-| boltz2 512 | A–D | TBD-bank | TBD | TBD | TBD | TBD | as above | TBD |
+| openfold3 | A | 1 532 416 | 723 456 | 995 840 | 1 719 296 | **over by 186 880** | FAIL | **FAIL** |
+| openfold3 | B | 1 532 416 | 723 456 | 995 840 | 1 719 296 | over by 186 880 | fires, then falls back | **folds** |
+| openfold3 | C | 1 532 416 | ≤ 536 576 | 995 840 | ≤ 1 532 416 | under | no throw | **folds, no throw** |
+| openfold3 | D | 1 532 416 | ≤ 536 576 | 995 840 | ≤ 1 532 416 | under | no throw | **folds, no throw** |
+| boltz2 | A | 1 532 416 | 723 456 | 995 840 | 1 719 296 | **over by 186 880** | FAIL | **FAIL** |
+| boltz2 | B | 1 532 416 | 723 456 | 995 840 | 1 719 296 | over by 186 880 | fires, then falls back | **folds** |
+| boltz2 | C, D | 1 532 416 | ≤ 536 576 | 995 840 | ≤ 1 532 416 | under | no throw | **folds, no throw** |
 
-### 6.3 `_BMM_CFG_REFUSED` after every arm
+Three things in that table are the leg's scientific product rather than its engineering one.
 
-| arm | openfold3 512 | boltz2 512 | opendde 512 | expected |
-|---|---|---|---|---|
-| A | TBD | TBD | TBD | empty |
-| B | TBD | TBD | — | **non-empty, 1 key** |
-| C | TBD | TBD | TBD | empty |
-| D | TBD | TBD | — | empty |
+**The CB region end is predicted to the byte by a closed form fitted elsewhere.** The isolated probe
+asked `_batched_matmul_config(16, 16, 1, 16, 2)` on card 2 and got back `per_core_M = 8`,
+`in0_block_w = 1`, `per_core_N = 16`, so `2·(8+16)·1·2048 + 8·16·6144 = 884 736`, plus the
+**111 104 B** fixed per-core ttnn overhead measured on qb1's 13x10 grid at 0.67.4, is **995 840** —
+the number in the throw. Neither the grid nor the wheel moved it. `cores = 16·16/8 = 32` of the grid's
+110, which tt-metal's column-major fill prints as the first three whole columns, `[(0,0)-(2,9)]`. Both
+halves of the fingerprint come out of the model.
+
+**Arm B does not stop the predicate firing; it survives it.** `mm_clash_n = 1` in arm B for both
+models, with the identical fingerprint, caught inside FIX-2's `except` and never reaching the fold.
+That distinction matters for reading the fix: FIX-2 is a recovery, not a prevention.
+
+**Arms C and D prevent it, and the honest statement is an inequality.** There is no throw to read, so
+what a completed fold implies is that the lowest live L1 buffer sat at or above the circular-buffer
+region end, i.e. `held_per_bank ≤ 1 532 416 − 995 840 = 536 576`. FIX-D therefore removes at least
+`723 456 − 536 576 = 186 880` B/bank of co-residency, and the tensor it deallocates accounts for far
+more than that: `[1, 512, 512, 128]` bf16 is 67 108 864 B, which at 2048 B pages over 110 banks is
+`ceil(32 768/110) · 2 048 = 610 304` B/bank. Subtracting it from the 723 456 measured at the throw
+leaves 113 152 B/bank of other live L1, which is a sane residual and an independent cross-check on the
+P2 mechanism.
+
+### 6.3 `_BMM_CFG_REFUSED` after every arm — the positive control
+
+`null` means the symbol does not exist in that arm, which is itself a check that the reverse patch
+landed. The key is `(batch, in0 last two dims, in1 last two dims, dtype)`.
+
+| arm | openfold3 512 | boltz2 512 | opendde 512 | expected | verdict |
+|---|---|---|---|---|---|
+| A | `null` (FIX-2 absent) | `null` | `null` | empty | as expected |
+| B | **1 key** | **1 key** | — | **non-empty, 1 key** | **the control fired** |
+| C | 0 | 0 | 0 | empty | as expected (§1.3) |
+| D | `null` (FIX-2 absent) | `null` | — | empty | as expected |
+
+The single key, identical in both models:
+
+```
+(16, (512, 32), (32, 512), 'DataType.BFLOAT16')
+```
+
+At 298 aa arm B and arm C both report `0`, because nothing throws at that size — `_batched_matmul_config`
+returns `per_core_M = 5` there, modelling 368 640 + 111 104 = 479 744 B of circular buffer, which fits
+alongside the live block. So the refusal is size-gated exactly where the crash band said it would be,
+and **a fold that had passed in arm B with an empty set would have proved nothing.** It did not.
 
 ### 6.4 Parity
 
+Full sha256 of the output CIF, and plDDT to six decimals. boltz2 carries no top-level plDDT through
+this path, so its evidence is the digest alone.
+
 | model | size | arm A | arm B | arm C | arm D | identical? |
 |---|---|---|---|---|---|---|
-| openfold3 | 298 | TBD plDDT / TBD sha256 | TBD | TBD | TBD | TBD |
-| openfold3 | 512 | did not fold | TBD | TBD | TBD | TBD |
-| boltz2 | 298 | no plDDT / TBD sha256 | TBD | TBD | TBD | TBD |
-| boltz2 | 512 | did not fold | TBD | TBD | TBD | TBD |
-| opendde | 512 | TBD | — | TBD | — | TBD |
+| openfold3 | 298 | 0.804057 / `d2cde6bf…3763` | 0.804057 / same | 0.804057 / same | 0.804057 / same | **yes, all four** |
+| openfold3 | 512 | did not fold | 0.706519 / `b1424aa7…7a49` | 0.706519 / same | 0.706519 / same | **yes, B = C = D** |
+| boltz2 | 298 | no plDDT / `32ff9f3e…297f` | same | same | same | **yes, all four** |
+| boltz2 | 512 | did not fold | no plDDT / `e3360bd9…8bad` | same | same | **yes, B = C = D** |
+| opendde | 512 | 0.754131 / `50aa1e46…5155` | — | 0.754131 / same | — | **yes, A = C** |
 
-Isolated `torch.equal` probe, §5.2: **TBD-probe**.
+Full digests: openfold3 298 `d2cde6bf5dff346457031036aa51b5441fb832929c8fd6860190b587753c3763`;
+openfold3 512 `b1424aa7591518371cfbd919ff759cb697bd331fea7addf065d03b87eeca7a49`;
+boltz2 298 `32ff9f3e6f4911780ab764f9f4dfaf85953ee641b87c7dc81ae92ff32957297f`;
+boltz2 512 `e3360bd9245941328b3f1963271471146ed2d960f6478743650b706b38148bad`;
+opendde 512 `50aa1e46583bd5a8fcb4a44c51fd8acbcd652d6da7d3635e07d1477217035155`.
+
+**No pre-fix reference exists at 512 aa** for openfold3 or boltz2, because the fold never completed
+there, and this doc does not imply a comparison it did not make. The 298 aa row is the control: it
+folds on main today, it folds in all four arms, and it is byte-identical across all four — which also
+retires the concern that the `ttnn.matmul` wrapper installed for §5.1 edit 6 could perturb anything.
+
+Isolated `torch.equal` probe, §5.2, on card 2: **True for all three classes, `max_abs_diff` 0.0** —
+q@kᵀ at 512 aa (`per_core_M = 8`, CB 884 736 + 111 104 = 995 840), q@kᵀ at 298 aa padded to 320
+(`per_core_M = 5`, CB 368 640 + 111 104 = 479 744) and the attn@v sibling at 512 aa
+(`per_core_M = 8`, `n_tiles = 1`, CB 122 880 + 111 104 = 233 984, so not the thrower, as §2 said).
+The structural reason from P4 holds: `k_tiles = 1` is one K block, so neither planner has any
+K-blocking freedom and `packer_l1_acc` has nothing to regroup.
 
 ### 6.5 opendde
 
-TBD-opendde: does FIX-2 change anything for the model that already folded 512 aa clean, and is
-`_BMM_CFG_REFUSED` empty there.
+**Unchanged, and nothing was refused.** opendde folds 512 aa in arm A (both fixes reverted) and in arm
+C (both present) with the same plDDT to six decimals, 0.754131, and the same CIF sha256
+`50aa1e46…5155`. `mm_clash_n = 0` in both, `_BMM_CFG_REFUSED` is `null` in arm A because the symbol
+does not exist there and `0` in arm C. Its pair track is `[995, 384]`, a different shape class
+entirely, and it never reaches the refusing config. So FIX-2 is inert for the model that was already
+working, which is the answer deliverable 6 asked for: a fix that perturbs a working model would be a
+different conversation, and this one does not.
 
 ### 6.6 Merge recommendation for ask 4413
 
@@ -466,6 +595,28 @@ decision rule:
   three shipping models is a revert conversation, and it goes to Moritz as an `ask`, short.
 
 Nothing in this leg is merged by this leg, and no merge is proposed by it. That call is Moritz's.
+
+**The recommendation, P1 and P2 both confirmed and P4 confirmed.** This strengthens `4413` and it
+discharges the per-model condition the ask itself named as a follow-up. Two more shipping models go
+from *does not fold at 512 aa* to *folds at 512 aa*, and they do it with output bytes unchanged: one
+CIF sha256 per model per size across every folding arm, plDDT equal to six decimals, and `torch.equal`
+True with a zero max difference on the two configs the fallback chooses between. The honest qualifier
+is that FIX-D alone also closes both models, so FIX-2's demonstrated value here is not as the unique
+mechanism but as the model-agnostic backstop: it caught the throw once per process at a site
+`AttentionPairBias` reaches from three different models' trunks, memoised the refusal under a shape
+key, and cost one caught exception rather than one per call. FIX-D is protenix-specific by
+construction and would not have been reached had the co-residency lived somewhere else; FIX-2 does not
+care which tensor is holding L1. The one thing this leg cannot say is whether the pair is *sufficient*
+past 512 aa — both fixes are capacity-gated by construction, the same 995 840 B config is chosen at
+every `Nt = 16`, and at a larger `Nt` the search picks a different `p` with a different footprint, so
+the next size class needs its own check (charter §4.10). And a third repair is still on the table and
+belongs to whoever owns `_batched_matmul_search`: at this shape `p = 4` is legal, correct, saturating,
+asks 586 240 B of circular buffer instead of 995 840, and engages 64 of the grid's 110 cores instead
+of 32. Recorded, not chased, and forbidden by this leg's hard limits.
+
+For the merge itself: nothing here is merged, no merge is performed, and this leg proposes none. The
+evidence says the two commits are safe for the three models tested at the two sizes tested. Whether
+they land, and whether they land together or FIX-2 alone, is Moritz's call.
 
 ---
 

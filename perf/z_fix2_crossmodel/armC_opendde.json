@@ -1,0 +1,75 @@
+{
+ "wheel": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "model": "opendde",
+ "arm": "C",
+ "fix2_present": true,
+ "fixd_present": true,
+ "bank_bytes": 1532416,
+ "reblock_permute_constant": null,
+ "enabled_at_import": false,
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "l1_max_seq": 352,
+ "meta": {
+  "hardware": "blackhole",
+  "card_type": null,
+  "aiclk_mhz": null,
+  "load_s": 2.35
+ },
+ "rows": [
+  {
+   "arm": "C",
+   "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+   "kernel_on": false,
+   "rc_ok": true,
+   "error": null,
+   "error_tb": null,
+   "wall_s": 136.78,
+   "n_tokens": 512,
+   "n_residues": 512,
+   "plddt": 0.754131,
+   "cif_sha": [
+    [
+     "cdk2x2_512.cif",
+     "50aa1e46583bd5a8fcb4a44c51fd8acbcd652d6da7d3635e07d1477217035155"
+    ]
+   ],
+   "bmm_cfg_refused_n": 0,
+   "bmm_cfg_refused": [],
+   "mm_throws_n": 0,
+   "mm_clash_n": 0,
+   "mm_clash": [],
+   "predicate_from_mm": null,
+   "predicate_from_err": null,
+   "channel_move_calls": 25984,
+   "calls_served": 0,
+   "calls_refused": 0,
+   "trimul_invocations_total": 1216,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 0,
+    "dram": 538
+   },
+   "pair_shape": [
+    995,
+    384
+   ],
+   "load": [
+    1.27,
+    2.05,
+    2.71
+   ]
+  }
+ ]
+}

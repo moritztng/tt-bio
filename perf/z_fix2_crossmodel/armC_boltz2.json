@@ -1,0 +1,120 @@
+{
+ "wheel": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "model": "boltz2",
+ "arm": "C",
+ "fix2_present": true,
+ "fixd_present": true,
+ "bank_bytes": 1532416,
+ "reblock_permute_constant": null,
+ "enabled_at_import": false,
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "l1_max_seq": 352,
+ "meta": {
+  "hardware": "blackhole",
+  "card_type": null,
+  "aiclk_mhz": null,
+  "load_s": 2.55
+ },
+ "rows": [
+  {
+   "arm": "C",
+   "target": "perf/size512/fixtures/cdk2x2_298.yaml",
+   "kernel_on": false,
+   "rc_ok": true,
+   "error": null,
+   "error_tb": null,
+   "wall_s": 26.19,
+   "n_tokens": null,
+   "n_residues": null,
+   "plddt": null,
+   "cif_sha": [
+    [
+     "cdk2x2_298.cif",
+     "32ff9f3e6f4911780ab764f9f4dfaf85953ee641b87c7dc81ae92ff32957297f"
+    ]
+   ],
+   "bmm_cfg_refused_n": 0,
+   "bmm_cfg_refused": [],
+   "mm_throws_n": 0,
+   "mm_clash_n": 0,
+   "mm_clash": [],
+   "predicate_from_mm": null,
+   "predicate_from_err": null,
+   "channel_move_calls": 6048,
+   "calls_served": 0,
+   "calls_refused": 0,
+   "trimul_invocations_total": 1512,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 756,
+    "dram": 0
+   },
+   "pair_shape": [
+    320,
+    128
+   ],
+   "load": [
+    1.66,
+    2.65,
+    3.02
+   ]
+  },
+  {
+   "arm": "C",
+   "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+   "kernel_on": false,
+   "rc_ok": true,
+   "error": null,
+   "error_tb": null,
+   "wall_s": 64.57,
+   "n_tokens": null,
+   "n_residues": null,
+   "plddt": null,
+   "cif_sha": [
+    [
+     "cdk2x2_512.cif",
+     "e3360bd9245941328b3f1963271471146ed2d960f6478743650b706b38148bad"
+    ]
+   ],
+   "bmm_cfg_refused_n": 0,
+   "bmm_cfg_refused": [],
+   "mm_throws_n": 0,
+   "mm_clash_n": 0,
+   "mm_clash": [],
+   "predicate_from_mm": null,
+   "predicate_from_err": null,
+   "channel_move_calls": 12096,
+   "calls_served": 0,
+   "calls_refused": 0,
+   "trimul_invocations_total": 1512,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 756,
+    "dram": 0
+   },
+   "pair_shape": [
+    512,
+    128
+   ],
+   "load": [
+    2.12,
+    2.55,
+    2.95
+   ]
+  }
+ ]
+}
