@@ -346,19 +346,25 @@ def main() -> int:
     base = [x["base_s"] for x in R["rounds"]]
     wire = [x["wire_s"] for x in R["rounds"]]
     R["rejects"] = {f"{k[0]}:{list(k[1])}": v for k, v in RP.REJECTS.items()}
-    R["summary"] = {
-        "base_median_s": round(med(base), 4), "wire_median_s": round(med(wire), 4),
-        "delta_ms_median": round((med(base) - med(wire)) * 1e3, 1),
-        "delta_ms_paired_mean": round(sum(x["delta_ms"] for x in R["rounds"]) / len(R["rounds"]), 1),
-        "delta_ms_min": min(x["delta_ms"] for x in R["rounds"]),
-        "delta_ms_max": max(x["delta_ms"] for x in R["rounds"]),
-        "n_positive_rounds": sum(1 for x in R["rounds"] if x["delta_ms"] > 0),
-        "ratio": round(med(base) / med(wire), 5),
-        "base_spread_ms": round((max(base) - min(base)) * 1e3, 1),
-        "wire_spread_ms": round((max(wire) - min(wire)) * 1e3, 1),
-        "bracketing_baselines_s": [base[0], base[len(base) // 2], base[-1]],
-        "base_folds": base, "wire_folds": wire}
-    print("summary:", R["summary"], flush=True)
+    # --rounds 0 reaches the block wall without paying for the fold A/B arms, so an empty rounds
+    # list is expected. Emitting a zeroed summary here would read as a measured 0 ms delta, so the
+    # key is simply absent instead. Sibling of the aa_summary max() guard.
+    if not R["rounds"]:
+        print("summary: skipped, --rounds 0 (no fold A/B arms requested)", flush=True)
+    else:
+        R["summary"] = {
+            "base_median_s": round(med(base), 4), "wire_median_s": round(med(wire), 4),
+            "delta_ms_median": round((med(base) - med(wire)) * 1e3, 1),
+            "delta_ms_paired_mean": round(sum(x["delta_ms"] for x in R["rounds"]) / len(R["rounds"]), 1),
+            "delta_ms_min": min(x["delta_ms"] for x in R["rounds"]),
+            "delta_ms_max": max(x["delta_ms"] for x in R["rounds"]),
+            "n_positive_rounds": sum(1 for x in R["rounds"] if x["delta_ms"] > 0),
+            "ratio": round(med(base) / med(wire), 5),
+            "base_spread_ms": round((max(base) - min(base)) * 1e3, 1),
+            "wire_spread_ms": round((max(wire) - min(wire)) * 1e3, 1),
+            "bracketing_baselines_s": [base[0], base[len(base) // 2], base[-1]],
+            "base_folds": base, "wire_folds": wire}
+        print("summary:", R["summary"], flush=True)
 
     R["interaction_checks"] = {
         "l1_out_refused_after_all_folds": refused(),

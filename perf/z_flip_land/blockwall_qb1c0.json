@@ -11,7 +11,7 @@
     "hardware": "blackhole",
     "card_type": "p150a",
     "aiclk_mhz": "1350",
-    "load_s": 11.1,
+    "load_s": 7.28,
     "n_msa": 35
   },
   "grid": {
@@ -43,22 +43,22 @@
     ],
     "bytes_one_way": 11366912,
     "load": [
-      59.0,
-      55.95,
-      54.24
+      53.51,
+      51.58,
+      51.17
     ],
-    "clone_l1_to_l1_us": 32.42,
-    "clone_l1_to_l1_GBs": 350.6,
-    "clone_l1_to_dram_us": 51.18,
-    "clone_l1_to_dram_GBs": 222.1,
-    "clone_dram_to_l1_us": 40.28,
-    "clone_dram_to_l1_GBs": 282.2,
-    "clone_dram_to_dram_us": 64.67,
-    "clone_dram_to_dram_GBs": 175.8,
-    "kernel_l1_us": 750.35,
-    "stock_permute_l1_us": 162.65,
-    "kernel_dram_us": 152.18,
-    "stock_permute_dram_us": 293.36,
+    "clone_l1_to_l1_us": 31.23,
+    "clone_l1_to_l1_GBs": 364.0,
+    "clone_l1_to_dram_us": 50.08,
+    "clone_l1_to_dram_GBs": 227.0,
+    "clone_dram_to_l1_us": 40.83,
+    "clone_dram_to_l1_GBs": 278.4,
+    "clone_dram_to_dram_us": 64.62,
+    "clone_dram_to_dram_GBs": 175.9,
+    "kernel_l1_us": 122.17,
+    "stock_permute_l1_us": 162.75,
+    "kernel_dram_us": 135.13,
+    "stock_permute_dram_us": 513.06,
     "num_groups": 100,
     "cores_engaged": 100,
     "cores_total": 130,
@@ -66,10 +66,10 @@
       1,
       0
     ],
-    "kernel_GBs_l1": 15.1,
-    "kernel_dram_minus_l1_us": -598.17,
-    "stock_dram_minus_l1_us": 130.71,
-    "clone_dram_minus_l1_us": 32.25
+    "kernel_GBs_l1": 93.0,
+    "kernel_dram_minus_l1_us": 12.96,
+    "stock_dram_minus_l1_us": 350.31,
+    "clone_dram_minus_l1_us": 33.39
   },
   "window": [
     {
@@ -77,9 +77,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": false,
-      "kernel_us": 81.9,
-      "stock_us": 61.35,
-      "ratio_stock_over_kernel": 0.749,
+      "kernel_us": 87.44,
+      "stock_us": 749.72,
+      "ratio_stock_over_kernel": 8.574,
       "torch_equal": true
     },
     {
@@ -87,9 +87,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 81.27,
-      "stock_us": 122.02,
-      "ratio_stock_over_kernel": 1.501,
+      "kernel_us": 70.41,
+      "stock_us": 120.44,
+      "ratio_stock_over_kernel": 1.711,
       "torch_equal": true
     },
     {
@@ -97,9 +97,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": false,
-      "kernel_us": 119.06,
-      "stock_us": 113.11,
-      "ratio_stock_over_kernel": 0.95,
+      "kernel_us": 118.1,
+      "stock_us": 110.01,
+      "ratio_stock_over_kernel": 0.932,
       "torch_equal": true
     },
     {
@@ -107,9 +107,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 130.87,
-      "stock_us": 376.1,
-      "ratio_stock_over_kernel": 2.874,
+      "kernel_us": 128.3,
+      "stock_us": 219.52,
+      "ratio_stock_over_kernel": 1.711,
       "torch_equal": true
     },
     {
@@ -117,9 +117,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 325.0,
-      "stock_us": 73.75,
-      "ratio_stock_over_kernel": 0.227,
+      "kernel_us": 81.88,
+      "stock_us": 82.06,
+      "ratio_stock_over_kernel": 1.002,
       "torch_equal": true
     },
     {
@@ -127,9 +127,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 70.28,
-      "stock_us": 120.83,
-      "ratio_stock_over_kernel": 1.719,
+      "kernel_us": 73.07,
+      "stock_us": 123.27,
+      "ratio_stock_over_kernel": 1.687,
       "torch_equal": true
     },
     {
@@ -137,9 +137,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 123.31,
-      "stock_us": 139.38,
-      "ratio_stock_over_kernel": 1.13,
+      "kernel_us": 203.96,
+      "stock_us": 136.38,
+      "ratio_stock_over_kernel": 0.669,
       "torch_equal": true
     },
     {
@@ -147,9 +147,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 624.27,
-      "stock_us": 624.85,
-      "ratio_stock_over_kernel": 1.001,
+      "kernel_us": 135.35,
+      "stock_us": 233.28,
+      "ratio_stock_over_kernel": 1.724,
       "torch_equal": true
     },
     {
@@ -157,9 +157,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 1094.63,
-      "stock_us": 87.13,
-      "ratio_stock_over_kernel": 0.08,
+      "kernel_us": 77.44,
+      "stock_us": 89.38,
+      "ratio_stock_over_kernel": 1.154,
       "torch_equal": true
     },
     {
@@ -167,9 +167,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 76.52,
-      "stock_us": 151.42,
-      "ratio_stock_over_kernel": 1.979,
+      "kernel_us": 73.38,
+      "stock_us": 150.95,
+      "ratio_stock_over_kernel": 2.057,
       "torch_equal": true
     },
     {
@@ -177,9 +177,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 123.55,
-      "stock_us": 161.42,
-      "ratio_stock_over_kernel": 1.307,
+      "kernel_us": 120.24,
+      "stock_us": 161.7,
+      "ratio_stock_over_kernel": 1.345,
       "torch_equal": true
     },
     {
@@ -187,9 +187,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 135.39,
-      "stock_us": 723.65,
-      "ratio_stock_over_kernel": 5.345,
+      "kernel_us": 133.01,
+      "stock_us": 292.93,
+      "ratio_stock_over_kernel": 2.202,
       "torch_equal": true
     },
     {
@@ -197,9 +197,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 87.96,
-      "stock_us": 88.34,
-      "ratio_stock_over_kernel": 1.004,
+      "kernel_us": 75.35,
+      "stock_us": 88.46,
+      "ratio_stock_over_kernel": 1.174,
       "torch_equal": true
     },
     {
@@ -207,9 +207,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 77.86,
-      "stock_us": 149.94,
-      "ratio_stock_over_kernel": 1.926,
+      "kernel_us": 71.94,
+      "stock_us": 148.67,
+      "ratio_stock_over_kernel": 2.067,
       "torch_equal": true
     },
     {
@@ -217,9 +217,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 295.55,
-      "stock_us": 169.01,
-      "ratio_stock_over_kernel": 0.572,
+      "kernel_us": 121.6,
+      "stock_us": 166.57,
+      "ratio_stock_over_kernel": 1.37,
       "torch_equal": true
     },
     {
@@ -227,9 +227,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 136.28,
-      "stock_us": 294.59,
-      "ratio_stock_over_kernel": 2.162,
+      "kernel_us": 136.44,
+      "stock_us": 444.78,
+      "ratio_stock_over_kernel": 3.26,
       "torch_equal": true
     },
     {
@@ -237,9 +237,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 81.37,
-      "stock_us": 107.65,
-      "ratio_stock_over_kernel": 1.323,
+      "kernel_us": 80.2,
+      "stock_us": 106.99,
+      "ratio_stock_over_kernel": 1.334,
       "torch_equal": true
     },
     {
@@ -247,9 +247,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 76.78,
-      "stock_us": 313.16,
-      "ratio_stock_over_kernel": 4.079,
+      "kernel_us": 76.38,
+      "stock_us": 176.56,
+      "ratio_stock_over_kernel": 2.311,
       "torch_equal": true
     },
     {
@@ -257,9 +257,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 152.43,
-      "stock_us": 205.35,
-      "ratio_stock_over_kernel": 1.347,
+      "kernel_us": 133.63,
+      "stock_us": 205.0,
+      "ratio_stock_over_kernel": 1.534,
       "torch_equal": true
     },
     {
@@ -267,9 +267,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 148.91,
-      "stock_us": 811.3,
-      "ratio_stock_over_kernel": 5.448,
+      "kernel_us": 469.34,
+      "stock_us": 746.43,
+      "ratio_stock_over_kernel": 1.59,
       "torch_equal": true
     },
     {
@@ -277,9 +277,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": false,
-      "kernel_us": 120.85,
-      "stock_us": 123.75,
-      "ratio_stock_over_kernel": 1.024,
+      "kernel_us": 124.09,
+      "stock_us": 123.62,
+      "ratio_stock_over_kernel": 0.996,
       "torch_equal": true
     },
     {
@@ -287,9 +287,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 123.58,
-      "stock_us": 226.64,
-      "ratio_stock_over_kernel": 1.834,
+      "kernel_us": 128.19,
+      "stock_us": 229.47,
+      "ratio_stock_over_kernel": 1.79,
       "torch_equal": true
     },
     {
@@ -297,9 +297,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": false,
-      "kernel_us": 899.92,
-      "stock_us": 248.9,
-      "ratio_stock_over_kernel": 0.277,
+      "kernel_us": 210.27,
+      "stock_us": 236.07,
+      "ratio_stock_over_kernel": 1.123,
       "torch_equal": true
     },
     {
@@ -307,25 +307,25 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 249.07,
-      "stock_us": 870.71,
-      "ratio_stock_over_kernel": 3.496,
+      "kernel_us": 249.47,
+      "stock_us": 705.93,
+      "ratio_stock_over_kernel": 2.83,
       "torch_equal": true
     }
   ],
   "transpose_memory_config_before": "BufferType.L1",
   "cold_base": {
-    "s": 50.536,
+    "s": 53.493,
     "plddt": 0.859489,
     "l1_out_refused": [],
     "load": [
-      54.24,
-      55.0,
-      54.0
+      55.37,
+      51.85,
+      51.25
     ]
   },
   "cold_wire": {
-    "s": 36.677,
+    "s": 47.116,
     "plddt": 0.8594889044761658,
     "eligible_calls_served": 4352,
     "n_tokens": 298,
@@ -343,10 +343,15 @@
       "num_banks": 130
     },
     "load": [
-      42.55,
-      51.82,
-      52.97
+      64.64,
+      54.68,
+      52.23
     ]
   },
-  "transpose_memory_config_after_wire_fold": "BufferType.L1"
+  "transpose_memory_config_after_wire_fold": "BufferType.L1",
+  "aa_summary": {
+    "max_abs_apparent_delta_ms": 0.0,
+    "all_folds_spread_ms": 0.0,
+    "folds": []
+  }
 }
