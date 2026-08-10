@@ -69,6 +69,13 @@ def main():
         DEC["layer_norm|h=%s|%s" % (headroom, shp(x))]["L1" if in_l1 else "DRAM"] += 1
         return out, in_l1
 
+    ORIG_OPEN = T._open_device_locked
+    def open_dev(device_id, kwargs):
+        d = ORIG_OPEN(device_id, kwargs)
+        STATE["dev"] = d
+        return d
+    T._open_device_locked = open_dev
+
     T._transpose_memory_config = tmc
     T._l1_layer_norm = ln
     P._l1_layer_norm = ln          # protenix.py imports it by name, so patch both namespaces
@@ -112,6 +119,17 @@ def main():
             rec["wall_s"] = round(time.perf_counter() - t0, 1)
             rec["load_after"] = [round(x, 2) for x in os.getloadavg()]
             rec["decisions"] = {k: dict(v) for k, v in sorted(DEC.items())}
+            # S9 interaction checks, taken live at the end of the fold in the same process:
+            # which shape classes the existing L1-output catch refused, and what the allocator
+            # thinks is free per bank now that the fold has drained.
+            rec["l1_out_refused"] = [str(k) for k in sorted(map(str, T._L1_OUT_REFUSED))]
+            rec["bmm_cfg_refused"] = [str(k) for k in sorted(map(str, getattr(T, "_BMM_CFG_REFUSED", ())))]
+            try:
+                dev = STATE.get("dev")
+                mv = ttnn.get_memory_view(dev, ttnn.BufferType.L1) if dev is not None else None
+                rec["l1_view"] = str(mv)[:1500] if mv is not None else None
+            except Exception as e:                                              # noqa: BLE001
+                rec["l1_view"] = "unavailable: %s: %s" % (type(e).__name__, e)
             res["runs"].append(rec)
             flush()
             print("[%d %s fast=%d] %s in %ss  load %s -> %s"

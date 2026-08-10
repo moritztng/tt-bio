@@ -409,6 +409,13 @@ def _dram_interleaved(t: ttnn.Tensor) -> bool:
     return mc.buffer_type == ttnn.BufferType.DRAM and not mc.is_sharded()
 
 
+# Shape classes whose tuned config the circular-buffer planner refused once. `_batched_matmul_search`
+# budgets against the idle device, so it cannot see what the live block already holds, and the
+# clash is raised at program compile inside tt-metal rather than by the allocator. Same contract as
+# `_L1_OUT_REFUSED`: one attempt per class per process, then ttnn's own planner for the rest.
+_BMM_CFG_REFUSED: set = set()
+
+
 def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
                    dtype=None) -> ttnn.Tensor:
     """`ttnn.matmul` for a batched attention matmul, with the batch spread over the core grid.
@@ -435,6 +442,17 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
             batch, -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32),
             4 if a.dtype == ttnn.float32 else 2)
     kw = {} if dtype is None else {"dtype": dtype}
+    if cfg is not None:
+        key = (batch, tuple(sa[-2:]), tuple(sb[-2:]), str(a.dtype))
+        if key in _BMM_CFG_REFUSED:
+            cfg = None
+        else:
+            try:
+                return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config,
+                                   program_config=cfg, **kw)
+            except Exception:                                                   # noqa: BLE001
+                _BMM_CFG_REFUSED.add(key)
+                cfg = None
     return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,
                        **kw)
 
