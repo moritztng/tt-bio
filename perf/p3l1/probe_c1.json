@@ -1,0 +1,196 @@
+{
+ "card": "qb1 card 1",
+ "ttnn": "?",
+ "compute_grid_main_after_device_open": [
+  13,
+  10
+ ],
+ "device_compute_with_storage_grid": [
+  13,
+  10
+ ],
+ "core_grid_main": "13x10",
+ "l1_bank_bytes": 1461760,
+ "pair_meta": {
+  "m_tiles": 2980,
+  "output_bytes": 48824320,
+  "output_kB_per_bank": 366.8,
+  "l1_bank_bytes": 1461760,
+  "banks": 130,
+  "l1_free_before": 1461760
+ },
+ "pair": {
+  "dram_cg": {
+   "proj_us": 706.81,
+   "proj_write_GBs": 69.1,
+   "pair_us": 1049.7,
+   "l1_free_while_output_live": 1461760,
+   "torch_equal_vs_dram_cg": true,
+   "max_abs_vs_dram_cg": 0.0
+  },
+  "dram_tuned_bw8_obh5": {
+   "proj_us": 375.54,
+   "proj_write_GBs": 130.0,
+   "pair_us": 733.23,
+   "l1_free_while_output_live": 1461760,
+   "torch_equal_vs_dram_cg": false,
+   "max_abs_vs_dram_cg": 0.5
+  },
+  "dram_tuned_bw1_obh5": {
+   "proj_us": 577.91,
+   "proj_write_GBs": 84.5,
+   "pair_us": 927.62,
+   "l1_free_while_output_live": 1461760,
+   "torch_equal_vs_dram_cg": true,
+   "max_abs_vs_dram_cg": 0.0
+  },
+  "l1_cg": {
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 9 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 buff"
+  },
+  "l1_tuned_bw1_obh5": {
+   "proj_us": 389.75,
+   "proj_write_GBs": 125.3,
+   "pair_us": 637.3,
+   "l1_free_while_output_live": 1084928,
+   "torch_equal_vs_dram_cg": true,
+   "max_abs_vs_dram_cg": 0.0
+  },
+  "l1_tuned_bw8_obh5": {
+   "proj_us": 265.57,
+   "proj_write_GBs": 183.8,
+   "pair_us": 516.24,
+   "l1_free_while_output_live": 1084928,
+   "torch_equal_vs_dram_cg": false,
+   "max_abs_vs_dram_cg": 0.5
+  },
+  "l1_tuned_bw8_obh2": {
+   "proj_us": 247.12,
+   "proj_write_GBs": 197.6,
+   "pair_us": 497.67,
+   "l1_free_while_output_live": 1084928,
+   "torch_equal_vs_dram_cg": false,
+   "max_abs_vs_dram_cg": 0.5
+  },
+  "l1_tuned_bw8_obh1": {
+   "proj_us": 251.69,
+   "proj_write_GBs": 194.0,
+   "pair_us": 500.64,
+   "l1_free_while_output_live": 1084928,
+   "torch_equal_vs_dram_cg": false,
+   "max_abs_vs_dram_cg": 0.5
+  }
+ },
+ "trimul": {
+  "prod_today": {
+   "chain_us": 1427.1,
+   "l1_free_after_p": 1461760,
+   "l1_free_after_p_and_g": 1461760,
+   "torch_equal_vs_all_dram_bw1": false,
+   "max_abs_vs_all_dram_bw1": 0.00390625
+  },
+  "all_dram_bw1": {
+   "chain_us": 1835.64,
+   "l1_free_after_p": 1461760,
+   "l1_free_after_p_and_g": 1461760,
+   "torch_equal_vs_all_dram_bw1": true,
+   "max_abs_vs_all_dram_bw1": 0.0
+  },
+  "p_l1_bw1": {
+   "chain_us": 1571.98,
+   "l1_free_after_p": 1084928,
+   "l1_free_after_p_and_g": 1084928,
+   "torch_equal_vs_all_dram_bw1": true,
+   "max_abs_vs_all_dram_bw1": 0.0
+  },
+  "p_l1_bw8_obh5": {
+   "chain_us": 1194.29,
+   "l1_free_after_p": 1084928,
+   "l1_free_after_p_and_g": 1084928,
+   "torch_equal_vs_all_dram_bw1": false,
+   "max_abs_vs_all_dram_bw1": 0.00390625
+  },
+  "p_l1_bw8_obh2": {
+   "chain_us": 1295.79,
+   "l1_free_after_p": 1084928,
+   "l1_free_after_p_and_g": 1084928,
+   "torch_equal_vs_all_dram_bw1": false,
+   "max_abs_vs_all_dram_bw1": 0.00390625
+  },
+  "both_l1_bw1": {
+   "chain_us": 1323.54,
+   "l1_free_after_p": 1084928,
+   "l1_free_after_p_and_g": 708096,
+   "torch_equal_vs_all_dram_bw1": true,
+   "max_abs_vs_all_dram_bw1": 0.0
+  },
+  "both_l1_bw8_obh2": {
+   "chain_us": 1039.64,
+   "l1_free_after_p": 1084928,
+   "l1_free_after_p_and_g": 708096,
+   "torch_equal_vs_all_dram_bw1": false,
+   "max_abs_vs_all_dram_bw1": 0.00390625
+  }
+ },
+ "site2_meta": {
+  "in0_bytes": 48824320,
+  "out_bytes": 6103040
+ },
+ "site2": {
+  "prod_bw1": {
+   "region_us": 801.32,
+   "proj_us": 450.32,
+   "permute_us": 141.99,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "prod_cg": {
+   "region_us": 847.16,
+   "proj_us": 500.06,
+   "permute_us": 139.99,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "bw1_outL1": {
+   "region_us": 750.68,
+   "proj_us": 440.49,
+   "permute_us": 104.89,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1_bw1": {
+   "region_us": 371.39,
+   "proj_us": 136.99,
+   "permute_us": 114.25,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1_bw1_outL1": {
+   "region_us": 306.19,
+   "proj_us": 109.33,
+   "permute_us": 76.47,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1_cg": {
+   "region_us": 428.49,
+   "proj_us": 202.2,
+   "permute_us": 139.21,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "bw8_outDRAM": {
+   "region_us": 615.48,
+   "proj_us": 266.6,
+   "permute_us": 138.24,
+   "torch_equal_vs_prod_cg": false,
+   "max_abs_vs_prod_cg": 0.5
+  },
+  "normL1_bw8": {
+   "region_us": 444.85,
+   "proj_us": 215.23,
+   "permute_us": 115.02,
+   "torch_equal_vs_prod_cg": false,
+   "max_abs_vs_prod_cg": 0.5
+  }
+ }
+}

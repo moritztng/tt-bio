@@ -1,0 +1,66 @@
+{
+ "arm": "base",
+ "l1_out": false,
+ "l1_bw": 1,
+ "bias_l1_norm": false,
+ "pair_bw": 16,
+ "narrow_bw": 1,
+ "instrument": "block",
+ "cold_s": 35.789,
+ "fold_s": [
+  29.73,
+  29.822
+ ],
+ "median_fold_s": 29.776,
+ "min_fold_s": 29.73,
+ "n_tokens": 298,
+ "plddt": 0.859489,
+ "grid": [
+  13,
+  10
+ ],
+ "instrumented_fold_s": 30.205,
+ "instrumented_plddt": 0.859489,
+ "wall": {
+  "block:PairformerLayer": {
+   "calls": 604,
+   "wall_ms": 18958.266,
+   "median_us": 34543.1,
+   "us_head": [
+    9266.87,
+    9042.31,
+    8998.18,
+    9000.39,
+    8986.31,
+    8969.29
+   ]
+  },
+  "body:TriangleAttention": {
+   "calls": 1208,
+   "wall_ms": 7417.315,
+   "median_us": 6419.31,
+   "us_head": [
+    1845.69,
+    2060.22,
+    1828.6,
+    2058.98,
+    1822.26,
+    2045.44
+   ]
+  },
+  "body:TriangleMultiplication": {
+   "calls": 1208,
+   "wall_ms": 6996.072,
+   "median_us": 6410.07,
+   "us_head": [
+    1641.92,
+    1596.09,
+    1605.44,
+    1592.18,
+    1594.39,
+    1594.18
+   ]
+  }
+ },
+ "l1_out_refused": []
+}

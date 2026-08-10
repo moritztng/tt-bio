@@ -92,6 +92,24 @@ _PAIR_PROJ_BW: int | None = 16
 # these two sites are a separate parity decision. Measured on qb1 card 1 at the fold's own
 # [1,298,320,256]: 1.15x / 1.23x at 1, 1.98x / 2.08x at 16 (perf/p3narrow/).
 _NARROW_PROJ_BW: int | None = 1
+# The pair-track output projection's 48.82 MB result never leaves the device: the trimul's
+# multiply_ and the Pairformer layer's residual add_ read it back immediately. Writing it to L1
+# instead of DRAM removes the projection's write AND the consumer's operand read, and the trunk
+# has the room -- every one of the 130 banks reads fully free at all 35 timed matmul classes in a
+# live 298 aa fold, so the capacity objection that used to rule this out is not there. Bit-exact:
+# a memory config decides where the writer puts a tile, not the order the contraction accumulates.
+_PAIR_PROJ_L1_OUT = True
+# in0_block_w cap for the L1-output members only. With the DRAM write gone the two sides of the
+# knob swap over: at a DRAM output in0_block_w=8 is worth 1.54x and is not bit-exact, at an L1
+# output 1 is bit-exact and the whole trimul chain still beats today's non-bit-exact bw=8 DRAM
+# arm (1427.1 -> 1323.5 us on qb1 card 1 at 13x10, perf/p3l1/probe_c1.json). Kept apart from
+# _PAIR_PROJ_BW so the DRAM-output members keep today's tuning and today's parity decision.
+_PAIR_PROJ_L1_BW: int | None = 1
+# Read-bound narrow projections take their SOURCE from L1 instead of their destination:
+# AttentionPairBias's z->bias reads the whole 48.82 MB layer-normed pair tensor to write 6.10 MB,
+# so the write was never the cost. Handing it an L1-resident layer_norm output takes the
+# projection from 450.3 to 137.0 us at [1,298,320,256] @ [256,16] and is torch.equal.
+_PAIR_BIAS_L1_NORM = True
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
@@ -450,6 +468,16 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     Not cached: ttnn.Tensor hashes by object identity, so an lru_cache here would miss on
     every call and pin every tensor it ever saw for the life of the process.
     """
+    # 2.5x headroom: the consumer still needs its circular buffers on every core.
+    return _l1_memory_config_if_it_fits(t, 2.5)
+
+
+def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float) -> ttnn.MemoryConfig:
+    """L1 when `headroom` copies of `t` fit across the grid's banks, else DRAM.
+
+    `headroom` is what the consumer needs on top of the tensor itself: its circular buffers, and
+    for a producer whose result is read in place, the other operands that stay live beside it.
+    """
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())
     except Exception:
@@ -462,8 +490,7 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
         volume *= d
     volume *= ((shape[-2] + 31) // 32) * 32 * ((shape[-1] + 31) // 32) * 32
     elem = 4 if t.dtype == ttnn.float32 else 2
-    # 2.5x headroom: the consumer still needs its circular buffers on every core.
-    if 2.5 * volume * elem <= per_core * COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]:
+    if headroom * volume * elem <= per_core * COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]:
         return ttnn.L1_MEMORY_CONFIG
     return ttnn.DRAM_MEMORY_CONFIG
 
@@ -573,7 +600,8 @@ def _tri_att_qkv_l1_config(
 
 @lru_cache(maxsize=None)
 def _pair_proj_program_config(
-    m_tiles: int, k_tiles: int, n_tiles: int, in0_block_w: int, elem_bytes: int
+    m_tiles: int, k_tiles: int, n_tiles: int, in0_block_w: int, elem_bytes: int,
+    out_l1: bool = False,
 ) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
     """Program config for a tall pair-track projection, or None if the shape is outside it.
 
@@ -612,10 +640,12 @@ def _pair_proj_program_config(
     l1 = _l1_bank_bytes()
     tile = 1024 * elem_bytes
     # in0 and in1 are double-buffered per K block; the output block carries its bf16 tile plus
-    # the fp32 partial the packer accumulates into. No output term: `_pair_proj_linear` writes
-    # the result to DRAM, so it takes no L1 bank space (E6's correction applies to L1 outputs).
+    # the fp32 partial the packer accumulates into. An L1 output takes bank space on top of that
+    # and has to be subtracted here -- a program-config budget that forgets its output term is
+    # how a gate lets through a config the allocator then refuses at the real call site.
     need = (2 * in0_block_w * (out_block_h + out_block_w) * tile
-            + out_block_h * out_block_w * (tile + 4096) + 128 * 1024)
+            + out_block_h * out_block_w * (tile + 4096) + 128 * 1024
+            + (per_core_M * n_tiles * tile if out_l1 else 0))
     if need > l1:
         return None
     return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
@@ -633,11 +663,13 @@ def _pair_proj_program_config(
     )
 
 
-def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1) -> object | None:
+def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
+                      out_l1: bool = False) -> object | None:
     """_pair_proj_program_config for a concrete operand pair, or None if it does not apply.
 
     `bw_cap` defaults to the module's `_PAIR_PROJ_BW`; the narrow-output sites pass
-    `_NARROW_PROJ_BW` instead, so the two carry independent parity decisions."""
+    `_NARROW_PROJ_BW` and the L1-output sites `_PAIR_PROJ_L1_BW`, so the three carry
+    independent parity decisions."""
     cap = _PAIR_PROJ_BW if bw_cap == -1 else bw_cap
     if cap is None or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
         return None
@@ -658,13 +690,37 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1) -
             return None
         bw = max((d for d in (k_tiles, 8, 4, 2, 1)
                   if d <= cap and k_tiles % d == 0), default=1)
-        return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2)
+        return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2, out_l1)
     except Exception:
         return None
 
 
-def _pair_proj_linear(x, w, ckc, dtype):
-    """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows."""
+# Operand classes whose L1 output the allocator refused once. The static budget in
+# `_pair_proj_program_config` cannot see what a live block already holds, so the honest test is
+# the allocation itself; remembering the refusal keeps it to one attempt per class per process.
+_L1_OUT_REFUSED: set = set()
+
+
+def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
+    """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
+
+    `l1_out` is for the members whose consumer reads the result straight back on device (the
+    trimul's `multiply_`, the Pairformer layer's residual `add_`): the projection's 48.82 MB DRAM
+    write and the consumer's operand read both disappear. Falls back to today's DRAM path if the
+    allocator refuses, which is the only test that knows what the live block is already holding.
+    """
+    if l1_out and _PAIR_PROJ_L1_OUT:
+        key = (tuple(x.padded_shape), tuple(w.shape), str(dtype))
+        if key not in _L1_OUT_REFUSED:
+            cfg = _pair_proj_config(x, w, bw_cap=_PAIR_PROJ_L1_BW, out_l1=True)
+            if cfg is not None:
+                try:
+                    return ttnn.linear(
+                        x, w, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
+                        compute_kernel_config=ckc, program_config=cfg,
+                    )
+                except Exception:
+                    _L1_OUT_REFUSED.add(key)
     cfg = _pair_proj_config(x, w)
     if cfg is not None:
         return ttnn.linear(
@@ -677,16 +733,28 @@ def _pair_proj_linear(x, w, ckc, dtype):
     )
 
 
-def _narrow_proj_linear(x, w, ckc, dtype):
+def _narrow_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
     """The tuned config for a NARROW-output pair-track projection, or None to leave the
     call alone. Scoped to an output of at most two tiles: that is the class whose
     `core_grid=` ladder is flat from 16 cores to 110, and it keeps every wider `_lin` call
-    on today's path."""
+    on today's path. `l1_out` is for the sites whose next op reads the result on device."""
     if -(-int(list(w.shape)[-1]) // 32) > 2:
         return None
-    cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW)
+    cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW, out_l1=l1_out)
     if cfg is None:
         return None
+    key = (tuple(x.padded_shape), tuple(w.shape), str(dtype))
+    if l1_out and key not in _L1_OUT_REFUSED:
+        try:
+            return ttnn.linear(
+                x, w, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
+                compute_kernel_config=ckc, program_config=cfg,
+            )
+        except Exception:
+            _L1_OUT_REFUSED.add(key)
+            cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW)
+            if cfg is None:
+                return None
     return ttnn.linear(
         x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
         compute_kernel_config=ckc, program_config=cfg,
@@ -1357,7 +1425,11 @@ def _trimul_out_proj(
             x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
             compute_kernel_config=ckc,
         )
-    return _pair_proj_linear(x, weight, ckc, _dtype())
+    # Both of a trimul's output projections take an L1 result: `multiply_` folds them together
+    # in place and the layer's residual `add_` reads the product, so neither ever needs to reach
+    # DRAM. Two live 48.82 MB L1 tensors is 750.9 kB of each bank's 1427.5 kB, which fits beside
+    # this config's circular buffers and does not beside `core_grid=`'s.
+    return _pair_proj_linear(x, weight, ckc, _dtype(), l1_out=True)
 
 
 class TriangleMultiplication(Module):
@@ -1815,7 +1887,7 @@ class TriangleAttention(Module):
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
             x_out = _pair_proj_linear(
-                o_in, self.o_weight, self.compute_kernel_config, _dtype()
+                o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True
             )
             ttnn.deallocate(o_in)
             return x_out
@@ -2078,14 +2150,23 @@ class AttentionPairBias(Module):
             ttnn.deallocate(qkv)
             # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
+                # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to
+                # write one tile of width, so it is bound by its SOURCE, not by its own write.
+                # Handing it an L1-resident normed z removes the norm's DRAM write and the
+                # projection's DRAM read at once: 450.3 -> 137.0 us on the projection.
+                zn_mem = (_l1_memory_config_if_it_fits(z, 1.5) if _PAIR_BIAS_L1_NORM
+                          else ttnn.DRAM_MEMORY_CONFIG)
                 z = ttnn.layer_norm(
                     z,
                     weight=self.z_norm_weight,
                     bias=self.z_norm_bias,
                     epsilon=1e-5,
                     compute_kernel_config=self.compute_kernel_config,
+                    memory_config=zn_mem,
                 )
-                zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype)
+                in_l1 = zn_mem is ttnn.L1_MEMORY_CONFIG
+                zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
+                                         l1_out=in_l1)
                 if zb is None:
                     zb = ttnn.linear(
                         z,
