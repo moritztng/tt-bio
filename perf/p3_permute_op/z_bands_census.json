@@ -1,0 +1,25 @@
+{
+  "wall_s": 40.69,
+  "plddt": 0.859489,
+  "compute_grid_main": [
+    13,
+    10
+  ],
+  "total_channel_move_calls": 4352,
+  "served": 4352,
+  "fell_through": 0,
+  "rejects": {},
+  "by_shape": [
+    {
+      "shape": [
+        1,
+        298,
+        298,
+        64
+      ],
+      "dest": "L1",
+      "eligible": true,
+      "calls": 4352
+    }
+  ]
+}
