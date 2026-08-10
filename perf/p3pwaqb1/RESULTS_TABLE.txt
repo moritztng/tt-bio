@@ -1,0 +1,58 @@
+probe ttnn label: 0.68.0 grid: [13, 10]
+== pwa {"in0_bytes": 48824320, "consumers": 8, "out_bytes_each": 6103040, "norm_calls_per_region": 1, "l1_free_before": 1461760}
+  prod           region=3621.85   norm=361.25   proj=452.32   eq=True  maxabs=0.0    l1free_live=1461760   
+  prod_cg        region=4022.17   norm=358.81   proj=511.27   eq=True  maxabs=0.0    l1free_live=1461760   
+  outL1          region=3484.05   norm=364.21   proj=445.13   eq=True  maxabs=0.0    l1free_live=1084928   
+  normL1         region=1189.32   norm=236.09   proj=167.09   eq=True  maxabs=0.0    l1free_live=1084928   
+  normL1_outL1   region=909.39    norm=234.37   proj=138.48   eq=True  maxabs=0.0    l1free_live=708096    
+  normL1_cg      region=1539.0    norm=235.11   proj=217.96   eq=True  maxabs=0.0    l1free_live=1084928   
+== template {"in0_bytes": 48824320, "consumers": 4, "out_bytes_each": 12206080, "norm_calls_per_region": 1, "l1_free_before": 1461760}
+  prod           region=2172.95   norm=337.67   proj=416.21   eq=True  maxabs=0.0    l1free_live=1461760   
+  prod_cg        region=2542.55   norm=355.4    proj=533.83   eq=True  maxabs=0.0    l1free_live=1461760   
+  outL1          region=2144.11   norm=367.35   proj=450.34   eq=True  maxabs=0.0    l1free_live=1084928   
+  normL1         region=1102.95   norm=236.33   proj=203.01   eq=True  maxabs=0.0    l1free_live=1084928   
+  normL1_outL1   region=811.1     norm=235.92   proj=152.83   eq=True  maxabs=0.0    l1free_live=708096    
+  normL1_cg      region=1283.62   norm=236.24   proj=254.42   eq=True  maxabs=0.0    l1free_live=1084928   
+== pair legs
+  dram_cg                proj=705.32    eq=None  
+  dram_tuned_bw8_obh5    proj=374.58    eq=None  
+  dram_tuned_bw1_obh5    proj=578.41    eq=None  
+  l1_cg                  proj=None      eq=None  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated
+  l1_tuned_bw1_obh5      proj=382.78    eq=None  
+  l1_tuned_bw8_obh5      proj=261.81    eq=None  
+  l1_tuned_bw8_obh2      proj=241.54    eq=None  
+  l1_tuned_bw8_obh1      proj=249.37    eq=None  
+
+base {"pwa_op": 123.017, "pwa_op_med": 515.92, "tpl_op": 19.776, "tpl_op_med": 500.29, "pwa_region": 424.7, "block": 20484.157, "ln484": 127.784, "ln30": null, "plddt": 0.859489, "cold_plddt": 0.859489, "grid": [13, 10], "refused": [], "fold": 33.402, "cold": 36.425}
+base2 {"pwa_op": 123.862, "pwa_op_med": 514.58, "tpl_op": 19.874, "tpl_op_med": 497.62, "pwa_region": 440.033, "block": 20503.334, "ln484": 128.529, "ln30": null, "plddt": 0.859489, "cold_plddt": 0.859489, "grid": [13, 10], "refused": [], "fold": 33.388, "cold": 35.353}
+base3 {"pwa_op": 124.643, "pwa_op_med": 519.79, "tpl_op": 20.094, "tpl_op_med": 504.92, "pwa_region": 444.821, "block": 20693.267, "ln484": 130.877, "ln30": null, "plddt": 0.859489, "cold_plddt": 0.859489, "grid": [13, 10], "refused": [], "fold": 34.341, "cold": 35.299}
+pwa {"pwa_op": 46.089, "pwa_op_med": 198.62, "tpl_op": 19.157, "tpl_op_med": 482.15, "pwa_region": 333.655, "block": 20252.569, "ln484": 125.193, "ln30": 8.025, "plddt": 0.859489, "cold_plddt": 0.859489, "grid": [13, 10], "refused": [], "fold": 33.112, "cold": 36.548}
+tpl {"pwa_op": 125.413, "pwa_op_med": 521.71, "tpl_op": 8.38, "tpl_op_med": 210.84, "pwa_region": 448.173, "block": 20677.05, "ln484": 133.246, "ln30": null, "plddt": 0.859489, "cold_plddt": 0.859489, "grid": [13, 10], "refused": [], "fold": 33.81, "cold": 35.111}
+all {"pwa_op": 48.958, "pwa_op_med": 206.42, "tpl_op": 8.167, "tpl_op_med": 210.38, "pwa_region": 365.984, "block": 20619.309, "ln484": 132.546, "ln30": 8.171, "plddt": 0.859489, "cold_plddt": 0.859489, "grid": [13, 10], "refused": [], "fold": 33.385, "cold": 35.02}
+
+CONTROL pwa_op      mean=  123.841  spread=  1.626 = 1.31 % of the mean  [123.017, 123.862, 124.643]
+    pwa     46.089  delta  -77.752  (-62.8 % of control)
+    tpl    125.413  delta   +1.572  (1.3 % of control)
+    all     48.958  delta  -74.883  (-60.5 % of control)
+CONTROL pwa_op_med  mean=  516.763  spread=  5.210 = 1.01 % of the mean  [515.92, 514.58, 519.79]
+    pwa    198.620  delta -318.143  (-61.6 % of control)
+    tpl    521.710  delta   +4.947  (1.0 % of control)
+    all    206.420  delta -310.343  (-60.1 % of control)
+CONTROL tpl_op      mean=   19.915  spread=  0.318 = 1.60 % of the mean  [19.776, 19.874, 20.094]
+    pwa     19.157  delta   -0.758  (-3.8 % of control)
+    tpl      8.380  delta  -11.535  (-57.9 % of control)
+    all      8.167  delta  -11.748  (-59.0 % of control)
+CONTROL tpl_op_med  mean=  500.943  spread=  7.300 = 1.46 % of the mean  [500.29, 497.62, 504.92]
+    pwa    482.150  delta  -18.793  (-3.8 % of control)
+    tpl    210.840  delta -290.103  (-57.9 % of control)
+    all    210.380  delta -290.563  (-58.0 % of control)
+CONTROL pwa_region  mean=  436.518  spread= 20.121 = 4.61 % of the mean  [424.7, 440.033, 444.821]
+    pwa    333.655  delta -102.863  (-23.6 % of control)
+    tpl    448.173  delta  +11.655  (2.7 % of control)
+    all    365.984  delta  -70.534  (-16.2 % of control)
+CONTROL block       mean=20560.253  spread=209.110 = 1.02 % of the mean  [20484.157, 20503.334, 20693.267]
+    pwa  20252.569  delta -307.684  (-1.5 % of control)
+    tpl  20677.050  delta +116.797  (0.6 % of control)
+    all  20619.309  delta  +59.056  (0.3 % of control)

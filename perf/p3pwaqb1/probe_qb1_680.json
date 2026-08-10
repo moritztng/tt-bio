@@ -1,0 +1,210 @@
+{
+ "card": "qb1 card 2",
+ "ttnn": "0.68.0",
+ "compute_grid_main_after_device_open": [
+  13,
+  10
+ ],
+ "device_compute_with_storage_grid": [
+  13,
+  10
+ ],
+ "core_grid_main": "13x10",
+ "l1_bank_bytes": 1461760,
+ "max_worker_l1_unreserved": 1532416,
+ "pair_meta": {
+  "m_tiles": 2980,
+  "output_bytes": 48824320,
+  "output_kB_per_bank": 366.8,
+  "l1_bank_bytes": 1461760,
+  "banks": 130,
+  "l1_free_before": 1461760
+ },
+ "pair": {
+  "dram_cg": {
+   "proj_us": 741.06,
+   "proj_write_GBs": 65.9,
+   "pair_us": 1085.04,
+   "l1_free_while_output_live": 1461760,
+   "torch_equal_vs_dram_cg": true,
+   "max_abs_vs_dram_cg": 0.0
+  },
+  "dram_tuned_bw8_obh5": {
+   "proj_us": 373.65,
+   "proj_write_GBs": 130.7,
+   "pair_us": 716.45,
+   "l1_free_while_output_live": 1461760,
+   "torch_equal_vs_dram_cg": false,
+   "max_abs_vs_dram_cg": 0.75
+  },
+  "dram_tuned_bw1_obh5": {
+   "proj_us": 579.81,
+   "proj_write_GBs": 84.2,
+   "pair_us": 924.35,
+   "l1_free_while_output_live": 1461760,
+   "torch_equal_vs_dram_cg": true,
+   "max_abs_vs_dram_cg": 0.0
+  },
+  "l1_cg": {
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 9 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 buff"
+  },
+  "l1_tuned_bw1_obh5": {
+   "proj_us": 392.01,
+   "proj_write_GBs": 124.5,
+   "pair_us": 662.52,
+   "l1_free_while_output_live": 1084928,
+   "torch_equal_vs_dram_cg": true,
+   "max_abs_vs_dram_cg": 0.0
+  },
+  "l1_tuned_bw8_obh5": {
+   "proj_us": 266.43,
+   "proj_write_GBs": 183.3,
+   "pair_us": 515.4,
+   "l1_free_while_output_live": 1084928,
+   "torch_equal_vs_dram_cg": false,
+   "max_abs_vs_dram_cg": 0.75
+  },
+  "l1_tuned_bw8_obh2": {
+   "proj_us": 240.8,
+   "proj_write_GBs": 202.8,
+   "pair_us": 488.66,
+   "l1_free_while_output_live": 1084928,
+   "torch_equal_vs_dram_cg": false,
+   "max_abs_vs_dram_cg": 0.75
+  },
+  "l1_tuned_bw8_obh1": {
+   "proj_us": 253.13,
+   "proj_write_GBs": 192.9,
+   "pair_us": 498.31,
+   "l1_free_while_output_live": 1084928,
+   "torch_equal_vs_dram_cg": false,
+   "max_abs_vs_dram_cg": 0.75
+  }
+ },
+ "pwa_meta": {
+  "in0_bytes": 48824320,
+  "consumers": 8,
+  "out_bytes_each": 6103040,
+  "norm_calls_per_region": 1,
+  "l1_free_before": 1461760
+ },
+ "pwa": {
+  "prod": {
+   "region_us": 3625.82,
+   "norm_us": 369.4,
+   "proj_us": 474.32,
+   "post_us": 117.5,
+   "l1_free_all_consumers_live": 1461760,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "prod_cg": {
+   "region_us": 4008.49,
+   "norm_us": 363.49,
+   "proj_us": 500.01,
+   "post_us": 102.75,
+   "l1_free_all_consumers_live": 1461760,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "outL1": {
+   "region_us": 3484.32,
+   "norm_us": 361.15,
+   "proj_us": 450.94,
+   "post_us": 118.49,
+   "l1_free_all_consumers_live": 1084928,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1": {
+   "region_us": 1198.04,
+   "norm_us": 228.8,
+   "proj_us": 160.48,
+   "post_us": 107.78,
+   "l1_free_all_consumers_live": 1084928,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1_outL1": {
+   "region_us": 916.83,
+   "norm_us": 228.91,
+   "proj_us": 138.97,
+   "post_us": 106.95,
+   "l1_free_all_consumers_live": 708096,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1_cg": {
+   "region_us": 1551.18,
+   "norm_us": 230.49,
+   "proj_us": 209.76,
+   "post_us": 105.48,
+   "l1_free_all_consumers_live": 1084928,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  }
+ },
+ "template_meta": {
+  "in0_bytes": 48824320,
+  "consumers": 4,
+  "out_bytes_each": 12206080,
+  "norm_calls_per_region": 1,
+  "l1_free_before": 1461760
+ },
+ "template": {
+  "prod": {
+   "region_us": 2173.07,
+   "norm_us": 336.95,
+   "proj_us": 422.32,
+   "post_us": 139.94,
+   "l1_free_all_consumers_live": 1461760,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "prod_cg": {
+   "region_us": 2528.49,
+   "norm_us": 340.33,
+   "proj_us": 513.94,
+   "post_us": 141.96,
+   "l1_free_all_consumers_live": 1461760,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "outL1": {
+   "region_us": 2132.87,
+   "norm_us": 362.65,
+   "proj_us": 454.18,
+   "post_us": 164.05,
+   "l1_free_all_consumers_live": 1084928,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1": {
+   "region_us": 1103.94,
+   "norm_us": 238.69,
+   "proj_us": 207.52,
+   "post_us": 186.4,
+   "l1_free_all_consumers_live": 1084928,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1_outL1": {
+   "region_us": 810.94,
+   "norm_us": 233.16,
+   "proj_us": 151.44,
+   "post_us": 159.84,
+   "l1_free_all_consumers_live": 708096,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  },
+  "normL1_cg": {
+   "region_us": 1275.74,
+   "norm_us": 238.05,
+   "proj_us": 249.67,
+   "post_us": 188.14,
+   "l1_free_all_consumers_live": 1084928,
+   "torch_equal_vs_prod_cg": true,
+   "max_abs_vs_prod_cg": 0.0
+  }
+ }
+}

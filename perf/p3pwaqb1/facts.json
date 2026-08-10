@@ -1,0 +1,28 @@
+{
+ "ttnn": "0.67.4",
+ "python": "/home/ttuser/tt-bio-dev/env/bin/python3",
+ "device_compute_with_storage_grid": [
+  13,
+  10
+ ],
+ "COMPUTE_GRID_MAIN_after_open": [
+  13,
+  10
+ ],
+ "CORE_GRID_MAIN_after_open": [
+  13,
+  10
+ ],
+ "CORE_GRID_MAIN_imported_by_value": [
+  11,
+  10
+ ],
+ "cores": 130,
+ "trimul_chunk_size_298_128": 64,
+ "trimul_l1_max_seq": 352,
+ "l1_bank_bytes": 1461760,
+ "max_worker_l1_unreserved": 1532448,
+ "pair_tensor_MB": 48.82432,
+ "fit_verdict_headroom_1.5": "BufferType.L1",
+ "fit_verdict_headroom_2.5": "BufferType.L1"
+}
