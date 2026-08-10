@@ -16,8 +16,9 @@ without changing anything.
 """
 import json, pathlib, re, shutil, subprocess, sys
 
-if len(sys.argv) != 2 or not sys.argv[1].startswith("p"):
-    sys.exit("usage: purge_stale_claims.py <window>   e.g. p31, p32")
+if not 2 <= len(sys.argv) <= 3 or not sys.argv[1].startswith("p") \
+        or sys.argv[2:] not in ([], ["--dry-run"]):
+    sys.exit("usage: purge_stale_claims.py <window> [--dry-run]   e.g. p31, p32")
 B = pathlib.Path("/home/cust-team/mthuening") / sys.argv[1]
 if not (B / "tasks.txt").exists():
     sys.exit("no tasks.txt under %s -- window never ran, nothing to purge" % B)
@@ -60,18 +61,9 @@ for i, line in enumerate(tasks, 1):
     if (MDIR[m], t, int(c)) in live:
         n_live += 1
         continue
-    claim = B / "claims" / str(i)
-    if claim.exists():
-        if not DRY:
-            shutil.rmtree(claim)
-        n_claim += 1
-    # the retry counter lives outside the claim dir so it survives a release; a purge is an
-    # operator decision to start the cell over, so the counter goes too
-    tries = B / "tries" / str(i)
-    if tries.exists():
-        if not DRY:
-            tries.unlink()
-        n_try += 1
+    # Release the claim LAST. On a live window the claim is what gates a slot from starting this
+    # cell, so deleting it first opens a race where a slot wins the claim and begins folding into
+    # an out_dir this loop is about to delete.
     d = B / MDIR[m] / (t + "_c" + c)
     if d.exists():
         if not DRY:
@@ -81,6 +73,18 @@ for i, line in enumerate(tasks, 1):
         if not DRY:
             log.unlink()
         n_log += 1
+    # the retry counter lives outside the claim dir so it survives a release; a purge is an
+    # operator decision to start the cell over, so the counter goes too
+    tries = B / "tries" / str(i)
+    if tries.exists():
+        if not DRY:
+            tries.unlink()
+        n_try += 1
+    claim = B / "claims" / str(i)
+    if claim.exists():
+        if not DRY:
+            shutil.rmtree(claim)
+        n_claim += 1
 print("%s: %d claims, %d tries, %d outdirs, %d logs; %d live cells left alone"
       % ("would purge" if DRY else "purged", n_claim, n_try, n_dir, n_log, n_live))
 print("ok cells:", len(ok & {(m, t, int(c)) for m, t, _, _, c, _ in
