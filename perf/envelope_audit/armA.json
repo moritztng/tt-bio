@@ -1,0 +1,37 @@
+{
+  "legs": [
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=1.1957 env=0.0424 ratio=28.21; kabsch_rmsd r=28.21",
+      "wall": 74.1482559950091,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=1.1072 env=0.0000 ratio=inf; kabsch_rmsd r=inf",
+      "wall": 78.15119146600773,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst kabsch_rmsd: num=0.0546 env=0.0524 ratio=1.04; kabsch_rmsd r=1.04",
+      "wall": 270.56299997599854,
+      "committed": "NO-DATA",
+      "report": "protenix-hsa-msa.json"
+    }
+  ],
+  "tally": {
+    "GAP": 2,
+    "PASS": 1
+  },
+  "scored": 3,
+  "total_wall_s": 422.86372857599054,
+  "workers": [
+    "tt-quietbox:3"
+  ]
+}
