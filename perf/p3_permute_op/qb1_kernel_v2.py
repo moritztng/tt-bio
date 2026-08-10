@@ -18,9 +18,11 @@ or branch survives in the body. X6 measured one `if` in that loop at 10.7 us on 
 what makes this worth pricing.
 
 Variants are selected by pointing `reblock_permute.KERNEL_DIR` at a directory, so nothing about the
-production module changes between arms.
+production module changes between arms. v2 won and is now the production kernel, so the v1 arm is
+materialised out of git rather than kept as a second copy in the tree:
 
-    TT_VISIBLE_DEVICES=0 python3 perf/p3_permute_op/qb1_kernel_v2.py
+    git worktree add /tmp/rp_v1 a14d1647     # the commit where reblock_permute/ still held v1
+    TT_VISIBLE_DEVICES=0 python3 perf/p3_permute_op/qb1_kernel_v2.py --v1-dir /tmp/rp_v1/tt_bio/kernels/reblock_permute
 """
 from __future__ import annotations
 
@@ -77,6 +79,9 @@ def med(v):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=3)
+    ap.add_argument("--v1-dir", default=None,
+                    help="kernel dir for the v1 arm; default is the tree's own (now v2), which makes "
+                         "the A/B a null control. See the module docstring for the git worktree.")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parent / "qb1_kernel_v2.json"))
     a = ap.parse_args()
 
@@ -84,8 +89,8 @@ def main():
     import tt_bio.tenstorrent as T
     RP.set_enabled(True)
 
-    V = {"v1": REPO / "tt_bio" / "kernels" / "reblock_permute",
-         "v2": REPO / "tt_bio" / "kernels" / "reblock_permute_v2"}
+    V = {"v1": Path(a.v1_dir) if a.v1_dir else REPO / "tt_bio" / "kernels" / "reblock_permute",
+         "v2": REPO / "tt_bio" / "kernels" / "reblock_permute"}
 
     device = T.get_device()
     g = device.compute_with_storage_grid_size()
