@@ -1,0 +1,78 @@
+2026-08-10 08:46:36.817 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-10 08:46:36.960 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 08:46:36.963 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 08:46:36.963 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 08:46:36.968 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-10 08:46:36.968 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 08:46:36.971 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 08:46:36.971 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 08:46:36.976 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 08:46:36.978 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 08:46:36.978 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 08:46:36.993 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-10 08:46:37.032 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-10 08:46:37.032 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-10 08:46:37.032 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-10 08:46:37.032 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-10 08:46:37.033 | info     |             UMD | Mapped hugepage 0x140000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-10 08:46:37.321 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:329)
+2026-08-10 08:46:37.321 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:391)
+2026-08-10 08:46:37.321 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 08:46:37.323 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 08:46:37.323 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 08:46:37.327 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-10 08:46:37.327 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 08:46:37.327 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 08:46:37.327 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-10 08:46:37.327 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 08:46:37.327 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 08:46:37.327 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)
+2026-08-10 08:46:37.327 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)
+2026-08-10 08:46:37.327 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)
+2026-08-10 08:46:37.327 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)
+2026-08-10 08:46:37.479 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)
+roofs: {'clone_L1_to_L1': {'us': 26.72, 'gb_s_one_way': 425.4}, 'clone_L1_to_DRAM': {'us': 48.5, 'gb_s_one_way': 234.4}, 'clone_DRAM_to_L1': {'us': 39.06, 'gb_s_one_way': 291.0}, 'clone_DRAM_to_DRAM': {'us': 62.15, 'gb_s_one_way': 182.9}}
+{'buffer': 'L1', 'C': 32, 'N': 256, 'mb_one_way': 4.19, 'torch_equal': True, 'cores_engaged': 64, 'groups': 64, 'k_calls_per_sync': 4, 'kernel_us': 135.59, 'stock_us': 63.57, 'ratio_stock_over_kernel': 0.4688, 'wins': False, 'shipped_gate_eligible': False, 'load': [0.15, 1.79, 4.42]}
+{'buffer': 'L1', 'C': 32, 'N': 288, 'mb_one_way': 5.31, 'torch_equal': True, 'cores_engaged': 81, 'groups': 81, 'k_calls_per_sync': 4, 'kernel_us': 71.42, 'stock_us': 72.16, 'ratio_stock_over_kernel': 1.0104, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.15, 1.79, 4.42]}
+{'buffer': 'L1', 'C': 32, 'N': 298, 'mb_one_way': 5.68, 'torch_equal': True, 'cores_engaged': 100, 'groups': 100, 'k_calls_per_sync': 4, 'kernel_us': 73.31, 'stock_us': 86.45, 'ratio_stock_over_kernel': 1.1792, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.15, 1.79, 4.42]}
+{'buffer': 'L1', 'C': 32, 'N': 320, 'mb_one_way': 6.55, 'torch_equal': True, 'cores_engaged': 100, 'groups': 100, 'k_calls_per_sync': 4, 'kernel_us': 72.76, 'stock_us': 87.79, 'ratio_stock_over_kernel': 1.2066, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'L1', 'C': 32, 'N': 352, 'mb_one_way': 7.93, 'torch_equal': True, 'cores_engaged': 121, 'groups': 121, 'k_calls_per_sync': 4, 'kernel_us': 73.88, 'stock_us': 105.93, 'ratio_stock_over_kernel': 1.4338, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'L1', 'C': 32, 'N': 384, 'mb_one_way': 9.44, 'torch_equal': True, 'cores_engaged': 130, 'groups': 144, 'k_calls_per_sync': 4, 'kernel_us': 118.86, 'stock_us': 122.54, 'ratio_stock_over_kernel': 1.031, 'wins': True, 'shipped_gate_eligible': False, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'L1', 'C': 64, 'N': 256, 'mb_one_way': 8.39, 'torch_equal': True, 'cores_engaged': 64, 'groups': 64, 'k_calls_per_sync': 4, 'kernel_us': 116.5, 'stock_us': 108.44, 'ratio_stock_over_kernel': 0.9308, 'wins': False, 'shipped_gate_eligible': False, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'L1', 'C': 64, 'N': 288, 'mb_one_way': 10.62, 'torch_equal': True, 'cores_engaged': 81, 'groups': 81, 'k_calls_per_sync': 4, 'kernel_us': 117.1, 'stock_us': 136.04, 'ratio_stock_over_kernel': 1.1617, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'L1', 'C': 64, 'N': 298, 'mb_one_way': 11.37, 'torch_equal': True, 'cores_engaged': 100, 'groups': 100, 'k_calls_per_sync': 4, 'kernel_us': 118.43, 'stock_us': 161.27, 'ratio_stock_over_kernel': 1.3617, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'L1', 'C': 64, 'N': 320, 'mb_one_way': 13.11, 'torch_equal': True, 'cores_engaged': 100, 'groups': 100, 'k_calls_per_sync': 4, 'kernel_us': 117.5, 'stock_us': 166.79, 'ratio_stock_over_kernel': 1.4195, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'L1', 'C': 64, 'N': 352, 'mb_one_way': 15.86, 'torch_equal': True, 'cores_engaged': 121, 'groups': 121, 'k_calls_per_sync': 4, 'kernel_us': 119.45, 'stock_us': 203.07, 'ratio_stock_over_kernel': 1.7, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'L1', 'C': 64, 'N': 384, 'mb_one_way': 18.87, 'torch_equal': True, 'cores_engaged': 130, 'groups': 144, 'k_calls_per_sync': 4, 'kernel_us': 209.54, 'stock_us': 234.03, 'ratio_stock_over_kernel': 1.1169, 'wins': True, 'shipped_gate_eligible': False, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 32, 'N': 256, 'mb_one_way': 4.19, 'torch_equal': True, 'cores_engaged': 64, 'groups': 64, 'k_calls_per_sync': 16, 'kernel_us': 63.84, 'stock_us': 116.92, 'ratio_stock_over_kernel': 1.8315, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 32, 'N': 288, 'mb_one_way': 5.31, 'torch_equal': True, 'cores_engaged': 81, 'groups': 81, 'k_calls_per_sync': 16, 'kernel_us': 65.01, 'stock_us': 117.63, 'ratio_stock_over_kernel': 1.8094, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 32, 'N': 298, 'mb_one_way': 5.68, 'torch_equal': True, 'cores_engaged': 100, 'groups': 100, 'k_calls_per_sync': 16, 'kernel_us': 67.19, 'stock_us': 148.58, 'ratio_stock_over_kernel': 2.2113, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 32, 'N': 320, 'mb_one_way': 6.55, 'torch_equal': True, 'cores_engaged': 100, 'groups': 100, 'k_calls_per_sync': 16, 'kernel_us': 67.17, 'stock_us': 146.52, 'ratio_stock_over_kernel': 2.1813, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 32, 'N': 352, 'mb_one_way': 7.93, 'torch_equal': True, 'cores_engaged': 121, 'groups': 121, 'k_calls_per_sync': 16, 'kernel_us': 70.09, 'stock_us': 172.03, 'ratio_stock_over_kernel': 2.4544, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 32, 'N': 384, 'mb_one_way': 9.44, 'torch_equal': True, 'cores_engaged': 130, 'groups': 144, 'k_calls_per_sync': 16, 'kernel_us': 117.43, 'stock_us': 223.45, 'ratio_stock_over_kernel': 1.9028, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 64, 'N': 256, 'mb_one_way': 8.39, 'torch_equal': True, 'cores_engaged': 64, 'groups': 64, 'k_calls_per_sync': 16, 'kernel_us': 123.39, 'stock_us': 215.14, 'ratio_stock_over_kernel': 1.7436, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 64, 'N': 288, 'mb_one_way': 10.62, 'torch_equal': True, 'cores_engaged': 81, 'groups': 81, 'k_calls_per_sync': 16, 'kernel_us': 125.18, 'stock_us': 229.54, 'ratio_stock_over_kernel': 1.8337, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 64, 'N': 298, 'mb_one_way': 11.37, 'torch_equal': True, 'cores_engaged': 100, 'groups': 100, 'k_calls_per_sync': 16, 'kernel_us': 128.66, 'stock_us': 289.19, 'ratio_stock_over_kernel': 2.2477, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 64, 'N': 320, 'mb_one_way': 13.11, 'torch_equal': True, 'cores_engaged': 100, 'groups': 100, 'k_calls_per_sync': 16, 'kernel_us': 128.84, 'stock_us': 291.59, 'ratio_stock_over_kernel': 2.2632, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 64, 'N': 352, 'mb_one_way': 15.86, 'torch_equal': True, 'cores_engaged': 121, 'groups': 121, 'k_calls_per_sync': 16, 'kernel_us': 135.65, 'stock_us': 348.41, 'ratio_stock_over_kernel': 2.5684, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+{'buffer': 'DRAM', 'C': 64, 'N': 384, 'mb_one_way': 18.87, 'torch_equal': True, 'cores_engaged': 130, 'groups': 144, 'k_calls_per_sync': 16, 'kernel_us': 243.43, 'stock_us': 432.19, 'ratio_stock_over_kernel': 1.7754, 'wins': True, 'shipped_gate_eligible': True, 'load': [0.3, 1.79, 4.41]}
+co_residency: {'idle': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 0, 'total_bytes_free_per_bank': 1461760, 'largest_contiguous_bytes_free_per_bank': 1461760}, 'one_pair_tensor_48_82_MB': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 376832, 'total_bytes_free_per_bank': 1084928, 'largest_contiguous_bytes_free_per_bank': 1084928}, 'two_pair_tensors_x7_merged_path': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 753664, 'total_bytes_free_per_bank': 708096, 'largest_contiguous_bytes_free_per_bank': 708096}, 'plus_the_trimul_chunk': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 847872, 'total_bytes_free_per_bank': 613888, 'largest_contiguous_bytes_free_per_bank': 613888}, 'kernel_ran_with_both_resident': True, 'plus_kernel_output_and_cbs': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 950272, 'total_bytes_free_per_bank': 511488, 'largest_contiguous_bytes_free_per_bank': 511488}, 'kernel_static_cb_bytes_per_core': 139264, 'after_free': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 0, 'total_bytes_free_per_bank': 1461760, 'largest_contiguous_bytes_free_per_bank': 1461760}}
+2026-08-10 08:46:40.433 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-10 08:46:40.433 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)

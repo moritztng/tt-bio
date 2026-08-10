@@ -1,0 +1,567 @@
+{
+  "host": "qb1",
+  "card": 3,
+  "wheel": "0.67.4",
+  "grid": [
+    13,
+    10
+  ],
+  "compute_grid_main": [
+    13,
+    10
+  ],
+  "trimul_chunk_size_298_128": 64,
+  "triangle_mul_memory_config_298": "BufferType.L1",
+  "l1_bank_bytes": 1461760,
+  "k_calls_per_sync": 16,
+  "load_start": [
+    0.15,
+    1.79,
+    4.42
+  ],
+  "cells": [
+    {
+      "buffer": "L1",
+      "C": 32,
+      "N": 256,
+      "mb_one_way": 4.19,
+      "torch_equal": true,
+      "cores_engaged": 64,
+      "groups": 64,
+      "k_calls_per_sync": 4,
+      "kernel_us": 135.59,
+      "stock_us": 63.57,
+      "ratio_stock_over_kernel": 0.4688,
+      "wins": false,
+      "shipped_gate_eligible": false,
+      "load": [
+        0.15,
+        1.79,
+        4.42
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 32,
+      "N": 288,
+      "mb_one_way": 5.31,
+      "torch_equal": true,
+      "cores_engaged": 81,
+      "groups": 81,
+      "k_calls_per_sync": 4,
+      "kernel_us": 71.42,
+      "stock_us": 72.16,
+      "ratio_stock_over_kernel": 1.0104,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.15,
+        1.79,
+        4.42
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 32,
+      "N": 298,
+      "mb_one_way": 5.68,
+      "torch_equal": true,
+      "cores_engaged": 100,
+      "groups": 100,
+      "k_calls_per_sync": 4,
+      "kernel_us": 73.31,
+      "stock_us": 86.45,
+      "ratio_stock_over_kernel": 1.1792,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.15,
+        1.79,
+        4.42
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 32,
+      "N": 320,
+      "mb_one_way": 6.55,
+      "torch_equal": true,
+      "cores_engaged": 100,
+      "groups": 100,
+      "k_calls_per_sync": 4,
+      "kernel_us": 72.76,
+      "stock_us": 87.79,
+      "ratio_stock_over_kernel": 1.2066,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 32,
+      "N": 352,
+      "mb_one_way": 7.93,
+      "torch_equal": true,
+      "cores_engaged": 121,
+      "groups": 121,
+      "k_calls_per_sync": 4,
+      "kernel_us": 73.88,
+      "stock_us": 105.93,
+      "ratio_stock_over_kernel": 1.4338,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 32,
+      "N": 384,
+      "mb_one_way": 9.44,
+      "torch_equal": true,
+      "cores_engaged": 130,
+      "groups": 144,
+      "k_calls_per_sync": 4,
+      "kernel_us": 118.86,
+      "stock_us": 122.54,
+      "ratio_stock_over_kernel": 1.031,
+      "wins": true,
+      "shipped_gate_eligible": false,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 64,
+      "N": 256,
+      "mb_one_way": 8.39,
+      "torch_equal": true,
+      "cores_engaged": 64,
+      "groups": 64,
+      "k_calls_per_sync": 4,
+      "kernel_us": 116.5,
+      "stock_us": 108.44,
+      "ratio_stock_over_kernel": 0.9308,
+      "wins": false,
+      "shipped_gate_eligible": false,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 64,
+      "N": 288,
+      "mb_one_way": 10.62,
+      "torch_equal": true,
+      "cores_engaged": 81,
+      "groups": 81,
+      "k_calls_per_sync": 4,
+      "kernel_us": 117.1,
+      "stock_us": 136.04,
+      "ratio_stock_over_kernel": 1.1617,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 64,
+      "N": 298,
+      "mb_one_way": 11.37,
+      "torch_equal": true,
+      "cores_engaged": 100,
+      "groups": 100,
+      "k_calls_per_sync": 4,
+      "kernel_us": 118.43,
+      "stock_us": 161.27,
+      "ratio_stock_over_kernel": 1.3617,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 64,
+      "N": 320,
+      "mb_one_way": 13.11,
+      "torch_equal": true,
+      "cores_engaged": 100,
+      "groups": 100,
+      "k_calls_per_sync": 4,
+      "kernel_us": 117.5,
+      "stock_us": 166.79,
+      "ratio_stock_over_kernel": 1.4195,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 64,
+      "N": 352,
+      "mb_one_way": 15.86,
+      "torch_equal": true,
+      "cores_engaged": 121,
+      "groups": 121,
+      "k_calls_per_sync": 4,
+      "kernel_us": 119.45,
+      "stock_us": 203.07,
+      "ratio_stock_over_kernel": 1.7,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "L1",
+      "C": 64,
+      "N": 384,
+      "mb_one_way": 18.87,
+      "torch_equal": true,
+      "cores_engaged": 130,
+      "groups": 144,
+      "k_calls_per_sync": 4,
+      "kernel_us": 209.54,
+      "stock_us": 234.03,
+      "ratio_stock_over_kernel": 1.1169,
+      "wins": true,
+      "shipped_gate_eligible": false,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 32,
+      "N": 256,
+      "mb_one_way": 4.19,
+      "torch_equal": true,
+      "cores_engaged": 64,
+      "groups": 64,
+      "k_calls_per_sync": 16,
+      "kernel_us": 63.84,
+      "stock_us": 116.92,
+      "ratio_stock_over_kernel": 1.8315,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 32,
+      "N": 288,
+      "mb_one_way": 5.31,
+      "torch_equal": true,
+      "cores_engaged": 81,
+      "groups": 81,
+      "k_calls_per_sync": 16,
+      "kernel_us": 65.01,
+      "stock_us": 117.63,
+      "ratio_stock_over_kernel": 1.8094,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 32,
+      "N": 298,
+      "mb_one_way": 5.68,
+      "torch_equal": true,
+      "cores_engaged": 100,
+      "groups": 100,
+      "k_calls_per_sync": 16,
+      "kernel_us": 67.19,
+      "stock_us": 148.58,
+      "ratio_stock_over_kernel": 2.2113,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 32,
+      "N": 320,
+      "mb_one_way": 6.55,
+      "torch_equal": true,
+      "cores_engaged": 100,
+      "groups": 100,
+      "k_calls_per_sync": 16,
+      "kernel_us": 67.17,
+      "stock_us": 146.52,
+      "ratio_stock_over_kernel": 2.1813,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 32,
+      "N": 352,
+      "mb_one_way": 7.93,
+      "torch_equal": true,
+      "cores_engaged": 121,
+      "groups": 121,
+      "k_calls_per_sync": 16,
+      "kernel_us": 70.09,
+      "stock_us": 172.03,
+      "ratio_stock_over_kernel": 2.4544,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 32,
+      "N": 384,
+      "mb_one_way": 9.44,
+      "torch_equal": true,
+      "cores_engaged": 130,
+      "groups": 144,
+      "k_calls_per_sync": 16,
+      "kernel_us": 117.43,
+      "stock_us": 223.45,
+      "ratio_stock_over_kernel": 1.9028,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 64,
+      "N": 256,
+      "mb_one_way": 8.39,
+      "torch_equal": true,
+      "cores_engaged": 64,
+      "groups": 64,
+      "k_calls_per_sync": 16,
+      "kernel_us": 123.39,
+      "stock_us": 215.14,
+      "ratio_stock_over_kernel": 1.7436,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 64,
+      "N": 288,
+      "mb_one_way": 10.62,
+      "torch_equal": true,
+      "cores_engaged": 81,
+      "groups": 81,
+      "k_calls_per_sync": 16,
+      "kernel_us": 125.18,
+      "stock_us": 229.54,
+      "ratio_stock_over_kernel": 1.8337,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 64,
+      "N": 298,
+      "mb_one_way": 11.37,
+      "torch_equal": true,
+      "cores_engaged": 100,
+      "groups": 100,
+      "k_calls_per_sync": 16,
+      "kernel_us": 128.66,
+      "stock_us": 289.19,
+      "ratio_stock_over_kernel": 2.2477,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 64,
+      "N": 320,
+      "mb_one_way": 13.11,
+      "torch_equal": true,
+      "cores_engaged": 100,
+      "groups": 100,
+      "k_calls_per_sync": 16,
+      "kernel_us": 128.84,
+      "stock_us": 291.59,
+      "ratio_stock_over_kernel": 2.2632,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 64,
+      "N": 352,
+      "mb_one_way": 15.86,
+      "torch_equal": true,
+      "cores_engaged": 121,
+      "groups": 121,
+      "k_calls_per_sync": 16,
+      "kernel_us": 135.65,
+      "stock_us": 348.41,
+      "ratio_stock_over_kernel": 2.5684,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    },
+    {
+      "buffer": "DRAM",
+      "C": 64,
+      "N": 384,
+      "mb_one_way": 18.87,
+      "torch_equal": true,
+      "cores_engaged": 130,
+      "groups": 144,
+      "k_calls_per_sync": 16,
+      "kernel_us": 243.43,
+      "stock_us": 432.19,
+      "ratio_stock_over_kernel": 1.7754,
+      "wins": true,
+      "shipped_gate_eligible": true,
+      "load": [
+        0.3,
+        1.79,
+        4.41
+      ]
+    }
+  ],
+  "roofs_this_card_this_pass": {
+    "clone_L1_to_L1": {
+      "us": 26.72,
+      "gb_s_one_way": 425.4
+    },
+    "clone_L1_to_DRAM": {
+      "us": 48.5,
+      "gb_s_one_way": 234.4
+    },
+    "clone_DRAM_to_L1": {
+      "us": 39.06,
+      "gb_s_one_way": 291.0
+    },
+    "clone_DRAM_to_DRAM": {
+      "us": 62.15,
+      "gb_s_one_way": 182.9
+    }
+  },
+  "co_residency": {
+    "idle": {
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 0,
+      "total_bytes_free_per_bank": 1461760,
+      "largest_contiguous_bytes_free_per_bank": 1461760
+    },
+    "one_pair_tensor_48_82_MB": {
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 376832,
+      "total_bytes_free_per_bank": 1084928,
+      "largest_contiguous_bytes_free_per_bank": 1084928
+    },
+    "two_pair_tensors_x7_merged_path": {
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 753664,
+      "total_bytes_free_per_bank": 708096,
+      "largest_contiguous_bytes_free_per_bank": 708096
+    },
+    "plus_the_trimul_chunk": {
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 847872,
+      "total_bytes_free_per_bank": 613888,
+      "largest_contiguous_bytes_free_per_bank": 613888
+    },
+    "kernel_ran_with_both_resident": true,
+    "plus_kernel_output_and_cbs": {
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 950272,
+      "total_bytes_free_per_bank": 511488,
+      "largest_contiguous_bytes_free_per_bank": 511488
+    },
+    "kernel_static_cb_bytes_per_core": 139264,
+    "after_free": {
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 0,
+      "total_bytes_free_per_bank": 1461760,
+      "largest_contiguous_bytes_free_per_bank": 1461760
+    }
+  },
+  "load_end": [
+    0.3,
+    1.79,
+    4.41
+  ]
+}
