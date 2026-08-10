@@ -1,0 +1,91 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox",
+  "visible_devices": "3",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "3f090fd743b3b4dbe1c6591abd8820721716aba8",
+  "ttnn_version": "0.67.4",
+  "input": "cdk2x2_512.yaml (512 aa, single protein, MSA on)",
+  "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "4e5c2b391bde62d4.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 13.89,
+  "cold_s": 151.35,
+  "warm_times_s": [
+    95.319,
+    98.729,
+    102.74
+  ],
+  "warm_min_s": 95.319,
+  "warm_median_s": 98.729,
+  "warm_max_s": 102.74,
+  "cold_metrics": {
+    "complex_plddt": 0.828628,
+    "plddt": 0.828628,
+    "ptm": 0.691968,
+    "iptm": 0.0,
+    "confidence_score": 0.691968,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "compute_grid": [
+    13,
+    10
+  ],
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": [
+    {
+      "feat": 0.0508,
+      "fold": 151.0314,
+      "write": 0.2522,
+      "total": 151.3527
+    },
+    {
+      "feat": 0.046,
+      "fold": 95.0812,
+      "write": 0.1645,
+      "total": 95.3186
+    },
+    {
+      "feat": 0.06,
+      "fold": 98.5054,
+      "write": 0.1237,
+      "total": 98.7287
+    },
+    {
+      "feat": 0.1445,
+      "fold": 102.4074,
+      "write": 0.1622,
+      "total": 102.7396
+    }
+  ],
+  "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+  },
+  "loadavg_before": [
+    54.08,
+    53.0,
+    50.42
+  ],
+  "loadavg_after": [
+    64.53,
+    55.52,
+    51.83
+  ],
+  "date": "2026-08-10"
+}
