@@ -1,0 +1,175 @@
+{
+  "shapes": [
+    {
+      "label": "trimul.in_proj  K=256 N=128",
+      "m": 8192,
+      "k": 256,
+      "n": 128,
+      "arms": {
+        "HiFi4_accTrue": {
+          "max_abs_err_vs_fp32": 0.0005151033401489258,
+          "rel_rms": 0.0016883588396012783,
+          "pcc_vs_fp32": 0.9999880790710449,
+          "bit_exact_vs_hifi4_acc": true
+        },
+        "HiFi4_accFalse": {
+          "max_abs_err_vs_fp32": 0.003655068576335907,
+          "rel_rms": 0.009302529506385326,
+          "pcc_vs_fp32": 0.9999707937240601,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi3_accTrue": {
+          "max_abs_err_vs_fp32": 0.0005172044038772583,
+          "rel_rms": 0.0016895520966500044,
+          "pcc_vs_fp32": 0.9999895691871643,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi3_accFalse": {
+          "max_abs_err_vs_fp32": 0.003655068576335907,
+          "rel_rms": 0.009302782826125622,
+          "pcc_vs_fp32": 0.9999709725379944,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi2_accTrue": {
+          "max_abs_err_vs_fp32": 0.0011644959449768066,
+          "rel_rms": 0.004365228116512299,
+          "pcc_vs_fp32": 0.9999852776527405,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi2_accFalse": {
+          "max_abs_err_vs_fp32": 0.0032387003302574158,
+          "rel_rms": 0.008694052696228027,
+          "pcc_vs_fp32": 0.9999673366546631,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "LoFi_accTrue": {
+          "max_abs_err_vs_fp32": 0.005109384655952454,
+          "rel_rms": 0.025968067348003387,
+          "pcc_vs_fp32": 0.9999030232429504,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "LoFi_accFalse": {
+          "max_abs_err_vs_fp32": 0.005627721548080444,
+          "rel_rms": 0.024326330050826073,
+          "pcc_vs_fp32": 0.9998950958251953,
+          "bit_exact_vs_hifi4_acc": false
+        }
+      },
+      "bf16_rounding_floor_max_abs": 0.0004881918430328369
+    },
+    {
+      "label": "trimul.out_proj K=256 N=256",
+      "m": 8192,
+      "k": 256,
+      "n": 256,
+      "arms": {
+        "HiFi4_accTrue": {
+          "max_abs_err_vs_fp32": 0.0005175620317459106,
+          "rel_rms": 0.001686472911387682,
+          "pcc_vs_fp32": 0.9999668598175049,
+          "bit_exact_vs_hifi4_acc": true
+        },
+        "HiFi4_accFalse": {
+          "max_abs_err_vs_fp32": 0.003584727644920349,
+          "rel_rms": 0.009317147545516491,
+          "pcc_vs_fp32": 0.9999979734420776,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi3_accTrue": {
+          "max_abs_err_vs_fp32": 0.0005183964967727661,
+          "rel_rms": 0.0016878999304026365,
+          "pcc_vs_fp32": 0.9999662637710571,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi3_accFalse": {
+          "max_abs_err_vs_fp32": 0.003584727644920349,
+          "rel_rms": 0.009317408315837383,
+          "pcc_vs_fp32": 0.9999973773956299,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi2_accTrue": {
+          "max_abs_err_vs_fp32": 0.0011113286018371582,
+          "rel_rms": 0.004366360604763031,
+          "pcc_vs_fp32": 0.9999634623527527,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi2_accFalse": {
+          "max_abs_err_vs_fp32": 0.0031766146421432495,
+          "rel_rms": 0.008702957071363926,
+          "pcc_vs_fp32": 0.9999878406524658,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "LoFi_accTrue": {
+          "max_abs_err_vs_fp32": 0.005432248115539551,
+          "rel_rms": 0.02610909193754196,
+          "pcc_vs_fp32": 0.999871015548706,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "LoFi_accFalse": {
+          "max_abs_err_vs_fp32": 0.00589384138584137,
+          "rel_rms": 0.02443474344909191,
+          "pcc_vs_fp32": 0.9999218583106995,
+          "bit_exact_vs_hifi4_acc": false
+        }
+      },
+      "bf16_rounding_floor_max_abs": 0.0004882216453552246
+    },
+    {
+      "label": "triatt.qkv      K=256 N=768",
+      "m": 8192,
+      "k": 256,
+      "n": 768,
+      "arms": {
+        "HiFi4_accTrue": {
+          "max_abs_err_vs_fp32": 0.0005314052104949951,
+          "rel_rms": 0.0016870299587026238,
+          "pcc_vs_fp32": 0.999971866607666,
+          "bit_exact_vs_hifi4_acc": true
+        },
+        "HiFi4_accFalse": {
+          "max_abs_err_vs_fp32": 0.004092350602149963,
+          "rel_rms": 0.009313090704381466,
+          "pcc_vs_fp32": 0.9999738931655884,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi3_accTrue": {
+          "max_abs_err_vs_fp32": 0.0005314052104949951,
+          "rel_rms": 0.0016885435907170177,
+          "pcc_vs_fp32": 0.9999727010726929,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi3_accFalse": {
+          "max_abs_err_vs_fp32": 0.004092350602149963,
+          "rel_rms": 0.009313348680734634,
+          "pcc_vs_fp32": 0.9999740123748779,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi2_accTrue": {
+          "max_abs_err_vs_fp32": 0.0012850463390350342,
+          "rel_rms": 0.00436639366671443,
+          "pcc_vs_fp32": 0.9999274015426636,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "HiFi2_accFalse": {
+          "max_abs_err_vs_fp32": 0.004092350602149963,
+          "rel_rms": 0.008701488375663757,
+          "pcc_vs_fp32": 0.9999672174453735,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "LoFi_accTrue": {
+          "max_abs_err_vs_fp32": 0.005813628435134888,
+          "rel_rms": 0.026100322604179382,
+          "pcc_vs_fp32": 0.9998527765274048,
+          "bit_exact_vs_hifi4_acc": false
+        },
+        "LoFi_accFalse": {
+          "max_abs_err_vs_fp32": 0.006442606449127197,
+          "rel_rms": 0.02442193031311035,
+          "pcc_vs_fp32": 0.9998868703842163,
+          "bit_exact_vs_hifi4_acc": false
+        }
+      },
+      "bf16_rounding_floor_max_abs": 0.0004882216453552246
+    }
+  ]
+}

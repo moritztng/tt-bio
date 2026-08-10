@@ -1,0 +1,242 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "nsweep": [
+    {
+      "n": 128,
+      "ms": 0.2492,
+      "tflops": 26.93,
+      "a_read_GBs": 210.4,
+      "aa_spread": 0.0089
+    },
+    {
+      "n": 256,
+      "ms": 0.2547,
+      "tflops": 52.69,
+      "a_read_GBs": 205.8,
+      "aa_spread": 0.0066
+    },
+    {
+      "n": 384,
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 buff"
+    },
+    {
+      "n": 512,
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 9 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 buff"
+    }
+  ],
+  "fidelity": [
+    {
+      "n": 128,
+      "fidelity": "HiFi4",
+      "fp32_dest_acc": true,
+      "ms": 0.2543,
+      "tflops": 26.39,
+      "a_read_GBs": 206.1,
+      "aa_spread": 0.0137
+    },
+    {
+      "n": 128,
+      "fidelity": "HiFi4",
+      "fp32_dest_acc": false,
+      "ms": 0.2505,
+      "tflops": 26.79,
+      "a_read_GBs": 209.3,
+      "aa_spread": 0.0127
+    },
+    {
+      "n": 128,
+      "fidelity": "HiFi3",
+      "fp32_dest_acc": true,
+      "ms": 0.234,
+      "tflops": 28.68,
+      "a_read_GBs": 224.0,
+      "aa_spread": 0.0106
+    },
+    {
+      "n": 128,
+      "fidelity": "HiFi3",
+      "fp32_dest_acc": false,
+      "ms": 0.226,
+      "tflops": 29.7,
+      "a_read_GBs": 232.0,
+      "aa_spread": 0.0057
+    },
+    {
+      "n": 128,
+      "fidelity": "HiFi2",
+      "fp32_dest_acc": true,
+      "ms": 0.2102,
+      "tflops": 31.92,
+      "a_read_GBs": 249.4,
+      "aa_spread": 0.0035
+    },
+    {
+      "n": 128,
+      "fidelity": "HiFi2",
+      "fp32_dest_acc": false,
+      "ms": 0.2097,
+      "tflops": 32.0,
+      "a_read_GBs": 250.0,
+      "aa_spread": 0.0142
+    },
+    {
+      "n": 128,
+      "fidelity": "LoFi",
+      "fp32_dest_acc": true,
+      "ms": 0.216,
+      "tflops": 31.07,
+      "a_read_GBs": 242.7,
+      "aa_spread": 0.0148
+    },
+    {
+      "n": 128,
+      "fidelity": "LoFi",
+      "fp32_dest_acc": false,
+      "ms": 0.2188,
+      "tflops": 30.67,
+      "a_read_GBs": 239.6,
+      "aa_spread": 0.0939
+    },
+    {
+      "n": 256,
+      "fidelity": "HiFi4",
+      "fp32_dest_acc": true,
+      "ms": 0.2614,
+      "tflops": 51.34,
+      "a_read_GBs": 200.6,
+      "aa_spread": 0.0127
+    },
+    {
+      "n": 256,
+      "fidelity": "HiFi4",
+      "fp32_dest_acc": false,
+      "ms": 0.2529,
+      "tflops": 53.07,
+      "a_read_GBs": 207.3,
+      "aa_spread": 0.0112
+    },
+    {
+      "n": 256,
+      "fidelity": "HiFi3",
+      "fp32_dest_acc": true,
+      "ms": 0.2314,
+      "tflops": 58.0,
+      "a_read_GBs": 226.5,
+      "aa_spread": 0.0143
+    },
+    {
+      "n": 256,
+      "fidelity": "HiFi3",
+      "fp32_dest_acc": false,
+      "ms": 0.2291,
+      "tflops": 58.59,
+      "a_read_GBs": 228.9,
+      "aa_spread": 0.0044
+    },
+    {
+      "n": 256,
+      "fidelity": "HiFi2",
+      "fp32_dest_acc": true,
+      "ms": 0.2118,
+      "tflops": 63.36,
+      "a_read_GBs": 247.5,
+      "aa_spread": 0.0034
+    },
+    {
+      "n": 256,
+      "fidelity": "HiFi2",
+      "fp32_dest_acc": false,
+      "ms": 0.2151,
+      "tflops": 62.39,
+      "a_read_GBs": 243.7,
+      "aa_spread": 0.0092
+    },
+    {
+      "n": 256,
+      "fidelity": "LoFi",
+      "fp32_dest_acc": true,
+      "ms": 0.2011,
+      "tflops": 66.73,
+      "a_read_GBs": 260.7,
+      "aa_spread": 0.0094
+    },
+    {
+      "n": 256,
+      "fidelity": "LoFi",
+      "fp32_dest_acc": false,
+      "ms": 0.2028,
+      "tflops": 66.2,
+      "a_read_GBs": 258.6,
+      "aa_spread": 0.0152
+    }
+  ],
+  "roof": [
+    {
+      "s": 2048,
+      "fidelity": "HiFi4",
+      "fp32_dest_acc": true,
+      "ms": 0.1995,
+      "tflops": 86.13,
+      "aa_spread": 0.0051
+    },
+    {
+      "s": 2048,
+      "fidelity": "HiFi4",
+      "fp32_dest_acc": false,
+      "ms": 0.2499,
+      "tflops": 68.75,
+      "aa_spread": 0.0064
+    },
+    {
+      "s": 2048,
+      "fidelity": "HiFi3",
+      "fp32_dest_acc": true,
+      "ms": 0.1682,
+      "tflops": 102.13,
+      "aa_spread": 0.016
+    },
+    {
+      "s": 2048,
+      "fidelity": "HiFi3",
+      "fp32_dest_acc": false,
+      "ms": 0.2037,
+      "tflops": 84.35,
+      "aa_spread": 0.0129
+    },
+    {
+      "s": 2048,
+      "fidelity": "HiFi2",
+      "fp32_dest_acc": true,
+      "ms": 0.132,
+      "tflops": 130.11,
+      "aa_spread": 0.0252
+    },
+    {
+      "s": 2048,
+      "fidelity": "HiFi2",
+      "fp32_dest_acc": false,
+      "ms": 0.1556,
+      "tflops": 110.41,
+      "aa_spread": 0.0131
+    },
+    {
+      "s": 2048,
+      "fidelity": "LoFi",
+      "fp32_dest_acc": true,
+      "ms": 0.1238,
+      "tflops": 138.74,
+      "aa_spread": 0.0046
+    },
+    {
+      "s": 2048,
+      "fidelity": "LoFi",
+      "fp32_dest_acc": false,
+      "ms": 0.122,
+      "tflops": 140.84,
+      "aa_spread": 0.011
+    }
+  ]
+}
