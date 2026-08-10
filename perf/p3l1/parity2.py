@@ -17,7 +17,7 @@ dev = T.get_device()
 ckc = ttnn.init_device_compute_kernel_config(
     dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
 torch.manual_seed(0)
-res = {"card": "qb1 card 1", "grid": list(T.COMPUTE_GRID_MAIN), "shape": [1, TOK, TOK, C_Z]}
+res = {"card": "qb2 chip 2, ttnn 0.68.0", "grid": list(T.COMPUTE_GRID_MAIN), "shape": [1, TOK, TOK, C_Z]}
 
 x = ttnn.from_torch(torch.randn(1, TOK, TOK, C_Z), dtype=ttnn.bfloat16,
                     layout=ttnn.TILE_LAYOUT, device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
