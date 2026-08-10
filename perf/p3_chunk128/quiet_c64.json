@@ -1,0 +1,300 @@
+{
+  "mid_chunk": 64,
+  "host": "tt-quietbox",
+  "visible": "0",
+  "loadavg": [
+    6.02294921875,
+    4.05859375,
+    3.8515625
+  ],
+  "meta": {
+    "hardware": "blackhole",
+    "load_s": 3.51,
+    "n_msa": 35,
+    "msa_dir": "/home/ttuser/.cache/tt-bio-gpu-vs-tt/msa",
+    "diffusion_samples": 1,
+    "struct_dir": "/tmp/ttbase-protenix-v2-dtolm152/out",
+    "timed_region": "predict_one (featurize + fold + CIF write)",
+    "phase_times": null,
+    "card_type": "p150a",
+    "aiclk_mhz": "1350"
+  },
+  "folds": [
+    {
+      "idx": 0,
+      "cold": true,
+      "total_s": 35.8941,
+      "plddt": 0.859489,
+      "stages": {
+        "atom_feat_host": [
+          1,
+          0.0028
+        ],
+        "to_host": [
+          5,
+          0.143
+        ],
+        "relp_host": [
+          1,
+          0.0485
+        ],
+        "trunk": [
+          1,
+          21.4515
+        ],
+        "diff_pair_cond": [
+          1,
+          0.6394
+        ],
+        "plm_z_term": [
+          1,
+          0.0493
+        ],
+        "diffusion": [
+          1,
+          10.3798
+        ],
+        "confidence": [
+          1,
+          0.7791
+        ]
+      },
+      "gross": {
+        "atom_feat_host": [
+          1,
+          0.0028
+        ],
+        "to_host": [
+          6,
+          0.3586
+        ],
+        "relp_host": [
+          1,
+          0.0485
+        ],
+        "trunk_template": [
+          10,
+          1.2993
+        ],
+        "trunk_msa": [
+          10,
+          2.7493
+        ],
+        "pf_stack": [
+          11,
+          16.6616
+        ],
+        "trunk": [
+          1,
+          21.4515
+        ],
+        "diff_pair_cond": [
+          1,
+          0.6394
+        ],
+        "plm_z_term": [
+          1,
+          0.0493
+        ],
+        "diffusion": [
+          1,
+          10.3798
+        ],
+        "confidence": [
+          1,
+          0.7791
+        ]
+      },
+      "sdpa_calls": {
+        "q(298, 2, 298, 32)+mask(1, 2, 298, 298)": 160,
+        "q(298, 8, 298, 32)+mask(1, 8, 298, 298)": 1048
+      }
+    },
+    {
+      "idx": 1,
+      "cold": false,
+      "total_s": 29.4634,
+      "plddt": 0.859489,
+      "stages": {
+        "atom_feat_host": [
+          1,
+          0.002
+        ],
+        "to_host": [
+          5,
+          0.1414
+        ],
+        "relp_host": [
+          1,
+          0.0468
+        ],
+        "trunk": [
+          1,
+          19.4776
+        ],
+        "diff_pair_cond": [
+          1,
+          0.3077
+        ],
+        "plm_z_term": [
+          1,
+          0.0495
+        ],
+        "diffusion": [
+          1,
+          7.8973
+        ],
+        "confidence": [
+          1,
+          0.7782
+        ]
+      },
+      "gross": {
+        "atom_feat_host": [
+          1,
+          0.002
+        ],
+        "to_host": [
+          6,
+          0.3378
+        ],
+        "relp_host": [
+          1,
+          0.0468
+        ],
+        "trunk_template": [
+          10,
+          0.6905
+        ],
+        "trunk_msa": [
+          10,
+          1.8424
+        ],
+        "pf_stack": [
+          11,
+          16.5017
+        ],
+        "trunk": [
+          1,
+          19.4776
+        ],
+        "diff_pair_cond": [
+          1,
+          0.3077
+        ],
+        "plm_z_term": [
+          1,
+          0.0495
+        ],
+        "diffusion": [
+          1,
+          7.8973
+        ],
+        "confidence": [
+          1,
+          0.7782
+        ]
+      },
+      "sdpa_calls": {
+        "q(298, 2, 298, 32)+mask(1, 2, 298, 298)": 160,
+        "q(298, 8, 298, 32)+mask(1, 8, 298, 298)": 1048
+      }
+    },
+    {
+      "idx": 2,
+      "cold": false,
+      "total_s": 29.2039,
+      "plddt": 0.859489,
+      "stages": {
+        "atom_feat_host": [
+          1,
+          0.0019
+        ],
+        "to_host": [
+          5,
+          0.1135
+        ],
+        "relp_host": [
+          1,
+          0.046
+        ],
+        "trunk": [
+          1,
+          19.4441
+        ],
+        "diff_pair_cond": [
+          1,
+          0.3061
+        ],
+        "plm_z_term": [
+          1,
+          0.0518
+        ],
+        "diffusion": [
+          1,
+          7.7845
+        ],
+        "confidence": [
+          1,
+          0.7165
+        ]
+      },
+      "gross": {
+        "atom_feat_host": [
+          1,
+          0.0019
+        ],
+        "to_host": [
+          6,
+          0.3097
+        ],
+        "relp_host": [
+          1,
+          0.046
+        ],
+        "trunk_template": [
+          10,
+          0.6905
+        ],
+        "trunk_msa": [
+          10,
+          1.8433
+        ],
+        "pf_stack": [
+          11,
+          16.4667
+        ],
+        "trunk": [
+          1,
+          19.4441
+        ],
+        "diff_pair_cond": [
+          1,
+          0.3061
+        ],
+        "plm_z_term": [
+          1,
+          0.0518
+        ],
+        "diffusion": [
+          1,
+          7.7845
+        ],
+        "confidence": [
+          1,
+          0.7165
+        ]
+      },
+      "sdpa_calls": {
+        "q(298, 2, 298, 32)+mask(1, 2, 298, 298)": 160,
+        "q(298, 8, 298, 32)+mask(1, 8, 298, 298)": 1048
+      }
+    }
+  ],
+  "warm_total_s": [
+    29.4634,
+    29.2039
+  ],
+  "warm_median_s": 29.4634,
+  "artifacts": "perf/p3_chunk128/quiet_c64"
+}
