@@ -1,0 +1,59 @@
+{
+ "wheel": "0.68.0",
+ "host": "qb2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "C": 32,
+ "buffer": "DRAM",
+ "rows": [
+  {
+   "N": 1024,
+   "groups": 1024,
+   "groups_per_core": 9.31,
+   "MB_one_way": 67.1,
+   "kernel_thru_us": 494.58,
+   "stock_thru_us": 2397.98,
+   "thru_ratio_stock_over_kernel": 4.8485,
+   "kernel_synced_us": 531.61,
+   "stock_synced_us": 2469.84,
+   "synced_ratio": 4.646,
+   "torch_equal": true
+  },
+  {
+   "N": 1280,
+   "groups": 1600,
+   "error": "RuntimeError",
+   "msg": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0\ninfo:\nFailed to assign all 50 requested cores\nbac"
+  },
+  {
+   "N": 1536,
+   "groups": 2304,
+   "groups_per_core": 20.95,
+   "MB_one_way": 151.0,
+   "kernel_thru_us": 1024.48,
+   "stock_thru_us": 4311.51,
+   "thru_ratio_stock_over_kernel": 4.2085,
+   "kernel_synced_us": 1052.62,
+   "stock_synced_us": 4292.63,
+   "synced_ratio": 4.078,
+   "torch_equal": true
+  },
+  {
+   "N": 1740,
+   "groups": 3025,
+   "groups_per_core": 27.5,
+   "MB_one_way": 193.8,
+   "kernel_thru_us": 1275.35,
+   "stock_thru_us": 3973.23,
+   "thru_ratio_stock_over_kernel": 3.1154,
+   "kernel_synced_us": 1339.36,
+   "stock_synced_us": 3993.81,
+   "synced_ratio": 2.9819,
+   "torch_equal": true
+  }
+ ]
+}

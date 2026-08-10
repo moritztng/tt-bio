@@ -1,0 +1,444 @@
+{
+ "wheel": "0.68.0",
+ "host": "qb2",
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "C": 32,
+ "rows": [
+  {
+   "N": 256,
+   "Nt": 8,
+   "groups": 64,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 288,
+   "Nt": 9,
+   "groups": 81,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 320,
+   "Nt": 10,
+   "groups": 100,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 352,
+   "Nt": 11,
+   "groups": 121,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 384,
+   "Nt": 12,
+   "groups": 144,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 416,
+   "Nt": 13,
+   "groups": 169,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 448,
+   "Nt": 14,
+   "groups": 196,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 480,
+   "Nt": 15,
+   "groups": 225,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 512,
+   "Nt": 16,
+   "groups": 256,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 544,
+   "Nt": 17,
+   "groups": 289,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 576,
+   "Nt": 18,
+   "groups": 324,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 608,
+   "Nt": 19,
+   "groups": 361,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 640,
+   "Nt": 20,
+   "groups": 400,
+   "split_work_to_cores": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "kernel": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "stock": "ok"
+  },
+  {
+   "N": 672,
+   "Nt": 21,
+   "groups": 441,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 704,
+   "Nt": 22,
+   "groups": 484,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 736,
+   "Nt": 23,
+   "groups": 529,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 768,
+   "Nt": 24,
+   "groups": 576,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 800,
+   "Nt": 25,
+   "groups": 625,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 832,
+   "Nt": 26,
+   "groups": 676,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 864,
+   "Nt": 27,
+   "groups": 729,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 896,
+   "Nt": 28,
+   "groups": 784,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 928,
+   "Nt": 29,
+   "groups": 841,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 960,
+   "Nt": 30,
+   "groups": 900,
+   "split_work_to_cores": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "kernel": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "stock": "ok"
+  },
+  {
+   "N": 992,
+   "Nt": 31,
+   "groups": 961,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1024,
+   "Nt": 32,
+   "groups": 1024,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1056,
+   "Nt": 33,
+   "groups": 1089,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1088,
+   "Nt": 34,
+   "groups": 1156,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1120,
+   "Nt": 35,
+   "groups": 1225,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1152,
+   "Nt": 36,
+   "groups": 1296,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1184,
+   "Nt": 37,
+   "groups": 1369,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1216,
+   "Nt": 38,
+   "groups": 1444,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1248,
+   "Nt": 39,
+   "groups": 1521,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1280,
+   "Nt": 40,
+   "groups": 1600,
+   "split_work_to_cores": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "kernel": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "stock": "ok"
+  },
+  {
+   "N": 1312,
+   "Nt": 41,
+   "groups": 1681,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1344,
+   "Nt": 42,
+   "groups": 1764,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1376,
+   "Nt": 43,
+   "groups": 1849,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1408,
+   "Nt": 44,
+   "groups": 1936,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1440,
+   "Nt": 45,
+   "groups": 2025,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1472,
+   "Nt": 46,
+   "groups": 2116,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1504,
+   "Nt": 47,
+   "groups": 2209,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1536,
+   "Nt": 48,
+   "groups": 2304,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1568,
+   "Nt": 49,
+   "groups": 2401,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1600,
+   "Nt": 50,
+   "groups": 2500,
+   "split_work_to_cores": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "kernel": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "stock": "ok"
+  },
+  {
+   "N": 1632,
+   "Nt": 51,
+   "groups": 2601,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1664,
+   "Nt": 52,
+   "groups": 2704,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1696,
+   "Nt": 53,
+   "groups": 2809,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1728,
+   "Nt": 54,
+   "groups": 2916,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1760,
+   "Nt": 55,
+   "groups": 3025,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  },
+  {
+   "N": 1792,
+   "Nt": 56,
+   "groups": 3136,
+   "split_work_to_cores": "ok",
+   "kernel": "ok",
+   "stock": "ok"
+  }
+ ],
+ "kernel_failures": [
+  {
+   "N": 640,
+   "Nt": 20,
+   "groups": 400,
+   "split_work_to_cores": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "kernel": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "stock": "ok"
+  },
+  {
+   "N": 960,
+   "Nt": 30,
+   "groups": 900,
+   "split_work_to_cores": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "kernel": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "stock": "ok"
+  },
+  {
+   "N": 1280,
+   "Nt": 40,
+   "groups": 1600,
+   "split_work_to_cores": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "kernel": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "stock": "ok"
+  },
+  {
+   "N": 1600,
+   "Nt": 50,
+   "groups": 2500,
+   "split_work_to_cores": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "kernel": "RuntimeError: TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+   "stock": "ok"
+  }
+ ],
+ "kernel_failure_Ns": [
+  640,
+  960,
+  1280,
+  1600
+ ]
+}

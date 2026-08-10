@@ -1,0 +1,263 @@
+{
+ "wheel": "0.68.0",
+ "grids": {
+  "11x10": {
+   "cores": 110,
+   "failing": [
+    {
+     "Nt": 20,
+     "N_range": [
+      609,
+      640
+     ],
+     "groups": 400,
+     "groups_mod_cores": 70
+    },
+    {
+     "Nt": 30,
+     "N_range": [
+      929,
+      960
+     ],
+     "groups": 900,
+     "groups_mod_cores": 20
+    },
+    {
+     "Nt": 40,
+     "N_range": [
+      1249,
+      1280
+     ],
+     "groups": 1600,
+     "groups_mod_cores": 60
+    },
+    {
+     "Nt": 50,
+     "N_range": [
+      1569,
+      1600
+     ],
+     "groups": 2500,
+     "groups_mod_cores": 80
+    },
+    {
+     "Nt": 60,
+     "N_range": [
+      1889,
+      1920
+     ],
+     "groups": 3600,
+     "groups_mod_cores": 80
+    }
+   ],
+   "failing_Nt": [
+    20,
+    30,
+    40,
+    50,
+    60
+   ]
+  },
+  "13x10": {
+   "cores": 130,
+   "failing": [
+    {
+     "Nt": 20,
+     "N_range": [
+      609,
+      640
+     ],
+     "groups": 400,
+     "groups_mod_cores": 10
+    },
+    {
+     "Nt": 30,
+     "N_range": [
+      929,
+      960
+     ],
+     "groups": 900,
+     "groups_mod_cores": 120
+    },
+    {
+     "Nt": 40,
+     "N_range": [
+      1249,
+      1280
+     ],
+     "groups": 1600,
+     "groups_mod_cores": 40
+    },
+    {
+     "Nt": 50,
+     "N_range": [
+      1569,
+      1600
+     ],
+     "groups": 2500,
+     "groups_mod_cores": 30
+    },
+    {
+     "Nt": 60,
+     "N_range": [
+      1889,
+      1920
+     ],
+     "groups": 3600,
+     "groups_mod_cores": 90
+    }
+   ],
+   "failing_Nt": [
+    20,
+    30,
+    40,
+    50,
+    60
+   ]
+  },
+  "8x8": {
+   "cores": 64,
+   "failing": [
+    {
+     "Nt": 12,
+     "N_range": [
+      353,
+      384
+     ],
+     "groups": 144,
+     "groups_mod_cores": 16
+    },
+    {
+     "Nt": 20,
+     "N_range": [
+      609,
+      640
+     ],
+     "groups": 400,
+     "groups_mod_cores": 16
+    },
+    {
+     "Nt": 28,
+     "N_range": [
+      865,
+      896
+     ],
+     "groups": 784,
+     "groups_mod_cores": 16
+    },
+    {
+     "Nt": 36,
+     "N_range": [
+      1121,
+      1152
+     ],
+     "groups": 1296,
+     "groups_mod_cores": 16
+    },
+    {
+     "Nt": 44,
+     "N_range": [
+      1377,
+      1408
+     ],
+     "groups": 1936,
+     "groups_mod_cores": 16
+    },
+    {
+     "Nt": 52,
+     "N_range": [
+      1633,
+      1664
+     ],
+     "groups": 2704,
+     "groups_mod_cores": 16
+    },
+    {
+     "Nt": 60,
+     "N_range": [
+      1889,
+      1920
+     ],
+     "groups": 3600,
+     "groups_mod_cores": 16
+    }
+   ],
+   "failing_Nt": [
+    12,
+    20,
+    28,
+    36,
+    44,
+    52,
+    60
+   ]
+  },
+  "7x10": {
+   "cores": 70,
+   "failing": [
+    {
+     "Nt": 10,
+     "N_range": [
+      289,
+      320
+     ],
+     "groups": 100,
+     "groups_mod_cores": 30
+    },
+    {
+     "Nt": 20,
+     "N_range": [
+      609,
+      640
+     ],
+     "groups": 400,
+     "groups_mod_cores": 50
+    },
+    {
+     "Nt": 30,
+     "N_range": [
+      929,
+      960
+     ],
+     "groups": 900,
+     "groups_mod_cores": 60
+    },
+    {
+     "Nt": 40,
+     "N_range": [
+      1249,
+      1280
+     ],
+     "groups": 1600,
+     "groups_mod_cores": 60
+    },
+    {
+     "Nt": 50,
+     "N_range": [
+      1569,
+      1600
+     ],
+     "groups": 2500,
+     "groups_mod_cores": 50
+    },
+    {
+     "Nt": 60,
+     "N_range": [
+      1889,
+      1920
+     ],
+     "groups": 3600,
+     "groups_mod_cores": 30
+    }
+   ],
+   "failing_Nt": [
+    10,
+    20,
+    30,
+    40,
+    50,
+    60
+   ]
+  }
+ }
+}
