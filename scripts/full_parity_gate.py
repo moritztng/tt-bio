@@ -139,6 +139,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE_ROOT = REPO / "docs" / "implementation-parity-data" / "ref-fixtures"
 FINGERPRINT_INDEX = REPO / "docs" / "implementation-parity-data" / "ref-fixture-fingerprints.json"
+# .cif/.a3m/.npz under ref-fixtures/ are gitignored on purpose and live on a GitHub
+# Release asset, so a fresh checkout or a new worktree has the provenance JSONs but
+# none of the binaries. Point at the restore path rather than at git.
+_FIXTURE_FETCH_HINT = ("run scripts/fetch_parity_fixtures.sh to restore the externalized "
+                       "reference binaries")
 PARITY_DATA = REPO / "docs" / "implementation-parity-data"
 
 # The integration-parity envelope (see score_envelope) is the correctness criterion for every
@@ -559,7 +564,8 @@ def preflight_check(legs: list) -> list:
         if leg.msa == "staged":
             src = _fixture_dir(leg.fixture) / "msa.a3m"
             if not src.exists():
-                problems.append(f"{leg.id}: staged-MSA leg missing {src}")
+                problems.append(f"{leg.id}: staged-MSA leg missing {src} — "
+                                f"{_FIXTURE_FETCH_HINT}")
         if leg.msa == "yaml":
             yp = REPO / leg.yaml
             if yp.exists():
@@ -1517,14 +1523,15 @@ def main() -> int:
         if not args.check:
             print("Refusing to run the gate with misconfigured legs; fix the above (or scope with --leg).")
         return 1
+    blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs]
+    blocked = [(i, b) for i, b in blocked if b]
+    if blocked:
+        print("PREFLIGHT — fixtures present but INCOMPLETE (reference CIFs missing; each such "
+              "leg reports BLOCKED-REF-REGEN-NEEDED and does NOT fail the gate):")
+        for i, b in blocked:
+            print(f"  - {i}: {', '.join(b)} missing structures/*.cif")
+        print(f"  {_FIXTURE_FETCH_HINT}")
     if args.check:
-        blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs]
-        blocked = [(i, b) for i, b in blocked if b]
-        if blocked:
-            print("PREFLIGHT — fixtures present but INCOMPLETE (reference CIFs missing; each such "
-                  "leg reports BLOCKED-REF-REGEN-NEEDED and does NOT fail the gate):")
-            for i, b in blocked:
-                print(f"  - {i}: {', '.join(b)} missing structures/*.cif")
         print(f"PREFLIGHT OK — {len(legs)} legs well-formed "
               f"(yaml / fixture+fingerprint / committed-JSON / target-id / MSA wiring)"
               f"{f'; {len(blocked)} fixture(s) incomplete → BLOCKED-REGEN' if blocked else ''}.")
@@ -1585,7 +1592,7 @@ def main() -> int:
                 if incomplete:
                     rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
                                  "detail": f"fixture incomplete: {', '.join(incomplete)} missing "
-                                           f"structures/{leg.target_id}.cif (CIFs gitignored — force-add or regen)",
+                                           f"structures/{leg.target_id}.cif ({_FIXTURE_FETCH_HINT})",
                                  "wall": 0})
                     print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
                           f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  fixture incomplete (missing structures/ cif)")
