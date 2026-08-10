@@ -1,0 +1,37 @@
+{
+  "arm": "C2FIX",
+  "model": "opendde",
+  "size": "298",
+  "n_tokens": 298,
+  "n_atoms": 2398,
+  "n_residues": 298,
+  "cold_s": 50.199,
+  "warm_s": [
+    43.205,
+    42.969,
+    42.915,
+    42.86,
+    42.696
+  ],
+  "warm_median_s": 42.915,
+  "warm_min_s": 42.696,
+  "confidence": {
+    "complex_plddt": 0.796026,
+    "plddt": 0.796026,
+    "ptm": 0.849587,
+    "iptm": 0.0,
+    "confidence_score": 0.849587
+  },
+  "coords_shape": [
+    2398,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 6,
+  "load_s": 5.23,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 264.8
+}

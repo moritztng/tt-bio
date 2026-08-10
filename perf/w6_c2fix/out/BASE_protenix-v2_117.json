@@ -1,0 +1,35 @@
+{
+  "arm": "BASE",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "n_residues": 117,
+  "cold_s": 18.224,
+  "warm_s": [
+    11.627,
+    11.746,
+    11.603
+  ],
+  "warm_median_s": 11.627,
+  "warm_min_s": 11.603,
+  "confidence": {
+    "complex_plddt": 0.888699,
+    "plddt": 0.888699,
+    "ptm": 0.917966,
+    "iptm": 0.0,
+    "confidence_score": 0.917966
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 3.43,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 53.2
+}
