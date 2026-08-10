@@ -33,3 +33,18 @@ y-silu arm B ran a DIFFERENT, CHEAPER silu than arm A, and the "2x ttnn defect" 
 - **P8 — the L1 copy floor this session lands in 33-45 us/call at 18.31 MB**, the band the two
   y-silu sessions bracket (35.171 and 40.573). WRONG outside it, which would say the host load moved
   the instrument and no cross-arm ratio from this session is safe.
+
+## Round 2 — committed after round 1, before the round-2 device run
+
+Round 1 killed the planned route: `ttnn.silu` accepts no `compute_kernel_config` on 0.67.4, so a
+standalone silu cannot be pushed onto the accurate lowering. The matmul can be pushed the other way.
+
+- **P9 — `ttnn.linear(activation="silu")` with `fp32_dest_acc_en=False` has a fused-silu penalty of
+  70-100 us/call**, against 171.1 at `True`, because DST_ACCUM_MODE=0 selects the identical
+  `_sfpu_exp_21f_bf16_` + 1-iteration reciprocal that `ttnn.silu` runs. WRONG outside 60-115 us.
+- **P10 — the fused GELU penalty moves by less than 15 % between the two settings**, because gelu
+  does not branch on DST_ACCUM_MODE. WRONG if it moves more than 25 %.
+- **P11 — standalone `ttnn.silu` on an fp32 input is at least 1.6x the bf16 one in time and closer
+  to a torch fp32 reference.** WRONG under 1.3x or if it is not closer.
+- **P12 — the bare matmul at `fp32_dest_acc_en=False` is 5-25 % faster than at `True` and less
+  accurate against the fp32 reference.** WRONG if it is slower, or if it is not less accurate.

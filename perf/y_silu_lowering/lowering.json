@@ -1,0 +1,62 @@
+{
+  "load_start": [
+    36.0,
+    27.51,
+    23.45
+  ],
+  "grid": [
+    13,
+    10
+  ],
+  "k": 10,
+  "silu_takes_ckc": false,
+  "silu_ckc_error": "\nttnn.silu(): incompatible function arguments.\n\nCalled with:\n  silu(ttnn.Tensor, memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::L1,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0), compute_kernel_config=<ttnn._ttnn.ope",
+  "matmul": {
+    "A_fused_silu": 248.633,
+    "D_bare": 77.552,
+    "fused_relu": 77.598,
+    "fused_gelu": 216.155
+  },
+  "out_shape": [
+    1,
+    30,
+    298,
+    1024
+  ],
+  "eltwise": {
+    "clone": 35.627,
+    "silu_default": 82.411,
+    "relu_default": 33.487,
+    "gelu_default": 134.218
+  },
+  "accuracy_same_input": {
+    "silu_default": {
+      "max_abs": 0.015624523162841797,
+      "rel_rmsd": 0.0015655503375455737,
+      "pcc": 0.9999983672537311
+    }
+  },
+  "accuracy_fold_shape": {
+    "A_fused": {
+      "max_abs": 0.015108585357666016,
+      "rel_rmsd": 0.0017614628886803985,
+      "pcc": 0.9999983443085576
+    },
+    "B_silu_default": {
+      "max_abs": 0.018165111541748047,
+      "rel_rmsd": 0.0027539285365492105,
+      "pcc": 0.9999959413793816
+    },
+    "A_vs_B_default": {
+      "max_abs": 0.03125,
+      "rel_rmsd": 0.003222794970497489,
+      "pcc": 0.9999942941704063
+    },
+    "A_equals_B_default": false
+  },
+  "load_end": [
+    36.0,
+    27.51,
+    23.45
+  ]
+}
