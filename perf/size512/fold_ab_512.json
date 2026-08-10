@@ -1,0 +1,220 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "chip": 0,
+ "note": "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number",
+ "runs": [
+  {
+   "size": 512,
+   "arm": "on",
+   "fold_s": 85.107,
+   "n_tokens": 512,
+   "plddt": 0.828628,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "grid": [
+    11,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 70364.59
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 62844.02
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 35915.45
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 22732.45
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5147.79
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 310.4
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x512x512x256": {
+     "DRAM": 494
+    },
+    "l1_layer_norm|h=1.5|512x512x256": {
+     "DRAM": 30
+    },
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2096
+    },
+    "pair_proj_out_l1|1x512x512x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|512x512x256@256": {
+     "DRAM": 1048
+    },
+    "pair_proj_out_l1|512x512x64@64": {
+     "L1": 160
+    },
+    "transpose|512x512x256": {
+     "DRAM": 1048
+    },
+    "transpose|512x512x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 70364.59,
+   "block_calls": 604
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "fold_s": 85.097,
+   "n_tokens": 512,
+   "plddt": 0.828628,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "grid": [
+    11,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 70366.69
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 62841.27
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 35913.91
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 22733.26
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5138.21
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 310.57
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x512x512x256": {
+     "DRAM": 494
+    },
+    "l1_layer_norm|h=1.5|512x512x256": {
+     "DRAM": 30
+    },
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2096
+    },
+    "pair_proj_out_l1|1x512x512x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|512x512x256@256": {
+     "DRAM": 1048
+    },
+    "pair_proj_out_l1|512x512x64@64": {
+     "L1": 160
+    },
+    "transpose|512x512x256": {
+     "DRAM": 1048
+    },
+    "transpose|512x512x64": {
+     "L1": 160
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 70366.69,
+   "block_calls": 604
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "fold_s": 85.61,
+   "n_tokens": 512,
+   "plddt": 0.828628,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "grid": [
+    11,
+    10
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 70842.6
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 62839.17
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 36282.05
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 22825.58
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5149.73
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 310.69
+    }
+   },
+   "decisions": {
+    "transpose|512x512x256": {
+     "DRAM": 1048
+    },
+    "transpose|512x512x64": {
+     "DRAM": 160
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 70842.6,
+   "block_calls": 604
+  }
+ ],
+ "ratios": {
+  "512": {
+   "on_block_ms": [
+    70364.59,
+    70366.69
+   ],
+   "off_block_ms": [
+    70842.6
+   ],
+   "on_fold_s": [
+    85.107,
+    85.097
+   ],
+   "off_fold_s": [
+    85.61
+   ],
+   "aa_floor_block_ms": 2.1,
+   "aa_floor_fold_s": 0.01,
+   "off_over_on_block": 1.0068,
+   "off_minus_on_block_ms": 476.96,
+   "off_over_on_fold": 1.006
+  }
+ }
+}
