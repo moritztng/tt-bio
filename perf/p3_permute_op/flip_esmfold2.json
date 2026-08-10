@@ -1,0 +1,251 @@
+{
+  "wheel": "0.67.4",
+  "host": "qb1 (tt-quietbox)",
+  "card": 3,
+  "baseline": "origin/main 7224ff34 + the constant refactor",
+  "targets": {
+    "298aa_inside_window": {
+      "yaml": "examples/prot300.yaml",
+      "rounds": [
+        {
+          "round": 0,
+          "base_s": 24.4221,
+          "wire_s": 24.7093,
+          "delta_ms": -287.2,
+          "calls_served_wire": 4336,
+          "plddt_base": 0.9564,
+          "plddt_wire": 0.9564,
+          "l1_out_refused_n": 0,
+          "trimul_throws_n": 0,
+          "load_base": [
+            10.53,
+            15.33,
+            14.05
+          ],
+          "load_wire": [
+            18.28,
+            16.69,
+            14.53
+          ]
+        },
+        {
+          "round": 1,
+          "base_s": 24.8864,
+          "wire_s": 27.6022,
+          "delta_ms": -2715.8,
+          "calls_served_wire": 4336,
+          "plddt_base": 0.9564,
+          "plddt_wire": 0.9564,
+          "l1_out_refused_n": 0,
+          "trimul_throws_n": 0,
+          "load_base": [
+            17.37,
+            16.58,
+            14.54
+          ],
+          "load_wire": [
+            27.97,
+            19.02,
+            15.41
+          ]
+        }
+      ],
+      "cold_base_s": 41.158,
+      "cold_base_calls": 0,
+      "census_base_arm": {
+        "[1, 298, 298, 64]|BufferType.L1|eligible=False": 32,
+        "[1, 320, 320, 64]|BufferType.L1|eligible=False": 4304
+      },
+      "cold_wire_s": 22.162,
+      "cold_wire_calls_served": 4336,
+      "census_wire_arm": {
+        "[1, 298, 298, 64]|BufferType.L1|eligible=True": 32,
+        "[1, 320, 320, 64]|BufferType.L1|eligible=True": 4304
+      },
+      "plddt_base": 0.9564,
+      "plddt_wire": 0.9564,
+      "load_after_cold": [
+        14.33,
+        16.39,
+        14.34
+      ],
+      "aa": {
+        "a_s": 25.4186,
+        "b_s": 28.3803,
+        "apparent_delta_ms": -2961.7,
+        "load": [
+          30.12,
+          20.97,
+          16.26
+        ]
+      },
+      "summary": {
+        "delta_ms_paired_mean": -1501.5,
+        "per_round": [
+          -287.2,
+          -2715.8
+        ],
+        "n_positive": 0,
+        "ratio": 0.90161
+      },
+      "trimul_throws": [],
+      "l1_out_refused": []
+    },
+    "117aa_outside_window": {
+      "yaml": "examples/prot.yaml",
+      "rounds": [],
+      "cold_base_s": 53.141,
+      "cold_base_calls": 0,
+      "census_base_arm": {
+        "[1, 117, 117, 256]|BufferType.L1|eligible=False": 8,
+        "[1, 128, 128, 256]|BufferType.L1|eligible=False": 1076
+      },
+      "cold_wire_s": 6.467,
+      "cold_wire_calls_served": 0,
+      "census_wire_arm": {
+        "[1, 117, 117, 256]|BufferType.L1|eligible=False": 8,
+        "[1, 128, 128, 256]|BufferType.L1|eligible=False": 1076
+      },
+      "plddt_base": 0.6775,
+      "plddt_wire": 0.6775,
+      "load_after_cold": [
+        12.52,
+        17.52,
+        15.48
+      ],
+      "summary": {
+        "verdict": "no eligible calls -- no A/B taken, the census is the answer"
+      },
+      "trimul_throws": [],
+      "l1_out_refused": []
+    }
+  },
+  "grid": {
+    "compute_grid_main": [
+      13,
+      10
+    ],
+    "device_grid": [
+      13,
+      10
+    ]
+  },
+  "l1_ladder": [
+    {
+      "live": "nothing",
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 0,
+      "total_bytes_free_per_bank": 1461760,
+      "largest_contiguous_bytes_free_per_bank": 1461760,
+      "num_banks": 130
+    },
+    {
+      "live": "one 48.82 MB pair tensor [1,298,320,256]",
+      "mb": 48.82,
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 376832,
+      "total_bytes_free_per_bank": 1084928,
+      "largest_contiguous_bytes_free_per_bank": 1084928,
+      "num_banks": 130
+    },
+    {
+      "live": "two of them (the merged L1-output path)",
+      "mb": 48.82,
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 753664,
+      "total_bytes_free_per_bank": 708096,
+      "largest_contiguous_bytes_free_per_bank": 708096,
+      "num_banks": 130
+    },
+    {
+      "live": "+ the trimul's own [1,298,298,64] chunk",
+      "mb": 12.21,
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 847872,
+      "total_bytes_free_per_bank": 613888,
+      "largest_contiguous_bytes_free_per_bank": 613888,
+      "num_banks": 130
+    },
+    {
+      "live": "+ the kernel's output tensor, kernel RAN",
+      "kernel_ran": true,
+      "total_bytes_per_bank": 1461760,
+      "total_bytes_allocated_per_bank": 950272,
+      "total_bytes_free_per_bank": 511488,
+      "largest_contiguous_bytes_free_per_bank": 511488,
+      "num_banks": 130
+    }
+  ],
+  "window_retake": [
+    {
+      "N": 288,
+      "C": 32,
+      "buffer": "l1",
+      "kernel_us": 71.65,
+      "stock_us": 72.13,
+      "ratio_stock_over_kernel": 1.007,
+      "stat": "best of 5 throughput blocks",
+      "load": [
+        16.65,
+        17.05,
+        14.4
+      ]
+    },
+    {
+      "N": 352,
+      "C": 32,
+      "buffer": "l1",
+      "kernel_us": 74.57,
+      "stock_us": 105.49,
+      "ratio_stock_over_kernel": 1.415,
+      "stat": "best of 5 throughput blocks",
+      "load": [
+        16.65,
+        17.05,
+        14.4
+      ]
+    },
+    {
+      "N": 298,
+      "C": 32,
+      "buffer": "l1",
+      "kernel_us": 72.39,
+      "stock_us": 86.22,
+      "ratio_stock_over_kernel": 1.191,
+      "stat": "best of 5 throughput blocks",
+      "load": [
+        16.65,
+        17.05,
+        14.4
+      ]
+    },
+    {
+      "N": 320,
+      "C": 32,
+      "buffer": "l1",
+      "kernel_us": 73.21,
+      "stock_us": 87.66,
+      "ratio_stock_over_kernel": 1.197,
+      "stat": "best of 5 throughput blocks",
+      "load": [
+        16.65,
+        17.05,
+        14.4
+      ]
+    },
+    {
+      "N": 298,
+      "C": 64,
+      "buffer": "l1",
+      "kernel_us": 117.05,
+      "stock_us": 161.58,
+      "ratio_stock_over_kernel": 1.38,
+      "stat": "best of 5 throughput blocks",
+      "load": [
+        16.65,
+        17.05,
+        14.4
+      ]
+    }
+  ]
+}
