@@ -1,0 +1,4960 @@
+{
+ "label": "",
+ "ops_json": "perf/moonshot_k256/ops_protenix-v2_320_qb1c3_serial.json",
+ "model": "protenix-v2",
+ "n": 320,
+ "c_z": 256,
+ "roofs": {
+  "compute_TFLOPs": 135.6,
+  "dram_read_GBs": 400.6,
+  "dram_write_GBs": 263.6,
+  "l1_op_GBs": 687.9,
+  "machine_balance_FLOP_per_byte": 338.5
+ },
+ "block_wall_ms": 33.264,
+ "per_op_sum_ms": 37.748,
+ "per_op_coverage_of_block_pct": 113.5,
+ "calls_per_fold": 480.0,
+ "stage_ms_per_fold_measured": 15400.0,
+ "stage_ms_per_fold_from_block_wall": 15966.9,
+ "per_op_sum_ms_per_fold": 18386.1,
+ "n_classes": 70,
+ "n_calls_per_block": 192,
+ "rows": [
+  {
+   "op": "scaled_dot_product_attention",
+   "site": "tenstorrent.py:1965",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 3547.59,
+   "block_ms": 7.0952,
+   "pct_of_block": 21.33,
+   "ms_per_fold": 3405.69,
+   "GFLOP_per_call": 33.55443,
+   "flop_basis": "4*320*8*320^2*32 (QK^T + PV, 2 FLOP/MAC)",
+   "dram_read_MB": 158.925,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 158.8,
+   "achieved_TFLOPs": 9.46,
+   "achieved_dram_read_GBs": 44.8,
+   "achieved_dram_write_GBs": 14.8,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 11.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3024.84
+  },
+  {
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2056",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      768
+     ],
+     "logical": [
+      256,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 1817.02,
+   "block_ms": 3.634,
+   "pct_of_block": 10.92,
+   "ms_per_fold": 1744.34,
+   "GFLOP_per_call": 40.26532,
+   "flop_basis": "2*320*320*256*768 (batch,M,K,N padded)",
+   "dram_read_MB": 52.822,
+   "dram_write_MB": 157.286,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 191.6,
+   "achieved_TFLOPs": 22.16,
+   "achieved_dram_read_GBs": 29.1,
+   "achieved_dram_write_GBs": 86.6,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 32.8,
+   "tiles_MKN": [
+    10,
+    8,
+    24
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 1171.53
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "n_per_block": 10,
+   "n_timed": 10,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 260.28,
+   "block_ms": 2.6028,
+   "pct_of_block": 7.82,
+   "ms_per_fold": 1249.37,
+   "GFLOP_per_call": 5.36871,
+   "flop_basis": "2*32*320*256*1024 (batch,M,K,N padded)",
+   "dram_read_MB": 0.524,
+   "dram_write_MB": 0.0,
+   "l1_MB": 26.214,
+   "AI_FLOP_per_dram_byte": 10240.0,
+   "achieved_TFLOPs": 20.63,
+   "achieved_dram_read_GBs": 2.0,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 100.7,
+   "binding_roof": "COMPUTE",
+   "pct_of_binding_roof": 15.2,
+   "tiles_MKN": [
+    10,
+    8,
+    32
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 1059.32
+  },
+  {
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:1951",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 805.4,
+   "block_ms": 1.6108,
+   "pct_of_block": 4.84,
+   "ms_per_fold": 773.18,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "unclassified: FLOPs not derived",
+   "dram_read_MB": 157.286,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 195.3,
+   "achieved_dram_write_GBs": 65.1,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 48.7,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 396.26
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "n_per_block": 8,
+   "n_timed": 8,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 192.09,
+   "block_ms": 1.5367,
+   "pct_of_block": 4.62,
+   "ms_per_fold": 737.61,
+   "GFLOP_per_call": 0.00655,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 39.322,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": 0.03,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 204.7,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 518.11
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "n_per_block": 8,
+   "n_timed": 8,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 185.95,
+   "block_ms": 1.4876,
+   "pct_of_block": 4.47,
+   "ms_per_fold": 714.04,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 26.214,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 141.0,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 567.7
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "n_per_block": 8,
+   "n_timed": 8,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 153.11,
+   "block_ms": 1.2249,
+   "pct_of_block": 3.68,
+   "ms_per_fold": 587.93,
+   "GFLOP_per_call": 4.1943,
+   "flop_basis": "2*64*320*320*320 (batch,M,K,N padded)",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 39.322,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": 27.39,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 256.8,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "tiles_MKN": [
+    10,
+    10,
+    10
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 368.43
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "n_per_block": 8,
+   "n_timed": 8,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 140.05,
+   "block_ms": 1.1204,
+   "pct_of_block": 3.37,
+   "ms_per_fold": 537.8,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 26.214,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 187.2,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 391.46
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "n_per_block": 4,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 278.28,
+   "block_ms": 1.1131,
+   "pct_of_block": 3.35,
+   "ms_per_fold": 534.3,
+   "GFLOP_per_call": 13.42177,
+   "flop_basis": "2*320*320*256*256 (batch,M,K,N padded)",
+   "dram_read_MB": 52.56,
+   "dram_write_MB": 0.0,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 255.4,
+   "achieved_TFLOPs": 48.23,
+   "achieved_dram_read_GBs": 188.9,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 188.4,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 47.1,
+   "tiles_MKN": [
+    10,
+    8,
+    8
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 282.39
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "n_per_block": 10,
+   "n_timed": 10,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 101.18,
+   "block_ms": 1.0118,
+   "pct_of_block": 3.04,
+   "ms_per_fold": 485.66,
+   "GFLOP_per_call": 5.36871,
+   "flop_basis": "2*32*320*1024*256 (batch,M,K,N padded)",
+   "dram_read_MB": 0.524,
+   "dram_write_MB": 5.243,
+   "l1_MB": 20.972,
+   "AI_FLOP_per_dram_byte": 930.9,
+   "achieved_TFLOPs": 53.06,
+   "achieved_dram_read_GBs": 5.2,
+   "achieved_dram_write_GBs": 51.8,
+   "achieved_l1_GBs": 207.3,
+   "binding_roof": "COMPUTE",
+   "pct_of_binding_roof": 39.1,
+   "tiles_MKN": [
+    10,
+    32,
+    8
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 295.62
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1988",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 488.74,
+   "block_ms": 0.9775,
+   "pct_of_block": 2.94,
+   "ms_per_fold": 469.19,
+   "GFLOP_per_call": 0.02621,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 104.858,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.05,
+   "achieved_dram_read_GBs": 214.5,
+   "achieved_dram_write_GBs": 107.3,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 53.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 217.91
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "n_per_block": 10,
+   "n_timed": 10,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 88.14,
+   "block_ms": 0.8814,
+   "pct_of_block": 2.65,
+   "ms_per_fold": 423.09,
+   "GFLOP_per_call": 5.36871,
+   "flop_basis": "2*32*320*256*1024 (batch,M,K,N padded)",
+   "dram_read_MB": 0.524,
+   "dram_write_MB": 0.0,
+   "l1_MB": 26.214,
+   "AI_FLOP_per_dram_byte": 10240.0,
+   "achieved_TFLOPs": 60.91,
+   "achieved_dram_read_GBs": 5.9,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 297.4,
+   "binding_roof": "COMPUTE",
+   "pct_of_binding_roof": 44.9,
+   "tiles_MKN": [
+    10,
+    8,
+    32
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 233.05
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "n_per_block": 8,
+   "n_timed": 8,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 103.05,
+   "block_ms": 0.8244,
+   "pct_of_block": 2.48,
+   "ms_per_fold": 395.73,
+   "GFLOP_per_call": 0.00655,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 39.322,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": 0.06,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 381.6,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 176.23
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "n_per_block": 8,
+   "n_timed": 8,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 99.33,
+   "block_ms": 0.7946,
+   "pct_of_block": 2.39,
+   "ms_per_fold": 381.41,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 65.536,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 659.8,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 15.58
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:806",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      32
+     ],
+     "logical": [
+      256,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 395.9,
+   "block_ms": 0.7918,
+   "pct_of_block": 2.38,
+   "ms_per_fold": 380.07,
+   "GFLOP_per_call": 1.67772,
+   "flop_basis": "2*320*320*256*32 (batch,M,K,N padded)",
+   "dram_read_MB": 52.445,
+   "dram_write_MB": 6.554,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 28.4,
+   "achieved_TFLOPs": 4.24,
+   "achieved_dram_read_GBs": 132.5,
+   "achieved_dram_write_GBs": 16.6,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 33.1,
+   "tiles_MKN": [
+    10,
+    8,
+    1
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 254.39
+  },
+  {
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2062",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 386.27,
+   "block_ms": 0.7725,
+   "pct_of_block": 2.32,
+   "ms_per_fold": 370.82,
+   "GFLOP_per_call": 13.42177,
+   "flop_basis": "2*320*320*256*256 (batch,M,K,N padded)",
+   "dram_read_MB": 52.56,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 127.8,
+   "achieved_TFLOPs": 34.75,
+   "achieved_dram_read_GBs": 136.1,
+   "achieved_dram_write_GBs": 135.7,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 51.5,
+   "tiles_MKN": [
+    10,
+    8,
+    8
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 179.88
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:2077",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 374.94,
+   "block_ms": 0.7499,
+   "pct_of_block": 2.25,
+   "ms_per_fold": 359.94,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 104.858,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 279.7,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 213.61
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:1797",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 354.09,
+   "block_ms": 0.7082,
+   "pct_of_block": 2.13,
+   "ms_per_fold": 339.93,
+   "GFLOP_per_call": 0.02621,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 157.286,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": 0.07,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 444.2,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 120.43
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1623",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 337.06,
+   "block_ms": 0.6741,
+   "pct_of_block": 2.03,
+   "ms_per_fold": 323.58,
+   "GFLOP_per_call": 0.13107,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 52.462,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 1.2,
+   "achieved_TFLOPs": 0.39,
+   "achieved_dram_read_GBs": 155.6,
+   "achieved_dram_write_GBs": 155.5,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 59.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 132.64
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1785",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 336.82,
+   "block_ms": 0.6736,
+   "pct_of_block": 2.03,
+   "ms_per_fold": 323.35,
+   "GFLOP_per_call": 0.13107,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 52.462,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 1.2,
+   "achieved_TFLOPs": 0.39,
+   "achieved_dram_read_GBs": 155.8,
+   "achieved_dram_write_GBs": 155.7,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 59.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 132.41
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "n_per_block": 10,
+   "n_timed": 10,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 66.65,
+   "block_ms": 0.6665,
+   "pct_of_block": 2.0,
+   "ms_per_fold": 319.92,
+   "GFLOP_per_call": 0.01049,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 62.915,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": 0.16,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 944.0,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "nlp_concat_heads",
+   "site": "tenstorrent.py:1982",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 284.72,
+   "block_ms": 0.5694,
+   "pct_of_block": 1.71,
+   "ms_per_fold": 273.33,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "unclassified: FLOPs not derived",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 184.1,
+   "achieved_dram_write_GBs": 184.1,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 69.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 82.39
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:1280",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 277.81,
+   "block_ms": 0.5556,
+   "pct_of_block": 1.67,
+   "ms_per_fold": 266.7,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": 188.7,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 71.6,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 75.76
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 277.56,
+   "block_ms": 0.5551,
+   "pct_of_block": 1.67,
+   "ms_per_fold": 266.45,
+   "GFLOP_per_call": 13.42177,
+   "flop_basis": "2*320*320*256*256 (batch,M,K,N padded)",
+   "dram_read_MB": 52.56,
+   "dram_write_MB": 0.0,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 255.4,
+   "achieved_TFLOPs": 48.36,
+   "achieved_dram_read_GBs": 189.4,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 188.9,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 47.3,
+   "tiles_MKN": [
+    10,
+    8,
+    8
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 140.5
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "n_per_block": 10,
+   "n_timed": 10,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 51.53,
+   "block_ms": 0.5153,
+   "pct_of_block": 1.55,
+   "ms_per_fold": 247.36,
+   "GFLOP_per_call": 0.01311,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 5.276,
+   "dram_write_MB": 0.0,
+   "l1_MB": 5.243,
+   "AI_FLOP_per_dram_byte": 2.5,
+   "achieved_TFLOPs": 0.25,
+   "achieved_dram_read_GBs": 102.4,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 101.7,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 25.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 184.14
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1927",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 508.36,
+   "block_ms": 0.5084,
+   "pct_of_block": 1.53,
+   "ms_per_fold": 244.01,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 0.0,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 103.1,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 103.1,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 25.7,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 181.19
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2076",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 497.14,
+   "block_ms": 0.4971,
+   "pct_of_block": 1.49,
+   "ms_per_fold": 238.63,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 104.858,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 210.9,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 165.46
+  },
+  {
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "n_per_block": 8,
+   "n_timed": 8,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 61.95,
+   "block_ms": 0.4956,
+   "pct_of_block": 1.49,
+   "ms_per_fold": 237.91,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 13.107,
+   "l1_MB": 13.107,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": 211.6,
+   "achieved_l1_GBs": 211.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 80.3,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 46.97
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2618",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 366.96,
+   "block_ms": 0.367,
+   "pct_of_block": 1.1,
+   "ms_per_fold": 176.14,
+   "GFLOP_per_call": 0.02621,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 104.858,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.07,
+   "achieved_dram_read_GBs": 285.7,
+   "achieved_dram_write_GBs": 142.9,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 71.3,
+   "verdict": "READ-BOUND",
+   "gap_ms_per_fold": 50.5
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1931",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 337.31,
+   "block_ms": 0.3373,
+   "pct_of_block": 1.01,
+   "ms_per_fold": 161.91,
+   "GFLOP_per_call": 0.13107,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 52.462,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 1.2,
+   "achieved_TFLOPs": 0.39,
+   "achieved_dram_read_GBs": 155.5,
+   "achieved_dram_write_GBs": 155.4,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 59.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 66.44
+  },
+  {
+   "op": "chunk",
+   "site": "tenstorrent.py:2524",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 302.22,
+   "block_ms": 0.3022,
+   "pct_of_block": 0.91,
+   "ms_per_fold": 145.07,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 5.243,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 173.5,
+   "achieved_dram_write_GBs": 17.3,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 43.3,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 82.25
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2606",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 283.82,
+   "block_ms": 0.2838,
+   "pct_of_block": 0.85,
+   "ms_per_fold": 136.23,
+   "GFLOP_per_call": 0.02621,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 52.429,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.09,
+   "achieved_dram_read_GBs": 184.7,
+   "achieved_dram_write_GBs": 184.7,
+   "achieved_l1_GBs": 184.7,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 70.1,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 40.76
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2610",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 279.41,
+   "block_ms": 0.2794,
+   "pct_of_block": 0.84,
+   "ms_per_fold": 134.12,
+   "GFLOP_per_call": 0.02621,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 52.429,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.09,
+   "achieved_dram_read_GBs": 187.6,
+   "achieved_dram_write_GBs": 187.6,
+   "achieved_l1_GBs": 187.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 71.2,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 38.65
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2614",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 278.69,
+   "block_ms": 0.2787,
+   "pct_of_block": 0.84,
+   "ms_per_fold": 133.77,
+   "GFLOP_per_call": 0.02621,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 52.429,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.09,
+   "achieved_dram_read_GBs": 188.1,
+   "achieved_dram_write_GBs": 188.1,
+   "achieved_l1_GBs": 188.1,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 71.4,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 38.3
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2602",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 278.38,
+   "block_ms": 0.2784,
+   "pct_of_block": 0.84,
+   "ms_per_fold": 133.62,
+   "GFLOP_per_call": 0.02621,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 52.429,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.09,
+   "achieved_dram_read_GBs": 188.3,
+   "achieved_dram_write_GBs": 188.3,
+   "achieved_l1_GBs": 188.3,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 71.4,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 38.15
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1931",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 277.07,
+   "block_ms": 0.2771,
+   "pct_of_block": 0.83,
+   "ms_per_fold": 132.99,
+   "GFLOP_per_call": 0.13107,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 0.033,
+   "dram_write_MB": 52.429,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 2.5,
+   "achieved_TFLOPs": 0.47,
+   "achieved_dram_read_GBs": 0.1,
+   "achieved_dram_write_GBs": 189.2,
+   "achieved_l1_GBs": 189.2,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 71.8,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 37.52
+  },
+  {
+   "op": "concat",
+   "site": "tenstorrent.py:2527",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 268.23,
+   "block_ms": 0.2682,
+   "pct_of_block": 0.81,
+   "ms_per_fold": 128.75,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": 195.5,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 74.2,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 33.28
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:549",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 197.47,
+   "block_ms": 0.1975,
+   "pct_of_block": 0.59,
+   "ms_per_fold": 94.79,
+   "GFLOP_per_call": 0.13107,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 52.462,
+   "dram_write_MB": 0.0,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 2.5,
+   "achieved_TFLOPs": 0.66,
+   "achieved_dram_read_GBs": 265.7,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 265.5,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 66.3,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 31.93
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:1943",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 45.6,
+   "block_ms": 0.0912,
+   "pct_of_block": 0.27,
+   "ms_per_fold": 43.77,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 6.554,
+   "dram_write_MB": 1.638,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 143.7,
+   "achieved_dram_write_GBs": 35.9,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 35.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 28.07
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:829",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      32
+     ],
+     "logical": [
+      256,
+      16
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     16
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 90.71,
+   "block_ms": 0.0907,
+   "pct_of_block": 0.27,
+   "ms_per_fold": 43.54,
+   "GFLOP_per_call": 1.67772,
+   "flop_basis": "2*320*320*256*32 (batch,M,K,N padded)",
+   "dram_read_MB": 0.016,
+   "dram_write_MB": 0.0,
+   "l1_MB": 58.982,
+   "AI_FLOP_per_dram_byte": 102400.0,
+   "achieved_TFLOPs": 18.5,
+   "achieved_dram_read_GBs": 0.2,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 650.2,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": 94.5,
+   "tiles_MKN": [
+    10,
+    8,
+    1
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "L1-BOUND",
+   "gap_ms_per_fold": 2.38
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2282",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      16
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 45.2,
+   "block_ms": 0.0452,
+   "pct_of_block": 0.14,
+   "ms_per_fold": 21.7,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 9.83,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 217.5,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 14.84
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:2386",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 39.59,
+   "block_ms": 0.0396,
+   "pct_of_block": 0.12,
+   "ms_per_fold": 19.0,
+   "GFLOP_per_call": 0.00012,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.492,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.0,
+   "achieved_dram_read_GBs": 12.4,
+   "achieved_dram_write_GBs": 6.2,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 3.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 18.41
+  },
+  {
+   "op": "softmax",
+   "site": "tenstorrent.py:2319",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 27.44,
+   "block_ms": 0.0274,
+   "pct_of_block": 0.08,
+   "ms_per_fold": 13.17,
+   "GFLOP_per_call": 0.00819,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 3.277,
+   "dram_write_MB": 3.277,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 1.2,
+   "achieved_TFLOPs": 0.3,
+   "achieved_dram_read_GBs": 119.4,
+   "achieved_dram_write_GBs": 119.4,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 45.3,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 7.2
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2318",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 26.67,
+   "block_ms": 0.0267,
+   "pct_of_block": 0.08,
+   "ms_per_fold": 12.8,
+   "GFLOP_per_call": 0.00164,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 3.277,
+   "dram_write_MB": 3.277,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.06,
+   "achieved_dram_read_GBs": 122.9,
+   "achieved_dram_write_GBs": 122.9,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 46.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 6.83
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2388",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      384
+     ],
+     "logical": [
+      384,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 26.51,
+   "block_ms": 0.0265,
+   "pct_of_block": 0.08,
+   "ms_per_fold": 12.72,
+   "GFLOP_per_call": 0.09437,
+   "flop_basis": "2*1*320*384*384 (batch,M,K,N padded)",
+   "dram_read_MB": 0.541,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 120.0,
+   "achieved_TFLOPs": 3.56,
+   "achieved_dram_read_GBs": 20.4,
+   "achieved_dram_write_GBs": 9.3,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 5.1,
+   "tiles_MKN": [
+    10,
+    12,
+    12
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 12.08
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2317",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 25.88,
+   "block_ms": 0.0259,
+   "pct_of_block": 0.08,
+   "ms_per_fold": 12.42,
+   "GFLOP_per_call": 0.00164,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 3.277,
+   "dram_write_MB": 3.277,
+   "l1_MB": 3.277,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.06,
+   "achieved_dram_read_GBs": 126.6,
+   "achieved_dram_write_GBs": 126.6,
+   "achieved_l1_GBs": 126.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 48.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 6.46
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 25.3,
+   "block_ms": 0.0253,
+   "pct_of_block": 0.08,
+   "ms_per_fold": 12.14,
+   "GFLOP_per_call": 0.00049,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "l1_MB": 2.949,
+   "AI_FLOP_per_dram_byte": null,
+   "achieved_TFLOPs": 0.02,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 116.6,
+   "binding_roof": "L1",
+   "pct_of_binding_roof": null,
+   "verdict": "L1-RESIDENT (no roof established)",
+   "gap_ms_per_fold": 10.09
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2634",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 24.67,
+   "block_ms": 0.0247,
+   "pct_of_block": 0.07,
+   "ms_per_fold": 11.84,
+   "GFLOP_per_call": 0.00012,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.492,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.0,
+   "achieved_dram_read_GBs": 19.9,
+   "achieved_dram_write_GBs": 10.0,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 5.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 11.25
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2638",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 24.55,
+   "block_ms": 0.0246,
+   "pct_of_block": 0.07,
+   "ms_per_fold": 11.79,
+   "GFLOP_per_call": 0.00012,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.492,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.2,
+   "achieved_TFLOPs": 0.01,
+   "achieved_dram_read_GBs": 20.0,
+   "achieved_dram_write_GBs": 10.0,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 5.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 11.2
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2330",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      384,
+      320
+     ],
+     "logical": [
+      1,
+      384,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 23.64,
+   "block_ms": 0.0236,
+   "pct_of_block": 0.07,
+   "ms_per_fold": 11.35,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.246,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 10.4,
+   "achieved_dram_write_GBs": 10.4,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 3.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 10.9
+  },
+  {
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:2245",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 23.12,
+   "block_ms": 0.0231,
+   "pct_of_block": 0.07,
+   "ms_per_fold": 11.1,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "unclassified: FLOPs not derived",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.328,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 42.5,
+   "achieved_dram_write_GBs": 14.2,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 10.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 9.92
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 21.81,
+   "block_ms": 0.0218,
+   "pct_of_block": 0.07,
+   "ms_per_fold": 10.47,
+   "GFLOP_per_call": 0.37749,
+   "flop_basis": "2*1*320*384*1536 (batch,M,K,N padded)",
+   "dram_read_MB": 1.18,
+   "dram_write_MB": 0.0,
+   "l1_MB": 1.229,
+   "AI_FLOP_per_dram_byte": 320.0,
+   "achieved_TFLOPs": 17.31,
+   "achieved_dram_read_GBs": 54.1,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 56.3,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 13.5,
+   "tiles_MKN": [
+    10,
+    12,
+    48
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 9.06
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2237",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      1536
+     ],
+     "logical": [
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 21.78,
+   "block_ms": 0.0218,
+   "pct_of_block": 0.07,
+   "ms_per_fold": 10.45,
+   "GFLOP_per_call": 0.37749,
+   "flop_basis": "2*1*320*384*1536 (batch,M,K,N padded)",
+   "dram_read_MB": 1.524,
+   "dram_write_MB": 0.983,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 150.6,
+   "achieved_TFLOPs": 17.33,
+   "achieved_dram_read_GBs": 70.0,
+   "achieved_dram_write_GBs": 45.1,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 17.5,
+   "tiles_MKN": [
+    10,
+    12,
+    48
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 8.63
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2378",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      384
+     ],
+     "logical": [
+      384,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 21.65,
+   "block_ms": 0.0217,
+   "pct_of_block": 0.07,
+   "ms_per_fold": 10.39,
+   "GFLOP_per_call": 0.09437,
+   "flop_basis": "2*1*320*384*384 (batch,M,K,N padded)",
+   "dram_read_MB": 0.541,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 120.0,
+   "achieved_TFLOPs": 4.36,
+   "achieved_dram_read_GBs": 25.0,
+   "achieved_dram_write_GBs": 11.3,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 6.2,
+   "tiles_MKN": [
+    10,
+    12,
+    12
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 9.75
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2328",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      24
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     24,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 21.15,
+   "block_ms": 0.0212,
+   "pct_of_block": 0.06,
+   "ms_per_fold": 10.15,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.328,
+   "dram_write_MB": 0.328,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 15.5,
+   "achieved_dram_write_GBs": 15.5,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 5.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 9.56
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 20.99,
+   "block_ms": 0.021,
+   "pct_of_block": 0.06,
+   "ms_per_fold": 10.07,
+   "GFLOP_per_call": 0.37749,
+   "flop_basis": "2*1*320*384*1536 (batch,M,K,N padded)",
+   "dram_read_MB": 1.18,
+   "dram_write_MB": 0.0,
+   "l1_MB": 1.229,
+   "AI_FLOP_per_dram_byte": 320.0,
+   "achieved_TFLOPs": 17.98,
+   "achieved_dram_read_GBs": 56.2,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 58.5,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 14.0,
+   "tiles_MKN": [
+    10,
+    12,
+    48
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 8.66
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1536,
+      384
+     ],
+     "logical": [
+      1536,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 20.95,
+   "block_ms": 0.021,
+   "pct_of_block": 0.06,
+   "ms_per_fold": 10.06,
+   "GFLOP_per_call": 0.37749,
+   "flop_basis": "2*1*320*1536*384 (batch,M,K,N padded)",
+   "dram_read_MB": 1.18,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.983,
+   "AI_FLOP_per_dram_byte": 264.8,
+   "achieved_TFLOPs": 18.01,
+   "achieved_dram_read_GBs": 56.3,
+   "achieved_dram_write_GBs": 11.7,
+   "achieved_l1_GBs": 46.9,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 14.1,
+   "tiles_MKN": [
+    10,
+    48,
+    12
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 8.64
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:464",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 20.8,
+   "block_ms": 0.0208,
+   "pct_of_block": 0.06,
+   "ms_per_fold": 9.99,
+   "GFLOP_per_call": 0.10486,
+   "flop_basis": "2*16*320*32*320 (batch,M,K,N padded)",
+   "dram_read_MB": 0.655,
+   "dram_write_MB": 3.277,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 26.7,
+   "achieved_TFLOPs": 5.04,
+   "achieved_dram_read_GBs": 31.5,
+   "achieved_dram_write_GBs": 157.5,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 59.7,
+   "tiles_MKN": [
+    10,
+    1,
+    10
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 4.02
+  },
+  {
+   "op": "transpose",
+   "site": "tenstorrent.py:2313",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 20.76,
+   "block_ms": 0.0208,
+   "pct_of_block": 0.06,
+   "ms_per_fold": 9.97,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.328,
+   "dram_write_MB": 0.328,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 15.8,
+   "achieved_dram_write_GBs": 15.8,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 6.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 9.37
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:2327",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     24
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 20.74,
+   "block_ms": 0.0207,
+   "pct_of_block": 0.06,
+   "ms_per_fold": 9.96,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.328,
+   "dram_write_MB": 0.328,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 15.8,
+   "achieved_dram_write_GBs": 15.8,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 6.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 9.36
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:2329",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      24,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     384,
+     320
+    ],
+    "logical": [
+     1,
+     384,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 20.01,
+   "block_ms": 0.02,
+   "pct_of_block": 0.06,
+   "ms_per_fold": 9.6,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.328,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 16.4,
+   "achieved_dram_write_GBs": 12.3,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 4.7,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 9.16
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:464",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 18.32,
+   "block_ms": 0.0183,
+   "pct_of_block": 0.06,
+   "ms_per_fold": 8.79,
+   "GFLOP_per_call": 0.10486,
+   "flop_basis": "2*16*320*320*32 (batch,M,K,N padded)",
+   "dram_read_MB": 3.604,
+   "dram_write_MB": 0.328,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 26.7,
+   "achieved_TFLOPs": 5.72,
+   "achieved_dram_read_GBs": 196.8,
+   "achieved_dram_write_GBs": 17.9,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 49.1,
+   "tiles_MKN": [
+    10,
+    10,
+    1
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 4.47
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2621",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 16.98,
+   "block_ms": 0.017,
+   "pct_of_block": 0.05,
+   "ms_per_fold": 8.15,
+   "GFLOP_per_call": 0.00061,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 0.295,
+   "dram_write_MB": 0.246,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 1.1,
+   "achieved_TFLOPs": 0.04,
+   "achieved_dram_read_GBs": 17.4,
+   "achieved_dram_write_GBs": 14.5,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 5.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 7.7
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 16.72,
+   "block_ms": 0.0167,
+   "pct_of_block": 0.05,
+   "ms_per_fold": 8.03,
+   "GFLOP_per_call": 0.00061,
+   "flop_basis": "~5 FLOP/out-elem (estimate)",
+   "dram_read_MB": 0.295,
+   "dram_write_MB": 0.0,
+   "l1_MB": 0.246,
+   "AI_FLOP_per_dram_byte": 2.1,
+   "achieved_TFLOPs": 0.04,
+   "achieved_dram_read_GBs": 17.6,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": 14.7,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 4.4,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 7.67
+  },
+  {
+   "op": "squeeze",
+   "site": "tenstorrent.py:1984",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 3.69,
+   "block_ms": 0.0074,
+   "pct_of_block": 0.02,
+   "ms_per_fold": 3.54,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 14223.6,
+   "achieved_dram_write_GBs": 14223.6,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 5395.9,
+   "verdict": "ACCOUNTING-SUSPECT (>105% of its roof)",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1942",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 3.35,
+   "block_ms": 0.0067,
+   "pct_of_block": 0.02,
+   "ms_per_fold": 3.22,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 6.554,
+   "dram_write_MB": 6.554,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 1955.4,
+   "achieved_dram_write_GBs": 1955.4,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 741.8,
+   "verdict": "ACCOUNTING-SUSPECT (>105% of its roof)",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:1868",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 3.15,
+   "block_ms": 0.0063,
+   "pct_of_block": 0.02,
+   "ms_per_fold": 3.03,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 52.429,
+   "dram_write_MB": 52.429,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 16632.8,
+   "achieved_dram_write_GBs": 16632.8,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 6309.9,
+   "verdict": "ACCOUNTING-SUSPECT (>105% of its roof)",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1947",
+   "n_per_block": 2,
+   "n_timed": 2,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 3.04,
+   "block_ms": 0.0061,
+   "pct_of_block": 0.02,
+   "ms_per_fold": 2.92,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 157.286,
+   "dram_write_MB": 157.286,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 51731.5,
+   "achieved_dram_write_GBs": 51731.5,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 19625.0,
+   "verdict": "ACCOUNTING-SUSPECT (>105% of its roof)",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:2244",
+   "n_per_block": 1,
+   "n_timed": 1,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 2.65,
+   "block_ms": 0.0027,
+   "pct_of_block": 0.01,
+   "ms_per_fold": 1.27,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement, no arithmetic",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "l1_MB": 0.0,
+   "AI_FLOP_per_dram_byte": 0.0,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": 370.9,
+   "achieved_dram_write_GBs": 370.9,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 140.7,
+   "verdict": "ACCOUNTING-SUSPECT (>105% of its roof)",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "n_per_block": 8,
+   "n_timed": 0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "us_per_call": 0.0,
+   "block_ms": 0.0,
+   "pct_of_block": 0.0,
+   "ms_per_fold": 0.0,
+   "GFLOP_per_call": 13.42177,
+   "flop_basis": "2*320*320*256*256 (batch,M,K,N padded)",
+   "dram_read_MB": 52.56,
+   "dram_write_MB": 0.0,
+   "l1_MB": 52.429,
+   "AI_FLOP_per_dram_byte": 255.4,
+   "achieved_TFLOPs": null,
+   "achieved_dram_read_GBs": null,
+   "achieved_dram_write_GBs": null,
+   "achieved_l1_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 0.0,
+   "tiles_MKN": [
+    10,
+    8,
+    8
+   ],
+   "k_tiles_lt_cores": true,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 0.0
+  }
+ ]
+}

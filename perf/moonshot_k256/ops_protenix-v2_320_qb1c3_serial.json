@@ -1,0 +1,10999 @@
+{
+ "model": "protenix-v2",
+ "n": 320,
+ "c_z": 256,
+ "block_wall_s": 0.033264322662337996,
+ "reps": 4,
+ "n_ops": 192,
+ "sum_s": 0.03774789394446998,
+ "fatal": null,
+ "records": [
+  {
+   "i": 0,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1623",
+   "chain": [
+    "tenstorrent.py:1623",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.000334989745169878,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 1,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 2,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010077575279865414,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 3,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010250850027659908,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 4,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010196074435953051,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 5,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1682",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013919774937676266,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 6,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001536150011816062,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 7,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00014220524462871253,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 8,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2601"
+   ],
+   "s": 6.058649887563661e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 9,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 10,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2601"
+   ],
+   "s": 9.994100400945172e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 11,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010119850048795342,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 12,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010595825006021187,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 13,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1682",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013986774865770712,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 14,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00015301250095944852,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 15,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001401627523591742,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 16,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2601"
+   ],
+   "s": 6.0403996030800045e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 17,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 18,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010269574704580009,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 19,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001019907504087314,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 20,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010363600449636579,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 21,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1682",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00014124274457572028,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 22,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00015065025218063965,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 23,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00014084274880588055,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 24,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2601"
+   ],
+   "s": 6.125649815658107e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 25,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 26,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010142850078409538,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 27,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001014557492453605,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 28,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00010165850108023733,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 29,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1682",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001395505023538135,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 30,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0001572024993947707,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 31,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00013658549869433045,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 32,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2601"
+   ],
+   "s": 6.677149940514937e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 33,
+   "op": "concat",
+   "site": "tenstorrent.py:1280",
+   "chain": [
+    "tenstorrent.py:1280",
+    "tenstorrent.py:1731",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00027767800202127546,
+   "in": [],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 34,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1785",
+   "chain": [
+    "tenstorrent.py:1785",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0003351694977027364,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 35,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1515",
+    "tenstorrent.py:1792",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.00027750050503527746,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 36,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1515",
+    "tenstorrent.py:1795",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 37,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1797",
+   "chain": [
+    "tenstorrent.py:1797",
+    "tenstorrent.py:2601"
+   ],
+   "s": 0.000354261756001506,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 38,
+   "op": "add_",
+   "site": "tenstorrent.py:2602",
+   "chain": [
+    "tenstorrent.py:2602"
+   ],
+   "s": 0.0002783780000754632,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 39,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1623",
+   "chain": [
+    "tenstorrent.py:1623",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00033912950311787426,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 40,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 41,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2605"
+   ],
+   "s": 9.555625001667067e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 42,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0008240792449214496,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 43,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010225825099041685,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 44,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1679",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00014144524902803823,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 45,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001510199945187196,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 46,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0005087967510917224,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 47,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2605"
+   ],
+   "s": 6.0386744735296816e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 48,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 49,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2605"
+   ],
+   "s": 9.52534974203445e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 50,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010170825407840312,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 51,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010496075265109539,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 52,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1679",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00014181275037117302,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 53,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00015234250167850405,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 54,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00013986774865770712,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 55,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2605"
+   ],
+   "s": 6.55089970678091e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 56,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 57,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010113324970006943,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 58,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010182824917137623,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 59,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010251849744236097,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 60,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1679",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001390077522955835,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 61,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00015115000132936984,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 62,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00014240499876905233,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 63,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2605"
+   ],
+   "s": 6.059149745851755e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 64,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:1659",
+   "chain": [
+    "tenstorrent.py:1659",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=12,"
+  },
+  {
+   "i": 65,
+   "op": "chunk",
+   "site": "tenstorrent.py:1666",
+   "chain": [
+    "tenstorrent.py:1666",
+    "tenstorrent.py:2605"
+   ],
+   "s": 9.782350389286876e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 66,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1668",
+   "chain": [
+    "tenstorrent.py:1668",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010191324690822512,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 67,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1671",
+   "chain": [
+    "tenstorrent.py:1671",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00010148850560653955,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 68,
+   "op": "permute",
+   "site": "tenstorrent.py:1616",
+   "chain": [
+    "tenstorrent.py:1616",
+    "tenstorrent.py:1679",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00013828775263391435,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 69,
+   "op": "matmul",
+   "site": "tenstorrent.py:1685",
+   "chain": [
+    "tenstorrent.py:1685",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001558599979034625,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     64,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 70,
+   "op": "permute",
+   "site": "tenstorrent.py:1712",
+   "chain": [
+    "tenstorrent.py:1712",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0001367127479170449,
+   "in": [
+    {
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      64,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 71,
+   "op": "clone",
+   "site": "tenstorrent.py:1722",
+   "chain": [
+    "tenstorrent.py:1722",
+    "tenstorrent.py:2605"
+   ],
+   "s": 6.0131249483674765e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      64
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 72,
+   "op": "concat",
+   "site": "tenstorrent.py:1280",
+   "chain": [
+    "tenstorrent.py:1280",
+    "tenstorrent.py:1731",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0002779482529149391,
+   "in": [],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 73,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1785",
+   "chain": [
+    "tenstorrent.py:1785",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0003384770025149919,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 74,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1515",
+    "tenstorrent.py:1792",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.000279063249763567,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 75,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1515",
+    "tenstorrent.py:1795",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.0,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=12"
+  },
+  {
+   "i": 76,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1797",
+   "chain": [
+    "tenstorrent.py:1797",
+    "tenstorrent.py:2605"
+   ],
+   "s": 0.00035392699646763504,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 77,
+   "op": "add_",
+   "site": "tenstorrent.py:2606",
+   "chain": [
+    "tenstorrent.py:2606"
+   ],
+   "s": 0.0002838180007529445,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 78,
+   "op": "reshape",
+   "site": "tenstorrent.py:1868",
+   "chain": [
+    "tenstorrent.py:1868",
+    "tenstorrent.py:2609"
+   ],
+   "s": 3.1455629141419195e-06,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 79,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1931",
+   "chain": [
+    "tenstorrent.py:1931",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.00033731474832165986,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 80,
+   "op": "linear",
+   "site": "tenstorrent.py:806",
+   "chain": [
+    "tenstorrent.py:806",
+    "tenstorrent.py:1939",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.000557663501240313,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      32
+     ],
+     "logical": [
+      256,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 81,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1942",
+   "chain": [
+    "tenstorrent.py:1942",
+    "tenstorrent.py:2609"
+   ],
+   "s": 3.1249683161149733e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 82,
+   "op": "permute",
+   "site": "tenstorrent.py:1943",
+   "chain": [
+    "tenstorrent.py:1943",
+    "tenstorrent.py:2609"
+   ],
+   "s": 4.5924906771688256e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 83,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2056",
+   "chain": [
+    "tenstorrent.py:2056",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.0021340282473829575,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      768
+     ],
+     "logical": [
+      256,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 84,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2062",
+   "chain": [
+    "tenstorrent.py:2062",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.00038360400503734127,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 85,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1947",
+   "chain": [
+    "tenstorrent.py:1947",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 3.072155777772423e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 86,
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:1951",
+   "chain": [
+    "tenstorrent.py:1951",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.0008057945015025325,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 87,
+   "op": "scaled_dot_product_attention",
+   "site": "tenstorrent.py:1965",
+   "chain": [
+    "tenstorrent.py:1965",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.004098179000720847,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 88,
+   "op": "nlp_concat_heads",
+   "site": "tenstorrent.py:1982",
+   "chain": [
+    "tenstorrent.py:1982",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.0002847127470886335,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 89,
+   "op": "squeeze",
+   "site": "tenstorrent.py:1984",
+   "chain": [
+    "tenstorrent.py:1984",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2609"
+   ],
+   "s": 3.8518128349096514e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 90,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1988",
+   "chain": [
+    "tenstorrent.py:1988",
+    "tenstorrent.py:2074",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.000602157750108745,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 91,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1990",
+    "tenstorrent.py:2074",
+    "tenstorrent.py:2609"
+   ],
+   "s": 0.00027773299370892346,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 92,
+   "op": "reshape",
+   "site": "tenstorrent.py:2077",
+   "chain": [
+    "tenstorrent.py:2077",
+    "tenstorrent.py:2609"
+   ],
+   "s": 3.211219336662907e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 93,
+   "op": "add_",
+   "site": "tenstorrent.py:2610",
+   "chain": [
+    "tenstorrent.py:2610"
+   ],
+   "s": 0.0002794105021166615,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 94,
+   "op": "reshape",
+   "site": "tenstorrent.py:1868",
+   "chain": [
+    "tenstorrent.py:1868",
+    "tenstorrent.py:2613"
+   ],
+   "s": 3.158686922688503e-06,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 95,
+   "op": "permute",
+   "site": "tenstorrent.py:1927",
+   "chain": [
+    "tenstorrent.py:1927",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0005083592477603815,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 96,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:1931",
+   "chain": [
+    "tenstorrent.py:1931",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.00027706549735739827,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 97,
+   "op": "linear",
+   "site": "tenstorrent.py:806",
+   "chain": [
+    "tenstorrent.py:806",
+    "tenstorrent.py:1939",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.00023414375027641654,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      32
+     ],
+     "logical": [
+      256,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 98,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1942",
+   "chain": [
+    "tenstorrent.py:1942",
+    "tenstorrent.py:2613"
+   ],
+   "s": 3.578063115128316e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     8
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 99,
+   "op": "permute",
+   "site": "tenstorrent.py:1943",
+   "chain": [
+    "tenstorrent.py:1943",
+    "tenstorrent.py:2613"
+   ],
+   "s": 4.527209330262849e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      8
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     8,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 100,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2056",
+   "chain": [
+    "tenstorrent.py:2056",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.001500021004176233,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      768
+     ],
+     "logical": [
+      256,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 101,
+   "op": "minimal_matmul",
+   "site": "tenstorrent.py:2062",
+   "chain": [
+    "tenstorrent.py:2062",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0003889362487825565,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 102,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:1947",
+   "chain": [
+    "tenstorrent.py:1947",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 3.008719431818463e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     768
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 103,
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:1951",
+   "chain": [
+    "tenstorrent.py:1951",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0008050044998526573,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      768
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 104,
+   "op": "scaled_dot_product_attention",
+   "site": "tenstorrent.py:1965",
+   "chain": [
+    "tenstorrent.py:1965",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0029970067480462603,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      8,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "logical": [
+     320,
+     8,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 105,
+   "op": "nlp_concat_heads",
+   "site": "tenstorrent.py:1982",
+   "chain": [
+    "tenstorrent.py:1982",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0002847305004252121,
+   "in": [
+    {
+     "shape": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "logical": [
+      320,
+      8,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     1,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 106,
+   "op": "squeeze",
+   "site": "tenstorrent.py:1984",
+   "chain": [
+    "tenstorrent.py:1984",
+    "tenstorrent.py:2071",
+    "tenstorrent.py:2613"
+   ],
+   "s": 3.520250174915418e-06,
+   "in": [
+    {
+     "shape": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      1,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 107,
+   "op": "multiply_",
+   "site": "tenstorrent.py:1988",
+   "chain": [
+    "tenstorrent.py:1988",
+    "tenstorrent.py:2074",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.00037532899295911193,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 108,
+   "op": "linear",
+   "site": "tenstorrent.py:798",
+   "chain": [
+    "tenstorrent.py:798",
+    "tenstorrent.py:1990",
+    "tenstorrent.py:2074",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.00027737824711948633,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      256
+     ],
+     "logical": [
+      256,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 109,
+   "op": "permute",
+   "site": "tenstorrent.py:2076",
+   "chain": [
+    "tenstorrent.py:2076",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0004971445014234632,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 110,
+   "op": "reshape",
+   "site": "tenstorrent.py:2077",
+   "chain": [
+    "tenstorrent.py:2077",
+    "tenstorrent.py:2613"
+   ],
+   "s": 0.0007466707465937361,
+   "in": [
+    {
+     "shape": [
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 111,
+   "op": "add_",
+   "site": "tenstorrent.py:2614",
+   "chain": [
+    "tenstorrent.py:2614"
+   ],
+   "s": 0.0002786879995255731,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 112,
+   "op": "chunk",
+   "site": "tenstorrent.py:2524",
+   "chain": [
+    "tenstorrent.py:2524",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0003022202508873306,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 113,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.23192502441816e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 114,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00026131350023206323,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 115,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.845625416142866e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 116,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 7.011875277385116e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 117,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010195575305260718,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 118,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.178674473427236e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 119,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0002605357512948103,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 120,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.801124931778759e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 121,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.638625200139359e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 122,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010100850340677425,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 123,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.132424848852679e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 124,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00025957575417123735,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 125,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.853124745655805e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 126,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.534650310641155e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 127,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0001007707542157732,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 128,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.1291746785864234e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 129,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0002593259996501729,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 130,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.73334938660264e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 131,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.556650623679161e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 132,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010116825433215126,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 133,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.111424979986623e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 134,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0002592134987935424,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 135,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.826124394545332e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 136,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.832399958511814e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 137,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010093825403600931,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 138,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.1109251216985285e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 139,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0002635909986565821,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 140,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.856350177666172e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 141,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.562649650732055e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 142,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010088850103784353,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 143,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.124924791743979e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 144,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.000259343498328235,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 145,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.782599616097286e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 146,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.635150202782825e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 147,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010186099825659767,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 148,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.121924914419651e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 149,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0002593535027699545,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 150,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.763599907979369e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 151,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.549400131916627e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 152,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010078850027639419,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 153,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.223674816079438e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 154,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00026113350031664595,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 155,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.899349631974474e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 156,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.752899935236201e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 157,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010095575271407142,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 158,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 5.1673996495082974e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 159,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0002594634934212081,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 160,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 8.783100201981142e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      1024
+     ],
+     "logical": [
+      256,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 161,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 6.575150473508984e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 162,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.00010146100248675793,
+   "in": [
+    {
+     "shape": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "logical": [
+      1,
+      32,
+      320,
+      1024
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1024,
+      256
+     ],
+     "logical": [
+      1024,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     32,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 163,
+   "op": "concat",
+   "site": "tenstorrent.py:2527",
+   "chain": [
+    "tenstorrent.py:2527",
+    "tenstorrent.py:2617"
+   ],
+   "s": 0.0002682332487893291,
+   "in": [],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 164,
+   "op": "add_",
+   "site": "tenstorrent.py:2618",
+   "chain": [
+    "tenstorrent.py:2618"
+   ],
+   "s": 0.00036696424649562687,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 165,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2621",
+   "chain": [
+    "tenstorrent.py:2621"
+   ],
+   "s": 1.6978468920569867e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 166,
+   "op": "linear",
+   "site": "tenstorrent.py:2237",
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.177806254621828e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      1536
+     ],
+     "logical": [
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 167,
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:2244",
+   "chain": [
+    "tenstorrent.py:2244",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.6502812033868395e-06,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 168,
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:2245",
+   "chain": [
+    "tenstorrent.py:2245",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.3117750060919207e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 169,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:549",
+   "chain": [
+    "tenstorrent.py:549",
+    "tenstorrent.py:2258",
+    "tenstorrent.py:2628"
+   ],
+   "s": 0.0001974692495423369,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      256
+     ],
+     "logical": [
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   },
+   "serial": true
+  },
+  {
+   "i": 170,
+   "op": "linear",
+   "site": "tenstorrent.py:829",
+   "chain": [
+    "tenstorrent.py:829",
+    "tenstorrent.py:2266",
+    "tenstorrent.py:2628"
+   ],
+   "s": 9.071100066648796e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      256
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      256,
+      32
+     ],
+     "logical": [
+      256,
+      16
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     320,
+     320,
+     16
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 171,
+   "op": "permute",
+   "site": "tenstorrent.py:2282",
+   "chain": [
+    "tenstorrent.py:2282",
+    "tenstorrent.py:2628"
+   ],
+   "s": 4.5201749344414566e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      320,
+      320,
+      16
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 172,
+   "op": "transpose",
+   "site": "tenstorrent.py:2313",
+   "chain": [
+    "tenstorrent.py:2313",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.0764031432918273e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 173,
+   "op": "matmul",
+   "site": "tenstorrent.py:464",
+   "chain": [
+    "tenstorrent.py:464",
+    "tenstorrent.py:2314",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.0804968698939774e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 174,
+   "op": "add_",
+   "site": "tenstorrent.py:2317",
+   "chain": [
+    "tenstorrent.py:2317",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.5881156034301966e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 175,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2318",
+   "chain": [
+    "tenstorrent.py:2318",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.666678119567223e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 176,
+   "op": "softmax",
+   "site": "tenstorrent.py:2319",
+   "chain": [
+    "tenstorrent.py:2319",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.7435186893853825e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 177,
+   "op": "matmul",
+   "site": "tenstorrent.py:464",
+   "chain": [
+    "tenstorrent.py:464",
+    "tenstorrent.py:2322",
+    "tenstorrent.py:2628"
+   ],
+   "s": 1.832003181334585e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 178,
+   "op": "slice",
+   "site": "tenstorrent.py:2327",
+   "chain": [
+    "tenstorrent.py:2327",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.074309395538876e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ],
+    "logical": [
+     1,
+     16,
+     320,
+     24
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 179,
+   "op": "permute",
+   "site": "tenstorrent.py:2328",
+   "chain": [
+    "tenstorrent.py:2328",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.115465667884564e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ],
+     "logical": [
+      1,
+      16,
+      320,
+      24
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     16,
+     32,
+     320
+    ],
+    "logical": [
+     1,
+     16,
+     24,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 180,
+   "op": "reshape",
+   "site": "tenstorrent.py:2329",
+   "chain": [
+    "tenstorrent.py:2329",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.0007781131425872e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      16,
+      32,
+      320
+     ],
+     "logical": [
+      1,
+      16,
+      24,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     384,
+     320
+    ],
+    "logical": [
+     1,
+     384,
+     320
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 181,
+   "op": "permute",
+   "site": "tenstorrent.py:2330",
+   "chain": [
+    "tenstorrent.py:2330",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.3643375243409537e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      384,
+      320
+     ],
+     "logical": [
+      1,
+      384,
+      320
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 182,
+   "op": "linear",
+   "site": "tenstorrent.py:2378",
+   "chain": [
+    "tenstorrent.py:2378",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.165309342672117e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      384
+     ],
+     "logical": [
+      384,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 183,
+   "op": "multiply",
+   "site": "tenstorrent.py:2386",
+   "chain": [
+    "tenstorrent.py:2386",
+    "tenstorrent.py:2628"
+   ],
+   "s": 3.958781235269271e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 184,
+   "op": "linear",
+   "site": "tenstorrent.py:2388",
+   "chain": [
+    "tenstorrent.py:2388",
+    "tenstorrent.py:2628"
+   ],
+   "s": 2.65076878349646e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      384
+     ],
+     "logical": [
+      384,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 185,
+   "op": "add_",
+   "site": "tenstorrent.py:2634",
+   "chain": [
+    "tenstorrent.py:2634"
+   ],
+   "s": 2.46695935857133e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 186,
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2415",
+   "chain": [
+    "tenstorrent.py:2415",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 1.6719406630727462e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      32,
+      384
+     ],
+     "logical": [
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 187,
+   "op": "linear",
+   "site": "tenstorrent.py:2423",
+   "chain": [
+    "tenstorrent.py:2423",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 2.181087438657414e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 188,
+   "op": "linear",
+   "site": "tenstorrent.py:2434",
+   "chain": [
+    "tenstorrent.py:2434",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 2.0989344193367288e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "logical": [
+      384,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 189,
+   "op": "multiply_",
+   "site": "tenstorrent.py:2443",
+   "chain": [
+    "tenstorrent.py:2443",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 2.5298969376308378e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     1536
+    ],
+    "logical": [
+     1,
+     320,
+     1536
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "L1",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 190,
+   "op": "linear",
+   "site": "tenstorrent.py:2445",
+   "chain": [
+    "tenstorrent.py:2445",
+    "tenstorrent.py:2463",
+    "tenstorrent.py:2637"
+   ],
+   "s": 2.095406216540141e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      1536
+     ],
+     "logical": [
+      1,
+      320,
+      1536
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "L1",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1536,
+      384
+     ],
+     "logical": [
+      1536,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  },
+  {
+   "i": 191,
+   "op": "add_",
+   "site": "tenstorrent.py:2638",
+   "chain": [
+    "tenstorrent.py:2638"
+   ],
+   "s": 2.4554312403779477e-05,
+   "in": [
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    },
+    {
+     "shape": [
+      1,
+      320,
+      384
+     ],
+     "logical": [
+      1,
+      320,
+      384
+     ],
+     "dtype": "BFLOAT16",
+     "buf": "DRAM",
+     "layout": "INTERLEAVED"
+    }
+   ],
+   "out": {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "logical": [
+     1,
+     320,
+     384
+    ],
+    "dtype": "BFLOAT16",
+    "buf": "DRAM",
+    "layout": "INTERLEAVED"
+   }
+  }
+ ]
+}
