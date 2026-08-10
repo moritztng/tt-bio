@@ -124,11 +124,18 @@ def main():
         L1_ROOF = None
 
     D = json.load(open(args.ops))
-    agg, meta = defaultdict(lambda: {"n": 0, "s": 0.0}), {}
+    # `n_timed` counts only the calls the bench could actually time. A call whose standalone
+    # re-run threw records s = 0.0, and summing that silently drops its cost from the class: the
+    # per-call mean falls and ms_per_fold falls with it, while coverage against the stage still
+    # looks fine because the other classes absorb the gap. Average over the timed calls and scale
+    # to the full call count instead, so an untimed call is imputed at its own class-and-shape rate.
+    agg, meta = defaultdict(lambda: {"n": 0, "n_timed": 0, "s": 0.0}), {}
     for rec in D["records"]:
         key = classkey(rec)
         agg[key]["n"] += 1
-        agg[key]["s"] += rec["s"]
+        if rec["s"] > 0.0:
+            agg[key]["n_timed"] += 1
+            agg[key]["s"] += rec["s"]
         meta.setdefault(key, rec)
 
     measured_block_s = D["block_wall_s"]
@@ -143,7 +150,8 @@ def main():
         wr = nbytes(out) if out and is_dram(out) else 0
         l1 = sum(nbytes(t) for t in ins if not is_dram(t)) + (
             nbytes(out) if out and not is_dram(out) else 0)
-        secs = a["s"] / a["n"]
+        secs = a["s"] / a["n_timed"] if a["n_timed"] else 0.0
+        block_s = secs * a["n"]           # full call count at the timed calls' rate
 
         cands = [("COMPUTE", fl / C_ROOF), ("DRAM-READ", rd / RD_ROOF), ("DRAM-WRITE", wr / WR_ROOF)]
         if L1_ROOF and l1:
@@ -157,11 +165,12 @@ def main():
         l1_only = rd + wr == 0 and l1 > 0
 
         row = {"op": rec["op"], "site": rec["site"], "n_per_block": a["n"],
+               "n_timed": a["n_timed"],
                "in": ins, "out": out,
                "us_per_call": round(secs * 1e6, 2),
-               "block_ms": round(a["s"] * 1e3, 4),
-               "pct_of_block": round(100 * a["s"] / measured_block_s, 2),
-               "ms_per_fold": round(a["s"] * scale * 1e3, 2),
+               "block_ms": round(block_s * 1e3, 4),
+               "pct_of_block": round(100 * block_s / measured_block_s, 2),
+               "ms_per_fold": round(block_s * scale * 1e3, 2),
                "GFLOP_per_call": round(fl / 1e9, 5), "flop_basis": basis,
                "dram_read_MB": round(rd / 1e6, 3), "dram_write_MB": round(wr / 1e6, 3),
                "l1_MB": round(l1 / 1e6, 3),

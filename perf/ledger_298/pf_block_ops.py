@@ -109,19 +109,38 @@ def wrap(name, fn):
                 del extra
                 return dt
 
-            err = None
+            def bench_serial(reps):
+                # Fallback for an op whose output is too wide to hold `reps` copies beside a live
+                # block: keep exactly one alive. Same refcount rule as bench() -- `del`, never
+                # ttnn.deallocate, because a view shares its input buffer. Serialising removes
+                # dispatch overlap, so a row measured here reads as an upper bound.
+                ttnn.synchronize_device(dev)
+                t0 = time.perf_counter()
+                for _ in range(reps):
+                    o = fn(*a, **kw)
+                    del o
+                ttnn.synchronize_device(dev)
+                return (time.perf_counter() - t0) / reps
+
+            err, serial = None, False
             try:
                 dt = bench(STATE["reps"])
                 if dt * 1e6 < STATE["small_us"]:
                     dt = bench(STATE["reps"] * 8)
-            except Exception as e:                               # noqa: BLE001
-                # An op we cannot safely re-run is still worth a row: shapes are recorded, time is
-                # not, and the row is excluded from the sum rather than silently guessed.
-                err, dt = f"{type(e).__name__}: {e}"[:200], 0.0
+            except Exception:                                    # noqa: BLE001
+                # Holding `reps` outputs live is what failed, not the op. Retry with one live.
                 ttnn.synchronize_device(dev)
+                try:
+                    dt, serial = bench_serial(STATE["reps"]), True
+                except Exception as e2:                          # noqa: BLE001
+                    # Still un-rerunnable: record the row for its shapes, exclude it from the sum
+                    # rather than silently guessing a time.
+                    err, dt = f"{type(e2).__name__}: {e2}"[:200], 0.0
+                    ttnn.synchronize_device(dev)
             first = out[0] if isinstance(out, (list, tuple)) and out else out
             RECORDS.append({"i": STATE["idx"], "op": name, "site": site, "chain": chain, "s": dt,
                             "in": ins, "out": desc(first) if isinstance(first, ttnn.Tensor) else None,
+                            **({"serial": True} if serial else {}),
                             **({"error": err} if err else {})})
             STATE["idx"] += 1
             return out
