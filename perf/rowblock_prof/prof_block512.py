@@ -125,22 +125,45 @@ def main():
     # three are needed and none of them may be inherited (charter §4.1).
     roof_dram = ttnn.from_torch(torch.randn(N, N, c_z), layout=ttnn.TILE_LAYOUT, device=dev,
                                 dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-    roof_l1 = None
+
+    def roof_group(name, rsrc, cfg):
+        """Time `roof_reps` clones of `rsrc` into `cfg`, bracketed. False if the card refuses it.
+
+        The feasibility probe is deliberately OUTSIDE the marker bracket: an L1 destination at this
+        shape is 134.22 MB against a 190 MB budget, so whether it fits depends on what else is
+        resident, and a raise between two marks would leave an unpaired marker and silently
+        mis-pair every bracket after it.
+        """
+        try:
+            probe = ttnn.clone(rsrc, memory_config=cfg)
+            ttnn.deallocate(probe)
+        except Exception as exc:                                               # noqa: BLE001
+            print(f"ROOF SKIPPED {name}: {type(exc).__name__}", flush=True)
+            return False
+        for _ in range(args.roof_reps):
+            mark()
+            out = ttnn.clone(rsrc, memory_config=cfg)
+            mark()
+            ttnn.deallocate(out)
+        return True
+
+    roof_order = []
+    for name, cfg in [("copy roof (DRAM), DRAM source", ttnn.DRAM_MEMORY_CONFIG),
+                      ("copy roof (L1), DRAM source", ttnn.L1_MEMORY_CONFIG)]:
+        if roof_group(name, roof_dram, cfg):
+            roof_order.append(name)
+    # The L1 SOURCE roof comes last and holds its own 134.22 MB in L1, so it may only be allocated
+    # once the DRAM-to-L1 roof above has finished and freed its destination.
     try:
         roof_l1 = ttnn.clone(roof_dram, memory_config=ttnn.L1_MEMORY_CONFIG)
     except Exception as exc:                                                   # noqa: BLE001
-        print(f"roof (L1 source) skipped, L1 allocation refused: {exc}", flush=True)
-    plan = [("copy roof (DRAM), DRAM source", roof_dram, ttnn.DRAM_MEMORY_CONFIG),
-            ("copy roof (L1), DRAM source", roof_dram, ttnn.L1_MEMORY_CONFIG)]
+        print(f"ROOF SKIPPED copy roof (DRAM), L1 source, source alloc: {type(exc).__name__}",
+              flush=True)
+        roof_l1 = None
     if roof_l1 is not None:
-        plan.append(("copy roof (DRAM), L1 source", roof_l1, ttnn.DRAM_MEMORY_CONFIG))
-    roof_order = [name for name, _, _ in plan]
-    for _, src, cfg in plan:
-        for _ in range(args.roof_reps):
-            mark()
-            out = ttnn.clone(src, memory_config=cfg)
-            mark()
-            ttnn.deallocate(out)
+        if roof_group("copy roof (DRAM), L1 source", roof_l1, ttnn.DRAM_MEMORY_CONFIG):
+            roof_order.append("copy roof (DRAM), L1 source")
+        ttnn.deallocate(roof_l1)
     ttnn.synchronize_device(dev)
 
     blocked = [c for c in census if c["plan"]]
