@@ -1,0 +1,17 @@
+{
+ "reshape_relabel": {
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume\ninfo:\nInvalid arguments to reshape\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncp"
+ },
+ "mask_multiply_L1": {
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume\ninfo:\nInvalid arguments to reshape\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncp"
+ },
+ "z_fill_once_DRAM": {
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume\ninfo:\nInvalid arguments to reshape\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncp"
+ },
+ "_cmd": "fill",
+ "_grid": [
+  11,
+  10
+ ],
+ "_wall_s": 0.1593470573425293
+}
