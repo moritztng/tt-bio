@@ -1,0 +1,12 @@
+[
+ {"label":"DiT q@kT bf16 320  (298aa)","a":[1,16,320,32],"b":[1,16,32,320],"dtype":"bf16","models":"protenix-v2/openfold3/opendde","calls_per_fold_298":2600},
+ {"label":"DiT attn@v bf16 320 (298aa)","a":[1,16,320,320],"b":[1,16,320,32],"dtype":"bf16","models":"protenix-v2/openfold3/opendde","calls_per_fold_298":2600},
+ {"label":"DiT q@kT fp32 320  (298aa)","a":[1,16,320,64],"b":[1,16,64,320],"dtype":"fp32","models":"protenix-v2/openfold3","calls_per_fold_298":4800},
+ {"label":"DiT attn@v fp32 320 (298aa)","a":[1,16,320,320],"b":[1,16,320,64],"dtype":"fp32","models":"protenix-v2/openfold3","calls_per_fold_298":4800},
+ {"label":"DiT q@kT bf16 512  (512aa)","a":[1,16,512,32],"b":[1,16,32,512],"dtype":"bf16","models":"protenix-v2/openfold3/opendde","calls_per_fold_298":2600},
+ {"label":"DiT attn@v bf16 512 (512aa)","a":[1,16,512,512],"b":[1,16,512,32],"dtype":"bf16","models":"protenix-v2/openfold3/opendde","calls_per_fold_298":2600},
+ {"label":"DiT q@kT fp32 512  (512aa)","a":[1,16,512,64],"b":[1,16,64,512],"dtype":"fp32","models":"protenix-v2/openfold3","calls_per_fold_298":4800},
+ {"label":"DiT attn@v fp32 512 (512aa)","a":[1,16,512,512],"b":[1,16,512,64],"dtype":"fp32","models":"protenix-v2/openfold3","calls_per_fold_298":4800},
+ {"label":"opendde DiT attn@v 1024 (512aa)","a":[1,16,1024,1024],"b":[1,16,1024,64],"dtype":"bf16","models":"opendde","calls_per_fold_298":4800},
+ {"label":"opendde DiT attn@v tail 1024","a":[1,8,1024,1024],"b":[1,8,1024,64],"dtype":"bf16","models":"opendde","calls_per_fold_298":200}
+]

@@ -1,0 +1,161 @@
+{
+  "model": "protenix-v2",
+  "size": 298,
+  "hardware": "blackhole",
+  "grid": [
+    11,
+    10
+  ],
+  "arms": [
+    {
+      "i": 0,
+      "arm": "cur",
+      "fold_s": 30.518,
+      "site_wall_ms": 876.86,
+      "plddt": 0.859489,
+      "cif_sha256_16": "8139d61b6c90f893",
+      "sites": {
+        "1x16x298x298@1x16x298x32|DataType.BFLOAT16": {
+          "n": 484,
+          "ms": 27.08,
+          "ms_per_call": 0.05596
+        },
+        "1x16x298x298@1x16x298x64|DataType.FLOAT32": {
+          "n": 4800,
+          "ms": 301.85,
+          "ms_per_call": 0.06288
+        },
+        "1x16x298x32@1x16x32x298|DataType.BFLOAT16": {
+          "n": 484,
+          "ms": 32.32,
+          "ms_per_call": 0.06678
+        },
+        "1x16x298x64@1x16x64x298|DataType.FLOAT32": {
+          "n": 4800,
+          "ms": 345.52,
+          "ms_per_call": 0.07198
+        },
+        "75x4x32x128@75x4x128x32|DataType.BFLOAT16": {
+          "n": 3,
+          "ms": 0.16,
+          "ms_per_call": 0.05391
+        },
+        "75x4x32x128@75x4x128x32|DataType.FLOAT32": {
+          "n": 1200,
+          "ms": 77.77,
+          "ms_per_call": 0.06481
+        },
+        "75x4x32x32@75x4x32x128|DataType.BFLOAT16": {
+          "n": 3,
+          "ms": 0.21,
+          "ms_per_call": 0.0702
+        },
+        "75x4x32x32@75x4x32x128|DataType.FLOAT32": {
+          "n": 1200,
+          "ms": 91.95,
+          "ms_per_call": 0.07662
+        }
+      }
+    },
+    {
+      "i": 1,
+      "arm": "occ",
+      "fold_s": 30.425,
+      "site_wall_ms": 924.4,
+      "plddt": 0.859489,
+      "cif_sha256_16": "8139d61b6c90f893",
+      "sites": {
+        "1x16x298x298@1x16x298x32|DataType.BFLOAT16": {
+          "n": 484,
+          "ms": 26.61,
+          "ms_per_call": 0.05497
+        },
+        "1x16x298x298@1x16x298x64|DataType.FLOAT32": {
+          "n": 4800,
+          "ms": 292.79,
+          "ms_per_call": 0.061
+        },
+        "1x16x298x32@1x16x32x298|DataType.BFLOAT16": {
+          "n": 484,
+          "ms": 46.15,
+          "ms_per_call": 0.09535
+        },
+        "1x16x298x64@1x16x64x298|DataType.FLOAT32": {
+          "n": 4800,
+          "ms": 393.65,
+          "ms_per_call": 0.08201
+        },
+        "75x4x32x128@75x4x128x32|DataType.BFLOAT16": {
+          "n": 3,
+          "ms": 0.15,
+          "ms_per_call": 0.04915
+        },
+        "75x4x32x128@75x4x128x32|DataType.FLOAT32": {
+          "n": 1200,
+          "ms": 78.51,
+          "ms_per_call": 0.06543
+        },
+        "75x4x32x32@75x4x32x128|DataType.BFLOAT16": {
+          "n": 3,
+          "ms": 0.21,
+          "ms_per_call": 0.06861
+        },
+        "75x4x32x32@75x4x32x128|DataType.FLOAT32": {
+          "n": 1200,
+          "ms": 86.33,
+          "ms_per_call": 0.07194
+        }
+      }
+    },
+    {
+      "i": 2,
+      "arm": "cur",
+      "fold_s": 30.386,
+      "site_wall_ms": 869.56,
+      "plddt": 0.859489,
+      "cif_sha256_16": "8139d61b6c90f893",
+      "sites": {
+        "1x16x298x298@1x16x298x32|DataType.BFLOAT16": {
+          "n": 484,
+          "ms": 26.89,
+          "ms_per_call": 0.05555
+        },
+        "1x16x298x298@1x16x298x64|DataType.FLOAT32": {
+          "n": 4800,
+          "ms": 301.8,
+          "ms_per_call": 0.06287
+        },
+        "1x16x298x32@1x16x32x298|DataType.BFLOAT16": {
+          "n": 484,
+          "ms": 28.69,
+          "ms_per_call": 0.05927
+        },
+        "1x16x298x64@1x16x64x298|DataType.FLOAT32": {
+          "n": 4800,
+          "ms": 346.15,
+          "ms_per_call": 0.07211
+        },
+        "75x4x32x128@75x4x128x32|DataType.BFLOAT16": {
+          "n": 3,
+          "ms": 0.16,
+          "ms_per_call": 0.05345
+        },
+        "75x4x32x128@75x4x128x32|DataType.FLOAT32": {
+          "n": 1200,
+          "ms": 78.23,
+          "ms_per_call": 0.06519
+        },
+        "75x4x32x32@75x4x32x128|DataType.BFLOAT16": {
+          "n": 3,
+          "ms": 0.21,
+          "ms_per_call": 0.07049
+        },
+        "75x4x32x32@75x4x32x128|DataType.FLOAT32": {
+          "n": 1200,
+          "ms": 87.43,
+          "ms_per_call": 0.07286
+        }
+      }
+    }
+  ]
+}

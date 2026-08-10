@@ -319,6 +319,20 @@ _BATCHED_MATMUL_ON = os.environ.get("TT_BIO_BATCHED_MATMUL", "1") != "0"
 # 0.0434 / 0.0580 (perf/bmm_reconcile/pcm_sweep_c0.json).
 _BATCHED_MATMUL_SATURATION_BLOCKS = 32
 
+# A/B knob for how per_core_M is picked among the saturating candidates. "blocks32", the default,
+# takes the fewest blocks at or above the floor; "occ" takes the most, i.e. the config that engages
+# the most cores rather than merely enough of them. **"occ" is measured worse and is not a tuning
+# option** -- it is here so the question can be re-asked on a new grid without a checkout.
+#
+# Measured qb2 chip 2, ttnn 0.68.0, 11x10, in-fold site wall over the real executions, arms
+# cur/occ/cur (perf/bmm_core_sat/): protenix-v2 at 298 aa costs **+51.5 ms/fold** against a 7.3 ms
+# A/A floor, and 47.8 ms of that is one site, the fp32 DiT q@k^T, where 32 -> 80 blocks doubles the
+# in1 DRAM re-read. It pays only where the extra blocks buy occupancy almost for free: opendde at
+# 512 aa gains 45.9 ms on its bf16 DiT attn@v alone (+11 % reads for 2x the cores) and nothing
+# elsewhere. The sign follows the fractional growth in total DRAM reads, not the core count, so a
+# blanket flip is a loss at the size that matters.
+_BATCHED_MATMUL_SELECT = os.environ.get("TT_BIO_BMM_SELECT", "blocks32")
+
 
 def _batched_matmul_block_w(m_tiles: int, k_tiles: int, n_tiles: int) -> int:
     """The K-block width ttnn itself would pick, which is what keeps the result bit-exact.
@@ -375,7 +389,12 @@ def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
         return None
     # Take the fewest blocks that still saturate the grid; if nothing does, take the most blocks.
     saturating = [p for p in legal if batch * m_tiles // p >= _BATCHED_MATMUL_SATURATION_BLOCKS]
-    per_core_M = max(saturating) if saturating else min(legal)
+    if not saturating:
+        per_core_M = min(legal)
+    elif _BATCHED_MATMUL_SELECT == "occ":
+        per_core_M = min(saturating)
+    else:
+        per_core_M = max(saturating)
     # out_subblock_h * out_subblock_w must fit the dest register file, which fp32_dest_acc_en
     # halves to 4 tiles. Take the widest legal w, then the tallest h that still fits.
     sub_w = max(w for w in range(1, min(4, n_tiles) + 1) if n_tiles % w == 0)

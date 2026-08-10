@@ -1,0 +1,1650 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "l1_unreserved": 1532416,
+  "recycles": 1,
+  "steps": 4,
+  "jobs": [
+    {
+      "model": "protenix-v2",
+      "size": 298,
+      "fold_s": 5.04,
+      "wall_s": 7.3,
+      "n_tokens": 298,
+      "plddt": 0.768698,
+      "new_classes": 8
+    },
+    {
+      "model": "openfold3",
+      "size": 298,
+      "fold_s": 11.15,
+      "wall_s": 12.2,
+      "n_tokens": 298,
+      "plddt": 0.365528,
+      "new_classes": 10
+    },
+    {
+      "model": "opendde",
+      "size": 298,
+      "fold_s": 7.97,
+      "wall_s": 10.0,
+      "n_tokens": 298,
+      "plddt": 0.756998,
+      "new_classes": 8
+    },
+    {
+      "model": "protenix-v2",
+      "size": 512,
+      "fold_s": 10.76,
+      "wall_s": 11.8,
+      "n_tokens": 512,
+      "plddt": 0.760159,
+      "new_classes": 8
+    },
+    {
+      "model": "openfold3",
+      "size": 512,
+      "fold_s": 61.41,
+      "wall_s": 62.5,
+      "n_tokens": 512,
+      "plddt": 0.356997,
+      "new_classes": 10
+    },
+    {
+      "model": "opendde",
+      "size": 512,
+      "fold_s": 66.99,
+      "wall_s": 68.8,
+      "n_tokens": 512,
+      "plddt": 0.728611,
+      "new_classes": 8
+    }
+  ],
+  "classes": [
+    {
+      "tag": "protenix-v2@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 45056
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 45056,
+      "alt_cb": 45056,
+      "differs": false,
+      "calls": 3
+    },
+    {
+      "tag": "protenix-v2@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 22528
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 22528,
+      "alt_cb": 22528,
+      "differs": false,
+      "calls": 3
+    },
+    {
+      "tag": "protenix-v2@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 1,
+      "Nt": 10,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 172032,
+        "5": 368640,
+        "10": 696320
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 368640,
+      "alt_cb": 172032,
+      "differs": true,
+      "calls": 52
+    },
+    {
+      "tag": "protenix-v2@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 36864,
+        "5": 79872,
+        "10": 151552
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 79872,
+      "alt_cb": 36864,
+      "differs": true,
+      "calls": 52
+    },
+    {
+      "tag": "protenix-v2@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 4,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 73728
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 73728,
+      "alt_cb": 73728,
+      "differs": false,
+      "calls": 24
+    },
+    {
+      "tag": "protenix-v2@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 4,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 40960
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 40960,
+      "alt_cb": 40960,
+      "differs": false,
+      "calls": 24
+    },
+    {
+      "tag": "protenix-v2@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 2,
+      "Nt": 10,
+      "elem_bytes": 4,
+      "in0_block_w": 1,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 262144,
+        "5": 532480,
+        "10": 983040
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 532480,
+      "alt_cb": 262144,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "protenix-v2@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 2,
+      "elem_bytes": 4,
+      "in0_block_w": 2,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 98304,
+        "5": 196608,
+        "10": 360448
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 196608,
+      "alt_cb": 98304,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 45056
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 45056,
+      "alt_cb": 45056,
+      "differs": false,
+      "calls": 3
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 22528
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 22528,
+      "alt_cb": 22528,
+      "differs": false,
+      "calls": 3
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 1192,
+      "Mt": 10,
+      "Kt": 1,
+      "Nt": 10,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        10
+      ],
+      "legal_cb": {
+        "10": 696320
+      },
+      "saturating": [
+        10
+      ],
+      "applied": true,
+      "cur_pM": 10,
+      "alt_pM": 10,
+      "cur_blocks": 1192,
+      "alt_blocks": 1192,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 696320,
+      "alt_cb": 696320,
+      "differs": false,
+      "calls": 248
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 1192,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        10
+      ],
+      "legal_cb": {
+        "10": 151552
+      },
+      "saturating": [
+        10
+      ],
+      "applied": true,
+      "cur_pM": 10,
+      "alt_pM": 10,
+      "cur_blocks": 1192,
+      "alt_blocks": 1192,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 151552,
+      "alt_cb": 151552,
+      "differs": false,
+      "calls": 248
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 1,
+      "Nt": 10,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 172032,
+        "5": 368640,
+        "10": 696320
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 368640,
+      "alt_cb": 172032,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 36864,
+        "5": 79872,
+        "10": 151552
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 79872,
+      "alt_cb": 36864,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 4,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 73728
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 73728,
+      "alt_cb": 73728,
+      "differs": false,
+      "calls": 24
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 4,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 40960
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 40960,
+      "alt_cb": 40960,
+      "differs": false,
+      "calls": 24
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 2,
+      "Nt": 10,
+      "elem_bytes": 4,
+      "in0_block_w": 1,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 262144,
+        "5": 532480,
+        "10": 983040
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 532480,
+      "alt_cb": 262144,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "openfold3@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 2,
+      "elem_bytes": 4,
+      "in0_block_w": 2,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 98304,
+        "5": 196608,
+        "10": 360448
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 196608,
+      "alt_cb": 98304,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "opendde@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 45056
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 45056,
+      "alt_cb": 45056,
+      "differs": false,
+      "calls": 27
+    },
+    {
+      "tag": "opendde@298",
+      "batch": 300,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 22528
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 300,
+      "alt_blocks": 300,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 22528,
+      "alt_cb": 22528,
+      "differs": false,
+      "calls": 27
+    },
+    {
+      "tag": "opendde@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 1,
+      "Nt": 10,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 172032,
+        "5": 368640,
+        "10": 696320
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 368640,
+      "alt_cb": 172032,
+      "differs": true,
+      "calls": 52
+    },
+    {
+      "tag": "opendde@298",
+      "batch": 16,
+      "Mt": 10,
+      "Kt": 10,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        2,
+        5,
+        10
+      ],
+      "legal_cb": {
+        "2": 36864,
+        "5": 79872,
+        "10": 151552
+      },
+      "saturating": [
+        2,
+        5
+      ],
+      "applied": true,
+      "cur_pM": 5,
+      "alt_pM": 2,
+      "cur_blocks": 32,
+      "alt_blocks": 80,
+      "cur_cores": 32,
+      "alt_cores": 80,
+      "cur_cb": 79872,
+      "alt_cb": 36864,
+      "differs": true,
+      "calls": 52
+    },
+    {
+      "tag": "opendde@298",
+      "batch": 8,
+      "Mt": 19,
+      "Kt": 2,
+      "Nt": 19,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [],
+      "legal_cb": {},
+      "saturating": [],
+      "applied": false,
+      "cur_pM": null,
+      "alt_pM": null,
+      "cur_blocks": null,
+      "alt_blocks": null,
+      "cur_cores": null,
+      "alt_cores": null,
+      "cur_cb": null,
+      "alt_cb": null,
+      "differs": false,
+      "calls": 4
+    },
+    {
+      "tag": "opendde@298",
+      "batch": 8,
+      "Mt": 19,
+      "Kt": 19,
+      "Nt": 2,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        19
+      ],
+      "legal_cb": {
+        "19": 319488
+      },
+      "saturating": [],
+      "applied": true,
+      "cur_pM": 19,
+      "alt_pM": 19,
+      "cur_blocks": 8,
+      "alt_blocks": 8,
+      "cur_cores": 8,
+      "alt_cores": 8,
+      "cur_cb": 319488,
+      "alt_cb": 319488,
+      "differs": false,
+      "calls": 4
+    },
+    {
+      "tag": "opendde@298",
+      "batch": 16,
+      "Mt": 19,
+      "Kt": 2,
+      "Nt": 19,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [],
+      "legal_cb": {},
+      "saturating": [],
+      "applied": false,
+      "cur_pM": null,
+      "alt_pM": null,
+      "cur_blocks": null,
+      "alt_blocks": null,
+      "cur_cores": null,
+      "alt_cores": null,
+      "cur_cb": null,
+      "alt_cb": null,
+      "differs": false,
+      "calls": 96
+    },
+    {
+      "tag": "opendde@298",
+      "batch": 16,
+      "Mt": 19,
+      "Kt": 19,
+      "Nt": 2,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        19
+      ],
+      "legal_cb": {
+        "19": 319488
+      },
+      "saturating": [],
+      "applied": true,
+      "cur_pM": 19,
+      "alt_pM": 19,
+      "cur_blocks": 16,
+      "alt_blocks": 16,
+      "cur_cores": 16,
+      "alt_cores": 16,
+      "cur_cb": 319488,
+      "alt_cb": 319488,
+      "differs": false,
+      "calls": 96
+    },
+    {
+      "tag": "protenix-v2@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 45056
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 45056,
+      "alt_cb": 45056,
+      "differs": false,
+      "calls": 3
+    },
+    {
+      "tag": "protenix-v2@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 22528
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 22528,
+      "alt_cb": 22528,
+      "differs": false,
+      "calls": 3
+    },
+    {
+      "tag": "protenix-v2@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 1,
+      "Nt": 16,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        4,
+        8
+      ],
+      "legal_cb": {
+        "4": 475136,
+        "8": 884736
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 884736,
+      "alt_cb": 475136,
+      "differs": true,
+      "calls": 52
+    },
+    {
+      "tag": "protenix-v2@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 16,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        4,
+        8,
+        16
+      ],
+      "legal_cb": {
+        "4": 65536,
+        "8": 122880,
+        "16": 237568
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 122880,
+      "alt_cb": 65536,
+      "differs": true,
+      "calls": 52
+    },
+    {
+      "tag": "protenix-v2@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 4,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 73728
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 73728,
+      "alt_cb": 73728,
+      "differs": false,
+      "calls": 24
+    },
+    {
+      "tag": "protenix-v2@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 4,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 40960
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 40960,
+      "alt_cb": 40960,
+      "differs": false,
+      "calls": 24
+    },
+    {
+      "tag": "protenix-v2@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 2,
+      "Nt": 16,
+      "elem_bytes": 4,
+      "in0_block_w": 1,
+      "legal": [
+        4,
+        8
+      ],
+      "legal_cb": {
+        "4": 688128,
+        "8": 1245184
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 1245184,
+      "alt_cb": 688128,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "protenix-v2@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 16,
+      "Nt": 2,
+      "elem_bytes": 4,
+      "in0_block_w": 2,
+      "legal": [
+        4,
+        8,
+        16
+      ],
+      "legal_cb": {
+        "4": 163840,
+        "8": 294912,
+        "16": 557056
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 294912,
+      "alt_cb": 163840,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 45056
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 45056,
+      "alt_cb": 45056,
+      "differs": false,
+      "calls": 3
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 22528
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 22528,
+      "alt_cb": 22528,
+      "differs": false,
+      "calls": 3
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 2048,
+      "Mt": 16,
+      "Kt": 1,
+      "Nt": 16,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [],
+      "legal_cb": {},
+      "saturating": [],
+      "applied": false,
+      "cur_pM": null,
+      "alt_pM": null,
+      "cur_blocks": null,
+      "alt_blocks": null,
+      "cur_cores": null,
+      "alt_cores": null,
+      "cur_cb": null,
+      "alt_cb": null,
+      "differs": false,
+      "calls": 248
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 2048,
+      "Mt": 16,
+      "Kt": 16,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        16
+      ],
+      "legal_cb": {
+        "16": 237568
+      },
+      "saturating": [
+        16
+      ],
+      "applied": true,
+      "cur_pM": 16,
+      "alt_pM": 16,
+      "cur_blocks": 2048,
+      "alt_blocks": 2048,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 237568,
+      "alt_cb": 237568,
+      "differs": false,
+      "calls": 248
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 1,
+      "Nt": 16,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        4,
+        8
+      ],
+      "legal_cb": {
+        "4": 475136,
+        "8": 884736
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 884736,
+      "alt_cb": 475136,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 16,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        4,
+        8,
+        16
+      ],
+      "legal_cb": {
+        "4": 65536,
+        "8": 122880,
+        "16": 237568
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 122880,
+      "alt_cb": 65536,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 4,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 73728
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 73728,
+      "alt_cb": 73728,
+      "differs": false,
+      "calls": 24
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 4,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 40960
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 40960,
+      "alt_cb": 40960,
+      "differs": false,
+      "calls": 24
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 2,
+      "Nt": 16,
+      "elem_bytes": 4,
+      "in0_block_w": 1,
+      "legal": [
+        4,
+        8
+      ],
+      "legal_cb": {
+        "4": 688128,
+        "8": 1245184
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 1245184,
+      "alt_cb": 688128,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "openfold3@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 16,
+      "Nt": 2,
+      "elem_bytes": 4,
+      "in0_block_w": 2,
+      "legal": [
+        4,
+        8,
+        16
+      ],
+      "legal_cb": {
+        "4": 163840,
+        "8": 294912,
+        "16": 557056
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 294912,
+      "alt_cb": 163840,
+      "differs": true,
+      "calls": 96
+    },
+    {
+      "tag": "opendde@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 1,
+      "Nt": 4,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 45056
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 45056,
+      "alt_cb": 45056,
+      "differs": false,
+      "calls": 27
+    },
+    {
+      "tag": "opendde@512",
+      "batch": 516,
+      "Mt": 1,
+      "Kt": 4,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        1
+      ],
+      "legal_cb": {
+        "1": 22528
+      },
+      "saturating": [
+        1
+      ],
+      "applied": true,
+      "cur_pM": 1,
+      "alt_pM": 1,
+      "cur_blocks": 516,
+      "alt_blocks": 516,
+      "cur_cores": 110,
+      "alt_cores": 110,
+      "cur_cb": 22528,
+      "alt_cb": 22528,
+      "differs": false,
+      "calls": 27
+    },
+    {
+      "tag": "opendde@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 1,
+      "Nt": 16,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        4,
+        8
+      ],
+      "legal_cb": {
+        "4": 475136,
+        "8": 884736
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 884736,
+      "alt_cb": 475136,
+      "differs": true,
+      "calls": 52
+    },
+    {
+      "tag": "opendde@512",
+      "batch": 16,
+      "Mt": 16,
+      "Kt": 16,
+      "Nt": 1,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        4,
+        8,
+        16
+      ],
+      "legal_cb": {
+        "4": 65536,
+        "8": 122880,
+        "16": 237568
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 122880,
+      "alt_cb": 65536,
+      "differs": true,
+      "calls": 52
+    },
+    {
+      "tag": "opendde@512",
+      "batch": 8,
+      "Mt": 32,
+      "Kt": 2,
+      "Nt": 32,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [
+        4
+      ],
+      "legal_cb": {
+        "4": 933888
+      },
+      "saturating": [
+        4
+      ],
+      "applied": true,
+      "cur_pM": 4,
+      "alt_pM": 4,
+      "cur_blocks": 64,
+      "alt_blocks": 64,
+      "cur_cores": 64,
+      "alt_cores": 64,
+      "cur_cb": 933888,
+      "alt_cb": 933888,
+      "differs": false,
+      "calls": 4
+    },
+    {
+      "tag": "opendde@512",
+      "batch": 8,
+      "Mt": 32,
+      "Kt": 32,
+      "Nt": 2,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        4,
+        8,
+        16,
+        32
+      ],
+      "legal_cb": {
+        "4": 98304,
+        "8": 180224,
+        "16": 344064,
+        "32": 671744
+      },
+      "saturating": [
+        4,
+        8
+      ],
+      "applied": true,
+      "cur_pM": 8,
+      "alt_pM": 4,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 180224,
+      "alt_cb": 98304,
+      "differs": true,
+      "calls": 4
+    },
+    {
+      "tag": "opendde@512",
+      "batch": 16,
+      "Mt": 32,
+      "Kt": 2,
+      "Nt": 32,
+      "elem_bytes": 2,
+      "in0_block_w": 1,
+      "legal": [],
+      "legal_cb": {},
+      "saturating": [],
+      "applied": false,
+      "cur_pM": null,
+      "alt_pM": null,
+      "cur_blocks": null,
+      "alt_blocks": null,
+      "cur_cores": null,
+      "alt_cores": null,
+      "cur_cb": null,
+      "alt_cb": null,
+      "differs": false,
+      "calls": 96
+    },
+    {
+      "tag": "opendde@512",
+      "batch": 16,
+      "Mt": 32,
+      "Kt": 32,
+      "Nt": 2,
+      "elem_bytes": 2,
+      "in0_block_w": 2,
+      "legal": [
+        8,
+        16,
+        32
+      ],
+      "legal_cb": {
+        "8": 180224,
+        "16": 344064,
+        "32": 671744
+      },
+      "saturating": [
+        8,
+        16
+      ],
+      "applied": true,
+      "cur_pM": 16,
+      "alt_pM": 8,
+      "cur_blocks": 32,
+      "alt_blocks": 64,
+      "cur_cores": 32,
+      "alt_cores": 64,
+      "cur_cb": 344064,
+      "alt_cb": 180224,
+      "differs": true,
+      "calls": 96
+    }
+  ]
+}
