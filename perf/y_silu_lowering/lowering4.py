@@ -95,9 +95,10 @@ def main():
         ("cs384_m9536", (1, 9536, 384), 384, 1536, ("on",)),
     ]
 
-    res = {"arch": str(dev.arch()), "grid": list(CG), "k": a.k, "passes": a.passes,
+    res = {"arch": str(dev.arch()), "grid": str(CG), "k": a.k, "passes": a.passes,
            "load_start": [round(v, 2) for v in os.getloadavg()], "cases": {}}
     for label, shp, K, N, accs in CASES:
+      try:
         xt = torch.randn(*shp, dtype=torch.bfloat16)
         wt = (torch.randn(K, N) * 0.05).to(torch.bfloat16)
         x = ttnn.from_torch(xt, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
@@ -125,13 +126,16 @@ def main():
             row["gap"] = round(row["penalty_on"] - row["penalty_off"], 3)
             row["gap_per_tile"] = round(row["gap"] / nt, 6)
         res["cases"][label] = row
-        print(label, "tiles", nt, json.dumps({k: v for k, v in row.items()
+        print(label, "tiles", nt, json.dumps(m), json.dumps({k: v for k, v in row.items()
                                               if k.startswith(("penalty", "gap"))}),
               "load", row["load"], flush=True)
         ttnn.deallocate(x)
         ttnn.deallocate(w)
-    res["load_end"] = [round(v, 2) for v in os.getloadavg()]
-    Path(a.out).write_text(json.dumps(res, indent=2))
+      except Exception as e:
+        res["cases"][label] = {"shape": list(shp), "error": f"{type(e).__name__}: {e}"[:400]}
+        print(label, "FAILED", type(e).__name__, str(e)[:200], flush=True)
+      res["load_end"] = [round(v, 2) for v in os.getloadavg()]
+      Path(a.out).write_text(json.dumps(res, indent=2))
     print("wrote", a.out, flush=True)
 
 

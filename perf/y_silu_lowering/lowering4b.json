@@ -1,0 +1,495 @@
+{
+  "arch": "Arch.BLACKHOLE",
+  "grid": "ttnn.CoreGrid(x=13, y=10)",
+  "k": 10,
+  "passes": 3,
+  "load_start": [
+    50.41,
+    37.25,
+    31.86
+  ],
+  "cases": {
+    "pair298_b30": {
+      "shape": [
+        1,
+        30,
+        298,
+        256
+      ],
+      "K": 256,
+      "N": 1024,
+      "out_tiles": 9600,
+      "raw": {
+        "on_None": [
+          115.512,
+          76.979,
+          76.91
+        ],
+        "on_silu": [
+          347.467,
+          249.257,
+          249.234
+        ],
+        "off_None": [
+          76.367,
+          76.14,
+          75.957
+        ],
+        "off_silu": [
+          151.115,
+          149.922,
+          150.008
+        ]
+      },
+      "median": {
+        "on_None": 76.979,
+        "on_silu": 249.257,
+        "off_None": 76.14,
+        "off_silu": 150.008
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 172.278,
+      "penalty_on_per_tile": 0.017946,
+      "penalty_off": 73.868,
+      "penalty_off_per_tile": 0.007695,
+      "gap": 98.41,
+      "gap_per_tile": 0.010251
+    },
+    "pair512_b16": {
+      "shape": [
+        1,
+        16,
+        512,
+        256
+      ],
+      "K": 256,
+      "N": 1024,
+      "out_tiles": 8192,
+      "raw": {
+        "on_None": [
+          47.673,
+          48.028,
+          46.947
+        ],
+        "on_silu": [
+          206.771,
+          206.338,
+          206.073
+        ],
+        "off_None": [
+          50.753,
+          49.541,
+          49.44
+        ],
+        "off_silu": [
+          126.544,
+          125.827,
+          124.963
+        ]
+      },
+      "median": {
+        "on_None": 47.673,
+        "on_silu": 206.338,
+        "off_None": 49.541,
+        "off_silu": 125.827
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 158.665,
+      "penalty_on_per_tile": 0.019368,
+      "penalty_off": 76.286,
+      "penalty_off_per_tile": 0.009312,
+      "gap": 82.379,
+      "gap_per_tile": 0.010056
+    },
+    "pair512_b32": {
+      "shape": [
+        1,
+        32,
+        512,
+        256
+      ],
+      "K": 256,
+      "N": 1024,
+      "out_tiles": 16384,
+      "raw": {
+        "on_None": [
+          107.471,
+          104.864,
+          103.698
+        ],
+        "on_silu": [
+          404.343,
+          330.073,
+          328.876
+        ]
+      },
+      "median": {
+        "on_None": 104.864,
+        "on_silu": 330.073
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 225.209,
+      "penalty_on_per_tile": 0.013746
+    },
+    "pair298_b1": {
+      "shape": [
+        1,
+        1,
+        298,
+        256
+      ],
+      "K": 256,
+      "N": 1024,
+      "out_tiles": 320,
+      "raw": {
+        "on_None": [
+          19.166,
+          24.027,
+          23.397
+        ],
+        "on_silu": [
+          25.345,
+          25.614,
+          24.623
+        ]
+      },
+      "median": {
+        "on_None": 23.397,
+        "on_silu": 25.345
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 1.948,
+      "penalty_on_per_tile": 0.006088
+    },
+    "pair298_b2": {
+      "shape": [
+        1,
+        2,
+        298,
+        256
+      ],
+      "K": 256,
+      "N": 1024,
+      "out_tiles": 640,
+      "raw": {
+        "on_None": [
+          24.351,
+          23.422,
+          22.216
+        ],
+        "on_silu": [
+          26.637,
+          24.761,
+          24.243
+        ]
+      },
+      "median": {
+        "on_None": 23.422,
+        "on_silu": 24.761
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 1.339,
+      "penalty_on_per_tile": 0.002092
+    },
+    "pair298_b4": {
+      "shape": [
+        1,
+        4,
+        298,
+        256
+      ],
+      "K": 256,
+      "N": 1024,
+      "out_tiles": 1280,
+      "raw": {
+        "on_None": [
+          18.774,
+          18.597,
+          19.035
+        ],
+        "on_silu": [
+          37.487,
+          36.983,
+          37.149
+        ]
+      },
+      "median": {
+        "on_None": 18.774,
+        "on_silu": 37.149
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 18.375,
+      "penalty_on_per_tile": 0.014355
+    },
+    "pair298_b8": {
+      "shape": [
+        1,
+        8,
+        298,
+        256
+      ],
+      "K": 256,
+      "N": 1024,
+      "out_tiles": 2560,
+      "raw": {
+        "on_None": [
+          101.437,
+          24.434,
+          27.36
+        ],
+        "on_silu": [
+          71.331,
+          68.626,
+          68.697
+        ]
+      },
+      "median": {
+        "on_None": 27.36,
+        "on_silu": 68.697
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 41.337,
+      "penalty_on_per_tile": 0.016147
+    },
+    "pair298_b16": {
+      "shape": [
+        1,
+        16,
+        298,
+        256
+      ],
+      "K": 256,
+      "N": 1024,
+      "out_tiles": 5120,
+      "raw": {
+        "on_None": [
+          37.495,
+          37.553,
+          37.564
+        ],
+        "on_silu": [
+          131.647,
+          131.809,
+          131.382
+        ]
+      },
+      "median": {
+        "on_None": 37.553,
+        "on_silu": 131.647
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 94.094,
+      "penalty_on_per_tile": 0.018378
+    },
+    "cs384_m298": {
+      "shape": [
+        1,
+        298,
+        384
+      ],
+      "K": 384,
+      "N": 1536,
+      "out_tiles": 480,
+      "raw": {
+        "on_None": [
+          18.92,
+          18.38,
+          19.005
+        ],
+        "on_silu": [
+          21.133,
+          20.049,
+          20.507
+        ]
+      },
+      "median": {
+        "on_None": 18.92,
+        "on_silu": 20.507
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 1.587,
+      "penalty_on_per_tile": 0.003306
+    },
+    "cs384_m596": {
+      "shape": [
+        1,
+        596,
+        384
+      ],
+      "K": 384,
+      "N": 1536,
+      "out_tiles": 912,
+      "raw": {
+        "on_None": [
+          19.934,
+          19.244,
+          19.03
+        ],
+        "on_silu": [
+          29.332,
+          29.024,
+          28.813
+        ]
+      },
+      "median": {
+        "on_None": 19.244,
+        "on_silu": 29.024
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 9.78,
+      "penalty_on_per_tile": 0.010724
+    },
+    "cs384_m1192": {
+      "shape": [
+        1,
+        1192,
+        384
+      ],
+      "K": 384,
+      "N": 1536,
+      "out_tiles": 1824,
+      "raw": {
+        "on_None": [
+          23.749,
+          24.234,
+          23.86
+        ],
+        "on_silu": [
+          50.805,
+          50.601,
+          50.463
+        ]
+      },
+      "median": {
+        "on_None": 23.86,
+        "on_silu": 50.601
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 26.741,
+      "penalty_on_per_tile": 0.014661
+    },
+    "cs384_m2384": {
+      "shape": [
+        1,
+        2384,
+        384
+      ],
+      "K": 384,
+      "N": 1536,
+      "out_tiles": 3600,
+      "raw": {
+        "on_None": [
+          30.184,
+          30.222,
+          30.825
+        ],
+        "on_silu": [
+          94.957,
+          95.379,
+          96.941
+        ]
+      },
+      "median": {
+        "on_None": 30.222,
+        "on_silu": 95.379
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 65.157,
+      "penalty_on_per_tile": 0.018099
+    },
+    "cs384_m4768": {
+      "shape": [
+        1,
+        4768,
+        384
+      ],
+      "K": 384,
+      "N": 1536,
+      "out_tiles": 7152,
+      "raw": {
+        "on_None": [
+          53.351,
+          53.611,
+          53.419
+        ],
+        "on_silu": [
+          173.208,
+          170.749,
+          171.316
+        ]
+      },
+      "median": {
+        "on_None": 53.419,
+        "on_silu": 171.316
+      },
+      "load": [
+        50.41,
+        37.25,
+        31.86
+      ],
+      "penalty_on": 117.897,
+      "penalty_on_per_tile": 0.016484
+    },
+    "cs384_m9536": {
+      "shape": [
+        1,
+        9536,
+        384
+      ],
+      "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 63 clash with L1 buffers on core range [(x=0,y=0) - (x=11,y=9)]. L1 buffer allocated at 1277952 and static circular buffer region ends at 1405440\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x69fe45) [0x7b"
+    }
+  },
+  "load_end": [
+    50.41,
+    37.25,
+    31.86
+  ]
+}
