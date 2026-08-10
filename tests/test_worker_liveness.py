@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import signal
+import subprocess
 import sys
 import tempfile
 import threading
@@ -129,3 +131,60 @@ def test_orphan_guard_exits_when_dispatcher_is_gone():
     proc.join(15)
     assert not proc.is_alive(), "orphaned worker kept running; it would hold its card lease"
     assert proc.exitcode == 70, f"expected exit 70, got {proc.exitcode}"
+
+
+def _alive(pid: int) -> bool:
+    """Zombie counts as dead: under a subreaper the corpse lingers as a child."""
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except (FileNotFoundError, ProcessLookupError, IndexError):
+        return False
+    return state != "Z"
+
+
+_PDEATHSIG_PARENT = """
+import os, sys, time
+sys.path.insert(0, {repo!r})
+from tt_bio.device_lease import install_parent_death_guard
+armed = {armed!r}
+if os.fork() == 0:
+    install_parent_death_guard(os.getppid())
+    with open(armed, "w") as f:
+        f.write(str(os.getpid()))
+    time.sleep(60)          # mid-job: never polls getppid() again
+    os._exit(1)
+for _ in range(200):        # vanish only once the child has armed
+    if os.path.exists(armed):
+        break
+    time.sleep(0.05)
+os._exit(0)
+"""
+
+
+def test_parent_death_guard_kills_child_when_var_names_parent(tmp_path):
+    """The mid-job case the between-lease check cannot reach: the child is asleep
+    inside a call and still dies with its parent, releasing card lease and chip."""
+    armed = tmp_path / "armed"
+    src = _PDEATHSIG_PARENT.format(repo=str(Path(__file__).resolve().parents[1]),
+                                   armed=str(armed))
+    subprocess.run([sys.executable, "-c", src], timeout=60, check=True)
+    assert armed.exists(), "child never armed the guard"
+    child = int(armed.read_text())
+    deadline = time.time() + 5
+    while time.time() < deadline and _alive(child):
+        time.sleep(0.1)
+    assert not _alive(child), f"pid {child} outlived its parent; it would hold its card lease"
+
+
+def test_arm_orphan_guard_ignores_a_stale_var(monkeypatch):
+    """A detached fleet job inherits TT_BIO_PARENT_PID from a dead grandparent.
+    Arming there would kill it, so the test is pid-exact, not "the variable is set".
+    If this regresses, this process exits 70 rather than failing an assert."""
+    import tt_bio.device_lease as dl
+
+    monkeypatch.setattr(dl, "_ARMED", False)
+    monkeypatch.setenv("TT_BIO_PARENT_PID", str(os.getpid()))  # our own pid is never our parent
+    before = signal.getsignal(signal.SIGTERM)
+    dl.arm_orphan_guard()
+    assert dl._ARMED is False
+    assert signal.getsignal(signal.SIGTERM) is before, "guard must not touch SIGTERM disposition"

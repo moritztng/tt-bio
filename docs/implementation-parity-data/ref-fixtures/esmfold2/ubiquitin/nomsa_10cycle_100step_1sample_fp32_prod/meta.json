@@ -1,8 +1,6 @@
 {
   "command": "TT_VISIBLE_DEVICES=1 TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 PYTHONPATH=$PWD python3 scripts/esmfold2_e2e_parity.py --proteins ubiquitin --loops 10 --steps 100 --seeds 0,1,2 --fixture_dir docs/implementation-parity-data/ref-fixtures/esmfold2/ubiquitin/nomsa_10cycle_100step_1sample_fp32_prod --out <summary.json>",
   "date": "2026-07-29",
-  "model": "esmfold2",
-  "msa": "none (single-sequence; ESMFold2 is single-sequence by design, its MSA is optional)",
   "envelope": {
     "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
     "reference_impl": "tt-bio vendored torch reference (CPU fp32)",
@@ -27,6 +25,96 @@
       "target_id": "ubiquitin"
     }
   },
+  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference commit/checkpoint or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs.",
+  "model": "esmfold2",
+  "msa": "none (single-sequence; ESMFold2 is single-sequence by design, its MSA is optional)",
+  "parity": {
+    "L": 76,
+    "coord_dm_1mpcc": {
+      "cross": {
+        "max": 0.03027784824371338,
+        "mean": 0.01734720336066352,
+        "min": 0.0049749016761779785,
+        "n": 9,
+        "std": 0.008368507818791652
+      },
+      "cross_over_floor": 0.7856238990620826,
+      "dev_floor": {
+        "max": 0.017756938934326172,
+        "mean": 0.013724029064178467,
+        "min": 0.007032871246337891,
+        "n": 3,
+        "std": 0.004764529956368456
+      },
+      "dev_floor_instability_check_applied": true,
+      "dev_over_ref_floor": 0.6215367976079823,
+      "floor_inflated_by_dev": false,
+      "floor_mean": 0.022080798943837483,
+      "metric": "1-coord_dm_pcc",
+      "ref_floor": {
+        "max": 0.03155261278152466,
+        "mean": 0.022080798943837483,
+        "min": 0.014617443084716797,
+        "n": 3,
+        "std": 0.007058112153339133
+      },
+      "same_seed_cross": {
+        "max": 0.03027784824371338,
+        "mean": 0.022209107875823975,
+        "min": 0.017082154750823975,
+        "n": 3,
+        "std": 0.005774782294678075
+      },
+      "same_seed_over_all_cross": 1.28027022074263,
+      "within_noise_floor": true
+    },
+    "distogram_pcc": 0.9991939663887024,
+    "kabsch_rmsd": {
+      "cross": {
+        "max": 2.0857863426208496,
+        "mean": 1.6237910853491888,
+        "min": 1.134626865386963,
+        "n": 9,
+        "std": 0.3187080099079367
+      },
+      "cross_over_floor": 0.9159877237204689,
+      "dev_floor": {
+        "max": 1.8102366924285889,
+        "mean": 1.6291292905807495,
+        "min": 1.3336676359176636,
+        "n": 3,
+        "std": 0.2106928060132862
+      },
+      "dev_floor_instability_check_applied": true,
+      "dev_over_ref_floor": 0.9189990288710687,
+      "floor_inflated_by_dev": false,
+      "floor_mean": 1.7727214495340984,
+      "metric": "kabsch_rmsd",
+      "ref_floor": {
+        "max": 1.8083248138427734,
+        "mean": 1.7727214495340984,
+        "min": 1.7482719421386719,
+        "n": 3,
+        "std": 0.02575387664033307
+      },
+      "same_seed_cross": {
+        "max": 2.0857863426208496,
+        "mean": 1.8115829229354858,
+        "min": 1.499092936515808,
+        "n": 3,
+        "std": 0.24104174477464768
+      },
+      "same_seed_over_all_cross": 1.1156502454537822,
+      "within_noise_floor": true
+    },
+    "n_seeds": 3,
+    "plddt_mae": 0.005937476176768541,
+    "plddt_pcc": 0.9951062202453613,
+    "protein": "ubiquitin",
+    "ptm_ref": 0.7427206635475159,
+    "ptm_tt": 0.746173083782196
+  },
+  "provenance": "Built 2026-07-29 on qb1 (Blackhole p150 card 1) at the ESMFold2 paper benchmark protocol (10 loops, 100 requested = 68 executed steps, 1 sample, seeds 0-2, single-sequence) \u2014 the D4a reference leg esmfold2 never got. Parity numbers in the parity field are the output of this harness's noise-floor verdict (X within max(R,D)).",
   "reference_commit": "Biohub/transformers fork f9a5a37 (vendored tt_bio/_vendor/esmfold2_hf)",
   "reference_impl": "tt-bio vendored torch reference (Biohub/transformers fork f9a5a37, CPU fp32)",
   "reference_version": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e (48-block release trunk)",
@@ -36,110 +124,23 @@
     2
   ],
   "settings": {
-    "recycling_cycles": 10,
-    "requested_steps": 100,
+    "checkpoint": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e",
+    "diffusion_samples": 1,
+    "dtype": "fp32",
     "executed_steps": 68,
     "executed_steps_device_empirical": 68,
-    "diffusion_samples": 1,
+    "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",
+    "rationale": "sample=1 isolates convergence (loops/steps) from best-of-N selection",
+    "recycling_cycles": 10,
+    "requested_steps": 100,
     "seeds": [
       0,
       1,
       2
     ],
-    "single_sequence": true,
-    "dtype": "fp32",
-    "checkpoint": "biohub/ESMFold2 sha256:138fd4350d6892b81ce6be7ff9bf5a93ae9d4d3751f46a27438a3f9f0dcefa0e",
-    "target": "ubiquitin (PDB 1UBQ, 76 res)",
     "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 (global CPU torch stream seeded per seed on both paths)",
-    "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",
-    "rationale": "sample=1 isolates convergence (loops/steps) from best-of-N selection"
+    "single_sequence": true,
+    "target": "ubiquitin (PDB 1UBQ, 76 res)"
   },
-  "parity": {
-    "protein": "ubiquitin",
-    "L": 76,
-    "n_seeds": 3,
-    "plddt_pcc": 0.9951062202453613,
-    "plddt_mae": 0.005937476176768541,
-    "distogram_pcc": 0.9991939663887024,
-    "ptm_tt": 0.746173083782196,
-    "ptm_ref": 0.7427206635475159,
-    "kabsch_rmsd": {
-      "metric": "kabsch_rmsd",
-      "cross": {
-        "n": 9,
-        "mean": 1.6237910853491888,
-        "std": 0.3187080099079367,
-        "min": 1.134626865386963,
-        "max": 2.0857863426208496
-      },
-      "ref_floor": {
-        "n": 3,
-        "mean": 1.7727214495340984,
-        "std": 0.02575387664033307,
-        "min": 1.7482719421386719,
-        "max": 1.8083248138427734
-      },
-      "dev_floor": {
-        "n": 3,
-        "mean": 1.6291292905807495,
-        "std": 0.2106928060132862,
-        "min": 1.3336676359176636,
-        "max": 1.8102366924285889
-      },
-      "floor_mean": 1.7727214495340984,
-      "cross_over_floor": 0.9159877237204689,
-      "dev_over_ref_floor": 0.9189990288710687,
-      "dev_floor_instability_check_applied": true,
-      "floor_inflated_by_dev": false,
-      "within_noise_floor": true,
-      "same_seed_cross": {
-        "n": 3,
-        "mean": 1.8115829229354858,
-        "std": 0.24104174477464768,
-        "min": 1.499092936515808,
-        "max": 2.0857863426208496
-      },
-      "same_seed_over_all_cross": 1.1156502454537822
-    },
-    "coord_dm_1mpcc": {
-      "metric": "1-coord_dm_pcc",
-      "cross": {
-        "n": 9,
-        "mean": 0.01734720336066352,
-        "std": 0.008368507818791652,
-        "min": 0.0049749016761779785,
-        "max": 0.03027784824371338
-      },
-      "ref_floor": {
-        "n": 3,
-        "mean": 0.022080798943837483,
-        "std": 0.007058112153339133,
-        "min": 0.014617443084716797,
-        "max": 0.03155261278152466
-      },
-      "dev_floor": {
-        "n": 3,
-        "mean": 0.013724029064178467,
-        "std": 0.004764529956368456,
-        "min": 0.007032871246337891,
-        "max": 0.017756938934326172
-      },
-      "floor_mean": 0.022080798943837483,
-      "cross_over_floor": 0.7856238990620826,
-      "dev_over_ref_floor": 0.6215367976079823,
-      "dev_floor_instability_check_applied": true,
-      "floor_inflated_by_dev": false,
-      "within_noise_floor": true,
-      "same_seed_cross": {
-        "n": 3,
-        "mean": 0.022209107875823975,
-        "std": 0.005774782294678075,
-        "min": 0.017082154750823975,
-        "max": 0.03027784824371338
-      },
-      "same_seed_over_all_cross": 1.28027022074263
-    }
-  },
-  "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference commit/checkpoint or the settings above change. For any other change (device seeds, device code, release tag) the fixture is reused as-is and only the device side re-runs.",
-  "provenance": "Built 2026-07-29 on qb1 (Blackhole p150 card 1) at the ESMFold2 paper benchmark protocol (10 loops, 100 requested = 68 executed steps, 1 sample, seeds 0-2, single-sequence) \u2014 the D4a reference leg esmfold2 never got. Parity numbers in the parity field are the output of this harness's noise-floor verdict (X within max(R,D))."
+  "settings_tag": "nomsa_10cycle_100step_1sample_fp32_prod"
 }

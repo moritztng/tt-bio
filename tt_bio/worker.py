@@ -24,6 +24,7 @@ from typing import Any
 
 import torch
 
+from tt_bio.device_lease import install_parent_death_guard
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 
 
@@ -1217,32 +1218,19 @@ def _install_orphan_guard(dispatcher_pid: int) -> None:
     orphaned DURING a job never reaches it and keeps its chip open and its card
     lease flocked forever. One was found holding /dev/tenstorrent/0 and card 3's
     lease for 6 h at 100% CPU, deferring every later job pinned to that card.
-    PR_SET_PDEATHSIG is delivered by the kernel the moment the dispatcher dies,
-    from inside any call.
+    Mechanism and the parent-THREAD caveat: ``install_parent_death_guard``.
 
-    SIGTERM, not SIGKILL: ``_install_signal_handlers`` turns it into a
-    KeyboardInterrupt that unwinds through close_device and leaves the chip
-    clean. A worker too deep in ttnn to take the signal is caught 60 s later by
-    the heartbeat thread in ``run_worker_loop``.
+    A worker can afford the SIGTERM handler ``_install_signal_handlers`` puts on
+    top of this, which unwinds through close_device and leaves the chip clean,
+    because ``run_worker_loop``'s heartbeat catches a worker too deep in ttnn to
+    take the signal 60 s later. A process with no such backstop must leave SIGTERM
+    at its default disposition instead, or a wedged chip is held forever.
 
-    The kernel delivers on the parent THREAD's exit, not the parent process's,
-    so this is only correct while workers are started from the dispatcher's main
-    thread. ``main._spawn_worker_processes`` and ``_supervise_worker_processes``
-    both are; a future caller spawning from a worker thread would see the signal
-    fire early.
+    Workers are started from the dispatcher's main thread
+    (``main._spawn_worker_processes``, ``_supervise_worker_processes``), which is
+    what makes the kernel's parent-thread delivery rule a no-op here.
     """
-    if not dispatcher_pid:
-        return
-    try:
-        import ctypes
-
-        ctypes.CDLL(None).prctl(1, int(signal.SIGTERM))  # 1 = PR_SET_PDEATHSIG
-    except Exception:
-        pass
-    # The dispatcher can die between our spawn and the prctl above, in which case
-    # the signal was already missed.
-    if os.getppid() != dispatcher_pid:
-        os._exit(70)
+    install_parent_death_guard(dispatcher_pid)
 
 
 def _install_signal_handlers() -> None:
