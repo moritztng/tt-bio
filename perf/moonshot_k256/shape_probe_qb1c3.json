@@ -1,0 +1,40 @@
+{
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "hidden": 256,
+ "l1_max_seq": 352,
+ "chunk_budget": 6553600,
+ "rows": [
+  {
+   "seq": 288,
+   "chunk": 64,
+   "n_pairs": 4,
+   "in_proj_N": 256,
+   "result_mem": "L1"
+  },
+  {
+   "seq": 320,
+   "chunk": 64,
+   "n_pairs": 4,
+   "in_proj_N": 256,
+   "result_mem": "L1"
+  },
+  {
+   "seq": 512,
+   "chunk": 32,
+   "n_pairs": 8,
+   "in_proj_N": 128,
+   "result_mem": "DRAM"
+  },
+  {
+   "seq": 544,
+   "chunk": 32,
+   "n_pairs": 8,
+   "in_proj_N": 128,
+   "result_mem": "DRAM"
+  }
+ ]
+}
