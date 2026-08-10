@@ -1,0 +1,45 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "pc",
+  "visible_devices": "0",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "52b13e1ef91ffb2ebbbb75a7e70219176c8af9e4",
+  "ttnn_version": "0.68.0",
+  "input": "prot.yaml (117 aa, single protein, MSA on)",
+  "target": "examples/prot.yaml",
+  "n_msa": 35,
+  "n_tokens": 117,
+  "n_residues": 117,
+  "msa_cache": [
+    "425f6b0c8f93f94f.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 2.01,
+  "cold_s": 14.09,
+  "warm_times_s": [
+    9.779
+  ],
+  "warm_min_s": 9.779,
+  "warm_median_s": 9.779,
+  "warm_max_s": 9.779,
+  "cold_metrics": {
+    "complex_plddt": 0.921056,
+    "plddt": 0.921056,
+    "ptm": 0.9066,
+    "iptm": 0.0,
+    "confidence_score": 0.9066,
+    "n_residues": 117,
+    "n_chains": 1,
+    "n_tokens": 117,
+    "msa": true,
+    "n_atoms": 900,
+    "samples": 1
+  },
+  "date": "2026-08-10"
+}
