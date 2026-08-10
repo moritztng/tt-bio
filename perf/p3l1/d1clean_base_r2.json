@@ -1,0 +1,21 @@
+{
+  "arm": "base_r2",
+  "cold_s": 63.234,
+  "cold_plddt": 0.859489,
+  "cold_cif_sha16": "8139d61b6c90f893",
+  "fold_walls_s": [
+    53.133
+  ],
+  "median_wall_s": 53.133,
+  "min_wall_s": 53.133,
+  "folds": [
+    {
+      "wall_s": 53.133,
+      "plddt": 0.859489,
+      "cif_sha16": "8139d61b6c90f893",
+      "cif_name": "prot300.cif"
+    }
+  ],
+  "n_tokens": 298,
+  "tt_bio_git": "7b9d0b427d23c535eceb0564b76ba089f128ac5f"
+}
