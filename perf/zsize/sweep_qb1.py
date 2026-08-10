@@ -108,7 +108,7 @@ def main():
                            plddt=m.get("plddt"), cif_sha256=sha_dir(struct_dir))
             except Exception as e:                                              # noqa: BLE001
                 rec.update(verdict="FAIL", exc=type(e).__name__, error=str(e)[:3000],
-                           traceback=traceback.format_exc()[-3000:])
+                           traceback=traceback.format_exc()[-3000:], traceback_head=traceback.format_exc()[:3000])
             rec["wall_s"] = round(time.perf_counter() - t0, 1)
             rec["load_after"] = [round(x, 2) for x in os.getloadavg()]
             rec["decisions"] = {k: dict(v) for k, v in sorted(DEC.items())}
