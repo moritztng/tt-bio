@@ -1,0 +1,27 @@
+{
+  "cores": 110,
+  "rows": [
+    {
+      "N": 320,
+      "buf": "l1",
+      "tiles": 3200,
+      "cores_engaged": 100,
+      "generic_us": 238.0,
+      "ttnn_permute_us": 117.27,
+      "ratio": 0.493,
+      "torch_equal": true,
+      "us_per_tile_per_engaged_core": 7.437
+    },
+    {
+      "N": 320,
+      "buf": "dram",
+      "tiles": 3200,
+      "cores_engaged": 100,
+      "generic_us": 249.0,
+      "ttnn_permute_us": 165.66,
+      "ratio": 0.665,
+      "torch_equal": true,
+      "us_per_tile_per_engaged_core": 7.781
+    }
+  ]
+}
