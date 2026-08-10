@@ -1,0 +1,36 @@
+{
+  "arm": "r2L0",
+  "commit": "834997427f3bddcf9183db14ba215023c0cd3209",
+  "fused": "0",
+  "model": "protenix-v2",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 17.921,
+  "warm_s": [
+    11.319,
+    11.314,
+    11.464
+  ],
+  "warm_median_s": 11.319,
+  "warm_min_s": 11.314,
+  "confidence": {
+    "complex_plddt": 0.888699,
+    "plddt": 0.888699,
+    "ptm": 0.917966,
+    "iptm": 0.0,
+    "confidence_score": 0.917966
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 3.51,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 52.0
+}

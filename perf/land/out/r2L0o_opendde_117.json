@@ -1,0 +1,36 @@
+{
+  "arm": "r2L0o",
+  "commit": "834997427f3bddcf9183db14ba215023c0cd3209",
+  "fused": "0",
+  "model": "opendde",
+  "size": "117",
+  "n_tokens": 117,
+  "n_atoms": 900,
+  "cold_s": 20.182,
+  "warm_s": [
+    12.672,
+    12.688,
+    12.651
+  ],
+  "warm_median_s": 12.672,
+  "warm_min_s": 12.651,
+  "confidence": {
+    "complex_plddt": 0.833669,
+    "plddt": 0.833669,
+    "ptm": 0.81286,
+    "iptm": 0.0,
+    "confidence_score": 0.81286
+  },
+  "coords_shape": [
+    900,
+    3
+  ],
+  "intra_run_max_abs_delta_A": 0.0,
+  "n_folds": 4,
+  "load_s": 5.24,
+  "n_msa": 35,
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "wall_s": 58.2
+}
