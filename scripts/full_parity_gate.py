@@ -653,6 +653,29 @@ def parse_workers(spec: str) -> list[Worker]:
     return out or [Worker(host=local_host, card=0, is_local=True)]
 
 
+def preflight_workers(workers: list[Worker]) -> None:
+    """Fail in seconds if a remote worker is unreachable, instead of at the end of the run.
+
+    Every device leg dispatches through the same ssh, so an unusable host does not fail the
+    gate, it ERRORs each leg one at a time and still prints a tally. Measured cost of not
+    checking: a 103-minute run on qb1 in which nothing folded, because --workers named
+    "qb1" (an ssh alias that exists on Moritz laptop, not a name this host resolves) and
+    locality comes from socket.gethostname() = "tt-quietbox". The docstring example above
+    is written from the laptop and is exactly what leads you into it."""
+    for w in workers:
+        if w.is_local:
+            continue
+        probe = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+                                w.host, "true"], capture_output=True, text=True)
+        if probe.returncode != 0:
+            sys.exit(
+                f"--workers names host {w.host!r}, which this box cannot reach: "
+                f"{(probe.stderr or '').strip() or 'rc=' + str(probe.returncode)}\n"
+                f"This host is {socket.gethostname().split('.')[0]!r}; a worker on this box "
+                f"must be named that (or localhost) to run locally. Every device leg would "
+                f"otherwise ERROR with 'predict exited 255' after a full-length run.")
+
+
 def _find_results_dir(out_dir: Path) -> Path | None:
     """The inner ``<model>_results_<id>/`` dir the scorer wants, located by its results.json.
     tt-bio predict writes results into a subdir of ``--out_dir``; the scorer expects that
@@ -1405,6 +1428,7 @@ def main() -> int:
         return 0
 
     workers = parse_workers(args.workers)
+    preflight_workers(workers)
     fp_index = load_fingerprint_index()
 
     legs = LEGS
