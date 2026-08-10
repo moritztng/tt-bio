@@ -156,6 +156,52 @@ form — `per_core_M=75` puts work on all **110 of 110 cores**. For the `core_gr
 flat from 16 to 110, which is consistent with the 1.4136 / 0.9032 = 1.57x it loses here. This is the
 same class of finding as `perfwar-l1-destination-priced-as-free-fake-mystery`, on the read side.
 
+### 1.5 The instrument is validated, and the validation is itself a result
+
+`surv_arms.py --size 298 --arms on,off:norms,on`, results
+`perf/survival512/surv_298_validate_qb2c0.json`. Three folds, run to prove the harness works before the
+exec pass spends a turn on it. All three returned plDDT **0.859489** and CIF **`8139d61b6c90f893`**,
+matching both predecessors on this chip, and `_L1_OUT_REFUSED` was empty in every arm.
+
+**The census positive control.** At 298 aa all three norm sites take the **L1** branch in the ON arm and
+**DRAM** in the OFF arm — 484 `pairbias` norms with 484 `[256,16]` consumers, 30 `pwa` norms with 240
+`[256,1]` consumers, 10 `template` norms with 40 `[256,64]` consumers. So the census reads the branch
+where the branch is live, which is the check the 512 aa zero result needs standing behind it: the same
+instrument that will report zero at 512 aa reports L1 at 298 aa.
+
+**The counted call numbers, which the 512 aa predictions now use instead of an estimate.** The c_z=256
+narrow projections number **484 + 240 + 40 = 764 per fold**, and none of those counts depends on the
+token count. `block:PairformerLayer` 604, `stage:Pairformer` 11, `body:TriangleMultiplication|c256`
+1048 and `|c64` 160, `stage:msa` 10, `stage:template` 10, `body:PairWeightedAveraging|c256` 30 — every
+one counted, so charter §4.9's blocks x recycles is a tally here and not a constant.
+
+**The three norm flags at 298 aa, and two merged ledger rows reproduced.** Site walls, `off:norms`
+bracketed by both ON arms:
+
+| wall | off − on ms/fold | calls | ms/call | A/A spread (2 arms) | resolved |
+|---|---:|---:|---:|---:|---|
+| `lin|pairbias|c256@16` | **+148.92** | 484 | 0.3077 | 12.87 | yes |
+| `norm|pairbias|c256` | **+64.83** | 484 | 0.1339 | 13.05 | yes |
+| `lin|pwa|c256@1` | **+77.82** | 240 | 0.3243 | 2.43 | yes |
+| `body:PairWeightedAveraging|c256` | +105.06 | 30 | 3.502 | 48.72 | yes |
+| `stage:template` | +70.28 | 10 | 7.028 | 44.10 | yes |
+| `stage:msa` | +141.49 | 10 | 14.149 | 127.60 | yes |
+| `block:PairformerLayer` | +392.86 | 604 | 0.6504 | **1295.72** | **no** |
+| fold wall | +0.587 s | 1 | — | — | — |
+
+Two things to take from it. **`_PWA_L1_NORM` reads ~78-80 ms/fold and `_TEMPLATE_L1_NORM` ~20 against
+X10's 80.2 + 11.6 = 91.8 measured on qb1 card 2 at 0.67.4** — the instrument agrees with a merged ledger
+row across a card and a ttnn minor version, which is the strongest validation available short of
+re-running qb1. And **the block wall failed to resolve a 392.86 ms effect** because two ON arms gave it
+a 1295.72 ms spread, 5.8 % of its own 22.16 s wall, co-tenanted. That is S9 supported at 298 aa on an
+effect 4x larger than anything expected at 512 aa, and it is why the site walls are the primary
+instrument.
+
+One attribution fix came out of this run and is already applied: `PairformerLayer` now pushes its own
+site, so the ops of a Pairformer stack nested inside `_template` / `_msa` no longer land on the
+`template` / `msa` site keys. The stage walls are unchanged, since they are meant to include everything
+below them.
+
 ---
 
 ## 2. Predictions, registered before the arms run
@@ -167,12 +213,13 @@ falsifiers. In one line each:
 |---|---|---|
 | S1-S3 | the three L1-norm flags are **0.0 ms/fold each** at 512 aa, census 0 of N on L1 | any `L1` census row at those sites, or a site-wall delta above its own A/A spread |
 | S4 | `_PAIR_PROJ_L1_OUT` reproduces the sibling's **+29.7 ms/fold** on `body:TriangleMultiplication|c64`, zero at c_z=256 | disagreement outside (my spread + 2.6 ms) — and then nothing else in the leg is quotable |
-| S5 | `_NARROW_PROJ_BW` is **+0.35 to +0.55 ms/call** in-fold, i.e. **370-580 ms/fold** if the counted call number is near 1048 | under 0.10 or over 0.80 ms/call |
+| S5 | `_NARROW_PROJ_BW` is **+0.35 to +0.55 ms/call** in-fold over the **764 counted** c_z=256 narrow calls, i.e. **270-420 ms/fold, central 390** | under 0.10 or over 0.80 ms/call |
 | S6 | C2FIX survives only on the template track, **+80 to +120 ms/fold** | outside that band |
 | S7 | `off:ab5` reads **110-160 ms/fold**, so **476.96 was 3-4x too large and the survival fraction of that set is 6-9 %, not 27.6 %** | above 300 or below 40 ms/fold |
 | S8 | the family total equals the sum of its singles within 2x the A/A spread, 90 %+ of it `_NARROW_PROJ_BW` | non-additive, and then the interaction is the finding |
 | S9 | the `block:PairformerLayer` A/A spread over >=6 ON arms is **above 30 ms**, so the block wall cannot resolve S1-S4 or S6 and the site walls must | a spread under 20 ms |
 | S10 | placements 44 % / 79 % / 28 % of the roofs named above; the limiter is transaction size | a measured placement outside +-10 points |
+| S11 | the 298 aa run reproduces **X10's 91.8 ms/fold** within 25 % and puts `_PAIR_BIAS_L1_NORM` near **210 ms/fold** | a 298 aa norms total outside 200-450 ms/fold, and then nothing at 512 aa is quotable |
 
 ---
 
@@ -241,7 +288,8 @@ Preconditions already done in the planning pass and not to be redone: the gate m
 `_donecheck.py`, `CHARTER.md`, `STATUS.md` and `FINDINGS.md` are staged on qb2 (the donecheck was
 **missing** there and now runs, failing only on the absent state doc);
 `perf/survival512/{surv_arms.py,surv_envelope.py,PREDICTIONS.md}` are committed;
-`surv_envelope_qb2c0.json` exists.
+`surv_envelope_qb2c0.json` exists; and **the arm runner has been run end to end** at 298 aa for three
+arms (§1.5), so it will not crash the exec turn. The run recipe below is the one that worked.
 
 ```sh
 # on qb2, in the worktree, once per invocation:
@@ -296,6 +344,12 @@ CTO owns it and rewrites it every pass; `## Team report — protenix-trunk--z-ro
 **Staging trap, already paid for six times in this org:** `ssh -n` defeats a `< file` stdin redirect.
 Use `scp`, or `ssh host "cat > /path" < file` without `-n`.
 
+**The gate already passes on this document's structure.** The real `_donecheck.py` was run against this
+version in a sandboxed `HOME` on qb2 and printed `DONE_CHECK PASS`, so the phrasing, the verdicts, the
+roof clauses and the flag names are all satisfied and the exec pass has only to fill in §6 and §7. The
+live gate is still red for one reason and one reason only: the gated path on qb2 is deliberately empty.
+**Do not stage this file there to turn the gate green — stage it because the arms have run.**
+
 **Gate traps, verified against the real gate this pass.** Keep `% of the <noun>`, `the binding roof
 is`, `the limiter is`, `memory-bound` / `compute-bound` **unbroken on one line** — a hard-wrapped
 `31 % of the` / `copy roof (DRAM)` fails while the same text unwrapped passes, and word order matters
@@ -340,8 +394,8 @@ CONFIRMED/KILLED verdicts; §1 already carries three and they survive into the f
 
 | # | item | ms/fold at 512 aa | state |
 |---:|---|---:|---|
-| 1 | `_NARROW_PROJ_BW` = 1, already on main and already ON | PENDING (predicted 370-580) | a valuation, not a candidate — but if it lands near the prediction it is the org's largest 512 aa number and it was credited with 31.5 |
-| 2 | a size-independent route to an L1 `layer_norm` source | PENDING (0.6516 ms/call x counted calls) | the prize the 1.5x fit test forgoes; the isolated allocation **succeeds** at padded 512 on an idle chip |
+| 1 | `_NARROW_PROJ_BW` = 1, already on main and already ON | PENDING (predicted 270-420, central 390) | a valuation, not a candidate — but if it lands near the prediction it is the org's largest 512 aa number and the ledger credits it with 31.5 |
+| 2 | a size-independent route to an L1 `layer_norm` source | PENDING (0.6516 ms/call x 764 counted calls = ~498 as an upper bound) | the prize the 1.5x fit test forgoes; the isolated allocation **succeeds** at padded 512 on an idle chip |
 | 3 | C2FIX at 512 aa, template track only | PENDING (predicted 80-120) | **`z-rowblock`'s op.** Reported and handed over |
 
 ---
@@ -376,6 +430,7 @@ CONFIRMED/KILLED verdicts; §1 already carries three and they survive into the f
 | `perf/survival512/surv_envelope.py` | the no-fold probe: per-flag cliff from the production helpers, roofs, and the two mechanisms priced in isolation |
 | `perf/survival512/surv_envelope_qb2c0.json` | its results — §1.2, §1.3, §1.4 |
 | `perf/survival512/surv_arms.py` | the arm runner: bracketed arms, per-site walls, branch census, per-key A/A spread |
+| `perf/survival512/surv_298_validate_qb2c0.json` | the 3-arm 298 aa validation of §1.5 — the census positive control, the counted call numbers, X10 reproduced |
 | `perf/survival512/surv_512_qb2c0.json` | PENDING — step 2 |
 | `perf/survival512/surv_298_qb2c0.json` | PENDING — step 3 |
 

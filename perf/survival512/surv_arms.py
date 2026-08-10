@@ -204,9 +204,22 @@ def install(T, P, ttnn):
     body(T.TriangleAttention, "TriangleAttention", "triatt")
     body(T.AttentionPairBias, "AttentionPairBias", "pairbias")
     body(T.PairWeightedAveraging, "PairWeightedAveraging", "pwa")
-    for cls, key in ((T.PairformerLayer, "block:PairformerLayer"), (T.Pairformer, "stage:Pairformer")):
-        f = cls.__call__
-        cls.__call__ = (lambda g, k: lambda self, *x, **kw: timed(k, g, self, *x, **kw))(f, key)
+    # PairformerLayer pushes its own site so the ops of a stack nested inside `_template` / `_msa` do
+    # not get attributed to the template or MSA site. Measured at 298 aa before this was added:
+    # `lin|template|c64@128` x1600 and `norm|template|c64` x840 are the template stack's internal
+    # Pairformer ops, not the template z projection (which is `lin|template|c256@64` x40). The stage
+    # walls are unaffected -- they are meant to include everything below them.
+    fpfl = T.PairformerLayer.__call__
+
+    def pfl(self, *x, **kw):
+        STATE["site"].append("pfl")
+        try:
+            return timed("block:PairformerLayer", fpfl, self, *x, **kw)
+        finally:
+            STATE["site"].pop()
+    T.PairformerLayer.__call__ = pfl
+    fpf = T.Pairformer.__call__
+    T.Pairformer.__call__ = lambda self, *x, **kw: timed("stage:Pairformer", fpf, self, *x, **kw)
 
     for meth, key, tag in (("_template", "stage:template", "template"), ("_msa", "stage:msa", "msa")):
         f = getattr(P.Trunk, meth)

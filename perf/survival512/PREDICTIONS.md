@@ -69,11 +69,16 @@ the config is returned at every size to padded 800.
 Isolated, the flag is worth 1.4136 − 0.9032 = **0.5104 ms/call at padded 512** against
 0.5081 − 0.4016 = 0.1065 at padded 320 — a **4.8x** per-call growth against a 2.56x growth in bytes.
 
-**Predicted: +0.35 to +0.55 ms/call in-fold at 512 aa** (the sibling leg's in-fold-to-isolated ratio
-on a comparable region was 1.04x, so the in-fold figure should not be far below the isolated one),
-**times the counted number of c_z=256 narrow calls**. If that count is near the sibling's 1048, this
-flag alone is **370-580 ms/fold at 512 aa** — larger than everything else in the family put together,
-and entirely absent from `size512-ab`'s A/B, which held it fixed in both arms.
+**The call count is now counted rather than guessed.** The 298 aa validation run
+(`surv_298_validate_qb2c0.json`, 3 arms) tallies the c_z=256 narrow projections at **484 `pairbias`
+(weight `[256,16]`) + 240 `pwa` (`[256,1]`) + 40 `template` (`[256,64]`) = 764 per fold**, and none of
+those counts depends on the token count.
+
+**Predicted: +0.35 to +0.55 ms/call in-fold at 512 aa** (the sibling leg's in-fold-to-isolated ratio on
+a comparable region was 1.04x, so the in-fold figure should not be far below the isolated 0.5104),
+**times 764 counted calls = 270 to 420 ms/fold, central estimate 390.** Larger than everything else in
+either family put together at 512 aa, and entirely absent from `size512-ab`'s A/B, which held this flag
+fixed in both arms.
 
 Falsified below 0.10 ms/call or above 0.80 ms/call.
 
@@ -111,10 +116,31 @@ which touch the same trimul region.
 aa, where `size512-ab` had quoted 2.10 ms from a single pair of ON arms and called its 476.96 "227x
 the floor".
 
-**Predicted: with >=6 ON arms the `block:PairformerLayer` spread comes back above 30 ms, so the block
-wall cannot resolve S1-S4 or S6, while the per-site walls resolve all of them.** Falsified by a block
-spread under 20 ms over six ON arms — in which case the block wall is the better instrument after all
-and the site walls are a redundancy rather than the answer.
+**Already supported by the 298 aa validation run, on a much larger effect.** Two ON arms and one
+`off:norms` arm: the norm class costs **+392.86 ms/fold on `block:PairformerLayer` against a 1295.72 ms
+spread from the two ON arms — unresolved** — while the same effect reads **+148.92 ± 12.87** on
+`lin|pairbias|c256@16`, **+77.82 ± 2.43** on `lin|pwa|c256@1` and **+64.83 ± 13.05** on
+`norm|pairbias|c256`, all resolved. Co-tenancy on the board partner is the likely reason the block
+spread is 5.8 % of its own wall here.
+
+**Predicted: with >=6 ON arms at 512 aa the `block:PairformerLayer` spread comes back above 30 ms, so
+the block wall cannot resolve S1-S4 or S6, while the per-site walls resolve all of them.** Falsified by
+a block spread under 20 ms over six ON arms — in which case the block wall is the better instrument
+after all and the site walls are a redundancy rather than the answer.
+
+## S11 — the instrument reproduces two merged ledger rows at 298 aa (already partly settled)
+
+The 298 aa validation run's `off:norms` arm is the positive control the census needs: it shows all three
+norm sites on the **L1** branch in the ON arm (484 / 30 / 10 norms, 484 / 240 / 40 consumer projections)
+and all of them on **DRAM** in the OFF arm, so the census reads the branch and the flags are live at
+298 aa. Its site walls give **~78-80 ms/fold for `_PWA_L1_NORM` and ~20 for `_TEMPLATE_L1_NORM`**
+against **X10's 80.2 + 11.6 = 91.8 ms/fold** measured on qb1 card 2 at 0.67.4 — agreement across a card
+and a ttnn minor version.
+
+**Predicted: the full 298 aa run reproduces X10 (91.8) to within 25 % and puts `_PAIR_BIAS_L1_NORM`
+near 210 ms/fold, i.e. the larger part of X7's 561.8 alongside `_PAIR_PROJ_L1_OUT`.** Falsified if the
+298 aa norms total lands outside 200-450 ms/fold, which would mean the instrument disagrees with the
+ledger the org merged and nothing at 512 aa is quotable until that is explained.
 
 ## S10 — where these sites sit, and whether compute overlaps communication
 
