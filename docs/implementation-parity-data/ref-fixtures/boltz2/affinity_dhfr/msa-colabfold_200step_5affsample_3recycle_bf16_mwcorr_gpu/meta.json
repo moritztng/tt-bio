@@ -25,5 +25,6 @@
     "shared_draw_seed": 0,
     "target_id": "affinity_dhfr",
     "yaml": "examples/affinity_dhfr_msa.yaml"
-  }
+  },
+  "settings_tag": "msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu"
 }

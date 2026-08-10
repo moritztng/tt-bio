@@ -998,6 +998,13 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
                 meta = old_meta
             else:
                 meta = envelope_meta
+            # The legacy R/D/X scorer refuses any fixture whose meta.json does not name its
+            # own settings tag (pharma_parity.py, "settings-tag mismatch"), so a fixture the
+            # branch above wrote flat has been unscoreable under --legacy-rdx ever since:
+            # boltz2-{trpcage,prot,hsa}-nomsa hard-ERRORed the first time this gate could
+            # reach them. The tag IS the directory name, so write it and the guard compares
+            # two real values instead of None against a string.
+            meta.setdefault("settings_tag", base.name)
             meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True))
             n_ok += 1
     # refresh the fingerprint index so a matching reference takes the fast (device-only) path
