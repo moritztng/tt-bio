@@ -20,10 +20,13 @@
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
-    const uint32_t src_addr = get_arg_val<uint32_t>(0);
-    const uint32_t start_group = get_arg_val<uint32_t>(1);
-    const uint32_t num_groups = get_arg_val<uint32_t>(2);
-    const uint32_t Nt = get_arg_val<uint32_t>(3);
+    // src_addr is the ONLY value that changes between calls at a fixed (N, buffer type, grid), so
+    // it lives in the common runtime args: everything else is a pure function of the shape and the
+    // work split, which lets the host cache the whole ProgramDescriptor and rewrite two scalars.
+    const uint32_t src_addr = get_common_arg_val<uint32_t>(0);
+    const uint32_t start_group = get_arg_val<uint32_t>(0);
+    const uint32_t num_groups = get_arg_val<uint32_t>(1);
+    const uint32_t Nt = get_arg_val<uint32_t>(2);
 
     constexpr uint32_t cb_id_in = 0;  // c_0
     constexpr uint32_t TILE_HEIGHT = 32;
