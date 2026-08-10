@@ -1,0 +1,49 @@
+{
+  "model": "opendde",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "pc",
+  "visible_devices": "0",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "3a36077711d3f5a8c05293d4bcc44026856c8ce3",
+  "ttnn_version": "0.68.0",
+  "input": "prot300.yaml (298 aa, single protein, MSA on)",
+  "target": "examples/prot300.yaml",
+  "n_msa": 35,
+  "n_tokens": 298,
+  "n_residues": 298,
+  "msa_cache": [
+    "425f6b0c8f93f94f.a3m",
+    "fe22d91e18cd544a.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 3.24,
+  "cold_s": 42.42,
+  "warm_times_s": [
+    38.451,
+    38.547,
+    38.569,
+    38.733
+  ],
+  "warm_min_s": 38.451,
+  "warm_median_s": 38.569,
+  "warm_max_s": 38.733,
+  "cold_metrics": {
+    "complex_plddt": 0.788216,
+    "plddt": 0.788216,
+    "ptm": 0.835636,
+    "iptm": 0.0,
+    "confidence_score": 0.835636,
+    "n_residues": 298,
+    "n_chains": 1,
+    "n_tokens": 298,
+    "msa": true,
+    "n_atoms": 2398,
+    "samples": 1
+  },
+  "date": "2026-08-10"
+}
