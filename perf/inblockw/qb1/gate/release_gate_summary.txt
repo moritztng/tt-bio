@@ -1,0 +1,9 @@
+RELEASE GATE — prot.yaml (prot), 200 steps / 5 samples, seed 0
+model            RMSD (A)      TM           floor     wall  result
+protenix-v2         1.422   0.948     <=6.0/>=0.5      73s  PASS
+opendde             3.144   0.835     <=6.0/>=0.5      84s  PASS
+GATE PASS — all models cleared parse + ground-truth floor
+RELEASE GATE — 1ahw_abag.yaml (opendde-abag), 200 steps / 5 samples, seed 0
+model            global DockQ  mean fnat     floor     wall  result
+opendde-abag            0.832      0.928     >=0.5     456s  PASS
+GATE PASS — opendde-abag cleared parse + DockQ floor

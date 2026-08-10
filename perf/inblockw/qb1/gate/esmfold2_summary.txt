@@ -1,0 +1,5 @@
+      Statically allocated circular buffers in program 500 clash with L1 buffers on core range [(x=0,y=0) - (x=12,y=9)]. L1 ... x5baa5c574a7f]
+RELEASE GATE — prot.yaml (prot), 200 steps / 5 samples, seed 0
+model            RMSD (A)      TM           floor     wall  result
+esmfold2              -       -       <=8.0/>=0.4      97s  FAIL (CIF parse failed: predict wrote no CIF output)
+GATE FAIL — a model missed parse or the ground-truth floor (see above)

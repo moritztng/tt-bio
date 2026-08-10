@@ -1,0 +1,11 @@
+{
+  "mode": "saprot",
+  "model": "saprot-650m",
+  "target": "ubiquitin-L76",
+  "R_emb": 1.0,
+  "R_logits": 1.0,
+  "D_emb": 1.0,
+  "D_logits": 1.0,
+  "X_emb": 0.9996375419868906,
+  "X_logits": 0.9999269404347831
+}

@@ -1,0 +1,23 @@
+{
+ "model": "protenix-v2",
+ "arm": "off",
+ "scope": "both",
+ "target": "/home/ttuser/.coworker/wt/perfwar-inblockw-qb1-land/examples/prot300.yaml",
+ "cold_s": 76.621,
+ "times": [
+  31.367,
+  31.051,
+  31.446
+ ],
+ "median_s": 31.367,
+ "min_s": 31.051,
+ "plddt": 0.840781,
+ "n_tokens": 298,
+ "cif_sha16": "d49af9baa50f00cc",
+ "cif_path": "perf/inblockw/qb1/pv2_off.cif",
+ "fired_calls_per_fold": 0,
+ "grid": [
+  13,
+  10
+ ]
+}

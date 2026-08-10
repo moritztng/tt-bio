@@ -1,0 +1,30 @@
+{
+  "mode": "embeddings",
+  "model": "esmc-600m",
+  "fast": false,
+  "targets": {
+    "trpcage": {
+      "length": 20,
+      "dev_vs_ref_pcc": 0.9995354089189517,
+      "dev_vs_dev_pcc": 1.0
+    },
+    "gb1": {
+      "length": 56,
+      "dev_vs_ref_pcc": 0.9996810727015355,
+      "dev_vs_dev_pcc": 0.9999999999999999
+    },
+    "ubiquitin": {
+      "length": 76,
+      "dev_vs_ref_pcc": 0.9996072328034995,
+      "dev_vs_dev_pcc": 1.0
+    },
+    "lysozyme": {
+      "length": 129,
+      "dev_vs_ref_pcc": 0.999380435107183,
+      "dev_vs_dev_pcc": 1.0
+    }
+  },
+  "dev_vs_ref_pcc_min": 0.999380435107183,
+  "dev_vs_ref_pcc_mean": 0.9995510373827924,
+  "dev_vs_dev_pcc_mean": 1.0
+}
