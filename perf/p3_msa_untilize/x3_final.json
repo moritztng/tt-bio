@@ -1,0 +1,118 @@
+2026-08-10 04:27:08.920 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 04:27:08.924 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 04:27:08.924 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 04:27:08.928 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-10 04:27:08.929 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 04:27:08.932 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 04:27:08.932 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 04:27:08.936 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 04:27:08.939 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 04:27:08.939 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 04:27:08.954 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-10 04:27:08.993 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[3] and remote chip ids {} (cluster.cpp:180)
+2026-08-10 04:27:08.993 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-10 04:27:08.993 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-10 04:27:08.994 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-10 04:27:08.994 | info     |             UMD | Mapped hugepage 0x200000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-10 04:27:09.207 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:329)
+2026-08-10 04:27:09.207 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:391)
+2026-08-10 04:27:09.207 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 04:27:09.209 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 04:27:09.209 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 04:27:09.213 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-10 04:27:09.213 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 04:27:09.213 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 04:27:09.213 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-10 04:27:09.213 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 04:27:09.213 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 04:27:09.213 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)
+2026-08-10 04:27:09.213 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)
+2026-08-10 04:27:09.213 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)
+2026-08-10 04:27:09.213 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)
+2026-08-10 04:27:09.464 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)
+2026-08-10 04:27:26.408 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)
+2026-08-10 04:27:27.293 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)
+{
+ "slice_alignment": {
+  "[0:256, 0:32] aligned": 28.93,
+  "[0:256, 32:64] aligned": 30.58,
+  "[0:256, 1:33] UNALIGNED": 227.59,
+  "[0:256, 0:1] aligned sub-tile": 55.32,
+  "[0:256, 1:2] UNALIGNED sub-tile": 231.31,
+  "[0:256, 8:16] UNALIGNED (PWA m/g head 1)": 231.19
+ },
+ "cliff_mechanism": {
+  "298x298 tiles GOOD": {
+   "MB": 173.4,
+   "to_layout": {
+    "us": 1008.1,
+    "GB/s": 360.8
+   },
+   "untilize mc=True": {
+    "us": 998.8,
+    "GB/s": 364.2
+   },
+   "untilize mc=False": {
+    "us": 36070.6,
+    "GB/s": 10.1
+   }
+  },
+  "256x256 tiles BAD": {
+   "MB": 128.0,
+   "to_layout": {
+    "us": 26659.4,
+    "GB/s": 10.1
+   },
+   "untilize mc=True": {
+    "us": 26690.5,
+    "GB/s": 10.1
+   },
+   "untilize mc=False": {
+    "us": 26687.8,
+    "GB/s": 10.1
+   }
+  }
+ },
+ "c4_rows": {
+  "1": {
+   "layer_norm": 37.33,
+   "linear": 105.14,
+   "linear_silu": 178.18
+  },
+  "2": {
+   "layer_norm": 59.14,
+   "linear": 179.76,
+   "linear_silu": 298.44
+  },
+  "4": {
+   "layer_norm": 62.01,
+   "linear": 332.95,
+   "linear_silu": 541.05
+  }
+ },
+ "fold_counts": {
+  "Trunk._lin": 46,
+  "Trunk._template": 10,
+  "Transition.__call__": 1520,
+  "PWA.__call__": 30
+ },
+ "fold_s": 29.702
+}
+2026-08-10 04:28:29.850 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-10 04:28:29.850 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)

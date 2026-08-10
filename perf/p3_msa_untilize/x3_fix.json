@@ -1,0 +1,102 @@
+2026-08-10 04:29:41.072 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 04:29:41.076 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 04:29:41.076 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 04:29:41.080 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-10 04:29:41.081 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 04:29:41.084 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 04:29:41.084 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 04:29:41.089 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 04:29:41.091 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 04:29:41.091 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 04:29:41.106 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-10 04:29:41.146 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[3] and remote chip ids {} (cluster.cpp:180)
+2026-08-10 04:29:41.146 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-10 04:29:41.146 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-10 04:29:41.147 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-10 04:29:41.147 | info     |             UMD | Mapped hugepage 0x200000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-10 04:29:41.423 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:329)
+2026-08-10 04:29:41.423 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:391)
+2026-08-10 04:29:41.423 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 04:29:41.425 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 04:29:41.425 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 04:29:41.429 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-10 04:29:41.429 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 04:29:41.429 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 04:29:41.429 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-10 04:29:41.429 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 04:29:41.429 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 04:29:41.429 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)
+2026-08-10 04:29:41.429 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)
+2026-08-10 04:29:41.429 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)
+2026-08-10 04:29:41.429 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)
+2026-08-10 04:29:41.607 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)
+{
+ "T=256 tokens (256x256 tiles, the fallback fires)": {
+  "MB": 128.0,
+  "whole": {
+   "us": 26644.9,
+   "GB/s": 10.1
+  },
+  "blocked_32": {
+   "us": 2259.9,
+   "GB/s": 118.8,
+   "speedup": 11.79,
+   "torch_equal": true
+  },
+  "blocked_64": {
+   "us": 2235.8,
+   "GB/s": 120.1,
+   "speedup": 11.92,
+   "torch_equal": true
+  },
+  "blocked_128": {
+   "us": 28034.3,
+   "GB/s": 9.6,
+   "speedup": 0.95,
+   "torch_equal": true
+  }
+ },
+ "T=298 tokens (298x298 tiles, control, already fast)": {
+  "MB": 173.4,
+  "whole": {
+   "us": 997.3,
+   "GB/s": 364.7
+  },
+  "blocked_32": {
+   "us": 3119.3,
+   "GB/s": 116.6,
+   "speedup": 0.32,
+   "torch_equal": true
+  },
+  "blocked_64": {
+   "us": 2973.5,
+   "GB/s": 122.3,
+   "speedup": 0.34,
+   "torch_equal": true
+  },
+  "blocked_128": {
+   "us": 33110.5,
+   "GB/s": 11.0,
+   "speedup": 0.03,
+   "torch_equal": true
+  }
+ }
+}
+2026-08-10 04:29:56.289 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-10 04:29:56.289 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
