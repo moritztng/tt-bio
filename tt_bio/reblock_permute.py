@@ -289,14 +289,18 @@ def eligible(x, memory_config) -> bool:
 
 # Whether `_channel_move` reaches for this kernel at all. Bit-exact: a permute is a pure index
 # reordering, `torch.equal` against `ttnn.permute` at all 24 shapes in `eligible`'s window including
-# the ragged group's output tile padding, and 24 live 298 aa protenix-v2 folds return plDDT
-# 0.859489 and identical coordinates with it on and off. Worth 209-251 ms/fold on a 298 aa
-# protenix-v2 fold: three sessions on byte-identical code, qb1 card 3 at ttnn 0.67.4, all three read
+# the ragged group's output tile padding, and twelve on/off fold pairs across five models on both
+# grids write byte-identical structures. Worth 209-251 ms/fold on a 298 aa protenix-v2 fold: four
+# sessions on byte-identical code (209.3 / 217.7 / 218.5 / 251.2), qb1 at ttnn 0.67.4, all four read
 # on the trimul block wall because that host's fold-wall A/A floor runs to 1480 ms and cannot
 # resolve the effect. 4352 of 4352 eligible calls served in a live fold; esmfold2 serves 4336 of its
 # own at 298 aa and none at 117 aa, where the window declines them. openfold3, boltz2 and opendde
-# all gain (+236 / +314 / +681 ms/fold as qb2 ratios) and boltzgen serves zero of 3024.
-# Evidence: state/protenix-trunk--y-permute-flip.md, y-permute-crossmodel.md, z-permute-bands.md.
+# all gain (+236 / +314 / +681 ms/fold as qb2 ratios). Every model here is N-dependent, boltzgen
+# included: it serves none of the 3024 moves in an `examples/binder.yaml` design, whose pair track is
+# the [1,256,256,64] shape the window excludes for losing, and 4768 of 5408 against a 214-residue
+# target, which lands at N=320.
+# Evidence: state/protenix-trunk--y-permute-flip.md, y-permute-crossmodel.md, z-permute-bands.md,
+# z-permute-flip-land.md (the per-model release gate at this default).
 REBLOCK_PERMUTE = True
 # `TT_BIO_REBLOCK_PERMUTE` stays as an out-of-process override for A/B harnesses; the default is
 # the constant above, so the release gate and any in-process import can see and set it.
