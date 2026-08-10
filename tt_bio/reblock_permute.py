@@ -1,0 +1,201 @@
+"""The trimul channel move ``permute(x, (0, 3, 1, 2))`` as a hand-written Tensix kernel.
+
+The three kernels under ``tt_bio/kernels/reblock_permute/`` are run through ``ttnn.generic_op``,
+which JIT-compiles a kernel named by a ``KernelDescriptor`` against the shipped ttnn wheel. No
+tt-metal source build, no nanobind registration, no dependency bump.
+
+The move is a pure index reordering, so it is bit-exact against ``ttnn.permute`` by construction and
+is measured with ``torch.equal`` rather than argued.
+
+**Why the descriptor is cached.** ``generic_op`` takes the whole program description per call.
+Building it in Python costs ~155 us at N=320 (100 cores x 3 kernels of per-core runtime args), which
+is more than the 91 us of device time the op needs, so a rebuilt-per-call descriptor is a net loss.
+Everything in the descriptor except the two buffer addresses is a pure function of the shape, the
+dtype/layout, the buffer types and the core grid; the addresses now live in ``common_runtime_args``
+(see the kernels), so a cached descriptor needs two scalars rewritten per call.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import ttnn
+
+KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "reblock_permute"
+
+TILE_H = TILE_W = 32
+FACE_H = FACE_W = 16
+GROUP_TILES = 32
+IN_CB, OUT_CB, STAGE_CB = 0, 16, 24
+
+# How the cached descriptor gets its two per-call addresses. Set on first use; kept as module state
+# only so a probe can report which path the wheel took.
+ADDR_WRITE_MODE = None
+
+_CACHE: dict = {}
+# Counters for the A/B harness: (eligible calls served, calls that fell through to ttnn.permute).
+STATS = [0, 0]
+
+
+def _cache_key(x, out, device, reader_ct, writer_ct):
+    """Everything the descriptor depends on except the two buffer addresses.
+
+    The compile-time args of both TensorAccessors are in the key **verbatim**, so anything the
+    accessor bakes into the kernel (buffer type, page size, shape, shard spec) is covered whether or
+    not this function knows what it means. What is left is a pure function of ``(N, grid)``: the CB
+    sizes, the core ranges, the work split and the per-core ``start`` / ``per_core`` / ``Nt``. The
+    two addresses are the only per-call values and they are written on every call.
+    """
+    g = device.compute_with_storage_grid_size()
+    return (
+        device.id(),
+        int(x.shape[1]),
+        str(x.dtype), str(x.layout),
+        str(x.memory_config()), str(out.memory_config()),
+        g.x, g.y,
+        tuple(reader_ct), tuple(writer_ct),
+    )
+
+
+def _build(x, out, device, reader_ct, writer_ct):
+    N = int(x.shape[1])
+    Nt = N // TILE_H
+    num_groups = Nt * Nt
+
+    g = device.compute_with_storage_grid_size()
+    all_cores = ttnn.CoreRangeSet(
+        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))]
+    )
+    (_, core_grid, cg1, cg2, work1, work2) = ttnn.split_work_to_cores(all_cores, num_groups)
+
+    tile_bytes = TILE_H * TILE_W * 2  # bf16
+
+    def cb(idx, depth):
+        fmt = ttnn.CBFormatDescriptor(
+            buffer_index=idx, data_format=ttnn.bfloat16, page_size=tile_bytes
+        )
+        return ttnn.CBDescriptor(
+            total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
+        )
+
+    # c_16 depth MUST be a multiple of the 32-tile group or the writer's L1 window wraps mid-group.
+    cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
+
+    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    start = 0
+    for group, per_core in ((cg1, work1), (cg2, work2)):
+        for cr in group.ranges():
+            for cx in range(cr.start.x, cr.end.x + 1):
+                for cy in range(cr.start.y, cr.end.y + 1):
+                    reader_rt[cx][cy] = [start, per_core, Nt]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
+                    writer_rt[cx][cy] = [start, per_core, Nt]
+                    start += per_core
+    assert start == num_groups, (start, num_groups)
+
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "reader_reblock_permute.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
+    )
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "writer_reblock_permute.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+    )
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "compute_reblock_permute.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=[IN_CB, OUT_CB], runtime_args=compute_rt,
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=ttnn.MathFidelity.HiFi2, fp32_dest_acc_en=True
+        ),
+    )
+    pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=cbs)
+
+    # Decide once how the addresses reach the descriptor. Mutating the kernels held inside the
+    # cached ProgramDescriptor is the cheap path; if the binding hands back copies, fall back to
+    # rebuilding the ProgramDescriptor from the cached kernel objects (still ~3 orders cheaper than
+    # rebuilding the per-core runtime args).
+    global ADDR_WRITE_MODE
+    if ADDR_WRITE_MODE is None:
+        probe = 0xABCD1234
+        pd.kernels[0].common_runtime_args = [probe]
+        got = list(pd.kernels[0].common_runtime_args)
+        ADDR_WRITE_MODE = "in_place" if got == [probe] else "rebuild_pd"
+        pd.kernels[0].common_runtime_args = [0]
+
+    return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs, "core_grid": core_grid}
+
+
+def _prepare(x, out, device):
+    reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    writer_ct = [2, OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
+    writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    key = _cache_key(x, out, device, reader_ct, writer_ct)
+    entry = _CACHE.get(key)
+    if entry is None:
+        entry = _CACHE[key] = _build(x, out, device, reader_ct, writer_ct)
+    return entry
+
+
+def reblock_permute(x, memory_config=None, device=None):
+    """``ttnn.permute(x, (0, 3, 1, 2))`` for ``x`` of shape ``[1, N, N, 32]`` bf16 TILE."""
+    device = device or x.device()
+    mc = memory_config or x.memory_config()
+    N = int(x.shape[1])
+    out = ttnn.allocate_tensor_on_device(
+        ttnn.Shape([1, 32, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+    )
+    entry = _prepare(x, out, device)
+    src, dst = x.buffer_address(), out.buffer_address()
+    if ADDR_WRITE_MODE == "in_place":
+        pd = entry["pd"]
+        pd.kernels[0].common_runtime_args = [src]
+        pd.kernels[1].common_runtime_args = [dst]
+    else:
+        reader, writer, compute = entry["kernels"]
+        reader.common_runtime_args = [src]
+        writer.common_runtime_args = [dst]
+        pd = entry["pd"] = ttnn.ProgramDescriptor(
+            kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
+        )
+    STATS[0] += 1
+    return ttnn.generic_op([x, out], pd)
+
+
+def eligible(x, memory_config) -> bool:
+    """The gate, measured on qb2 card 2 at ttnn 0.68.0 against the wheel's own ``ttnn.permute``.
+
+    The op wins on DRAM from N=256 (1.28x at 256, 1.70x at 320, 1.51x at 384) and on L1 only in a
+    window around N=320 (0.89x at 256, 1.22x at 320, 1.02x at 384, where 144 groups over 110 cores
+    leave eleven cores carrying two). Protenix at 298 aa runs N=320 on L1, inside the window.
+    """
+    if not _ENABLED:
+        return False
+    shape = list(x.shape)
+    if len(shape) != 4 or shape[0] != 1 or shape[3] != 32 or shape[1] != shape[2]:
+        return False
+    N = shape[1]
+    if N % TILE_H or x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT:
+        return False
+    if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+        return False
+    if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+        return False
+    bt = memory_config.buffer_type
+    return (bt == ttnn.BufferType.DRAM and N >= 256) or (bt == ttnn.BufferType.L1 and 288 <= N <= 352)
+
+
+# Release-gated: OFF until the win is re-measured on qb1 at ttnn 0.67.4 (charter §4.8).
+_ENABLED = os.environ.get("TT_BIO_REBLOCK_PERMUTE", "0") == "1"
+
+
+def set_enabled(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _ENABLED
+    prev, _ENABLED = _ENABLED, bool(on)
+    return prev

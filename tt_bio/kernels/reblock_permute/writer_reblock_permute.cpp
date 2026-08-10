@@ -36,10 +36,12 @@
 #include "ttnn/operations/data_movement/common/kernels/common.hpp"
 
 void kernel_main() {
-    uint32_t dst_addr = get_arg_val<uint32_t>(0);
-    uint32_t start_group = get_arg_val<uint32_t>(1);
-    uint32_t num_groups = get_arg_val<uint32_t>(2);
-    uint32_t Nt = get_arg_val<uint32_t>(3);
+    // See the reader: the destination address is the only per-call value, so it is a common
+    // runtime arg and the descriptor above it is cacheable.
+    uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
+    uint32_t start_group = get_arg_val<uint32_t>(0);
+    uint32_t num_groups = get_arg_val<uint32_t>(1);
+    uint32_t Nt = get_arg_val<uint32_t>(2);
 
     constexpr uint32_t element_size = get_compile_time_arg_val(0);
     constexpr uint32_t cb_id_in = get_compile_time_arg_val(1);     // c_16 (post-WH tiles)

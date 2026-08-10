@@ -7,6 +7,8 @@ from math import pi
 from functools import lru_cache
 from types import MappingProxyType
 
+from . import reblock_permute as _reblock
+
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
 TRIANGLE_ATT_CHUNK_SIZE = 512
@@ -1330,6 +1332,19 @@ def _trimul_out_proj(
     return _pair_proj_linear(x, weight, ckc, _dtype())
 
 
+def _channel_move(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
+    """``permute(chunk, (0, 3, 1, 2))``, through the hand-written kernel where it wins.
+
+    Same index move as ``ttnn.permute`` and bit-exact against it (``torch.equal``). It wins because
+    it issues the 64 unavoidable NOC transactions per source tile from 100 cores. It only wins in a
+    shape window, so everything outside ``reblock_permute.eligible`` keeps the stock call; see
+    ``tt_bio/reblock_permute.py`` for the measured gate.
+    """
+    if _reblock.eligible(chunk, memory_config):
+        return _reblock.reblock_permute(chunk, memory_config)
+    return ttnn.permute(chunk, (0, 3, 1, 2), memory_config=memory_config)
+
+
 class TriangleMultiplication(Module):
     def __init__(
         self,
@@ -1404,8 +1419,10 @@ class TriangleMultiplication(Module):
         )
         ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
         if decompose:
-            ops.append((ttnn.permute, (0, 3, 1, 2)))
+            ops.append((_channel_move,))
             ops.append((ttnn.transpose, -2, -1))
+        elif permute_dims == (0, 3, 1, 2):
+            ops.append((_channel_move,))
         else:
             ops.append((ttnn.permute, permute_dims))
         if _FAST_MODE:
