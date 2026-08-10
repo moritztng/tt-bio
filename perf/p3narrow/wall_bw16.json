@@ -1,0 +1,13169 @@
+{
+ "narrow_bw": "16",
+ "cold_s": 35.655,
+ "fold_s": [],
+ "median_fold_s": null,
+ "min_fold_s": null,
+ "n_tokens": 298,
+ "plddt": 0.862081,
+ "grid": [
+  13,
+  10
+ ],
+ "pair_proj_bw": 16,
+ "narrow_proj_bw": 16,
+ "instrumented_fold_s": 52.175,
+ "inventory": [
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2761",
+    "protenix.py:1101",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768
+     ],
+     "shape": [
+      32,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2761",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2769",
+    "protenix.py:1101",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2769",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2064",
+    "protenix.py:1102",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      768
+     ],
+     "shape": [
+      1,
+      320,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768,
+      3072
+     ],
+     "shape": [
+      768,
+      3072
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      3072
+     ],
+     "shape": [
+      32,
+      3072
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     3072
+    ],
+    "shape": [
+     1,
+     320,
+     3072
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2064",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:388",
+    "tenstorrent.py:2108",
+    "protenix.py:1102",
+    "protenix.py:890"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      16,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      16,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      16,
+      64,
+      298
+     ],
+     "shape": [
+      1,
+      16,
+      64,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     16,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:388",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:388",
+    "tenstorrent.py:2114",
+    "protenix.py:1102",
+    "protenix.py:890"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      16,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      16,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      16,
+      320,
+      64
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     16,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     16,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:388",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2192",
+    "protenix.py:1102",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      768
+     ],
+     "shape": [
+      1,
+      320,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768,
+      768
+     ],
+     "shape": [
+      768,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2192",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2202",
+    "protenix.py:1102",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      768
+     ],
+     "shape": [
+      1,
+      320,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768,
+      768
+     ],
+     "shape": [
+      768,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2202",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:1098",
+    "protenix.py:1104",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768
+     ],
+     "shape": [
+      32,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:1098",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2761",
+    "protenix.py:1106",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768
+     ],
+     "shape": [
+      32,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2761",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2769",
+    "protenix.py:1106",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2769",
+   "n": 4800
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "protenix.py:1098",
+    "protenix.py:1107",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      768
+     ],
+     "shape": [
+      1,
+      320,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768,
+      1536
+     ],
+     "shape": [
+      768,
+      1536
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     1536
+    ],
+    "shape": [
+     1,
+     320,
+     1536
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:1098",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:1098",
+    "protenix.py:1108",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      768
+     ],
+     "shape": [
+      1,
+      320,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768,
+      1536
+     ],
+     "shape": [
+      768,
+      1536
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     1536
+    ],
+    "shape": [
+     1,
+     320,
+     1536
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:1098",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:1098",
+    "protenix.py:1109",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768
+     ],
+     "shape": [
+      32,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:1098",
+   "n": 4800
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:1098",
+    "protenix.py:1110",
+    "protenix.py:890",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      1536
+     ],
+     "shape": [
+      1,
+      320,
+      1536
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1536,
+      768
+     ],
+     "shape": [
+      1536,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:1098",
+   "n": 4800
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      30,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      1024
+     ],
+     "shape": [
+      256,
+      1024
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     30,
+     298,
+     1024
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     1024
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 4716
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      30,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      1024
+     ],
+     "shape": [
+      256,
+      1024
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     30,
+     298,
+     1024
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     1024
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 4716
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      30,
+      298,
+      1024
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      1024
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1024,
+      256
+     ],
+     "shape": [
+      1024,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     30,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 4716
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1486",
+    "tenstorrent.py:2413",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1486",
+   "n": 1920
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1512",
+    "tenstorrent.py:2413",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:1512",
+   "n": 1920
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1486",
+    "tenstorrent.py:2417",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1486",
+   "n": 1920
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1512",
+    "tenstorrent.py:2417",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:1512",
+   "n": 1920
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2761",
+    "protenix.py:358",
+    "protenix.py:432",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2761",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2769",
+    "protenix.py:358",
+    "protenix.py:432",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2769",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2761",
+    "protenix.py:358",
+    "protenix.py:433",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2761",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2769",
+    "protenix.py:358",
+    "protenix.py:433",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2769",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:416",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:417",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:418",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:388",
+    "protenix.py:421",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      4,
+      32,
+      32
+     ],
+     "shape": [
+      75,
+      4,
+      32,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      4,
+      32,
+      128
+     ],
+     "shape": [
+      75,
+      4,
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "shape": [
+     75,
+     4,
+     32,
+     128
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:388",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:388",
+    "protenix.py:424",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      4,
+      32,
+      128
+     ],
+     "shape": [
+      75,
+      4,
+      32,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      4,
+      128,
+      32
+     ],
+     "shape": [
+      75,
+      4,
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "shape": [
+     75,
+     4,
+     32,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:388",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2761",
+    "protenix.py:358",
+    "protenix.py:443",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2761",
+   "n": 1200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2769",
+    "protenix.py:358",
+    "protenix.py:443",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2769",
+   "n": 1200
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      30,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      128
+     ],
+     "shape": [
+      64,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     30,
+     298,
+     128
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 720
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      30,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      128
+     ],
+     "shape": [
+      64,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     30,
+     298,
+     128
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 720
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      30,
+      298,
+      128
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      64
+     ],
+     "shape": [
+      128,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     30,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     64
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 720
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:435",
+    "protenix.py:558",
+    "protenix.py:875",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:435",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:438",
+    "protenix.py:558",
+    "protenix.py:875"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:439",
+    "protenix.py:558",
+    "protenix.py:875"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:444",
+    "protenix.py:558",
+    "protenix.py:875"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      256
+     ],
+     "shape": [
+      128,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     256
+    ],
+    "shape": [
+     1,
+     2400,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:445",
+    "protenix.py:558",
+    "protenix.py:875"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      256
+     ],
+     "shape": [
+      128,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     256
+    ],
+    "shape": [
+     1,
+     2400,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:446",
+    "protenix.py:558",
+    "protenix.py:875"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      256
+     ],
+     "shape": [
+      1,
+      2400,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      256,
+      128
+     ],
+     "shape": [
+      256,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:447",
+    "protenix.py:558",
+    "protenix.py:875"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:435",
+    "protenix.py:558",
+    "protenix.py:909",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:435",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:438",
+    "protenix.py:558",
+    "protenix.py:909"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:439",
+    "protenix.py:558",
+    "protenix.py:909"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:444",
+    "protenix.py:558",
+    "protenix.py:909"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      256
+     ],
+     "shape": [
+      128,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     256
+    ],
+    "shape": [
+     1,
+     2400,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:445",
+    "protenix.py:558",
+    "protenix.py:909"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      256
+     ],
+     "shape": [
+      128,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     256
+    ],
+    "shape": [
+     1,
+     2400,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:446",
+    "protenix.py:558",
+    "protenix.py:909"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      256
+     ],
+     "shape": [
+      1,
+      2400,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      256,
+      128
+     ],
+     "shape": [
+      256,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:447",
+    "protenix.py:558",
+    "protenix.py:909"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 600
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1360",
+    "tenstorrent.py:1619",
+    "tenstorrent.py:2413"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 524
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1360",
+    "tenstorrent.py:1622",
+    "tenstorrent.py:2413"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 524
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1360",
+    "tenstorrent.py:1619",
+    "tenstorrent.py:2417"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 524
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1360",
+    "tenstorrent.py:1622",
+    "tenstorrent.py:2417"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 524
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1817",
+    "tenstorrent.py:1901",
+    "tenstorrent.py:2421"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 524
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1817",
+    "tenstorrent.py:1901",
+    "tenstorrent.py:2425"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 524
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      28,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      1024
+     ],
+     "shape": [
+      256,
+      1024
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     28,
+     298,
+     1024
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     1024
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 524
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      28,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      1024
+     ],
+     "shape": [
+      256,
+      1024
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     28,
+     298,
+     1024
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     1024
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 524
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      28,
+      298,
+      1024
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      1024
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1024,
+      256
+     ],
+     "shape": [
+      1024,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     28,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 524
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1766",
+    "tenstorrent.py:2421",
+    "tenstorrent.py:2497"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      8
+     ],
+     "shape": [
+      256,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     8
+    ],
+    "shape": [
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 484
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1766",
+    "tenstorrent.py:2425",
+    "tenstorrent.py:2497"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      8
+     ],
+     "shape": [
+      256,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     8
+    ],
+    "shape": [
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 484
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "tenstorrent.py:2088",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      16
+     ],
+     "shape": [
+      256,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     16
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 484
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:388",
+    "tenstorrent.py:2128",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      16,
+      298,
+      32
+     ],
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      16,
+      32,
+      298
+     ],
+     "shape": [
+      1,
+      16,
+      32,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     16,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     16,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:388",
+   "n": 484
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:388",
+    "tenstorrent.py:2136",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      16,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      16,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      16,
+      298,
+      32
+     ],
+     "shape": [
+      1,
+      16,
+      320,
+      32
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     16,
+     298,
+     32
+    ],
+    "shape": [
+     1,
+     16,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:388",
+   "n": 484
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2275",
+    "tenstorrent.py:2449",
+    "tenstorrent.py:2497"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      1536
+     ],
+     "shape": [
+      384,
+      1536
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     1536
+    ],
+    "shape": [
+     1,
+     320,
+     1536
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 484
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2275",
+    "tenstorrent.py:2449",
+    "tenstorrent.py:2497"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      1536
+     ],
+     "shape": [
+      384,
+      1536
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     1536
+    ],
+    "shape": [
+     1,
+     320,
+     1536
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 484
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2275",
+    "tenstorrent.py:2449",
+    "tenstorrent.py:2497"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      1536
+     ],
+     "shape": [
+      1,
+      320,
+      1536
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1536,
+      384
+     ],
+     "shape": [
+      1536,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     384
+    ],
+    "shape": [
+     1,
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 484
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1883",
+    "tenstorrent.py:2421",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      768
+     ],
+     "shape": [
+      256,
+      768
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     768
+    ],
+    "shape": [
+     298,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1883",
+   "n": 480
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1889",
+    "tenstorrent.py:2421",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1889",
+   "n": 480
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1883",
+    "tenstorrent.py:2425",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      768
+     ],
+     "shape": [
+      256,
+      768
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     768
+    ],
+    "shape": [
+     298,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1883",
+   "n": 480
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1889",
+    "tenstorrent.py:2425",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1889",
+   "n": 480
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      1536
+     ],
+     "shape": [
+      384,
+      1536
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1536
+     ],
+     "shape": [
+      32,
+      1536
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     1536
+    ],
+    "shape": [
+     1,
+     320,
+     1536
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2064",
+   "n": 480
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2192",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      384
+     ],
+     "shape": [
+      384,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     384
+    ],
+    "shape": [
+     1,
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2192",
+   "n": 480
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2202",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497",
+    "protenix.py:2230"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      384
+     ],
+     "shape": [
+      384,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     384
+    ],
+    "shape": [
+     1,
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2202",
+   "n": 480
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2275",
+    "protenix.py:869",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 400
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2275",
+    "protenix.py:869",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     768
+    ],
+    "shape": [
+     1,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 400
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2275",
+    "protenix.py:869",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      768
+     ],
+     "shape": [
+      1,
+      320,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768,
+      384
+     ],
+     "shape": [
+      768,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     384
+    ],
+    "shape": [
+     1,
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 400
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "tenstorrent.py:2999",
+    "protenix.py:2077",
+    "protenix.py:2144"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      1
+     ],
+     "shape": [
+      256,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     1
+    ],
+    "shape": [
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 240
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:3016",
+    "protenix.py:2077",
+    "protenix.py:2144",
+    "protenix.py:2227"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      35,
+      298,
+      128
+     ],
+     "shape": [
+      35,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      8
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     35,
+     298,
+     8
+    ],
+    "shape": [
+     35,
+     320,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:3016",
+   "n": 240
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:3023",
+    "protenix.py:2077",
+    "protenix.py:2144",
+    "protenix.py:2227"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      35,
+      8,
+      298
+     ],
+     "shape": [
+      35,
+      32,
+      320
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     35,
+     8,
+     298
+    ],
+    "shape": [
+     35,
+     32,
+     320
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:3023",
+   "n": 240
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:3033",
+    "protenix.py:2077",
+    "protenix.py:2144",
+    "protenix.py:2227"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      35,
+      298,
+      128
+     ],
+     "shape": [
+      35,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      8
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     35,
+     298,
+     8
+    ],
+    "shape": [
+     35,
+     320,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:3033",
+   "n": 240
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:3041",
+    "protenix.py:2077",
+    "protenix.py:2144",
+    "protenix.py:2227"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      35,
+      298,
+      8
+     ],
+     "shape": [
+      35,
+      320,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      8,
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     35,
+     298,
+     128
+    ],
+    "shape": [
+     35,
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:3041",
+   "n": 240
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:865",
+    "protenix.py:2419",
+    "protenix.py:1926"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      256
+     ],
+     "shape": [
+      32,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      256,
+      384
+     ],
+     "shape": [
+      256,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     384
+    ],
+    "shape": [
+     32,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:874",
+    "protenix.py:2419",
+    "protenix.py:1926"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      2398,
+      3
+     ],
+     "shape": [
+      2400,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      3,
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:877",
+    "protenix.py:2419",
+    "protenix.py:1926"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      768
+     ],
+     "shape": [
+      128,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     768
+    ],
+    "shape": [
+     1,
+     2400,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:877",
+    "protenix.py:2419",
+    "protenix.py:1926",
+    "worker.py:887"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      2398
+     ],
+     "shape": [
+      320,
+      2400
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      2398,
+      768
+     ],
+     "shape": [
+      2400,
+      768
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     298,
+     768
+    ],
+    "shape": [
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:877",
+   "n": 200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:881",
+    "protenix.py:2419",
+    "protenix.py:1926"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      384
+     ],
+     "shape": [
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      768
+     ],
+     "shape": [
+      384,
+      768
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     298,
+     768
+    ],
+    "shape": [
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:906",
+    "protenix.py:2419",
+    "protenix.py:1926"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      768
+     ],
+     "shape": [
+      320,
+      768
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      768,
+      128
+     ],
+     "shape": [
+      768,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     298,
+     128
+    ],
+    "shape": [
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:906",
+    "protenix.py:2419",
+    "protenix.py:1926",
+    "worker.py:887"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      2398,
+      298
+     ],
+     "shape": [
+      2400,
+      320
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      128
+     ],
+     "shape": [
+      320,
+      128
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:906",
+   "n": 200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:912",
+    "protenix.py:2419",
+    "protenix.py:1926"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      3
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     2398,
+     3
+    ],
+    "shape": [
+     1,
+     2400,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 200
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1486",
+    "tenstorrent.py:2413",
+    "protenix.py:2145",
+    "protenix.py:2227"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1486",
+   "n": 160
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1512",
+    "tenstorrent.py:2413",
+    "protenix.py:2145",
+    "protenix.py:2227"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:1512",
+   "n": 160
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1486",
+    "tenstorrent.py:2417",
+    "protenix.py:2145",
+    "protenix.py:2227"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1486",
+   "n": 160
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1512",
+    "tenstorrent.py:2417",
+    "protenix.py:2145",
+    "protenix.py:2227"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:1512",
+   "n": 160
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1486",
+    "tenstorrent.py:2413",
+    "protenix.py:2035",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      256
+     ],
+     "shape": [
+      64,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1486",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1512",
+    "tenstorrent.py:2413",
+    "protenix.py:2035",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:1512",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1360",
+    "tenstorrent.py:1619",
+    "tenstorrent.py:2413"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      64
+     ],
+     "shape": [
+      64,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1360",
+    "tenstorrent.py:1622",
+    "tenstorrent.py:2413"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      64
+     ],
+     "shape": [
+      64,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1486",
+    "tenstorrent.py:2417",
+    "protenix.py:2035",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      256
+     ],
+     "shape": [
+      64,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1486",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1512",
+    "tenstorrent.py:2417",
+    "protenix.py:2035",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:1512",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1360",
+    "tenstorrent.py:1619",
+    "tenstorrent.py:2417"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      64
+     ],
+     "shape": [
+      64,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1360",
+    "tenstorrent.py:1622",
+    "tenstorrent.py:2417"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      64
+     ],
+     "shape": [
+      64,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1766",
+    "tenstorrent.py:2421",
+    "protenix.py:2035"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      2
+     ],
+     "shape": [
+      64,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     2
+    ],
+    "shape": [
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1883",
+    "tenstorrent.py:2421",
+    "protenix.py:2035",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      192
+     ],
+     "shape": [
+      64,
+      192
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     192
+    ],
+    "shape": [
+     298,
+     320,
+     192
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1883",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1889",
+    "tenstorrent.py:2421",
+    "protenix.py:2035",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      64
+     ],
+     "shape": [
+      64,
+      64
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1889",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1817",
+    "tenstorrent.py:1901",
+    "tenstorrent.py:2421"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      64
+     ],
+     "shape": [
+      64,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1766",
+    "tenstorrent.py:2425",
+    "protenix.py:2035"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      2
+     ],
+     "shape": [
+      64,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     2
+    ],
+    "shape": [
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1883",
+    "tenstorrent.py:2425",
+    "protenix.py:2035",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      192
+     ],
+     "shape": [
+      64,
+      192
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     192
+    ],
+    "shape": [
+     298,
+     320,
+     192
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1883",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1889",
+    "tenstorrent.py:2425",
+    "protenix.py:2035",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      64
+     ],
+     "shape": [
+      64,
+      64
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1889",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1817",
+    "tenstorrent.py:1901",
+    "tenstorrent.py:2425"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      64
+     ],
+     "shape": [
+      64,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 80
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      28,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      128
+     ],
+     "shape": [
+      64,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     28,
+     298,
+     128
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      28,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      128
+     ],
+     "shape": [
+      64,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     28,
+     298,
+     128
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2429"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      28,
+      298,
+      128
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      64
+     ],
+     "shape": [
+      128,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     28,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     64
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 80
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "protenix.py:310",
+    "protenix.py:2033",
+    "protenix.py:2226"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      64
+     ],
+     "shape": [
+      256,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:3094",
+    "tenstorrent.py:3162",
+    "protenix.py:2141",
+    "protenix.py:2227"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      35,
+      298,
+      128
+     ],
+     "shape": [
+      35,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      32
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     35,
+     298,
+     32
+    ],
+    "shape": [
+     35,
+     320,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:3094",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:3100",
+    "tenstorrent.py:3162",
+    "protenix.py:2141",
+    "protenix.py:2227"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      35,
+      298,
+      128
+     ],
+     "shape": [
+      35,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      32
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     35,
+     298,
+     32
+    ],
+    "shape": [
+     35,
+     320,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:3100",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:3206",
+    "tenstorrent.py:3227",
+    "tenstorrent.py:3268",
+    "protenix.py:2141"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      9536,
+      35
+     ],
+     "shape": [
+      9536,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      9536,
+      35
+     ],
+     "shape": [
+      9536,
+      64
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     9536,
+     9536
+    ],
+    "shape": [
+     9536,
+     9536
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:3206",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:3237",
+    "tenstorrent.py:3268",
+    "protenix.py:2141",
+    "protenix.py:2227"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      1024
+     ],
+     "shape": [
+      298,
+      320,
+      1024
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1024,
+      256
+     ],
+     "shape": [
+      1024,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256
+     ],
+     "shape": [
+      32,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:3237",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1766",
+    "tenstorrent.py:2421",
+    "protenix.py:2145"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      8
+     ],
+     "shape": [
+      256,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     8
+    ],
+    "shape": [
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1883",
+    "tenstorrent.py:2421",
+    "protenix.py:2145",
+    "protenix.py:2227"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      768
+     ],
+     "shape": [
+      256,
+      768
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     768
+    ],
+    "shape": [
+     298,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1883",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1889",
+    "tenstorrent.py:2421",
+    "protenix.py:2145",
+    "protenix.py:2227"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1889",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:670",
+    "tenstorrent.py:1766",
+    "tenstorrent.py:2425",
+    "protenix.py:2145"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      8
+     ],
+     "shape": [
+      256,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     8
+    ],
+    "shape": [
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:670",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1883",
+    "tenstorrent.py:2425",
+    "protenix.py:2145",
+    "protenix.py:2227"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      768
+     ],
+     "shape": [
+      256,
+      768
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     768
+    ],
+    "shape": [
+     298,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1883",
+   "n": 40
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1889",
+    "tenstorrent.py:2425",
+    "protenix.py:2145",
+    "protenix.py:2227"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1889",
+   "n": 40
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:2081"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      18,
+      298,
+      128
+     ],
+     "shape": [
+      1,
+      18,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      512
+     ],
+     "shape": [
+      128,
+      512
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     18,
+     298,
+     512
+    ],
+    "shape": [
+     1,
+     18,
+     320,
+     512
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 30
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:2081"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      18,
+      298,
+      128
+     ],
+     "shape": [
+      1,
+      18,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      512
+     ],
+     "shape": [
+      128,
+      512
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     18,
+     298,
+     512
+    ],
+    "shape": [
+     1,
+     18,
+     320,
+     512
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 30
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:2081"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      18,
+      298,
+      512
+     ],
+     "shape": [
+      1,
+      18,
+      320,
+      512
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      512,
+      128
+     ],
+     "shape": [
+      512,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     18,
+     298,
+     128
+    ],
+    "shape": [
+     1,
+     18,
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 30
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:2081"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      17,
+      298,
+      128
+     ],
+     "shape": [
+      1,
+      17,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      512
+     ],
+     "shape": [
+      128,
+      512
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     17,
+     298,
+     512
+    ],
+    "shape": [
+     1,
+     17,
+     320,
+     512
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 30
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:2081"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      17,
+      298,
+      128
+     ],
+     "shape": [
+      1,
+      17,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      512
+     ],
+     "shape": [
+      128,
+      512
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     17,
+     298,
+     512
+    ],
+    "shape": [
+     1,
+     17,
+     320,
+     512
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 30
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:2081"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      17,
+      298,
+      512
+     ],
+     "shape": [
+      1,
+      17,
+      320,
+      512
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      512,
+      128
+     ],
+     "shape": [
+      512,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     17,
+     298,
+     128
+    ],
+    "shape": [
+     1,
+     17,
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 30
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1992",
+    "protenix.py:1083",
+    "protenix.py:1082",
+    "protenix.py:888"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      256,
+      16
+     ],
+     "shape": [
+      256,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     298,
+     298,
+     16
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1992",
+   "n": 24
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:1758"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      30,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      256,
+      512
+     ],
+     "shape": [
+      256,
+      512
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     30,
+     298,
+     512
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     512
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 18
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:1758"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      30,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      256,
+      512
+     ],
+     "shape": [
+      256,
+      512
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     30,
+     298,
+     512
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     512
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 18
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:1758"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      30,
+      298,
+      512
+     ],
+     "shape": [
+      1,
+      30,
+      320,
+      512
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      512,
+      256
+     ],
+     "shape": [
+      512,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     30,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     30,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 18
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1486",
+    "tenstorrent.py:2413",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1486",
+   "n": 16
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1512",
+    "tenstorrent.py:2413",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:1512",
+   "n": 16
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1486",
+    "tenstorrent.py:2417",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1486",
+   "n": 16
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1512",
+    "tenstorrent.py:2417",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    },
+    {
+     "buf": "L1",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      64,
+      298,
+      298
+     ],
+     "shape": [
+      1,
+      64,
+      320,
+      320
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "L1",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     64,
+     298,
+     298
+    ],
+    "shape": [
+     1,
+     64,
+     320,
+     320
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:1512",
+   "n": 16
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2223",
+    "protenix.py:1859",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 10
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2039",
+    "protenix.py:2226",
+    "protenix.py:1859"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      64
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      64,
+      256
+     ],
+     "shape": [
+      64,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 10
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2228",
+    "protenix.py:1859",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      384
+     ],
+     "shape": [
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      384
+     ],
+     "shape": [
+      384,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     384
+    ],
+    "shape": [
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 10
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:411",
+    "protenix.py:460",
+    "protenix.py:460"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      32,
+      128,
+      16
+     ],
+     "shape": [
+      75,
+      32,
+      128,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      16,
+      4
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     75,
+     32,
+     128,
+     4
+    ],
+    "shape": [
+     75,
+     32,
+     128,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 6
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "protenix.py:310",
+    "protenix.py:2185",
+    "protenix.py:2185"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      298,
+      108
+     ],
+     "shape": [
+      1,
+      298,
+      320,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      108,
+      64
+     ],
+     "shape": [
+      128,
+      64
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     298,
+     64
+    ],
+    "shape": [
+     1,
+     298,
+     320,
+     64
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 4
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1883",
+    "tenstorrent.py:2421",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      768
+     ],
+     "shape": [
+      256,
+      768
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     768
+    ],
+    "shape": [
+     298,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1883",
+   "n": 4
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1889",
+    "tenstorrent.py:2421",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1889",
+   "n": 4
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1883",
+    "tenstorrent.py:2425",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      768
+     ],
+     "shape": [
+      256,
+      768
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     768
+    ],
+    "shape": [
+     298,
+     320,
+     768
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1883",
+   "n": 4
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:1889",
+    "tenstorrent.py:2425",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      256
+     ],
+     "shape": [
+      298,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      256
+     ],
+     "shape": [
+      256,
+      256
+     ]
+    }
+   ],
+   "op": "minimal_matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:1889",
+   "n": 4
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2064",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      1536
+     ],
+     "shape": [
+      384,
+      1536
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1536
+     ],
+     "shape": [
+      32,
+      1536
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     1536
+    ],
+    "shape": [
+     1,
+     320,
+     1536
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2064",
+   "n": 4
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2192",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      384
+     ],
+     "shape": [
+      384,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     384
+    ],
+    "shape": [
+     1,
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2192",
+   "n": 4
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2202",
+    "tenstorrent.py:2440",
+    "tenstorrent.py:2497",
+    "protenix.py:1293"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      298,
+      384
+     ],
+     "shape": [
+      1,
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      384
+     ],
+     "shape": [
+      384,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     298,
+     384
+    ],
+    "shape": [
+     1,
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2202",
+   "n": 4
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2761",
+    "protenix.py:358",
+    "protenix.py:432",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2761",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2769",
+    "protenix.py:358",
+    "protenix.py:432",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2769",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2761",
+    "protenix.py:358",
+    "protenix.py:433",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2761",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2769",
+    "protenix.py:358",
+    "protenix.py:433",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2769",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:416",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:417",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:418",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "protenix.py:310",
+    "protenix.py:411",
+    "protenix.py:420"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      32,
+      128,
+      16
+     ],
+     "shape": [
+      75,
+      32,
+      128,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      16,
+      4
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     75,
+     32,
+     128,
+     4
+    ],
+    "shape": [
+     75,
+     32,
+     128,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:388",
+    "protenix.py:421",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      4,
+      32,
+      32
+     ],
+     "shape": [
+      75,
+      4,
+      32,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      4,
+      32,
+      128
+     ],
+     "shape": [
+      75,
+      4,
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     75,
+     4,
+     32,
+     128
+    ],
+    "shape": [
+     75,
+     4,
+     32,
+     128
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:388",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:388",
+    "protenix.py:424",
+    "protenix.py:434",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      4,
+      32,
+      128
+     ],
+     "shape": [
+      75,
+      4,
+      32,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      4,
+      128,
+      32
+     ],
+     "shape": [
+      75,
+      4,
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     75,
+     4,
+     32,
+     32
+    ],
+    "shape": [
+     75,
+     4,
+     32,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:388",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:435",
+    "protenix.py:558",
+    "protenix.py:681",
+    "protenix.py:1840"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:435",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:438",
+    "protenix.py:558",
+    "protenix.py:681"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:439",
+    "protenix.py:558",
+    "protenix.py:681"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "tenstorrent.py:2761",
+    "protenix.py:358",
+    "protenix.py:443",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2761",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2769",
+    "protenix.py:358",
+    "protenix.py:443",
+    "protenix.py:558"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2769",
+   "n": 3
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:444",
+    "protenix.py:558",
+    "protenix.py:681"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      256
+     ],
+     "shape": [
+      128,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     256
+    ],
+    "shape": [
+     1,
+     2400,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:445",
+    "protenix.py:558",
+    "protenix.py:681"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      256
+     ],
+     "shape": [
+      128,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     256
+    ],
+    "shape": [
+     1,
+     2400,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:446",
+    "protenix.py:558",
+    "protenix.py:681"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      256
+     ],
+     "shape": [
+      1,
+      2400,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      256,
+      128
+     ],
+     "shape": [
+      256,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": false,
+   "bias": true,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:447",
+    "protenix.py:558",
+    "protenix.py:681"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      128
+     ],
+     "shape": [
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     128
+    ],
+    "shape": [
+     1,
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 3
+  },
+  {
+   "activation": true,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2237",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:1758"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      28,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      256,
+      512
+     ],
+     "shape": [
+      256,
+      512
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     28,
+     298,
+     512
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     512
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2237",
+   "n": 2
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2246",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:1758"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      28,
+      298,
+      256
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      256
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      256,
+      512
+     ],
+     "shape": [
+      256,
+      512
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "L1",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     28,
+     298,
+     512
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     512
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2246",
+   "n": 2
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:2257",
+    "tenstorrent.py:2339",
+    "tenstorrent.py:2339",
+    "protenix.py:1758"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "L1",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      28,
+      298,
+      512
+     ],
+     "shape": [
+      1,
+      28,
+      320,
+      512
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      512,
+      256
+     ],
+     "shape": [
+      512,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     1,
+     28,
+     298,
+     256
+    ],
+    "shape": [
+     1,
+     28,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "tenstorrent.py:2257",
+   "n": 2
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:616",
+    "protenix.py:673",
+    "protenix.py:1840"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      2398,
+      3
+     ],
+     "shape": [
+      2400,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      3,
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:617",
+    "protenix.py:673",
+    "protenix.py:1840"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      2398,
+      1
+     ],
+     "shape": [
+      2400,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:618",
+    "protenix.py:673",
+    "protenix.py:1840"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      2398,
+      385
+     ],
+     "shape": [
+      2400,
+      416
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      385,
+      128
+     ],
+     "shape": [
+      416,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:624",
+    "protenix.py:678",
+    "protenix.py:1840"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      307200,
+      3
+     ],
+     "shape": [
+      307200,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      3,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     307200,
+     16
+    ],
+    "shape": [
+     307200,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:625",
+    "protenix.py:678",
+    "protenix.py:1840"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      307200,
+      1
+     ],
+     "shape": [
+      307200,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     307200,
+     16
+    ],
+    "shape": [
+     307200,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:626",
+    "protenix.py:678",
+    "protenix.py:1840"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      307200,
+      1
+     ],
+     "shape": [
+      307200,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     307200,
+     16
+    ],
+    "shape": [
+     307200,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:657",
+    "protenix.py:680",
+    "protenix.py:1840"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      32,
+      128
+     ],
+     "shape": [
+      75,
+      32,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      16
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     75,
+     32,
+     16
+    ],
+    "shape": [
+     75,
+     32,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "protenix.py:310",
+    "protenix.py:658",
+    "protenix.py:680"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      128,
+      128
+     ],
+     "shape": [
+      75,
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      16
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     75,
+     128,
+     16
+    ],
+    "shape": [
+     75,
+     128,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "protenix.py:310",
+    "protenix.py:660",
+    "protenix.py:680"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      32,
+      128,
+      16
+     ],
+     "shape": [
+      75,
+      32,
+      128,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      16,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     75,
+     32,
+     128,
+     16
+    ],
+    "shape": [
+     75,
+     32,
+     128,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "protenix.py:310",
+    "protenix.py:661",
+    "protenix.py:680"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      32,
+      128,
+      16
+     ],
+     "shape": [
+      75,
+      32,
+      128,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      16,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     75,
+     32,
+     128,
+     16
+    ],
+    "shape": [
+     75,
+     32,
+     128,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "tenstorrent.py:690",
+    "protenix.py:310",
+    "protenix.py:662",
+    "protenix.py:680"
+   ],
+   "core_grid": false,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      75,
+      32,
+      128,
+      16
+     ],
+     "shape": [
+      75,
+      32,
+      128,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      16,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     75,
+     32,
+     128,
+     16
+    ],
+    "shape": [
+     75,
+     32,
+     128,
+     32
+    ]
+   },
+   "program_config": true,
+   "site": "tenstorrent.py:690",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:682",
+    "protenix.py:1840",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      2398,
+      128
+     ],
+     "shape": [
+      1,
+      2400,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      128,
+      384
+     ],
+     "shape": [
+      128,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     2398,
+     384
+    ],
+    "shape": [
+     1,
+     2400,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:684",
+    "protenix.py:1840",
+    "protenix.py:1898",
+    "worker.py:887"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      2398
+     ],
+     "shape": [
+      320,
+      2400
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      2398,
+      384
+     ],
+     "shape": [
+      2400,
+      384
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     384
+    ],
+    "shape": [
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:684",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:616",
+    "protenix.py:1848",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      2398,
+      3
+     ],
+     "shape": [
+      2400,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      3,
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:617",
+    "protenix.py:1848",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      2398,
+      1
+     ],
+     "shape": [
+      2400,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      128
+     ],
+     "shape": [
+      32,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:618",
+    "protenix.py:1848",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      2398,
+      385
+     ],
+     "shape": [
+      2400,
+      416
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      385,
+      128
+     ],
+     "shape": [
+      416,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:624",
+    "protenix.py:1850",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      307200,
+      3
+     ],
+     "shape": [
+      307200,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      3,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     307200,
+     16
+    ],
+    "shape": [
+     307200,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:625",
+    "protenix.py:1850",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      307200,
+      1
+     ],
+     "shape": [
+      307200,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     307200,
+     16
+    ],
+    "shape": [
+     307200,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:608",
+    "protenix.py:626",
+    "protenix.py:1850",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      307200,
+      1
+     ],
+     "shape": [
+      307200,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      1,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     307200,
+     16
+    ],
+    "shape": [
+     307200,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:608",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2447",
+    "protenix.py:2167",
+    "protenix.py:1859"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      449
+     ],
+     "shape": [
+      320,
+      480
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      449,
+      384
+     ],
+     "shape": [
+      480,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     384
+    ],
+    "shape": [
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2449",
+    "protenix.py:2167",
+    "protenix.py:1859"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      384
+     ],
+     "shape": [
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      256
+     ],
+     "shape": [
+      384,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     256
+    ],
+    "shape": [
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2450",
+    "protenix.py:2167",
+    "protenix.py:1859"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      384
+     ],
+     "shape": [
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      384,
+      256
+     ],
+     "shape": [
+      384,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     256
+    ],
+    "shape": [
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2452",
+    "protenix.py:2167",
+    "protenix.py:1859"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      139
+     ],
+     "shape": [
+      298,
+      320,
+      160
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      139,
+      256
+     ],
+     "shape": [
+      160,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2453",
+    "protenix.py:2167",
+    "protenix.py:1859"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      298,
+      1
+     ],
+     "shape": [
+      298,
+      320,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      256
+     ],
+     "shape": [
+      32,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2201",
+    "protenix.py:1859",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      1,
+      35,
+      298,
+      34
+     ],
+     "shape": [
+      1,
+      35,
+      320,
+      64
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      34,
+      128
+     ],
+     "shape": [
+      64,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     1,
+     35,
+     298,
+     128
+    ],
+    "shape": [
+     1,
+     35,
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:2202",
+    "protenix.py:1859",
+    "protenix.py:1898"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      298,
+      449
+     ],
+     "shape": [
+      320,
+      480
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "BFLOAT16",
+     "logical": [
+      449,
+      128
+     ],
+     "shape": [
+      480,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "BFLOAT16",
+    "logical": [
+     298,
+     128
+    ],
+    "shape": [
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:1696",
+    "protenix.py:1866",
+    "protenix.py:1898",
+    "worker.py:887"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      298,
+      139
+     ],
+     "shape": [
+      298,
+      320,
+      160
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      139,
+      256
+     ],
+     "shape": [
+      160,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:1696",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:1747",
+    "protenix.py:1866",
+    "protenix.py:1898",
+    "worker.py:887"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      298,
+      512
+     ],
+     "shape": [
+      298,
+      320,
+      512
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      512,
+      256
+     ],
+     "shape": [
+      512,
+      256
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     298,
+     298,
+     256
+    ],
+    "shape": [
+     298,
+     320,
+     256
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:1747",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:819",
+    "protenix.py:852",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      833
+     ],
+     "shape": [
+      320,
+      864
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      833,
+      384
+     ],
+     "shape": [
+      864,
+      384
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     298,
+     384
+    ],
+    "shape": [
+     320,
+     384
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:823",
+    "protenix.py:852",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      384
+     ],
+     "shape": [
+      320,
+      384
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      384,
+      128
+     ],
+     "shape": [
+      384,
+      128
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     298,
+     128
+    ],
+    "shape": [
+     320,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:824",
+    "protenix.py:852",
+    "protenix.py:2419",
+    "protenix.py:1926"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      2398,
+      298
+     ],
+     "shape": [
+      2400,
+      320
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      298,
+      128
+     ],
+     "shape": [
+      320,
+      128
+     ]
+    }
+   ],
+   "op": "matmul",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     2398,
+     128
+    ],
+    "shape": [
+     2400,
+     128
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:824",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:826",
+    "protenix.py:852",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      32,
+      128
+     ],
+     "shape": [
+      75,
+      32,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      16
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     75,
+     32,
+     16
+    ],
+    "shape": [
+     75,
+     32,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:827",
+    "protenix.py:852",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      128,
+      128
+     ],
+     "shape": [
+      75,
+      128,
+      128
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      128,
+      16
+     ],
+     "shape": [
+      128,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     75,
+     128,
+     16
+    ],
+    "shape": [
+     75,
+     128,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:828",
+    "protenix.py:852",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      32,
+      128,
+      16
+     ],
+     "shape": [
+      75,
+      32,
+      128,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      16,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     75,
+     32,
+     128,
+     16
+    ],
+    "shape": [
+     75,
+     32,
+     128,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:829",
+    "protenix.py:852",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      32,
+      128,
+      16
+     ],
+     "shape": [
+      75,
+      32,
+      128,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      16,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     75,
+     32,
+     128,
+     16
+    ],
+    "shape": [
+     75,
+     32,
+     128,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  },
+  {
+   "activation": false,
+   "bias": false,
+   "chain": [
+    "protenix.py:313",
+    "protenix.py:830",
+    "protenix.py:852",
+    "protenix.py:2419"
+   ],
+   "core_grid": true,
+   "in": [
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      75,
+      32,
+      128,
+      16
+     ],
+     "shape": [
+      75,
+      32,
+      128,
+      32
+     ]
+    },
+    {
+     "buf": "DRAM",
+     "dtype": "FLOAT32",
+     "logical": [
+      16,
+      16
+     ],
+     "shape": [
+      32,
+      32
+     ]
+    }
+   ],
+   "op": "linear",
+   "out": {
+    "buf": "DRAM",
+    "dtype": "FLOAT32",
+    "logical": [
+     75,
+     32,
+     128,
+     16
+    ],
+    "shape": [
+     75,
+     32,
+     128,
+     32
+    ]
+   },
+   "program_config": false,
+   "site": "protenix.py:313",
+   "n": 1
+  }
+ ],
+ "site_wall": {
+  "protenix.py:313|in0=[75, 32, 128]|out_w=32": {
+   "calls": 2,
+   "wall_ms": 0.099,
+   "median_us": 49.65,
+   "us": [
+    45.62,
+    53.68
+   ]
+  },
+  "protenix.py:310|in0=[75, 128, 128]|out_w=32": {
+   "calls": 1,
+   "wall_ms": 0.044,
+   "median_us": 44.01,
+   "us": [
+    44.01
+   ]
+  },
+  "protenix.py:310|in0=[75, 32, 128, 32]|out_w=32": {
+   "calls": 6,
+   "wall_ms": 1.061,
+   "median_us": 176.55,
+   "us": [
+    178.21,
+    176.4,
+    175.25,
+    178.92,
+    176.7,
+    175.96
+   ]
+  },
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=128": {
+   "calls": 7218,
+   "wall_ms": 309.626,
+   "median_us": 42.09,
+   "us": [
+    45.44,
+    38.63,
+    38.97,
+    38.97,
+    40.01,
+    37.36,
+    37.28,
+    36.25
+   ]
+  },
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=256": {
+   "calls": 2406,
+   "wall_ms": 135.886,
+   "median_us": 59.09,
+   "us": [
+    56.11,
+    45.02,
+    54.18,
+    39.49,
+    52.62,
+    39.6,
+    63.18,
+    48.73
+   ]
+  },
+  "protenix.py:313|in0=[1, 2400, 256]|out_w=128": {
+   "calls": 1203,
+   "wall_ms": 66.878,
+   "median_us": 55.31,
+   "us": [
+    42.77,
+    40.33,
+    42.16,
+    55.62,
+    54.83,
+    54.65,
+    55.32,
+    54.44
+   ]
+  },
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=384": {
+   "calls": 1,
+   "wall_ms": 0.041,
+   "median_us": 40.82,
+   "us": [
+    40.82
+   ]
+  },
+  "protenix.py:313|in0=[320, 480]|out_w=384": {
+   "calls": 1,
+   "wall_ms": 0.069,
+   "median_us": 69.17,
+   "us": [
+    69.17
+   ]
+  },
+  "protenix.py:313|in0=[320, 384]|out_w=256": {
+   "calls": 2,
+   "wall_ms": 0.081,
+   "median_us": 40.44,
+   "us": [
+    42.53,
+    38.35
+   ]
+  },
+  "protenix.py:313|in0=[298, 320, 160]|out_w=256": {
+   "calls": 1,
+   "wall_ms": 0.462,
+   "median_us": 462.44,
+   "us": [
+    462.44
+   ]
+  },
+  "protenix.py:313|in0=[298, 320, 32]|out_w=256": {
+   "calls": 1,
+   "wall_ms": 0.381,
+   "median_us": 381.22,
+   "us": [
+    381.22
+   ]
+  },
+  "protenix.py:310|in0=[1, 298, 320, 128]|out_w=64": {
+   "calls": 4,
+   "wall_ms": 0.613,
+   "median_us": 153.48,
+   "us": [
+    153.31,
+    153.94,
+    153.65,
+    152.42
+   ]
+  },
+  "protenix.py:313|in0=[1, 35, 320, 64]|out_w=128": {
+   "calls": 1,
+   "wall_ms": 0.063,
+   "median_us": 62.76,
+   "us": [
+    62.76
+   ]
+  },
+  "protenix.py:313|in0=[320, 480]|out_w=128": {
+   "calls": 1,
+   "wall_ms": 0.042,
+   "median_us": 42.1,
+   "us": [
+    42.1
+   ]
+  },
+  "protenix.py:313|in0=[1, 298, 320, 256]|out_w=256": {
+   "calls": 10,
+   "wall_ms": 7.344,
+   "median_us": 734.26,
+   "us": [
+    720.71,
+    736.66,
+    743.52,
+    734.31,
+    740.16,
+    732.54,
+    734.61,
+    733.89
+   ]
+  },
+  "protenix.py:310|in0=[1, 298, 320, 256]|out_w=64": {
+   "calls": 40,
+   "wall_ms": 9.915,
+   "median_us": 247.05,
+   "us": [
+    241.82,
+    241.1,
+    244.06,
+    241.07,
+    257.84,
+    250.54,
+    240.98,
+    241.14
+   ]
+  },
+  "tenstorrent.py:1360|in0=[1, 298, 320, 64]|out_w=64": {
+   "calls": 320,
+   "wall_ms": 38.975,
+   "median_us": 119.12,
+   "us": [
+    119.02,
+    116.9,
+    118.63,
+    118.1,
+    116.85,
+    116.25,
+    117.43,
+    116.87
+   ]
+  },
+  "tenstorrent.py:1766|in0=[298, 320, 64]|out_w=32": {
+   "calls": 160,
+   "wall_ms": 14.194,
+   "median_us": 90.19,
+   "us": [
+    83.39,
+    82.23,
+    82.3,
+    82.5,
+    80.54,
+    81.55,
+    81.91,
+    82.87
+   ]
+  },
+  "tenstorrent.py:1817|in0=[298, 320, 64]|out_w=64": {
+   "calls": 160,
+   "wall_ms": 19.697,
+   "median_us": 124.89,
+   "us": [
+    118.81,
+    116.22,
+    116.06,
+    115.86,
+    116.7,
+    116.89,
+    117.26,
+    115.95
+   ]
+  },
+  "protenix.py:313|in0=[1, 298, 320, 64]|out_w=256": {
+   "calls": 10,
+   "wall_ms": 3.323,
+   "median_us": 332.17,
+   "us": [
+    330.56,
+    334.36,
+    332.82,
+    329.8,
+    332.21,
+    331.52,
+    332.14,
+    334.27
+   ]
+  },
+  "tenstorrent.py:2999|in0=[298, 320, 256]|out_w=32": {
+   "calls": 240,
+   "wall_ms": 58.036,
+   "median_us": 242.58,
+   "us": [
+    236.99,
+    232.42,
+    231.69,
+    231.82,
+    231.0,
+    231.92,
+    234.37,
+    233.96
+   ]
+  },
+  "tenstorrent.py:1360|in0=[1, 298, 320, 256]|out_w=256": {
+   "calls": 2096,
+   "wall_ms": 842.543,
+   "median_us": 401.85,
+   "us": [
+    388.69,
+    387.3,
+    385.45,
+    384.92,
+    400.06,
+    388.07,
+    396.58,
+    396.55
+   ]
+  },
+  "tenstorrent.py:1766|in0=[298, 320, 256]|out_w=32": {
+   "calls": 1048,
+   "wall_ms": 262.689,
+   "median_us": 248.14,
+   "us": [
+    232.16,
+    232.22,
+    242.78,
+    242.86,
+    243.36,
+    255.23,
+    250.49,
+    250.17
+   ]
+  },
+  "tenstorrent.py:1817|in0=[298, 320, 256]|out_w=256": {
+   "calls": 1048,
+   "wall_ms": 423.566,
+   "median_us": 403.3,
+   "us": [
+    394.52,
+    393.74,
+    397.64,
+    403.84,
+    403.77,
+    411.36,
+    404.51,
+    412.68
+   ]
+  },
+  "protenix.py:313|in0=[320, 384]|out_w=384": {
+   "calls": 10,
+   "wall_ms": 0.736,
+   "median_us": 72.35,
+   "us": [
+    80.11,
+    84.76,
+    73.13,
+    70.57,
+    73.89,
+    71.58,
+    77.72,
+    67.23
+   ]
+  },
+  "tenstorrent.py:2088|in0=[1, 298, 320, 256]|out_w=32": {
+   "calls": 484,
+   "wall_ms": 120.416,
+   "median_us": 248.72,
+   "us": [
+    253.1,
+    253.26,
+    251.83,
+    259.55,
+    250.96,
+    252.96,
+    250.38,
+    251.85
+   ]
+  },
+  "protenix.py:313|in0=[320, 864]|out_w=384": {
+   "calls": 1,
+   "wall_ms": 0.052,
+   "median_us": 52.09,
+   "us": [
+    52.09
+   ]
+  },
+  "protenix.py:313|in0=[320, 384]|out_w=128": {
+   "calls": 1,
+   "wall_ms": 0.041,
+   "median_us": 41.03,
+   "us": [
+    41.03
+   ]
+  },
+  "protenix.py:313|in0=[75, 128, 128]|out_w=32": {
+   "calls": 1,
+   "wall_ms": 0.056,
+   "median_us": 56.3,
+   "us": [
+    56.3
+   ]
+  },
+  "protenix.py:313|in0=[75, 32, 128, 32]|out_w=32": {
+   "calls": 9,
+   "wall_ms": 3.7,
+   "median_us": 411.09,
+   "us": [
+    410.33,
+    410.22,
+    409.12,
+    413.99,
+    411.38,
+    410.91,
+    411.91,
+    411.16
+   ]
+  },
+  "protenix.py:313|in0=[32, 256]|out_w=384": {
+   "calls": 200,
+   "wall_ms": 8.096,
+   "median_us": 40.0,
+   "us": [
+    41.39,
+    39.6,
+    40.92,
+    40.61,
+    47.44,
+    48.0,
+    39.25,
+    39.58
+   ]
+  },
+  "protenix.py:313|in0=[2400, 32]|out_w=128": {
+   "calls": 200,
+   "wall_ms": 8.29,
+   "median_us": 41.07,
+   "us": [
+    48.64,
+    41.63,
+    42.24,
+    45.13,
+    43.18,
+    41.07,
+    40.43,
+    41.31
+   ]
+  },
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=768": {
+   "calls": 200,
+   "wall_ms": 12.74,
+   "median_us": 63.14,
+   "us": [
+    63.57,
+    62.77,
+    63.99,
+    63.17,
+    63.58,
+    65.3,
+    62.6,
+    62.91
+   ]
+  },
+  "protenix.py:313|in0=[320, 384]|out_w=768": {
+   "calls": 200,
+   "wall_ms": 8.118,
+   "median_us": 39.45,
+   "us": [
+    39.77,
+    39.65,
+    139.66,
+    38.85,
+    39.23,
+    38.86,
+    38.14,
+    39.1
+   ]
+  },
+  "protenix.py:313|in0=[320, 768]|out_w=128": {
+   "calls": 200,
+   "wall_ms": 11.009,
+   "median_us": 60.99,
+   "us": [
+    60.81,
+    62.91,
+    42.0,
+    61.25,
+    65.78,
+    60.5,
+    60.22,
+    62.49
+   ]
+  },
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=32": {
+   "calls": 200,
+   "wall_ms": 7.574,
+   "median_us": 37.1,
+   "us": [
+    37.06,
+    37.51,
+    41.44,
+    36.47,
+    36.59,
+    40.35,
+    36.53,
+    36.33
+   ]
+  }
+ },
+ "l1_free_at_site": {
+  "protenix.py:313|in0=[75, 32, 128]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:310|in0=[75, 128, 128]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:310|in0=[75, 32, 128, 32]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=128": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=256": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 2400, 256]|out_w=128": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=384": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[320, 480]|out_w=384": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[320, 384]|out_w=256": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[298, 320, 160]|out_w=256": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[298, 320, 32]|out_w=256": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:310|in0=[1, 298, 320, 128]|out_w=64": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 35, 320, 64]|out_w=128": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[320, 480]|out_w=128": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 298, 320, 256]|out_w=256": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:310|in0=[1, 298, 320, 256]|out_w=64": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "tenstorrent.py:1360|in0=[1, 298, 320, 64]|out_w=64": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "tenstorrent.py:1766|in0=[298, 320, 64]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "tenstorrent.py:1817|in0=[298, 320, 64]|out_w=64": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 298, 320, 64]|out_w=256": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "tenstorrent.py:2999|in0=[298, 320, 256]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "tenstorrent.py:1360|in0=[1, 298, 320, 256]|out_w=256": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "tenstorrent.py:1766|in0=[298, 320, 256]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "tenstorrent.py:1817|in0=[298, 320, 256]|out_w=256": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[320, 384]|out_w=384": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "tenstorrent.py:2088|in0=[1, 298, 320, 256]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[320, 864]|out_w=384": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[320, 384]|out_w=128": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[75, 128, 128]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[75, 32, 128, 32]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[32, 256]|out_w=384": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[2400, 32]|out_w=128": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=768": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[320, 384]|out_w=768": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[320, 768]|out_w=128": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ],
+  "protenix.py:313|in0=[1, 2400, 128]|out_w=32": [
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   },
+   {
+    "largest_contig_free_per_bank": 1461760,
+    "total_free_per_bank": 1461760
+   }
+  ]
+ }
+}

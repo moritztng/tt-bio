@@ -2085,12 +2085,15 @@ class AttentionPairBias(Module):
                     epsilon=1e-5,
                     compute_kernel_config=self.compute_kernel_config,
                 )
-                z = ttnn.linear(
-                    z,
-                    self.z_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    core_grid=CORE_GRID_MAIN,
-                )
+                zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype)
+                if zb is None:
+                    zb = ttnn.linear(
+                        z,
+                        self.z_weight,
+                        compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN,
+                    )
+                z = zb
                 z = ttnn.permute(z, (0, 3, 1, 2))
             if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
                 # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
