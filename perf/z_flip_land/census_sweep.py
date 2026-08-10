@@ -24,7 +24,7 @@ fold's own pair shape, and any exception raised inside `TriangleMultiplication._
 """
 from __future__ import annotations
 
-import argparse, hashlib, json, os, sys, time, traceback
+import argparse, hashlib, json, os, re, sys, time, traceback
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -283,8 +283,14 @@ def main() -> int:
             ctl = fold(target, a3m, False)
             ctl["control_for"] = row["target"]
             ctl["cif_sha_identical_to_on"] = (ctl["cif_sha"] == row["cif_sha"])
-            ctl["same_failure_signature"] = (
-                (ctl["error"] or "")[:200] == (row["error"] or "")[:200])
+            # The program serial in a TT_THROW is a per-session counter and differs between arms
+            # whenever the program cache does, so comparing it makes two identical failures look
+            # different. What identifies the failure is the throwing core range and the two L1
+            # addresses, all of which survive this substitution.
+            def _sig(e):
+                return re.sub(r"program \d+", "program N", (e or ""))[:300]
+
+            ctl["same_failure_signature"] = _sig(ctl["error"]) == _sig(row["error"])
             R["rows"].append(ctl)
             print("OFF:", json.dumps({k: ctl[k] for k in (
                 "target", "rc_ok", "wall_s", "plddt", "calls_served", "cif_sha_identical_to_on",
