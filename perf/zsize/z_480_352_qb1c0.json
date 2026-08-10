@@ -1,0 +1,84 @@
+{
+ "host": "qb1",
+ "card": 0,
+ "ttnn": "0.67.4",
+ "fast": false,
+ "runs": [
+  {
+   "size": 480,
+   "arm": "on",
+   "fast": false,
+   "load_before": [
+    27.8,
+    30.55,
+    37.42
+   ],
+   "verdict": "FAIL",
+   "exc": "RuntimeError",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 535 clash with L1 buffers on core range [(x=0,y=0) - (x=3,y=9)]. L1 buffer allocated at 548864 and static circular buffer region ends at 653824\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x69fe45) [0x7d407889fe45]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfd47f9) [0x7d407a3d47f9]\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail30create_and_cache_mesh_workloadITkNS0_22DeviceOperationConceptENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm+0x1f5) [0x7d407a3d2a75]\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x6e2) [0x7d407a3c6f22]\n --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf819e8) [0x7d407a3819e8]\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6matmulERKN2tt8tt_metal6TensorES6_bbRKSt8optionalIKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSG_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x3c4) [0x7d407a380ea4]\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3eb418) [0x7d407afeb418]\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3eaffd) [0x7d407afeaffd]\n --- /home/ttuser/.local/",
+   "traceback": "2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0xc4) [0x5d3e633fd594]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x5d3e634133cc]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x282fc0) [0x5d3e6352dfc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x25b) [0x5d3e633fe3fb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6d9b) [0x5d3e633f6f4b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5d3e6340853c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0x16d) [0x5d3e633fd63d]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x5d3e634133cc]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x282fc0) [0x5d3e6352dfc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x25b) [0x5d3e633fe3fb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x7558) [0x5d3e633f7708]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x16b341) [0x5d3e63416341]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1a29) [0x5d3e633f1bd9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x16b341) [0x5d3e63416341]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1a29) [0x5d3e633f1bd9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5d3e6340853c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8cf) [0x5d3e633f0a7f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5d3e6340853c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x8cf) [0x5d3e633f0a7f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5d3e6340853c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6d9) [0x5d3e633f0889]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5d3e6340853c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6d9) [0x5d3e633f0889]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x238976) [0x5d3e634e3976]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x86) [0x5d3e634e3816]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x263528) [0x5d3e6350e528]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x25cc7b) [0x5d3e63507c7b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x263275) [0x5d3e6350e275]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1a8) [0x5d3e6350d6b8]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x43) [0x5d3e6350d303]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x2be) [0x5d3e634ffe0e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x5d3e634d668d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x7d407c629d90]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80) [0x7d407c629e40]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x5d3e634d6585]\n\n",
+   "traceback_head": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/perf/zsize/sweep_qb1.py\", line 106, in main\n    fold_s, m = one_fold()\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/scripts/gpu_vs_tt/tt_baseline.py\", line 264, in one_fold\n    metrics, _best, _feats = state.predict_one(target, job_cfg)\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/worker.py\", line 510, in predict_one\n    return self._predict_protenix_one(path, cfg)\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/worker.py\", line 907, in _predict_protenix_one\n    coords, conf = self.model.fold(\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/protenix.py\", line 1908, in fold\n    cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/protenix.py\", line 1869, in _trunk_cond\n    s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats[\"token_bonds\"],\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/protenix.py\", line 2252, in __call__\n    s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3)\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/tenstorrent.py\", line 2641, in __call__\n    s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/tenstorrent.py\", line 2584, in __call__\n    s_update = self.attention_pair_bias(\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/tenstorrent.py\", line 2270, in __call__\n    logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)\n  File \"/home/ttuser/.coworker/wt/protenix-trunk--z-size-robustness/tt_bio/tenstorrent.py\", line 438, in batched_matmul\n    return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/ttnn/decorators.py\", line 473, in __call__\n    result = self.function(*function_args, **function_kwargs)\nRuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 535 clash with L1 buffers on core range [(x=0,y=0) - (x=3,y=9)]. L1 buffer allocated at 548864 and static circular buffer region ends at 653824\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x69fe45) [0x7d407889fe45]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x",
+   "wall_s": 97.2,
+   "load_after": [
+    37.81,
+    33.02,
+    37.59
+   ],
+   "decisions": {
+    "layer_norm|h=1.5|1x480x480x256": {
+     "L1": 2
+    },
+    "layer_norm|h=1.5|480x480x256": {
+     "L1": 3
+    },
+    "transpose|480x480x256": {
+     "DRAM": 10
+    },
+    "transpose|480x480x64": {
+     "L1": 16
+    }
+   }
+  },
+  {
+   "size": 352,
+   "arm": "on",
+   "fast": false,
+   "load_before": [
+    38.71,
+    33.29,
+    37.65
+   ],
+   "verdict": "ok",
+   "fold_s": 157.981,
+   "n_tokens": 352,
+   "plddt": 0.829925,
+   "cif_sha256": {
+    "cdk2x2_352.cif": "4974fa3702eba9a4"
+   },
+   "wall_s": 158.0,
+   "load_after": [
+    31.06,
+    31.85,
+    36.43
+   ],
+   "decisions": {
+    "layer_norm|h=1.5|1x352x352x256": {
+     "L1": 494
+    },
+    "layer_norm|h=1.5|352x352x256": {
+     "L1": 30
+    },
+    "transpose|352x352x256": {
+     "L1": 1048
+    },
+    "transpose|352x352x64": {
+     "L1": 160
+    }
+   }
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ]
+}

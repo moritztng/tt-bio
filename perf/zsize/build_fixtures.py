@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC_A3M = ROOT / "scripts/gpu_vs_tt/fixtures/prot300.a3m"
 SRC_YAML = ROOT / "examples/prot300.yaml"
 OUT = ROOT / "perf/size512/fixtures"
-SIZES = [298, 320, 352, 384, 400, 416, 417, 432, 448, 464, 480, 496, 506, 507, 512, 576, 640]
+SIZES = [298, 320, 352, 384, 385, 400, 416, 417, 432, 448, 464, 480, 496, 506, 507, 512, 576, 640]
 EXISTING = [298, 320, 352, 384, 448, 512]
 
 
