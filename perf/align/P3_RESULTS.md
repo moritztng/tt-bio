@@ -16,12 +16,21 @@ program config, both arms:
 
 | | logical 320 | logical 298 | ratio |
 |---|---:|---:|---:|
-| ttnn **0.68.0** production wheel | 69.49 us | 109.48 us | **1.5755x** |
-| tt-metal **source build** | 69.86 us | 70.15 us | **1.0042x** |
+| ttnn **0.68.0** production wheel | 69.84 us | 109.81 us | **1.5724x** |
+| tt-metal **source build** | 69.26 us | 69.48 us | **1.0031x** |
 
-The aligned arm is the same on both (0.5 % apart against the 0.68 figure), so the newer build did not
+The aligned arm is the same on both (0.8 % apart against the 0.68 figure), so the newer build did not
 get generally faster: it stopped charging for the unaligned axis specifically. All four output
 tensors are **bit-identical across versions** — `torch.equal` True, 0 of 2 841 728 elements differ.
+
+**And the second headline kills the obvious conclusion.** I extended the cross-version arm to the
+other three sites in P2's blast radius, and **SDPA @1629 did not get the fix — it regressed.** At
+each build's own best program config the newer build's SDPA is **1.76x slower** (1056.83 us against
+1864.72 us at `q_chunk = k_chunk = 128`), and at the fold's own config it is 1.51x. SDPA is the
+largest row in the trunk, so on these numbers **a version upgrade is a net loss of ~536 ms/fold**:
++349.5 gained on the matmul-class sites, −885.3 lost on SDPA. The right recommendation is therefore
+the opposite of what the contraction row alone implies, which is why the other three sites were
+worth the extra pass.
 
 ## Predictions (before measuring)
 
@@ -82,9 +91,9 @@ traffic is L1-resident, not DRAM, so neither DRAM roof binds it: **the binding r
 
 | arm | TFLOP/s | % of the 52.30 TFLOP/s K=320/nt=10 L1-output compute roof |
 |---|---:|---:|
-| 0.68.0, logical 320 (aligned) | 30.18 | 57.7 % of that roof |
-| 0.68.0, logical 298 (production) | 19.16 | **36.6 % of that roof** |
-| source build, logical 298 | 29.89 | **57.2 % of that roof** |
+| 0.68.0, logical 320 (aligned) | 30.03 | 57.4 % of that roof |
+| 0.68.0, logical 298 (production) | 19.10 | **36.5 % of that roof** |
+| source build, logical 298 | 30.18 | **57.7 % of that roof** |
 
 **Cores engaged: 100 of 110.** `per_core_M = per_core_N = 1` at Mt = Nt = 10, so the 11th column
 receives no work. P2 measured this by grid ladder (11x10 against 10x10, 1.3 % apart against the aligned arm's own figure, on the aligned
@@ -197,6 +206,45 @@ dim1, which has none.
 **Placements P2 already killed and I did not re-test:** `ttnn.pad` on an operand (55.17 us/call),
 `ttnn.pad` on `z` (332.16 us/call), and building `z` at 320 real rows (+4.0 % against each pair-shaped op's own baseline). All three remain killed; the brief says do not re-test them and I did not.
 
+### C4 — the whole blast radius, cross-version, and the SDPA regression
+
+P2's 398.9 ms/fold is four sites. Last pass I only re-measured the contraction, which left 56.9
+ms/fold untested and — as it turns out — the recommendation wrong. All four, same chip, quiet host
+(load average 0.01), each pair at a fixed padded shape with only the logical length of the
+reduced axis moving:
+
+| site | 0.68.0: 298 / 320 / delta | source build: 298 / 320 / delta |
+|---|---|---|
+| trimul contraction @1355 | 109.81 / 69.84 / **+39.97 us** | 69.48 / 69.26 / **+0.22 us** |
+| `attn@v` @378 | 95.28 / 71.17 / **+24.10 us** | 72.55 / 73.16 / **−0.61 us** |
+| `softmax` over an unaligned axis | 27.82 / 24.47 / **+3.35 us** | 30.36 / 28.89 / **+1.47 us** |
+| **SDPA @1629**, the fold's own `q_chunk = k_chunk = 64` | 1636.41 / 1605.80 / **+30.60 us** | 2481.12 / 2429.80 / **+51.32 us** |
+
+The 0.68 column reproduces P2 closely — `attn@v` +24.10 against P2's 23.74, SDPA +30.60 against
+40.38, softmax +3.35 against 4.26 — so this is the same measurement, not a different one.
+
+**The two matmul-class sites are fixed on the newer build and SDPA is not.** SDPA's ratio barely
+moves (1.019x against 1.021x) while its **absolute** time rises by half. Before calling that a
+regression I swept its own program config, because a version can simply want a different chunk:
+
+| `q_chunk = k_chunk` | 0.68.0, logical 320 | source build, logical 320 | source / 0.68 |
+|---:|---:|---:|---:|
+| 32 | 3688.26 us | 5186.57 us | 1.41x |
+| 64 (the fold's own) | 1605.19 us | 2430.97 us | 1.51x |
+| **128** | **1056.83 us** | **1864.72 us** | **1.76x** |
+| 256 | 1066.41 us | 1953.77 us | 1.83x |
+
+**It is not a tuning artefact: the newer build is slower at every chunk size, and 1.76x slower at
+each build's own best.** The regression is measured on bias-free SDPA arms, where the fold carries
+an attention bias, and on one source snapshot rather than a release — both stated as limitations,
+neither large enough to close a 1.76x.
+
+**A finding that belongs to `protenix-trunk--p3-sdpa`, not to me.** On the 0.68 production wheel,
+purely from the chunk size and at the production logical-298 shape, SDPA goes **1637.84 us at chunk
+64 to 1159.58 us at chunk 128** — 1.41x against the fold's own configuration, on the wheel the trunk
+actually runs. I measured it as a control for the version question and I am **not claiming it**; it
+is theirs to verify against a real fold and to reconcile with chunk 320.
+
 ## Delivered ms/fold
 
 **Zero, on the production wheel, and that is a measurement rather than a shortfall.** Every route
@@ -221,17 +269,23 @@ trimul wall (**10.5 % of the trimul wall**), and the alignment penalty inside it
 stack's 40 and the confidence head's 4 = **x524** (charter §4.9), 16 contraction calls per block =
 8384 calls/fold.
 
-What is **available and not delivered**, each labelled with what it rests on:
+What is **available and not delivered**, each labelled with what it rests on. All of it is a per-call
+delta scaled by the charter's conversion, not a fold A/B:
 
-| lever | per call | ms/fold | status |
-|---|---:|---:|---|
-| the version effect on the contraction row | 39.33 us | **329.8** | measured on a **source build**, not the production wheel. Not delivered |
-| the guard relaxation, on the source build | 2.57 us | 21.5 | measured, but the penalty it removes is already gone there |
-| the guard relaxation backported to 0.68, with the amortised fill | 34.5 us | 289.5 | **arithmetic, not a measurement** — needs a 0.68 source build |
-| P2's blast-radius total (SDPA @1629, `attn@v` @378, `softmax`) | — | 398.9 | **a per-call sum**, never a fold A/B. Only the 342.0 contraction part is re-measured here |
+| lever | per call | calls/fold | ms/fold | status |
+|---|---:|---:|---:|---|
+| version effect, trimul contraction @1355 | +39.97 us | 8384 | **+335.1** | measured on a **source build**, not the production wheel |
+| version effect, `attn@v` @378 | +24.10 us | 524 | **+12.6** | same |
+| version effect, `softmax` | +3.35 us | 524 | **+1.8** | same |
+| **version cost, SDPA @1629** | **−844.71 us** | 1048 | **−885.3** | same, and it is the biggest term |
+| **net of a version upgrade on the trunk at 298 aa** | | | **−535.8** | **a loss**, on these arms |
+| the guard relaxation, on the source build | +2.57 us | 8384 | 21.5 | measured, but the penalty it removes is already gone there |
+| the guard relaxation backported to 0.68, with the amortised fill | +34.5 us | 8384 | 289.5 | **arithmetic, not a measurement** — needs a 0.68 source build |
+| P2's blast-radius total, for reference | — | — | 398.9 | **a per-call sum**, never a fold A/B |
 
-I did not re-measure SDPA, `attn@v` or `softmax` on the source build, so **56.9 ms/fold of P2's
-398.9 is unretested** against the version finding.
+The SDPA row uses the fold's own program config on both builds (chunk 64, production logical 298:
+2481.12 against 1636.41 us). At each build's own best chunk the gap is wider still, so this is the
+conservative version of the number.
 
 ## Parity
 
@@ -251,39 +305,43 @@ a model-wide parity claim, and the release gate is what settles the rest.
 
 ## Merge recommendation
 
-**Do not merge anything from this branch.** Three separate recommendations:
+**Do not merge anything from this branch, and do not upgrade ttnn on this evidence.** Four
+recommendations:
 
-1. **The tt-metal guard relaxation: hold, and offer it upstream.** It is correct, it is one line, it
-   is a metadata change on the same buffer, and it is bit-exact — but on any tt-metal new enough to
-   contain it there is no longer a penalty for it to remove, so its value to this org is ~21.5
-   ms/fold rather than 342. tt-metal is Tenstorrent's own repo and `new_volume == old_volume` is
-   genuinely the wrong invariant for a padded layout, so the patch is worth filing on its merits.
-   It is **release-gated and stays on `wk/protenix-trunk--p3-align-widen`**.
-2. **The fill: do not ship it.** Every placement expressible on the production wheel is net
+1. **Do not take a version upgrade for the alignment penalty.** It buys +349.5 ms/fold across the
+   three matmul-class sites and costs **−885.3 ms/fold on SDPA**, so on the trunk at 298 aa it is a
+   **net loss of ~535.8 ms/fold**. That is a per-call sum on one source snapshot, not a fold A/B,
+   and it points the wrong way strongly enough that the burden is now on anyone proposing the bump.
+   It also corroborates the existing verdict on the last upgrade this codebase evaluated.
+2. **The tt-metal guard relaxation: hold, and offer it upstream.** It is correct, one line, a
+   metadata change on the same buffer, and bit-exact — but on any tt-metal new enough to contain it
+   there is no longer a penalty for it to remove, so its value to this org is ~21.5 ms/fold rather
+   than 342. tt-metal is Tenstorrent's own repo and `new_volume == old_volume` is genuinely the
+   wrong invariant for a padded layout, so the patch is worth filing on its merits. It is
+   **release-gated and stays on `wk/protenix-trunk--p3-align-widen`**.
+3. **The fill: do not ship it.** Every placement expressible on the production wheel is net
    negative, measured in the real module. The amortised `x_norm_in` placement (6.27 us/contraction)
-   only pays once a widen exists, and by then the version that provides the widen has already
-   removed the penalty.
-3. **The real question this leg has surfaced is a dependency bump, and it is above my pay grade.**
-   329.8 ms/fold of the trunk is sitting in a tt-metal version difference. The org should cost a
-   ttnn upgrade, on evidence, rather than build a fill.
+   only pays once a widen exists.
+4. **The one route worth costing is a 0.68 source build with the guard backported**, which is the
+   only way to reach the matmul-class win **without** taking the SDPA regression: 289.5 ms/fold on
+   arithmetic, needing a cold build at the production tag (hours) and then the amortised fill. Not
+   attempted this pass.
 
 **The production route, stated plainly.** qb1 runs the **0.67.4** wheel and campaign absolutes come
 from there; qb2 and pc run 0.68.0 and produce **ratios only**. A source build at 0.68.0 does not
-reach qb1's 0.67.4 wheel, and the source build I actually used is newer than either. So there are
-exactly two real routes to the 329.8 ms/fold, and neither is a patch to a wheel:
+reach qb1's 0.67.4 wheel, and the source build I used is newer than either. Every number in this doc
+owes a qb1 re-measurement before it drives a decision.
 
-- **upgrade the ttnn wheel** to a version containing the fix, which is a dependency major-bump: it
-  is release-gated, it needs the full parity gate on qb1 at the production shapes, and this
-  codebase already has one recorded upgrade that was rejected on numerics for a smaller gain. My
-  cross-version bit-exactness result covers **one op**, not the model.
-- **build tt-metal from source at 0.67.4/0.68.0 and backport the guard**, which buys the 289.5
-  ms/fold arithmetic above but leaves production on a source build. Cost: a cold build at that tag
-  is hours, and it was not attempted this pass.
-
-**Which version first carried the fix is open**, and it is the cheapest next question: `~/tt-metal`
-(`v0.73.0-dev20260610`) and `~/tt-metal-fused` (`v0.74.0-dev20260620`) are both already built on
-qb2, but neither has a python env of its own and running them under the xtts interpreter loads the
-xtts libraries instead, so the bracket did not come out this pass. One venv per tree closes it.
+**Two things are open and both are cheap.** First, **which version carried the matmul fix, and
+whether the SDPA regression arrived at the same one** — if they landed apart, an intermediate
+version has the +349.5 without the −885.3, and that would change recommendation 1. Second, whether
+the SDPA regression survives with the fold's attention bias present. The bracket did not come out
+this pass for a concrete reason: `~/tt-metal` (`v0.73.0-dev20260610`) and `~/tt-metal-fused`
+(`v0.74.0-dev20260620`) are both built but neither has a python env, and running them under the
+xtts interpreter redirects the **python** package while the native dispatch-kernel source root
+still resolves to the interpreter's own tree, so the JIT build mixes headers from one tree with
+kernel sources from the other and the device refuses to open. **One venv per tree closes it**, and
+that is the next pass's first job.
 
 ## Corrections to the inherited record
 
@@ -315,15 +373,26 @@ xtts libraries instead, so the bracket did not come out this pass. One venv per 
 7. **`ttnn.permute` and `ttnn.matmul` leave 0.0 in the padding lanes they create**, measured through
    the widen on the source build. P2 flagged this as unknown. It does not change today's answer, but
    it is the fact any future fill placement should be designed against.
-8. **398.9 ms/fold remains a per-call sum and has never been a fold A/B.** This pass re-measured the
-   contraction part of it (335.3 ms/fold at 39.99 us/call, against P2's 342.0 at 40.79 — 2.0 % apart against P2's figure) and left the other 56.9 untested against the version finding.
+8. **398.9 ms/fold remains a per-call sum and has never been a fold A/B.** All four of its sites are
+   now re-measured on both builds: the contraction at 335.1 ms/fold (39.97 us/call against P2's
+   40.79, 2.0 % apart against P2's figure), `attn@v` at 12.6, `softmax` at 1.8 and SDPA at 30.60
+   us/call. Nothing in it is untested any more.
 
-**Interaction with `protenix-trunk--p3-sdpa`, so the CTO does not double-count.** My SDPA @1629 row
-is P2's 42.3 ms/fold and I did **not** re-measure it this pass, on either build. If the version
-finding is taken up, SDPA's alignment penalty may vanish with the contraction's; if chunk 320 lands
-first, SDPA's k-chunking changes and the row moves for a different reason. **Do not add my 42.3 to
-p3-sdpa's figure** — whichever lever lands first takes that row, and the other one then owes a
-re-measurement rather than a second claim on the same milliseconds.
+9. **SDPA does not get the version fix, and it regresses.** Its unaligned ratio is unchanged
+   (1.019x on 0.68.0 against 1.021x on the source build) while its absolute time rises 1.51x at the
+   fold's own chunk and **1.76x at each build's own best chunk**. That single row is larger than
+   the whole matmul-class gain and it reverses the recommendation the contraction row alone implies.
+10. **`softmax` no longer pays for an unaligned axis on the newer build** (+3.35 us on 0.68.0
+   against +1.47 us), and `attn@v` @378 goes from +24.10 us to **−0.61 us**. So the version fix
+   covers the matmul class and the reduction, and misses the flash-attention kernel.
+
+**Interaction with `protenix-trunk--p3-sdpa`, so the CTO does not double-count.** I **did**
+re-measure SDPA this pass, on both builds, and the answer is that its alignment penalty is
+version-invariant: +30.60 us/call on 0.68.0 and +51.32 on the source build, ratio ~1.02 either way.
+So the version lever does **not** take SDPA's row — chunk size does. **Do not add my SDPA figure to
+p3-sdpa's**: on the 0.68 production wheel, at the production logical-298 shape, going from the
+fold's chunk 64 to chunk 128 takes SDPA from 1637.84 to 1159.58 us/call, 1.41x, which dwarfs the
+30.60 us alignment delta and is p3-sdpa's territory. That row is theirs; mine is the contraction.
 
 **Generalisation, recorded and not chased** (charter §1): a version that stops charging for an
 unaligned contracted axis helps every model in this codebase that contracts over a non-tile-multiple
