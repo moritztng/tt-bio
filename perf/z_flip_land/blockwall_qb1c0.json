@@ -11,7 +11,7 @@
     "hardware": "blackhole",
     "card_type": "p150a",
     "aiclk_mhz": "1350",
-    "load_s": 7.28,
+    "load_s": 5.83,
     "n_msa": 35
   },
   "grid": {
@@ -43,22 +43,22 @@
     ],
     "bytes_one_way": 11366912,
     "load": [
-      53.51,
-      51.58,
-      51.17
+      30.63,
+      40.88,
+      47.22
     ],
-    "clone_l1_to_l1_us": 31.23,
-    "clone_l1_to_l1_GBs": 364.0,
-    "clone_l1_to_dram_us": 50.08,
-    "clone_l1_to_dram_GBs": 227.0,
-    "clone_dram_to_l1_us": 40.83,
-    "clone_dram_to_l1_GBs": 278.4,
-    "clone_dram_to_dram_us": 64.62,
-    "clone_dram_to_dram_GBs": 175.9,
-    "kernel_l1_us": 122.17,
-    "stock_permute_l1_us": 162.75,
-    "kernel_dram_us": 135.13,
-    "stock_permute_dram_us": 513.06,
+    "clone_l1_to_l1_us": 31.16,
+    "clone_l1_to_l1_GBs": 364.8,
+    "clone_l1_to_dram_us": 50.78,
+    "clone_l1_to_dram_GBs": 223.8,
+    "clone_dram_to_l1_us": 43.28,
+    "clone_dram_to_l1_GBs": 262.7,
+    "clone_dram_to_dram_us": 65.26,
+    "clone_dram_to_dram_GBs": 174.2,
+    "kernel_l1_us": 868.82,
+    "stock_permute_l1_us": 814.04,
+    "kernel_dram_us": 135.16,
+    "stock_permute_dram_us": 293.77,
     "num_groups": 100,
     "cores_engaged": 100,
     "cores_total": 130,
@@ -66,10 +66,10 @@
       1,
       0
     ],
-    "kernel_GBs_l1": 93.0,
-    "kernel_dram_minus_l1_us": 12.96,
-    "stock_dram_minus_l1_us": 350.31,
-    "clone_dram_minus_l1_us": 33.39
+    "kernel_GBs_l1": 13.1,
+    "kernel_dram_minus_l1_us": -733.66,
+    "stock_dram_minus_l1_us": -520.27,
+    "clone_dram_minus_l1_us": 34.1
   },
   "window": [
     {
@@ -77,9 +77,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": false,
-      "kernel_us": 87.44,
-      "stock_us": 749.72,
-      "ratio_stock_over_kernel": 8.574,
+      "kernel_us": 81.37,
+      "stock_us": 59.62,
+      "ratio_stock_over_kernel": 0.733,
       "torch_equal": true
     },
     {
@@ -87,9 +87,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 70.41,
-      "stock_us": 120.44,
-      "ratio_stock_over_kernel": 1.711,
+      "kernel_us": 71.83,
+      "stock_us": 121.48,
+      "ratio_stock_over_kernel": 1.691,
       "torch_equal": true
     },
     {
@@ -97,9 +97,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": false,
-      "kernel_us": 118.1,
-      "stock_us": 110.01,
-      "ratio_stock_over_kernel": 0.932,
+      "kernel_us": 120.69,
+      "stock_us": 110.36,
+      "ratio_stock_over_kernel": 0.914,
       "torch_equal": true
     },
     {
@@ -107,9 +107,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 128.3,
-      "stock_us": 219.52,
-      "ratio_stock_over_kernel": 1.711,
+      "kernel_us": 493.83,
+      "stock_us": 222.69,
+      "ratio_stock_over_kernel": 0.451,
       "torch_equal": true
     },
     {
@@ -117,9 +117,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 81.88,
-      "stock_us": 82.06,
-      "ratio_stock_over_kernel": 1.002,
+      "kernel_us": 74.12,
+      "stock_us": 73.3,
+      "ratio_stock_over_kernel": 0.989,
       "torch_equal": true
     },
     {
@@ -127,9 +127,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 73.07,
-      "stock_us": 123.27,
-      "ratio_stock_over_kernel": 1.687,
+      "kernel_us": 374.53,
+      "stock_us": 120.88,
+      "ratio_stock_over_kernel": 0.323,
       "torch_equal": true
     },
     {
@@ -137,9 +137,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 203.96,
-      "stock_us": 136.38,
-      "ratio_stock_over_kernel": 0.669,
+      "kernel_us": 122.11,
+      "stock_us": 138.03,
+      "ratio_stock_over_kernel": 1.13,
       "torch_equal": true
     },
     {
@@ -147,9 +147,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 135.35,
-      "stock_us": 233.28,
-      "ratio_stock_over_kernel": 1.724,
+      "kernel_us": 130.9,
+      "stock_us": 233.01,
+      "ratio_stock_over_kernel": 1.78,
       "torch_equal": true
     },
     {
@@ -157,9 +157,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 77.44,
-      "stock_us": 89.38,
-      "ratio_stock_over_kernel": 1.154,
+      "kernel_us": 78.72,
+      "stock_us": 96.03,
+      "ratio_stock_over_kernel": 1.22,
       "torch_equal": true
     },
     {
@@ -167,9 +167,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 73.38,
-      "stock_us": 150.95,
-      "ratio_stock_over_kernel": 2.057,
+      "kernel_us": 73.69,
+      "stock_us": 151.12,
+      "ratio_stock_over_kernel": 2.051,
       "torch_equal": true
     },
     {
@@ -177,9 +177,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 120.24,
-      "stock_us": 161.7,
-      "ratio_stock_over_kernel": 1.345,
+      "kernel_us": 124.11,
+      "stock_us": 753.83,
+      "ratio_stock_over_kernel": 6.074,
       "torch_equal": true
     },
     {
@@ -187,9 +187,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 133.01,
-      "stock_us": 292.93,
-      "ratio_stock_over_kernel": 2.202,
+      "kernel_us": 134.47,
+      "stock_us": 293.05,
+      "ratio_stock_over_kernel": 2.179,
       "torch_equal": true
     },
     {
@@ -197,9 +197,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 75.35,
-      "stock_us": 88.46,
-      "ratio_stock_over_kernel": 1.174,
+      "kernel_us": 78.06,
+      "stock_us": 773.93,
+      "ratio_stock_over_kernel": 9.915,
       "torch_equal": true
     },
     {
@@ -207,9 +207,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 71.94,
-      "stock_us": 148.67,
-      "ratio_stock_over_kernel": 2.067,
+      "kernel_us": 74.81,
+      "stock_us": 149.31,
+      "ratio_stock_over_kernel": 1.996,
       "torch_equal": true
     },
     {
@@ -217,9 +217,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 121.6,
-      "stock_us": 166.57,
-      "ratio_stock_over_kernel": 1.37,
+      "kernel_us": 121.71,
+      "stock_us": 167.42,
+      "ratio_stock_over_kernel": 1.376,
       "torch_equal": true
     },
     {
@@ -227,9 +227,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 136.44,
-      "stock_us": 444.78,
-      "ratio_stock_over_kernel": 3.26,
+      "kernel_us": 136.38,
+      "stock_us": 298.39,
+      "ratio_stock_over_kernel": 2.188,
       "torch_equal": true
     },
     {
@@ -237,9 +237,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 80.2,
-      "stock_us": 106.99,
-      "ratio_stock_over_kernel": 1.334,
+      "kernel_us": 860.78,
+      "stock_us": 106.42,
+      "ratio_stock_over_kernel": 0.124,
       "torch_equal": true
     },
     {
@@ -247,9 +247,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 76.38,
-      "stock_us": 176.56,
-      "ratio_stock_over_kernel": 2.311,
+      "kernel_us": 80.46,
+      "stock_us": 499.72,
+      "ratio_stock_over_kernel": 6.211,
       "torch_equal": true
     },
     {
@@ -257,9 +257,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": true,
-      "kernel_us": 133.63,
-      "stock_us": 205.0,
-      "ratio_stock_over_kernel": 1.534,
+      "kernel_us": 123.82,
+      "stock_us": 204.77,
+      "ratio_stock_over_kernel": 1.654,
       "torch_equal": true
     },
     {
@@ -267,9 +267,9 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 469.34,
-      "stock_us": 746.43,
-      "ratio_stock_over_kernel": 1.59,
+      "kernel_us": 150.17,
+      "stock_us": 352.05,
+      "ratio_stock_over_kernel": 2.344,
       "torch_equal": true
     },
     {
@@ -277,9 +277,9 @@
       "C": 32,
       "buffer": "l1",
       "eligible_by_gate": false,
-      "kernel_us": 124.09,
-      "stock_us": 123.62,
-      "ratio_stock_over_kernel": 0.996,
+      "kernel_us": 123.84,
+      "stock_us": 161.79,
+      "ratio_stock_over_kernel": 1.306,
       "torch_equal": true
     },
     {
@@ -287,9 +287,9 @@
       "C": 32,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 128.19,
-      "stock_us": 229.47,
-      "ratio_stock_over_kernel": 1.79,
+      "kernel_us": 124.32,
+      "stock_us": 225.66,
+      "ratio_stock_over_kernel": 1.815,
       "torch_equal": true
     },
     {
@@ -297,9 +297,9 @@
       "C": 64,
       "buffer": "l1",
       "eligible_by_gate": false,
-      "kernel_us": 210.27,
-      "stock_us": 236.07,
-      "ratio_stock_over_kernel": 1.123,
+      "kernel_us": 212.12,
+      "stock_us": 236.34,
+      "ratio_stock_over_kernel": 1.114,
       "torch_equal": true
     },
     {
@@ -307,25 +307,25 @@
       "C": 64,
       "buffer": "dram",
       "eligible_by_gate": true,
-      "kernel_us": 249.47,
-      "stock_us": 705.93,
-      "ratio_stock_over_kernel": 2.83,
+      "kernel_us": 252.86,
+      "stock_us": 436.31,
+      "ratio_stock_over_kernel": 1.726,
       "torch_equal": true
     }
   ],
   "transpose_memory_config_before": "BufferType.L1",
   "cold_base": {
-    "s": 53.493,
+    "s": 48.073,
     "plddt": 0.859489,
     "l1_out_refused": [],
     "load": [
-      55.37,
-      51.85,
-      51.25
+      40.29,
+      41.85,
+      47.21
     ]
   },
   "cold_wire": {
-    "s": 47.116,
+    "s": 41.831,
     "plddt": 0.8594889044761658,
     "eligible_calls_served": 4352,
     "n_tokens": 298,
@@ -343,9 +343,9 @@
       "num_banks": 130
     },
     "load": [
-      64.64,
-      54.68,
-      52.23
+      42.46,
+      42.66,
+      47.26
     ]
   },
   "transpose_memory_config_after_wire_fold": "BufferType.L1",
@@ -353,5 +353,97 @@
     "max_abs_apparent_delta_ms": 0.0,
     "all_folds_spread_ms": 0.0,
     "folds": []
+  },
+  "rejects": {
+    "window_BufferType.L1:[1, 256, 256, 32]": 1,
+    "window_BufferType.L1:[1, 256, 256, 64]": 1,
+    "window_BufferType.L1:[1, 384, 384, 32]": 1,
+    "window_BufferType.L1:[1, 384, 384, 64]": 1
+  },
+  "interaction_checks": {
+    "l1_out_refused_after_all_folds": [],
+    "trimul_throws": [],
+    "norm_l1_vs_dram_calls": {
+      "l1": 1048,
+      "dram": 0
+    },
+    "transpose_memory_config_before": "BufferType.L1",
+    "transpose_memory_config_after": "BufferType.L1",
+    "n_folds_total": 2
+  },
+  "parity_folds": {
+    "n_coord_sets": 2,
+    "max_abs_delta_A_all_pairs": 0.0,
+    "torch_equal_first_vs_last": true,
+    "plddt_all": [],
+    "shape": [
+      1,
+      2398,
+      3
+    ]
+  },
+  "block_wall": {
+    "shape": [
+      1,
+      298,
+      298,
+      256
+    ],
+    "n_outer_pairs": 9,
+    "base_ms": [
+      6.1596,
+      7.6726,
+      9.069,
+      6.1516,
+      6.1508,
+      6.151,
+      6.1513,
+      6.1567,
+      6.1481
+    ],
+    "wire_ms": [
+      8.4681,
+      5.9468,
+      5.9504,
+      5.944,
+      5.9454,
+      5.9514,
+      5.9392,
+      5.9407,
+      5.944
+    ],
+    "base_median_ms": 6.1516,
+    "wire_median_ms": 5.9454,
+    "delta_ms_paired_median": 0.2077,
+    "paired_deltas_ms": [
+      -2.3085,
+      0.1996,
+      0.2042,
+      0.2054,
+      0.2077,
+      0.2122,
+      0.216,
+      1.7258,
+      3.1186
+    ],
+    "n_positive_pairs": 8,
+    "per_arm_spread_ms": {
+      "base": 2.9209,
+      "wire": 2.529
+    },
+    "delta_ms_per_call": 0.2063,
+    "ratio": 1.0347,
+    "eligible_calls_per_block": 4.0,
+    "projected_ms_per_fold_x524x2": 217.7,
+    "projected_ms_per_fold_unpaired_x524x2": 216.2,
+    "bracket_base_first_last_ms": [
+      6.1596,
+      6.1481
+    ],
+    "load": [
+      42.46,
+      42.66,
+      47.26
+    ]
   }
 }

@@ -170,6 +170,10 @@ def main() -> int:
     ap.add_argument("--aa-rounds", type=int, default=3)
     ap.add_argument("--rounds", type=int, default=8)
     ap.add_argument("--block-reps", type=int, default=15)
+    # Outer base/wire pairs. Each pair is interleaved, so a paired median over enough pairs
+    # cancels the host-load drift that separate per-arm medians do not. 3 is too few whenever
+    # a co-tenant campaign is running.
+    ap.add_argument("--block-outer", type=int, default=3)
     ap.add_argument("--out", default=str(OUT / "flip_protenix.json"))
     a = ap.parse_args()
     OUTPATH = a.out
@@ -416,18 +420,29 @@ def main() -> int:
             ts.sort()
             return ts[len(ts) // 2], calls
 
-        bs, ws, cps = [], [], []
-        for _ in range(3):
+        bs, ws, cps, pairs = [], [], [], []
+        for _ in range(a.block_outer):
             b, _c = block(False); bs.append(b)
             w, c = block(True); ws.append(w); cps.append(c)
-        d = med(bs) - med(ws)
+            pairs.append(b - w)
+        # Paired median is the headline: a pair's two arms are adjacent in time, so host-load drift
+        # between pairs cancels instead of landing on whichever arm it happened to hit. The old
+        # med(bs) - med(ws) is kept for continuity with the earlier sessions, but when the two
+        # disagree the paired figure is the one to trust and per_arm_spread_ms says why.
+        dp, d = med(pairs), med(bs) - med(ws)
         R["block_wall"] = {
-            "shape": grab["shape"], "base_ms": [round(v, 4) for v in bs],
-            "wire_ms": [round(v, 4) for v in ws],
+            "shape": grab["shape"], "n_outer_pairs": a.block_outer,
+            "base_ms": [round(v, 4) for v in bs], "wire_ms": [round(v, 4) for v in ws],
             "base_median_ms": round(med(bs), 4), "wire_median_ms": round(med(ws), 4),
+            "delta_ms_paired_median": round(dp, 4),
+            "paired_deltas_ms": [round(v, 4) for v in sorted(pairs)],
+            "n_positive_pairs": sum(1 for v in pairs if v > 0),
+            "per_arm_spread_ms": {"base": round(max(bs) - min(bs), 4),
+                                  "wire": round(max(ws) - min(ws), 4)},
             "delta_ms_per_call": round(d, 4), "ratio": round(med(bs) / med(ws), 4),
             "eligible_calls_per_block": med(cps),
-            "projected_ms_per_fold_x524x2": round(d * 2 * 524, 1),
+            "projected_ms_per_fold_x524x2": round(dp * 2 * 524, 1),
+            "projected_ms_per_fold_unpaired_x524x2": round(d * 2 * 524, 1),
             "bracket_base_first_last_ms": [round(bs[0], 4), round(bs[-1], 4)],
             "load": load()}
         print("block_wall:", R["block_wall"], flush=True)

@@ -98,7 +98,7 @@ want band && step band $PY -u $S/census_sweep.py --model protenix-v2 --targets "
 # a single cold fold pair measured 53.83 s ON against 42.76 s OFF on byte-identical output. The
 # trimul block wall is the instrument. --aa-rounds 0 --rounds 0 skips the fold arms entirely.
 want blockwall && step blockwall $PY -u perf/p3_permute_op/flip_protenix.py \
-    --aa-rounds 0 --rounds 0 --block-reps 15 --out "$S/blockwall_qb1c0.json"
+    --aa-rounds 0 --rounds 0 --block-reps 15 --block-outer 9 --out "$S/blockwall_qb1c0.json"
 
 echo "QB1_DRIVER_DONE $(date -u +%FT%TZ)"
 # OFF CONTROL, only for a model whose gate leg FAILed, same card, same session:
