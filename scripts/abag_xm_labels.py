@@ -22,7 +22,7 @@ Usage:
 in N); labels.json keeps both keys with a "_skipped" marker so the schema is
 otherwise unchanged.
 """
-import argparse, json, subprocess, sys, tempfile
+import argparse, json, os, subprocess, sys, tempfile
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -174,7 +174,13 @@ def main():
            "samples": recs, "pairwise_matrix": pm, "basin_clust": bc}
     print(json.dumps(out, indent=2))
     if a.out:
-        Path(a.out).write_text(json.dumps(out, indent=2))
+        # Atomic, because the trailing labeler treats the mere existence of labels.json as
+        # "this fold is done" and never revisits it. A kill during a plain write leaves a
+        # truncated file that every later scan skips, so the cell would drop out of the rung
+        # with no error anywhere. ~237 KB per file, so the window is small but real.
+        tmp = Path(str(a.out) + ".tmp")
+        tmp.write_text(json.dumps(out, indent=2))
+        os.replace(tmp, a.out)
 
 
 if __name__ == "__main__":
