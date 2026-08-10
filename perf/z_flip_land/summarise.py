@@ -45,7 +45,7 @@ def main() -> int:
         for s in c.get("by_shape", []):
             print(f"    N={s['N']} C={s['C']} out={s['out']} eligible={s['eligible']} "
                   f"calls={s['calls']}")
-    for p in sorted((HERE / "logs").glob("gate_*.log")):
+    for p in sorted(q for d in HERE.glob("logs*") for q in d.glob("gate*.log")):
         txt = p.read_text(errors="ignore")
         verdicts = [l for l in txt.splitlines()
                     if re.search(r"\b(PASS|FAIL|BLOCKED|GATE)\b", l)][-14:]
