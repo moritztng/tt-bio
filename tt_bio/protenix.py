@@ -2020,14 +2020,17 @@ class Trunk(_KeyedWeights):
 
     def _template(self, z3, tpl_a, N, nt):
         zn = self._ln(z3, "template_embedder.layernorm_z.weight", "template_embedder.layernorm_z.bias")
+        # Loop-invariant: both the operand and the weight are the same on every template, so this
+        # ran nt identical projections and threw nt-1 of them away.
+        zp = self._lin(zn, "template_embedder.linear_no_bias_z.weight")
         u = None
         for t in range(nt):
-            v = ttnn.add(tpl_a[t],
-                         self._lin(zn, "template_embedder.linear_no_bias_z.weight"))
+            v = ttnn.add(tpl_a[t], zp)
             for pl in self.TPL:
                 v = pl(None, v)[1]
             v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
             u = v if u is None else ttnn.add(u, v)
+        ttnn.deallocate(zp)
         u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
         return self._lin(ttnn.relu(u), "template_embedder.linear_no_bias_u.weight")
 

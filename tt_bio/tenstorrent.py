@@ -2942,6 +2942,15 @@ class PairWeightedAveraging(Module):
         self.g_weight = self.torch_to_tt("proj_g.weight")
         self.z_weight = self.torch_to_tt("proj_z.weight")
         self.o_weight = self.torch_to_tt("proj_o.weight")
+        # Per-head weight views, cut once. Every one of these slices starts at a column that is not
+        # a multiple of 32 for 7 of the 8 heads, and an unaligned ttnn slice reads and rewrites the
+        # whole source tensor: 202.4 us against 7.5 us aligned, at identical output bytes. Cutting
+        # them per call cost 26 ms/fold. Same device tensors on every call, so nothing changes.
+        hd = self.head_dim
+        self.z_head = [self.z_weight[:, i:i + 1] for i in range(n_heads)]
+        self.m_head = [self.m_weight[:, i * hd:(i + 1) * hd] for i in range(n_heads)]
+        self.g_head = [self.g_weight[:, i * hd:(i + 1) * hd] for i in range(n_heads)]
+        self.o_head = [self.o_weight[i * hd:(i + 1) * hd, :] for i in range(n_heads)]
 
     def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         m = ttnn.reshape(m, tuple(m.shape)[1:])
@@ -2964,7 +2973,7 @@ class PairWeightedAveraging(Module):
         for i in range(self.n_heads):
             b = ttnn.linear(
                 z,
-                self.z_weight[:, i : i + 1],
+                self.z_head[i],
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
@@ -2979,7 +2988,7 @@ class PairWeightedAveraging(Module):
             )
             v = ttnn.linear(
                 m,
-                self.m_weight[:, i * self.head_dim : (i + 1) * self.head_dim],
+                self.m_head[i],
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
@@ -2996,7 +3005,7 @@ class PairWeightedAveraging(Module):
             o = ttnn.permute(o, (0, 2, 1))
             g = ttnn.linear(
                 m,
-                self.g_weight[:, i * self.head_dim : (i + 1) * self.head_dim],
+                self.g_head[i],
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
@@ -3004,7 +3013,7 @@ class PairWeightedAveraging(Module):
             ttnn.deallocate(g)
             o = ttnn.linear(
                 o,
-                self.o_weight[i * self.head_dim : (i + 1) * self.head_dim, :],
+                self.o_head[i],
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )

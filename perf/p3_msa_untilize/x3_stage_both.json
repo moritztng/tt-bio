@@ -1,0 +1,148 @@
+{
+ "card": "qb1 card 2",
+ "which": "both",
+ "n_msa": 35,
+ "arms": {
+  "base": {
+   "trunk_template": 0.6909,
+   "trunk_template_calls": [
+    10,
+    10,
+    10
+   ],
+   "trunk_msa": 1.8524,
+   "trunk_msa_calls": [
+    10,
+    10,
+    10
+   ],
+   "fold_s": 29.6033,
+   "opm_untilize_calls": [
+    40,
+    40,
+    40
+   ],
+   "opm_untilize_us": 1091.554
+  },
+  "base_raw": {
+   "trunk_template": [
+    0.6908672129793558,
+    0.6907671890076017,
+    0.6908515889881528
+   ],
+   "trunk_template_calls": [
+    10,
+    10,
+    10
+   ],
+   "trunk_msa": [
+    1.852389365005365,
+    1.8509847069872194,
+    1.8540140739933122
+   ],
+   "trunk_msa_calls": [
+    10,
+    10,
+    10
+   ],
+   "fold_s": [
+    29.603338198998244,
+    29.53417152899783,
+    29.678186737000942
+   ],
+   "opm_untilize_calls": [
+    40,
+    40,
+    40
+   ],
+   "opm_untilize_us": [
+    1091.5539969573729,
+    1067.5295015971642,
+    1105.1280016545206
+   ]
+  },
+  "arm": {
+   "trunk_template": 0.6773,
+   "trunk_template_calls": [
+    10,
+    10,
+    10
+   ],
+   "trunk_msa": 1.844,
+   "trunk_msa_calls": [
+    10,
+    10,
+    10
+   ],
+   "fold_s": 29.5795,
+   "opm_untilize_calls": [
+    40,
+    40,
+    40
+   ],
+   "opm_untilize_us": 1115.153
+  },
+  "arm_raw": {
+   "trunk_template": [
+    0.6772451240103692,
+    0.6772624719960731,
+    0.6783936620049644
+   ],
+   "trunk_template_calls": [
+    10,
+    10,
+    10
+   ],
+   "trunk_msa": [
+    1.843004034984915,
+    1.8447907980080345,
+    1.8439542749983957
+   ],
+   "trunk_msa_calls": [
+    10,
+    10,
+    10
+   ],
+   "fold_s": [
+    29.703809309998178,
+    29.552249277003284,
+    29.57949432999885
+   ],
+   "opm_untilize_calls": [
+    40,
+    40,
+    40
+   ],
+   "opm_untilize_us": [
+    1068.3039981813636,
+    1115.1530015922617,
+    1127.6884979452007
+   ]
+  }
+ },
+ "opm_shape": "(9536, 9536)",
+ "parity": {
+  "trunk_msa": {
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "mean_abs": 0.0,
+   "shape": [
+    1,
+    298,
+    298,
+    256
+   ]
+  },
+  "trunk_template": {
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "mean_abs": 0.0,
+   "shape": [
+    1,
+    298,
+    298,
+    256
+   ]
+  }
+ }
+}
