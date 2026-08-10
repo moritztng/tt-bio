@@ -1,0 +1,577 @@
+{
+ "t_start": 1786323874.484596,
+ "cores": 110,
+ "I_nt_curve": {
+  "curve": [
+   {
+    "nt": 8,
+    "N": 256,
+    "mt": 2400,
+    "M": 76800,
+    "buf": "l1",
+    "out_MB": 39.32,
+    "in0_MB": 39.32,
+    "AI": 127.8,
+    "best": null,
+    "best_tflops": null,
+    "best_cores": null,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh5_pcm25": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh5_pcm25": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh2_pcm22": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh2_pcm22": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh1_pcm22": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh1_pcm22": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     }
+    }
+   },
+   {
+    "nt": 8,
+    "N": 256,
+    "mt": 2400,
+    "M": 76800,
+    "buf": "dram",
+    "out_MB": 39.32,
+    "in0_MB": 39.32,
+    "AI": 127.8,
+    "best": "bw8_obh5_pcm25",
+    "best_tflops": 31.82,
+    "best_cores": 96,
+    "legs": {
+     "core_grid": {
+      "us": 576.62,
+      "tflops": 17.46,
+      "out_gbps": 68.2,
+      "cores": 110
+     },
+     "bw8_obh5_pcm25": {
+      "us": 316.33,
+      "tflops": 31.82,
+      "out_gbps": 124.3,
+      "cores": 96
+     },
+     "bw1_obh5_pcm25": {
+      "us": 485.31,
+      "tflops": 20.74,
+      "out_gbps": 81.0,
+      "cores": 96
+     },
+     "bw8_obh2_pcm22": {
+      "us": 363.14,
+      "tflops": 27.72,
+      "out_gbps": 108.3,
+      "cores": 110
+     },
+     "bw1_obh2_pcm22": {
+      "us": 522.15,
+      "tflops": 19.28,
+      "out_gbps": 75.3,
+      "cores": 110
+     },
+     "bw8_obh1_pcm22": {
+      "us": 430.15,
+      "tflops": 23.4,
+      "out_gbps": 91.4,
+      "cores": 110
+     },
+     "bw1_obh1_pcm22": {
+      "us": 596.21,
+      "tflops": 16.88,
+      "out_gbps": 66.0,
+      "cores": 110
+     }
+    }
+   },
+   {
+    "nt": 10,
+    "N": 320,
+    "mt": 1920,
+    "M": 61440,
+    "buf": "l1",
+    "out_MB": 39.32,
+    "in0_MB": 31.46,
+    "AI": 141.9,
+    "best": null,
+    "best_tflops": null,
+    "best_cores": null,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh5_pcm20": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh5_pcm20": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh2_pcm18": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh2_pcm18": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh1_pcm18": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh1_pcm18": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     }
+    }
+   },
+   {
+    "nt": 10,
+    "N": 320,
+    "mt": 1920,
+    "M": 61440,
+    "buf": "dram",
+    "out_MB": 39.32,
+    "in0_MB": 31.46,
+    "AI": 141.9,
+    "best": "bw8_obh5_pcm20",
+    "best_tflops": 33.03,
+    "best_cores": 96,
+    "legs": {
+     "core_grid": {
+      "us": 513.9,
+      "tflops": 19.59,
+      "out_gbps": 76.5,
+      "cores": 110
+     },
+     "bw8_obh5_pcm20": {
+      "us": 304.79,
+      "tflops": 33.03,
+      "out_gbps": 129.0,
+      "cores": 96
+     },
+     "bw1_obh5_pcm20": {
+      "us": 450.35,
+      "tflops": 22.35,
+      "out_gbps": 87.3,
+      "cores": 96
+     },
+     "bw8_obh2_pcm18": {
+      "us": 330.0,
+      "tflops": 30.5,
+      "out_gbps": 119.2,
+      "cores": 107
+     },
+     "bw1_obh2_pcm18": {
+      "us": 451.57,
+      "tflops": 22.29,
+      "out_gbps": 87.1,
+      "cores": 107
+     },
+     "bw8_obh1_pcm18": {
+      "us": 387.31,
+      "tflops": 25.99,
+      "out_gbps": 101.5,
+      "cores": 107
+     },
+     "bw1_obh1_pcm18": {
+      "us": 518.02,
+      "tflops": 19.43,
+      "out_gbps": 75.9,
+      "cores": 107
+     }
+    }
+   },
+   {
+    "nt": 16,
+    "N": 512,
+    "mt": 1200,
+    "M": 38400,
+    "buf": "l1",
+    "out_MB": 39.32,
+    "in0_MB": 19.66,
+    "AI": 169.9,
+    "best": null,
+    "best_tflops": null,
+    "best_cores": null,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh5_pcm15": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh5_pcm15": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh2_pcm12": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh2_pcm12": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh1_pcm11": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh1_pcm11": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     }
+    }
+   },
+   {
+    "nt": 16,
+    "N": 512,
+    "mt": 1200,
+    "M": 38400,
+    "buf": "dram",
+    "out_MB": 39.32,
+    "in0_MB": 19.66,
+    "AI": 169.9,
+    "best": "bw8_obh5_pcm15",
+    "best_tflops": 33.58,
+    "best_cores": 80,
+    "legs": {
+     "core_grid": {
+      "us": 417.97,
+      "tflops": 24.08,
+      "out_gbps": 94.1,
+      "cores": 110
+     },
+     "bw8_obh5_pcm15": {
+      "us": 299.79,
+      "tflops": 33.58,
+      "out_gbps": 131.2,
+      "cores": 80
+     },
+     "bw1_obh5_pcm15": {
+      "us": 420.74,
+      "tflops": 23.93,
+      "out_gbps": 93.5,
+      "cores": 80
+     },
+     "bw8_obh2_pcm12": {
+      "us": 351.03,
+      "tflops": 28.68,
+      "out_gbps": 112.0,
+      "cores": 100
+     },
+     "bw1_obh2_pcm12": {
+      "us": 424.61,
+      "tflops": 23.71,
+      "out_gbps": 92.6,
+      "cores": 100
+     },
+     "bw8_obh1_pcm11": {
+      "us": 392.46,
+      "tflops": 25.65,
+      "out_gbps": 100.2,
+      "cores": 110
+     },
+     "bw1_obh1_pcm11": {
+      "us": 465.16,
+      "tflops": 21.64,
+      "out_gbps": 84.5,
+      "cores": 110
+     }
+    }
+   },
+   {
+    "nt": 32,
+    "N": 1024,
+    "mt": 600,
+    "M": 19200,
+    "buf": "l1",
+    "out_MB": 39.32,
+    "in0_MB": 9.83,
+    "AI": 202.6,
+    "best": null,
+    "best_tflops": null,
+    "best_cores": null,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh5_pcm10": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\n"
+     },
+     "bw1_obh5_pcm10": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh2_pcm6": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh2_pcm6": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh1_pcm6": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh1_pcm6": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     }
+    }
+   },
+   {
+    "nt": 32,
+    "N": 1024,
+    "mt": 600,
+    "M": 19200,
+    "buf": "dram",
+    "out_MB": 39.32,
+    "in0_MB": 9.83,
+    "AI": 202.6,
+    "best": "bw8_obh2_pcm6",
+    "best_tflops": 31.02,
+    "best_cores": 100,
+    "legs": {
+     "core_grid": {
+      "us": 354.56,
+      "tflops": 28.39,
+      "out_gbps": 110.9,
+      "cores": 110
+     },
+     "bw8_obh5_pcm10": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\n"
+     },
+     "bw1_obh5_pcm10": {
+      "us": 393.87,
+      "tflops": 25.56,
+      "out_gbps": 99.8,
+      "cores": 60
+     },
+     "bw8_obh2_pcm6": {
+      "us": 324.49,
+      "tflops": 31.02,
+      "out_gbps": 121.2,
+      "cores": 100
+     },
+     "bw1_obh2_pcm6": {
+      "us": 363.86,
+      "tflops": 27.67,
+      "out_gbps": 108.1,
+      "cores": 100
+     },
+     "bw8_obh1_pcm6": {
+      "us": 381.84,
+      "tflops": 26.36,
+      "out_gbps": 103.0,
+      "cores": 100
+     },
+     "bw1_obh1_pcm6": {
+      "us": 415.89,
+      "tflops": 24.2,
+      "out_gbps": 94.5,
+      "cores": 100
+     }
+    }
+   },
+   {
+    "nt": 64,
+    "N": 2048,
+    "mt": 300,
+    "M": 9600,
+    "buf": "l1",
+    "out_MB": 39.32,
+    "in0_MB": 4.92,
+    "AI": 222.3,
+    "best": null,
+    "best_tflops": null,
+    "best_cores": null,
+    "legs": {
+     "core_grid": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\n"
+     },
+     "bw1_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\n"
+     },
+     "bw8_obh2_pcm4": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\n"
+     },
+     "bw1_obh2_pcm4": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw8_obh1_pcm3": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     },
+     "bw1_obh1_pcm3": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+     }
+    }
+   },
+   {
+    "nt": 64,
+    "N": 2048,
+    "mt": 300,
+    "M": 9600,
+    "buf": "dram",
+    "out_MB": 39.32,
+    "in0_MB": 4.92,
+    "AI": 222.3,
+    "best": "core_grid",
+    "best_tflops": 47.79,
+    "best_cores": 110,
+    "legs": {
+     "core_grid": {
+      "us": 210.65,
+      "tflops": 47.79,
+      "out_gbps": 186.7,
+      "cores": 110
+     },
+     "bw8_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\n"
+     },
+     "bw1_obh5_pcm5": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\n"
+     },
+     "bw8_obh2_pcm4": {
+      "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\n"
+     },
+     "bw1_obh2_pcm4": {
+      "us": 374.19,
+      "tflops": 26.9,
+      "out_gbps": 105.1,
+      "cores": 75
+     },
+     "bw8_obh1_pcm3": {
+      "us": 359.93,
+      "tflops": 27.97,
+      "out_gbps": 109.2,
+      "cores": 100
+     },
+     "bw1_obh1_pcm3": {
+      "us": 383.34,
+      "tflops": 26.26,
+      "out_gbps": 102.6,
+      "cores": 100
+     }
+    }
+   }
+  ],
+  "t3_shape": {
+   "l1_core_grid": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+   },
+   "l1_bw8_obh1_pcm3": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+   },
+   "dram_core_grid": {
+    "us": 228.36,
+    "tflops": 47.02,
+    "out_MB": 41.94
+   },
+   "dram_bw8_obh1_pcm3": {
+    "us": 372.08,
+    "tflops": 28.86,
+    "out_MB": 41.94
+   }
+  }
+ },
+ "J_overlap": {
+  "bw8": {
+   "in0_block_w": 8,
+   "per_core_M": 30,
+   "cores": 100,
+   "dram": {
+    "us": 389.35,
+    "tflops": 32.1,
+    "out_gbps": 125.4
+   },
+   "l1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+   },
+   "dram_in1_l1": {
+    "us": 384.26,
+    "tflops": 32.53,
+    "out_gbps": 127.1
+   }
+  },
+  "bw4": {
+   "in0_block_w": 4,
+   "per_core_M": 30,
+   "cores": 100,
+   "dram": {
+    "us": 424.18,
+    "tflops": 29.47,
+    "out_gbps": 115.1
+   },
+   "l1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+   },
+   "dram_in1_l1": {
+    "us": 424.63,
+    "tflops": 29.44,
+    "out_gbps": 115.0
+   }
+  },
+  "bw2": {
+   "in0_block_w": 2,
+   "per_core_M": 30,
+   "cores": 100,
+   "dram": {
+    "us": 468.81,
+    "tflops": 26.66,
+    "out_gbps": 104.1
+   },
+   "l1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+   },
+   "dram_in1_l1": {
+    "us": 472.38,
+    "tflops": 26.46,
+    "out_gbps": 103.4
+   }
+  },
+  "bw1": {
+   "in0_block_w": 1,
+   "per_core_M": 30,
+   "cores": 100,
+   "dram": {
+    "us": 585.28,
+    "tflops": 21.36,
+    "out_gbps": 83.4
+   },
+   "l1": {
+    "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\n"
+   },
+   "dram_in1_l1": {
+    "us": 584.25,
+    "tflops": 21.39,
+    "out_gbps": 83.6
+   }
+  },
+  "clone_out_bytes_L1_to_DRAM": {
+   "us": 184.22,
+   "MB": 48.82,
+   "write_gbps": 265.0
+  }
+ },
+ "K_stability": {
+  "elapsed_min": 0.0,
+  "t2_exact_204800_bw8_obh5_dram": {
+   "ms": 0.7831,
+   "tflops": 34.28,
+   "out_gbps": 133.9
+  },
+  "contraction_b32": {
+   "us": 71.87,
+   "tflops": 29.18
+  },
+  "unary_write_roof_32MB": {
+   "gbps": 257.4
+  },
+  "matmul_write_roof": {
+   "gbps": 168.5
+  }
+ },
+ "t_end": 1786323876.0865817
+}
