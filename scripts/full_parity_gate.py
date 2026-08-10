@@ -262,6 +262,13 @@ LEGS = [
         fixture="boltz2/hsa/nomsa_200step_1sample_3recycle_bf16",
         committed_json="boltz2-hsa-seeded.json", target_id="hsa_no_msa",
         device_args=_boltz2_struct_args(msa="none")),
+    # 9ncy: 505-token antibody-antigen complex (65+228+212), inside the [385,506]aa band that
+    # was unfoldable before c06bd76cf; the AbAg-XM campaign median (509) sits in this band.
+    Leg("boltz2-9ncy-nomsa", "boltz2", "structure", "examples/abag_xm/9ncy.yaml",
+        fixture="boltz2/9ncy/nomsa_200step_1sample_3recycle_bf16",
+        committed_json="", target_id="9ncy",
+        device_args=_boltz2_struct_args(msa="none"),
+        note="505-token AbAg complex in the former [385,506] crash band; no-MSA (campaign regime)"),
 
     # --- Protenix-v2 structure legs (cached fixture, device-only per release) ---
     Leg("protenix-prot-msa", "protenix-v2", "structure", "examples/prot.yaml",
@@ -279,6 +286,13 @@ LEGS = [
         committed_json="protenix-v2-hsa.json", target_id="hsa",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
         msa="staged"),
+    Leg("protenix-9ncy-msa", "protenix-v2", "structure", "examples/abag_xm/9ncy.yaml",
+        fixture="protenix-v2/9ncy/msa-campaign_200step_5sample_10cycle_bf16",
+        committed_json="", target_id="9ncy",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="staged",
+        note="505-token AbAg complex in the former [385,506] crash band; per-chain MSAs reused "
+             "from the AbAg-XM campaign cache (multimer staged fixture: fixture/msa/*.a3m)"),
 
     # --- OpenFold3 structure legs (cached fixture, device-only per release) ---
     # OF3 is ttnn-only (no tt-bio torch path), so these are external-reference
@@ -563,9 +577,10 @@ def preflight_check(legs: list) -> list:
                         f"— device fold and reference will not match (pharma_parity id intersection)")
         if leg.msa == "staged":
             src = _fixture_dir(leg.fixture) / "msa.a3m"
-            if not src.exists():
-                problems.append(f"{leg.id}: staged-MSA leg missing {src} — "
-                                f"{_FIXTURE_FETCH_HINT}")
+            multi = _fixture_dir(leg.fixture) / "msa"
+            if not src.exists() and not (multi.is_dir() and any(multi.glob("*.a3m"))):
+                problems.append(f"{leg.id}: staged-MSA leg missing {src} (or a {multi}/ dir of "
+                                f"per-chain a3ms) — {_FIXTURE_FETCH_HINT}")
         if leg.msa == "yaml":
             yp = REPO / leg.yaml
             if yp.exists():
@@ -610,11 +625,22 @@ def stage_msa(leg: Leg, workdir: Path) -> tuple[Path | None, list[str]]:
     - "yaml": the yaml itself carries an `msa:` path — nothing to stage.
     - "server": --use_msa_server (already in device_args); nothing to stage.
     - "staged": copy <fixture>/msa.a3m to <workdir>/msa/<fixture>/<seqhash>.a3m,
-      return --msa_dir.
+      return --msa_dir. A multimer fixture instead carries <fixture>/msa/ holding one
+      hash-named a3m per chain; those copy through verbatim (the names are already the
+      {seq_hash}.a3m keys prepare_features looks up).
     """
     if leg.msa != "staged":
         return None, []
     fdir = _fixture_dir(leg.fixture)
+    multi = fdir / "msa"
+    if multi.is_dir():
+        msa_dir = workdir / "msa" / leg.fixture.replace("/", "__")
+        msa_dir.mkdir(parents=True, exist_ok=True)
+        for src in sorted(multi.glob("*.a3m")):
+            dst = msa_dir / src.name
+            if not dst.exists():
+                dst.write_bytes(src.read_bytes())
+        return msa_dir, ["--msa_dir", str(msa_dir)]
     src = fdir / "msa.a3m"
     if not src.exists():
         raise FileNotFoundError(f"staged-MSA leg {leg.id}: missing {src}")
