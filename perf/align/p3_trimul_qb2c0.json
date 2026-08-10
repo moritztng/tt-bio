@@ -1,0 +1,42 @@
+{
+ "shape": {
+  "L": 298,
+  "c_z": 256,
+  "chunk": 32,
+  "n_pairs": 8,
+  "hidden": 256,
+  "mem": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,b",
+  "z_padded": [
+   1,
+   298,
+   320,
+   256
+  ]
+ },
+ "mask_off": {
+  "us": 8310.124833163476,
+  "ms": 8.310124833163476
+ },
+ "mask_on": {
+  "us": 9419.751666731221,
+  "ms": 9.419751666731221
+ },
+ "mask_cost": {
+  "us_per_trimul": 1109.626833567745,
+  "us_per_contraction": 138.70335419596813,
+  "ratio": 1.1335270956628138
+ },
+ "parity_mask_on_vs_off": {
+  "torch_equal": true,
+  "max_abs": 0.0,
+  "n_differ": 0,
+  "n_total": 22733824,
+  "rmsd": 0.0
+ },
+ "_cmd": "trimul",
+ "_grid": [
+  11,
+  10
+ ],
+ "_wall_s": 1.0223157405853271
+}

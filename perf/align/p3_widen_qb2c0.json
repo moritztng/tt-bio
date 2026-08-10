@@ -1,0 +1,79 @@
+{
+ "experimental_view": {
+  "ok": true,
+  "logical": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "padded": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "in_addr": 1511424,
+  "out_addr": 1511424,
+  "same_buffer": true,
+  "us": 1.847849998739548
+ },
+ "reshape": {
+  "ok": true,
+  "logical": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "padded": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "in_addr": 1511424,
+  "out_addr": 1511424,
+  "same_buffer": true,
+  "us": 1.587550013937289
+ },
+ "padding_contents_from_torch": {
+  "tail_rows_max_abs": 0.0,
+  "tail_cols_max_abs": 0.0,
+  "valid_equal": true
+ },
+ "permute_padding": {
+  "logical_after_permute": [
+   1,
+   32,
+   298,
+   298
+  ],
+  "padded_after_permute": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "tail_rows_max_abs": 0.0,
+  "tail_cols_max_abs": 0.0
+ },
+ "matmul_output_padding": {
+  "tail_rows_max_abs": 0.0,
+  "tail_cols_max_abs": 0.0
+ },
+ "contraction": {
+  "logical_298_us": 71.86920001913677,
+  "widened_320_us": 69.30370000191033,
+  "ratio": 1.037018225825688,
+  "saved_us_per_call": 2.565500017226441
+ },
+ "parity": {
+  "torch_equal": true,
+  "max_abs": 0.0,
+  "n_differ": 0,
+  "n_total": 2841728
+ },
+ "fill_implicit_tile_padding_us": 13.855439974577166,
+ "clone_us": 12.994449934922159
+}

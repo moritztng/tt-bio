@@ -1,0 +1,97 @@
+{
+ "operand_1x32x298x298": {
+  "logical": [
+   1,
+   32,
+   298,
+   298
+  ],
+  "padded": [
+   1,
+   32,
+   320,
+   320
+  ],
+  "MB": 6.5536,
+  "fill_implicit_tile_padding": {
+   "us": 56.650679998710984,
+   "logical": [
+    1,
+    32,
+    298,
+    298
+   ],
+   "padded": [
+    1,
+    32,
+    320,
+    320
+   ],
+   "same_buffer": true
+  },
+  "multiply__mask2d": {
+   "error": "TT_THROW @ /project/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/binary_ng_device_operation.cpp:223: tt::exception\ninfo:\nInvalid subtile broadcast type\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnn"
+  },
+  "clone_L1": {
+   "us": 14.981349977460923
+  }
+ },
+ "operand_1x64x298x298": {
+  "logical": [
+   1,
+   64,
+   298,
+   298
+  ],
+  "padded": [
+   1,
+   64,
+   320,
+   320
+  ],
+  "MB": 13.1072,
+  "fill_implicit_tile_padding": {
+   "us": 57.13841999750002,
+   "logical": [
+    1,
+    64,
+    298,
+    298
+   ],
+   "padded": [
+    1,
+    64,
+    320,
+    320
+   ],
+   "same_buffer": true
+  },
+  "multiply__mask2d": {
+   "error": "TT_THROW @ /project/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/binary_ng_device_operation.cpp:223: tt::exception\ninfo:\nInvalid subtile broadcast type\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnn"
+  },
+  "clone_L1": {
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 110 banks, where each bank needs to store 120832 B, but bank size is 1461760 B (allocated: 1452032 B"
+  }
+ },
+ "pre_permute_1x298x298x32": {
+  "logical": [
+   1,
+   298,
+   298,
+   32
+  ],
+  "padded": [
+   1,
+   298,
+   320,
+   32
+  ],
+  "fill_implicit_tile_padding_us": 19.890920011675917
+ },
+ "_cmd": "fillpad",
+ "_grid": [
+  11,
+  10
+ ],
+ "_wall_s": 0.7459120750427246
+}

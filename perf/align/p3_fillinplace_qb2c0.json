@@ -1,0 +1,20 @@
+{
+ "n_pairs": 8,
+ "chunk": 32,
+ "base_us": 8335.133833194655,
+ "filled_us": 8760.597833315842,
+ "delta_us_per_trimul": 425.4640001211865,
+ "delta_us_per_contraction": 53.18300001514831,
+ "parity": {
+  "torch_equal": true,
+  "max_abs": 0.0,
+  "n_differ": 0,
+  "n_total": 22733824
+ },
+ "_cmd": "fillinplace",
+ "_grid": [
+  11,
+  10
+ ],
+ "_wall_s": 0.4455223083496094
+}
