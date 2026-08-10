@@ -1,0 +1,323 @@
+{
+ "host": "qb2",
+ "chip": 0,
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "per_core_l1_unreserved": 1532416,
+ "l1_fit_budget_bytes": 168565760,
+ "l1_bank_bytes": 1461760,
+ "note": "qb2 at ttnn 0.68.0 -- every absolute is a RATIO; the cliff sizes and the L1/DRAM ratio are the transferable quantities",
+ "flags": {
+  "_PAIR_PROJ_L1_OUT": "True",
+  "_PAIR_BIAS_L1_NORM": "True",
+  "_PWA_L1_NORM": "True",
+  "_TEMPLATE_L1_NORM": "True",
+  "_NARROW_PROJ_BW": "1",
+  "_PAIR_PROJ_BW": "16",
+  "_PAIR_PROJ_L1_BW": "16"
+ },
+ "cliff": [
+  {
+   "n_padded": 288,
+   "c256_MB": 40.5,
+   "c256_norm_1.5x": "L1",
+   "c256_transpose_2.5x": "L1",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": true,
+   "c64_MB": 10.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 320,
+   "c256_MB": 50.0,
+   "c256_norm_1.5x": "L1",
+   "c256_transpose_2.5x": "L1",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": true,
+   "c64_MB": 12.5,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 352,
+   "c256_MB": 60.5,
+   "c256_norm_1.5x": "L1",
+   "c256_transpose_2.5x": "L1",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": true,
+   "c64_MB": 15.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 384,
+   "c256_MB": 72.0,
+   "c256_norm_1.5x": "L1",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 18.0,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 416,
+   "c256_MB": 84.5,
+   "c256_norm_1.5x": "L1",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 21.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 448,
+   "c256_MB": 98.0,
+   "c256_norm_1.5x": "L1",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 24.5,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 480,
+   "c256_MB": 112.5,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 28.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 512,
+   "c256_MB": 128.0,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 32.0,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 544,
+   "c256_MB": 144.5,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 36.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 576,
+   "c256_MB": 162.0,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 40.5,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 608,
+   "c256_MB": 180.5,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 45.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 640,
+   "c256_MB": 200.0,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 50.0,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 672,
+   "c256_MB": 220.5,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 55.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 704,
+   "c256_MB": 242.0,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 60.5,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "L1",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 736,
+   "c256_MB": 264.5,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 66.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "DRAM",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 768,
+   "c256_MB": 288.0,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 72.0,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "DRAM",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  },
+  {
+   "n_padded": 800,
+   "c256_MB": 312.5,
+   "c256_norm_1.5x": "DRAM",
+   "c256_transpose_2.5x": "DRAM",
+   "c256_narrow_cfg": true,
+   "c256_projl1_cfg": false,
+   "c64_MB": 78.12,
+   "c64_norm_1.5x": "L1",
+   "c64_transpose_2.5x": "DRAM",
+   "c64_narrow_cfg": true,
+   "c64_projl1_cfg": true
+  }
+ ],
+ "cliff_edges": {
+  "c256_norm_1.5x": {
+   "last_L1": 448,
+   "first_other": 480
+  },
+  "c256_transpose_2.5x": {
+   "last_L1": 352,
+   "first_other": 384
+  },
+  "c256_narrow_cfg": {
+   "last_L1": 800,
+   "first_other": null
+  },
+  "c256_projl1_cfg": {
+   "last_L1": 352,
+   "first_other": 384
+  },
+  "c64_norm_1.5x": {
+   "last_L1": 800,
+   "first_other": null
+  },
+  "c64_transpose_2.5x": {
+   "last_L1": 704,
+   "first_other": 736
+  },
+  "c64_narrow_cfg": {
+   "last_L1": 800,
+   "first_other": null
+  },
+  "c64_projl1_cfg": {
+   "last_L1": 800,
+   "first_other": null
+  }
+ },
+ "roofs": {
+  "[1,512,512,256]": {
+   "MB": 128.0,
+   "clone_to_DRAM_ms": 0.7054,
+   "clone_to_DRAM_GBps": 380.6,
+   "clone_to_L1_ms": 0.3547,
+   "clone_to_L1_GBps": 756.8,
+   "L1_over_DRAM": 1.988
+  },
+  "[1,512,512,64]": {
+   "MB": 32.0,
+   "clone_to_DRAM_ms": 0.1886,
+   "clone_to_DRAM_GBps": 355.9,
+   "clone_to_L1_ms": 0.1025,
+   "clone_to_L1_GBps": 654.7,
+   "L1_over_DRAM": 1.84
+  },
+  "matmul_peak": {
+   "shape": "4096^3 bf16",
+   "ms": 1.2329,
+   "TFLOPs": 111.48,
+   "fidelity": "HiFi4, fp32_dest_acc_en, packer_l1_acc -- production's own kernel config, so this is the reachable peak and not a LoFi number no trunk op can see"
+  },
+  "machine_balance_FLOP_per_byte": 292.9
+ },
+ "mechanisms": {
+  "narrow_proj_[1,320,320,256]@[256,8]": {
+   "MB_source": 50.0,
+   "MB_out_padded": 6.25,
+   "prod_dram_source_ms": 0.4016,
+   "l1_source_ms": 0.1209,
+   "core_grid_baseline_ms": 0.5081,
+   "prod_program_config": "MatmulMultiCoreReuseMultiCast1DProgramConfig(compute_with_storage_grid_size=(x=11,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=1,out_block_h=5,out_block_w=1,per_core_M=30,per_core_N=1,fuse_batch=1,fused_activation=std::nullopt,mcast_in0=0,gather_in0=0,hop_cores={},num_global_cb_receivers=1,untilize_out=0)"
+  },
+  "narrow_proj_[1,512,512,256]@[256,8]": {
+   "MB_source": 128.0,
+   "MB_out_padded": 16.0,
+   "prod_dram_source_ms": 0.9032,
+   "l1_source_ms": 0.2516,
+   "core_grid_baseline_ms": 1.4136,
+   "prod_program_config": "MatmulMultiCoreReuseMultiCast1DProgramConfig(compute_with_storage_grid_size=(x=11,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=1,out_block_h=5,out_block_w=1,per_core_M=75,per_core_N=1,fuse_batch=1,fused_activation=std::nullopt,mcast_in0=0,gather_in0=0,hop_cores={},num_global_cb_receivers=1,untilize_out=0)"
+  }
+ }
+}

@@ -1,0 +1,37 @@
+grid (11, 10) cores 110
+== pairbias 512: m_tiles=8192 k_tiles=8 n_tiles=1
+   cap1   bw=1 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=186368B (0.13x bank)
+   cap2   bw=2 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=210944B (0.14x bank)
+   cap4   bw=4 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=260096B (0.18x bank)
+   cap8   bw=8 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=358400B (0.25x bank)
+   cap16  bw=8 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=358400B (0.25x bank)
+== pwa 512: m_tiles=8192 k_tiles=8 n_tiles=1
+   cap1   bw=1 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=186368B (0.13x bank)
+   cap2   bw=2 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=210944B (0.14x bank)
+   cap4   bw=4 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=260096B (0.18x bank)
+   cap8   bw=8 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=358400B (0.25x bank)
+   cap16  bw=8 pcM=75 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=110/110 L1need=358400B (0.25x bank)
+== template 512: m_tiles=8192 k_tiles=8 n_tiles=2
+   cap1   bw=1 pcM=75 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=110/110 L1need=221184B (0.15x bank)
+   cap2   bw=2 pcM=75 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=110/110 L1need=249856B (0.17x bank)
+   cap4   bw=4 pcM=75 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=110/110 L1need=307200B (0.21x bank)
+   cap8   bw=8 pcM=75 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=110/110 L1need=421888B (0.29x bank)
+   cap16  bw=8 pcM=75 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=110/110 L1need=421888B (0.29x bank)
+== pairbias 298: m_tiles=2980 k_tiles=8 n_tiles=1
+   cap1   bw=1 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=186368B (0.13x bank)
+   cap2   bw=2 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=210944B (0.14x bank)
+   cap4   bw=4 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=260096B (0.18x bank)
+   cap8   bw=8 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=358400B (0.25x bank)
+   cap16  bw=8 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=358400B (0.25x bank)
+== pwa 298: m_tiles=2980 k_tiles=8 n_tiles=1
+   cap1   bw=1 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=186368B (0.13x bank)
+   cap2   bw=2 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=210944B (0.14x bank)
+   cap4   bw=4 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=260096B (0.18x bank)
+   cap8   bw=8 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=358400B (0.25x bank)
+   cap16  bw=8 pcM=30 obh=5 obw=1 sh=1 sw=1 pcN=1 cores=100/110 L1need=358400B (0.25x bank)
+== template 298: m_tiles=2980 k_tiles=8 n_tiles=2
+   cap1   bw=1 pcM=30 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=100/110 L1need=221184B (0.15x bank)
+   cap2   bw=2 pcM=30 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=100/110 L1need=249856B (0.17x bank)
+   cap4   bw=4 pcM=30 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=100/110 L1need=307200B (0.21x bank)
+   cap8   bw=8 pcM=30 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=100/110 L1need=421888B (0.29x bank)
+   cap16  bw=8 pcM=30 obh=5 obw=2 sh=1 sw=2 pcN=2 cores=100/110 L1need=421888B (0.29x bank)
