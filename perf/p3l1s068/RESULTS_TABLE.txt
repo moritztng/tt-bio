@@ -1,0 +1,40 @@
+baseline spread over ['base', 'base2', 'base3']
+class                                                          calls       base     base2     base3 spread%
+block:PairformerLayer                                            604   21380.90  21360.96  21414.08    0.25
+body:TriangleMultiplication                                     1208    9225.17   9218.13   9234.98    0.18
+body:TriangleAttention                                          1208    7544.12   7537.10   7557.10    0.27
+body:AttentionPairBias                                          5284    2882.58   2882.36   2887.15    0.17
+body:PairWeightedAveraging                                        30     183.64    179.55    184.93    2.95
+residual_add_                                                   3988     984.64    980.97    987.83    0.70
+_pair_proj_linear|in0=[1, 298, 320, 256]|w=[256, 256]           2096     858.65    851.00    860.01    1.05
+_pair_proj_linear|in0=[298, 320, 256]|w=[256, 256]              1048     428.82    425.40    431.51    1.42
+_narrow_proj_linear|in0=[1, 298, 320, 256]|w=[256, 16]           484     207.77    206.93    208.71    0.86
+_narrow_proj_linear|in0=[298, 320, 256]|w=[256, 1]               240     102.55    101.79    102.65    0.84
+_narrow_proj_linear|in0=[1, 298, 320, 256]|w=[256, 64]            40      16.87     16.83     16.64    1.41
+_pair_proj_linear|in0=[1, 298, 320, 64]|w=[64, 64]               320      41.65     41.82     41.94    0.69
+_pair_proj_linear|in0=[298, 320, 64]|w=[64, 64]                  160      21.12     21.19     21.20    0.39
+
+class                                                                ctrl         x7        d       pwa        d       tpl        d       all        d
+block:PairformerLayer                                            21385.31   20635.65  -749.66  20651.56  -733.75  20668.04  -717.27  20683.81  -701.50
+body:TriangleMultiplication                                       9226.09    8943.57  -282.52   8952.67  -273.42   8954.12  -271.97   8959.42  -266.68
+body:TriangleAttention                                            7546.11    7416.27  -129.84   7418.81  -127.29   7425.48  -120.63   7430.73  -115.38
+body:AttentionPairBias                                            2884.03    2687.65  -196.38   2690.61  -193.42   2690.66  -193.38   2695.40  -188.63
+body:PairWeightedAveraging                                         182.71     180.28    -2.43    106.80   -75.91    180.43    -2.28    109.12   -73.58
+residual_add_                                                      984.48     855.16  -129.32    856.75  -127.73    859.04  -125.44    861.61  -122.87
+_pair_proj_linear|in0=[1, 298, 320, 256]|w=[256, 256]              856.55     606.55  -250.00    609.31  -247.25    610.50  -246.06    613.10  -243.45
+_pair_proj_linear|in0=[298, 320, 256]|w=[256, 256]                 428.58     304.10  -124.48    305.40  -123.18    307.60  -120.98    308.88  -119.70
+_narrow_proj_linear|in0=[1, 298, 320, 256]|w=[256, 16]             207.80      60.44  -147.37     60.66  -147.15     60.71  -147.09     61.55  -146.25
+_narrow_proj_linear|in0=[298, 320, 256]|w=[256, 1]                 102.33     102.25    -0.08     29.59   -72.74    101.91    -0.43     29.86   -72.47
+_narrow_proj_linear|in0=[1, 298, 320, 256]|w=[256, 64]              16.78      16.86    +0.08     16.65    -0.13      5.29   -11.49      5.31   -11.47
+_pair_proj_linear|in0=[1, 298, 320, 64]|w=[64, 64]                  41.80      30.73   -11.07     30.84   -10.96     30.79   -11.01     30.92   -10.88
+_pair_proj_linear|in0=[298, 320, 64]|w=[64, 64]                     21.17      15.71    -5.45     15.91    -5.26     15.45    -5.72     16.01    -5.16
+
+SUM of op-class walls (block/body rows excluded)                                      -667.69            -734.39            -668.21            -732.25
+
+base   plddt=0.859489  fold=30.053  instrumented=31.498  refused=[]
+base2  plddt=0.859489  fold=30.091  instrumented=31.533  refused=[]
+base3  plddt=0.859489  fold=30.086  instrumented=31.523  refused=[]
+x7     plddt=0.859489  fold=29.325  instrumented=30.744  refused=[]
+pwa    plddt=0.859489  fold=29.25  instrumented=30.697  refused=[]
+tpl    plddt=0.859489  fold=29.356  instrumented=30.77  refused=[]
+all    plddt=0.859489  fold=29.274  instrumented=30.73  refused=[]

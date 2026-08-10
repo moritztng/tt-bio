@@ -121,7 +121,15 @@ _PAIR_BIAS_L1_NORM = True
 # norm's own removed write is paid once per region, not once per projection. Measured on qb2
 # chip 2 at 0.68.0: the PWA region 3572.2 -> 991.0 us and the template region 2180.7 -> 853.1,
 # both `torch.equal`. perf/p3l1s068/.
-_SHARED_NORM_L1 = True
+# MEASURED: the two sites need separate toggles, because the L1 residency WINDOW differs even
+# though the shape does not. At PWA the eight consumers are the first op of each head's chain. At
+# the template embedder the nt consumers are separated by two whole PairformerLayer executions, so
+# a naive L1 norm holds 48.82 MB for the entire template loop and the trimul inside those blocks
+# THROWS ("statically allocated circular buffers in program 173 clash with L1 buffers", L1 buffer
+# at 905216, static CB region ending at 1159680). `_template` gathers its projections above the
+# block loop so the residency window is the projections only.
+_PWA_L1_NORM = True
+_TEMPLATE_L1_NORM = True
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
@@ -3099,7 +3107,7 @@ class PairWeightedAveraging(Module):
         z, z_in_l1 = (_l1_layer_norm(z, 1.5, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                      epsilon=1e-5,
                                      compute_kernel_config=self.compute_kernel_config)
-                      if _SHARED_NORM_L1 else
+                      if _PWA_L1_NORM else
                       (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                        epsilon=1e-5,
                                        compute_kernel_config=self.compute_kernel_config), False))

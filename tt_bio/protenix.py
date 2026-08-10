@@ -325,7 +325,7 @@ class _KeyedWeights:
         kw = dict(weight=self._w_tt(wkey, False),
                   bias=(self._w_tt(bkey, False) if bkey else None),
                   epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        if l1 and _T._SHARED_NORM_L1:
+        if l1 and _T._TEMPLATE_L1_NORM:
             return _l1_layer_norm(x, 1.5, **kw)[0]
         return ttnn.layer_norm(x, **kw)
 
@@ -2039,12 +2039,20 @@ class Trunk(_KeyedWeights):
         # nt template projections read this whole normed pair tensor to write two tiles of
         # width each, so one L1-resident copy serves all of them: 2180.7 -> 853.1 us on the
         # four-template region, `torch.equal`.
+        # nt template projections read this whole normed pair tensor to write two tiles of width
+        # each, so they are source-bound and one L1-resident copy serves all of them. They are
+        # taken TOGETHER, above the block loop, and `zn` is freed before the first block runs:
+        # the two PairformerLayers between consecutive templates need their own circular buffers,
+        # and holding 48.82 MB of L1 across them makes their trimul throw.
         zn = self._ln(z3, "template_embedder.layernorm_z.weight",
                       "template_embedder.layernorm_z.bias", l1=True)
+        vs = [ttnn.add(tpl_a[t],
+                       self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
+                       memory_config=ttnn.DRAM_MEMORY_CONFIG) for t in range(nt)]
+        ttnn.deallocate(zn)
         u = None
         for t in range(nt):
-            v = ttnn.add(tpl_a[t],
-                         self._lin(zn, "template_embedder.linear_no_bias_z.weight"))
+            v = vs[t]
             for pl in self.TPL:
                 v = pl(None, v)[1]
             v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")

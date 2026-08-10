@@ -73,7 +73,8 @@ def main():
     T._PAIR_PROJ_L1_OUT = bool(a.l1_out)
     T._PAIR_PROJ_L1_BW = None if a.l1_bw == "none" else int(a.l1_bw)
     T._PAIR_BIAS_L1_NORM = bool(a.bias_l1_norm)
-    T._SHARED_NORM_L1 = bool(a.shared_norm)
+    T._PWA_L1_NORM = bool(a.shared_norm in (1, 3))
+    T._TEMPLATE_L1_NORM = bool(a.shared_norm in (2, 3))
     T._PAIR_PROJ_BW = None if a.pair_bw == "none" else int(a.pair_bw)
     T._pair_proj_program_config.cache_clear()
 
@@ -88,7 +89,7 @@ def main():
 
     res = {"arm": a.arm, "card": "qb2 chip 2", "ttnn": "0.68.0",
            "l1_out": bool(a.l1_out), "l1_bw": T._PAIR_PROJ_L1_BW,
-           "bias_l1_norm": bool(a.bias_l1_norm), "shared_norm": bool(a.shared_norm),
+           "bias_l1_norm": bool(a.bias_l1_norm), "pwa_l1_norm": T._PWA_L1_NORM, "template_l1_norm": T._TEMPLATE_L1_NORM,
            "pair_bw": T._PAIR_PROJ_BW, "narrow_bw": T._NARROW_PROJ_BW,
            "instrument": a.instrument, "cold_s": round(cold_s, 3), "fold_s": times,
            "median_fold_s": st.median(times) if times else None,
