@@ -1,0 +1,22 @@
+{
+ "arm": "d1changed",
+ "l1_out": true,
+ "l1_bw": 1,
+ "bias_l1_norm": true,
+ "pair_bw": 16,
+ "narrow_bw": 1,
+ "instrument": "none",
+ "cold_s": 53.182,
+ "fold_s": [
+  52.103,
+  51.461
+ ],
+ "median_fold_s": 51.782,
+ "min_fold_s": 51.461,
+ "n_tokens": 298,
+ "plddt": 0.853946,
+ "grid": [
+  13,
+  10
+ ]
+}
