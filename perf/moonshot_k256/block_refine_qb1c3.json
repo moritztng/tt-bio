@@ -1,0 +1,1927 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "load_start": 24.4,
+  "shapes": [
+    {
+      "M": 102400,
+      "K": 256,
+      "N": 256,
+      "out": "L1",
+      "default_tflops": 51.92,
+      "results": [
+        {
+          "config": [
+            8,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.193,
+          "tflops": 69.53,
+          "drift": 0.0126,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 0.1935,
+          "tflops": 69.38,
+          "drift": 0.0012,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.194,
+          "tflops": 69.17,
+          "drift": 0.0115,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 0.2006,
+          "tflops": 66.92,
+          "drift": 0.0003,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.2008,
+          "tflops": 66.85,
+          "drift": 0.0082,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.2009,
+          "tflops": 66.82,
+          "drift": 0.0043,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.2012,
+          "tflops": 66.72,
+          "drift": 0.0099,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.2099,
+          "tflops": 63.95,
+          "drift": 0.0155,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 0.21,
+          "tflops": 63.91,
+          "drift": 0.0008,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2101,
+          "tflops": 63.88,
+          "drift": 0.0003,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.2104,
+          "tflops": 63.79,
+          "drift": 0.0013,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 0.2112,
+          "tflops": 63.55,
+          "drift": 0.0152,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.2125,
+          "tflops": 63.15,
+          "drift": 0.0093,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.2128,
+          "tflops": 63.09,
+          "drift": 0.0003,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.2156,
+          "tflops": 62.24,
+          "drift": 0.0036,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.2159,
+          "tflops": 62.17,
+          "drift": 0.0007,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            4,
+            1
+          ],
+          "ms": 0.216,
+          "tflops": 62.15,
+          "drift": 0.0009,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.2165,
+          "tflops": 61.98,
+          "drift": 0.0096,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 0.22,
+          "tflops": 61.01,
+          "drift": 0.0035,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.2244,
+          "tflops": 59.83,
+          "drift": 0.0034,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2246,
+          "tflops": 59.77,
+          "drift": 0.0225,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.225,
+          "tflops": 59.64,
+          "drift": 0.0189,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.2257,
+          "tflops": 59.48,
+          "drift": 0.0016,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.2269,
+          "tflops": 59.14,
+          "drift": 0.0078,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 0.2292,
+          "tflops": 58.57,
+          "drift": 0.0019,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.2434,
+          "tflops": 55.14,
+          "drift": 0.0002,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.244,
+          "tflops": 55.0,
+          "drift": 0.0008,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.2443,
+          "tflops": 54.94,
+          "drift": 0.0067,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            4,
+            1
+          ],
+          "ms": 0.2458,
+          "tflops": 54.61,
+          "drift": 0.0081,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            8,
+            1,
+            1
+          ],
+          "ms": 0.2559,
+          "tflops": 52.46,
+          "drift": 0.0079,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            8,
+            4,
+            1
+          ],
+          "ms": 0.2559,
+          "tflops": 52.45,
+          "drift": 0.0026,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            8,
+            1,
+            4
+          ],
+          "ms": 0.256,
+          "tflops": 52.43,
+          "drift": 0.002,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            8,
+            2,
+            2
+          ],
+          "ms": 0.2562,
+          "tflops": 52.38,
+          "drift": 0.0034,
+          "bit_exact": true
+        },
+        {
+          "config": "default",
+          "ms": 0.2585,
+          "tflops": 51.92,
+          "drift": 0.0302
+        },
+        {
+          "config": [
+            4,
+            8,
+            8,
+            1,
+            1
+          ],
+          "ms": 0.2803,
+          "tflops": 47.88,
+          "drift": 0.0002,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            8,
+            1,
+            4
+          ],
+          "ms": 0.2815,
+          "tflops": 47.69,
+          "drift": 0.002,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            8,
+            2,
+            2
+          ],
+          "ms": 0.2825,
+          "tflops": 47.51,
+          "drift": 0.0022,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            8,
+            4,
+            1
+          ],
+          "ms": 0.2863,
+          "tflops": 46.88,
+          "drift": 0.0019,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2885,
+          "tflops": 46.53,
+          "drift": 0.0253,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.2931,
+          "tflops": 45.79,
+          "drift": 0.0165,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.2956,
+          "tflops": 45.41,
+          "drift": 0.0032,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.2959,
+          "tflops": 45.35,
+          "drift": 0.0012,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.3006,
+          "tflops": 44.65,
+          "drift": 0.002,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.3162,
+          "tflops": 42.44,
+          "drift": 0.0096,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.3173,
+          "tflops": 42.3,
+          "drift": 0.0162,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.323,
+          "tflops": 41.55,
+          "drift": 0.027,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            8,
+            1,
+            1
+          ],
+          "ms": 0.3566,
+          "tflops": 37.64,
+          "drift": 0.0036,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            8,
+            1,
+            4
+          ],
+          "ms": 0.359,
+          "tflops": 37.38,
+          "drift": 0.0169,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            8,
+            2,
+            2
+          ],
+          "ms": 0.4368,
+          "tflops": 30.72,
+          "drift": 0.3451,
+          "bit_exact": true
+        }
+      ]
+    },
+    {
+      "M": 102400,
+      "K": 256,
+      "N": 128,
+      "out": "L1",
+      "default_tflops": 26.46,
+      "results": [
+        {
+          "config": [
+            8,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.1928,
+          "tflops": 34.81,
+          "drift": 0.0055,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 0.1949,
+          "tflops": 34.44,
+          "drift": 0.0101,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.1956,
+          "tflops": 34.31,
+          "drift": 0.0152,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.1979,
+          "tflops": 33.91,
+          "drift": 0.0034,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.1982,
+          "tflops": 33.85,
+          "drift": 0.0023,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 0.1985,
+          "tflops": 33.81,
+          "drift": 0.0051,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.199,
+          "tflops": 33.73,
+          "drift": 0.0002,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2096,
+          "tflops": 32.02,
+          "drift": 0.0065,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.2113,
+          "tflops": 31.75,
+          "drift": 0.0099,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.2123,
+          "tflops": 31.62,
+          "drift": 0.0034,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 0.2126,
+          "tflops": 31.57,
+          "drift": 0.0016,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.2126,
+          "tflops": 31.57,
+          "drift": 0.0031,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.2127,
+          "tflops": 31.55,
+          "drift": 0.0024,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            4,
+            1
+          ],
+          "ms": 0.2129,
+          "tflops": 31.53,
+          "drift": 0.0009,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.2155,
+          "tflops": 31.15,
+          "drift": 0.0001,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 0.216,
+          "tflops": 31.07,
+          "drift": 0.0067,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 0.2172,
+          "tflops": 30.9,
+          "drift": 0.0061,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2181,
+          "tflops": 30.77,
+          "drift": 0.0029,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.2181,
+          "tflops": 30.77,
+          "drift": 0.0034,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.2185,
+          "tflops": 30.71,
+          "drift": 0.0044,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.2188,
+          "tflops": 30.67,
+          "drift": 0.0069,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.2188,
+          "tflops": 30.67,
+          "drift": 0.0036,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.2189,
+          "tflops": 30.66,
+          "drift": 0.0044,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.2199,
+          "tflops": 30.52,
+          "drift": 0.0012,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            4,
+            4,
+            1
+          ],
+          "ms": 0.2207,
+          "tflops": 30.4,
+          "drift": 0.0005,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.2218,
+          "tflops": 30.26,
+          "drift": 0.0014,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 0.222,
+          "tflops": 30.24,
+          "drift": 0.0038,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.2225,
+          "tflops": 30.16,
+          "drift": 0.0028,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.2263,
+          "tflops": 29.65,
+          "drift": 0.0335,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.2376,
+          "tflops": 28.24,
+          "drift": 0.0058,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.2388,
+          "tflops": 28.1,
+          "drift": 0.0051,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.2397,
+          "tflops": 28.0,
+          "drift": 0.0062,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            4,
+            1
+          ],
+          "ms": 0.2406,
+          "tflops": 27.89,
+          "drift": 0.0043,
+          "bit_exact": true
+        },
+        {
+          "config": "default",
+          "ms": 0.2536,
+          "tflops": 26.46,
+          "drift": 0.0353
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.2775,
+          "tflops": 24.19,
+          "drift": 0.0075,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.2791,
+          "tflops": 24.04,
+          "drift": 0.0042,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.2899,
+          "tflops": 23.15,
+          "drift": 0.0121,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.2938,
+          "tflops": 22.84,
+          "drift": 0.002,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.3069,
+          "tflops": 21.86,
+          "drift": 0.0016,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.3083,
+          "tflops": 21.77,
+          "drift": 0.0057,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.3119,
+          "tflops": 21.52,
+          "drift": 0.0018,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.4064,
+          "tflops": 16.51,
+          "drift": 0.5761,
+          "bit_exact": true
+        }
+      ]
+    },
+    {
+      "M": 102400,
+      "K": 256,
+      "N": 768,
+      "out": "DRAM",
+      "default_tflops": 42.93,
+      "results": [
+        {
+          "config": [
+            4,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 0.8407,
+          "tflops": 47.89,
+          "drift": 0.0089,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.8434,
+          "tflops": 47.74,
+          "drift": 0.0071,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.8439,
+          "tflops": 47.71,
+          "drift": 0.0033,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.846,
+          "tflops": 47.6,
+          "drift": 0.0005,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 0.8478,
+          "tflops": 47.49,
+          "drift": 0.0043,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.8483,
+          "tflops": 47.47,
+          "drift": 0.0088,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.8704,
+          "tflops": 46.26,
+          "drift": 0.022,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            4,
+            1
+          ],
+          "ms": 0.8713,
+          "tflops": 46.21,
+          "drift": 0.0221,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.873,
+          "tflops": 46.12,
+          "drift": 0.0206,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.8787,
+          "tflops": 45.82,
+          "drift": 0.0229,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            4,
+            1
+          ],
+          "ms": 0.8806,
+          "tflops": 45.73,
+          "drift": 0.019,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.8813,
+          "tflops": 45.69,
+          "drift": 0.017,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 0.8826,
+          "tflops": 45.62,
+          "drift": 0.0143,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            8,
+            2,
+            2
+          ],
+          "ms": 0.8827,
+          "tflops": 45.62,
+          "drift": 0.043,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            8,
+            4,
+            1
+          ],
+          "ms": 0.8834,
+          "tflops": 45.58,
+          "drift": 0.0459,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            8,
+            1,
+            4
+          ],
+          "ms": 0.8876,
+          "tflops": 45.36,
+          "drift": 0.0339,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            8,
+            1,
+            1
+          ],
+          "ms": 0.8894,
+          "tflops": 45.27,
+          "drift": 0.046,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 0.8952,
+          "tflops": 44.98,
+          "drift": 0.002,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            8,
+            4,
+            1
+          ],
+          "ms": 0.9003,
+          "tflops": 44.73,
+          "drift": 0.0322,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            8,
+            1,
+            4
+          ],
+          "ms": 0.9044,
+          "tflops": 44.52,
+          "drift": 0.0304,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            8,
+            1,
+            1
+          ],
+          "ms": 0.9061,
+          "tflops": 44.44,
+          "drift": 0.0497,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 0.9106,
+          "tflops": 44.22,
+          "drift": 0.0283,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            4,
+            4,
+            1
+          ],
+          "ms": 0.9116,
+          "tflops": 44.17,
+          "drift": 0.0221,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.9212,
+          "tflops": 43.71,
+          "drift": 0.0023,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 0.923,
+          "tflops": 43.63,
+          "drift": 0.0023,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.9278,
+          "tflops": 43.4,
+          "drift": 0.0065,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 0.929,
+          "tflops": 43.34,
+          "drift": 0.074,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.931,
+          "tflops": 43.25,
+          "drift": 0.0203,
+          "bit_exact": true
+        },
+        {
+          "config": "default",
+          "ms": 0.9379,
+          "tflops": 42.93,
+          "drift": 0.0005
+        },
+        {
+          "config": [
+            8,
+            8,
+            8,
+            2,
+            2
+          ],
+          "ms": 0.9622,
+          "tflops": 41.85,
+          "drift": 0.0448,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 0.9686,
+          "tflops": 41.57,
+          "drift": 0.0097,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 0.973,
+          "tflops": 41.38,
+          "drift": 0.003,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 0.9784,
+          "tflops": 41.15,
+          "drift": 0.0082,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 0.993,
+          "tflops": 40.55,
+          "drift": 0.0345,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            1,
+            2
+          ],
+          "ms": 1.0207,
+          "tflops": 39.45,
+          "drift": 0.0124,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 1.0228,
+          "tflops": 39.37,
+          "drift": 0.013,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 1.0279,
+          "tflops": 39.17,
+          "drift": 0.0001,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            8,
+            1,
+            4
+          ],
+          "ms": 1.0324,
+          "tflops": 39.0,
+          "drift": 0.0466,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            8,
+            2,
+            2
+          ],
+          "ms": 1.0408,
+          "tflops": 38.69,
+          "drift": 0.0396,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            1,
+            1
+          ],
+          "ms": 1.042,
+          "tflops": 38.64,
+          "drift": 0.0098,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            8,
+            1,
+            1
+          ],
+          "ms": 1.0473,
+          "tflops": 38.45,
+          "drift": 0.0486,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            32,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 1.0532,
+          "tflops": 38.23,
+          "drift": 0.0503,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            4,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 1.0549,
+          "tflops": 38.17,
+          "drift": 0.4013,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            4,
+            1
+          ],
+          "ms": 1.1114,
+          "tflops": 36.23,
+          "drift": 0.0054,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 1.1139,
+          "tflops": 36.15,
+          "drift": 0.0055,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 1.1212,
+          "tflops": 35.91,
+          "drift": 0.001,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            1,
+            4
+          ],
+          "ms": 1.1357,
+          "tflops": 35.46,
+          "drift": 0.1732,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            32,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 1.1498,
+          "tflops": 35.02,
+          "drift": 0.0163,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            32,
+            8,
+            1,
+            1,
+            1
+          ],
+          "ms": 1.2125,
+          "tflops": 33.21,
+          "drift": 0.0073,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            2,
+            2
+          ],
+          "ms": 1.2149,
+          "tflops": 33.14,
+          "drift": 0.3313,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 1.2219,
+          "tflops": 32.95,
+          "drift": 0.4559,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 1.2324,
+          "tflops": 32.67,
+          "drift": 0.4249,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            4,
+            1
+          ],
+          "ms": 1.2395,
+          "tflops": 32.48,
+          "drift": 0.3302,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            16,
+            8,
+            2,
+            2,
+            2
+          ],
+          "ms": 1.2591,
+          "tflops": 31.98,
+          "drift": 0.37,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            8,
+            8,
+            1,
+            2,
+            1
+          ],
+          "ms": 1.2607,
+          "tflops": 31.94,
+          "drift": 0.3735,
+          "bit_exact": true
+        },
+        {
+          "config": [
+            2,
+            8,
+            4,
+            1,
+            1
+          ],
+          "ms": 1.2697,
+          "tflops": 31.71,
+          "drift": 0.3527,
+          "bit_exact": true
+        }
+      ]
+    }
+  ],
+  "load_end": 24.58
+}
