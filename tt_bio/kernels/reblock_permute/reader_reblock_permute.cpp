@@ -27,6 +27,12 @@ void kernel_main() {
     const uint32_t start_group = get_arg_val<uint32_t>(0);
     const uint32_t num_groups = get_arg_val<uint32_t>(1);
     const uint32_t Nt = get_arg_val<uint32_t>(2);
+    // D1 is the LOGICAL length of the permuted axis. The fold runs this op at 298, not at a
+    // multiple of 32, so the last row-group is ragged: rows [288, 298) are real and [298, 320) are
+    // tile padding. Reading a real page for the padding rows keeps the group a fixed 32 pushes --
+    // the CB accounting, the compute kernel and the writer's 32-tile L1 window all depend on that --
+    // and the writer overwrites those rows with zeros, so the value read is never used.
+    const uint32_t D1 = get_arg_val<uint32_t>(3);
 
     constexpr uint32_t cb_id_in = 0;  // c_0
     constexpr uint32_t TILE_HEIGHT = 32;
@@ -42,7 +48,8 @@ void kernel_main() {
         const uint32_t row_base = it * TILE_HEIGHT;
 
         for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
-            const uint32_t page = (row_base + il) * Nt + jt;
+            const uint32_t row = row_base + il;
+            const uint32_t page = (row < D1 ? row : 0) * Nt + jt;
 
             cb_reserve_back(cb_id_in, onetile);
             const uint32_t l1_write_addr = get_write_ptr(cb_id_in);

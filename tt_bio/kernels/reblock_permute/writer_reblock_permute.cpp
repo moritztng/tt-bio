@@ -42,6 +42,10 @@ void kernel_main() {
     uint32_t start_group = get_arg_val<uint32_t>(0);
     uint32_t num_groups = get_arg_val<uint32_t>(1);
     uint32_t Nt = get_arg_val<uint32_t>(2);
+    // Logical length of the permuted axis; see the reader. Rows at or above it are output tile
+    // padding and must be ZERO, not a copy of row 0: this tensor is a matmul operand and the
+    // padding sits on the contracted axis, so a non-zero there changes the product.
+    uint32_t D1 = get_arg_val<uint32_t>(3);
 
     constexpr uint32_t element_size = get_compile_time_arg_val(0);
     constexpr uint32_t cb_id_in = get_compile_time_arg_val(1);     // c_16 (post-WH tiles)
@@ -80,6 +84,32 @@ void kernel_main() {
         cb_wait_front(cb_id_in, TILE_HEIGHT);
         const uint32_t group_l1_base = get_read_ptr(cb_id_in);
 
+        // Rows [rows_valid, 32) of every output tile in this group are tile padding. They must be
+        // zero (this tensor is a matmul operand and the padding sits on the contracted axis), they
+        // are the same rows for all 32 channels, and the DRAM write never modifies the slot -- so
+        // zero both staging slots once, here, and leave them alone.
+        const uint32_t row_base_g = it * TILE_HEIGHT;
+        const uint32_t rows_valid = (row_base_g + TILE_HEIGHT <= D1) ? TILE_HEIGHT
+                                                                     : (D1 - row_base_g);
+        if (rows_valid < TILE_HEIGHT) {
+            for (uint32_t slot = 0; slot < 2; ++slot) {
+                const uint32_t sb = stage_base0 + slot * tile_bytes;
+                for (uint32_t il = rows_valid; il < TILE_HEIGHT; ++il) {
+                    const uint32_t il_face_h = il / FACE_HEIGHT;
+                    const uint32_t il_in_face = il % FACE_HEIGHT;
+                    for (uint32_t face_w = 0; face_w < NUM_FACES_W; ++face_w) {
+                        const uint32_t dst_elem = (il_face_h * NUM_FACES_W + face_w) *
+                                                      face_height_width + il_in_face * FACE_WIDTH;
+                        volatile tt_l1_ptr uint32_t* z = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(
+                            sb + dst_elem * element_size);
+                        for (uint32_t k = 0; k < (FACE_WIDTH * element_size) / 4; ++k) {
+                            z[k] = 0;
+                        }
+                    }
+                }
+            }
+        }
+
         for (uint32_t ch = 0; ch < TILE_HEIGHT; ++ch) {
             const uint32_t ch_face_h = ch / FACE_HEIGHT;   // which face-row the channel sits in (src)
             const uint32_t ch_in_face = ch % FACE_HEIGHT;  // channel offset within that face
@@ -96,7 +126,7 @@ void kernel_main() {
             // datamover) so the NoC pipelines them instead of serializing scalar
             // stores on the RISC; one barrier drains them before the DRAM write.
             constexpr uint32_t FACE_ROW_BYTES = FACE_WIDTH * element_size;  // 32
-            for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
+            for (uint32_t il = 0; il < rows_valid; ++il) {
                 const uint32_t src_tile_base = group_l1_base + il * tile_bytes;
                 const uint32_t il_face_h = il / FACE_HEIGHT;   // dest face-row
                 const uint32_t il_in_face = il % FACE_HEIGHT;  // dest offset within face

@@ -64,7 +64,9 @@ def main() -> int:
     _orig_tm = T.TriangleMultiplication.__call__
 
     def _grab_tm(self, x, mask=None):
-        if "mod" not in grab and int(x.shape[1]) == int(x.shape[2]):
+        # The pair-track trimul, not the template stack's: the template one runs at c=64 and is a
+        # different row in the ledger. Take the widest channel count seen.
+        if "mod" not in grab and int(x.shape[1]) == int(x.shape[2]) and int(x.shape[3]) >= 128:
             grab["mod"] = self
             grab["x"] = ttnn.clone(x, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             grab["mask"] = ttnn.clone(mask, memory_config=ttnn.DRAM_MEMORY_CONFIG) if mask is not None else None
@@ -120,6 +122,7 @@ def main() -> int:
     base = [x["base_s"] for x in R["rounds"]]
     wire = [x["wire_s"] for x in R["rounds"]]
     med = lambda v: sorted(v)[len(v) // 2]
+    R["rejects"] = {f"{k[0]}:{list(k[1])}": v for k, v in RP.REJECTS.items()}
     R["summary"] = {
         "base_median_s": round(med(base), 4), "wire_median_s": round(med(wire), 4),
         "delta_ms_median": round((med(base) - med(wire)) * 1e3, 1),
