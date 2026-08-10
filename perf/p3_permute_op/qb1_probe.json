@@ -1,0 +1,274 @@
+{
+  "wheel": "0.67.4",
+  "host": "qb1",
+  "card": 0,
+  "compute_grid_main_at_import": [
+    11,
+    10
+  ],
+  "compute_grid_main_after_open": [
+    13,
+    10
+  ],
+  "device_grid": [
+    13,
+    10
+  ],
+  "per_core_l1_unreserved_B": 1532448,
+  "jit_compile": {
+    "ok": true,
+    "addr_write_mode": "in_place"
+  },
+  "cores_engaged_N298": 100,
+  "cores_on_grid": 130,
+  "parity_shapes": [
+    {
+      "N": 298,
+      "buf": "l1",
+      "torch_equal_vs_torch": true,
+      "torch_equal_vs_ttnn_permute_incl_padding": true
+    },
+    {
+      "N": 298,
+      "buf": "dram",
+      "torch_equal_vs_torch": true,
+      "torch_equal_vs_ttnn_permute_incl_padding": true
+    },
+    {
+      "N": 320,
+      "buf": "l1",
+      "torch_equal_vs_torch": true,
+      "torch_equal_vs_ttnn_permute_incl_padding": true
+    },
+    {
+      "N": 320,
+      "buf": "dram",
+      "torch_equal_vs_torch": true,
+      "torch_equal_vs_ttnn_permute_incl_padding": true
+    }
+  ],
+  "alternating_N": {
+    "n": 12,
+    "all_true": true,
+    "cache_entries": 4,
+    "seq": [
+      {
+        "N": 298,
+        "eq": true
+      },
+      {
+        "N": 320,
+        "eq": true
+      },
+      {
+        "N": 320,
+        "eq": true
+      },
+      {
+        "N": 298,
+        "eq": true
+      },
+      {
+        "N": 298,
+        "eq": true
+      },
+      {
+        "N": 320,
+        "eq": true
+      },
+      {
+        "N": 320,
+        "eq": true
+      },
+      {
+        "N": 298,
+        "eq": true
+      },
+      {
+        "N": 298,
+        "eq": true
+      },
+      {
+        "N": 320,
+        "eq": true
+      },
+      {
+        "N": 320,
+        "eq": true
+      },
+      {
+        "N": 298,
+        "eq": true
+      }
+    ]
+  },
+  "two_buffers_one_descriptor": {
+    "n": 4,
+    "all_true": true,
+    "addrs_differ": true
+  },
+  "host_us": {
+    "cached_per_call": 10.26,
+    "rebuilt_per_call": 318.24,
+    "x6_qb2_0_68_0_cached": 4.54,
+    "x6_qb2_0_68_0_rebuilt": 151.29
+  },
+  "clone_roofs": [
+    {
+      "N": 298,
+      "src": "l1",
+      "dst": "l1",
+      "clone_us": 39.35,
+      "one_way_GBs": 144.4
+    },
+    {
+      "N": 298,
+      "src": "l1",
+      "dst": "dram",
+      "clone_us": 51.81,
+      "one_way_GBs": 109.7
+    },
+    {
+      "N": 298,
+      "src": "dram",
+      "dst": "l1",
+      "clone_us": 44.5,
+      "one_way_GBs": 127.7
+    },
+    {
+      "N": 298,
+      "src": "dram",
+      "dst": "dram",
+      "clone_us": 59.37,
+      "one_way_GBs": 95.7
+    },
+    {
+      "N": 320,
+      "src": "l1",
+      "dst": "l1",
+      "clone_us": 39.88,
+      "one_way_GBs": 164.3
+    },
+    {
+      "N": 320,
+      "src": "l1",
+      "dst": "dram",
+      "clone_us": 54.25,
+      "one_way_GBs": 120.8
+    },
+    {
+      "N": 320,
+      "src": "dram",
+      "dst": "l1",
+      "clone_us": 48.99,
+      "one_way_GBs": 133.8
+    },
+    {
+      "N": 320,
+      "src": "dram",
+      "dst": "dram",
+      "clone_us": 66.26,
+      "one_way_GBs": 98.9
+    }
+  ],
+  "ladder": [
+    {
+      "N": 256,
+      "buf": "l1",
+      "wired_us": 122.75,
+      "ttnn_permute_us": 79.74,
+      "ratio": 0.65,
+      "torch_equal": true,
+      "cores": 64,
+      "groups": 64
+    },
+    {
+      "N": 256,
+      "buf": "dram",
+      "wired_us": 126.69,
+      "ttnn_permute_us": 170.02,
+      "ratio": 1.342,
+      "torch_equal": true,
+      "cores": 64,
+      "groups": 64
+    },
+    {
+      "N": 298,
+      "buf": "l1",
+      "wired_us": 128.82,
+      "ttnn_permute_us": 107.17,
+      "ratio": 0.832,
+      "torch_equal": true,
+      "cores": 100,
+      "groups": 100
+    },
+    {
+      "N": 298,
+      "buf": "dram",
+      "wired_us": 134.99,
+      "ttnn_permute_us": 176.96,
+      "ratio": 1.311,
+      "torch_equal": true,
+      "cores": 100,
+      "groups": 100
+    },
+    {
+      "N": 320,
+      "buf": "l1",
+      "wired_us": 127.33,
+      "ttnn_permute_us": 109.18,
+      "ratio": 0.857,
+      "torch_equal": true,
+      "cores": 100,
+      "groups": 100
+    },
+    {
+      "N": 320,
+      "buf": "dram",
+      "wired_us": 130.45,
+      "ttnn_permute_us": 175.82,
+      "ratio": 1.348,
+      "torch_equal": true,
+      "cores": 100,
+      "groups": 100
+    },
+    {
+      "N": 384,
+      "buf": "l1",
+      "wired_us": 199.45,
+      "ttnn_permute_us": 146.79,
+      "ratio": 0.736,
+      "torch_equal": true,
+      "cores": 130,
+      "groups": 144
+    },
+    {
+      "N": 384,
+      "buf": "dram",
+      "wired_us": 276.95,
+      "ttnn_permute_us": 273.42,
+      "ratio": 0.987,
+      "torch_equal": true,
+      "cores": 130,
+      "groups": 144
+    }
+  ],
+  "q9": {
+    "stock_0312_us": 126.66,
+    "stock_0321_us": 114.0,
+    "stock_0321_cheaper": true,
+    "pct_cheaper": 10.0,
+    "decomposed_us": 187.66,
+    "decomposition_ratio_vs_stock_0321": 0.607,
+    "decomposition_torch_equal": true
+  },
+  "transpose_memory_config": {
+    "branch": "BufferType.L1",
+    "grid": [
+      13,
+      10
+    ],
+    "demand_MB": 122.06,
+    "capacity_MB": 199.22
+  }
+}
