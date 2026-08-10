@@ -78,8 +78,9 @@ _TRIMUL_MM_OUT = False
 # sums fold through packer_l1_acc in K-block order instead, which moves the last bf16 bit and
 # is NOT bit-exact. 16 lets c_z=256 reach in0_block_w=8 and c_z=384 reach 12, i.e. the whole
 # contraction in one block for both: 1.037x on a 298 aa protenix-v2 fold and 1.012x on
-# opendde (perf/inblockw/qb1/). Release-gated -- see state/perfwar-inblockw-qb1-land.md for
-# the structural cost, which is large on opendde.
+# opendde (perf/inblockw/qb1/). Both gates pass; opendde moves 5.54 A from the bw=1 arm but
+# moves TOWARD its reference on every metric, off a main that is already outside its floor.
+# Release-gated. See state/perfwar-inblockw-qb1-land.md.
 _PAIR_PROJ_BW: int | None = 16
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
