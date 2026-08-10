@@ -32,7 +32,8 @@ import ttnn
 from . import protenix_weights as PW
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear)
+                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm)
+from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -306,18 +307,27 @@ class _KeyedWeights:
         w = self._w_tt(wkey)
         dt = getattr(self, "dtype", ttnn.bfloat16)
         if bkey is None and activation is None:
-            # the template z projection lands here at [1,298,320,256] @ [256,64]
-            out = _narrow_proj_linear(x, w, self.compute_kernel_config, dt)
+            # the template z projection lands here at [1,298,320,256] @ [256,64].
+            # An L1 operand only ever arrives from a caller that deliberately put it there, and
+            # such a caller wants the result in L1 too, so the buffer type carries the decision
+            # and no flag has to be threaded through `_lin`.
+            in_l1 = x.memory_config().buffer_type == ttnn.BufferType.L1
+            out = _narrow_proj_linear(x, w, self.compute_kernel_config, dt, l1_out=in_l1)
             if out is not None:
                 return out
         return ttnn.linear(x, w, bias=(self._w_tt(bkey, False) if bkey else None),
                            activation=activation, compute_kernel_config=self.compute_kernel_config,
                            dtype=dt, core_grid=CORE_GRID_MAIN)
 
-    def _ln(self, x, wkey, bkey=None):
-        return ttnn.layer_norm(x, weight=self._w_tt(wkey, False),
-                               bias=(self._w_tt(bkey, False) if bkey else None),
-                               epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+    def _ln(self, x, wkey, bkey=None, l1=False):
+        """`l1` for a norm whose consumers are narrow projections of the whole tensor: they are
+        bound by reading it, so an L1-resident result is the lever (`_l1_layer_norm`)."""
+        kw = dict(weight=self._w_tt(wkey, False),
+                  bias=(self._w_tt(bkey, False) if bkey else None),
+                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        if l1 and _T._SHARED_NORM_L1:
+            return _l1_layer_norm(x, 1.5, **kw)[0]
+        return ttnn.layer_norm(x, **kw)
 
 
 class AtomTransformer(_KeyedWeights, Module):
@@ -2026,7 +2036,11 @@ class Trunk(_KeyedWeights):
             self.MSA.append((opm, pwa, tm, pl))
 
     def _template(self, z3, tpl_a, N, nt):
-        zn = self._ln(z3, "template_embedder.layernorm_z.weight", "template_embedder.layernorm_z.bias")
+        # nt template projections read this whole normed pair tensor to write two tiles of
+        # width each, so one L1-resident copy serves all of them: 2180.7 -> 853.1 us on the
+        # four-template region, `torch.equal`.
+        zn = self._ln(z3, "template_embedder.layernorm_z.weight",
+                      "template_embedder.layernorm_z.bias", l1=True)
         u = None
         for t in range(nt):
             v = ttnn.add(tpl_a[t],

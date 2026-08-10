@@ -114,6 +114,14 @@ _PAIR_PROJ_L1_BW: int | None = 16
 # so the write was never the cost. Handing it an L1-resident layer_norm output takes the
 # projection from 450.3 to 137.0 us at [1,298,320,256] @ [256,16] and is torch.equal.
 _PAIR_BIAS_L1_NORM = True
+# The same SOURCE lever at the two sites whose layer_norm feeds SEVERAL narrow projections:
+# PairWeightedAveraging's per-head z->bias (one norm, eight [c_z,1] heads) and the template
+# embedder's z projection (one norm, nt=4 [c_z,64] templates). Each consumer independently stops
+# reading the whole 48.82 MB pair tensor from DRAM, so the read saving is per projection; the
+# norm's own removed write is paid once per region, not once per projection. Measured on qb2
+# chip 2 at 0.68.0: the PWA region 3572.2 -> 991.0 us and the template region 2180.7 -> 853.1,
+# both `torch.equal`. perf/p3l1s068/.
+_SHARED_NORM_L1 = True
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
@@ -474,6 +482,23 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     """
     # 2.5x headroom: the consumer still needs its circular buffers on every core.
     return _l1_memory_config_if_it_fits(t, 2.5)
+
+
+def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
+    """`ttnn.layer_norm` writing to L1 when it fits, else to DRAM. Returns (tensor, in_l1).
+
+    For a narrow-output projection that reads a whole activation tensor to write one tile of
+    width, the source is the cost and the destination is not, so the lever is to hand the
+    projection an L1-resident operand. `_l1_memory_config_if_it_fits` is a static budget and
+    cannot see what the live block already holds, so the allocation itself is the real test and
+    a refusal has to leave today's behaviour exactly intact.
+    """
+    if _l1_memory_config_if_it_fits(x, headroom) is ttnn.L1_MEMORY_CONFIG:
+        try:
+            return ttnn.layer_norm(x, memory_config=ttnn.L1_MEMORY_CONFIG, **kw), True
+        except Exception:                                                     # noqa: BLE001
+            pass
+    return ttnn.layer_norm(x, memory_config=ttnn.DRAM_MEMORY_CONFIG, **kw), False
 
 
 def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float) -> ttnn.MemoryConfig:
@@ -2158,17 +2183,14 @@ class AttentionPairBias(Module):
                 # write one tile of width, so it is bound by its SOURCE, not by its own write.
                 # Handing it an L1-resident normed z removes the norm's DRAM write and the
                 # projection's DRAM read at once: 450.3 -> 137.0 us on the projection.
-                zn_mem = (_l1_memory_config_if_it_fits(z, 1.5) if _PAIR_BIAS_L1_NORM
-                          else ttnn.DRAM_MEMORY_CONFIG)
-                z = ttnn.layer_norm(
-                    z,
-                    weight=self.z_norm_weight,
-                    bias=self.z_norm_bias,
-                    epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
-                    memory_config=zn_mem,
-                )
-                in_l1 = zn_mem is ttnn.L1_MEMORY_CONFIG
+                z, in_l1 = (_l1_layer_norm(z, 1.5, weight=self.z_norm_weight,
+                                           bias=self.z_norm_bias, epsilon=1e-5,
+                                           compute_kernel_config=self.compute_kernel_config)
+                            if _PAIR_BIAS_L1_NORM else
+                            (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
+                                             epsilon=1e-5,
+                                             compute_kernel_config=self.compute_kernel_config),
+                             False))
                 zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
                                          l1_out=in_l1)
                 if zb is None:
@@ -3071,17 +3093,20 @@ class PairWeightedAveraging(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        z = ttnn.layer_norm(
-            z,
-            weight=self.z_norm_weight,
-            bias=self.z_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
+        # One layer_norm, `n_heads` projections of it: every head reads the whole normed pair
+        # tensor to write one tile of width, so all eight are source-bound and one L1-resident
+        # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
+        z, z_in_l1 = (_l1_layer_norm(z, 1.5, weight=self.z_norm_weight, bias=self.z_norm_bias,
+                                     epsilon=1e-5,
+                                     compute_kernel_config=self.compute_kernel_config)
+                      if _SHARED_NORM_L1 else
+                      (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
+                                       epsilon=1e-5,
+                                       compute_kernel_config=self.compute_kernel_config), False))
         o_out = None
         for i in range(self.n_heads):
             zw = self.z_weight[:, i : i + 1]
-            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype)
+            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype, l1_out=z_in_l1)
             if b is None:
                 b = ttnn.linear(
                     z,
