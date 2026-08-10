@@ -159,6 +159,23 @@ def main() -> None:
         return ttnn.matmul(x, y, program_config=cfg,
                            compute_kernel_config=compute_kernel_config, **kw)
 
+    # Host-side cost per arm, measured inside the helper. The fold wall clock cannot resolve a
+    # sub-500 ms effect on a box carrying other legs, but the time spent inside batched_matmul is a
+    # host measurement with microsecond resolution and it is what the guard chain actually costs.
+    # It includes the ttnn.matmul enqueue, which is identical across arms, so arm differences are
+    # the helper's own overhead. Device time is NOT in here: matmul enqueues asynchronously.
+    hstats: dict = {}
+    _inner = bmm
+
+    def bmm(x, y, compute_kernel_config=None, dtype=None):          # noqa: F811
+        t0 = time.perf_counter()
+        try:
+            return _inner(x, y, compute_kernel_config=compute_kernel_config, dtype=dtype)
+        finally:
+            h = hstats.setdefault(arm["name"], [0, 0.0])
+            h[0] += 1
+            h[1] += time.perf_counter() - t0
+
     T.batched_matmul = bmm
 
     import tt_baseline as B
@@ -176,10 +193,14 @@ def main() -> None:
 
     def run(name):
         arm["name"] = name
+        hstats.pop(name, None)
         t, m = one_fold()
+        n, hs = hstats.get(name, [0, 0.0])
         cifs = sorted(struct_dir.glob("*.cif"))
         sha = hashlib.sha256(cifs[0].read_bytes()).hexdigest()[:16] if cifs else None
-        return dict(arm=name, s=round(t, 3), sha=sha, plddt=m.get("plddt"))
+        return dict(arm=name, s=round(t, 3), sha=sha, plddt=m.get("plddt"),
+                    bmm_calls=n, host_in_bmm_ms=round(hs * 1e3, 1),
+                    host_us_per_call=round(hs / n * 1e6, 2) if n else None)
 
     ARMS = ["off", "main", "relaxed", "cached"]
     warm = [run(a_) for a_ in ARMS]
@@ -198,11 +219,18 @@ def main() -> None:
             rec["round"] = r
             runs.append(rec)
             nm = rec["arm"]
-            print(f"  round {r} {nm:8s} {rec['s']:8.3f} s plddt={rec['plddt']} "
+            print(f"  round {r} {nm:8s} {rec['s']:8.3f} s "
+                  f"host_in_bmm={rec['host_in_bmm_ms']:7.1f} ms "
+                  f"({rec['host_us_per_call']} us x {rec['bmm_calls']}) plddt={rec['plddt']} "
                   f"sha={rec['sha']}", flush=True)
 
     per = {a_: [r["s"] for r in runs if r["arm"] == a_] for a_ in order}
     med = {a_: round(st.median(v), 3) for a_, v in per.items()}
+    hper = {a_: [r["host_in_bmm_ms"] for r in runs if r["arm"] == a_] for a_ in order}
+    hmed = {a_: round(st.median(v), 1) for a_, v in hper.items() if v}
+    uper = {a_: [r["host_us_per_call"] for r in runs if r["arm"] == a_] for a_ in order}
+    umed = {a_: round(st.median([x for x in v if x is not None]), 2)
+            for a_, v in uper.items() if any(x is not None for x in v)}
     shas = {r["sha"] for r in runs} | {r["sha"] for r in warm}
     plddts = {r["plddt"] for r in runs}
     out = dict(model=a.model, target=a.target, samples=a.samples,
@@ -215,6 +243,7 @@ def main() -> None:
                relaxed_vs_off_ms=round((med["off"] - med["relaxed"]) * 1e3, 1),
                cached_vs_main_ms=round((med["main"] - med["cached"]) * 1e3, 1),
                cached_vs_off_ms=round((med["off"] - med["cached"]) * 1e3, 1),
+               host_in_bmm_ms_median=hmed, host_us_per_call_median=umed,
                bit_exact_fold=len(shas) == 1, shas=sorted(shas), plddts=sorted(plddts),
                calibrations=stats["calibrations"], calib_s=round(stats["calib_s"], 3),
                no_exact_width=stats["no_exact_width"],
