@@ -1,4 +1,55 @@
+2026-08-10 16:01:42.838 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-10 16:01:42.961 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 16:01:42.967 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 16:01:42.967 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 16:01:42.971 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-10 16:01:42.972 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 16:01:42.975 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 16:01:42.975 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 16:01:42.980 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 16:01:42.983 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 16:01:42.983 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 16:01:43.008 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-10 16:01:43.063 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[1] and remote chip ids {} (cluster.cpp:180)
+2026-08-10 16:01:43.063 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-10 16:01:43.063 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-10 16:01:43.064 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-10 16:01:43.065 | info     |             UMD | Mapped hugepage 0x180000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-10 16:01:43.245 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:329)
+2026-08-10 16:01:43.245 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:391)
+2026-08-10 16:01:43.246 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-10 16:01:43.248 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-10 16:01:43.248 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-10 16:01:43.252 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-10 16:01:43.252 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 16:01:43.252 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 16:01:43.252 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-10 16:01:43.252 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 16:01:43.252 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:89)
+2026-08-10 16:01:43.252 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1107)
+2026-08-10 16:01:43.252 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1148)
+2026-08-10 16:01:43.252 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1177)
+2026-08-10 16:01:43.252 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1316)
+2026-08-10 16:01:43.397 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:959)
 model loaded in 8.9s
+grid: {'compute_grid_main': [13, 10], 'device_grid': [13, 10], 'trimul_chunk_size_298_128': 64, 'triangle_mul_memory_config_298': 'BufferType.L1', 'max_worker_l1_unreserved': 1532448, 'l1_idle': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 0, 'total_bytes_free_per_bank': 1461760, 'largest_contiguous_bytes_free_per_bank': 1461760, 'num_banks': 130}}
 roofs: {'shape': [1, 298, 298, 64], 'bytes_one_way': 11366912, 'load': [30.63, 40.88, 47.22], 'clone_l1_to_l1_us': 31.16, 'clone_l1_to_l1_GBs': 364.8, 'clone_l1_to_dram_us': 50.78, 'clone_l1_to_dram_GBs': 223.8, 'clone_dram_to_l1_us': 43.28, 'clone_dram_to_l1_GBs': 262.7, 'clone_dram_to_dram_us': 65.26, 'clone_dram_to_dram_GBs': 174.2, 'kernel_l1_us': 868.82, 'stock_permute_l1_us': 814.04, 'kernel_dram_us': 135.16, 'stock_permute_dram_us': 293.77, 'num_groups': 100, 'cores_engaged': 100, 'cores_total': 130, 'per_core_work': [1, 0], 'kernel_GBs_l1': 13.1, 'kernel_dram_minus_l1_us': -733.66, 'stock_dram_minus_l1_us': -520.27, 'clone_dram_minus_l1_us': 34.1}
 win: {'N': 256, 'C': 32, 'buffer': 'l1', 'eligible_by_gate': False, 'kernel_us': 81.37, 'stock_us': 59.62, 'ratio_stock_over_kernel': 0.733, 'torch_equal': True}
 win: {'N': 256, 'C': 32, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 71.83, 'stock_us': 121.48, 'ratio_stock_over_kernel': 1.691, 'torch_equal': True}
@@ -24,6 +75,8 @@ win: {'N': 384, 'C': 32, 'buffer': 'l1', 'eligible_by_gate': False, 'kernel_us':
 win: {'N': 384, 'C': 32, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 124.32, 'stock_us': 225.66, 'ratio_stock_over_kernel': 1.815, 'torch_equal': True}
 win: {'N': 384, 'C': 64, 'buffer': 'l1', 'eligible_by_gate': False, 'kernel_us': 212.12, 'stock_us': 236.34, 'ratio_stock_over_kernel': 1.114, 'torch_equal': True}
 win: {'N': 384, 'C': 64, 'buffer': 'dram', 'eligible_by_gate': True, 'kernel_us': 252.86, 'stock_us': 436.31, 'ratio_stock_over_kernel': 1.726, 'torch_equal': True}
+2026-08-10 16:01:57.271 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)
+2026-08-10 16:01:58.166 | info     |              Op | Multicast eligibility: 0/0 chains using mcast (all-or-nothing) (sdpa_program_factory.cpp:1269)
 cold_base: {'s': 48.073, 'plddt': 0.859489, 'l1_out_refused': [], 'load': [40.29, 41.85, 47.21]}
 cold_wire: {'s': 41.831, 'plddt': 0.8594889044761658, 'eligible_calls_served': 4352, 'n_tokens': 298, 'l1_out_refused': [], 'trimul_throws': [], 'norm_l1_vs_dram': {'l1': 1048, 'dram': 0}, 'l1_inside_trimul_wire_arm': {'total_bytes_per_bank': 1461760, 'total_bytes_allocated_per_bank': 0, 'total_bytes_free_per_bank': 1461760, 'largest_contiguous_bytes_free_per_bank': 1461760, 'num_banks': 130}, 'load': [42.46, 42.66, 47.26]}
 aa_summary: {'max_abs_apparent_delta_ms': 0.0, 'all_folds_spread_ms': 0.0, 'folds': []}
@@ -31,3 +84,5 @@ summary: skipped, --rounds 0 (no fold A/B arms requested)
 interaction: {'l1_out_refused_after_all_folds': [], 'trimul_throws': [], 'norm_l1_vs_dram_calls': {'l1': 1048, 'dram': 0}, 'transpose_memory_config_before': 'BufferType.L1', 'transpose_memory_config_after': 'BufferType.L1', 'n_folds_total': 2}
 parity_folds: {'n_coord_sets': 2, 'max_abs_delta_A_all_pairs': 0.0, 'torch_equal_first_vs_last': True, 'plddt_all': [], 'shape': [1, 2398, 3]}
 block_wall: {'shape': [1, 298, 298, 256], 'n_outer_pairs': 9, 'base_ms': [6.1596, 7.6726, 9.069, 6.1516, 6.1508, 6.151, 6.1513, 6.1567, 6.1481], 'wire_ms': [8.4681, 5.9468, 5.9504, 5.944, 5.9454, 5.9514, 5.9392, 5.9407, 5.944], 'base_median_ms': 6.1516, 'wire_median_ms': 5.9454, 'delta_ms_paired_median': 0.2077, 'paired_deltas_ms': [-2.3085, 0.1996, 0.2042, 0.2054, 0.2077, 0.2122, 0.216, 1.7258, 3.1186], 'n_positive_pairs': 8, 'per_arm_spread_ms': {'base': 2.9209, 'wire': 2.529}, 'delta_ms_per_call': 0.2063, 'ratio': 1.0347, 'eligible_calls_per_block': 4.0, 'projected_ms_per_fold_x524x2': 217.7, 'projected_ms_per_fold_unpaired_x524x2': 216.2, 'bracket_base_first_last_ms': [6.1596, 6.1481], 'load': [42.46, 42.66, 47.26]}
+2026-08-10 16:03:27.561 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-10 16:03:27.561 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
