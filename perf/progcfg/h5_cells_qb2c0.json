@@ -1,0 +1,2527 @@
+{
+  "host": "qb2",
+  "chip": 0,
+  "ttnn": "0.68.0",
+  "device_grid": [
+    11,
+    10
+  ],
+  "compute_grid_main": [
+    11,
+    10
+  ],
+  "max_worker_l1_unreserved": 1532416,
+  "l1_bank_bytes": 1461760,
+  "flags": {
+    "_PAIR_PROJ_BW": 16,
+    "_PAIR_PROJ_L1_BW": 16,
+    "_NARROW_PROJ_BW": 1,
+    "_PAIR_PROJ_L1_OUT": true
+  },
+  "note": "qb2 at 0.68.0: every figure here is a RATIO owing a qb1/0.67.4 re-take (charter 4.8)",
+  "shapes": {
+    "298:64": {
+      "N": 298,
+      "c": 64,
+      "m_tiles": 2980,
+      "k_tiles": 2,
+      "n_tiles": 2,
+      "per_core_M": 30,
+      "cores_engaged": 100,
+      "grid_cores": 110,
+      "l1_bank_bytes": 1461760,
+      "cells": {
+        "C1D_tuned_dram": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 2,
+            "out_subblock_h": 1,
+            "out_subblock_w": 2,
+            "out_block_h": 5,
+            "out_block_w": 2,
+            "per_core_M": 30,
+            "per_core_N": 2,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "DRAM",
+          "proj_ms": 0.10608200000206125,
+          "region_ms": 0.299614500363532,
+          "region_consume_ms": 0.3818899999714631,
+          "torch_equal_vs_C1D": true
+        },
+        "C1L_tuned_l1": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 2,
+            "out_subblock_h": 1,
+            "out_subblock_w": 2,
+            "out_block_h": 5,
+            "out_block_w": 2,
+            "per_core_M": 30,
+            "per_core_N": 2,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "L1",
+          "proj_ms": 0.07373399967036676,
+          "region_ms": 0.2286415001435671,
+          "region_consume_ms": 0.2920700003414822,
+          "torch_equal_vs_C1D": true,
+          "max_abs_vs_C1D": 0.0
+        },
+        "C0D_untuned_dram": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "DRAM",
+          "proj_ms": 0.1000805000330729,
+          "region_ms": 0.2834279998751299,
+          "region_consume_ms": 0.3650374997050676,
+          "torch_equal_vs_C1D": false,
+          "max_abs_vs_C1D": 0.25
+        },
+        "C0L_untuned_l1": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "L1",
+          "proj_ms": 0.07381400018857676,
+          "region_ms": 0.23157200030254899,
+          "region_consume_ms": 0.29826700028934283,
+          "torch_equal_vs_C1D": false,
+          "max_abs_vs_C1D": 0.25
+        }
+      },
+      "sweep": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 145408,
+          "proj_ms": 0.2584594999461842
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 155648,
+          "proj_ms": 0.17859850004242617
+        },
+        "bw1_obh2_obw1": {
+          "need_bytes": 155648,
+          "proj_ms": 0.1950705000126618
+        },
+        "bw1_obh2_obw2": {
+          "need_bytes": 172032,
+          "proj_ms": 0.1400329997522931
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 165888,
+          "proj_ms": 0.18049250002150075
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 188416,
+          "proj_ms": 0.12228350033183233
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 186368,
+          "proj_ms": 0.16053349963840446
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 221184,
+          "proj_ms": 0.11261999998168903
+        },
+        "bw1_obh6_obw1": {
+          "need_bytes": 196608,
+          "proj_ms": 0.14856500001769746
+        },
+        "bw1_obh6_obw2": {
+          "need_bytes": 237568,
+          "proj_ms": 0.10953899982268922
+        },
+        "bw1_obh10_obw1": {
+          "need_bytes": 237568,
+          "proj_ms": 0.14012349993208773
+        },
+        "bw1_obh10_obw2": {
+          "need_bytes": 303104,
+          "proj_ms": 0.10366750029788818
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 288768,
+          "proj_ms": 0.14736249977431726
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 385024,
+          "proj_ms": 0.10728950019256445
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 153600,
+          "proj_ms": 0.21824099985678913
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 167936,
+          "proj_ms": 0.13894599987906986
+        },
+        "bw2_obh2_obw1": {
+          "need_bytes": 167936,
+          "proj_ms": 0.1641355001993361
+        },
+        "bw2_obh2_obw2": {
+          "need_bytes": 188416,
+          "proj_ms": 0.12300499975026469
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 182272,
+          "proj_ms": 0.16314349977619713
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 208896,
+          "proj_ms": 0.11261500003456604
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 210944,
+          "proj_ms": 0.14867000027152244
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 249856,
+          "proj_ms": 0.10534550028751255
+        },
+        "bw2_obh6_obw1": {
+          "need_bytes": 225280,
+          "proj_ms": 0.1421924998794566
+        },
+        "bw2_obh6_obw2": {
+          "need_bytes": 270336,
+          "proj_ms": 0.1068185001713573
+        },
+        "bw2_obh10_obw1": {
+          "need_bytes": 282624,
+          "proj_ms": 0.13904649995311047
+        },
+        "bw2_obh10_obw2": {
+          "need_bytes": 352256,
+          "proj_ms": 0.10612200003379257
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 354304,
+          "proj_ms": 0.14228749978428823
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 454656,
+          "proj_ms": 0.10815099994943012
+        }
+      },
+      "tensor_bytes": 12206080,
+      "proj_flops": 781189120,
+      "arithmetic_intensity": 32.0,
+      "region_bytes_6T": 73236480,
+      "clone_dram_ms": 0.07196050000857213,
+      "clone_dram_GBps": 339.24389070520573,
+      "clone_l1_ms": 0.0409399999625748,
+      "clone_l1_GBps": 596.2911583369887,
+      "cfg_tuned_dram": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 2,
+        "out_subblock_h": 1,
+        "out_subblock_w": 2,
+        "out_block_h": 5,
+        "out_block_w": 2,
+        "per_core_M": 30,
+        "per_core_N": 2,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_tuned_l1": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 2,
+        "out_subblock_h": 1,
+        "out_subblock_w": 2,
+        "out_block_h": 5,
+        "out_block_w": 2,
+        "per_core_M": 30,
+        "per_core_N": 2,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_fields_identical": true,
+      "l1_out_alternatives": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 268288,
+          "pct_of_bank": 18.353765323992995,
+          "proj_ms": 0.2268775001539325,
+          "region_ms": 0.5343275001905567,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 278528,
+          "pct_of_bank": 19.05429071803853,
+          "proj_ms": 0.13295950020619784,
+          "region_ms": 0.3483000000414904,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh2_obw1": {
+          "need_bytes": 278528,
+          "pct_of_bank": 19.05429071803853,
+          "proj_ms": 0.13115100000504754,
+          "region_ms": 0.345213500168029,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh2_obw2": {
+          "need_bytes": 294912,
+          "pct_of_bank": 20.175131348511382,
+          "proj_ms": 0.08742550016904715,
+          "region_ms": 0.2589000000625674,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 288768,
+          "pct_of_bank": 19.754816112084065,
+          "proj_ms": 0.117950000003475,
+          "region_ms": 0.3185865002706123,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 311296,
+          "pct_of_bank": 21.295971978984237,
+          "proj_ms": 0.07118399980754475,
+          "region_ms": 0.23036949960442143,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 309248,
+          "pct_of_bank": 21.15586690017513,
+          "proj_ms": 0.1190774996757682,
+          "region_ms": 0.3213770000911609,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 344064,
+          "pct_of_bank": 23.53765323992995,
+          "proj_ms": 0.06957599998713704,
+          "region_ms": 0.22497899999507354,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh6_obw1": {
+          "need_bytes": 319488,
+          "pct_of_bank": 21.856392294220665,
+          "proj_ms": 0.11655749995043152,
+          "region_ms": 0.31532549974144786,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh6_obw2": {
+          "need_bytes": 360448,
+          "pct_of_bank": 24.6584938704028,
+          "proj_ms": 0.06808749958508997,
+          "region_ms": 0.22199349996299134,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh10_obw1": {
+          "need_bytes": 360448,
+          "pct_of_bank": 24.6584938704028,
+          "proj_ms": 0.12138200008848798,
+          "region_ms": 0.3240874998482468,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh10_obw2": {
+          "need_bytes": 425984,
+          "pct_of_bank": 29.14185639229422,
+          "proj_ms": 0.06990149995544925,
+          "region_ms": 0.22324549991026288,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 411648,
+          "pct_of_bank": 28.161120840630474,
+          "proj_ms": 0.12330550043770927,
+          "region_ms": 0.33070049994421424,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 507904,
+          "pct_of_bank": 34.74605954465849,
+          "proj_ms": 0.08317750007336144,
+          "region_ms": 0.24660150029376382,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 276480,
+          "pct_of_bank": 18.914185639229423,
+          "proj_ms": 0.1384655001857027,
+          "region_ms": 0.3620964998845011,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 290816,
+          "pct_of_bank": 19.89492119089317,
+          "proj_ms": 0.09226000020134961,
+          "region_ms": 0.27209600011701696,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh2_obw1": {
+          "need_bytes": 290816,
+          "pct_of_bank": 19.89492119089317,
+          "proj_ms": 0.1223690001097566,
+          "region_ms": 0.33163750003950554,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh2_obw2": {
+          "need_bytes": 311296,
+          "pct_of_bank": 21.295971978984237,
+          "proj_ms": 0.0687789997755317,
+          "region_ms": 0.22683250017507817,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 305152,
+          "pct_of_bank": 20.875656742556917,
+          "proj_ms": 0.12407699978211895,
+          "region_ms": 0.33148149987027864,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 331776,
+          "pct_of_bank": 22.697022767075307,
+          "proj_ms": 0.07203549967016443,
+          "region_ms": 0.22985850000623032,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 333824,
+          "pct_of_bank": 22.837127845884414,
+          "proj_ms": 0.12361100016278215,
+          "region_ms": 0.3261509996264067,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 372736,
+          "pct_of_bank": 25.499124343257442,
+          "proj_ms": 0.07185499998740852,
+          "region_ms": 0.22997900032351026,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh6_obw1": {
+          "need_bytes": 348160,
+          "pct_of_bank": 23.817863397548162,
+          "proj_ms": 0.11824550028904923,
+          "region_ms": 0.32029500016506063,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh6_obw2": {
+          "need_bytes": 393216,
+          "pct_of_bank": 26.90017513134851,
+          "proj_ms": 0.07003649989201222,
+          "region_ms": 0.22426250006901682,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh10_obw1": {
+          "need_bytes": 405504,
+          "pct_of_bank": 27.740805604203153,
+          "proj_ms": 0.11932300003536511,
+          "region_ms": 0.321111499943072,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh10_obw2": {
+          "need_bytes": 475136,
+          "pct_of_bank": 32.50437828371278,
+          "proj_ms": 0.07190549968072446,
+          "region_ms": 0.22427299973060144,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 477184,
+          "pct_of_bank": 32.64448336252189,
+          "proj_ms": 0.12221850010973867,
+          "region_ms": 0.32411250003860914,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 577536,
+          "pct_of_bank": 39.50963222416813,
+          "proj_ms": 0.07512150023103459,
+          "region_ms": 0.23218299975269474,
+          "torch_equal_vs_C1D": true
+        }
+      }
+    },
+    "512:64": {
+      "N": 512,
+      "c": 64,
+      "m_tiles": 8192,
+      "k_tiles": 2,
+      "n_tiles": 2,
+      "per_core_M": 75,
+      "cores_engaged": 110,
+      "grid_cores": 110,
+      "l1_bank_bytes": 1461760,
+      "cells": {
+        "C1D_tuned_dram": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 2,
+            "out_subblock_h": 1,
+            "out_subblock_w": 2,
+            "out_block_h": 5,
+            "out_block_w": 2,
+            "per_core_M": 75,
+            "per_core_N": 2,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "DRAM",
+          "proj_ms": 0.25022849968081573,
+          "region_ms": 0.7461160003003897,
+          "region_consume_ms": 0.9701779999886639,
+          "torch_equal_vs_C1D": true
+        },
+        "C1L_tuned_l1": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 2,
+            "out_subblock_h": 1,
+            "out_subblock_w": 2,
+            "out_block_h": 5,
+            "out_block_w": 2,
+            "per_core_M": 75,
+            "per_core_N": 2,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "L1",
+          "proj_ms": 0.1679729998613766,
+          "region_ms": 0.5736795001212158,
+          "region_consume_ms": 0.751265999952011,
+          "torch_equal_vs_C1D": true,
+          "max_abs_vs_C1D": 0.0
+        },
+        "C0D_untuned_dram": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "DRAM",
+          "proj_ms": 0.23979249999683816,
+          "region_ms": 0.7226799998534261,
+          "region_consume_ms": 0.9489465001024655,
+          "torch_equal_vs_C1D": false,
+          "max_abs_vs_C1D": 0.25
+        },
+        "C0L_untuned_l1": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "L1",
+          "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 149 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1267712 and static circular buffer region ends at 1348096\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x71ef5e8",
+          "traceback": " /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0xa5) [0x5862da6ddac5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bcd89) [0x5862da6e7d89]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bc8f2) [0x5862da6e78f2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x680) [0x5862da940b70]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x148028) [0x5862da673028]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x71efa4a2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x71efa4a2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x345cdb) [0x5862da870cdb]\n\n"
+        }
+      },
+      "sweep": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 145408,
+          "proj_ms": 0.6554789997608168
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 155648,
+          "proj_ms": 0.4354044999672624
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 165888,
+          "proj_ms": 0.4318124997553241
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 188416,
+          "proj_ms": 0.3084314998886839
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 186368,
+          "proj_ms": 0.3895905001627398
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 221184,
+          "proj_ms": 0.2718749997256964
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 288768,
+          "proj_ms": 0.3508145000523655
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 385024,
+          "proj_ms": 0.25653550028437166
+        },
+        "bw1_obh25_obw1": {
+          "need_bytes": 391168,
+          "proj_ms": 0.35978200003228267
+        },
+        "bw1_obh25_obw2": {
+          "need_bytes": 548864,
+          "proj_ms": 0.2668155002538697
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 153600,
+          "proj_ms": 0.4439560002538201
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 167936,
+          "proj_ms": 0.33799450011429144
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 182272,
+          "proj_ms": 0.3800165000029665
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 208896,
+          "proj_ms": 0.27507650020197616
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 210944,
+          "proj_ms": 0.3604335001909931
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 249856,
+          "proj_ms": 0.24824399997669389
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 354304,
+          "proj_ms": 0.34488800019971677
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 454656,
+          "proj_ms": 0.2412904996162979
+        },
+        "bw2_obh25_obw1": {
+          "need_bytes": 497664,
+          "proj_ms": 0.35332449988345616
+        },
+        "bw2_obh25_obw2": {
+          "need_bytes": 659456,
+          "proj_ms": 0.2540404998399026
+        }
+      },
+      "tensor_bytes": 33554432,
+      "proj_flops": 2147483648,
+      "arithmetic_intensity": 32.0,
+      "region_bytes_6T": 201326592,
+      "clone_dram_ms": 0.17644450008447166,
+      "clone_dram_GBps": 380.33978938347224,
+      "clone_l1_ms": 0.09251600022253115,
+      "clone_l1_GBps": 725.3757602855864,
+      "cfg_tuned_dram": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 2,
+        "out_subblock_h": 1,
+        "out_subblock_w": 2,
+        "out_block_h": 5,
+        "out_block_w": 2,
+        "per_core_M": 75,
+        "per_core_N": 2,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_tuned_l1": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 2,
+        "out_subblock_h": 1,
+        "out_subblock_w": 2,
+        "out_block_h": 5,
+        "out_block_w": 2,
+        "per_core_M": 75,
+        "per_core_N": 2,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_fields_identical": true,
+      "l1_out_alternatives": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 452608,
+          "pct_of_bank": 30.96322241681261,
+          "proj_ms": 0.5695214999832388,
+          "region_ms": 1.3854380003976985,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 462848,
+          "pct_of_bank": 31.663747810858144,
+          "proj_ms": 0.3238515000703046,
+          "region_ms": 0.8872205003171985,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 473088,
+          "pct_of_bank": 32.364273204903675,
+          "proj_ms": 0.2859579999494599,
+          "region_ms": 0.8118689997900219,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 495616,
+          "pct_of_bank": 33.90542907180385,
+          "proj_ms": 0.15836900001886534,
+          "region_ms": 0.5620819997602666,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 493568,
+          "pct_of_bank": 33.765323992994745,
+          "proj_ms": 0.2898755001297104,
+          "region_ms": 0.8194890001504973,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 528384,
+          "pct_of_bank": 36.14711033274956,
+          "proj_ms": 0.15629500012437347,
+          "region_ms": 0.5533544999707374,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 595968,
+          "pct_of_bank": 40.770577933450085,
+          "proj_ms": 0.3135169999950449,
+          "region_ms": 0.8673524998812354,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 692224,
+          "pct_of_bank": 47.35551663747811,
+          "proj_ms": 0.17039249996742,
+          "region_ms": 0.5815095000798465,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh25_obw1": {
+          "need_bytes": 698368,
+          "pct_of_bank": 47.77583187390543,
+          "proj_ms": 0.3242974999011494,
+          "region_ms": 0.8908879999580677,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh25_obw2": {
+          "need_bytes": 856064,
+          "pct_of_bank": 58.56392294220665,
+          "proj_ms": 0.17435500012652483,
+          "region_ms": 0.5932075000600889,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 460800,
+          "pct_of_bank": 31.523642732049037,
+          "proj_ms": 0.33672200015644194,
+          "region_ms": 0.9203609997712192,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 475136,
+          "pct_of_bank": 32.50437828371278,
+          "proj_ms": 0.21441299986690865,
+          "region_ms": 0.6711794999318954,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 489472,
+          "pct_of_bank": 33.48511383537653,
+          "proj_ms": 0.29854700005671475,
+          "region_ms": 0.8364469999833091,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 516096,
+          "pct_of_bank": 35.30647985989492,
+          "proj_ms": 0.16105450004033628,
+          "region_ms": 0.5686445001629181,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 518144,
+          "pct_of_bank": 35.44658493870403,
+          "proj_ms": 0.29909849990872317,
+          "region_ms": 0.8348834999196697,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 557056,
+          "pct_of_bank": 38.10858143607706,
+          "proj_ms": 0.16437600015706266,
+          "region_ms": 0.5712044999199861,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 661504,
+          "pct_of_bank": 45.25394045534151,
+          "proj_ms": 0.29446449980241596,
+          "region_ms": 0.8315569998558203,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 761856,
+          "pct_of_bank": 52.11908931698774,
+          "proj_ms": 0.16296300009344122,
+          "region_ms": 0.56716149993008,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh25_obw1": {
+          "need_bytes": 804864,
+          "pct_of_bank": 55.061295971978986,
+          "proj_ms": 0.3050649997931032,
+          "region_ms": 0.8513964999110613,
+          "torch_equal_vs_C1D": true
+        },
+        "bw2_obh25_obw2": {
+          "need_bytes": 966656,
+          "pct_of_bank": 66.12959719789842,
+          "proj_ms": 0.16713099967091694,
+          "region_ms": 0.5754624999099178,
+          "torch_equal_vs_C1D": true
+        }
+      }
+    },
+    "298:256": {
+      "N": 298,
+      "c": 256,
+      "m_tiles": 2980,
+      "k_tiles": 8,
+      "n_tiles": 8,
+      "per_core_M": 30,
+      "cores_engaged": 100,
+      "grid_cores": 110,
+      "l1_bank_bytes": 1461760,
+      "cells": {
+        "C1D_tuned_dram": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 30,
+            "per_core_N": 8,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "DRAM",
+          "proj_ms": 0.3895449999617995,
+          "region_ms": 1.1458554999990156,
+          "region_consume_ms": 1.4749474999007361,
+          "torch_equal_vs_C1D": true
+        },
+        "C1L_tuned_l1": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 30,
+            "per_core_N": 8,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "L1",
+          "proj_ms": 0.25695649992485414,
+          "region_ms": 0.8829174998936651,
+          "region_consume_ms": 1.1289875001239125,
+          "torch_equal_vs_C1D": true,
+          "max_abs_vs_C1D": 0.0
+        },
+        "C0D_untuned_dram": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "DRAM",
+          "proj_ms": 0.6303145000856603,
+          "region_ms": 1.6117595000650908,
+          "region_consume_ms": 1.942900499670941,
+          "torch_equal_vs_C1D": false,
+          "max_abs_vs_C1D": 0.5
+        },
+        "C0L_untuned_l1": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "L1",
+          "proj_ms": 0.4390665003484173,
+          "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 237 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 684032 and static circular buffer region ends at 889344\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x71ef5e8d3",
+          "traceback": " /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0xa5) [0x5862da6ddac5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bcd89) [0x5862da6e7d89]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bc8f2) [0x5862da6e78f2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x680) [0x5862da940b70]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x148028) [0x5862da673028]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x71efa4a2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x71efa4a2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x345cdb) [0x5862da870cdb]\n\n"
+        }
+      },
+      "sweep": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 145408,
+          "proj_ms": 3.6186399997859553
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 155648,
+          "proj_ms": 2.057538999906683
+        },
+        "bw1_obh1_obw4": {
+          "need_bytes": 176128,
+          "proj_ms": 1.3536454998757108
+        },
+        "bw1_obh1_obw8": {
+          "need_bytes": 217088,
+          "proj_ms": 0.776540000060777
+        },
+        "bw1_obh2_obw1": {
+          "need_bytes": 155648,
+          "proj_ms": 3.0738420000488986
+        },
+        "bw1_obh2_obw2": {
+          "need_bytes": 172032,
+          "proj_ms": 1.7327605000900803
+        },
+        "bw1_obh2_obw4": {
+          "need_bytes": 204800,
+          "proj_ms": 1.151962000221829
+        },
+        "bw1_obh2_obw8": {
+          "need_bytes": 270336,
+          "proj_ms": 0.6784934998904646
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 165888,
+          "proj_ms": 2.8416484997251246
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 188416,
+          "proj_ms": 1.6131669999595033
+        },
+        "bw1_obh3_obw4": {
+          "need_bytes": 233472,
+          "proj_ms": 1.0892799996327085
+        },
+        "bw1_obh3_obw8": {
+          "need_bytes": 323584,
+          "proj_ms": 0.6477140000242798
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 186368,
+          "proj_ms": 2.793619999920338
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 221184,
+          "proj_ms": 1.5835795002203668
+        },
+        "bw1_obh5_obw4": {
+          "need_bytes": 290816,
+          "proj_ms": 1.060804000189819
+        },
+        "bw1_obh5_obw8": {
+          "need_bytes": 430080,
+          "proj_ms": 0.5913684999541147
+        },
+        "bw1_obh6_obw1": {
+          "need_bytes": 196608,
+          "proj_ms": 2.825862500230869
+        },
+        "bw1_obh6_obw2": {
+          "need_bytes": 237568,
+          "proj_ms": 1.6301855002893717
+        },
+        "bw1_obh6_obw4": {
+          "need_bytes": 319488,
+          "proj_ms": 1.0941645000457356
+        },
+        "bw1_obh6_obw8": {
+          "need_bytes": 483328,
+          "proj_ms": 0.6265219999477267
+        },
+        "bw1_obh10_obw1": {
+          "need_bytes": 237568,
+          "proj_ms": 2.9046414997537795
+        },
+        "bw1_obh10_obw2": {
+          "need_bytes": 303104,
+          "proj_ms": 1.6679939999448834
+        },
+        "bw1_obh10_obw4": {
+          "need_bytes": 434176,
+          "proj_ms": 1.115420999667549
+        },
+        "bw1_obh10_obw8": {
+          "need_bytes": 696320,
+          "proj_ms": 0.612865499988402
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 288768,
+          "proj_ms": 2.9758999999103253
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 385024,
+          "proj_ms": 1.7036135000125796
+        },
+        "bw1_obh15_obw4": {
+          "need_bytes": 577536,
+          "proj_ms": 1.0864594996746746
+        },
+        "bw1_obh15_obw8": {
+          "need_bytes": 962560,
+          "proj_ms": 0.6559195003319473
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 153600,
+          "proj_ms": 2.541412499795115
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 167936,
+          "proj_ms": 1.4628984999944805
+        },
+        "bw2_obh1_obw4": {
+          "need_bytes": 196608,
+          "proj_ms": 1.0189879999416007
+        },
+        "bw2_obh1_obw8": {
+          "need_bytes": 253952,
+          "proj_ms": 0.6476435000877245
+        },
+        "bw2_obh2_obw1": {
+          "need_bytes": 167936,
+          "proj_ms": 2.2244995002438372
+        },
+        "bw2_obh2_obw2": {
+          "need_bytes": 188416,
+          "proj_ms": 1.203652499953023
+        },
+        "bw2_obh2_obw4": {
+          "need_bytes": 229376,
+          "proj_ms": 0.8155410000654228
+        },
+        "bw2_obh2_obw8": {
+          "need_bytes": 311296,
+          "proj_ms": 0.553599999875587
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 182272,
+          "proj_ms": 2.2024710001460335
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 208896,
+          "proj_ms": 1.2317424998400384
+        },
+        "bw2_obh3_obw4": {
+          "need_bytes": 262144,
+          "proj_ms": 0.837724000120943
+        },
+        "bw2_obh3_obw8": {
+          "need_bytes": 368640,
+          "proj_ms": 0.5459644999064039
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 210944,
+          "proj_ms": 2.2194490002220846
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 249856,
+          "proj_ms": 1.2083064998478221
+        },
+        "bw2_obh5_obw4": {
+          "need_bytes": 327680,
+          "proj_ms": 0.7948554998620239
+        },
+        "bw2_obh5_obw8": {
+          "need_bytes": 483328,
+          "proj_ms": 0.4761139998663566
+        },
+        "bw2_obh6_obw1": {
+          "need_bytes": 225280,
+          "proj_ms": 2.2397134998755064
+        },
+        "bw2_obh6_obw2": {
+          "need_bytes": 270336,
+          "proj_ms": 1.2379949998830853
+        },
+        "bw2_obh6_obw4": {
+          "need_bytes": 360448,
+          "proj_ms": 0.8303300000989111
+        },
+        "bw2_obh6_obw8": {
+          "need_bytes": 540672,
+          "proj_ms": 0.5128500001774228
+        },
+        "bw2_obh10_obw1": {
+          "need_bytes": 282624,
+          "proj_ms": 2.4456800001644297
+        },
+        "bw2_obh10_obw2": {
+          "need_bytes": 352256,
+          "proj_ms": 1.3137124997228966
+        },
+        "bw2_obh10_obw4": {
+          "need_bytes": 491520,
+          "proj_ms": 0.7943794998936937
+        },
+        "bw2_obh10_obw8": {
+          "need_bytes": 770048,
+          "proj_ms": 0.4838039999413013
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 354304,
+          "proj_ms": 2.5342779999846243
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 454656,
+          "proj_ms": 1.2880125000265252
+        },
+        "bw2_obh15_obw4": {
+          "need_bytes": 655360,
+          "proj_ms": 0.8336610003425449
+        },
+        "bw2_obh15_obw8": {
+          "need_bytes": 1056768,
+          "proj_ms": 0.5301190003592637
+        },
+        "bw4_obh1_obw1": {
+          "need_bytes": 169984,
+          "proj_ms": 1.9850364997182623
+        },
+        "bw4_obh1_obw2": {
+          "need_bytes": 192512,
+          "proj_ms": 1.2282755001251644
+        },
+        "bw4_obh1_obw4": {
+          "need_bytes": 237568,
+          "proj_ms": 0.9042434999173565
+        },
+        "bw4_obh1_obw8": {
+          "need_bytes": 327680,
+          "proj_ms": 0.5695810000361234
+        },
+        "bw4_obh2_obw1": {
+          "need_bytes": 192512,
+          "proj_ms": 1.8472829997335793
+        },
+        "bw4_obh2_obw2": {
+          "need_bytes": 221184,
+          "proj_ms": 1.0626325001794612
+        },
+        "bw4_obh2_obw4": {
+          "need_bytes": 278528,
+          "proj_ms": 0.7620915002917172
+        },
+        "bw4_obh2_obw8": {
+          "need_bytes": 393216,
+          "proj_ms": 0.47795750015211524
+        },
+        "bw4_obh3_obw1": {
+          "need_bytes": 215040,
+          "proj_ms": 1.926431999891065
+        },
+        "bw4_obh3_obw2": {
+          "need_bytes": 249856,
+          "proj_ms": 1.0406545002297207
+        },
+        "bw4_obh3_obw4": {
+          "need_bytes": 319488,
+          "proj_ms": 0.7426534998558054
+        },
+        "bw4_obh3_obw8": {
+          "need_bytes": 458752,
+          "proj_ms": 0.4719204998764326
+        },
+        "bw4_obh5_obw1": {
+          "need_bytes": 260096,
+          "proj_ms": 2.008737500091229
+        },
+        "bw4_obh5_obw2": {
+          "need_bytes": 307200,
+          "proj_ms": 1.0510699999031203
+        },
+        "bw4_obh5_obw4": {
+          "need_bytes": 401408,
+          "proj_ms": 0.7077304999256739
+        },
+        "bw4_obh5_obw8": {
+          "need_bytes": 589824,
+          "proj_ms": 0.4298085000300489
+        },
+        "bw4_obh6_obw1": {
+          "need_bytes": 282624,
+          "proj_ms": 2.028040499681083
+        },
+        "bw4_obh6_obw2": {
+          "need_bytes": 335872,
+          "proj_ms": 1.0581790002106573
+        },
+        "bw4_obh6_obw4": {
+          "need_bytes": 442368,
+          "proj_ms": 0.7274589997905423
+        },
+        "bw4_obh6_obw8": {
+          "need_bytes": 655360,
+          "proj_ms": 0.4602274998433131
+        },
+        "bw4_obh10_obw1": {
+          "need_bytes": 372736,
+          "proj_ms": 2.0532489998004166
+        },
+        "bw4_obh10_obw2": {
+          "need_bytes": 450560,
+          "proj_ms": 1.0662595000212605
+        },
+        "bw4_obh10_obw4": {
+          "need_bytes": 606208,
+          "proj_ms": 0.7224340001812379
+        },
+        "bw4_obh10_obw8": {
+          "need_bytes": 917504,
+          "proj_ms": 0.442477999968105
+        },
+        "bw4_obh15_obw1": {
+          "need_bytes": 485376,
+          "proj_ms": 2.044777500032069
+        },
+        "bw4_obh15_obw2": {
+          "need_bytes": 593920,
+          "proj_ms": 1.0881825000979006
+        },
+        "bw4_obh15_obw4": {
+          "need_bytes": 811008,
+          "proj_ms": 0.7515355000577983
+        },
+        "bw4_obh15_obw8": {
+          "need_bytes": 1245184,
+          "proj_ms": 0.47320300018327544
+        },
+        "bw8_obh1_obw1": {
+          "need_bytes": 202752,
+          "proj_ms": 1.8550125000729167
+        },
+        "bw8_obh1_obw2": {
+          "need_bytes": 241664,
+          "proj_ms": 1.205510500312812
+        },
+        "bw8_obh1_obw4": {
+          "need_bytes": 319488,
+          "proj_ms": 0.8939535000536125
+        },
+        "bw8_obh1_obw8": {
+          "need_bytes": 475136,
+          "proj_ms": 0.5659485000251152
+        },
+        "bw8_obh2_obw1": {
+          "need_bytes": 241664,
+          "proj_ms": 1.7815695000535925
+        },
+        "bw8_obh2_obw2": {
+          "need_bytes": 286720,
+          "proj_ms": 1.0951560002467886
+        },
+        "bw8_obh2_obw4": {
+          "need_bytes": 376832,
+          "proj_ms": 0.7451379997291951
+        },
+        "bw8_obh2_obw8": {
+          "need_bytes": 557056,
+          "proj_ms": 0.4745100000036473
+        },
+        "bw8_obh3_obw1": {
+          "need_bytes": 280576,
+          "proj_ms": 1.7476025000178197
+        },
+        "bw8_obh3_obw2": {
+          "need_bytes": 331776,
+          "proj_ms": 1.0480589999133372
+        },
+        "bw8_obh3_obw4": {
+          "need_bytes": 434176,
+          "proj_ms": 0.7090224999046768
+        },
+        "bw8_obh3_obw8": {
+          "need_bytes": 638976,
+          "proj_ms": 0.4538749999483116
+        },
+        "bw8_obh5_obw1": {
+          "need_bytes": 358400,
+          "proj_ms": 1.686338499894191
+        },
+        "bw8_obh5_obw2": {
+          "need_bytes": 421888,
+          "proj_ms": 0.9420819997103536
+        },
+        "bw8_obh5_obw4": {
+          "need_bytes": 548864,
+          "proj_ms": 0.6656129999100813
+        },
+        "bw8_obh5_obw8": {
+          "need_bytes": 802816,
+          "proj_ms": 0.38845249991936726
+        },
+        "bw8_obh6_obw1": {
+          "need_bytes": 397312,
+          "proj_ms": 1.6989880000437552
+        },
+        "bw8_obh6_obw2": {
+          "need_bytes": 466944,
+          "proj_ms": 0.9889985003610491
+        },
+        "bw8_obh6_obw4": {
+          "need_bytes": 606208,
+          "proj_ms": 0.6794599999011552
+        },
+        "bw8_obh6_obw8": {
+          "need_bytes": 884736,
+          "proj_ms": 0.4188015000181622
+        },
+        "bw8_obh10_obw1": {
+          "need_bytes": 552960,
+          "proj_ms": 1.7317269998784468
+        },
+        "bw8_obh10_obw2": {
+          "need_bytes": 647168,
+          "proj_ms": 0.949692000176583
+        },
+        "bw8_obh10_obw4": {
+          "need_bytes": 835584,
+          "proj_ms": 0.6638395002482866
+        },
+        "bw8_obh10_obw8": {
+          "need_bytes": 1212416,
+          "proj_ms": 0.3956970003855531
+        },
+        "bw8_obh15_obw1": {
+          "need_bytes": 747520,
+          "proj_ms": 1.7579979999027273
+        },
+        "bw8_obh15_obw2": {
+          "need_bytes": 872448,
+          "proj_ms": 0.9773555002539069
+        },
+        "bw8_obh15_obw4": {
+          "need_bytes": 1122304,
+          "proj_ms": 0.680186499721458
+        }
+      },
+      "tensor_bytes": 48824320,
+      "proj_flops": 12499025920,
+      "arithmetic_intensity": 128.0,
+      "region_bytes_6T": 292945920,
+      "clone_dram_ms": 0.257376999797998,
+      "clone_dram_GBps": 379.3992473167354,
+      "clone_l1_ms": 0.13280399980430957,
+      "clone_l1_GBps": 735.2838780751184,
+      "cfg_tuned_dram": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 8,
+        "out_subblock_h": 1,
+        "out_subblock_w": 4,
+        "out_block_h": 5,
+        "out_block_w": 8,
+        "per_core_M": 30,
+        "per_core_N": 8,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_tuned_l1": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 8,
+        "out_subblock_h": 1,
+        "out_subblock_w": 4,
+        "out_block_h": 5,
+        "out_block_w": 8,
+        "per_core_M": 30,
+        "per_core_N": 8,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_fields_identical": true,
+      "l1_out_alternatives": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 636928,
+          "pct_of_bank": 43.57267950963222,
+          "proj_ms": 2.9406445000859094,
+          "region_ms": 6.2420515000667365,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 647168,
+          "pct_of_bank": 44.27320490367776,
+          "proj_ms": 1.5261559997270524,
+          "region_ms": 3.406708000056824,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh1_obw4": {
+          "need_bytes": 667648,
+          "pct_of_bank": 45.67425569176883,
+          "proj_ms": 0.8775010001045302,
+          "region_ms": 2.1066180001980683,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh1_obw8": {
+          "need_bytes": 708608,
+          "pct_of_bank": 48.476357267950966,
+          "proj_ms": 0.5220279999775812,
+          "region_ms": 1.3959519997115422,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh2_obw1": {
+          "need_bytes": 647168,
+          "pct_of_bank": 44.27320490367776,
+          "proj_ms": 3.1692350003140746,
+          "region_ms": 6.696292500237178,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh2_obw2": {
+          "need_bytes": 663552,
+          "pct_of_bank": 45.394045534150614,
+          "proj_ms": 1.5428584997607686,
+          "region_ms": 3.4435944999131607,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh2_obw4": {
+          "need_bytes": 696320,
+          "pct_of_bank": 47.635726795096325,
+          "proj_ms": 0.6974794996494893,
+          "region_ms": 1.7484589998275624,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh2_obw8": {
+          "need_bytes": 761856,
+          "pct_of_bank": 52.11908931698774,
+          "proj_ms": 0.40815100010149763,
+          "region_ms": 1.173668500086933,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 657408,
+          "pct_of_bank": 44.97373029772329,
+          "proj_ms": 3.1422970000676287,
+          "region_ms": 6.250056499993661,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 679936,
+          "pct_of_bank": 46.51488616462347,
+          "proj_ms": 1.5671060000386206,
+          "region_ms": 3.319863500109932,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw4": {
+          "need_bytes": 724992,
+          "pct_of_bank": 49.597197898423815,
+          "proj_ms": 0.6647565001003386,
+          "region_ms": 1.6841285000737116,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh3_obw8": {
+          "need_bytes": 815104,
+          "pct_of_bank": 55.76182136602452,
+          "proj_ms": 0.3868694998345745,
+          "region_ms": 1.1335849999341008,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 677888,
+          "pct_of_bank": 46.37478108581436,
+          "proj_ms": 2.9639095000675297,
+          "region_ms": 6.279198500124039,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 712704,
+          "pct_of_bank": 48.75656742556918,
+          "proj_ms": 1.4946445003261033,
+          "region_ms": 3.371814500042092,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw4": {
+          "need_bytes": 782336,
+          "pct_of_bank": 53.52014010507881,
+          "proj_ms": 0.7654975001969433,
+          "region_ms": 1.893922999897768,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh5_obw8": {
+          "need_bytes": 921600,
+          "pct_of_bank": 63.047285464098074,
+          "proj_ms": 0.38729549987692735,
+          "region_ms": 1.1371719997441687,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh6_obw1": {
+          "need_bytes": 688128,
+          "pct_of_bank": 47.0753064798599,
+          "proj_ms": 2.985395999985485,
+          "region_ms": 6.358498000281543,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh6_obw2": {
+          "need_bytes": 729088,
+          "pct_of_bank": 49.87740805604203,
+          "proj_ms": 1.4937925002413976,
+          "region_ms": 3.340994000154751,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh6_obw4": {
+          "need_bytes": 811008,
+          "pct_of_bank": 55.481611208406306,
+          "proj_ms": 0.719613000001118,
+          "region_ms": 1.8010164999395784,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh6_obw8": {
+          "need_bytes": 974848,
+          "pct_of_bank": 66.69001751313485,
+          "proj_ms": 0.395245499930752,
+          "region_ms": 1.1499319998620194,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh10_obw1": {
+          "need_bytes": 729088,
+          "pct_of_bank": 49.87740805604203,
+          "proj_ms": 2.4341514999832725,
+          "region_ms": 5.206896999879973,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh10_obw2": {
+          "need_bytes": 794624,
+          "pct_of_bank": 54.36077057793345,
+          "proj_ms": 1.2774560000252677,
+          "region_ms": 2.969294499962416,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh10_obw4": {
+          "need_bytes": 925696,
+          "pct_of_bank": 63.32749562171629,
+          "proj_ms": 0.7242519995998009,
+          "region_ms": 1.7907265000758343,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh10_obw8": {
+          "need_bytes": 1187840,
+          "pct_of_bank": 81.26094570928196,
+          "proj_ms": 0.41473900000710273,
+          "region_ms": 1.185461499972007,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 780288,
+          "pct_of_bank": 53.3800350262697,
+          "proj_ms": 2.6433684997755336,
+          "region_ms": 5.597638999915944,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 876544,
+          "pct_of_bank": 59.96497373029772,
+          "proj_ms": 1.3635035002153018,
+          "region_ms": 3.098837000379717,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw4": {
+          "need_bytes": 1069056,
+          "pct_of_bank": 73.13485113835377,
+          "proj_ms": 0.7379890002994216,
+          "region_ms": 1.8317510002816562,
+          "torch_equal_vs_C1D": false
+        },
+        "bw1_obh15_obw8": {
+          "need_bytes": 1454080,
+          "pct_of_bank": 99.47460595446584,
+          "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 513 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 684032 and static circular buffer region ends at 942592\nbacktrace:\n --- /home/ttus"
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 645120,
+          "pct_of_bank": 44.13309982486865,
+          "proj_ms": 2.13967199988474,
+          "region_ms": 4.631254500054638,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 659456,
+          "pct_of_bank": 45.1138353765324,
+          "proj_ms": 1.1308499997539911,
+          "region_ms": 2.616120500078978,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh1_obw4": {
+          "need_bytes": 688128,
+          "pct_of_bank": 47.0753064798599,
+          "proj_ms": 0.6251240001802216,
+          "region_ms": 1.5963924997777212,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh1_obw8": {
+          "need_bytes": 745472,
+          "pct_of_bank": 50.998248686514884,
+          "proj_ms": 0.3768495002987038,
+          "region_ms": 1.1184754998794233,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh2_obw1": {
+          "need_bytes": 659456,
+          "pct_of_bank": 45.1138353765324,
+          "proj_ms": 1.9541199999366654,
+          "region_ms": 4.274593999980425,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh2_obw2": {
+          "need_bytes": 679936,
+          "pct_of_bank": 46.51488616462347,
+          "proj_ms": 1.0267014999953972,
+          "region_ms": 2.4029599999266793,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh2_obw4": {
+          "need_bytes": 720896,
+          "pct_of_bank": 49.3169877408056,
+          "proj_ms": 0.5536090002351557,
+          "region_ms": 1.4605475003008905,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh2_obw8": {
+          "need_bytes": 802816,
+          "pct_of_bank": 54.92119089316988,
+          "proj_ms": 0.32909650008150493,
+          "region_ms": 1.0109415002261812,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 673792,
+          "pct_of_bank": 46.09457092819615,
+          "proj_ms": 1.8816184997376695,
+          "region_ms": 4.128514000058203,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 700416,
+          "pct_of_bank": 47.91593695271454,
+          "proj_ms": 0.9777015002327971,
+          "region_ms": 2.3191464997580624,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh3_obw4": {
+          "need_bytes": 753664,
+          "pct_of_bank": 51.55866900175131,
+          "proj_ms": 0.5410495000433002,
+          "region_ms": 1.4348475001497718,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh3_obw8": {
+          "need_bytes": 860160,
+          "pct_of_bank": 58.844133099824866,
+          "proj_ms": 0.3174890002810571,
+          "region_ms": 1.0101144998770906,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 702464,
+          "pct_of_bank": 48.056042031523646,
+          "proj_ms": 1.9494309999572579,
+          "region_ms": 4.2449760003364645,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 741376,
+          "pct_of_bank": 50.71803852889667,
+          "proj_ms": 1.0172884999519738,
+          "region_ms": 2.39006950005205,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh5_obw4": {
+          "need_bytes": 819200,
+          "pct_of_bank": 56.042031523642734,
+          "proj_ms": 0.5566949998865311,
+          "region_ms": 1.4541999998982647,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh5_obw8": {
+          "need_bytes": 974848,
+          "pct_of_bank": 66.69001751313485,
+          "proj_ms": 0.31563550010105246,
+          "region_ms": 0.9904254998218676,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh6_obw1": {
+          "need_bytes": 716800,
+          "pct_of_bank": 49.03677758318739,
+          "proj_ms": 2.001843000016379,
+          "region_ms": 4.364203500244912,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh6_obw2": {
+          "need_bytes": 761856,
+          "pct_of_bank": 52.11908931698774,
+          "proj_ms": 1.0740640000221902,
+          "region_ms": 2.4753304996920633,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh6_obw4": {
+          "need_bytes": 851968,
+          "pct_of_bank": 58.28371278458844,
+          "proj_ms": 0.5652120003105665,
+          "region_ms": 1.4949494998290902,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh6_obw8": {
+          "need_bytes": 1032192,
+          "pct_of_bank": 70.61295971978984,
+          "proj_ms": 0.3272280000601313,
+          "region_ms": 1.0270070001752174,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh10_obw1": {
+          "need_bytes": 774144,
+          "pct_of_bank": 52.95971978984238,
+          "proj_ms": 2.35609800029124,
+          "region_ms": 5.038853500082041,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh10_obw2": {
+          "need_bytes": 843776,
+          "pct_of_bank": 57.72329246935202,
+          "proj_ms": 1.1917785000150616,
+          "region_ms": 2.715634499963926,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh10_obw4": {
+          "need_bytes": 983040,
+          "pct_of_bank": 67.25043782837128,
+          "proj_ms": 0.6050495003364631,
+          "region_ms": 1.5742289997433545,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh10_obw8": {
+          "need_bytes": 1261568,
+          "pct_of_bank": 86.3047285464098,
+          "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 561 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 684032 and static circular buffer region ends at 750080\nbacktrace:\n --- /home/ttus"
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 845824,
+          "pct_of_bank": 57.86339754816112,
+          "proj_ms": 2.4665585001457657,
+          "region_ms": 5.31219099957525,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 946176,
+          "pct_of_bank": 64.72854640980735,
+          "proj_ms": 1.2326080000093498,
+          "region_ms": 2.8309740000622696,
+          "torch_equal_vs_C1D": false
+        },
+        "bw2_obh15_obw4": {
+          "need_bytes": 1146880,
+          "pct_of_bank": 78.45884413309983,
+          "proj_ms": 0.6225884999366826,
+          "region_ms": 1.6155339999386342,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh1_obw1": {
+          "need_bytes": 661504,
+          "pct_of_bank": 45.25394045534151,
+          "proj_ms": 1.8515645001571102,
+          "region_ms": 4.07743349978773,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh1_obw2": {
+          "need_bytes": 684032,
+          "pct_of_bank": 46.79509632224168,
+          "proj_ms": 0.9973689998332702,
+          "region_ms": 2.343638999718678,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh1_obw4": {
+          "need_bytes": 729088,
+          "pct_of_bank": 49.87740805604203,
+          "proj_ms": 0.46477600017169607,
+          "region_ms": 1.28310150012112,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh1_obw8": {
+          "need_bytes": 819200,
+          "pct_of_bank": 56.042031523642734,
+          "proj_ms": 0.3438449998611759,
+          "region_ms": 1.048814500336448,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh2_obw1": {
+          "need_bytes": 684032,
+          "pct_of_bank": 46.79509632224168,
+          "proj_ms": 1.9987314999525552,
+          "region_ms": 4.3593380000857,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh2_obw2": {
+          "need_bytes": 712704,
+          "pct_of_bank": 48.75656742556918,
+          "proj_ms": 1.0380939997958194,
+          "region_ms": 2.4355430000468914,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh2_obw4": {
+          "need_bytes": 770048,
+          "pct_of_bank": 52.67950963222417,
+          "proj_ms": 0.5847349998475693,
+          "region_ms": 1.520654499927332,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh2_obw8": {
+          "need_bytes": 884736,
+          "pct_of_bank": 60.52539404553415,
+          "proj_ms": 0.32307449964719126,
+          "region_ms": 1.0134004996871226,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh3_obw1": {
+          "need_bytes": 706560,
+          "pct_of_bank": 48.33625218914186,
+          "proj_ms": 2.007367999794951,
+          "region_ms": 4.375414499918406,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh3_obw2": {
+          "need_bytes": 741376,
+          "pct_of_bank": 50.71803852889667,
+          "proj_ms": 1.00923750005677,
+          "region_ms": 2.371487999880628,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh3_obw4": {
+          "need_bytes": 811008,
+          "pct_of_bank": 55.481611208406306,
+          "proj_ms": 0.554585999907431,
+          "region_ms": 1.4631119997829956,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh3_obw8": {
+          "need_bytes": 950272,
+          "pct_of_bank": 65.00875656742556,
+          "proj_ms": 0.33186199971169117,
+          "region_ms": 1.017724000121234,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh5_obw1": {
+          "need_bytes": 751616,
+          "pct_of_bank": 51.418563922942205,
+          "proj_ms": 2.0145519997640804,
+          "region_ms": 4.408869499911816,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh5_obw2": {
+          "need_bytes": 798720,
+          "pct_of_bank": 54.640980735551665,
+          "proj_ms": 1.0020734998761327,
+          "region_ms": 2.363848000186408,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh5_obw4": {
+          "need_bytes": 892928,
+          "pct_of_bank": 61.08581436077058,
+          "proj_ms": 0.5535139998755767,
+          "region_ms": 1.457155000025523,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh5_obw8": {
+          "need_bytes": 1081344,
+          "pct_of_bank": 73.97548161120841,
+          "proj_ms": 0.33133100032500806,
+          "region_ms": 1.0319315001652285,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh6_obw1": {
+          "need_bytes": 774144,
+          "pct_of_bank": 52.95971978984238,
+          "proj_ms": 2.0205084997542144,
+          "region_ms": 4.39247250005792,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh6_obw2": {
+          "need_bytes": 827392,
+          "pct_of_bank": 56.60245183887916,
+          "proj_ms": 1.001196500055812,
+          "region_ms": 2.3592434999955003,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh6_obw4": {
+          "need_bytes": 933888,
+          "pct_of_bank": 63.887915936952716,
+          "proj_ms": 0.5521164998754102,
+          "region_ms": 1.459158999750798,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh6_obw8": {
+          "need_bytes": 1146880,
+          "pct_of_bank": 78.45884413309983,
+          "proj_ms": 0.32244349995380617,
+          "region_ms": 0.9910820003824483,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh10_obw1": {
+          "need_bytes": 864256,
+          "pct_of_bank": 59.12434325744308,
+          "proj_ms": 2.021936500113952,
+          "region_ms": 4.3880690000150935,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh10_obw2": {
+          "need_bytes": 942080,
+          "pct_of_bank": 64.44833625218914,
+          "proj_ms": 0.9959359999811568,
+          "region_ms": 2.3461884998141613,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh10_obw4": {
+          "need_bytes": 1097728,
+          "pct_of_bank": 75.09632224168126,
+          "proj_ms": 0.5412850000539038,
+          "region_ms": 1.4417904999390885,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh10_obw8": {
+          "need_bytes": 1409024,
+          "pct_of_bank": 96.3922942206655,
+          "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 615 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 684032 and static circular buffer region ends at 897536\nbacktrace:\n --- /home/ttus"
+        },
+        "bw4_obh15_obw1": {
+          "need_bytes": 976896,
+          "pct_of_bank": 66.83012259194396,
+          "proj_ms": 2.0112399997742614,
+          "region_ms": 4.356136000296829,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh15_obw2": {
+          "need_bytes": 1085440,
+          "pct_of_bank": 74.25569176882662,
+          "proj_ms": 1.0097829999722308,
+          "region_ms": 2.376016499965772,
+          "torch_equal_vs_C1D": false
+        },
+        "bw4_obh15_obw4": {
+          "need_bytes": 1302528,
+          "pct_of_bank": 89.10683012259194,
+          "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 621 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 684032 and static circular buffer region ends at 791040\nbacktrace:\n --- /home/ttus"
+        },
+        "bw8_obh1_obw1": {
+          "need_bytes": 694272,
+          "pct_of_bank": 47.49562171628722,
+          "proj_ms": 1.695319499958714,
+          "region_ms": 3.739559499990719,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh1_obw2": {
+          "need_bytes": 733184,
+          "pct_of_bank": 50.15761821366024,
+          "proj_ms": 0.9047435000866244,
+          "region_ms": 2.1613429998978972,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh1_obw4": {
+          "need_bytes": 811008,
+          "pct_of_bank": 55.481611208406306,
+          "proj_ms": 0.4547415001070476,
+          "region_ms": 1.2639690003197757,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh1_obw8": {
+          "need_bytes": 966656,
+          "pct_of_bank": 66.12959719789842,
+          "proj_ms": 0.33347499993396923,
+          "region_ms": 1.031415500165167,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh2_obw1": {
+          "need_bytes": 733184,
+          "pct_of_bank": 50.15761821366024,
+          "proj_ms": 1.6608824998911587,
+          "region_ms": 3.6775534999833326,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh2_obw2": {
+          "need_bytes": 778240,
+          "pct_of_bank": 53.239929947460595,
+          "proj_ms": 0.8764784997765673,
+          "region_ms": 2.105488999859517,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh2_obw4": {
+          "need_bytes": 868352,
+          "pct_of_bank": 59.404553415061294,
+          "proj_ms": 0.47674400002506445,
+          "region_ms": 1.3092115000290505,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh2_obw8": {
+          "need_bytes": 1048576,
+          "pct_of_bank": 71.7338003502627,
+          "proj_ms": 0.2533140000195999,
+          "region_ms": 0.8769340001890669,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh3_obw1": {
+          "need_bytes": 772096,
+          "pct_of_bank": 52.819614711033275,
+          "proj_ms": 1.6568394999012526,
+          "region_ms": 3.673700500257837,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh3_obw2": {
+          "need_bytes": 823296,
+          "pct_of_bank": 56.32224168126095,
+          "proj_ms": 0.864484499743412,
+          "region_ms": 2.0817474996874807,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh3_obw4": {
+          "need_bytes": 925696,
+          "pct_of_bank": 63.32749562171629,
+          "proj_ms": 0.47437449984499835,
+          "region_ms": 1.3033955001446884,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh3_obw8": {
+          "need_bytes": 1130496,
+          "pct_of_bank": 77.33800350262698,
+          "proj_ms": 0.25156500032608164,
+          "region_ms": 0.8719190000192611,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh5_obw1": {
+          "need_bytes": 849920,
+          "pct_of_bank": 58.14360770577933,
+          "proj_ms": 1.6543995002393785,
+          "region_ms": 3.6759650001840782,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh5_obw2": {
+          "need_bytes": 913408,
+          "pct_of_bank": 62.486865148861646,
+          "proj_ms": 0.868657999944844,
+          "region_ms": 2.0930094997311244,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh5_obw4": {
+          "need_bytes": 1040384,
+          "pct_of_bank": 71.17338003502627,
+          "proj_ms": 0.4652819998227642,
+          "region_ms": 1.2807009998141439,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh5_obw8": {
+          "need_bytes": 1294336,
+          "pct_of_bank": 88.54640980735552,
+          "proj_ms": 0.2555029996074154,
+          "region_ms": 0.8827504998407676,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh6_obw1": {
+          "need_bytes": 888832,
+          "pct_of_bank": 60.80560420315236,
+          "proj_ms": 1.6572300000916584,
+          "region_ms": 3.6788249999517575,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh6_obw2": {
+          "need_bytes": 958464,
+          "pct_of_bank": 65.56917688266199,
+          "proj_ms": 0.8775654996497906,
+          "region_ms": 2.1083195001665445,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh6_obw4": {
+          "need_bytes": 1097728,
+          "pct_of_bank": 75.09632224168126,
+          "proj_ms": 0.47515649976048735,
+          "region_ms": 1.3055244999122806,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh6_obw8": {
+          "need_bytes": 1376256,
+          "pct_of_bank": 94.1506129597198,
+          "proj_ms": 0.27709500000128173,
+          "region_ms": 0.9165860001303372,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh10_obw1": {
+          "need_bytes": 1044480,
+          "pct_of_bank": 71.45359019264448,
+          "proj_ms": 1.677980000295065,
+          "region_ms": 3.720311000051879,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh10_obw2": {
+          "need_bytes": 1138688,
+          "pct_of_bank": 77.8984238178634,
+          "proj_ms": 0.8649610003885755,
+          "region_ms": 2.0879245003015967,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh10_obw4": {
+          "need_bytes": 1327104,
+          "pct_of_bank": 90.78809106830123,
+          "proj_ms": 0.4917689998364949,
+          "region_ms": 1.337141000021802,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh15_obw1": {
+          "need_bytes": 1239040,
+          "pct_of_bank": 84.76357267950964,
+          "proj_ms": 1.6992364999168785,
+          "region_ms": 3.759446999993088,
+          "torch_equal_vs_C1D": true
+        },
+        "bw8_obh15_obw2": {
+          "need_bytes": 1363968,
+          "pct_of_bank": 93.30998248686515,
+          "proj_ms": 0.8869890002642933,
+          "region_ms": 2.143653000075574,
+          "torch_equal_vs_C1D": true
+        }
+      }
+    },
+    "512:256": {
+      "N": 512,
+      "c": 256,
+      "m_tiles": 8192,
+      "k_tiles": 8,
+      "n_tiles": 8,
+      "per_core_M": 75,
+      "cores_engaged": 110,
+      "grid_cores": 110,
+      "l1_bank_bytes": 1461760,
+      "cells": {
+        "C1D_tuned_dram": {
+          "program_config": {
+            "compute_with_storage_grid_size": "(x=11,y=10)",
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 75,
+            "per_core_N": 8,
+            "fuse_batch": true,
+            "mcast_in0": false
+          },
+          "output": "DRAM",
+          "proj_ms": 0.994508499843505,
+          "region_ms": 2.9929880001873244,
+          "region_consume_ms": 3.890327000135585,
+          "torch_equal_vs_C1D": true
+        },
+        "C1L_tuned_l1": {
+          "program_config": null,
+          "output": "L1",
+          "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 677 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 352256 and static circular buffer region ends at 1475072\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x71ef5e8d",
+          "traceback": " /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0xa5) [0x5862da6ddac5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bcd89) [0x5862da6e7d89]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bc8f2) [0x5862da6e78f2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x680) [0x5862da940b70]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x148028) [0x5862da673028]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x71efa4a2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x71efa4a2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x345cdb) [0x5862da870cdb]\n\n"
+        },
+        "C0D_untuned_dram": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "DRAM",
+          "proj_ms": 1.5912859998934437,
+          "region_ms": 4.192947000319691,
+          "region_consume_ms": 5.0832320002882625,
+          "torch_equal_vs_C1D": false,
+          "max_abs_vs_C1D": 0.5
+        },
+        "C0L_untuned_l1": {
+          "program_config": "core_grid=CORE_GRID_MAIN",
+          "output": "L1",
+          "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 677 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 352256 and static circular buffer region ends at 1475072\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x71ef5e8d",
+          "traceback": " /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0xa5) [0x5862da6ddac5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bcd89) [0x5862da6e7d89]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bc8f2) [0x5862da6e78f2]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x680) [0x5862da940b70]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x148028) [0x5862da673028]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x71efa4a2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x71efa4a2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x345cdb) [0x5862da870cdb]\n\n"
+        }
+      },
+      "sweep": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 145408,
+          "proj_ms": 9.560512999996718
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 155648,
+          "proj_ms": 5.4396320001615095
+        },
+        "bw1_obh1_obw4": {
+          "need_bytes": 176128,
+          "proj_ms": 3.539027500210068
+        },
+        "bw1_obh1_obw8": {
+          "need_bytes": 217088,
+          "proj_ms": 2.0186994997857255
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 165888,
+          "proj_ms": 7.468815999800427
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 188416,
+          "proj_ms": 4.21339149988853
+        },
+        "bw1_obh3_obw4": {
+          "need_bytes": 233472,
+          "proj_ms": 2.8352105000521988
+        },
+        "bw1_obh3_obw8": {
+          "need_bytes": 323584,
+          "proj_ms": 1.676352000231418
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 186368,
+          "proj_ms": 7.552158499947836
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 221184,
+          "proj_ms": 4.1748964999897
+        },
+        "bw1_obh5_obw4": {
+          "need_bytes": 290816,
+          "proj_ms": 2.6336979999541654
+        },
+        "bw1_obh5_obw8": {
+          "need_bytes": 430080,
+          "proj_ms": 1.5007144997980504
+        },
+        "bw1_obh15_obw1": {
+          "need_bytes": 288768,
+          "proj_ms": 8.050549500239867
+        },
+        "bw1_obh15_obw2": {
+          "need_bytes": 385024,
+          "proj_ms": 4.555728500236
+        },
+        "bw1_obh15_obw4": {
+          "need_bytes": 577536,
+          "proj_ms": 2.835080500062759
+        },
+        "bw1_obh15_obw8": {
+          "need_bytes": 962560,
+          "proj_ms": 1.5877089999776217
+        },
+        "bw1_obh25_obw1": {
+          "need_bytes": 391168,
+          "proj_ms": 8.295586999793159
+        },
+        "bw1_obh25_obw2": {
+          "need_bytes": 548864,
+          "proj_ms": 4.691197500051203
+        },
+        "bw1_obh25_obw4": {
+          "need_bytes": 864256,
+          "proj_ms": 2.725761999954557
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 153600,
+          "proj_ms": 6.8813755001428945
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 167936,
+          "proj_ms": 3.8935130000936624
+        },
+        "bw2_obh1_obw4": {
+          "need_bytes": 196608,
+          "proj_ms": 2.6525994999246905
+        },
+        "bw2_obh1_obw8": {
+          "need_bytes": 253952,
+          "proj_ms": 1.6533269999854383
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 182272,
+          "proj_ms": 5.867945500085625
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 208896,
+          "proj_ms": 3.2543769998483185
+        },
+        "bw2_obh3_obw4": {
+          "need_bytes": 262144,
+          "proj_ms": 2.1838459997525206
+        },
+        "bw2_obh3_obw8": {
+          "need_bytes": 368640,
+          "proj_ms": 1.3860609997209394
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 210944,
+          "proj_ms": 5.898244000036357
+        },
+        "bw2_obh5_obw2": {
+          "need_bytes": 249856,
+          "proj_ms": 3.153695500259346
+        },
+        "bw2_obh5_obw4": {
+          "need_bytes": 327680,
+          "proj_ms": 2.03655350014742
+        },
+        "bw2_obh5_obw8": {
+          "need_bytes": 483328,
+          "proj_ms": 1.185535500098922
+        },
+        "bw2_obh15_obw1": {
+          "need_bytes": 354304,
+          "proj_ms": 6.51438449995112
+        },
+        "bw2_obh15_obw2": {
+          "need_bytes": 454656,
+          "proj_ms": 3.329503500026476
+        },
+        "bw2_obh15_obw4": {
+          "need_bytes": 655360,
+          "proj_ms": 2.0809850002478925
+        },
+        "bw2_obh15_obw8": {
+          "need_bytes": 1056768,
+          "proj_ms": 1.2584969999807072
+        },
+        "bw2_obh25_obw1": {
+          "need_bytes": 497664,
+          "proj_ms": 6.644332499945449
+        },
+        "bw2_obh25_obw2": {
+          "need_bytes": 659456,
+          "proj_ms": 3.5240519996477815
+        },
+        "bw2_obh25_obw4": {
+          "need_bytes": 983040,
+          "proj_ms": 2.008017999742151
+        },
+        "bw4_obh1_obw1": {
+          "need_bytes": 169984,
+          "proj_ms": 5.396460499923705
+        },
+        "bw4_obh1_obw2": {
+          "need_bytes": 192512,
+          "proj_ms": 3.27184549996673
+        },
+        "bw4_obh1_obw4": {
+          "need_bytes": 237568,
+          "proj_ms": 2.371916500123916
+        },
+        "bw4_obh1_obw8": {
+          "need_bytes": 327680,
+          "proj_ms": 1.4667430000372406
+        },
+        "bw4_obh3_obw1": {
+          "need_bytes": 215040,
+          "proj_ms": 4.8638379998919845
+        },
+        "bw4_obh3_obw2": {
+          "need_bytes": 249856,
+          "proj_ms": 2.78943050034286
+        },
+        "bw4_obh3_obw4": {
+          "need_bytes": 319488,
+          "proj_ms": 1.926854999965144
+        },
+        "bw4_obh3_obw8": {
+          "need_bytes": 458752,
+          "proj_ms": 1.2173469999652298
+        },
+        "bw4_obh5_obw1": {
+          "need_bytes": 260096,
+          "proj_ms": 5.232235499988747
+        },
+        "bw4_obh5_obw2": {
+          "need_bytes": 307200,
+          "proj_ms": 2.717540000048757
+        },
+        "bw4_obh5_obw4": {
+          "need_bytes": 401408,
+          "proj_ms": 1.8197909998889372
+        },
+        "bw4_obh5_obw8": {
+          "need_bytes": 589824,
+          "proj_ms": 1.0837165000339155
+        },
+        "bw4_obh15_obw1": {
+          "need_bytes": 485376,
+          "proj_ms": 5.402186499850359
+        },
+        "bw4_obh15_obw2": {
+          "need_bytes": 593920,
+          "proj_ms": 2.7363570002307824
+        },
+        "bw4_obh15_obw4": {
+          "need_bytes": 811008,
+          "proj_ms": 1.8775835001179075
+        },
+        "bw4_obh15_obw8": {
+          "need_bytes": 1245184,
+          "proj_ms": 1.1362139998709608
+        },
+        "bw4_obh25_obw1": {
+          "need_bytes": 710656,
+          "proj_ms": 5.44417799983421
+        },
+        "bw4_obh25_obw2": {
+          "need_bytes": 880640,
+          "proj_ms": 2.8401340000527853
+        },
+        "bw4_obh25_obw4": {
+          "need_bytes": 1220608,
+          "proj_ms": 1.8752239998320874
+        },
+        "bw8_obh1_obw1": {
+          "need_bytes": 202752,
+          "proj_ms": 5.0508214999354095
+        },
+        "bw8_obh1_obw2": {
+          "need_bytes": 241664,
+          "proj_ms": 3.233865999845875
+        },
+        "bw8_obh1_obw4": {
+          "need_bytes": 319488,
+          "proj_ms": 2.327941000203282
+        },
+        "bw8_obh1_obw8": {
+          "need_bytes": 475136,
+          "proj_ms": 1.4569190002475807
+        },
+        "bw8_obh3_obw1": {
+          "need_bytes": 280576,
+          "proj_ms": 4.780835499786917
+        },
+        "bw8_obh3_obw2": {
+          "need_bytes": 331776,
+          "proj_ms": 2.82491449979716
+        },
+        "bw8_obh3_obw4": {
+          "need_bytes": 434176,
+          "proj_ms": 1.876230999641848
+        },
+        "bw8_obh3_obw8": {
+          "need_bytes": 638976,
+          "proj_ms": 1.1665329998322704
+        },
+        "bw8_obh5_obw1": {
+          "need_bytes": 358400,
+          "proj_ms": 4.503645499880804
+        },
+        "bw8_obh5_obw2": {
+          "need_bytes": 421888,
+          "proj_ms": 2.484230499703699
+        },
+        "bw8_obh5_obw4": {
+          "need_bytes": 548864,
+          "proj_ms": 1.7349354998259514
+        },
+        "bw8_obh5_obw8": {
+          "need_bytes": 802816,
+          "proj_ms": 0.9872235000329965
+        },
+        "bw8_obh15_obw1": {
+          "need_bytes": 747520,
+          "proj_ms": 4.638372499812249
+        },
+        "bw8_obh15_obw2": {
+          "need_bytes": 872448,
+          "proj_ms": 2.571740999883332
+        },
+        "bw8_obh15_obw4": {
+          "need_bytes": 1122304,
+          "proj_ms": 1.7559365001034166
+        },
+        "bw8_obh25_obw1": {
+          "need_bytes": 1136640,
+          "proj_ms": 4.79365000001053
+        },
+        "bw8_obh25_obw2": {
+          "need_bytes": 1323008,
+          "proj_ms": 2.4862294999365986
+        }
+      },
+      "tensor_bytes": 134217728,
+      "proj_flops": 34359738368,
+      "arithmetic_intensity": 128.0,
+      "region_bytes_6T": 805306368,
+      "clone_dram_ms": 0.6818390002081287,
+      "clone_dram_GBps": 393.6933145772845,
+      "clone_l1_ms": 0.3448269999353215,
+      "clone_l1_GBps": 778.4641459350628,
+      "cfg_tuned_dram": {
+        "compute_with_storage_grid_size": "(x=11,y=10)",
+        "in0_block_w": 8,
+        "out_subblock_h": 1,
+        "out_subblock_w": 4,
+        "out_block_h": 5,
+        "out_block_w": 8,
+        "per_core_M": 75,
+        "per_core_N": 8,
+        "fuse_batch": true,
+        "mcast_in0": false
+      },
+      "cfg_tuned_l1": null,
+      "cfg_fields_identical": null,
+      "l1_out_alternatives": {
+        "bw1_obh1_obw1": {
+          "need_bytes": 1374208,
+          "pct_of_bank": 94.01050788091068,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw1_obh1_obw2": {
+          "need_bytes": 1384448,
+          "pct_of_bank": 94.71103327495622,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw1_obh1_obw4": {
+          "need_bytes": 1404928,
+          "pct_of_bank": 96.11208406304729,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw1_obh1_obw8": {
+          "need_bytes": 1445888,
+          "pct_of_bank": 98.91418563922942,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw1_obh3_obw1": {
+          "need_bytes": 1394688,
+          "pct_of_bank": 95.41155866900175,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw1_obh3_obw2": {
+          "need_bytes": 1417216,
+          "pct_of_bank": 96.95271453590193,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw1_obh5_obw1": {
+          "need_bytes": 1415168,
+          "pct_of_bank": 96.81260945709282,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw1_obh5_obw2": {
+          "need_bytes": 1449984,
+          "pct_of_bank": 99.19439579684763,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw2_obh1_obw1": {
+          "need_bytes": 1382400,
+          "pct_of_bank": 94.57092819614711,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw2_obh1_obw2": {
+          "need_bytes": 1396736,
+          "pct_of_bank": 95.55166374781086,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw2_obh1_obw4": {
+          "need_bytes": 1425408,
+          "pct_of_bank": 97.51313485113836,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw2_obh3_obw1": {
+          "need_bytes": 1411072,
+          "pct_of_bank": 96.5323992994746,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw2_obh3_obw2": {
+          "need_bytes": 1437696,
+          "pct_of_bank": 98.35376532399299,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw2_obh5_obw1": {
+          "need_bytes": 1439744,
+          "pct_of_bank": 98.4938704028021,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw4_obh1_obw1": {
+          "need_bytes": 1398784,
+          "pct_of_bank": 95.69176882661996,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw4_obh1_obw2": {
+          "need_bytes": 1421312,
+          "pct_of_bank": 97.23292469352015,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw4_obh3_obw1": {
+          "need_bytes": 1443840,
+          "pct_of_bank": 98.77408056042032,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        },
+        "bw8_obh1_obw1": {
+          "need_bytes": 1431552,
+          "pct_of_bank": 97.93345008756567,
+          "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n"
+        }
+      }
+    }
+  },
+  "roofs": {
+    "dram_read_GBps": 388.8582435667869,
+    "dram_read_ms": 0.3451584998401813,
+    "dram_write_GBps": 272.68913377149244,
+    "dram_rw_GBps": 390.3737816131258,
+    "l1_op_GBps": 1294.5285906121587,
+    "compute_square_TFLOPs": 103.97788294585848,
+    "machine_balance_FLOP_per_byte": 267.39277015738554
+  }
+}

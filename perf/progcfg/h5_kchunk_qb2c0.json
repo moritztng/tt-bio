@@ -1,0 +1,811 @@
+{
+  "host": "qb2",
+  "chip": 0,
+  "ttnn": "0.68.0",
+  "compute_grid_main": [
+    11,
+    10
+  ],
+  "device_grid": [
+    11,
+    10
+  ],
+  "max_worker_l1_unreserved": 1532416,
+  "l1_bank_bytes": 1461760,
+  "l1_total_MB": 160.8,
+  "flags": {
+    "_PAIR_PROJ_BW": 16,
+    "_PAIR_PROJ_L1_BW": 16
+  },
+  "note": "qb2 at ttnn 0.68.0 -- every figure is a RATIO owing a qb1/0.67.4 re-take",
+  "shapes": {
+    "512:256": {
+      "N": 512,
+      "c": 256,
+      "tensor_bytes": 134217728,
+      "grid_cores": 110,
+      "l1_bank_bytes": 1461760,
+      "proj_flops": 34359738368,
+      "cells": {
+        "k1": {
+          "k": 1,
+          "rows_per_block": 512,
+          "m_tiles_per_block": 8192,
+          "per_core_M": 75,
+          "cores_engaged": 110,
+          "cores_engaged_of": 110,
+          "cfg_l1": null,
+          "cfg_dram": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 75,
+            "per_core_N": 8
+          },
+          "cfg_fields_identical": false,
+          "program_launches_per_region": 3,
+          "l1": {
+            "program_config": null,
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 402653184,
+            "error": "no program config for this shape"
+          },
+          "l1_spill": {
+            "program_config": null,
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": true,
+            "live_l1_bytes": 268435456,
+            "error": "no program config for this shape"
+          },
+          "dram": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 75,
+              "per_core_N": 8
+            },
+            "output": "DRAM",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 0,
+            "region_ms": 2.9947,
+            "torch_equal_vs_k1_dram": "is the reference"
+          },
+          "l1_noass": {
+            "program_config": null,
+            "output": "L1",
+            "assembled": false,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 402653184,
+            "error": "no program config for this shape"
+          },
+          "slice_clone_ms": 0.6831
+        },
+        "k2": {
+          "k": 2,
+          "rows_per_block": 256,
+          "m_tiles_per_block": 4096,
+          "per_core_M": 40,
+          "cores_engaged": 103,
+          "cores_engaged_of": 110,
+          "cfg_l1": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 40,
+            "per_core_N": 8
+          },
+          "cfg_dram": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 40,
+            "per_core_N": 8
+          },
+          "cfg_fields_identical": true,
+          "program_launches_per_region": 7,
+          "l1": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 40,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 268435456,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 15 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 352"
+          },
+          "l1_spill": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 40,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": true,
+            "live_l1_bytes": 134217728,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 15 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 352"
+          },
+          "dram": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 40,
+              "per_core_N": 8
+            },
+            "output": "DRAM",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 0,
+            "region_ms": 3.7644,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "l1_noass": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 40,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": false,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 268435456,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 15 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 352"
+          },
+          "slice_clone_ms": 1.38
+        },
+        "k4": {
+          "k": 4,
+          "rows_per_block": 128,
+          "m_tiles_per_block": 2048,
+          "per_core_M": 20,
+          "cores_engaged": 103,
+          "cores_engaged_of": 110,
+          "cfg_l1": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 20,
+            "per_core_N": 8
+          },
+          "cfg_dram": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 20,
+            "per_core_N": 8
+          },
+          "cfg_fields_identical": true,
+          "program_launches_per_region": 13,
+          "l1": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 20,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 201326592,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 352"
+          },
+          "l1_spill": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 20,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": true,
+            "live_l1_bytes": 67108864,
+            "region_ms": 3.105,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "dram": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 20,
+              "per_core_N": 8
+            },
+            "output": "DRAM",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 0,
+            "region_ms": 3.8109,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "l1_noass": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 20,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": false,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 201326592,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 352"
+          },
+          "slice_clone_ms": 1.3858
+        },
+        "k8": {
+          "k": 8,
+          "rows_per_block": 64,
+          "m_tiles_per_block": 1024,
+          "per_core_M": 10,
+          "cores_engaged": 103,
+          "cores_engaged_of": 110,
+          "cfg_l1": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 10,
+            "per_core_N": 8
+          },
+          "cfg_dram": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 10,
+            "per_core_N": 8
+          },
+          "cfg_fields_identical": true,
+          "program_launches_per_region": 25,
+          "l1": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 10,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 167772160,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 59 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 497"
+          },
+          "l1_spill": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 10,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": true,
+            "live_l1_bytes": 33554432,
+            "region_ms": 3.1684,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "dram": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 10,
+              "per_core_N": 8
+            },
+            "output": "DRAM",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 0,
+            "region_ms": 3.9017,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "l1_noass": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 10,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": false,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 167772160,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 59 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 497"
+          },
+          "slice_clone_ms": 1.4086
+        },
+        "k16": {
+          "k": 16,
+          "rows_per_block": 32,
+          "m_tiles_per_block": 512,
+          "per_core_M": 5,
+          "cores_engaged": 103,
+          "cores_engaged_of": 110,
+          "cfg_l1": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 5,
+            "per_core_N": 8
+          },
+          "cfg_dram": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 5,
+            "per_core_N": 8
+          },
+          "cfg_fields_identical": true,
+          "program_launches_per_region": 49,
+          "l1": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 5,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 150994944,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 99 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 561"
+          },
+          "l1_spill": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 5,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": true,
+            "live_l1_bytes": 16777216,
+            "region_ms": 3.4754,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "dram": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 5,
+              "per_core_N": 8
+            },
+            "output": "DRAM",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 0,
+            "region_ms": 4.1864,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "l1_noass": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 5,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": false,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 150994944,
+            "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 99 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 561"
+          },
+          "slice_clone_ms": 1.4233
+        }
+      },
+      "arithmetic_intensity_flop_per_byte": 128.0,
+      "roofs_at_this_shape": {
+        "clone_dram_ms": 0.6795,
+        "clone_dram_GBps": 395.1,
+        "clone_l1_ms": 0.3445,
+        "clone_l1_GBps": 779.3,
+        "l1_over_dram": 1.972
+      },
+      "control_k1_dram_ms_per_region": 2.9947,
+      "scored_vs_k1_dram_control": {
+        "k1|dram": {
+          "ms_per_region": 2.9947,
+          "saving_ms_per_region": 0.0,
+          "ms_per_fold_over_1048_regions": 0.0,
+          "x_vs_control": 1.0
+        },
+        "k2|dram": {
+          "ms_per_region": 3.7644,
+          "saving_ms_per_region": -0.7697,
+          "ms_per_fold_over_1048_regions": -806.6,
+          "x_vs_control": 0.7955
+        },
+        "k4|l1_spill": {
+          "ms_per_region": 3.105,
+          "saving_ms_per_region": -0.1103,
+          "ms_per_fold_over_1048_regions": -115.6,
+          "x_vs_control": 0.9645
+        },
+        "k4|dram": {
+          "ms_per_region": 3.8109,
+          "saving_ms_per_region": -0.8162,
+          "ms_per_fold_over_1048_regions": -855.4,
+          "x_vs_control": 0.7858
+        },
+        "k8|l1_spill": {
+          "ms_per_region": 3.1684,
+          "saving_ms_per_region": -0.1737,
+          "ms_per_fold_over_1048_regions": -182.0,
+          "x_vs_control": 0.9452
+        },
+        "k8|dram": {
+          "ms_per_region": 3.9017,
+          "saving_ms_per_region": -0.907,
+          "ms_per_fold_over_1048_regions": -950.5,
+          "x_vs_control": 0.7675
+        },
+        "k16|l1_spill": {
+          "ms_per_region": 3.4754,
+          "saving_ms_per_region": -0.4807,
+          "ms_per_fold_over_1048_regions": -503.8,
+          "x_vs_control": 0.8617
+        },
+        "k16|dram": {
+          "ms_per_region": 4.1864,
+          "saving_ms_per_region": -1.1917,
+          "ms_per_fold_over_1048_regions": -1248.9,
+          "x_vs_control": 0.7153
+        }
+      }
+    },
+    "298:256": {
+      "N": 298,
+      "c": 256,
+      "tensor_bytes": 48824320,
+      "grid_cores": 110,
+      "l1_bank_bytes": 1461760,
+      "proj_flops": 12499025920,
+      "cells": {
+        "k1": {
+          "k": 1,
+          "rows_per_block": 298,
+          "m_tiles_per_block": 2980,
+          "per_core_M": 30,
+          "cores_engaged": 100,
+          "cores_engaged_of": 110,
+          "cfg_l1": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 30,
+            "per_core_N": 8
+          },
+          "cfg_dram": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 30,
+            "per_core_N": 8
+          },
+          "cfg_fields_identical": true,
+          "program_launches_per_region": 3,
+          "l1": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 30,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 146472960,
+            "region_ms": 0.8739
+          },
+          "l1_spill": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 30,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": true,
+            "live_l1_bytes": 97648640,
+            "region_ms": 0.8781
+          },
+          "dram": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 30,
+              "per_core_N": 8
+            },
+            "output": "DRAM",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 0,
+            "region_ms": 1.1429,
+            "torch_equal_vs_k1_dram": "is the reference"
+          },
+          "l1_noass": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 30,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": false,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 146472960,
+            "region_ms": 0.8771
+          },
+          "slice_clone_ms": 0.2588
+        },
+        "k2": {
+          "k": 2,
+          "rows_per_block": 149,
+          "m_tiles_per_block": 1490,
+          "per_core_M": 15,
+          "cores_engaged": 100,
+          "cores_engaged_of": 110,
+          "cfg_l1": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 15,
+            "per_core_N": 8
+          },
+          "cfg_dram": {
+            "in0_block_w": 8,
+            "out_subblock_h": 1,
+            "out_subblock_w": 4,
+            "out_block_h": 5,
+            "out_block_w": 8,
+            "per_core_M": 15,
+            "per_core_N": 8
+          },
+          "cfg_fields_identical": true,
+          "program_launches_per_region": 7,
+          "l1": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 15,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 97648640,
+            "region_ms": 1.1095,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "l1_spill": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 15,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": true,
+            "spill_each_block_to_dram": true,
+            "live_l1_bytes": 48824320,
+            "region_ms": 1.1759,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "dram": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 15,
+              "per_core_N": 8
+            },
+            "output": "DRAM",
+            "assembled": true,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 0,
+            "region_ms": 1.428,
+            "torch_equal_vs_k1_dram": true,
+            "max_abs_vs_k1_dram": 0.0
+          },
+          "l1_noass": {
+            "program_config": {
+              "in0_block_w": 8,
+              "out_subblock_h": 1,
+              "out_subblock_w": 4,
+              "out_block_h": 5,
+              "out_block_w": 8,
+              "per_core_M": 15,
+              "per_core_N": 8
+            },
+            "output": "L1",
+            "assembled": false,
+            "spill_each_block_to_dram": false,
+            "live_l1_bytes": 97648640,
+            "region_ms": 0.922
+          },
+          "slice_clone_ms": 0.5165
+        },
+        "k4": {
+          "skipped": "N=298 not divisible by k=4"
+        },
+        "k8": {
+          "skipped": "N=298 not divisible by k=8"
+        },
+        "k16": {
+          "skipped": "N=298 not divisible by k=16"
+        }
+      },
+      "arithmetic_intensity_flop_per_byte": 128.0,
+      "roofs_at_this_shape": {
+        "clone_dram_ms": 0.2609,
+        "clone_dram_GBps": 374.2,
+        "clone_l1_ms": 0.1346,
+        "clone_l1_GBps": 725.6,
+        "l1_over_dram": 1.939
+      },
+      "control_k1_dram_ms_per_region": 1.1429,
+      "scored_vs_k1_dram_control": {
+        "k1|l1": {
+          "ms_per_region": 0.8739,
+          "saving_ms_per_region": 0.269,
+          "ms_per_fold_over_1048_regions": 281.9,
+          "x_vs_control": 1.3078
+        },
+        "k1|l1_spill": {
+          "ms_per_region": 0.8781,
+          "saving_ms_per_region": 0.2648,
+          "ms_per_fold_over_1048_regions": 277.5,
+          "x_vs_control": 1.3016
+        },
+        "k1|dram": {
+          "ms_per_region": 1.1429,
+          "saving_ms_per_region": 0.0,
+          "ms_per_fold_over_1048_regions": 0.0,
+          "x_vs_control": 1.0
+        },
+        "k1|l1_noass": {
+          "ms_per_region": 0.8771,
+          "saving_ms_per_region": 0.2658,
+          "ms_per_fold_over_1048_regions": 278.6,
+          "x_vs_control": 1.303
+        },
+        "k2|l1": {
+          "ms_per_region": 1.1095,
+          "saving_ms_per_region": 0.0334,
+          "ms_per_fold_over_1048_regions": 35.0,
+          "x_vs_control": 1.0301
+        },
+        "k2|l1_spill": {
+          "ms_per_region": 1.1759,
+          "saving_ms_per_region": -0.033,
+          "ms_per_fold_over_1048_regions": -34.6,
+          "x_vs_control": 0.9719
+        },
+        "k2|dram": {
+          "ms_per_region": 1.428,
+          "saving_ms_per_region": -0.2851,
+          "ms_per_fold_over_1048_regions": -298.8,
+          "x_vs_control": 0.8004
+        },
+        "k2|l1_noass": {
+          "ms_per_region": 0.922,
+          "saving_ms_per_region": 0.2209,
+          "ms_per_fold_over_1048_regions": 231.5,
+          "x_vs_control": 1.2396
+        }
+      }
+    }
+  }
+}
