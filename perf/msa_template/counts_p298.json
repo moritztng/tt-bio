@@ -1,0 +1,231 @@
+{
+  "fold_total_s": 28.964,
+  "stages": {
+    "atom_feat_host": [
+      1,
+      0.002
+    ],
+    "to_host": [
+      5,
+      0.084
+    ],
+    "relp_host": [
+      1,
+      0.031
+    ],
+    "trunk": [
+      1,
+      21.059
+    ],
+    "diff_pair_cond": [
+      1,
+      0.189
+    ],
+    "plm_z_term": [
+      1,
+      0.057
+    ],
+    "diffusion": [
+      1,
+      6.614
+    ],
+    "confidence": [
+      1,
+      0.564
+    ]
+  },
+  "gross": {
+    "atom_feat_host": [
+      1,
+      0.002
+    ],
+    "to_host": [
+      6,
+      0.202
+    ],
+    "relp_host": [
+      1,
+      0.031
+    ],
+    "trunk_template": [
+      10,
+      0.719
+    ],
+    "trunk_msa": [
+      10,
+      1.979
+    ],
+    "pf_stack": [
+      11,
+      18.112
+    ],
+    "trunk": [
+      1,
+      21.059
+    ],
+    "diff_pair_cond": [
+      1,
+      0.189
+    ],
+    "plm_z_term": [
+      1,
+      0.057
+    ],
+    "diffusion": [
+      1,
+      6.614
+    ],
+    "confidence": [
+      1,
+      0.564
+    ]
+  },
+  "n_folds": 3,
+  "blocks_per_fold_by_stage": {
+    "trunk_template": 80,
+    "trunk_msa": 40,
+    "pf_stack": 484
+  },
+  "blocks_total_per_fold": 604,
+  "block_variants": [
+    {
+      "stage": "trunk_template",
+      "z_padded/logical": "1x298x320x64/1x298x298x64",
+      "transform_s": false,
+      "n_tri_heads": 2,
+      "calls": 80
+    },
+    {
+      "stage": "trunk_msa",
+      "z_padded/logical": "1x298x320x256/1x298x298x256",
+      "transform_s": false,
+      "n_tri_heads": 8,
+      "calls": 40
+    },
+    {
+      "stage": "pf_stack",
+      "z_padded/logical": "1x298x320x256/1x298x298x256",
+      "transform_s": true,
+      "n_tri_heads": 8,
+      "calls": 484
+    }
+  ],
+  "module_calls_all_folds": {
+    "other|AttentionPairBias": 14400,
+    "other|Transition": 1206,
+    "pf_stack|AttentionPairBias": 1452,
+    "pf_stack|PairformerLayer": 1452,
+    "pf_stack|Transition": 2904,
+    "pf_stack|TriangleAttention": 2904,
+    "pf_stack|TriangleMultiplication": 2904,
+    "trunk_msa|OuterProductMean": 120,
+    "trunk_msa|PairWeightedAveraging": 90,
+    "trunk_msa|PairformerLayer": 120,
+    "trunk_msa|Transition": 210,
+    "trunk_msa|TriangleAttention": 240,
+    "trunk_msa|TriangleMultiplication": 240,
+    "trunk_template|PairformerLayer": 240,
+    "trunk_template|Transition": 240,
+    "trunk_template|TriangleAttention": 480,
+    "trunk_template|TriangleMultiplication": 480
+  },
+  "op_calls_all_folds": {
+    "other|linear|protenix.py:1091": 72000,
+    "other|linear|protenix.py:1689": 3,
+    "other|linear|protenix.py:1740": 3,
+    "other|linear|protenix.py:306": 36240,
+    "other|linear|protenix.py:428": 3609,
+    "other|linear|protenix.py:601": 36,
+    "other|linear|tenstorrent.py:1804": 72,
+    "other|linear|tenstorrent.py:1876": 14400,
+    "other|linear|tenstorrent.py:2001": 14400,
+    "other|linear|tenstorrent.py:2011": 14400,
+    "other|linear|tenstorrent.py:2046": 1260,
+    "other|linear|tenstorrent.py:2055": 1260,
+    "other|linear|tenstorrent.py:2066": 1260,
+    "other|linear|tenstorrent.py:2570": 39627,
+    "other|linear|tenstorrent.py:2578": 39627,
+    "other|matmul|protenix.py:677": 3,
+    "other|matmul|protenix.py:817": 3,
+    "other|matmul|protenix.py:870": 600,
+    "other|matmul|protenix.py:899": 600,
+    "other|matmul|tenstorrent.py:372": 36018,
+    "pf_stack|linear|tenstorrent.py:1876": 1452,
+    "pf_stack|linear|tenstorrent.py:1900": 1452,
+    "pf_stack|linear|tenstorrent.py:2001": 1452,
+    "pf_stack|linear|tenstorrent.py:2011": 1452,
+    "pf_stack|linear|tenstorrent.py:2046": 15972,
+    "pf_stack|linear|tenstorrent.py:2055": 15972,
+    "pf_stack|linear|tenstorrent.py:2066": 15972,
+    "pf_stack|linear|tenstorrent.py:595": 11616,
+    "pf_stack|matmul|tenstorrent.py:1330": 11616,
+    "pf_stack|matmul|tenstorrent.py:372": 2904,
+    "trunk_msa|linear|tenstorrent.py:2046": 1380,
+    "trunk_msa|linear|tenstorrent.py:2055": 1380,
+    "trunk_msa|linear|tenstorrent.py:2066": 1380,
+    "trunk_msa|linear|tenstorrent.py:2807": 720,
+    "trunk_msa|linear|tenstorrent.py:2822": 720,
+    "trunk_msa|linear|tenstorrent.py:2839": 720,
+    "trunk_msa|linear|tenstorrent.py:2847": 720,
+    "trunk_msa|linear|tenstorrent.py:2900": 120,
+    "trunk_msa|linear|tenstorrent.py:2906": 120,
+    "trunk_msa|linear|tenstorrent.py:3043": 120,
+    "trunk_msa|linear|tenstorrent.py:595": 960,
+    "trunk_msa|matmul|tenstorrent.py:1330": 960,
+    "trunk_msa|matmul|tenstorrent.py:2829": 720,
+    "trunk_msa|matmul|tenstorrent.py:3012": 120,
+    "trunk_template|linear|protenix.py:306": 150,
+    "trunk_template|linear|tenstorrent.py:2046": 2400,
+    "trunk_template|linear|tenstorrent.py:2055": 2400,
+    "trunk_template|linear|tenstorrent.py:2066": 2400,
+    "trunk_template|linear|tenstorrent.py:595": 1920,
+    "trunk_template|matmul|tenstorrent.py:1330": 480
+  },
+  "latency": {
+    "model": "protenix-v2",
+    "side": "tenstorrent",
+    "hardware": "blackhole",
+    "machine": "pc",
+    "visible_devices": "0",
+    "card_type": "p150a",
+    "aiclk_mhz": "1350",
+    "tt_bio_git": "0139b17a2c9603052af501202772964623dbcb6f",
+    "ttnn_version": "0.68.0",
+    "input": "prot300.yaml (298 aa, single protein, MSA on)",
+    "target": "/home/moritz/.coworker/wt/protenix-trunk--msa-template/examples/prot300.yaml",
+    "n_msa": 35,
+    "n_tokens": 298,
+    "n_residues": 298,
+    "msa_cache": [
+      "425f6b0c8f93f94f.a3m",
+      "fe22d91e18cd544a.a3m"
+    ],
+    "recycling_steps": 10,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "seed": 0,
+    "load_s": 4.1,
+    "cold_s": 60.22,
+    "warm_times_s": [
+      29.039,
+      29.027
+    ],
+    "warm_min_s": 29.027,
+    "warm_median_s": 29.039,
+    "warm_max_s": 29.039,
+    "cold_metrics": {
+      "complex_plddt": 0.840779,
+      "plddt": 0.840779,
+      "ptm": 0.907927,
+      "iptm": 0.0,
+      "confidence_score": 0.907927,
+      "n_residues": 298,
+      "n_chains": 1,
+      "n_tokens": 298,
+      "msa": true,
+      "n_atoms": 2398,
+      "samples": 1
+    },
+    "date": "2026-08-10"
+  }
+}

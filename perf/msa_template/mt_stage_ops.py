@@ -72,9 +72,16 @@ def build_trunk(sd, ckc, c_z=256):
         opm = OuterProductMean(PW.remap_outer_product_mean(sub(P + "outer_product_mean_msa.")), ckc)
         pl = PairformerLayer(Trunk.TRI_HEAD_DIM, n_tri_heads, None, None, False,
                              PW.remap_msa_pair_stack(sub(P + "pair_stack.")), ckc)
-        pwa = PairWeightedAveraging(8, 8, PW.remap_pair_weighted_averaging(
-            sub(P + "msa_stack.msa_pair_weighted_averaging.")), ckc)
-        tm = Transition(PW.remap_transition(sub(P + "msa_stack.transition_m.")), ckc)
+        # protenix-v2's LAST MSA block carries no `msa_stack`, so its PWA and transition_m do not
+        # run. A live 298 aa fold counts 30 PairWeightedAveraging calls, not 40 -- building all
+        # four here would time a stage the fold never executes. Gate on the weights, as
+        # Trunk.__init__ does.
+        has = any(k.startswith(P + "msa_stack.") for k in sd)
+        pwa = tm = None
+        if has:
+            pwa = PairWeightedAveraging(8, 8, PW.remap_pair_weighted_averaging(
+                sub(P + "msa_stack.msa_pair_weighted_averaging.")), ckc)
+            tm = Transition(PW.remap_transition(sub(P + "msa_stack.transition_m.")), ckc)
         t.MSA.append((opm, pwa, tm, pl))
     t.PF = None
     return t
