@@ -1,0 +1,554 @@
+[
+  {
+    "nb": 8,
+    "batch": 32,
+    "op": "QK^T",
+    "main_applies": false,
+    "us": {
+      "naive": 43.18,
+      "main": 59.61,
+      "explicit": 36.22,
+      "chunked": 35.37
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.724,
+      "explicit": 1.192,
+      "chunked": 1.221
+    }
+  },
+  {
+    "nb": 8,
+    "batch": 32,
+    "op": "A@V",
+    "main_applies": false,
+    "us": {
+      "naive": 63.5,
+      "main": 65.97,
+      "explicit": 17.34,
+      "chunked": 17.63
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.963,
+      "explicit": 3.662,
+      "chunked": 3.602
+    }
+  },
+  {
+    "nb": 19,
+    "batch": 76,
+    "op": "QK^T",
+    "main_applies": false,
+    "us": {
+      "naive": 88.52,
+      "main": 91.09,
+      "explicit": 22.12,
+      "chunked": 22.63
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.972,
+      "explicit": 4.002,
+      "chunked": 3.912
+    }
+  },
+  {
+    "nb": 19,
+    "batch": 76,
+    "op": "A@V",
+    "main_applies": false,
+    "us": {
+      "naive": 147.66,
+      "main": 152.24,
+      "explicit": 34.7,
+      "chunked": 35.66
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.97,
+      "explicit": 4.255,
+      "chunked": 4.141
+    }
+  },
+  {
+    "nb": 26,
+    "batch": 104,
+    "op": "QK^T",
+    "main_applies": false,
+    "us": {
+      "naive": 122.84,
+      "main": 126.37,
+      "explicit": 37.02,
+      "chunked": 39.71
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.972,
+      "explicit": 3.318,
+      "chunked": 3.093
+    }
+  },
+  {
+    "nb": 26,
+    "batch": 104,
+    "op": "A@V",
+    "main_applies": false,
+    "us": {
+      "naive": 199.43,
+      "main": 202.62,
+      "explicit": 30.1,
+      "chunked": 32.65
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.984,
+      "explicit": 6.626,
+      "chunked": 6.108
+    }
+  },
+  {
+    "nb": 27,
+    "batch": 108,
+    "op": "QK^T",
+    "main_applies": false,
+    "us": {
+      "naive": 123.92,
+      "main": 126.22,
+      "explicit": 25.09,
+      "chunked": 24.38
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.982,
+      "explicit": 4.939,
+      "chunked": 5.083
+    }
+  },
+  {
+    "nb": 27,
+    "batch": 108,
+    "op": "A@V",
+    "main_applies": false,
+    "us": {
+      "naive": 206.14,
+      "main": 208.92,
+      "explicit": 25.76,
+      "chunked": 25.38
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.987,
+      "explicit": 8.002,
+      "chunked": 8.122
+    }
+  },
+  {
+    "nb": 28,
+    "batch": 112,
+    "op": "QK^T",
+    "main_applies": true,
+    "us": {
+      "naive": 128.49,
+      "main": 131.3,
+      "explicit": 26.25,
+      "chunked": 159.86
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.979,
+      "explicit": 4.895,
+      "chunked": 0.804
+    }
+  },
+  {
+    "nb": 28,
+    "batch": 112,
+    "op": "A@V",
+    "main_applies": true,
+    "us": {
+      "naive": 213.4,
+      "main": 216.16,
+      "explicit": 26.22,
+      "chunked": 164.25
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.987,
+      "explicit": 8.139,
+      "chunked": 1.299
+    }
+  },
+  {
+    "nb": 29,
+    "batch": 116,
+    "op": "QK^T",
+    "main_applies": true,
+    "us": {
+      "naive": 135.12,
+      "main": 140.74,
+      "explicit": 42.73,
+      "chunked": 262.83
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.96,
+      "explicit": 3.162,
+      "chunked": 0.514
+    }
+  },
+  {
+    "nb": 29,
+    "batch": 116,
+    "op": "A@V",
+    "main_applies": true,
+    "us": {
+      "naive": 223.78,
+      "main": 227.53,
+      "explicit": 40.76,
+      "chunked": 248.28
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.984,
+      "explicit": 5.49,
+      "chunked": 0.901
+    }
+  },
+  {
+    "nb": 30,
+    "batch": 120,
+    "op": "QK^T",
+    "main_applies": true,
+    "us": {
+      "naive": 140.04,
+      "main": 145.12,
+      "explicit": 45.01,
+      "chunked": 253.35
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.965,
+      "explicit": 3.111,
+      "chunked": 0.553
+    }
+  },
+  {
+    "nb": 30,
+    "batch": 120,
+    "op": "A@V",
+    "main_applies": true,
+    "us": {
+      "naive": 230.52,
+      "main": 236.01,
+      "explicit": 40.97,
+      "chunked": 253.34
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 0.977,
+      "explicit": 5.627,
+      "chunked": 0.91
+    }
+  },
+  {
+    "nb": 33,
+    "batch": 132,
+    "op": "QK^T",
+    "main_applies": true,
+    "us": {
+      "naive": 150.53,
+      "main": 38.41,
+      "explicit": 26.68,
+      "chunked": 163.11
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 3.919,
+      "explicit": 5.642,
+      "chunked": 0.923
+    }
+  },
+  {
+    "nb": 33,
+    "batch": 132,
+    "op": "A@V",
+    "main_applies": true,
+    "us": {
+      "naive": 252.02,
+      "main": 54.27,
+      "explicit": 22.84,
+      "chunked": 254.1
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 4.644,
+      "explicit": 11.034,
+      "chunked": 0.992
+    }
+  },
+  {
+    "nb": 40,
+    "batch": 160,
+    "op": "QK^T",
+    "main_applies": true,
+    "us": {
+      "naive": 182.82,
+      "main": 36.66,
+      "explicit": 27.05,
+      "chunked": 153.17
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 4.987,
+      "explicit": 6.759,
+      "chunked": 1.194
+    }
+  },
+  {
+    "nb": 40,
+    "batch": 160,
+    "op": "A@V",
+    "main_applies": true,
+    "us": {
+      "naive": 304.4,
+      "main": 59.22,
+      "explicit": 38.85,
+      "chunked": 254.82
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 5.14,
+      "explicit": 7.835,
+      "chunked": 1.195
+    }
+  },
+  {
+    "nb": 55,
+    "batch": 220,
+    "op": "QK^T",
+    "main_applies": true,
+    "us": {
+      "naive": 247.81,
+      "main": 59.58,
+      "explicit": 41.39,
+      "chunked": 347.23
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 4.159,
+      "explicit": 5.987,
+      "chunked": 0.714
+    }
+  },
+  {
+    "nb": 55,
+    "batch": 220,
+    "op": "A@V",
+    "main_applies": true,
+    "us": {
+      "naive": 416.11,
+      "main": 63.8,
+      "explicit": 41.37,
+      "chunked": 365.75
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 6.522,
+      "explicit": 10.058,
+      "chunked": 1.138
+    }
+  },
+  {
+    "nb": 75,
+    "batch": 300,
+    "op": "QK^T",
+    "main_applies": true,
+    "us": {
+      "naive": 333.43,
+      "main": 54.15,
+      "explicit": 39.98,
+      "chunked": 312.26
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 6.158,
+      "explicit": 8.34,
+      "chunked": 1.068
+    }
+  },
+  {
+    "nb": 75,
+    "batch": 300,
+    "op": "A@V",
+    "main_applies": true,
+    "us": {
+      "naive": 564.77,
+      "main": 60.51,
+      "explicit": 41.45,
+      "chunked": 358.66
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 9.333,
+      "explicit": 13.625,
+      "chunked": 1.575
+    }
+  },
+  {
+    "nb": 110,
+    "batch": 440,
+    "op": "QK^T",
+    "main_applies": true,
+    "us": {
+      "naive": 486.75,
+      "main": 66.65,
+      "explicit": 64.02,
+      "chunked": 550.69
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 7.303,
+      "explicit": 7.603,
+      "chunked": 0.884
+    }
+  },
+  {
+    "nb": 110,
+    "batch": 440,
+    "op": "A@V",
+    "main_applies": true,
+    "us": {
+      "naive": 821.45,
+      "main": 64.59,
+      "explicit": 59.99,
+      "chunked": 550.99
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "explicit": true,
+      "chunked": true
+    },
+    "vs_naive": {
+      "main": 12.718,
+      "explicit": 13.693,
+      "chunked": 1.491
+    }
+  }
+]

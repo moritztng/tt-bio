@@ -1,0 +1,70 @@
+{
+  "rows": [
+    {
+      "nb": 75,
+      "op": "QK^T",
+      "us": {
+        "naive": 333.5,
+        "main": 52.95,
+        "hoisted": 54.44,
+        "explicit": 45.02
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "hoisted": true,
+        "explicit": true
+      }
+    },
+    {
+      "nb": 75,
+      "op": "A@V",
+      "us": {
+        "naive": 562.85,
+        "main": 58.92,
+        "hoisted": 61.54,
+        "explicit": 46.02
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "hoisted": true,
+        "explicit": true
+      }
+    },
+    {
+      "nb": 110,
+      "op": "QK^T",
+      "us": {
+        "naive": 486.9,
+        "main": 67.11,
+        "hoisted": 64.11,
+        "explicit": 56.59
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "hoisted": true,
+        "explicit": true
+      }
+    },
+    {
+      "nb": 110,
+      "op": "A@V",
+      "us": {
+        "naive": 823.49,
+        "main": 64.24,
+        "hoisted": 64.11,
+        "explicit": 54.58
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "hoisted": true,
+        "explicit": true
+      }
+    }
+  ],
+  "l1_query_idle_us": 0.146,
+  "l1_query_queued_us": 1.12
+}

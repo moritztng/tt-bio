@@ -1,0 +1,738 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "l1": 1532448,
+  "config_host_us": 0.71,
+  "rows": [
+    {
+      "dtype": "fp32",
+      "nb": 19,
+      "batch": 76,
+      "op": "QK^T",
+      "rounds_130": 1,
+      "rounds_110": 1,
+      "main_applies": false,
+      "us": {
+        "naive": 88.67,
+        "main": 91.05,
+        "exp130": 22.21,
+        "exp110": 21.82
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.974,
+        "exp130": 3.992,
+        "exp110": 4.064
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 19,
+      "batch": 76,
+      "op": "A@V",
+      "rounds_130": 1,
+      "rounds_110": 1,
+      "main_applies": false,
+      "us": {
+        "naive": 145.56,
+        "main": 147.6,
+        "exp130": 23.13,
+        "exp110": 21.29
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.986,
+        "exp130": 6.293,
+        "exp110": 6.837
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 29,
+      "batch": 116,
+      "op": "QK^T",
+      "rounds_130": 1,
+      "rounds_110": 2,
+      "main_applies": false,
+      "us": {
+        "naive": 134.59,
+        "main": 138.6,
+        "exp130": 37.42,
+        "exp110": 39.23
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.971,
+        "exp130": 3.597,
+        "exp110": 3.431
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 29,
+      "batch": 116,
+      "op": "A@V",
+      "rounds_130": 1,
+      "rounds_110": 2,
+      "main_applies": false,
+      "us": {
+        "naive": 221.48,
+        "main": 224.78,
+        "exp130": 35.31,
+        "exp110": 35.16
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.985,
+        "exp130": 6.272,
+        "exp110": 6.299
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 32,
+      "batch": 128,
+      "op": "QK^T",
+      "rounds_130": 1,
+      "rounds_110": 2,
+      "main_applies": false,
+      "us": {
+        "naive": 147.41,
+        "main": 151.24,
+        "exp130": 38.66,
+        "exp110": 38.22
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.975,
+        "exp130": 3.813,
+        "exp110": 3.857
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 32,
+      "batch": 128,
+      "op": "A@V",
+      "rounds_130": 1,
+      "rounds_110": 2,
+      "main_applies": false,
+      "us": {
+        "naive": 241.79,
+        "main": 243.96,
+        "exp130": 21.41,
+        "exp110": 21.63
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.991,
+        "exp130": 11.293,
+        "exp110": 11.178
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 33,
+      "batch": 132,
+      "op": "QK^T",
+      "rounds_130": 2,
+      "rounds_110": 2,
+      "main_applies": true,
+      "us": {
+        "naive": 153.84,
+        "main": 66.78,
+        "exp130": 44.57,
+        "exp110": 44.42
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 2.304,
+        "exp130": 3.452,
+        "exp110": 3.463
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 33,
+      "batch": 132,
+      "op": "A@V",
+      "rounds_130": 2,
+      "rounds_110": 2,
+      "main_applies": true,
+      "us": {
+        "naive": 253.84,
+        "main": 65.79,
+        "exp130": 46.02,
+        "exp110": 44.14
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 3.858,
+        "exp130": 5.516,
+        "exp110": 5.751
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 40,
+      "batch": 160,
+      "op": "QK^T",
+      "rounds_130": 2,
+      "rounds_110": 2,
+      "main_applies": true,
+      "us": {
+        "naive": 182.46,
+        "main": 54.15,
+        "exp130": 36.01,
+        "exp110": 35.96
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 3.37,
+        "exp130": 5.067,
+        "exp110": 5.074
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 40,
+      "batch": 160,
+      "op": "A@V",
+      "rounds_130": 2,
+      "rounds_110": 2,
+      "main_applies": true,
+      "us": {
+        "naive": 306.57,
+        "main": 72.67,
+        "exp130": 51.22,
+        "exp110": 47.67
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 4.219,
+        "exp130": 5.985,
+        "exp110": 6.431
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 75,
+      "batch": 300,
+      "op": "QK^T",
+      "rounds_130": 3,
+      "rounds_110": 3,
+      "main_applies": true,
+      "us": {
+        "naive": 335.88,
+        "main": 65.08,
+        "exp130": 46.78,
+        "exp110": 46.75
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 5.161,
+        "exp130": 7.18,
+        "exp110": 7.185
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 75,
+      "batch": 300,
+      "op": "A@V",
+      "rounds_130": 3,
+      "rounds_110": 3,
+      "main_applies": true,
+      "us": {
+        "naive": 565.39,
+        "main": 67.68,
+        "exp130": 47.62,
+        "exp110": 41.11
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 8.354,
+        "exp130": 11.873,
+        "exp110": 13.753
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 110,
+      "batch": 440,
+      "op": "QK^T",
+      "rounds_130": 4,
+      "rounds_110": 4,
+      "main_applies": true,
+      "us": {
+        "naive": 485.83,
+        "main": 65.98,
+        "exp130": 57.11,
+        "exp110": 63.52
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 7.363,
+        "exp130": 8.507,
+        "exp110": 7.648
+      }
+    },
+    {
+      "dtype": "fp32",
+      "nb": 110,
+      "batch": 440,
+      "op": "A@V",
+      "rounds_130": 4,
+      "rounds_110": 4,
+      "main_applies": true,
+      "us": {
+        "naive": 823.11,
+        "main": 64.8,
+        "exp130": 55.28,
+        "exp110": 60.02
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 12.702,
+        "exp130": 14.89,
+        "exp110": 13.714
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 19,
+      "batch": 76,
+      "op": "QK^T",
+      "rounds_130": 1,
+      "rounds_110": 1,
+      "main_applies": false,
+      "us": {
+        "naive": 86.52,
+        "main": 90.57,
+        "exp130": 35.82,
+        "exp110": 40.18
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.955,
+        "exp130": 2.415,
+        "exp110": 2.153
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 19,
+      "batch": 76,
+      "op": "A@V",
+      "rounds_130": 1,
+      "rounds_110": 1,
+      "main_applies": false,
+      "us": {
+        "naive": 138.82,
+        "main": 144.09,
+        "exp130": 44.16,
+        "exp110": 43.6
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.963,
+        "exp130": 3.144,
+        "exp110": 3.184
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 29,
+      "batch": 116,
+      "op": "QK^T",
+      "rounds_130": 1,
+      "rounds_110": 2,
+      "main_applies": false,
+      "us": {
+        "naive": 127.21,
+        "main": 132.62,
+        "exp130": 44.69,
+        "exp110": 46.66
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.959,
+        "exp130": 2.846,
+        "exp110": 2.726
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 29,
+      "batch": 116,
+      "op": "A@V",
+      "rounds_130": 1,
+      "rounds_110": 2,
+      "main_applies": false,
+      "us": {
+        "naive": 206.18,
+        "main": 210.83,
+        "exp130": 46.45,
+        "exp110": 43.88
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.978,
+        "exp130": 4.439,
+        "exp110": 4.699
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 32,
+      "batch": 128,
+      "op": "QK^T",
+      "rounds_130": 1,
+      "rounds_110": 2,
+      "main_applies": false,
+      "us": {
+        "naive": 138.8,
+        "main": 142.92,
+        "exp130": 45.79,
+        "exp110": 45.57
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.971,
+        "exp130": 3.031,
+        "exp110": 3.046
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 32,
+      "batch": 128,
+      "op": "A@V",
+      "rounds_130": 1,
+      "rounds_110": 2,
+      "main_applies": false,
+      "us": {
+        "naive": 222.41,
+        "main": 224.33,
+        "exp130": 19.54,
+        "exp110": 19.38
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 0.991,
+        "exp130": 11.382,
+        "exp110": 11.476
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 33,
+      "batch": 132,
+      "op": "QK^T",
+      "rounds_130": 2,
+      "rounds_110": 2,
+      "main_applies": true,
+      "us": {
+        "naive": 143.43,
+        "main": 63.5,
+        "exp130": 44.08,
+        "exp110": 41.13
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 2.259,
+        "exp130": 3.254,
+        "exp110": 3.487
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 33,
+      "batch": 132,
+      "op": "A@V",
+      "rounds_130": 2,
+      "rounds_110": 2,
+      "main_applies": true,
+      "us": {
+        "naive": 229.06,
+        "main": 30.86,
+        "exp130": 22.66,
+        "exp110": 22.66
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 7.423,
+        "exp130": 10.109,
+        "exp110": 10.109
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 40,
+      "batch": 160,
+      "op": "QK^T",
+      "rounds_130": 2,
+      "rounds_110": 2,
+      "main_applies": true,
+      "us": {
+        "naive": 172.51,
+        "main": 65.15,
+        "exp130": 45.55,
+        "exp110": 42.49
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 2.648,
+        "exp130": 3.787,
+        "exp110": 4.06
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 40,
+      "batch": 160,
+      "op": "A@V",
+      "rounds_130": 2,
+      "rounds_110": 2,
+      "main_applies": true,
+      "us": {
+        "naive": 280.44,
+        "main": 64.7,
+        "exp130": 42.63,
+        "exp110": 42.8
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 4.334,
+        "exp130": 6.578,
+        "exp110": 6.552
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 75,
+      "batch": 300,
+      "op": "QK^T",
+      "rounds_130": 3,
+      "rounds_110": 3,
+      "main_applies": true,
+      "us": {
+        "naive": 313.6,
+        "main": 66.49,
+        "exp130": 46.22,
+        "exp110": 42.77
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 4.716,
+        "exp130": 6.785,
+        "exp110": 7.332
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 75,
+      "batch": 300,
+      "op": "A@V",
+      "rounds_130": 3,
+      "rounds_110": 3,
+      "main_applies": true,
+      "us": {
+        "naive": 516.0,
+        "main": 57.38,
+        "exp130": 44.3,
+        "exp110": 44.95
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 8.993,
+        "exp130": 11.648,
+        "exp110": 11.479
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 110,
+      "batch": 440,
+      "op": "QK^T",
+      "rounds_130": 4,
+      "rounds_110": 4,
+      "main_applies": true,
+      "us": {
+        "naive": 452.94,
+        "main": 56.9,
+        "exp130": 29.94,
+        "exp110": 33.16
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 7.96,
+        "exp130": 15.128,
+        "exp110": 13.659
+      }
+    },
+    {
+      "dtype": "bf16",
+      "nb": 110,
+      "batch": 440,
+      "op": "A@V",
+      "rounds_130": 4,
+      "rounds_110": 4,
+      "main_applies": true,
+      "us": {
+        "naive": 752.76,
+        "main": 61.74,
+        "exp130": 37.42,
+        "exp110": 41.71
+      },
+      "bit_exact": {
+        "naive": true,
+        "main": true,
+        "exp130": true,
+        "exp110": true
+      },
+      "vs_naive": {
+        "main": 12.192,
+        "exp130": 20.117,
+        "exp110": 18.047
+      }
+    }
+  ]
+}

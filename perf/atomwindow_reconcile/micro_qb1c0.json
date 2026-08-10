@@ -1,0 +1,410 @@
+[
+  {
+    "dtype": "fp32",
+    "nb": 75,
+    "batch": 300,
+    "op": "QK^T",
+    "main_declines": false,
+    "main_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "relax_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "us": {
+      "naive": 333.16,
+      "main": 55.8,
+      "d2": 310.61
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true
+    },
+    "vs_naive": {
+      "main": 5.971,
+      "d2": 1.073
+    },
+    "main_vs_d2": 5.566
+  },
+  {
+    "dtype": "fp32",
+    "nb": 75,
+    "batch": 300,
+    "op": "A@V",
+    "main_declines": false,
+    "main_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "relax_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "us": {
+      "naive": 560.62,
+      "main": 46.58,
+      "d2": 182.8
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true
+    },
+    "vs_naive": {
+      "main": 12.036,
+      "d2": 3.067
+    },
+    "main_vs_d2": 3.924
+  },
+  {
+    "dtype": "fp32",
+    "nb": 29,
+    "batch": 116,
+    "op": "QK^T",
+    "main_declines": false,
+    "main_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "relax_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "us": {
+      "naive": 135.59,
+      "main": 140.16,
+      "d2": 253.42
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true
+    },
+    "vs_naive": {
+      "main": 0.967,
+      "d2": 0.535
+    },
+    "main_vs_d2": 1.808
+  },
+  {
+    "dtype": "fp32",
+    "nb": 29,
+    "batch": 116,
+    "op": "A@V",
+    "main_declines": false,
+    "main_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "relax_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "us": {
+      "naive": 222.86,
+      "main": 227.62,
+      "d2": 264.47
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true
+    },
+    "vs_naive": {
+      "main": 0.979,
+      "d2": 0.843
+    },
+    "main_vs_d2": 1.162
+  },
+  {
+    "dtype": "fp32",
+    "nb": 19,
+    "batch": 76,
+    "op": "QK^T",
+    "main_declines": true,
+    "main_cfg": null,
+    "relax_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "us": {
+      "naive": 91.41,
+      "main": 96.11,
+      "d2": 41.03,
+      "relax": 36.06
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true,
+      "relax": true
+    },
+    "vs_naive": {
+      "main": 0.951,
+      "d2": 2.228,
+      "relax": 2.535
+    },
+    "main_vs_d2": 0.427
+  },
+  {
+    "dtype": "fp32",
+    "nb": 19,
+    "batch": 76,
+    "op": "A@V",
+    "main_declines": true,
+    "main_cfg": null,
+    "relax_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "us": {
+      "naive": 146.84,
+      "main": 150.44,
+      "d2": 34.16,
+      "relax": 27.09
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true,
+      "relax": true
+    },
+    "vs_naive": {
+      "main": 0.976,
+      "d2": 4.299,
+      "relax": 5.42
+    },
+    "main_vs_d2": 0.227
+  },
+  {
+    "dtype": "fp32",
+    "nb": 8,
+    "batch": 32,
+    "op": "QK^T",
+    "main_declines": true,
+    "main_cfg": null,
+    "relax_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "us": {
+      "naive": 40.8,
+      "main": 42.99,
+      "d2": 21.74,
+      "relax": 17.86
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true,
+      "relax": true
+    },
+    "vs_naive": {
+      "main": 0.949,
+      "d2": 1.877,
+      "relax": 2.284
+    },
+    "main_vs_d2": 0.506
+  },
+  {
+    "dtype": "fp32",
+    "nb": 8,
+    "batch": 32,
+    "op": "A@V",
+    "main_declines": true,
+    "main_cfg": null,
+    "relax_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "us": {
+      "naive": 67.16,
+      "main": 73.15,
+      "d2": 46.05,
+      "relax": 36.82
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true,
+      "relax": true
+    },
+    "vs_naive": {
+      "main": 0.918,
+      "d2": 1.458,
+      "relax": 1.824
+    },
+    "main_vs_d2": 0.63
+  },
+  {
+    "dtype": "bf16",
+    "nb": 75,
+    "batch": 300,
+    "op": "QK^T",
+    "main_declines": false,
+    "main_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "relax_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "us": {
+      "naive": 312.49,
+      "main": 61.03,
+      "d2": 358.84
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true
+    },
+    "vs_naive": {
+      "main": 5.12,
+      "d2": 0.871
+    },
+    "main_vs_d2": 5.88
+  },
+  {
+    "dtype": "bf16",
+    "nb": 75,
+    "batch": 300,
+    "op": "A@V",
+    "main_declines": false,
+    "main_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "relax_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "us": {
+      "naive": 516.02,
+      "main": 59.34,
+      "d2": 361.77
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true
+    },
+    "vs_naive": {
+      "main": 8.696,
+      "d2": 1.426
+    },
+    "main_vs_d2": 6.097
+  },
+  {
+    "dtype": "bf16",
+    "nb": 29,
+    "batch": 116,
+    "op": "QK^T",
+    "main_declines": false,
+    "main_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "relax_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "us": {
+      "naive": 127.13,
+      "main": 131.63,
+      "d2": 257.48
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true
+    },
+    "vs_naive": {
+      "main": 0.966,
+      "d2": 0.494
+    },
+    "main_vs_d2": 1.956
+  },
+  {
+    "dtype": "bf16",
+    "nb": 29,
+    "batch": 116,
+    "op": "A@V",
+    "main_declines": false,
+    "main_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "relax_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "us": {
+      "naive": 205.1,
+      "main": 209.73,
+      "d2": 264.31
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true
+    },
+    "vs_naive": {
+      "main": 0.978,
+      "d2": 0.776
+    },
+    "main_vs_d2": 1.26
+  },
+  {
+    "dtype": "bf16",
+    "nb": 19,
+    "batch": 76,
+    "op": "QK^T",
+    "main_declines": true,
+    "main_cfg": null,
+    "relax_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "us": {
+      "naive": 84.95,
+      "main": 89.47,
+      "d2": 36.84,
+      "relax": 32.04
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true,
+      "relax": true
+    },
+    "vs_naive": {
+      "main": 0.949,
+      "d2": 2.306,
+      "relax": 2.651
+    },
+    "main_vs_d2": 0.412
+  },
+  {
+    "dtype": "bf16",
+    "nb": 19,
+    "batch": 76,
+    "op": "A@V",
+    "main_declines": true,
+    "main_cfg": null,
+    "relax_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "us": {
+      "naive": 138.7,
+      "main": 142.81,
+      "d2": 44.84,
+      "relax": 41.61
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true,
+      "relax": true
+    },
+    "vs_naive": {
+      "main": 0.971,
+      "d2": 3.093,
+      "relax": 3.333
+    },
+    "main_vs_d2": 0.314
+  },
+  {
+    "dtype": "bf16",
+    "nb": 8,
+    "batch": 32,
+    "op": "QK^T",
+    "main_declines": true,
+    "main_cfg": null,
+    "relax_cfg": "ibw=1 pcM=1 pcN=4 osh=1 osw=4",
+    "us": {
+      "naive": 47.13,
+      "main": 68.41,
+      "d2": 48.47,
+      "relax": 40.23
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true,
+      "relax": true
+    },
+    "vs_naive": {
+      "main": 0.689,
+      "d2": 0.972,
+      "relax": 1.172
+    },
+    "main_vs_d2": 0.709
+  },
+  {
+    "dtype": "bf16",
+    "nb": 8,
+    "batch": 32,
+    "op": "A@V",
+    "main_declines": true,
+    "main_cfg": null,
+    "relax_cfg": "ibw=2 pcM=1 pcN=1 osh=1 osw=1",
+    "us": {
+      "naive": 65.19,
+      "main": 75.28,
+      "d2": 42.77,
+      "relax": 32.79
+    },
+    "bit_exact": {
+      "naive": true,
+      "main": true,
+      "d2": true,
+      "relax": true
+    },
+    "vs_naive": {
+      "main": 0.866,
+      "d2": 1.524,
+      "relax": 1.988
+    },
+    "main_vs_d2": 0.568
+  }
+]
