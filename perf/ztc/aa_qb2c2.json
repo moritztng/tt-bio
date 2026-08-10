@@ -1,0 +1,26 @@
+{
+ "c": 256,
+ "shape": [
+  1,
+  512,
+  512,
+  256
+ ],
+ "prod_h": 16,
+ "ttnn": "0.68.0",
+ "AA_h16_run1_vs_run2_torch_equal": true,
+ "AA_h16_run1_vs_run3_torch_equal": true,
+ "AA_h16_max_abs": 0.0,
+ "h20": {
+  "torch_equal_vs_h16": false,
+  "max_abs": 0.015625,
+  "rel_rmsd": 0.0027227825485169888,
+  "frac_elems_differing": 0.4335366487503052
+ },
+ "h24": {
+  "torch_equal_vs_h16": false,
+  "max_abs": 0.015625,
+  "rel_rmsd": 0.0027336750645190477,
+  "frac_elems_differing": 0.4369933009147644
+ }
+}
