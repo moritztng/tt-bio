@@ -285,12 +285,14 @@ def eligible(x, memory_config) -> bool:
 
 
 # Whether `_channel_move` reaches for this kernel at all. Bit-exact: a permute is a pure index
-# reordering, `torch.equal` against `ttnn.permute` at every shape in `eligible`'s window including
-# the ragged group's output tile padding, and a live 298 aa protenix-v2 fold returns plDDT to the
-# same six decimals with it on and off. Worth PLACEHOLDER_MS ms/fold on that fold, measured on the
-# trimul block wall on qb1 card 3 at ttnn 0.67.4. Release-gated.
-# PLACEHOLDER_STATUS
-REBLOCK_PERMUTE = False
+# reordering, `torch.equal` against `ttnn.permute` at all 24 shapes in `eligible`'s window including
+# the ragged group's output tile padding, and 24 live 298 aa protenix-v2 folds return plDDT
+# 0.859489 and identical coordinates with it on and off. Worth 209.3 ms/fold on that fold (1.0335x
+# per trimul call on the block wall, qb1 card 3 at ttnn 0.67.4, 4352 of 4352 eligible calls served);
+# esmfold2 serves 4336 of its own at 298 aa and none at 117 aa, where the window declines them.
+# Release-gated: no parity decision, but it changes every model that reaches the shared
+# TriangleMultiplication, so the cross-model evidence is in state/protenix-trunk--y-permute-flip.md.
+REBLOCK_PERMUTE = True
 # `TT_BIO_REBLOCK_PERMUTE` stays as an out-of-process override for A/B harnesses; the default is
 # the constant above, so the release gate and any in-process import can see and set it.
 _ENABLED = os.environ.get("TT_BIO_REBLOCK_PERMUTE", "1" if REBLOCK_PERMUTE else "0") == "1"
