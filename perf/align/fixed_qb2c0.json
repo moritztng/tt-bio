@@ -1,0 +1,16 @@
+{
+ "production_us": 109.70854999641233,
+ "mask_multiply_one_operand_us": 22.595500001898472,
+ "mask_inplace_2d_mask_us": 22.51084999898012,
+ "mask_inplace_1d_mask_us": 27.86635000120441,
+ "fixed_view": {
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume"
+ },
+ "fixed_reshape_pad": {
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume"
+ },
+ "_grid": [
+  11,
+  10
+ ]
+}

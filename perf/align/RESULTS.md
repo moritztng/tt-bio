@@ -212,6 +212,68 @@ block pass, discounted after the first block.
 | H3 | ttnn dispatches a different program or a different matmul variant when the logical K is unaligned, so this is program selection and not padding-awareness | kill test: compare program hashes across arms with an explicit program config supplied. Killed if the 11 program hashes are identical | **KILLED** -- 11 of 11 program hashes shared, and the fold supplies an explicit `MatmulMultiCoreReuseMultiCastProgramConfig`, so there is no selection left to make |
 | H4 | the masked transaction is charged once per output block pass and only in the last K block, so the penalty is flat in `in0_block_w` | kill test: the `in0_block_w` and batch ladders. Killed in its strict form if the penalty moves with `in0_block_w` | **CONFIRMED per output block pass, KILLED as last-block-only** -- linear in batch (10.12 / 21.35 / 40.05 us over 8 / 16 / 32) but 40.57 -> 69.89 us over `in0_block_w` 10 -> 1 |
 
+
+### E6 — the widen is unreachable from Python in ttnn 0.68, and the guard has an address
+
+Three routes, all at `[1, 32, 298, 298]` L1 with padding the tensor already owns:
+
+| route | result |
+|---|---|
+| `ttnn.experimental.view(x, (1, 32, 320, 320))` — documented as "a 0 cost view operation" | `TT_FATAL ... new_volume == old_volume` |
+| `ttnn.reshape(x, (1, 32, 320, 320), pad_value=0.0)` | same `TT_FATAL`, same line |
+| `ttnn.reshape(x, (1, 32, 320, 320))` | same `TT_FATAL`, same line |
+
+All three land on **one guard**: `ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50`.
+`view` advertises a zero-cost path but shares the validation, and its own documented conditions rule
+this case out anyway — the last dimension is exactly what has to change. There is also no escape
+hatch below the op layer: a device `ttnn.Tensor` in this wheel exposes no `buffer`, `storage` or
+`device_buffer` attribute, `ttnn.TensorSpec` has no Python-reachable constructor signature, and
+`x.spec` carries no writable layout, so a tensor cannot be re-wrapped around its own allocation with
+a wider logical shape. **The lever is blocked on a C++ change, not on a cost.**
+
+### E7 — the NCRISC reader really is zero-filling, measured
+
+If the reader masks the tail, a logical-298 contraction must give the same answer whatever sits in
+the padding. Polluted arm: both operands passed through `layer_norm` with `beta = 7.0`, which is how
+the fold pollutes them — the norm of an all-zero padded row is `beta`, not 0. Zeroed arm: the same
+polluted operands multiplied by a mask whose own padding is 0, which an eltwise op propagates into
+the tail because it works on whole tiles.
+
+```
+logical-298 result, polluted tail (beta = 7.0) vs zeroed tail:
+torch.equal = True    max_abs = 0.000e+00    0 of 2 841 728 elements differ
+```
+
+**CONFIRMED, and it closes the mechanism loop.** The result is independent of the tail, so the
+padding reader is zero-filling it on **every call**. The 40.79 us/call the alignment costs is the
+hardware doing, 8384 times per fold, the same zero-fill that one mask multiply does once per call.
+That is the Phase-3 argument in one line: the work is not needed, it is re-done.
+
+### E8 — the fill floor, and the net prize
+
+The tail only has to be zero on **one** operand: the contraction sums over k, so a zero factor kills
+the term whatever the other operand holds.
+
+| fill | us/call |
+|---|---:|
+| `ttnn.multiply_` in place, one operand, 2-D mask, L1 | **22.51** |
+| `ttnn.multiply` out of place, one operand, L1 | 22.60 |
+| `ttnn.multiply_` in place, rank-1 mask | 27.87 |
+| `ttnn.pad` on one operand (E5) | 55.17 |
+
+**22.51 us/call is the floor**, against **40.79 us/call** saved. So with a free widen the contraction
+row nets **18.28 us/call = 153.3 ms/fold, bit-exact**. Production already has the slot: the trimul
+calls `ttnn.multiply_(a_chunk, mask_u)` at `tenstorrent.py:1347` and simply never reaches it, because
+the trunk passes no mask (E9).
+
+### E9 — the open item from last pass, settled: the fold passes no mask
+
+`self.PF(s, z3)` at `protenix.py:2223` is called with two arguments, so `mask` defaults to `None`
+through `Pairformer` and `PairformerLayer` into `TriangleMultiplication.__call__`, and the mask
+multiply at `tenstorrent.py:1347` never executes. The live block capture agrees: **0 records at site
+1347** across 272 ops. **KILLED**, and it is the unfavourable answer — the tail is not zeroed for
+free, so the 22.51 us/call in E8 is a real cost the fix has to pay.
+
 ### E4 — parity (`perf/align/exact_qb2c0.json`)
 
 Production arm: operands built logically 298 from the fold's own data, `[1, 32, 298, 298]`. Aligned
@@ -247,14 +309,11 @@ logical 298, and the next block's `layer_norm` re-enters at 298. So a fill appli
 call is gone by the next one and has to be re-applied at each of the 2 trimul calls per block, which
 is exactly the placement the pricing above kills.
 
-**One thing Phase 3 should check before designing around this, which I could not settle this pass.**
-Exactness needs a zero tail on only *one* of the two operands, because the contraction sums over k
-and a zero factor kills the term whatever the other operand holds. The trimul already runs
-`ttnn.multiply_(a_chunk, mask_u)` when a mask is present, and an eltwise multiply operates on padded
-tiles, so if `mask_u`'s own tail is zero then `a_chunk`'s tail is **already** zero in the fold at no
-extra cost — and the whole fix collapses to the relabel. Whether a single-chain 298 aa protenix fold
-passes a mask at all is the open question, and it decides whether Phase 3 needs a zeroing op or only
-an API.
+**Settled this pass, and the answer is the unfavourable one.** Exactness needs a zero tail on only
+*one* of the two operands. The trimul already runs `ttnn.multiply_(a_chunk, mask_u)` when a mask is
+present, so if the fold passed a mask the tail would be zero for free and the fix would collapse to
+the relabel. It does not: `self.PF(s, z3)` passes no mask (E9), and the live block capture records 0
+calls at that site. Phase 3 needs **both** a zeroing op (22.51 us/call, E8) and the widen (E6).
 
 ## ms/fold at stake, after this pass
 
@@ -278,10 +337,16 @@ which would put the total at 426 ms/fold; I report the directly measured delta a
 the ratio-scaled figure as the bound, because my SDPA arms ran without the attention bias the fold
 carries.
 
-Ranked for Phase 3, this is **one lever worth 399 ms/fold, bit-exact, with no fix that is affordable
-today.** Every placement that ttnn 0.68 can express costs more than it saves. The lever is
-**alive and blocked on an API**, not dead: it needs a way to widen a tensor's logical shape into
-padding it already owns, without moving bytes.
+**Net of the fill, the contraction row is worth 153.3 ms/fold** — 40.79 us/call saved against the
+22.51 us/call floor for zeroing one operand's tail (E8), 18.28 us/call at x524. The gross 342.0 is
+the ceiling, reachable only if the zeroing is folded into an eltwise pass the trimul already makes.
+
+Ranked for Phase 3: **one lever, 399 ms/fold gross and 153.3 ms/fold net at today's fill cost,
+bit-exact, blocked on a single guard.** Every placement ttnn 0.68 can express either costs more than
+it saves (E5) or is refused outright (E6). The ask is narrow and it is not a cost problem: relax
+`new_volume == old_volume` at `reshape_view/reshape_common.cpp:50` for the case where the new logical
+shape fits inside the padded shape the tensor already owns, so a widen becomes the metadata change it
+physically is.
 
 ## Parity
 
@@ -316,6 +381,16 @@ weights and no production code path was altered.
    (`new_volume == old_volume`), so every expressible placement moves bytes: 55.17 us/call on an
    operand, 332.16 us/call on `z`, or +4.0 % on every pair-shaped op if `z` is built at 320 rows.
    Phase 3's task is the relabel, not the arithmetic.
-7. **Generalisation, recorded and not chased** (charter §1): this will hit any model contracting or
+7. **The open item from the first pass is closed, negatively.** The trunk passes no mask
+   (`protenix.py:2223`), so the trimul's own tail-zeroing multiply never runs and the tail is not
+   free. The fix needs a zeroing op as well as the widen.
+8. **The reader is measurably zero-filling.** A logical-298 contraction returns a bit-identical
+   result with `beta = 7.0` in the padded tail and with zeros there, so the 1.585x buys a zero-fill
+   the model could do once instead of 8384 times per fold.
+9. **The widen is refused by one guard, not by three APIs.** `ttnn.experimental.view`,
+   `ttnn.reshape` and `ttnn.reshape(..., pad_value=)` all fail at
+   `reshape_view/reshape_common.cpp:50`, and no Python-level buffer or `TensorSpec` reinterpret is
+   exposed to work around it.
+10. **Generalisation, recorded and not chased** (charter §1): this will hit any model contracting or
    reducing over a non-tile-multiple axis, including OpenDDE and OpenFold3 at their own token counts.
    One line, out of scope for this org.

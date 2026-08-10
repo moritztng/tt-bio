@@ -1,0 +1,15 @@
+{
+ "experimental_view": {
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume"
+ },
+ "reshape_pad_value": {
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume"
+ },
+ "reshape_plain": {
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape_common.cpp:50: new_volume == old_volume"
+ },
+ "_grid": [
+  11,
+  10
+ ]
+}

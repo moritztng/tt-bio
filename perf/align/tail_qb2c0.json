@@ -1,0 +1,13 @@
+{
+ "polluted_vs_zeroed": {
+  "torch_equal": true,
+  "max_abs": 0.0,
+  "n_diff": 0,
+  "n_total": 2841728
+ },
+ "_note": "beta=7.0 written into every padded row by layer_norm, as the fold does",
+ "_grid": [
+  11,
+  10
+ ]
+}
