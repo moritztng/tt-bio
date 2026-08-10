@@ -64,6 +64,23 @@ N16_ARK_EXCLUDE = {"esmfold2": {"9loz", "9w14"}}
 # model behavior. Full-panel scan (xhw_galaxy_tiera_scan.py, pass 75) confirmed the
 # set: 9sbb is od's only galaxy-worse>0.2 outlier; bz 9v1h is tail-luck (ptm-clean).
 GALAXY_EXCLUDE = {"opendde-abag": {"9sbb"}}
+# The four large targets held out of the panel for device DRAM capacity (an engineering
+# boundary, never a scoring or biology decision). Window p32 folds them at N=512 on the
+# OOM-fixed engine, so they exist at 512 only, and on a different engine commit than the
+# rest of the panel. Two reasons they stay out of the primary curve by default: including
+# them would move the 512 rung's target set away from 256's, confounding the one question
+# the campaign asks (does the oracle-vs-delivered gap keep widening from 256 to 512), and
+# it would mix two engine commits inside a single rung mean. DEEPN_P32_EXT=1 folds them in
+# for the separately-reported large-target extension cohort.
+#
+# Model-scoped, and it must stay that way: boltz2 folded all four targets through p27/p28,
+# so they are already in its published 64/128/256 rungs and excluding them there would move
+# a frozen number (analysis_curves.pre-n512.json). Only the cells p32 creates are new --
+# opendde-abag never folded any of the four on Wormhole, px/esm only lacked 9j4c.
+P32_EXTENSION = {"opendde-abag": {"9i3p", "9j4c", "9ivj", "9q7y"},
+                 "protenix-v2": {"9j4c"},
+                 "esmfold2": {"9j4c"}}
+P32_EXT_ON = os.environ.get("DEEPN_P32_EXT") == "1"
 GALAXY_NOTE = "galaxy N=16 uses global_dockq (mean over native interfaces), not the " \
               "ARK-interface DockQ of the qb1 arms; PHASE 0 measured the flavors " \
               "statistically equivalent for these two models."
@@ -263,6 +280,8 @@ def galaxy64_pools(model: str):
         except ValueError:
             continue
         if t in GALAXY_EXCLUDE.get(model, ()):
+            continue
+        if not P32_EXT_ON and t in P32_EXTENSION.get(model, ()):
             continue
         chunk = None
         if "_c" in rest:
