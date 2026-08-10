@@ -27,8 +27,19 @@ import torch
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 
 
+_REAL_STDERR_FD: int | None = None
+
+
 def _silence_subprocess_output() -> None:
-    """Send stdout/stderr to /dev/null so kernel/library noise stays hidden."""
+    """Send stdout/stderr to /dev/null so kernel/library noise stays hidden.
+
+    Keeps one dup of the real stderr. A worker that dies before it has a run to
+    attach an event to has no other way to say why, and writing that fatal to
+    /dev/null is what left a device-open failure invisible for hours: the CLI
+    hung, the log was 0 bytes, and the traceback had already been discarded.
+    """
+    global _REAL_STDERR_FD
+    _REAL_STDERR_FD = os.dup(2)
     devnull = open(os.devnull, "w")
     sys.stdout = devnull
     sys.stderr = devnull
@@ -36,6 +47,15 @@ def _silence_subprocess_output() -> None:
     os.dup2(dn_fd, 1)
     os.dup2(dn_fd, 2)
     os.close(dn_fd)
+
+
+def _report_fatal(message: str) -> None:
+    """Write a worker-fatal to the launcher's real stderr, silenced or not."""
+    fd = _REAL_STDERR_FD if _REAL_STDERR_FD is not None else 2
+    try:
+        os.write(fd, message.encode("utf-8", "replace"))
+    except Exception:
+        pass
 
 
 def _apply_tt_environment(worker_info: dict[str, Any]) -> None:
@@ -1267,7 +1287,8 @@ def run_worker_loop(
             from tt_bio.tenstorrent import get_device as _get_device
             _get_device()
         except Exception:
-            traceback.print_exc()
+            _report_fatal(f"tt-bio worker {worker_info['label']}: device open failed\n"
+                          f"{traceback.format_exc()}")
             # The chip didn't come up with working local dispatch (e.g. a raced
             # "remote-only" bring-up). Do NOT stay online serving jobs we'd fail:
             # exit so the pool supervisor respawns us. The respawn reopens under the

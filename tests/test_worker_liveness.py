@@ -1,12 +1,13 @@
 """Host-only tests for the predict CLI's worker-liveness handling.
 
 The CLI used to poll a run forever after every local worker it spawned had
-exited. No device needed.
+exited, and the worker's own fatal went to /dev/null. No device needed.
 """
 
 from __future__ import annotations
 
 import multiprocessing as mp
+import os
 import sys
 import tempfile
 import threading
@@ -17,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tt_bio.distributed import ControllerClient, ControllerServer  # noqa: E402
 from tt_bio.main import _stream_run  # noqa: E402
+from tt_bio.worker import _report_fatal, _silence_subprocess_output  # noqa: E402
 
 
 def _controller(tmpdir: Path):
@@ -90,3 +92,21 @@ def test_stream_run_ignores_dead_workers_once_run_is_terminal():
             assert value == 0
         finally:
             server.shutdown()
+
+
+def test_silence_subprocess_output_preserves_real_stderr():
+    read_fd, write_fd = os.pipe()
+    pid = os.fork()
+    if pid == 0:  # child
+        try:
+            os.close(read_fd)
+            os.dup2(write_fd, 2)
+            _silence_subprocess_output()
+            _report_fatal("boom\n")
+        finally:
+            os._exit(0)
+    os.close(write_fd)
+    with os.fdopen(read_fd, "rb") as pipe:
+        got = pipe.read()
+    os.waitpid(pid, 0)
+    assert b"boom" in got, f"fatal was swallowed, read {got!r}"
