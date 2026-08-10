@@ -379,3 +379,35 @@ C1 is no longer a 179 ms/fold layout-tidying candidate; on this card it is 40.8 
    unaligned path is a full read-and-rewrite of the **source** tensor at 83.1 % of the copy roof.
    Same fix, different and much sharper reason, and it generalises to any `ttnn` slice in this
    codebase — recorded, not chased (charter §1).
+
+---
+
+## The binding roof, per candidate, and what every percentage in this doc is a percentage of
+
+One line per lever, naming the roof that binds and the denominator of every figure quoted against it.
+Charter §4.2: a percentage with no named denominator is meaningless, and §4.5: an op at 20-30 % of
+both roofs is a defect with a mechanism, not a finding.
+
+| lever | which side of the 260.2 FLOP/byte machine balance | **binding roof, named** | achieved / that roof |
+|---|---|---|---|
+| C1 `to_layout:3059` | memory side, AI = 0 | **neither roof — latency/occupancy bound** on the untilize circular-buffer path | 10.2 GB/s, **2.6 % of the measured 399.2 GB/s copy roof** |
+| C1 `permute:3062` | memory side, AI = 0 | **DRAM copy roof, bandwidth-bound** | 380.2 GB/s, **95.2 % of the measured copy roof** |
+| C1 `linear:3068` | compute side, AI = 204 FLOP/byte | **compute at K=1024, nt=8, DRAM output** | 29.08 TFLOP/s of the 29.08 measured at its own (K, nt) — at its K-corrected roof |
+| C3 unaligned slice | memory side, AI = 0 | **DRAM copy roof over the SOURCE tensor, bandwidth-bound** | 331.6 GB/s, **83.1 % of the measured copy roof** |
+| C3 aligned slice | memory side, AI = 0 | **per-op launch floor** | 7.2-7.5 us against this card's measured 4.33 us 1-tile clone floor |
+| C4 `minimal_matmul` | memory side, AI = 32 FLOP/byte | **neither roof — dispatch/schedule bound** below 40 MB of output | 45.3 GB/s read (11.5 % of the measured read roof), 135.9 GB/s written (49.9 % of the measured write roof) |
+| C4 transitions | memory side | **mixed: a fixed term plus a bandwidth term** | fixed 13.92 us of the 26.38 us `layer_norm` call, 10.40 of the 37.29 us `linear` call |
+| C5 z projection | memory side, AI = 51 FLOP/byte | **occupancy-bound**, 32 of 110 cores measured | 485.6 us/call at 11x10 against 448.5 at 8x4 |
+
+Denominators for the loose figures above, in one place so none of them floats:
+
+- **90.0 %** is `to_layout:3059`'s share **of the 4-op chain wall** (35627.3 of 39593.8 us).
+- **92.8 %** is arm A1's residual relayout **of the baseline chain wall** it replaces (36757.3 of 39593.8 us).
+- **48.2 %** is the OPM path's share **of the trunk_msa stage wall** measured here (168.2 ms of 349.3 ms).
+- **52.8 %** and **27.9 %** are the fixed terms as a share **of the 1x call wall** (13.92 of 26.38 us `layer_norm`, 10.40 of 37.29 us `linear`).
+- **1.8 %** is C5's saving **of the trunk_template stage wall** measured here; **1.0 %** and **2.8 %** are the edges of the band I predicted **of that same stage wall**.
+- **0.11 %** is the spread of the five raw stage walls **of their own median**.
+- **14.1 %** is the `trunk_template` gap **of T5's pc figure** (820.1 here against 719.0 there).
+- **22.3 %** is the inherited qb1-vs-qb2 gap **of qb1's best-method compute figure** (STATUS Q9), quoted only to close the grid caveat attached to it.
+- **5 %** is the tolerance band **of the best wall time** in T5's core-ladder rule, which I reused.
+- **8 %** is the residual between the microbenchmark's prediction and the measured stage gap, **of the measured stage gap total**: 1387 predicted, 1513.6 measured.
