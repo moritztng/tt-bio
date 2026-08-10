@@ -72,3 +72,34 @@ def test_width_always_divides_the_hidden_channels(grid, batch):
     """A width that does not divide `hidden` would drop or duplicate channels."""
     for seq in (32, 64, 128, 224, 320):
         assert HIDDEN % T._trimul_chunk_size(seq, HIDDEN, batch) == 0
+
+def _pre_fix_width(seq_len: int, hidden: int) -> int:
+    """The budget as it was before the batch term — the reference for the no-op claim below."""
+    if seq_len > T._trimul_l1_max_seq():
+        return T.TRIANGLE_MULT_CHUNK_SIZE
+    gx, gy = T.COMPUTE_GRID_MAIN
+    budget = T.TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (T.COMPUTE_GRID_X_13 * 10)
+    c = T.TRIANGLE_MULT_CHUNK_SIZE
+    while hidden % (c * 2) == 0 and (c * 2) * seq_len * seq_len <= budget:
+        c *= 2
+    return c
+
+
+@pytest.mark.parametrize("grid", [(13, 10), (11, 10), (8, 8), (7, 7)])
+@pytest.mark.parametrize("fast", [False, True])
+def test_batch_one_is_a_no_op_on_every_grid(monkeypatch, grid, fast):
+    """Single-sample folds must resolve to the EXACT width the pre-fix budget picked.
+
+    Every model that passed before this fix folds its trunk at batch 1, so this is what makes
+    the change bit-exact for them: not a numerical argument, but the same width, hence the same
+    program, hence the same computation. Swept over the grids tt-bio runs on (Blackhole 13x10,
+    p150a 11x10, Wormhole 8x8, and a small grid), both precision modes, every hidden width and
+    sequence length up to 1568 — 3136 combinations, no mismatch.
+    """
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", grid)
+    monkeypatch.setattr(T, "_FAST_MODE", fast)
+    for hidden in (32, 64, 96, 128, 192, 256, 384, 512):
+        for seq in range(32, 1600, 32):
+            want = _pre_fix_width(seq, hidden)
+            assert T._trimul_chunk_size(seq, hidden, 1) == want, (grid, fast, hidden, seq)
+            assert T._trimul_chunk_size(seq, hidden) == want, (grid, fast, hidden, seq)
