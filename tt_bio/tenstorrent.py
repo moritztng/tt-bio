@@ -409,6 +409,13 @@ def _dram_interleaved(t: ttnn.Tensor) -> bool:
     return mc.buffer_type == ttnn.BufferType.DRAM and not mc.is_sharded()
 
 
+# Shape classes whose tuned config the circular-buffer planner refused once. `_batched_matmul_search`
+# budgets against the idle device, so it cannot see what the live block already holds, and the
+# clash is raised at program compile inside tt-metal rather than by the allocator. Same contract as
+# `_L1_OUT_REFUSED`: one attempt per class per process, then ttnn's own planner for the rest.
+_BMM_CFG_REFUSED: set = set()
+
+
 def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
                    dtype=None) -> ttnn.Tensor:
     """`ttnn.matmul` for a batched attention matmul, with the batch spread over the core grid.
@@ -435,6 +442,17 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
             batch, -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32),
             4 if a.dtype == ttnn.float32 else 2)
     kw = {} if dtype is None else {"dtype": dtype}
+    if cfg is not None:
+        key = (batch, tuple(sa[-2:]), tuple(sb[-2:]), str(a.dtype))
+        if key in _BMM_CFG_REFUSED:
+            cfg = None
+        else:
+            try:
+                return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config,
+                                   program_config=cfg, **kw)
+            except Exception:                                                   # noqa: BLE001
+                _BMM_CFG_REFUSED.add(key)
+                cfg = None
     return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,
                        **kw)
 
@@ -2235,8 +2253,15 @@ class AttentionPairBias(Module):
                         compute_kernel_config=self.compute_kernel_config,
                         core_grid=CORE_GRID_MAIN,
                     )
-                z = zb
-                z = ttnn.permute(z, (0, 3, 1, 2))
+                # The normed pair tensor is dead as soon as the projection has read it, and at
+                # 1.5x headroom it holds most of every L1 bank. Freeing it HERE rather than at the
+                # rebind below is what matters: the bias permute then allocates in the space it
+                # vacates instead of underneath it, so the q@k^T matmul four lines down can still
+                # place its circular buffers. Without this the whole [385, 506] token band throws
+                # `Statically allocated circular buffers ... clash with L1 buffers`.
+                ttnn.deallocate(z)
+                z = ttnn.permute(zb, (0, 3, 1, 2))
+                ttnn.deallocate(zb)
             if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
                 # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
                 # path computes attention as raw matmul. SDPA scales its additive mask

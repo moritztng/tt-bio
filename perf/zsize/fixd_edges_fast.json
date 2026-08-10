@@ -1,0 +1,86 @@
+{
+ "host": "qb1",
+ "card": 0,
+ "ttnn": "0.67.4",
+ "fast": true,
+ "runs": [
+  {
+   "size": 385,
+   "arm": "on",
+   "fast": true,
+   "load_before": [
+    47.53,
+    44.88,
+    40.68
+   ],
+   "verdict": "ok",
+   "fold_s": 112.447,
+   "n_tokens": 385,
+   "plddt": 0.799468,
+   "cif_sha256": {
+    "cdk2x2_385.cif": "23df9ac5734e4559"
+   },
+   "wall_s": 112.4,
+   "load_after": [
+    68.45,
+    51.63,
+    43.51
+   ],
+   "decisions": {
+    "layer_norm|h=1.5|1x385x385x256": {
+     "L1": 494
+    },
+    "layer_norm|h=1.5|385x385x256": {
+     "L1": 30
+    },
+    "transpose|385x385x256": {
+     "DRAM": 1048
+    },
+    "transpose|385x385x64": {
+     "L1": 160
+    }
+   }
+  },
+  {
+   "size": 506,
+   "arm": "on",
+   "fast": true,
+   "load_before": [
+    67.19,
+    52.51,
+    43.98
+   ],
+   "verdict": "ok",
+   "fold_s": 156.288,
+   "n_tokens": 506,
+   "plddt": 0.831009,
+   "cif_sha256": {
+    "cdk2x2_506.cif": "88f9648bf0415ab8"
+   },
+   "wall_s": 156.3,
+   "load_after": [
+    66.41,
+    56.96,
+    46.92
+   ],
+   "decisions": {
+    "layer_norm|h=1.5|1x506x506x256": {
+     "L1": 494
+    },
+    "layer_norm|h=1.5|506x506x256": {
+     "L1": 30
+    },
+    "transpose|506x506x256": {
+     "DRAM": 1048
+    },
+    "transpose|506x506x64": {
+     "L1": 160
+    }
+   }
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ]
+}
