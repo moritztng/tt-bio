@@ -1,0 +1,137 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox2",
+  "visible_devices": "0",
+  "tt_bio_git": "7b9d0b427d23c535eceb0564b76ba089f128ac5f",
+  "ttnn_version": "0.68.0",
+  "input": "cdk2x2_512.yaml (512 aa, single protein, MSA on)",
+  "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "4e5c2b391bde62d4.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 1.42,
+  "cold_s": 81.15,
+  "warm_times_s": [
+    79.075,
+    79.08,
+    79.119,
+    79.143
+  ],
+  "warm_min_s": 79.075,
+  "warm_median_s": 79.119,
+  "warm_max_s": 79.143,
+  "cold_metrics": {
+    "complex_plddt": 0.828628,
+    "plddt": 0.828628,
+    "ptm": 0.691968,
+    "iptm": 0.0,
+    "confidence_score": 0.691968,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "cold_cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+  },
+  "warm_folds": [
+    {
+      "fold_s": 79.075,
+      "plddt": 0.828628,
+      "ptm": 0.691968,
+      "n_tokens": 512,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      }
+    },
+    {
+      "fold_s": 79.08,
+      "plddt": 0.828628,
+      "ptm": 0.691968,
+      "n_tokens": 512,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      }
+    },
+    {
+      "fold_s": 79.119,
+      "plddt": 0.828628,
+      "ptm": 0.691968,
+      "n_tokens": 512,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      }
+    },
+    {
+      "fold_s": 79.143,
+      "plddt": 0.828628,
+      "ptm": 0.691968,
+      "n_tokens": 512,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      }
+    }
+  ],
+  "compute_grid": [
+    11,
+    10
+  ],
+  "timed_region": "predict_one (featurize + fold + CIF write)",
+  "phase_times": [
+    {
+      "feat": 0.1152,
+      "fold": 80.8849,
+      "write": 0.1494,
+      "total": 81.1544
+    },
+    {
+      "feat": 0.0175,
+      "fold": 79.0051,
+      "write": 0.0478,
+      "total": 79.075
+    },
+    {
+      "feat": 0.0178,
+      "fold": 79.0089,
+      "write": 0.0481,
+      "total": 79.0798
+    },
+    {
+      "feat": 0.0178,
+      "fold": 79.0483,
+      "write": 0.048,
+      "total": 79.1191
+    },
+    {
+      "feat": 0.0177,
+      "fold": 79.072,
+      "write": 0.0482,
+      "total": 79.1429
+    }
+  ],
+  "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+  },
+  "loadavg_before": [
+    1.27,
+    0.51,
+    0.19
+  ],
+  "loadavg_after": [
+    1.57,
+    0.98,
+    0.49
+  ],
+  "date": "2026-08-10"
+}
