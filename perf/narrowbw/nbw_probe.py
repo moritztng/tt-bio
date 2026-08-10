@@ -90,6 +90,16 @@ def main():
                    "a ratio BETWEEN CAPS on one card is what this card is good for"}
 
     def timed(fn, reps):
+        # One untimed warmup, because the FIRST touch of a new program config pays its JIT compile
+        # inside the timed region: measured 0.4 s on a 0.7 ms op, which leaves the median intact and
+        # makes max-min meaningless as a noise floor. The tell in the un-warmed run was cap 16's
+        # spread of 0.10 ms against cap 8's 360 ms -- cap 16 is config-identical to cap 8, so its
+        # kernel was already compiled and only it reported an honest spread.
+        ttnn.synchronize_device(dev)
+        w = fn()
+        ttnn.synchronize_device(dev)
+        if w is not None:
+            ttnn.deallocate(w)
         ttnn.synchronize_device(dev)
         ts = []
         for _ in range(reps):
