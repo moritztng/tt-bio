@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""Deliverable 4: the one authorised optimisation axis — instructions per NOC transaction.
+"""Deliverables 1 and 4 at the shape the fold on THIS card actually constructs, [1, 298, 298, 64].
 
-The transaction COUNT is a closed question: 64 per source tile is a floor over all kernel
-structures (P4's bf16 -> fp32 test left the time unchanged while the byte-bound control rose 1.36x),
-so v2 issues exactly the same transactions as v1. What changes is the instruction stream around them:
+Two things are measured here.
 
-  * the gather loop's NOC coordinates and 32-byte length are written once per kernel invocation
-    (`noc_async_read_one_packet_set_state`) instead of once per transaction inside `tt_memmove`;
-  * every address in the gather loop is an induction variable, and the loop is split at the
-    face-row boundary so no multiply, divide or branch survives in the body;
-  * the reader's per-row `row < D1` test becomes two loops with `page += Nt`.
+**Channel generality.** X6's kernel required exactly 32 channels. On qb1's 13x10 grid the trunk's
+`_trimul_chunk_size` doubles the chunk to 64 (the L1 budget scales with the grid, and 11x10 does not
+clear the doubling threshold), so a 298 aa fold on this card issues 4352 calls at
+`[1, 298, 298, 64]` and X6's gate refused every one of them. Both kernels here take Ct = C/32.
 
-X6 measured a single `if` in that gather loop at 10.7 us on a 97 us op, which is what says this axis
-is worth pricing at all.
+**The instruction-count axis, bounded.** The transaction count is closed: 64 NOC transactions per
+source tile is a floor over all kernel structures (P4's bf16 -> fp32 test left the time unchanged
+while the byte-bound control rose 1.36x), so v2 issues exactly the transactions v1 does. What
+changes is the instruction stream: the gather's NOC coordinates and 32-byte length are written once
+per invocation (`noc_async_read_one_packet_set_state`) rather than per transaction inside
+`tt_memmove`, every address is an induction variable, and the loops are split so no multiply, divide
+or branch survives in the body. X6 measured one `if` in that loop at 10.7 us on a 97 us op, which is
+what makes this worth pricing.
 
-Both variants are selected by pointing `reblock_permute.KERNEL_DIR` at a directory, so this is a
-probe with no production change until the result says to make one.
+Variants are selected by pointing `reblock_permute.KERNEL_DIR` at a directory, so nothing about the
+production module changes between arms.
 
     TT_VISIBLE_DEVICES=0 python3 perf/p3_permute_op/qb1_kernel_v2.py
 """
@@ -30,6 +33,8 @@ sys.path.insert(0, str(REPO))
 import torch, ttnn
 
 MC = {"l1": ttnn.L1_MEMORY_CONFIG, "dram": ttnn.DRAM_MEMORY_CONFIG}
+# (N, C, buffer). 298/64 on L1 is what a 298 aa fold on qb1's 13x10 grid runs.
+CONFIGS = [(298, 64, "l1"), (298, 64, "dram"), (298, 32, "l1"), (320, 64, "l1"), (320, 32, "l1")]
 
 
 def timeit(device, fn, reps=21, warmup=5):
@@ -48,6 +53,12 @@ def timeit(device, fn, reps=21, warmup=5):
 
 
 def throughput_us(device, fn, k=40, warmup=5):
+    """Per-call cost with K calls enqueued back to back and ONE sync at the end.
+
+    This is the production-relevant rate: inside a fold, calls are enqueued back to back, so a host
+    cost below the device time hides behind the previous call's execution. Syncing per call charges
+    host and device serially and, on this op, inverts the sign of the ratio against stock.
+    """
     for _ in range(warmup):
         fn()
     ttnn.synchronize_device(device)
@@ -56,6 +67,11 @@ def throughput_us(device, fn, k=40, warmup=5):
         fn()
     ttnn.synchronize_device(device)
     return (time.perf_counter() - t0) * 1e6 / k
+
+
+def med(v):
+    v = sorted(v)
+    return v[len(v) // 2]
 
 
 def main():
@@ -68,88 +84,121 @@ def main():
     import tt_bio.tenstorrent as T
     RP.set_enabled(True)
 
-    V1 = REPO / "tt_bio" / "kernels" / "reblock_permute"
-    V2 = REPO / "tt_bio" / "kernels" / "reblock_permute_v2"
+    V = {"v1": REPO / "tt_bio" / "kernels" / "reblock_permute",
+         "v2": REPO / "tt_bio" / "kernels" / "reblock_permute_v2"}
 
     device = T.get_device()
-    R = {"wheel": "0.67.4", "host": "qb1", "card": 0, "rounds": [], "parity": []}
+    g = device.compute_with_storage_grid_size()
+    R = {"wheel": "0.67.4", "host": "qb1", "card": 0,
+         "device_grid": [int(g.x), int(g.y)], "rounds": [], "parity": []}
+    print("grid", R["device_grid"], flush=True)
 
     def use(variant):
-        RP.KERNEL_DIR = V1 if variant == "v1" else V2
+        RP.KERNEL_DIR = V[variant]
         RP._CACHE.clear()
 
-    # ---- does v2 compile, and is it bit-exact including the tile padding ------------------------
-    tensors = {}
-    for N in (298, 320):
-        ref = torch.randn(1, N, N, 32, dtype=torch.bfloat16)
-        gold = ref.permute(0, 3, 1, 2).contiguous()
-        for where in ("l1", "dram"):
-            tensors[(N, where)] = (
-                ttnn.from_torch(ref, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16, device=device,
-                                memory_config=MC[where]), gold)
+    # The chunk width the trunk would pick on this card, read from production, not assumed.
+    R["trimul_chunk_size_298"] = int(T._trimul_chunk_size(298, 128))
+    R["compute_grid_main"] = list(T.COMPUTE_GRID_MAIN)
+    print("trimul_chunk_size(298)", R["trimul_chunk_size_298"], flush=True)
 
+    tensors = {}
+    for (N, C, where) in CONFIGS:
+        if (N, C) not in [(k[0], k[1]) for k in tensors]:
+            pass
+        ref = torch.randn(1, N, N, C, dtype=torch.bfloat16)
+        tensors[(N, C, where)] = (
+            ttnn.from_torch(ref, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16, device=device,
+                            memory_config=MC[where]),
+            ref.permute(0, 3, 1, 2).contiguous())
+
+    # ---- parity: both variants, every config, against torch and against stock incl. padding ------
     for variant in ("v1", "v2"):
         use(variant)
-        try:
-            for (N, where), (x, gold) in tensors.items():
-                mc = MC[where]
+        for (N, C, where), (x, gold) in tensors.items():
+            mc = MC[where]
+            try:
                 r = RP.reblock_permute(x, mc, device)
                 st = ttnn.permute(x, (0, 3, 1, 2), memory_config=mc)
                 R["parity"].append({
-                    "variant": variant, "N": N, "buf": where,
+                    "variant": variant, "N": N, "C": C, "buf": where,
                     "torch_equal_vs_torch": bool(torch.equal(ttnn.to_torch(r), gold)),
                     "torch_equal_vs_ttnn_permute_incl_padding":
                         bool(torch.equal(ttnn.to_torch(r), ttnn.to_torch(st))),
                 })
                 ttnn.deallocate(r); ttnn.deallocate(st)
-        except Exception:
-            R["parity"].append({"variant": variant, "compile_or_run_error": traceback.format_exc()})
-            print(traceback.format_exc())
-            Path(a.out).write_text(json.dumps(R, indent=2) + "\n")
-            return 1
-    for p in R["parity"]:
-        print("parity:", p, flush=True)
+            except Exception:
+                R["parity"].append({"variant": variant, "N": N, "C": C, "buf": where,
+                                    "error": traceback.format_exc()})
+                print(traceback.format_exc())
+            print("parity:", R["parity"][-1], flush=True)
+    if any("error" in p for p in R["parity"]):
+        Path(a.out).write_text(json.dumps(R, indent=2) + "\n")
+        return 1
+    R["parity_all_true"] = all(p["torch_equal_vs_torch"]
+                               and p["torch_equal_vs_ttnn_permute_incl_padding"]
+                               for p in R["parity"])
+    print("parity_all_true:", R["parity_all_true"], flush=True)
 
     # ---- the A/B, variants alternating -----------------------------------------------------------
     for rnd in range(a.rounds):
-        for (N, where), (x, _g) in sorted(tensors.items()):
+        for (N, C, where), (x, _g) in tensors.items():
             mc = MC[where]
-            row = {"round": rnd, "N": N, "buf": where}
+            row = {"round": rnd, "N": N, "C": C, "buf": where}
             for variant in ("v1", "v2"):
                 use(variant)
                 fn = lambda x=x, mc=mc: ttnn.deallocate(RP.reblock_permute(x, mc, device))
+                fn()
                 row[f"{variant}_synced_us"] = round(timeit(device, fn), 2)
                 row[f"{variant}_thru_us"] = round(throughput_us(device, fn), 2)
             stock = lambda x=x, mc=mc: ttnn.deallocate(
                 ttnn.permute(x, (0, 3, 1, 2), memory_config=mc))
             row["stock_thru_us"] = round(throughput_us(device, stock), 2)
+            row["stock_synced_us"] = round(timeit(device, stock), 2)
             row["v2_over_v1_thru"] = round(row["v1_thru_us"] / row["v2_thru_us"], 4)
-            row["v2_over_stock_thru"] = round(row["stock_thru_us"] / row["v2_thru_us"], 4)
             row["v1_over_stock_thru"] = round(row["stock_thru_us"] / row["v1_thru_us"], 4)
+            row["v2_over_stock_thru"] = round(row["stock_thru_us"] / row["v2_thru_us"], 4)
             R["rounds"].append(row)
             print("ab:", row, flush=True)
 
-    def med(v):
-        v = sorted(v)
-        return v[len(v) // 2]
-
     R["summary"] = {}
-    for (N, where) in sorted(tensors.keys()):
-        rs = [r for r in R["rounds"] if r["N"] == N and r["buf"] == where]
-        R["summary"][f"N{N}_{where}"] = {
+    for (N, C, where) in tensors:
+        rs = [r for r in R["rounds"] if (r["N"], r["C"], r["buf"]) == (N, C, where)]
+        R["summary"][f"N{N}_C{C}_{where}"] = {
             "v1_thru_us": med([r["v1_thru_us"] for r in rs]),
             "v2_thru_us": med([r["v2_thru_us"] for r in rs]),
             "stock_thru_us": med([r["stock_thru_us"] for r in rs]),
+            "v1_synced_us": med([r["v1_synced_us"] for r in rs]),
+            "v2_synced_us": med([r["v2_synced_us"] for r in rs]),
+            "stock_synced_us": med([r["stock_synced_us"] for r in rs]),
             "v2_over_v1": round(med([r["v1_thru_us"] for r in rs])
                                 / med([r["v2_thru_us"] for r in rs]), 4),
-            "v2_over_stock": round(med([r["stock_thru_us"] for r in rs])
-                                   / med([r["v2_thru_us"] for r in rs]), 4),
             "v1_over_stock": round(med([r["stock_thru_us"] for r in rs])
                                    / med([r["v1_thru_us"] for r in rs]), 4),
-            "us_saved_per_call": round(med([r["v1_thru_us"] for r in rs])
-                                       - med([r["v2_thru_us"] for r in rs]), 2),
+            "v2_over_stock": round(med([r["stock_thru_us"] for r in rs])
+                                   / med([r["v2_thru_us"] for r in rs]), 4),
+            "us_saved_v2_over_v1": round(med([r["v1_thru_us"] for r in rs])
+                                         - med([r["v2_thru_us"] for r in rs]), 2),
         }
-        print("summary:", f"N{N}_{where}", R["summary"][f"N{N}_{where}"], flush=True)
+        print("summary:", f"N{N}_C{C}_{where}", R["summary"][f"N{N}_C{C}_{where}"], flush=True)
+
+    # ---- why the two instruments disagree: a queue-depth sweep -----------------------------------
+    # If the difference is a fixed per-call dispatch cost that pipelines behind device execution,
+    # total(K) = a + K*b with a larger `a` for the wired op and a smaller `b`. Fit it, don't assert.
+    x, _g = tensors[(298, 64, "l1")]
+    mc = ttnn.L1_MEMORY_CONFIG
+    sweep = {}
+    for name in ("v1", "v2", "stock"):
+        if name == "stock":
+            f = lambda: ttnn.deallocate(ttnn.permute(x, (0, 3, 1, 2), memory_config=mc))
+        else:
+            use(name)
+            f = lambda: ttnn.deallocate(RP.reblock_permute(x, mc, device))
+        f()
+        sweep[name] = {k: round(min(throughput_us(device, f, k=k) for _ in range(3)), 2)
+                       for k in (1, 2, 4, 8, 16, 32)}
+        print("sweep:", name, sweep[name], flush=True)
+    R["queue_depth_sweep_N298_C64_l1_us_per_call"] = sweep
 
     Path(a.out).write_text(json.dumps(R, indent=2) + "\n")
     T.cleanup()
