@@ -26,9 +26,36 @@ rest are predictions with the probe that tests each one. Nothing here is a devic
 | predictions registered before the device opens | **DONE** (this commit) |
 | V1 config term is identically zero | **SETTLED by code read** — confirm by config diff in the probe |
 | V2 the "11x over bytes" is a mis-specified byte model and a mislabelled denominator | **SETTLED by arithmetic** — confirm by census |
-| four-cell result at the fold's own shapes, 298 + 512, c=64 + c_z=256 | probe written, **not run** |
-| roofs measured on this card this pass | probe written, **not run** |
+| four-cell result at the fold's own shapes, 298 + 512, c=64 + c_z=256 | probe validated on device at **one** shape (`298:64`), see "first light"; three shapes owed |
+| roofs measured on this card this pass | probe written, **not run** (`--skip-roofs` was used to smoke the cells) |
 | H5 verdict + the ms/fold hand-off to Phase 3 | blocked on the above |
+
+### First light — `298:64` only, smoke run after the predictions were committed at `e8a6307b`
+
+Run to validate the harness, not to answer the leg. One shape, no roofs, so nothing here is a
+deliverable. Two things are worth carrying forward anyway.
+
+**P1 is CONFIRMED on the device.** `cfg_fields_identical: true` at `[1,298,320,64]`: both arms return
+`in0_block_w=2, out_subblock_h=1, out_subblock_w=2, out_block_h=5, out_block_w=2, per_core_M=30,
+per_core_N=2` on an 11x10 grid, 100 of 110 cores engaged. The code read is confirmed by the device.
+
+| cell | proj ms | region ms | region+consume ms | `torch.equal` vs C1D |
+|---|---:|---:|---:|---|
+| C1D tuned / DRAM (production OFF) | 0.1055 | 0.2991 | 0.3830 | ref |
+| C1L tuned / L1 (production ON) | 0.0709 | 0.2285 | 0.2941 | **True** |
+| C0D untuned / DRAM | 0.1009 | 0.2816 | 0.3659 | False, max abs 0.25 |
+| C0L untuned / L1 | 0.0729 | 0.2301 | 0.2969 | False, max abs 0.25 |
+
+Clone roof at this shape: 334.4 GB/s to DRAM, 592.8 GB/s to L1. Arithmetic intensity 32.0 FLOP/byte.
+
+**The config term is not merely zero, it is slightly negative at this shape**: the tuned DRAM cell is
+0.0175 ms/region *slower* than `core_grid=`, while the destination term is +0.0706 ms/region. The best
+DRAM-output config in the sweep reaches 0.1033 ms on the projection against C1L's 0.0709 — **1.46x
+short**, which is P6's direction. And a bit-exact L1-output config production never tries
+(`bw=2, obh=6, obw=2`, 26.9 % of a bank) reaches 0.0684 against production's 0.0709, a 1.04x the
+production path leaves on the table because it pins `out_block_h = 5`.
+
+None of this is the leg's answer: it is one shape, the small one, with no roofs and no 512 aa cell.
 
 ---
 

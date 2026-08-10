@@ -360,7 +360,7 @@ def main():
 
     out = {
         "host": "qb2", "chip": 0, "ttnn": im.version("ttnn"),
-        "device_grid": list(dev.compute_with_storage_grid_size()),
+        "device_grid": [dev.compute_with_storage_grid_size().x, dev.compute_with_storage_grid_size().y],
         "compute_grid_main": [gx, gy],
         "max_worker_l1_unreserved": int(ttnn.get_max_worker_l1_unreserved_size()),
         "l1_bank_bytes": tt._l1_bank_bytes(),
