@@ -48,6 +48,7 @@ def main() -> int:
     ap.add_argument("--rounds", type=int, default=5)
     ap.add_argument("--block-reps", type=int, default=15)
     ap.add_argument("--out", default=str(OUT / "qb1_fold_ab.json"))
+    ap.add_argument("--card", type=int, default=0, help="label only; the card comes from TT_VISIBLE_DEVICES")
     a = ap.parse_args()
 
     from tt_bio import reblock_permute as RP
@@ -87,7 +88,7 @@ def main() -> int:
 
     T.TriangleMultiplication.__call__ = _grab_tm
 
-    R = {"wheel": "0.67.4", "host": "qb1", "card": 0,
+    R = {"wheel": "0.67.4", "host": "qb1", "card": a.card,
          "meta": {"hardware": meta["hardware"], "card_type": meta.get("card_type"),
                   "aiclk_mhz": meta.get("aiclk_mhz"), "load_s": meta["load_s"],
                   "n_msa": meta["n_msa"]},
@@ -103,6 +104,30 @@ def main() -> int:
         return b
 
     R["transpose_memory_config_before"] = transpose_branch()
+
+    # `_l1_layer_norm` returns (tensor, in_l1); count both branches over the whole session so a
+    # silent DRAM fallback under the kernel's circular buffers cannot hide (charter §4.10).
+    norm_counts = [0, 0]
+    _orig_norm = T._l1_layer_norm
+
+    def _counting_norm(x, headroom, **kw):
+        r = _orig_norm(x, headroom, **kw)
+        norm_counts[0 if r[1] else 1] += 1
+        return r
+
+    T._l1_layer_norm = _counting_norm
+
+    def free_l1():
+        try:
+            v = ttnn.get_memory_view(T.get_device(), ttnn.BufferType.L1)
+            return {"largest_contiguous_bytes_free_per_bank":
+                        int(v.largest_contiguous_bytes_free_per_bank),
+                    "total_bytes_free_per_bank": int(v.total_bytes_free_per_bank),
+                    "total_bytes_per_bank": int(v.total_bytes_per_bank)}
+        except Exception as e:                                                 # noqa: BLE001
+            return {"error": repr(e)[:200]}
+
+    R["free_l1_idle"] = free_l1()
 
     RP.set_enabled(False)
     c0, m0 = one_fold()
@@ -233,6 +258,18 @@ def main() -> int:
         print("block_wall:", R["block_wall"], flush=True)
     else:
         R["block_wall"] = {"error": "no TriangleMultiplication call captured"}
+
+    R["interaction"] = {
+        "l1_layer_norm_l1_branch": norm_counts[0],
+        "l1_layer_norm_dram_fallback": norm_counts[1],
+        "L1_OUT_REFUSED": sorted(str(k) for k in T._L1_OUT_REFUSED),
+        "transpose_memory_config_before": R["transpose_memory_config_before"],
+        "transpose_memory_config_after": R["transpose_memory_config_after"],
+        "free_l1_idle": R["free_l1_idle"],
+        "free_l1_end": free_l1(),
+        "trimul_cb_throw": False,
+    }
+    print("interaction:", R["interaction"], flush=True)
 
     Path(a.out).write_text(json.dumps(R, indent=2) + "\n")
     T.cleanup()
