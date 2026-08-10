@@ -1,0 +1,154 @@
+{
+  "model": "protenix-v2",
+  "side": "gpu",
+  "model_name": "protenix-v2",
+  "gpu": "NVIDIA H200",
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8480+",
+  "cpu_count": 224,
+  "torch_version": "2.7.1+cu128",
+  "cuda_version": "12.8",
+  "input": "CDK2 / PDB 1HCL (298 aa), precomputed MSA (same a3m as TT side)",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "rungs": [
+    {
+      "rung": "L0-eager-fp32",
+      "rung_config": {
+        "name": "L0-eager-fp32",
+        "dtype": "fp32",
+        "triangle_attention": "torch",
+        "triangle_multiplicative": "torch",
+        "enable_efficient_fusion": false,
+        "enable_diffusion_shared_vars_cache": false,
+        "enable_tf32": false
+      },
+      "load_s": 149.4,
+      "resolved_config": {
+        "model_name": "protenix-v2",
+        "dtype": "fp32",
+        "triangle_attention": "torch",
+        "triangle_multiplicative": "torch",
+        "enable_efficient_fusion": false,
+        "enable_diffusion_shared_vars_cache": false,
+        "enable_tf32": false,
+        "skip_amp": {
+          "confidence_head": false,
+          "loss": true,
+          "sample_diffusion": true,
+          "sample_diffusion_training": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueq_triatt": 0,
+        "cueq_trimul": 0,
+        "triattention": 0,
+        "torch_attn": 1208
+      },
+      "cold_s": 17.885,
+      "warm_times_s": [
+        17.891,
+        17.146,
+        16.978
+      ],
+      "warm_min_s": 16.978,
+      "warm_median_s": 17.146,
+      "warm_max_s": 17.891,
+      "n_msa": 35,
+      "n_token": 298,
+      "all_atom_kabsch_rmsd_vs_L0": null,
+      "ca_kabsch_rmsd_vs_L0": null
+    },
+    {
+      "rung": "LD-shipped-default",
+      "rung_config": {
+        "name": "LD-shipped-default",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance"
+      },
+      "load_s": 91.64,
+      "resolved_config": {
+        "model_name": "protenix-v2",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": true,
+        "enable_diffusion_shared_vars_cache": true,
+        "enable_tf32": true,
+        "skip_amp": {
+          "confidence_head": false,
+          "loss": true,
+          "sample_diffusion": true,
+          "sample_diffusion_training": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueq_triatt": 1208,
+        "cueq_trimul": 1208,
+        "triattention": 0,
+        "torch_attn": 0
+      },
+      "cold_s": 13.605,
+      "warm_times_s": [
+        7.162,
+        7.294,
+        7.228
+      ],
+      "warm_min_s": 7.162,
+      "warm_median_s": 7.228,
+      "warm_max_s": 7.294,
+      "n_msa": 35,
+      "n_token": 298,
+      "all_atom_kabsch_rmsd_vs_L0": 0.8068807448798576,
+      "ca_kabsch_rmsd_vs_L0": 0.5098715043187986
+    },
+    {
+      "rung": "LD-notf32",
+      "rung_config": {
+        "name": "LD-notf32",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_tf32": false
+      },
+      "load_s": 84.96,
+      "resolved_config": {
+        "model_name": "protenix-v2",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": true,
+        "enable_diffusion_shared_vars_cache": true,
+        "enable_tf32": false,
+        "skip_amp": {
+          "confidence_head": false,
+          "loss": true,
+          "sample_diffusion": true,
+          "sample_diffusion_training": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueq_triatt": 1208,
+        "cueq_trimul": 1208,
+        "triattention": 0,
+        "torch_attn": 0
+      },
+      "cold_s": 7.293,
+      "warm_times_s": [
+        7.152,
+        7.383,
+        7.165
+      ],
+      "warm_min_s": 7.152,
+      "warm_median_s": 7.165,
+      "warm_max_s": 7.383,
+      "n_msa": 35,
+      "n_token": 298,
+      "all_atom_kabsch_rmsd_vs_L0": 3.4000897237550363,
+      "ca_kabsch_rmsd_vs_L0": 3.04020852961919
+    }
+  ],
+  "date": "2026-08-10"
+}
