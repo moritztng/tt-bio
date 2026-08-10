@@ -1,0 +1,131 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "l1_total_bytes": 160793600,
+  "rows": [
+    {
+      "shape": [
+        1,
+        320,
+        320,
+        32
+      ],
+      "MB": 6.55,
+      "two_live_MB": 13.11,
+      "l1_fits": true,
+      "l1_ms": 0.01626,
+      "l1_GBs_rw": 806.3,
+      "dram_ms": 0.03821,
+      "dram_GBs_rw": 343.0
+    },
+    {
+      "shape": [
+        1,
+        320,
+        320,
+        64
+      ],
+      "MB": 13.11,
+      "two_live_MB": 26.21,
+      "l1_fits": true,
+      "l1_ms": 0.02678,
+      "l1_GBs_rw": 978.8,
+      "dram_ms": 0.07152,
+      "dram_GBs_rw": 366.5
+    },
+    {
+      "shape": [
+        1,
+        320,
+        320,
+        128
+      ],
+      "MB": 26.21,
+      "two_live_MB": 52.43,
+      "l1_fits": true,
+      "l1_ms": 0.0489,
+      "l1_GBs_rw": 1072.2,
+      "dram_ms": 0.14199,
+      "dram_GBs_rw": 369.2
+    },
+    {
+      "shape": [
+        1,
+        320,
+        320,
+        256
+      ],
+      "MB": 52.43,
+      "two_live_MB": 104.86,
+      "l1_fits": true,
+      "l1_ms": 0.09094,
+      "l1_GBs_rw": 1153.1,
+      "dram_ms": 0.26691,
+      "dram_GBs_rw": 392.9
+    },
+    {
+      "shape": [
+        1,
+        512,
+        512,
+        32
+      ],
+      "MB": 16.78,
+      "two_live_MB": 33.55,
+      "l1_fits": true,
+      "l1_ms": 0.03289,
+      "l1_GBs_rw": 1020.2,
+      "dram_ms": 0.08968,
+      "dram_GBs_rw": 374.2
+    },
+    {
+      "shape": [
+        1,
+        512,
+        512,
+        64
+      ],
+      "MB": 33.55,
+      "two_live_MB": 67.11,
+      "l1_fits": true,
+      "l1_ms": 0.06024,
+      "l1_GBs_rw": 1114.0,
+      "dram_ms": 0.17137,
+      "dram_GBs_rw": 391.6
+    },
+    {
+      "shape": [
+        1,
+        512,
+        512,
+        128
+      ],
+      "MB": 67.11,
+      "two_live_MB": 134.22,
+      "l1_fits": true,
+      "l1_ms": 0.11462,
+      "l1_GBs_rw": 1171.0,
+      "dram_ms": 0.33818,
+      "dram_GBs_rw": 396.9
+    },
+    {
+      "shape": [
+        1,
+        512,
+        512,
+        256
+      ],
+      "MB": 134.22,
+      "two_live_MB": 268.44,
+      "l1_fits": false,
+      "l1_error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank needs to store 1220608 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\n",
+      "dram_ms": 0.67181,
+      "dram_GBs_rw": 399.6
+    }
+  ],
+  "l1_copy_roof_GBs": 1171.0,
+  "dram_copy_roof_GBs": 399.6
+}
