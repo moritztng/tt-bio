@@ -1,0 +1,97 @@
+{
+  "load_start": [
+    37.39,
+    29.27,
+    24.41
+  ],
+  "grid": [
+    13,
+    10
+  ],
+  "k": 10,
+  "matmul": {
+    "fp32acc_on_bare": 77.067,
+    "fp32acc_on_silu": 249.881,
+    "fp32acc_on_gelu": 298.528,
+    "fp32acc_on_relu": 80.042,
+    "fp32acc_off_bare": 75.923,
+    "fp32acc_off_silu": 151.106,
+    "fp32acc_off_gelu": 225.167,
+    "fp32acc_off_relu": 76.259
+  },
+  "penalty": {
+    "fp32acc_on_silu": 172.814,
+    "fp32acc_on_gelu": 221.461,
+    "fp32acc_on_relu": 2.975,
+    "fp32acc_off_silu": 75.183,
+    "fp32acc_off_gelu": 149.244,
+    "fp32acc_off_relu": 0.336
+  },
+  "eltwise": {
+    "clone": 35.263,
+    "silu": 84.393,
+    "gelu": 136.932,
+    "relu": 36.287
+  },
+  "silu_accuracy": {
+    "bf16_in": {
+      "max_abs": 0.015624523162841797,
+      "rel_rmsd": 0.0015655503375455737,
+      "pcc": 0.9999983672537311
+    },
+    "bf16_in_rounded_bf16": {
+      "max_abs": 0.015624523162841797,
+      "rel_rmsd": 0.0015655503375455737,
+      "pcc": 0.9999983672537311
+    },
+    "fp32_in": {
+      "max_abs": 9.5367431640625e-07,
+      "rel_rmsd": 4.903447603510358e-08,
+      "pcc": 0.9999999999999972
+    },
+    "fp32_in_rounded_bf16": {
+      "max_abs": 0.015624523162841797,
+      "rel_rmsd": 0.0015636751195415854,
+      "pcc": 0.9999983692061479
+    }
+  },
+  "silu_time_by_input_dtype": {
+    "bf16_in": 23.437,
+    "fp32_in": 20.735
+  },
+  "bare_matmul_accuracy": {
+    "fp32acc_on": {
+      "max_abs": 0.015959739685058594,
+      "rel_rmsd": 0.0017196985427290201,
+      "pcc": 0.9999985560928507
+    },
+    "fp32acc_off": {
+      "max_abs": 0.05777096748352051,
+      "rel_rmsd": 0.006295847240835428,
+      "pcc": 0.9999818756693586
+    }
+  },
+  "fused_silu_accuracy": {
+    "fp32acc_on": {
+      "max_abs": 0.015108585357666016,
+      "rel_rmsd": 0.0017614628886803985,
+      "pcc": 0.9999983443085576
+    },
+    "fp32acc_off": {
+      "max_abs": 0.058240652084350586,
+      "rel_rmsd": 0.007399911526590586,
+      "pcc": 0.9999728710647862
+    },
+    "on_vs_off": {
+      "max_abs": 0.0625,
+      "rel_rmsd": 0.007684358861297369,
+      "pcc": 0.9999712032229975
+    },
+    "on_equals_off": false
+  },
+  "load_end": [
+    45.61,
+    31.27,
+    25.12
+  ]
+}
