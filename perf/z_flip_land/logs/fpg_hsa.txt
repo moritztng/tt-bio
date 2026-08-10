@@ -1,0 +1,13 @@
+
+##############################################################################
+# FULL PARITY GATE — 2 legs, workers ['tt-quietbox2:1']
+##############################################################################
+leg                               kind       ref           verdict               wall  detail
+--------------------------------------------------------------------------------------------------------------
+boltz2-hsa-nomsa                  structure  cached        BLOCKED-REGEN           0s  envelope ref missing (ref_fp32, ref_bf16)
+protenix-hsa-msa                  structure  cached        BLOCKED-REGEN           0s  envelope ref missing (ref_fp32, ref_bf16)
+
+##############################################################################
+# Tally: {'BLOCKED-REF-REGEN-NEEDED': 2}    total wall 0.0 min
+# GATE INCONCLUSIVE — 2/2 legs blocked on reference regen, nothing scored
+##############################################################################
