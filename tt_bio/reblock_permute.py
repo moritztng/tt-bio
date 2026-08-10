@@ -1,5 +1,10 @@
 """The trimul channel move ``permute(x, (0, 3, 1, 2))`` as a hand-written Tensix kernel.
 
+Shape is ``[1, N, N, C]`` bf16 TILE with ``C`` a multiple of 32. **The channel count is not fixed
+at 32.** ``_trimul_chunk_size`` doubles the trunk's chunk width while the chunk still fits an L1
+budget scaled by the compute grid, so 298 aa folds with ``C = 64`` on a 13x10 grid and with
+``C = 32`` on an 11x10 one. A kernel hardcoded to 32 channels serves zero calls on the wider grid.
+
 The three kernels under ``tt_bio/kernels/reblock_permute/`` are run through ``ttnn.generic_op``,
 which JIT-compiles a kernel named by a ``KernelDescriptor`` against the shipped ttnn wheel. No
 tt-metal source build, no nanobind registration, no dependency bump.
@@ -54,14 +59,14 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
 
     The compile-time args of both TensorAccessors are in the key **verbatim**, so anything the
     accessor bakes into the kernel (buffer type, page size, shape, shard spec) is covered whether or
-    not this function knows what it means. What is left is a pure function of ``(N, grid)``: the CB
-    sizes, the core ranges, the work split and the per-core ``start`` / ``per_core`` / ``Nt``. The
-    two addresses are the only per-call values and they are written on every call.
+    not this function knows what it means. What is left is a pure function of ``(N, C, grid)``: the
+    CB sizes, the core ranges, the work split and the per-core ``start`` / ``per_core`` / ``Nt`` /
+    ``Ct``. The two addresses are the only per-call values and they are written on every call.
     """
     g = device.compute_with_storage_grid_size()
     return (
         device.id(),
-        int(x.shape[1]),
+        int(x.shape[1]), int(x.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
         g.x, g.y,
@@ -71,6 +76,7 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
 
 def _build(x, out, device, reader_ct, writer_ct):
     N = int(x.shape[1])
+    Ct = int(x.shape[3]) // TILE_W
     # The fold runs this at N=298, not at a multiple of 32, so the tile grid is ceil(N/32) in both
     # directions and the last row-group is ragged. The kernels take N and handle it.
     Nt = (N + TILE_H - 1) // TILE_H
@@ -101,9 +107,9 @@ def _build(x, out, device, reader_ct, writer_ct):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, N]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [start, per_core, Nt, N]
+                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
+                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
                     start += per_core
     assert start == num_groups, (start, num_groups)
 
@@ -156,12 +162,12 @@ def _prepare(x, out, device):
 
 
 def reblock_permute(x, memory_config=None, device=None):
-    """``ttnn.permute(x, (0, 3, 1, 2))`` for ``x`` of shape ``[1, N, N, 32]`` bf16 TILE."""
+    """``ttnn.permute(x, (0, 3, 1, 2))`` for ``x`` of shape ``[1, N, N, C]`` bf16 TILE, C % 32 == 0."""
     device = device or x.device()
     mc = memory_config or x.memory_config()
-    N = int(x.shape[1])
+    N, C = int(x.shape[1]), int(x.shape[3])
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([1, 32, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+        ttnn.Shape([1, C, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
     )
     entry = _prepare(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
@@ -181,16 +187,20 @@ def reblock_permute(x, memory_config=None, device=None):
 
 
 def eligible(x, memory_config) -> bool:
-    """The gate, measured on qb2 card 2 at ttnn 0.68.0 against the wheel's own ``ttnn.permute``.
+    """The gate, measured against the wheel's own ``ttnn.permute`` on the card that runs it.
 
-    The op wins on DRAM from N=256 (1.28x at 256, 1.70x at 320, 1.51x at 384) and on L1 only in a
-    window around N=320 (0.89x at 256, 1.22x at 320, 1.02x at 384, where 144 groups over 110 cores
-    leave eleven cores carrying two). Protenix at 298 aa runs N=320 on L1, inside the window.
+    Two things decide it: the destination buffer type and ``N``. On DRAM the custom move wins from
+    N=256 upward on both wheels measured (qb1 / 0.67.4: 1.90x at 298 and 320; qb2 / 0.68.0: 1.5x).
+    On L1 the margin is small and wheel-dependent, which is why the L1 window is narrow and why the
+    whole gate ships default-OFF.
+
+    The channel count is deliberately not part of the window: the kernel handles any ``C`` that is a
+    multiple of 32, because the trunk's own chunk width depends on the compute grid.
     """
     if not _ENABLED:
         return False
     shape = [int(d) for d in x.shape]
-    if len(shape) != 4 or shape[0] != 1 or shape[3] != 32 or shape[1] != shape[2]:
+    if len(shape) != 4 or shape[0] != 1 or shape[1] != shape[2] or shape[3] % TILE_W:
         return _reject("shape", shape)
     N = shape[1]
     if x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT:
