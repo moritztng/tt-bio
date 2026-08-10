@@ -1,4 +1,5 @@
 {
+  "boltz2-9ncy-nomsa": "88fa05a36754e7f3",
   "boltz2-affinity-dhfr-msa": "c5eba2198e8e7c5a",
   "boltz2-affinity-dhfr-nomsa": "391d475a35dbb8bc",
   "boltz2-affinity-fkbp12-msa": "720ac259a303affa",
@@ -12,6 +13,7 @@
   "boltz2-ubiquitin-msa": "0b36b642a7dbab05",
   "opendde-prot-prod": "f5f19dcc2140fd15",
   "opendde-trpcage-nomsa": "bad3d1a8fb8b902e",
+  "protenix-9ncy-msa": "46983f20066dbfa7",
   "protenix-hsa-msa": "929f66eba5e87ebd",
   "protenix-prot-msa": "33db62fb5e770b98",
   "protenix-ubq-msa": "7b148b8e7f031faa"

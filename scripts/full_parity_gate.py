@@ -266,7 +266,7 @@ LEGS = [
     # was unfoldable before c06bd76cf; the AbAg-XM campaign median (509) sits in this band.
     Leg("boltz2-9ncy-nomsa", "boltz2", "structure", "examples/abag_xm/9ncy.yaml",
         fixture="boltz2/9ncy/nomsa_200step_1sample_3recycle_bf16",
-        committed_json="", target_id="9ncy",
+        committed_json="boltz2-9ncy.json", target_id="9ncy",
         device_args=_boltz2_struct_args(msa="none"),
         note="505-token AbAg complex in the former [385,506] crash band; no-MSA (campaign regime)"),
 

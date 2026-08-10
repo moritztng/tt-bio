@@ -1,8 +1,7 @@
 {
-  "note": "9ncy AbAg complex (505 tokens, former [385,506] crash band); envelope refs pending generation (--regen-refs)",
-  "reference_commit": "7b9d0b427",
+  "reference_commit": "a56bc7309",
   "reference_impl": "tt-bio-cpu-torch",
-  "reference_version": "7b9d0b427",
+  "reference_version": "a56bc7309",
   "seeds": [
     0
   ],
