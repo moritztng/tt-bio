@@ -98,13 +98,17 @@ _NARROW_PROJ_BW: int | None = 1
 # has the room -- every one of the 130 banks reads fully free at all 35 timed matmul classes in a
 # live 298 aa fold, so the capacity objection that used to rule this out is not there. Bit-exact:
 # a memory config decides where the writer puts a tile, not the order the contraction accumulates.
+# Worth 430 ms/fold at 298 aa, of which 133 is the residual add no longer fetching its operand from
+# DRAM; the projections themselves do not get faster. In-fold op walls against three baseline
+# folds, perf/p3l1/ops_*.json.
 _PAIR_PROJ_L1_OUT = True
-# in0_block_w cap for the L1-output members only. With the DRAM write gone the two sides of the
-# knob swap over: at a DRAM output in0_block_w=8 is worth 1.54x and is not bit-exact, at an L1
-# output 1 is bit-exact and the whole trimul chain still beats today's non-bit-exact bw=8 DRAM
-# arm (1427.1 -> 1323.5 us on qb1 card 1 at 13x10, perf/p3l1/probe_c1.json). Kept apart from
-# _PAIR_PROJ_BW so the DRAM-output members keep today's tuning and today's parity decision.
-_PAIR_PROJ_L1_BW: int | None = 1
+# in0_block_w cap for the L1-output members. It must track _PAIR_PROJ_BW: at the same cap the L1
+# output is `torch.equal` against the DRAM output of the identical config (max abs 0.0, and a live
+# 298 aa fold returns the same plDDT to six decimals), so moving the destination is free of any
+# parity decision. Dropping it to 1 was measured and REJECTED: it buys bit-exactness against the
+# untuned core_grid reference, but it costs 41-115 ms/fold at the projections and turns a
+# 430 ms/fold win into 33-106 (perf/p3l1/ops_*.json). Kept as the A/B toggle, not as a choice.
+_PAIR_PROJ_L1_BW: int | None = 16
 # Read-bound narrow projections take their SOURCE from L1 instead of their destination:
 # AttentionPairBias's z->bias reads the whole 48.82 MB layer-normed pair tensor to write 6.10 MB,
 # so the write was never the cost. Handing it an L1-resident layer_norm output takes the

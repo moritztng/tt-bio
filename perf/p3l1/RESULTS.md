@@ -181,7 +181,7 @@ own module constant so each carries its own parity decision and its own A/B arm:
 
 | constant | what it does | sites |
 |---|---|---|
-| `_PAIR_PROJ_L1_OUT` + `_PAIR_PROJ_L1_BW` | the pair-track output projection writes its 48.82 MB result to **L1** instead of DRAM, at `in0_block_w`=1 | `_trimul_out_proj` (`p_out` and `g_out`), `TriangleAttention.gate_and_project`'s `x_out` |
+| `_PAIR_PROJ_L1_OUT` + `_PAIR_PROJ_L1_BW` | the pair-track output projection writes its 48.82 MB result to **L1** instead of DRAM, at main's own `in0_block_w`=8 | `_trimul_out_proj` (`p_out` and `g_out`), `TriangleAttention.gate_and_project`'s `x_out` |
 | `_PAIR_BIAS_L1_NORM` | `AttentionPairBias`'s pair `layer_norm` writes to **L1**, so the z->bias projection reads its `in0` from L1, and that projection's own 6.10 MB output goes to L1 too | `tenstorrent.py:2088` and the `layer_norm` above it |
 
 `_pair_proj_program_config` now subtracts the **output** term from the L1 bank budget when the
@@ -285,211 +285,214 @@ X2's inventory exclusion, confirmed by direct measurement rather than inherited:
 for a DRAM read costs when the read is already free. Everything here stays at `in0_block_w`=1, which
 is also the bit-exact side.
 
+
 ### The wall, and the A/B protocol that measured it
 
 Every arm is a **real 298 aa protenix-v2 fold** (10 recycles / 200 sampling steps / 1 sample /
-seed 0), arms in **separate processes on the same card in one session**, launched back to back from
-one script with the unmodified baseline arm restored between them (`perf/p3l1/run_ab.sh`,
-`run_post.sh`). Two instruments, because one was not enough:
+seed 0). Arms run in **separate processes on the same card in one session**, launched back to back
+from one script with the unmodified baseline arm restored between them, and in the decisive sweep
+the baseline runs **first and last** so process-to-process drift is bracketed rather than assumed
+away (`perf/p3l1/run_ab.sh`, `run_post.sh`, `run_post2.sh`). Two instruments:
 
 - **block wall** — `PairformerLayer.__call__` synchronised on both sides, summed over the fold's
   604 executions (524 at c_z=256 plus the template stack's 80 at c=64). Nothing inside the block is
   serialised, so overlap survives.
-- **op site wall** — `_pair_proj_linear`, `_narrow_proj_linear` and the layer's residual `ttnn.add_`
-  synchronised on both sides, keyed by operand class, summed over the fold. This one removes each
-  op's overlap with its neighbours, so its arms are comparable to each other but its parts do not
-  sum to the block.
+- **op site wall** — `_pair_proj_linear`, `_narrow_proj_linear` and the layer's residual
+  `ttnn.add_`, each synchronised on both sides, keyed by operand class and summed over the fold.
+  This removes each op's overlap with its neighbours, so its arms are comparable to each other but
+  its parts do not sum to the block.
 
-Four arms, block wall, one interleaved sweep, host load average 2.1-4.8 throughout:
+**The op wall reproduces to under 1 % of the baseline figure, and that is what licenses
+the figures below.** Three
+independent baseline folds in two sessions:
 
-| arm | `_PAIR_PROJ_L1_OUT` | `_PAIR_BIAS_L1_NORM` | fold wall, median of 3 | block wall | `Pairformer` stage wall | plDDT |
-|---|---|---|---:|---:|---:|---:|
-| `base` — production today | off | off | 29.416 s | **19 736.178 ms** | 17 524.299 ms | 0.859489 |
-| `l1out` — deliverable 1 only | **on** | off | 29.371 s | 19 309.740 ms (**-426.4**) | 17 164.485 (**-359.8**) | 0.853952 |
-| `bias` — deliverable 2 only | off | **on** | 29.284 s | 19 416.880 ms (**-319.3**) | 17 284.212 (**-240.1**) | **0.859489** |
-| `both` | **on** | **on** | 29.387 s | **19 230.286 ms (-505.9)** | 17 112.401 (**-411.9**) | 0.853952 |
-
-**P5 CONFIRMED: the fold wall does not resolve this and I am not claiming it.** The four medians
-span 29.284-29.416 s, a 132 ms range with no ordering that matches the block wall — `bias` has the
-lowest fold wall and only the second-largest block-wall delta. That is the same failure X2 hit
-(a +68 ms fold wall against a real 31.5 ms win) and the same 144 ms base spread. The block wall is
-the instrument; the fold wall is recorded and disregarded.
+| class | `base` | `base2` | `base3` | spread |
+|---|---:|---:|---:|---:|
+| `_narrow_proj_linear` `[1,298,320,256] x [256,16]`, 484 calls | 252.217 ms | 252.107 | 252.082 | **0.05 % of the mean** |
+| residual `ttnn.add_`, 3988 calls | 1187.687 ms | 1188.731 | 1192.299 | 0.39 % of the baseline figure |
+| `_pair_proj_linear` `[1,298,320,256] x [256,256]`, 2096 calls | 982.238 ms | 985.907 | 985.940 | 0.38 % of the baseline figure |
+| `_pair_proj_linear` `[298,320,256] x [256,256]`, 1048 calls | 505.231 ms | 508.181 | 503.422 | 0.94 % of the baseline figure |
+| block wall, 604 blocks | 21 143.667 ms | 21 205.382 | 21 210.769 | 0.32 % of the baseline figure |
 
 ### Where the time actually went — the op site walls
 
-One instrumented fold per arm, every call of these classes synchronised on both sides
-(`perf/p3l1/ops_base.json`, `ops_both.json`; `both` = deliverable 1 + deliverable 2). Call counts
-are counted in the fold. The conversion is charter §4.9's **x524** for the pair-track projection
-classes (4 per layer at `_trimul_out_proj` = 2096, 2 per layer at `gate_and_project` = 1048) and
-**x484** for the `AttentionPairBias` site:
+`base2` and `base3` bracket the two live arms in one session; the control column is their mean.
+Conversion is charter §4.9's **x524** for the pair-track projection classes (4 per layer at
+`_trimul_out_proj` = 2096 calls, 2 per layer at `gate_and_project` = 1048) and **x484** for the
+`AttentionPairBias` site. Call counts are counted in the fold.
 
-| class | calls/fold | `base` | `both` | delivered |
-|---|---:|---:|---:|---:|
-| `_narrow_proj_linear` `[1,298,320,256] x [256,16]` — **the 2088 site** | 484 | **252.217 ms** | **94.593 ms** | **-157.624 (2.666x)** |
-| the layer's residual `ttnn.add_` | 3988 | **1187.687 ms** | **1053.598 ms** | **-134.089 (1.127x)** |
-| `_pair_proj_linear` `[1,298,320,256] x [256,256]` — trimul `p_out` / `g_out` | 2096 | 982.238 ms | 1014.329 ms | **+32.091** |
-| `_pair_proj_linear` `[298,320,256] x [256,256]` — `gate_and_project` | 1048 | 505.231 ms | 518.892 ms | **+13.661** |
-| `_pair_proj_linear` at the template stack's c=64, both classes | 480 | 92.798 ms | 81.733 ms | -11.065 |
-| `_narrow_proj_linear` `[298,320,256] x [256,1]` — PWA, untouched | 240 | 122.916 ms | 122.595 ms | -0.321 |
-| `body:AttentionPairBias` (the whole `layer_norm -> proj -> permute` region + attention) | 5284 | 3386.979 ms | 3154.018 ms | **-232.961** |
-| `body:TriangleMultiplication` | 1208 | 7479.381 ms | 7500.371 ms | +20.990 |
-| `body:TriangleAttention` | 1208 | 8001.090 ms | 7983.272 ms | -17.818 |
-| **block wall, same two folds** | 604 | **21 143.667 ms** | **20 744.050 ms** | **-399.617** |
+| class | calls/fold | control (`base2`/`base3` mean) | **`rg` — L1 out at `in0_block_w`=8 + the 2088 source** | delivered | `both2` — L1 out at `in0_block_w`=1 + the same source | delivered |
+|---|---:|---:|---:|---:|---:|---:|
+| `_pair_proj_linear` `[1,298,320,256] x [256,256]`, trimul | 2096 | 985.924 ms | **793.581** | **-192.343** | 1072.106 | **+86.182** |
+| `_pair_proj_linear` `[298,320,256] x [256,256]`, `gate_and_project` | 1048 | 505.802 ms | **409.410** | **-96.392** | 534.541 | **+28.739** |
+| the layer's residual `ttnn.add_` | 3988 | 1190.515 ms | **1057.959** | **-132.556** | 1049.839 | -140.676 |
+| `_narrow_proj_linear` `[1,298,320,256] x [256,16]`, **the 2088 site** | 484 | 252.095 ms | **101.434** | **-150.661** | 101.075 | -151.020 |
+| `_pair_proj_linear` at the template stack's c=64, both classes | 480 | 92.712 ms | 83.867 | -8.845 | 85.083 | -7.629 |
+| `_narrow_proj_linear` `[298,320,256] x [256,1]`, PWA, untouched | 240 | 123.494 ms | 125.641 | +2.147 | 125.941 | +2.447 |
+| **sum of the op walls** | | | | **-580.797** | | **-184.404** |
+| `body:AttentionPairBias` (the whole `layer_norm -> proj -> permute` region + attention) | 5284 | 3439.420 ms | 3212.978 | **-226.442** | 3256.016 | -183.404 |
+| `body:TriangleMultiplication` | 1208 | 7504.885 ms | 7276.200 | **-228.685** | 7566.713 | +61.828 |
+| `body:TriangleAttention` | 1208 | 8010.867 ms | 7949.299 | -61.568 | 8096.597 | +85.730 |
+| **block wall** | 604 | **21 208.076 ms** | **20 646.229** | **-561.847** | 21 088.307 | **-119.769** |
+| fold plDDT | | 0.859489 | **0.859489** | **unchanged** | 0.853952 | moved |
 
-**This is the finding, and it is a split decision.**
+**The block wall and the sum of the op walls agree to 3.4 % of the block figure** on the `rg` arm
+(-561.847 against -580.797), which is the cross-check that makes either credible.
 
-**The 298.7 does NOT survive contact with a wall.** Deliverable 1 delivers **about 131 ms/fold** in
-the fold — the residual add's -134.089, the template classes' -11.065, and the two pair-track
-projection classes going **+45.752 ms the wrong way** — against a projection of 298.7. That is
-**44 % of the projected figure**. The block-wall arm puts it at -426.4 ms and the op walls at
--131 ms; the honest range is 130-430 ms/fold and the conservative number is the op-wall one,
-because the block wall's process-to-process spread on this instrument is 778 ms (I measured the
-same `base` arm at 18 958.266 ms in one process and 19 736.178 ms in another).
+**P4 was wrong in the most useful way available: the wall is bigger than the projection, but only
+at the `in0_block_w` production already ships, and the arm I predicted from is the bad one.**
+I predicted 150-350 ms/fold for the L1 output and specified `in0_block_w`=1 to keep it bit-exact
+against the untuned reference. At `in0_block_w`=1 the wall delivers **33-106 ms/fold** — the
+projections go 41-115 ms/fold *slower* and eat most of the residual add's saving, so on that arm
+**the 298.7 does not survive contact with a wall, it comes in at 11-36 % of the projected figure**.
+At main's own `in0_block_w`=8 the same L1 output delivers **430.1 ms/fold** (-192.343 -96.392
+-132.556 -8.845), which is **144 % of the 298.7 projection**.
 
-**The mechanism is exactly the one X2 named, and the reason the projection over-prices is
-structural.** The saving is entirely in the **consumer**: the residual `add_` goes 387.11 ->
-293.23 us/call because its operand is now in L1. The projection itself gets *slower*, by
-15.3 us/call at the trimul and 13.0 at `gate_and_project`, because the bit-exact `in0_block_w`=1
-costs about what the L1 output saves. X2's 95.00 us/call was the delta of a `proj + add` **pair**
-priced over 3144 projections; production runs **four projections per two residual adds** in the
-trimul, so pricing per projection counts the add's saving twice.
+**Why the two arms differ, stated as a mechanism.** The L1 output removes a 48.82 MB DRAM write from
+the projection and a 48.82 MB DRAM read from its consumer. The consumer's half is worth 132.6
+ms/fold and is the same in both arms (`residual ttnn.add_`, 387-389 -> 320-323 us/call). The
+projection's half only materialises if the matmul is left at the blocking it was tuned for:
+`in0_block_w`=8 turns the projection from 470.9 to 375.6 us/call, `in0_block_w`=1 turns it into
+497.1. The bit-exactness I was chasing at `in0_block_w`=1 costs more than the whole lever is worth.
 
-**Deliverable 2 is the larger win and nobody had priced it.** The 2088 site's own wall falls
-**157.624 ms/fold** (2.666x, 526.48 -> 205.47 us/call) and the whole `layer_norm -> projection ->
-permute` region it sits in falls **232.961 ms/fold**, which is 97 % of the probe's own figure for
-that region (239.6 ms/fold). It is `torch.equal` and the fold returns **plDDT 0.859489, identical to
-six decimals against production today**.
+**P5 CONFIRMED, and the fold wall stays out of the claim.** The four block-instrumented arms'
+medians span 132 ms with an ordering that does not match the block wall. The `rg` arm's single
+uninstrumented fold is 28.688 s against 29.335-29.722 s for its two bracketing baselines, which is
+the right sign and the right rough size, but it is one fold against a 144 ms base spread and I am
+not quoting it as the number.
 
 ## Delivered ms/fold
 
-Two piles, kept apart. **`torch.equal` True against the untuned `core_grid` reference is the
-bit-exact pile; anything that is not `torch.equal` is the release-gated pile, and the two are never
-added into one headline.** Both figures below are in-fold walls on qb1 card 1, arms in separate
-processes on the same card in one session.
+Two piles, kept apart. **The bit-exact pile is everything that returns `torch.equal` True against
+production today; the release-gated pile is anything that does not, and the two are never added
+into one headline number.** As it turns out the whole of this leg's delivery is in the first pile
+and the release-gated pile is empty.
 
-**Bit-exact and plDDT-identical to production today — recommend merging:**
-
-| change | wall | delivered | parity |
-|---|---|---:|---|
-| deliverable 2, the L1 `layer_norm` source + L1 output at `tenstorrent.py:2088` | the site's own op wall, 484 calls | **-157.624 ms/fold** | `torch.equal` True, plDDT 0.859489 unchanged |
-| the same, measured as the whole `AttentionPairBias` region | region wall, 5284 calls | **-232.961 ms/fold** | as above |
-
-**Bit-exact against the reference but NOT plDDT-identical to main — hold:**
+**Bit-exact against production today, plDDT identical to six decimals — recommend merging:**
 
 | change | wall | delivered | parity |
 |---|---|---:|---|
-| deliverable 1, the L1 output on the pair-track projection class at `in0_block_w`=1 | residual add + projections + template classes | **-131.4 ms/fold** | `torch.equal` **True** vs the `core_grid` reference, but plDDT 0.859489 -> 0.853952 because main ships `_PAIR_PROJ_BW = 16` |
-| the same, read off the block wall | block wall, 604 blocks | -399.6 to -505.9 ms/fold | as above |
+| **deliverable 1** — L1 output on the pair-track projection class at main's `in0_block_w`=8 | op walls: projections + residual add + template classes | **-430.1 ms/fold** | `torch.equal` True vs production today, max abs 0.0 |
+| **deliverable 2** — L1 `layer_norm` source + L1 output at `tenstorrent.py:2088` | the site's own op wall, 484 calls | **-150.7 ms/fold** | `torch.equal` True, plDDT 0.859489 unchanged |
+| the same, measured as the region it sits in | `AttentionPairBias` region wall | -226.4 ms/fold | as above |
+| **both together** | **block wall, 604 blocks, against a bracketing control** | **-561.8 ms/fold** | plDDT **0.859489**, identical to production today |
 
-**Release-gated, probe only, not taken to a wall:** the same L1 output at `in0_block_w`=8 measures
-497.67 us on the `projection + add` pair against production today's 733.23 (1.473x, 235.56 us/call).
-Over 3144 calls/fold that **projects** 740.6 ms/fold, close to the brief's 754.7. It is a projection
-and I am not claiming it: deliverable 1's own projection over-priced by 2.3x when it met a wall, so
-this one should be assumed to as well. It is not bit-exact (max abs 0.5) and belongs to a separate
-parity decision.
+**Measured and rejected, not shipped:** the same L1 output at `in0_block_w`=1 delivers 33-106
+ms/fold instead of 430 and moves plDDT 0.859489 -> 0.853952. It buys bit-exactness against the
+untuned `core_grid` reference, which main does not have either, at a cost of ~330 ms/fold. It stays
+in the file as an A/B toggle with that verdict written beside it.
 
-**Combined, the two changes together deliver -399.617 ms/fold on the block wall** in the
-op-instrumented pair of folds and -505.9 ms/fold in the block-instrumented sweep. The fold wall
-cannot see either (132 ms range across four arms, ordering does not match).
+**Release-gated pile: empty.** Nothing proposed here changes the arithmetic. The `in0_block_w`=16
+cap that the L1-output path uses is the cap main already ships.
+
+Against the trunk's 21.827 s and a 29.4 s fold, 561.8 ms/fold is **2.6 % of the trunk figure** and
+**1.9 % of the fold wall**.
 
 ## Parity
 
 Measured at the fold's own `[1, 298, 320, 256]`, through the production helpers rather than a
-re-implementation of the config (`perf/p3l1/parity_c1.py`, `parity_c1.json`), plus the fold's own
-plDDT.
+re-implementation of the config (`perf/p3l1/parity_c1.py` / `parity_c1.json`,
+`parity2.py` / `parity2.json`), plus the fold's own plDDT.
 
-| arm | `torch.equal` vs `ttnn.linear(core_grid=)` | max abs | PCC | fold plDDT |
-|---|---|---:|---:|---:|
-| pair-track projection, **production today** (`_PAIR_PROJ_BW`=16, DRAM out) | **False** | 0.5 | 0.9999991684 | 0.859489 |
-| pair-track projection, **L1 out at `in0_block_w`=1** | **True** | 0.0 | 1.0000000000 | 0.853952 |
-| pair-track projection, L1 out at the `=16` cap | False | 0.5 | 0.9999991684 | not run in a fold |
-| the trimul chain `proj -> proj -> multiply_ -> add_`, production today | **False** | 0.5 | 0.9999987694 | 0.859489 |
-| the same chain, **L1 out at `in0_block_w`=1** | **True** | 0.0 | 1.0000000000 | 0.853952 |
-| `layer_norm` to L1 vs to DRAM | **True** | 0.0 | 1.0000000000 | — |
-| z->bias projection with an **L1 source and an L1 output** | **True** | 0.0 | 1.0000000000 | **0.859489** |
+| arm | reference | `torch.equal` | max abs | PCC | fold plDDT |
+|---|---|---|---:|---:|---:|
+| **pair-track projection, L1 out at `in0_block_w`=8 (what is proposed)** | **production today, DRAM out, same config** | **True** | **0.0** | 1.0000000000 | **0.859489** |
+| **the trimul chain `proj -> proj -> multiply_ -> add_`, L1 out at `in0_block_w`=8** | **production today** | **True** | **0.0** | 1.0000000000 | **0.859489** |
+| **z->bias with an L1 `layer_norm` source and an L1 output** | `ttnn.linear(core_grid=)` | **True** | 0.0 | 1.0000000000 | **0.859489** |
+| `layer_norm` to L1 vs to DRAM | itself, to DRAM | **True** | 0.0 | 1.0000000000 | — |
+| pair-track projection, L1 out at `in0_block_w`=1 (rejected) | `ttnn.linear(core_grid=)` | True | 0.0 | 1.0000000000 | 0.853952 |
+| pair-track projection, production today | `ttnn.linear(core_grid=)` | False | 0.5 | 0.9999991684 | 0.859489 |
 
-**P9 CONFIRMED on both clauses, including the awkward one.** A memory config cannot move a bit and
-it did not: every L1 arm at fixed `in0_block_w` is `torch.equal` against the DRAM reference. And the
-bw=1 L1 arm is **not** plDDT-identical to today's main (0.859489 -> 0.853952) precisely because it
-is bit-exact and main is not — main ships `_PAIR_PROJ_BW = 16`, whose `in0_block_w`=8 re-blocks the
-contraction. **Deliverable 1 is therefore simultaneously a speedup and a return to the reference
-contraction order**, and a reviewer has to see it as both. Deliverable 2 changes nothing at all:
-plDDT 0.859489 in both arms, to six decimals.
+**P9 CONFIRMED, and the clause I got wrong is worth more than the ones I got right.** A memory
+config cannot move a bit, and it does not: at a fixed `in0_block_w` the L1 output is `torch.equal`
+against the DRAM output of the identical config, max abs 0.0. What I missed when writing the
+prediction is that this makes the **right** reference production today rather than the untuned
+`core_grid` call — and against production today the shipped arm is bit-exact, so there is no parity
+trade here at all. I predicted the arm would move plDDT and it does, but only on the
+`in0_block_w`=1 variant I have now rejected on performance grounds anyway.
 
 ## Merge recommendation
 
 Nothing has been merged and nothing should be without Moritz's explicit OK. Everything sits on
 `wk/protenix-trunk--p3-l1-output`, pushed, branched from `wk/protenix-trunk--p3-narrow-write`.
 
-**Proposal A — deliverable 2, `_PAIR_BIAS_L1_NORM`. Recommend merging.** 157.6 ms/fold on the site's
-own wall and 233.0 ms/fold on the region it sits in, `torch.equal` True at the fold's own shape,
-plDDT identical to six decimals against production today, no arithmetic changed. It is one memory
-config on a `layer_norm` and one `l1_out=True`, both behind a fit test that returns DRAM for any
-shape that does not fit, so a larger target keeps today's behaviour. **Not release-gated.** It is
-the largest bit-exact ms/fold this org has delivered from a single site.
+**One proposal, both changes, recommend merging.** `_PAIR_PROJ_L1_OUT = True` with
+`_PAIR_PROJ_L1_BW = 16` tracking `_PAIR_PROJ_BW`, plus `_PAIR_BIAS_L1_NORM = True`. **-561.8 ms/fold
+on the block wall against a bracketing control**, `torch.equal` True against production today at
+the fold's own shape on both the projection and the whole trimul chain, and a live 298 aa fold
+returning plDDT 0.859489 — the same to six decimals as production today. **Not release-gated: it
+changes no arithmetic**, only where three matmuls and one `layer_norm` put their results. Both
+levers sit behind a fit test that returns DRAM when the tensor does not fit, and behind a
+try/except that falls back to today's path and remembers the refusal per operand class, so a larger
+target keeps today's behaviour exactly.
 
-**Proposal B — deliverable 1, `_PAIR_PROJ_L1_OUT` at `_PAIR_PROJ_L1_BW = 1`. Hold, and it is
-Moritz's call, not mine.** It delivers 131 ms/fold on the op walls (399.6 on the block wall) and it
-is `torch.equal` against the reference — but it moves the shipped fold's plDDT from 0.859489 to
-0.853952, because it takes the pair-track class off main's non-bit-exact `in0_block_w`=8. That is a
-parity *improvement* by the letter of the bar and a parity *event* by the practice of it: the
-shipped v0.6.1 numbers were produced with `=16`. It needs a full parity gate before it is proposed,
-and the trade it embodies — 131 ms/fold plus reference-exactness, against a moved plDDT — is
-exactly the kind of decision the charter reserves for Moritz.
+What a reviewer should look at: the output term added to `_pair_proj_program_config`'s L1 budget
+(it was absent because the helper always wrote to DRAM), and the fact that the static budget
+over-counts — it says two concurrent 48.82 MB L1 outputs cannot fit and the allocator says they can,
+with 708 096 B of 1 461 760 still free per bank. The allocation is the real test and the fallback is
+what makes relying on it safe.
 
 **Version sensitivity, which my brief asked me to state explicitly.** qb1 is ttnn **0.67.4** and the
-shipped wheel is **0.68.0**, so qb1 is one release behind production. Both changes are
-version-sensitive in principle and one of them provably so: **the L1-output legality itself moved
-between grids** in this pass (`ttnn.linear(core_grid=)` with an L1 output runs at 110 cores and
-**throws** at 130), which is a circular-buffer sizing decision inside ttnn's matmul. A 0.68.0
-re-check is **required for Proposal B** before it goes anywhere, and **advisable for Proposal A**,
-whose gain rests on `ttnn.layer_norm` honouring an L1 output config at 48.82 MB. Neither should be
-merged on a 0.67.4 number alone.
+shipped wheel is **0.68.0**, so qb1 is one release behind production. **A 0.68.0 re-check is
+required before this merges**, and the reason is not boilerplate: L1-output legality provably moved
+*within this pass* — `ttnn.linear(core_grid=)` with an L1 output runs at 110 cores and **throws** at
+130, which is a circular-buffer sizing decision inside ttnn's matmul, exactly the kind of thing a
+minor release moves. The parity claim needs re-taking there too, since it rests on the L1 and DRAM
+writers packing identically.
 
 ## Corrections to the inherited record
 
-1. **The 298.7 ms/fold does not survive a wall. It delivers about 131 ms/fold, 44 % of the projected
-   figure.** The projection was a per-call `proj + add` delta times 3144 projections, and production
+1. **The 298.7 ms/fold was a projection and it was priced on the wrong arm. At the `in0_block_w`
+   production already ships, the L1 output delivers 430.1 ms/fold — 144 % of the projected figure;
+   at the bit-exact `in0_block_w`=1 that X2's pricing assumed, it delivers 33-106 ms/fold, 11-36 %
+   of it.** The projection was a per-call `proj + add` delta times 3144 projections, and production
    runs **four projections per two residual adds** inside `TriangleMultiplication`, so the add's
-   saving — which is the entire saving — was counted twice. The projections themselves get
-   **45.8 ms/fold slower**, because at `in0_block_w`=1 the bit-exact contraction costs about what
-   the L1 output saves at the matmul; all of the win is in the consumer.
-2. **The brief's "1.53x bit-exact, 1.49x release-gated" are ratios over two different denominators.**
-   1.53x is against the untuned `core_grid`-DRAM baseline (my re-measurement: 1.647x); 1.49x is
-   against production today (mine: 1.473x). The bit-exact ratio that belongs beside the 298.7 is
-   **1.150x**, measured, not 1.53x.
-3. **An L1 output is not available to `ttnn.linear(core_grid=)` at the production grid.** X2
+   saving — 132.6 ms/fold, and the only part that is the same on both arms — was counted twice. The
+   projections' own contribution is worth 288.7 ms/fold at `in0_block_w`=8 and **minus 115 ms/fold**
+   at `in0_block_w`=1.
+2. **The L1 output is orthogonal to the parity knob and the org had them entangled.** At a fixed
+   `in0_block_w` the L1 output is `torch.equal` against the DRAM output of the identical config,
+   max abs 0.0, plDDT identical to six decimals in a live fold. There is no bit-exact-versus-gated
+   choice to make about the destination; the only parity decision in this class is the one main
+   already took when it set `_PAIR_PROJ_BW = 16`.
+3. **The brief's "1.53x bit-exact, 1.49x release-gated" are ratios over two different
+   denominators.** 1.53x is against the untuned `core_grid`-DRAM baseline (my re-measurement:
+   1.647x); 1.49x is against production today (mine: 1.473x). Only the second kind converts into a
+   ms/fold against production.
+4. **An L1 output is not available to `ttnn.linear(core_grid=)` at the production grid.** X2
    measured `l1_cg` running at 11x10; at the production 13x10 it **throws** ("statically allocated
    circular buffers ... clash with L1 buffers"). The tuned config's smaller circular buffers are
    what make an L1 output legal here at all, so "put the output in L1" is not a standalone knob.
-4. **Both of a trimul's 48.82 MB projections fit in L1 at once, and putting only one there is a
+5. **Both of a trimul's 48.82 MB projections fit in L1 at once, and putting only one there is a
    loss.** I predicted the second would be refused on a 1587.6 kB/bank budget against 1427.5
    available; the allocator reports **708 096 B of 1 461 760 still free per bank** with both
    resident. `p_out` alone in L1 is 0.91x against production today on the trimul chain; both is
-   1.078x. A static program-config budget over-counts here and the allocation itself is the test.
-5. **`tenstorrent.py:2088` is bound by its SOURCE, not by its write, and that is where its
+   1.078x at `in0_block_w`=1 and 1.373x at 8. A static program-config budget over-counts here.
+6. **`tenstorrent.py:2088` is bound by its SOURCE, not by its write, and that is where its
    225.8 ms/fold goes.** It reads 48.82 MB to write 6.10 MB. An L1 output alone is worth 24.5
-   ms/fold; an L1 `layer_norm` source is worth 208 ms/fold and the two together 239.6 in the probe,
-   157.6 on the site's in-fold wall and 233.0 on its region wall. Its 225.8 ms/fold baseline
-   (208.4 after X2's `_NARROW_PROJ_BW = 1`) is now **94.6 ms/fold**.
-6. **The `in0_block_w` sign flip is confirmed by direct measurement, not inherited.** At this site
-   with a DRAM source `in0_block_w`=8 is 1.302x; with an L1 source it is **0.84x**, a loss against
-   `in0_block_w`=1. The knob pays for a DRAM read and costs when the read is already free, which is
-   the rule X2's inventory used to exclude the 21 012-call L1-resident bucket.
-7. **The block wall's process-to-process spread is 778 ms on this harness, so it cannot arbitrate a
-   200 ms claim on its own.** The same `base` arm measured 18 958.266 ms in one process and
-   19 736.178 ms in another. Within one interleaved sweep the arms order correctly; across sweeps
-   they do not. Any future leg quoting a block-wall delta under ~800 ms needs the arms in one sweep
-   and should say so.
-8. **`COMPUTE_GRID_MAIN` was read after the device was open in every probe here** — 13x10, confirmed
+   ms/fold; an L1 `layer_norm` source is worth 208 ms/fold in the probe, and the two together take
+   the site's in-fold wall from **252.1 to 101.4 ms/fold** and its region wall down 226.4 ms/fold.
+   The 225.8 ms/fold this org carried for the site (208.4 after X2's `_NARROW_PROJ_BW = 1`) is now
+   **101.4 ms/fold**.
+7. **The `in0_block_w` sign flip is confirmed by direct measurement, not inherited.** At the 2088
+   site with a DRAM source `in0_block_w`=8 is 1.302x; with an L1 source it is **0.84x**, a loss
+   against `in0_block_w`=1. The knob pays for a DRAM read and costs when the read is already free.
+   Note this is the opposite of the pair-track projection's verdict in correction 1, and the reason
+   is the same one: the knob is worth exactly what the DRAM read it removes is worth.
+8. **The op site wall reproduces to under 1 % across processes and sessions; the block wall does
+   not always.** Three independent baseline folds agree to 0.05-0.94 % of the baseline figure on every op
+   class and to 0.32 % of the baseline figure on the block wall — but one earlier block-instrumented baseline
+   came in 778 ms lower than another. Bracket the arms with a baseline first and last, quote the op
+   walls, and treat a block-wall delta under ~800 ms taken across sweeps as unresolved.
+9. **`COMPUTE_GRID_MAIN` was read after the device was open in every probe here** — 13x10, recorded
    in the JSON of every run — so none of these figures is X2's 11x10 trap. That is also why the
-   `l1_cg` refusal in correction 3 shows up at all.
-9. **The `_transpose_memory_config` interaction STATUS.md asks every L1-raising leg to report: it
-   still takes the L1 branch and nothing broke.** With `gate_and_project`'s 48.82 MB output now in
-   L1, the ending `TriangleAttention`'s `ttnn.permute(x, (1,0,2))` still tests L1 (measured
-   `get_max_worker_l1_unreserved_size` = 1 532 448 B, so 2.5 x 48.82 MB = 122 MB against 199 MB
-   across 130 cores) and runs; `_L1_OUT_REFUSED` is empty after every fold in this pass and no arm
-   threw. **P6 CONFIRMED.**
+   `l1_cg` refusal in correction 4 shows up at all.
+10. **The `_transpose_memory_config` interaction STATUS.md asks every L1-raising leg to report: it
+    still takes the L1 branch and nothing broke.** With `gate_and_project`'s 48.82 MB output now in
+    L1, the ending `TriangleAttention`'s `ttnn.permute(x, (1,0,2))` still tests L1 (measured
+    `get_max_worker_l1_unreserved_size` = 1 532 448 B, so 2.5 x 48.82 MB = 122 MB against 199 MB
+    across 130 cores) and runs. `_L1_OUT_REFUSED` is empty after every one of the eleven folds in
+    this pass and no arm threw. **P6 CONFIRMED.**
 
 ## Closed, and not reopened here
 
@@ -498,7 +501,7 @@ input and run sequentially, so it is structurally impossible, and the fusion tha
 1.370x bit-exact but nets **0.708x** once the un-fuse's 984.4 us is paid against 388.9 us saved.
 Staging through L1 as a general lever is likewise closed — it fixes a bad *source*, which is
 precisely why it worked at `tenstorrent.py:2088` (source-bound) and why the pair-track projection's
-L1 *output* only pays through its consumer. And I did not chase the fold wall for a sub-150 ms
+L1 *output* pays only through its consumer. And I did not chase the fold wall for a sub-150 ms
 claim.
 
 ## Instruments and artefacts
@@ -511,23 +514,24 @@ All on `wk/protenix-trunk--p3-l1-output`, all run on qb1 card 1 with `TT_VISIBLE
 | `perf/ledger_298/roofs_card.py` (reused) | `roofs_c1.json` — the four card roofs and the machine balance |
 | `perf/p3l1/p3_l1_probe.py` | `probe_c1.json` — the `pair`, `trimul` and `site2` arms at the production 13x10 grid |
 | `perf/p3l1/fold_ab.py`, `run_ab.sh` | `ab_{base,l1out,bias,both}_r1.json` — four arms, block wall, one interleaved sweep |
-| `perf/p3l1/fold_ab.py --instrument ops`, `run_post.sh` | `ops_{base,both}.json` — the per-class op site walls |
+| `perf/p3l1/run_post.sh`, `run_post2.sh` | `ops_{base,both,base2,both2,rg,base3}.json` — the per-class op site walls, baseline first and last |
 | `perf/p3l1/guard_check.py` | proof the L1 branch fires at the fold's own shapes, and `get_max_worker_l1_unreserved_size` |
-| `perf/p3l1/parity_c1.py` | `parity_c1.json` — `torch.equal` through the production helpers |
+| `perf/p3l1/parity_c1.py`, `parity2.py` | `parity_c1.json`, `parity2.json` — `torch.equal` through the production helpers |
 | `tt_bio/tenstorrent.py` | the production change: `_PAIR_PROJ_L1_OUT`, `_PAIR_PROJ_L1_BW`, `_PAIR_BIAS_L1_NORM`, the output term in the L1 budget, `_l1_memory_config_if_it_fits` |
 
-**Generalisation, recorded and not chased** (charter §1): the source-side result is the general one.
-Any narrow-output projection that reads a whole activation tensor to write one tile of width is
-bound by its source, and handing it an L1-resident producer is worth more than anything done to its
-own output. Two more sites in this repo have that shape — `PairWeightedAveraging`'s per-head z->bias
-(240 calls/fold, 122.9 ms, and its `layer_norm` is computed **once** for eight consumers) and the
-template z projection — and neither is touched here.
+**Generalisation, recorded and not chased** (charter §1): two general results, one line each. A
+matmul whose result is consumed on device should write it to L1 whenever it fits and its program
+config leaves room — the win is in the consumer, not the producer, and it is free of parity because
+the destination does not touch the accumulation order. And a narrow-output projection that reads a
+whole activation tensor to write one tile of width is bound by its source, so an L1-resident
+producer beats anything done to its own output. Two more sites in this repo have the second shape —
+`PairWeightedAveraging`'s per-head z->bias (240 calls/fold, 123.5 ms, and its `layer_norm` is
+computed **once** for eight consumers) and the template z projection — and neither is touched here.
 
 ## What is not done
 
-Two things, named rather than left implicit. **The interleaved sweep was run once.** The four arms
-order correctly within it and the op walls are a sum over 484-3988 synced calls each, which is why
-I am quoting those rather than the block wall as the delivered figure — but a second sweep is owed
-before Proposal B's number is treated as settled. **The release-gated `_PAIR_PROJ_L1_BW = 16` arm
-was never run in a fold**, only in the probe, so its 740.6 ms/fold is a projection of exactly the
-kind this leg just showed over-prices by 2.3x.
+**The PWA site at `tenstorrent.py:2999` is the obvious next 60-100 ms/fold** and is untouched: it is
+the same source-bound shape as 2088, its wall is 123.5 ms/fold over 240 calls, and its `layer_norm`
+is already shared across eight head projections so one L1 tensor would serve all of them. **The
+0.68.0 re-check has not been done** and the merge recommendation is conditional on it. **The fold
+wall was never resolved** and this leg does not claim one.

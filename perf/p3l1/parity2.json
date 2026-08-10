@@ -1,0 +1,21 @@
+{
+ "card": "qb1 card 1",
+ "grid": [
+  13,
+  10
+ ],
+ "shape": [
+  1,
+  298,
+  298,
+  256
+ ],
+ "pair_proj_L1out_bw8_vs_production_today": {
+  "torch_equal": true,
+  "max_abs": 0.0
+ },
+ "trimul_chain_L1out_bw8_vs_production_today": {
+  "torch_equal": true,
+  "max_abs": 0.0
+ }
+}
