@@ -75,7 +75,7 @@
 set -u
 H=$HOME/mthuening
 SRC=$H/deepn_src
-B=$H/p31; mkdir -p $B $B/claims
+B=$H/p31; mkdir -p $B $B/claims $B/tries
 ANCHOR=$H/p27/tasks.txt          # oldest source window: the mtime gate must clear THIS
 NCHIP=${1:-32}
 STAGGER=${2:-8}
@@ -316,6 +316,12 @@ guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group 
 record() {  # record <model> <target> <rung> <seed> <chunk> <chunks> <mps> <chip> <rc> <secs> <cifs> <distinct> <oom>
   printf '{"model":"%s","target":"%s","rung":%s,"seed":%s,"chunk":%s,"chunks":%s,"mps":"%s","umd":%s,"rc":%s,"seconds":%s,"cifs":%s,"distinct":%s,"oom":%s}\n' \
     "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}" "${12}" "${13}" >> $B/results.jsonl
+  # Mark the claim satisfied, so slot() can tell a completed cell from a killed one. Success is
+  # the criterion the link phase and the analysis already use: rc 0 plus a full set of
+  # md5-distinct CIFs (rung/chunks of them). CLAIM is exported by slot() into the fold subshell.
+  if [ -n "${CLAIM:-}" ] && [ "$9" = 0 ] && [ "${11}" -eq $(( $3 / $6 )) ] && [ "${12}" -eq "${11}" ]; then
+    touch "$CLAIM/ok"
+  fi
 }
 
 count_structs() { # <dir> -> echoes "n distinct"
@@ -405,13 +411,35 @@ fold() { # <model> <target> <rung> <seed> <chunk> <chunks> <chip>
   esac
 }
 
+# A claim used to be taken with mkdir and never released, so a cell whose fold the guard killed
+# was skipped by every later slot for the rest of the driver's life. That is how the 08-10 tail
+# ended up 67 cells short with all 2600 claims held: the driver was claim-exhausted, not
+# work-exhausted, and P31_DONE fires on `wait`, not on completeness. One missing chunk drops the
+# whole (target, rung) from the analysis, which is the rung this campaign exists to measure.
+# Fix: release a failed claim so another slot retries it, bounded by ATTEMPT_MAX so an unfoldable
+# cell cannot burn the window, and re-walk the list until a full pass claims nothing.
+ATTEMPT_MAX=${ATTEMPT_MAX:-3}
 slot() {
-  local chip=$1 idx n model t rung seed c k
+  local chip=$1 idx n model t rung seed c k tries claimed
   n=$(wc -l < $TASKS)
-  for ((idx=1; idx<=n; idx++)); do
-    mkdir $B/claims/$idx 2>/dev/null || continue
-    read -r model t rung seed c k <<<"$(sed -n "${idx}p" $TASKS)"
-    ( cd $SRC && fold "$model" "$t" "$rung" "$seed" "$c" "$k" "$chip" )
+  while true; do
+    claimed=0
+    for ((idx=1; idx<=n; idx++)); do
+      mkdir $B/claims/$idx 2>/dev/null || continue
+      claimed=1
+      read -r model t rung seed c k <<<"$(sed -n "${idx}p" $TASKS)"
+      ( cd $SRC && export CLAIM=$B/claims/$idx && fold "$model" "$t" "$rung" "$seed" "$c" "$k" "$chip" )
+      [ -e $B/claims/$idx/ok ] && continue
+      tries=$(( $(cat $B/tries/$idx 2>/dev/null || echo 0) + 1 ))
+      echo $tries > $B/tries/$idx
+      if [ $tries -lt $ATTEMPT_MAX ]; then
+        rm -rf $B/claims/$idx
+        echo "$(date -u +%FT%TZ) RELEASE idx=$idx $model $t c$c try=$tries" >> $B/slots.log
+      else
+        echo "$(date -u +%FT%TZ) EXHAUSTED idx=$idx $model $t c$c after $tries tries" >> $B/slots.log
+      fi
+    done
+    [ "$claimed" = 0 ] && break
   done
   echo "slot $chip done" >> $B/slots.log
 }
