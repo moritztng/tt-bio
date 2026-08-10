@@ -1,0 +1,203 @@
+{
+ "q12b": [
+  {
+   "probe": "write_roof_search",
+   "nt": 8,
+   "M": 102336,
+   "cfg": "minimal_matmul",
+   "us": 286.61,
+   "write_GBs": 182.8
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 8,
+   "M": 102336,
+   "out_MB": 52.4,
+   "best_write_GBs": 182.8,
+   "best_cfg": "minimal_matmul",
+   "us": 286.61
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 16,
+   "M": 51168,
+   "cfg": "minimal_matmul",
+   "us": 300.94,
+   "write_GBs": 174.1
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 16,
+   "M": 51168,
+   "out_MB": 52.4,
+   "best_write_GBs": 174.1,
+   "best_cfg": "minimal_matmul",
+   "us": 300.94
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 32,
+   "M": 25568,
+   "cfg": "minimal_matmul",
+   "us": 297.27,
+   "write_GBs": 176.1
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 32,
+   "M": 25568,
+   "out_MB": 52.36,
+   "best_write_GBs": 176.1,
+   "best_cfg": "minimal_matmul",
+   "us": 297.27
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 64,
+   "M": 12768,
+   "cfg": "minimal_matmul",
+   "us": 301.5,
+   "write_GBs": 173.5
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 64,
+   "M": 12768,
+   "out_MB": 52.3,
+   "best_write_GBs": 196.6,
+   "best_cfg": "cg_13x10",
+   "us": 265.99
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 128,
+   "M": 6368,
+   "cfg": "minimal_matmul",
+   "us": 285.75,
+   "write_GBs": 182.6
+  },
+  {
+   "probe": "write_roof_search",
+   "nt": 128,
+   "M": 6368,
+   "out_MB": 52.17,
+   "best_write_GBs": 213.7,
+   "best_cfg": "cg_13x10",
+   "us": 244.07
+  },
+  {
+   "probe": "decomp",
+   "K": 64,
+   "read_over_write": 0.251,
+   "l1_out_us": 100.88,
+   "l1_cfg": "pc bw=2 obh=10",
+   "dram_out_us": 329.77,
+   "dram_cfg": "cg_11x10",
+   "exposed_write_us": 228.89,
+   "exposed_write_GBs": 213.3,
+   "achieved_write_GBs": 148.1
+  },
+  {
+   "probe": "decomp",
+   "K": 128,
+   "read_over_write": 0.501,
+   "l1_out_us": 136.71,
+   "l1_cfg": "pc bw=2 obh=5",
+   "dram_out_us": 347.81,
+   "dram_cfg": "pc bw=4 obh=10",
+   "exposed_write_us": 211.1,
+   "exposed_write_GBs": 231.3,
+   "achieved_write_GBs": 140.4
+  },
+  {
+   "probe": "decomp",
+   "K": 256,
+   "read_over_write": 1.003,
+   "l1_out_us": 246.6,
+   "l1_cfg": "pc bw=8 obh=2",
+   "dram_out_us": 384.19,
+   "dram_cfg": "pc bw=8 obh=5",
+   "exposed_write_us": 137.59,
+   "exposed_write_GBs": 354.9,
+   "achieved_write_GBs": 127.1
+  },
+  {
+   "probe": "decomp",
+   "K": 512,
+   "read_over_write": 2.005,
+   "l1_out_us": 474.43,
+   "l1_cfg": "pc bw=8 obh=1",
+   "dram_out_us": 543.15,
+   "dram_cfg": "pc bw=8 obh=5",
+   "exposed_write_us": 68.72,
+   "exposed_write_GBs": 710.5,
+   "achieved_write_GBs": 89.9
+  },
+  {
+   "probe": "decomp",
+   "K": 768,
+   "read_over_write": 3.008,
+   "l1_out_us": 695.71,
+   "l1_cfg": "pc bw=8 obh=3",
+   "dram_out_us": 765.43,
+   "dram_cfg": "pc bw=8 obh=5",
+   "exposed_write_us": 69.73,
+   "exposed_write_GBs": 700.2,
+   "achieved_write_GBs": 63.8
+  },
+  {
+   "site": "qkv@1428",
+   "operands": "DRAM",
+   "cfg": "minimal_matmul",
+   "us": 880.17,
+   "write_GBs": 166.4,
+   "read_GBs": 55.5,
+   "ms_fold": 922.42
+  },
+  {
+   "site": "qkv@1428",
+   "operands": "DRAM",
+   "cfg": "BEST:minimal_matmul",
+   "us": 880.17,
+   "write_GBs": 166.4,
+   "read_GBs": 55.5,
+   "ms_fold": 922.42
+  },
+  {
+   "site": "qkv@1428",
+   "operands": "L1",
+   "cfg": "BEST:pc bw=8 obh=3",
+   "us": 1148.06,
+   "write_GBs": 127.6,
+   "read_GBs": 42.5,
+   "ms_fold": 1203.16
+  },
+  {
+   "site": "gate@1434",
+   "operands": "DRAM",
+   "cfg": "minimal_matmul",
+   "us": 356.05,
+   "write_GBs": 137.1,
+   "read_GBs": 137.1,
+   "ms_fold": 373.14
+  },
+  {
+   "site": "gate@1434",
+   "operands": "DRAM",
+   "cfg": "BEST:minimal_matmul",
+   "us": 356.05,
+   "write_GBs": 137.1,
+   "read_GBs": 137.1,
+   "ms_fold": 373.14
+  },
+  {
+   "site": "gate@1434",
+   "operands": "L1",
+   "cfg": "BEST:pc bw=8 obh=5",
+   "us": 376.13,
+   "write_GBs": 129.8,
+   "read_GBs": 129.8,
+   "ms_fold": 394.19
+  }
+ ]
+}
