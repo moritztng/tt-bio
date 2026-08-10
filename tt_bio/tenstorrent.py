@@ -2104,8 +2104,14 @@ class AttentionPairBias(Module):
                 dtype=self.dtype,
             )
         else:
+            q_weight, q_bias = self.weights["proj_q.weight"], self.weights["proj_q.bias"]
+            if self.fp32_raw_matmul_attention:
+                # Fold the 1/sqrt(head_dim) attention scale into q at load, so the
+                # DiT does not rescale an [1,n_heads,NT,NT] logits tensor per call.
+                q_weight = q_weight * head_dim**-0.5
+                q_bias = q_bias * head_dim**-0.5
             qkv_weight = torch.cat(
-                [self.weights["proj_q.weight"], self.weights["proj_k.weight"], self.weights["proj_v.weight"]],
+                [q_weight, self.weights["proj_k.weight"], self.weights["proj_v.weight"]],
                 dim=0,
             )
             head_dim_padding = -head_dim % 32
@@ -2119,7 +2125,6 @@ class AttentionPairBias(Module):
                 device=self.device,
                 dtype=self.dtype,
             )
-            q_bias = self.weights["proj_q.bias"]
             q_bias = q_bias.reshape(self.n_heads, head_dim)
             q_bias = torch.nn.functional.pad(q_bias, (0, head_dim_padding), mode='constant', value=0)
             q_bias = q_bias.reshape(self.n_heads * padded_head_dim)
@@ -2239,7 +2244,8 @@ class AttentionPairBias(Module):
                 qkv,
                 num_heads=self.n_heads,
                 num_kv_heads=self.n_heads,
-                transpose_k_heads=False,
+                # the raw-matmul path wants k^T; the head split does the transpose for free
+                transpose_k_heads=self.fp32_raw_matmul_attention,
             )
             ttnn.deallocate(qkv)
             # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
@@ -2276,18 +2282,13 @@ class AttentionPairBias(Module):
                 ttnn.deallocate(zb)
             if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
                 # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
-                # path computes attention as raw matmul. SDPA scales its additive mask
-                # along with QK, so z_weight carries sqrt(head_dim) compensation. Undo
-                # that compensation before adding z after the explicit QK scale.
-                if self.compute_pair_bias:
-                    z = ttnn.multiply(z, self.head_dim ** -0.5)
+                # path computes attention as raw matmul. The pair bias arrives at
+                # reference scale (scale_pair_bias=False) and the 1/sqrt(head_dim) Q
+                # scale is folded into q at load, so there is no per-call rescale here.
                 if seq_mask is not None:
-                    z = ttnn.add_(z, seq_mask)
-                kt = ttnn.permute(k, (0, 1, 3, 2))
-                sc = batched_matmul(q, kt,
+                    z = ttnn.add(z, seq_mask)
+                sc = batched_matmul(q, k,
                                     compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(kt)
-                sc = ttnn.multiply(sc, self.head_dim ** -0.5)
                 sc = ttnn.add(sc, z)
                 attn = ttnn.softmax(sc, dim=-1)
                 o = batched_matmul(attn, v,
