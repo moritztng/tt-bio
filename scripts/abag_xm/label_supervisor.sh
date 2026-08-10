@@ -41,6 +41,11 @@ reap_locks() {
   echo "$n"
 }
 
+# Every child gets `9>&-`. fd 9 is the singleton lock and a child inherits it, which cost a
+# supervisor swap once: killing the supervisor left its orphaned `sleep 120` holding the lock,
+# so the replacement read "another supervisor holds the lock" and exited, leaving the labeler
+# unsupervised. The relaunched labeler is worse -- it lives for hours, so it would lock out
+# every future supervisor for its whole run.
 exec 9>/tmp/.abag_label_sup.lock
 flock -n 9 || { echo "$(date -u +%FT%TZ) another supervisor holds the lock, exiting" >>"$SLOG"; exit 0; }
 echo "$(date -u +%FT%TZ) supervisor up (pid $$), labeler alive=$(alive && echo yes || echo no)" >>"$SLOG"
@@ -50,8 +55,8 @@ while true; do
   if ! alive; then
     echo "$(date -u +%FT%TZ) labeler python ABSENT -- reaped $(reap_locks) stale lock(s), relaunching" >>"$SLOG"
     (cd "$WT" && setsid nohup nice -15 python3 -u scripts/abag_xm_deepn_label.py \
-       --base "$BASE" --workers 12 </dev/null >>"$LOG" 2>&1 &)
-    sleep 30
+       --base "$BASE" --workers 12 </dev/null >>"$LOG" 2>&1 9>&- &)
+    sleep 30 9>&-
     if alive; then
       echo "$(date -u +%FT%TZ) relaunch OK" >>"$SLOG"
     else
@@ -65,5 +70,5 @@ while true; do
   if [ $((i % HEARTBEAT_EVERY)) -eq 0 ]; then
     echo "$(date -u +%FT%TZ) heartbeat: ok=$(grep -c ' ok ' "$LOG" 2>/dev/null) FAILED=$(grep -c FAILED "$LOG" 2>/dev/null)" >>"$SLOG"
   fi
-  sleep 120
+  sleep 120 9>&-
 done
