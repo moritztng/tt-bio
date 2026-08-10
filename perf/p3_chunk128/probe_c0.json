@@ -1,0 +1,202 @@
+{
+ "meta": {
+  "host": "tt-quietbox",
+  "visible": "0",
+  "ttnn": "unknown",
+  "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+  "loadavg": [
+   1.0859375,
+   1.23388671875,
+   1.45263671875
+  ],
+  "rungs": [
+   64,
+   96,
+   128,
+   160,
+   256,
+   320
+  ],
+  "loadavg_end": [
+   2.70068359375,
+   1.62451171875,
+   1.57666015625
+  ]
+ },
+ "roofs": {
+  "card": "qb1 TT_VISIBLE_DEVICES=0",
+  "note": "measured on this card this pass, not inherited",
+  "loadavg_at_start": [
+   1.0859375,
+   1.23388671875,
+   1.45263671875
+  ],
+  "compute_square_4096_TFLOPs": 128.06,
+  "dram": [
+   {
+    "MB": 32.0,
+    "read_GBs": 351.5,
+    "copy_rw_GBs": 380.4,
+    "write_GBs": 245.4,
+    "l1_to_l1_GBs": 1107.2
+   },
+   {
+    "MB": 64.0,
+    "read_GBs": 377.5,
+    "copy_rw_GBs": 398.4,
+    "write_GBs": 260.0,
+    "l1_to_l1_GBs": 1235.7
+   },
+   {
+    "MB": 128.0,
+    "read_GBs": 392.9,
+    "copy_rw_GBs": 408.1,
+    "write_GBs": 268.1,
+    "l1_err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOu"
+   }
+  ],
+  "read_peak_GBs": 392.9,
+  "copy_peak_GBs": 408.1,
+  "clone_write_peak_GBs": 268.1,
+  "l1_to_l1_peak_GBs": 1235.7,
+  "mm_writer_95360x32x2048_GBs": 201.3,
+  "mm_writer_95360x32x4096_GBs": 200.0,
+  "mm_writer_write_peak_GBs": 201.3,
+  "machine_balance_FLOP_per_byte": 325.9
+ },
+ "chunk_ladder": {
+  "shape": "q/k/v [298, 8, 320, 32], bias [1, 8, 320, 320] DRAM, grid 11x10",
+  "calls_per_fold": 1048,
+  "loadavg": [
+   1.0859375,
+   1.23388671875,
+   1.45263671875
+  ],
+  "chunk64_bias_us": 2772.2,
+  "chunk64_nobias_us": 1648.2,
+  "chunk64_biasleg_us": 1124.0,
+  "chunk64_biasleg_GBs": 434.4,
+  "chunk64_legal": true,
+  "chunk96_bias_us": 3360.0,
+  "chunk96_nobias_us": 1464.8,
+  "chunk96_biasleg_us": 1895.2,
+  "chunk96_biasleg_GBs": 257.6,
+  "chunk96_legal": true,
+  "chunk128_bias_us": 2984.4,
+  "chunk128_nobias_us": 1106.6,
+  "chunk128_biasleg_us": 1877.8,
+  "chunk128_biasleg_GBs": 260.0,
+  "chunk128_legal": true,
+  "chunk160_bias_us": 1962.5,
+  "chunk160_nobias_us": 779.3,
+  "chunk160_biasleg_us": 1183.2,
+  "chunk160_biasleg_GBs": 412.6,
+  "chunk160_legal": true,
+  "chunk256_bias_us": 6950.9,
+  "chunk256_nobias_us": 1059.6,
+  "chunk256_biasleg_us": 5891.3,
+  "chunk256_biasleg_GBs": 82.9,
+  "chunk256_legal": true,
+  "chunk320_bias_us": 1726.9,
+  "chunk320_nobias_us": 567.6,
+  "chunk320_biasleg_us": 1159.3,
+  "chunk320_biasleg_GBs": 421.2,
+  "chunk320_legal": true,
+  "chunk64_speedup_vs64": 1.0,
+  "chunk64_delta_us_per_call": 0.0,
+  "chunk64_probe_ms_per_fold": 0.0,
+  "chunk96_speedup_vs64": 0.825,
+  "chunk96_delta_us_per_call": -587.8,
+  "chunk96_probe_ms_per_fold": -616.0,
+  "chunk128_speedup_vs64": 0.929,
+  "chunk128_delta_us_per_call": -212.2,
+  "chunk128_probe_ms_per_fold": -222.4,
+  "chunk160_speedup_vs64": 1.413,
+  "chunk160_delta_us_per_call": 809.7,
+  "chunk160_probe_ms_per_fold": 848.6,
+  "chunk256_speedup_vs64": 0.399,
+  "chunk256_delta_us_per_call": -4178.7,
+  "chunk256_probe_ms_per_fold": -4379.3,
+  "chunk320_speedup_vs64": 1.605,
+  "chunk320_delta_us_per_call": 1045.3,
+  "chunk320_probe_ms_per_fold": 1095.5
+ },
+ "screen": {
+  "what": "SDPA output deviation vs chunk 64, same synthetic inputs, fold's own shape",
+  "caveat": "screen only -- a block/op figure is not a fold figure",
+  "rms_of_chunk64_output": 0.0921491127561583,
+  "chunk64": {
+   "rmsd": 0.0,
+   "relative_rmsd": 0.0,
+   "max_abs_deviation": 0.0,
+   "pcc": 0.9999999999999248,
+   "torch_equal": true
+  },
+  "chunk96": {
+   "rmsd": 0.0011121359842637287,
+   "relative_rmsd": 0.012068873492104296,
+   "max_abs_deviation": 0.0234375,
+   "pcc": 0.9999276719958087,
+   "torch_equal": false
+  },
+  "chunk128": {
+   "rmsd": 0.0011006970667387195,
+   "relative_rmsd": 0.011944738628697868,
+   "max_abs_deviation": 0.0234375,
+   "pcc": 0.9999306962369587,
+   "torch_equal": false
+  },
+  "chunk160": {
+   "rmsd": 0.0014222799414811765,
+   "relative_rmsd": 0.015434548406827998,
+   "max_abs_deviation": 0.0234375,
+   "pcc": 0.999886999967248,
+   "torch_equal": false
+  },
+  "chunk256": {
+   "rmsd": 0.0016068820279005564,
+   "relative_rmsd": 0.017437845898230518,
+   "max_abs_deviation": 0.0234375,
+   "pcc": 0.9998610383083693,
+   "torch_equal": false
+  },
+  "chunk320": {
+   "rmsd": 0.0019151583862568936,
+   "relative_rmsd": 0.02078325367412617,
+   "max_abs_deviation": 0.03125,
+   "pcc": 0.9998128868048658,
+   "torch_equal": false
+  }
+ },
+ "grid_ladder": {
+  "grid_ladder_chunk64_us": {
+   "1x1": 163701.2,
+   "2x2": 41773.7,
+   "4x4": 10647.3,
+   "6x6": 5047.3,
+   "8x8": 3159.0,
+   "11x10": 2766.4
+  },
+  "core_equivalents_chunk64_of_110": 59.2,
+  "grid_ladder_chunk128_us": {
+   "1x1": 214903.0,
+   "2x2": 54189.2,
+   "4x4": 13805.6,
+   "6x6": 6798.3,
+   "8x8": 3981.9,
+   "11x10": 3000.6
+  },
+  "core_equivalents_chunk128_of_110": 71.6
+ },
+ "alignment": {
+  "method": "logical key length 298 vs 320, both inside a 320-padded buffer, same config",
+  "chunk64_klogical298_us": 2762.3,
+  "chunk64_klogical320_us": 2760.8,
+  "chunk64_penalty_us": 1.5,
+  "chunk64_penalty_ms_per_fold": 1.6,
+  "chunk128_klogical298_us": 2982.6,
+  "chunk128_klogical320_us": 2967.9,
+  "chunk128_penalty_us": 14.7,
+  "chunk128_penalty_ms_per_fold": 15.4
+ }
+}

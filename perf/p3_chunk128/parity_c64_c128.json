@@ -1,0 +1,52 @@
+{
+  "cif_a": "perf/p3_chunk128/fold_c64/prot300.cif",
+  "cif_b": "perf/p3_chunk128/fold_c128/prot300.cif",
+  "n_atoms_a": 2398,
+  "n_atoms_b": 2398,
+  "all_atom": {
+    "n": 2398,
+    "kabsch_rmsd_A": 4.035240219200183,
+    "unaligned_rmsd_A": 11.359800771152964
+  },
+  "ca": {
+    "n": 298,
+    "kabsch_rmsd_A": 3.6012236701295874,
+    "unaligned_rmsd_A": 11.058637312246514,
+    "tm_score": 0.8846460818899431,
+    "lddt": 0.8605030860532318
+  },
+  "trunk": {
+    "s": {
+      "rms_of_reference": 233.83332397499044,
+      "rmsd": 3.631658539109576,
+      "relative_rmsd": 0.015530970852973884,
+      "max_abs_deviation": 88.0,
+      "max_abs_of_reference": 1360.0,
+      "pcc": 0.9998837163582898,
+      "torch_equal": false,
+      "n": 114432
+    },
+    "z": {
+      "rms_of_reference": 21.416065931021752,
+      "rmsd": 6.97875091532109,
+      "relative_rmsd": 0.3258652143581693,
+      "max_abs_deviation": 448.5,
+      "max_abs_of_reference": 2040.0,
+      "pcc": 0.9466727617859334,
+      "torch_equal": false,
+      "n": 22733824
+    }
+  },
+  "trunk_shapes": {
+    "s": [
+      298,
+      384
+    ],
+    "z": [
+      1,
+      298,
+      298,
+      256
+    ]
+  }
+}
