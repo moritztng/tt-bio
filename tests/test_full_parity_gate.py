@@ -116,3 +116,42 @@ def test_of3_ckpt_preflight(tmp_path, monkeypatch):
     ckpt.write_bytes(b"x")
     monkeypatch.setenv("OF3_CKPT", str(ckpt))
     assert not any("OF3" in p for p in mod.preflight_check([leg]))
+
+
+def test_staged_msa_legs_sharing_a_sequence_do_not_share_one_a3m(tmp_path, monkeypatch):
+    """Two staged legs on the same sequence must consume their OWN reference MSA.
+
+    ``protenix-ubq-msa`` and ``openfold3-ubq-msa`` both fold examples/ubq.yaml but pin
+    different reference a3m bytes. Staging by sequence hash alone put both in one
+    ``<workdir>/msa/<seqhash>.a3m`` and the copy is first-writer-wins, so the second leg
+    silently folded against the first leg's MSA while being scored against a reference
+    built from other bytes.
+    """
+    mod = _load()
+    prot_leg = mod.LEGS_BY_ID["protenix-ubq-msa"]
+    of3_leg = mod.LEGS_BY_ID["openfold3-ubq-msa"]
+    assert prot_leg.yaml == of3_leg.yaml          # same sequence, hence the same seq hash
+    assert prot_leg.fixture != of3_leg.fixture    # different reference MSA bytes
+
+    fixtures = tmp_path / "fx"
+    bytes_by_fixture = {prot_leg.fixture: b">q\nAAA\n>a\nAAC\n",
+                        of3_leg.fixture: b">q\nAAA\n>b\nAAG\n"}
+    for name, blob in bytes_by_fixture.items():
+        d = fixtures / name
+        d.mkdir(parents=True)
+        (d / "msa.a3m").write_bytes(blob)
+    monkeypatch.setattr(mod, "_fixture_dir", lambda spec: fixtures / spec)
+
+    wd = tmp_path / "wd"
+    staged = {}
+    for leg in (prot_leg, of3_leg):
+        msa_dir, args = mod.stage_msa(leg, wd)
+        assert args[0] == "--msa_dir" and args[1] == str(msa_dir)
+        a3m = list(msa_dir.glob("*.a3m"))
+        assert len(a3m) == 1, f"{leg.id}: expected exactly one staged a3m, got {a3m}"
+        staged[leg.id] = a3m[0]
+
+    assert staged[prot_leg.id] != staged[of3_leg.id], "both legs staged to the same path"
+    for leg in (prot_leg, of3_leg):
+        assert staged[leg.id].read_bytes() == bytes_by_fixture[leg.fixture], (
+            f"{leg.id} staged another fixture's MSA")

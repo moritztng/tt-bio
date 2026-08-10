@@ -603,7 +603,8 @@ def stage_msa(leg: Leg, workdir: Path) -> tuple[Path | None, list[str]]:
     - "none": no MSA args (boltz2 --single_sequence is already in device_args).
     - "yaml": the yaml itself carries an `msa:` path — nothing to stage.
     - "server": --use_msa_server (already in device_args); nothing to stage.
-    - "staged": copy <fixture>/msa.a3m to <workdir>/msa/<seqhash>.a3m, return --msa_dir.
+    - "staged": copy <fixture>/msa.a3m to <workdir>/msa/<fixture>/<seqhash>.a3m,
+      return --msa_dir.
     """
     if leg.msa != "staged":
         return None, []
@@ -614,7 +615,12 @@ def stage_msa(leg: Leg, workdir: Path) -> tuple[Path | None, list[str]]:
     seq = _yaml_protein_seq(REPO / leg.yaml)
     if not seq:
         raise ValueError(f"staged-MSA leg {leg.id}: could not read sequence from {leg.yaml}")
-    msa_dir = workdir / "msa"
+    # Scope the staged dir by fixture, not just by sequence. Two staged legs can share a
+    # sequence and NOT share an MSA: protenix-ubq-msa and openfold3-ubq-msa both fold
+    # examples/ubq.yaml but pin different reference a3m bytes, and the copy below is
+    # first-writer-wins -- so one flat msa/<seqhash>.a3m silently fed the first leg's
+    # reference MSA to the second, comparing it against a reference built from other bytes.
+    msa_dir = workdir / "msa" / leg.fixture.replace("/", "__")
     msa_dir.mkdir(parents=True, exist_ok=True)
     dst = msa_dir / f"{_seq_hash(seq)}.a3m"
     if not dst.exists():
