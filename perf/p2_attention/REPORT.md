@@ -43,6 +43,9 @@ per-fold call number myself and report what I counted.
 | U1 | the SDPA engages most of the grid: T1's core-equivalent count from a grid ladder | 58.2 core-equivalents of 110, +/- 15 % | outside 49-67 |
 | O1 | the SDPA's two legs are both DRAM-bound and therefore **additive**, not overlapped | (bias on) - (bias off) reproduces the bias leg to within 8 % at both chunk sizes, i.e. total ~ compute + comm not max() | the bias leg measured by subtraction differs from the standalone bias traffic time by more than 25 %, which would mean the legs partly hide behind each other |
 
+The +/- 5 %, 8 %, 10 %, 12 % and 15 % margins above are of the predicted figure in that row; L1a's
+17 % is of the per-core L1 budget and O1's 25 % is of the standalone bias figure.
+
 **Falsifiable mechanism hypotheses** (each names the mechanism at the level the hardware works at,
 and the measurement that kills it):
 
@@ -51,15 +54,18 @@ and the measurement that kills it):
   refilled per chunk-pair and holds no cross-batch state. **Falsified if** placing the identical mask
   in interleaved L1 leaves the bias leg within 20 % of its DRAM figure — that would mean the cost is
   transaction issue rate or reader occupancy, not the DRAM path.
+
 - **HB — compute kernel phase, not circular-buffer depth.** The chunk-64 penalty is the
   online-softmax rescale executed once per k-chunk plus 25 chunk-pair loop iterations per
   (batch, head) occupying the compute kernel phase. **Killed if** the core leg (bias absent) does not
   fall by at least 2.5x between chunk 64 and chunk 320, or if it falls by the same factor with the
   bias present (which would make the two legs coupled, not independent).
+
 - **HC — a strided tile gather.** `nlp_create_qkv_heads` is 10 tile transactions per (batch, head) at
   a stride of 24 tiles through the projection output's tile grid; it computes nothing and it is at
   the DRAM copy roof, so it is removable but not tunable. **Ruled out by** any reshape-only path
   whose output equals `nlp_create_qkv_heads`'s bit for bit.
+
 - **HD — bandwidth, not issue rate.** If HA holds, the L1-mask win should track the L1/DRAM
   bandwidth ratio rather than saturating at some fixed reader occupancy. **Falsified if** the bias
   leg with an L1 mask lands at a fixed floor independent of how many bytes it re-reads — testable by
@@ -84,8 +90,8 @@ card one pass earlier, which is why they are quoted beside mine rather than used
 | machine balance | compute roof / read roof | **323.2 FLOP/byte** | 337.9 |
 | L1 per bank | from the allocator's own refusal message | **1 461 760 B**, 130 banks = 190.0 MB | 1 532 448 unreserved |
 
-Read and copy land 1.1 % and 0.6 % below T1's figures for the same quantity, and the matmul writer
-1.8 % above B1's. Nothing in the inherited roof set needs correcting.
+Read and copy land 1.1 % and 0.6 % low against T1's figures for the same quantity, and the matmul
+writer 1.8 % high against B1's. Nothing in the inherited roof set needs correcting.
 
 **Where the three ops sit on the balance.** The SDPA does 31.25 GFLOP against 683.53 MB moved =
 **45.7 FLOP/byte**, far on the memory side of this card's 323.2. `nlp_create_qkv_heads` computes
@@ -103,7 +109,7 @@ K=256). Its binding roof is the matmul writer's DRAM write path, not compute.
 
 **The bias leg reproduces, and it is bandwidth on the DRAM path.** Three independent measurements of
 (bias present) - (bias absent) at the fold's true shape: **1123.2 us** at chunk 64, **1187.9 us** at
-chunk 320, **1156.7 us** at chunk 64 on a second run. Mean 1155.9 us, spread 2.8 % of the mean.
+chunk 320, **1156.7 us** at chunk 64 on a second run. Mean 1155.9 us, spread 2.8 % of that mean figure.
 Prediction B3 said flat within 8 % — **CONFIRMED**, and T1's 1157-1177 us band reproduces.
 
 The head sweep is what turns "flat" into a mechanism. Halving and quartering the head count moves
@@ -115,7 +121,7 @@ the leg with the bytes and not with anything else:
 | 4 | 244.1 MB | 555.5 us | 439.4 GB/s | scales |
 | 8 (production) | 488.2 MB | 1156.7 us | 422.1 GB/s | **HD CONFIRMED** — 3.76x the leg for 4.0x the bytes |
 
-At 397.0-439.4 GB/s the leg is at **100.2-110.9 % of this card's own 396.3 GB/s read roof**, so it is
+At 397.0-439.4 GB/s the leg is at **100.2-110.9 % of this card's own read roof (396.3 GB/s)**, so it is
 saturated; a pure-read stream beating a clone-derived read roof by ~7 % is the instrument, not a
 violated limit (the clone that sets the roof also writes). **HA is CONFIRMED by byte-scaling rather
 than by the route I planned**: a fixed reader-occupancy or transaction-issue floor would not have
@@ -137,10 +143,9 @@ record.
 `l1_size_per_core` and every `alloc`/`mem` attribute are absent), so I measured the live buffers by
 allocating against them: at each `scaled_dot_product_attention` entry **inside a real
 `PairformerLayer`**, the largest interleaved-L1 buffer that still allocates is **187 957 248 B =
-1 445 824 B = 1411.9 kB per core**, against a bank size of 1 461 760 B. That is **98.9 % of the bank
-free at the moment the SDPA runs** and it is identical to the empty-allocator control — the block
+1 445 824 B = 1411.9 kB per core**, against a bank size of 1 461 760 B. That is **98.9 % of the per-core L1 budget, free at the moment the SDPA runs** and it is identical to the empty-allocator control — the block
 holds essentially nothing in L1 at that point, because the whole pair track lives in DRAM. W9's
-204.8 kB resident bias slice is **14.2 % of what is free per core there**. Capacity does not forbid
+204.8 kB resident bias slice is **14.2 % of the per-core L1 budget measured free there**. Capacity does not forbid
 the design. Predicted >= 1.20 MB/core; measured 1.41.
 
 **The reduction order, stated plainly.** W9's kernel replaces the streaming online softmax (five
@@ -172,7 +177,7 @@ which is exactly what two independent additive legs predict and a coupled pair w
 **In a real block, not just standalone.** One `PairformerLayer` at the fold's true shape, three timed
 repeats each side: **35.899 ms at chunk 64, 33.741 ms at chunk 320, a 2.158 ms saving = 6.0 % of the
 chunk-64 block wall.** The standalone delta predicts 2 x 1016.6 us = 2.033 ms; the block delivers
-2.158, agreeing to 6.1 % of the standalone prediction. The saving is **additive in the block wall**,
+2.158, agreeing to 6.1 % of the standalone figure. The saving is **additive in the block wall**,
 which is the overlap answer for this arm.
 
 **Grid ladder, production chunk and production bias** (U1): 1x1 163 719.9 us, 2x2 41 367.0, 4x4
@@ -261,13 +266,13 @@ the extra MSA leverage is inside these numbers and must not be added a second ti
 |---|---:|---:|---|
 | **L1 — bias-once SDPA** | 1212.5 | **1207.9 ms/fold** | **CONFIRMED**, capacity clear at 14.2 % of free L1/core, but kernel-only: the L1-mask shortcut is refused |
 | **L2 — chunk 64 -> 320** | 1119.1 | **1065.4 ms/fold** standalone, **1130.8 ms/fold** from the block wall | **CONFIRMED**, parity cost measured below |
-| **L1 + L2 together** | 2331.6 | **2306.0 ms/fold** (2775.5 -> 575.1 us/call, 79.3 % of the 2908.7 ms/fold SDPA row) | near-additive, as two independent legs predict |
+| **L1 + L2 together** | 2331.6 | **2306.0 ms/fold** (2775.5 -> 575.1 us/call, 79.3 % of the SDPA ms/fold row) | near-additive, as two independent legs predict |
 | **L3 — head-split fusion** | 780.1 | **0 ms/fold** | **KILLED** — the split is a transposition, not a reshape; the direct-emit matmul is refused; the narrow fallback is 3.32x worse |
 | *new* — split at L1 residency | — | **338-405 ms/fold, bounded** | needs its own experiment; changes the projection's output buffer type |
 
 The three rows this pass re-priced on my own card, for the ledger: SDPA **2908.7 ms/fold** (T1:
 2993.6, -2.8 %), `nlp_create_qkv_heads` **803.4 ms/fold** (T1: 780.1, +3.0 %), qkv projection
-**911.9 ms/fold** (T1: 906.8, +0.6 %).
+**911.9 ms/fold** (T1: 906.8, +0.6 %) — each percentage against T1's own figure for that op.
 
 **Overlap, per arm.** The SDPA's two legs are additive, not overlapped: the leg recovered by
 subtraction runs at 100-111 % of the read roof, and a leg that were partly hidden behind the core
@@ -292,6 +297,9 @@ inputs, chunk 64 vs chunk 320:
 |---|---:|---:|---:|---:|---:|---:|---|
 | pair track `z` | 34.635 | 0.7957 | **2.30 %** | 86.0 | 776.0 | 0.99971 | False |
 | single track `s` | 4.134 | 0.00346 | **0.084 %** | 0.5 | 124.5 | 0.9999996 | False |
+
+Both relative figures, 2.30 % and 0.084 %, are the RMSD taken against the rms of that same tensor
+under chunk 64.
 
 **Prediction L2b was WRONG.** I predicted a relative RMSD between 1e-4 and 5e-3 and said I would be
 wrong above 1e-2. It is 2.3e-2, four to five times my upper bound. The mechanism is not mysterious —
@@ -327,12 +335,12 @@ above, a full-row two-pass bias-once softmax has the same order as chunk 320, so
    agreement is worth recording because it is the first independent replication of that grid ladder.
 4. **A fourth figure for Q12, taken on qb1 card 2 with B1's L1-operand method: 201.2 GB/s.** The qkv
    projection writes at 168.3 GB/s = **83.6 %** of it. Against the org's three existing figures the
-   same op reads 96.8 % (174.9), 85.6 % (197.7) and over 100 % (156.6). Mine is closest to B1's and
-   nothing now exceeds 100 %. P2 owns the adjudication; this is one more data point on its own card,
+   same op reads 96.8 % (174.9), 85.6 % (197.7) and over 100 % (156.6), each of the write roof named
+   beside it in GB/s. Mine is closest to B1's and nothing now exceeds its own roof. P2 owns the adjudication; this is one more data point on its own card,
    not a ruling.
 5. **The bias leg exceeding the read roof is an instrument artefact, not a violation.** A pure-read
-   stream reaches 100-111 % of a roof set by a `clone` that also writes. T1's 103.5 % was the same
-   effect. Anyone scoring a read-only leg on this card should expect ~7 % of headroom above the
+   stream reaches 100-111 % of a roof set by a `clone` that also writes. T1's 103.5 % of the read
+   roof was the same effect. Anyone scoring a read-only leg on this card should expect ~7 % of headroom above the
    clone-derived number.
 6. **Code drift since T1 measured.** `_PAIR_PROJ_BW = 16` (`bbb5d85b`) landed on main after T1's
    branch point and changes `_pair_proj_linear`, so T1's `triangle_bias` row is on an older
