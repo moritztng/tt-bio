@@ -1,0 +1,20 @@
+qb1 card 2, 2026-08-10, every load average recorded at the moment its measurement started.
+Co-tenant throughout: perfwar-qb1-rebaseline-and-land, five-leg full_parity_gate.py, three workers.
+/dev/tenstorrent/0 held by pid 930576 at the start of this pass; cards 1 and 3 idle.
+
+stage                          1min  5min 15min
+roofs_card.py                  1.53  1.20  1.20
+facts.py (grid, chunk width)   1.48  1.22  1.20
+probe_qb1.py 0.67.4            1.48  1.23  1.21
+fold arm base    (flags off)   1.62  1.32  1.24
+fold arm pwa                   2.94  1.85  1.43   <- rose to 7.78 by the end of the arm
+fold arm tpl                   6.27  3.28  1.98
+fold arm base2   (flags off)   5.41  3.57  2.19
+fold arm all                   1.84  2.97  2.12
+fold arm base3   (flags off)   3.90  3.16  2.24   <- 7.92 at the end of the arm
+probe_qb1.py 0.67.4 re-run     5.52  4.67  3.01
+probe_qb1.py 0.68.0            5.88  4.76  3.05
+
+The PWA arm ran under a rising load and is still the fast arm, so the win is not a quiet-board
+artefact. The three flags-off baselines were taken at 1.62, 5.41 and 3.90 and their op walls agree
+to 1.31 % of the baseline mean, which is what licenses the deltas.
