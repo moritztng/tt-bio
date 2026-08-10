@@ -49,7 +49,11 @@ Per leg this runner:
 
 Exit 0 iff every leg that took the fast path reproduces within its floor (legs
 flagged ``BLOCKED-REF-REGEN-NEEDED`` do not fail the gate; they are the slow
-opt-in path and are reported separately).
+opt-in path and are reported separately). One guard on top: if NO leg reaches a
+scored verdict (every leg blocked on reference regen — the classic cause is
+``--seeds`` given a bare count instead of a list, so no fixture seed matches),
+the run verified nothing, so the gate prints ``GATE INCONCLUSIVE`` and exits
+nonzero instead of a false ``GATE PASS``.
 
 VERDICT SEMANTICS — the single source of truth (see ``finalize_leg`` /
 ``_matches_committed``; also mirrored in RELEASING.md):
@@ -493,6 +497,35 @@ def _incomplete_fixture_seeds(leg, seeds: list) -> list:
     return bad
 
 
+def _fixture_known_seeds(spec: str) -> list[int]:
+    """Seed indices with a seed dir in the committed fixture, sorted."""
+    out = []
+    for p in _fixture_dir(spec).glob("seed*"):
+        m = re.fullmatch(r"seed(\d+)", p.name)
+        if m and p.is_dir():
+            out.append(int(m.group(1)))
+    return sorted(out)
+
+
+def _seeds_matched_against_fixture(leg, legacy_rdx: bool) -> bool:
+    """True when the leg's seed list is matched against fixture seed dirs (the
+    ``_incomplete_fixture_seeds`` path): structure legs scored legacy-R/D/X-style.
+    Envelope legs ignore ``--seeds`` (the device fold always runs at ENVELOPE_SEED),
+    so there is no fixture seed list to validate against for them."""
+    return (leg.kind == "structure" and bool(leg.fixture)
+            and (legacy_rdx or leg.legacy_rdx or not _is_envelope_leg(leg)))
+
+
+def _of3_ckpt_default() -> Path | None:
+    """The OpenFold3 p2 preview checkpoint at a known default location, if one exists.
+    Mirrors tt_bio/worker.py's cache resolution plus the fleet's ~/of3-weights drop."""
+    for p in (Path.home() / ".boltz" / "of3-p2-155k.pt",
+              Path.home() / "of3-weights" / "of3-p2-155k.pt"):
+        if p.exists():
+            return p
+    return None
+
+
 def preflight_check(legs: list) -> list:
     """Card-free validation of every leg's static wiring, run before any device work (and via
     ``--check``). Returns a list of human-readable problems (empty == every leg well-formed).
@@ -538,6 +571,15 @@ def preflight_check(legs: list) -> list:
                         f"run single-sequence, mismatching the MSA reference")
                 elif ("/" in val or val.endswith(".a3m")) and not (REPO / val).exists():
                     problems.append(f"{leg.id}: msa='yaml' points at missing MSA file {val}")
+        if leg.model == "openfold3":
+            ckpt = os.environ.get("OF3_CKPT")
+            if ckpt and not Path(ckpt).expanduser().exists():
+                problems.append(f"{leg.id}: OF3_CKPT={ckpt} is not an existing file")
+            elif not ckpt and _of3_ckpt_default() is None:
+                problems.append(
+                    f"{leg.id}: OpenFold3 checkpoint not found — set OF3_CKPT to the p2 "
+                    f"preview weights (fleet copy ~/of3-weights/of3-p2-155k.pt); the fold "
+                    f"otherwise fails inside tt_bio/worker.py after paying for setup")
     return problems
 
 
@@ -1336,8 +1378,10 @@ def main() -> int:
     ap.add_argument("--include-opt-in", action="store_true",
                    help="also run opt-in legs (esmc-6b, MSA-server legs).")
     ap.add_argument("--seeds", default="",
-                   help="override seed list for fixture legs, comma-separated (e.g. 0,1). "
-                   "Default: the leg's recorded 5 seeds.")
+                   help="override the seed list for fixture legs, comma-separated (e.g. 0,1). "
+                   "A bare count like 5 means seed index 5, not five seeds; indices with no "
+                   "seed dir in the leg's reference fixture are rejected. Default: the leg's "
+                   "recorded seeds.")
     ap.add_argument("--workdir", default="/tmp/full_parity_gate",
                    help="workdir for device output + reports.")
     ap.add_argument("--out", default="", help="write the JSON report here too.")
@@ -1419,7 +1463,26 @@ def main() -> int:
 
     seeds_override = None
     if args.seeds:
-        seeds_override = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
+        try:
+            seeds_override = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
+        except ValueError:
+            ap.error(f"--seeds takes a comma-separated list of integer seed indices, "
+                     f"got {args.seeds!r}")
+        unknown = []
+        for leg in legs:
+            if not _seeds_matched_against_fixture(leg, args.legacy_rdx):
+                continue
+            known = _fixture_known_seeds(leg.fixture)
+            if not known:
+                continue  # fixture absent — the BLOCKED-REF-REGEN path reports that instead
+            extra = [s for s in seeds_override if s not in known]
+            if extra:
+                unknown.append(f"{leg.id}: seed(s) {extra} not in fixture {leg.fixture} "
+                               f"(has seeds {known})")
+        if unknown:
+            ap.error("--seeds is a comma-separated LIST of seed indices (e.g. 0,1,2), not a "
+                     "count — a bare 5 selects seed index 5. No selected leg's fixture "
+                     "contains the requested seed(s):\n  " + "\n  ".join(unknown))
 
     resume = not args.fresh
 
@@ -1566,6 +1629,10 @@ def main() -> int:
                 _tsdir = _fixture_dir(leg.fixture) / "template_structures" if leg.fixture else None
                 if _tsdir is not None and _tsdir.is_dir():
                     fold_env["OF3_TEMPLATE_STRUCTURES"] = str(_tsdir)
+                if leg.model == "openfold3" and not os.environ.get("OF3_CKPT"):
+                    ckpt = _of3_ckpt_default()
+                    if ckpt:
+                        fold_env["OF3_CKPT"] = str(ckpt)
                 folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir,
                                          resume=resume, fold_timeout=args.fold_timeout,
                                          extra_env=fold_env)
@@ -1604,19 +1671,29 @@ def main() -> int:
     # tally
     from collections import Counter
     tally = Counter(r["verdict"] for r in rows)
+    # Only a leg that reached its scorer is evidence; a BLOCKED-REF-REGEN-NEEDED row scored
+    # nothing. If every leg is blocked the run verified zero legs, so it must not print GATE
+    # PASS — the classic cause is --seeds given a bare count, matching no fixture seed.
+    n_scored = sum(n for v, n in tally.items() if v != "BLOCKED-REF-REGEN-NEEDED")
+    inconclusive = n_scored == 0
     print("\n" + "#" * 78)
     print(f"# Tally: {dict(tally)}    total wall {total_wall/60:.1f} min")
-    print("# " + ("GATE PASS — every fast-path leg reproduces within its floor"
-                   if all_pass else
-                   "GATE FAIL — a leg ERRORED, GAPped, or DRIFTed vs committed (see above)"))
+    if inconclusive:
+        print(f"# GATE INCONCLUSIVE — {len(rows)}/{len(rows)} legs blocked on reference "
+              "regen, nothing scored")
+    else:
+        print("# " + ("GATE PASS — every fast-path leg reproduces within its floor"
+                       if all_pass else
+                       "GATE FAIL — a leg ERRORED, GAPped, or DRIFTed vs committed (see above)"))
     print("#" * 78)
 
-    report = {"legs": rows, "tally": dict(tally), "total_wall_s": total_wall,
+    report = {"legs": rows, "tally": dict(tally), "scored": n_scored,
+              "total_wall_s": total_wall,
               "workers": [f"{w.host}:{w.card}" for w in workers]}
     (workdir / "report.json").write_text(json.dumps(report, indent=2))
     if args.out:
         Path(args.out).write_text(json.dumps(report, indent=2))
-    return 0 if all_pass else 1
+    return 0 if (all_pass and not inconclusive) else 1
 
 
 if __name__ == "__main__":

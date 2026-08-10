@@ -122,7 +122,7 @@ each leg, not two.
 | `GAP` | diffusion leg: a metric exceeds the bf16 envelope — a real residual to hunt; other legs: metric outside its floor | **fail** — unless it reproduces a committed `GAP-evidenced` |
 | `GAP-evidenced` | a GAP proven to be a genuine bf16-backend floor, accepted in `docs/implementation-parity.md` (a committed verdict only) | a live GAP that matches it reproduces (pass) |
 | `DRIFT` | live verdict does not reproduce the committed one and is not an improvement | **fail**; never silently overwrites the doc |
-| `BLOCKED-REF-REGEN-NEEDED` | reference missing or its fingerprint changed — diffusion legs need `ref_fp32`+`ref_bf16` CPU references (`--regen-refs`) | not a failure — the slow opt-in regen path, reported separately |
+| `BLOCKED-REF-REGEN-NEEDED` | reference missing or its fingerprint changed — diffusion legs need `ref_fp32`+`ref_bf16` CPU references (`--regen-refs`) | not a failure — the slow opt-in regen path, reported separately; if EVERY leg is blocked the run prints `GATE INCONCLUSIVE` and exits nonzero |
 | `ERROR` | the fold or scorer produced no report | **fail** |
 | `NO-DATA` | a report with no comparable metric | drift check skipped; a live NO-DATA still fails |
 
@@ -179,6 +179,8 @@ PYTHONPATH="$PWD" python3 scripts/full_parity_gate.py --regen-refs --leg boltz2-
 
 A leg whose `ref_fp32`/`ref_bf16` are absent (or whose fingerprint drifted) reports
 `BLOCKED-REF-REGEN-NEEDED` and does not fail the gate — regenerate rather than trust a false pass.
+If EVERY leg in a run is blocked this way, the gate prints `GATE INCONCLUSIVE` and exits
+nonzero — zero scored legs is no evidence of parity.
 The retired R/D/X floor stays available as an opt-in device self-consistency (`D`) DIAGNOSTIC via
 `--legacy-rdx`; it is no longer a pass criterion. `--margin` overrides the envelope margin
 (default 0.50, justified in `~/.coworker/state/tt-bio-integration-parity-gate.md §4`).

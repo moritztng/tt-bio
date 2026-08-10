@@ -1,0 +1,151 @@
+{
+  "cols": 298,
+  "c_in": 64,
+  "c_out": 192,
+  "grid": [
+    11,
+    10
+  ],
+  "device_l1_unreserved": 1532416,
+  "free_per_bank_idle": 1461760,
+  "largest_r_that_builds": 120,
+  "best_r": 100,
+  "rows": [
+    {
+      "rows": 17,
+      "per_core_M": 2,
+      "cores_used": 85,
+      "out_bytes_per_bank": 20480,
+      "status": "ok",
+      "block_ms": 0.0136,
+      "whole_ms": 0.2442,
+      "blocks_per_tensor": 18
+    },
+    {
+      "rows": 20,
+      "per_core_M": 2,
+      "cores_used": 100,
+      "out_bytes_per_bank": 22528,
+      "status": "ok",
+      "block_ms": 0.0136,
+      "whole_ms": 0.2038,
+      "blocks_per_tensor": 15
+    },
+    {
+      "rows": 33,
+      "per_core_M": 3,
+      "cores_used": 110,
+      "out_bytes_per_bank": 36864,
+      "status": "ok",
+      "block_ms": 0.0157,
+      "whole_ms": 0.1574,
+      "blocks_per_tensor": 10
+    },
+    {
+      "rows": 34,
+      "per_core_M": 4,
+      "cores_used": 85,
+      "out_bytes_per_bank": 38912,
+      "status": "ok",
+      "block_ms": 0.0179,
+      "whole_ms": 0.1608,
+      "blocks_per_tensor": 9
+    },
+    {
+      "rows": 40,
+      "per_core_M": 4,
+      "cores_used": 100,
+      "out_bytes_per_bank": 45056,
+      "status": "ok",
+      "block_ms": 0.0188,
+      "whole_ms": 0.1505,
+      "blocks_per_tensor": 8
+    },
+    {
+      "rows": 50,
+      "per_core_M": 5,
+      "cores_used": 100,
+      "out_bytes_per_bank": 57344,
+      "status": "ok",
+      "block_ms": 0.0221,
+      "whole_ms": 0.1326,
+      "blocks_per_tensor": 6
+    },
+    {
+      "rows": 60,
+      "per_core_M": 6,
+      "cores_used": 100,
+      "out_bytes_per_bank": 67584,
+      "status": "ok",
+      "block_ms": 0.0253,
+      "whole_ms": 0.1263,
+      "blocks_per_tensor": 5
+    },
+    {
+      "rows": 68,
+      "per_core_M": 8,
+      "cores_used": 85,
+      "out_bytes_per_bank": 77824,
+      "status": "ok",
+      "block_ms": 0.0302,
+      "whole_ms": 0.1511,
+      "blocks_per_tensor": 5
+    },
+    {
+      "rows": 75,
+      "per_core_M": 10,
+      "cores_used": 75,
+      "out_bytes_per_bank": 83968,
+      "status": "ok",
+      "block_ms": 0.0347,
+      "whole_ms": 0.1389,
+      "blocks_per_tensor": 4
+    },
+    {
+      "rows": 85,
+      "per_core_M": 10,
+      "cores_used": 85,
+      "out_bytes_per_bank": 96256,
+      "status": "ok",
+      "block_ms": 0.037,
+      "whole_ms": 0.1478,
+      "blocks_per_tensor": 4
+    },
+    {
+      "rows": 100,
+      "per_core_M": 10,
+      "cores_used": 100,
+      "out_bytes_per_bank": 112640,
+      "status": "ok",
+      "block_ms": 0.0392,
+      "whole_ms": 0.1175,
+      "blocks_per_tensor": 3
+    },
+    {
+      "rows": 120,
+      "per_core_M": 12,
+      "cores_used": 100,
+      "out_bytes_per_bank": 135168,
+      "status": "ok",
+      "block_ms": 0.0431,
+      "whole_ms": 0.1294,
+      "blocks_per_tensor": 3
+    },
+    {
+      "rows": 149,
+      "per_core_M": 149,
+      "cores_used": 10,
+      "out_bytes_per_bank": 167936,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    },
+    {
+      "rows": 298,
+      "per_core_M": 149,
+      "cores_used": 20,
+      "out_bytes_per_bank": 333824,
+      "status": "throw",
+      "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+    }
+  ]
+}

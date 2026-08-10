@@ -1,0 +1,231 @@
+{
+  "model": "opendde",
+  "n_aa": 298,
+  "hardware": "blackhole",
+  "device_l1_unreserved": 1532416,
+  "l1_total_bytes_per_bank": 1461760,
+  "l1_banks": 110,
+  "grid": [
+    11,
+    10
+  ],
+  "any_decision_changed": false,
+  "rows": [
+    {
+      "shape": "pairproj (1, 298, 298, 384)@(384, 384)",
+      "gate": "_pair_proj_program_config",
+      "calls": 2096,
+      "samples": 12,
+      "need_bytes": 569344,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=30,bw=1)",
+      "dec_live": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "pairproj (298, 298, 384)@(384, 12)",
+      "gate": "_pair_proj_program_config",
+      "calls": 1048,
+      "samples": 12,
+      "need_bytes": 186368,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=30,bw=1)",
+      "dec_live": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "qkv (298, 298, 384)@(384, 1152)",
+      "gate": "_tri_att_qkv_l1_config",
+      "calls": 1048,
+      "samples": 0,
+      "need_bytes": null,
+      "out_bytes_per_bank": null,
+      "free_min": null,
+      "free_median": null,
+      "dec_naive": "declined(%32 shape guard)",
+      "dec_live": [],
+      "dec_live_out": [],
+      "changed": false,
+      "note": "logical M=88804 is not a multiple of 32 -- the gate never reaches its L1 test on this shape (W5, tt-bio-l1-residency-guard-dead-in-real-folds)"
+    },
+    {
+      "shape": "pairproj (298, 298, 384)@(384, 384)",
+      "gate": "_pair_proj_program_config",
+      "calls": 1048,
+      "samples": 12,
+      "need_bytes": 569344,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=30,bw=1)",
+      "dec_live": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "pairproj (1, 298, 298, 64)@(64, 64)",
+      "gate": "_pair_proj_program_config",
+      "calls": 320,
+      "samples": 12,
+      "need_bytes": 221184,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=30,bw=1)",
+      "dec_live": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "pairproj (298, 298, 64)@(64, 2)",
+      "gate": "_pair_proj_program_config",
+      "calls": 160,
+      "samples": 12,
+      "need_bytes": 186368,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=30,bw=1)",
+      "dec_live": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "qkv (298, 298, 64)@(64, 192)",
+      "gate": "_tri_att_qkv_l1_config",
+      "calls": 160,
+      "samples": 0,
+      "need_bytes": null,
+      "out_bytes_per_bank": null,
+      "free_min": null,
+      "free_median": null,
+      "dec_naive": "declined(%32 shape guard)",
+      "dec_live": [],
+      "dec_live_out": [],
+      "changed": false,
+      "note": "logical M=88804 is not a multiple of 32 -- the gate never reaches its L1 test on this shape (W5, tt-bio-l1-residency-guard-dead-in-real-folds)"
+    },
+    {
+      "shape": "pairproj (298, 298, 64)@(64, 64)",
+      "gate": "_pair_proj_program_config",
+      "calls": 160,
+      "samples": 12,
+      "need_bytes": 221184,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=30,bw=1)",
+      "dec_live": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=30,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "pairproj (1, 580, 580, 384)@(384, 384)",
+      "gate": "_pair_proj_program_config",
+      "calls": 16,
+      "samples": 12,
+      "need_bytes": 569344,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=105,bw=1)",
+      "dec_live": [
+        "admit(pcm=105,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=105,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "pairproj (580, 580, 384)@(384, 12)",
+      "gate": "_pair_proj_program_config",
+      "calls": 8,
+      "samples": 8,
+      "need_bytes": 186368,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=105,bw=1)",
+      "dec_live": [
+        "admit(pcm=105,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=105,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    },
+    {
+      "shape": "qkv (580, 580, 384)@(384, 1152)",
+      "gate": "_tri_att_qkv_l1_config",
+      "calls": 8,
+      "samples": 0,
+      "need_bytes": null,
+      "out_bytes_per_bank": null,
+      "free_min": null,
+      "free_median": null,
+      "dec_naive": "declined(%32 shape guard)",
+      "dec_live": [],
+      "dec_live_out": [],
+      "changed": false,
+      "note": "logical M=336400 is not a multiple of 32 -- the gate never reaches its L1 test on this shape (W5, tt-bio-l1-residency-guard-dead-in-real-folds)"
+    },
+    {
+      "shape": "pairproj (580, 580, 384)@(384, 384)",
+      "gate": "_pair_proj_program_config",
+      "calls": 8,
+      "samples": 8,
+      "need_bytes": 569344,
+      "out_bytes_per_bank": 0,
+      "free_min": 1461760,
+      "free_median": 1461760,
+      "dec_naive": "admit(pcm=105,bw=1)",
+      "dec_live": [
+        "admit(pcm=105,bw=1)"
+      ],
+      "dec_live_out": [
+        "admit(pcm=105,bw=1)"
+      ],
+      "changed": false,
+      "note": ""
+    }
+  ]
+}

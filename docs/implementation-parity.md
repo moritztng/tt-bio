@@ -145,7 +145,9 @@ device once at the reference seed, reads the leg's cached `ref_fp32` + `ref_bf16
 and scores with `integration_envelope.py` through the one `finalize_leg` verdict path. The two CPU
 references are the cached fixture (`--regen-refs` generates them, fingerprinted like the old ones,
 so only the device fold + scoring re-run per release); a leg without them reports
-`BLOCKED-REF-REGEN-NEEDED` rather than a false pass. The retired R/D/X floor is still available as
+`BLOCKED-REF-REGEN-NEEDED` rather than a false pass (and a run where EVERY leg is blocked
+this way prints `GATE INCONCLUSIVE` and exits nonzero — nothing scored means nothing verified).
+The retired R/D/X floor is still available as
 an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`.
 
 **Full matrix complete as of 2026-07-24.** Every envelope leg's `ref_fp32`/`ref_bf16` CPU
