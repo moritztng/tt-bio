@@ -23,6 +23,7 @@ FRONTIER_A = Path.home() / "abag_xm" / "frontier" / "A"      # opendde, m=200, 1
 SATURATION = Path.home() / "abag_xm" / "saturation"          # 3 models, N=1000, 16 targets
 PHASE0 = BASE / "phase0"                                     # galaxy p2 parquets (N=16)
 GALAXY64 = BASE / "galaxy"                                   # harvested galaxy deep-N folds
+CHUNK_SAMPLES = 64                                           # samples per _c<j> chunk dir
 # PHASE 0 verdict: galaxy overlay is statistically consistent for boltz2 + opendde ONLY.
 GALAXY_OK = {"boltz2": "_boltz2", "opendde-abag": ""}
 # Galaxy N>=64 arm: models licensed to contribute curve points. boltz2/opendde licensed by
@@ -217,13 +218,20 @@ def galaxy_pools(model: str):
 
 
 def _reuse_skip(model: str):
-    """(target, rung, chunk) keys of LINKED chunk records (reused_chunks.*.jsonl).
+    """(target, rung, chunk) keys of NESTED linked chunks (reused_chunks.*.jsonl).
 
     Linked records carry their source fold's real seconds for provenance, but those
     seconds were paid at the source rung/window and are counted there via the source's
     own record (empirically: od 21du's 1214s sat at both rung 64 and rung 256 c0).
     Skipping them in the walls sum makes per-rung card_h the marginal ladder cost --
-    the denominator of the pre-registered marginal-oracle-per-card-second metric."""
+    the denominator of the pre-registered marginal-oracle-per-card-second metric.
+
+    Only the NESTED half is free. The ladder is seed-nested, so at rung R the chunks
+    covering the first R/2 samples ARE the previous rung's chunks and were billed
+    there; chunks past R/2 are work that exists only because of R, wherever it was
+    paid. Skipping a link purely because it is a link drops the latter: 68 records
+    on this window are p28-window folds of 512-only chunks 4-7 that p31 hardlinked
+    rather than re-folded, and billing them to nobody understates the 512 step."""
     skip = set()
     for f in sorted(GALAXY64.glob("reused_chunks.*.jsonl")):
         for line in f.read_text().splitlines():
@@ -233,8 +241,13 @@ def _reuse_skip(model: str):
                 r = json.loads(line)
             except Exception:
                 continue
-            if r.get("model") == model:
-                skip.add((r["target"], r["rung"], r.get("chunk")))
+            if r.get("model") != model:
+                continue
+            c = r.get("chunk")
+            # chunk j covers samples [64j, 64j+64); nested iff it sits below R/2.
+            # An unchunked link is a whole-rung reuse, which is nested by definition.
+            if c is None or c * CHUNK_SAMPLES < r["rung"] // 2:
+                skip.add((r["target"], r["rung"], c))
     return skip
 
 
@@ -257,6 +270,13 @@ def galaxy64_pools(model: str):
     fj = GALAXY64 / "fleet_results.jsonl"
     skip = _reuse_skip(model)
     if fj.exists():
+        # One entry per chunk, not per record. The p31 window dispatched 106 chunks
+        # to two chips at once (adjacent records, same target/chunk, different `umd`,
+        # seconds within 1 s), and a bare sum bills the rung for both. The chunk dirs
+        # all hold exactly 64 CIFs, so the pools are unaffected -- this is a cost
+        # denominator artifact only, and it is confined to the 512 rung (64 and 256
+        # have zero duplicate keys, so deduping cannot move a published number).
+        per_chunk = {}
         for line in fj.read_text().splitlines():
             if not line.startswith("{"):
                 continue
@@ -265,10 +285,13 @@ def galaxy64_pools(model: str):
             except Exception:
                 continue
             if r.get("model") == model and r.get("rc") == 0 and r.get("cifs", 0) > 0:
-                if (r["target"], r["rung"], r.get("chunk")) in skip:
+                ck = (r["target"], r["rung"], r.get("chunk"))
+                if ck in skip:
                     continue
-                k = (r["target"], r["rung"])
-                walls[k] = walls.get(k, 0.0) + r["seconds"]
+                per_chunk[ck] = max(per_chunk.get(ck, 0.0), r["seconds"])
+        for (t, rung, _c), s in per_chunk.items():
+            k = (t, rung)
+            walls[k] = walls.get(k, 0.0) + s
     meta = {}
     for out_dir in sorted(mdir_root.iterdir()):
         if not out_dir.is_dir():
@@ -597,11 +620,12 @@ def main():
                 # (ARK/tier_a rungs carry wall_s=None -> card_h 0.0).
                 #
                 # The denominator is pts[hi]["card_h"] alone, NOT hi minus lo.
-                # _reuse_skip already drops link-copied chunks from the walls sum, so
+                # _reuse_skip drops the NESTED linked chunks from the walls sum, so
                 # per-rung card_h IS the marginal cost of arriving at that rung: at
                 # 512 it counts chunks 4-7 only, because 0-3 are hardlinks of the 256
                 # rung. Subtracting lo would then bill the step for samples it never
-                # re-folded. It is also right for a non-nested pair (50->64 re-folds
+                # re-folded. Chunks 4-7 count whether they were folded in this window
+                # or hardlinked from an earlier one that already folded them at 512. It is also right for a non-nested pair (50->64 re-folds
                 # the whole rung, so the whole rung is the cost).
                 #
                 # This was masked until now: every pair that ever emitted the metric
