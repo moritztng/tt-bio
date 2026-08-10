@@ -23,6 +23,8 @@ import time
 import torch
 import ttnn
 
+from tt_bio import tenstorrent as T
+
 sys.path.insert(0, __file__.rsplit("/perf/", 1)[0])
 from tt_bio.tenstorrent import get_device  # noqa: E402
 
@@ -180,8 +182,14 @@ def main():
                                         device=dev, dtype=ttnn.bfloat16) for _ in range(3))
             bias = ttnn.from_torch(torch.randn(1, h, s, s) * 0.1, layout=ttnn.TILE_LAYOUT,
                                    device=dev, dtype=ttnn.bfloat16)
-            prog = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=g, q_chunk_size=s,
-                                          k_chunk_size=s, exp_approx_mode=False)
+            # Production caps the chunk at SDPA_CHUNK_MAX (`_tri_att_sdpa_program_config`).
+            # Probing at q_chunk = k_chunk = seq throws a circular-buffer clash at any seq >= 320,
+            # which silently dropped the model's largest arithmetic class from this census.
+            chunk = T._capped_sdpa_chunk_size(s)
+            if 256 < s <= 384:
+                chunk = 64
+            prog = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=g, q_chunk_size=chunk,
+                                          k_chunk_size=chunk, exp_approx_mode=False)
             ms = timed(dev, lambda: ttnn.deallocate(ttnn.transformer.scaled_dot_product_attention(
                 q, k, vv, attn_mask=bias, is_causal=False, program_config=prog,
                 compute_kernel_config=KC)))
@@ -189,7 +197,7 @@ def main():
                                   "gflop_per_call": round(gf, 2),
                                   "exec_tflop_per_fold": round(v["exec_flops"] / 1e12, 3),
                                   "tflops": round(gf / (ms / 1e3) / 1e3, 2),
-                                  "q_chunk": s, "k_chunk": s}
+                                  "q_chunk": chunk, "k_chunk": chunk}
             print(f"    {ms:9.4f} ms  {gf/(ms/1e3)/1e3:7.2f} TFLOP/s", flush=True)
         except Exception as e:                                            # noqa: BLE001
             print(f"    ERR {str(e)[:120]}", flush=True)

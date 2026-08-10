@@ -1,0 +1,309 @@
+{
+  "census": "perf/moonshot512/census_fold_p512.json",
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "exec_tflop_total": 911.842,
+  "coverage_frac": 0.9371,
+  "classes": {
+    "minimal_matmul 1x512x512x256@256x128": {
+      "op": "minimal_matmul",
+      "a": [
+        1,
+        512,
+        512,
+        256
+      ],
+      "b": [
+        256,
+        128
+      ],
+      "K": 256,
+      "N": 128,
+      "stages": [
+        "pf.trimul"
+      ],
+      "gflop_per_call": 17.18,
+      "exec_tflop_per_fold": 144.036,
+      "variants": {
+        "matmul->DRAM": 4.91,
+        "matmul->L1": 5.09,
+        "matmul+grid->DRAM": 6.29,
+        "minimal_matmul->DRAM": 29.23
+      },
+      "best": "minimal_matmul->DRAM",
+      "best_tflops": 29.23
+    },
+    "linear 1x16x512x256@256x1024": {
+      "op": "linear",
+      "a": [
+        1,
+        16,
+        512,
+        256
+      ],
+      "b": [
+        256,
+        1024
+      ],
+      "K": 256,
+      "N": 1024,
+      "stages": [
+        "pf.transition"
+      ],
+      "gflop_per_call": 4.29,
+      "exec_tflop_per_fold": 144.036,
+      "variants": {
+        "matmul->DRAM": 22.8,
+        "matmul->L1": 7.77,
+        "matmul+grid->DRAM": 40.45,
+        "minimal_matmul->DRAM": 42.49,
+        "minimal_matmul->L1": 55.72
+      },
+      "best": "minimal_matmul->L1",
+      "best_tflops": 55.72
+    },
+    "minimal_matmul 512x512x256@256x768": {
+      "op": "minimal_matmul",
+      "a": [
+        512,
+        512,
+        256
+      ],
+      "b": [
+        256,
+        768
+      ],
+      "K": 256,
+      "N": 768,
+      "stages": [
+        "pf.triatt"
+      ],
+      "gflop_per_call": 103.08,
+      "exec_tflop_per_fold": 108.027,
+      "variants": {
+        "matmul->DRAM": 20.34,
+        "matmul+grid->DRAM": 23.63,
+        "minimal_matmul->DRAM": 47.57
+      },
+      "best": "minimal_matmul->DRAM",
+      "best_tflops": 47.57
+    },
+    "matmul 1x32x512x512@1x32x512x512": {
+      "op": "matmul",
+      "a": [
+        1,
+        32,
+        512,
+        512
+      ],
+      "b": [
+        1,
+        32,
+        512,
+        512
+      ],
+      "K": 512,
+      "N": 512,
+      "stages": [
+        "pf.trimul"
+      ],
+      "gflop_per_call": 8.59,
+      "exec_tflop_per_fold": 74.767,
+      "variants": {
+        "matmul->DRAM": 17.81,
+        "matmul->L1": 4.36,
+        "matmul+grid->DRAM": 17.81
+      },
+      "best": "matmul->DRAM",
+      "best_tflops": 17.81
+    },
+    "linear 1x512x512x256@256x256": {
+      "op": "linear",
+      "a": [
+        1,
+        512,
+        512,
+        256
+      ],
+      "b": [
+        256,
+        256
+      ],
+      "K": 256,
+      "N": 256,
+      "stages": [
+        "pf.trimul",
+        "trunk"
+      ],
+      "gflop_per_call": 34.36,
+      "exec_tflop_per_fold": 72.362,
+      "variants": {
+        "matmul->DRAM": 6.49,
+        "matmul->L1": 7.07,
+        "matmul+grid->DRAM": 21.68,
+        "minimal_matmul->DRAM": 38.26
+      },
+      "best": "minimal_matmul->DRAM",
+      "best_tflops": 38.26
+    },
+    "linear 1x16x512x1024@1024x256": {
+      "op": "linear",
+      "a": [
+        1,
+        16,
+        512,
+        1024
+      ],
+      "b": [
+        1024,
+        256
+      ],
+      "K": 1024,
+      "N": 256,
+      "stages": [
+        "pf.transition"
+      ],
+      "gflop_per_call": 4.29,
+      "exec_tflop_per_fold": 72.018,
+      "variants": {
+        "matmul->DRAM": 8.98,
+        "matmul->L1": 9.22,
+        "matmul+grid->DRAM": 24.09,
+        "minimal_matmul->DRAM": 42.32,
+        "minimal_matmul->L1": 45.66
+      },
+      "best": "minimal_matmul->L1",
+      "best_tflops": 45.66
+    },
+    "minimal_matmul 512x512x256@256x256": {
+      "op": "minimal_matmul",
+      "a": [
+        512,
+        512,
+        256
+      ],
+      "b": [
+        256,
+        256
+      ],
+      "K": 256,
+      "N": 256,
+      "stages": [
+        "pf.triatt"
+      ],
+      "gflop_per_call": 34.36,
+      "exec_tflop_per_fold": 36.009,
+      "variants": {
+        "matmul->DRAM": 6.49,
+        "matmul->L1": 7.07,
+        "matmul+grid->DRAM": 21.63,
+        "minimal_matmul->DRAM": 38.26
+      },
+      "best": "minimal_matmul->DRAM",
+      "best_tflops": 38.26
+    },
+    "linear 512x512x256@256x256": {
+      "op": "linear",
+      "a": [
+        512,
+        512,
+        256
+      ],
+      "b": [
+        256,
+        256
+      ],
+      "K": 256,
+      "N": 256,
+      "stages": [
+        "pf.triatt"
+      ],
+      "gflop_per_call": 34.36,
+      "exec_tflop_per_fold": 36.009,
+      "variants": {
+        "matmul->DRAM": 6.49,
+        "matmul->L1": 7.07,
+        "matmul+grid->DRAM": 21.74,
+        "minimal_matmul->DRAM": 38.58
+      },
+      "best": "minimal_matmul->DRAM",
+      "best_tflops": 38.58
+    },
+    "linear 1x512x768@768x3072": {
+      "op": "linear",
+      "a": [
+        1,
+        512,
+        768
+      ],
+      "b": [
+        768,
+        3072
+      ],
+      "K": 768,
+      "N": 3072,
+      "stages": [
+        "pf.attnpairbias"
+      ],
+      "gflop_per_call": 2.42,
+      "exec_tflop_per_fold": 11.596,
+      "variants": {
+        "matmul->DRAM": 46.8,
+        "matmul->L1": 5.18,
+        "matmul+grid->DRAM": 54.93,
+        "minimal_matmul->DRAM": 43.04,
+        "minimal_matmul->L1": 42.09
+      },
+      "best": "matmul+grid->DRAM",
+      "best_tflops": 54.93
+    },
+    "linear 1x512x768@768x1536": {
+      "op": "linear",
+      "a": [
+        1,
+        512,
+        768
+      ],
+      "b": [
+        768,
+        1536
+      ],
+      "K": 768,
+      "N": 1536,
+      "stages": [
+        "diffusion"
+      ],
+      "gflop_per_call": 1.21,
+      "exec_tflop_per_fold": 11.596,
+      "variants": {
+        "matmul->DRAM": 33.52,
+        "matmul->L1": 12.52,
+        "matmul+grid->DRAM": 43.15,
+        "minimal_matmul->DRAM": 32.72,
+        "minimal_matmul->L1": 34.15
+      },
+      "best": "matmul+grid->DRAM",
+      "best_tflops": 43.15
+    }
+  },
+  "sdpa": {
+    "sdpa 512x8x512x32": {
+      "shape": [
+        512,
+        8,
+        512,
+        32
+      ],
+      "ms": 7.1051,
+      "gflop_per_call": 137.44,
+      "exec_tflop_per_fold": 144.036,
+      "tflops": 19.34,
+      "q_chunk": 256,
+      "k_chunk": 256
+    }
+  },
+  "flop_weighted_tflops_measured_classes": 31.36
+}
