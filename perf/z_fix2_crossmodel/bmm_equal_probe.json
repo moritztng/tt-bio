@@ -1,0 +1,113 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "bank_bytes": 1532416,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "overhead_const": 111104,
+ "classes": [
+  {
+   "label": "q@kT 512aa",
+   "batch": 16,
+   "shape_a": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "shape_b": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "m_tiles": 16,
+   "k_tiles": 1,
+   "n_tiles": 16,
+   "cfg": {
+    "in0_block_w": 1,
+    "per_core_M": 8,
+    "per_core_N": 16,
+    "out_subblock_h": 1,
+    "out_subblock_w": 4
+   },
+   "cb_modelled": 884736,
+   "cb_plus_overhead": 995840,
+   "cores_engaged": 32,
+   "cb_fits_idle_bank": true,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "label": "q@kT 298aa(pad320)",
+   "batch": 16,
+   "shape_a": [
+    1,
+    16,
+    320,
+    32
+   ],
+   "shape_b": [
+    1,
+    16,
+    32,
+    320
+   ],
+   "m_tiles": 10,
+   "k_tiles": 1,
+   "n_tiles": 10,
+   "cfg": {
+    "in0_block_w": 1,
+    "per_core_M": 5,
+    "per_core_N": 10,
+    "out_subblock_h": 1,
+    "out_subblock_w": 2
+   },
+   "cb_modelled": 368640,
+   "cb_plus_overhead": 479744,
+   "cores_engaged": 32,
+   "cb_fits_idle_bank": true,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "label": "attn@v 512aa",
+   "batch": 16,
+   "shape_a": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "shape_b": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "m_tiles": 16,
+   "k_tiles": 16,
+   "n_tiles": 1,
+   "cfg": {
+    "in0_block_w": 2,
+    "per_core_M": 8,
+    "per_core_N": 1,
+    "out_subblock_h": 4,
+    "out_subblock_w": 1
+   },
+   "cb_modelled": 122880,
+   "cb_plus_overhead": 233984,
+   "cores_engaged": 32,
+   "cb_fits_idle_bank": true,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  }
+ ]
+}

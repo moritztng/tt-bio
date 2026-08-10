@@ -38,9 +38,13 @@ step() {   # step <model> <targets>
   mk="$D/.done_${ARM}_${m}"
   if [ -f "$mk" ]; then echo "skip $ARM/$m (done)"; return 0; fi
   echo "=== arm $ARM  model $m  targets $t ==="
+  # `| tee` would make the pipeline's status tee's, so a crashed arm would mark itself done.
   $PY -u "$D/arm_sweep.py" --arm "$ARM" --model "$m" --targets "$t" \
-      --out "$D/arm${ARM}_${m}.json" 2>&1 | tee "$D/arm${ARM}_${m}.log"
-  touch "$mk"
+      --out "$D/arm${ARM}_${m}.json" > "$D/arm${ARM}_${m}.log" 2>&1
+  rc=$?
+  tail -60 "$D/arm${ARM}_${m}.log"
+  [ $rc -eq 0 ] && touch "$mk"
+  return $rc
 }
 
 step openfold3 "$T298,$T512"
