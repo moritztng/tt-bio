@@ -907,6 +907,19 @@ def envelope_ref_dirs(leg: Leg) -> tuple[Path | None, Path | None]:
     return fp32, bf16
 
 
+def missing_envelope_refs(leg: Leg, legacy_rdx: bool) -> list:
+    """The reference sides an envelope leg cannot score without. Empty == both usable.
+
+    Resolves exactly what the run loop resolves, so ``--check`` reports in seconds what a run
+    would otherwise only discover hours later as it reached the leg. Envelope legs are scored
+    off ``ref_fp32``/``ref_bf16``, never off the ``seed*`` dirs, so ``_incomplete_fixture_seeds``
+    says nothing about them."""
+    if not (_is_envelope_leg(leg) and leg.fixture) or legacy_rdx or leg.legacy_rdx:
+        return []
+    fp32, bf16 = envelope_ref_dirs(leg)
+    return [n for n, d in (("ref_fp32", fp32), ("ref_bf16", bf16)) if d is None]
+
+
 def score_envelope(leg: Leg, dev_dir: str, ref_fp32: Path, ref_bf16: Path,
                    out_json: Path, margin: float) -> dict | None:
     """Score one diffusion leg with the deterministic shared-draws envelope test.
@@ -1523,13 +1536,19 @@ def main() -> int:
         if not args.check:
             print("Refusing to run the gate with misconfigured legs; fix the above (or scope with --leg).")
         return 1
-    blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs]
-    blocked = [(i, b) for i, b in blocked if b]
+    blocked = []
+    for l in legs:
+        bad = [f"{sd} missing structures/*.cif"
+               for sd in _incomplete_fixture_seeds(l, list(l.seeds))]
+        bad += [f"{r} absent or missing its CIF"
+                for r in missing_envelope_refs(l, args.legacy_rdx)]
+        if bad:
+            blocked.append((l.id, bad))
     if blocked:
-        print("PREFLIGHT — fixtures present but INCOMPLETE (reference CIFs missing; each such "
-              "leg reports BLOCKED-REF-REGEN-NEEDED and does NOT fail the gate):")
+        print("PREFLIGHT — fixtures present but INCOMPLETE (reference structures missing; each "
+              "such leg reports BLOCKED-REF-REGEN-NEEDED and does NOT fail the gate):")
         for i, b in blocked:
-            print(f"  - {i}: {', '.join(b)} missing structures/*.cif")
+            print(f"  - {i}: {', '.join(b)}")
         print(f"  {_FIXTURE_FETCH_HINT}")
     if args.check:
         print(f"PREFLIGHT OK — {len(legs)} legs well-formed "
@@ -1583,7 +1602,8 @@ def main() -> int:
                 if missing:
                     rows.append({"leg": leg.id, "verdict": "BLOCKED-REF-REGEN-NEEDED",
                                  "detail": f"envelope reference incomplete: {', '.join(missing)} "
-                                           f"missing under {leg.fixture} — run --regen-refs", "wall": 0})
+                                           f"missing under {leg.fixture} — {_FIXTURE_FETCH_HINT}, "
+                                           f"or --regen-refs to rebuild it on CPU", "wall": 0})
                     print(f"{leg.id:<34}{leg.kind:<11}{ref_status[:13]:<14}"
                           f"{'BLOCKED-REGEN':<18}{0:>7.0f}s  envelope ref missing ({', '.join(missing)})")
                     continue
