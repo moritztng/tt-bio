@@ -82,6 +82,16 @@ _TRIMUL_MM_OUT = False
 # moves TOWARD its reference on every metric, off a main that is already outside its floor.
 # Release-gated. See state/perfwar-inblockw-qb1-land.md.
 _PAIR_PROJ_BW: int | None = 16
+# Same knob for the NARROW-output members of the pair-track projection class: the per-head
+# PairWeightedAveraging z->bias projection ([1,L,L,c_z] @ [c_z,1]) and the template z
+# projection ([c_z,64]). `ttnn.linear(core_grid=)` engages ~16 of 110 cores on both -- its
+# core ladder is flat from 16 cores to 110 -- because a one-tile-wide output leaves it
+# in0_block_w=1 and out_block_h=per_core_M. 1 keeps the production contraction order and is
+# `torch.equal`; above 1 the partials fold through packer_l1_acc in K-block order and it is
+# NOT bit-exact, the same parity class as _PAIR_PROJ_BW above. Kept separate from it because
+# these two sites are a separate parity decision. Measured on qb1 card 1 at the fold's own
+# [1,298,320,256]: 1.15x / 1.23x at 1, 1.98x / 2.08x at 16 (perf/p3narrow/).
+_NARROW_PROJ_BW: int | None = 1
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
@@ -623,9 +633,13 @@ def _pair_proj_program_config(
     )
 
 
-def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor) -> object | None:
-    """_pair_proj_program_config for a concrete operand pair, or None if it does not apply."""
-    if _PAIR_PROJ_BW is None or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1) -> object | None:
+    """_pair_proj_program_config for a concrete operand pair, or None if it does not apply.
+
+    `bw_cap` defaults to the module's `_PAIR_PROJ_BW`; the narrow-output sites pass
+    `_NARROW_PROJ_BW` instead, so the two carry independent parity decisions."""
+    cap = _PAIR_PROJ_BW if bw_cap == -1 else bw_cap
+    if cap is None or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
         return None
     try:
         xs, ws = list(x.shape), list(w.shape)
@@ -643,7 +657,7 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor) -> object | None:
         if k_tiles != -(-int(ws[-2]) // 32):
             return None
         bw = max((d for d in (k_tiles, 8, 4, 2, 1)
-                  if d <= _PAIR_PROJ_BW and k_tiles % d == 0), default=1)
+                  if d <= cap and k_tiles % d == 0), default=1)
         return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2)
     except Exception:
         return None
@@ -660,6 +674,22 @@ def _pair_proj_linear(x, w, ckc, dtype):
     return ttnn.linear(
         x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
         compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
+    )
+
+
+def _narrow_proj_linear(x, w, ckc, dtype):
+    """The tuned config for a NARROW-output pair-track projection, or None to leave the
+    call alone. Scoped to an output of at most two tiles: that is the class whose
+    `core_grid=` ladder is flat from 16 cores to 110, and it keeps every wider `_lin` call
+    on today's path."""
+    if -(-int(list(w.shape)[-1]) // 32) > 2:
+        return None
+    cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW)
+    if cfg is None:
+        return None
+    return ttnn.linear(
+        x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+        compute_kernel_config=ckc, program_config=cfg,
     )
 
 
@@ -2962,12 +2992,15 @@ class PairWeightedAveraging(Module):
         )
         o_out = None
         for i in range(self.n_heads):
-            b = ttnn.linear(
-                z,
-                self.z_weight[:, i : i + 1],
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
+            zw = self.z_weight[:, i : i + 1]
+            b = _narrow_proj_linear(z, zw, self.compute_kernel_config, z.dtype)
+            if b is None:
+                b = ttnn.linear(
+                    z,
+                    zw,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
             b = ttnn.permute(b, (2, 0, 1))
             if attn_mask is not None:
                 b = ttnn.add_(b, ttnn.reshape(attn_mask, (1, 1, attn_mask.shape[-1])))

@@ -32,7 +32,7 @@ import ttnn
 from . import protenix_weights as PW
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul)
+                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -303,9 +303,16 @@ class _KeyedWeights:
                                dtype=getattr(self, "dtype", ttnn.bfloat16))
 
     def _lin(self, x, wkey, bkey=None, activation=None):
-        return ttnn.linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
+        w = self._w_tt(wkey)
+        dt = getattr(self, "dtype", ttnn.bfloat16)
+        if bkey is None and activation is None:
+            # the template z projection lands here at [1,298,320,256] @ [256,64]
+            out = _narrow_proj_linear(x, w, self.compute_kernel_config, dt)
+            if out is not None:
+                return out
+        return ttnn.linear(x, w, bias=(self._w_tt(bkey, False) if bkey else None),
                            activation=activation, compute_kernel_config=self.compute_kernel_config,
-                           dtype=getattr(self, "dtype", ttnn.bfloat16), core_grid=CORE_GRID_MAIN)
+                           dtype=dt, core_grid=CORE_GRID_MAIN)
 
     def _ln(self, x, wkey, bkey=None):
         return ttnn.layer_norm(x, weight=self._w_tt(wkey, False),
