@@ -55,6 +55,16 @@ TRANSITION_H_CHUNK_SIZE = 16
 # with in-block L1 pressure at MSA shapes (W=1024/c=128, test_msa[100-1000]) and at the
 # opendde pair shape (W=320/c=384). Gate to the verified envelope only.
 TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=512 (protenix N=512 MSA/pair) clashes in-block L1 -> stays on 16
+
+# A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
+# same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
+# is silu-specific and program-config-invariant: a fused relu costs +2.4 us and a fused gelu +141.3
+# against its own 135.3 standalone, and the +174 holds across eight explicit
+# MatmulMultiCoreReuseMultiCast configs. So unfusing pays a full L1 round trip and still wins,
+# because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
+# the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
+# accumulator, so it is not bit-exact.
+_UNFUSED_SILU = os.environ.get("TT_BIO_UNFUSED_SILU", "0") == "1"
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
@@ -2369,12 +2379,14 @@ class Transition(Module):
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
-                activation="silu",
+                activation=None if _UNFUSED_SILU else "silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
                 dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
+            if _UNFUSED_SILU:
+                x_1 = ttnn.silu(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
             x_2 = ttnn.linear(
                 x_norm,
                 self.fc2_weight,
