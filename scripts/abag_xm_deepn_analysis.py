@@ -592,13 +592,27 @@ def main():
                                         "degenerate": len(both) < 8,
                                         "gain_ci": g}
                 # Pre-registered marginal-oracle-per-1000-card-seconds: gain CI
-                # midpoint over the rungs' card_h delta (hours -> 1000 s = x3.6).
-                # Skipped when the pair has no measured cost basis (ARK/tier_a
-                # rungs carry wall_s=None -> card_h 0.0).
-                d_h = pts[hi]["card_h"] - pts[lo]["card_h"]
-                if d_h > 0:
+                # midpoint over what the step to `hi` actually cost (hours -> 1000 s
+                # = x3.6). Skipped when the pair has no measured cost basis
+                # (ARK/tier_a rungs carry wall_s=None -> card_h 0.0).
+                #
+                # The denominator is pts[hi]["card_h"] alone, NOT hi minus lo.
+                # _reuse_skip already drops link-copied chunks from the walls sum, so
+                # per-rung card_h IS the marginal cost of arriving at that rung: at
+                # 512 it counts chunks 4-7 only, because 0-3 are hardlinks of the 256
+                # rung. Subtracting lo would then bill the step for samples it never
+                # re-folded. It is also right for a non-nested pair (50->64 re-folds
+                # the whole rung, so the whole rung is the cost).
+                #
+                # This was masked until now: every pair that ever emitted the metric
+                # had card_h[lo] == 0.0 exactly, so the delta happened to equal
+                # card_h[hi]. 256->512 is the first pair with real wall data on both
+                # sides, where the delta goes small or negative and the campaign's
+                # cost headline would be inflated or silently dropped.
+                cost_h = pts[hi]["card_h"]
+                if cost_h > 0:
                     gains[f"{lo}->{hi}"]["marginal_oracle_per_1000cs"] = \
-                        round(g["oracle"][1] / (d_h * 3.6), 5)
+                        round(g["oracle"][1] / (cost_h * 3.6), 5)
             if gains:
                 report[model + "__pairwise_gain_ci"] = gains
                 print("  pairwise adjacent-rung gain CIs (stop-rule basis):")
