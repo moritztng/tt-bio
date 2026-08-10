@@ -70,3 +70,4 @@ perf/p2/
 
 # RFD3 port local scratch (goldens, foundry clone, ckpt) - not repo content
 .scratch/
+.msa_zsilu/
