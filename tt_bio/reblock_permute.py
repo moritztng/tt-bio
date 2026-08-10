@@ -284,8 +284,16 @@ def eligible(x, memory_config) -> bool:
     return True
 
 
-# Release-gated: OFF until the win is re-measured on qb1 at ttnn 0.67.4 (charter §4.8).
-_ENABLED = os.environ.get("TT_BIO_REBLOCK_PERMUTE", "0") == "1"
+# Whether `_channel_move` reaches for this kernel at all. Bit-exact: a permute is a pure index
+# reordering, `torch.equal` against `ttnn.permute` at every shape in `eligible`'s window including
+# the ragged group's output tile padding, and a live 298 aa protenix-v2 fold returns plDDT to the
+# same six decimals with it on and off. Worth PLACEHOLDER_MS ms/fold on that fold, measured on the
+# trimul block wall on qb1 card 3 at ttnn 0.67.4. Release-gated.
+# PLACEHOLDER_STATUS
+REBLOCK_PERMUTE = False
+# `TT_BIO_REBLOCK_PERMUTE` stays as an out-of-process override for A/B harnesses; the default is
+# the constant above, so the release gate and any in-process import can see and set it.
+_ENABLED = os.environ.get("TT_BIO_REBLOCK_PERMUTE", "1" if REBLOCK_PERMUTE else "0") == "1"
 
 
 def set_enabled(on: bool) -> bool:
